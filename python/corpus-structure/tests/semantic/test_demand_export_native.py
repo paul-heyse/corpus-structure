@@ -1,13 +1,19 @@
 """Actual native selected closure survives same-session export and detached verification."""
 
 import json
+import sys
 from hashlib import sha256
 
 import pytest
 
 from corpus_structure.semantic.data_operation_json import json_bytes, json_loads
 from corpus_structure.semantic.demand_results import read_demand_result, stream_selected_support
+from corpus_structure.semantic.source_interfaces import (
+    SOURCE_INTERFACE_ARTIFACT,
+    read_source_interfaces,
+)
 from corpus_structure.serve.demand_export import export_demand_result, verify_demand_export
+from semantic.data_operation_kernel_support import EXECUTION
 from semantic.serving_scenarios import declared_serving_case as declared_serving_case
 from semantic.serving_scenarios import declared_serving_seed as declared_serving_seed
 
@@ -29,6 +35,13 @@ def test_selected_export_preserves_actual_episode_closure_and_offline_identity(
         )
     expected = sha256((destination / "manifest.json").read_bytes()).hexdigest()
     assert expected == manifest["manifest_digest"]
+    # This authored external recipe has no Python declarations to document.
+    assert all(
+        artifact["values"]["artifact_name"] != SOURCE_INTERFACE_ARTIFACT
+        for name in manifest["releases"].values()
+        for artifact in json_loads((destination / name).read_bytes())["artifacts"]
+    )
+
     checked = verify_demand_export(destination, manifest_digest=expected)
     assert checked["cut_id"] == manifest["cut_id"]
     pages = [json_loads((destination / name).read_bytes()) for name in manifest["pages"]]
@@ -98,3 +111,112 @@ def test_selected_product_scope_filters_inside_native_page_and_keeps_support(
     products = {row["record"]["id"] for row in support if row["relation"] == "kb.data_product"}
     assert {row["product_id"] for row in complete.members()} <= products
     assert selected.cut.record["scope"] == {"product_ids": [result["product_id"]]}
+
+
+@pytest.mark.parametrize("ddo_kernel", [EXECUTION], indirect=True)
+@pytest.mark.parametrize("encoding", ["jsonl", "parquet"])
+def test_python_producer_export_keeps_prepared_interfaces_readable_offline(
+    ddo_kernel, tmp_path, encoding, monkeypatch
+):
+    from corpus_structure.semantic.data_operation_demands import (
+        DemandPlanner,
+        RootSubject,
+        freeze_demand,
+    )
+    from corpus_structure.semantic.data_operation_service import execute_data_demand
+    from corpus_structure.semantic.data_operation_storage import DataOperationStorage
+
+    kernel = ddo_kernel
+    intent = freeze_demand(
+        kernel.model,
+        roots=(RootSubject("one", "source:one", b"{}"),),
+        targets=("urn:ddo-execution:answer",),
+        inference="detached-python-source-facts",
+        execution_profile="execution:test",
+    )
+    with kernel.engine.begin() as connection:
+        demand = DemandPlanner(kernel.model, DataOperationStorage(connection)).register(
+            intent,
+            project="execution",
+            release=kernel.prepared.release_id,
+            runtime=kernel.runtime,
+        )["demand_id"]
+    module = kernel.recipe.python_sources[0][0]
+    monkeypatch.delitem(sys.modules, module, raising=False)
+    monkeypatch.syspath_prepend(str(kernel.preparation.directory))
+    executed = execute_data_demand(
+        kernel.engine,
+        demand,
+        project_id="execution",
+        source_root=kernel.preparation.directory,
+        database_capacity=4,
+    )
+    assert executed.receipt_count == 1
+    destination = tmp_path / encoding
+    with kernel.engine.begin() as connection:
+        selected = read_demand_result(connection, demand, project_id="execution")
+        assert [row["body"] for row in selected.members()] == [7]
+        manifest = export_demand_result(
+            connection,
+            demand,
+            project_id="execution",
+            destination=destination,
+            format=encoding,
+            page_rows=1,
+        )
+    expected = sha256((destination / "manifest.json").read_bytes()).hexdigest()
+    assert manifest["manifest_digest"] == expected
+
+    # Detached verification and interface reads must consume the captured release
+    # facts without preparing a release or reparsing currently installed sources.
+    from corpus_structure.semantic import (
+        data_operation_compilation,
+        prepare,
+        python_operation_sources,
+    )
+    from corpus_structure.semantic.archive_reader import open_release_parts
+
+    def forbid_reanalysis(*args, **kwargs):
+        raise AssertionError("detached release reads must not reanalyse target sources")
+
+    monkeypatch.setattr(python_operation_sources.ClosedPythonSources, "__init__", forbid_reanalysis)
+    monkeypatch.setattr(data_operation_compilation, "compile_data_operations", forbid_reanalysis)
+    monkeypatch.setattr(prepare, "prepare_release", forbid_reanalysis)
+
+    def unpack(row):
+        return {
+            key: bytes.fromhex(value) if key in row["binary"] else value
+            for key, value in row["values"].items()
+        }
+
+    assert manifest["releases"]
+    for release_id, name in manifest["releases"].items():
+        captured = json_loads((destination / name).read_bytes())
+        artifact_rows = [unpack(row) for row in captured["artifacts"]]
+        sidecars = [
+            row for row in artifact_rows if row["artifact_name"] == SOURCE_INTERFACE_ARTIFACT
+        ]
+        assert len(sidecars) == 1
+        sidecar = sidecars[0]["content"]
+        assert sha256(sidecar).hexdigest() == sidecars[0]["content_digest"]
+        detached = open_release_parts(
+            release_id,
+            unpack(captured["row"]),
+            [unpack(row) for row in captured["inputs"]],
+            artifact_rows,
+        )
+        interfaces = read_source_interfaces(detached)
+        assert interfaces is not None
+        assert interfaces.version == "data-operation-source-interfaces-v2"
+        assert interfaces.content == sidecar
+        assert interfaces.operations
+        assert all(operation.documentation is not None for operation in interfaces.operations)
+        assert (
+            json.loads(detached.manifest)["data_operation_source_interfaces"]
+            == sha256(sidecar).hexdigest()
+        )
+
+    checked = verify_demand_export(destination, manifest_digest=expected)
+    assert checked["outcome"] == "passed"
+    assert checked["cut_id"] == manifest["cut_id"]
+    assert checked["inference"] == "not_run"
