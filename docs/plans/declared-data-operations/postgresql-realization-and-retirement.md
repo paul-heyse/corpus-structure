@@ -13,8 +13,10 @@ realization and planned migration boundaries, not another progress ledger or DDO
 `75afc15e5` baseline. Existing SQLAlchemy/Alembic alignment, fate derivation, Core binding/read
 products, privilege operations, frozen data steps and typed-column unsupported-type refusal are
 implemented foundations with the coordinator's bounded evidence. They are not new missing work.
-The additional typed native consumer interfaces and wider read/reuse/retirement integration below
-remain planned. Existing failures, scoped completion and historical evidence limits remain intact.
+The coordinator now records the integrated typed interfaces, selected reader/writer migrations and
+scoped evidence. This baseline explains the original change footprint; remaining rich consolidation,
+legacy-reader and historical retirement obligations are explicit in that same owner. Existing failures
+and scoped/historical evidence limits remain intact.
 
 Use core 3.3, efficient-architecture heuristics, code-intelligence 1.4 and test-assessment 1.2.
 FP-04/DP-01/02 require governing meanings and qualified distinctions at actual consumers;
@@ -40,7 +42,7 @@ migration and safe dead-code removal need not wait for deployment.
 
 DDO-03 extends `semantic/data_operation_wire.py` and the shared
 `semantic/operation_call_generation.py:render_call_bindings` using captured closed protocol bytes.
-Currently `native_operation_calls` maps every request/result to `json_payload`; embedded schema bytes
+At the review baseline, `native_operation_calls` mapped every request/result to `json_payload`; embedded schema bytes
 protect runtime admission but do not give planner/executor consumers a useful static record shape.
 Do not introduce a parallel handwritten DTO or signature catalog.
 
@@ -67,17 +69,13 @@ and then treat the flattened object as the union decoder. Validate wire ingress 
 schema before structuring; serialize through the exact Decimal/context codec. Unsupported new
 generation has a located refusal, but rejecting today's valid protocol is not completion.
 
-**Preparation PG-Q1:** before generator implementation, inventory protocol constructs and nominal
-field bindings, then specify the supported structural representation and omission/union decoder
-contract using actual representative operations. Compare extending current record emission with a
-schema-owned structural annotation where it avoids redundant wrappers; select one consumed route.
-Include `data_operation_artifacts._validate_native_correspondence`, which currently rejects nested
-`call.records`, and its finite native primitive/kind lowering in the design. Emitter changes alone
-cannot pass current correspondence validation. Preserve `compile_data_operation_artifacts`' captured
-generator sources and artifact/digest route, without another editable checkout DTO catalogue.
-The output is an implementable correspondence/decoder design covering the current operation set,
-not a general JSON Schema compiler. Archive preparation owns captured generated products; checkout
-artifacts use their existing generator. No per-request source/schema generation or provider import.
+**Preparation PG-Q1, settled:** the protocol inventory and explicit nominal field correspondence
+select structural generation for the current closed operation set. The correspondence validator and
+finite native primitive/kind lowerer support nested `call.records` alongside the emitter; an emitter
+alone cannot establish the contract. `compile_data_operation_artifacts` retains captured generator
+sources, artifact/digest custody and archived original contracts. Checkout artifacts use the same
+owning generator, without another editable DTO catalogue, per-request generation or provider import.
+Unsupported new schema constructs receive located refusals. The coordinator owns current evidence.
 
 Migrate `DemandPlanner`, executor claim/publication/recovery, `data_operation_service`, admission,
 external receipts, interpretation authoring and new public readers in coherent slices. Remove
@@ -123,6 +121,15 @@ Reference authoring/grading keeps purpose roles and separate source/prediction r
 DDO read access never exposes protected answers. Consolidation retains exact consumed cut bindings
 and policies plus authentic producing episodes; it does not infer currentness from a run ID.
 
+The selected-context encoder shares the public `DeclaredQueryContextSelection` resolver and existing
+CPU encoder. Its explicit selected-context operation requires nominal recipe/member selection plus
+the exact frozen parent-primary source set. Preparation verifies original source/scope, dependency
+closure and actual support before CPU dispatch. Query products retain recipe/report/rendering and
+representation digest with genuine primary input headers; retrieval checks vector correspondence.
+The lexical recipe remains an explicit distinct choice. Missing named context never falls back.
+Native output witnesses protect copied source/header fields; they do not independently prove the
+derived context text. The coordinator retains native selected-encoder/provider acceptance separately.
+
 <a id="lifecycle"></a>
 ## Database lifecycle and failure meaning — I05
 
@@ -132,24 +139,19 @@ maintenance/admission sessions and dedicated advisory-lock lifetimes remain dist
 Psycopg pool return already sanitizes transaction state; add a reset hook only for concrete
 surviving session state beyond SET LOCAL/transaction-scoped staging.
 
-**PG-Q3:** `NativeDemandExecutor.run` delegates to `maintained_claims`, which currently retains one
-borrowed connection across active-claim renewal transactions; settlement shares `owner.lock`.
-Inspect that existing residency first, alongside admission/port borrowers, rather than adding
-another reservation without a consumer. Reconcile D3's one-foreground-operation wording too.
-Inspect the actual phase/borrower paths, active-group limits, renewal and port work to
-choose the minimum sufficient capacity owner. Four worker threads are not proof of four active
-claims; current default claim/byte capacity is two. Inference and capacity-waiting ports retain no foreground DB checkout; independently owned
-renewal residency follows PG-Q3. An adequate `max_size` does not guarantee renewal availability during elastic growth,
-reconnect or health checks. If the existing no-wait-behind-port requirement requires reserved
-capacity, compare one invocation-owned renewal borrower with a separately bounded renewal pool;
-record aggregate ownership, timeout/reconnect and cleanup, not a new scheduler or estimator.
+**PG-Q3, settled by ADR-0106:** `NativeDemandExecutor.run` acquires the existing invocation-owned
+renewal checkout before admitting foreground work. `maintained_claims` keeps it idle outside bounded
+renewal transactions, serializes settlement through `owner.lock` and checks lease coverage before
+one eligible rollback-confirmed retry. Driver admission and port workers share the remaining bounded
+inventory (`workers <= capacity - 2`); an unmanaged engine requires explicit capacity. Inference and
+capacity waits hold no foreground checkout. There is no second reservation pool or scheduler.
 
-Fix notice callback accumulation at `core/db/store.py`'s physical connection integration. Installed
-SQLAlchemy dialect setup adds a notice handler each time its NullPool creates a connection record,
-while the external pool may return the same physical session. Ensure physical initialization once
-per physical session, preserve ordinary dialect setup and checkout checks, and verify reconnect
-receives new initialization. Choose the supported event/pool hook after inspecting its lifetime;
-do not silently disable all dialect initialization or duplicate the pool's sanitation.
+The store's Psycopg connection subclass uses public `remove_notice_handler`/`add_notice_handler`
+to keep equal callback registration idempotent while SQLAlchemy performs ordinary dialect setup.
+The SQLAlchemy `invalidate` event finishes the physical `pgconn` and returns its dead handle to
+Psycopg's close-returns pool, so replacement cannot accidentally reuse the live invalidated session.
+Normal close remains an ordinary pool return. D3/D9 preserve the distinct purpose/advisory lifetimes;
+reconnect, cancellation and cleanup keep their actual physical/effect attribution.
 
 Keep physical SQLSTATE/pool/ADBC facts in `classify_error`, invariant meaning in declared
 `NativeDiagnosticBinding`, and retry/reconciliation with the operation. Known admission refusal

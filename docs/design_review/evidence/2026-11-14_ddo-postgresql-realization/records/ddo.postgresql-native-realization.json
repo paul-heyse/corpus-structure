@@ -48,7 +48,7 @@
     }
   ],
   "depends_on": [
-    "ddo.context-pdf-governance"
+    "2026-11-14_ddo-pdf-modes/ddo.context-pdf-governance"
   ],
   "results": [],
   "outcome": "passed",
