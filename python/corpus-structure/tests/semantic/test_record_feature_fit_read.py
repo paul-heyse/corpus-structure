@@ -140,7 +140,8 @@ def test_fit_transport_restores_signed_zero_from_authenticated_canonical_frame(m
         frame_digest=grade["frame_digest"],
         cut=cut,
     )
-    assert (
-        math.copysign(1.0, restored["frame"]["frame"]["events"][0]["features"]["values"][0]) == -1.0
-    )
-    assert restored["frame"]["frame_canonical_json"] == grade["frame_canonical_json"]
+    actual = DdoRecordGrade.model_validate(restored["frame"])
+    value = actual.frame.events[0].features.values[0]
+    assert value is not None
+    assert math.copysign(1.0, value) == -1.0
+    assert actual.frame_canonical_json == grade["frame_canonical_json"]

@@ -3,6 +3,7 @@
 from typing import cast
 
 import pytest
+from psycopg.errors import CheckViolation, InsufficientPrivilege
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
@@ -47,6 +48,7 @@ def test_current_whole_output_is_proved_but_private_helper_has_no_reader_grant(
         connection.execute(_PROOF, selected)
     with pytest.raises(DBAPIError) as refusal, clone.reader.begin() as connection:
         connection.execute(_PROOF, selected)
+    assert isinstance(refusal.value.orig, InsufficientPrivilege)
     assert refusal.value.orig.sqlstate == "42501"
 
 
@@ -59,6 +61,7 @@ def test_invented_selection_or_producing_identity_cannot_open_an_effect(
     assert selected is not None
     with pytest.raises(DBAPIError) as refusal, clone.admin.begin() as connection:
         connection.execute(_PROOF, {**selected, field: "invented:" + field})
+    assert isinstance(refusal.value.orig, CheckViolation)
     assert refusal.value.orig.sqlstate == "23514"
 
 
@@ -69,6 +72,7 @@ def test_existing_product_is_not_available_through_an_unrelated_read_scope(decla
     assert selected is not None and empty is None
     with pytest.raises(DBAPIError) as refusal, clone.admin.begin() as connection:
         connection.execute(_PROOF, {**selected, "read": narrowed.cut.record["read_id"]})
+    assert isinstance(refusal.value.orig, CheckViolation)
     assert refusal.value.orig.sqlstate == "23514"
 
 

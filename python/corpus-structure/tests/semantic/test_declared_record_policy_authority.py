@@ -244,5 +244,7 @@ def test_checked_probability_retains_a_genuine_below_threshold_decision(applicat
     with pytest.raises(ValueError, match="below its exact authorized threshold"):
         check_record_policy_application(stricter, **arguments)
     changed = {**arguments["events"][0], "final_event_score": -100.0}
+    changed_arguments: dict[str, Any] = dict(arguments)
+    changed_arguments["events"] = (changed,)
     with pytest.raises(ValueError, match="exact authorized predictor"):
-        record_policy_application_probability(stricter, **{**arguments, "events": (changed,)})
+        record_policy_application_probability(stricter, **changed_arguments)

@@ -268,15 +268,15 @@ def test_actual_grade_and_fit_factories_compile_as_closed_project_derivations():
     assert [role.name for role in fit.roles if role.direction == "output"] == ["fitted"]
     assert next(role for role in grade.roles if role.name == "prediction").collection == "set"
     assert fit.outcomes == ("success", "empty")
-    assert (
-        next(role for role in grade.roles if role.name == "prediction").support.source_set
-        == "record-policy-predictions"
-    )
-    assert {
-        role.name: role.support.source_set
-        for role in fit.roles
-        if role.name in {"feature_grade", "calibration_grade"}
-    } == {
+    prediction = next(role for role in grade.roles if role.name == "prediction")
+    assert prediction.support is not None
+    assert prediction.support.source_set == "record-policy-predictions"
+    grade_sources = {}
+    for role in fit.roles:
+        if role.name in {"feature_grade", "calibration_grade"}:
+            assert role.support is not None
+            grade_sources[role.name] = role.support.source_set
+    assert grade_sources == {
         "feature_grade": "record-policy-feature-grades",
         "calibration_grade": "record-policy-calibration-grades",
     }
