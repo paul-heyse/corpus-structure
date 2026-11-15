@@ -567,10 +567,10 @@ def _require_owned_authoring(connection: Connection, owned_authoring: bool) -> N
 
 def native_dependency_graph(connection: Connection, identities):
     """A bounded observed dependency graph, with declaration-order tie breaking."""
-    import networkx as nx
+    from .graph_runtime import nx
 
     identities = tuple(identities)
-    graph = nx.DiGraph()
+    graph = nx.DiGraph(backend="networkx")
     graph.add_nodes_from(identities)
     if not identities:
         return graph
@@ -593,14 +593,13 @@ def native_dependency_graph(connection: Connection, identities):
 
 
 def native_dependency_order(connection: Connection, identities):
-    import networkx as nx
+    from .graph_runtime import nx
+    from .graph_topology import ordered_nodes
 
     graph = native_dependency_graph(connection, identities)
     declared = {identity: position for position, identity in enumerate(graph)}
     try:
-        return tuple(
-            nx.lexicographical_topological_sort(graph, key=declared.__getitem__, backend="networkx")
-        )
+        return ordered_nodes(graph, key=declared.__getitem__)
     except nx.NetworkXUnfeasible as error:
         raise NativeAuthoringError("declared native dependency scope is cyclic") from error
 
@@ -617,7 +616,8 @@ def normalize_native_backfill(
     No catalog body is acquired as desired meaning. The outer savepoint restores
     original objects, OIDs, complete ACLs and owners, including on refusal.
     """
-    import networkx as nx
+    from .graph_runtime import nx
+    from .graph_topology import rooted_closure, ordered_nodes
 
     _require_owned_authoring(connection, owned_authoring)
     if any(not isinstance(item, NativeObject) for item in context):
@@ -628,14 +628,12 @@ def normalize_native_backfill(
     identities = tuple(dict.fromkeys((*frozen, *(item.identity for item in definitions))))
     graph = native_dependency_graph(connection, identities)
     dependents = (
-        set().union(*(nx.descendants(graph, identity, backend="networkx") for identity in selected))
+        rooted_closure(graph, selected)
         - selected
     )
     declared = {identity: position for position, identity in enumerate(graph)}
     try:
-        order = tuple(
-            nx.lexicographical_topological_sort(graph, key=declared.__getitem__, backend="networkx")
-        )
+        order = ordered_nodes(graph, key=declared.__getitem__)
     except nx.NetworkXUnfeasible as error:
         raise NativeAuthoringError("declared native dependency scope is cyclic") from error
     savepoint = connection.begin_nested()

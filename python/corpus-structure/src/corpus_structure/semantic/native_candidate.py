@@ -2032,7 +2032,8 @@ def _order_row_type_evolution(connection, upgrade_ops, authoring):
     frozen predecessors and declared targets supply every dropped/restored body.
     Unmanaged dependents remain a RESTRICT refusal, never an implicit CASCADE.
     """
-    import networkx as nx
+    from .graph_runtime import nx
+    from .graph_topology import rooted_closure, ordered_nodes
     from alembic.operations import ops
 
     from .alembic_native import NativeTransitionOp
@@ -2057,18 +2058,14 @@ def _order_row_type_evolution(connection, upgrade_ops, authoring):
     identities = (*before, *sorted(relations, key=lambda identity: identity.qualified))
     graph = native_dependency_graph(connection, identities)
     selected = (
-        set().union(
-            *(nx.descendants(graph, identity, backend="networkx") for identity in relations)
-        )
+        (rooted_closure(graph, relations) - relations)
         & before.keys()
     )
     if not selected:
         return
     declared = {identity: position for position, identity in enumerate(graph)}
     try:
-        order = tuple(
-            nx.lexicographical_topological_sort(graph, key=declared.__getitem__, backend="networkx")
-        )
+        order = ordered_nodes(graph, key=declared.__getitem__)
     except nx.NetworkXUnfeasible as error:
         raise NativeAuthoringError("physical/native row-type dependency scope is cyclic") from error
     native = [

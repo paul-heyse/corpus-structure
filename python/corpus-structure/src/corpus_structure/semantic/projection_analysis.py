@@ -22,6 +22,8 @@ from sqlglot.optimizer.scope import build_scope
 from sqlglot.schema import MappingSchema
 
 from . import projection_recipe as ir
+from .graph_runtime import nx
+from .graph_topology import cyclic_components
 from .determinants import analysis_runtime
 from .identity import canonical_bytes
 from .refusals import SemanticRefusal
@@ -126,21 +128,12 @@ def expand_sources(
         if missing:
             raise ProjectionAnalysisUnavailable(f"{name}: missing source {sorted(missing)}")
         edges[name] = references & sources.keys()
-    done, active = set(), set()
-
-    def visit(name):
-        if name in active:
-            raise ProjectionAnalysisUnavailable(f"{name}: cyclic pinned source closure")
-        if name in done:
-            return
-        active.add(name)
-        for child in edges[name]:
-            visit(child)
-        active.remove(name)
-        done.add(name)
-
-    for name in edges:
-        visit(name)
+    graph = nx.DiGraph(backend="networkx")
+    graph.add_nodes_from(edges)
+    graph.add_edges_from((source, target) for source, targets in edges.items() for target in targets)
+    cycles = cyclic_components(graph)
+    if cycles:
+        raise ProjectionAnalysisUnavailable(f"{min(min(component) for component in cycles)}: cyclic pinned source closure")
     result = exp.expand(query, dict(query_sources), dialect="postgres", copy=True)
     if not isinstance(result, exp.Query):
         raise ProjectionAnalysisUnavailable("expanded projection is not a query")

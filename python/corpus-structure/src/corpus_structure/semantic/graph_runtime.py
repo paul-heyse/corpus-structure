@@ -15,7 +15,8 @@ for _name in tuple(os.environ):
 import networkx as nx  # noqa: E402
 
 # A dictionary assignment replaces defaults AND function-specific priorities.
-nx.config.backend_priority = {}
+# NetworkX3.7 supports dictionary replacement; selected3.6 stubs only describe lists.
+nx.config.backend_priority = {}  # type: ignore[bad-assignment]
 nx.config.fallback_to_nx = False
 
 __all__ = ["nx"]

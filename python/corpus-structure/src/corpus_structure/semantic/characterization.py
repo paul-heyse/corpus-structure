@@ -293,23 +293,14 @@ def _shape(prepared: PreparedRelease, name: str, payload: Mapping[str, Any]) -> 
 
 
 def _acyclic(edges: Mapping[str, Sequence[str]], label: str) -> None:
-    done: set[str] = set()
-    visiting: set[str] = set()
-    for start in edges:
-        if start in done:
-            continue
-        stack = [(start, False)]
-        while stack:
-            node, leave = stack.pop()
-            if leave:
-                visiting.discard(node)
-                done.add(node)
-            elif node in visiting:
-                raise ValueError(f"{label} structural cycle")
-            elif node not in done:
-                visiting.add(node)
-                stack.append((node, True))
-                stack.extend((target, False) for target in reversed(edges.get(node, ())))
+    from .graph_runtime import nx
+    from .graph_topology import cyclic_components
+
+    graph = nx.DiGraph(backend="networkx")
+    graph.add_nodes_from(edges)
+    graph.add_edges_from((source, target) for source, targets in edges.items() for target in targets)
+    if cyclic_components(graph):
+        raise ValueError(f"{label} structural cycle")
 
 
 def _scope(scope, base):

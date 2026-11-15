@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 from typing import Never
 
+from .data_operation_kind_refinements import nominal_inheritance_graph
+from .graph_topology import rooted_closure
 from .data_operation_model import EffectiveDataOperationModel, EffectiveKind
 from .types import Diagnostic, PreparationError
 
@@ -63,20 +65,13 @@ def derive_member_kinds(
         return owned(target)
 
     def concrete_family(root: EffectiveKind) -> tuple[EffectiveKind, ...]:
-        found, pending = set(), [root.semantic_id]
-        while pending:
-            kind_id = pending.pop()
-            if kind_id in found:
-                continue
-            kind = owned(kind_id)
-            if kind.category != root.category:
-                refuse(kind_id, "declared member subtype changes the nominal kind category")
-            found.add(kind_id)
-            pending.extend(
-                edge.source
-                for edge in model.edges
-                if edge.relation == "inherits" and edge.target == kind_id
-            )
+        try:
+            graph = nominal_inheritance_graph(model)
+        except ValueError as error:
+            refuse(root.semantic_id, str(error))
+        found = rooted_closure(graph, (root.semantic_id,))
+        for kind_id in found:
+            owned(kind_id)
         return tuple(
             owned(kind_id)
             for kind_id in sorted(found)

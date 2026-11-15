@@ -50,4 +50,5 @@ def boundary_edges(graph, nodes, *, reverse=False):
     if not nodes <= graph.nodes:
         raise ValueError("unknown graph boundary member")
     selected = nx.reverse_view(graph) if reverse else graph
-    return tuple(nx.edge_boundary(selected, nodes, keys=selected.is_multigraph(), data=True, backend="networkx"))
+    # Selected3.6 stubs omit the documented3.7 dispatch keyword here.
+    return tuple(nx.edge_boundary(selected, nodes, keys=selected.is_multigraph(), data=True, backend="networkx"))  # type: ignore[no-matching-overload]

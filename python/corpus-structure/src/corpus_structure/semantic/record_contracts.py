@@ -9,12 +9,13 @@ from __future__ import annotations
 
 import json
 from collections.abc import Mapping, Sequence
-from graphlib import CycleError, TopologicalSorter
 from hashlib import sha256
 from typing import Any
 
 from pydantic import BaseModel
 
+from .graph_runtime import nx
+from .graph_topology import cyclic_components
 from .identity import canonical_bytes
 from .types import ClassDefinition, Diagnostic, PreparationError, PreparedRelease
 
@@ -308,12 +309,11 @@ def bind_record_candidates(
                 raise ValueError("invalid evidence set anchor membership")
             if evidence["role"] not in fields or evidence_set_identity(evidence) != identity:
                 raise ValueError("evidence set differs from released role or content")
-        try:
-            TopologicalSorter(
-                {role: tuple(field.get("premises", ())) for role, field in fields.items()}
-            ).prepare()
-        except CycleError as error:
-            raise ValueError("derived record field premises form a cycle") from error
+        graph = nx.DiGraph(backend="networkx")
+        graph.add_nodes_from(fields)
+        graph.add_edges_from((role, premise) for role, field in fields.items() for premise in field.get("premises", ()))
+        if cyclic_components(graph):
+            raise ValueError("derived record field premises form a cycle")
         for role, field in fields.items():
             role_type = prepared.index.definitions[properties[role].range]
             meaning_changing = "MeaningChangingRecordField" in role_type.ancestors

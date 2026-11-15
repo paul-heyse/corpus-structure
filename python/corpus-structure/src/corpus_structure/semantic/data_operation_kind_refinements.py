@@ -9,16 +9,16 @@ from __future__ import annotations
 import json
 from collections.abc import Iterable
 
-import networkx as nx
+from .graph_runtime import nx
+from .graph_topology import rooted_closure, cyclic_components
 
 from .data_operation_model import EffectiveDataOperationModel
 
 
-def input_kind_refinements(
-    model: EffectiveDataOperationModel, roots: Iterable[str]
-) -> dict[str, tuple[str, ...]]:
+def nominal_inheritance_graph(model: EffectiveDataOperationModel):
+    """Authenticate one parent-to-child nominal relation projection."""
     kinds = {kind.semantic_id: kind for kind in model.kinds}
-    graph = nx.DiGraph()
+    graph = nx.DiGraph(backend="networkx")
     graph.add_nodes_from(kinds)
     for edge in model.edges:
         if edge.relation != "inherits":
@@ -28,13 +28,21 @@ def input_kind_refinements(
         if kinds[edge.source].category != kinds[edge.target].category:
             raise ValueError("nominal refinement changes kind category")
         graph.add_edge(edge.target, edge.source)
-    if not nx.is_directed_acyclic_graph(graph, backend="networkx"):
+    if cyclic_components(graph):
         raise ValueError("nominal refinement inheritance is cyclic")
+    return graph
+
+
+def input_kind_refinements(
+    model: EffectiveDataOperationModel, roots: Iterable[str]
+) -> dict[str, tuple[str, ...]]:
+    kinds = {kind.semantic_id: kind for kind in model.kinds}
+    graph = nominal_inheritance_graph(model)
     result = {}
     for root in sorted(set(roots)):
         if root not in kinds:
             raise ValueError("nominal input kind is absent")
-        selected = {root, *nx.descendants(graph, root, backend="networkx")}
+        selected = rooted_closure(graph, (root,))
         if any(not kinds[kind].complete for kind in selected):
             raise ValueError("nominal input refinement includes an incomplete kind")
         result[root] = tuple(

@@ -17,7 +17,7 @@ from types import MappingProxyType
 from typing import Any, Literal
 
 from .graph_runtime import nx
-from .graph_topology import rooted_closure, strong_components, ordered_nodes
+from .graph_topology import rooted_closure, strong_components, cyclic_components, ordered_nodes
 
 from .data_operation_model import SubjectContext
 from .identity import canonical_bytes
@@ -237,7 +237,11 @@ class SemanticGraph:
         self._edges = tuple(sorted(edges, key=lambda edge: canonical_bytes(edge.record())))
         graph = nx.DiGraph(backend="networkx")
         graph.add_nodes_from(sorted(self._nodes))
-        graph.add_edges_from((edge.source, edge.target) for edge in self._edges)
+        relations_by_pair = {}
+        for edge in self._edges:
+            pair = edge.source, edge.target
+            relations_by_pair.setdefault(pair, set()).add(edge.relation)
+        graph.add_edges_from((source, target, {"relations": frozenset(relations)}) for (source, target), relations in relations_by_pair.items())
         self._graph = nx.freeze(graph)
         self.require_acyclic({"inherits"})
         self.require_acyclic({"operation_dependency"}, iteration_components=iteration_components)
@@ -272,12 +276,8 @@ class SemanticGraph:
     def _projection(self, relations: set[str] | None) -> nx.DiGraph:
         if relations is None:
             return self._graph
-        graph = nx.DiGraph(backend="networkx")
-        graph.add_nodes_from(self.node_ids)
-        graph.add_edges_from(
-            (edge.source, edge.target) for edge in self._edges if edge.relation in relations
-        )
-        return graph
+        selected = frozenset(relations)
+        return nx.subgraph_view(self._graph, filter_edge=lambda source, target: bool(self._graph.edges[source, target]["relations"] & selected))
 
     def components(self, relations: set[str] | None = None) -> tuple[tuple[str, ...], ...]:
         return tuple(
@@ -288,12 +288,7 @@ class SemanticGraph:
         )
 
     def cyclic_components(self, relations: set[str] | None = None) -> tuple[tuple[str, ...], ...]:
-        graph = self._projection(relations)
-        return tuple(
-            component
-            for component in self.components(relations)
-            if len(component) > 1 or graph.has_edge(component[0], component[0])
-        )
+        return tuple(sorted(tuple(sorted(component)) for component in cyclic_components(self._projection(relations))))
 
     def require_acyclic(
         self,

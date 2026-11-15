@@ -14,6 +14,9 @@ from typing import TYPE_CHECKING, Any, Literal, cast
 
 from pydantic import TypeAdapter
 
+from .graph_runtime import nx
+from .graph_topology import rooted_closure
+
 from corpus_structure.semantic._data_operation_wire import (
     WireAdmitAuthoredDataRequest,
     WireAdmitOriginalDocumentAssetRequest,
@@ -58,6 +61,17 @@ from .identity import canonical_bytes
 if TYPE_CHECKING:
     from .data_operation_bindings import BindingResult
     from .data_operation_storage import DataOperationStorage
+
+
+def _frozen_dependency_graph(selected, discovery=()):
+    graph = nx.DiGraph(backend="networkx")
+    graph.add_nodes_from(selected)
+    edges = [(name, dependency) for name, operation in selected.items() for dependency in operation["dependencies"]]
+    edges.extend((relation["producer"], relation["target"]) for relation in discovery)
+    if any(source not in selected or target not in selected for source, target in edges):
+        raise ValueError("frozen dependency has an unknown operation")
+    graph.add_edges_from(edges)
+    return graph
 
 
 @dataclass(frozen=True)
@@ -510,12 +524,9 @@ class DemandPlanner:
             }
         )
         selected = {item["operation"]: item for item in frozen["operations"]}
-        closure, pending = set(), [item["target"] for item in relations]
-        while pending:
-            operation = pending.pop()
-            if operation not in closure:
-                closure.add(operation)
-                pending.extend(selected[operation]["dependencies"])
+        closure = rooted_closure(
+            _frozen_dependency_graph(selected), (item["target"] for item in relations)
+        )
         # Partial positive discovery can expose members. Only the native complete
         # witness can prove absence or closed fan-in on a subsequent binding.
         for member in closed["members"]:
@@ -646,22 +657,11 @@ class DemandPlanner:
                 projections,
                 **binding_arguments,
             )
-            prerequisites, pending = set(), list(operation["dependencies"])
-            pending.extend(
-                relation["producer"]
-                for relation in frozen["discovery"]
+            roots = (*operation["dependencies"], *(
+                relation["producer"] for relation in frozen["discovery"]
                 if relation["target"] == operation["operation"]
-            )
-            while pending:
-                prerequisite = pending.pop()
-                if prerequisite not in prerequisites:
-                    prerequisites.add(prerequisite)
-                    pending.extend(selected[prerequisite]["dependencies"])
-                    pending.extend(
-                        relation["target"]
-                        for relation in frozen["discovery"]
-                        if relation["producer"] == prerequisite
-                    )
+            ))
+            prerequisites = rooted_closure(_frozen_dependency_graph(selected, frozen["discovery"]), roots)
             operation_roles = {
                 role.name: role
                 for role in self.model.operation(operation["operation"]).roles
