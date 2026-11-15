@@ -176,7 +176,7 @@ def test_original_comparison_kernel_retains_declared_sources_and_native_ref_witn
             b"{}",
             (),
             b"{}",
-         subject_definition="document", support_references=())
+         subject_definition=source.subject_definition, support_references=())
         for source in sources
     )
     report_members = tuple(
@@ -189,7 +189,7 @@ def test_original_comparison_kernel_retains_declared_sources_and_native_ref_witn
             b"{}",
             (),
             b"{}",
-         subject_definition="document", support_references=())
+         subject_definition=source.subject_definition, support_references=())
         for ref, source in zip(refs, sources, strict=True)
     )
     current = DeclaredComparisonReport.model_validate(
@@ -218,6 +218,7 @@ def test_original_comparison_kernel_retains_declared_sources_and_native_ref_witn
             "kind_contract": member.kind_contract,
             "project_id": "p",
             "subject": member.subject,
+            "subject_definition": member.subject_definition,
             "original_source": member.original_source,
             "analyzed_scope": None,
             "body": body,
@@ -244,6 +245,6 @@ def test_original_comparison_kernel_retains_declared_sources_and_native_ref_witn
     outputs = {"result": (current.model_dump(mode="json"),)}
     validate_output_witnesses(model.operation("structure.compare/declared"), outputs, selected)
     forged = copy.deepcopy(outputs)
-    forged["result"][0]["inputs"]["sources"][1]["original_source"] = "original:A"
+    forged["result"][0]["sources_input"][1]["original_source"] = "original:A"
     with pytest.raises(ValueError, match="no complete selected input"):
         validate_output_witnesses(model.operation("structure.compare/declared"), forged, selected)

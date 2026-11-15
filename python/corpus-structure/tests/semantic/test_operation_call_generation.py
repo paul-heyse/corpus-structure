@@ -409,51 +409,6 @@ def test_json_text_result_uses_text_cast_without_changing_source_json_contract()
     assert "CAST(" in str(statement.compile(dialect=postgresql.dialect()))
 
 
-def test_consumer_call_context_refuses_absent_or_changed_correspondence_before_execution():
-    from corpus_structure.semantic.identity import canonical_bytes
-    from corpus_structure.semantic.operation_value_types import require_call_context
-    from corpus_structure.semantic.refusals import SemanticRefusal
-    from corpus_structure.semantic.types import PreparedRelease, RegistryRow
-
-    model = current_model()
-    prepared = PreparedRelease(
-        release_id="release:consumer",
-        manifest=b"{}",
-        definitions=(),
-        vocabularies=(),
-        queries=(),
-        artifacts=(),
-        required_capabilities=(),
-        diagnostics=(),
-        _adapters=(),
-        execution_model_id=model.model_id,
-        registry_rows=(RegistryRow("execution_model", model.model_id, model.content),),
-    )
-    require_call_context(
-        prepared,
-        "read_native_source",
-        "read_published_regions",
-        _operation_calls.READ_PUBLISHED_REGIONS_CONTRACT_DIGEST,
-    )
-    with pytest.raises(SemanticRefusal, match="incompatible consumer call"):
-        require_call_context(prepared, "read_native_source", "absent", "0" * 64)
-    with pytest.raises(SemanticRefusal, match="incompatible consumer call"):
-        require_call_context(prepared, "read_native_source", "read_published_regions", "0" * 64)
-    body = __import__("json").loads(model.content)
-    next(o for o in body["operations"] if o["id"] == "read_native_source")["calls"] = []
-    prepared = replace(
-        prepared,
-        registry_rows=(RegistryRow("execution_model", model.model_id, canonical_bytes(body)),),
-    )
-    with pytest.raises(SemanticRefusal, match="incompatible consumer call"):
-        require_call_context(
-            prepared,
-            "read_native_source",
-            "read_published_regions",
-            _operation_calls.READ_PUBLISHED_REGIONS_CONTRACT_DIGEST,
-        )
-
-
 def test_native_completion_envelope_uses_derived_nested_fields_and_present_empty_collection():
     import json
 

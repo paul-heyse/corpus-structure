@@ -188,3 +188,34 @@ def test_selected_pdf_cut_reuses_exact_read_owner_field_schemas():
                 "read_id", "read_snapshot", "frontier_at", "scope"}
     assert set(WireCutSelection.__annotations__) == set(cut["required"]) == set(cut["properties"]) == expected
     assert {field: page["properties"][field] for field in expected} == cut["properties"]
+
+
+@pytest.mark.parametrize("mutation", ["absent-variant", "wrong-digest", "changed-call", "missing-archive"])
+def test_current_call_context_refuses_substitution_without_legacy_catalog_fallback(domain, model, mutation):
+    import json
+    from corpus_structure.semantic.identity import canonical_bytes
+    from corpus_structure.semantic.operation_value_types import require_call_context
+    from corpus_structure.semantic.refusals import SemanticRefusal
+
+    from corpus_structure.semantic._pdf_native_calls import RETAIN_PDF_ORIGINAL_CONTRACT_DIGEST
+    dependencies = ResolvedDependencies((SourceArtifact("pdf-domain/contract.json", domain.content), *domain.sources))
+    base = prepare_release(source_bundle())
+    prepared = replace(base, artifacts=(*base.artifacts, *pdf_domain_artifacts(dependencies, model=model)))
+    operation = "retain_pdf_original"
+    variant = "retain_pdf_original"
+    digest = RETAIN_PDF_ORIGINAL_CONTRACT_DIGEST
+    require_call_context(prepared, operation, variant, digest)
+    if mutation == "absent-variant":
+        variant = "absent"
+    elif mutation == "wrong-digest":
+        digest = "0" * 64
+    elif mutation == "changed-call":
+        artifact = next(a for a in prepared.artifacts if a.kind == "operation_call_correspondences.json")
+        values = json.loads(artifact.content)
+        next(call for owner, call in values if owner == operation and call["id"] == variant)["cardinality"] = "many"
+        altered = replace(artifact, content=canonical_bytes(values))
+        prepared = replace(prepared, artifacts=tuple(altered if a is artifact else a for a in prepared.artifacts))
+    else:
+        prepared = replace(prepared, artifacts=tuple(a for a in prepared.artifacts if a.kind != "operation_call_correspondences.json"))
+    with pytest.raises(SemanticRefusal, match="correspondence"):
+        require_call_context(prepared, operation, variant, digest)
