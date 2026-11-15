@@ -123,9 +123,9 @@ def inspect_graph(snapshot: GraphSnapshot, request: GraphInspectionRequest):
         )
         viewed = nx.reverse_view(graph) if request.direction == "dependents" else graph
         if request.view == "members":
-            items = [dict(kind="node", **nodes[name].model_dump()) for name in sorted(selected)]
+            items = [dict(item_kind="node", **nodes[name].model_dump()) for name in sorted(selected)]
             items.extend(
-                dict(kind="occurrence", **edge.model_dump())
+                dict(item_kind="occurrence", **edge.model_dump())
                 for edge in snapshot.occurrences
                 if edge.source in selected and edge.target in selected
             )
