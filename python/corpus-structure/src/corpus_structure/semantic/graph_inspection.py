@@ -353,25 +353,9 @@ def snapshot_from_records(projection, specification, pins, records, *, unknowns=
 
 
 def archived_graph_snapshot(prepared, projection, *, selected_dependencies=()):
-    from .data_operation_admission import archived_data_operation_model
+    from .data_operation_admission import bound_data_operation_model
 
-    model = archived_data_operation_model(prepared)
-    from .data_operation_model import MODEL_VERSION
-
-    if model.version != MODEL_VERSION:
-        return GraphSnapshot(
-            projection=projection,
-            specification="historical-unavailable",
-            pins_json=json_bytes(
-                dict(release_id=prepared.release_id, model_digest=sha256(model.content).hexdigest())
-            ).decode(),
-            nodes=(),
-            occurrences=(),
-            standing="unavailable",
-            unknowns=(
-                "historical graph interpretation is preserved; current projection is unavailable",
-            ),
-        )
+    model = bound_data_operation_model(prepared)
     definition = model.projection_definition(projection)
     if projection in {"semantic-reference", "potential-producers", "selected-dependencies"}:
         graph = model.projection_graph(projection, selected_dependencies=selected_dependencies)
@@ -472,8 +456,7 @@ def read_graph_inspection(reader, request: GraphInspectionRequest):
             )
         except (KeyError, TypeError, ValueError) as error:
             raise ValueError("invalid selected graph continuation") from error
-    from .data_operation_admission import archived_data_operation_model
-    from .data_operation_model import MODEL_VERSION
+    from .data_operation_admission import bound_data_operation_model
     from .demand_results import SelectedGraphBudgetExceeded, selected_record_index
     from .selected_graph import selected_graph_budget_snapshot, selected_graph_snapshot
 
@@ -485,8 +468,8 @@ def read_graph_inspection(reader, request: GraphInspectionRequest):
         budget_error = None
         with reader() as connection:
             prepared = open_release(connection, request.release_id)
-            archived = archived_data_operation_model(prepared)
-            if request.demand_id and archived.version == MODEL_VERSION:
+            bound_data_operation_model(prepared)
+            if request.demand_id:
                 if request.selected_dependencies:
                     raise ValueError("native selected graphs use their frozen producer choices")
                 if request.project_id is None:
@@ -509,14 +492,6 @@ def read_graph_inspection(reader, request: GraphInspectionRequest):
                     # A successful native read established this cut. Commit it
                     # even when its retained closure exceeds the graph budget.
                     budget_error = error
-        if archived.version != MODEL_VERSION:
-            snapshot = archived_graph_snapshot(prepared, request.projection)
-            pins = json_loads(snapshot.pins_json)
-            pins["requested_context"] = dict(
-                project_id=request.project_id, demand_id=request.demand_id
-            )
-            snapshot = snapshot.model_copy(update={"pins_json": json_bytes(pins).decode()})
-            return inspect_graph(snapshot, request.model_copy(update={"demand_id": None}))
         if budget_error is not None:
             snapshot = selected_graph_budget_snapshot(prepared, request, budget_error)
         elif selected is not None:
@@ -530,13 +505,10 @@ def read_graph_inspection(reader, request: GraphInspectionRequest):
 
 
 def _inspect_released_graph(prepared, snapshot, request):
-    from .data_operation_admission import archived_data_operation_model
+    from .data_operation_admission import bound_data_operation_model
 
-    model = archived_data_operation_model(prepared)
-    from .data_operation_model import MODEL_VERSION
+    model = bound_data_operation_model(prepared)
 
-    if model.version != MODEL_VERSION:
-        return inspect_graph(snapshot, request)
     specification = model.projection_definition(request.projection)
     if snapshot.specification != specification.identity_bytes.hex():
         raise ValueError("graph snapshot differs from its released interpretation")

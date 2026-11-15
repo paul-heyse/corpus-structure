@@ -11,7 +11,7 @@ from corpus_structure.semantic._data_operation_wire import (
     WireInspectDataExecutionRequest,
 )
 
-from .data_operation_model import MODEL_VERSION, read_effective_data_operations
+from .data_operation_model import read_effective_data_operations
 from .data_operation_ports import PythonPortIdentity
 from .identity import canonical_bytes
 from .refusals import SemanticRefusal
@@ -34,8 +34,8 @@ if TYPE_CHECKING:
     from .types import PreparedRelease, SourceArtifact, SourceBundle
 
 
-def archived_data_operation_model(prepared: PreparedRelease) -> EffectiveDataOperationModel:
-    """Read exact archived meaning; this grants no current execution authority."""
+def bound_data_operation_model(prepared: PreparedRelease) -> EffectiveDataOperationModel:
+    """Read and authenticate the supported current operation model."""
     artifacts = [a for a in prepared.artifacts if a.kind == "data_operations.json"]
     manifest = json.loads(prepared.manifest)
     if (
@@ -54,14 +54,6 @@ def archived_data_operation_model(prepared: PreparedRelease) -> EffectiveDataOpe
     if len(interfaces) > 1:
         raise SemanticRefusal("release has ambiguous source interface projection")
     return replace(model, source_interfaces=interfaces[0].content) if interfaces else model
-
-
-def bound_data_operation_model(prepared: PreparedRelease) -> EffectiveDataOperationModel:
-    """Require the current interpreted model before execution/binding."""
-    model = archived_data_operation_model(prepared)
-    if model.version != MODEL_VERSION:
-        raise SemanticRefusal("execution requires the current target operation model; regenerate")
-    return model
 
 
 def require_data_operation_call_context(

@@ -342,7 +342,14 @@ def selected_fixture(tmp_path, monkeypatch, acquired):
     from dataclasses import replace
     from corpus_structure.semantic.native_definition_projection import read_native_definition_projection
 
-    native_projection = read_native_definition_projection(acquired)
+    from corpus_structure.semantic.data_operation_admission import bound_data_operation_model
+    from corpus_structure.semantic.data_operation_storage import data_operation_definition_projection
+    from corpus_structure.semantic.data_operation_json import wire_json_loads
+    from corpus_structure.semantic.types import PreparedArtifact
+
+    native_projection = wire_json_loads(data_operation_definition_projection(
+        acquired, bound_data_operation_model(acquired), native_digest="test-native-contract"
+    ))
     contracts = {
         "https://corpus-structure.dev/semantic/data-operation-assessment/DdoSelectedReferenceSnapshot": "kind:reference",
         "https://corpus-structure.dev/semantic/data-operation-assessment/DdoSelectedReference": "kind:authored-reference",
@@ -354,12 +361,9 @@ def selected_fixture(tmp_path, monkeypatch, acquired):
     ]
     # Only native acquisition is substituted: archive/model binding and projection
     # shape are supplied by the actual independently prepared release.
-    artifacts = tuple(
-        replace(artifact, content=json_bytes(native_projection))
-        if artifact.kind == "data_operation_native_definitions.json"
-        else artifact
-        for artifact in acquired.artifacts
-    )
+    artifacts = (*acquired.artifacts, PreparedArtifact(
+        "data_operation_native_definitions.json", json_bytes(native_projection)
+    ))
     monkeypatch.setattr(
         "corpus_structure.semantic.releases.open_release",
         lambda *a: replace(acquired, artifacts=artifacts),

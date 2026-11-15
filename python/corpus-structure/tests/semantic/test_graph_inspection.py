@@ -152,7 +152,7 @@ def test_archived_shared_helper_occurrences_are_unioned_once(monkeypatch):
 
     model = compile_source(operation_source())
     monkeypatch.setattr(
-        data_operation_admission, "archived_data_operation_model", lambda prepared: model
+        data_operation_admission, "bound_data_operation_model", lambda prepared: model
     )
     prepared = type("Prepared", (), {"release_id": "release:one"})()
     single = archived_graph_snapshot(prepared, "possible-call")
@@ -160,7 +160,7 @@ def test_archived_shared_helper_occurrences_are_unioned_once(monkeypatch):
         model, implementation_slices=(*model.implementation_slices, *model.implementation_slices)
     )
     monkeypatch.setattr(
-        data_operation_admission, "archived_data_operation_model", lambda prepared: doubled
+        data_operation_admission, "bound_data_operation_model", lambda prepared: doubled
     )
     repeated = archived_graph_snapshot(prepared, "possible-call")
     assert single.occurrences and single.occurrences == repeated.occurrences
