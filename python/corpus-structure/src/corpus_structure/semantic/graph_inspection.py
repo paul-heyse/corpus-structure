@@ -12,7 +12,7 @@ from hashlib import sha256
 from itertools import pairwise
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from .data_operation_json import json_bytes, json_loads
 
@@ -54,6 +54,12 @@ class GraphSnapshot(BaseModel):
         return "graph-snapshot:" + sha256(json_bytes(self.model_dump())).hexdigest()
 
 
+class GraphAssessedMember(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+    product_id: str = Field(min_length=1)
+    member_id: str = Field(min_length=1)
+
+
 class GraphInspectionRequest(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
     release_id: str
@@ -64,6 +70,7 @@ class GraphInspectionRequest(BaseModel):
     expected_cut: str | None = None
     scope: dict = Field(default_factory=dict)
     selected_dependencies: tuple[tuple[str, tuple[str, ...]], ...] = ()
+    assessed_members: tuple[GraphAssessedMember, ...] = ()
     view: Literal["members", "components", "order", "path", "boundary"] = "members"
     roots: tuple[str, ...] = ()
     target: str | None = None
@@ -72,6 +79,27 @@ class GraphInspectionRequest(BaseModel):
     limit: int = Field(default=100, ge=1, le=1000)
     max_bytes: int = Field(default=262144, ge=1024, le=8388608)
     max_examined_bytes: int = Field(default=8388608, ge=1024, le=67108864)
+
+
+    @model_validator(mode="after")
+    def supported_request_shape(self):
+        if self.view == "path" and (len(self.roots) != 1 or self.target is None):
+            raise ValueError("path requires one root and target")
+        if self.view != "path" and self.target is not None:
+            raise ValueError("target is supported only for path inspection")
+        if self.view == "boundary" and not self.roots:
+            raise ValueError("boundary requires explicit roots")
+        if self.demand_id is not None and self.project_id is None:
+            raise ValueError("selected graph requires an explicit project")
+        if self.assessed_members and self.projection != "assessment":
+            raise ValueError("assessed members require the assessment projection")
+        if self.assessed_members and self.demand_id is None:
+            raise ValueError("assessed members require an authenticated native selection")
+        if self.selected_dependencies and (self.projection != "selected-dependencies" or self.demand_id):
+            raise ValueError("producer choices are supported only for archived selected dependencies")
+        if self.demand_id is None and (self.scope or self.read_id or self.expected_cut):
+            raise ValueError("native scope/read pins require a demand")
+        return self
 
 
 def _request_identity(request):
