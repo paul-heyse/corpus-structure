@@ -12,56 +12,19 @@ def test_acquire_and_compose_never_invoke_compiler(monkeypatch):
 
     monkeypatch.setattr(regeneration, "prepare_release", forbidden)
     inputs = regeneration.acquire_pack(DOMAINS / "statistics")
-    trusted = {source.name: source.content for source in inputs.trusted_sources}
-    assert b"CharacterizationFullProfile:" in trusted["characterization.yaml"]
-    assert b"CharacterizationRule_" in trusted["characterization.yaml"]
-    assert trusted["characterization-questions.yaml"]
-    monkeypatch.setattr("corpus_structure.semantic.characterization._construction_model", forbidden)
+    monkeypatch.setattr("corpus_structure.semantic.contracts.compile_execution_model", forbidden)
+    monkeypatch.setattr("corpus_structure.semantic.contracts.trusted_execution_inputs", forbidden)
 
-    # Local ontology leaves have always used an operation-owned file bridge.
-    # Permit only files written from captured ontology bytes during this operation;
-    # installed/domain source reads must still fail after acquisition.
-    captured = {
-        a.content
-        for a in inputs.dependencies.artifacts
-        if a.name in inputs.dependencies.ontology_sources
-    }
-    materialized = set()
-    observed = set()
-    read_bytes, write_bytes = Path.read_bytes, Path.write_bytes
+    def ambient_read(path):
+        raise AssertionError(f"ambient source read during composition: {path}")
 
-    def captured_write(path, content):
-        assert path.parent.name.startswith("corpus-semantic-ontology-")
-        assert content in captured
-        written = write_bytes(path, content)
-        materialized.add(path)
-        return written
-
-    def captured_read(path):
-        assert path in materialized, f"ambient source read during composition: {path}"
-        content = read_bytes(path)
-        assert content in captured
-        observed.add(path)
-        return content
-
-    monkeypatch.setattr(Path, "write_bytes", captured_write)
-    monkeypatch.setattr(Path, "read_bytes", captured_read)
+    monkeypatch.setattr(Path, "read_bytes", ambient_read)
     first = regeneration.compose_pack_inputs((inputs,))
     second = regeneration.compose_pack_inputs((inputs,))
     assert first == second
-    from corpus_structure.semantic.interpretation_questions import CHARACTERIZATION_QUESTION_INPUT
-
-    assert (
-        next(
-            artifact.content
-            for artifact in first[1].artifacts
-            if artifact.name == CHARACTERIZATION_QUESTION_INPUT
-        )
-        == trusted["characterization-questions.yaml"]
-    )
     assert inputs.name == "statistics"
     assert inputs.bundle.sources
-    assert observed == materialized and observed
+    assert not any(artifact.name.startswith("execution/") for artifact in first[1].artifacts)
 
 
 def test_prepare_normalizes_duplicates_and_compiles_only_composed_root(monkeypatch):
@@ -76,3 +39,24 @@ def test_prepare_normalizes_duplicates_and_compiles_only_composed_root(monkeypat
     result = regeneration.prepare_packs((DOMAINS / "statistics", DOMAINS / "statistics"))
     assert result[-1] is sentinel
     assert calls == [result[:3]]
+
+
+def test_current_pack_acquisition_has_real_source_contracts_without_old_catalog(monkeypatch):
+    def forbidden(*args, **kwargs):
+        raise AssertionError("current pack preparation cannot compile or acquire an old catalog")
+
+    monkeypatch.setattr("corpus_structure.semantic.contracts.compile_execution_model", forbidden)
+    monkeypatch.setattr("corpus_structure.semantic.contracts.trusted_execution_inputs", forbidden)
+    bundle, dependencies, profile, prepared = regeneration.prepare_pack(DOMAINS / "statistics")
+    from corpus_structure.semantic.data_operation_admission import bound_data_operation_model
+
+    model = bound_data_operation_model(prepared)
+    assert prepared.execution_model_id is None
+    assert model.operation("data.inspect_data_operation_release").profile == "read"
+    assert "StatisticsQualification" in prepared.index.definitions
+    assert {"data_operation_rich_proposals", "source-readings"} <= {source.name for source in bundle.sources}
+    pin_fields = {prop.name for prop in prepared.index.definitions["RecordSourcePin"].properties}
+    assert {"source_product", "kind_contract", "subject_definition"} <= pin_fields
+    assert not {"source_view_id", "native_product_task_id"} & pin_fields
+    assert not any(artifact.name.startswith("execution/") for artifact in dependencies.artifacts)
+    assert profile.version == "semantic-2"

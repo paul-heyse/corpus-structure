@@ -1246,12 +1246,11 @@ def _prepare_release(
 ):
     from corpus_structure.schema.model import ModelError
     from corpus_structure.schema.model_change import physical_release_sources
-    from corpus_structure.semantic.contracts import trusted_execution_inputs
     from corpus_structure.semantic.regeneration import prepare_packs
 
     if data_operations is not None:
         if names:
-            raise ModelError(["target inputs and legacy domain packs are exclusive"])
+            raise ModelError(["explicit data-operation inputs and domain packs are exclusive"])
         from corpus_structure.schema.source_migrations import prepare_source_migration
         from corpus_structure.semantic.data_operation_preparation import (
             prepare_data_operation_inputs,
@@ -1270,8 +1269,7 @@ def _prepare_release(
     ):
         raise ModelError(["select one or more declared domain pack names"])
     sources = physical_release_sources(root) if physical_sources is None else physical_sources
-    execution = trusted_execution_inputs(physical_sources=sources) if sources is not None else None
-    return prepare_packs(tuple(root / "domains" / name for name in names), execution=execution)
+    return prepare_packs(tuple(root / "domains" / name for name in names), physical_sources=sources)
 
 
 @changes.command(

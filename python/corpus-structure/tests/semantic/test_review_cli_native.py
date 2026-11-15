@@ -17,7 +17,6 @@ from sqlalchemy import text
 from corpus_structure.evaluate.operation_assessment import record_pass
 from corpus_structure.schema.model_change import physical_release_sources
 from corpus_structure.schema.preparation import MODEL_PATH
-from corpus_structure.semantic.contracts import trusted_execution_inputs
 from corpus_structure.semantic.domain_operations import consolidate_cut
 from corpus_structure.semantic.migrations import current_revision
 from corpus_structure.semantic.operations import claim_tasks, complete_task, create_task, seal_cut
@@ -295,9 +294,8 @@ def test_installed_model_preview_binds_real_physical_diff_and_archived_compariso
     physical = yaml.safe_load(before)
     physical["classes"]["project"]["attributes"]["reviewed_fixture"] = {"range": "string"}
 
-    execution = trusted_execution_inputs(physical_sources=physical_release_sources(root))
     bundle, dependencies, profile, archived = prepare_packs(
-        (root / "domains" / "statistics",), execution=execution
+        (root / "domains" / "statistics",), physical_sources=physical_release_sources(root)
     )
     with commit_db_engine.begin() as conn:
         predecessor = current_revision(conn)

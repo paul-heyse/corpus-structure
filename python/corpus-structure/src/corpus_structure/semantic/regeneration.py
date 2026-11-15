@@ -12,13 +12,8 @@ from typing import Any
 
 import yaml
 
-from .analytical_profile import analytical_inputs
-from .composed import composed_dependencies
-from .contracts import ExecutionModelInputs, trusted_execution_inputs
 from .rich_knowledge_sources import rich_policy_inputs
-from .observations import prepare_source_inputs
 from .prepare import prepare_release
-from .proposals import proposal_inputs
 from .refusals import SemanticRefusal
 from .types import (
     PreparationProfile,
@@ -60,12 +55,10 @@ class PackInputs:
     dependencies: ResolvedDependencies
     qualifications: tuple[str, ...]
     statements: tuple[str, ...]
-    trusted_sources: tuple[SourceArtifact, ...]
-    execution: ExecutionModelInputs
 
 
-def acquire_pack(pack: Path, *, execution: ExecutionModelInputs | None = None) -> PackInputs:
-    """Acquire explicit inputs and bind operation dependencies to one compiled execution recipe."""
+def acquire_pack(pack: Path) -> PackInputs:
+    """Capture domain schema, terminology and declared policy bytes without compilation."""
     source = pack / "semantic.yaml"
     if not source.is_file():
         raise PackInputError(f"semantic declaration missing: {source}")
@@ -102,10 +95,6 @@ def acquire_pack(pack: Path, *, execution: ExecutionModelInputs | None = None) -
 
     terminology_sources, terminology_artifacts, ontology_names = acquire_terminology(pack)
     bundle = SourceBundle(bundle.root, (*bundle.sources, *terminology_sources))
-    execution = trusted_execution_inputs() if execution is None else execution
-    from .contracts import compile_execution_model
-
-    execution_model = compile_execution_model(execution)
     methods = _mapping(pack / "methods.yaml")
     core_rules = pack.parent / "core/schema/rules.yaml"
     rules = pack / "schema/rules.yaml"
@@ -156,28 +145,6 @@ def acquire_pack(pack: Path, *, execution: ExecutionModelInputs | None = None) -
     ]
     if len(statement_classes) > 1:
         raise PackInputError("pack requires one explicit SourceStatement subclass")
-    trusted_model = core.parent
-    from .characterization import _construction_model
-
-    trusted = tuple(
-        SourceArtifact(
-            name,
-            _construction_model((trusted_model / name).read_bytes())
-            if name == "characterization.yaml"
-            else (trusted_model / name).read_bytes(),
-        )
-        for name in (
-            "agent.yaml",
-            "observations.yaml",
-            "characterization.yaml",
-            "characterization-questions.yaml",
-            "record-references.yaml",
-            "record-policy.yaml",
-            "analytics.yaml",
-            "metrics.yaml",
-            "analytical-profile.json",
-        )
-    )
     return PackInputs(
         str(pack.resolve()),
         pack.name,
@@ -185,8 +152,6 @@ def acquire_pack(pack: Path, *, execution: ExecutionModelInputs | None = None) -
         deps,
         tuple(qualifiers),
         tuple(statement_classes),
-        trusted,
-        execution,
     )
 
 
@@ -194,18 +159,9 @@ def compose_pack_inputs(acquired: tuple[PackInputs, ...]):
     """Compose acquired immutable inputs without any filesystem reads or preparation."""
     if not acquired:
         raise PackInputError("at least one semantic pack is required")
-    trusted = acquired[0].trusted_sources
-    execution = acquired[0].execution
-    if any(
-        inputs.trusted_sources != trusted or inputs.execution != execution for inputs in acquired
-    ):
-        raise PackInputError("packs disagree on trusted semantic inputs")
-    content = {source.name: source.content for source in trusted}
     if len(acquired) == 1:
         inputs = acquired[0]
         bundle, deps = inputs.bundle, inputs.dependencies
-        qualification = inputs.qualifications[0] if inputs.qualifications else "Qualification"
-        statement_class = inputs.statements[0] if inputs.statements else "SourceStatement"
     else:
         from .alias_policy import RULE_INPUT, SOURCE_PROFILE
         from .identity import canonical_bytes
@@ -230,15 +186,6 @@ def compose_pack_inputs(acquired: tuple[PackInputs, ...]):
                 if previous != snapshot:
                     raise PackInputError(f"packs disagree on vocabulary snapshot {snapshot.enum}")
             for source in bundle.sources:
-                if source.name in {
-                    "agent",
-                    "agent-root",
-                    "observations",
-                    "observation-root",
-                    "analytics",
-                    "analytical-root",
-                }:
-                    continue
                 previous = sources.setdefault(source.name, source)
                 if previous != source:
                     raise PackInputError(f"packs disagree on semantic module {source.name}")
@@ -272,8 +219,6 @@ def compose_pack_inputs(acquired: tuple[PackInputs, ...]):
             )
             # Operation configuration remains pack-scoped, not a merged executable graph.
             for artifact in deps.artifacts:
-                if artifact.name.startswith(("execution/", "operation/analytical")):
-                    continue
                 if (
                     artifact.name.startswith("terminology/")
                     or artifact.name in deps.ontology_sources
@@ -306,10 +251,7 @@ def compose_pack_inputs(acquired: tuple[PackInputs, ...]):
         if qualifiers:
             qualification = "ComposedQualification"
             root["classes"] = {qualification: {"is_a": "Qualification", "mixins": qualifiers}}
-        statement_class = "SourceStatement"
-        if len(statement_classes) == 1:
-            statement_class = statement_classes[0]
-        elif statement_classes:
+        if len(statement_classes) > 1:
             raise PackInputError(
                 "composed packs require one explicit source-statement operation binding"
             )
@@ -331,90 +273,68 @@ def compose_pack_inputs(acquired: tuple[PackInputs, ...]):
             tuple(supplied_vocabularies.values()),
             tuple(sorted(ontology_names)),
         )
-    bundle = proposal_inputs(
-        bundle,
-        deps,
-        qualification_class=qualification,
-        statement_class=statement_class,
-        model_content=content["agent.yaml"],
-        observation_content=content["observations.yaml"],
-    )
-    from corpus_structure.evaluate.record_references import reference_inputs
-
-    from .record_assertions import source_reading_inputs
-    from .record_policy_products import record_policy_inputs
-
-    bundle = record_policy_inputs(bundle, model_content=content["record-policy.yaml"])
-    bundle = reference_inputs(bundle, model_content=content["record-references.yaml"])
+    # Resolve module and prefix agreement against captured schema bytes only. Rich
+    # source/proposal constructors are acquisition, and run after this pure merge.
     from .prepare import _view
 
-    view = _view(bundle, PreparationProfile(version="semantic-2"))
-    if any(
-        name != "SemanticRecordFields" and "SemanticRecordFields" in view.class_ancestors(name)
-        for name in view.all_classes()
-    ):
-        bundle = source_reading_inputs(bundle)
-    from .characterization import characterization_inputs
+    profile = PreparationProfile()
+    _view(bundle, profile)
+    return bundle, deps, profile
 
-    bundle = characterization_inputs(bundle, model_content=content["characterization.yaml"])
-    bundle, deps = prepare_source_inputs(
-        bundle,
-        deps,
-        model_content=content["observations.yaml"],
-        metric_content=content["metrics.yaml"],
-        characterization_content=content["characterization.yaml"],
-        characterization_question_content=content.get("characterization-questions.yaml"),
-    )
-    bundle, deps = analytical_inputs(
-        bundle,
-        deps,
-        model_content=content["analytics.yaml"],
-        profile=content["analytical-profile.json"],
-    )
-    import json
-    from dataclasses import replace
 
-    from .contracts import compile_execution_model
-    from .identity import canonical_bytes
-    from .scientific_evidence import bind_scientific_computation
-
-    # Rebind only supplied recipe bytes to the supplied candidate execution model.
-    # No installed source is consulted by pure pack composition.
-    model = compile_execution_model(execution)
-    computation = model.analysis_profiles[0].scientific_profiles
-    deps = replace(
-        deps,
-        artifacts=tuple(
-            replace(
-                artifact,
-                content=canonical_bytes(
-                    bind_scientific_computation(json.loads(artifact.content), computation)
-                ),
-            )
-            if artifact.name.endswith("operation/scientific-policy.json")
-            else artifact
-            for artifact in deps.artifacts
-        ),
+def _boundary_classes(acquired: tuple[PackInputs, ...]) -> tuple[str, str]:
+    qualifications = tuple(name for inputs in acquired for name in inputs.qualifications)
+    statements = tuple(name for inputs in acquired for name in inputs.statements)
+    if len(statements) > 1:
+        raise PackInputError("composed packs require one explicit source-statement operation binding")
+    qualification = (
+        "ComposedQualification" if len(acquired) > 1 and qualifications
+        else qualifications[0] if qualifications else "Qualification"
     )
-    deps = composed_dependencies(deps, execution)
-    return bundle, deps, PreparationProfile(version="semantic-2")
+    return qualification, statements[0] if statements else "SourceStatement"
 
 
 def acquire_packs(
     packs: tuple[Path, ...],
     *,
-    execution: ExecutionModelInputs | None = None,
+    physical_sources: dict[str, bytes] | None = None,
 ) -> tuple[SourceBundle, ResolvedDependencies, PreparationProfile]:
-    """Acquire/compose the actual bytes once, before pure preparation may refuse them."""
+    """Acquire the current domain/source/DDO capsule after pure pack composition."""
+    from .composed import data_operation_dependencies
+    from .data_operation_artifacts import capture_port_generator_sources
+    from .data_operation_storage import native_operation_declarations, native_protocol_sources
+    from .rich_knowledge_sources import (
+        rich_knowledge_declarations, rich_knowledge_schema_inputs,
+    )
+
     packs = tuple(sorted({pack.resolve() for pack in packs}))
-    acquired = tuple(acquire_pack(pack, execution=execution) for pack in packs)
-    return compose_pack_inputs(acquired)
+    acquired = tuple(acquire_pack(pack) for pack in packs)
+    bundle, dependencies, _profile = compose_pack_inputs(acquired)
+    qualification, statement = _boundary_classes(acquired)
+    bundle, dependencies = rich_knowledge_schema_inputs(
+        bundle, dependencies,
+        qualification_class=qualification, statement_class=statement,
+    )
+    native_options = {}
+    if physical_sources is not None:
+        from corpus_structure.schema.physical import linkml_types_source
+
+        native_options = {"physical_sources": physical_sources, "linkml_types": linkml_types_source()}
+    native = native_protocol_sources(**native_options)
+    dependencies = data_operation_dependencies(
+        ResolvedDependencies(
+            (*dependencies.artifacts, *native, *capture_port_generator_sources()),
+            dependencies.vocabularies, dependencies.ontology_sources,
+        ),
+        (*rich_knowledge_declarations(dependencies), native_operation_declarations(native)),
+    )
+    return bundle, dependencies, PreparationProfile(version="semantic-2")
 
 
 def prepare_packs(
     packs: tuple[Path, ...],
     *,
-    execution: ExecutionModelInputs | None = None,
+    physical_sources: dict[str, bytes] | None = None,
 ) -> tuple[SourceBundle, ResolvedDependencies, PreparationProfile, PreparedRelease]:
-    bundle, deps, profile = acquire_packs(packs, execution=execution)
+    bundle, deps, profile = acquire_packs(packs, physical_sources=physical_sources)
     return bundle, deps, profile, prepare_release(bundle, deps, profile)
