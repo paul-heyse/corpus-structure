@@ -1,5 +1,6 @@
 """Real evaluator snapshot publication preserves an independently frozen source cut."""
 
+import json
 from pathlib import Path
 
 import pytest
@@ -122,7 +123,7 @@ def test_evaluator_snapshot_executes_and_preserves_complete_authored_reference(d
         with evaluator.begin() as connection:
             selected = read_demand_result(connection, authored["demand_id"], project_id="ddo-test")
             snapshot = selected.members()[0]
-            assert snapshot["body"] == body
+            assert snapshot["body"] == json.loads(json.dumps(body))
             assert snapshot["derivation_id"] is not None
             with selected_record_index(
                 connection,

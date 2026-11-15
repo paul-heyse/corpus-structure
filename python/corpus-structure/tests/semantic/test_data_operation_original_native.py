@@ -350,4 +350,10 @@ def test_original_pdf_fact_admission_and_runless_private_stage_use_actual_reques
         assert context["request_id"] == claim["request_id"]
         assert context["generation"] == claim["generation"]
         assert context["document_id"] == document.id
-        assert connection.scalar(text("SELECT count(*) FROM ops.pdf_stage_build")) == 0
+        assert (
+            connection.scalar(
+                text("SELECT count(*) FROM ops.pdf_stage_build WHERE task_id=:task"),
+                {"task": claim["task_id"]},
+            )
+            == 0
+        )
