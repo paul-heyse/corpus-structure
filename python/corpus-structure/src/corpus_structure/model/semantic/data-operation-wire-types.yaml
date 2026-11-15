@@ -263,3 +263,9 @@ fields:
   "#/definitions/demand_intent/properties/targets/items": WireOperationId
   "#/definitions/demand_intent/properties/root_operations/items": WireOperationId
   '#/definitions/demand_read_scope/properties/product_ids/items': WireProductId
+  '#/definitions/initialize_source_project_request/properties/project_id': corpus_structure.semantic.identifiers.ProjectId
+  '#/definitions/initialize_source_project_request/properties/release_id': corpus_structure.semantic.identifiers.ReleaseId
+  '#/definitions/initialize_source_project_request/properties/realization_id': corpus_structure.semantic.identifiers.RealizationId
+  '#/definitions/initialize_source_project_result/properties/project_id': corpus_structure.semantic.identifiers.ProjectId
+  '#/definitions/initialize_source_project_result/properties/release_id': corpus_structure.semantic.identifiers.ReleaseId
+  '#/definitions/initialize_source_project_result/properties/realization_id': corpus_structure.semantic.identifiers.RealizationId

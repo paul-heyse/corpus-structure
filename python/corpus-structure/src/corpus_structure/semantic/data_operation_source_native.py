@@ -14,17 +14,23 @@ _SQL = Path(__file__).with_name("sql") / "data_operation_source_admission.sql"
 
 
 def source_native_sources() -> tuple[SourceArtifact, ...]:
+    from .original_document_contracts import source_admission_sources
+
     return (
+        *source_admission_sources(),
         SourceArtifact("native/data-operation-source-admission.sql", _SQL.read_bytes()),
         SourceArtifact("native/data-operation-source-native.py", Path(__file__).read_bytes()),
     )
 
 
 def source_native_sql() -> str:
+    from .original_document_contracts import source_original_sql
     from .data_operation_storage import _rename_native_entrypoints
     from .data_operation_wire import wire_operations
 
-    return _rename_native_entrypoints(_SQL.read_text(), {operation["name"] for operation in wire_operations()})
+    sql = _SQL.read_text() + "\n" + source_original_sql()
+    return _rename_native_entrypoints(sql, {item["name"] for item in wire_operations()})
+
 
 
 def source_native_definitions(connection) -> tuple[NativeDefinition, ...]:
@@ -41,9 +47,13 @@ def source_native_definitions(connection) -> tuple[NativeDefinition, ...]:
                 prepared.excerpt(index),
                 source=source,
                 owner="corpus_sem_publisher",
-                grants=(("corpus_sem_writer", "EXECUTE", False),)
-                if statement.funcname[-1].sval == "ddo_pdf_capture_source"
-                else (),
+                grants=(
+                    (("corpus_sem_writer", "EXECUTE", False),)
+                    if statement.funcname[-1].sval in {"ddo_pdf_capture_source", "retain_original_document"}
+                    else tuple((role, "EXECUTE", False) for role in ("corpus_sem_writer", "corpus_sem_reader", "corpus_sem_admitter", "corpus_sem_evaluator"))
+                    if statement.funcname[-1].sval == "require_source_admission"
+                    else ()
+                ),
             )
         )
     return tuple(definitions)

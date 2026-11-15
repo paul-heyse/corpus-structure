@@ -180,6 +180,8 @@ def _captured(sources) -> dict[str, bytes]:
         "native/data-operation-original-reference.json",
         "native/data-operation-support.py",
     }
+    if b"original_document_contracts" in result.get("native/data-operation-source-native.py", b""):
+        required.update({"native/source-admission-calls.json", "native/original-document-contracts.py", "native/original-documents.py", "native/source-originals.sql"})
     if b"corpus_structure.semantic.identifiers." in result.get("native/data-operation-wire-types.yaml", b""):
         required.add("native/identifiers.py")
     if b"native_call_contracts" in result.get("native/data-operation-storage.py", b""):
@@ -333,6 +335,8 @@ def native_operation_declarations(sources=None) -> SourceArtifact:
 
     sources = native_protocol_sources() if sources is None else tuple(sources)
     digest = native_source_digest(sources)
+    from .original_document_contracts import operation_asset
+    source_owner, source_asset = operation_asset(sources)
     operations = []
     for item in _protocol(sources):
         name = item["name"]
@@ -407,6 +411,7 @@ def native_operation_declarations(sources=None) -> SourceArtifact:
                 },
                 "behavior": "ddo-native-v1:" + digest,
                 "parameters": {},
+                "assets": [source_asset] if "data." + name == source_owner else [],
                 "binding": {"operator": "scan", "roles": ["request"]},
             }
         )

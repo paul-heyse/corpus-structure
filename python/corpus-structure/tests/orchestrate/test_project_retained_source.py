@@ -13,9 +13,8 @@ from corpus_structure.semantic.data_operation_support import OriginalDocumentRef
 @pytest.fixture
 def initialization(monkeypatch, tmp_path):
     from corpus_structure.semantic import (
-        _operation_calls,
-        contracts,
-        operations,
+        data_operation_storage,
+        original_document_contracts,
         original_documents,
         releases,
     )
@@ -38,19 +37,23 @@ def initialization(monkeypatch, tmp_path):
     )
     conn = MagicMock()
     conn.scalar.return_value = "grinstead_snell/book.pdf"
-    initialized, registered = MagicMock(), MagicMock()
+    initialized = MagicMock(return_value={"project_id":"grinstead","release_id":"release","realization_id":"source"})
+    registered = MagicMock()
     monkeypatch.setattr(
         releases, "load_release", lambda *args: SimpleNamespace(release_id="release")
     )
-    monkeypatch.setattr(contracts, "require_bound_operation", lambda *args: None)
-    monkeypatch.setattr(_operation_calls, "initialize_source_project", initialized)
-    monkeypatch.setattr(operations, "register_document", registered)
+    monkeypatch.setattr(original_document_contracts, "require_source_operation_context", lambda *args: None)
+    monkeypatch.setattr(data_operation_storage.DataOperationStorage, "initialize_source_project", initialized)
+    monkeypatch.setattr(original_documents, "register_original_document", registered)
+    read_original = MagicMock(return_value=raw)
+    monkeypatch.setattr(original_documents, "read_original_document_bytes", read_original)
     authenticated = MagicMock(return_value=SimpleNamespace(reference=reference))
     monkeypatch.setattr(original_documents, "acquire_original_document_selection", authenticated)
     return SimpleNamespace(
         conn=conn,
         initialized=initialized,
         registered=registered,
+        read_original=read_original,
         authenticated=authenticated,
         reference=reference,
         original=original,
@@ -90,10 +93,21 @@ def test_foreign_or_absent_original_refuses_before_project_effects(initializatio
     f.authenticated.assert_not_called()
 
 
-def test_changed_file_cannot_be_registered_as_retained_original(initialization):
+def test_retained_fact_uses_its_authenticated_bytes_when_local_file_changes(initialization):
     f = initialization
-    f.original.write_bytes(b"%PDF-1.7\nchanged source\n")
-    with pytest.raises(project.ProjectError, match="authenticated original"):
+    f.original.write_bytes(b"%PDF-1.7\nchanged local file\n")
+    result = invoke(f, originals=(f.reference,))
+    assert result.documents == 1
+    f.read_original.assert_called_once()
+    f.registered.assert_not_called()
+
+
+def test_unavailable_retained_bytes_refuse_before_initialization(initialization):
+    from corpus_structure.semantic.original_documents import OriginalDocumentReadRefused
+
+    f = initialization
+    f.read_original.side_effect = OriginalDocumentReadRefused("missing", "retained original artifact is unavailable")
+    with pytest.raises(OriginalDocumentReadRefused, match="unavailable"):
         invoke(f, originals=(f.reference,))
     f.initialized.assert_not_called()
     f.registered.assert_not_called()

@@ -57,8 +57,9 @@ def validate_call_bindings(model, inputs):
             _fail("operation_call", "operations/" + operation.id, "fixed call needs its trusted implementation owner")
     implementations = {binding.id: binding for binding in model.implementations}
     core_owners = {
-        operation.id: implementations[operation.implementation].owner + "." + implementations[operation.implementation].symbol
+        (operation.id, call.id): implementations[operation.implementation].owner + "." + implementations[operation.implementation].symbol
         for operation in model.operations if operation.implementation is not None
+        for call in operation.calls
     }
     logical, physical = _legacy_sources(inputs)
     calls = resolve_call_bindings(

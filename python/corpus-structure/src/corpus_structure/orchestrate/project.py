@@ -3,7 +3,7 @@
 from pathlib import Path
 
 from pydantic import BaseModel
-from sqlalchemy import Connection, select
+from sqlalchemy import Connection
 
 from corpus_structure.semantic.data_operation_support import OriginalDocumentRef
 
@@ -38,23 +38,22 @@ def init_bound_project(
     import yaml
 
     from corpus_structure.schema.pack import DOMAINS
-    from corpus_structure.semantic.contracts import require_bound_operation
-    from corpus_structure.semantic.operations import register_document
+    from corpus_structure.semantic.original_document_contracts import require_source_operation_context
+    from corpus_structure.semantic.data_operation_storage import DataOperationStorage
+    from corpus_structure.semantic.original_documents import register_original_document
     from corpus_structure.semantic.releases import load_release
 
     if not domain or Path(domain).name != domain or domain in {".", ".."}:
         raise ProjectError("domain must name a declared pack")
     prepared = load_release(conn, release_id)
-    require_bound_operation(prepared, "construct_project")
+    require_source_operation_context(prepared)
     project_id = name or domain
-    retained_hashes = {}
+    retained_bytes = {}
     if originals:
-        from corpus_structure.semantic.metadata import table
-        from corpus_structure.semantic.original_documents import acquire_original_document_selection
+        from corpus_structure.semantic.original_documents import acquire_original_document_selection, read_original_document_bytes
 
         if len({value.document_key for value in originals}) != len(originals):
             raise ProjectError("retained originals must be distinct exact document keys")
-        document = table("kb.document")
         paths = []
         for reference in originals:
             if reference.project_id != project_id:
@@ -64,15 +63,9 @@ def init_bound_project(
             )
             if retained.reference != reference:
                 raise ProjectError("retained original differs from its authenticated metadata")
-            uri = conn.scalar(
-                select(document.c.source_uri).where(
-                    document.c.project_id == project_id, document.c.key == reference.document_key
-                )
-            )
-            if not isinstance(uri, str):
-                raise ProjectError("retained original has no registered source path")
-            paths.append(uri)
-            retained_hashes[uri] = reference.content_hash
+            raw = read_original_document_bytes(conn, reference, prepared=prepared)
+            retained_bytes[reference.document_key] = raw
+            paths.append(reference.document_key)
     else:
         pack = (domains or DOMAINS) / domain
         inventory = yaml.safe_load((pack / "methods.yaml").read_text())
@@ -92,32 +85,31 @@ def init_bound_project(
     root = corpus.resolve()
     acquired = []
     for uri in paths:
-        original = (root / uri).resolve()
-        if not original.is_relative_to(root) or original.suffix.lower() != ".pdf":
-            raise ProjectError("PDF original must remain within the selected corpus")
-        raw = original.read_bytes()
-        if uri in retained_hashes:
-            from hashlib import sha256
-
-            if sha256(raw).hexdigest() != retained_hashes[uri]:
-                raise ProjectError("retained PDF file differs from its authenticated original")
+        if originals:
+            raw = retained_bytes[uri]
+            original = None
+        else:
+            original = (root / uri).resolve()
+            if not original.is_relative_to(root) or original.suffix.lower() != ".pdf":
+                raise ProjectError("PDF original must remain within the selected corpus")
+            raw = original.read_bytes()
         if not raw.startswith(b"%PDF-"):
             raise ProjectError("configured original is not a PDF: " + uri)
         acquired.append((uri, original, raw))
-    from corpus_structure.semantic._operation_calls import initialize_source_project
-    from corpus_structure.semantic._operation_ids import ProjectId, RealizationId, ReleaseId
+    from corpus_structure.semantic.identifiers import ProjectId, RealizationId, ReleaseId
 
-    initialize_source_project(
-        conn,
-        project_id=ProjectId(project_id),
-        release_id=ReleaseId(release_id),
-        realization_id=RealizationId(realization_id),
-        projection_context=prepared,
-    )
+    result = DataOperationStorage(conn).initialize_source_project({
+        "project_id": ProjectId(project_id), "release_id": ReleaseId(release_id),
+        "realization_id": RealizationId(realization_id),
+    })
+    if result != {"project_id": project_id, "release_id": release_id, "realization_id": realization_id}:
+        raise ProjectError("initialized project context differs from its exact requested identities")
     for uri, original, raw in acquired:
         if originals:
             continue
-        register_document(
+        if original is None:
+            raise ProjectError("new source registration requires its acquired original path")
+        register_original_document(
             conn,
             project_id=project_id,
             source_uri=uri,

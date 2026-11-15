@@ -1082,8 +1082,10 @@ classes:
         range: integer
         required: true
         annotations:
+          ph:python_type: "corpus_structure.semantic.identifiers.DocumentId"
           ph:identity: 'true'
       project_id:
+        annotations: {cp:type_source: "physical:data.project.project_id"}
         range: string
         required: true
       key:

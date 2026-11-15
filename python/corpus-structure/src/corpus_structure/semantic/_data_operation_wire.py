@@ -6,7 +6,13 @@ from collections.abc import Mapping
 from decimal import Decimal
 from typing import Any, Literal, NewType, NotRequired, Required, TypedDict, cast
 
-from corpus_structure.semantic.identifiers import ProjectId, ReleaseId, TaskAttempt, TaskId
+from corpus_structure.semantic.identifiers import (
+    ProjectId,
+    RealizationId,
+    ReleaseId,
+    TaskAttempt,
+    TaskId,
+)
 
 type WireExactJSONValue = (
     dict[str, WireExactJSONValue]
@@ -694,6 +700,18 @@ class WireExternalPacketHead(TypedDict):
     state: Required[Literal["awaiting-external"]]
     subject: Required[WireSubjectId]
     task_id: Required[TaskId]
+
+
+class WireInitializeSourceProjectRequest(TypedDict):
+    project_id: Required[ProjectId]
+    realization_id: Required[RealizationId]
+    release_id: Required[ReleaseId]
+
+
+class WireInitializeSourceProjectResult(TypedDict):
+    project_id: Required[ProjectId]
+    realization_id: Required[RealizationId]
+    release_id: Required[ReleaseId]
 
 
 class WireInspectDataCompletionRequest(TypedDict):
@@ -1416,4 +1434,11 @@ class DataOperationCalls:
     ) -> WireReadSelectedPdfSourceResult:
         return cast(
             WireReadSelectedPdfSourceResult, self._invoke("read_selected_pdf_source", payload)
+        )
+
+    def initialize_source_project(
+        self, payload: WireInitializeSourceProjectRequest
+    ) -> WireInitializeSourceProjectResult:
+        return cast(
+            WireInitializeSourceProjectResult, self._invoke("initialize_source_project", payload)
         )

@@ -356,7 +356,7 @@ def source_bindings(
 def resolve_call_bindings(
     calls: tuple[tuple[str, OperationCallBinding], ...],
     *, logical_sources: Mapping[str, bytes], physical_sources: Mapping[str, bytes],
-    core_owners: Mapping[str, str] | None = None,
+    core_owners: Mapping[tuple[str, str], str] | None = None,
 ) -> tuple[tuple[str, OperationCallBinding], ...]:
     """Compile qualified fixed variants from explicit field references and closed sources."""
     from corpus_structure.schema.model import ci_annotations
@@ -489,7 +489,7 @@ def resolve_call_bindings(
         ):
             _fail("operation_call", location, "native symbol must be qualified")
         if call.backend == "core":
-            if call.symbol != core_owners.get(owner):
+            if call.symbol != core_owners.get((owner, call.id)):
                 _fail("operation_call", location, "Core symbol differs from its trusted owner")
             if call.result_mode not in {"table", "scalar"} or call.batch:
                 _fail("operation_call", location, "Core boundaries support fixed rows/scalars")

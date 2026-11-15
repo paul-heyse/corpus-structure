@@ -600,62 +600,6 @@ def cut_observations(conn: Connection, cut_id: CutId) -> list[dict[str, Any]]:
     ]
 
 
-def register_document(
-    conn: Connection,
-    *,
-    project_id: str,
-    source_uri: str,
-    original_path: str,
-    original: bytes,
-    mime: str,
-    title: str | None = None,
-    metadata: Mapping[str, Any] | None = None,
-    prepared: PreparedRelease | None = None,
-) -> DocumentId:
-    from . import _operation_calls as calls
-    from .contracts import require_bound_operation
-
-    if prepared is not None:
-        require_bound_operation(prepared, "register_document")
-    from pathlib import Path
-
-    if Path(original_path).read_bytes() != original:
-        raise OperationConflict("retained original bytes differ from registered source")
-    content_hash = sha256(original).hexdigest()
-    from corpus_structure.core.evidence import document_key
-
-    key = document_key(project_id, source_uri, content_hash)
-    t = table("kb.document")
-    request = calls.prepare_document_registration(
-        project_id=ProjectId(project_id),
-        key=key,
-        source_uri=source_uri,
-        content_hash=content_hash,
-        original_path=original_path,
-        mime=mime,
-        title=title,
-        meta=dict(metadata or {}),
-        projection_context=prepared,
-    )
-    values = calls.values_document_registration_kb_document(request)
-    conn.execute(pg_insert(t).values(**values).on_conflict_do_nothing())
-    row = calls.collect_document_registration(
-        conn.execute(
-            select(*calls.projection_document_registration).where(
-                t.c.project_id == request.project_id, t.c.key == request.key
-            )
-        )
-    )
-    actual = row.decoded_json_fields(operation="register_document")
-    if any(
-        actual[k] != value
-        for k, value in calls.expected_document_registration_kb_document(request).items()
-    ):
-        raise OperationConflict("source identity denotes another source descriptor")
-    calls.retain_source_artifact(conn, document_id=row.id, original=original)
-    return row.id
-
-
 class SourceReadRefused(OperationConflict):
     """An owned source-read failure with an explicit modeled outcome."""
 

@@ -346,7 +346,6 @@ def approved_implementations() -> Mapping[str, Any]:
     from corpus_structure.intervene.directions import record_direction
     from corpus_structure.intervene.semantic import ProposalSession
     from corpus_structure.methods.math.prepared import assess_parsing_math, interpret_parsing_math
-    from corpus_structure.orchestrate import project
     from corpus_structure.orchestrate.pdf_streaming import run_private_pdf_build
 
     from . import (
@@ -385,7 +384,6 @@ def approved_implementations() -> Mapping[str, Any]:
             "archive": releases.persist_release,
             "reload": releases.load_release,
             "activate": releases.activate_release,
-            "project": project.init_bound_project,
             "start_run": operations.create_run,
             "method": operations.record_method,
             "schedule": operations.create_task,
@@ -398,7 +396,6 @@ def approved_implementations() -> Mapping[str, Any]:
             "record_direction": record_direction,
             "cut": operations.seal_cut,
             "end_run": operations.end_source_run,
-            "register_document": operations.register_document,
             "read_original": operations.read_original,
             "prepare_parsing_text": capture_text,
             "interpret_parsing_math": interpret_parsing_math,

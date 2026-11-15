@@ -3,6 +3,7 @@
 from typing import NewType
 
 ContentDigest = NewType("ContentDigest", str)
+DocumentId = NewType("DocumentId", int)
 ProductKey = NewType("ProductKey", str)
 ProjectId = NewType("ProjectId", str)
 RealizationId = NewType("RealizationId", str)

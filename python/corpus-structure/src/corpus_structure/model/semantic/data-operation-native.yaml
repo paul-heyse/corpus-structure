@@ -2388,6 +2388,34 @@ definitions:
     required: [receipt, cut]
     additionalProperties: false
 
+  initialize_source_project_request:
+    type: object
+    properties:
+      project_id:
+        $ref: '#/definitions/identifier'
+      release_id:
+        $ref: '#/definitions/identifier'
+      realization_id:
+        $ref: '#/definitions/identifier'
+    required:
+    - project_id
+    - release_id
+    - realization_id
+    additionalProperties: false
+  initialize_source_project_result:
+    type: object
+    properties:
+      project_id:
+        $ref: '#/definitions/identifier'
+      release_id:
+        $ref: '#/definitions/identifier'
+      realization_id:
+        $ref: '#/definitions/identifier'
+    required:
+    - project_id
+    - release_id
+    - realization_id
+    additionalProperties: false
 operations:
 - name: admit_authored_data
   profile: command
@@ -2566,3 +2594,9 @@ operations:
   request: read_selected_pdf_source_request
   result: read_selected_pdf_source_result
   purposes: [read]
+
+- name: initialize_source_project
+  profile: command
+  request: initialize_source_project_request
+  result: initialize_source_project_result
+  purposes: [write]
