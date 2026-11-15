@@ -1,6 +1,7 @@
 """Independent selected graph policy and missing-custody controls."""
 
 from types import SimpleNamespace
+import json
 
 import pytest
 
@@ -172,5 +173,23 @@ def test_authored_admission_is_not_relabelled_original_source(tmp_path,monkeypat
             index.append(json_bytes(dict(key=relation+":authored",relation=relation,record=row)))
         snapshot=snapshot_from_index(SimpleNamespace(release_id="release"),cut,index,"selected-support")
         assert next(node for node in snapshot.nodes if node.identity=='ops.original_source_admission:"authored"').kind=="authored"
+    finally:
+        index.close()
+
+
+@pytest.mark.parametrize("fate", ["awaiting-population", "unavailable"])
+def test_requestless_recorded_fate_preserves_obligation_and_use(tmp_path,monkeypatch,fate):
+    from corpus_structure.semantic import data_operation_admission
+    monkeypatch.setattr(data_operation_admission,"bound_data_operation_model",lambda prepared: model(operation("operation")))
+    index=SelectedRecordIndex(tmp_path/"requestless.sqlite")
+    pins=dict(demand_id="demand",project_id="project",release_id="release",runtime_id="runtime",selection={},trust_snapshot={},read_id="read",read_snapshot="snapshot",frontier_at="time",scope={})
+    try:
+        index.append_page(dict(**pins,obligations=[dict(obligation_id="waiting",operation_id="op",request_id=None,fate=fate)],uses=[dict(use_id="u",obligation_id="waiting",request_id=None,derivation_id=None,selection={},fate=fate)]))
+        snapshot=snapshot_from_index(SimpleNamespace(release_id="release"),CutSelection(json_bytes(pins)),index,"bound-requests")
+        assert {node.kind for node in snapshot.nodes}=={"obligation","use"}
+        assert len(snapshot.occurrences)==1
+        assert snapshot.occurrences[0].source=='ddo.selected-obligation:"waiting"'
+        assert snapshot.occurrences[0].target=='ops.demand_use:"u"'
+        assert json.loads(next(node for node in snapshot.nodes if node.kind=="use").payload_json)["fate"]==fate
     finally:
         index.close()

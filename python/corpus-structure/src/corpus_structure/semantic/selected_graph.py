@@ -93,6 +93,9 @@ def snapshot_from_index(prepared, cut, index, projection):
             node("ops.demand_use", name, "use", row)
         for row in index.frontier_rows("obligations"):
             owner = node("ddo.selected-obligation", row["obligation_id"], "obligation", row)
+            for use_id, use in frontier_uses.items():
+                if use.get("obligation_id") == row["obligation_id"]:
+                    edge(owner, required("ops.demand_use", use_id, "selected obligation use"), "requires", "selected-use", witness={"obligation_id": row["obligation_id"], "use_id": use_id})
             if row.get("request_id"):
                 # Waiting/attached requests without an episode have no exported raw
                 # request row. Their exact selected frontier owns the identity.
@@ -132,6 +135,10 @@ def snapshot_from_index(prepared, cut, index, projection):
 
         for name, row in all_uses.items():
             owner = required("ops.demand_use", name, "use")
+            if row.get("request_id") is None:
+                if row.get("fate") in {"attached", "fulfilled"} or row.get("historical_fate") in {"attached", "fulfilled"}:
+                    raise ValueError("attached or fulfilled use lacks its semantic request")
+                continue  # Recorded availability fates do not fabricate a request/binding.
             request = required("ops.data_request", row["request_id"], "request")
             edge(request, owner, "requires", "selected-use", witness={"use_id": name})
             for position, ref in enumerate(row.get("selection", {}).get("support", ())):
@@ -208,6 +215,10 @@ def snapshot_from_index(prepared, cut, index, projection):
                 )
         for name, row in all_uses.items():
             owner = required("ops.demand_use", name, "use")
+            if row.get("request_id") is None:
+                if row.get("fate") in {"attached", "fulfilled"} or row.get("historical_fate") in {"attached", "fulfilled"}:
+                    raise ValueError("attached or fulfilled use lacks its semantic request")
+                continue
             if row.get("derivation_id"):
                 edge(
                     owner,
@@ -339,18 +350,7 @@ def selected_graph_snapshot(connection, prepared, request):
             if request.projection == "assessment":
                 from corpus_structure.evaluate.assessment_graph import assessment_graph_snapshot
 
-                addresses = tuple(
-                    (row["product_id"], row["member_id"])
-                    for row in index.rows("kb.data_product_member")
-                    if (
-                        request.scope.get("product_id") is None
-                        or row["product_id"] == request.scope["product_id"]
-                    )
-                    and (
-                        request.scope.get("member_id") is None
-                        or row["member_id"] == request.scope["member_id"]
-                    )
-                )
+                addresses = tuple((member.product_id, member.member_id) for member in request.assessed_members)
                 return assessment_graph_snapshot(prepared, cut, index, members=addresses)
             return snapshot_from_index(prepared, cut, index, request.projection)
     except SelectedGraphBudgetExceeded as error:
