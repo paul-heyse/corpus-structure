@@ -290,7 +290,7 @@ def _interpretation_dependencies(dependencies):
 def _record_composition(name):
     from corpus_structure.evaluate.record_references import reference_inputs
     from corpus_structure.semantic.characterization import characterization_inputs
-    from corpus_structure.semantic.record_assertions import source_reading_inputs
+    from corpus_structure.semantic.source_reading_schema import source_reading_inputs
 
     if name == "base":
         return None, None

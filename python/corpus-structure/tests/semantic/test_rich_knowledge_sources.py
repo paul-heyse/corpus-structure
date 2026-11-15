@@ -28,7 +28,7 @@ def test_actual_rich_composition_captures_schema_policy_and_nominal_members_with
         context_profile=acquire_analysis_context_profile(),
         qualification_class="StatisticsQualification", statement_class="SourceStatement",
     )
-    assert {"data_operation_rich_proposals", "source-readings"} <= {source.name for source in bundle.sources}
+    assert {"data_operation_rich_proposals", "source-readings", "data_operation_reading_resolution", "data_operation_candidate_inspection"} <= {source.name for source in bundle.sources}
     assert {RULE_INPUT, RICH_CONTRACT_INPUT, "operation/scientific-policy.json"} <= {source.name for source in deps.artifacts}
     model = compile_data_operations(bundle, declarations=rich_knowledge_declarations(deps))
     assert len(derive_member_kinds(model, "https://corpus-structure.dev/semantic/data-operation-rich-knowledge/DdoRichConsolidation")) == 13
@@ -96,6 +96,12 @@ def test_rich_policy_refs_resolve_exact_captured_profile_and_checked_kind_owners
     assert policy.qualification_contract==contracts[prepared.qualification_definition("StatisticsQualification").iri]
     assert policy.statement_contract==contracts[prepared.index.definitions["SourceStatement"].iri]
     assert rich_context_profile(prepared)==profile
+    from corpus_structure.semantic.rich_knowledge_contracts import DdoRichConsolidationPolicy
+    assert policy.allowed_domain_contracts
+    narrower = rich_policy_value(prepared, model, allowed_domain_contracts=(policy.allowed_domain_contracts[0],))
+    assert require_rich_policy(prepared, model, narrower) == narrower
+    with pytest.raises(ValueError, match="Entity-class contract"):
+        rich_policy_value(prepared, model, allowed_domain_contracts=(policy.qualification_contract,))
     assert require_rich_policy(prepared,model,policy.model_dump(mode="python"))==policy
     with pytest.raises(ValueError,match="checked captured"):
         require_rich_policy(prepared,model,policy.model_copy(update={"rules_digest":"f"*64}))

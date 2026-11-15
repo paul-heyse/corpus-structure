@@ -127,7 +127,8 @@ def rich_knowledge_schema_inputs(
     """
     from .external_extraction import external_extraction_inputs
     from .observations import prepare_source_inputs
-    from .record_assertions import source_reading_inputs
+    from .source_reading_schema import source_reading_inputs
+    from .reading_resolution_products import reading_resolution_inputs
     from .rich_knowledge_contracts import rich_kind_declarations
     from .data_operation_model import MODEL_VERSION
 
@@ -135,7 +136,7 @@ def rich_knowledge_schema_inputs(
         raise ValueError("rich knowledge contracts already declared")
     bundle, dependencies = prepare_source_inputs(bundle, dependencies)
     bundle = external_extraction_inputs(bundle, dependencies, qualification_class=qualification_class, statement_class=statement_class)
-    bundle = source_reading_inputs(bundle)
+    bundle = source_reading_inputs(reading_resolution_inputs(bundle), require_families=False)
     declarations = SourceArtifact(RICH_CONTRACT_INPUT, canonical_bytes({
         "version": MODEL_VERSION, "kinds": rich_kind_declarations(),
     }))

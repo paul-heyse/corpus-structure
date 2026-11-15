@@ -1,5 +1,6 @@
 """Shared controlled inputs and builders for record assertions support."""
 
+from corpus_structure.semantic.source_reading_schema import source_reading_inputs
 from collections.abc import Mapping
 from copy import deepcopy
 from functools import cache
@@ -17,7 +18,6 @@ from corpus_structure.semantic.composed import composed_dependencies
 from corpus_structure.semantic.observations import observation_inputs
 from corpus_structure.semantic.record_assertions import (
     lower_record_assertions,
-    source_reading_inputs,
 )
 from corpus_structure.semantic.record_contracts import (
     anchor_identity,
