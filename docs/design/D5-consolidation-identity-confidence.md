@@ -19,6 +19,21 @@ Implementation/qualification is owned by the DDO coordinator.
 
 > Decision: [ADR-0109](../adr/0109-ddo-current-domain-contracts.md)
 
+**Accepted target detail; implementation in progress, native qualification Proposed · 2026-11-15.**
+Rich preparation uses an invocation-owned graph assembly without publication or eligibility
+standing. Actual rule evaluation produces explicit selected fact/occurrence sets and scientific
+representatives under the checked policy basis. Admission preserves that selection and separately
+decides source-reading fidelity. Rule views retain all actual entity classes; proposition references
+and statement-premise sets identify facts while rule decisions identify source occurrences.
+
+A selected known admission can preserve its original eligibility only when its recorded policy
+basis equals the current checked consolidation policy. That basis binds the actual rules,
+scientific/context profile and allowed domain contracts. A readable root or authentic old receipt
+does not establish eligibility under changed rules. Unsupported bases require regeneration or an
+explicit reassessment with the necessary real inputs. Unchanged embedded source references remain
+attributed provenance; they do not become current input bindings. The coordinator owns completion
+of the producer, native and consumer integration.
+
 
 ## Witnessed component target
 
