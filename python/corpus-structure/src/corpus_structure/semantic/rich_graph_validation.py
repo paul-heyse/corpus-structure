@@ -20,7 +20,7 @@ from .rich_knowledge_contracts import (
     DdoRichCollectionValue, DdoRichConsolidation, DdoRichDiagnostic, DdoRichEntity,
     DdoRichEntityValue, DdoRichFact, DdoRichOccurrence, DdoRichQualificationMeaning,
     DdoRichRecordValue, DdoRichScalarValue, DdoRichSelectedMember,
-    DdoRichSourceReadingAssertion, DdoRichIdentityResolution, DdoRichOccurrenceDecision, RichGraphAssembly,
+    DdoRichSourceReadingAssertion, DdoRichIdentityResolution, DdoRichIdentityExclusion, DdoRichOccurrenceDecision, RichGraphAssembly,
     rich_reference_key,
 )
 from .types import PreparedRelease
@@ -61,6 +61,8 @@ def _body_id(body) -> str:
         return body.resolution_id
     if isinstance(body, DdoRichOccurrenceDecision):
         return body.decision_id
+    if isinstance(body, DdoRichIdentityExclusion):
+        return body.exclusion_id
     raise ValueError("rich member has no declared current identity owner")
 
 
@@ -435,6 +437,14 @@ class ValidatedRichGraph:
                 for entity in body.relevant_entity_ids:
                     self.member(entity, DdoRichEntity)
                 for reference in (*body.source_members, *body.dependency_sources):
+                    self.external(reference)
+            elif isinstance(body, DdoRichIdentityExclusion):
+                from .rich_identity_exclusions import validate_rich_identity_exclusion
+                validate_rich_identity_exclusion(self.prepared, self.context, body)
+                for identifier in (body.left_entity_id, body.right_entity_id):
+                    if identifier is not None:
+                        self.member(identifier, DdoRichEntity)
+                for reference in body.source_members:
                     self.external(reference)
             elif isinstance(body, DdoRichOccurrenceDecision):
                 occurrence = self.member(body.occurrence_id, DdoRichOccurrence)

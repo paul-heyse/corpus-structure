@@ -135,7 +135,7 @@ def test_actual_rich_consolidation_contract_has_finite_closed_nominal_member_kin
         "DdoRichScalarValue", "DdoRichEntityValue", "DdoRichRecordValue", "DdoRichCollectionValue",
         "DdoRichEntity", "DdoRichFact", "DdoRichOccurrence", "DdoRichSourceReadingAssertion",
         "DdoRichAlternative", "DdoRichAssessment", "DdoRichDiagnostic",
-        "DdoRichCasefoldText", "DdoRichQualificationMeaning", "DdoRichIdentityResolution", "DdoRichOccurrenceDecision",
+        "DdoRichCasefoldText", "DdoRichQualificationMeaning", "DdoRichIdentityResolution", "DdoRichOccurrenceDecision", "DdoRichIdentityExclusion",
     }
     for root in ("DdoRichConsolidation", "DdoRichAdmission"):
         assert set(derive_member_kinds(model, namespace + root)) == {namespace + name for name in expected}

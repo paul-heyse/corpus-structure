@@ -79,6 +79,7 @@ RICH_QUERY_SOURCES = (
     "_query_custody.py", "semantic/rich_queries.py", "semantic/rich_statistics_queries.py",
     "serve/rich_queries.py", "serve/rich_knowledge.py", "semantic/rich_graph_validation.py",
     "semantic/rich_knowledge_contracts.py", "semantic/rich_decisions.py", "semantic/rich_value_graph.py",
+    "semantic/rich_identity_exclusions.py", "semantic/declared_structural_references.py", "semantic/structural_base.py",
     "semantic/qualification_meaning.py", "semantic/reference_positions.py", "semantic/statement_types.py",
     "semantic/alias_policy.py", "core/keys.py", "core/tex.py", "core/vocab.py",
     "semantic/data_operation_identity.py", "semantic/data_operation_json.py", "semantic/data_operation_model.py",

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from decimal import Decimal
 from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -11,6 +12,7 @@ from corpus_structure.core.evidence import MacroDef
 from .data_operation_json import DdoJsonValue
 from .data_operation_model import EffectiveDataOperationModel, SubjectContext
 from .data_operation_support import SupportReference, read_support_references, support_reference_records
+from .declared_structural_references import DeclaredStructuralSource
 
 from .rich_decisions import (
     DdoRichEligibility, DdoRichOccurrenceDecision, DdoRichScientificRepresentative,
@@ -30,6 +32,16 @@ class DdoRichContext(RichRecord):
     subject_definition: Nonempty
     original_source: Nonempty | None
     analyzed_scope: DdoJsonValue
+
+
+class DdoRichContextPin(RichRecord):
+    """Internal CPU custody, using the existing exact tagged context meaning."""
+    project_id: Nonempty
+    subject: Nonempty
+    subject_definition: Nonempty
+    original_source: Nonempty | None
+    analyzed_scope_meaning: Nonempty
+
 
 
 class DdoRichSelectedMember(RichRecord):
@@ -146,6 +158,50 @@ class DdoRichIdentityResolution(RichRecord):
     dependency_sources: tuple[DdoRichSelectedMember, ...]
 
 
+class DdoRichExclusionEndpoint(RichRecord):
+    kind: Literal["local", "known"]
+    target: Nonempty
+
+
+class DdoRichLocatedEvidence(RichRecord):
+    """Materialized declaration evidence, checked against captured AgentLocatedEvidence."""
+    sentence: str
+    quote: str
+    role: Nonempty
+    placement: str
+    matches: Annotated[int, Field(ge=0)]
+    picked: bool
+    outcome: Nonempty
+    locator: str | None = None
+    start: Annotated[int, Field(ge=0)] | None = None
+    end: Annotated[int, Field(ge=0)] | None = None
+    timeouts: tuple[str, ...] | None = None
+    alignment_score: Decimal | None = None
+    fuzzy_counts: tuple[int, ...] | None = None
+
+
+class DdoRichExclusionDeclaration(RichRecord):
+    local_id: Nonempty
+    unit_ref: Nonempty
+    source: DeclaredStructuralSource
+    context: DdoRichContextPin
+    left: DdoRichExclusionEndpoint
+    right: DdoRichExclusionEndpoint
+    reason: str
+    evidence: Annotated[tuple[DdoRichLocatedEvidence, ...], Field(min_length=1)]
+
+
+class DdoRichIdentityExclusion(RichRecord):
+    member_type: Literal["identity-exclusion"]
+    exclusion_id: Nonempty
+    declaration: DdoRichExclusionDeclaration
+    left_entity_id: Nonempty | None
+    right_entity_id: Nonempty | None
+    outcome: Literal["located", "unlocated", "unresolved-endpoint"]
+    reason: Nonempty
+    source_members: Annotated[tuple[DdoRichSelectedMember, ...], Field(min_length=1, max_length=1)]
+
+
 class DdoRichFact(RichRecord):
     """Property meaning, independent of whether a source asserts or supports it."""
     member_type: Literal["fact"]
@@ -226,7 +282,7 @@ type DdoRichMemberBody = (
     | DdoRichCasefoldText | DdoRichQualificationMeaning
     | DdoRichEntity | DdoRichFact | DdoRichOccurrence | DdoRichSourceReadingAssertion
     | DdoRichAlternative | DdoRichAssessment | DdoRichDiagnostic
-    | DdoRichIdentityResolution | DdoRichOccurrenceDecision
+    | DdoRichIdentityResolution | DdoRichOccurrenceDecision | DdoRichIdentityExclusion
 )
 
 
@@ -237,13 +293,6 @@ class DdoRichPacket(RichRecord):
     body: DdoRichMemberBody
 
 
-class DdoRichContextPin(RichRecord):
-    """Internal CPU custody, using the existing exact tagged context meaning."""
-    project_id: Nonempty
-    subject: Nonempty
-    subject_definition: Nonempty
-    original_source: Nonempty | None
-    analyzed_scope_meaning: Nonempty
 
 
 class DdoRichComputedMember(RichRecord):
