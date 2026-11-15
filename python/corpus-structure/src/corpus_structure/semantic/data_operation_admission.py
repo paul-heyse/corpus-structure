@@ -2,6 +2,11 @@
 
 from __future__ import annotations
 
+from typing import cast
+from corpus_structure.semantic._data_operation_wire import (
+    WireInspectDataExecutionRequest,
+)
+
 import json
 from dataclasses import dataclass
 from hashlib import sha256
@@ -185,14 +190,11 @@ def acquire_python_execution(
         ) != [tuple(item) for item in manifest["sources"]]:
             raise SemanticRefusal("callable schema differs from captured release inputs")
     identity = python_port_identity(model, sources, operation, schema=schema, prepared=prepared)
-    retained = DataOperationStorage(connection).invoke(
-        "inspect_data_execution",
-        {
+    retained = DataOperationStorage(connection).inspect_data_execution(cast(WireInspectDataExecutionRequest, {
             "release_id": prepared.release_id,
             "operation_id": operation,
             "runtime_id": runtime.runtime_id,
-        },
-    )
+        }))
     if (
         retained["recipe"] != identity.recipe
         or retained["implementation_revision"] != identity.implementation
@@ -240,13 +242,10 @@ def acquire_publication_port(connection: Connection, prepared: PreparedRelease):
         identity.owner: identity.key for identity in model.identities if identity.domain == "kind"
     }
     require_data_operation_native(connection, prepared)
-    admitted = DataOperationStorage(connection).invoke(
-        "inspect_data_execution",
-        {
+    admitted = DataOperationStorage(connection).inspect_data_execution(cast(WireInspectDataExecutionRequest, {
             "release_id": prepared.release_id,
             "operation_id": operation.semantic_id,
-        },
-    )
+        }))
     identities = {(value.owner, value.domain): value.key for value in model.identities}
     if (
         admitted["profile"] != "command"

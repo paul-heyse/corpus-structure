@@ -439,3 +439,186 @@ def json_schema_category(schema: dict[str, Any]) -> Literal["class", "type"]:
         return value.get("type") == "object"
 
     return "class" if object_record(schema) else "type"
+
+
+CORRESPONDENCE_SOURCE = "native/data-operation-wire-types.yaml"
+
+
+def wire_type_name(name: str) -> str:
+    return "Wire" + "".join(part[:1].upper() + part[1:] for part in name.split("_"))
+
+
+def wire_nominal_correspondence(sources=None) -> tuple[tuple[str, str], ...]:
+    """Read explicit source pointers, never infer identity from identifier/string fields."""
+    if sources is None:
+        content = (Path(__file__).resolve().parents[1] / "model/semantic/data-operation-wire-types.yaml").read_bytes()
+    else:
+        selected = [s.content for s in sources if s.name == CORRESPONDENCE_SOURCE]
+        if len(selected) != 1:
+            raise ValueError("wire types require one captured nominal correspondence")
+        content = selected[0]
+    document = yaml.safe_load(content)
+    if not isinstance(document, dict) or set(document) != {"version", "fields"} or document["version"] != "data-operation-wire-types-v1":
+        raise ValueError("unsupported native wire nominal correspondence")
+    definitions = _protocol(sources)["definitions"]
+    fields = document["fields"]
+    if not isinstance(fields, dict):
+        raise ValueError("wire nominal fields must be source pointer bindings")
+    for pointer, nominal in fields.items():
+        if not isinstance(nominal, str) or not nominal.isidentifier():
+            raise ValueError("invalid nominal wire name at " + pointer)
+        value = {"definitions": definitions}
+        try:
+            for part in pointer.removeprefix("#/").split("/"):
+                value = value[int(part)] if isinstance(value, list) else value[part]
+        except (KeyError, IndexError, ValueError, TypeError) as error:
+            raise ValueError("unresolved nominal wire source " + pointer) from error
+        while isinstance(value, dict) and "$ref" in value:
+            value = definitions[value["$ref"].removeprefix("#/definitions/")]
+        alternatives = value.get("anyOf", value.get("oneOf", [value]))
+        for alternative in alternatives:
+            if "$ref" in alternative:
+                alternative = definitions[alternative["$ref"].removeprefix("#/definitions/")]
+            if alternative.get("type") not in {"string", "integer", "null"}:
+                raise ValueError("nominal wire source is not a scalar identity: " + pointer)
+    return tuple(sorted(fields.items()))
+
+
+def render_wire_types(definitions, nominals=()):
+    """Project today's closed structural schema; Draft7 retains all runtime constraints.
+
+    TypedDict keys express omission, unions preserve their individual records and
+    arrays remain lists. Exact recursive JSON includes Decimal. No structuring,
+    defaults or validation is delegated to these static declarations.
+    """
+    from keyword import iskeyword
+
+    nominal = dict(nominals)
+    classes, aliases, active = {}, {}, set()
+    nominal_bases = {}
+
+    def union(values):
+        return " | ".join(dict.fromkeys(values)) or "Never"
+
+    def annotation(value, name, pointer):
+        if value is True or value == {}:
+            return "WireExactJSONValue"
+        if value is False:
+            return "Never"
+        if not isinstance(value, dict):
+            raise ValueError("unsupported structural wire schema at " + pointer)
+        if pointer in nominal:
+            target = value
+            while "$ref" in target:
+                target = definitions[target["$ref"].removeprefix("#/definitions/")]
+            branches = target.get("anyOf", target.get("oneOf", [target]))
+            types = []
+            for branch in branches:
+                while "$ref" in branch:
+                    branch = definitions[branch["$ref"].removeprefix("#/definitions/")]
+                types.append(branch.get("type"))
+            base = "int" if "integer" in types else "str"
+            alias = nominal[pointer]
+            if alias in nominal_bases and nominal_bases[alias] != base:
+                raise ValueError("inconsistent nominal wire scalar: " + alias)
+            nominal_bases[alias] = base
+            return alias + (" | None" if "null" in types else "")
+        if "$ref" in value:
+            target = value["$ref"].removeprefix("#/definitions/")
+            emit(target)
+            return wire_type_name(target)
+        if "const" in value or "enum" in value:
+            literals = value.get("enum", [value.get("const")])
+            if any(type(item) not in {str, int, bool, type(None)} for item in literals):
+                raise ValueError("unsupported wire literal at " + pointer)
+            return "Literal[" + ", ".join(repr(item) for item in literals) + "]"
+        typ = value.get("type")
+        if typ == "object" or "properties" in value:
+            properties = value.get("properties", {})
+            additional = value.get("additionalProperties", True)
+            if not properties:
+                return "dict[str, " + annotation(additional, name + "Value", pointer + "/additionalProperties") + "]"
+            if additional is not False:
+                raise ValueError("mixed open record needs an explicit structural lowering at " + pointer)
+            fields = []
+            for key, child in properties.items():
+                if not key.isidentifier() or iskeyword(key):
+                    raise ValueError("unsupported wire record key at " + pointer + "/properties/" + key)
+                expression = annotation(child, name + key.title().replace("_", ""), pointer + "/properties/" + key)
+                presence = "Required" if key in value.get("required", []) else "NotRequired"
+                fields.append(f"    {key}: {presence}[{expression}]")
+            classes[name] = [f"class {name}(TypedDict):", *fields]
+            return name
+        for keyword in ("oneOf", "anyOf"):
+            if keyword in value:
+                return union(annotation(branch, name + "Variant" + str(index + 1), pointer + "/" + keyword + "/" + str(index)) for index, branch in enumerate(value[keyword]))
+        if "if" in value:
+            return union(annotation(value[key], name + key.title(), pointer + "/" + key) for key in ("then", "else") if key in value)
+        if isinstance(typ, list):
+            # The open recursive JSON declaration names its own exact value domain.
+            return union(annotation({**value, "type": item}, name, pointer + "/type/" + str(index)) for index, item in enumerate(typ))
+        if typ == "array":
+            items = value.get("items", True)
+            element = union(annotation(child, name + "Item" + str(index + 1), pointer + "/items/" + str(index)) for index, child in enumerate(items)) if isinstance(items, list) else annotation(items, name + "Item", pointer + "/items")
+            return "list[" + element + "]"
+        primitive = {"string": "str", "integer": "int", "boolean": "bool", "number": "int | float | Decimal", "null": "None"}.get(typ if isinstance(typ, str) else "")
+        if primitive:
+            return primitive
+        raise ValueError("unsupported structural wire schema at " + pointer)
+
+    def emit(key):
+        name = wire_type_name(key)
+        if name in active or name in aliases or name in classes:
+            return
+        active.add(name)
+        expression = annotation(definitions[key], name, "#/definitions/" + key)
+        active.remove(name)
+        if expression != name:
+            aliases[name] = expression
+
+    for key in sorted(definitions):
+        emit(key)
+    # A physical fence is the shared source projection of these three protocols,
+    # never a second authored DTO or an inferred identity from field spelling.
+    fence_sources = ("renew_data_request_request", "retain_data_completion_intent_request", "publish_data_derivation_request")
+    fence_fields = ()
+    if all(source in definitions for source in fence_sources):
+        common = set.intersection(*(set(definitions[source]["properties"]) for source in fence_sources))
+        source = fence_sources[0]
+        fence_fields = tuple(key for key in definitions[source]["properties"] if key in common)
+        classes["WireAttemptFence"] = ["class WireAttemptFence(TypedDict):", *[
+            f"    {key}: Required[{annotation(definitions[source]['properties'][key], 'WireAttemptFence' + key.title(), '#/definitions/' + source + '/properties/' + key)}]" for key in fence_fields
+        ]]
+    out = ["type WireExactJSONValue = dict[str, WireExactJSONValue] | list[WireExactJSONValue] | str | bool | int | float | Decimal | None", ""]
+    out += [f"{name} = NewType({name!r}, {base})" for name, base in sorted(nominal_bases.items())]
+    for lines in classes.values():
+        out += ["", *lines]
+    for name, expression in aliases.items():
+        out += ["", f"type {name} = {expression}"]
+    if fence_fields:
+        out += ["", "def wire_attempt_fence(value: Mapping[str, Any]) -> WireAttemptFence:", "    return {", *[f"        {key!r}: value[{key!r}]," for key in fence_fields], "    }"]
+    return "\n".join(out) + "\n"
+
+
+def generated_wire_source(sources=None):
+    """Checkout facade and records use the same structural emitter as archived calls."""
+    protocol = _protocol(sources)
+    out = [
+        '"""Generated closed native wire types and fixed call facade; do not edit."""',
+        "from __future__ import annotations", "from decimal import Decimal", "from collections.abc import Mapping",
+        "from typing import Any, Literal, Never, NewType, NotRequired, Required, TypedDict, cast",
+        "", render_wire_types(protocol["definitions"], wire_nominal_correspondence(sources)),
+        "class DataOperationCalls:",
+        "    def _invoke(self, name: str, payload: Any) -> Any:",
+        "        raise NotImplementedError", "",
+    ]
+    for operation in protocol["operations"]:
+        name = operation["name"]
+        request, result = (wire_type_name(operation[side]) for side in ("request", "result"))
+        out += [f"    def {name}(self, payload: {request}) -> {result}:", f"        return cast({result}, self._invoke({name!r}, payload))", ""]
+    return "\n".join(out)
+
+
+if __name__ == "__main__":
+    from corpus_structure.schema.generate import _format
+    Path(__file__).with_name("_data_operation_wire.py").write_text(_format("semantic/_data_operation_wire.py", generated_wire_source()))

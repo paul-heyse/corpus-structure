@@ -148,10 +148,7 @@ def test_native_writer_retains_and_publishes_complete_member_witnesses(ddo_kerne
     ready, completion, _ = ready_completion(ddo_kernel)
     fence = claim(ddo_kernel, json.loads(ready.native))
     with ddo_kernel.purpose("write").begin() as writer:
-        intent = DataOperationStorage(writer).invoke(
-            "retain_data_completion_intent",
-            {**fence, "runtime_id": ddo_kernel["runtime"], "completion": completion},
-        )
+        intent = DataOperationStorage(writer).retain_data_completion_intent({**fence, "runtime_id": ddo_kernel["runtime"], "completion": completion})
     receipt = publish(ddo_kernel, fence, intent)
     assert receipt["derivation_id"]
 
@@ -179,10 +176,7 @@ def test_native_writer_refuses_schema_valid_pin_without_one_complete_member(ddo_
         pytest.raises(DBAPIError, match="output witness has no complete selected input member"),
         writer.begin_nested(),
     ):
-        DataOperationStorage(writer).invoke(
-            "retain_data_completion_intent",
-            {**fence, "runtime_id": ddo_kernel["runtime"], "completion": completion},
-        )
+        DataOperationStorage(writer).retain_data_completion_intent({**fence, "runtime_id": ddo_kernel["runtime"], "completion": completion})
     with ddo_kernel["engine"].connect() as connection:
         assert (
             connection.scalar(

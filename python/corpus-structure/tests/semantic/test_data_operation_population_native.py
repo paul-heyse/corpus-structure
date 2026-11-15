@@ -25,21 +25,21 @@ def test_native_selected_population_has_authentic_parent_and_frozen_filter(
     demand, consumer, parent = discover(ddo_kernel, complete=complete)
     with ddo_kernel["engine"].begin() as connection:
         storage = DataOperationStorage(connection)
-        acquired = storage.invoke("read_demand_result", demand)
+        acquired = storage.read_demand_result(demand)
         request = {
             **consumer,
             "population_name": "selected-items",
             "parent_population_id": parent["population_id"],
             "read_id": acquired["read_id"],
         }
-        selected = storage.invoke("select_data_population", request)
+        selected = storage.select_data_population(request)
         assert [member["member_id"] for member in selected["members"]] == ["m15"]
         assert selected["complete"] is complete
         assert selected["evidence"]["derivation_id"] == parent["evidence"]["derivation_id"]
         assert selected["evidence"]["selection"]["obligation_id"] == consumer["obligation_id"]
         assert selected["evidence"]["producer_context"]["subject"] == "doc"
-        assert storage.invoke("select_data_population", request) == selected
-        current = storage.invoke("read_demand_result", demand)
+        assert storage.select_data_population(request) == selected
+        current = storage.read_demand_result(demand)
         visible = [
             population
             for population in current["populations"]
@@ -49,9 +49,7 @@ def test_native_selected_population_has_authentic_parent_and_frozen_filter(
         assert "selected_obligation_id" not in visible[0]
         # Paging the unrelated producer cannot disclose the consumer's selected receipt.
         for page in current["obligations"]:
-            single = storage.invoke(
-                "read_demand_result",
-                {
+            single = storage.read_demand_result({
                     "demand_id": demand["demand_id"],
                     "limit": 1,
                     **(
@@ -64,8 +62,7 @@ def test_native_selected_population_has_authentic_parent_and_frozen_filter(
                         if page["obligation_id"] != ""
                         else {}
                     ),
-                },
-            )
+                })
             exposed = {item["obligation_id"] for item in single["obligations"]}
             assert all(
                 population["evidence"]["selection"]["obligation_id"] in exposed
@@ -126,9 +123,7 @@ def _complete_ready(ddo_kernel, ready, value=1):
     )
     kind_contract = ddo_kernel["identities"][kind, "kind"]
     with ddo_kernel["engine"].begin() as connection:
-        intent = DataOperationStorage(connection).invoke(
-            "retain_data_completion_intent",
-            {
+        intent = DataOperationStorage(connection).retain_data_completion_intent({
                 **claim_fence,
                 "runtime_id": ddo_kernel["runtime"],
                 "completion": {
@@ -149,8 +144,7 @@ def _complete_ready(ddo_kernel, ready, value=1):
                         }
                     ],
                 },
-            },
-        )
+            })
     return publish(ddo_kernel, claim_fence, intent)
 
 
@@ -284,7 +278,7 @@ def test_discovery_same_local_subject_distinct_contexts_reach_child_publication(
     receipts = [_complete_ready(ddo_kernel, child) for child in children]
     assert len({receipt["derivation_id"] for receipt in receipts}) == 2
     with ddo_kernel["engine"].connect() as connection:
-        uses = DataOperationStorage(connection).invoke("read_demand_result", demand)["uses"]
+        uses = DataOperationStorage(connection).read_demand_result(demand)["uses"]
     child_obligations = {child.obligation for child in children}
     fulfilled = [use for use in uses if use["obligation_id"] in child_obligations]
     assert len(fulfilled) == 2 and all(use["fate"] == "fulfilled" for use in fulfilled)

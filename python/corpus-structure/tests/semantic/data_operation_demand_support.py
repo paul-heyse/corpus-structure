@@ -39,27 +39,21 @@ def attach(
     ).record
     with (engine or kernel["engine"]).begin() as connection:
         storage = DataOperationStorage(connection)
-        demand = storage.invoke(
-            "register_data_demand",
-            {
+        demand = storage.register_data_demand({
                 "project_id": project_id,
                 "release_id": kernel["prepared"].release_id,
                 "runtime_id": kernel["runtime"],
                 "root": [root],
                 "selection": selected,
                 "strength": "value",
-            },
-        )
-        obligation = storage.invoke(
-            "expand_data_obligation",
-            {
+            })
+        obligation = storage.expand_data_obligation({
                 "demand_id": demand["demand_id"],
                 "operation_id": operation,
                 **root,
                 "parameters": {},
-            },
-        )
-        acquired = storage.invoke("read_demand_result", {"demand_id": demand["demand_id"]})
+            })
+        acquired = storage.read_demand_result({"demand_id": demand["demand_id"]})
         request = SemanticRequestKey(
             kernel["identities"][operation, "recipe"],
             subject,
@@ -88,20 +82,17 @@ def attach(
             },
             "replicate": None,
         }
-        attached = storage.invoke("attach_data_request", wire)
+        attached = storage.attach_data_request(wire)
     return demand, obligation, wire, attached
 
 
 def claim(kernel, attached, holder="producer", seconds=30):
     with kernel["engine"].begin() as connection:
-        result = DataOperationStorage(connection).invoke(
-            "claim_data_request",
-            {
+        result = DataOperationStorage(connection).claim_data_request({
                 "request_id": attached["request_id"],
                 "holder": holder,
                 "lease_seconds": seconds,
-            },
-        )
+            })
     return {
         name: result[name] for name in ("request_id", "generation", "task_id", "attempt", "holder")
     }
@@ -130,33 +121,25 @@ def retain(kernel, fence, *, outputs=(1,), outcome="success", mutate=None):
     if mutate:
         mutate(completion)
     with kernel["engine"].begin() as connection:
-        intent = DataOperationStorage(connection).invoke(
-            "retain_data_completion_intent",
-            {
+        intent = DataOperationStorage(connection).retain_data_completion_intent({
                 **fence,
                 "runtime_id": kernel["runtime"],
                 "completion": completion,
-            },
-        )
+            })
     return intent
 
 
 def publish(kernel, fence, intent):
     with kernel["engine"].begin() as connection:
-        return DataOperationStorage(connection).invoke(
-            "publish_data_derivation",
-            {
+        return DataOperationStorage(connection).publish_data_derivation({
                 **fence,
                 "intent_id": intent["intent_id"],
-            },
-        )
+            })
 
 
 def cancel_demand(kernel, demand, reason="operator stopped this demand"):
     with kernel["engine"].begin() as connection:
-        return DataOperationStorage(connection).invoke(
-            "cancel_data_demand", {"demand_id": demand["demand_id"], "reason": reason}
-        )
+        return DataOperationStorage(connection).cancel_data_demand({"demand_id": demand["demand_id"], "reason": reason})
 
 
 def expire_lease(kernel, fence):

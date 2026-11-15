@@ -199,10 +199,7 @@ def _case(scenario_seeds, *, empty):
 
 def _m1_result(kernel, demand):
     with kernel.engine.begin() as connection:
-        result = DataOperationStorage(connection).invoke(
-            "read_demand_result",
-            {"demand_id": demand, "view": "products", "limit": 100, "max_bytes": 8388608},
-        )
+        result = DataOperationStorage(connection).read_demand_result({"demand_id": demand, "view": "products", "limit": 100, "max_bytes": 8388608})
         completions = (
             connection.execute(
                 text(

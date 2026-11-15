@@ -43,10 +43,7 @@ def test_native_external_packet_preserves_repeated_pins_order_context_and_proven
         assert ready.operation == "urn:ddo-test:source"
     source_fence = claim(ddo_kernel, json.loads(ready.native))
     with ddo_kernel["engine"].begin() as connection:
-        packet = DataOperationStorage(connection).invoke(
-            "retain_external_data_packet",
-            {**source_fence, "runtime_id": ddo_kernel["runtime"], "max_bytes": 100000},
-        )
+        packet = DataOperationStorage(connection).retain_external_data_packet({**source_fence, "runtime_id": ddo_kernel["runtime"], "max_bytes": 100000})
     session = ExternalDataSession(ddo_kernel["engine"], "ddo-test")
     leased = session.claim(packet["packet_id"])
     actual = session.read(packet["packet_id"], leased)["packet"]

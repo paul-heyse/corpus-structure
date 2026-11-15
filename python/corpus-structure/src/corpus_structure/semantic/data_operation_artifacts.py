@@ -25,6 +25,7 @@ _GENERATOR_FILES = (
     "data_operation_ports.py",
     "data_operation_cpu.py",
     "data_operation_wire.py",
+    "data_operation_json.py",
 )
 
 
@@ -215,6 +216,16 @@ def _validate_native_role(
     )
     native = _NATIVE_PRIMITIVES.get(primitive) if isinstance(primitive, str) else None
     resolved = field.resolved
+    if field.wire_schema is not None:
+        from .data_operation_wire import render_wire_types, schema_closure
+        structural = json.loads(field.wire_schema)
+        reference = structural.get("$ref", "").removeprefix("#/definitions/")
+        definitions = structural.get("definitions", {})
+        if reference not in definitions or schema_closure(definitions[reference], definitions) != schema:
+            raise ValueError("structural native lowering differs from captured semantic schema")
+        render_wire_types(definitions, field.wire_nominals)
+    elif field.wire_nominals:
+        raise ValueError("nominal native correspondence lacks its structural schema")
     if native is None or resolved is None or resolved.kind != native:
         raise ValueError(
             "native field type differs from effective semantic kind; "

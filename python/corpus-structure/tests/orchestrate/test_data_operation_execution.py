@@ -271,9 +271,7 @@ def test_six_native_contexts_claim_only_the_bounded_window_and_preserve_settled_
     assert windows and all(1 <= count <= 2 for count in windows)
     assert executor.budget.used_bytes == 0
     with engine.begin() as connection:
-        snapshot = DataOperationStorage(connection).invoke(
-            "read_demand_result", {"demand_id": demand, "view": "products"}
-        )
+        snapshot = DataOperationStorage(connection).read_demand_result({"demand_id": demand, "view": "products"})
         assert {row["fate"] for row in snapshot["obligations"]} == {"fulfilled"}
         products = [product for use in snapshot["uses"] for product in use["products"]]
         assert len(products) == 6 and len({product["product_id"] for product in products}) == 6

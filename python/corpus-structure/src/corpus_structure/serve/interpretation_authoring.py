@@ -6,6 +6,11 @@ constructs a private registry, source run, consolidation cut or active selection
 
 from __future__ import annotations
 
+from typing import cast
+from corpus_structure.semantic._data_operation_wire import (
+    WireReadDemandResultRequest,
+)
+
 from corpus_structure.semantic.data_operation_demands import DemandPlanner
 from corpus_structure.semantic.data_operation_service import (
     NativeDemandRequest,
@@ -55,9 +60,7 @@ def author_interpretations(engine, prepared, *, request: NativeDemandRequest):
         )
         if registered.get("state") == "cancelled":
             raise ValueError("cancelled demand cannot admit new authored facts")
-        snapshot = storage.invoke(
-            "read_demand_result", {"demand_id": registered["demand_id"], "limit": 1}
-        )
+        snapshot = storage.read_demand_result(cast(WireReadDemandResultRequest, {"demand_id": registered["demand_id"], "limit": 1}))
         admissions = tuple(
             value
             for value in snapshot["original_source_admissions"]

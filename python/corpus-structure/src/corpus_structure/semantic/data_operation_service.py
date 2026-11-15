@@ -2,6 +2,14 @@
 
 from __future__ import annotations
 
+from typing import cast
+from corpus_structure.semantic._data_operation_wire import (
+    WireCancelDataDemandRequest,
+    WireReadDemandResultRequest,
+    WireReadDemandResultResult,
+    WireCancelDataDemandResult,
+)
+
 from decimal import Decimal
 from pathlib import Path
 from typing import Any, Literal
@@ -10,7 +18,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import Connection
 
 from .data_operation_admission import bound_data_operation_model
-from .data_operation_demands import DemandIntent, DemandPlanner
+from .data_operation_demands import DemandIntent, DemandPlanner, ResumedDataDemand
 from .data_operation_json import json_bytes
 from .data_operation_storage import DataOperationStorage
 from .releases import load_release
@@ -80,6 +88,7 @@ class NativeDemandRequest(BaseModel):
 def freeze_native_demand(prepared, request: NativeDemandRequest) -> DemandIntent:
     """Freeze exact choices using the compiled declarations and existing validators."""
     from .data_operation_demands import (
+    ResumedDataDemand,
         DiscoverySelection,
         OperationSelection,
         RootSubject,
@@ -125,7 +134,7 @@ def freeze_native_demand(prepared, request: NativeDemandRequest) -> DemandIntent
 
 def create_native_demand(
     connection: Connection, request: NativeDemandRequest, *, prepared=None
-) -> dict[str, Any]:
+) -> ResumedDataDemand:
     """Authenticate retained runtime custody before admitting the compiled intent."""
     from .runtime_binding_store import runtime_binding_for_release
 
@@ -235,7 +244,7 @@ class CreateDataDemand(BaseModel):
     strength: str = "value"
 
 
-def create_data_demand(connection: Connection, request: CreateDataDemand) -> dict[str, Any]:
+def create_data_demand(connection: Connection, request: CreateDataDemand) -> ResumedDataDemand:
     prepared = load_release(connection, request.release_id)
     planner = DemandPlanner(bound_data_operation_model(prepared), DataOperationStorage(connection))
     demand = planner.register(
@@ -256,7 +265,7 @@ def read_data_demand(
     limit: int | None = None,
     max_bytes: int | None = None,
     view: Literal["frontier", "products"] | None = None,
-) -> dict[str, Any]:
+) -> WireReadDemandResultResult:
     """Preserve all native continuation pins; new bounds and view are explicit overrides."""
     payload = dict(continuation) if continuation is not None else {"demand_id": demand_id}
     if payload.get("demand_id") != demand_id:
@@ -269,15 +278,12 @@ def read_data_demand(
         if continuation is not None and payload.get("view", view) != view:
             raise ValueError("continuation view differs from the explicit requested view")
         payload["view"] = view
-    return DataOperationStorage(connection).invoke("read_demand_result", payload)
+    return DataOperationStorage(connection).read_demand_result(cast(WireReadDemandResultRequest, payload))
 
 
-def cancel_data_demand(connection: Connection, demand_id: str, *, reason: str) -> dict[str, Any]:
+def cancel_data_demand(connection: Connection, demand_id: str, *, reason: str) -> WireCancelDataDemandResult:
     """Native cancellation retains shared producers and never asserts physical retirement."""
-    return DataOperationStorage(connection).invoke(
-        "cancel_data_demand",
-        {
+    return DataOperationStorage(connection).cancel_data_demand(cast(WireCancelDataDemandRequest, {
             "demand_id": demand_id,
             "reason": reason,
-        },
-    )
+        }))

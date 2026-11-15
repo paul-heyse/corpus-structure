@@ -33,10 +33,7 @@ def create_packet(kernel):
     demand, _, _, attached = attach(kernel)
     fence = claim(kernel, attached)
     with kernel["engine"].begin() as connection:
-        packet = DataOperationStorage(connection).invoke(
-            "retain_external_data_packet",
-            {**fence, "runtime_id": kernel["runtime"], "max_bytes": 100000},
-        )
+        packet = DataOperationStorage(connection).retain_external_data_packet({**fence, "runtime_id": kernel["runtime"], "max_bytes": 100000})
     return demand, fence, packet
 
 

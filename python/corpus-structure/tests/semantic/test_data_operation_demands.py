@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from corpus_structure.semantic._data_operation_wire import DataOperationCalls
+
 import math
 from datetime import date
 from decimal import Decimal
@@ -611,11 +613,11 @@ def test_one_frozen_discovery_population_fans_out_distinct_child_targets_once():
     intent = freeze(compiled, discovery=relations).record
     assert set(intent["root_operations"]) == {"op:discover", "op:result"}
 
-    class Storage:
+    class Storage(DataOperationCalls):
         def __init__(self):
             self.calls = []
 
-        def invoke(self, name, value):
+        def _invoke(self, name, value):
             self.calls.append((name, value))
             if name == "close_data_population":
                 return {

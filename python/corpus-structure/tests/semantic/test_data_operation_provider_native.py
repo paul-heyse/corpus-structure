@@ -131,16 +131,13 @@ def test_native_provider_selected_attachment_and_forgery_refusal(ddo_kernel):
             pytest.raises(DBAPIError, match="provider identity differs"),
             connection.begin_nested(),
         ):
-            DataOperationStorage(connection).invoke(
-                "attach_data_request",
-                {
+            DataOperationStorage(connection).attach_data_request({
                     "obligation_id": ready.obligation,
                     "request_meaning": json.loads(forged.canonical_input),
                     "request_key": forged.key,
                     "binding": binding,
                     "replicate": None,
-                },
-            )
+                })
 
 
 @pytest.mark.parametrize("ddo_kernel", [PROFILED], indirect=True, ids=["provider-runtime"])

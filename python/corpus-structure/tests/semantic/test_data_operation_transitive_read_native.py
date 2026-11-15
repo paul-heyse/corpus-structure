@@ -132,16 +132,13 @@ def test_transitive_support_revocation_changes_pinned_read_and_fresh_acquisition
             == page_a["read_id"]
         )
         scope_c = connection.scalar(text("SELECT ops.ddo_scope('ddo-test','source:C')"))
-        DataOperationStorage(connection).invoke(
-            "revoke_data_support",
-            {
+        DataOperationStorage(connection).revoke_data_support({
                 "project_id": "ddo-test",
                 "original_source": "source:C",
                 "selector_kind": "derivation",
                 "selector": c["derivation_id"],
                 "reason": "transitive upstream withdrawal",
-            },
-        )
+            })
     with pytest.raises(DBAPIError, match=r"support|revoked"):
         publish(ddo_kernel, fence_a, intent_a)
     with ddo_kernel["engine"].connect() as connection:
@@ -165,14 +162,11 @@ def test_transitive_support_revocation_changes_pinned_read_and_fresh_acquisition
             == ()
         )
     with ddo_kernel["engine"].begin() as connection:
-        denied = DataOperationStorage(connection).invoke(
-            "claim_data_request",
-            {
+        denied = DataOperationStorage(connection).claim_data_request({
                 "request_id": json.loads(ready_a.native)["request_id"],
                 "holder": "after-revocation",
                 "lease_seconds": 30,
-            },
-        )
+            })
         assert denied == {"state": "no-work"}
     # A new C event after revocation has the same support scope at nonzero epoch;
     # fresh B/A requests must carry it rather than fail containment as incomplete.
@@ -264,16 +258,13 @@ def test_read_and_publication_pin_selected_rebound_support_in_addition_to_origin
     equivalent_b = _complete_ready(ddo_kernel, replacement_b, value=41)
     assert _entry(ddo_kernel, equivalent_b).reference == _entry(ddo_kernel, original_b).reference
     with ddo_kernel["engine"].begin() as connection:
-        DataOperationStorage(connection).invoke(
-            "revoke_data_support",
-            {
+        DataOperationStorage(connection).revoke_data_support({
                 "project_id": "ddo-test",
                 "original_source": "source:B",
                 "selector_kind": "derivation",
                 "selector": original_b["derivation_id"],
                 "reason": "replace B support with independently produced equivalent value",
-            },
-        )
+            })
         planner = DemandPlanner(ddo_kernel["model"], DataOperationStorage(connection))
         assert planner.ready(planner.resume(demand_a["demand_id"]), authorization=b"{}") == ()
         assert planner.fulfilled_request_ids
@@ -299,16 +290,13 @@ def test_read_and_publication_pin_selected_rebound_support_in_addition_to_origin
             {"support": json.dumps(json.loads(ready_d.binding)["support"])},
         )
         assert locked[scope_c] == 0
-        DataOperationStorage(connection).invoke(
-            "revoke_data_support",
-            {
+        DataOperationStorage(connection).revoke_data_support({
                 "project_id": "ddo-test",
                 "original_source": "source:C",
                 "selector_kind": "derivation",
                 "selector": original_c["derivation_id"],
                 "reason": "withdraw selected replacement support",
-            },
-        )
+            })
     with pytest.raises(DBAPIError, match=r"support|revoked"):
         publish(ddo_kernel, fence_d, intent_d)
     with ddo_kernel["engine"].connect() as connection:
@@ -324,12 +312,9 @@ def test_read_and_publication_pin_selected_rebound_support_in_addition_to_origin
         assert current["trust_snapshot"][scope_c] == 1
         assert planner.ready(current, authorization=b"{}") == ()
     with ddo_kernel["engine"].begin() as connection:
-        denied = DataOperationStorage(connection).invoke(
-            "claim_data_request",
-            {
+        denied = DataOperationStorage(connection).claim_data_request({
                 "request_id": json.loads(ready_d.native)["request_id"],
                 "holder": "after-rebound-revocation",
                 "lease_seconds": 30,
-            },
-        )
+            })
         assert denied == {"state": "no-work"}

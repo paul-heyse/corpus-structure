@@ -6,6 +6,8 @@ or protected-admission parity executor.
 
 from __future__ import annotations
 
+from corpus_structure.semantic._data_operation_wire import DataOperationCalls
+
 import json
 from dataclasses import dataclass
 from functools import cache
@@ -215,7 +217,7 @@ def evaluate(connection, node, facts):
     )
 
 
-class WireCheckedStorage:
+class WireCheckedStorage(DataOperationCalls):
     """Routing double that enforces the real native input and result contracts.
 
     Replies are hand-authored by the case. This supplies wire evidence only, not
@@ -228,7 +230,7 @@ class WireCheckedStorage:
         self.replies = deepcopy(replies)
         self.calls = []
 
-    def invoke(self, name, payload):
+    def _invoke(self, name, payload):
         from copy import deepcopy
 
         from corpus_structure.semantic.data_operation_wire import validate_native_wire
@@ -508,36 +510,27 @@ def discover(
     ).record
     with ddo_kernel["engine"].begin() as connection:
         storage = DataOperationStorage(connection)
-        demand = storage.invoke(
-            "register_data_demand",
-            {
+        demand = storage.register_data_demand({
                 "project_id": "ddo-test",
                 "release_id": ddo_kernel["prepared"].release_id,
                 "runtime_id": ddo_kernel["runtime"],
                 "root": [root],
                 "selection": selection,
                 "strength": "value",
-            },
-        )
-        producer = storage.invoke(
-            "expand_data_obligation",
-            {
+            })
+        producer = storage.expand_data_obligation({
                 "demand_id": demand["demand_id"],
                 "operation_id": "urn:discover",
                 **root,
                 "parameters": {},
-            },
-        )
-        consumer = storage.invoke(
-            "expand_data_obligation",
-            {
+            })
+        consumer = storage.expand_data_obligation({
                 "demand_id": demand["demand_id"],
                 "operation_id": "urn:consumer",
                 **root,
                 "parameters": {},
-            },
-        )
-        acquired = storage.invoke("read_demand_result", demand)
+            })
+        acquired = storage.read_demand_result(demand)
         request = SemanticRequestKey(
             ddo_kernel["identities"]["urn:discover", "recipe"],
             "doc",
@@ -548,9 +541,7 @@ def discover(
                 "ddo-test", "doc", root["original_source"], canonical_bytes(root["analyzed_scope"])
             ),
         )
-        attached = storage.invoke(
-            "attach_data_request",
-            {
+        attached = storage.attach_data_request({
                 **producer,
                 "request_meaning": json.loads(request.identity.canonical_input),
                 "request_key": request.identity.key,
@@ -564,8 +555,7 @@ def discover(
                     "populations": [],
                     "read_id": acquired["read_id"],
                 },
-            },
-        )
+            })
     sample_kind = ddo_kernel["identities"][
         next(k.semantic_id for k in ddo_kernel["model"].kinds if k.name == "Sample"), "kind"
     ]
@@ -593,9 +583,7 @@ def discover(
     ]
     fence = claim(ddo_kernel, attached)
     with ddo_kernel["engine"].begin() as connection:
-        intent = DataOperationStorage(connection).invoke(
-            "retain_data_completion_intent",
-            {
+        intent = DataOperationStorage(connection).retain_data_completion_intent({
                 **fence,
                 "runtime_id": ddo_kernel["runtime"],
                 "completion": {
@@ -625,37 +613,27 @@ def discover(
                         }
                     ],
                 },
-            },
-        )
+            })
     receipt = publish(ddo_kernel, fence, intent)
     with ddo_kernel["engine"].begin() as connection:
         storage = DataOperationStorage(connection)
-        products = storage.invoke(
-            "read_demand_result",
-            {"demand_id": demand["demand_id"], "view": "products"},
-        )
+        products = storage.read_demand_result({"demand_id": demand["demand_id"], "view": "products"})
         product = next(use["products"][0] for use in products["uses"] if use["products"])
-        parent = storage.invoke(
-            "close_data_population",
-            {
+        parent = storage.close_data_population({
                 "demand_id": demand["demand_id"],
                 "name": "all-items",
                 "product_id": product["product_id"],
                 "derivation_id": receipt["derivation_id"],
                 "member_role": "result",
-            },
-        )
+            })
         if ambiguous:
-            storage.invoke(
-                "close_data_population",
-                {
+            storage.close_data_population({
                     "demand_id": demand["demand_id"],
                     "name": "other-items",
                     "product_id": product["product_id"],
                     "derivation_id": receipt["derivation_id"],
                     "member_role": "result",
-                },
-            )
+                })
     return demand, consumer, parent
 
 

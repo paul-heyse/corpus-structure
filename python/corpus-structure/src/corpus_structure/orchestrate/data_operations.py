@@ -7,6 +7,24 @@ transactions; provider/prepared capabilities use their separately admitted owner
 
 from __future__ import annotations
 
+from typing import cast
+from corpus_structure.semantic._data_operation_wire import (
+    WireAdoptDataCompletionIntentRequest,
+    WireAttemptFence,
+    wire_attempt_fence,
+    WireCompletion,
+    WireRuntimeId,
+    WireClaimDataRequestRequest,
+    WireClaimDataRequestResultVariant2,
+    WireClaimDataRequestResult,
+    WireContinuation,
+    WirePublishDataDerivationRequest,
+    WireReleaseDataAttemptRequest,
+    WireRenewDataRequestRequest,
+    WireRetainDataCompletionIntentRequest,
+    WireRetainExternalDataPacketRequest,
+)
+
 import json
 from collections.abc import Callable, Mapping, Sequence
 from concurrent.futures import Future, ThreadPoolExecutor
@@ -70,11 +88,8 @@ class NativeRequestClaim:
     deadline: datetime
 
     @property
-    def fence(self) -> dict[str, Any]:
-        return {
-            name: getattr(self, name)
-            for name in ("request_id", "generation", "task_id", "attempt", "holder")
-        }
+    def fence(self) -> WireAttemptFence:
+        return wire_attempt_fence(vars(self))
 
 
 @dataclass(frozen=True)
@@ -570,9 +585,7 @@ class NativeDemandExecutor:
     def _renew(self, connection: Connection, claim: OwnedClaim):
         if not isinstance(claim, NativeRequestClaim):
             raise TypeError("native owner requires a request-generation fence")
-        result = DataOperationStorage(connection).invoke(
-            "renew_data_request", {**claim.fence, "lease_seconds": 300}
-        )
+        result = DataOperationStorage(connection).renew_data_request({**claim.fence, "lease_seconds": 300})
         if result["state"] == "lost":
             raise ClaimFenceLost(claim, result["reason"])
 
@@ -716,27 +729,21 @@ class NativeDemandExecutor:
             raise ValueError("completion exceeds owned draft capacity")
 
         def retain(connection):
-            return DataOperationStorage(connection).invoke(
-                "retain_data_completion_intent",
-                {
+            return DataOperationStorage(connection).retain_data_completion_intent({
                     **claim.fence,
-                    "runtime_id": self.runtime.runtime_id,
-                    "completion": completion,
-                },
-            )
+                    "runtime_id": WireRuntimeId(self.runtime.runtime_id),
+                    "completion": cast(WireCompletion, completion),
+                })
 
         return owner.retain(claim, retain)["intent_id"]
 
-    def _claim(self, ready, owner):
+    def _claim(self, ready, owner) -> tuple[NativeRequestClaim, WireClaimDataRequestResultVariant2] | tuple[None, WireClaimDataRequestResult]:
         with self.engine.begin() as connection:
-            claimed = DataOperationStorage(connection).invoke(
-                "claim_data_request",
-                {
+            claimed = DataOperationStorage(connection).claim_data_request({
                     "request_id": json.loads(ready.native)["request_id"],
                     "holder": self.holder,
                     "lease_seconds": 300,
-                },
-            )
+                })
         if claimed["state"] != "claimed":
             return None, claimed
         claim = NativeRequestClaim(
@@ -749,17 +756,14 @@ class NativeDemandExecutor:
             datetime.fromisoformat(claimed["lease_until"].replace("Z", "+00:00")),
         )
         owner.add_claim(claim)
-        return claim, claimed
+        return claim, cast(WireClaimDataRequestResultVariant2, claimed)
 
     def _publish(self, claim, retained, owner):
         def publish(connection):
-            return DataOperationStorage(connection).invoke(
-                "publish_data_derivation",
-                {
+            return DataOperationStorage(connection).publish_data_derivation({
                     **claim.fence,
                     "intent_id": retained,
-                },
-            )
+                })
 
         receipt = canonical_bytes(owner.settle(claim, publish))
         self._receipt_count += 1
@@ -772,13 +776,10 @@ class NativeDemandExecutor:
             raise ValueError("native reconciliation lacks exact retained intent")
 
         def adopt(connection):
-            return DataOperationStorage(connection).invoke(
-                "adopt_data_completion_intent",
-                {
+            return DataOperationStorage(connection).adopt_data_completion_intent({
                     **claim.fence,
                     "intent_id": retained,
-                },
-            )
+                })
 
         owner.retain(claim, adopt)
         return self._publish(claim, retained, owner)
@@ -795,17 +796,14 @@ class NativeDemandExecutor:
         # Preserve the actual exception to the caller. The immutable native record
         # describes custody without copying protected values from exception text.
         def release(connection):
-            return DataOperationStorage(connection).invoke(
-                "release_data_attempt",
-                {
+            return DataOperationStorage(connection).release_data_attempt({
                     **claim.fence,
                     "physical_retirement": "confirmed",
                     "failure": {
                         "code": type(error).__module__ + "." + type(error).__qualname__,
                         "message": phase + " did not complete",
                     },
-                },
-            )
+                })
 
         try:
             owner.settle(claim, release)
@@ -825,20 +823,19 @@ class NativeDemandExecutor:
                 return _ExecutionResult()
             physical.claim = claim
             phase = "reconciliation"
+            if claimed["state"] != "claimed":
+                raise ValueError("native claim state differs from active claim")
             if claimed["action"] == "reconcile":
                 receipt = self._reconcile(claim, claimed.get("retained_intent_id"), owner)
             elif self.model.operation(ready.operation).external is not None:
                 phase = "external packet custody"
 
                 def retain_packet(connection):
-                    return DataOperationStorage(connection).invoke(
-                        "retain_external_data_packet",
-                        {
+                    return DataOperationStorage(connection).retain_external_data_packet({
                             **claim.fence,
-                            "runtime_id": self.runtime.runtime_id,
+                            "runtime_id": WireRuntimeId(self.runtime.runtime_id),
                             "max_bytes": self.policy.max_packet_bytes,
-                        },
-                    )
+                        })
 
                 owner.settle(claim, retain_packet)
                 # Handoff retires this local claim. Delivery is awaiting work,
@@ -887,6 +884,8 @@ class NativeDemandExecutor:
                     claim, claimed = self._claim(item, owner)
                     if claim is None:
                         continue
+                    if claimed["state"] != "claimed":
+                        raise ValueError("native claim state differs from active claim")
                     if claimed["action"] == "reconcile":
                         phase = "reconciliation"
                         receipts.append(
@@ -1093,19 +1092,10 @@ class NativeDemandExecutor:
                             page = planner.resume(
                                 demand,
                                 limit=min(limit, self.capacity),
-                                **(
-                                    {
-                                        key: continuation[key]
-                                        for key in (
-                                            "selection",
-                                            "after",
-                                            "trust_snapshot",
-                                            "read_id",
-                                        )
-                                    }
-                                    if continuation
-                                    else {}
-                                ),
+                                selection=dict(continuation["selection"]) if continuation else None,
+                                after=continuation["after"] if continuation else None,
+                                trust_snapshot=continuation["trust_snapshot"] if continuation else None,
+                                read_id=continuation["read_id"] if continuation else None,
                             )
                             if (page["release_id"], page["runtime_id"]) != (
                                 self.prepared.release_id,
@@ -1136,6 +1126,8 @@ class NativeDemandExecutor:
                                             product["product_id"],
                                             use["derivation_id"],
                                         )
+                                        if identity[2] is None:
+                                            raise ValueError("discovery product lacks a producing episode")
                                         if identity not in seen_discovered:
                                             planner.expand_discovery(
                                                 page,

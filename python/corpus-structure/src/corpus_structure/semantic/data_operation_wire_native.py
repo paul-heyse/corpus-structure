@@ -11,6 +11,14 @@ from .types import SourceArtifact
 def wire_native_sources() -> tuple[SourceArtifact, ...]:
     return (
         SourceArtifact(
+            "native/data-operation-wire-types.py",
+            Path(__file__).with_name("_data_operation_wire.py").read_bytes(),
+        ),
+        SourceArtifact(
+            "native/data-operation-wire-types.yaml",
+            Path(__file__).resolve().parents[1].joinpath("model/semantic/data-operation-wire-types.yaml").read_bytes(),
+        ),
+        SourceArtifact(
             "native/data-operation-wire.sql",
             Path(__file__).with_name("sql").joinpath("data_operation_wire.sql").read_bytes(),
         ),

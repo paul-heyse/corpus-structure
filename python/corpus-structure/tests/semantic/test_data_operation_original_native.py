@@ -65,7 +65,7 @@ def test_authentic_original_fact_admission_publication_and_revocation(ddo_origin
             release=prepared.release_id,
             runtime=runtime.runtime_id,
         )
-        snapshot = storage.invoke("read_demand_result", demand)
+        snapshot = storage.read_demand_result(demand)
         admissions = snapshot["original_source_admissions"]
         assert len(admissions) == 1
         admission = admissions[0]
@@ -74,14 +74,11 @@ def test_authentic_original_fact_admission_publication_and_revocation(ddo_origin
         assert connection.scalar(text("SELECT count(*) FROM ops.data_derivation")) == 0
         assert connection.scalar(text("SELECT count(*) FROM ops.data_request")) == 0
         # Repeated authenticated admission neither invents an episode nor a new value.
-        repeated = storage.invoke(
-            "admit_original_source_view",
-            {
+        repeated = storage.admit_original_source_view({
                 "demand_id": demand["demand_id"],
                 "selection_name": acquired.name,
                 **acquired.selection().record(),
-            },
-        )
+            })
         assert repeated["admission_id"] == admission["admission_id"]
         assert repeated["product_id"] == admission["product_id"]
         selected = DemandPlanner(model, storage).ready(snapshot, authorization=b"{}")
@@ -117,14 +114,11 @@ def test_authentic_original_fact_admission_publication_and_revocation(ddo_origin
         ).scalar_one()
         assert wrong_scope == 0
         native = json.loads(ready.native)
-        claimed = storage.invoke(
-            "claim_data_request",
-            {
+        claimed = storage.claim_data_request({
                 "request_id": native["request_id"],
                 "holder": "original-test",
                 "lease_seconds": 30,
-            },
-        )
+            })
         fence = {
             key: claimed[key]
             for key in ("request_id", "generation", "task_id", "attempt", "holder")
@@ -141,9 +135,7 @@ def test_authentic_original_fact_admission_publication_and_revocation(ddo_origin
             for item in model.identities
             if item.owner == output_kind and item.domain == "kind"
         )
-        retained = storage.invoke(
-            "retain_data_completion_intent",
-            {
+        retained = storage.retain_data_completion_intent({
                 **fence,
                 "runtime_id": runtime.runtime_id,
                 "completion": {
@@ -164,32 +156,25 @@ def test_authentic_original_fact_admission_publication_and_revocation(ddo_origin
                         }
                     ],
                 },
-            },
-        )
-        published = storage.invoke(
-            "publish_data_derivation",
-            {
+            })
+        published = storage.publish_data_derivation({
                 **fence,
                 "intent_id": retained["intent_id"],
-            },
-        )
+            })
         assert published["derivation_id"]
         assert connection.scalar(text("SELECT count(*) FROM ops.data_derivation_support")) == 0
         assert (
             connection.scalar(text("SELECT count(*) FROM ops.data_derivation_original_support"))
             == 1
         )
-        storage.invoke(
-            "revoke_data_support",
-            {
+        storage.revoke_data_support({
                 "project_id": source.project_id,
                 "original_source": acquired.root.original_source,
                 "selector_kind": "original-admission",
                 "selector": admission["admission_id"],
                 "reason": "original source trust withdrawn",
-            },
-        )
-        current = storage.invoke("read_demand_result", demand)
+            })
+        current = storage.read_demand_result(demand)
         assert current["original_source_admissions"] == []
         assert current["uses"][0]["fate"] == "unavailable"
         # Committed content and truthful lineage remain historically readable.
@@ -197,14 +182,11 @@ def test_authentic_original_fact_admission_publication_and_revocation(ddo_origin
         assert connection.scalar(text("SELECT count(*) FROM ops.original_source_admission")) == 1
         with connection.begin_nested() as savepoint:
             with pytest.raises(DBAPIError, match="revoked"):
-                storage.invoke(
-                    "admit_original_source_view",
-                    {
+                storage.admit_original_source_view({
                         "demand_id": demand["demand_id"],
                         "selection_name": acquired.name,
                         **acquired.selection().record(),
-                    },
-                )
+                    })
             savepoint.rollback()
 
 
@@ -257,18 +239,15 @@ def test_original_pdf_fact_admission_and_runless_private_stage_use_actual_reques
             release=prepared.release_id,
             runtime=runtime.runtime_id,
         )
-        snapshot = storage.invoke("read_demand_result", demand)
+        snapshot = storage.read_demand_result(demand)
         assert len(snapshot["original_source_admissions"]) == 1
         assert connection.scalar(text("SELECT count(*) FROM ops.data_derivation")) == 0
         (ready,) = planner.ready(snapshot, authorization=b"{}")
-        claim = storage.invoke(
-            "claim_data_request",
-            {
+        claim = storage.claim_data_request({
                 "request_id": json.loads(ready.native)["request_id"],
                 "holder": "raw-pdf-owner",
                 "lease_seconds": 30,
-            },
-        )
+            })
         original = connection.scalar(
             text("SELECT content FROM kb.source_artifact WHERE artifact_digest=:digest"),
             {"digest": document.content_hash},

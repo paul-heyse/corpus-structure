@@ -77,9 +77,7 @@ def test_native_atomic_publication_and_exact_receipt_replay(ddo_kernel):
     second = publish(ddo_kernel, fence, intent)
     assert second == {**first, "replayed": True}
     with ddo_kernel["engine"].connect() as connection:
-        result = DataOperationStorage(connection).invoke(
-            "read_demand_result", {**demand, "view": "products"}
-        )
+        result = DataOperationStorage(connection).read_demand_result({**demand, "view": "products"})
         assert result["intent"]["root_operations"] == ["urn:ddo-test:source"]
         assert result["uses"][0]["fate"] == "fulfilled"
         assert [p["body"] for p in result["uses"][0]["products"]] == [
@@ -97,7 +95,7 @@ def test_native_zero_output_has_authentic_fulfillment(ddo_kernel):
     intent = retain(ddo_kernel, fence, outputs=(), outcome="empty")
     publish(ddo_kernel, fence, intent)
     with ddo_kernel["engine"].connect() as connection:
-        result = DataOperationStorage(connection).invoke("read_demand_result", demand)
+        result = DataOperationStorage(connection).read_demand_result(demand)
         assert result["uses"][0]["fate"] == "fulfilled"
         assert result["uses"][0]["products"] == []
         assert result["uses"][0]["derivation_id"]
@@ -110,10 +108,7 @@ def test_precise_fractional_context_survives_native_attach_publish_and_read(ddo_
     fence = claim(ddo_kernel, attached)
     publish(ddo_kernel, fence, retain(ddo_kernel, fence))
     with ddo_kernel["engine"].begin() as connection:
-        result = DataOperationStorage(connection).invoke(
-            "read_demand_result",
-            {**demand, "view": "products"},
-        )
+        result = DataOperationStorage(connection).read_demand_result({**demand, "view": "products"})
         assert json_bytes(result["root"][0]["analyzed_scope"]) == scope
         assert json_bytes(result["obligations"][0]["analyzed_scope"]) == scope
         assert json_bytes(result["uses"][0]["products"][0]["analyzed_scope"]) == scope
@@ -129,7 +124,7 @@ def test_concurrent_attach_uses_one_visible_request_and_existing_task(ddo_kernel
     def once():
         with ddo_kernel["engine"].begin() as connection:
             barrier.wait(timeout=10)
-            return DataOperationStorage(connection).invoke("attach_data_request", wire)
+            return DataOperationStorage(connection).attach_data_request(wire)
 
     with ThreadPoolExecutor(max_workers=2) as workers:
         a, b = list(workers.map(lambda _: once(), range(2)))
@@ -162,7 +157,7 @@ def test_expired_owner_cannot_publish_but_exact_intent_can_be_adopted(ddo_kernel
     first = claim(ddo_kernel, attached, seconds=1)
     intent = retain(ddo_kernel, first)
     with ddo_kernel["engine"].begin() as connection:
-        reconciliation = DataOperationStorage(connection).invoke("attach_data_request", wire)
+        reconciliation = DataOperationStorage(connection).attach_data_request(wire)
         assert reconciliation["action"] == "reconcile"
         assert reconciliation["retained_intent_id"] == intent["intent_id"]
     expire_lease(ddo_kernel, first)
@@ -173,13 +168,10 @@ def test_expired_owner_cannot_publish_but_exact_intent_can_be_adopted(ddo_kernel
     with pytest.raises(DBAPIError, match="stale"):
         publish(ddo_kernel, first, intent)
     with ddo_kernel["engine"].begin() as connection:
-        adopted = DataOperationStorage(connection).invoke(
-            "adopt_data_completion_intent",
-            {
+        adopted = DataOperationStorage(connection).adopt_data_completion_intent({
                 **second,
                 "intent_id": intent["intent_id"],
-            },
-        )
+            })
         assert adopted["producer_attempt"] == first["attempt"]
     receipt = publish(ddo_kernel, second, intent)
     with ddo_kernel["engine"].connect() as connection:
@@ -190,14 +182,11 @@ def test_expired_owner_cannot_publish_but_exact_intent_can_be_adopted(ddo_kernel
             connection.scalar(text("SELECT publishing_attempt FROM ops.data_publication_receipt"))
             == second["attempt"]
         )
-        inspected = DataOperationStorage(connection).invoke(
-            "inspect_data_completion",
-            {
+        inspected = DataOperationStorage(connection).inspect_data_completion({
                 "request_id": first["request_id"],
                 "generation": first["generation"],
                 "intent_id": intent["intent_id"],
-            },
-        )
+            })
         assert inspected["receipt_id"] == receipt["receipt_id"]
         assert inspected["state"] == "committed"
 
@@ -224,16 +213,13 @@ def test_invalid_retained_runtime_rebinds_generation_only_after_lease_expiry(ddo
     )
     with ddo_kernel["engine"].begin() as connection:
         persist_runtime_binding(connection, ddo_kernel["prepared"], replacement)
-        DataOperationStorage(connection).invoke(
-            "revoke_data_support",
-            {
+        DataOperationStorage(connection).revoke_data_support({
                 "project_id": "ddo-test",
                 "original_source": "source:test",
                 "selector_kind": "runtime",
                 "selector": ddo_kernel["runtime"],
                 "reason": "producer runtime defect",
-            },
-        )
+            })
     updated = {**ddo_kernel, "runtime": replacement.runtime_id}
     if active:
         with pytest.raises(DBAPIError, match="active producer lease"):
@@ -259,15 +245,12 @@ def test_invalid_retained_runtime_rebinds_generation_only_after_lease_expiry(ddo
     assert current["retained_intent_id"] is None
     with ddo_kernel["engine"].connect() as connection:
         storage = DataOperationStorage(connection)
-        historical = storage.invoke(
-            "inspect_data_completion",
-            {
+        historical = storage.inspect_data_completion({
                 "demand_id": demand["demand_id"],
                 "request_id": first["request_id"],
                 "generation": first["generation"],
                 "intent_id": intent["intent_id"],
-            },
-        )
+            })
         assert historical["state"] == "known-uncommitted"
         assert historical["intent_retained"] is True
         # Publication authority was replaced; physical retirement was not asserted.
@@ -291,9 +274,7 @@ def test_invalid_retained_runtime_rebinds_generation_only_after_lease_expiry(ddo
     receipt = publish(updated, successor, next_intent)
     assert receipt["replayed"] is False
     with ddo_kernel["engine"].begin() as connection:
-        again = DataOperationStorage(connection).invoke(
-            "attach_data_request",
-            {
+        again = DataOperationStorage(connection).attach_data_request({
                 **wire,
                 "binding": {
                     **wire["binding"],
@@ -301,9 +282,7 @@ def test_invalid_retained_runtime_rebinds_generation_only_after_lease_expiry(ddo
                         "read_demand_result", demand
                     )["read_id"],
                 },
-            },
-        )
-        assert again["generation"] == current["generation"]
+            })on"]
         assert again["fate"] == "fulfilled"
 
 
@@ -345,32 +324,23 @@ def test_revoked_receipt_stays_inspectable_while_current_admission_changes_gener
     receipt = publish(ddo_kernel, first, intent)
     with ddo_kernel["engine"].begin() as connection:
         storage = DataOperationStorage(connection)
-        revoked = storage.invoke(
-            "revoke_data_support",
-            {
+        revoked = storage.revoke_data_support({
                 "project_id": "ddo-test",
                 "original_source": "source:test",
                 "selector_kind": "derivation",
                 "selector": receipt["derivation_id"],
                 "reason": "independent producer defect",
-            },
-        )
+            })
         assert revoked["epoch"] == 1
-        inspected = storage.invoke(
-            "inspect_data_completion",
-            {
+        inspected = storage.inspect_data_completion({
                 "request_id": first["request_id"],
                 "generation": first["generation"],
                 "intent_id": intent["intent_id"],
-            },
-        )
+            })
         assert inspected["state"] == "committed"
-        result = storage.invoke("read_demand_result", demand)
+        result = storage.read_demand_result(demand)
         assert result["uses"][0]["fate"] == "unavailable"
-        current = storage.invoke(
-            "attach_data_request",
-            {**wire, "binding": {**wire["binding"], "read_id": result["read_id"]}},
-        )
+        current = storage.attach_data_request({**wire, "binding": {**wire["binding"], "read_id": result["read_id"]}})
         assert current["generation"] == first["generation"] + 1
         assert current["task_id"] != first["task_id"]
     assert publish(ddo_kernel, first, intent)["receipt_id"] == receipt["receipt_id"]
@@ -400,17 +370,14 @@ def test_native_discovery_refuses_arbitrary_member_and_completeness_injection(dd
 def test_native_frozen_scope_refuses_unrelated_subject(ddo_kernel):
     demand, _, _, _ = attach(ddo_kernel)
     with ddo_kernel["engine"].begin() as connection, pytest.raises(DBAPIError, match="scope"):
-        DataOperationStorage(connection).invoke(
-            "expand_data_obligation",
-            {
+        DataOperationStorage(connection).expand_data_obligation({
                 "demand_id": demand["demand_id"],
                 "operation_id": "urn:ddo-test:source",
                 "subject": "invented",
                 "original_source": "source:test",
                 "analyzed_scope": {"page": 99},
                 "parameters": {},
-            },
-        )
+            })
 
 
 @pytest.mark.parametrize("ddo_kernel", [STORAGE], indirect=True, ids=["storage"])
@@ -428,17 +395,14 @@ def test_global_independent_strength_refuses_without_a_group_contract(ddo_kernel
         ddo_kernel["engine"].begin() as connection,
         pytest.raises(DBAPIError, match="distinct-episode"),
     ):
-        DataOperationStorage(connection).invoke(
-            "register_data_demand",
-            {
+        DataOperationStorage(connection).register_data_demand({
                 "project_id": "ddo-test",
                 "release_id": ddo_kernel["prepared"].release_id,
                 "runtime_id": ddo_kernel["runtime"],
                 "root": selected["roots"],
                 "selection": selected,
                 "strength": "independent",
-            },
-        )
+            })
 
 
 @pytest.mark.parametrize("native_read", [None], indirect=True, ids=["storage"])
@@ -498,30 +462,24 @@ def test_directly_revoked_producer_cannot_be_rehabilitated_by_rebinding(ddo_kern
     intent = retain(ddo_kernel, fence)
     receipt = publish(ddo_kernel, fence, intent)
     with ddo_kernel["engine"].begin() as connection:
-        DataOperationStorage(connection).invoke(
-            "revoke_data_support",
-            {
+        DataOperationStorage(connection).revoke_data_support({
                 "project_id": "ddo-test",
                 "original_source": "source:test",
                 "selector_kind": "derivation",
                 "selector": receipt["derivation_id"],
                 "reason": "producer behavior is defective",
-            },
-        )
+            })
     with ddo_kernel["engine"].begin() as connection:
-        fresh = DataOperationStorage(connection).invoke("read_demand_result", demand)
+        fresh = DataOperationStorage(connection).read_demand_result(demand)
     wire = {**wire, "binding": {**wire["binding"], "read_id": fresh["read_id"]}}
     with (
         ddo_kernel["engine"].begin() as connection,
         pytest.raises(DBAPIError, match="rehabilitate"),
     ):
-        DataOperationStorage(connection).invoke(
-            "attach_data_request",
-            {
+        DataOperationStorage(connection).attach_data_request({
                 **wire,
                 "rebind_derivation": receipt["derivation_id"],
-            },
-        )
+            })
 
 
 @pytest.mark.parametrize("ddo_kernel", [STORAGE], indirect=True, ids=["storage"])
@@ -532,21 +490,18 @@ def test_failed_completion_is_historical_but_never_reusable_fulfillment(ddo_kern
     receipt = publish(ddo_kernel, fence, intent)
     with ddo_kernel["engine"].begin() as connection:
         storage = DataOperationStorage(connection)
-        observed = storage.invoke("read_demand_result", demand)
+        observed = storage.read_demand_result(demand)
         assert observed["uses"][0]["fate"] == "failed"
         assert observed["uses"][0]["completion_state"] == "failed"
         assert observed["uses"][0]["products"] == []
-        current = storage.invoke("attach_data_request", wire)
+        current = storage.attach_data_request(wire)
         assert current["fate"] == "attached"
         assert current["derivation_id"] is None
         assert current["generation"] == attached["generation"] + 1
-        historical = storage.invoke(
-            "inspect_data_completion",
-            {
+        historical = storage.inspect_data_completion({
                 "demand_id": demand["demand_id"],
                 "intent_id": intent["intent_id"],
-            },
-        )
+            })
         assert historical["state"] == "committed"
         assert historical["receipt_id"] == receipt["receipt_id"]
 
@@ -588,14 +543,11 @@ def _protected_binding_case(
         ],
     }
     with ddo_kernel["engine"].begin() as connection:
-        intent = DataOperationStorage(connection).invoke(
-            "retain_data_completion_intent",
-            {**fence, "runtime_id": ddo_kernel["runtime"], "completion": completion},
-        )
+        intent = DataOperationStorage(connection).retain_data_completion_intent({**fence, "runtime_id": ddo_kernel["runtime"], "completion": completion})
     receipt = publish(ddo_kernel, fence, intent)
     with ddo_kernel["engine"].begin() as connection:
         storage = DataOperationStorage(connection)
-        result = storage.invoke("read_demand_result", demand)
+        result = storage.read_demand_result(demand)
         use = result["uses"][0]
         product = use["products"][0]["product_id"]
         # The same authored range case drives the PostgreSQL full-result check
@@ -616,17 +568,14 @@ def _protected_binding_case(
             },
         ).scalar_one()
         assert native_row == {"value": sample_value}
-        obligation = storage.invoke(
-            "expand_data_obligation",
-            {
+        obligation = storage.expand_data_obligation({
                 "demand_id": demand["demand_id"],
                 "operation_id": "urn:ddo-test:consumer",
                 "subject": "subject:one",
                 "original_source": "source:test",
                 "analyzed_scope": {"page": 1},
                 "parameters": {},
-            },
-        )
+            })
         # Authored scalar-input meaning, independent of the compiled binder and
         # project_operation_binding. Only opaque identities come from real custody.
         member = {
@@ -885,19 +834,16 @@ def test_actual_writer_requires_exact_authored_closed_population_binding(ddo_ker
     demand, obligation, parent = discover(ddo_kernel, values=(15, 16))
     with ddo_kernel["engine"].begin() as connection:
         storage = DataOperationStorage(connection)
-        read = storage.invoke("read_demand_result", demand)
-        selected = storage.invoke(
-            "select_data_population",
-            {
+        read = storage.read_demand_result(demand)
+        selected = storage.select_data_population({
                 **obligation,
                 "population_name": "selected-items",
                 "parent_population_id": parent["population_id"],
                 "read_id": read["read_id"],
-            },
-        )
+            })
         assert [member["member_id"] for member in selected["members"]] == ["m15", "m16"]
         assert selected["complete"] is True
-        current = storage.invoke("read_demand_result", demand)
+        current = storage.read_demand_result(demand)
         rows = connection.execute(
             text(
                 'SELECT member,subject,"position",multiplicity,body FROM ops.data_binding_rows('
@@ -1119,44 +1065,33 @@ def test_read_receipt_excludes_pre_cut_uncommitted_insert_after_it_commits(ddo_k
     ).record
     with ddo_kernel["engine"].begin() as connection:
         storage = DataOperationStorage(connection)
-        demand = storage.invoke(
-            "register_data_demand",
-            {
+        demand = storage.register_data_demand({
                 "project_id": "ddo-test",
                 "release_id": ddo_kernel["prepared"].release_id,
                 "runtime_id": ddo_kernel["runtime"],
                 "root": selected["roots"],
                 "selection": selected,
                 "strength": "value",
-            },
-        )
+            })
         baseline = [
-            storage.invoke(
-                "expand_data_obligation",
-                {
+            storage.expand_data_obligation({
                     "demand_id": demand["demand_id"],
                     "operation_id": "urn:ddo-test:source",
                     **root,
                     "parameters": {},
-                },
-            )["obligation_id"]
+                })["obligation_id"]
             for root in selected["roots"][:2]
         ]
     with ddo_kernel["engine"].connect() as unpublished:
         pending = unpublished.begin()
-        later = DataOperationStorage(unpublished).invoke(
-            "expand_data_obligation",
-            {
+        later = DataOperationStorage(unpublished).expand_data_obligation({
                 "demand_id": demand["demand_id"],
                 "operation_id": "urn:ddo-test:source",
                 **selected["roots"][2],
                 "parameters": {},
-            },
-        )["obligation_id"]
+            })["obligation_id"]
         with ddo_kernel["engine"].begin() as reader:
-            first = DataOperationStorage(reader).invoke(
-                "read_demand_result", {**demand, "limit": 1}
-            )
+            first = DataOperationStorage(reader).read_demand_result({**demand, "limit": 1})
         assert first["continuation"] is not None
         pending.commit()
     with ddo_kernel["engine"].connect() as connection:
@@ -1174,13 +1109,13 @@ def test_read_receipt_excludes_pre_cut_uncommitted_insert_after_it_commits(ddo_k
     continuation = first["continuation"]
     while continuation:
         with ddo_kernel["engine"].begin() as reader:
-            page = DataOperationStorage(reader).invoke("read_demand_result", continuation)
+            page = DataOperationStorage(reader).read_demand_result(continuation)
         assert page["read_id"] == first["read_id"]
         collected.extend(row["obligation_id"] for row in page["obligations"])
         continuation = page["continuation"]
     assert collected == sorted(baseline)
     with ddo_kernel["engine"].begin() as reader:
-        fresh = DataOperationStorage(reader).invoke("read_demand_result", demand)
+        fresh = DataOperationStorage(reader).read_demand_result(demand)
     assert {row["obligation_id"] for row in fresh["obligations"]} == {*baseline, later}
 
 
@@ -1200,39 +1135,30 @@ def test_read_receipt_excludes_future_writes_in_its_own_transaction(ddo_kernel):
     ).record
     with ddo_kernel["engine"].begin() as connection:
         storage = DataOperationStorage(connection)
-        demand = storage.invoke(
-            "register_data_demand",
-            {
+        demand = storage.register_data_demand({
                 "project_id": "ddo-test",
                 "release_id": ddo_kernel["prepared"].release_id,
                 "runtime_id": ddo_kernel["runtime"],
                 "root": selected["roots"],
                 "selection": selected,
                 "strength": "value",
-            },
-        )
-        before = storage.invoke(
-            "expand_data_obligation",
-            {
+            })
+        before = storage.expand_data_obligation({
                 "demand_id": demand["demand_id"],
                 "operation_id": "urn:ddo-test:source",
                 **selected["roots"][0],
                 "parameters": {},
-            },
-        )
-        first = storage.invoke("read_demand_result", demand)
-        after = storage.invoke(
-            "expand_data_obligation",
-            {
+            })
+        first = storage.read_demand_result(demand)
+        after = storage.expand_data_obligation({
                 "demand_id": demand["demand_id"],
                 "operation_id": "urn:ddo-test:source",
                 **selected["roots"][1],
                 "parameters": {},
-            },
-        )
-        pinned = storage.invoke("read_demand_result", {**demand, "read_id": first["read_id"]})
+            })
+        pinned = storage.read_demand_result({**demand, "read_id": first["read_id"]})
         assert [row["obligation_id"] for row in pinned["obligations"]] == [before["obligation_id"]]
-        fresh = storage.invoke("read_demand_result", demand)
+        fresh = storage.read_demand_result(demand)
         assert {row["obligation_id"] for row in fresh["obligations"]} == {
             before["obligation_id"],
             after["obligation_id"],
@@ -1247,13 +1173,11 @@ def test_frontier_view_defers_bodies_and_same_receipt_can_read_products(ddo_kern
     publish(ddo_kernel, fence, intent)
     with ddo_kernel["engine"].begin() as connection:
         storage = DataOperationStorage(connection)
-        frontier = storage.invoke("read_demand_result", demand)
+        frontier = storage.read_demand_result(demand)
         assert frontier["view"] == "frontier"
         product = frontier["uses"][0]["products"][0]
         assert product["body_state"] == "not_requested" and "body" not in product
-        hydrated = storage.invoke(
-            "read_demand_result", {**demand, "read_id": frontier["read_id"], "view": "products"}
-        )
+        hydrated = storage.read_demand_result({**demand, "read_id": frontier["read_id"], "view": "products"})
         assert hydrated["read_id"] == frontier["read_id"]
         assert hydrated["uses"][0]["products"][0]["body_state"] == "present"
         assert hydrated["uses"][0]["products"][0]["body"] == ["integer", "1"]
@@ -1313,18 +1237,13 @@ def test_real_purpose_principals_cannot_cross_evaluator_kind_boundary(ddo_kernel
         )
         with evaluator.begin() as connection:
             storage = DataOperationStorage(connection)
-            owned = storage.invoke(
-                "claim_data_request",
-                {"request_id": attached["request_id"], "holder": "evaluator", "lease_seconds": 30},
-            )
+            owned = storage.claim_data_request({"request_id": attached["request_id"], "holder": "evaluator", "lease_seconds": 30})
             fence = {
                 name: owned[name]
                 for name in ("request_id", "generation", "task_id", "attempt", "holder")
             }
             kind = ddo_kernel["identities"]["urn:ddo-test:evaluator-integer", "kind"]
-            intent = storage.invoke(
-                "retain_data_completion_intent",
-                {
+            intent = storage.retain_data_completion_intent({
                     **fence,
                     "runtime_id": ddo_kernel["runtime"],
                     "completion": {
@@ -1345,20 +1264,16 @@ def test_real_purpose_principals_cannot_cross_evaluator_kind_boundary(ddo_kernel
                             }
                         ],
                     },
-                },
-            )
-            storage.invoke("publish_data_derivation", {**fence, "intent_id": intent["intent_id"]})
+                })
+            storage.publish_data_derivation({**fence, "intent_id": intent["intent_id"]})
         with reader.begin() as connection, pytest.raises(DBAPIError, match="evaluator"):
-            DataOperationStorage(connection).invoke("read_demand_result", demand)
+            DataOperationStorage(connection).read_demand_result(demand)
         with reader.begin() as connection, pytest.raises(DBAPIError, match="evaluator"):
-            DataOperationStorage(connection).invoke(
-                "inspect_data_completion",
-                {
+            DataOperationStorage(connection).inspect_data_completion({
                     "request_id": fence["request_id"],
                     "generation": fence["generation"],
                     "intent_id": intent["intent_id"],
-                },
-            )
+                })
         with writer.begin() as connection, pytest.raises(DBAPIError, match="permission denied"):
             connection.execute(text("SELECT * FROM kb.data_product"))
     finally:
@@ -1377,9 +1292,7 @@ def test_native_request_renewal_uses_exact_runless_fence_and_does_not_shorten_le
             {"task": fence["task_id"]},
         ).one()
         assert before.run_id is None
-        renewed = DataOperationStorage(connection).invoke(
-            "renew_data_request", {**fence, "lease_seconds": 1}
-        )
+        renewed = DataOperationStorage(connection).renew_data_request({**fence, "lease_seconds": 1})
         after = connection.scalar(
             text("SELECT lease_until FROM ops.task WHERE id=:task"),
             {"task": fence["task_id"]},
@@ -1389,9 +1302,7 @@ def test_native_request_renewal_uses_exact_runless_fence_and_does_not_shorten_le
         assert after >= before.lease_until
     publish(ddo_kernel, fence, retain(ddo_kernel, fence))
     with ddo_kernel["engine"].begin() as connection:
-        lost = DataOperationStorage(connection).invoke(
-            "renew_data_request", {**fence, "lease_seconds": 30}
-        )
+        lost = DataOperationStorage(connection).renew_data_request({**fence, "lease_seconds": 30})
         assert lost == {**fence, "state": "lost", "reason": "fence"}
 
 
@@ -1402,9 +1313,7 @@ def test_native_request_renewal_refuses_a_different_fence(ddo_kernel, field):
     fence = claim(ddo_kernel, attached)
     altered = {**fence, field: "different" if field == "holder" else fence[field] + 1}
     with ddo_kernel["engine"].begin() as connection:
-        lost = DataOperationStorage(connection).invoke(
-            "renew_data_request", {**altered, "lease_seconds": 30}
-        )
+        lost = DataOperationStorage(connection).renew_data_request({**altered, "lease_seconds": 30})
         assert lost == {**altered, "state": "lost", "reason": "fence"}
 
 
@@ -1414,9 +1323,7 @@ def test_native_request_renewal_cannot_revive_an_expired_attempt(ddo_kernel):
     fence = claim(ddo_kernel, attached, seconds=1)
     time.sleep(1.05)
     with ddo_kernel["engine"].begin() as connection:
-        lost = DataOperationStorage(connection).invoke(
-            "renew_data_request", {**fence, "lease_seconds": 30}
-        )
+        lost = DataOperationStorage(connection).renew_data_request({**fence, "lease_seconds": 30})
         assert lost == {**fence, "state": "lost", "reason": "fence"}
 
 
@@ -1431,30 +1338,22 @@ def test_native_request_renewal_preserves_a_shared_demand_after_one_detaches(ddo
     fence = claim(ddo_kernel, attached)
     with ddo_kernel["engine"].begin() as connection:
         storage = DataOperationStorage(connection)
-        storage.invoke(
-            "record_data_fate",
-            {
+        storage.record_data_fate({
                 "obligation_id": first["obligation_id"],
                 "fate": "cancelled",
                 "selection": {},
-            },
-        )
+            })
         assert (
-            storage.invoke("renew_data_request", {**fence, "lease_seconds": 30})["state"]
+            storage.renew_data_request({**fence, "lease_seconds": 30})["state"]
             == "renewed"
         )
-        storage.invoke(
-            "record_data_fate",
-            {
+        storage.record_data_fate({
                 "obligation_id": second["obligation_id"],
                 "fate": "cancelled",
                 "selection": {},
-            },
-        )
+            })
     with ddo_kernel["engine"].begin() as connection:
-        lost = DataOperationStorage(connection).invoke(
-            "renew_data_request", {**fence, "lease_seconds": 30}
-        )
+        lost = DataOperationStorage(connection).renew_data_request({**fence, "lease_seconds": 30})
         assert lost == {**fence, "state": "lost", "reason": "cancelled"}
 
 
@@ -1464,7 +1363,7 @@ def test_native_cancellation_fences_orphan_without_claiming_physical_retirement(
     fence = claim(ddo_kernel, attached)
     intent = retain(ddo_kernel, fence)
     with ddo_kernel["engine"].begin() as connection:
-        before = DataOperationStorage(connection).invoke("read_demand_result", demand)
+        before = DataOperationStorage(connection).read_demand_result(demand)
     cancelled = cancel_demand(ddo_kernel, demand)
     assert cancelled["state"] == "cancelled"
     assert cancelled["requests"] == [
@@ -1478,15 +1377,12 @@ def test_native_cancellation_fences_orphan_without_claiming_physical_retirement(
     ]
     with ddo_kernel["engine"].begin() as connection:
         storage = DataOperationStorage(connection)
-        assert storage.invoke("read_demand_result", demand)["state"] == "cancelled"
-        historical = storage.invoke(
-            "read_demand_result",
-            {
+        assert storage.read_demand_result(demand)["state"] == "cancelled"
+        historical = storage.read_demand_result({
                 **demand,
                 "read_id": before["read_id"],
                 "trust_snapshot": before["trust_snapshot"],
-            },
-        )
+            })
         assert historical["state"] == "active"
         assert (
             connection.scalar(
@@ -1494,14 +1390,11 @@ def test_native_cancellation_fences_orphan_without_claiming_physical_retirement(
             )
             == "running"
         )
-        assert storage.invoke(
-            "claim_data_request",
-            {
+        assert storage.claim_data_request({
                 "request_id": fence["request_id"],
                 "holder": "late",
                 "lease_seconds": 30,
-            },
-        ) == {"state": "no-work"}
+            }) == {"state": "no-work"}
     for name, payload in [
         ("publish_data_derivation", {**fence, "intent_id": intent["intent_id"]}),
         ("attach_data_request", wire),
@@ -1533,17 +1426,14 @@ def test_native_cancellation_fences_orphan_without_claiming_physical_retirement(
     # Resume/re-registration cannot silently undo terminal intent.
     selected = demand["selection"]
     with ddo_kernel["engine"].begin() as connection:
-        replay = DataOperationStorage(connection).invoke(
-            "register_data_demand",
-            {
+        replay = DataOperationStorage(connection).register_data_demand({
                 "project_id": "ddo-test",
                 "release_id": ddo_kernel["prepared"].release_id,
                 "runtime_id": ddo_kernel["runtime"],
                 "root": selected["roots"],
                 "selection": selected,
                 "strength": "value",
-            },
-        )
+            })
         assert replay["demand_id"] == demand["demand_id"]
         assert replay["state"] == "cancelled"
 
@@ -1560,28 +1450,23 @@ def test_native_cancellation_preserves_shared_producer_and_committed_receipt(ddo
     cancelled = cancel_demand(ddo_kernel, first)
     assert cancelled["requests"][0]["interest"] == "shared"
     with ddo_kernel["engine"].begin() as connection:
-        renewed = DataOperationStorage(connection).invoke(
-            "renew_data_request", {**fence, "lease_seconds": 30}
-        )
+        renewed = DataOperationStorage(connection).renew_data_request({**fence, "lease_seconds": 30})
         assert renewed["state"] == "renewed"
     receipt = publish(ddo_kernel, fence, intent)
     with ddo_kernel["engine"].begin() as connection:
         storage = DataOperationStorage(connection)
-        first_result = storage.invoke("read_demand_result", first)
+        first_result = storage.read_demand_result(first)
         assert first_result["state"] == "cancelled"
         assert {item["fate"] for item in first_result["obligations"]} == {"cancelled"}
-        assert storage.invoke("read_demand_result", second)["uses"][0]["fate"] == "fulfilled"
+        assert storage.read_demand_result(second)["uses"][0]["fate"] == "fulfilled"
     cancel_demand(ddo_kernel, second)
     assert publish(ddo_kernel, fence, intent)["receipt_id"] == receipt["receipt_id"]
     with ddo_kernel["engine"].begin() as connection:
-        inspected = DataOperationStorage(connection).invoke(
-            "inspect_data_completion",
-            {
+        inspected = DataOperationStorage(connection).inspect_data_completion({
                 "request_id": fence["request_id"],
                 "generation": fence["generation"],
                 "intent_id": intent["intent_id"],
-            },
-        )
+            })
         assert inspected["state"] == "committed"
 
 
@@ -1594,7 +1479,7 @@ def test_native_concurrent_cancel_and_attach_never_resurrects_demand(ddo_kernel)
         barrier.wait()
         try:
             with ddo_kernel["engine"].begin() as connection:
-                return DataOperationStorage(connection).invoke("attach_data_request", wire)
+                return DataOperationStorage(connection).attach_data_request(wire)
         except DBAPIError as error:
             assert "cancelled" in str(error)
             return None
@@ -1610,16 +1495,13 @@ def test_native_concurrent_cancel_and_attach_never_resurrects_demand(ddo_kernel)
         assert stopping.result(timeout=30)["state"] == "cancelled"
     with ddo_kernel["engine"].begin() as connection:
         storage = DataOperationStorage(connection)
-        assert storage.invoke("read_demand_result", demand)["state"] == "cancelled"
+        assert storage.read_demand_result(demand)["state"] == "cancelled"
         assert (
-            storage.invoke(
-                "claim_data_request",
-                {
+            storage.claim_data_request({
                     "request_id": attached["request_id"],
                     "holder": "late",
                     "lease_seconds": 30,
-                },
-            )["state"]
+                })["state"]
             == "no-work"
         )
 
@@ -1699,8 +1581,8 @@ def test_native_release_retired_failed_attempt_preserves_intent_and_physical_his
     }
     with ddo_kernel["engine"].begin() as connection:
         storage = DataOperationStorage(connection)
-        before = storage.invoke("read_demand_result", demand)
-        released = storage.invoke("release_data_attempt", payload)
+        before = storage.read_demand_result(demand)
+        released = storage.release_data_attempt(payload)
         assert released["state"] == "released" and released["replayed"] is False
         assert released["retained_intent_id"] == (intent["intent_id"] if intent else None)
         physical = connection.execute(
@@ -1710,7 +1592,7 @@ def test_native_release_retired_failed_attempt_preserves_intent_and_physical_his
         assert physical.status == "pending"
         assert physical.claimed_by == fence["holder"] and physical.lease_until is None
         assert physical.error["data_attempt_failure"] == released["failure_id"]
-        current = storage.invoke("read_demand_result", demand)
+        current = storage.read_demand_result(demand)
         assert current["uses"][0]["fate"] == "attached"
         assert current["attempt_failures"] == [
             {
@@ -1719,25 +1601,19 @@ def test_native_release_retired_failed_attempt_preserves_intent_and_physical_his
                 "failure": payload["failure"],
             }
         ]
-        pinned = storage.invoke(
-            "read_demand_result",
-            {
+        pinned = storage.read_demand_result({
                 "demand_id": demand["demand_id"],
                 "read_id": before["read_id"],
-            },
-        )
+            })
         assert pinned["attempt_failures"] == []
-        replacement = storage.invoke(
-            "claim_data_request",
-            {
+        replacement = storage.claim_data_request({
                 "request_id": fence["request_id"],
                 "holder": "replacement",
                 "lease_seconds": 30,
-            },
-        )
+            })
         assert replacement["action"] == ("reconcile" if retained else "compute")
         assert replacement["attempt"] == fence["attempt"] + 1
-        replay = storage.invoke("release_data_attempt", payload)
+        replay = storage.release_data_attempt(payload)
         assert replay == {**released, "replayed": True}
         assert connection.scalar(text("SELECT count(*) FROM ops.data_attempt_failure")) == 1
         assert (
@@ -1746,7 +1622,7 @@ def test_native_release_retired_failed_attempt_preserves_intent_and_physical_his
             )
             == "running"
         )
-        lost = storage.invoke("renew_data_request", {**fence, "lease_seconds": 30})
+        lost = storage.renew_data_request({**fence, "lease_seconds": 30})
         assert lost == {**fence, "state": "lost", "reason": "fence"}
 
 
@@ -1763,14 +1639,11 @@ def test_native_claim_owner_isolates_cancelled_request_renewal_and_preserves_sib
     claims = []
     with ddo_kernel["engine"].begin() as connection:
         for request in (first_request, second_request):
-            response = DataOperationStorage(connection).invoke(
-                "claim_data_request",
-                {
+            response = DataOperationStorage(connection).claim_data_request({
                     "request_id": request["request_id"],
                     "holder": "owner",
                     "lease_seconds": 30,
-                },
-            )
+                })
             claims.append(
                 NativeRequestClaim(
                     response["request_id"],
@@ -1785,13 +1658,10 @@ def test_native_claim_owner_isolates_cancelled_request_renewal_and_preserves_sib
     sibling_renewed = Event()
 
     def renew(connection, claim):
-        response = DataOperationStorage(connection).invoke(
-            "renew_data_request",
-            {
+        response = DataOperationStorage(connection).renew_data_request({
                 **claim.fence,
                 "lease_seconds": 30,
-            },
-        )
+            })
         if response["state"] == "lost":
             raise ClaimFenceLost(claim, response["reason"])
         if claim == claims[1]:
@@ -1817,10 +1687,7 @@ def test_native_claim_owner_isolates_cancelled_request_renewal_and_preserves_sib
         intent = retain(ddo_kernel, claims[1].fence)
         receipt = owner.settle(
             claims[1],
-            lambda connection: DataOperationStorage(connection).invoke(
-                "publish_data_derivation",
-                {**claims[1].fence, "intent_id": intent["intent_id"]},
-            ),
+            lambda connection: DataOperationStorage(connection).publish_data_derivation({**claims[1].fence, "intent_id": intent["intent_id"]}),
         )
         assert isinstance(receipt, dict)
         assert receipt["derivation_id"]
@@ -1854,16 +1721,13 @@ def test_revoked_runtime_without_retained_intent_refreshes_only_unleased_generat
     )
     with ddo_kernel["engine"].begin() as connection:
         persist_runtime_binding(connection, ddo_kernel["prepared"], replacement)
-        DataOperationStorage(connection).invoke(
-            "revoke_data_support",
-            {
+        DataOperationStorage(connection).revoke_data_support({
                 "project_id": "ddo-test",
                 "original_source": "source:test",
                 "selector_kind": "runtime",
                 "selector": ddo_kernel["runtime"],
                 "reason": "runtime invalidated before completion intent",
-            },
-        )
+            })
     updated = {**ddo_kernel, "runtime": replacement.runtime_id}
     if state == "active":
         with pytest.raises(DBAPIError, match="active producer lease"):
@@ -1978,13 +1842,11 @@ def test_overlapping_publication_returns_committed_exact_receipt(ddo_kernel):
     def retry():
         with ddo_kernel["engine"].begin() as connection:
             backend.put(connection.execute(text("SELECT pg_backend_pid()")).scalar_one())
-            return DataOperationStorage(connection).invoke("publish_data_derivation", payload)
+            return DataOperationStorage(connection).publish_data_derivation(payload)
 
     with ThreadPoolExecutor(max_workers=1) as pool:
         with ddo_kernel["engine"].begin() as first_connection:
-            first = DataOperationStorage(first_connection).invoke(
-                "publish_data_derivation", payload
-            )
+            first = DataOperationStorage(first_connection).publish_data_derivation(payload)
             future = pool.submit(retry)
             pid = backend.get(timeout=10)
             deadline = time.monotonic() + 10
@@ -2041,7 +1903,7 @@ def test_writer_cannot_mutate_or_read_pending_evaluator_obligations(ddo_kernel):
             with writer.begin() as connection, pytest.raises(DBAPIError, match="evaluator"):
                 DataOperationStorage(connection).invoke(name, payload)
         with evaluator.begin() as connection:
-            result = DataOperationStorage(connection).invoke("read_demand_result", demand)
+            result = DataOperationStorage(connection).read_demand_result(demand)
             assert result["obligations"][0]["fate"] == "attached"
             assert result["obligations"][0]["request_id"] == attached["request_id"]
     finally:
@@ -2077,16 +1939,13 @@ def test_writer_cannot_revoke_runtime_with_ordinary_and_evaluator_targets(ddo_ke
                 .all()
             )
         with writer.begin() as connection, pytest.raises(DBAPIError, match="evaluator"):
-            DataOperationStorage(connection).invoke(
-                "revoke_data_support",
-                {
+            DataOperationStorage(connection).revoke_data_support({
                     "project_id": "ddo-test",
                     "original_source": "source:test",
                     "selector_kind": "runtime",
                     "selector": ddo_kernel["runtime"],
                     "reason": "unauthorized broad revoke",
-                },
-            )
+                })
         with ddo_kernel["engine"].connect() as connection:
             assert (
                 connection.execute(
@@ -2097,7 +1956,7 @@ def test_writer_cannot_revoke_runtime_with_ordinary_and_evaluator_targets(ddo_ke
                 == before
             )
             for demand in (ordinary_demand, protected_demand):
-                result = DataOperationStorage(connection).invoke("read_demand_result", demand)
+                result = DataOperationStorage(connection).read_demand_result(demand)
                 assert result["uses"][0]["fate"] == "fulfilled"
     finally:
         writer.dispose()
@@ -2173,7 +2032,7 @@ def test_registration_rejects_forged_selected_graph_with_authentic_node_identiti
 
     assert effects() == (0, 0, 0)
     with connection.begin_nested() as positive:
-        admitted = DataOperationStorage(connection).invoke("register_data_demand", payload)
+        admitted = DataOperationStorage(connection).register_data_demand(payload)
         assert admitted["demand_id"]
         assert effects() == (1, 0, 0)
         positive.rollback()
@@ -2203,9 +2062,7 @@ def test_registration_rejects_forged_selected_graph_with_authentic_node_identiti
         "duplicate": "selected dependencies differ from the authenticated declared graph",
     }
     with native_refusal("P0001", message=expected[mutation]), connection.begin_nested():
-        DataOperationStorage(connection).invoke(
-            "register_data_demand", {**payload, "selection": frozen}
-        )
+        DataOperationStorage(connection).register_data_demand({**payload, "selection": frozen})
     assert effects() == (0, 0, 0)
 
 
@@ -2242,17 +2099,14 @@ def test_native_planner_rebinds_equal_support_or_replaces_invalid_retained_gener
     with ddo_kernel["engine"].begin() as connection:
         planner = DemandPlanner(ddo_kernel["model"], DataOperationStorage(connection))
         # Register the declared target obligation through the ordinary planner.
-        planner.storage.invoke(
-            "expand_data_obligation",
-            {
+        planner.storage.expand_data_obligation({
                 "demand_id": demand["demand_id"],
                 "operation_id": "urn:ddo-test:value-consumer",
                 "subject": "subject:one",
                 "original_source": "source:test",
                 "analyzed_scope": {"page": 1},
                 "parameters": {},
-            },
-        )
+            })
         ready = planner.ready(planner.resume(demand["demand_id"]), authorization=b"{}")
         assert len(ready) == 1 and ready[0].operation == "urn:ddo-test:value-consumer"
         consumer = ready[0]
@@ -2268,16 +2122,13 @@ def test_native_planner_rebinds_equal_support_or_replaces_invalid_retained_gener
         None if uncommitted_intent else publish(ddo_kernel, consumer_fence, original_intent)
     )
     with ddo_kernel["engine"].begin() as connection:
-        DataOperationStorage(connection).invoke(
-            "revoke_data_support",
-            {
+        DataOperationStorage(connection).revoke_data_support({
                 "project_id": "ddo-test",
                 "original_source": "source:test",
                 "selector_kind": "derivation",
                 "selector": original_source["derivation_id"],
                 "reason": "replace an invalid upstream observation",
-            },
-        )
+            })
     # A new authentic upstream episode produces the exact same semantic value.
     _, _, _, replacement_source = attach(
         ddo_kernel, operation="urn:ddo-test:sample", targets=targets
@@ -2295,14 +2146,11 @@ def test_native_planner_rebinds_equal_support_or_replaces_invalid_retained_gener
                 with pytest.raises(DBAPIError, match=r"active|lease|invalid"):
                     planner.ready(snapshot, authorization=b"{}")
                 savepoint.rollback()
-            released = planner.storage.invoke(
-                "release_data_attempt",
-                {
+            released = planner.storage.release_data_attempt({
                     **consumer_fence,
                     "physical_retirement": "confirmed",
                     "failure": {"code": "invalidated-support", "message": "computation retired"},
-                },
-            )
+                })
             assert released["state"] == "released"
             updated = planner.ready(planner.resume(demand["demand_id"]), authorization=b"{}")
             assert len(updated) == 1
@@ -2310,14 +2158,11 @@ def test_native_planner_rebinds_equal_support_or_replaces_invalid_retained_gener
             assert new_request["request_id"] == consumer_native["request_id"]
             assert new_request["generation"] == consumer_native["generation"] + 1
             assert new_request["action"] == "compute"
-            old = planner.storage.invoke(
-                "inspect_data_completion",
-                {
+            old = planner.storage.inspect_data_completion({
                     "request_id": consumer_native["request_id"],
                     "generation": consumer_native["generation"],
                     "intent_id": original_intent["intent_id"],
-                },
-            )
+                })
             assert old["state"] == "known-uncommitted" and old["intent_retained"]
         else:
             assert original_receipt is not None
@@ -2388,13 +2233,11 @@ def test_overlapping_differing_intents_preserve_one_answer_and_its_publication(d
     def conflicting():
         with ddo_kernel["engine"].begin() as connection:
             backend.put(connection.execute(text("SELECT pg_backend_pid()")).scalar_one())
-            return DataOperationStorage(connection).invoke("retain_data_completion_intent", changed)
+            return DataOperationStorage(connection).retain_data_completion_intent(changed)
 
     with ThreadPoolExecutor(max_workers=1) as pool:
         with ddo_kernel["engine"].begin() as connection:
-            original = DataOperationStorage(connection).invoke(
-                "retain_data_completion_intent", payload
-            )
+            original = DataOperationStorage(connection).retain_data_completion_intent(payload)
             future = pool.submit(conflicting)
             pid = backend.get(timeout=10)
             deadline = time.monotonic() + 10

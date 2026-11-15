@@ -95,10 +95,7 @@ def test_production_claim_source_item_publishes_then_resumes_settled(ddo_kernel)
     resumed = executor.advance(demand)
     assert resumed.receipt_count == 0 and resumed.receipts == ()
     with ddo_kernel["engine"].begin() as connection:
-        result = DataOperationStorage(connection).invoke(
-            "read_demand_result",
-            {"demand_id": demand, "view": "products"},
-        )
+        result = DataOperationStorage(connection).read_demand_result({"demand_id": demand, "view": "products"})
         assert len(result["uses"]) == 2
         use = next(
             use

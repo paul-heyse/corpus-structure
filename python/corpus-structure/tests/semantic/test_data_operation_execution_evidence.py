@@ -277,14 +277,11 @@ def test_native_retention_refuses_foreign_provider_logical_fence(ddo_kernel, for
         pytest.raises(DBAPIError, match="provider logical receipt differs"),
         connection.begin_nested(),
     ):
-        DataOperationStorage(connection).invoke(
-            "retain_data_completion_intent",
-            {
+        DataOperationStorage(connection).retain_data_completion_intent({
                 **fence,
                 "runtime_id": ddo_kernel["runtime"],
                 "completion": completion,
-            },
-        )
+            })
     with ddo_kernel["engine"].connect() as connection:
         assert (
             connection.scalar(

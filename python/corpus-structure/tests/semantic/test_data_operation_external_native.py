@@ -17,10 +17,7 @@ def packet(kernel, *, max_bytes=100000, subject="subject:one"):
     demand, _, _, attached = attach(kernel, subject=subject)
     fence = claim(kernel, attached)
     with kernel["engine"].begin() as connection:
-        retained = DataOperationStorage(connection).invoke(
-            "retain_external_data_packet",
-            {**fence, "runtime_id": kernel["runtime"], "max_bytes": max_bytes},
-        )
+        retained = DataOperationStorage(connection).retain_external_data_packet({**fence, "runtime_id": kernel["runtime"], "max_bytes": max_bytes})
     return demand, attached, fence, retained
 
 
@@ -31,14 +28,11 @@ def test_external_packet_waits_without_fulfillment_then_publishes_real_native_re
     assert len(headers) == 1 and headers[0]["packet_id"] == retained["packet_id"]
     with ddo_kernel["engine"].begin() as connection:
         storage = DataOperationStorage(connection)
-        snapshot = storage.invoke("read_demand_result", {"demand_id": demand["demand_id"]})
+        snapshot = storage.read_demand_result({"demand_id": demand["demand_id"]})
         assert any(use["fate"] == "awaiting-external" for use in snapshot["uses"])
         assert all(not use["products"] for use in snapshot["uses"])
         assert (
-            storage.invoke(
-                "claim_data_request",
-                {"request_id": attached["request_id"], "holder": "ordinary", "lease_seconds": 30},
-            )["state"]
+            storage.claim_data_request({"request_id": attached["request_id"], "holder": "ordinary", "lease_seconds": 30})["state"]
             == "no-work"
         )
     leased = session.claim(retained["packet_id"])
@@ -115,22 +109,13 @@ def test_external_packet_byte_limit_and_cancellation_do_not_publish(ddo_kernel):
     demand, _, _, attached = attach(ddo_kernel)
     fence = claim(ddo_kernel, attached)
     with pytest.raises(DBAPIError, match="capacity"), ddo_kernel["engine"].begin() as connection:
-        DataOperationStorage(connection).invoke(
-            "retain_external_data_packet",
-            {**fence, "runtime_id": ddo_kernel["runtime"], "max_bytes": 1},
-        )
+        DataOperationStorage(connection).retain_external_data_packet({**fence, "runtime_id": ddo_kernel["runtime"], "max_bytes": 1})
     with ddo_kernel["engine"].begin() as connection:
-        retained = DataOperationStorage(connection).invoke(
-            "retain_external_data_packet",
-            {**fence, "runtime_id": ddo_kernel["runtime"], "max_bytes": 100000},
-        )
+        retained = DataOperationStorage(connection).retain_external_data_packet({**fence, "runtime_id": ddo_kernel["runtime"], "max_bytes": 100000})
     session = ExternalDataSession(ddo_kernel["engine"], "ddo-test")
     leased = session.claim(retained["packet_id"])
     with ddo_kernel["engine"].begin() as connection:
-        DataOperationStorage(connection).invoke(
-            "cancel_data_demand",
-            {"demand_id": demand["demand_id"], "reason": "cancel exact external interest"},
-        )
+        DataOperationStorage(connection).cancel_data_demand({"demand_id": demand["demand_id"], "reason": "cancel exact external interest"})
     with pytest.raises(DBAPIError):
         session.submit(
             retained["packet_id"],
@@ -176,9 +161,7 @@ def test_retained_external_result_is_adopted_without_repeating_actor_work(ddo_ke
         RESULT
     )
     with ddo_kernel["engine"].begin() as connection:
-        admitted = DataOperationStorage(connection).invoke(
-            "admit_external_data_result",
-            {
+        admitted = DataOperationStorage(connection).admit_external_data_result({
                 "packet_id": retained["packet_id"],
                 **{
                     name: first[name]
@@ -187,11 +170,8 @@ def test_retained_external_result_is_adopted_without_repeating_actor_work(ddo_ke
                 "actor_assertion": "controlled-external",
                 "model_assertion": None,
                 "completion": completion,
-            },
-        )
-        released = DataOperationStorage(connection).invoke(
-            "release_data_attempt",
-            {
+            })
+        released = DataOperationStorage(connection).release_data_attempt({
                 **{
                     name: first[name]
                     for name in ("request_id", "generation", "task_id", "attempt", "holder")
@@ -201,8 +181,7 @@ def test_retained_external_result_is_adopted_without_repeating_actor_work(ddo_ke
                     "code": "controlled-actor-retired",
                     "message": "Actor work finished; publication owner retired before acknowledgement.",
                 },
-            },
-        )
+            })
         assert (
             released["state"] == "released"
             and released["retained_intent_id"] == admitted["intent_id"]
@@ -262,16 +241,13 @@ def test_external_current_runtime_distrust_refuses_new_result_but_keeps_exact_re
     _, _, _, second_packet = packet(ddo_kernel, subject="subject:two")
     second = session.claim(second_packet["packet_id"])
     with ddo_kernel["engine"].begin() as connection:
-        DataOperationStorage(connection).invoke(
-            "revoke_data_support",
-            {
+        DataOperationStorage(connection).revoke_data_support({
                 "project_id": "ddo-test",
                 "original_source": "source:test",
                 "selector_kind": "runtime",
                 "selector": ddo_kernel["runtime"],
                 "reason": "withdraw external runtime after independent first publication",
-            },
-        )
+            })
     with pytest.raises(DBAPIError, match="revoked"):
         session.submit(
             second_packet["packet_id"],
@@ -306,9 +282,7 @@ def test_native_product_page_preflights_body_and_bounds_complete_envelope_withou
     )
     with ddo_kernel["engine"].begin() as connection:
         native = DataOperationStorage(connection)
-        frontier = native.invoke(
-            "read_demand_result", {"demand_id": demand["demand_id"], "max_bytes": 1}
-        )
+        frontier = native.read_demand_result({"demand_id": demand["demand_id"], "max_bytes": 1})
         assert (
             frontier["view"] == "frontier"
             and frontier["uses"][0]["products"][0]["body_state"] == "not_requested"
@@ -318,13 +292,7 @@ def test_native_product_page_preflights_body_and_bounds_complete_envelope_withou
         (64, "page envelope exceeds max_bytes"),
     ):
         with pytest.raises(DBAPIError, match=reason), ddo_kernel["engine"].begin() as connection:
-            DataOperationStorage(connection).invoke(
-                "read_demand_result",
-                {"demand_id": demand["demand_id"], "view": "products", "max_bytes": bound},
-            )
+            DataOperationStorage(connection).read_demand_result({"demand_id": demand["demand_id"], "view": "products", "max_bytes": bound})
     with ddo_kernel["engine"].begin() as connection:
-        completed = DataOperationStorage(connection).invoke(
-            "read_demand_result",
-            {"demand_id": demand["demand_id"], "view": "products", "max_bytes": 100000},
-        )
+        completed = DataOperationStorage(connection).read_demand_result({"demand_id": demand["demand_id"], "view": "products", "max_bytes": 100000})
     assert completed["uses"][0]["products"][0]["body"] == ["integer", "7"]

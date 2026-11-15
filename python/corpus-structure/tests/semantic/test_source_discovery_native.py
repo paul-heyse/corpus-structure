@@ -173,7 +173,7 @@ def test_actual_source_discovery_closure_and_scoped_child_publication(
     assert executor.budget.used_bytes == 0
     with case.admin.begin() as connection:
         storage = DataOperationStorage(connection)
-        snapshot = storage.invoke("read_demand_result", {"demand_id": demand, "view": "products"})
+        snapshot = storage.read_demand_result({"demand_id": demand, "view": "products"})
         obligations = [
             row
             for row in snapshot["obligations"]
@@ -303,13 +303,10 @@ def _refuse_same_context_original(connection, storage, snapshot, use, population
         ),
         connection.begin_nested(),
     ):
-        storage.invoke(
-            "attach_data_request",
-            {
+        storage.attach_data_request({
                 "obligation_id": use["obligation_id"],
                 "request_meaning": json.loads(key.identity.canonical_input),
                 "request_key": key.identity.key,
                 "binding": binding,
                 "replicate": request["replicate"],
-            },
-        )
+            })

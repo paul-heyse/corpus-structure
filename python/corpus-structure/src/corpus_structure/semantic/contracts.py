@@ -656,6 +656,9 @@ class OperationFieldBinding:
     default_json: str | None = None
     transform: Literal["identity", "task_unit_type", "held_progress"] | None = None
     resolved: OperationFieldType | None = None
+    # Explicit schema-backed lowering; the physical transport remains json_payload.
+    wire_schema: str | None = None
+    wire_nominals: tuple[tuple[str, str], ...] = ()
 
 
 @dataclass(frozen=True)

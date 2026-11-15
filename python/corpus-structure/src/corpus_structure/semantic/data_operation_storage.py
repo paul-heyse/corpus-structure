@@ -6,6 +6,13 @@ call bindings are derived together; candidate operations cannot choose SQL symbo
 
 from __future__ import annotations
 
+from typing import cast as typing_cast
+from corpus_structure.semantic._data_operation_wire import (
+    WireReadDemandResultRequest,
+    WireDemandId,
+    WireReadIdentity,
+)
+
 import json
 from collections.abc import Mapping
 from dataclasses import asdict, dataclass
@@ -16,6 +23,7 @@ from typing import TYPE_CHECKING, Any
 from sqlalchemy import Text, bindparam, cast, func, select, text
 from sqlalchemy.dialects.postgresql import JSONB
 
+from ._data_operation_wire import DataOperationCalls
 from .contracts import OperationCallBinding, OperationFieldBinding, OperationFieldType
 from .data_operation_json import ContextJSONB, json_bytes, json_context_value, wire_json_loads
 from .data_operation_model import MODEL_VERSION
@@ -196,6 +204,42 @@ def native_source_digest(sources=None) -> str:
     ).hexdigest()
 
 
+def _rename_native_entrypoints(sql: str, names: set[str]) -> str:
+    """Rename only selected declarations in a private parsed tree.
+
+    Reprinting is restricted to affected declarations and checked against their
+    exact body bytes. Scanner slices preserve unrelated SQL and surrounding text.
+    """
+    from pglast import ast
+    from pglast.stream import RawStream
+
+    from .native_sql_body import body_source
+    from .prepared_sql import prepare_sql
+
+    prepared = prepare_sql(sql, source="data-operation native declarations")
+    replacements = []
+    for index, raw in enumerate(prepared.private_tree()):
+        statement = raw.stmt
+        if not isinstance(statement, ast.CreateFunctionStmt):
+            continue
+        parts = tuple(part.sval for part in statement.funcname or ())
+        if len(parts) != 2 or parts[0] != "ops" or parts[1] not in names:
+            continue
+        before = body_source(statement)
+        statement.funcname = (ast.String(sval="ops"), ast.String(sval="ddo_impl_" + parts[1]))
+        rendered = RawStream()(statement)
+        reparsed = prepare_sql(rendered, source="renamed native declaration")
+        if len(reparsed.statements) != 1:
+            raise ValueError("native declaration rename changed statement cardinality")
+        renamed = reparsed.statements[0].stmt
+        if not isinstance(renamed, ast.CreateFunctionStmt) or body_source(renamed) != before:
+            raise ValueError("native declaration rename did not preserve exact function body")
+        replacements.append((prepared.slices[index], rendered))
+    for span, rendered in reversed(replacements):
+        sql = sql[:span.start] + rendered + sql[span.stop:]
+    return sql
+
+
 def native_sql(sources=None) -> str:
     captured = native_protocol_sources() if sources is None else tuple(sources)
     sql = (
@@ -215,13 +259,11 @@ def native_sql(sources=None) -> str:
             sql = sql.replace("__DDO_CORE_" + name.upper() + "__", body)
         if "__DDO_CORE_" in sql:
             raise ValueError("captured Core projection is incomplete")
+    operations = _protocol(captured)
+    sql = _rename_native_entrypoints(sql, {item["name"] for item in operations})
     wrappers = []
-    for item in _protocol(captured):
+    for item in operations:
         name = item["name"]
-        sql = sql.replace(
-            "CREATE OR REPLACE FUNCTION ops." + name + "(",
-            "CREATE OR REPLACE FUNCTION ops.ddo_impl_" + name + "(",
-        )
         wrappers.append(f"""
 CREATE OR REPLACE FUNCTION ops.{name}(p_payload jsonb) RETURNS jsonb
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $wire$
@@ -330,6 +372,10 @@ def native_operation_calls(
     """Resolve the fixed protocol's signatures without accepting candidate SQL names."""
     sources = native_protocol_sources() if sources is None else tuple(sources)
     digest = native_source_digest(sources)
+    from .data_operation_wire import wire_contracts, wire_nominal_correspondence
+
+    schemas = wire_contracts(sources)
+    nominals = wire_nominal_correspondence(sources)
     resolved = OperationFieldType("json_payload", False, False)
     result = []
     owners = {operation.semantic_id for operation in model.operations} if model else None
@@ -351,6 +397,8 @@ def native_operation_calls(
                             False,
                             native_parameter="p_payload",
                             resolved=resolved,
+                            wire_schema=canonical_bytes(schemas[name]["input"]).decode(),
+                            wire_nominals=nominals,
                         ),
                     ),
                     result_fields=(
@@ -360,6 +408,8 @@ def native_operation_calls(
                             False,
                             native_field="payload",
                             resolved=resolved,
+                            wire_schema=canonical_bytes(schemas[name]["output"]).decode(),
+                            wire_nominals=nominals,
                         ),
                     ),
                     result_class="".join(word.title() for word in name.split("_")) + "Result",
@@ -381,13 +431,13 @@ def native_digest_from_dependencies(dependencies):
     return native_source_digest(dependencies.artifacts)
 
 
-class DataOperationStorage:
+class DataOperationStorage(DataOperationCalls):
     """Connection-scoped invocation; transaction and commit custody stay with the caller."""
 
     def __init__(self, connection: Connection):
         self.connection = connection
 
-    def invoke(self, name: str, payload: dict[str, Any]) -> dict[str, Any]:
+    def _invoke(self, name: str, payload: Any) -> Any:
         from .data_operation_wire import validate_native_wire
 
         # Wire validation already checks the closed operation inventory. Full
@@ -909,15 +959,12 @@ def admitted_data_read(
 
     operation = model.operation(operation_id)
     # Acquire the exact demand now; execution of the TVF repeats its pin check.
-    acquired = DataOperationStorage(connection).invoke(
-        "read_demand_result",
-        {
-            "demand_id": demand_id,
+    acquired = DataOperationStorage(connection).read_demand_result({
+            "demand_id": WireDemandId(demand_id),
             "trust_snapshot": trust_snapshot,
-            "read_id": read_id,
+            "read_id": WireReadIdentity(read_id),
             "limit": 1,
-        },
-    )
+        })
     # The native reader validates epoch meaning against this exact read_id.
     # Keep its canonical pins: a lazily materialized zero is not revocation.
     trust_snapshot = acquired["trust_snapshot"]
