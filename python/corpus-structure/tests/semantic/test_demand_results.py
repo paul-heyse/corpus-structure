@@ -77,6 +77,7 @@ def test_waiting_and_completed_empty_operations_do_not_claim_absence(monkeypatch
 
 def test_actual_main_mcp_read_and_resource_use_same_owner_and_exact_json(monkeypatch):
     from corpus_structure.intervene.server import build_server
+    from corpus_structure.semantic.data_operation_external import ExternalDataSession
     from corpus_structure.serve.demand_journey import _cursor
     engine = create_engine("sqlite://")
     request = DemandQueryRequest(demand_id="demand:A", project_id="project:A", max_bytes=8192)
@@ -86,10 +87,12 @@ def test_actual_main_mcp_read_and_resource_use_same_owner_and_exact_json(monkeyp
         return dict(cut_id="cut:A", items=[{"amount": Decimal("10000000000.00000000001")}], resource_handle=_cursor(acquired.model_dump(mode="python")))
     monkeypatch.setattr("corpus_structure.intervene.demand_read_tools.serve_demand_query", selected)
     async def journey():
-        async with Client(build_server(session=object(), read_engine=engine, project="project:A", demand="demand:A")) as client:
+        async with Client(build_server(session=ExternalDataSession(engine, "project:A", demand_id="demand:A"), read_engine=engine, project="project:A", demand="demand:A")) as client:
             tools = {tool.name: tool for tool in await client.list_tools()}
+            assert tools["read_result"].annotations is not None
             assert tools["read_result"].annotations.read_only_hint is True
             result = await client.call_tool("read_result", {"request": request.model_dump(mode="json")})
+            assert result.structured_content is not None
             exact = json_loads(result.structured_content["exact_json"])
             assert exact["items"][0]["amount"] == Decimal("10000000000.00000000001")
             resource = await client.read_resource(result.structured_content["resource"])
@@ -102,27 +105,27 @@ def test_actual_main_mcp_read_and_resource_use_same_owner_and_exact_json(monkeyp
         engine.dispose()
 
 
-def _detached_closure() -> tuple[dict[str, Any], list[dict[str, Any]]]:
+def _detached_closure(*, body=None, kind_contract="kind:amount") -> tuple[dict[str, Any], list[dict[str, Any]]]:
     from corpus_structure.semantic.data_operation_identity import body_identity, contextual_product_identity, SemanticRequestKey
     from corpus_structure.semantic.data_operation_model import SubjectContext
     context = SubjectContext("project:A", "root", "source:A", json_bytes({"scale": Decimal("1.20")}))
-    body = {"amount": Decimal("12.340")}
+    body = {"amount": Decimal("12.340")} if body is None else body
     body_key = body_identity(body).key
-    product_id = contextual_product_identity(kind="kind:amount", context=context, body=body_key).key
+    product_id = contextual_product_identity(kind=kind_contract, context=context, body=body_key).key
     request = SemanticRequestKey("recipe:A", "root", {}, {}, "inference:A", subject_context=context)
     selection = {"request_inputs": semantic_value({}), "parameters": semantic_value({}), "inference": "inference:A"}
-    product = dict(id=product_id, kind_contract="kind:amount", project_id="project:A", subject="root", original_source="source:A", analyzed_scope={"scale": Decimal("1.20")}, canonical_body=semantic_value(body), body_digest=body_key, artifact_digest=None)
+    product = dict(id=product_id, kind_contract=kind_contract, project_id="project:A", subject="root", original_source="source:A", analyzed_scope={"scale": Decimal("1.20")}, canonical_body=semantic_value(body), body_digest=body_key, artifact_digest=None)
     native = _page()
     native["uses"] = [dict(use_id="use:A", obligation_id="obligation:A", request_id="request:A", derivation_id="episode:A", selection=selection, trust_snapshot={}, fate="fulfilled", products=[dict(product_id=product_id, member_id=None, role="result", position=0, multiplicity=1, body=semantic_value(body))])]
     records = [
         ("kb.data_product", product),
-        ("sem.data_kind_contract", dict(kind_contract="kind:amount", kind="urn:Amount", meaning_schema={"type": "array"}, body_schema={"type": "object", "required": ["amount"]})),
+        ("sem.data_kind_contract", dict(kind_contract=kind_contract, kind="urn:Amount", meaning_schema={"type": "array"}, body_schema={"type": "object", "required": list(body)})),
         ("ops.data_request", dict(id="request:A", request_key=request.identity.key, project_id="project:A", operation_id="op:A", recipe="recipe:A", subject="root", original_source="source:A", analyzed_scope={"scale": Decimal("1.20")})),
         ("ops.data_derivation", dict(id="episode:A", request_id="request:A", generation=1, intent_id="intent:A", producer_task_id=1, producer_attempt=1, release_id="release:A", runtime_id="runtime:A", recipe="recipe:A")),
         ("ops.demand_use", dict(id="use:A", obligation_id="obligation:A", request_id="request:A", derivation_id="episode:A", selection=selection, trust_snapshot={})),
         ("sem.data_operation_definition", dict(release_id="release:A", operation_id="op:A", recipe="recipe:A")),
         ("ops.data_derivation_output", dict(derivation_id="episode:A", product_id=product_id, member_id=None, role="result", position=0, multiplicity=1)),
-        ("ops.data_completion_intent", dict(id="intent:A", request_id="request:A", generation=1, runtime_id="runtime:A", producer_task_id=1, producer_attempt=1, payload=dict(inputs=[], support=[], outputs=[dict(role="result", position=0, multiplicity=1, product=dict(kind_contract="kind:amount", body=semantic_value(body)))]))),
+        ("ops.data_completion_intent", dict(id="intent:A", request_id="request:A", generation=1, runtime_id="runtime:A", producer_task_id=1, producer_attempt=1, payload=dict(inputs=[], support=[], outputs=[dict(role="result", position=0, multiplicity=1, product=dict(kind_contract=kind_contract, body=semantic_value(body)))]))),
         ("ops.data_publication_receipt", dict(id="receipt:A", derivation_id="episode:A", intent_id="intent:A")),
     ]
     return native, [dict(key=relation + ":" + str(ordinal), relation=relation, record=row) for ordinal, (relation, row) in enumerate(records)]
@@ -196,3 +199,29 @@ def test_detached_selected_use_requires_its_producing_custody_even_without_remai
     retained = [row for row in records if row["relation"] != relation and not (relation == "ops.data_derivation" and row["relation"].startswith("ops.data_derivation_"))]
     with pytest.raises(ValueError, match="missing"):
         verify_detached_result(native, records=retained, wire_schema={})
+
+
+def test_detached_container_requires_members_even_when_selected_as_whole_product():
+    from corpus_structure.semantic.data_operation_identity import semantic_value
+    from corpus_structure.semantic.demand_results import verify_detached_result
+    packet = dict(member_id="member:A", kind_contract="kind:item", context=dict(subject="item", original_source="source:A", analyzed_scope={}), body={"value": 1})
+    native, records = _detached_closure(body={"members": [packet]}, kind_contract="kind:container")
+    parent = next(row["record"] for row in records if row["relation"] == "kb.data_product")
+    kind = next(row["record"] for row in records if row["relation"] == "sem.data_kind_contract")
+    kind.update(member_schema={}, member_contracts=["kind:item"])
+    records += [dict(key="child-kind", relation="sem.data_kind_contract", record=dict(kind_contract="kind:item", meaning_schema={"type":"array"}, body_schema={"type":"object", "required":["value"]})),
+                dict(key="member:A", relation="kb.data_product_member", record=dict(product_id=parent["id"], member_id="member:A", kind_contract="kind:item", **packet["context"], body=semantic_value(packet["body"])))]
+    verify_detached_result(native, records=records, wire_schema={})
+    assert native["uses"][0]["products"][0]["member_id"] is None
+    with pytest.raises(ValueError, match="container member is missing"):
+        verify_detached_result(native, records=[row for row in records if row["relation"] != "kb.data_product_member"], wire_schema={})
+
+
+def test_detached_product_requires_its_artifact_even_without_document_admission():
+    from corpus_structure.semantic.demand_results import verify_detached_result
+    native, records = _detached_closure()
+    product = next(row["record"] for row in records if row["relation"] == "kb.data_product")
+    product["artifact_digest"] = "a" * 64
+    verify_detached_result(native, records=records, wire_schema={}, source_artifacts={"a" * 64:"captured.bin"})
+    with pytest.raises(ValueError, match="artifact bytes are missing"):
+        verify_detached_result(native, records=records, wire_schema={}, source_artifacts={})

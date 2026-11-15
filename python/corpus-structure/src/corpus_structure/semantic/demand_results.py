@@ -238,16 +238,22 @@ def verify_detached_result(record: Mapping[str, Any], *, records=(), index=None,
     if kinds is not None and any(kinds.get(key) != value for key, value in actual_kinds.items()):
         raise ValueError("detached kind differs from its captured release contract")
     products = row_map("kb.data_product", "id")
+    members = row_map("kb.data_product_member", "product_id", "member_id")
     for product in products.values() if validate_closure else ():
         kind = actual_kinds[product["kind_contract"]]
         decoded = decode_semantic_value(product["canonical_body"])
+        if source_artifacts is not None and product["artifact_digest"] is not None and product["artifact_digest"] not in source_artifacts:
+            raise ValueError("detached selected product artifact bytes are missing")
+        if kind.get("member_schema", {"not": {}}) != {"not": {}}:
+            for packet in decoded["members"]:
+                if (product["id"], packet["member_id"]) not in members:
+                    raise ValueError("detached canonical container member is missing from its support closure")
         Draft7Validator(kind["meaning_schema"]).validate(product["canonical_body"])
         Draft7Validator(kind["body_schema"]).validate(decoded)
         body = body_identity(decoded).key
         context = SubjectContext(product["project_id"], product["subject"], product["original_source"], json_bytes(product["analyzed_scope"]))
         if body != product["body_digest"] or contextual_product_identity(kind=product["kind_contract"], context=context, body=body).key != product["id"]:
             raise ValueError("detached product differs from its semantic identity")
-    members = row_map("kb.data_product_member", "product_id", "member_id")
     for member in members.values() if validate_closure else ():
         product = products[member["product_id"]]
         kind = actual_kinds[member["kind_contract"]]
