@@ -1,6 +1,8 @@
 """Private native rich correspondence; complete policy journeys need captured head."""
 
 from copy import deepcopy
+from hashlib import sha256
+from decimal import Decimal
 import json
 
 import pytest
@@ -28,13 +30,13 @@ def rich_guard_connection(cpu_basis_connection):
     ):
         connection.execute(CreateTable(table(name), include_foreign_key_constraints=[]))
     for source, names in (
-        (native_sql(native_protocol_sources()), {'ddo_json', 'ddo_field'}),
+        (native_sql(native_protocol_sources()), {'ddo_json', 'ddo_field', 'ddo_digest'}),
         (rich_admission_native_sql(), None),
     ):
         parsed = prepare_sql(source, source='rich-private-correspondence-control')
         for index, statement in enumerate(parsed.statements):
             node = statement.stmt
-            if names is None or isinstance(node, ast.CreateFunctionStmt) and node.funcname[-1].sval in names:
+            if names is None or isinstance(node, ast.CreateFunctionStmt) and node.funcname and node.funcname[-1].sval in names:
                 connection.exec_driver_sql(parsed.excerpt(index), execution_options={'no_parameters': True})
     return connection
 
@@ -155,11 +157,72 @@ def test_located_packet_context_uses_actual_input_product_and_producer_not_share
             check(other)
 
 
+def test_carried_historical_reading_requires_exact_tagged_packet_and_original_provenance(rich_guard_connection):
+    from corpus_structure.semantic.data_operation_support import ComputationalSupportReference
+    from corpus_structure.semantic.rich_knowledge_contracts import (
+        DdoRichContext, DdoRichPacket, DdoRichSelectedMember, DdoRichSourceReadingAssertion,
+    )
+
+    raw = DdoRichSelectedMember(
+        product_id='historical:raw-product', member_id='historical:raw-member', kind_contract='kind:raw',
+        support_references=(ComputationalSupportReference(derivation_id='historical:raw-episode', admission_use_id='historical:raw-use'),),
+    )
+    resolution = DdoRichSelectedMember(
+        product_id='historical:resolution-product', member_id=None, kind_contract='kind:resolution',
+        support_references=(ComputationalSupportReference(derivation_id='historical:resolution-episode', admission_use_id='historical:resolution-use'),),
+    )
+    resolved = resolution.model_copy(update={'member_id': 'historical:resolved-member', 'kind_contract': 'kind:resolved-record'})
+    packet = DdoRichPacket(
+        member_id='historical:reading-assertion', kind_contract='kind:reading-assertion',
+        context=DdoRichContext(subject='historical:source', subject_definition='selected-native-source',
+                               original_source='historical:original', analyzed_scope={'fraction': Decimal('0.123456789123456789')}),
+        body=DdoRichSourceReadingAssertion(
+            member_type='source-reading-assertion', reading_id='historical:reading', record_id='historical:record',
+            source_interpretation_id='historical:raw-interpretation', interpretation_id='historical:resolved-interpretation',
+            original=raw, resolution=resolution, resolved=resolved, reading_value='historical:complete-reading-value',
+        ),
+    ).model_dump(mode='python')
+    original = semantic_value(packet)
+    # This exercises the local membership predicate, not native publication.
+    # The completion guard builds this index only after actual known_universe
+    # producer/common-receipt/current-kernel validation, never from caller JSON.
+    index = {sha256(canonical_bytes(original)).hexdigest(): original}
+    def carried(value, known=index):
+        return rich_guard_connection.scalar(text('SELECT ops.ddo_rich_carried_reading(CAST(:packet AS jsonb),CAST(:known AS jsonb))'),
+                                            {'packet': canonical_bytes(semantic_value(value)).decode(), 'known': canonical_bytes(known).decode()})
+    assert carried(packet) is True
+    assert carried(packet, {}) is False
+    changes = []
+    for path, value in (
+        (('member_id',), 'new:lookalike'),
+        (('context', 'original_source'), 'different:original'),
+        (('context', 'analyzed_scope', 'fraction'), Decimal('0.123456789123456788')),
+        (('body', 'source_interpretation_id'), 'new:raw-interpretation'),
+        (('body', 'interpretation_id'), 'new:resolved-interpretation'),
+        (('body', 'reading_value'), 'new:partial-reading-value'),
+        (('body', 'original', 'support_references'), [{'kind': 'computation', 'derivation_id': 'new:episode', 'admission_use_id': 'new:use'}]),
+    ):
+        changed = deepcopy(packet)
+        owner = changed
+        for name in path[:-1]: owner = owner[name]
+        owner[path[-1]] = value
+        changes.append(changed)
+    for changed in changes:
+        assert carried(changed) is False
+        # A lookup key alone cannot grant equality with a different full packet.
+        wrong_index = {sha256(canonical_bytes(semantic_value(changed))).hexdigest(): original}
+        assert carried(changed, wrong_index) is False
+    nonreading = {**packet, 'body': {**packet['body'], 'member_type': 'fact'}}
+    nonreading_meaning = semantic_value(nonreading)
+    assert carried(nonreading, {sha256(canonical_bytes(nonreading_meaning)).hexdigest(): nonreading_meaning}) is False
+
+
 def test_native_rich_function_population_has_explicit_independent_expectation():
     statements = prepare_sql(rich_admission_native_sql(), source='rich-native-function-population').statements
-    assert {statement.stmt.funcname[-1].sval for statement in statements if isinstance(statement.stmt, ast.CreateFunctionStmt)} == {
+    assert {statement.stmt.funcname[-1].sval for statement in statements if isinstance(statement.stmt, ast.CreateFunctionStmt) and statement.stmt.funcname} == {
         'ddo_rich_support_population', 'ddo_rich_role_headers', 'ddo_rich_role_population', 'ddo_rich_selected_value',
         'ddo_rich_producing_request', 'ddo_rich_family_contract', 'ddo_rich_require_admission_producer',
         'ddo_rich_require_proposal_context',
+        'ddo_rich_carried_reading',
         'ddo_require_rich_admission_completion', 'ddo_rich_admission_dependencies_valid',
     }

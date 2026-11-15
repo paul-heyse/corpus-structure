@@ -111,9 +111,16 @@ BEGIN
  RAISE EXCEPTION 'rich located proposal differs from actual consumed whole packet/context support' USING ERRCODE='23514'; END IF;
 END $rich$;
 
+CREATE OR REPLACE FUNCTION ops.ddo_rich_carried_reading(packet jsonb,known_packets jsonb)
+RETURNS boolean LANGUAGE sql IMMUTABLE STRICT SET search_path=pg_catalog,pg_temp AS $rich$
+ SELECT coalesce(data.ddo_field(data.ddo_field(packet,'body'),'member_type')='["string","source-reading-assertion"]'::jsonb
+ AND known_packets->ops.ddo_digest(data.ddo_normalize(packet))=data.ddo_normalize(packet),false)
+$rich$;
+
 REVOKE ALL ON FUNCTION ops.ddo_rich_role_population(jsonb,text),ops.ddo_rich_selected_value(text,jsonb,text,jsonb),
  ops.ddo_rich_producing_request(text,jsonb,text,text,text,boolean),ops.ddo_rich_family_contract(text,text),
- ops.ddo_rich_support_population(jsonb),ops.ddo_rich_require_proposal_context(jsonb,jsonb),ops.ddo_rich_role_headers(jsonb) FROM PUBLIC;
+ ops.ddo_rich_support_population(jsonb),ops.ddo_rich_require_proposal_context(jsonb,jsonb),ops.ddo_rich_role_headers(jsonb),
+ ops.ddo_rich_carried_reading(jsonb,jsonb) FROM PUBLIC;
 """
 
 
@@ -157,7 +164,7 @@ DECLARE basis jsonb; admission_meaning jsonb; admission jsonb; consolidated_mean
  resolution_request ops.data_request; located_request ops.data_request; known_request ops.data_request;
  resolution_basis jsonb; reference jsonb; decision jsonb; raw_meaning jsonb; resolved_meaning jsonb; known_episode text;
  raw_record jsonb; resolved_record jsonb; resolution_meaning jsonb; report jsonb; policy_meaning jsonb; policy jsonb;
- events jsonb; event jsonb; reports jsonb:='{}'; raw_reports jsonb:='{}'; policies jsonb:='{}'; item jsonb; packet jsonb; raw_digest text;
+ events jsonb; event jsonb; reports jsonb:='{}'; raw_reports jsonb:='{}'; policies jsonb:='{}'; known_packets jsonb:='{}'; item jsonb; packet jsonb; raw_digest text;
  raw_comparison jsonb; resolved_comparison jsonb; assertion jsonb; family_contract text;
 BEGIN
  IF r.operation_id IS DISTINCT FROM 'rich.admit' THEN
@@ -205,6 +212,14 @@ BEGIN
  WHERE producer.request_id=known_request.id AND EXISTS(SELECT FROM jsonb_array_elements(reference->'support_references') support WHERE support->>'derivation_id'=producer.id);
  IF NOT ops.ddo_rich_admission_dependencies_valid(known_episode) THEN
  RAISE EXCEPTION 'rich known universe lacks actual sealed native admission authority' USING ERRCODE='23514'; END IF;
+ -- A previous accepted graph retains its own source/interpretation/support
+ -- attribution. Index only exact reading packets after genuine native authority
+ -- has been established; these are not new current raw/resolved decisions.
+ FOR packet IN SELECT value FROM jsonb_array_elements(data.ddo_field((
+ SELECT canonical_body FROM kb.data_product WHERE id=reference->>'product_id' AND project_id=r.project_id),'members')->1)
+ WHERE data.ddo_field(data.ddo_field(value,'body'),'member_type')='["string","source-reading-assertion"]'::jsonb LOOP
+ known_packets:=known_packets||jsonb_build_object(ops.ddo_digest(data.ddo_normalize(packet)),data.ddo_normalize(packet));
+ END LOOP;
  END LOOP;
  -- Exact tagged packet membership preserves every retained field, evidence,
  -- alternative and context. The approved CPU graph owner selects closed
@@ -346,8 +361,10 @@ BEGIN
  ELSIF decision->>'assertion_member_id' IS NOT NULL THEN
  RAISE EXCEPTION 'rich rejected reading cannot retain an accepted assertion' USING ERRCODE='23514'; END IF;
  END LOOP;
- IF EXISTS(SELECT FROM jsonb_array_elements(admission->'members') member WHERE member->'body'->>'member_type'='source-reading-assertion'
- AND (SELECT count(*) FROM jsonb_array_elements(admission->'reading_decisions') judgment WHERE judgment->>'outcome'='accepted' AND judgment->>'assertion_member_id'=member->>'member_id')<>1) THEN
+ IF EXISTS(SELECT FROM jsonb_array_elements(data.ddo_field(admission_meaning,'members')->1) member_meaning
+ WHERE data.ddo_field(data.ddo_field(member_meaning,'body'),'member_type')='["string","source-reading-assertion"]'::jsonb
+ AND (SELECT count(*) FROM jsonb_array_elements(admission->'reading_decisions') judgment WHERE judgment->>'outcome'='accepted' AND judgment->>'assertion_member_id'=data.ddo_field(member_meaning,'member_id')->>1)<>1
+ AND NOT ops.ddo_rich_carried_reading(member_meaning,known_packets)) THEN
  RAISE EXCEPTION 'rich accepted graph has no exact actual reading decision' USING ERRCODE='23514'; END IF;
 END $rich$;
 
