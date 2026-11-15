@@ -104,11 +104,15 @@ meaning. Migrate named rich queries, ReferenceRecord grading, actual CLI/MCP res
 agent/serving/reference scenarios to those contracts. A private candidate envelope is already
 standing-checked; do not infer accepted rich knowledge from similar fields or successful publication.
 
-`compare_semantic_releases` still opens the legacy execution model (`operation_reporting.py:784–807`)
-and has actual CLI model/schema and semantic-server callers. Map each to target-native structural
-model differences or deliberately retire the capability. Structural model difference, captured-source
-drift and subject-relative native currentness are separate questions with their own evidence; do not
-merge them into one classifier or retain the old execution compiler for an explanatory endpoint.
+**Implemented; bounded Tested · 2026-11-15.** `compare_semantic_releases` now reads the current
+DDO model and compares retained alias/vocabulary/query facts without the old execution model.
+Schema CLI/MCP use that current report; model preview uses the separate declared-model and
+captured-source comparisons. Operation explanations retain current definition/binding/support
+identities and optional exact native frontier reasons; old physical subject inference is removed.
+Structural model difference, captured-source drift and subject-relative native currentness remain
+separate questions with their own evidence. Actual native report journeys and obsolete report
+fixture retirement remain at the coordinator; the pure reporting/correspondence cohort does not
+qualify those journeys.
 The operations inventory owns complete caller disposition; this owner supplies actual public shapes,
 meaning, partial/unknown standing and continuation contracts.
 

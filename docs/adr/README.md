@@ -66,7 +66,6 @@ The [architecture map](../design/README.md) and its section owners own contracts
 | [ADR-0092](0092-ddo-operation-authority.md) | One effective operation model admits declaration and implementation owners | 2026-11-12 | [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
 | [ADR-0093](0093-ddo-products-and-support.md) | Semantic products retain authentic support independently of execution | 2026-11-12 | [§B1](../design/DESIGN.md#section-b1), [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
 | [ADR-0094](0094-ddo-demand-and-recovery.md) | Native demands and requests own fulfillment and recovery | 2026-11-12 | [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5), [§B6](../design/DESIGN.md#section-b6) | Proposed |  |
-| [ADR-0095](0109-ddo-current-domain-contracts.md) | Declared currentness and preservation govern coordinated adoption | 2026-11-12 | [§B2](../design/DESIGN.md#section-b2), [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
 | [ADR-0096](0096-original-source-admission.md) | Original source admission retains factual support without inventing computation | 2026-11-13 | [§B1](../design/DESIGN.md#section-b1), [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
 | [ADR-0097](0097-ddo-native-composition.md) | Declared nominal refinements and document paths preserve concrete input identity | 2026-11-13 | [§B1](../design/DESIGN.md#section-b1), [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
 | [ADR-0098](0098-typed-release-archive.md) | Release archives use model-owned binary staging and atomic native finalization | 2026-11-13 | [§B1](../design/DESIGN.md#section-b1), [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
@@ -80,6 +79,9 @@ The [architecture map](../design/README.md) and its section owners own contracts
 | [ADR-0106](0106-postgresql-current-realization.md) | DDO PostgreSQL derives structural wire APIs and reserves renewal custody | 2026-11-14 | [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
 | [ADR-0107](0107-ddo-source-change-inspection.md) | Captured source drives migration, change explanation and explicit navigation | 2026-11-14 | [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
 | [ADR-0108](0108-declared-graph-realization.md) | Admit complete graph interpretations and native NetworkX realization | 2026-11-14 | [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
+| [ADR-0109](0109-ddo-current-domain-contracts.md) | Checked domain contracts and target-native adoption replace legacy compatibility | 2026-11-15 | [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed | ADR-0095 |
+| [ADR-0110](0110-evaluator-authorized-policy-disclosure.md) | Native policy authorization preserves protected support behind an explicit disclosure boundary | 2026-11-15 | [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
+| [ADR-0111](0111-contract-scoped-record-occurrences.md) | Source record occurrence identity follows its consumed family contract | 2026-11-15 | [§B1](../design/DESIGN.md#section-b1), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
 
 ## Superseded, still in the tree
 

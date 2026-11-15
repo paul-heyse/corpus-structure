@@ -10,7 +10,7 @@ provenance. Preparation/identity foundations do not activate the replacement nat
 legacy readers. The [DDO coordinator](../plans/declared-data-operations_2026-11-12.md) owns current
 scope and evidence; all older implemented sections retain their stated selected/archived boundary.
 
-> Decision: [ADR-0095](../adr/0109-ddo-current-domain-contracts.md)
+> Decision: [ADR-0109](../adr/0109-ddo-current-domain-contracts.md)
 
 ## Shared-corpus method development
 
@@ -130,6 +130,15 @@ trust/revocation retains protected support. Generic case comparison without publ
 does not establish complete-record correctness. The coordinator owns implementation and qualification.
 
 > Decision: [ADR-0110](../adr/0110-evaluator-authorized-policy-disclosure.md)
+
+**Accepted current record identity; implementation/qualification Proposed · 2026-11-15.**
+Complete-record graders and rich admission validate original occurrence IDs against the actual
+consumed family-field kind contract, occurrence recipe and genuine source pins/anchors. A reading
+recipe remains an interpretation/producer determinant. Compatible release reuse retains every
+original producer, source and policy-instance identity; changed-basis outputs regenerate rather
+than acquiring an old-release decoder or a relabelled prepared release.
+
+> Decision: [ADR-0111](../adr/0111-contract-scoped-record-occurrences.md)
 
 **Implemented; bounded native controls Tested (2026-11-04).** The authoring release and exact source-ready frames
 freeze before A/B/C; their original identities remain immutable. A compatible execution successor

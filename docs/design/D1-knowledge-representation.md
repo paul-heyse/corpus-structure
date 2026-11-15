@@ -34,6 +34,19 @@ original identity meaning. The coordinator owns implementation and qualification
 
 > Decision: [ADR-0100](../adr/0100-ddo-contextual-identities.md), [ADR-0093](../adr/0093-ddo-products-and-support.md), [ADR-0096](../adr/0096-original-source-admission.md), [ADR-0097](../adr/0097-ddo-native-composition.md)
 
+### Contract-scoped source occurrences
+
+**Accepted current occurrence identity; implementation/qualification Proposed · 2026-11-15.**
+A SourceRecord occurrence is identified by its checked effective family-field kind contract,
+family, occurrence recipe, genuine original primary source pin and sorted occurrence-defining
+anchor IDs. Unrelated release changes do not change that occurrence. Distinct reading
+interpretations retain their own fields/evidence/policy and exact producer recipes and receipts;
+they do not redefine the source occurrence. Changed family contracts can require new IDs and
+regeneration. Neither release attribution nor old products are rewritten for compatibility.
+The DDO coordinator owns the producer, binder, grading and rich-admission migration.
+
+> Decision: [ADR-0111](../adr/0111-contract-scoped-record-occurrences.md)
+
 ### Protected support and public authority
 
 **Accepted target; implementation and native qualification Proposed · 2026-11-15.** An ordinary

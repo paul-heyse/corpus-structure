@@ -167,6 +167,19 @@ The interpretation section above owns the implemented populated bindings/filteri
 
 ## Immutable effective-model inspection
 
+**Implemented current DDO reporting; bounded Tested · 2026-11-15.** Operation explanations read
+the captured current DDO definition, checked subject reference, binding, coverage, support and
+implementation identities. Optional selected-frontier observations retain the exact native cut
+and the owning binding reasons; explanations grant no execution authority. Physical task/snapshot
+subject inference and the old operation-catalog observer are retired. Contract inspection reads
+fixed native-call correspondence through its typed current owner. Release comparison uses the
+actual DDO graph plus retained alias, vocabulary and query-analysis facts; current-source drift,
+runtime provenance and selected-use impact remain distinct questions. OperationExplanation3 and
+SemanticImpactReport5 replace their predecessor report shapes. The DDO coordinator owns final
+native/public qualification and remaining legacy retirement.
+
+> Decision: [ADR-0109](../adr/0109-ddo-current-domain-contracts.md), [ADR-0107](../adr/0107-ddo-source-change-inspection.md)
+
 **Implemented; scoped Tested, 2026-11-10; DMC-01/02 own the acceptance receipt.** Preparation
 retains compact declaration references before contextual induction in version1
 `inspection/effective-model.json`. Supplied module/path/digest and contributor roles explain

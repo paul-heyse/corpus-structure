@@ -210,7 +210,7 @@ subjects/enforcement/numerical contracts replace meaningful labels; descriptive 
 is outside semantic identity. ADR-0109 owns this accepted target; implementation remains open. The DDO coordinator owns implementation and
 scope; D1–D8 label the accepted target separately from older implemented mechanisms.
 
-> Decision: [ADR-0092](../adr/0092-ddo-operation-authority.md), [ADR-0093](../adr/0093-ddo-products-and-support.md), [ADR-0094](../adr/0094-ddo-demand-and-recovery.md), [ADR-0095](../adr/0109-ddo-current-domain-contracts.md), [ADR-0096](../adr/0096-original-source-admission.md), [ADR-0097](../adr/0097-ddo-native-composition.md), [ADR-0098](../adr/0098-typed-release-archive.md), [ADR-0099](../adr/0099-runless-pdf-source-ownership.md), [ADR-0105](../adr/0105-compact-effective-identity-archives.md)
+> Decision: [ADR-0092](../adr/0092-ddo-operation-authority.md), [ADR-0093](../adr/0093-ddo-products-and-support.md), [ADR-0094](../adr/0094-ddo-demand-and-recovery.md), [ADR-0109](../adr/0109-ddo-current-domain-contracts.md), [ADR-0096](../adr/0096-original-source-admission.md), [ADR-0097](../adr/0097-ddo-native-composition.md), [ADR-0098](../adr/0098-typed-release-archive.md), [ADR-0099](../adr/0099-runless-pdf-source-ownership.md), [ADR-0105](../adr/0105-compact-effective-identity-archives.md)
 
 ### Audit-closure contract qualification
 
@@ -226,6 +226,13 @@ The [audit-closure coordinator](../plans/audit-closure_2026-11-03.md) owns remai
 > Decision: [ADR-0054](../adr/0054-audit-closure-contracts.md)
 
 ### §B1 Qualified assertion occurrences and semantic facts have distinct identities
+
+**Accepted current target; implementation/qualification Proposed · 2026-11-15.** SourceRecord
+occurrence identity uses the checked family-field kind contract, family, occurrence recipe,
+genuine primary source pin and occurrence anchors. Whole-release salts and release relabelling
+retire; reading recipes remain interpretation/producer determinants. D1 and D7 own details.
+
+> Decision: [ADR-0111](../adr/0111-contract-scoped-record-occurrences.md)
 
 **Accepted target · 2026-11-13.** DDO request and product identities carry complete qualified
 subject context: project, local subject, original source and analyzed scope. Local occurrence
@@ -451,6 +458,14 @@ legacy wait barrier rather than implying that every old option is supported.
 <a id="section-b4"></a>
 
 ### §B4 PostgreSQL 18 is the transactional authority for instances; the model is the authority for their structure
+
+**Accepted current target; implementation/qualification Proposed · 2026-11-15.** Current native
+contracts preserve actual source, completion, trust and purpose authority while obsolete interpreters
+and compatibility paths retire. Ordinary policy authorization requires the exact evaluator command
+and common receipt; its bounded public authority leaf never replaces protected internal support.
+D3 and D7 own realization and qualification; no persistent adoption follows from this decision.
+
+> Decision: [ADR-0109](../adr/0109-ddo-current-domain-contracts.md), [ADR-0110](../adr/0110-evaluator-authorized-policy-disclosure.md)
 
 **Accepted realization; implementation/qualification tracked by DDO (2026-11-14).** Purpose-owned
 Psycopg pools lend sessions through SQLAlchemy NullPool. Demand execution reserves one writer
@@ -698,6 +713,15 @@ and later consumer adoption. SP-01 deploys no database or engine change.
 <a id="section-b5"></a>
 
 ### §B5 One LinkML semantic release governs interpretation and generated representations
+
+**Accepted current target; implementation/qualification Proposed · 2026-11-15.** Checked current
+subject, family, enforcement and numerical contracts govern interpretation without a legacy model
+fallback. Source occurrences consume their actual family contract; producer releases and reading
+recipes retain separate original attribution. Protected policy conclusions and public provenance
+use the same typed model and native authority boundary. D1/D2/D7 own these contracts; the DDO
+coordinator owns implementation and retirement evidence.
+
+> Decision: [ADR-0109](../adr/0109-ddo-current-domain-contracts.md), [ADR-0110](../adr/0110-evaluator-authorized-policy-disclosure.md), [ADR-0111](../adr/0111-contract-scoped-record-occurrences.md)
 
 **Accepted realization; implementation/qualification tracked by DDO (2026-11-14).** Captured native
 schemas and explicit field correspondence derive structural Python wire types and fixed methods.
