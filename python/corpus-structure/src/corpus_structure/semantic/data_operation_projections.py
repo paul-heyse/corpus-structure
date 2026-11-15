@@ -516,25 +516,17 @@ def binding_branches(metadata):
         .where(
             definitions.c.release_id == release,
             definitions.c.operation_id == operation_id,
-            roles.c.value["accepted_kind_contracts"].op("?")(projected.c.projected_kind),
-            func.coalesce(roles.c.value["support"]["origins"], _json(["computation"])).op("?")(
-                literal("computation")
-            ),
-            or_(
-                subject.is_(None),
-                func.ops.ddo_binding_subject(roles.c.value, header, subject, source),
-            ),
-            or_(
-                roles.c.value["subject_field"].astext.is_not(None),
-                roles.c.value["subject_target"].astext == "source-set",
-                projected.c.projected_scope.is_not_distinct_from(scope),
-            ),
-            func.ops.ddo_binding_source(
-                roles.c.value,
-                full_header,
-                source,
-                func.coalesce(selection["source_sets"], _json({})),
-            ),
+            case((and_(
+                roles.c.value["accepted_kind_contracts"].op("?")(projected.c.projected_kind),
+                func.coalesce(roles.c.value["support"]["origins"], _json(["computation"])).op("?")(literal("computation")),
+                or_(roles.c.value["subject_field"].astext.is_not(None), roles.c.value["subject_target"].astext == "source-set", projected.c.projected_scope.is_not_distinct_from(scope)),
+            ), case((and_(
+                func.ops.ddo_kind_access(admitted.c.parent_kind),
+                func.ops.ddo_body_access(projected.c.projected_kind, projected.c.projected_body),
+            ), and_(
+                or_(subject.is_(None), func.ops.ddo_binding_subject(roles.c.value, header, subject, source)),
+                func.ops.ddo_binding_source(roles.c.value, full_header, source, func.coalesce(selection["source_sets"], _json({}))),
+            )), else_=literal(False))), else_=literal(False)),
         )
     )
     candidates = (
@@ -631,19 +623,14 @@ def binding_branches(metadata):
         .where(
             definitions.c.release_id == release,
             definitions.c.operation_id == operation_id,
-            roles.c.value["accepted_kind_contracts"].op("?")(products.c.kind_contract),
-            func.coalesce(roles.c.value["support"]["origins"], _json(["computation"])).op("?")(
-                fact_origin
-            ),
-            or_(
-                subject.is_(None),
-                func.ops.ddo_binding_subject(roles.c.value, factual_header, subject, source),
-            ),
-            or_(
-                roles.c.value["subject_field"].astext.is_not(None),
-                admissions.c.analyzed_scope.is_not_distinct_from(scope),
-            ),
-            or_(source.is_(None), admissions.c.original_source == source),
+            case((and_(
+                roles.c.value["accepted_kind_contracts"].op("?")(products.c.kind_contract),
+                func.coalesce(roles.c.value["support"]["origins"], _json(["computation"])).op("?")(fact_origin),
+                or_(roles.c.value["subject_field"].astext.is_not(None), admissions.c.analyzed_scope.is_not_distinct_from(scope)),
+                or_(source.is_(None), admissions.c.original_source == source),
+            ), case((func.ops.ddo_body_access(products.c.kind_contract, products.c.canonical_body),
+                     or_(subject.is_(None), func.ops.ddo_binding_subject(roles.c.value, factual_header, subject, source))),
+                    else_=literal(False))), else_=literal(False)),
         )
     )
     fact = (

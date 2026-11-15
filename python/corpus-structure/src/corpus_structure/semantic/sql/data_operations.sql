@@ -619,6 +619,7 @@ CREATE OR REPLACE FUNCTION ops.ddo_validate_binding(r ops.data_request,o ops.dat
 LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
 DECLARE raw jsonb; roledef jsonb; rv jsonb; mv jsonb; item jsonb; x kb.data_product; member_body jsonb; expected jsonb; pop ops.data_population; d ops.data_demand; boundary ops.data_demand_read; witness jsonb; role_meaning jsonb; state text; population_reference jsonb; lexical_alternative text; frozen_binding jsonb;
 BEGIN
+ PERFORM ops.ddo_binding_body_access(b,r.project_id);
  SELECT * INTO STRICT d FROM ops.data_demand WHERE id=o.demand_id;
  IF b->>'inference' IS DISTINCT FROM d.selection->>'inference'
  OR NOT EXISTS(SELECT FROM jsonb_array_elements(d.selection->'operations') sel WHERE sel->>'operation'=o.operation_id AND sel->'parameter_meaning'=data.ddo_normalize(data.ddo_field(b->'parameters','parameters')))
@@ -969,6 +970,9 @@ LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
 DECLARE definition sem.data_operation_definition; witness jsonb; output jsonb; body jsonb; record jsonb; candidate jsonb; candidates jsonb; comparison jsonb; actual jsonb; expected jsonb; complete boolean; matched boolean;
 BEGIN
  SELECT * INTO STRICT definition FROM sem.data_operation_definition WHERE release_id=r.release_id AND operation_id=r.operation_id;
+ IF jsonb_array_length(coalesce(definition.support_contract->'output_witnesses','[]'))>0 THEN
+ PERFORM ops.ddo_binding_body_access(r.binding,r.project_id);
+ END IF;
  FOR witness IN SELECT value FROM jsonb_array_elements(coalesce(definition.support_contract->'output_witnesses','[]')) LOOP
  SELECT coalesce(jsonb_agg(jsonb_build_object('product',product.id,'member',member.member_id,'reference',jsonb_build_array(product.id,member.member_id),
  'kind_contract',coalesce(member.kind_contract,product.kind_contract),'project_id',product.project_id,'subject',coalesce(member.subject,product.subject),
@@ -1765,6 +1769,17 @@ BEGIN
  FOR contract IN SELECT * FROM ops.ddo_body_kind_contracts(p_kind,p_body) LOOP
  PERFORM ops.ddo_kind_access(contract);
  END LOOP;
+ RETURN true;
+END $$;
+CREATE OR REPLACE FUNCTION ops.ddo_binding_body_access(p_binding jsonb,p_project text) RETURNS boolean
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
+BEGIN
+ PERFORM ops.ddo_kind_access(product.kind_contract),
+ ops.ddo_body_access(coalesce(member.kind_contract,product.kind_contract),coalesce(member.body,product.canonical_body))
+ FROM jsonb_array_elements(p_binding->'inputs') input
+ JOIN kb.data_product product ON product.id=input->>'product_id' AND product.project_id=p_project
+ LEFT JOIN kb.data_product_member member ON member.product_id=product.id AND member.member_id=input->>'member_id'
+ WHERE input->>'member_id' IS NULL OR member.member_id IS NOT NULL;
  RETURN true;
 END $$;
 CREATE OR REPLACE FUNCTION ops.ddo_binding_rows(p_demand text,p_operation text,p_trust jsonb,p_read text DEFAULT NULL,p_subject text DEFAULT NULL,p_source text DEFAULT NULL,p_scope jsonb DEFAULT NULL,p_decode_body boolean DEFAULT true,p_selected jsonb DEFAULT NULL)
