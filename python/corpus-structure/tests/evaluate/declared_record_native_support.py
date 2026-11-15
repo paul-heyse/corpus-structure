@@ -259,14 +259,15 @@ class CurrentRecordPolicyJourney:
     sources: tuple[SourceChoice, ...]
     source_cut: CutSelection
 
-    def selected_products(self, engine, demand, *, kind=None, scope=None):
+    def selected_products(self, engine, demand, *, kind, scope=None):
         from corpus_structure.evaluate.declared_record_policy import _selected_body
         from corpus_structure.semantic.demand_results import selected_record_index
 
+        names = (kind,) if isinstance(kind, str) else kind
         contracts = {
             identity.key
             for identity in self.kernel.model.identities
-            if identity.domain == "kind" and identity.owner == kind
+            if identity.domain == "kind" and identity.owner in names
         }
         with (
             engine.begin() as connection,
@@ -280,7 +281,7 @@ class CurrentRecordPolicyJourney:
         ):
             products = []
             for row in index.rows("kb.data_product"):
-                if kind is None or row["kind_contract"] in contracts:
+                if row["kind_contract"] in contracts:
                     _, body = _selected_body(index, row["id"])
                     products.append((row, body))
             uses = tuple(index.frontier_rows("uses"))
@@ -375,48 +376,47 @@ def current_record_policy_journey(scenario_seeds, tmp_path, monkeypatch, *, reci
             == "https://corpus-structure.dev/semantic/data-operation-source/DdoSelectedNativeSource"
         }
         selected = []
-        with kernel.purpose("evaluate").begin() as connection:
-            with selected_record_index(connection, demand, project_id=PROJECT, scope={}) as (
-                source_cut,
-                index,
-            ):
-                for row in index.rows("kb.data_product_member"):
-                    if row["kind_contract"] not in contracts:
-                        continue
-                    _, body = _selected_body(index, row["product_id"], row["member_id"])
-                    if not any(item["label"] == "table" for item in body["items"]):
-                        continue
-                    coordinate = body["source"]
-                    pin = DeclaredStructuralSource(
-                        source=canonical_bytes([row["product_id"], row["member_id"]]).decode(),
-                        source_product=row["product_id"],
-                        source_member=row["member_id"],
-                        subject=row["subject"],
-                        subject_definition=row["subject_definition"],
-                        document=coordinate["document"],
-                        original_source=row["original_source"],
-                        projection_digest=coordinate["projection"],
-                        section_pointer=coordinate["section_pointer"],
-                        membership=coordinate["membership"],
-                        project_id=PROJECT,
-                        analyzed_scope_meaning=json_context_meaning(
-                            json_bytes(row["analyzed_scope"])
-                        ).decode(),
-                        kind_contract=row["kind_contract"],
+        with kernel.purpose("evaluate").begin() as connection, selected_record_index(connection, demand, project_id=PROJECT, scope={}) as (
+            source_cut,
+            index,
+        ):
+            for row in index.rows("kb.data_product_member"):
+                if row["kind_contract"] not in contracts:
+                    continue
+                _, body = _selected_body(index, row["product_id"], row["member_id"])
+                if not any(item["label"] == "table" for item in body["items"]):
+                    continue
+                coordinate = body["source"]
+                pin = DeclaredStructuralSource(
+                    source=canonical_bytes([row["product_id"], row["member_id"]]).decode(),
+                    source_product=row["product_id"],
+                    source_member=row["member_id"],
+                    subject=row["subject"],
+                    subject_definition=row["subject_definition"],
+                    document=coordinate["document"],
+                    original_source=row["original_source"],
+                    projection_digest=coordinate["projection"],
+                    section_pointer=coordinate["section_pointer"],
+                    membership=coordinate["membership"],
+                    project_id=PROJECT,
+                    analyzed_scope_meaning=json_context_meaning(
+                        json_bytes(row["analyzed_scope"])
+                    ).decode(),
+                    kind_contract=row["kind_contract"],
+                )
+                selected.append(
+                    SourceChoice(
+                        pin,
+                        body,
+                        SubjectContext(
+                            PROJECT,
+                            row["subject"],
+                            row["original_source"],
+                            json_bytes(row["analyzed_scope"]),
+                            subject_definition=row["subject_definition"],
+                        ),
                     )
-                    selected.append(
-                        SourceChoice(
-                            pin,
-                            body,
-                            SubjectContext(
-                                PROJECT,
-                                row["subject"],
-                                row["original_source"],
-                                json_bytes(row["analyzed_scope"]),
-                                subject_definition=row["subject_definition"],
-                            ),
-                        )
-                    )
+                )
         # The source-only question selects one actual table-bearing native region
         # per independent original before any candidate, score or label exists.
         by_original = {}
@@ -800,7 +800,10 @@ def run_readings(journey, selected_sources, *, policy, inference, empty_sources=
     )
     assert execution.receipt_count == 2 * len(selected_sources)
     cut, selected_products, uses, episodes, outputs = journey.selected_products(
-        journey.kernel.purpose("evaluate"), retained["demand_id"]
+        journey.kernel.purpose("evaluate"), retained["demand_id"], kind=(
+            "https://corpus-structure.dev/semantic/data-operation-reading-resolution/DdoResolvedReadingReport",
+            "https://corpus-structure.dev/semantic/data-operation-candidate-inspection/DdoCandidateInspectionReport",
+        ),
     )
     kinds = {
         item.owner: item.key for item in journey.kernel.model.identities if item.domain == "kind"

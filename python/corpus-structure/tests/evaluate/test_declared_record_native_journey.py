@@ -1,6 +1,21 @@
 """Actual current protected grade/fitting journeys; controlled extraction only."""
 
-from evaluate.declared_record_native_support import policy_recipe
+import pytest
+from evaluate.declared_record_native_support import (
+    PROJECT,
+    complete_policy_fit,
+    copy_grade,
+    policy_recipe,
+    refuse_exchanged_fitted_body,
+    retain_references,
+    run_grade,
+    run_readings,
+)
+from evaluate.declared_record_native_support import (
+    current_record_policy as current_record_policy,
+)
+from sqlalchemy import text
+from sqlalchemy.exc import DBAPIError
 
 
 def test_current_record_policy_journey_recipe_has_real_closed_producers(tmp_path):
@@ -117,23 +132,6 @@ def test_current_record_policy_journey_recipe_has_real_closed_producers(tmp_path
     assert actual == [True, False, True, False]
 
 
-import pytest
-from evaluate.declared_record_native_support import (
-    PROJECT,
-    complete_policy_fit,
-    copy_grade,
-    refuse_exchanged_fitted_body,
-    retain_references,
-    run_grade,
-    run_readings,
-)
-from evaluate.declared_record_native_support import (
-    current_record_policy as current_record_policy,
-)
-from sqlalchemy import text
-from sqlalchemy.exc import DBAPIError
-
-
 def test_actual_grade_fit_authorization_and_restricted_fitter_custody(
     current_record_policy, monkeypatch
 ):
@@ -184,26 +182,22 @@ def test_actual_grade_fit_authorization_and_restricted_fitter_custody(
 
     # The actual evaluator login and a privileged login using SET ROLE are both
     # refused; a role label does not become the restricted fitting capability.
-    with journey.kernel.purpose("evaluate").begin() as connection:
-        with pytest.raises(DBAPIError, match="restricted actual fitting principal"):
-            with connection.begin_nested():
-                reacquire_record_feature_grade(connection, fitted.feature.selection)
+    with journey.kernel.purpose("evaluate").begin() as connection, pytest.raises(DBAPIError, match="restricted actual fitting principal"), connection.begin_nested():
+        reacquire_record_feature_grade(connection, fitted.feature.selection)
     with journey.kernel.engine.begin() as connection:
         connection.exec_driver_sql("SET LOCAL ROLE corpus_sem_fitter")
-        with pytest.raises(DBAPIError, match="restricted actual fitting principal"):
-            with connection.begin_nested():
-                reacquire_record_feature_grade(connection, fitted.feature.selection)
+        with pytest.raises(DBAPIError, match="restricted actual fitting principal"), connection.begin_nested():
+            reacquire_record_feature_grade(connection, fitted.feature.selection)
     with journey.kernel.purpose("fit").begin() as connection:
         with pytest.raises(DBAPIError, match="feature fit"), connection.begin_nested():
             reacquire_record_feature_grade(connection, fitted.calibration.selection)
         payload = fitted.feature.selection.model_dump(mode="json")
         payload["expected_cut"] = "cut-selection:" + "0" * 64
         payload["max_bytes"] = 8388608
-        with pytest.raises(DBAPIError, match="cut bytes or native pins"):
-            with connection.begin_nested():
-                DataOperationStorage(connection).read_record_feature_fit_frame(
-                    cast(WireReadRecordFeatureFitFrameRequest, payload)
-                )
+        with pytest.raises(DBAPIError, match="cut bytes or native pins"), connection.begin_nested():
+            DataOperationStorage(connection).read_record_feature_fit_frame(
+                cast(WireReadRecordFeatureFitFrameRequest, payload)
+            )
 
     # Ordinary authored bodies remain authored. The maintained protected
     # authoring service accepts reference/specification inputs, never conclusions
@@ -244,10 +238,8 @@ def test_actual_grade_fit_authorization_and_restricted_fitter_custody(
     # This is an actual different captured CPU producer/common receipt, carrying
     # exactly the same protected body. It is deliberately not a grade authority.
     copied = copy_grade(journey, fitted.feature)
-    with journey.kernel.purpose("fit").begin() as connection:
-        with pytest.raises(DBAPIError, match="actual admitted protected grade implementation"):
-            with connection.begin_nested():
-                reacquire_record_feature_grade(connection, copied.selection)
+    with journey.kernel.purpose("fit").begin() as connection, pytest.raises(DBAPIError, match="actual admitted protected grade implementation"), connection.begin_nested():
+        reacquire_record_feature_grade(connection, copied.selection)
 
     # An actually completed empty carrier is a known no-output opportunity,
     # preserving its source and product outside the scored-event denominator.
@@ -279,7 +271,7 @@ def test_actual_grade_fit_authorization_and_restricted_fitter_custody(
     # Current trust gates both the restricted original grade and the genuine
     # authorization's transitive support; historical equal bodies do not repair it.
     with journey.kernel.purpose("evaluate").begin() as connection:
-        _, products, _, episodes, outputs = journey.selected_products(
+        _, products, _, _episodes, outputs = journey.selected_products(
             journey.kernel.purpose("evaluate"),
             fitted.demand_id,
             kind="https://corpus-structure.dev/semantic/data-operation-record-policy/DdoRecordPolicyAuthorization",
@@ -312,6 +304,5 @@ def test_actual_grade_fit_authorization_and_restricted_fitter_custody(
             connection.scalar(text("SELECT ops.ddo_support_valid(:episode)"), {"episode": issuer})
             is False
         )
-    with journey.kernel.purpose("fit").begin() as connection:
-        with pytest.raises(DBAPIError, match="trust|selected support"):
-            reacquire_record_feature_grade(connection, fitted.feature.selection)
+    with journey.kernel.purpose("fit").begin() as connection, pytest.raises(DBAPIError, match=r"trust|selected support"):
+        reacquire_record_feature_grade(connection, fitted.feature.selection)
