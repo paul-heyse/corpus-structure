@@ -56,9 +56,10 @@ def _body_id(body) -> str:
     raise ValueError("rich member has no declared current identity owner")
 
 
-class _RichGraph:
+class ValidatedRichGraph:
     def __init__(self, prepared, model, context, graph, inputs, whole_inputs):
         self.prepared, self.model, self.context = prepared, model, context
+        self.graph = graph
         self.kinds = {kind.semantic_id: kind for kind in model.kinds}
         self.kind_facts = {kind.semantic_id: json.loads(kind.facts) for kind in model.kinds}
         self.properties = {definition.iri + "/property/" + prop.name: (definition, prop)
@@ -313,16 +314,16 @@ class _RichGraph:
             raise ValueError("rich graph retains unreferenced or unchecked value members")
 
 
-def validate_rich_graph(prepared: PreparedRelease, model: EffectiveDataOperationModel, *, context: SubjectContext,
-                        graph: DdoRichConsolidation | DdoRichAdmission, inputs: tuple[DdoRichSelectedMember, ...],
-                        whole_inputs: tuple[RichWholeInput, ...] = ()):
-    """Validate finite graph meaning; selected/native publication custody stays with its owner."""
+def read_rich_graph(prepared: PreparedRelease, model: EffectiveDataOperationModel, *, context: SubjectContext,
+                    graph: DdoRichConsolidation | DdoRichAdmission, inputs: tuple[DdoRichSelectedMember, ...],
+                    whole_inputs: tuple[RichWholeInput, ...] = ()) -> ValidatedRichGraph:
+    """Validate once and expose the same finite typed decoder to current CPU consumers."""
     validate_subject_context(model, context)
     if model.subject_definition(context.subject_definition).scope != "project" or context.original_source is not None:
         raise ValueError("rich graph requires its actual source-free project context")
     owner = DdoRichAdmission if isinstance(graph, DdoRichAdmission) else DdoRichConsolidation
     checked = owner.model_validate(_untrusted_value(graph), strict=True)
-    state = _RichGraph(prepared, model, context, checked, inputs, whole_inputs)
+    state = ValidatedRichGraph(prepared, model, context, checked, inputs, whole_inputs)
     if isinstance(checked, DdoRichAdmission):
         state.external(checked.consolidation)
         if state.kind(checked.consolidation.kind_contract).semantic_id != _NAMESPACE + "DdoRichConsolidation":
@@ -333,4 +334,11 @@ def validate_rich_graph(prepared: PreparedRelease, model: EffectiveDataOperation
             if state.kind(reference.kind_contract).semantic_id != AUTHORIZATION_KIND:
                 raise ValueError("rich admission policy reference has a different actual kind")
     state.check()
-    return checked
+    return state
+
+
+def validate_rich_graph(prepared: PreparedRelease, model: EffectiveDataOperationModel, *, context: SubjectContext,
+                        graph: DdoRichConsolidation | DdoRichAdmission, inputs: tuple[DdoRichSelectedMember, ...],
+                        whole_inputs: tuple[RichWholeInput, ...] = ()):
+    """Validate finite graph meaning; selected/native publication custody stays with its owner."""
+    return read_rich_graph(prepared, model, context=context, graph=graph, inputs=inputs, whole_inputs=whole_inputs).graph
