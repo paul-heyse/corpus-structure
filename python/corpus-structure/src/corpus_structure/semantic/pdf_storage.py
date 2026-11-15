@@ -420,7 +420,7 @@ def read_pdf_product(
             },
         )
         if include_body:
-                        from io import BytesIO
+            from io import BytesIO
 
             if identity["kind"] == "native":
                 result["body"] = record_reader.native_product_values()
