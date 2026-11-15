@@ -3,31 +3,31 @@ version: data-operation-wire-types-v1
 fields:
   '#/definitions/AuthoredFactRef/properties/kind_contract': WireKindContract
   '#/definitions/AuthoredFactRef/properties/original_source': WireOriginalSourceId
-  '#/definitions/AuthoredFactRef/properties/project_id': WireProjectId
+  '#/definitions/AuthoredFactRef/properties/project_id': corpus_structure.semantic.identifiers.ProjectId
   '#/definitions/AuthoredFactRef/properties/subject': WireSubjectId
-  '#/definitions/ExternalExecutionReceipt/properties/attempt': WireAttempt
+  '#/definitions/ExternalExecutionReceipt/properties/attempt': corpus_structure.semantic.identifiers.TaskAttempt
   '#/definitions/ExternalExecutionReceipt/properties/generation': WireGeneration
   '#/definitions/ExternalExecutionReceipt/properties/packet_id': WireExternalPacketId
   '#/definitions/ExternalExecutionReceipt/properties/receipt_id': WirePublicationReceiptId
   '#/definitions/ExternalExecutionReceipt/properties/request_id': WireRequestId
   '#/definitions/ExternalExecutionReceipt/properties/runtime_id': WireRuntimeId
-  '#/definitions/ExternalExecutionReceipt/properties/task_id': WireTaskIdentity
-  '#/definitions/ExternalSourceRef/properties/project_id': WireProjectId
+  '#/definitions/ExternalExecutionReceipt/properties/task_id': corpus_structure.semantic.identifiers.TaskId
+  '#/definitions/ExternalSourceRef/properties/project_id': corpus_structure.semantic.identifiers.ProjectId
   '#/definitions/ExternalSourceRef/properties/release_id': corpus_structure.semantic.identifiers.ReleaseId
-  '#/definitions/LogicalProviderMember/properties/attempt': WireAttempt
+  '#/definitions/LogicalProviderMember/properties/attempt': corpus_structure.semantic.identifiers.TaskAttempt
   '#/definitions/LogicalProviderMember/properties/generation': WireGeneration
   '#/definitions/LogicalProviderMember/properties/request_id': WireRequestId
-  '#/definitions/LogicalProviderMember/properties/task_id': WireTaskIdentity
+  '#/definitions/LogicalProviderMember/properties/task_id': corpus_structure.semantic.identifiers.TaskId
   '#/definitions/NativeExecutionReceipt/properties/request_id': WireRequestId
-  '#/definitions/OriginalDocumentRef/properties/project_id': WireProjectId
+  '#/definitions/OriginalDocumentRef/properties/project_id': corpus_structure.semantic.identifiers.ProjectId
   '#/definitions/PublishedPdfDocumentRef/properties/release_id': corpus_structure.semantic.identifiers.ReleaseId
-  '#/definitions/PublishedPdfDocumentRef/properties/task_id': WireTaskIdentity
+  '#/definitions/PublishedPdfDocumentRef/properties/task_id': corpus_structure.semantic.identifiers.TaskId
   '#/definitions/admit_authored_data_request/properties/demand_id': WireDemandId
-  '#/definitions/admit_external_data_result_request/properties/attempt': WireAttempt
+  '#/definitions/admit_external_data_result_request/properties/attempt': corpus_structure.semantic.identifiers.TaskAttempt
   '#/definitions/admit_external_data_result_request/properties/generation': WireGeneration
   '#/definitions/admit_external_data_result_request/properties/packet_id': WireExternalPacketId
   '#/definitions/admit_external_data_result_request/properties/request_id': WireRequestId
-  '#/definitions/admit_external_data_result_request/properties/task_id': WireTaskIdentity
+  '#/definitions/admit_external_data_result_request/properties/task_id': corpus_structure.semantic.identifiers.TaskId
   '#/definitions/admit_external_data_result_result/properties/intent_id': WireCompletionIntentId
   '#/definitions/admit_original_document_asset_request/properties/demand_id': WireDemandId
   '#/definitions/admit_original_source_view_request/properties/demand_id': WireDemandId
@@ -36,40 +36,40 @@ fields:
   '#/definitions/admit_original_source_view_result/properties/original_source': WireOriginalSourceId
   '#/definitions/admit_original_source_view_result/properties/product_id': WireProductId
   '#/definitions/admit_original_source_view_result/properties/subject': WireSubjectId
-  '#/definitions/adopt_data_completion_intent_request/properties/attempt': WireAttempt
+  '#/definitions/adopt_data_completion_intent_request/properties/attempt': corpus_structure.semantic.identifiers.TaskAttempt
   '#/definitions/adopt_data_completion_intent_request/properties/generation': WireGeneration
   '#/definitions/adopt_data_completion_intent_request/properties/intent_id': WireCompletionIntentId
   '#/definitions/adopt_data_completion_intent_request/properties/request_id': WireRequestId
-  '#/definitions/adopt_data_completion_intent_request/properties/task_id': WireTaskIdentity
+  '#/definitions/adopt_data_completion_intent_request/properties/task_id': corpus_structure.semantic.identifiers.TaskId
   '#/definitions/adopt_data_completion_intent_result/properties/intent_id': WireCompletionIntentId
   '#/definitions/attach_data_request_request/properties/obligation_id': WireObligationId
   '#/definitions/attach_data_request_result/properties/derivation_id': WireDerivationId
   '#/definitions/attach_data_request_result/properties/generation': WireGeneration
   '#/definitions/attach_data_request_result/properties/request_id': WireRequestId
   '#/definitions/attach_data_request_result/properties/retained_intent_id': WireCompletionIntentId
-  '#/definitions/attach_data_request_result/properties/task_id': WireTaskIdentity
-  '#/definitions/attempt_failure_observation/properties/attempt': WireAttempt
+  '#/definitions/attach_data_request_result/properties/task_id': corpus_structure.semantic.identifiers.TaskId
+  '#/definitions/attempt_failure_observation/properties/attempt': corpus_structure.semantic.identifiers.TaskAttempt
   '#/definitions/attempt_failure_observation/properties/failure_id': WireFailureId
   '#/definitions/attempt_failure_observation/properties/generation': WireGeneration
   '#/definitions/attempt_failure_observation/properties/request_id': WireRequestId
-  '#/definitions/attempt_failure_observation/properties/task_id': WireTaskIdentity
+  '#/definitions/attempt_failure_observation/properties/task_id': corpus_structure.semantic.identifiers.TaskId
   '#/definitions/authored_fact_support_member/properties/admission_id': WireAdmissionId
   '#/definitions/binding/properties/read_id': WireReadIdentity
   '#/definitions/cancel_data_demand_request/properties/demand_id': WireDemandId
   '#/definitions/cancel_data_demand_result/properties/demand_id': WireDemandId
   '#/definitions/cancel_data_demand_result/properties/requests/items/properties/generation': WireGeneration
   '#/definitions/cancel_data_demand_result/properties/requests/items/properties/request_id': WireRequestId
-  '#/definitions/cancel_data_demand_result/properties/requests/items/properties/task_id': WireTaskIdentity
+  '#/definitions/cancel_data_demand_result/properties/requests/items/properties/task_id': corpus_structure.semantic.identifiers.TaskId
   '#/definitions/claim_data_request_request/properties/external_packet_id': WireExternalPacketId
   '#/definitions/claim_data_request_request/properties/request_id': WireRequestId
-  '#/definitions/claim_data_request_result/oneOf/1/properties/attempt': WireAttempt
+  '#/definitions/claim_data_request_result/oneOf/1/properties/attempt': corpus_structure.semantic.identifiers.TaskAttempt
   '#/definitions/claim_data_request_result/oneOf/1/properties/generation': WireGeneration
   '#/definitions/claim_data_request_result/oneOf/1/properties/request_id': WireRequestId
   '#/definitions/claim_data_request_result/oneOf/1/properties/retained_intent_id': WireCompletionIntentId
-  '#/definitions/claim_data_request_result/oneOf/1/properties/task_id': WireTaskIdentity
+  '#/definitions/claim_data_request_result/oneOf/1/properties/task_id': corpus_structure.semantic.identifiers.TaskId
   '#/definitions/claim_external_data_packet_request/properties/demand_id': WireDemandId
   '#/definitions/claim_external_data_packet_request/properties/packet_id': WireExternalPacketId
-  '#/definitions/claim_external_data_packet_request/properties/project_id': WireProjectId
+  '#/definitions/claim_external_data_packet_request/properties/project_id': corpus_structure.semantic.identifiers.ProjectId
   '#/definitions/close_data_population_request/properties/demand_id': WireDemandId
   '#/definitions/close_data_population_request/properties/derivation_id': WireDerivationId
   '#/definitions/close_data_population_request/properties/product_id': WireProductId
@@ -78,10 +78,10 @@ fields:
   '#/definitions/continuation/properties/demand_id': WireDemandId
   '#/definitions/continuation/properties/read_id': WireReadIdentity
   '#/definitions/coordinate/properties/original_source': WireOriginalSourceId
-  '#/definitions/data_attempt_lost_result/properties/attempt': WireAttempt
+  '#/definitions/data_attempt_lost_result/properties/attempt': corpus_structure.semantic.identifiers.TaskAttempt
   '#/definitions/data_attempt_lost_result/properties/generation': WireGeneration
   '#/definitions/data_attempt_lost_result/properties/request_id': WireRequestId
-  '#/definitions/data_attempt_lost_result/properties/task_id': WireTaskIdentity
+  '#/definitions/data_attempt_lost_result/properties/task_id': corpus_structure.semantic.identifiers.TaskId
   '#/definitions/endpoint/oneOf/0/properties/member_id': WireMemberId
   '#/definitions/endpoint/oneOf/1/properties/member_id': WireMemberId
   '#/definitions/endpoint/oneOf/1/properties/product_id': WireProductId
@@ -96,8 +96,8 @@ fields:
   '#/definitions/external_packet_head/properties/packet_id': WireExternalPacketId
   '#/definitions/external_packet_head/properties/request_id': WireRequestId
   '#/definitions/external_packet_head/properties/subject': WireSubjectId
-  '#/definitions/external_packet_head/properties/task_id': WireTaskIdentity
-  '#/definitions/external_source_reference/properties/project_id': WireProjectId
+  '#/definitions/external_packet_head/properties/task_id': corpus_structure.semantic.identifiers.TaskId
+  '#/definitions/external_source_reference/properties/project_id': corpus_structure.semantic.identifiers.ProjectId
   '#/definitions/external_source_reference/properties/release_id': corpus_structure.semantic.identifiers.ReleaseId
   '#/definitions/input_member/properties/member_id': WireMemberId
   '#/definitions/input_member/properties/product_id': WireProductId
@@ -114,11 +114,11 @@ fields:
   '#/definitions/inspect_external_data_result_request/properties/packet_id': WireExternalPacketId
   '#/definitions/inspect_external_data_result_result/properties/intent_id': WireCompletionIntentId
   '#/definitions/inspect_external_data_result_result/properties/packet_id': WireExternalPacketId
-  '#/definitions/native_execution_evidence/properties/attempt': WireAttempt
+  '#/definitions/native_execution_evidence/properties/attempt': corpus_structure.semantic.identifiers.TaskAttempt
   '#/definitions/native_execution_evidence/properties/generation': WireGeneration
   '#/definitions/native_execution_evidence/properties/request_id': WireRequestId
   '#/definitions/native_execution_evidence/properties/runtime_id': WireRuntimeId
-  '#/definitions/native_execution_evidence/properties/task_id': WireTaskIdentity
+  '#/definitions/native_execution_evidence/properties/task_id': corpus_structure.semantic.identifiers.TaskId
   '#/definitions/original_source_support_member/properties/admission_id': WireAdmissionId
   '#/definitions/output_member/properties/member_id': WireMemberId
   '#/definitions/population/properties/demand_id': WireDemandId
@@ -141,60 +141,60 @@ fields:
   '#/definitions/product/properties/kind_contract': WireKindContract
   '#/definitions/product_member/properties/kind_contract': WireKindContract
   '#/definitions/product_member/properties/member_id': WireMemberId
-  '#/definitions/publish_data_derivation_request/properties/attempt': WireAttempt
+  '#/definitions/publish_data_derivation_request/properties/attempt': corpus_structure.semantic.identifiers.TaskAttempt
   '#/definitions/publish_data_derivation_request/properties/generation': WireGeneration
   '#/definitions/publish_data_derivation_request/properties/intent_id': WireCompletionIntentId
   '#/definitions/publish_data_derivation_request/properties/request_id': WireRequestId
-  '#/definitions/publish_data_derivation_request/properties/task_id': WireTaskIdentity
+  '#/definitions/publish_data_derivation_request/properties/task_id': corpus_structure.semantic.identifiers.TaskId
   '#/definitions/publish_data_derivation_result/properties/derivation_id': WireDerivationId
   '#/definitions/publish_data_derivation_result/properties/receipt_id': WirePublicationReceiptId
   '#/definitions/read_demand_result_request/properties/demand_id': WireDemandId
   '#/definitions/read_demand_result_request/properties/read_id': WireReadIdentity
   '#/definitions/read_demand_result_result/properties/demand_id': WireDemandId
-  '#/definitions/read_demand_result_result/properties/project_id': WireProjectId
+  '#/definitions/read_demand_result_result/properties/project_id': corpus_structure.semantic.identifiers.ProjectId
   '#/definitions/read_demand_result_result/properties/read_id': WireReadIdentity
   '#/definitions/read_demand_result_result/properties/release_id': corpus_structure.semantic.identifiers.ReleaseId
   '#/definitions/read_demand_result_result/properties/runtime_id': WireRuntimeId
-  '#/definitions/read_external_data_packet_request/properties/attempt': WireAttempt
+  '#/definitions/read_external_data_packet_request/properties/attempt': corpus_structure.semantic.identifiers.TaskAttempt
   '#/definitions/read_external_data_packet_request/properties/generation': WireGeneration
   '#/definitions/read_external_data_packet_request/properties/packet_id': WireExternalPacketId
   '#/definitions/read_external_data_packet_request/properties/request_id': WireRequestId
-  '#/definitions/read_external_data_packet_request/properties/task_id': WireTaskIdentity
+  '#/definitions/read_external_data_packet_request/properties/task_id': corpus_structure.semantic.identifiers.TaskId
   '#/definitions/read_external_data_packet_result/properties/packet_id': WireExternalPacketId
   '#/definitions/read_external_data_queue_request/properties/demand_id': WireDemandId
-  '#/definitions/read_external_data_queue_request/properties/project_id': WireProjectId
+  '#/definitions/read_external_data_queue_request/properties/project_id': corpus_structure.semantic.identifiers.ProjectId
   '#/definitions/record_data_fate_request/properties/derivation_id': WireDerivationId
   '#/definitions/record_data_fate_request/properties/generation': WireGeneration
   '#/definitions/record_data_fate_request/properties/obligation_id': WireObligationId
   '#/definitions/record_data_fate_request/properties/request_id': WireRequestId
-  '#/definitions/register_data_demand_request/properties/project_id': WireProjectId
+  '#/definitions/register_data_demand_request/properties/project_id': corpus_structure.semantic.identifiers.ProjectId
   '#/definitions/register_data_demand_request/properties/release_id': corpus_structure.semantic.identifiers.ReleaseId
   '#/definitions/register_data_demand_request/properties/runtime_id': WireRuntimeId
   '#/definitions/register_data_demand_result/properties/demand_id': WireDemandId
-  '#/definitions/release_data_attempt_request/properties/attempt': WireAttempt
+  '#/definitions/release_data_attempt_request/properties/attempt': corpus_structure.semantic.identifiers.TaskAttempt
   '#/definitions/release_data_attempt_request/properties/generation': WireGeneration
   '#/definitions/release_data_attempt_request/properties/request_id': WireRequestId
-  '#/definitions/release_data_attempt_request/properties/task_id': WireTaskIdentity
-  '#/definitions/release_data_attempt_result/oneOf/1/properties/attempt': WireAttempt
+  '#/definitions/release_data_attempt_request/properties/task_id': corpus_structure.semantic.identifiers.TaskId
+  '#/definitions/release_data_attempt_result/oneOf/1/properties/attempt': corpus_structure.semantic.identifiers.TaskAttempt
   '#/definitions/release_data_attempt_result/oneOf/1/properties/failure_id': WireFailureId
   '#/definitions/release_data_attempt_result/oneOf/1/properties/generation': WireGeneration
   '#/definitions/release_data_attempt_result/oneOf/1/properties/request_id': WireRequestId
   '#/definitions/release_data_attempt_result/oneOf/1/properties/retained_intent_id': WireCompletionIntentId
-  '#/definitions/release_data_attempt_result/oneOf/1/properties/task_id': WireTaskIdentity
-  '#/definitions/release_external_data_packet_request/properties/attempt': WireAttempt
+  '#/definitions/release_data_attempt_result/oneOf/1/properties/task_id': corpus_structure.semantic.identifiers.TaskId
+  '#/definitions/release_external_data_packet_request/properties/attempt': corpus_structure.semantic.identifiers.TaskAttempt
   '#/definitions/release_external_data_packet_request/properties/generation': WireGeneration
   '#/definitions/release_external_data_packet_request/properties/packet_id': WireExternalPacketId
   '#/definitions/release_external_data_packet_request/properties/request_id': WireRequestId
-  '#/definitions/release_external_data_packet_request/properties/task_id': WireTaskIdentity
+  '#/definitions/release_external_data_packet_request/properties/task_id': corpus_structure.semantic.identifiers.TaskId
   '#/definitions/release_external_data_packet_result/properties/packet_id': WireExternalPacketId
-  '#/definitions/renew_data_request_request/properties/attempt': WireAttempt
+  '#/definitions/renew_data_request_request/properties/attempt': corpus_structure.semantic.identifiers.TaskAttempt
   '#/definitions/renew_data_request_request/properties/generation': WireGeneration
   '#/definitions/renew_data_request_request/properties/request_id': WireRequestId
-  '#/definitions/renew_data_request_request/properties/task_id': WireTaskIdentity
-  '#/definitions/renewed_data_request_result/properties/attempt': WireAttempt
+  '#/definitions/renew_data_request_request/properties/task_id': corpus_structure.semantic.identifiers.TaskId
+  '#/definitions/renewed_data_request_result/properties/attempt': corpus_structure.semantic.identifiers.TaskAttempt
   '#/definitions/renewed_data_request_result/properties/generation': WireGeneration
   '#/definitions/renewed_data_request_result/properties/request_id': WireRequestId
-  '#/definitions/renewed_data_request_result/properties/task_id': WireTaskIdentity
+  '#/definitions/renewed_data_request_result/properties/task_id': corpus_structure.semantic.identifiers.TaskId
   '#/definitions/result_binding/properties/read_id': WireReadIdentity
   '#/definitions/result_obligation/properties/demand_id': WireDemandId
   '#/definitions/result_obligation/properties/generation': WireGeneration
@@ -213,20 +213,20 @@ fields:
   '#/definitions/result_use/properties/generation': WireGeneration
   '#/definitions/result_use/properties/obligation_id': WireObligationId
   '#/definitions/result_use/properties/request_id': WireRequestId
-  '#/definitions/retain_data_completion_intent_request/properties/attempt': WireAttempt
+  '#/definitions/retain_data_completion_intent_request/properties/attempt': corpus_structure.semantic.identifiers.TaskAttempt
   '#/definitions/retain_data_completion_intent_request/properties/generation': WireGeneration
   '#/definitions/retain_data_completion_intent_request/properties/request_id': WireRequestId
   '#/definitions/retain_data_completion_intent_request/properties/runtime_id': WireRuntimeId
-  '#/definitions/retain_data_completion_intent_request/properties/task_id': WireTaskIdentity
+  '#/definitions/retain_data_completion_intent_request/properties/task_id': corpus_structure.semantic.identifiers.TaskId
   '#/definitions/retain_data_completion_intent_result/properties/intent_id': WireCompletionIntentId
-  '#/definitions/retain_external_data_packet_request/properties/attempt': WireAttempt
+  '#/definitions/retain_external_data_packet_request/properties/attempt': corpus_structure.semantic.identifiers.TaskAttempt
   '#/definitions/retain_external_data_packet_request/properties/generation': WireGeneration
   '#/definitions/retain_external_data_packet_request/properties/request_id': WireRequestId
   '#/definitions/retain_external_data_packet_request/properties/runtime_id': WireRuntimeId
-  '#/definitions/retain_external_data_packet_request/properties/task_id': WireTaskIdentity
+  '#/definitions/retain_external_data_packet_request/properties/task_id': corpus_structure.semantic.identifiers.TaskId
   '#/definitions/retain_external_data_packet_result/properties/packet_id': WireExternalPacketId
   '#/definitions/revoke_data_support_request/properties/original_source': WireOriginalSourceId
-  '#/definitions/revoke_data_support_request/properties/project_id': WireProjectId
+  '#/definitions/revoke_data_support_request/properties/project_id': corpus_structure.semantic.identifiers.ProjectId
   '#/definitions/root_subject/properties/original_source': WireOriginalSourceId
   '#/definitions/root_subject/properties/subject': WireSubjectId
   '#/definitions/select_data_population_request/properties/obligation_id': WireObligationId
@@ -234,9 +234,9 @@ fields:
   '#/definitions/semantic_source_reference/properties/member_id': WireMemberId
   '#/definitions/semantic_source_reference/properties/product_id': WireProductId
   '#/definitions/source_set_entry/properties/original_source': WireOriginalSourceId
-  '#/definitions/source_set_entry/properties/project_id': WireProjectId
+  '#/definitions/source_set_entry/properties/project_id': corpus_structure.semantic.identifiers.ProjectId
   '#/definitions/source_set_entry/properties/subject': WireSubjectId
-  "#/definitions/task_id": WireTaskIdentity
+  "#/definitions/task_id": corpus_structure.semantic.identifiers.TaskId
   "#/definitions/read_id": WireReadIdentity
   "#/definitions/demand_read_scope/properties/operation_id": WireOperationId
   "#/definitions/demand_read_scope/properties/subject": WireSubjectId

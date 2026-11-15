@@ -6,6 +6,8 @@ manufactured from run/task aliases. PostgreSQL owns every admission and publicat
 
 from __future__ import annotations
 
+from corpus_structure.semantic.identifiers import ProjectId
+
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from typing import Any, cast
@@ -14,23 +16,7 @@ from uuid import uuid4
 from sqlalchemy import Engine
 from sqlalchemy.exc import DBAPIError
 
-from corpus_structure.semantic._data_operation_wire import (
-    WireAdoptDataCompletionIntentRequest,
-    WireAttemptFence,
-    WireClaimDataRequestResult,
-    WireClaimExternalDataPacketRequest,
-    WireCompletion,
-    WireDemandId,
-    WireExternalPacketId,
-    WireInspectExternalDataResultResult,
-    WireProjectId,
-    WirePublishDataDerivationRequest,
-    WireReadExternalDataQueueRequest,
-    WireReadExternalDataQueueResult,
-    WireReleaseExternalDataPacketResult,
-    WireRenewDataRequestResult,
-    wire_attempt_fence,
-)
+from corpus_structure.semantic._data_operation_wire import WireAdoptDataCompletionIntentRequest, WireAttemptFence, WireClaimDataRequestResult, WireClaimExternalDataPacketRequest, WireCompletion, WireDemandId, WireExternalPacketId, WireInspectExternalDataResultResult, WirePublishDataDerivationRequest, WireReadExternalDataQueueRequest, WireReadExternalDataQueueResult, WireReleaseExternalDataPacketResult, WireRenewDataRequestResult, wire_attempt_fence
 
 from .data_operation_admission import bound_data_operation_model
 from .data_operation_identity import semantic_value
@@ -153,7 +139,7 @@ class ExternalDataSession:
 
     def queue(self, *, limit: int = 1) -> WireReadExternalDataQueueResult:
         payload: WireReadExternalDataQueueRequest = {
-            "project_id": WireProjectId(self.project_id),
+            "project_id": ProjectId(self.project_id),
             "limit": limit,
         }
         if self.demand_id:
@@ -165,7 +151,7 @@ class ExternalDataSession:
         # Explicit packet claim still authenticates current trust and task under lock.
         payload: WireClaimExternalDataPacketRequest = {
             "packet_id": WireExternalPacketId(packet_id),
-            "project_id": WireProjectId(self.project_id),
+            "project_id": ProjectId(self.project_id),
             "holder": self.holder,
             "lease_seconds": lease_seconds,
         }

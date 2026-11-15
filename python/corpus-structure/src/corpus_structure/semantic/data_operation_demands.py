@@ -6,6 +6,8 @@ its ready requests; they never supply missing semantic inputs or success fates.
 
 from __future__ import annotations
 
+from corpus_structure.semantic.identifiers import ProjectId
+
 import json
 from collections.abc import Mapping
 from dataclasses import asdict, dataclass
@@ -14,29 +16,7 @@ from typing import TYPE_CHECKING, Any, Literal, cast
 
 from pydantic import TypeAdapter
 
-from corpus_structure.semantic._data_operation_wire import (
-    WireAdmitAuthoredDataRequest,
-    WireAdmitOriginalDocumentAssetRequest,
-    WireAdmitOriginalSourceViewRequest,
-    WireAttachDataRequestRequest,
-    WireCloseDataPopulationResult,
-    WireDemandId,
-    WireDemandIntent,
-    WireDerivationId,
-    WireInspectDataCompletionRequest,
-    WireInspectDataCompletionResult,
-    WireObligationId,
-    WireOperationId,
-    WireProductId,
-    WireProjectId,
-    WireReadDemandResultRequest,
-    WireReadDemandResultResult,
-    WireReadIdentity,
-    WireRecordDataFateRequest,
-    WireRegisterDataDemandResult,
-    WireRuntimeId,
-    WireSelectDataPopulationRequest,
-)
+from corpus_structure.semantic._data_operation_wire import WireAdmitAuthoredDataRequest, WireAdmitOriginalDocumentAssetRequest, WireAdmitOriginalSourceViewRequest, WireAttachDataRequestRequest, WireCloseDataPopulationResult, WireDemandId, WireDemandIntent, WireDerivationId, WireInspectDataCompletionRequest, WireInspectDataCompletionResult, WireObligationId, WireOperationId, WireProductId, WireReadDemandResultRequest, WireReadDemandResultResult, WireReadIdentity, WireRecordDataFateRequest, WireRegisterDataDemandResult, WireRuntimeId, WireSelectDataPopulationRequest
 
 from .data_operation_compilation import project_operation_binding
 from .data_operation_json import json_bytes, json_loads, wire_json_loads
@@ -460,7 +440,7 @@ class DemandPlanner:
             raise ValueError("demand intent belongs to a different effective model")
         result = self.storage.register_data_demand(
             {
-                "project_id": WireProjectId(project),
+                "project_id": ProjectId(project),
                 "release_id": ReleaseId(release),
                 "runtime_id": WireRuntimeId(runtime),
                 "root": record["roots"],

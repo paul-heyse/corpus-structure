@@ -88,7 +88,7 @@ def render_operation_identifiers(model):
     )
 
 
-def render_call_identifiers(calls):
+def render_call_identifiers(calls, *, canonical_identifiers=False):
     """Keep identifiers importable without inventing another semantic model."""
     aliases = {
         field.semantic_type: _PRIMITIVES[field.resolved.kind]
@@ -104,12 +104,13 @@ def render_call_identifiers(calls):
     }
     return "\n".join(
         [
-            '"""Generated semantic identifiers from execution correspondences; do not edit."""',
+            ('"""Generated fixed-call enumeration types; physical declarations own nominal identities."""'
+             if canonical_identifiers else '"""Generated semantic identifiers from execution correspondences; do not edit."""'),
             "from datetime import datetime",
             "from decimal import Decimal",
             "from typing import Literal, NewType",
             "",
-            *(f"{name} = NewType({name!r}, {kind})" for name, kind in sorted(aliases.items())),
+            *(f"{name} = NewType({name!r}, {kind})" for name, kind in sorted(aliases.items()) if not canonical_identifiers),
             *(
                 f"type {name} = Literal[{', '.join(repr(value) for value in values)}]"
                 for name, values in sorted(enums.items())
@@ -132,6 +133,7 @@ def render_call_bindings(
     metadata=None,
     *,
     identifiers_module="._operation_ids",
+    canonical_identifiers=False,
     context_validator=None,
     value_base=None,
     row_base=None,
@@ -139,7 +141,8 @@ def render_call_bindings(
 ):
     """Emit already resolved immutable correspondences, irrespective of their model owner."""
     out = [
-        '"""Generated from execution call correspondences; do not edit."""',
+        ('"""Generated from authenticated fixed-call assets; do not edit."""'
+         if canonical_identifiers else '"""Generated from execution call correspondences; do not edit."""'),
         "from __future__ import annotations",
         "",
         "from dataclasses import dataclass",
@@ -314,7 +317,24 @@ def render_call_bindings(
         for field in _all_call_fields(call):
             if field.semantic_type:
                 aliases[field.semantic_type] = _PRIMITIVES[field.resolved.kind]
-    out += [f"from {identifiers_module} import {name} as {name}" for name in sorted(aliases)]
+    if canonical_identifiers:
+        if metadata is None:
+            raise ValueError("canonical call identities require explicit physical metadata")
+        canonical = {}
+        for relation in metadata.tables.values():
+            for column in relation.columns:
+                if qualified := column.info.get("python_type"):
+                    module, name = qualified.rsplit(".", 1)
+                    declaration = (module, column.type.python_type.__name__)
+                    if name in canonical and canonical[name] != declaration:
+                        raise ValueError("canonical physical identifier declarations differ: " + name)
+                    canonical[name] = declaration
+        for name, kind in sorted(aliases.items()):
+            if name not in canonical or canonical[name][1] != kind:
+                raise ValueError("call nominal lacks its canonical physical encoding: " + name)
+            out += [f"from {canonical[name][0]} import {name} as {name}"]
+    else:
+        out += [f"from {identifiers_module} import {name} as {name}" for name in sorted(aliases)]
     out += [
         f"from {identifiers_module} import {name} as {name}"
         for name in sorted(set(enum_aliases.values()))

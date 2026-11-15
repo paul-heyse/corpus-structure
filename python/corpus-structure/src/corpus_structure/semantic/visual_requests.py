@@ -7,6 +7,8 @@ separate declared derivation over that admitted observation.
 
 from __future__ import annotations
 
+from corpus_structure.semantic.identifiers import TaskAttempt, TaskId
+
 import inspect
 import json
 from contextlib import ExitStack
@@ -541,19 +543,13 @@ def execute_chandra_packet(
     )
 
     def renew(conn, current):
-        from ._data_operation_wire import (
-            WireAttempt,
-            WireGeneration,
-            WireRenewDataRequestRequest,
-            WireRequestId,
-            WireTaskIdentity,
-        )
+        from ._data_operation_wire import WireGeneration, WireRenewDataRequestRequest, WireRequestId
 
         request = WireRenewDataRequestRequest(
             request_id=WireRequestId(claim["request_id"]),
             generation=WireGeneration(claim["generation"]),
-            task_id=WireTaskIdentity(claim["task_id"]),
-            attempt=WireAttempt(claim["attempt"]),
+            task_id=TaskId(claim["task_id"]),
+            attempt=TaskAttempt(claim["attempt"]),
             holder=claim["holder"],
             lease_seconds=lease_seconds,
         )

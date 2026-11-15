@@ -52,3 +52,31 @@ def test_current_call_assets_preserve_exact_source_constraints_and_nominal_type(
 def test_native_call_sources_do_not_acquire_missing_logical_imports():
     with pytest.raises(PreparationError, match="undeclared import linkml:types"):
         _resolve(_activation_call(), logical={})
+
+
+def test_current_field_nominals_come_from_physical_declarations_and_refuse_conflicts():
+    original = _activation_call()
+    inferred = _resolve(replace(original, parameters=(replace(original.parameters[0], semantic_type=None),)))
+    assert inferred.parameters[0].semantic_type == "ReleaseId"
+    with pytest.raises(PreparationError, match="semantic identifiers differ"):
+        _resolve(replace(original, parameters=(replace(original.parameters[0], semantic_type="RealizationId"),)))
+
+
+def test_current_call_facade_imports_the_actual_physical_nominal_owner(monkeypatch):
+    import sys
+    from types import ModuleType
+    from corpus_structure.semantic import identifiers
+    from corpus_structure.semantic.operation_call_generation import render_call_bindings, render_call_identifiers
+
+    call = _resolve(_activation_call())
+    calls = (("release-activation-asset", call),)
+    source = render_call_bindings(calls, metadata, canonical_identifiers=True, identifiers_module="._unused_call_enums")
+    module = ModuleType("corpus_structure.semantic._canonical_call_control")
+    module.__package__ = "corpus_structure.semantic"
+    monkeypatch.setitem(sys.modules, module.__name__, module)
+    exec(compile(source, "canonical-call-control.py", "exec"), module.__dict__)
+    assert module.__dict__["ReleaseId"] is identifiers.ReleaseId
+    assert "ReleaseId" not in render_call_identifiers(calls, canonical_identifiers=True)
+    wrong = replace(call, parameters=(replace(call.parameters[0], semantic_type="TaskId"),))
+    with pytest.raises(ValueError, match="canonical physical encoding: TaskId"):
+        render_call_bindings((("release-activation-asset", wrong),), metadata, canonical_identifiers=True)

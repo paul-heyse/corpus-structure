@@ -166,12 +166,13 @@ def test_structural_generation_refuses_unsupported_construct_at_its_source():
 def test_fixed_native_caller_preserves_nominal_ids_unions_and_required_keys(tmp_path):
     source = tmp_path / "consumer.py"
     source.write_text(
-        "from corpus_structure.semantic._data_operation_wire import WireDemandId, WireRequestId, WireTaskIdentity, WireClaimDataRequestResult\n"
+        "from corpus_structure.semantic._data_operation_wire import WireDemandId, WireRequestId, WireClaimDataRequestResult\n"
+        "from corpus_structure.semantic.identifiers import TaskId\n"
         "from corpus_structure.semantic.data_operation_storage import DataOperationStorage\n"
         "def good(storage: DataOperationStorage) -> None:\n"
         "    result = storage.claim_data_request({'request_id': WireRequestId('r'), 'holder': 'worker', 'lease_seconds': 3})\n"
         "    if result['state'] == 'claimed':\n"
-        "        task: WireTaskIdentity = result['task_id']\n"
+        "        task: TaskId = result['task_id']\n"
     )
     executable = shutil.which("pyrefly")
     assert executable is not None
@@ -183,7 +184,7 @@ def test_fixed_native_caller_preserves_nominal_ids_unions_and_required_keys(tmp_
             "def bad(storage: DataOperationStorage, result: WireClaimDataRequestResult) -> None:\n"
             "    storage.claim_data_request({'request_id': WireDemandId('d'), 'holder': 'w', 'lease_seconds': 3})\n"
             "    storage.claim_data_request({'request_id': WireRequestId('r')})\n"
-            "    task: WireTaskIdentity = result['task_id']\n"
+            "    task: TaskId = result['task_id']\n"
         )
     failed = subprocess.run(command, capture_output=True, text=True, check=False)
     assert failed.returncode != 0

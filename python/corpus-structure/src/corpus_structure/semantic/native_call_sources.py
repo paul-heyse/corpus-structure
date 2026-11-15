@@ -231,6 +231,11 @@ def source_bindings(
             _fail("operation_source", reference, "type correspondence field is unavailable")
         annotations = field_annotations(reference, slot)
         anchors = {semantic_sources[reference]} if reference in semantic_sources else set()
+        if canonical := annotations.get("ph:python_type"):
+            parts = canonical.split(".")
+            if len(parts) < 2 or any(not part.isidentifier() or keyword.iskeyword(part) for part in parts):
+                _fail("operation_source", reference, "canonical physical nominal must be qualified")
+            anchors.add(parts[-1])
         # An explicit anchor names this field; it cannot waive validation of its edges.
         for edge in ("cp:source", "cp:type_source"):
             if parent := annotations.get(edge):
@@ -386,8 +391,11 @@ def resolve_call_bindings(
             if field.native_field is not None and not field.native_field.isidentifier():
                 _fail("operation_field", location, "invalid native result field")
             typ, source = resolve(field, parameters)
-            if field.semantic_type is None and field.transform in {None, "identity"}:
-                field = replace(field, semantic_type=semantic_type(field.source))
+            if field.transform in {None, "identity"}:
+                inherited = semantic_type(field.source)
+                if field.semantic_type is not None and inherited is not None and field.semantic_type != inherited:
+                    _fail("operation_field", field.source, "semantic identifiers differ")
+                field = replace(field, semantic_type=field.semantic_type or inherited)
             if field.native_type is not None and (
                 not parameter or typ.kind != "integer" or typ.multivalued
             ):

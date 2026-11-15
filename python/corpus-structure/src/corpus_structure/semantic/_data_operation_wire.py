@@ -6,7 +6,7 @@ from collections.abc import Mapping
 from decimal import Decimal
 from typing import Any, Literal, NewType, NotRequired, Required, TypedDict, cast
 
-from corpus_structure.semantic.identifiers import ReleaseId
+from corpus_structure.semantic.identifiers import ProjectId, ReleaseId, TaskAttempt, TaskId
 
 type WireExactJSONValue = (
     dict[str, WireExactJSONValue]
@@ -20,7 +20,6 @@ type WireExactJSONValue = (
 )
 
 WireAdmissionId = NewType("WireAdmissionId", str)
-WireAttempt = NewType("WireAttempt", int)
 WireCompletionIntentId = NewType("WireCompletionIntentId", str)
 WireDemandId = NewType("WireDemandId", str)
 WireDerivationId = NewType("WireDerivationId", str)
@@ -34,14 +33,12 @@ WireOperationId = NewType("WireOperationId", str)
 WireOriginalSourceId = NewType("WireOriginalSourceId", str)
 WirePopulationId = NewType("WirePopulationId", str)
 WireProductId = NewType("WireProductId", str)
-WireProjectId = NewType("WireProjectId", str)
 WirePublicationReceiptId = NewType("WirePublicationReceiptId", str)
 WireReadIdentity = NewType("WireReadIdentity", str)
 WireReadSnapshotIdentity = NewType("WireReadSnapshotIdentity", str)
 WireRequestId = NewType("WireRequestId", str)
 WireRuntimeId = NewType("WireRuntimeId", str)
 WireSubjectId = NewType("WireSubjectId", str)
-WireTaskIdentity = NewType("WireTaskIdentity", int)
 
 
 class WireAuthoredFactRef(TypedDict):
@@ -51,9 +48,10 @@ class WireAuthoredFactRef(TypedDict):
     kind_contract: Required[WireKindContract]
     meaning_body: Required[WireJsonValue]
     original_source: Required[WireOriginalSourceId]
-    project_id: Required[WireProjectId]
+    project_id: Required[ProjectId]
     selection_id: Required[str]
     subject: Required[WireSubjectId]
+    subject_definition: Required[str]
 
 
 class WireCPUExecutionReceipt(TypedDict):
@@ -67,7 +65,7 @@ class WireCPUExecutionReceipt(TypedDict):
 class WireExternalExecutionReceipt(TypedDict):
     actor_assertion: Required[str]
     admitting_principal: Required[str]
-    attempt: Required[WireAttempt]
+    attempt: Required[TaskAttempt]
     generation: Required[WireGeneration]
     holder: Required[str]
     model_assertion: Required[str | None]
@@ -77,7 +75,7 @@ class WireExternalExecutionReceipt(TypedDict):
     request_id: Required[WireRequestId]
     result_digest: Required[str]
     runtime_id: Required[WireRuntimeId]
-    task_id: Required[WireTaskIdentity]
+    task_id: Required[TaskId]
     version: Required[Literal["external-execution-receipt-v1"]]
 
 
@@ -87,7 +85,7 @@ class WireExternalSourceRef(TypedDict):
     native_content_digest: Required[str]
     native_product_key: Required[str]
     native_task_id: Required[int]
-    project_id: Required[WireProjectId]
+    project_id: Required[ProjectId]
     projection_digest: Required[str]
     recipe_digest: Required[str]
     release_id: Required[ReleaseId]
@@ -97,14 +95,14 @@ class WireExternalSourceRef(TypedDict):
 
 
 class WireLogicalProviderMember(TypedDict):
-    attempt: Required[WireAttempt]
+    attempt: Required[TaskAttempt]
     count: Required[int]
     generation: Required[WireGeneration]
     input_digest: Required[str]
     member: Required[str]
     request_id: Required[WireRequestId]
     start: Required[int]
-    task_id: Required[WireTaskIdentity]
+    task_id: Required[TaskId]
 
 
 class WireNativeExecutionReceipt(TypedDict):
@@ -122,7 +120,7 @@ class WireOriginalDocumentRef(TypedDict):
     document_key: Required[str]
     kind: Required[Literal["original-document"]]
     mime: Required[str]
-    project_id: Required[WireProjectId]
+    project_id: Required[ProjectId]
 
 
 class WirePublishedPdfDocumentRef(TypedDict):
@@ -135,7 +133,7 @@ class WirePublishedPdfDocumentRef(TypedDict):
     release_id: Required[ReleaseId]
     schema_digest: Required[str]
     source_digest: Required[str]
-    task_id: Required[WireTaskIdentity]
+    task_id: Required[TaskId]
 
 
 class WirePdfExecutionReceipt(TypedDict):
@@ -168,7 +166,7 @@ class WireAdmitAuthoredDataRequest(TypedDict):
 
 
 class WireNativeExecutionEvidence(TypedDict):
-    attempt: Required[WireAttempt]
+    attempt: Required[TaskAttempt]
     cpu_receipts: Required[list[WireCPUExecutionReceipt]]
     external_receipts: NotRequired[list[WireExternalExecutionReceipt]]
     generation: Required[WireGeneration]
@@ -178,7 +176,7 @@ class WireNativeExecutionEvidence(TypedDict):
     provider_receipts: NotRequired[list[WireProviderExecutionReceipt]]
     request_id: Required[WireRequestId]
     runtime_id: Required[WireRuntimeId]
-    task_id: Required[WireTaskIdentity]
+    task_id: Required[TaskId]
     version: Required[Literal["native-execution-evidence-v1"]]
 
 
@@ -299,14 +297,14 @@ class WireCompletion(TypedDict):
 
 class WireAdmitExternalDataResultRequest(TypedDict):
     actor_assertion: Required[WireIdentifier]
-    attempt: Required[WireAttempt]
+    attempt: Required[TaskAttempt]
     completion: Required[WireCompletion]
     generation: Required[WireGeneration]
     holder: Required[WireIdentifier]
     model_assertion: Required[WireIdentifier | None]
     packet_id: Required[WireExternalPacketId]
     request_id: Required[WireRequestId]
-    task_id: Required[WireTaskIdentity]
+    task_id: Required[TaskId]
 
 
 class WireAdmitExternalDataResultResult(TypedDict):
@@ -331,7 +329,7 @@ class WireExternalSourceReference(TypedDict):
     native_content_digest: Required[str]
     native_product_key: Required[str]
     native_task_id: Required[int]
-    project_id: Required[WireProjectId]
+    project_id: Required[ProjectId]
     projection_digest: Required[str]
     recipe_digest: Required[str]
     release_id: Required[ReleaseId]
@@ -370,12 +368,12 @@ class WireAdmitOriginalSourceViewResult(TypedDict):
 
 
 class WireAdoptDataCompletionIntentRequest(TypedDict):
-    attempt: Required[WireAttempt]
+    attempt: Required[TaskAttempt]
     generation: Required[WireGeneration]
     holder: Required[WireIdentifier]
     intent_id: Required[WireCompletionIntentId]
     request_id: Required[WireRequestId]
-    task_id: Required[WireTaskIdentity]
+    task_id: Required[TaskId]
 
 
 class WireAdoptDataCompletionIntentResult(TypedDict):
@@ -416,7 +414,7 @@ class WireAttachDataRequestResult(TypedDict):
     generation: Required[WireGeneration]
     request_id: Required[WireRequestId]
     retained_intent_id: Required[WireCompletionIntentId | None]
-    task_id: Required[WireTaskIdentity | None]
+    task_id: Required[TaskId | None]
     trust_snapshot: Required[WireTrustSnapshot]
     use_id: Required[WireIdentifier]
 
@@ -427,13 +425,13 @@ class WireAttemptFailure(TypedDict):
 
 
 class WireAttemptFailureObservation(TypedDict):
-    attempt: Required[WireAttempt]
+    attempt: Required[TaskAttempt]
     failure: Required[WireAttemptFailure]
     failure_id: Required[WireFailureId]
     generation: Required[WireGeneration]
     holder: Required[WireIdentifier]
     request_id: Required[WireRequestId]
-    task_id: Required[WireTaskIdentity]
+    task_id: Required[TaskId]
 
 
 class WireAuthoredFactSelection(TypedDict):
@@ -457,7 +455,7 @@ class WireCancelDataDemandResultRequestsItem(TypedDict):
     interest: Required[Literal["shared", "orphaned"]]
     physical_retirement: Required[Literal["unconfirmed"]]
     request_id: Required[WireRequestId]
-    task_id: Required[WireTaskIdentity | None]
+    task_id: Required[TaskId | None]
 
 
 class WireCancelDataDemandResult(TypedDict):
@@ -480,14 +478,14 @@ class WireClaimDataRequestResultVariant1(TypedDict):
 
 class WireClaimDataRequestResultVariant2(TypedDict):
     action: Required[Literal["compute", "reconcile"]]
-    attempt: Required[WireAttempt]
+    attempt: Required[TaskAttempt]
     generation: Required[WireGeneration]
     holder: Required[WireIdentifier]
     lease_until: Required[str]
     request_id: Required[WireRequestId]
     retained_intent_id: Required[WireCompletionIntentId | None]
     state: Required[Literal["claimed"]]
-    task_id: Required[WireTaskIdentity]
+    task_id: Required[TaskId]
     trust_snapshot: Required[WireTrustSnapshot]
 
 
@@ -496,7 +494,7 @@ class WireClaimExternalDataPacketRequest(TypedDict):
     holder: Required[WireIdentifier]
     lease_seconds: Required[int]
     packet_id: Required[WireExternalPacketId]
-    project_id: Required[WireProjectId]
+    project_id: Required[ProjectId]
 
 
 class WireCloseDataPopulationRequest(TypedDict):
@@ -613,7 +611,7 @@ class WireSourceSetEntry(TypedDict):
     member: Required[WireIdentifier | None]
     original_source: Required[WireOriginalSourceId]
     product: Required[WireIdentifier]
-    project_id: Required[WireProjectId]
+    project_id: Required[ProjectId]
     reference: Required[WireExternalSourceReference | WireSemanticSourceReference]
     source_reference: Required[WireIdentifier]
     subject: Required[WireSubjectId]
@@ -650,13 +648,13 @@ class WireContinuation(TypedDict):
 
 
 class WireDataAttemptLostResult(TypedDict):
-    attempt: Required[WireAttempt]
+    attempt: Required[TaskAttempt]
     generation: Required[WireGeneration]
     holder: Required[WireIdentifier]
     reason: Required[Literal["fence", "cancelled", "revoked", "support-unavailable"]]
     request_id: Required[WireRequestId]
     state: Required[Literal["lost"]]
-    task_id: Required[WireTaskIdentity]
+    task_id: Required[TaskId]
 
 
 class WireExpandDataObligationRequest(TypedDict):
@@ -681,7 +679,7 @@ class WireExternalPacketHead(TypedDict):
     request_id: Required[WireRequestId]
     state: Required[Literal["awaiting-external"]]
     subject: Required[WireSubjectId]
-    task_id: Required[WireTaskIdentity]
+    task_id: Required[TaskId]
 
 
 class WireInspectDataCompletionRequest(TypedDict):
@@ -768,12 +766,12 @@ class WirePopulation(TypedDict):
 
 
 class WirePublishDataDerivationRequest(TypedDict):
-    attempt: Required[WireAttempt]
+    attempt: Required[TaskAttempt]
     generation: Required[WireGeneration]
     holder: Required[WireIdentifier]
     intent_id: Required[WireCompletionIntentId]
     request_id: Required[WireRequestId]
-    task_id: Required[WireTaskIdentity]
+    task_id: Required[TaskId]
     trust_snapshot: NotRequired[WireTrustSnapshot]
 
 
@@ -881,7 +879,7 @@ class WireReadDemandResultResult(TypedDict):
     obligations: Required[list[WireResultObligation]]
     original_source_admissions: NotRequired[list[WireAdmitOriginalSourceViewResult]]
     populations: Required[list[WirePopulation]]
-    project_id: Required[WireProjectId]
+    project_id: Required[ProjectId]
     read_id: Required[WireReadIdentity]
     read_snapshot: Required[WireReadSnapshot]
     release_id: Required[ReleaseId]
@@ -897,13 +895,13 @@ class WireReadDemandResultResult(TypedDict):
 
 
 class WireReadExternalDataPacketRequest(TypedDict):
-    attempt: Required[WireAttempt]
+    attempt: Required[TaskAttempt]
     generation: Required[WireGeneration]
     holder: Required[WireIdentifier]
     max_bytes: Required[WirePositiveInteger]
     packet_id: Required[WireExternalPacketId]
     request_id: Required[WireRequestId]
-    task_id: Required[WireTaskIdentity]
+    task_id: Required[TaskId]
 
 
 class WireReadExternalDataPacketResult(TypedDict):
@@ -915,7 +913,7 @@ class WireReadExternalDataPacketResult(TypedDict):
 class WireReadExternalDataQueueRequest(TypedDict):
     demand_id: NotRequired[WireDemandId]
     limit: NotRequired[int]
-    project_id: Required[WireProjectId]
+    project_id: Required[ProjectId]
 
 
 class WireReadExternalDataQueueResult(TypedDict):
@@ -938,7 +936,7 @@ class WireRecordDataFateResult(TypedDict):
 
 
 class WireRegisterDataDemandRequest(TypedDict):
-    project_id: Required[WireProjectId]
+    project_id: Required[ProjectId]
     release_id: Required[ReleaseId]
     root: Required[list[WireRootSubject]]
     runtime_id: Required[WireRuntimeId]
@@ -953,17 +951,17 @@ class WireRegisterDataDemandResult(TypedDict):
 
 
 class WireReleaseDataAttemptRequest(TypedDict):
-    attempt: Required[WireAttempt]
+    attempt: Required[TaskAttempt]
     failure: Required[WireAttemptFailure]
     generation: Required[WireGeneration]
     holder: Required[WireIdentifier]
     physical_retirement: Required[Literal["confirmed"]]
     request_id: Required[WireRequestId]
-    task_id: Required[WireTaskIdentity]
+    task_id: Required[TaskId]
 
 
 class WireReleaseDataAttemptResultVariant2(TypedDict):
-    attempt: Required[WireAttempt]
+    attempt: Required[TaskAttempt]
     failure_id: Required[WireFailureId]
     generation: Required[WireGeneration]
     holder: Required[WireIdentifier]
@@ -971,17 +969,17 @@ class WireReleaseDataAttemptResultVariant2(TypedDict):
     request_id: Required[WireRequestId]
     retained_intent_id: Required[WireCompletionIntentId | None]
     state: Required[Literal["released"]]
-    task_id: Required[WireTaskIdentity]
+    task_id: Required[TaskId]
 
 
 class WireReleaseExternalDataPacketRequest(TypedDict):
-    attempt: Required[WireAttempt]
+    attempt: Required[TaskAttempt]
     generation: Required[WireGeneration]
     holder: Required[WireIdentifier]
     packet_id: Required[WireExternalPacketId]
     reason: Required[WireIdentifier]
     request_id: Required[WireRequestId]
-    task_id: Required[WireTaskIdentity]
+    task_id: Required[TaskId]
 
 
 class WireReleaseExternalDataPacketResult(TypedDict):
@@ -991,33 +989,33 @@ class WireReleaseExternalDataPacketResult(TypedDict):
 
 
 class WireRenewDataRequestRequest(TypedDict):
-    attempt: Required[WireAttempt]
+    attempt: Required[TaskAttempt]
     generation: Required[WireGeneration]
     holder: Required[WireIdentifier]
     lease_seconds: Required[int]
     request_id: Required[WireRequestId]
-    task_id: Required[WireTaskIdentity]
+    task_id: Required[TaskId]
 
 
 class WireRenewedDataRequestResult(TypedDict):
-    attempt: Required[WireAttempt]
+    attempt: Required[TaskAttempt]
     generation: Required[WireGeneration]
     holder: Required[WireIdentifier]
     lease_until: Required[str]
     request_id: Required[WireRequestId]
     state: Required[Literal["renewed"]]
-    task_id: Required[WireTaskIdentity]
+    task_id: Required[TaskId]
     trust_snapshot: Required[WireTrustSnapshot]
 
 
 class WireRetainDataCompletionIntentRequest(TypedDict):
-    attempt: Required[WireAttempt]
+    attempt: Required[TaskAttempt]
     completion: Required[WireCompletion]
     generation: Required[WireGeneration]
     holder: Required[WireIdentifier]
     request_id: Required[WireRequestId]
     runtime_id: Required[WireRuntimeId]
-    task_id: Required[WireTaskIdentity]
+    task_id: Required[TaskId]
 
 
 class WireRetainDataCompletionIntentResult(TypedDict):
@@ -1026,13 +1024,13 @@ class WireRetainDataCompletionIntentResult(TypedDict):
 
 
 class WireRetainExternalDataPacketRequest(TypedDict):
-    attempt: Required[WireAttempt]
+    attempt: Required[TaskAttempt]
     generation: Required[WireGeneration]
     holder: Required[WireIdentifier]
     max_bytes: Required[WirePositiveInteger]
     request_id: Required[WireRequestId]
     runtime_id: Required[WireRuntimeId]
-    task_id: Required[WireTaskIdentity]
+    task_id: Required[TaskId]
 
 
 class WireRetainExternalDataPacketResult(TypedDict):
@@ -1043,7 +1041,7 @@ class WireRetainExternalDataPacketResult(TypedDict):
 
 class WireRevokeDataSupportRequest(TypedDict):
     original_source: Required[WireOriginalSourceId]
-    project_id: Required[WireProjectId]
+    project_id: Required[ProjectId]
     reason: Required[WireIdentifier]
     selector: Required[WireIdentifier]
     selector_kind: Required[
@@ -1067,11 +1065,11 @@ class WireSelectDataPopulationRequest(TypedDict):
 
 
 class WireAttemptFence(TypedDict):
-    attempt: Required[WireAttempt]
+    attempt: Required[TaskAttempt]
     generation: Required[WireGeneration]
     holder: Required[WireIdentifier]
     request_id: Required[WireRequestId]
-    task_id: Required[WireTaskIdentity]
+    task_id: Required[TaskId]
 
 
 type WireDdoJsonValue = (
@@ -1115,7 +1113,7 @@ type WireSupportMember = (
 
 type WireTrustSnapshot = dict[str, WireNonnegativeInteger]
 
-type WireTaskId = WireTaskIdentity
+type WireTaskId = TaskId
 
 type WireRequestMeaning = (
     WireSemanticValue
