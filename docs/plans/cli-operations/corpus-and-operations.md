@@ -195,7 +195,7 @@ exact selection and acquired source, make interruption/recovery truthful under m
 and exercise an interrupted export, edited same-root selection, missing predecessor and retry
 from retained data with no new extraction. The two successful manifests do not exercise
 interruption.
-[Export and retry](../../../python/corpus-structure/src/corpus_structure/cli/review.py#L20) ·
+Export and retry (`cli/review.py:20`, retired; historical finding baseline) ·
 [Snapshot binding](../../../python/corpus-structure/src/corpus_structure/serve/review_bundle.py#L966)
 
 **CLI-CA04 · Source preparation and run lifecycle.** `ci ingest` still requires domain and
@@ -216,7 +216,7 @@ before it can distinguish an unfit population. The retained WCE census establish
 missing-input case and has no installed applicability route. Project the current missing-events,
 missing-evaluation and unfit outcomes with remedies pointing to the producer or assessment
 owner. Verify the unavailable frame without exposing protected assessments or starting fitting.
-[Installed fit](../../../python/corpus-structure/src/corpus_structure/cli/eval.py#L198) ·
+Installed fit (`cli/eval.py:198`, retired; historical finding baseline) ·
 [Fitting owner](../../../python/corpus-structure/src/corpus_structure/evaluate/operation_fitting.py#L164)
 
 **CLI-CA06 · Production target continuity and health.** Deploy selects an independent profile,

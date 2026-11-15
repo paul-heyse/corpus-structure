@@ -27,6 +27,17 @@ members have no automatic selected standing. Composite views, the old query comp
 implementation and grouped-measurement consumers retain their DDO-09/10 obligations. Adapter and
 pure query controls do not establish native publication/read qualification.
 
+**Implemented; scoped CLI controls Tested · 2026-11-15; native qualification remains with the
+DDO coordinator.** The `retained-review`, `retained-golden` and `retained-eval` CLI adapters are
+removed. Independent current reference authoring/snapshots use `golden author|snapshot`; selected
+comparison and complete-record grading/fitting use `eval run|records|fit-features`, preserving their
+separate evaluator/fitter purposes and declared policy authorization. `review export|verify` binds
+an explicit project/demand and trusted detached manifest digest through the current native export
+owner. `structure export|verify` carries the exact selected structural request and native closure.
+These commands do not reinterpret historical integer reference sets or evaluation IDs. Shared
+programmatic historical review/replay and evaluation consumers retain their owning DDO migration
+obligations; removing CLI adapters does not establish their retirement or native qualification.
+
 > Decision: [ADR-0109](../adr/0109-ddo-current-domain-contracts.md)
 
 > Decision: [ADR-0094](../adr/0094-ddo-demand-and-recovery.md)
@@ -1230,20 +1241,17 @@ statements and exact witnesses. They do not promote every reported candidate or 
 Cursors bind selection and page scope through the existing query journey. Ordinary registration
 and retained reads do not start encoders, GLiNER, parsers or compiler work.
 
-`ci review export` captures one selected snapshot into matching versioned JSONL/Parquet relations,
-source context/pieces, raw reports/configurations and assessment/gap/change/capability views.
-`ci review verify` and `inspect` operate offline. Shared payloads appear once; existing bounded
-capture, cancellation settlement and atomic no-replace publication own the lifecycle. Full
-selected-source closure requires actual assessed producer run/unit and declared raw-parent bodies;
-opaque diagnostics grant no source authority. Coordinate versions derive from decoded source kind.
+`ci review export` captures an explicit native project/demand through the common selected export
+owner. Its JSONL/Parquet archive retains actual products, support, contracts, runtime and source
+bytes under the acquiring read. `ci review verify` operates offline against an explicitly supplied
+trusted manifest digest. Selected structural reading/replay uses `ci structure export|verify`,
+which binds its request and installed interpretation to the authenticated native archive.
 
-`ci review export-evaluated` is an explicit restricted evaluator route. Cohort project/capability
-and exposure receipt are selected independently; an ordinary request cannot elevate them.
-Native row/byte preflight precedes history materialization. Required exposure commits before
-history delivery, including savepoints. Original partitions/passes remain unchanged. Sealed
-calibration/final populations are inventories, with labels excluded. Public witness scope remains
-`published_admission_witnesses_only`. Exact package/source/quality acceptance belongs to the
-[PCE coordinator](../plans/progressive-corpus-enrichment_2026-11-04.md).
+Protected reference snapshots and complete-record assessment use the evaluator/fitter routes above.
+Native purpose and body-access policy govern every exported population. Ordinary review export
+cannot acquire historical assessment sets or grant evaluator exposure. Shared programmatic historical
+review/replay consumers remain internal while their owning DDO migrations are incomplete; they are
+not mounted CLI commands.
 
 > Decision: [ADR-0065](../adr/0065-cross-source-structural-products.md)
 

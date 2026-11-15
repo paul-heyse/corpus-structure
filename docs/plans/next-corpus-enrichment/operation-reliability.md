@@ -51,7 +51,7 @@ claimed scope facets, preserving all source-supported alternatives.
   reference-overlap values may only inform assessment.
 - Use event identity consistently through availability, selected evaluation, native frame,
   fit admission, fit read, parameter export and score applicability. Extend the existing
-  [`ci eval` routes](../../../python/corpus-structure/src/corpus_structure/cli/eval.py) with
+  `ci eval` routes (`cli/eval.py`, retired; historical finding baseline) with
   explicit event selection for availability and fitting and typed results for reads. Distinguish
   no eligible event population, missing/incompatible protected evaluation, insufficient usable
   binary classes, nonconvergence and successfully fitted results. A verified frame records

@@ -9,7 +9,6 @@ import typer
 from corpus_structure.cli import (
     db,
     demands,
-    golden,
     interpretations,
     managed,
     mcp,
@@ -18,7 +17,6 @@ from corpus_structure.cli import (
     orchestrate,
     regenerate,
     research,
-    review,
     schema,
     selected_assessment,
     selected_results,
@@ -28,7 +26,6 @@ from corpus_structure.cli import (
     structure,
     testing,
 )
-from corpus_structure.cli import eval as evaluation
 
 REGISTRY: tuple[Callable[[typer.Typer], None], ...] = (
     operations.register,
@@ -46,10 +43,7 @@ REGISTRY: tuple[Callable[[typer.Typer], None], ...] = (
     selected_results.register,
     research.register,
     interpretations.register,
-    review.register,
     structure.register,
     selected_assessment.register,
-    golden.register,
-    evaluation.register,
     mcp.register,
 )

@@ -52,7 +52,7 @@ owner read interface. Preserve ordinary and evaluated scope, original source com
 witnesses and assessment coverage. On large bundles, account for full verification cost
 and lease duration. Add a manifest-only view only for a named decision that can use
 unverified metadata, explicitly label it and keep verified inspection available.
-[Review CLI](../../../python/corpus-structure/src/corpus_structure/cli/review.py) ·
+Review CLI (`cli/review.py`, retired; historical finding baseline) ·
 [Bundle owner](../../../python/corpus-structure/src/corpus_structure/serve/review_bundle.py)
 
 For `review export` and `review export-evaluated`, compose a selection through the
@@ -74,7 +74,7 @@ Keep owner ordering and continuation, and keep ordinary inspection and evaluator
 interpretation separate. Use existing fitting applicability for protected data
 availability. Where an applicable read depends on a new enrichment producer, link its
 existing owner and prerequisite. [Source inspection](../../../python/corpus-structure/src/corpus_structure/cli/source.py) ·
-[Fitting routes](../../../python/corpus-structure/src/corpus_structure/cli/eval.py) ·
+Fitting routes (`cli/eval.py`, retired; historical finding baseline) ·
 [Enrichment ownership](../next-corpus-enrichment_2026-11-07.md)
 
 Verify the same authorized report from detached and managed input, including nested

@@ -752,7 +752,7 @@ construction, fit admission, parameter applicability and the existing `ci eval o
 the meaning of `defined_by_correctness` distinct in the event contract and preserve prior fit evidence under its original
 custody. Keep protected judgments and authored references in evaluator/fitter custody, with ordinary
 consumers receiving only authorized diagnostics or explicit finite parameters. Reuse the project's
-applicable environment and exact release binding. [Fitter](../../python/corpus-structure/src/corpus_structure/evaluate/operation_fitting.py) · [Runtime parameter contract](../../python/corpus-structure/src/corpus_structure/semantic/operation_policy.py) · [Native event contract](../../python/corpus-structure/src/corpus_structure/semantic/sql/operation_event_fitting.sql) · [CLI](../../python/corpus-structure/src/corpus_structure/cli/eval.py)
+applicable environment and exact release binding. [Fitter](../../python/corpus-structure/src/corpus_structure/evaluate/operation_fitting.py) · [Runtime parameter contract](../../python/corpus-structure/src/corpus_structure/semantic/operation_policy.py) · [Native event contract](../../python/corpus-structure/src/corpus_structure/semantic/sql/operation_event_fitting.sql) · CLI (`cli/eval.py`, retired; historical finding baseline)
 
 The first feature arm uses `log1p` of the exact term and defining-content character lengths, signed
 term-to-content separation divided by the length of the frozen inspected passage, and a binary cue
