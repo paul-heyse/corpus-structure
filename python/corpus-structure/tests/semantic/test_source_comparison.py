@@ -297,3 +297,14 @@ def test_griffe_entrypoints_match_exposed_identity_across_addition_and_reorder()
 
     with pytest.raises(ValueError, match="duplicate exposed callable"):
         _callable_container(replace(original, callable_surfaces=(run, run)))
+
+
+def test_documentation_claim_edit_does_not_masquerade_as_domain_enforcement_change():
+    before = compile_source(operation_source())
+    after = compile_source(operation_source(metadata=contract(
+        applicability=[{"kind": "documentation", "text": "reworded eligibility description"}],
+        invariants=[{"kind": "documentation", "text": "reworded invariant description"}],
+    )))
+    comparison = compare_data_operation_models(before, after)
+    assert facets(comparison) == {"documentation"}
+    assert not comparison.breakages

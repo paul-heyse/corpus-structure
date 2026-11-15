@@ -21,6 +21,8 @@ def test_body_change_reports_recipe_identity_without_claiming_changed_output():
     assert recipe.aspect == "identity"
     assert recipe.before != recipe.after
     assert recipe.consumers == ("urn:test:derive",)
+    implementation = next(change for change in report.changes if change.model_ref == "python:example.derive/implementation-slice")
+    assert implementation.consumers == ("urn:test:derive",)
     assert report.complete
     assert report.version == "declared-data-model-comparison-v1"
     assert (report.before_release, report.after_release) == ("old", "new")
@@ -32,8 +34,7 @@ def test_descriptive_metadata_change_is_absent_from_declared_semantic_difference
     after = compile_data_operations(python_sources=python_inputs(operation_source(metadata=contract(behavior="rewritten descriptive prose"))))
     assert not compare_declared_models(before, after).changes
     source = compare_data_operation_models(before, after)
-    assert source.changes
-    assert not {"recipe", "eligibility", "implementation"} & {change.facet for change in source.changes}
+    assert {change.facet for change in source.changes} == {"documentation"}
 
 
 def test_checked_subject_change_reports_meaning_and_both_dependency_sides():

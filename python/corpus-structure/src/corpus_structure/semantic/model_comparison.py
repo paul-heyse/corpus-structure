@@ -95,7 +95,13 @@ def compare_declared_models(
 
     old_ids, new_ids = ({(item.owner, item.domain): item.key for item in model.identities} for model in (before, after))
     for owner, domain in sorted(old_ids.keys() | new_ids.keys()):
-        append(owner + "/" + domain, "identity", old_ids.get((owner, domain)), new_ids.get((owner, domain)), roots=(owner,))
+        roots = (owner, *(
+            operation.semantic_id
+            for model in (before, after)
+            for operation in model.operations
+            if operation.implementation_root == owner
+        ))
+        append(owner + "/" + domain, "identity", old_ids.get((owner, domain)), new_ids.get((owner, domain)), roots=roots)
 
     old_projections, new_projections = ({item.name: json.loads(canonical_bytes(asdict(item))) for item in model.graph_projections} for model in (before, after))
     for name in sorted(old_projections.keys() | new_projections.keys()):

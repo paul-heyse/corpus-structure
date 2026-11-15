@@ -185,9 +185,24 @@ def compare_data_operation_models(
         def domain(operation):
             return {
                 name: value
-                for name, value in asdict(operation).items()
-                if name not in {"origins", "callable_surfaces", "implementation_root"}
+                for name, value in json.loads(operation.definition).items()
+                if name != "callable_surfaces"
             }
+
+        def descriptive_metadata(operation):
+            return {
+                "behavior": operation.behavior if operation.implementation_root is not None else None,
+                "applicability": [claim.text for claim in operation.applicability if claim.kind == "documentation"],
+                "invariants": [claim.text for claim in operation.invariants if claim.kind == "documentation"],
+            }
+
+        append(
+            owner,
+            "documentation",
+            descriptive_metadata(prior),
+            descriptive_metadata(proposed),
+            reason="Archived descriptive metadata changed without claiming executable enforcement.",
+        )
 
         append(
             owner,
