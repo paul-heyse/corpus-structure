@@ -368,7 +368,7 @@ class PreparedDossierInputs:
             frame = frames[raw["source_pin"]["source"]]
             source_context = {
                 key: raw["source_pin"][key]
-                for key in ("project_id", "subject", "original_source", "analyzed_scope_meaning")
+                for key in ("project_id", "subject", "subject_definition", "original_source", "analyzed_scope_meaning")
             }
             reference_context = DeclaredContributionRef.from_bound(
                 member, project=self.context.project_id, contribution_id=selected.contribution_id

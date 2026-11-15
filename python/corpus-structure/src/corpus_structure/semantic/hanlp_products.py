@@ -336,6 +336,7 @@ class PreparedHanlpProfile:
         units, alignments, coverage, receipts = [], [], [], []
         context = dict(
             subject=source_subject(source.value["source"]),
+            subject_definition="original-source-view",
             original_source=source.value["source"]["document"],
             analyzed_scope=dict(source=source.value["source"], selectors=source.value["selectors"]),
         )
@@ -741,7 +742,7 @@ class PreparedHanlpPort:
                 member.subject,
                 member.original_source,
                 member.analyzed_scope,
-            )
+             subject_definition=member.subject_definition)
         canonical = CanonicalProduct(
             content,
             self.profile.prepared,

@@ -128,7 +128,7 @@ def test_authored_scope_preserves_exact_fraction_null_and_boolean_distinctions(s
         "fact",
         {"value": 7},
         kind_contract="kind:A",
-        context=SubjectContext("project:A", "subject:A", "source:A", json_bytes(scope)),
+        context=SubjectContext("project:A", "subject:A", "source:A", json_bytes(scope), subject_definition="document"),
         author="operator",
         selection_id="selection:A",
     )

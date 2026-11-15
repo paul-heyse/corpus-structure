@@ -130,6 +130,7 @@ class DemandResult:
                             member_id=None,
                             kind_contract=output["kind_contract"],
                             subject=output["subject"],
+                            subject_definition=output["subject_definition"],
                             original_source=output["original_source"],
                             analyzed_scope=output["analyzed_scope"],
                             body=body,
@@ -425,7 +426,7 @@ def verify_detached_result(
             product["subject"],
             product["original_source"],
             json_bytes(product["analyzed_scope"]),
-        )
+         subject_definition=product["subject_definition"])
         if (
             body != product["body_digest"]
             or contextual_product_identity(
@@ -448,6 +449,7 @@ def verify_detached_result(
             and packet["context"]
             == dict(
                 subject=member["subject"],
+                subject_definition=member["subject_definition"],
                 original_source=member["original_source"],
                 analyzed_scope=member["analyzed_scope"],
             )
@@ -574,7 +576,7 @@ def verify_detached_result(
                     request["subject"],
                     request["original_source"],
                     json_bytes(request["analyzed_scope"]),
-                )
+                 subject_definition=definition["subject_definition"])
                 product_key = contextual_product_identity(
                     kind=produced["kind_contract"],
                     context=context,
@@ -657,6 +659,7 @@ def verify_detached_result(
                 )
                 if episode["request_id"] != retained["request_id"]:
                     raise ValueError("detached selected episode names another semantic request")
+            definition = actual_definitions[record["release_id"], request["operation_id"]]
             binding = retained["selection"]
             binding_endpoints(binding)
             expected = SemanticRequestKey(
@@ -670,7 +673,7 @@ def verify_detached_result(
                     request["subject"],
                     request["original_source"],
                     json_bytes(request["analyzed_scope"]),
-                ),
+                 subject_definition=definition["subject_definition"]),
             ).identity.key
             if expected != request["request_key"]:
                 raise ValueError("detached request differs from its exact selected meaning")

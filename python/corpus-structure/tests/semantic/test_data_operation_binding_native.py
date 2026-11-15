@@ -358,7 +358,7 @@ def test_native_source_set_authenticates_exact_original_pins(binding_native_conn
         analyzed_scope=b'{"page":1}',
         product="product:original",
         member="member:original",
-    )
+     subject_definition="original-occurrence")
     scopes = source_sets_record((FrozenSourceSet("inputs", (pin,)),))
     binding_native_connection.execute(
         text("SELECT ops.ddo_validate_source_sets(CAST(:sets AS jsonb),'project')"),
@@ -581,7 +581,7 @@ def test_native_semantic_source_set_matches_exact_product_member_context(binding
     connection = binding_native_connection
     entry = SourceSetEntry.from_semantic_source(
         DataProductMemberReference(DataProductReference("product:foreign"), "member:one"),
-        context=SubjectContext("project", "subject:foreign", "source:foreign", b'{"page":2}'),
+        context=SubjectContext("project", "subject:foreign", "source:foreign", b'{"page":2}', subject_definition="original-occurrence"),
     ).record()
     sets = {"selected": [entry]}
     connection.execute(

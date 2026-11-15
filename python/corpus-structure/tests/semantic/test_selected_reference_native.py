@@ -76,7 +76,7 @@ def test_evaluator_snapshot_executes_and_preserves_complete_authored_reference(d
             judgment="supported",
         )
     ]
-    context = SubjectContext("ddo-test", "source:reference", "document:reference", b"{}")
+    context = SubjectContext("ddo-test", "source:reference", "document:reference", b"{}", subject_definition="original-occurrence")
     kind = kernel.identities[
         "https://corpus-structure.dev/semantic/data-operation-assessment/DdoSelectedReference",
         "kind",

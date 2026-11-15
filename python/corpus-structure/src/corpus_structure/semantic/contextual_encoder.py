@@ -182,6 +182,7 @@ def prepare_selected_query_context(frame, occurrence, primary, *, binding, recip
                 kind_contract=member.kind_contract,
                 project_id=binding.subject_context.project_id,
                 subject=member.subject,
+                subject_definition=member.subject_definition,
                 original_source=member.original_source,
                 analyzed_scope_meaning=json_context_meaning(member.analyzed_scope).decode(),
             )

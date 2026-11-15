@@ -122,6 +122,7 @@ def storage(native_rollback):
                 "product",
                 "kind_contract",
                 "subject",
+                "subject_definition",
                 "original_source",
                 "member",
                 "provider_identity",
@@ -146,6 +147,7 @@ def storage(native_rollback):
                 product=f"p{value}",
                 kind_contract="kind:fixed",
                 subject="doc",
+                subject_definition="document",
                 original_source="source",
                 member=f"m{value}",
                 provider_identity=None,
@@ -254,7 +256,7 @@ def test_sql_range_membership_defaults_and_exact_identity(storage):
     assert result.definition == "definition:fixed"
     assert decode_semantic_value(json.loads(result.parameters)) == {"allowed": [2, 3], "maximum": 3}
     resolved = result.resolved(
-        subject_context=SubjectContext("project:test", result.subject, "source:test", b"{}"),
+        subject_context=SubjectContext("project:test", result.subject, "source:test", b"{}", subject_definition="document"),
         inference="exact",
         authorization=b"{}",
         trust_evidence=b"{}",
@@ -311,7 +313,7 @@ def test_postgresql_full_binding_result_preserves_selected_facts(storage, facet,
                 derivation_id="selected-episode" if facet == "support_episodes" else "ep2",
             ),
         ),
-    )
+     subject_definition="document")
     assert actual == BindingResult(
         operation="urn:op",
         subject="doc",
@@ -979,7 +981,7 @@ def test_runtime_parameter_mapping_preserves_date_decimal_and_signed_zero(storag
     assert decoded["amount"] == Decimal("1.2") and type(decoded["amount"]) is Decimal
     assert math.copysign(1, decoded["sign"]) == -1
     resolved = result.resolved(
-        subject_context=SubjectContext("project:test", result.subject, "source:test", b"{}"),
+        subject_context=SubjectContext("project:test", result.subject, "source:test", b"{}", subject_definition="document"),
         inference="exact",
         authorization=b"{}",
         trust_evidence=b"{}",
@@ -1106,7 +1108,7 @@ def test_sql_source_set_selects_exact_product_without_relabelling_source(storage
         analyzed_scope=b'{"page":1}',
         product="p2",
         member="m2",
-    )
+     subject_definition="document")
     schema = model(BindingExpression("scan", roles=("items",)))
     operation = schema.operations[0]
     support = operation.roles[0].support
@@ -1193,7 +1195,7 @@ def test_explicit_discovery_input_filters_parent_before_scalar_cardinality(stora
     connection.execute(
         table.insert(), {**row, "member": "m2-other-scope", "analyzed_scope": {"page": 2}}
     )
-    context = SubjectContext("project", "doc", "source", b'{"page":1}')
+    context = SubjectContext("project", "doc", "source", b'{"page":1}', subject_definition="document")
     schema = model(BindingExpression("scan", roles=("items",)), collection="scalar", maximum=1)
     population = PopulationBinding(
         "discovered",
@@ -1270,7 +1272,7 @@ def test_native_membership_and_absence_cannot_use_another_containers_local_membe
 
 def test_acquired_subject_context_survives_binding_and_cannot_be_replaced(storage):
     connection, _, projection = storage
-    context = SubjectContext("project:test", "doc", "source", b'{"page":1}')
+    context = SubjectContext("project:test", "doc", "source", b'{"page":1}', subject_definition="document")
     compiled = compile_binding(
         model(BindingExpression("scan", roles=("items",))),
         "urn:op",
@@ -1291,7 +1293,7 @@ def test_acquired_subject_context_survives_binding_and_cannot_be_replaced(storag
     assert resolved.subject_context == context
     equivalent = result.resolved(
         inference="exact",
-        subject_context=SubjectContext("project:test", "doc", "source", b'{"page":1.0}'),
+        subject_context=SubjectContext("project:test", "doc", "source", b'{"page":1.0}', subject_definition="document"),
         authorization=b"{}",
         trust_evidence=b"{}",
         execution_profile="native",
@@ -1300,7 +1302,7 @@ def test_acquired_subject_context_survives_binding_and_cannot_be_replaced(storag
     with pytest.raises(ValueError, match="differs"):
         result.resolved(
             inference="exact",
-            subject_context=SubjectContext("other", "doc", "source", b'{"page":1}'),
+            subject_context=SubjectContext("other", "doc", "source", b'{"page":1}', subject_definition="document"),
             authorization=b"{}",
             trust_evidence=b"{}",
             execution_profile="native",
@@ -1519,9 +1521,9 @@ def test_sql_qualified_context_fanin_requires_all_contexts_without_parent_produc
         table.update().where(table.c.product == "p3").values(analyzed_scope={"page": 3})
     )
     schema = model(_qualified_context_expression(), minimum=0, presence="optional")
-    root = SubjectContext("project", "doc", "source", b'{"root":true}')
+    root = SubjectContext("project", "doc", "source", b'{"root":true}', subject_definition="document")
     contexts = tuple(
-        SubjectContext("project", "doc", "source", json_bytes({"page": page})) for page in (1, 2)
+        SubjectContext("project", "doc", "source", json_bytes({"page": page}), subject_definition="document") for page in (1, 2)
     )
 
     def bind(required=contexts, complete=True):
@@ -1593,7 +1595,7 @@ def test_sql_subject_field_can_target_original_source_without_relabeling_context
         (projection,),
         subject="hashed:document",
         original_source="source",
-        subject_context=SubjectContext("project", "hashed:document", "source", b"{}"),
+        subject_context=SubjectContext("project", "hashed:document", "source", b"{}", subject_definition="document"),
     )
     result = execute_binding(connection, compiled)
     assert result.status == "ready"
@@ -1707,7 +1709,7 @@ def test_zero_minimum_selected_producer_preserves_other_roles_and_requires_close
                 "urn:op",
                 (projection,),
                 subject="doc",
-                subject_context=SubjectContext("project", "doc", "source", b"{}"),
+                subject_context=SubjectContext("project", "doc", "source", b"{}", subject_definition="document"),
                 populations=(
                     PopulationBinding(
                         "right-contexts",
@@ -1750,7 +1752,7 @@ def test_semantic_source_set_pins_cross_source_context_without_legacy_reference(
             subject="foreign:subject", original_source="foreign:source", analyzed_scope={"page": 2}
         )
     )
-    context = SubjectContext("project", "foreign:subject", "foreign:source", b'{"page":2.0}')
+    context = SubjectContext("project", "foreign:subject", "foreign:source", b'{"page":2.0}', subject_definition="document")
     entry = SourceSetEntry.from_semantic_source(
         DataProductMemberReference(DataProductReference("p2"), "m2"), context=context
     )

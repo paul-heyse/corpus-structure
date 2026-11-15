@@ -37,6 +37,7 @@ class AuthoredFactRef(BaseModel):
     selection_id: Nonempty
     kind_contract: Nonempty
     subject: Nonempty
+    subject_definition: Nonempty
     original_source: Nonempty
     analyzed_scope: DdoJsonValue
     meaning_body: JsonValue
@@ -164,6 +165,7 @@ def authored_fact_selection(name, value, *, kind_contract, context, author, sele
         selection_id=selection_id,
         kind_contract=kind_contract,
         subject=context.subject,
+        subject_definition=context.subject_definition,
         original_source=context.original_source,
         analyzed_scope=json_loads(context.analyzed_scope),
         meaning_body=semantic_value(value),

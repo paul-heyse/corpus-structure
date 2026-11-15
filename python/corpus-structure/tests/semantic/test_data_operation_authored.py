@@ -114,7 +114,7 @@ def _recipe():
 @pytest.mark.parametrize("ddo_kernel", [_recipe()], indirect=True)
 def test_native_authored_fact_has_no_computation_and_cannot_be_relabelled(ddo_kernel):
     kernel = ddo_kernel
-    context = SubjectContext("ddo-test", "authored:subject", "source:authored", b"{}")
+    context = SubjectContext("ddo-test", "authored:subject", "source:authored", b"{}", subject_definition="document")
     input_role = kernel.model.operation("urn:authored:consume").roles[0]
     kind = kernel.identities[input_role.kind, "kind"]
     authored = authored_fact_selection(

@@ -430,7 +430,7 @@ def test_authored_admission_reader_follows_all_obligation_pages(monkeypatch):
             "source:" + name,
             41,
             kind_contract="kind:reference",
-            context=SubjectContext("project:A", name, "document:" + name, b"{}"),
+            context=SubjectContext("project:A", name, "document:" + name, b"{}", subject_definition="original-source-view"),
             author="independent author",
             selection_id="question:" + name,
         )

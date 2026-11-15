@@ -86,6 +86,7 @@ classes:
   DdoFormalMemberContext:
     is_a: SourceRecordProduct
     attributes:
+      subject_definition: {required: true}
       subject:
         required: true
         pattern: ^.+$

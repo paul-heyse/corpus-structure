@@ -162,7 +162,7 @@ def test_target_clause_inventory_keeps_unknown_frames_and_historical_empty_refus
         original_source="book",
         analyzed_scope_meaning="{}",
         contribution_id="source-contribution:" + "a" * 64,
-    )
+     subject_definition="original-source-view")
     partial = DeclaredClauseClassificationProduct(
         context_policy="exact_focus",
         readings=(),
@@ -200,7 +200,7 @@ def test_target_clause_inventory_keeps_unknown_frames_and_historical_empty_refus
         analyzed_scope_meaning="{}",
         source_product="product:source",
         kind_contract="kind:source",
-    )
+     subject_definition="original-source-view")
     passage = StructuralPassage(
         passage_id="p", source_ref=source.identity, start=0, end=1, text="x", scope="local"
     )

@@ -708,7 +708,7 @@ def _protected_binding_case(
             },
             {"parameters": {}, "replicate": None},
             "inference:test",
-            subject_context=SubjectContext("ddo-test", "subject:one", "source:test", b'{"page":1}'),
+            subject_context=SubjectContext("ddo-test", "subject:one", "source:test", b'{"page":1}', subject_definition="original-occurrence"),
         )
         payload: dict[str, Any] = {
             "obligation_id": obligation["obligation_id"],
@@ -1068,7 +1068,7 @@ def test_actual_writer_requires_exact_authored_closed_population_binding(ddo_ker
             inputs,
             {"parameters": {}, "replicate": None},
             "inference:test",
-            subject_context=SubjectContext("ddo-test", "doc", "source:test", b'{"page":1}'),
+            subject_context=SubjectContext("ddo-test", "doc", "source:test", b'{"page":1}', subject_definition="original-occurrence"),
         )
         return {
             "obligation_id": obligation["obligation_id"],
@@ -2096,7 +2096,7 @@ def test_distinct_root_contexts_attach_and_publish_equal_bodies(ddo_kernel, chan
                 context_row["subject"],
                 context_row["original_source"],
                 canonical_bytes(context_row["analyzed_scope"]),
-            )
+             subject_definition="original-occurrence")
             assert (
                 products[-1]
                 == contextual_product_identity(

@@ -221,7 +221,7 @@ def _detached_closure(
 
     context = SubjectContext(
         "project:A", "root", "source:A", json_bytes({"scale": Decimal("1.20")})
-    )
+    , subject_definition="document")
     body = {"amount": Decimal("12.340")} if body is None else body
     body_key = body_identity(body).key
     product_id = contextual_product_identity(kind=kind_contract, context=context, body=body_key).key

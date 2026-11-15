@@ -302,7 +302,7 @@ def _refuse_same_context_original(connection, storage, snapshot, use, population
             request["subject"],
             request["original_source"],
             canonical_bytes(request["analyzed_scope"]),
-        ),
+         subject_definition="original-occurrence"),
     )
     with (
         pytest.raises(

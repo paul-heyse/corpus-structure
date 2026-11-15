@@ -862,7 +862,7 @@ def test_source_set_wire_uses_existing_semantic_reference_shapes(member):
     product = DataProductReference("product:one")
     reference = product if member is None else DataProductMemberReference(product, member)
     entry = SourceSetEntry.from_semantic_source(
-        reference, context=SubjectContext("project", "subject", "source", b"{}")
+        reference, context=SubjectContext("project", "subject", "source", b"{}", subject_definition="document")
     ).record()
     native = wire_contracts()["register_data_demand"]["input"]
     schema = {

@@ -20,7 +20,7 @@ def address(scope=b'{"page":1}'):
         "a" * 64,
         "#/groups/3",
         "descendants",
-        SubjectContext("p", "source:section", "original:doc", scope),
+        SubjectContext("p", "source:section", "original:doc", scope, subject_definition="original-source-view"),
         "product:source",
         "member:section",
         "kind:source",
@@ -33,6 +33,7 @@ def test_declared_record_pin_has_exact_original_coordinates_without_task_or_view
         "format": "declared-native-source-v1",
         "source": '["product:source","member:section"]',
         "subject": "source:section",
+        "subject_definition": "original-source-view",
         "document": "original:doc",
         "projection_digest": "a" * 64,
         "section_pointer": "#/groups/3",
@@ -146,7 +147,7 @@ def test_declared_member_maps_literal_spans_without_a_physical_view_or_task():
         (),
         b"{}",
         member="member:one",
-    )
+     subject_definition="original-source-view")
     frame = DeclaredNativeFrameSource.acquire(prepared, source.value, member, project="p")
     assert not hasattr(frame, "source_view_id") and not hasattr(frame, "native_product")
     preparation = PreparedNativeSources((frame,))
@@ -234,7 +235,7 @@ def test_declared_literal_record_assembly_preserves_semantic_member_pin():
         (),
         b"{}",
         member="member:one",
-    )
+     subject_definition="original-source-view")
     frame = DeclaredNativeFrameSource.acquire(prepared, native.value, member, project="p")
     context = NativeSourceContext(
         frame,
@@ -312,7 +313,7 @@ def test_candidate_preparation_accepts_explicit_declared_frame_without_view_refe
         (),
         b"{}",
         member="member:one",
-    )
+     subject_definition="original-source-view")
     frame = DeclaredNativeFrameSource.acquire(prepared, native.value, member, project="p")
     data = SimpleNamespace(
         text=text, pieces=native.value["pieces"], items=native.value["items"], health={}
@@ -377,7 +378,7 @@ def test_declared_formula_occurrence_keeps_original_member_address_without_conve
         (),
         b"{}",
         member="member:one",
-    )
+     subject_definition="original-source-view")
     frame = DeclaredNativeFrameSource.acquire(prepared, native.value, member, project="p")
     occurrence = formula_occurrence(frame, item, "succeeded")
     assert isinstance(occurrence, DeclaredFormulaOccurrence)
@@ -462,7 +463,7 @@ def test_declared_related_context_selects_only_closed_native_link_members():
                 (),
                 b"{}",
                 member="member:" + str(ordinal),
-            )
+             subject_definition="original-source-view")
         )
     witness = canonical_bytes(
         {

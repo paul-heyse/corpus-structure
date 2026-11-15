@@ -103,7 +103,7 @@ def detached(acquired, monkeypatch):
         (),
         b"{}",
         member="controlled-original-member",
-    )
+     subject_definition="document")
     address = DeclaredRecordSource.from_bound(source, member, project="controlled-project")
     pin = DeclaredSourcePin(canonical_bytes(address.pin()).decode())
     (block,), coverage = _blocks(source)
@@ -286,7 +286,7 @@ def test_annotation_consumer_refuses_equal_source_body_from_another_selected_car
         (),
         b"{}",
         member=original["source_member"],
-    )
+     subject_definition="document")
     foreign = DeclaredNativeFrameSource.acquire(
         prepared, source.value, foreign_member, project=original["project_id"]
     )

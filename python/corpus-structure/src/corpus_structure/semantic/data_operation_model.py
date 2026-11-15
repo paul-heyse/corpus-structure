@@ -856,6 +856,7 @@ class BoundRoleMember:
     original_source: str
     analyzed_scope: bytes
     coverage: bytes
+    subject_definition: str = field(kw_only=True)
     support_episodes: tuple[str, ...]
     support_evidence: bytes
     position: int | None = None
@@ -927,8 +928,11 @@ class SubjectContext:
     subject: str
     original_source: str
     analyzed_scope: bytes
+    subject_definition: str = field(kw_only=True)
 
     def __post_init__(self):
+        if type(self.subject_definition) is not str or not self.subject_definition:
+            raise ValueError("subject context requires a subject definition")
         if not self.project_id or not self.subject or not self.original_source:
             raise ValueError("subject context requires project, subject and original source")
         object.__setattr__(self, "analyzed_scope", json_bytes(json_loads(self.analyzed_scope)))
@@ -937,6 +941,7 @@ class SubjectContext:
     def record(self) -> dict:
         return {
             "project_id": self.project_id,
+            "subject_definition": self.subject_definition,
             "subject": self.subject,
             "original_source": self.original_source,
             "analyzed_scope": json_loads(self.analyzed_scope),

@@ -25,6 +25,7 @@ _HEADERS = {
     "kind_contract",
     "project_id",
     "subject",
+    "subject_definition",
     "original_source",
     "analyzed_scope",
 }

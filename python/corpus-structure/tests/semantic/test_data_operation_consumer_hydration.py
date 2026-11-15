@@ -39,7 +39,7 @@ def _member(**changes):
             ("episode:one",),
             b'{"use_id":"use:one"}',
             member="member:shared",
-        ),
+         subject_definition="document"),
         **changes,
     )
 
@@ -117,7 +117,7 @@ def hydration_case(monkeypatch, native_rollback):
             "definition",
             "eligibility",
             (b"admission",),
-            subject_context=SubjectContext("project", "root", "original:one", b"{}"),
+            subject_context=SubjectContext("project", "root", "original:one", b"{}", subject_definition="document"),
         )
         return hydrate_consumer_selection(
             connection,

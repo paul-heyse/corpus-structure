@@ -18,6 +18,7 @@ class DeclaredStructuralSource(StructuralValue):
     format: Literal["declared-native-source-v1"] = "declared-native-source-v1"
     source: Nonempty
     subject: Nonempty
+    subject_definition: Nonempty
     document: Nonempty
     projection_digest: Digest
     section_pointer: Nonempty
@@ -64,6 +65,7 @@ class DeclaredProductRef(StructuralValue):
     kind_contract: Nonempty
     project_id: Nonempty
     subject: Nonempty
+    subject_definition: Nonempty
     original_source: Nonempty | None
     analyzed_scope_meaning: Nonempty
 
@@ -75,6 +77,7 @@ class DeclaredProductRef(StructuralValue):
             kind_contract=member.kind_contract,
             project_id=project,
             subject=member.subject,
+            subject_definition=member.subject_definition,
             original_source=member.original_source,
             analyzed_scope_meaning=json_context_meaning(member.analyzed_scope).decode(),
             **values,
@@ -85,6 +88,7 @@ class DeclaredProductRef(StructuralValue):
         return {
             "project_id": self.project_id,
             "subject": self.subject,
+            "subject_definition": self.subject_definition,
             "original_source": self.original_source,
             "analyzed_scope_meaning": self.analyzed_scope_meaning,
         }

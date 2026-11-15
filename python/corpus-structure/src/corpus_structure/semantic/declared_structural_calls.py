@@ -206,6 +206,7 @@ class PreparedStructuralInputs:
         context = {
             "project_id": source["project_id"],
             "subject": source["subject"],
+            "subject_definition": source["subject_definition"],
             "original_source": source["original_source"],
             "analyzed_scope_meaning": source["analyzed_scope_meaning"],
         }
@@ -337,7 +338,7 @@ def execute_comparison(receiver, sources, reports, formal, **selection):
         source = FrozenNativeSource.acquire(profile.prepared, frame.value)
         context = SubjectContext(
             profile.project, member.subject, member.original_source, member.analyzed_scope
-        )
+        , subject_definition=member.subject_definition)
         product = validate_formal_product(
             profile.prepared, raw, source, model=model, subject_context=context
         )

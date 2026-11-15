@@ -100,7 +100,7 @@ def test_declared_product_primary_identity_allows_equal_body_in_distinct_scopes(
     assert not any(isinstance(constraint, UniqueConstraint) for constraint in product.constraints)
     body = body_identity(7)
     contexts = [
-        SubjectContext("project", "local", "original", scope)
+        SubjectContext("project", "local", "original", scope, subject_definition="document")
         for scope in (b'{"page":1}', b'{"page":2}')
     ]
     rows = [

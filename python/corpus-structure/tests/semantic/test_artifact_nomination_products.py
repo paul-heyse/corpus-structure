@@ -89,7 +89,7 @@ def nomination_case():
         original_source="book",
         analyzed_scope_meaning="{}",
         contribution_id=relation["contribution_id"],
-    )
+     subject_definition="original-source-view")
     occurrences = {
         "subject": {"extents": [dict(start=first, end=first + len("Table 2.1"), text="Table 2.1")]},
         "cue": {"extents": [dict(start=0, end=3, text="see")]},

@@ -134,7 +134,7 @@ _compiled = cache(_compile)
 
 
 def subject_context(*, project, subject, source, scope):
-    return SubjectContext(project, subject, source, json_bytes(scope))
+    return SubjectContext(project, subject, source, json_bytes(scope), subject_definition="original-occurrence")
 
 
 def root_subject(*, subject, source, scope):
@@ -273,7 +273,7 @@ def resolved_binding(model, *, episodes=("episode-a",), witness=None):
         canonical_bytes({"complete": True}),
         episodes,
         canonical_bytes({"authority": "selected"}),
-    )
+     subject_definition="original-occurrence")
     return ResolvedOperationBinding(
         "urn:test:derive",
         "subject:one",
@@ -285,7 +285,7 @@ def resolved_binding(model, *, episodes=("episode-a",), witness=None):
         "execution:one",
         subject_context=SubjectContext(
             "project:test", "subject:one", "original:one", b'{"start":1,"end":2}'
-        ),
+        , subject_definition="original-occurrence"),
     )
 
 

@@ -379,7 +379,7 @@ def _population_context_matches(
     """Use authenticated contexts, or an explicitly frozen exact member association."""
 
     def same_context(left: dict, right: dict) -> bool:
-        return all(left.get(key) == right[key] for key in ("subject", "original_source")) and (
+        return all(left.get(key) == right[key] for key in ("subject", "subject_definition", "original_source")) and (
             json_context_meaning(json_bytes(left.get("analyzed_scope")))
             == json_context_meaning(json_bytes(right["analyzed_scope"]))
         )
@@ -645,7 +645,7 @@ class DemandPlanner:
                     obligation["subject"],
                     obligation["original_source"],
                     json_bytes(obligation["analyzed_scope"]),
-                ),
+                 subject_definition=self.model.operation(operation["operation"]).subject),
                 subject=obligation["subject"],
                 parameters=decode_semantic_value(operation["parameter_meaning"]),
                 choices=operation["choices"],
@@ -850,7 +850,7 @@ class DemandPlanner:
                             member["subject"],
                             member["original_source"],
                             json_bytes(member["analyzed_scope"]),
-                        )
+                         subject_definition=member["subject_definition"])
                         for member in row["members"]
                     ),
                 )
@@ -884,7 +884,7 @@ class DemandPlanner:
                     obligation["subject"],
                     obligation["original_source"],
                     json_bytes(obligation["analyzed_scope"]),
-                ),
+                 subject_definition=self.model.operation(operation["operation"]).subject),
                 inference=frozen["inference"],
                 authorization=authorization,
                 trust_evidence=json_bytes(

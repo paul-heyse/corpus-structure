@@ -128,7 +128,7 @@ def hydrate_consumer_selection(
     ):
         raise ValueError("consumer binding differs from its admitted model interpretation")
     context = binding.subject_context
-    if context is None or context.subject != binding.subject:
+    if context is None or context.subject != binding.subject or context.subject_definition != model.operation(binding.operation).subject:
         raise ValueError("native consumer hydration requires its acquired subject context")
     if type(max_bytes) is not int or max_bytes <= 0:
         raise ValueError("native hydration requires explicit positive packet capacity")
@@ -153,6 +153,7 @@ def hydrate_consumer_selection(
         "member",
         "kind_contract",
         "subject",
+        "subject_definition",
         "original_source",
         "analyzed_scope",
         "support_evidence",
@@ -168,7 +169,7 @@ def hydrate_consumer_selection(
         for member_ordinal, member in enumerate(role.members)
     )
     hydrated, used = {}, 0
-    # Thirteen binds per VALUES row stay well below the extended-query parameter
+    # Fourteen binds per VALUES row stay well below the extended-query parameter
     # ceiling. Pages bound SQL/driver state; the owned packet bound spans all pages.
     for page in batched(selected_members, 1024, strict=False):
         members, records = {}, []
@@ -187,6 +188,7 @@ def hydrate_consumer_selection(
                     member.member,
                     member.kind_contract,
                     member.subject,
+                    member.subject_definition,
                     member.original_source,
                     json_context_value(json_loads(member.analyzed_scope)),
                     json_context_value(json_loads(member.support_evidence)),

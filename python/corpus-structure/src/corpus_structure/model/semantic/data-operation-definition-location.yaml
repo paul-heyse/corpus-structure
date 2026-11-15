@@ -25,6 +25,7 @@ classes:
       reference: {required: true}
       kind_contract: {required: true}
       project_id: {required: true}
+      subject_definition: {required: true}
       subject: {required: true}
       original_source: {required: true}
       analyzed_scope_meaning: {required: true}

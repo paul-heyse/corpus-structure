@@ -163,7 +163,7 @@ def case(recipe):
         pin=record_source_pin(frame),
         anchors=[anchor],
     )
-    context = SubjectContext("project:A", "source:A", "document:A", b"{}")
+    context = SubjectContext("project:A", "source:A", "document:A", b"{}", subject_definition="original-source-view")
     member = BoundRoleMember(
         ref.product.product_id,
         "kind:primary",
@@ -173,7 +173,7 @@ def case(recipe):
         b"{}",
         ("episode:primary",),
         b"{}",
-    )
+     subject_definition="original-source-view")
     sources = source_sets_record(
         (
             FrozenSourceSet(

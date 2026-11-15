@@ -24,7 +24,7 @@ def retained(operation):
         ("episode:one",),
         b"{}",
         member="view:member",
-    )
+     subject_definition="document")
     return BindingResult(
         operation,
         "document:consumer",

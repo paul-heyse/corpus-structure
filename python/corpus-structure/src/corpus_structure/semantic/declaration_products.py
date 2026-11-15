@@ -146,7 +146,7 @@ class PreparedDeclarationInputs:
         member = self.member(name)
         context = SubjectContext(
             self.context.project_id, member.subject, member.original_source, member.analyzed_scope
-        )
+        , subject_definition=member.subject_definition)
         product = RetainedCharacterizationProduct.acquire(
             self.prepared,
             model,

@@ -280,6 +280,7 @@ def binding_row_contract():
         ("product", Text()),
         ("kind_contract", Text()),
         ("subject", Text()),
+        ("subject_definition", Text()),
         ("original_source", Text()),
         ("analyzed_scope", JSONB()),
         ("coverage", JSONB()),
@@ -443,6 +444,7 @@ def binding_branches(metadata):
             products.c.id.label("product_id"),
             products.c.kind_contract.label("parent_kind"),
             products.c.subject.label("parent_subject"),
+            products.c.subject_definition.label("parent_subject_definition"),
             products.c.original_source.label("parent_source"),
             products.c.analyzed_scope.label("parent_scope"),
             products.c.canonical_body,
@@ -479,6 +481,7 @@ def binding_branches(metadata):
             cast(null(), Text).label("member_id"),
             admitted.c.parent_kind.label("projected_kind"),
             admitted.c.parent_subject.label("projected_subject"),
+            admitted.c.parent_subject_definition.label("projected_subject_definition"),
             admitted.c.parent_source.label("projected_source"),
             admitted.c.parent_scope.label("projected_scope"),
             admitted.c.canonical_body.label("projected_body"),
@@ -489,6 +492,7 @@ def binding_branches(metadata):
             members.c.member_id,
             members.c.kind_contract,
             members.c.subject,
+            members.c.subject_definition,
             members.c.original_source,
             members.c.analyzed_scope,
             members.c.body,
@@ -506,6 +510,7 @@ def binding_branches(metadata):
         product=admitted.c.product_id,
         member=projected.c.member_id,
         subject=projected.c.projected_subject,
+        subject_definition=projected.c.projected_subject_definition,
         original_source=projected.c.projected_source,
         analyzed_scope=projected.c.projected_scope,
         meaning_body=projected.c.projected_body,
@@ -614,6 +619,7 @@ def binding_branches(metadata):
         candidates.c.product_id,
         candidates.c.projected_kind,
         candidates.c.projected_subject,
+        candidates.c.projected_subject_definition,
         candidates.c.projected_source,
         candidates.c.projected_scope,
         coverage_query,
@@ -688,7 +694,7 @@ def binding_branches(metadata):
         )
     )
     fact = (
-        select(*admissions.c, products.c.kind_contract, products.c.canonical_body)
+        select(*admissions.c, products.c.kind_contract, products.c.subject_definition, products.c.canonical_body)
         .select_from(admissions.join(products, products.c.id == admissions.c.product_id))
         .where(
             admissions.c.demand_id == demand,
@@ -724,6 +730,7 @@ def binding_branches(metadata):
         fact.c.product_id,
         fact.c.kind_contract,
         fact.c.subject,
+        fact.c.subject_definition,
         fact.c.original_source,
         fact.c.analyzed_scope,
         _json([]),
@@ -750,6 +757,7 @@ def binding_branches(metadata):
             fact.c.product_id,
             fact.c.kind_contract,
             fact.c.subject,
+            fact.c.subject_definition,
             fact.c.original_source,
             fact.c.analyzed_scope,
             fact.c.canonical_body,
@@ -1176,6 +1184,7 @@ def read_page(metadata):
         member_id=outputs.c.member_id,
         kind_contract=products.c.kind_contract,
         subject=products.c.subject,
+        subject_definition=products.c.subject_definition,
         original_source=products.c.original_source,
         analyzed_scope=products.c.analyzed_scope,
         body_state=case(
@@ -1299,6 +1308,7 @@ def read_page(metadata):
         .op("||")(
             _obj(
                 obligation_id=bounded.c.id,
+                subject_definition=select(definitions.c.subject_definition).where(definitions.c.release_id == _var("d.release_id", Text), definitions.c.operation_id == bounded.c.operation_id).scalar_subquery(),
                 historical_fate=latest.c.fate,
                 fate=case(
                     (
@@ -1343,6 +1353,7 @@ def read_page(metadata):
         product_id=admissions.c.product_id,
         kind_contract=products.c.kind_contract,
         subject=admissions.c.subject,
+        subject_definition=products.c.subject_definition,
         original_source=admissions.c.original_source,
         analyzed_scope=admissions.c.analyzed_scope,
         source_reference=admissions.c.source_reference,

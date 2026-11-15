@@ -525,6 +525,7 @@ def interpreted_product_value(source, facts, member_contracts, dependencies):
     coordinate = selected["source"]
     context = dict(
         subject=source_subject(coordinate),
+        subject_definition="original-source-view",
         original_source=coordinate["document"],
         analyzed_scope=dict(source=coordinate, selectors=selected["selectors"]),
     )
@@ -580,6 +581,7 @@ def validate_interpreted_product(
     names = {tag: name for name, tag in _INVENTORIES}
     context = dict(
         subject=source_subject(selected["source"]),
+        subject_definition="original-source-view",
         original_source=selected["source"]["document"],
         analyzed_scope=dict(source=selected["source"], selectors=selected["selectors"]),
     )
@@ -862,6 +864,7 @@ def contextual_product_values(
     coordinate = selected["source"]
     context = dict(
         subject=source_subject(coordinate),
+        subject_definition="original-source-view",
         original_source=coordinate["document"],
         analyzed_scope=dict(source=coordinate, selectors=selected["selectors"]),
     )

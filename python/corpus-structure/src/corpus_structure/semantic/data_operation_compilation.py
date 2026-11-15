@@ -95,6 +95,7 @@ _METADATA_FIELDS = {
     "profile",
     "subject",
     "subject_definition",
+    "subject_definitions",
     "discovery_relation",
     "context",
     "roles",
@@ -1683,28 +1684,35 @@ def compile_data_operations(
             raw.get("subject_definition"), semantic_id,
             {"id", "identifier_kind", "scope"},
         )
-        identifier_name = _text(subject_record.get("identifier_kind"), semantic_id)
-        identifier_kind = aliases.get(identifier_name, identifier_name)
-        if identifier_kind not in kinds:
-            _fail(semantic_id, "subject definition requires a resolved identifier kind")
         if subject_record.get("id") != subject:
             _fail(semantic_id, "operation subject differs from its declared subject definition")
-        subject_scope = subject_record.get("scope")
-        if subject_scope not in {"original-source", "original-document", "selected-source-set", "project", "invocation"}:
-            _fail(semantic_id, "unsupported subject scope relation")
-        subject_definition = SubjectDefinition(subject, identifier_kind, subject_scope)
-        if subject in subject_definitions and subject_definitions[subject] != subject_definition:
-            _fail(semantic_id, "subject definition has conflicting semantic owners")
-        subject_definitions[subject] = subject_definition
+        additional_subjects = raw.get("subject_definitions", [])
+        if not isinstance(additional_subjects, list):
+            _fail(semantic_id, "additional subject definitions require a declaration list")
+        for declared_subject in (subject_record, *additional_subjects):
+            declared_subject = _mapping(declared_subject, semantic_id, {"id", "identifier_kind", "scope"})
+            subject_id = _text(declared_subject.get("id"), semantic_id)
+            identifier_name = _text(declared_subject.get("identifier_kind"), semantic_id)
+            identifier_kind = aliases.get(identifier_name, identifier_name)
+            if identifier_kind not in kinds:
+                _fail(semantic_id, "subject definition requires a resolved identifier kind")
+            subject_scope = declared_subject.get("scope")
+            if subject_scope not in {"original-source", "original-document", "selected-source-set", "project", "invocation"}:
+                _fail(semantic_id, "unsupported subject scope relation")
+            subject_definition = SubjectDefinition(subject_id, identifier_kind, subject_scope)
+            if subject_id in subject_definitions and subject_definitions[subject_id] != subject_definition:
+                _fail(semantic_id, "subject definition has conflicting semantic owners")
+            subject_definitions[subject_id] = subject_definition
+            subject_node = "subject:" + subject_id
+            subject_payload = canonical_bytes(asdict(subject_definition))
+            if subject_node in nodes and nodes[subject_node].payload != subject_payload:
+                _fail(semantic_id, "subject definition has conflicting semantic owners")
+            nodes[subject_node] = SemanticNode(subject_node, "subject", subject_payload)
+            edges.append(SemanticEdge(subject_node, identifier_kind, "subject_identifier_kind"))
         discovery_relation = raw.get("discovery_relation")
         if discovery_relation not in {"role-associated", "subject-population"}:
             _fail(semantic_id, "operation requires explicit subject discovery relation")
         subject_node = "subject:" + subject
-        subject_payload = canonical_bytes(asdict(subject_definition))
-        if subject_node in nodes and nodes[subject_node].payload != subject_payload:
-            _fail(semantic_id, "subject definition has conflicting semantic owners")
-        nodes[subject_node] = SemanticNode(subject_node, "subject", subject_payload)
-        edges.append(SemanticEdge(subject_node, identifier_kind, "subject_identifier_kind"))
         edges.append(SemanticEdge(semantic_id, subject_node, "operation_subject"))
         operation = EffectiveOperation(
             semantic_id,
@@ -1970,7 +1978,7 @@ def project_population_witness(
                     subject=member["subject"],
                     original_source=member["original_source"],
                     analyzed_scope=json_bytes(member["analyzed_scope"]),
-                )
+                 subject_definition=member["subject_definition"])
                 for member in (
                     _mapping(
                         value,
@@ -2011,6 +2019,8 @@ def project_operation_binding(model: EffectiveDataOperationModel, binding):
     )
 
     operation = model.operation(binding.operation)
+    if binding.subject_context.subject_definition != operation.subject:
+        _fail(operation.semantic_id, "binding subject definition differs from compiled operation")
     identities = {(item.owner, item.domain): item.key for item in model.identities}
     recipe = identities.get((operation.semantic_id, "recipe"))
     if recipe is None:
@@ -2069,6 +2079,7 @@ def project_operation_binding(model: EffectiveDataOperationModel, binding):
                 "product": member.product,
                 "kind": member.kind_contract,
                 "subject": member.subject,
+                "subject_definition": member.subject_definition,
                 "member": member.member,
                 "original_source": member.original_source,
                 "analyzed_scope": scope_identity(json_loads(member.analyzed_scope)),

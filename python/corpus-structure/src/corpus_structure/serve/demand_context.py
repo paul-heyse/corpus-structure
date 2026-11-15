@@ -95,7 +95,7 @@ def inspect_demand_context(connection, request: DemandContextRequest):
                 source_row["subject"],
                 source_row["original_source"],
                 json_bytes(source_row["analyzed_scope"]),
-            ),
+             subject_definition=source_row["subject_definition"]),
             request.source_product_id,
             request.source_member_id,
             source_row["kind_contract"],

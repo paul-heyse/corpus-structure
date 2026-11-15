@@ -440,7 +440,7 @@ def test_hydrated_consumer_preserves_typed_decimal_body_independently_of_json_di
 
     member = BoundRoleMember(
         "product:one", "kind:decimal", "subject:one", "original:one", b"{}", b"{}", (), b"{}"
-    )
+    , subject_definition="document")
     value = SelectedConsumerValue(
         member, b'"0.1234567890123456789"', b'["decimal","0.1234567890123456789"]'
     )

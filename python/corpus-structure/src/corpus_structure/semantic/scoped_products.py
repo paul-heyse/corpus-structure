@@ -130,7 +130,7 @@ def execute_scoped_relations(
                 member.subject,
                 member.original_source,
                 member.analyzed_scope,
-            ),
+             subject_definition=member.subject_definition),
         )
         if product.semantic_id != member.product:
             raise ValueError("scoped construction body differs from its selected product")
@@ -147,7 +147,7 @@ def execute_scoped_relations(
                 member.subject,
                 member.original_source,
                 member.analyzed_scope,
-            ),
+             subject_definition=member.subject_definition),
         )
         if product.semantic_id != member.product:
             raise ValueError("scoped formal body differs from its exact selected product")

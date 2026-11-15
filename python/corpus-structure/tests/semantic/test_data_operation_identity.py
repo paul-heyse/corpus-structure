@@ -34,7 +34,7 @@ from semantic.data_operation_identity_vectors import CONTEXTUAL_PRODUCTS
 
 @pytest.mark.parametrize("vector", CONTEXTUAL_PRODUCTS, ids=lambda vector: vector.name)
 def test_contextual_product_has_independent_literal_identity(vector):
-    context = SubjectContext(vector.project, "local", vector.source, vector.scope)
+    context = SubjectContext(vector.project, "local", vector.source, vector.scope, subject_definition="document")
     actual = contextual_product_identity(kind="kind:one", context=context, body="body:one")
     assert actual.canonical_input == vector.literal
     assert actual.key == "product:" + sha256(vector.literal).hexdigest()
@@ -42,7 +42,7 @@ def test_contextual_product_has_independent_literal_identity(vector):
 
 def test_contextual_product_domain_nesting_and_local_subject_are_determinants():
     vector = CONTEXTUAL_PRODUCTS[0]
-    context = SubjectContext(vector.project, "local", vector.source, vector.scope)
+    context = SubjectContext(vector.project, "local", vector.source, vector.scope, subject_definition="document")
     actual = contextual_product_identity(kind="kind:one", context=context, body="body:one")
     value = {
         "body": "body:one",
@@ -349,7 +349,7 @@ def test_request_equivalence_is_separate_from_mutable_admission_and_runtime_cust
         inputs,
         {},
         "inference:a",
-        subject_context=SubjectContext("project:a", "subject:a", "original:a", b"{}"),
+        subject_context=SubjectContext("project:a", "subject:a", "original:a", b"{}", subject_definition="document"),
     )
     first_identity = request.identity
     inputs["left"].append("product:b")
@@ -366,7 +366,7 @@ def test_request_equivalence_is_separate_from_mutable_admission_and_runtime_cust
             inputs,
             {},
             "inference:a",
-            subject_context=SubjectContext("project:a", "subject:a", "original:a", b"{}"),
+            subject_context=SubjectContext("project:a", "subject:a", "original:a", b"{}", subject_definition="document"),
         ).identity
         != first_identity
     )
@@ -420,7 +420,7 @@ def test_request_context_is_complete_and_immutable():
             {},
             {},
             "inference",
-            subject_context=SubjectContext(project, "local", source, scope),
+            subject_context=SubjectContext(project, "local", source, scope, subject_definition="document"),
         ).identity
 
     assert (
@@ -437,7 +437,7 @@ def test_request_context_is_complete_and_immutable():
     assert key(scope=b'{ "page" : 1 }') == key()
     assert key(scope=b'{"page":1.0}') == key()
     assert key(scope=b'{"page":true}') != key()
-    context = SubjectContext("project", "local", "original", b'{"page":1}')
+    context = SubjectContext("project", "local", "original", b'{"page":1}', subject_definition="document")
     detached = context.record
     detached["analyzed_scope"]["page"] = 2
     assert context.record["analyzed_scope"] == {"page": 1}
@@ -447,7 +447,7 @@ def test_request_context_is_complete_and_immutable():
 
 def test_subject_context_equality_uses_tagged_json_meaning_not_python_numeric_equality():
     def context(scope):
-        return SubjectContext("project", "local", "source", scope)
+        return SubjectContext("project", "local", "source", scope, subject_definition="document")
 
     integer, decimal = context(b'{"page":1}'), context(b'{"page":1.0}')
     boolean, string = context(b'{"page":true}'), context(b'{"page":"1"}')
@@ -496,3 +496,11 @@ def test_nested_decode_retains_exact_values_and_canonical_refusals():
             malformed = ["sequence", wrap(malformed)]
         with pytest.raises(ValueError):
             decode_semantic_value(malformed)
+
+
+def test_subject_definition_separates_equal_local_occurrence_product_values():
+    document = SubjectContext("project", "same-local-id", "same-source", b"{}", subject_definition="original-document")
+    entity = replace(document, subject_definition="review-entity")
+    assert document != entity
+    assert document.record["subject"] == entity.record["subject"]
+    assert contextual_product_identity(kind="primitive:string", context=document, body="body:equal").key != contextual_product_identity(kind="primitive:string", context=entity, body="body:equal").key

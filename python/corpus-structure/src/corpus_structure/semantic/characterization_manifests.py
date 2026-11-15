@@ -29,6 +29,7 @@ def manifest_contract(prepared, model, name):
 def compact_manifest(value, kind_contract):
     context = {
         "subject": source_subject(value["source"]),
+        "subject_definition": "original-source-view",
         "original_source": value["source"]["document"],
         "analyzed_scope": {"source": value["source"], "selectors": value["selectors"]},
     }

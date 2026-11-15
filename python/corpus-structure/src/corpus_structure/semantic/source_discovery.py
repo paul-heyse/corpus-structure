@@ -64,6 +64,7 @@ def selected_source_population(original, views, *, complete, kind_contract):
         identifier = source_subject(coordinate)
         context = {
             "subject": identifier,
+            "subject_definition": "original-source-view",
             "original_source": document,
             "analyzed_scope": {"source": coordinate, "selectors": view["selectors"]},
         }

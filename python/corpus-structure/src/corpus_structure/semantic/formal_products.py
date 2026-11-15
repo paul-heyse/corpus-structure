@@ -215,6 +215,7 @@ def validate_formal_product(
             packet["context"]
             != dict(
                 subject=subject,
+                subject_definition="original-source-view",
                 original_source=checked["source"]["document"],
                 analyzed_scope=dict(source=checked["source"], selectors=selected["selectors"]),
             )
@@ -564,6 +565,7 @@ def formal_product_values(
                     kind_contract=member_contracts[kind],
                     context=dict(
                         subject=source_subject(coordinate),
+                        subject_definition="original-source-view",
                         original_source=coordinate["document"],
                         analyzed_scope=dict(source=coordinate, selectors=selected["selectors"]),
                     ),

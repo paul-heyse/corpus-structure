@@ -203,7 +203,7 @@ def test_candidate_consumer_validates_actual_refined_kind_without_dropping_field
     )
     member = BoundRoleMember(
         "actual-product", contract, "subject", "original", b"{}", b"{}", (), b"{}"
-    )
+    , subject_definition="document")
     binding = SimpleNamespace(
         sufficient=True,
         operation="resolve.m1_readings/declared",

@@ -1387,3 +1387,13 @@ def test_discovery_population_relation_does_not_depend_on_subject_spelling():
     consumer["subject_definition"]["id"] = "renamed-domain-subject"
     renamed = compile_data_operations(schema_bundle(), declarations=declarations(producer, consumer))
     assert source_discovery_relations(renamed, "urn:producer", "result", "urn:consumer") == expected
+
+
+def test_bound_subject_definition_must_match_compiled_operation():
+    from dataclasses import replace
+
+    model = compile_data_operations(declarations=declarations(contract()))
+    binding = resolved_binding(model)
+    changed = replace(binding, subject_context=replace(binding.subject_context, subject_definition="different-subject"))
+    with pytest.raises(ValueError, match="subject definition differs"):
+        project_operation_binding(model, changed)

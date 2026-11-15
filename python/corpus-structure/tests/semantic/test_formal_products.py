@@ -878,7 +878,7 @@ def _publication_context(source, *, document=False):
         value["source"]["document"] if document else source_subject(value["source"]),
         value["source"]["document"],
         canonical_bytes({"source": value["source"], "selectors": value["selectors"]}),
-    )
+     subject_definition="original-source-view")
 
 
 def test_publication_identity_requires_context_and_distinguishes_authority_scope(profile):
@@ -996,7 +996,7 @@ def test_target_threshold_reader_keeps_genuine_semantic_members_and_refuses_fore
         project_id="fixture",
         original_source=coordinate["document"],
         analyzed_scope_meaning="{}",
-    )
+     subject_definition="original-source-view")
     passage = StructuralPassage(
         passage_id="p",
         source_ref=address.identity,

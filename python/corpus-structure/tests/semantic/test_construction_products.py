@@ -367,7 +367,7 @@ def _publication_context(source, *, document=False):
         value["source"]["document"] if document else source_subject(value["source"]),
         value["source"]["document"],
         canonical_bytes({"source": value["source"], "selectors": value["selectors"]}),
-    )
+     subject_definition="original-source-view")
 
 
 def test_compact_family_members_preserve_parent_identity_and_complete_source_context(profiles):

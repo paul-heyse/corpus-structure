@@ -95,7 +95,7 @@ class PreparedPredicateInputs:
 
         return SubjectContext(
             self.context.project_id, member.subject, member.original_source, member.analyzed_scope
-        )
+        , subject_definition=member.subject_definition)
 
     def run(self, source, annotations, constructions, formal):
         from corpus_structure.methods.predicate_contributions import (

@@ -250,13 +250,14 @@ def project_product_members(
         context = packet["context"]
         if (
             not isinstance(context, dict)
-            or set(context) != {"subject", "original_source", "analyzed_scope"}
+            or set(context) != {"subject", "subject_definition", "original_source", "analyzed_scope"}
             or any(
                 type(context[name]) is not str or not context[name]
-                for name in ("subject", "original_source")
+                for name in ("subject", "subject_definition", "original_source")
             )
         ):
             raise PortRefusal("native member packet lacks its exact source/subject/scope context")
+        model.subject_definition(context["subject_definition"])
         if any(
             not isinstance(packet["body"], dict) or packet["body"].get(name) != value
             for name, value in constants[owner]

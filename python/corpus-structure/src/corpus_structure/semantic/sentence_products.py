@@ -247,6 +247,7 @@ def source_annotation_packets(prepared, model, value):
 
     context = dict(
         subject=source_subject(value["source"]),
+        subject_definition="original-source-view",
         original_source=value["source"]["document"],
         analyzed_scope=dict(source=value["source"], selectors=value["selectors"]),
     )

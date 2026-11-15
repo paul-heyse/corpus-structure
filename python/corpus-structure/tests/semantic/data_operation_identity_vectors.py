@@ -19,7 +19,8 @@ _PRODUCT = (
     b'["kind",["string","kind:one"]],["subject",["string","local"]],'
     b'["subject_context",["mapping",[["analyzed_scope",["mapping",'
     b'[["page",["decimal","1.25"]]]]],["original_source",["string","original:a"]],'
-    b'["project_id",["string","project:a"]],["subject",["string","local"]]]]]]]]'
+    b'["project_id",["string","project:a"]],["subject",["string","local"]],'
+    b'["subject_definition",["string","document"]]]]]]]]'
 )
 
 CONTEXTUAL_PRODUCTS = (

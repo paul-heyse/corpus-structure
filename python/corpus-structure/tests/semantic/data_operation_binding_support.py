@@ -117,6 +117,7 @@ def row(value: Any, *, product=None, member=None, kind="integer") -> dict[str, A
         "member": member or f"m{value}",
         "kind_contract": "kind:item",
         "subject": "doc",
+        "subject_definition": "document",
         "original_source": "source",
         "position": value if isinstance(value, int) else 0,
         "multiplicity": 1,
@@ -202,6 +203,7 @@ def context(*values: Any) -> dict[str, Any]:
         "parameterdefs": {},
         "choices": {},
         "subject": "doc",
+        "subject_definition": "document",
         "original_source": "source",
     }
 
@@ -268,7 +270,7 @@ def _authored_member(product, member, position, episode, *, source="source"):
         multiplicity=1,
         member=member,
         support_references=(ComputationalSupportReference(derivation_id=episode),),
-    )
+     subject_definition="document")
 
 
 P1 = _authored_member("p1", "m1", 2, "ep1")
@@ -563,7 +565,7 @@ def discover(
             inference,
             subject_context=SubjectContext(
                 "ddo-test", "doc", root["original_source"], canonical_bytes(root["analyzed_scope"])
-            ),
+            , subject_definition="document"),
         )
         attached = storage.attach_data_request(
             typing_cast(

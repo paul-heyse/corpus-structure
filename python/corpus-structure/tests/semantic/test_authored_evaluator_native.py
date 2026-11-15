@@ -32,7 +32,7 @@ def protected_recipe():
 @pytest.mark.parametrize("ddo_kernel", [protected_recipe()], indirect=True)
 def test_evaluator_authored_reference_allowed_and_ordinary_writer_refused(ddo_kernel):
     kernel = ddo_kernel
-    context = SubjectContext("ddo-test", "reference:one", "source:independent-reference", b"{}")
+    context = SubjectContext("ddo-test", "reference:one", "source:independent-reference", b"{}", subject_definition="original-occurrence")
     kind = kernel.identities["urn:authored-reference:evaluator-integer", "kind"]
     authored = authored_fact_selection(
         "independent-reference",

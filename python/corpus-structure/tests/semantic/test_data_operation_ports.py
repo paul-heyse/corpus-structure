@@ -398,7 +398,7 @@ def test_frozen_semantic_parameters_drive_original_callable(tmp_path, monkeypatc
         authorization=b"{}",
         trust_evidence=b"{}",
         execution_profile="cpu",
-        subject_context=SubjectContext("project:test", binding.subject, "source:test", b"{}"),
+        subject_context=SubjectContext("project:test", binding.subject, "source:test", b"{}", subject_definition="document"),
     )
     ready = ReadyDataRequest(
         "obligation:one",

@@ -14,6 +14,7 @@ classes:
     is_a: SourceRecordProduct
     attributes:
       subject: {required: true}
+      subject_definition: {required: true}
       original_source: {required: true}
       analyzed_scope: {range: DdoSourceViewScope, inlined: true, required: true}
   DdoSourceViewPacket:

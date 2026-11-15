@@ -133,7 +133,7 @@ def test_json_subject_context_encoding_matches_literals_and_python(native_rollba
             ).scalar_one()
             == expected
         )
-        context = SubjectContext("project", "local", "original", value.encode())
+        context = SubjectContext("project", "local", "original", value.encode(), subject_definition="original-occurrence")
         actual = connection.execute(
             text("SELECT pg_temp.ddo_json_meaning(CAST(:value AS jsonb))"),
             {"value": json_bytes(context.record).decode()},

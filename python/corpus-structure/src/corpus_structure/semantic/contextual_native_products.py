@@ -200,6 +200,7 @@ def contextual_native_values(
         )
     context = {
         "subject": source_subject(selected["source"]),
+        "subject_definition": "original-source-view",
         "original_source": selected["source"]["document"],
         "analyzed_scope": {"source": selected["source"], "selectors": selected["selectors"]},
     }

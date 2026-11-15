@@ -638,6 +638,7 @@ class NativeDemandExecutor:
                         "kind_contract": value.member.kind_contract,
                         "project_id": ready.resolved.subject_context.project_id,
                         "subject": value.member.subject,
+                        "subject_definition": value.member.subject_definition,
                         "original_source": value.member.original_source,
                         "analyzed_scope": wire_json_loads(value.member.analyzed_scope),
                         "body": value.value(),

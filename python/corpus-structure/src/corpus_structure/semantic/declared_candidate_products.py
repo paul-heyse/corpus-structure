@@ -121,6 +121,7 @@ def candidate_inspection_report(
                     "kind_contract": contracts[kinds[class_name], "kind"],
                     "context": {
                         "subject": context.subject,
+                        "subject_definition": context.subject_definition,
                         "original_source": context.original_source,
                         "analyzed_scope": json_loads(context.analyzed_scope),
                     },

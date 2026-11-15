@@ -47,15 +47,9 @@ def acquired():
         construction_operation_sources(),
         contextual_operation_sources(),
     )
-    contracts = {
-        artifact.name: artifact
-        for collection in collections
-        for artifact in collection.boundary_contracts
-    }
-    sources = PythonSourceCollection(
-        tuple(source for collection in collections for source in collection.sources),
-        boundary_contracts=tuple(contracts.values()),
-    )
+    from corpus_structure.semantic.primary_operations import combine_primary_sources
+
+    sources = combine_primary_sources(*collections)
     prepared = prepare_release(
         bundle,
         data_operation_dependencies(ResolvedDependencies(), python_sources=sources),
@@ -199,7 +193,7 @@ def _publication_context(source, *, document=False):
         value["source"]["document"] if document else source_subject(value["source"]),
         value["source"]["document"],
         canonical_bytes({"source": value["source"], "selectors": value["selectors"]}),
-    )
+     subject_definition="original-source-view")
 
 
 def test_retained_family_ingress_uses_selected_member_context_and_checks_native_id(acquired):
@@ -216,6 +210,7 @@ def test_retained_family_ingress_uses_selected_member_context_and_checks_native_
     member = SimpleNamespace(
         product=original.semantic_id,
         subject=context.subject,
+        subject_definition=context.subject_definition,
         original_source=context.original_source,
         analyzed_scope=context.analyzed_scope,
         member=None,

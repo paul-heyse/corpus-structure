@@ -33,7 +33,7 @@ def declared_frame():
         projection,
         "#/texts/0",
         "direct",
-        SubjectContext("project", "subject", "document", b"null"),
+        SubjectContext("project", "subject", "document", b"null", subject_definition="original-source-view"),
         "source-product",
         None,
         "source-kind",

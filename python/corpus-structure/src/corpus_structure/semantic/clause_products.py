@@ -412,7 +412,7 @@ def execute_clause_classification(
                     member.subject,
                     member.original_source,
                     member.analyzed_scope,
-                ),
+                 subject_definition=member.subject_definition),
             )
             if product.semantic_id != member.product:
                 raise ValueError(

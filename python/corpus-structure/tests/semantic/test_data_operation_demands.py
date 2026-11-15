@@ -365,7 +365,7 @@ def test_ready_request_retains_native_execution_disposition(native, expected):
         b"{}",
         b"{}",
         "cpu",
-        subject_context=SubjectContext("project:test", "subject:one", "source:one", b"{}"),
+        subject_context=SubjectContext("project:test", "subject:one", "source:one", b"{}", subject_definition="document"),
     )
     original = BindingResult(
         "op:result",
@@ -450,7 +450,7 @@ def test_frozen_source_sets_are_explicit_selected_operation_scope():
         subject="view:original",
         analyzed_scope=b'{"page":1}',
         product="product:one",
-    )
+     subject_definition="document")
     scope = FrozenSourceSet("inputs", (entry,))
     with pytest.raises(ValueError, match=r"lacks.*source set"):
         freeze(compiled)
@@ -474,6 +474,7 @@ def test_population_context_matches_exact_obligation_and_explicit_original_membe
         "obligation_id": "o:one",
         "operation_id": "op:consumer",
         "subject": "comparison:one",
+        "subject_definition": "document",
         "original_source": "source:analysis",
         "analyzed_scope": {"pair": 1},
     }
@@ -496,6 +497,7 @@ def test_population_context_matches_exact_obligation_and_explicit_original_membe
             "producer_context": {
                 "operation_id": "op:discover",
                 "subject": "document:one",
+                "subject_definition": "document",
                 "original_source": "source:original",
                 "analyzed_scope": {"page": 1},
             },
@@ -504,6 +506,7 @@ def test_population_context_matches_exact_obligation_and_explicit_original_membe
             {
                 "member_id": "m:one",
                 "subject": "passage:one",
+                "subject_definition": "document",
                 "original_source": "source:original",
                 "analyzed_scope": {"page": 1},
             }
@@ -515,6 +518,7 @@ def test_population_context_matches_exact_obligation_and_explicit_original_membe
         {
             **obligation,
             "subject": "document:one",
+            "subject_definition": "document",
             "original_source": "source:original",
             "analyzed_scope": {"page": 1},
         },
@@ -525,6 +529,7 @@ def test_population_context_matches_exact_obligation_and_explicit_original_membe
         "product": "product:one",
         "member": "m:one",
         "subject": "passage:one",
+        "subject_definition": "document",
         "original_source": "source:original",
         "analyzed_scope": {"page": 1},
     }

@@ -420,6 +420,8 @@ def compile_binding(
     if model.version != MODEL_VERSION:
         raise ValueError("unsupported pinned binding model")
     op = model.operation(operation)
+    if subject_context is not None and subject_context.subject_definition != op.subject:
+        raise ValueError("compiled binding subject definition differs from operation")
     available_source_sets = source_sets_record(source_sets)
     named_source_sets = {
         role.support.source_set
@@ -584,6 +586,7 @@ def compile_binding(
                     alias.c.product == entry["product"],
                     alias.c.member.is_not_distinct_from(entry["member"]),
                     alias.c.subject == entry["subject"],
+                    alias.c.subject_definition == entry["subject_definition"],
                     alias.c.original_source == entry["original_source"],
                     json_context_equal(
                         alias.c.analyzed_scope,
@@ -641,6 +644,7 @@ def compile_binding(
                         alias.c.product == evidence["product_id"],
                         alias.c.member.in_(population.members),
                         alias.c.subject == subject_context.subject,
+                        alias.c.subject_definition == subject_context.subject_definition,
                         alias.c.original_source == subject_context.original_source,
                         json_context_equal(
                             alias.c.analyzed_scope,
@@ -684,6 +688,8 @@ def compile_binding(
             return func.jsonb_build_object(
                 "project_id",
                 subject_context.project_id,
+                "subject_definition",
+                alias.c.subject_definition,
                 "subject",
                 alias.c.subject,
                 "original_source",
@@ -1307,6 +1313,7 @@ def decode_binding_rows(
                     read_support_references(row["support_references"])
                     if "support_references" in row
                     else (),
+                    subject_definition=row["subject_definition"],
                 )
             )
         accepted = input_kind_contracts(compiled.model, (role.kind,))[role.kind] if members else ()

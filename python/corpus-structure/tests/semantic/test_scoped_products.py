@@ -40,7 +40,7 @@ def test_native_scoped_kernel_keeps_actual_artifact_source_and_formal_addresses(
         source_subject(coordinate),
         coordinate["document"],
         canonical_bytes({"source": coordinate, "selectors": source.value["selectors"]}),
-    )
+     subject_definition="original-source-view")
     pin = DeclaredRecordSource(
         coordinate["document"],
         coordinate["projection"],

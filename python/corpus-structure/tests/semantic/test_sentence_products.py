@@ -688,7 +688,7 @@ def _publication_context(source, *, document=False):
         value["source"]["document"] if document else source_subject(value["source"]),
         value["source"]["document"],
         canonical_bytes({"source": value["source"], "selectors": value["selectors"]}),
-    )
+     subject_definition="original-source-view")
 
 
 def _controlled_source_pin(source):
@@ -709,7 +709,7 @@ def _controlled_source_pin(source):
         b"{}",
         (),
         b"{}",
-    )
+     subject_definition="original-source-view")
     return DeclaredSourcePin(
         canonical_bytes(
             DeclaredRecordSource.from_bound(source, member, project=context.project_id).pin()

@@ -40,7 +40,7 @@ def entry(*, product="projection:one", source="source:one", member="member:one")
         analyzed_scope=b'{"page":1}',
         product=product,
         member=member,
-    )
+     subject_definition="document")
 
 
 def test_source_set_keeps_exact_original_reference_and_roundtrips():

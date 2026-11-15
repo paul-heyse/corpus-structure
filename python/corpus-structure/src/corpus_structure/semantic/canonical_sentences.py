@@ -108,6 +108,7 @@ def canonical_packet_values(inventory: dict, projection: dict) -> dict:
 
     context = dict(
         subject=source_subject(inventory["source"]),
+        subject_definition="original-source-view",
         original_source=inventory["source"]["document"],
         analyzed_scope=dict(source=inventory["source"], selectors=inventory["selectors"]),
     )

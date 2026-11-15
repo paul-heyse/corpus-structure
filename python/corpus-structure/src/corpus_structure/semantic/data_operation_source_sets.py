@@ -8,7 +8,7 @@ producing support before exposing any matching row.
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 from .data_operation_json import json_bytes, json_loads
@@ -32,6 +32,7 @@ class SourceSetEntry:
     original_source: str
     subject: str
     analyzed_scope: bytes
+    subject_definition: str = field(kw_only=True)
     product: str
     member: str | None
     source_reference: str
@@ -47,6 +48,7 @@ class SourceSetEntry:
                     self.project_id,
                     self.original_source,
                     self.subject,
+                    self.subject_definition,
                     self.product,
                     self.source_reference,
                 )
@@ -92,7 +94,7 @@ class SourceSetEntry:
             ):
                 raise ValueError("source-set reference differs from its original identity/project")
             canonical = canonical_bytes(reference.model_dump(mode="json", exclude_none=True))
-        if not all((self.project_id, self.original_source, self.subject, self.product)):
+        if not all((self.project_id, self.original_source, self.subject, self.subject_definition, self.product)):
             raise ValueError("source-set entries require exact qualified original custody")
         if self.member is not None and not self.member:
             raise ValueError("source-set member is null or a nonempty original identifier")
@@ -128,6 +130,7 @@ class SourceSetEntry:
             member,
             identity,
             canonical_bytes(reference.values()),
+            subject_definition=context.subject_definition,
         )
 
     @classmethod
@@ -137,6 +140,7 @@ class SourceSetEntry:
         *,
         original_source: str,
         subject: str,
+        subject_definition: str,
         analyzed_scope: bytes,
         product: str,
         member: str | None = None,
@@ -150,6 +154,7 @@ class SourceSetEntry:
             member,
             reference.identity,
             canonical_bytes(reference.model_dump(mode="json", exclude_none=True)),
+            subject_definition=subject_definition,
         )
 
     def record(self) -> dict:
@@ -157,6 +162,7 @@ class SourceSetEntry:
             "project_id": self.project_id,
             "original_source": self.original_source,
             "subject": self.subject,
+            "subject_definition": self.subject_definition,
             "analyzed_scope": json_loads(self.analyzed_scope),
             "product": self.product,
             "member": self.member,
@@ -226,6 +232,7 @@ def read_source_sets(record: dict) -> tuple[FrozenSourceSet, ...]:
                     entry["member"],
                     entry["source_reference"],
                     canonical_bytes(entry["reference"]),
+                    subject_definition=entry["subject_definition"],
                 )
                 for entry in entries
             ),

@@ -11,6 +11,7 @@ classes:
     annotations: {cs:data_universe: evaluator}
     attributes:
       member_id: {}
+      subject_definition: {required: true}
       subject: {required: true}
       original_source: {required: true}
       analyzed_scope_meaning: {required: true}

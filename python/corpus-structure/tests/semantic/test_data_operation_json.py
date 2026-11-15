@@ -23,7 +23,7 @@ def test_scope_json_keeps_fractional_digits_through_context_and_frozen_demand():
     from corpus_structure.semantic.data_operation_demands import RootSubject, freeze_demand
     from semantic.data_operation_declaration_support import model, operation
 
-    scope = SubjectContext("project", "subject", "original", PRECISE)
+    scope = SubjectContext("project", "subject", "original", PRECISE, subject_definition="document")
     assert scope.analyzed_scope == PRECISE
     assert scope.record["analyzed_scope"] == {
         "coordinate": Decimal("0.12345678901234567890123456789"),
@@ -38,7 +38,7 @@ def test_scope_json_keeps_fractional_digits_through_context_and_frozen_demand():
     )
     assert PRECISE in intent.content
     assert json_bytes(intent.record["roots"][0]["analyzed_scope"]) == PRECISE
-    nearby = SubjectContext("project", "subject", "original", PRECISE.replace(b"6789,", b"6790,"))
+    nearby = SubjectContext("project", "subject", "original", PRECISE.replace(b"6789,", b"6790,"), subject_definition="document")
     assert scope != nearby
     assert SemanticRequestKey(
         "recipe", "subject", {}, {}, "exact", subject_context=scope
@@ -107,5 +107,5 @@ def test_native_jsonb_preserves_fraction_and_context_key_meaning(native_rollback
         )
         == expected
     )
-    context = SubjectContext("project", "subject", "original", json_bytes(result))
+    context = SubjectContext("project", "subject", "original", json_bytes(result), subject_definition="document")
     assert semantic_value(context.identity_record)[1][0] == ["analyzed_scope", expected]

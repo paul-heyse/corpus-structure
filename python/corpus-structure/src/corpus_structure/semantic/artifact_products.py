@@ -309,9 +309,10 @@ def execute_artifact_identity(
         for primary_member, primary in zip(construction_role.members, constructions, strict=True):
             if (
                 primary_member.subject,
+                primary_member.subject_definition,
                 primary_member.original_source,
                 primary_member.analyzed_scope,
-            ) != (member.subject, member.original_source, member.analyzed_scope):
+            ) != (member.subject, member.subject_definition, member.original_source, member.analyzed_scope):
                 continue
             if (
                 primary["source"] != source.value["source"]

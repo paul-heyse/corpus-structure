@@ -77,7 +77,7 @@ def _inputs(profile):
         source_subject(source.value["source"]),
         source.value["source"]["document"],
         canonical_bytes({"selectors": source.value["selectors"]}),
-    )
+     subject_definition="original-source-view")
     formal = profile.run(source, FormalEvidenceOptions(), subject_context=context)
     source_member = BoundRoleMember(
         "product:source",
@@ -89,7 +89,7 @@ def _inputs(profile):
         (),
         b"{}",
         member="selected",
-    )
+     subject_definition="original-source-view")
     formal_member = replace(
         source_member, product=formal.semantic_id, member=None, kind_contract="kind:formal"
     )
@@ -187,7 +187,7 @@ def test_symbol_scope_retains_unavailable_binder_coverage_and_exact_math_inputs(
         source_member.subject,
         source_member.original_source,
         source_member.analyzed_scope,
-    )
+     subject_definition=source_member.subject_definition)
     model = bound_data_operation_model(math_profile.prepared)
     construction = PreparedConstructionProfile(math_profile.prepared, model).run(
         source, (formal,), ConstructionOptions(math_scope_binders=binders), subject_context=context
@@ -307,7 +307,7 @@ def test_symbol_scope_uses_retained_cues_forward_and_preserves_original_formula_
         source_subject(source.value["source"]),
         source.value["source"]["document"],
         canonical_bytes({"selectors": source.value["selectors"]}),
-    )
+     subject_definition="original-source-view")
     formal = math_profile.run(source, FormalEvidenceOptions(), subject_context=context)
     pin = BoundRoleMember(
         "product:source",
@@ -319,7 +319,7 @@ def test_symbol_scope_uses_retained_cues_forward_and_preserves_original_formula_
         (),
         b"{}",
         member="selected",
-    )
+     subject_definition="original-source-view")
     formal_pin = replace(pin, product=formal.semantic_id, member=None, kind_contract="kind:formal")
     binders = Binders(sentence_initial=("suppose",))
     profile = PreparedMathInputs(

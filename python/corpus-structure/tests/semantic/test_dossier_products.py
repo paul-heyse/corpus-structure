@@ -33,7 +33,7 @@ def _predecessor():
         source_product="source:actual",
         source_member="member:actual",
         kind_contract="kind:source",
-    )
+     subject_definition="original-source-view")
     passage = StructuralPassage(
         passage_id="definition",
         source_ref=reference.identity,
@@ -58,6 +58,7 @@ def _predecessor():
         kind_contract="kind:source",
         project_id="project",
         subject=reference.subject,
+        subject_definition=reference.subject_definition,
         original_source=reference.original_source,
         analyzed_scope_meaning=reference.analyzed_scope_meaning,
     )
@@ -89,6 +90,7 @@ def _predecessor():
         kind_contract="kind:components",
         project_id="project",
         subject=reference.subject,
+        subject_definition=reference.subject_definition,
         original_source=reference.original_source,
         analyzed_scope_meaning=reference.analyzed_scope_meaning,
         structural_id=report.product_id,

@@ -121,7 +121,7 @@ class PreparedDefinitionInputs:
                 member.subject,
                 member.original_source,
                 member.analyzed_scope,
-            )
+             subject_definition=member.subject_definition)
             product = RetainedCharacterizationProduct.acquire(
                 self.prepared,
                 model,
