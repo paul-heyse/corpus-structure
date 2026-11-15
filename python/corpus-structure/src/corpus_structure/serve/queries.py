@@ -8,7 +8,6 @@ from sqlalchemy import and_, exists, select
 from corpus_structure.semantic.query import Coverage, same_scope_clause
 from corpus_structure.semantic.structural_products import StructuralProductReport
 from corpus_structure.serve.contextual_navigation import (
-    ContextualNeighborhoodQuery,
     SourceDecisionDiagnosisQuery,
 )
 from corpus_structure.serve.protocol import Positioned, Scope
@@ -432,7 +431,6 @@ GENERIC = (
     StructuralGapQuery("unresolved_binding"),
     StructuralGapQuery("unknown_applicability_premise"),
     StructuralGapQuery("unconnected_supported_comparison"),
-    ContextualNeighborhoodQuery(),
     SourceDecisionDiagnosisQuery(),
     SourceDecisionJourneyQuery(),
 )

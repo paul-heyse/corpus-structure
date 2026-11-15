@@ -75,6 +75,15 @@ classes:
       candidate_list: {range: SourceValue, inlined: true, required: true}
       relationship_decision: {range: SourceValue, inlined: true, required: true}
 
+  DdoContextualNeighborhoodProduct:
+    is_a: SourceRecordProduct
+    attributes:
+      version: {required: true, equals_string: declared-contextual-neighborhood-1}
+      inventory: {range: SourceValue, inlined: true, required: true}
+      profile: {range: SourceValue, inlined: true, required: true}
+      vectors: {range: SourceValue, inlined: true, required: true}
+      neighborhood: {range: SourceValue, inlined: true, required: true}
+
 enums:
   DdoLocatedQueryContextRecipe:
     permissible_values:

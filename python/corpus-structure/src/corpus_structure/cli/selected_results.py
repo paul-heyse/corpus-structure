@@ -290,6 +290,7 @@ def register(root: typer.Typer):
     root.add_typer(contributions_app, name="contributions")
     root.command("characterization")(characterization)
     root.command("query-context")(query_context)
+    root.command("neighborhood")(neighborhood)
     root.command("definition")(definition)
 
 
@@ -431,3 +432,13 @@ def contributions(
         ):
             report = serve_contribution_facets(connection, request)
     write_report_text(json_bytes(report).decode() + "\n")
+
+
+def neighborhood(
+    ctx: typer.Context, request: Annotated[Path, typer.Option()], json: JsonOpt = False
+):
+    from corpus_structure.serve.selected_neighborhood import (
+        DemandNeighborhoodRequest, inspect_demand_neighborhood,
+    )
+
+    return _inspect(ctx, request, DemandNeighborhoodRequest, inspect_demand_neighborhood, json=json)

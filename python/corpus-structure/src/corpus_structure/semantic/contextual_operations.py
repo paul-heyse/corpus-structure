@@ -28,6 +28,7 @@ _MODEL = _ROOT / "model/semantic/data-operation-contextual.yaml"
 _FILES = (
     "methods/contextual_declared.py",
     "semantic/contextual_operations.py",
+    "semantic/contextual_neighborhood.py",
     "semantic/contextual_retrieval.py",
     "semantic/contextual_numerics.py",
     "semantic/contextual_links.py",
@@ -110,6 +111,8 @@ def contextual_numerical_asset(numerical_policy=None):
 
 
 def contextual_operation_declarations():
+    from .contextual_neighborhood import NeighborhoodNumericalPolicy
+
     from .data_operation_model import MODEL_VERSION
     from .nominal_schema_kinds import nominal_schema_kinds
 
@@ -122,13 +125,19 @@ def contextual_operation_declarations():
                     RetrievalNumericalPolicy.model_json_schema(),
                     namespace="urn:corpus:kind:contextual-retrieval:",
                     root_name="NumericalPolicy",
+                ) + nominal_schema_kinds(
+                    NeighborhoodNumericalPolicy.model_json_schema(),
+                    namespace="urn:corpus:kind:contextual-neighborhood:",
+                    root_name="NumericalPolicy",
                 ),
             }
         ),
     )
 
 
-def contextual_operation_sources(numerical_policy=None):
+def contextual_operation_sources(numerical_policy=None, *, neighborhood_policy=None):
+    from .contextual_neighborhood import neighborhood_kernel_asset, neighborhood_numerical_asset
+
     from .python_operation_sources import PythonSource, PythonSourceCollection
 
     return PythonSourceCollection(
@@ -138,11 +147,13 @@ def contextual_operation_sources(numerical_policy=None):
                 (_ROOT / name).read_bytes(),
                 str((_ROOT / name).resolve()),
             )
-            for name in _FILES[:2]
+            for name in _FILES[:3]
         ),
         boundary_contracts=(
             contextual_retrieval_assets(),
             contextual_numerical_asset(numerical_policy),
+            neighborhood_numerical_asset(neighborhood_policy),
+            neighborhood_kernel_asset(),
         ),
     )
 
