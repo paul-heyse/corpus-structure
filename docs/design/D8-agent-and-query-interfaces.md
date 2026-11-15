@@ -23,7 +23,9 @@ caller migrations and pinned demand read/export adoption retain their existing p
 
 **Accepted source-change integration; implementation/qualification tracked by the DDO coordinator · 2026-11-14.** Captured and proposed sources feed embedded ast-grep structural discovery, LibCST eligibility/codemods, Griffe effective interfaces/documentation and bounded Astroid refinement. The existing source writer preserves exact publication custody. Comprehensive drift and pinned selected-product impact/currentness retain separate semantic and source readiness; explicit source apply performs no corpus execution. Prepared documentation is archived separately from recipe determinants. Explicit ty navigation uses an invocation-owned, capability-negotiated public LSP session over captured sources; tooling observations remain separate from semantic authority and pyrefly checking.
 
-> Decision: [ADR-0107](../adr/0107-ddo-source-change-inspection.md)
+**Accepted graph integration · 2026-11-14; implementation/qualification tracked by the DDO coordinator.** Effective-model v6 archives interpreted static/runtime/source/assessment projections, with exact v2–v5 historical reads. Native selection and trust remain authoritative; NetworkX supplies bounded topology and rooted attributed comparison. Typed occurrence witnesses, examined scope and exact cuts survive CLI/MCP/export. One lazy native-only runtime owns constructor/algorithm dispatch; output filters cannot establish complete examined closure.
+
+> Decision: [ADR-0108](../adr/0108-declared-graph-realization.md), [ADR-0107](../adr/0107-ddo-source-change-inspection.md)
 
 ## Shared policy settings, status and characterization resume
 

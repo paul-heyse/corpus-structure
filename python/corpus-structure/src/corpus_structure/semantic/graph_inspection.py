@@ -58,6 +58,7 @@ class GraphInspectionRequest(BaseModel):
     read_id: str | None = None
     expected_cut: str | None = None
     scope: dict = Field(default_factory=dict)
+    selected_dependencies: tuple[tuple[str, tuple[str, ...]], ...] = ()
     view: Literal["members", "components", "order", "path", "boundary"] = "members"
     roots: tuple[str, ...] = ()
     target: str | None = None
@@ -123,7 +124,9 @@ def inspect_graph(snapshot: GraphSnapshot, request: GraphInspectionRequest):
         )
         viewed = nx.reverse_view(graph) if request.direction == "dependents" else graph
         if request.view == "members":
-            items = [dict(item_kind="node", **nodes[name].model_dump()) for name in sorted(selected)]
+            items = [
+                dict(item_kind="node", **nodes[name].model_dump()) for name in sorted(selected)
+            ]
             items.extend(
                 dict(item_kind="occurrence", **edge.model_dump())
                 for edge in snapshot.occurrences
@@ -178,10 +181,7 @@ def inspect_graph(snapshot: GraphSnapshot, request: GraphInspectionRequest):
         else:
             if not request.roots:
                 raise ValueError("boundary requires an explicit selected node set")
-            keys = {
-                key
-                for _, _, key, _ in boundary_edges(viewed, request.roots)
-            }
+            keys = {key for _, _, key, _ in boundary_edges(viewed, request.roots)}
             items = [edge.model_dump() for edge in snapshot.occurrences if edge.identity in keys]
     binding = sha256(
         json_bytes(
@@ -286,13 +286,13 @@ def snapshot_from_records(projection, specification, pins, records, *, unknowns=
     )
 
 
-def archived_graph_snapshot(prepared, projection):
+def archived_graph_snapshot(prepared, projection, *, selected_dependencies=()):
     from .data_operation_admission import bound_data_operation_model
 
     model = bound_data_operation_model(prepared)
     definition = model.projection_definition(projection)
     if projection in {"semantic-reference", "potential-producers", "selected-dependencies"}:
-        graph = model.projection_graph(projection)
+        graph = model.projection_graph(projection, selected_dependencies=selected_dependencies)
         records = (
             model.semantic_records()
             if projection == "semantic-reference"
@@ -376,9 +376,13 @@ def read_graph_inspection(connection, request: GraphInspectionRequest):
             raise ValueError("invalid selected graph continuation") from error
     prepared = open_release(connection, request.release_id)
     if request.demand_id:
+        if request.selected_dependencies:
+            raise ValueError("native selected graphs use their frozen producer choices")
         from .selected_graph import selected_graph_snapshot
 
         snapshot = selected_graph_snapshot(connection, prepared, request)
     else:
-        snapshot = archived_graph_snapshot(prepared, request.projection)
+        snapshot = archived_graph_snapshot(
+            prepared, request.projection, selected_dependencies=request.selected_dependencies
+        )
     return inspect_graph(snapshot, request)

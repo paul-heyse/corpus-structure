@@ -1036,7 +1036,7 @@ Separate held-out/calibration populations are later generalization work, not rea
 
 Captured-source discovery, source editing, semantic drift and explicit navigation preserve the single effective-model authority and existing publication owner. Prepared documentation and navigation observations do not independently become recipe determinants.
 
-> Decision: [ADR-0107](../adr/0107-ddo-source-change-inspection.md)
+> Decision: [ADR-0108](../adr/0108-declared-graph-realization.md), [ADR-0107](../adr/0107-ddo-source-change-inspection.md)
 
 ### §B6 Escalation is routed by versioned policies over measurements
 

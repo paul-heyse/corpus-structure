@@ -280,6 +280,29 @@ Benefits are **Proposed**, qualitative and unmeasured. Full provider/fault quali
 migration/historical conversion, and broad checker/grammar modernization are **not_run/out of this
 increment**. Bounded receipt unions do not establish full DDO acceptance.
 
+## Focused NetworkX execution · accepted 2026-11-14
+
+**In progress; no enclosing completion.** Operator selected all remaining NetworkX I01–I07,
+including actual graph consumers, bounded prerequisites and retirement; wholesale rich-domain/data
+migration remains separate. This section owns current execution disposition. The graph companion
+owns technical contracts. ADR-0108/D2/D8 govern v6 archived interpretation and native-only realization.
+
+| Responsibility | Current boundary / required acceptance |
+|---|---|
+| Admitted projections | v6 static/runtime/source/assessment/implementation specifications integrated; exact v2–v5 readers preserved without backfill. Diagnostic per-site source reference facts remain outside recipe determinants. Final integrated archive tests required. |
+| Shared topology/retirement | Native-only lazy runtime, multi-source closure, SCC/order/path/boundary and kind/member/characterization/record/demand/native-order consumer folds integrated. Pure151/152 plus exact1 retry and native catalog/demand30 passed in worker context; complete integrated acceptance pending. |
+| Protected comparison | One rooted attributed matcher supplies exact and non-induced modes; retained consumers keep their domain-specific mapping/choice/support checks. Comparison/task/characterization105 passed. Actual native assessment graph adapter integrating. |
+| Selected/source/inspection | Whole-examination budgets and immutable graph/CLI/MCP snapshot routes integrating. Native selected-use versus historical support, bound-request precedence, authentic source hierarchy, continuation and detached replay remain required. |
+| Native adoption | v6 archive guard requires a forward successor from semantic_ddo_source_v2. Rollback-only authoring/registration planned; no persistent deployment or activation. |
+
+Prior authored-claim SCC repair is preserved, not reclassified as new work. Selective PostgreSQL and
+SQLite acquisition, source/schema authentication, native sufficiency/trust, and protected answer
+ownership remain distinct from topology. Every replaced topology/matcher path retires with callers;
+meaningful retained archive readers and domain extraction are not compatibility fallbacks.
+
+Benefits are Proposed, qualitative and unmeasured. No new graph service/mirror, alternate backend,
+optional ranking/community/GED/WL/LCA/visualization product or provider campaign is introduced.
+
 ## Reading and work-package ownership
 
 | Supporting plan | Owns design detail |
