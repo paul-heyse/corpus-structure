@@ -38,6 +38,7 @@ from .data_operation_model import (
     CallableSurface,
     FactOrigin,
     ImplementationSlice,
+    ImplementationReferenceFact,
     OpaqueBoundary,
     SemanticEdge,
     SemanticNode,
@@ -1071,6 +1072,7 @@ class ClosedPythonSources:
         edges: set[SemanticEdge] = set()
         unknowns: set[SourceUnknown] = set()
         used_boundaries: set[OpaqueBoundary] = set()
+        references: set[ImplementationReferenceFact] = set()
         custom_builtin_modules = {
             name
             for name, module in self.modules.items()
@@ -1103,6 +1105,7 @@ class ClosedPythonSources:
             return max(matches, key=lambda b: len(b.reference)) if matches else None
 
         def reference(path: str, target: str, relation: str, location: str) -> None:
+            references.add(ImplementationReferenceFact("python:" + path, target, "lexical_reference", location, path))
             if "unpack-typeddict-runtime" in self.inputs.generated_interfaces and target in {
                 "typing.TypedDict",
                 "typing.Unpack",
@@ -1141,6 +1144,7 @@ class ClosedPythonSources:
                     ),
                 )
                 edges.add(SemanticEdge("python:" + path, target_id, relation, target))
+                references.add(ImplementationReferenceFact("python:" + path, target_id, relation, location, path))
                 return
             try:
                 obj = self.resolve(target)
@@ -1153,6 +1157,7 @@ class ClosedPythonSources:
             if target in self.definitions:
                 todo.append(target)
                 edges.add(SemanticEdge("python:" + path, "python:" + target, relation))
+                references.add(ImplementationReferenceFact("python:" + path, "python:" + target, relation, location, path))
             else:
                 unknowns.add(
                     SourceUnknown(path, location, "definition has no supplied body " + target)
@@ -2132,4 +2137,5 @@ class ClosedPythonSources:
             tuple(sorted(edges, key=lambda e: (e.source, e.target, e.relation, e.role))),
             tuple(sorted(used_boundaries, key=lambda b: b.reference)),
             tuple(sorted(unknowns, key=lambda u: (u.source, u.location, u.reason))),
+            references=tuple(sorted(references, key=lambda r: (r.source, r.location, r.relation, r.target))),
         )

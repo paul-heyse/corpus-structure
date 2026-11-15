@@ -21,7 +21,8 @@ from .data_operation_support import (
 )
 from .identity import canonical_bytes
 
-MODEL_VERSION = "data-operation-model-v5"
+MODEL_VERSION = "data-operation-model-v6"
+COMPACT_ARCHIVED_MODEL_VERSION = "data-operation-model-v5"
 PREVIOUS_MODEL_VERSION = "data-operation-model-v4"
 LEGACY_MODEL_VERSION = "data-operation-model-v3"
 ARCHIVED_MODEL_VERSION = "data-operation-model-v2"
@@ -277,6 +278,16 @@ class SourceUnknown:
 
 
 @dataclass(frozen=True)
+class ImplementationReferenceFact:
+    source: str
+    target: str
+    relation: str
+    location: str
+    supplying_owner: str
+    provenance: Literal["closed-source-structural"] = "closed-source-structural"
+
+
+@dataclass(frozen=True)
 class ImplementationSlice:
     root: str
     nodes: tuple[SemanticNode, ...]
@@ -284,6 +295,7 @@ class ImplementationSlice:
     boundaries: tuple[OpaqueBoundary, ...] = ()
     unknowns: tuple[SourceUnknown, ...] = ()
     normalization: str = "python-cst-v1"
+    references: tuple[ImplementationReferenceFact, ...] = ()
 
     @property
     def complete(self) -> bool:
@@ -454,18 +466,18 @@ class EffectiveOperation:
 class GraphProjectionDefinition:
     """Compiled interpretation; concrete snapshots supply selection, never new semantics."""
 
-    name: Literal["semantic-reference", "potential-producers", "selected-dependencies"]
-    source_contract: Literal["effective-semantic-records", "effective-operations"]
+    name: Literal["semantic-reference", "potential-producers", "selected-dependencies", "bound-requests", "selected-support", "source-hierarchy", "assessment", "lexical-reference", "possible-call", "resolved-definition", "type-reference", "implementation-determinant"]
+    source_contract: Literal["effective-semantic-records", "effective-operations", "selected-native-records", "selected-source-records", "protected-assessment-records", "captured-implementation-records"]
     node_kinds: tuple[str, ...]
     relationship_kinds: tuple[str, ...]
-    orientation: Literal["owner-to-dependency"] = "owner-to-dependency"
-    identity: Literal["stable-semantic-reference"] = "stable-semantic-reference"
+    orientation: Literal["owner-to-dependency", "parent-to-child", "assertion-incidence"] = "owner-to-dependency"
+    identity: Literal["stable-semantic-reference", "qualified-native-reference"] = "stable-semantic-reference"
     occurrences: Literal["typed-role-position-multiplicity"] = "typed-role-position-multiplicity"
-    selection: Literal["complete-model", "explicit-producer-choices"] = "complete-model"
-    snapshot: Literal["immutable-effective-model"] = "immutable-effective-model"
-    unresolved: Literal["refuse"] = "refuse"
-    completeness: Literal["closed-declared-universe"] = "closed-declared-universe"
-    attributes: Literal["canonical-semantic-payload-unweighted"] = (
+    selection: Literal["complete-model", "explicit-producer-choices", "pinned-native-cut", "protected-question-and-prediction"] = "complete-model"
+    snapshot: Literal["immutable-effective-model", "native-read-and-trust", "captured-source"] = "immutable-effective-model"
+    unresolved: Literal["refuse", "explicit-unknown-boundary"] = "refuse"
+    completeness: Literal["closed-declared-universe", "explicit-examined-universe"] = "closed-declared-universe"
+    attributes: Literal["canonical-semantic-payload-unweighted", "typed-native-occurrences-unweighted", "protected-asymmetric-fields"] = (
         "canonical-semantic-payload-unweighted"
     )
     analyses: tuple[str, ...] = ("root-inclusive-closure", "strong-components")
@@ -497,6 +509,41 @@ def compiled_graph_projections(nodes, edges) -> tuple[GraphProjectionDefinition,
             ("operation_dependency", "selected_operation_dependency"),
             selection="explicit-producer-choices",
         ),
+        *compiled_snapshot_projections(),
+    )
+
+
+def compiled_snapshot_projections() -> tuple[GraphProjectionDefinition, ...]:
+    """Interpret the owned native/source/assessment protocols, never selected facts.
+
+    Native row and reference contracts own occurrence roles; these profiles bind their
+    supported graph interpretation into each release. Concrete cuts are acquired later.
+    """
+    def native(
+        name: Literal["bound-requests", "selected-support", "source-hierarchy", "assessment"],
+        nodes: tuple[str, ...], relationships: tuple[str, ...], *,
+        source: Literal["selected-native-records", "selected-source-records", "protected-assessment-records"] = "selected-native-records",
+        orientation: Literal["owner-to-dependency", "parent-to-child", "assertion-incidence"] = "owner-to-dependency",
+        selection: Literal["pinned-native-cut", "protected-question-and-prediction"] = "pinned-native-cut",
+        attributes: Literal["typed-native-occurrences-unweighted", "protected-asymmetric-fields"] = "typed-native-occurrences-unweighted",
+    ):
+        return GraphProjectionDefinition(name, source, nodes, relationships, orientation=orientation,
+            identity="qualified-native-reference", selection=selection, snapshot="native-read-and-trust",
+            unresolved="explicit-unknown-boundary", completeness="explicit-examined-universe",
+            attributes=attributes, analyses=("root-inclusive-closure", "strong-components", "witness-path", "scope-boundary", "dependency-order"))
+    return (
+        native("bound-requests", ("request", "obligation", "use", "population"), ("selected-input", "requires", "population")),
+        native("selected-support", ("product", "member", "episode", "use", "population", "original", "authored"), ("input", "output", "support", "admission", "population")),
+        native("source-hierarchy", ("source", "record", "member"), ("contains",), source="selected-source-records", orientation="parent-to-child"),
+        native("assessment", ("entity", "assertion", "group", "member"), ("subject", "object", "requires", "member", "root"), source="protected-assessment-records", orientation="assertion-incidence", selection="protected-question-and-prediction", attributes="protected-asymmetric-fields"),
+        *(GraphProjectionDefinition(name, "captured-implementation-records", ("implementation", "definition", "opaque_dependency"), relations, snapshot="captured-source", unresolved="explicit-unknown-boundary", completeness="explicit-examined-universe", analyses=("root-inclusive-closure", "strong-components", "witness-path", "scope-boundary"))
+          for name, relations in (
+              ("lexical-reference", ("lexical_reference",)),
+              ("possible-call", ("possible_call",)),
+              ("resolved-definition", ("resolved_definition",)),
+              ("type-reference", ("type_reference",)),
+              ("implementation-determinant", ("implementation_determinant",)),
+          )),
     )
 
 
@@ -520,6 +567,14 @@ class EffectiveDataOperationModel:
             "edges": tuple(asdict(edge) for edge in self.edges),
         }
 
+    def projection_definition(self, name: str) -> GraphProjectionDefinition:
+        if self.version != MODEL_VERSION or self.graph_projections != compiled_graph_projections(self.nodes, self.edges):
+            raise ValueError("missing or incompatible compiled graph projection interpretation")
+        definition = next((p for p in self.graph_projections if p.name == name), None)
+        if definition is None:
+            raise ValueError("unknown graph projection " + name)
+        return definition
+
     def projection_graph(self, name: str, *, selected_dependencies=()):
         """Construct an authenticated declared view, retaining isolates and typed occurrences."""
         from .data_operation_identity import SemanticGraph
@@ -532,6 +587,8 @@ class EffectiveDataOperationModel:
         definition = next((p for p in self.graph_projections if p.name == name), None)
         if definition is None:
             raise ValueError("unknown graph projection " + name)
+        if name not in {"semantic-reference", "potential-producers", "selected-dependencies"}:
+            raise ValueError("snapshot projection requires authenticated source acquisition")
         choices = dict(selected_dependencies)
         if len(choices) != len(selected_dependencies):
             raise ValueError("duplicate producer selection")
@@ -602,6 +659,7 @@ class EffectiveDataOperationModel:
         legacy_model = self.version in {LEGACY_MODEL_VERSION, ARCHIVED_MODEL_VERSION}
         if self.version not in {
             MODEL_VERSION,
+            COMPACT_ARCHIVED_MODEL_VERSION,
             PREVIOUS_MODEL_VERSION,
             LEGACY_MODEL_VERSION,
             ARCHIVED_MODEL_VERSION,
@@ -651,8 +709,11 @@ class EffectiveDataOperationModel:
             if self.graph_projections:
                 raise ValueError("historical v2 cannot declare current graph projections")
             record.pop("graph_projections")
+        if self.version != MODEL_VERSION:
+            for implementation in record["implementation_slices"]:
+                implementation.pop("references")
         identity_type = (
-            EffectiveIdentity if self.version == MODEL_VERSION else ArchivedEffectiveIdentity
+            EffectiveIdentity if self.version in {MODEL_VERSION, COMPACT_ARCHIVED_MODEL_VERSION} else ArchivedEffectiveIdentity
         )
         if any(type(identity) is not identity_type for identity in self.identities):
             raise ValueError("model identity representation differs from its archive version")
@@ -821,13 +882,14 @@ def _read_effective_data_operations(content: bytes) -> EffectiveDataOperationMod
     record = json.loads(content)
     if not isinstance(record, dict) or record.get("version") not in {
         MODEL_VERSION,
+        COMPACT_ARCHIVED_MODEL_VERSION,
         PREVIOUS_MODEL_VERSION,
         LEGACY_MODEL_VERSION,
         ARCHIVED_MODEL_VERSION,
     }:
         raise ValueError("unsupported archived data-operation model version")
     archived_v2 = record["version"] == ARCHIVED_MODEL_VERSION
-    historical_model = record["version"] != MODEL_VERSION
+    historical_model = record["version"] not in {MODEL_VERSION, COMPACT_ARCHIVED_MODEL_VERSION}
     legacy_model = record["version"] in {LEGACY_MODEL_VERSION, ARCHIVED_MODEL_VERSION}
     converter = Converter(forbid_extra_keys=True, detailed_validation=False)
 
@@ -842,6 +904,8 @@ def _read_effective_data_operations(content: bytes) -> EffectiveDataOperationMod
         historical: dict[str, Any] = (
             {"graph_projections": []} if cls is EffectiveDataOperationModel and archived_v2 else {}
         )
+        if cls is ImplementationSlice and record["version"] != MODEL_VERSION:
+            historical["references"] = []
         if legacy_model and cls is ImplementationCapabilities:
             historical["stream_settlement"] = None
             historical["prepared_factory"] = None
