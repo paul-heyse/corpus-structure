@@ -17,6 +17,11 @@ source-interface and operation interpreters retire rather than imposing historic
 Native trust, effect fencing, source fidelity and evaluation independence remain required.
 Implementation/qualification is owned by the DDO coordinator.
 
+**Implemented retirement · 2026-11-15:** the completed-integer-run `ci promote` adapter is removed.
+Current selected-result interfaces require explicit project/demand/read/cut references. Remaining
+legacy named-query and grouped-measurement consumers retain their DDO-09/10 obligations; removing
+this adapter does not establish their migration or native qualification.
+
 > Decision: [ADR-0109](../adr/0109-ddo-current-domain-contracts.md)
 
 > Decision: [ADR-0094](../adr/0094-ddo-demand-and-recovery.md)

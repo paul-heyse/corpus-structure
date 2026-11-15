@@ -64,13 +64,12 @@ uv run ci model change deploy CANDIDATE_ID --json
 
 For a deployed profile, inspect with `ci db status --target deployment`,
 `ci db check --target deployment --release RELEASE_ID` and
-`ci release check --target deployment --release RELEASE_ID` as applicable. Activation
-and selecting a completed run are separate effects. Supply the exact project, release or
-run and target when carrying them out.
+`ci release check --target deployment --release RELEASE_ID` as applicable. Activation is a separate effect. Supply the exact project, release and target when carrying
+it out. Current result reads bind explicit demand and cut selections; they do not promote
+a completed integer run.
 
 ```sh
 uv run ci release activate RELEASE_ID --project PROJECT --target deployment --json
-uv run ci promote RUN_ID --project PROJECT --target deployment --json
 ```
 
 An unconfigured profile, mismatched predecessor, role refusal or missing authority has
