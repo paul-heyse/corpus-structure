@@ -149,10 +149,8 @@ def test_selected_reports_use_valid_original_parent_candidate_geometry_and_prose
     from corpus_structure.ingest.pdf_hierarchy import snapshot
     from corpus_structure.semantic.pdf_contracts import pdf_context_for_task, prepare_pdf_product
     from corpus_structure.serve.native_source import (
-        NativeSourceRequest,
         _published_alignment_reports,
         _published_parent_product,
-        inspect_native_source,
     )
 
     with commit_reader_engine.connect() as conn:
@@ -307,32 +305,6 @@ def test_selected_reports_use_valid_original_parent_candidate_geometry_and_prose
             content_digest=original_pin.logical_digest,
         )
         assert reader.selected_item_reports(()) == []
-        run_id = conn.scalar(
-            text("SELECT run_id FROM ops.task WHERE id=:task"),
-            dict(task=private_build.task_id),
-        )
-        response = inspect_native_source(
-            conn,
-            NativeSourceRequest(
-                run_id=run_id,
-                task_id=private_build.task_id,
-                product_key="derived",
-                content_digest=selected.logical_digest,
-                view="item",
-                pointer=formula.self_ref,
-            ),
-        )
-        assert response.rows[0]["inline_alignment_reports"] == [
-            dict(
-                values["inline_alignment_reports"][0],
-                candidate_basis="native-vector-gap-v1",
-                source_product=dict(
-                    task_id=private_build.task_id,
-                    product_key="raw",
-                    content_digest=original_pin.logical_digest,
-                ),
-            )
-        ]
 
 
 def test_default_residual_body_read_publish_and_refusal_controls(

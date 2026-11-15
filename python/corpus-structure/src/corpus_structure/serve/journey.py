@@ -13,8 +13,13 @@ from corpus_structure.core.canonical import canonical_json, digest
 from corpus_structure.semantic.continuations import decode_continuation, validate_continuation
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.metadata import table
-from corpus_structure.semantic.query import AnswerSelection, Coverage, ReadSession, SnapshotBinding, bind_completed_result
-from corpus_structure.semantic.refusals import ReadLimit
+from corpus_structure.semantic.query import (
+    AnswerSelection,
+    Coverage,
+    ReadSession,
+    SnapshotBinding,
+    bind_completed_result,
+)
 from corpus_structure.semantic.query_compatibility import (
     BoundQuery,
     QueryCompatibilityError,
@@ -22,6 +27,7 @@ from corpus_structure.semantic.query_compatibility import (
 )
 from corpus_structure.semantic.refusals import (
     InvalidContinuation,
+    ReadLimit,
     SemanticRefusal,
     StaleSnapshot,
     WrongBinding,

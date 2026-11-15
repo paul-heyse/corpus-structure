@@ -13,14 +13,13 @@ from sqlalchemy import and_, select
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.query import AnswerSelection, SnapshotBinding
-from corpus_structure.semantic.refusals import ReadLimit
 from corpus_structure.semantic.query import Explanation as FactExplanation
 from corpus_structure.semantic.query_compatibility import (
     BoundQuery,
     QueryBindingReference,
     QueryCompatibilityError,
 )
-from corpus_structure.semantic.refusals import InvalidContinuation, WrongBinding
+from corpus_structure.semantic.refusals import InvalidContinuation, ReadLimit, WrongBinding
 from corpus_structure.serve.journey import QueryRefused, bind_session
 
 

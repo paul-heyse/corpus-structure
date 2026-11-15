@@ -284,8 +284,7 @@ def inspect_pdf_visual_evidence(
     from pydantic_core import to_jsonable_python
 
     from corpus_structure.semantic.pdf_record_reader import published_record_reader
-    from corpus_structure.semantic.refusals import ReadLimit
-    from corpus_structure.semantic.refusals import InvalidContinuation
+    from corpus_structure.semantic.refusals import InvalidContinuation, ReadLimit
 
     from .native_source import (
         NativeSourceResponse,

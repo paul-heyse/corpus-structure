@@ -2,8 +2,8 @@
 
 from types import SimpleNamespace
 
-import pytest
 import psycopg
+import pytest
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 

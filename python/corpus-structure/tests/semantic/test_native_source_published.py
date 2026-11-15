@@ -595,8 +595,10 @@ def test_explicit_whole_body_materialization_keeps_json_decoding_imports(kind, m
         )
 
     monkeypatch.setattr(pdf_storage, "_budgeted_mappings", selected_rows)
+    from sqlalchemy import Connection
+
     result = pdf_storage.read_pdf_product(
-        None,
+        MagicMock(spec=Connection),
         task_id=42,
         product_key="controlled",
         content_digest="a" * 64,

@@ -7,8 +7,8 @@ from pathlib import Path
 
 from corpus_structure.schema.pack import DOMAINS
 from corpus_structure.semantic.query import Explanation as FactExplanation
-from corpus_structure.semantic.read_snapshot import read_snapshot
 from corpus_structure.semantic.query_compatibility import open_query_registry
+from corpus_structure.semantic.read_snapshot import read_snapshot
 from corpus_structure.serve.explain import explain
 from corpus_structure.serve.journey import bind_session, serve_query
 from semantic.inventory_reading import inventory_evidence, inventory_reports, inventory_supports

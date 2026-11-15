@@ -10,13 +10,13 @@ import base64
 import json
 from collections import defaultdict, deque
 from collections.abc import Generator
-from contextlib import contextmanager, nullcontext
+from contextlib import contextmanager
 from dataclasses import asdict, dataclass, field
 from datetime import date, datetime
 from decimal import Decimal
 from hashlib import sha256
 from itertools import batched
-from typing import TYPE_CHECKING, Any, Literal, Protocol
+from typing import TYPE_CHECKING, Any, Literal
 from uuid import uuid4
 
 from pydantic import BaseModel, ConfigDict, SerializeAsAny
@@ -43,10 +43,10 @@ from ._operation_ids import RealizationId, ReleaseId
 from .coverage_contract import coverage_recipe
 from .identity import canonical_bytes
 from .metadata import table
-from .read_snapshot import _Store, read_snapshot
-from .refusals import ReadLimit
 from .outcomes import ScientificOutcome
 from .query_compatibility import QueryBindingReference
+from .read_snapshot import _Store, read_snapshot
+from .refusals import ReadLimit
 from .releases import open_release
 from .scientific_evidence_schema import (
     ScientificAssessmentEvidence,

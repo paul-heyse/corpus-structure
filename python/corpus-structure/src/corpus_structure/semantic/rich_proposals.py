@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+from pydantic_core import to_json
+
 from .data_operation_identity import decode_semantic_value
-from .data_operation_json import json_bytes, json_loads
+from .data_operation_json import json_loads
 
 FAMILIES = (
     ("entities", "entity", "DdoRichEntityProposal"),
@@ -42,7 +44,7 @@ def located_rich_proposals(prepared, model, packet, located):
                     "claims": [{"member_id": "claim:" + local} for local in value["members"]],
                 }
             body = prepared.validate_json(
-                class_name, json_bytes(dict(value, proposal_type=tag, standing="private_proposed"))
+                class_name, to_json(dict(value, proposal_type=tag, standing="private_proposed"))
             ).model_dump(mode="python", exclude_unset=True)
             members.append(
                 dict(
@@ -85,7 +87,9 @@ def located_rich_proposals(prepared, model, packet, located):
 
 def read_rich_proposals(prepared, value):
     """Read the current private member collection; batch-shaped predecessors are refused."""
-    checked = prepared.validate_json("DdoLocatedExternalExtraction", json_bytes(value)).model_dump(
+    # Pydantic's native serializer retains Decimal as lexical text for the declared
+    # decimal validator. A numeric JSON round trip would first narrow it to float.
+    checked = prepared.validate_json("DdoLocatedExternalExtraction", to_json(value)).model_dump(
         mode="python", exclude_unset=True
     )
     if checked["standing"] != "private_proposed":
