@@ -1327,7 +1327,7 @@ def _read_analysis_implementation_inputs(
                 ("invocation/proposals.py", "semantic/proposals.py"),
                 ("invocation/source_search.py", "serve/source_search.py"),
                 ("pdf/native_source.py", "serve/native_source.py"),
-                ("pdf/sql-arrow-types.py", "core/db/arrow_types.py"),
+                ("pdf/sql-arrow-types.py", "semantic/arrow_types.py"),
                 *POSTGRESQL_IMPLEMENTATION_SOURCES,
                 ("invocation/server.py", "intervene/semantic_server.py"),
                 ("invocation/method.py", "core/method.py"),

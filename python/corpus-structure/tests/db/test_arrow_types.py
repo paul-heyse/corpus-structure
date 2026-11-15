@@ -5,7 +5,7 @@ import pytest
 from sqlalchemy import BigInteger, Boolean, Double, Integer, Numeric, SmallInteger, Text
 from sqlalchemy.dialects.postgresql import ARRAY, BYTEA, JSONB, REAL, REGCONFIG, TIMESTAMP
 
-from corpus_structure.core.db.arrow_types import sql_arrow_type
+from corpus_structure.semantic.arrow_types import sql_arrow_type
 from corpus_structure.schema.model import ModelError
 
 

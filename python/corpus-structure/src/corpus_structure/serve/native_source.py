@@ -1025,7 +1025,7 @@ def _export_native_source(
         raise ValueError("streaming native export requires items or sections")
     response = inspect_native_source(conn, request, cancellation=cancellation)
     # Existing typed SQL projection determines Arrow types, retaining the original text.
-    from corpus_structure.core.db.arrow_types import sql_arrow_type
+    from corpus_structure.semantic.arrow_types import sql_arrow_type
     from corpus_structure.semantic.metadata import table
     from corpus_structure.semantic.releases import open_release
 
