@@ -266,7 +266,7 @@ def _current_pdf_source(
     )
     from corpus_structure.semantic.data_operation_service import execute_data_demand
     from corpus_structure.semantic.data_operation_storage import DataOperationStorage
-    from corpus_structure.semantic.identifiers import ProjectId, RealizationId, ReleaseId
+    from corpus_structure.semantic.identifiers import ProjectId, ReleaseId
     from corpus_structure.semantic.original_documents import (
         acquire_original_document_selection,
         register_original_document,
@@ -291,7 +291,6 @@ def _current_pdf_source(
                 {
                     "project_id": ProjectId(PROJECT),
                     "release_id": ReleaseId(kernel.prepared.release_id),
-                    "realization_id": RealizationId("current-source-empty"),
                 }
             )
             register_original_document(

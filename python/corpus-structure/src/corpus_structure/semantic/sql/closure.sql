@@ -107,14 +107,17 @@ BEGIN
  OR EXISTS(SELECT FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname IN ('sem','data') AND c.relkind IN ('r','p') AND (has_table_privilege(principal,c.oid,'INSERT,UPDATE,DELETE,TRUNCATE,TRIGGER') OR has_any_column_privilege(principal,c.oid,'INSERT,UPDATE'))) THEN
   RAISE EXCEPTION 'unrestricted or mismatched runtime principal for %',purpose USING ERRCODE='42501'; END IF;
  IF NOT has_table_privilege(principal,'sem.release','SELECT')
- OR (purpose='read' AND NOT has_table_privilege(principal,'data.realization','SELECT'))
- OR (purpose='write' AND NOT has_function_privilege(principal,'data.begin_stage()','EXECUTE'))
- OR (purpose='evaluate' AND NOT has_schema_privilege(principal,'eval','USAGE'))
- OR (purpose='admit' AND NOT has_function_privilege(principal,'sem.publish_release_archive(text)','EXECUTE')) THEN
+ OR NOT has_schema_privilege(principal,'ops','USAGE')
+ OR (purpose IN ('read','write','evaluate') AND NOT coalesce(has_function_privilege(principal,to_regprocedure('ops.read_demand_result(jsonb)'),'EXECUTE'),false))
+ OR (purpose='write' AND NOT coalesce(has_function_privilege(principal,to_regprocedure('ops.initialize_source_project(jsonb)'),'EXECUTE'),false))
+ OR (purpose IN ('write','evaluate') AND NOT coalesce(has_function_privilege(principal,to_regprocedure('ops.register_data_demand(jsonb)'),'EXECUTE'),false))
+ OR (purpose='evaluate' AND NOT coalesce(has_function_privilege(principal,to_regprocedure('ops.admit_authored_data(jsonb)'),'EXECUTE'),false))
+ OR (purpose='admit' AND (NOT coalesce(has_function_privilege(principal,to_regprocedure('sem.publish_release_archive(text)'),'EXECUTE'),false)
+ OR NOT coalesce(has_function_privilege(principal,to_regprocedure('ops.inspect_data_execution(jsonb)'),'EXECUTE'),false))) THEN
   RAISE EXCEPTION 'required runtime capability unavailable' USING ERRCODE='42501'; END IF;
  IF EXISTS(SELECT FROM jsonb_array_elements(data.execution_contract_descriptor()->'functions') contract
-  JOIN pg_proc p ON p.oid=to_regprocedure(contract->>'signature')
-  WHERE has_function_privilege(principal,p.oid,'EXECUTE') IS DISTINCT FROM ((contract->'execute_roles') ? required_role)) THEN
+  LEFT JOIN pg_proc p ON p.oid=to_regprocedure(contract->>'signature')
+  WHERE p.oid IS NULL OR has_function_privilege(principal,p.oid,'EXECUTE') IS DISTINCT FROM ((contract->'execute_roles') ? required_role)) THEN
   RAISE EXCEPTION 'runtime operation privileges differ from purpose contract' USING ERRCODE='42501'; END IF;
  IF purpose<>'evaluate'  AND EXISTS(SELECT FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='eval' AND c.relkind IN ('r','p') AND has_table_privilege(principal,c.oid,'SELECT,INSERT,UPDATE,DELETE,TRUNCATE')) THEN
   RAISE EXCEPTION 'runtime principal has independent reference access' USING ERRCODE='42501'; END IF;

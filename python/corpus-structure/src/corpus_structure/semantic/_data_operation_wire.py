@@ -8,7 +8,6 @@ from typing import Any, Literal, NewType, NotRequired, Required, TypedDict, cast
 
 from corpus_structure.semantic.identifiers import (
     ProjectId,
-    RealizationId,
     ReleaseId,
     RuntimeId,
     TaskAttempt,
@@ -642,13 +641,11 @@ class WireExternalPacketHead(TypedDict):
 
 class WireInitializeSourceProjectRequest(TypedDict):
     project_id: Required[ProjectId]
-    realization_id: Required[RealizationId]
     release_id: Required[ReleaseId]
 
 
 class WireInitializeSourceProjectResult(TypedDict):
     project_id: Required[ProjectId]
-    realization_id: Required[RealizationId]
     release_id: Required[ReleaseId]
 
 

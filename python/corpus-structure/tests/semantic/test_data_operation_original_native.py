@@ -347,14 +347,13 @@ def test_original_pdf_fact_admission_and_runless_private_stage_use_actual_reques
 
 
 def _register_document(connection, kernel, tmp_path):
-    from corpus_structure.semantic.identifiers import ProjectId, RealizationId, ReleaseId
+    from corpus_structure.semantic.identifiers import ProjectId, ReleaseId
 
     project = "original-factual-support"
     DataOperationStorage(connection).initialize_source_project(
         {
             "project_id": ProjectId(project),
             "release_id": ReleaseId(kernel.prepared.release_id),
-            "realization_id": RealizationId("original-document-test"),
         }
     )
     original = b"%PDF-1.7\n% retained independent original bytes\n%%EOF\n"

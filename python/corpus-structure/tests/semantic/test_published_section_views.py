@@ -317,7 +317,7 @@ def test_finite_readers_resolve_both_placement_coordinates_and_guard_before_proj
             assert "GRANT EXECUTE" not in block
             continue
         assert block.index("INTO STRICT published") < block.index("RETURN QUERY")
-        assert "published.release_id,'read_native_source'" in block
+        assert "ops.require_pdf_operation(published.release_id,'read_native_source')" in block
 
 
 def test_selected_projection_refuses_absent_consumer_context_before_any_query():

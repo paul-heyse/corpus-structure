@@ -18,21 +18,15 @@ END $$;
 
 CREATE OR REPLACE FUNCTION ops.initialize_source_project(p_payload jsonb) RETURNS jsonb
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
-DECLARE p jsonb:=p_payload; retained data.realization;
+DECLARE p jsonb:=p_payload;
 BEGIN
- PERFORM ops.ddo_fields(p,ARRAY['project_id','release_id','realization_id']);
+ PERFORM ops.ddo_fields(p,ARRAY['project_id','release_id']);
  PERFORM ops.require_source_admission(p->>'release_id');
  IF NOT pg_has_role(coalesce(nullif(current_setting('role'),'none'),session_user),'corpus_sem_writer','MEMBER') THEN
  RAISE EXCEPTION 'source initialization requires native write purpose' USING ERRCODE='42501'; END IF;
  INSERT INTO data.project(project_id) VALUES(p->>'project_id') ON CONFLICT DO NOTHING;
  PERFORM 1 FROM data.project WHERE project_id=p->>'project_id' FOR UPDATE;
- INSERT INTO data.realization(realization_id,project_id,release_id)
- VALUES(p->>'realization_id',p->>'project_id',p->>'release_id') ON CONFLICT DO NOTHING;
- SELECT * INTO STRICT retained FROM data.realization WHERE realization_id=p->>'realization_id';
- IF retained.project_id IS DISTINCT FROM p->>'project_id' OR retained.release_id IS DISTINCT FROM p->>'release_id'
- OR retained.state IS DISTINCT FROM 'active' OR retained.data_revision IS DISTINCT FROM 0 THEN
- RAISE EXCEPTION 'source realization identity denotes another context or populated data' USING ERRCODE='23514'; END IF;
- RETURN jsonb_build_object('payload',jsonb_build_object('project_id',retained.project_id,'release_id',retained.release_id,'realization_id',retained.realization_id));
+ RETURN jsonb_build_object('payload',jsonb_build_object('project_id',p->>'project_id','release_id',p->>'release_id'));
 END $$;
 
 CREATE OR REPLACE FUNCTION ops.retain_original_document(p_release text,p_document bigint,p_original bytea) RETURNS text

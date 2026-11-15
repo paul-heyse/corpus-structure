@@ -63,7 +63,6 @@ def project_init(
     domain: Annotated[str, typer.Option(help="The pack under domains/.")],
     corpus: Annotated[Path, typer.Option(exists=True, file_okay=False)],
     semantic_release: Annotated[str, typer.Option(help="Already admitted semantic release.")],
-    realization: Annotated[str, typer.Option(help="Explicit empty realization identity.")],
     name: Annotated[str | None, typer.Option()] = None,
     original_reference: Annotated[
         list[Path] | None, typer.Option(exists=True, dir_okay=False)
@@ -81,7 +80,6 @@ def project_init(
             domain=domain,
             corpus=corpus,
             release_id=semantic_release,
-            realization_id=realization,
             name=name or settings.runtime.default_project,
             originals=tuple(
                 OriginalDocumentRef.model_validate_json(value.read_bytes())

@@ -2432,12 +2432,9 @@ definitions:
         $ref: '#/definitions/identifier'
       release_id:
         $ref: '#/definitions/identifier'
-      realization_id:
-        $ref: '#/definitions/identifier'
     required:
     - project_id
     - release_id
-    - realization_id
     additionalProperties: false
   initialize_source_project_result:
     type: object
@@ -2446,12 +2443,9 @@ definitions:
         $ref: '#/definitions/identifier'
       release_id:
         $ref: '#/definitions/identifier'
-      realization_id:
-        $ref: '#/definitions/identifier'
     required:
     - project_id
     - release_id
-    - realization_id
     additionalProperties: false
 operations:
 - name: read_record_feature_fit_frame

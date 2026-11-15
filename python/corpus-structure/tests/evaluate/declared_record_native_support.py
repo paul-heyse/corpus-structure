@@ -305,7 +305,7 @@ def current_record_policy_journey(scenario_seeds, tmp_path, monkeypatch, *, reci
     from corpus_structure.semantic.data_operation_storage import DataOperationStorage
     from corpus_structure.semantic.declared_structural_references import DeclaredStructuralSource
     from corpus_structure.semantic.demand_results import selected_record_index
-    from corpus_structure.semantic.identifiers import ProjectId, RealizationId, ReleaseId
+    from corpus_structure.semantic.identifiers import ProjectId, ReleaseId
     from corpus_structure.semantic.original_documents import (
         acquire_original_document_selection,
         register_original_document,
@@ -319,7 +319,6 @@ def current_record_policy_journey(scenario_seeds, tmp_path, monkeypatch, *, reci
                 {
                     "project_id": ProjectId(PROJECT),
                     "release_id": ReleaseId(kernel.prepared.release_id),
-                    "realization_id": RealizationId("current-record-policy-empty"),
                 }
             )
             originals = []

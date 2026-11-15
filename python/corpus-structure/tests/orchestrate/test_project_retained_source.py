@@ -1,5 +1,6 @@
 """Project initialization authenticates retained original facts without rewriting custody."""
 
+import json
 from hashlib import sha256
 from types import SimpleNamespace
 from unittest.mock import MagicMock
@@ -41,7 +42,6 @@ def initialization(monkeypatch, tmp_path):
         return_value={
             "project_id": "grinstead",
             "release_id": "release",
-            "realization_id": "source",
         }
     )
     registered = MagicMock()
@@ -79,7 +79,6 @@ def invoke(f, *, originals=()):
         domain="statistics",
         corpus=f.corpus,
         release_id="release",
-        realization_id="source",
         name="grinstead",
         domains=f.domains,
         originals=originals,
@@ -90,6 +89,14 @@ def test_retained_original_fact_is_authenticated_without_descriptor_rewrite(init
     f = initialization
     result = invoke(f, originals=(f.reference,))
     assert result.documents == 1 and f.initialized.call_count == 1
+    assert result.model_dump() == {
+        "project": "grinstead",
+        "release_id": "release",
+        "documents": 1,
+    }
+    f.initialized.assert_called_once_with(
+        {"project_id": "grinstead", "release_id": "release"}
+    )
     f.registered.assert_not_called()
     f.authenticated.assert_called_once_with(f.conn, project_id="grinstead", document_key="book")
 
@@ -147,3 +154,57 @@ def test_unpinned_initialization_registers_configured_original_bytes(initializat
     assert registered["original"] == f.raw and registered["original_path"] == str(
         f.original.resolve()
     )
+
+
+def test_project_init_cli_uses_current_source_context_without_realization(
+    initialization, cli, monkeypatch
+):
+    from contextlib import contextmanager
+
+    from sqlalchemy import create_engine
+
+    from corpus_structure.cli import orchestrate
+
+    f = initialization
+    engine = create_engine("sqlite://")
+
+    @contextmanager
+    def acquired(settings):
+        yield engine
+
+    initialized = MagicMock(
+        return_value=project.SourceProjectReport(
+            project="grinstead", release_id="release", documents=1
+        )
+    )
+    monkeypatch.setattr(orchestrate, "ENGINE", acquired)
+    monkeypatch.setattr(project, "init_bound_project", initialized)
+    try:
+        result = cli(
+            "project",
+            "init",
+            "--domain",
+            "statistics",
+            "--corpus",
+            str(f.corpus),
+            "--semantic-release",
+            "release",
+            "--name",
+            "grinstead",
+            "--json",
+        )
+        assert result.exit_code == 0, result.output
+        assert json.loads(result.stdout) == {
+            "project": "grinstead",
+            "release_id": "release",
+            "documents": 1,
+        }
+        assert initialized.call_args.kwargs == {
+            "domain": "statistics",
+            "corpus": f.corpus,
+            "release_id": "release",
+            "name": "grinstead",
+            "originals": (),
+        }
+    finally:
+        engine.dispose()

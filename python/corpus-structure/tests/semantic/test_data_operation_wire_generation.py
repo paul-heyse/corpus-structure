@@ -31,6 +31,7 @@ from corpus_structure.semantic.data_operation_storage import (
 )
 from corpus_structure.semantic.data_operation_wire import generated_wire_source, render_wire_types
 from corpus_structure.semantic.native_sql_body import body_source
+from corpus_structure.semantic.operation_value_types import NativeResultViolation
 from corpus_structure.semantic.prepared_sql import prepare_sql
 
 REPO = Path(__file__).resolve().parents[4]
@@ -63,8 +64,12 @@ def test_fixed_call_preserves_omission_and_rejects_wrong_union_result():
     assert wire_json_loads(connection.calls[0][1]["payload"]) == original
     assert "external_packet_id" not in original
     connection.result = '{"payload":{"state":"claimed"}}'
-    with pytest.raises(ValueError, match="schema"):
+    with pytest.raises(NativeResultViolation) as refusal:
         storage.claim_data_request(cast(WireClaimDataRequestRequest, original))
+    assert refusal.value.operation == "data.claim_data_request"
+    assert refusal.value.result_class == "urn:corpus:data-wire:claim_data_request_result"
+    assert isinstance(refusal.value.original, ValueError)
+    assert "schema" in str(refusal.value.original)
     before = len(connection.calls)
     with pytest.raises(ValueError, match="schema"):
         storage.claim_data_request(

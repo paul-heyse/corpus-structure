@@ -16,7 +16,6 @@ class ProjectError(SemanticRefusal):
 class SourceProjectReport(BaseModel):
     project: str
     release_id: str
-    realization_id: str
     documents: int
 
 
@@ -26,7 +25,6 @@ def init_bound_project(
     domain: str,
     corpus: Path,
     release_id: str,
-    realization_id: str,
     name: str | None = None,
     domains: Path | None = None,
     originals: tuple[OriginalDocumentRef, ...] = (),
@@ -102,19 +100,17 @@ def init_bound_project(
         if not raw.startswith(b"%PDF-"):
             raise ProjectError("configured original is not a PDF: " + uri)
         acquired.append((uri, original, raw))
-    from corpus_structure.semantic.identifiers import ProjectId, RealizationId, ReleaseId
+    from corpus_structure.semantic.identifiers import ProjectId, ReleaseId
 
     result = DataOperationStorage(conn).initialize_source_project(
         {
             "project_id": ProjectId(project_id),
             "release_id": ReleaseId(release_id),
-            "realization_id": RealizationId(realization_id),
         }
     )
     if result != {
         "project_id": project_id,
         "release_id": release_id,
-        "realization_id": realization_id,
     }:
         raise ProjectError(
             "initialized project context differs from its exact requested identities"
@@ -138,6 +134,5 @@ def init_bound_project(
     return SourceProjectReport(
         project=project_id,
         release_id=release_id,
-        realization_id=realization_id,
         documents=len(acquired),
     )

@@ -374,7 +374,7 @@ SET search_path=pg_catalog,pg_temp AS $read$
 DECLARE published ops.pdf_published_revision;
 BEGIN
  SELECT * INTO STRICT published FROM ops.read_pdf_published_revision(p_task,p_product,p_digest);
- PERFORM sem.require_execution_operation(published.release_id,'read_native_source');
+ PERFORM ops.require_pdf_operation(published.release_id,'read_native_source');
  {_published_read_guard(name)}
  RETURN QUERY SELECT * FROM {private}(published.build_id,published.build_id{selector_arguments});
 END $read$;

@@ -102,6 +102,19 @@ def test_exact_wire_fields_and_result_variants_are_explicit():
         validate_native_wire("claim_data_request", "output", {"state": "no-work", "task_id": 4})
 
 
+@pytest.mark.parametrize("direction", ["input", "output"])
+def test_source_initialization_wire_requires_only_exact_project_and_release(direction):
+    payload = {"project_id": "project:originals", "release_id": "release:source"}
+    assert validate_native_wire("initialize_source_project", direction, payload) == payload
+    for invalid in (
+        {"project_id": payload["project_id"]},
+        {"release_id": payload["release_id"]},
+        {**payload, "realization_id": "legacy-empty-realization"},
+    ):
+        with pytest.raises(ValueError):
+            validate_native_wire("initialize_source_project", direction, invalid)
+
+
 def test_shared_wire_contract_is_detached_and_has_only_local_resolved_references():
     contracts = wire_contracts(captured())
     for directions in contracts.values():

@@ -9,7 +9,7 @@ from corpus_structure.core.evidence import document_key
 from corpus_structure.semantic._data_operation_wire import WireInitializeSourceProjectRequest
 from corpus_structure.semantic.data_operation_admission import admit_data_operation_release
 from corpus_structure.semantic.data_operation_storage import DataOperationStorage
-from corpus_structure.semantic.identifiers import ProjectId, RealizationId, ReleaseId
+from corpus_structure.semantic.identifiers import ProjectId, ReleaseId
 from corpus_structure.semantic.original_documents import (
     acquire_original_document_selection,
     read_original_document_bytes,
@@ -35,7 +35,6 @@ def test_current_source_initialization_retains_exact_bytes_without_local_fallbac
     payload: WireInitializeSourceProjectRequest = {
         "project_id": ProjectId("source-custody"),
         "release_id": ReleaseId(prepared.release_id),
-        "realization_id": RealizationId("source-custody-empty"),
     }
     with commit_writer_engine.begin() as connection:
         assert DataOperationStorage(connection).initialize_source_project(payload) == payload
@@ -50,6 +49,7 @@ def test_current_source_initialization_retains_exact_bytes_without_local_fallbac
             title="Original",
         )
         assert registered > 0
+        assert DataOperationStorage(connection).initialize_source_project(payload) == payload
         reference = acquire_original_document_selection(
             connection,
             project_id="source-custody",
