@@ -50,6 +50,8 @@ from .data_operation_model import (
     StreamSettlement,
     SubjectDefinition,
     SubjectScope,
+    validate_subject_context,
+    validate_subject_source,
     compiled_graph_projections,
 )
 from .data_operation_wire import checked_json_schema, json_schema_category
@@ -1733,7 +1735,7 @@ def compile_data_operations(
             subject_scope = declared_subject.get("scope")
             if subject_scope not in get_args(SubjectScope):
                 _fail(semantic_id, "unsupported subject scope relation")
-            subject_definition = SubjectDefinition(subject_id, identifier_kind, subject_scope)
+            subject_definition = SubjectDefinition(subject_id, identifier_kind, cast(SubjectScope, subject_scope))
             if subject_id in subject_definitions and subject_definitions[subject_id] != subject_definition:
                 _fail(semantic_id, "subject definition has conflicting semantic owners")
             subject_definitions[subject_id] = subject_definition
@@ -2095,7 +2097,7 @@ def _compile_identities(model: EffectiveDataOperationModel) -> tuple[EffectiveId
 
 
 def project_population_witness(
-    witness: dict | None, identity_requirements: tuple[str, ...]
+    witness: dict | None, identity_requirements: tuple[str, ...], *, model: EffectiveDataOperationModel
 ) -> dict | None:
     """Separate stable population meaning from the authenticated receipt/support.
 
@@ -2155,6 +2157,8 @@ def project_population_witness(
             ]
         except (TypeError, KeyError, ValueError) as error:
             raise ValueError("invalid qualified-context population witness") from error
+        for context in contexts:
+            validate_subject_context(model, context)
         if len(set(contexts)) != len(contexts):
             _fail("population-witness", "duplicate qualified contexts")
         members = [context.identity_record for context in contexts]
@@ -2184,8 +2188,10 @@ def project_operation_binding(model: EffectiveDataOperationModel, binding):
     )
 
     operation = model.operation(binding.operation)
-    if binding.subject_context.subject_definition != operation.subject:
-        _fail(operation.semantic_id, "binding subject definition differs from compiled operation")
+    try:
+        validate_subject_context(model, binding.subject_context, subject_definition=operation.subject)
+    except ValueError as error:
+        _fail(operation.semantic_id, str(error))
     identities = {(item.owner, item.domain): item.key for item in model.identities}
     recipe = identities.get((operation.semantic_id, "recipe"))
     if recipe is None:
@@ -2223,8 +2229,12 @@ def project_operation_binding(model: EffectiveDataOperationModel, binding):
         members: list[dict[str, Any]] = []
         actual_support = []
         for member in actual.members:
-            for value in (member.product, member.subject, member.original_source):
+            for value in (member.product, member.subject):
                 _text(value, name)
+            try:
+                validate_subject_source(model, member.subject_definition, member.original_source)
+            except ValueError as error:
+                _fail(name, str(error))
             if type(member.multiplicity) is not int or member.multiplicity < 1:
                 _fail(name, "invalid bound member multiplicity")
             if member.position is not None and (
@@ -2341,7 +2351,7 @@ def project_operation_binding(model: EffectiveDataOperationModel, binding):
         values[name] = {
             "value": OptionalValue(actual.state, collection if actual.state == "present" else None),
             "population_witness": project_population_witness(
-                witness, role.support.identity_requirements if role.support else ()
+                witness, role.support.identity_requirements if role.support else (), model=model
             ),
             "selected_alternative": actual.selected_alternative,
         }

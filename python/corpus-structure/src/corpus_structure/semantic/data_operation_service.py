@@ -27,7 +27,7 @@ from .releases import load_release
 class DemandRoot(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
     subject: str = Field(min_length=1)
-    original_source: str = Field(min_length=1)
+    original_source: str | None = Field(min_length=1)
     analyzed_scope: dict[str, DdoJsonValue]
 
 

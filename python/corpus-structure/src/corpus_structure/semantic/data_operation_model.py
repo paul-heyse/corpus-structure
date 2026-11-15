@@ -751,12 +751,12 @@ def compiled_snapshot_projections(
     return (
         native(
             "bound-requests",
-            ("request", "obligation", "use", "population"),
+            ("request", "obligation", "use", "population", "authority"),
             ("selected-input", "requires", "population"),
         ),
         native(
             "selected-support",
-            ("product", "member", "episode", "use", "population", "original", "authored"),
+            ("product", "member", "episode", "use", "population", "original", "authored", "authority"),
             ("input", "output", "support", "admission", "population"),
         ),
         native(
@@ -969,7 +969,7 @@ class BoundRoleMember:
     product: str
     kind_contract: str
     subject: str
-    original_source: str
+    original_source: str | None
     analyzed_scope: bytes
     coverage: bytes
     subject_definition: str = field(kw_only=True)
@@ -1028,15 +1028,17 @@ class SubjectContext:
 
     project_id: str
     subject: str
-    original_source: str
+    original_source: str | None
     analyzed_scope: bytes
     subject_definition: str = field(kw_only=True)
 
     def __post_init__(self):
         if type(self.subject_definition) is not str or not self.subject_definition:
             raise ValueError("subject context requires a subject definition")
-        if not self.project_id or not self.subject or not self.original_source:
-            raise ValueError("subject context requires project, subject and original source")
+        if type(self.project_id) is not str or not self.project_id or type(self.subject) is not str or not self.subject:
+            raise ValueError("subject context requires project and subject")
+        if self.original_source is not None and (type(self.original_source) is not str or not self.original_source):
+            raise ValueError("subject context original source must be explicit null or a nonempty string")
         object.__setattr__(self, "analyzed_scope", json_bytes(json_loads(self.analyzed_scope)))
 
     @property
@@ -1072,6 +1074,24 @@ class SubjectContext:
                 self.analyzed_scope, parse_int=Decimal, parse_float=Decimal
             ),
         }
+
+
+def validate_subject_source(model: EffectiveDataOperationModel, subject_definition: str, original_source: str | None) -> None:
+    """Apply the checked subject's source relation; a context shape grants no permission."""
+    definition = model.subject_definition(subject_definition)
+    if definition.scope not in get_args(SubjectScope):
+        raise ValueError("unsupported checked subject scope")
+    if original_source is None:
+        if definition.scope != "project":
+            raise ValueError("only a checked project-scoped subject can omit an original source")
+    elif type(original_source) is not str or not original_source:
+        raise ValueError("subject requires explicit null or a nonempty original source")
+
+
+def validate_subject_context(model: EffectiveDataOperationModel, context: SubjectContext, *, subject_definition: str | None = None) -> None:
+    if subject_definition is not None and context.subject_definition != subject_definition:
+        raise ValueError("subject definition differs from checked operation")
+    validate_subject_source(model, context.subject_definition, context.original_source)
 
 
 @dataclass(frozen=True)

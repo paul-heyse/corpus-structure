@@ -23,6 +23,7 @@ def query(
     operation: str | None = None,
     subject: str | None = None,
     original_source: str | None = None,
+    without_original_source: Annotated[bool, typer.Option(help="Select results with an explicit null original source.")] = False,
     kind_contract: str | None = None,
     product: str | None = None,
     member: str | None = None,
@@ -36,13 +37,14 @@ def query(
     from corpus_structure.semantic.runtime import open_runtime_engine
 
     with failure_boundary(json, expected=(ValueError, KeyError)):
+        if without_original_source and original_source is not None:
+            raise ValueError("select either an exact original source or explicit no original source")
         request = DemandQueryRequest(
             demand_id=demand,
             project_id=project,
             view=name,
             operation_id=operation,
             subject=subject,
-            original_source=original_source,
             kind_contract=kind_contract,
             product_id=product,
             member_id=member,
@@ -50,6 +52,8 @@ def query(
             limit=limit,
             max_bytes=max_bytes,
         )
+        if original_source is not None or without_original_source:
+            request = request.model_copy(update={"original_source": original_source})
         with (
             open_runtime_engine(
                 state(ctx).settings(), "ci-selected-result", purpose="read"
@@ -77,6 +81,7 @@ def records(
     operation: str | None = None,
     subject: str | None = None,
     original_source: str | None = None,
+    without_original_source: Annotated[bool, typer.Option(help="Select results with an explicit null original source.")] = False,
     kind_contract: str | None = None,
     product: str | None = None,
     member: str | None = None,
@@ -93,6 +98,7 @@ def records(
         operation=operation,
         subject=subject,
         original_source=original_source,
+        without_original_source=without_original_source,
         kind_contract=kind_contract,
         product=product,
         member=member,

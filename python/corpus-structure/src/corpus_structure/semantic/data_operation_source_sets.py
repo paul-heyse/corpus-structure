@@ -29,7 +29,7 @@ def is_semantic_source_reference(record):
 @dataclass(frozen=True)
 class SourceSetEntry:
     project_id: str
-    original_source: str
+    original_source: str | None
     subject: str
     analyzed_scope: bytes
     subject_definition: str = field(kw_only=True)
@@ -46,7 +46,6 @@ class SourceSetEntry:
                 type(value) is not str
                 for value in (
                     self.project_id,
-                    self.original_source,
                     self.subject,
                     self.subject_definition,
                     self.product,
@@ -57,6 +56,8 @@ class SourceSetEntry:
             or type(self.analyzed_scope) is not bytes
         ):
             raise TypeError("source-set custody and reference pins require immutable exact types")
+        if self.original_source is not None and (type(self.original_source) is not str or not self.original_source):
+            raise TypeError("source-set original source requires explicit null or a nonempty string")
         if self.member is not None and type(self.member) is not str:
             raise TypeError("source-set member must be an original string identifier")
         raw = json.loads(self.reference)
@@ -88,13 +89,15 @@ class SourceSetEntry:
             canonical = canonical_bytes(reference.values())
         else:
             reference = ExternalSourceRef.model_validate_json(self.reference)
+            if self.original_source is None:
+                raise ValueError("an original source reference requires its actual source association")
             if (
                 reference.project_id != self.project_id
                 or reference.identity != self.source_reference
             ):
                 raise ValueError("source-set reference differs from its original identity/project")
             canonical = canonical_bytes(reference.model_dump(mode="json", exclude_none=True))
-        if not all((self.project_id, self.original_source, self.subject, self.subject_definition, self.product)):
+        if not all((self.project_id, self.subject, self.subject_definition, self.product)):
             raise ValueError("source-set entries require exact qualified original custody")
         if self.member is not None and not self.member:
             raise ValueError("source-set member is null or a nonempty original identifier")
@@ -138,7 +141,7 @@ class SourceSetEntry:
         cls,
         reference: ExternalSourceRef,
         *,
-        original_source: str,
+        original_source: str | None,
         subject: str,
         subject_definition: str,
         analyzed_scope: bytes,

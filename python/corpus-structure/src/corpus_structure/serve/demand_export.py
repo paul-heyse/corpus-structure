@@ -325,7 +325,7 @@ def verify_demand_export(root: Path, *, manifest_digest: str):
             or _checksum(path) != descriptor["sha256"]
         ):
             raise ValueError("detached file differs from its pinned manifest: " + name)
-    prepared, kinds, definitions = {}, {}, {}
+    prepared, kinds, definitions, models = {}, {}, {}, {}
     for release_id, name in manifest["releases"].items():
         captured = wire_json_loads((root / name).read_bytes())
         acquired = open_release_parts(
@@ -337,7 +337,10 @@ def verify_demand_export(root: Path, *, manifest_digest: str):
         prepared[release_id] = acquired
         from corpus_structure.semantic.native_definition_projection import read_native_definition_projection
 
-        projection = read_native_definition_projection(acquired)
+        from corpus_structure.semantic.data_operation_admission import bound_data_operation_model
+
+        models[release_id] = bound_data_operation_model(acquired)
+        projection = read_native_definition_projection(acquired, model=models[release_id])
         for operation in projection["operations"]:
             definitions[release_id, operation["operation_id"]] = dict(
                 operation, release_id=release_id
@@ -374,6 +377,7 @@ def verify_demand_export(root: Path, *, manifest_digest: str):
                     wire_schema=wire_schema,
                     kinds=kinds,
                     definitions=definitions,
+                    models=models,
                     runtimes=runtime_ids,
                     source_artifacts=manifest["source_artifacts"],
                     validate_closure=ordinal == 0,

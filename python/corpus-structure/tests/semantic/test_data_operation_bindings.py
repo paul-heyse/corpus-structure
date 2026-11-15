@@ -818,6 +818,7 @@ def test_decoder_refuses_null_identity_and_every_required_support_dimension(stor
 
     connection, _, projection = storage
     product = model(BindingExpression("scan", roles=("items",)))
+    product = replace(product, subject_definitions=(replace(product.subject_definitions[0], scope="original-source"),))
     compiled = compile_binding(product, "urn:op", (projection,), subject="doc")
     rows = {
         name: tuple(dict(row) for row in connection.execute(query).mappings())
@@ -1842,3 +1843,23 @@ def test_semantic_source_set_association_compiles_without_fabricated_body_refere
                 ),
             )
         )
+
+
+def test_project_source_filters_distinguish_unqualified_null_and_actual_source(storage):
+    connection, table, projection = storage
+    product = model(BindingExpression("scan", roles=("items",)))
+    connection.execute(table.update().where(table.c.product == "p1").values(original_source=None))
+    connection.execute(table.update().where(table.c.product == "p2").values(original_source="other-source"))
+
+    def selected(**scope):
+        return execute_binding(connection, compile_binding(product, "urn:op", (projection,), subject="doc", **scope))
+
+    unqualified, absent, exact = selected(), selected(original_source=None), selected(original_source="other-source")
+    assert {member.product for member in unqualified.roles[0].members} == {"p1", "p2", "p3"}
+    assert {member.product for member in absent.roles[0].members} == {"p1"}
+    assert {member.product for member in exact.roles[0].members} == {"p2"}
+    context = SubjectContext("project", "doc", None, b"{}", subject_definition="document")
+    assert {member.product for member in selected(subject_context=context).roles[0].members} == {"p1"}
+    source_scoped = replace(product, subject_definitions=(replace(product.subject_definitions[0], scope="original-source"),))
+    with pytest.raises(ValueError, match="only a checked project-scoped"):
+        compile_binding(source_scoped, "urn:op", (projection,), subject="doc", original_source=None)

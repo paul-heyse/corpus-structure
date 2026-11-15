@@ -26,6 +26,7 @@ from .data_operation_model import (
     EffectiveDataOperationModel,
     ResolvedOperationBinding,
     SubjectContext,
+    validate_subject_source,
     json_context_meaning,
 )
 from .data_operation_source_sets import FrozenSourceSet, read_source_sets, source_sets_record
@@ -62,7 +63,7 @@ def _frozen_dependency_graph(selected, discovery=()):
 @dataclass(frozen=True)
 class RootSubject:
     subject: str
-    original_source: str
+    original_source: str | None
     analyzed_scope: bytes
 
 
@@ -123,8 +124,8 @@ def freeze_demand(
         }
     ) != len(roots):
         raise ValueError("duplicate root context")
-    if any(not root.subject or not root.original_source for root in roots):
-        raise ValueError("root subject and source must be explicit")
+    if any(type(root.subject) is not str or not root.subject or (root.original_source is not None and (type(root.original_source) is not str or not root.original_source)) for root in roots):
+        raise ValueError("root subject and nullable source must be explicit")
     frozen_source_sets = source_sets_record(source_sets)
     frozen_original_sources = original_source_selections_record(original_sources)
     supplied = {item.operation: item for item in selections}
@@ -215,6 +216,12 @@ def freeze_demand(
     root_operations.difference_update(
         member_operations - set(targets) - {relation.producer for relation in discovery}
     )
+    for operation_id in root_operations:
+        for root in roots:
+            validate_subject_source(model, operations[operation_id].subject, root.original_source)
+    for source_set in source_sets:
+        for entry in source_set.entries:
+            validate_subject_source(model, entry.subject_definition, entry.original_source)
     if not supplied.keys() <= closure:
         raise ValueError("selection is outside the requested closure")
     identities = {(item.owner, item.domain): item.key for item in model.identities}
@@ -275,7 +282,7 @@ def freeze_demand(
                     ),
                     key=lambda root: (
                         root["subject"],
-                        root["original_source"],
+                        json_bytes(root["original_source"]),
                         json_bytes(root["analyzed_scope"]),
                     ),
                 ),

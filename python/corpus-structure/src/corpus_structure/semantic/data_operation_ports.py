@@ -253,11 +253,15 @@ def project_product_members(
             or set(context) != {"subject", "subject_definition", "original_source", "analyzed_scope"}
             or any(
                 type(context[name]) is not str or not context[name]
-                for name in ("subject", "subject_definition", "original_source")
+                for name in ("subject", "subject_definition")
             )
         ):
             raise PortRefusal("native member packet lacks its exact source/subject/scope context")
-        model.subject_definition(context["subject_definition"])
+        from .data_operation_model import validate_subject_source
+        try:
+            validate_subject_source(model, context["subject_definition"], context["original_source"])
+        except ValueError as error:
+            raise PortRefusal(str(error)) from error
         if any(
             not isinstance(packet["body"], dict) or packet["body"].get(name) != value
             for name, value in constants[owner]

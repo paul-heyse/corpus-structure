@@ -210,7 +210,7 @@ def test_actual_main_mcp_read_and_resource_use_same_owner_and_exact_json(monkeyp
 
 
 def _detached_closure(
-    *, body=None, kind_contract="kind:amount"
+    *, body=None, kind_contract="kind:amount", original_source="source:A"
 ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
     from corpus_structure.semantic.data_operation_identity import (
         SemanticRequestKey,
@@ -220,7 +220,7 @@ def _detached_closure(
     from corpus_structure.semantic.data_operation_model import SubjectContext
 
     context = SubjectContext(
-        "project:A", "root", "source:A", json_bytes({"scale": Decimal("1.20")})
+        "project:A", "root", original_source, json_bytes({"scale": Decimal("1.20")})
     , subject_definition="document")
     body = {"amount": Decimal("12.340")} if body is None else body
     body_key = body_identity(body).key
@@ -236,7 +236,7 @@ def _detached_closure(
         kind_contract=kind_contract,
         project_id="project:A",
         subject="root",
-        original_source="source:A",
+        original_source=original_source,
         analyzed_scope={"scale": Decimal("1.20")},
         canonical_body=semantic_value(body),
         body_digest=body_key,
@@ -286,7 +286,7 @@ def _detached_closure(
                 replicate=None,
                 recipe="recipe:A",
                 subject="root",
-                original_source="source:A",
+                original_source=original_source,
                 analyzed_scope={"scale": Decimal("1.20")},
              subject_definition="document"),
         ),
@@ -636,3 +636,38 @@ def test_selected_record_acquisition_refuses_invalid_record_bounds_before_read(m
     with pytest.raises(ValueError, match="nonnegative integer"):
         with owner.selected_record_index(None, "demand:A", project_id="project:A", scope={}, max_total_records=bound):
             pytest.fail("invalid bound produced an index")
+
+
+def test_detached_source_free_context_requires_actual_checked_project_scope():
+    from corpus_structure.semantic.data_operation_compilation import compile_data_operations
+    from corpus_structure.semantic.demand_results import verify_detached_result
+    from semantic.data_operation_declaration_support import contract, declarations
+
+    def model(scope):
+        return compile_data_operations(declarations=declarations(contract(id="op:A", subject="document", subject_definition={"id": "document", "identifier_kind": "string", "scope": scope})))
+
+    native, records = _detached_closure(original_source=None)
+    with pytest.raises(ValueError, match="captured checked model"):
+        verify_detached_result(native, records=records, wire_schema={})
+    verify_detached_result(native, records=records, wire_schema={}, models={"release:A": model("project")})
+    with pytest.raises(ValueError, match="only a checked project-scoped"):
+        verify_detached_result(native, records=records, wire_schema={}, models={"release:A": model("original-document")})
+
+
+def test_public_query_distinguishes_explicit_null_source_and_omitted_filter(monkeypatch):
+    scopes = []
+    def read(*args, **kwargs):
+        scopes.append(kwargs["scope"])
+        page = _page()
+        page["scope"] = kwargs["scope"]
+        return DemandResult(json_bytes(page))
+    monkeypatch.setattr("corpus_structure.semantic.demand_queries.read_demand_result", read)
+    unqualified = DemandQueryRequest(demand_id="demand:A", project_id="project:A", limit=1)
+    absent = unqualified.model_copy(update={"original_source": None})
+    assert "original_source" not in unqualified.selection()
+    assert absent.selection()["original_source"] is None
+    first = serve_demand_query(None, unqualified)
+    serve_demand_query(None, absent)
+    assert scopes == [{}, {"original_source": None}]
+    with pytest.raises(ValueError, match="exact public selection"):
+        serve_demand_query(None, absent.model_copy(update={"cursor": first["continuation"]}))

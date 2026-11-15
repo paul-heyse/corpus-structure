@@ -368,6 +368,7 @@ def verify_detached_result(
     wire_schema=None,
     kinds=None,
     definitions=None,
+    models=None,
     runtimes=None,
     source_artifacts=None,
     validate_closure=True,
@@ -418,6 +419,18 @@ def verify_detached_result(
     actual_kinds = row_map("sem.data_kind_contract", "kind_contract")
     if kinds is not None and any(kinds.get(key) != value for key, value in actual_kinds.items()):
         raise ValueError("detached kind differs from its captured release contract")
+    def checked_context(context, *, release_id=None, subject_definition=None):
+        from .data_operation_model import validate_subject_context
+
+        if models is None:
+            if context.original_source is None:
+                raise ValueError("nullable subject source requires its captured checked model")
+            return
+        release = record["release_id"] if release_id is None else release_id
+        if release not in models:
+            raise ValueError("detached subject scope lacks its captured release model")
+        validate_subject_context(models[release], context, subject_definition=subject_definition)
+
     products = row_map("kb.data_product", "id")
     members = row_map("kb.data_product_member", "product_id", "member_id")
     for product in products.values() if validate_closure else ():
@@ -444,6 +457,7 @@ def verify_detached_result(
             product["original_source"],
             json_bytes(product["analyzed_scope"]),
          subject_definition=product["subject_definition"])
+        checked_context(context)
         if (
             body != product["body_digest"]
             or contextual_product_identity(
@@ -454,6 +468,7 @@ def verify_detached_result(
             raise ValueError("detached product differs from its semantic identity")
     for member in members.values() if validate_closure else ():
         product = products[member["product_id"]]
+        checked_context(SubjectContext(product["project_id"], member["subject"], member["original_source"], json_bytes(member["analyzed_scope"]), subject_definition=member["subject_definition"]))
         kind = actual_kinds[member["kind_contract"]]
         Draft7Validator(kind["meaning_schema"]).validate(member["body"])
         decoded = decode_semantic_value(member["body"])
@@ -491,6 +506,7 @@ def verify_detached_result(
         for request in requests.values():
             definition = actual_definitions[request["release_id"], request["operation_id"]]
             validate_replicate_selection(definition["support_contract"]["replicate_policy"], request["replicate"], owner=request["operation_id"])
+            checked_context(SubjectContext(request["project_id"], request["subject"], request["original_source"], json_bytes(request["analyzed_scope"]), subject_definition=definition["subject_definition"]), release_id=request["release_id"], subject_definition=definition["subject_definition"])
     episodes = row_map("ops.data_derivation", "id")
     if validate_closure:
         for episode in episodes.values():
@@ -600,6 +616,7 @@ def verify_detached_result(
                     request["original_source"],
                     json_bytes(request["analyzed_scope"]),
                  subject_definition=definition["subject_definition"])
+                checked_context(context, release_id=episode["release_id"], subject_definition=definition["subject_definition"])
                 product_key = contextual_product_identity(
                     kind=produced["kind_contract"],
                     context=context,

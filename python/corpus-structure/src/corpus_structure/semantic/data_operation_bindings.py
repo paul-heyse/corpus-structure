@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from datetime import date, datetime
 from decimal import Decimal
 from itertools import pairwise
+from enum import Enum
 from typing import Any, Literal, cast
 
 from sqlalchemy import and_, false, func, literal, not_, or_, select, true
@@ -34,6 +35,8 @@ from .data_operation_model import (
     ResolvedOperationBinding,
     ResolvedRoleBinding,
     SubjectContext,
+    validate_subject_source,
+    validate_subject_context,
 )
 from .data_operation_projections import member_columns
 from .data_operation_source_sets import (
@@ -42,6 +45,13 @@ from .data_operation_source_sets import (
     source_sets_record,
 )
 from .identity import canonical_bytes
+
+class _UnqualifiedSource(Enum):
+    OMITTED = "omitted"
+
+
+_UNQUALIFIED_SOURCE = _UnqualifiedSource.OMITTED
+
 
 BindingStatus = Literal[
     "ready",
@@ -194,7 +204,7 @@ class CompiledBinding:
     population_roles: tuple[tuple[str, str], ...] = ()
     subject_columns: tuple[tuple[str, str], ...] = ()
     source_sets: bytes = b"{}"
-    original_source: str | None = None
+    original_source: str | None | _UnqualifiedSource = _UNQUALIFIED_SOURCE
     subject_context: SubjectContext | None = None
     population_projections: tuple[tuple[str, Literal["member", "qualified-context"]], ...] = ()
 
@@ -401,7 +411,7 @@ def compile_binding(
     choices: Mapping[str, str] | None = None,
     populations: tuple[PopulationBinding, ...] = (),
     source_sets: tuple[FrozenSourceSet, ...] = (),
-    original_source: str | None = None,
+    original_source: str | None | _UnqualifiedSource = _UNQUALIFIED_SOURCE,
     subject_context: SubjectContext | None = None,
     discovery_roles: tuple[tuple[str, str], ...] = (),
 ) -> CompiledBinding:
@@ -412,7 +422,7 @@ def compile_binding(
     """
     if subject_context is not None and (
         subject_context.subject != subject
-        or (original_source is not None and subject_context.original_source != original_source)
+        or (original_source is not _UNQUALIFIED_SOURCE and subject_context.original_source != original_source)
     ):
         raise ValueError("compiled binding differs from acquired subject context")
     if not subject:
@@ -422,8 +432,11 @@ def compile_binding(
     op = model.operation(operation)
     if op.coverage.binding != op.binding or any(role.support is None or role.support.coverage.role != role.name for role in op.roles if role.direction == "input"):
         raise ValueError("coverage differs from the actual operation binding or input role")
-    if subject_context is not None and subject_context.subject_definition != op.subject:
-        raise ValueError("compiled binding subject definition differs from operation")
+    if subject_context is not None:
+        validate_subject_context(model, subject_context, subject_definition=op.subject)
+        original_source = subject_context.original_source
+    elif original_source is not _UNQUALIFIED_SOURCE:
+        validate_subject_source(model, op.subject, original_source)
     available_source_sets = source_sets_record(source_sets)
     named_source_sets = {
         role.support.source_set
@@ -433,6 +446,10 @@ def compile_binding(
     if not named_source_sets <= available_source_sets.keys():
         raise ValueError("binding lacks a declared frozen source set")
     selected_source_sets = {name: available_source_sets[name] for name in sorted(named_source_sets)}
+    for source_set in source_sets:
+        if source_set.name in named_source_sets:
+            for entry in source_set.entries:
+                validate_subject_source(model, entry.subject_definition, entry.original_source)
     identities = {(identity.owner, identity.domain): identity.key for identity in model.identities}
     expression = next(item.expression for item in model.bindings if item.semantic_id == op.coverage.binding)
     params = effective_binding_parameters(op, parameters)
@@ -558,7 +575,7 @@ def compile_binding(
                 raise ValueError("source-set association requires an explicit exact input scope")
             target = None
         elif role.subject_target == "original-source":
-            if role.subject_field is None or not original_source:
+            if role.subject_field is None or type(original_source) is not str or not original_source:
                 raise ValueError(
                     "original-source association requires its explicit source and field"
                 )
@@ -602,8 +619,8 @@ def compile_binding(
             ]
             return and_(association, or_(*permitted))
         return (
-            and_(association, alias.c.original_source == original_source)
-            if original_source is not None
+            and_(association, alias.c.original_source.is_not_distinct_from(original_source))
+            if original_source is not _UNQUALIFIED_SOURCE
             else association
         )
 
@@ -1327,6 +1344,13 @@ def decode_binding_rows(
             )
             for row in rows.get(role.name, ())
         )
+        def valid_member_source(member):
+            try:
+                validate_subject_source(compiled.model, member.subject_definition, member.original_source)
+            except ValueError:
+                return False
+            return True
+
         malformed = (
             raw_invalid
             or subject_invalid
@@ -1336,7 +1360,6 @@ def decode_binding_rows(
                 or any(
                     not isinstance(value, str) or not value
                     for value in (
-                        member.original_source,
                         member.subject,
                         member.product,
                         member.kind_contract,
@@ -1347,6 +1370,7 @@ def decode_binding_rows(
                     and role.subject_target != "source-set"
                     and member.subject != compiled.subject
                 )
+                or not valid_member_source(member)
                 or member.kind_contract not in accepted
                 or (
                     member.position is not None

@@ -35,7 +35,10 @@ class DemandQueryRequest(BaseModel):
     max_bytes: int = Field(default=1048576, strict=True, ge=1024, le=67108864)
 
     def selection(self):
-        return self.model_dump(mode="python", exclude={"cursor", "limit", "max_bytes"})
+        selected = self.model_dump(mode="python", exclude={"cursor", "limit", "max_bytes"})
+        if "original_source" not in self.model_fields_set:
+            selected.pop("original_source")
+        return selected
 
 
 def _cursor(value):
@@ -75,6 +78,8 @@ def serve_demand_query(connection, request: DemandQueryRequest) -> dict:
         ).items()
         if value is not None
     }
+    if "original_source" in request.model_fields_set:
+        scope["original_source"] = request.original_source
     if request.product_id is not None:
         scope["product_ids"] = [request.product_id]
     native_request = None if cursor is None else cursor["request"]
@@ -238,7 +243,7 @@ def serve_demand_query(connection, request: DemandQueryRequest) -> dict:
         dict(selection=digest, request=resource_request, cut=page.cut.identity, offset=offset)
     )
     report["resource_handle"] = _cursor(
-        dict(request.model_dump(mode="python"), cursor=resource_cursor)
+        dict(selection, limit=request.limit, max_bytes=request.max_bytes, cursor=resource_cursor)
     )
     if len(json_bytes(report)) > request.max_bytes:
         raise ValueError("complete selected result envelope exceeds max_bytes")
