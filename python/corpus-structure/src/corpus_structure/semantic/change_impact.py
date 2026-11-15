@@ -25,7 +25,7 @@ class PopulationMember(BaseModel):
     operation: str
     subject: str
     subject_definition: str
-    original_source: str
+    original_source: str | None
     analyzed_scope: dict[str, Any] = Field(default_factory=dict)
 
     @property
@@ -665,6 +665,15 @@ def inspect_change_impact(
             raise ValueError("invalid impact continuation") from error
         if token["request_identity"] != request_identity:
             raise ValueError("impact continuation belongs to another comparison request scope")
+        for field, pin in (
+            ("read_id", "before_read"),
+            ("expected_cut", "before_cut"),
+            ("target_read_id", "target_read"),
+            ("expected_target_cut", "target_cut"),
+        ):
+            explicit = getattr(request, field)
+            if explicit is not None and explicit != token[pin]:
+                raise ValueError("impact continuation conflicts with explicit " + field)
         request = request.model_copy(
             update={
                 "read_id": token["before_read"],

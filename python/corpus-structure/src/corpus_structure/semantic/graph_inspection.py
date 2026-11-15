@@ -451,6 +451,10 @@ def read_graph_inspection(reader, request: GraphInspectionRequest):
             cursor = json_loads(base64.urlsafe_b64decode(request.cursor))
             if not cursor.get("read_id") or not cursor.get("cut"):
                 raise ValueError("selected graph cursor lacks native read pins")
+            for field, pin in (("read_id", "read_id"), ("expected_cut", "cut")):
+                explicit = getattr(request, field)
+                if explicit is not None and explicit != cursor[pin]:
+                    raise ValueError("graph continuation conflicts with explicit " + field)
             request = request.model_copy(
                 update={"read_id": cursor["read_id"], "expected_cut": cursor["cut"]}
             )

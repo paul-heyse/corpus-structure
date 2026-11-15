@@ -739,3 +739,89 @@ def test_native_rebound_selected_support_attributes_new_upstream_revocation(ddo_
     assert all(
         row.support_path[0] == "use:" + selected["use_id"] for row in current.invalidity_causes
     )
+
+
+@pytest.mark.parametrize("field", ["read_id", "expected_cut", "target_read_id", "expected_target_cut"])
+@pytest.mark.parametrize("explicit", [None, "matching", "conflicting"])
+def test_continuation_explicit_pins_are_checked_before_acquisition(monkeypatch, field, explicit):
+    import base64
+    from hashlib import sha256
+
+    from corpus_structure.semantic import change_impact
+    from corpus_structure.semantic.data_operation_json import json_bytes
+
+    request = ChangeImpactRequest(
+        project_id="project", before_demand_id="before", target_demand_id="target",
+        target_release_id="release",
+    )
+    identity = sha256(json_bytes(request.model_dump(mode="python", exclude={
+        "cursor", "limit", "read_id", "expected_cut", "target_read_id", "expected_target_cut",
+    }))).hexdigest()
+    pins = dict(read_id="before-read", expected_cut="before-cut", target_read_id="target-read", expected_target_cut="target-cut")
+    token = dict(comparison="comparison", request_identity=identity, offset=0,
+                 before_read=pins["read_id"], before_cut=pins["expected_cut"],
+                 target_read=pins["target_read_id"], target_cut=pins["expected_target_cut"])
+    request = request.model_copy(update={"cursor": base64.urlsafe_b64encode(json_bytes(token)).decode(),
+        field: None if explicit is None else pins[field] if explicit == "matching" else "wrong"})
+
+    class Acquired(Exception):
+        pass
+
+    def acquire(*args, **kwargs):
+        assert kwargs["read_id"] == "before-read"
+        assert kwargs["expected_cut"] == "before-cut"
+        raise Acquired
+
+    monkeypatch.setattr(change_impact, "_acquire", acquire)
+    if explicit == "conflicting":
+        with pytest.raises(ValueError, match="conflicts with explicit " + field):
+            inspect_change_impact(None, request, target_prepared=None)
+    else:
+        with pytest.raises(Acquired):
+            inspect_change_impact(None, request, target_prepared=None)
+
+
+def test_source_free_population_preserves_null_and_currentness(impact_models):
+    before, target = impact_models
+    old = observation(before).model_copy(update={"member": PopulationMember(
+        operation=before.operations[0].semantic_id,
+        subject="project", subject_definition=before.operations[0].subject, original_source=None,
+    )})
+    new = old.model_copy(update={"derivations": ("episode:new",)})
+    row, = classify_change_impact(before, target, before=(old,), target=(new,),
+        before_population=(old.member,), target_population=(new.member,), population_complete=True,
+        target_observed=True)
+    assert row.state == "substitutable"
+    assert row.member.original_source is None
+    assert old.member.key != old.member.model_copy(update={"original_source": ""}).key
+    unknown, = classify_change_impact(before, before, before=(old,))
+    assert unknown.state == "unknown"
+
+
+def test_acquire_source_free_obligation_keeps_population_context(monkeypatch, impact_models):
+    from types import SimpleNamespace
+
+    from corpus_structure.semantic import change_impact, data_operation_admission, releases
+
+    model, _ = impact_models
+    operation = model.operations[0]
+    cut = SimpleNamespace(identity="cut", record={"release_id": "release", "selection": {}})
+    page = SimpleNamespace(cut=cut, continuation=None, record={
+        "state": "active", "populations": [], "uses": [], "obligations": [{
+            "obligation_id": "obligation", "operation_id": operation.semantic_id,
+            "subject_definition": operation.subject, "subject": "project",
+            "original_source": None, "analyzed_scope": {}, "fate": "waiting",
+        }],
+    })
+    monkeypatch.setattr(change_impact, "read_demand_result", lambda *args, **kwargs: page)
+    monkeypatch.setattr(change_impact, "stream_selected_support", lambda *args: iter(()))
+    monkeypatch.setattr(releases, "open_release", lambda *args: object())
+    monkeypatch.setattr(data_operation_admission, "bound_data_operation_model", lambda _: model)
+    acquired, evidence, population, closed = change_impact._acquire(
+        None, "demand", project="project", scope={}, read_id=None, expected_cut="cut", max_bytes=8192,
+    )
+    assert acquired is cut and closed
+    assert len(evidence) == len(population) == 1
+    assert population[0].original_source is None
+    assert evidence[0].member == population[0]
+    assert evidence[0].fate == "waiting"

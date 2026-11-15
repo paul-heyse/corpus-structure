@@ -188,3 +188,35 @@ def test_assessment_roots_have_an_explicit_request_bound():
             demand_id="demand",
             assessed_members=members,
         )
+
+
+@pytest.mark.parametrize("field,pin", [("read_id", "read"), ("expected_cut", "cut")])
+@pytest.mark.parametrize("explicit", [None, "matching", "conflicting"])
+def test_selected_continuation_checks_explicit_pins_before_reader(field, pin, explicit):
+    import base64
+    from contextlib import contextmanager
+
+    from corpus_structure.semantic.data_operation_json import json_bytes
+    from corpus_structure.semantic.graph_inspection import _request_identity, read_graph_inspection
+
+    selected = request(demand_id="demand", project_id="project")
+    token = {"request_identity": _request_identity(selected), "read_id": "read", "cut": "cut"}
+    selected = selected.model_copy(update={
+        "cursor": base64.urlsafe_b64encode(json_bytes(token)).decode(),
+        field: None if explicit is None else pin if explicit == "matching" else "wrong",
+    })
+
+    class ReaderEntered(Exception):
+        pass
+
+    @contextmanager
+    def reader():
+        raise ReaderEntered
+        yield
+
+    if explicit == "conflicting":
+        with pytest.raises(ValueError, match="invalid selected graph continuation"):
+            read_graph_inspection(reader, selected)
+    else:
+        with pytest.raises(ReaderEntered):
+            read_graph_inspection(reader, selected)
