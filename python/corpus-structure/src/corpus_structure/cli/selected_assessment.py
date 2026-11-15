@@ -182,7 +182,7 @@ def evaluate_records(
 
     with managed_operation(result_store(ctx), "eval.records", json=json, expected=(OperationConflict, OSError)) as invocation:
         parsed = read_request_model(request, NativeDemandRequest)
-        if parsed.targets not in {("record_policy.grade",), ("record_policy.fit",)}:
+        if parsed.targets not in {("record_policy.grade",), ("record_policy.fit",), ("record_policy.fit", "record_policy.authorize")}:
             from corpus_structure.semantic.refusals import SemanticRefusal
 
             raise SemanticRefusal("record evaluation requires exactly its protected grade or fit target")
@@ -191,7 +191,7 @@ def evaluate_records(
         invocation.publish("request", request_path)
         settings = state(ctx).settings()
         fitter = (open_runtime_engine(settings, "ci-record-feature-fit", purpose="fit")
-                  if parsed.targets == ("record_policy.fit",) else nullcontext(None))
+                  if "record_policy.fit" in parsed.targets else nullcontext(None))
         with (open_runtime_engine(settings, "ci-record-policy-evaluator", purpose="evaluate") as engine,
               open_runtime_engine(settings, "ci-record-policy-admit", purpose="admit") as admission,
               fitter as fitter_engine):

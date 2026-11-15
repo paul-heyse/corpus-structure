@@ -374,7 +374,7 @@ def run_grade(journey, selected_sources, populations, reference_facts, specifica
     pending = request(journey, ('record_policy.grade',), (context,), originals=(*reference_facts,spec),
         source_sets=(FrozenSourceSet('record-policy-sources', tuple(source.entry() for source in selected_sources)), FrozenSourceSet('record-policy-predictions',tuple(entries))), inference=inference)
     retained = author_record_policy_inputs(journey.kernel.purpose('evaluate'),journey.kernel.prepared,request=pending)
-    result = execute_data_demand(journey.kernel.purpose('evaluate'),retained['demand_id'],source_root=ROOT,
+    result = execute_data_demand(journey.kernel.purpose('evaluate'),retained['demand_id'],source_root=ROOT,purpose='evaluate',
         admission_engine=journey.kernel.purpose('admit'),project_id=PROJECT,database_capacity=6)
     assert result.receipt_count == 1
     cut, products, uses, episodes, outputs = journey.selected_products(journey.kernel.purpose('evaluate'),retained['demand_id'],kind=PROTECTED_NAMESPACE + 'DdoRecordGrade')
@@ -437,7 +437,7 @@ def complete_policy_fit(journey):
     pending=request(journey,('record_policy.fit','record_policy.authorize'),(context,),originals=(fact,),
         source_sets=(FrozenSourceSet('record-policy-feature-grades',(feature.entry(),)),FrozenSourceSet('record-policy-calibration-grades',(calibration.entry(),))),inference='genuine-protected-fit-and-native-authorization')
     retained=author_record_policy_inputs(journey.kernel.purpose('evaluate'),journey.kernel.prepared,request=pending)
-    result=execute_data_demand(journey.kernel.purpose('evaluate'),retained['demand_id'],source_root=ROOT,
+    result=execute_data_demand(journey.kernel.purpose('evaluate'),retained['demand_id'],source_root=ROOT,purpose='evaluate',
         admission_engine=journey.kernel.purpose('admit'),fitter_engine=journey.kernel.purpose('fit'),project_id=PROJECT,database_capacity=6)
     assert result.receipt_count==2
     _,fitted,*_=journey.selected_products(journey.kernel.purpose('evaluate'),retained['demand_id'],kind=PROTECTED_NAMESPACE+'DdoFittedRecordPolicy')
@@ -454,7 +454,7 @@ def copy_grade(journey, selected_grade):
     pending=request(journey,('fixture.protected_grade_copy',),(context,),source_sets=(FrozenSourceSet('fixture-copy-grade',(selected_grade.entry(),)),),inference='actual-captured-protected-copy')
     with journey.kernel.purpose('evaluate').begin() as connection:
         demand=create_native_demand(connection,pending)['demand_id']
-    executed=execute_data_demand(journey.kernel.purpose('evaluate'),demand,source_root=ROOT,admission_engine=journey.kernel.purpose('admit'),project_id=PROJECT,database_capacity=6)
+    executed=execute_data_demand(journey.kernel.purpose('evaluate'),demand,source_root=ROOT,purpose='evaluate',admission_engine=journey.kernel.purpose('admit'),project_id=PROJECT,database_capacity=6)
     assert executed.receipt_count==1
     cut,products,uses,episodes,outputs=journey.selected_products(journey.kernel.purpose('evaluate'),demand,kind=PROTECTED_NAMESPACE+'DdoRecordGrade')
     copies=[(row,body) for row,body in products if row['subject']==context.subject]
@@ -468,3 +468,61 @@ def copy_grade(journey, selected_grade):
     selection=DdoRecordGradeSelection(project_id=PROJECT,demand_id=demand,read_id=cut.record['read_id'],use_id=use['use_id'],derivation_id=episode['id'],
         product_id=product['id'],expected_cut=cut.identity,cut_canonical_json=cut.content.decode(),frame_digest=copied.frame_digest)
     return SelectedGrade(copied,selection,product)
+
+
+def refuse_exchanged_fitted_body(fitted, monkeypatch):
+    """Two legitimate fit requests; tamper only after the second real CPU result."""
+    from copy import deepcopy
+    from sqlalchemy.exc import DBAPIError
+    from corpus_structure.evaluate.declared_record_policy import DdoRecordFitSpecification, PROTECTED_NAMESPACE, author_record_policy_inputs
+    from corpus_structure.semantic.data_operation_identity import semantic_value, decode_semantic_value
+    from corpus_structure.semantic.data_operation_source_sets import FrozenSourceSet
+    from corpus_structure.semantic.data_operation_storage import DataOperationStorage
+    from corpus_structure.semantic.data_operation_service import execute_data_demand
+    from corpus_structure.orchestrate.data_operations import NativeDemandExecutionError
+    journey=fitted.journey
+    _,specifications,*_=journey.selected_products(journey.kernel.purpose('evaluate'),fitted.demand_id,kind=PROTECTED_NAMESPACE+'DdoRecordFitSpecification')
+    ((_,original),)=specifications
+    specification=DdoRecordFitSpecification.model_validate_json(canonical_bytes({**original,'threshold':0.75}))
+    assert specification.threshold!=fitted.fitted['instance']['threshold']
+    context=project_context(journey,'record_policy.fit')
+    fact=authored(journey,'different-legitimate-fit-specification',specification.model_dump(mode='json'),kind=PROTECTED_NAMESPACE+'DdoRecordFitSpecification',context=context)
+    pending=request(journey,('record_policy.fit','record_policy.authorize'),(context,),originals=(fact,),
+        source_sets=(FrozenSourceSet('record-policy-feature-grades',(fitted.feature.entry(),)),FrozenSourceSet('record-policy-calibration-grades',(fitted.calibration.entry(),))),
+        inference='actual-different-fit-request-copied-conclusion-refusal')
+    retained=author_record_policy_inputs(journey.kernel.purpose('evaluate'),journey.kernel.prepared,request=pending)
+    actual_retain=DataOperationStorage.retain_data_completion_intent
+    observed=[]
+    def exchanged(storage,payload):
+        if payload['completion']['outputs'] and payload['completion']['outputs'][0]['role']=='fitted':
+            original_completion=payload['completion']
+            actual=decode_semantic_value(original_completion['outputs'][0]['product']['body'])
+            assert actual['instance']['threshold']==0.75
+            assert len(original_completion['execution_evidence']['cpu_receipts'])==1
+            altered=deepcopy(payload)
+            altered['completion']['outputs'][0]['product']['body']=semantic_value(fitted.fitted)
+            # The current fit's real CPU/fence evidence stays untouched. This is
+            # an adversarial body substitution, never a fabricated CPU receipt.
+            assert altered['completion']['execution_evidence']==original_completion['execution_evidence']
+            try:
+                return actual_retain(storage,altered)
+            except DBAPIError as error:
+                observed.append(error)
+                raise
+        return actual_retain(storage,payload)
+    with monkeypatch.context() as patch:
+        patch.setattr(DataOperationStorage,'retain_data_completion_intent',exchanged)
+        with pytest.raises(NativeDemandExecutionError):
+            execute_data_demand(journey.kernel.purpose('evaluate'),retained['demand_id'],source_root=ROOT,purpose='evaluate',
+                admission_engine=journey.kernel.purpose('admit'),fitter_engine=journey.kernel.purpose('fit'),project_id=PROJECT,database_capacity=6)
+    assert len(observed)==1
+    import psycopg
+    original_error=observed[0].orig
+    assert isinstance(original_error,psycopg.errors.CheckViolation)
+    assert original_error.sqlstate=='23514'
+    assert 'fitted policy differs from actual frozen feature' in (original_error.diag.message_primary or '')
+    # The rejected request never obtains a fit publication or an issuer receipt.
+    with journey.kernel.purpose('evaluate').begin() as connection:
+        from corpus_structure.semantic.demand_results import read_demand_result
+        page=read_demand_result(connection,retained['demand_id'],project_id=PROJECT,limit=1000,view='frontier')
+        assert all(row['fate']!='fulfilled' for row in page.record['uses'])

@@ -53,11 +53,11 @@ from sqlalchemy.exc import DBAPIError
 
 from evaluate.declared_record_native_support import (
     current_record_policy as current_record_policy,
-    complete_policy_fit, copy_grade, retain_references, run_readings, run_grade, PROJECT,
+    complete_policy_fit, copy_grade, retain_references, run_readings, run_grade, refuse_exchanged_fitted_body, PROJECT,
 )
 
 
-def test_actual_grade_fit_authorization_and_restricted_fitter_custody(current_record_policy):
+def test_actual_grade_fit_authorization_and_restricted_fitter_custody(current_record_policy,monkeypatch):
     """Real native publications and purposes; extraction remains controlled."""
     from typing import cast
     from corpus_structure.evaluate.declared_record_policy import reacquire_record_feature_grade
@@ -141,6 +141,8 @@ def test_actual_grade_fit_authorization_and_restricted_fitter_custody(current_re
     (coverage,) = empty.grade.frame.coverage
     assert coverage.outcome == 'no_output' and coverage.event_ids == ()
     assert len(coverage.outputs) == 1 and coverage.source == empty_sources[0].pin
+
+    refuse_exchanged_fitted_body(fitted,monkeypatch)
 
     # Current trust gates both the restricted original grade and the genuine
     # authorization's transitive support; historical equal bodies do not repair it.

@@ -197,3 +197,26 @@ def test_record_policy_boundary_owns_refusals_and_preserves_unexpected_value_err
         owner.prepare_record_feature_policy(object(), request)
     assert observed.value is unexpected
     assert not isinstance(observed.value, SemanticRefusal)
+
+
+@pytest.mark.parametrize('targets,first_purpose',[
+    (('record_policy.grade',),'evaluate'),
+    (('record_policy.fit',),'fit'),
+    (('record_policy.fit','record_policy.authorize'),'fit'),
+])
+def test_registered_record_cli_accepts_genuine_fit_authorize_and_acquires_fit_resource(cli,monkeypatch,tmp_path,targets,first_purpose):
+    from corpus_structure.semantic.data_operation_service import NativeDemandRequest,DemandRoot
+    import corpus_structure.semantic.runtime as runtime
+    request=NativeDemandRequest(project_id='unadmitted-project',release_id='unadmitted-release',runtime_id='unadmitted-runtime',
+        roots=(DemandRoot(subject='unadmitted-knowledge',original_source=None,analyzed_scope={}),),targets=targets,execution_profile='controlled-adapter')
+    path=tmp_path/'record-request.json'
+    path.write_bytes(canonical_bytes(request.model_dump(mode='json')))
+    acquired=[]
+    sentinel=RuntimeError('stop before database acquisition')
+    def acquire(*_args,purpose,**_kwargs):
+        acquired.append(purpose)
+        raise sentinel
+    monkeypatch.setattr(runtime,'open_runtime_engine',acquire)
+    result=cli('eval','records','--request',str(path),'--source-root',str(tmp_path),'--json')
+    assert acquired==[first_purpose]
+    assert result.exception is sentinel
