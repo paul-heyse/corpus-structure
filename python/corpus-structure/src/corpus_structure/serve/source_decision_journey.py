@@ -265,6 +265,7 @@ def inspect_selected_source_journey(conn, request: SelectedSourceDecisionJourney
                 layer, request.opportunity, body, projected, comparison=comparison
             )
             if name == "comparison" and result is not None:
+                assert report is not None
                 context = selected.context
                 reference = DeclaredStructuralRef(
                     product_id=selected.reference.product_id,

@@ -11,7 +11,7 @@ def test_review_help_is_lazy(cli):
     for arguments in (
         ("retained-review", "--help"),
         ("retained-review", "verify", "--help"),
-        ("retained-structure", "list", "--help"),
+        ("structure", "list", "--help"),
     ):
         result = cli(*arguments, settings=refuse)
         assert result.exit_code == 0, result.output
@@ -243,7 +243,7 @@ def test_retained_routes_require_explicit_history_pins_before_settings(cli):
     for args in (
         ("retained-explain", "claim", "claim:A"),
         ("retained-explain", "claim", "claim:A", "--run", "promoted"),
-        ("retained-structure", "list", "--run", "17"),
+        ("structure", "list"),
     ):
         result = cli(*args, settings=refuse)
         assert result.exit_code == 2
