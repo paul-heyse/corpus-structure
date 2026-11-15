@@ -727,10 +727,10 @@ classes:
         slot_uri: pdf:PdfSourceViewPublication_analysis_eligible
   PdfVisualEvidencePin:
     attributes:
-      run_id: {range: PdfInteger, required: true, minimum_value: 1, slot_uri: pdf:PdfVisualEvidencePin_run_id}
-      task_id: {range: PdfInteger, required: true, minimum_value: 1, slot_uri: pdf:PdfVisualEvidencePin_task_id}
-      product_key: {range: PdfString, required: true, slot_uri: pdf:PdfVisualEvidencePin_product_key}
-      content_digest: {range: PdfDigest, required: true, slot_uri: pdf:PdfVisualEvidencePin_content_digest}
+      use_id: {range: PdfString, required: true}
+      product_id: {range: PdfString, required: true}
+      derivation_id: {range: PdfString, required: true}
+
   PdfNativeReadRequest:
     attributes:
       version:

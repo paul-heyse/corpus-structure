@@ -15,7 +15,8 @@ from typing import Literal
 from pydantic import BaseModel
 from sqlalchemy import case, func, select
 
-from corpus_structure.serve.pdf_visual_evidence import VisualEvidencePin
+from corpus_structure.semantic.visual_evidence import VisualEvidencePin
+from corpus_structure.serve.selected_pdf import SelectedPdfSourceReference
 
 from .metadata import table
 from .pdf_payloads import _from_arrow
@@ -96,7 +97,7 @@ class VisualCueAssessment(BaseModel):
 
 class VisualRouteReport(BaseModel):
     policy: Literal["chandra-dry-routing-v4"] = "chandra-dry-routing-v4"
-    source: VisualEvidencePin
+    source: SelectedPdfSourceReference
     structural_input: VisualEvidencePin | None
     page_count: int
     pages: tuple[VisualPageRoute, ...]
@@ -375,15 +376,6 @@ def _original_blank_body(page, layout: _Observation, furniture: list[_Region]) -
     return True
 
 
-def _pin_columns(task, product):
-    return (
-        task.c.run_id,
-        product.c.task_id,
-        product.c.product_key,
-        product.c.content_digest,
-    )
-
-
 def _page_items(conn, pin, first, last):
     regions, items = published_native_table("region"), published_native_table()
     query = (
@@ -437,30 +429,6 @@ def _page_items(conn, pin, first, last):
     return by_page, furniture
 
 
-def _observation_artifact(conn, pin, digest):
-    custody, artifacts = map(table, ("ops.pdf_product_artifact", "kb.source_artifact"))
-    # The SQL bound is checked before a raw payload can enter this read.
-    row = conn.execute(
-        select(case((func.octet_length(artifacts.c.content) <= 1024 * 1024, artifacts.c.content)))
-        .select_from(
-            custody.join(artifacts, custody.c.artifact_digest == artifacts.c.artifact_digest)
-        )
-        .where(
-            custody.c.task_id == pin.task_id,
-            custody.c.product_key == pin.product_key,
-            custody.c.artifact_digest == digest,
-        )
-    ).one_or_none()
-    if row is None:
-        return None, "missing_artifact"
-    if row[0] is None:
-        return None, "artifact_over_budget"
-    result = bytes(row[0])
-    if sha256(result).hexdigest() != digest:
-        raise ValueError("retained bytes differ from the archived observation artifact digest")
-    return result, "available"
-
-
 def _quantity_disagrees(left: str, right: str) -> bool | None:
     # These are literal disagreement cues, not interpreted formulas or cell bindings.
     # Requiring explicit quantities on both sides avoids treating failed parsing as a conflict.
@@ -504,25 +472,6 @@ def _disagreements(
     return reasons, bool(compared) and all(compared)
 
 
-def _read_observation(conn, row) -> _Observation:
-    pin = VisualEvidencePin.model_validate(
-        {key: row[key] for key in VisualEvidencePin.model_fields}
-    )
-    image = row["image"]
-    raw, availability = (
-        _observation_artifact(conn, pin, row["raw_digest"])
-        if row["raw_digest"]
-        else (None, "missing_artifact")
-    )
-    if raw is None:
-        return _Observation(pin, image, (), availability)
-    try:
-        readings = _readings(raw, image)
-    except UnicodeError:
-        readings = ()
-    return _Observation(pin, image, readings, "available" if readings else "unsupported_reading")
-
-
 def _crop_bounds(image: dict) -> _Box | None:
     transform = image.get("transform") or {}
     if not _comparable_frame(image) or transform["normalization"] != "clipped":
@@ -541,7 +490,7 @@ def _region_address(reason: VisualRouteReason) -> tuple:
         reason.code,
         reason.kind,
         tuple(
-            (0, pin.task_id, pin.product_key, pin.content_digest)
+            (0, pin.use_id, pin.product_id, pin.derivation_id)
             if isinstance(pin, VisualEvidencePin)
             else (1, pin.product_id, pin.member_id, pin.derivation_id, pin.read_id)
             for pin in reason.inputs
@@ -549,352 +498,6 @@ def _region_address(reason: VisualRouteReason) -> tuple:
         (crop.pointer, crop.region_index) if crop else None,
         reason.artifact_digest,
     )
-
-
-def _omitted_crops(conn, row, selected, settled_crop_rows):
-    encoding = row["decoding"]
-    if not encoding:
-        return [], "missing_decisions", None
-    digest = json.loads(encoding).get("receipt_digests", {}).get("decisions.json")
-    if not digest:
-        return [], "missing_decisions", None
-    pin = VisualEvidencePin.model_validate(
-        {key: row[key] for key in VisualEvidencePin.model_fields}
-    )
-    retained, availability = _observation_artifact(conn, pin, digest)
-    if retained is None:
-        return [], availability, digest
-    reasons = []
-    try:
-        decisions = json.loads(retained)
-    except UnicodeError, ValueError:
-        return [], "unsupported_decisions", digest
-    if not isinstance(decisions, list) or any(not isinstance(item, dict) for item in decisions):
-        return [], "unsupported_decisions", digest
-    for decision in decisions:
-        if decision.get("kind") != "crop" or decision.get("omitted") is not True:
-            continue
-        coords = decision.get("bbox_norm")
-        if not isinstance(coords, list) or len(coords) != 4:
-            availability = "unsupported_decisions"
-            continue
-        if (box := _normalized_region(coords, row["image"])) is None:
-            availability = "unsupported_decisions"
-            continue
-        if any(
-            (settled := _box(other["image"]["transform"]["crop_" + key] for key in _BOX_KEYS))
-            is not None
-            and _overlap(box, settled) >= 0.9 * _area(box)
-            for other in settled_crop_rows
-        ):
-            continue
-        reasons.append(
-            VisualRouteReason(
-                code="omitted_crop",
-                inputs=(pin,),
-                artifact_digest=digest,
-                crop=_local_crop(box, row["image"], selected),
-            )
-        )
-    return reasons, availability, digest
-
-
-def read_visual_routes(
-    conn,
-    source: VisualEvidencePin,
-    *,
-    first: int,
-    limit: int,
-    study_regions: Mapping[int, tuple[StudyRegion, ...]] | None = None,
-) -> VisualRouteReport:
-    """Assess a bounded physical-page range without rendering or starting recognition."""
-    from pypdfium2 import PdfDocument
-
-    from corpus_structure.ingest.pdf_recognition import _PDFIUM_LOCK
-
-    from .retained_visual import RetainedVisualSelection, _load_selection
-
-    if first < 1 or not 1 <= limit <= 64:
-        raise ValueError("visual routing requires a positive page and a limit of 1 to 64")
-    _, _, original, _ = _load_selection(conn, RetainedVisualSelection(source=source, page_no=first))
-    with _PDFIUM_LOCK, PdfDocument(original) as document:
-        page_count = len(document)
-    if first > page_count:
-        raise ValueError("visual routing starts outside the original")
-    last = min(page_count, first + limit - 1)
-    product, inputs, task, bodies = map(
-        table, ("ops.pdf_product", "ops.pdf_product_input", "ops.task", "ops.pdf_product_body")
-    )
-    edges = inputs.join(
-        product,
-        (product.c.task_id == inputs.c.input_task_id)
-        & (product.c.product_key == inputs.c.input_product_key)
-        & (product.c.content_digest == inputs.c.input_content_digest),
-    ).join(task, task.c.id == product.c.task_id)
-    scope = (inputs.c.task_id == source.task_id, inputs.c.product_key == source.product_key)
-    structural_row = (
-        conn.execute(
-            select(*_pin_columns(task, product))
-            .select_from(edges)
-            .where(*scope, inputs.c.role == "structural")
-        )
-        .mappings()
-        .one_or_none()
-    )
-    structural = VisualEvidencePin.model_validate(dict(structural_row)) if structural_row else None
-    selected, furniture = _page_items(conn, source, first, last)
-    native, _ = _page_items(conn, structural, first, last) if structural is not None else ({}, {})
-    ocr_incomplete = defaultdict(list)
-    ocr_assessed = set()
-    if structural is not None:
-        reader = published_record_reader(
-            conn,
-            ProductReference(structural.task_id, structural.product_key, structural.content_digest),
-        )
-        if reader is not None:
-            for batch in reader.iter_payload_batches(
-                page_nos=range(first, last + 1), columns=("page_no", "ocr_regions")
-            ):
-                page = batch.column("page_no")[0].as_py()
-                ocr_assessed.add(page)
-                regions = batch.column("ocr_regions")[0].as_py()
-                ocr_incomplete[page].extend(
-                    region
-                    for region in regions or ()
-                    if region["outcome"] in {"partial", "failed", "incomplete"}
-                )
-
-    observation = bodies.c.descriptor["observation"]
-    page_no = observation["image"]["page_no"].as_integer()
-    observed = observation["outcome"].as_string()
-    role = observation["pass_role"].as_string()
-    finish = observation["finish_reason"].as_string()
-    digest = observation["raw_response_digest"].as_string()
-    by_page = defaultdict(list)
-    query = (
-        select(
-            *_pin_columns(task, product),
-            page_no.label("page_no"),
-            role.label("role"),
-            observed.label("outcome"),
-            finish.label("finish"),
-            digest.label("raw_digest"),
-            observation["image"].label("image"),
-            observation["binding"]["decoding_json"].as_string().label("decoding"),
-        )
-        .select_from(
-            edges.join(
-                bodies,
-                (bodies.c.task_id == product.c.task_id)
-                & (bodies.c.product_key == product.c.product_key),
-            )
-        )
-        .where(
-            *scope,
-            inputs.c.role == "recognition",
-            page_no.between(first, last),
-            role.in_(("A", "B", "C")),
-        )
-        .order_by(inputs.c.input_index)
-    )
-    for row in conn.execute(query).mappings():
-        by_page[row["page_no"]].append(row)
-    pages = []
-    # Keep PDFium's serialized section limited to candidate blank pages. No
-    # document/PDFium handle remains borrowed during a database read.
-    signals_by_page = {
-        page: _page_signals(
-            conn,
-            by_page[page],
-            selected[page],
-            native.get(page, []),
-            structural,
-            ocr_incomplete[page],
-            ocr_assessed=page in ocr_assessed,
-        )
-        for page in range(first, last + 1)
-    }
-    if study_regions:
-        for page, signals in signals_by_page.items():
-            signals.study_regions = study_regions.get(page, ())
-    blank_candidates = [
-        page
-        for page, signals in signals_by_page.items()
-        if signals.layout
-        and not signals.selected
-        and not signals.study_regions
-        and not signals.requests
-        and all(reading.kind in _FURNITURE for reading in signals.layout.readings)
-    ]
-    if blank_candidates:
-        with _PDFIUM_LOCK, PdfDocument(original) as document:
-            for page in blank_candidates:
-                signals = signals_by_page[page]
-                assert signals.layout is not None
-                with closing(document[page - 1]) as native_page:
-                    signals.blank = _original_blank_body(
-                        native_page, signals.layout, furniture[page]
-                    )
-    for page, signals in signals_by_page.items():
-        pages.append(_decide(page, signals))
-    return VisualRouteReport(
-        source=source, structural_input=structural, page_count=page_count, pages=tuple(pages)
-    )
-
-
-def _page_signals(
-    conn, rows, selected, native, structural, ocr_incomplete, *, ocr_assessed
-) -> _PageSignals:
-    successful = defaultdict(list)
-    incomplete = []
-    for row in rows:
-        if (
-            row["outcome"] in {"failed", "partial", "unknown", "unsupported"}
-            or row["finish"] == "length"
-        ):
-            incomplete.append(row)
-        elif row["outcome"] == "succeeded":
-            successful[row["role"]].append(row)
-    layouts = [_read_observation(conn, row) for row in reversed(successful["B"])]
-    layout = next((observation for observation in layouts if observation.readings), None)
-    signals = _PageSignals(
-        selected,
-        native,
-        bool(successful["A"] and layout and selected),
-        layout=layout,
-        structural=structural,
-    )
-    crop_assessments = []
-    for row in incomplete:
-        if any(other["image"] == row["image"] for other in successful[row["role"]]):
-            continue
-        pin = VisualEvidencePin.model_validate(
-            {key: row[key] for key in VisualEvidencePin.model_fields}
-        )
-        signals.requests.append(
-            VisualRouteReason(
-                code="incomplete_request",
-                inputs=(pin,),
-                crop=_scoped_attempt(row["image"], selected) if row["role"] == "C" else None,
-            )
-        )
-        if row["role"] == "C":
-            crop_assessments.append(
-                VisualCueAssessment(
-                    cue="crop_comparison",
-                    status="unassessed",
-                    reason="incomplete_request",
-                    inputs=(pin,),
-                    artifact_digest=row["raw_digest"],
-                    crop=_scoped_attempt(row["image"], selected),
-                    crop_bounds=_crop_bounds(row["image"]),
-                )
-            )
-    anchor = layout.image if layout else successful["A"][-1]["image"] if successful["A"] else {}
-    for region in ocr_incomplete:
-        box = _box(
-            _from_arrow(region[key], {"type": "number"}, {}, f"#/ocr_regions/{key}")
-            for key in _BOX_KEYS
-        )
-        signals.requests.append(
-            VisualRouteReason(
-                code="incomplete_ocr_region",
-                inputs=(structural,) if structural else (),
-                crop=_local_crop(box, anchor, selected) if box is not None else None,
-            )
-        )
-    whole = _read_observation(conn, successful["A"][-1]) if successful["A"] else None
-    crops = [_read_observation(conn, row) for row in successful["C"]]
-    omissions, omission_availability, decision_digest = [], "missing_whole_recognition", None
-    if successful["A"]:
-        omissions, omission_availability, decision_digest = _omitted_crops(
-            conn, successful["A"][-1], selected, successful["C"]
-        )
-        signals.requests.extend(omissions)
-
-    def cue(
-        name,
-        *,
-        observations=(),
-        available=False,
-        positive=False,
-        inconclusive=False,
-        reason=None,
-        digest=None,
-        pins=(),
-    ):
-        unavailable = next((item.availability for item in observations if not item.readings), None)
-        assessed = available and unavailable is None
-        detail = reason or ("assessed" if assessed or positive else "missing_input")
-        return VisualCueAssessment(
-            cue=name,
-            status=(
-                "positive"
-                if positive
-                else "negative"
-                if assessed
-                else "inconclusive"
-                if unavailable == "unsupported_reading" or (inconclusive and unavailable is None)
-                else "unassessed"
-            ),
-            reason=detail if positive else unavailable or detail,
-            inputs=tuple(item.pin for item in observations) + tuple(pins),
-            artifact_digest=digest,
-        )
-
-    for row, crop in zip(successful["C"], crops, strict=True):
-        compared = whole is not None and bool(whole.readings) and bool(crop.readings)
-        disagreements, complete = (
-            _disagreements(whole, crop, selected) if whole is not None and compared else ([], False)
-        )
-        signals.requests.extend(disagreements)
-        crop_assessments.append(
-            cue(
-                "crop_comparison",
-                observations=(crop, whole) if whole is not None else (crop,),
-                available=complete,
-                positive=bool(disagreements),
-                inconclusive=compared and not complete,
-                reason=(
-                    "located_quantity_disagreement"
-                    if disagreements
-                    else "no_exact_quantity_comparison"
-                    if compared and not complete
-                    else None
-                ),
-                digest=row.get("raw_digest"),
-            ).model_copy(
-                update={
-                    "crop": _scoped_attempt(crop.image, selected),
-                    "crop_bounds": _crop_bounds(crop.image),
-                }
-            )
-        )
-    signals.cues = (
-        *((cue("layout", observations=layouts),) if layout is None else ()),
-        cue(
-            "whole_recognition", observations=(whole,) if whole else (), available=whole is not None
-        ),
-        *(crop_assessments or [cue("crop_comparison")]),
-        cue(
-            "crop_coverage",
-            available=omission_availability == "available",
-            positive=bool(omissions),
-            reason=omission_availability,
-            digest=decision_digest,
-            pins=(whole.pin,) if whole else (),
-        ),
-        cue(
-            "ocr_regions",
-            available=ocr_assessed,
-            positive=bool(ocr_incomplete),
-            pins=(structural,) if structural else (),
-        ),
-    )
-    signals.requests = list(
-        {_region_address(reason): reason for reason in signals.requests}.values()
-    )
-    return signals
 
 
 def _selected_pdf_publication(page, member, records, capture_kind):
@@ -963,6 +566,45 @@ def _selected_pdf_publication(page, member, records, capture_kind):
     return actual[0]
 
 
+@dataclass(frozen=True, slots=True)
+class _SelectedVisualSample:
+    observation: _Observation
+    scope: Literal["page", "crop"]
+    raw_digest: str
+    complete: bool
+
+
+def _selected_page_signals(samples: tuple[_SelectedVisualSample, ...], selected: list[_Region]) -> _PageSignals:
+    """Compare actual page/crop samples; a retained sample never becomes independent evidence."""
+    unique={}
+    for sample in samples:
+        unique.setdefault((sample.raw_digest, json.dumps(sample.observation.image,sort_keys=True)),sample)
+    actual=tuple(unique.values())
+    whole=next((sample for sample in actual if sample.scope=="page" and sample.complete),None)
+    layout=(whole or next(iter(actual),None))
+    signals=_PageSignals(selected,[],False,layout=layout.observation if layout else None)
+    cues=[]
+    for sample in actual:
+        observed=sample.observation
+        crop=_scoped_attempt(observed.image,selected) if sample.scope=="crop" else None
+        if not sample.complete:
+            signals.requests.append(VisualRouteReason(code="incomplete_request",inputs=(observed.pin,),crop=crop))
+        if sample.scope!="crop" or whole is None or sample.raw_digest==whole.raw_digest: continue
+        differences,complete=_disagreements(whole.observation,observed,selected)
+        signals.requests.extend(differences)
+        available=bool(observed.readings) and observed.availability=="available"
+        cues.append(VisualCueAssessment(cue="crop_comparison",
+            status="positive" if differences else "negative" if complete else "inconclusive" if available else "unassessed",
+            reason="located_quantity_disagreement" if differences else "no_located_quantity_disagreement" if complete else "no_exact_quantity_comparison" if available else observed.availability,
+            inputs=(whole.observation.pin,observed.pin),crop=crop,crop_bounds=_crop_bounds(observed.image)))
+    cues.append(VisualCueAssessment(cue="whole_recognition",status="unassessed",
+        reason="selected_chandra_samples_do_not_establish_independent_whole_recognition",
+        inputs=tuple(sample.observation.pin for sample in actual if sample.scope=="page")))
+    signals.cues=tuple(cues)
+    signals.requests=list({_region_address(reason):reason for reason in signals.requests}.values())
+    return signals
+
+
 def read_demand_visual_routes(
     conn, demand_id, *, project_id, first=1, limit=32, max_bytes=8 * 1024 * 1024, continuation=None
 ):
@@ -1007,6 +649,7 @@ def read_demand_visual_routes(
     ]
     records = tuple(stream_selected_support(conn, page)) if members else ()
     routes = []
+    grouped=defaultdict(list)
     for member in members:
         value, image = member["body"], member["body"]["observation"]["image"]
         publication = _selected_pdf_publication(page, member, records, capture_kind)
@@ -1039,21 +682,20 @@ def read_demand_visual_routes(
                 else None
             )
             requests.append(VisualRouteReason(code="incomplete_request", inputs=(pin,), crop=crop))
-        signals = _PageSignals(
-            selected[image["page_no"]],
-            [],
-            False,
-            layout=layout,
-            requests=requests,
-            cues=(
-                VisualCueAssessment(
-                    cue="whole_recognition",
-                    status="unassessed",
-                    reason="single_chandra_observation_does_not_establish_independent_whole_recognition",
-                    inputs=(pin,),
-                ),
-            ),
-        )
+        grouped[(image["document"],image["logical_digest"],image["page_no"])].append(
+            (_SelectedVisualSample(layout,"crop" if image["selection"].get("pointer") is not None else "page",
+                observation["response_digest"],observation["provider_outcome"]=="succeeded" and value["completion"]=="complete"),
+             publication,selected[image["page_no"]],furniture[image["page_no"]]))
+    for (_,_,page_no), group in grouped.items():
+        samples=tuple(item[0] for item in group)
+        publication=group[0][1]
+        signals=_selected_page_signals(samples,group[0][2])
+        layout=signals.layout
+        assert layout is not None
+        pin=layout.pin
+        image=next(item["body"]["observation"]["image"] for item in members
+                   if item["product_id"]==pin.product_id)
+        observation=next(item["body"]["observation"] for item in members if item["product_id"]==pin.product_id)
         if observation["provider_outcome"] == "succeeded" and not layout.readings:
             artifacts = table("kb.source_artifact")
             original = conn.scalar(
@@ -1071,7 +713,7 @@ def read_demand_visual_routes(
                 PdfDocument(bytes(original)) as document,
                 closing(document[image["page_no"] - 1]) as physical,
             ):
-                signals.blank = _original_blank_body(physical, layout, furniture[image["page_no"]])
+                signals.blank = _original_blank_body(physical, layout, group[0][3])
         routes.append(
             {
                 "source": pin.model_dump(mode="json"),
@@ -1083,5 +725,6 @@ def read_demand_visual_routes(
         "cut": page.cut.record,
         "continuation": page.continuation,
         "policy": "chandra-dry-routing-v4",
+        "evidence_scope": "selected-result-page",
         "routes": routes,
     }

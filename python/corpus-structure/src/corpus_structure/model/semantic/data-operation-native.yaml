@@ -948,6 +948,8 @@ definitions:
         $ref: '#/definitions/identifier'
       subject:
         $ref: '#/definitions/identifier'
+      subject_definition:
+        $ref: '#/definitions/identifier'
       original_source:
         $ref: '#/definitions/identifier'
       analyzed_scope:
@@ -967,6 +969,7 @@ definitions:
     - member_id
     - kind_contract
     - subject
+    - subject_definition
     - original_source
     - analyzed_scope
     - body_state
@@ -2385,8 +2388,41 @@ definitions:
     properties:
       cut: {$ref: '#/definitions/cut_selection'}
       receipt: {$ref: '#/definitions/PdfExecutionReceipt'}
-    required: [receipt, cut]
+      original_source: {$ref: '#/definitions/identifier'}
+    required: [receipt, cut, original_source]
     additionalProperties: false
+
+  visual_evidence_pin:
+    type: object
+    properties:
+      use_id: {$ref: '#/definitions/identifier'}
+      product_id: {$ref: '#/definitions/identifier'}
+      derivation_id: {$ref: '#/definitions/identifier'}
+    required: [use_id, product_id, derivation_id]
+    additionalProperties: false
+  read_selected_visual_evidence_request:
+    type: object
+    properties:
+      source: {$ref: '#/definitions/read_selected_pdf_source_request'}
+      evidence: {$ref: '#/definitions/visual_evidence_pin'}
+      mode: {type: string, enum: [header, rows, artifact]}
+      after: {type: integer, minimum: 0}
+      limit: {type: integer, minimum: 1, maximum: 1000}
+      max_bytes: {type: integer, minimum: 1, maximum: 8388608}
+      regions: {type: array, items: {$ref: '#/definitions/visual_read_VisualSourceRegion'}}
+      kind: {type: string, enum: [picture, caption, caption_candidate, picture_description, picture_text, formula, mermaid, table, cell_group, cell_text]}
+      occurrence_id: {$ref: '#/definitions/identifier'}
+      cell_index: {type: integer, minimum: 0}
+      query: {$ref: '#/definitions/identifier'}
+      artifact_digest: {type: string, pattern: '^[0-9a-f]{64}$'}
+    required: [source, evidence, mode, after, limit, max_bytes, regions]
+    additionalProperties: false
+    allOf:
+    - if: {properties: {mode: {const: artifact}}}
+      then: {required: [artifact_digest]}
+    - if: {required: [cell_index]}
+      then: {required: [occurrence_id]}
+  read_selected_visual_evidence_result: {$ref: '#/definitions/selected_visual_read'}
 
   initialize_source_project_request:
     type: object
@@ -2600,3 +2636,9 @@ operations:
   request: initialize_source_project_request
   result: initialize_source_project_result
   purposes: [write]
+
+- name: read_selected_visual_evidence
+  profile: read
+  request: read_selected_visual_evidence_request
+  result: read_selected_visual_evidence_result
+  purposes: [read]

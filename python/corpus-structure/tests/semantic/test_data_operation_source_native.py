@@ -89,10 +89,12 @@ def build(connection, projection, atoms, selectors):
 
 
 def test_native_source_helper_capture_and_compilation():
-    assert {source.name for source in source_native_sources()} == {
-        "native/data-operation-source-admission.sql",
-        "native/data-operation-source-native.py",
-    }
+    captured=source_native_sources()
+    names={source.name for source in captured}
+    assert len(names)==len(captured)
+    assert {"native/data-operation-source-admission.sql","native/data-operation-source-native.py",
+            "native/data-operation-visual-read.schema.json","native/data-operation-visual-read.sql",
+            "native/visual-evidence.py","native/data-operation-visual-read.py"} <= names
     parsed = prepare_sql(source_native_sql(), source="source")
     names = []
     for index, raw in enumerate(parsed.statements):
@@ -103,7 +105,9 @@ def test_native_source_helper_capture_and_compilation():
             pglast.parse_plpgsql(parsed.excerpt(index))
     assert len(names) == len(set(names))
     assert {"ddo_pdf_derivation_receipt", "ddo_pdf_capture_source", "ddo_impl_read_selected_pdf_source"} <= set(names)
+    assert {"ddo_visual_candidate_rows","ddo_impl_read_selected_visual_evidence"} <= set(names)
     assert "read_selected_pdf_source" not in names
+    assert "read_selected_visual_evidence" not in names
 
 
 def test_native_source_builder_matches_source_owner_without_legacy_diagnostic_salts(

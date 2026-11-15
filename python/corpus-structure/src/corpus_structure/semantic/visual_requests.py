@@ -153,7 +153,7 @@ def visual_external_declaration():
 
 def visual_mapping_profile():
     from corpus_structure.ingest.pdf_chandra import chandra_parser_identity
-    from corpus_structure.serve.pdf_visual_evidence import VisualEvidenceArtifact
+    from corpus_structure.semantic.visual_evidence import VisualEvidenceArtifact
 
     root = Path(__file__).parents[1]
     return SourceArtifact(

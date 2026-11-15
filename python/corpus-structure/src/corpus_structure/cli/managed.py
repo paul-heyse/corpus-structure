@@ -1151,10 +1151,6 @@ def show_result(ctx: typer.Context, result: str, json: JsonOpt = False) -> None:
                     None,
                     settled=manifest.settled is not None,
                 )
-            if manifest.action == "source.visual-dispatch":
-                from corpus_structure.cli.visual_route import inspect_visual_dispatch
-
-                inspect_visual_dispatch(ctx, manifest)
             emit(_status(manifest, diagnostics), json=json)
 
 

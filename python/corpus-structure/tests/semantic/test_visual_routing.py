@@ -20,10 +20,10 @@ from corpus_structure.semantic.visual_routing import (
     _Region,
     _scoped_attempt,
 )
-from corpus_structure.serve.pdf_visual_evidence import VisualEvidencePin
+from corpus_structure.semantic.visual_evidence import VisualEvidencePin
 
-_PIN = VisualEvidencePin(run_id=1, task_id=2, product_key="retained", content_digest="1" * 64)
-_BASE = _PIN.model_copy(update={"task_id": 1, "product_key": "structural"})
+_PIN = VisualEvidencePin(use_id="use",product_id="retained",derivation_id="episode")
+_BASE = _PIN.model_copy(update={"product_id":"structural"})
 _REGION = VisualRouteCrop(pointer="#/tables/0", region_index=0)
 _FRAME = (200, 200)
 
@@ -182,27 +182,13 @@ def test_crop_cue_preserves_unavailable_inputs_and_exact_positive_reason(
         else (),
         availability,
     )
-    observations = [("A", whole), ("B", whole), ("C", unknown)]
+    samples=[visual_routing._SelectedVisualSample(whole,"page","whole",True),
+             visual_routing._SelectedVisualSample(unknown,"crop","unknown",True)]
     if exact_disagreement:
-        observations.append(
-            (
-                "C",
-                _Observation(
-                    _PIN.model_copy(update={"task_id": 3}),
-                    image,
-                    _readings(b"<x_0><y_0>7 & 10<x_1><y_1><class_Table>", image),
-                ),
-            )
-        )
-    rows = [
-        {"role": role, "outcome": "succeeded", "finish": "stop", "observation": observation}
-        for role, observation in observations
-    ]
-    monkeypatch.setattr(visual_routing, "_read_observation", lambda conn, row: row["observation"])
-    monkeypatch.setattr(visual_routing, "_omitted_crops", lambda *args: ([], "available", None))
-    signals = visual_routing._page_signals(
-        None, rows, [_region()], [], _BASE, (), ocr_assessed=True
-    )
+        independent=_Observation(_PIN.model_copy(update={"product_id":"independent"}),image,
+            _readings(b"<x_0><y_0>7 & 10<x_1><y_1><class_Table>",image))
+        samples.append(visual_routing._SelectedVisualSample(independent,"crop","independent",True))
+    signals=visual_routing._selected_page_signals(tuple(samples),[_region()])
     route = _decide(151, signals)
     cues = [cue for cue in route.cues if cue.cue == "crop_comparison"]
     unknown_cue = next(cue for cue in cues if _BASE in cue.inputs)
@@ -255,7 +241,8 @@ def test_dispatch_coalesces_reasons_and_respects_repair_and_blank():
     from corpus_structure.semantic.visual_routing import VisualPageRoute, VisualRouteReport
 
     report = VisualRouteReport(
-        source=_PIN,
+        source=__import__("corpus_structure.serve.selected_pdf",fromlist=["SelectedPdfSourceReference"]).SelectedPdfSourceReference(
+            project_id="project",demand_id="demand",read_id="read",use_id="use",product_id="source",derivation_id="source-episode"),
         structural_input=_BASE,
         page_count=3,
         pages=(
@@ -285,7 +272,7 @@ def test_dispatch_coalesces_reasons_and_respects_repair_and_blank():
         (2, "#/tables/0", 0),
         (2, None, None),
     ]
-    assert all(item.source == _PIN for item in selective)
+    assert all(item.source == report.source for item in selective)
     assert [
         (item.page_no, item.pointer) for item in visual_dispatch_selections(report, "all-page")
     ] == [(1, None), (2, None), (3, None)]

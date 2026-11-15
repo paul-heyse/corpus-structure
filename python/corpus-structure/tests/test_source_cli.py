@@ -120,7 +120,7 @@ def test_native_products_json_retains_report_shape(cli, source_runtime, empty, m
 
 def test_inspect_cli_delivers_explicit_visual_selection(cli, source_runtime, monkeypatch):
     from corpus_structure.serve import native_source
-    from corpus_structure.serve.pdf_visual_evidence import VisualEvidenceRead, VisualText
+    from corpus_structure.semantic.visual_evidence import VisualEvidenceRead, VisualText
 
     def inspect(conn, request, *, cancellation):
         assert conn is source_runtime.connection

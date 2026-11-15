@@ -14,11 +14,7 @@ from corpus_structure.intervene.semantic_server import (
     build_retained_reader_server,
 )
 from corpus_structure.serve.native_source import NativeSourceRequest, NativeSourceResponse
-from corpus_structure.serve.pdf_visual_evidence import (
-    VisualEvidencePin,
-    VisualEvidenceRead,
-    VisualText,
-)
+from corpus_structure.semantic.visual_evidence import VisualEvidencePin, VisualEvidenceRead, VisualText
 from corpus_structure.serve.source_search import (
     SourceSearchHit,
     SourceSearchRequest,

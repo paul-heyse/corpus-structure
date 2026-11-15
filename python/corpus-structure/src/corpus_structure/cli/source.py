@@ -13,7 +13,8 @@ from pydantic import BaseModel, JsonValue, RootModel
 from corpus_structure.cli.output import JsonOpt, emit, report_fields, state
 from corpus_structure.core.db.lifetime import BorrowerCancellation
 from corpus_structure.serve.native_source import NativeExportFormat, NativeSourceRequest
-from corpus_structure.serve.pdf_visual_evidence import VisualEvidenceKind, VisualEvidencePin
+from corpus_structure.semantic.visual_evidence import VisualEvidenceKind
+from corpus_structure.semantic.visual_evidence import VisualEvidencePin
 
 app = typer.Typer(help="Inspect pinned PDF sources and integration custody.", no_args_is_help=True)
 
@@ -188,37 +189,34 @@ def register(root: typer.Typer):
 @app.command("visual-observations")
 def visual_observations(
     ctx: typer.Context,
-    run: int,
-    producing_task: Annotated[int, typer.Option()],
+    demand: Annotated[str, typer.Option()],
+    project: Annotated[str, typer.Option()],
+    read: Annotated[str, typer.Option()],
+    use: Annotated[str, typer.Option()],
     product: Annotated[str, typer.Option()],
-    native_digest: Annotated[str, typer.Option()],
+    derivation: Annotated[str, typer.Option()],
     page: int | None = None,
-    after_task: int = 0,
+    cursor: str | None = None,
     limit: int = 100,
+    max_bytes: int = 1024*1024,
     json: JsonOpt = False,
 ):
-    """List settled visual observations directly bound to one exact published PDF."""
+    """Discover visual observations in one authenticated selected demand cut."""
+    import json as json_module
     from corpus_structure.cli.failures import failure_boundary
-    from corpus_structure.semantic.query import read_snapshot
+    from corpus_structure.semantic.demand_results import selected_read_snapshot
     from corpus_structure.semantic.runtime import open_runtime_engine
+    from corpus_structure.serve.selected_pdf import SelectedPdfSourceReference
     from corpus_structure.serve.pdf_visual_evidence import visual_observation_manifest
-
     with (
-        failure_boundary(json, expected=(ValueError,)),
-        open_runtime_engine(
-            state(ctx).settings(), application_name="ci-visual-observations", purpose="read"
-        ) as engine,
-        read_snapshot(engine) as conn,
+        failure_boundary(json,expected=(ValueError,)),
+        open_runtime_engine(state(ctx).settings(),application_name="ci-visual-observations",purpose="read") as engine,
+        selected_read_snapshot(engine) as conn,
     ):
-        source = VisualEvidencePin(
-            run_id=run, task_id=producing_task, product_key=product, content_digest=native_digest
-        )
-        emit(
-            visual_observation_manifest(
-                conn, source, page_no=page, after_task=after_task, limit=limit
-            ),
-            json=json,
-        )
+        source=SelectedPdfSourceReference(project_id=project,demand_id=demand,read_id=read,use_id=use,
+            product_id=product,derivation_id=derivation)
+        emit(visual_observation_manifest(conn,source,page_no=page,continuation=json_module.loads(cursor) if cursor else None,
+            limit=limit,max_bytes=max_bytes),json=json)
 
 
 @app.command("native-export")

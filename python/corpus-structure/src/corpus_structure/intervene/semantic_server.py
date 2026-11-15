@@ -16,14 +16,14 @@ from fastmcp import __version__ as FASTMCP_VERSION
 from fastmcp.server.lifespan import lifespan
 from fastmcp.tools import ToolResult
 from fastmcp.utilities.json_schema import compress_schema
-from pydantic import Field
+from pydantic import JsonValue, Field
 from sqlalchemy import Connection, Engine, select
 
 from corpus_structure.semantic.operations import OperationConflict
 from corpus_structure.semantic.proposals import ProposalRefused
 from corpus_structure.semantic.refusals import located_failure_context, tool_refusals
 from corpus_structure.serve.native_source import NativeSourceRequest, NativeSourceResponse
-from corpus_structure.serve.pdf_visual_evidence import VisualEvidencePin
+from corpus_structure.serve.selected_pdf import SelectedPdfSourceReference
 from corpus_structure.serve.source_search import SourceSearchRequest, SourceSearchResponse
 from corpus_structure.settings import Settings
 
@@ -114,6 +114,23 @@ def build_retained_reader_server(
                 ):
                     raise ProposalRefused("run does not belong to this retained reader project")
             yield connection
+
+    @contextmanager
+    def selected_source_snapshot(ctx: Context, project_id: str) -> Generator[Connection]:
+        from corpus_structure.semantic.demand_results import selected_read_snapshot
+        from corpus_structure.semantic.runtime import open_runtime_engine
+        if bound_id is not None:
+            raise ProposalRefused("current demand tools require a project-scoped reader")
+        if project_id != reader_project(ctx):
+            raise ProposalRefused("selected source belongs to another reader project")
+        injected = read_engine if read_engine is not None else None
+        if injected is not None:
+            with selected_read_snapshot(injected) as connection:
+                yield connection
+        else:
+            with (open_runtime_engine(ctx.lifespan_context["settings"],"ci-mcp-selected-source",max_size=1,purpose="read") as engine,
+                  selected_read_snapshot(engine) as connection):
+                yield connection
 
     from corpus_structure.intervene.record_tools import register_record_tools
     from corpus_structure.semantic.operation_reporting import report_schema
@@ -353,28 +370,24 @@ def build_retained_reader_server(
         """Inspect pinned source products and origins, or explicitly pinned visual candidates."""
         from corpus_structure.serve.native_source import inspect_native_source
 
-        with source_snapshot(ctx, request.run_id) as conn:
+        with selected_source_snapshot(ctx, request.project_id) as conn:
             response = inspect_native_source(conn, request)
         return _bounded_mcp_result(response, request.max_bytes)
 
     @server.tool(annotations={"readOnlyHint": True})
     @tool_refusals(ProposalRefused, OperationConflict, ValueError)
     def list_visual_observations(
-        ctx: Context,
-        source: VisualEvidencePin,
-        page_no: Annotated[int, Field(gt=0)] | None = None,
-        after_task: Annotated[int, Field(ge=0)] = 0,
-        limit: Annotated[int, Field(ge=1, le=1000)] = 100,
-        max_bytes: Annotated[int, Field(ge=1024, le=8 * 1024 * 1024)] = 1024 * 1024,
+        ctx: Context, source: SelectedPdfSourceReference,
+        page_no: Annotated[int, Field(gt=0)] | None=None,
+        continuation: dict[str, JsonValue] | None=None,
+        limit: Annotated[int, Field(ge=1,le=1000)]=100,
+        max_bytes: Annotated[int,Field(ge=1024,le=8*1024*1024)]=1024*1024,
     ) -> ToolResult:
-        """Discover settled page and crop observations for one pinned published PDF."""
+        """Discover selected raw and mapped candidates in the same source cut."""
         from corpus_structure.serve.pdf_visual_evidence import visual_observation_manifest
-
-        with source_snapshot(ctx, source.run_id) as conn:
-            manifest = visual_observation_manifest(
-                conn, source, page_no=page_no, after_task=after_task, limit=limit
-            )
-        return _bounded_mcp_result(manifest, max_bytes)
+        with selected_source_snapshot(ctx,source.project_id) as conn:
+            manifest=visual_observation_manifest(conn,source,page_no=page_no,continuation=continuation,limit=limit,max_bytes=max_bytes)
+        return _bounded_mcp_result(manifest,max_bytes)
 
     @server.tool(annotations={"readOnlyHint": True})
     @tool_refusals(ProposalRefused, OperationConflict, ValueError)
@@ -382,7 +395,7 @@ def build_retained_reader_server(
         """Prepare an explicit source packet containing attributed visual alternatives."""
         from corpus_structure.serve.visual_evidence_packet import visual_evidence_packet as pack
 
-        with source_snapshot(ctx, request.run_id) as conn:
+        with selected_source_snapshot(ctx, request.project_id) as conn:
             packet = pack(conn, request)
         return _bounded_mcp_result(packet, request.max_bytes)
 

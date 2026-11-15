@@ -198,5 +198,5 @@ BEGIN
  cut:=ops.ddo_require_selected_output(p->>'demand_id',p->>'read_id',p->>'use_id',p->>'product_id',p->>'derivation_id');
  SELECT * INTO STRICT boundary FROM ops.data_demand_read WHERE id=p->>'read_id' AND demand_id=demand.id;
  receipt:=ops.ddo_pdf_derivation_receipt(demand.project_id,p->>'product_id',p->>'derivation_id',NULL,boundary);
- RETURN jsonb_build_object('payload',jsonb_build_object('receipt',receipt,'cut',cut));
+ RETURN jsonb_build_object('payload',jsonb_build_object('receipt',receipt,'cut',cut,'original_source',(SELECT original_source FROM kb.data_product WHERE id=p->>'product_id')));
 END $$;

@@ -17,21 +17,10 @@ from corpus_structure.serve.native_source import (
     _source_cursor,
     _source_position,
 )
-from corpus_structure.serve.pdf_visual_evidence import (
-    VisualCaption,
-    VisualCaptionCandidate,
-    VisualCellGroup,
-    VisualEvidenceArtifact,
-    VisualEvidencePin,
-    VisualPicture,
-    VisualSourceRegion,
-    VisualTable,
-    VisualText,
-    _read_visual_artifact,
-)
+from corpus_structure.semantic.visual_evidence import VisualCaption, VisualCaptionCandidate, VisualCellGroup, VisualEvidenceArtifact, VisualEvidencePin, VisualPicture, VisualSourceRegion, VisualTable, VisualText
 
-SOURCE = dict(run_id=7, task_id=13, product_key="selected", content_digest="a" * 64)
-EVIDENCE = VisualEvidencePin(run_id=17, task_id=19, product_key="mapped", content_digest="b" * 64)
+SOURCE = dict(project_id="project",demand_id="demand",read_id="read",use_id="source-use",product_id="source-product",derivation_id="source-episode")
+EVIDENCE = VisualEvidencePin(use_id="visual-use",product_id="mapped",derivation_id="visual-episode")
 
 
 def test_visual_request_binds_both_pins_and_scope_to_cursor():
@@ -39,9 +28,9 @@ def test_visual_request_binds_both_pins_and_scope_to_cursor():
     cursor = _source_cursor(request, 2)
     assert _source_position(request.model_copy(update={"cursor": cursor, "limit": 3})) == 2
     for changes in (
-        {"content_digest": "c" * 64},
-        {"evidence": EVIDENCE.model_copy(update={"run_id": 21})},
-        {"evidence": EVIDENCE.model_copy(update={"content_digest": "c" * 64})},
+        {"product_id":"other"},
+        {"evidence": EVIDENCE.model_copy(update={"use_id":"other-use"})},
+        {"evidence": EVIDENCE.model_copy(update={"product_id":"other"})},
         {"page_no": 4},
         {"artifact_digest": "c" * 64},
         {"occurrence_id": "#/pictures/0"},
@@ -119,26 +108,6 @@ def test_mapping_retains_shared_caption_and_rich_cell_ownership():
     assert table.cells[1].content_occurrence_id is None
 
 
-def test_ordinary_v4_digest_preserves_the_prior_request_shape():
-    request = NativeSourceRequest(**SOURCE)
-    prior = {
-        **SOURCE,
-        "version": 4,
-        "view": "items",
-        "section_pointer": None,
-        "membership": None,
-        "pointer": None,
-        "cell_index": None,
-        "occurrence_id": None,
-        "artifact_digest": None,
-        "collection": None,
-        "max_rows": 10000,
-        "max_bytes": 1024 * 1024,
-    }
-    prior_digest = sha256(json.dumps(prior, sort_keys=True, separators=(",", ":")).encode())
-    assert request.selection_digest() == prior_digest.hexdigest()
-
-
 def test_visual_artifact_retains_inherited_and_repeated_occurrences():
     panel = VisualSourceRegion(left=1, top=2, right=5, bottom=6)
     other_panel = VisualSourceRegion(left=10, top=2, right=14, bottom=6)
@@ -176,95 +145,3 @@ def test_visual_artifact_retains_inherited_and_repeated_occurrences():
     assert first.source_region == inherited and first.parent_occurrence_id == "p1"
     assert second.associated_picture_occurrence_ids == ("p1", "p2")
     assert first.text == second.text and first.occurrence_id != second.occurrence_id
-
-
-@pytest.mark.parametrize("offset,size,max_bytes", [(None, 10_000, 1024), (0, 800, 1024)])
-def test_visual_artifact_refuses_excess_bytes_before_fetch(offset, size, max_bytes):
-    conn = Mock()
-    conn.scalar.return_value = size
-    with pytest.raises(ReadLimit) as refused:
-        _read_visual_artifact(
-            conn, EVIDENCE, "c" * 64, PublishedReadBudget(10, max_bytes), offset=offset
-        )
-    assert refused.value.reason == "oversized_item"
-    assert "octet_length" in str(conn.scalar.call_args.args[0])
-    conn.execute.assert_not_called()
-
-
-def test_visual_artifact_delivers_only_the_selected_observation_image_or_raw(monkeypatch):
-    from corpus_structure.semantic import pdf_contracts, pdf_record_reader, pdf_storage, releases
-    from corpus_structure.serve import native_source
-
-    image_digest, raw_digest = "c" * 64, "d" * 64
-    observation = {
-        "image": {
-            "artifact_digest": image_digest,
-            "page_no": 3,
-            "transform": {"status": "unknown"},
-        },
-        "raw_response_digest": raw_digest,
-    }
-    qualify = Mock(
-        return_value=dict(
-            release_id="evidence-release",
-            artifact_digest="original",
-            contract_digest="contract",
-            status="done",
-            finished_at=object(),
-            recipe_digest="recipe",
-            observation=observation,
-        )
-    )
-    monkeypatch.setattr(pdf_visual_evidence, "_qualified_observation", qualify)
-    transfer = Mock(return_value=(b"test", 4))
-    monkeypatch.setattr(pdf_visual_evidence, "_read_visual_artifact", transfer)
-    incumbent = [{"pointer": "#/pictures/0", "label": "picture", "text": "incumbent"}]
-    monkeypatch.setattr(pdf_visual_evidence, "_page_incumbent", Mock(return_value=incumbent))
-    context = Mock(contract_digest="contract")
-    context.terminal_task_states = frozenset({"done"})
-    monkeypatch.setattr(releases, "open_release", lambda *args: "archive")
-    monkeypatch.setattr(pdf_contracts, "pdf_context_for_release", lambda *args: context)
-    monkeypatch.setattr(pdf_record_reader, "published_record_reader", Mock())
-    monkeypatch.setattr(pdf_storage, "_record_product_identity", Mock())
-    monkeypatch.setattr(
-        native_source,
-        "_published_native_header",
-        lambda *args, **kwargs: SimpleNamespace(
-            release_id="source-release",
-            artifact_digest="original",
-            page_start=None,
-            page_end=None,
-            health={"ocr": "incumbent"},
-        ),
-    )
-    conn = Mock()
-    request = NativeSourceRequest(**SOURCE, view="visual_evidence", evidence=EVIDENCE, page_no=3)
-    settings = dict(
-        project_id="project",
-        projection_context=Mock(release_id="source-release"),
-        cancellation=Mock(),
-        read_budget=PublishedReadBudget(10, 4096),
-    )
-    with pytest.raises(ValueError, match="image/raw custody"):
-        pdf_visual_evidence.inspect_pdf_visual_evidence(
-            conn, request.model_copy(update={"artifact_digest": "e" * 64}), **settings
-        )
-    raw_only = pdf_visual_evidence.inspect_pdf_visual_evidence(conn, request, **settings)
-    assert raw_only.rows == incumbent
-    assert raw_only.visual_evidence is not None
-    assert raw_only.visual_evidence.mapping_availability == "unavailable"
-    assert raw_only.visual_evidence.items == ()
-    transfer.assert_not_called()
-    for digest, media_type in (
-        (image_digest, "image/png"),
-        (raw_digest, "text/html; charset=utf-8"),
-    ):
-        selection = request.model_copy(update={"artifact_digest": digest})
-        read = pdf_visual_evidence.inspect_pdf_visual_evidence(conn, selection, **settings)
-        assert qualify.call_args.args[1:5] == (selection, EVIDENCE, "project", "source-release")
-        assert transfer.call_args.args[1:3] == (EVIDENCE, digest)
-        assert read.rows[0]["media_type"] == media_type
-        assert read.rows[0]["data"] == "dGVzdA=="
-        assert read.health == {"ocr": "incumbent"}
-        assert read.visual_evidence is not None
-        assert read.visual_evidence.mapping_availability == "unavailable"

@@ -17,7 +17,7 @@ from corpus_structure.core.db.lifetime import BorrowerCancellation
 from corpus_structure.serve.selected_pdf import (
     SelectedPdfSourceReference, acquire_selected_pdf_source,
 )
-from corpus_structure.serve.pdf_visual_evidence import (
+from corpus_structure.semantic.visual_evidence import (
     VisualEvidenceKind,
     VisualEvidencePin,
     VisualEvidenceRead,

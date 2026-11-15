@@ -869,6 +869,7 @@ class WireResultProduct(TypedDict):
     product_id: Required[WireProductId]
     role: Required[WireIdentifier]
     subject: Required[WireSubjectId]
+    subject_definition: Required[WireIdentifier]
 
 
 class WireResultBinding(TypedDict):
@@ -963,7 +964,176 @@ class WireReadSelectedPdfSourceRequest(TypedDict):
 
 class WireReadSelectedPdfSourceResult(TypedDict):
     cut: Required[WireCutSelection]
+    original_source: Required[WireIdentifier]
     receipt: Required[WirePdfExecutionReceipt]
+
+
+class WireVisualEvidencePin(TypedDict):
+    derivation_id: Required[WireIdentifier]
+    product_id: Required[WireIdentifier]
+    use_id: Required[WireIdentifier]
+
+
+class WireVisualReadVisualSourceRegion(TypedDict):
+    address_space: NotRequired[Literal["pdf_points"]]
+    bottom: Required[int | float | Decimal]
+    enclosing_occurrence_id: NotRequired[str | None]
+    left: Required[int | float | Decimal]
+    origin: NotRequired[Literal["top_left"]]
+    precision: NotRequired[Literal["coarse"]]
+    right: Required[int | float | Decimal]
+    top: Required[int | float | Decimal]
+
+
+class WireReadSelectedVisualEvidenceRequest(TypedDict):
+    after: Required[int]
+    artifact_digest: NotRequired[str]
+    cell_index: NotRequired[int]
+    evidence: Required[WireVisualEvidencePin]
+    kind: NotRequired[
+        Literal[
+            "picture",
+            "caption",
+            "caption_candidate",
+            "picture_description",
+            "picture_text",
+            "formula",
+            "mermaid",
+            "table",
+            "cell_group",
+            "cell_text",
+        ]
+    ]
+    limit: Required[int]
+    max_bytes: Required[int]
+    mode: Required[Literal["header", "rows", "artifact"]]
+    occurrence_id: NotRequired[WireIdentifier]
+    query: NotRequired[WireIdentifier]
+    regions: Required[list[WireVisualReadVisualSourceRegion]]
+    source: Required[WireReadSelectedPdfSourceRequest]
+
+
+class WireVisualReadVisualEvidencePin(TypedDict):
+    derivation_id: Required[str]
+    product_id: Required[str]
+    use_id: Required[str]
+
+
+class WireVisualReadVisualReadHeader(TypedDict):
+    evidence: Required[WireVisualReadVisualEvidencePin]
+    mapped_digest: Required[str | None]
+    mapping: Required[dict[str, WireVisualReadJsonValue] | None]
+    mapping_availability: Required[Literal["not_selected", "unavailable", "available"]]
+    observation: Required[dict[str, WireVisualReadJsonValue]]
+    producer: Required[dict[str, WireVisualReadJsonValue]]
+    raw: Required[WireVisualReadVisualEvidencePin]
+    raw_producer: Required[dict[str, WireVisualReadJsonValue]]
+
+
+class WireVisualReadVisualHeaderReply(TypedDict):
+    header: Required[WireVisualReadVisualReadHeader]
+    kind: Required[Literal["header"]]
+
+
+class WireVisualReadVisualPicture(TypedDict):
+    kind: NotRequired[Literal["picture"]]
+    metadata: NotRequired[dict[str, WireVisualReadJsonValue] | None]
+    occurrence_id: Required[str]
+    parent_occurrence_id: NotRequired[str | None]
+    provider_locator: NotRequired[str | None]
+    source_region: NotRequired[WireVisualReadVisualSourceRegion | None]
+
+
+class WireVisualReadVisualCaption(TypedDict):
+    kind: NotRequired[Literal["caption"]]
+    occurrence_id: Required[str]
+    parent_occurrence_id: Required[str]
+    parser_attachment_occurrence_ids: NotRequired[list[str]]
+    provider_locator: NotRequired[str | None]
+    source_region: NotRequired[WireVisualReadVisualSourceRegion | None]
+    text: Required[str]
+
+
+class WireVisualReadVisualCaptionCandidate(TypedDict):
+    associated_picture_occurrence_ids: NotRequired[list[str]]
+    kind: NotRequired[Literal["caption_candidate"]]
+    occurrence_id: Required[str]
+    parent_occurrence_id: NotRequired[None]
+    parser_attachment_occurrence_ids: NotRequired[list[str]]
+    provider_locator: NotRequired[str | None]
+    source_region: NotRequired[WireVisualReadVisualSourceRegion | None]
+    text: Required[str]
+
+
+class WireVisualReadVisualText(TypedDict):
+    kind: Required[
+        Literal["picture_description", "picture_text", "formula", "mermaid", "cell_text"]
+    ]
+    native_label: NotRequired[str | None]
+    occurrence_id: Required[str]
+    original_text: NotRequired[str | None]
+    parent_occurrence_id: NotRequired[str | None]
+    provider_locator: NotRequired[str | None]
+    source_region: NotRequired[WireVisualReadVisualSourceRegion | None]
+    text: Required[str]
+
+
+class WireVisualReadVisualTableCell(TypedDict):
+    column_header: NotRequired[bool]
+    column_header_path: NotRequired[list[int]]
+    content_occurrence_id: NotRequired[str | None]
+    end_col_offset_idx: Required[int]
+    end_row_offset_idx: Required[int]
+    row_header: NotRequired[bool]
+    row_header_path: NotRequired[list[int]]
+    start_col_offset_idx: Required[int]
+    start_row_offset_idx: Required[int]
+    text: Required[str]
+
+
+class WireVisualReadVisualTable(TypedDict):
+    cells: Required[list[WireVisualReadVisualTableCell]]
+    kind: NotRequired[Literal["table"]]
+    num_cols: Required[int]
+    num_rows: Required[int]
+    occurrence_id: Required[str]
+    parent_occurrence_id: NotRequired[str | None]
+    provider_locator: NotRequired[str | None]
+    source_region: NotRequired[WireVisualReadVisualSourceRegion | None]
+
+
+class WireVisualReadVisualCellGroup(TypedDict):
+    kind: NotRequired[Literal["cell_group"]]
+    native_label: Required[str]
+    occurrence_id: Required[str]
+    parent_occurrence_id: Required[str]
+    provider_locator: NotRequired[str | None]
+    source_region: NotRequired[WireVisualReadVisualSourceRegion | None]
+
+
+class WireVisualReadVisualRowsReply(TypedDict):
+    items: Required[
+        list[
+            WireVisualReadVisualPicture
+            | WireVisualReadVisualCaption
+            | WireVisualReadVisualCaptionCandidate
+            | WireVisualReadVisualText
+            | WireVisualReadVisualTable
+            | WireVisualReadVisualCellGroup
+        ]
+    ]
+    kind: Required[Literal["rows"]]
+    next_after: Required[int | None]
+
+
+class WireVisualReadVisualArtifactReply(TypedDict):
+    content_hex: Required[str]
+    digest: Required[str]
+    kind: Required[Literal["artifact"]]
+    media_type: Required[Literal["image/png", "text/html; charset=utf-8", "application/json"]]
+    next_offset: Required[int | None]
+    offset: Required[int]
+    total_bytes: Required[int]
 
 
 class WireRecordDataFateRequest(TypedDict):
@@ -1248,6 +1418,16 @@ type WireVisibleFate = Literal[
 
 type WireReadId = WireReadIdentity
 
+type WireVisualReadJsonValue = WireExactJSONValue
+
+type WireSelectedVisualRead = (
+    WireVisualReadVisualHeaderReply
+    | WireVisualReadVisualRowsReply
+    | WireVisualReadVisualArtifactReply
+)
+
+type WireReadSelectedVisualEvidenceResult = WireSelectedVisualRead
+
 type WireReleaseDataAttemptResult = WireDataAttemptLostResult | WireReleaseDataAttemptResultVariant2
 
 type WireRenewDataRequestResult = WireRenewedDataRequestResult | WireDataAttemptLostResult
@@ -1441,4 +1621,12 @@ class DataOperationCalls:
     ) -> WireInitializeSourceProjectResult:
         return cast(
             WireInitializeSourceProjectResult, self._invoke("initialize_source_project", payload)
+        )
+
+    def read_selected_visual_evidence(
+        self, payload: WireReadSelectedVisualEvidenceRequest
+    ) -> WireReadSelectedVisualEvidenceResult:
+        return cast(
+            WireReadSelectedVisualEvidenceResult,
+            self._invoke("read_selected_visual_evidence", payload),
         )

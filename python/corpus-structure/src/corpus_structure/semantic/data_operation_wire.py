@@ -66,6 +66,25 @@ def _protocol_content(sources: tuple[SourceArtifact, ...] | None) -> bytes:
             raise ValueError("native execution evidence definition collides with protocol")
         document["definitions"].update(definitions)
         content = canonical_bytes(document)
+    if "read_selected_visual_evidence_result" in document.get("definitions", {}):
+        from .data_operation_visual_read import SOURCE, visual_read_schema
+
+        if sources is None:
+            captured = visual_read_schema()
+        else:
+            values = [source.content for source in sources if source.name == SOURCE]
+            if len(values) != 1:
+                raise ValueError("visual read requires its captured projection schema")
+            captured = values[0]
+        extension = checked_json_schema(json.loads(captured))
+        definitions = dict(extension.get("definitions", {}))
+        definitions["selected_visual_read"] = {
+            key: value for key, value in extension.items() if key not in {"definitions", "$schema"}
+        }
+        if definitions.keys() & document["definitions"].keys():
+            raise ValueError("visual read definition collides with protocol")
+        document["definitions"].update(definitions)
+        content = canonical_bytes(document)
     intent_properties = (
         document.get("definitions", {}).get("demand_intent", {}).get("properties", {})
     )

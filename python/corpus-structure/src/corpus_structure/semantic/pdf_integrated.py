@@ -485,10 +485,7 @@ def prepare_integrated_pdf_product(
             raise ValueError("mapped Chandra evidence bytes must be retained")
         image = observation["image"]
         if mapped is not None:
-            from corpus_structure.serve.pdf_visual_evidence import (
-                MAX_VISUAL_EVIDENCE_BYTES,
-                VisualEvidenceArtifact,
-            )
+            from corpus_structure.semantic.visual_evidence import MAX_VISUAL_EVIDENCE_BYTES, VisualEvidenceArtifact
 
             if len(retained[mapped]) > MAX_VISUAL_EVIDENCE_BYTES:
                 raise ValueError("mapped Chandra evidence exceeds its byte bound")
