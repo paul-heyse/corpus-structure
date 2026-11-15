@@ -32,6 +32,7 @@ def _pdf_action(operation: str, owner: str, symbol: str) -> bool:
 
 
 HELPER_CONTRACT = "pdf-native/helper-bindings"
+ANALYSIS_RUNTIME = PREFIX + "analysis/libraries.json"
 
 
 def _action_sources(*, physical_sources=None, linkml_types=None):
@@ -90,8 +91,11 @@ def pdf_domain_sources(*, physical_sources=None, linkml_types=None) -> tuple[Sou
     def content(name):
         return supplied[name] if name in supplied else root.joinpath(name).read_bytes()
 
+    from .determinants import analysis_runtime
+
     sources = (
         *action_sources,
+        SourceArtifact(ANALYSIS_RUNTIME, canonical_bytes(dict(analysis_runtime()))),
         SourceArtifact(PREFIX + "schema/pdf_products", root.joinpath("pdf-products.yaml").read_bytes()),
         SourceArtifact(PREFIX + "schema/core", root.joinpath("core.yaml").read_bytes()),
         SourceArtifact(PREFIX + "schema/pdf_domain_schema", canonical_bytes({"id": "urn:corpus:pdf-domain-schema", "name": "pdf_domain_schema", "imports": ["pdf_products", "core"]})),

@@ -101,3 +101,31 @@ def test_side_effecting_function_never_reaches_planner(commit_db_engine, commit_
         )
     with commit_db_engine.connect() as conn:
         assert conn.execute(text("SELECT count(*) FROM public.side_effect")).scalar_one() == 0
+
+
+def test_authored_sql_uses_exact_current_physical_capture_and_manifest():
+    from dataclasses import replace
+    from corpus_structure.semantic.authored_sql import prepare_release_sql
+    from corpus_structure.semantic.data_operation_projections import capture_projection_sources
+    from corpus_structure.semantic.prepare import prepare_release
+    from corpus_structure.semantic.types import SourceArtifact, SourceBundle, ResolvedDependencies
+
+    bundle = SourceBundle("tiny", (SourceArtifact("tiny", b"id: urn:sql-admission\nname: sql_admission\nclasses: {Thing: {}}\n"),))
+    sql = SourceArtifact("authored-sql/entities.sql", b"SELECT entity_id FROM data.entity")
+    dependencies = ResolvedDependencies((*capture_projection_sources(), sql))
+    prepared = prepare_release(bundle, dependencies)
+    inputs = prepare_release_sql(prepared, dependencies)
+    assert inputs is not None
+    assert inputs.statements == ((sql.name, sql.content.decode()),)
+    assert inputs.metadata.tables["data.entity"].c.entity_id is not None
+    with pytest.raises(SQLAdmissionError, match="dependency bytes differ"):
+        prepare_release_sql(prepared, replace(dependencies, artifacts=tuple(SourceArtifact(s.name, s.content+b"\n") if s.name == sql.name else s for s in dependencies.artifacts)))
+    with pytest.raises(SQLAdmissionError, match="dependency bytes differ"):
+        prepare_release_sql(prepared, replace(dependencies, artifacts=tuple(s for s in dependencies.artifacts if s.name != "native/projection-physical/physical.yaml")))
+
+
+def test_authored_sql_does_not_fall_back_to_legacy_execution_inputs():
+    from corpus_structure.semantic.authored_sql import _prepare_sql_inputs
+
+    with pytest.raises(SQLAdmissionError, match="physical closure is unavailable"):
+        _prepare_sql_inputs("release", {"authored-sql/query.sql":b"SELECT 1", "execution/implementation/pdf/record-physical.yaml":b"legacy"})

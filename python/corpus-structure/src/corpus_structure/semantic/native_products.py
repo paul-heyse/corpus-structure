@@ -107,8 +107,7 @@ def capture_native_authoring_inputs(*, target_metadata: MetaData | None = None) 
         raise ValueError("native authoring requires captured physical sources and LinkML types")
     native = native_protocol_sources(physical_sources=physical, linkml_types=types)
     declarations = native_operation_declarations(native)
-    model = compile_data_operations(declarations=(declarations,))
-    calls = native_operation_calls(model, sources=native)
+    calls = native_operation_calls(sources=native)
     sources = (
         *native,
         declarations,
@@ -127,7 +126,9 @@ def capture_native_authoring_inputs(*, target_metadata: MetaData | None = None) 
     names = [source.name for source in sources]
     if len(names) != len(set(names)):
         raise ValueError("native authoring source capture repeats an input")
-    return NativeAuthoringInputs(model, tuple(sorted(sources, key=lambda item: item.name)), selected.info["physical_model_id"])
+    sources = tuple(sorted(sources, key=lambda item: item.name))
+    model = compile_data_operations(declarations=(declarations,), captured_contracts=sources)
+    return NativeAuthoringInputs(model, sources, selected.info["physical_model_id"])
 
 
 def current_authoring_provenance(inputs: NativeAuthoringInputs | None = None) -> NativeAuthoringProvenance:

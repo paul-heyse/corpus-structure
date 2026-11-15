@@ -12,12 +12,29 @@ from corpus_structure.cli.output import CliState
 from corpus_structure.semantic.authored_sql import SQLAdmissionError, analyze_archived_sql
 from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.releases import ActivationToken, activate_release
-from semantic.execution_release_support import (
-    project as _project,
-)
-from semantic.execution_release_support import (
-    stage_authored_sql as _stage_authored_sql,
-)
+
+
+def _project(connection):
+    from uuid import uuid4
+    from sqlalchemy import insert
+
+    identity = str(uuid4())
+    connection.execute(insert(table("data.project")).values(project_id=identity, generation=0))
+    return identity
+
+
+def _stage_authored_sql(connection):
+    from semantic.original_document_support import source_admission_inputs
+    from corpus_structure.semantic.prepare import prepare_release
+    from corpus_structure.semantic.releases import persist_release
+    from corpus_structure.semantic.types import PreparationProfile, ResolvedDependencies, SourceArtifact
+
+    bundle, current, _ = source_admission_inputs()
+    dependencies = ResolvedDependencies((*current.artifacts, SourceArtifact("authored-sql/entities.sql", b"SELECT entity_id FROM data.entity")), current.vocabularies, current.ontology_sources)
+    profile = PreparationProfile(version="semantic-2")
+    prepared = prepare_release(bundle, dependencies, profile)
+    persist_release(connection, bundle, dependencies, profile, prepared)
+    return prepared
 
 
 def test_sequential_restricted_sql_analysis_and_activation(

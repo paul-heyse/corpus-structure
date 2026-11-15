@@ -56,12 +56,13 @@ def projection_analysis_runtime(
 ) -> tuple[tuple[str, str], ...]:
     """Qualify production, not archive reading, before either preparation cache."""
     sources = {source.name: source.content for source in dependencies.artifacts}
-    prefix = "execution/implementation/"
-    if prefix + "capture/companion-projection-model.yaml" not in sources:
+    from .pdf_domain import ANALYSIS_RUNTIME, CONTRACT, PREFIX
+
+    if CONTRACT not in sources and not any(name.startswith(PREFIX) for name in sources):
         return ()
-    advice = "reacquire execution inputs and prepare/admit a new release"
+    advice = "reacquire current PDF inputs and prepare/admit a new release"
     try:
-        recorded = json.loads(sources[prefix + "libraries.json"])
+        recorded = json.loads(sources[ANALYSIS_RUNTIME])
     except (KeyError, ValueError, TypeError) as error:
         raise ValueError(f"projection analysis runtime provenance missing; {advice}") from error
     current = analysis_runtime()

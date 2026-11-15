@@ -297,7 +297,8 @@ def decode_artifact(content: bytes) -> dict[str, Any]:
 
 
 _SQL_PREFIX = "authored-sql/"
-_IMPLEMENTATION = "execution/implementation/"
+_PHYSICAL_PREFIX = "native/projection-physical/"
+_LINKML_TYPES = "native/projection-linkml-types.yaml"
 
 
 def has_authored_sql(prepared: PreparedRelease) -> bool:
@@ -340,18 +341,10 @@ def _prepare_sql_inputs(
 
     from corpus_structure.schema.physical import compile_physical
 
-    from .contracts import retained_physical_sources
-
-    implementations = {
-        name.removeprefix(_IMPLEMENTATION): content
-        for name, content in dependencies.items()
-        if name.startswith(_IMPLEMENTATION)
-    }
+    physical = {name.removeprefix(_PHYSICAL_PREFIX): content
+                for name, content in dependencies.items() if name.startswith(_PHYSICAL_PREFIX)}
     try:
-        metadata = compile_physical(
-            retained_physical_sources(implementations),
-            linkml_types=implementations["unified/linkml-types.yaml"],
-        )
+        metadata = compile_physical(physical, linkml_types=dependencies[_LINKML_TYPES])
     except (ValueError, KeyError) as exc:
         raise SQLAdmissionError("retained authored SQL physical closure is unavailable") from exc
     for _, sql in statements:
@@ -367,8 +360,8 @@ def prepare_release_sql(
         return None
     manifest = dict(json.loads(prepared.manifest)["dependencies"])
     supplied = {source.name: source.content for source in dependencies.artifacts}
-    scoped = {name for name in manifest if name.startswith((_SQL_PREFIX, _IMPLEMENTATION))}
-    supplied_scope = {name for name in supplied if name.startswith((_SQL_PREFIX, _IMPLEMENTATION))}
+    scoped = {name for name in manifest if (name.startswith((_SQL_PREFIX, _PHYSICAL_PREFIX)) or name == _LINKML_TYPES)}
+    supplied_scope = {name for name in supplied if (name.startswith((_SQL_PREFIX, _PHYSICAL_PREFIX)) or name == _LINKML_TYPES)}
     if supplied_scope != scoped or any(
         sha256(supplied[name]).hexdigest() != manifest[name] for name in scoped
     ):
@@ -379,23 +372,12 @@ def prepare_release_sql(
 def _archive_inputs(
     conn: Connection, release_id: str, *, include_physical: bool
 ) -> dict[str, bytes]:
-    from .contracts import _PHYSICAL_ARTIFACTS, _PHYSICAL_IMPORT_PREFIX
     from .metadata import table
 
     inputs = table("sem.input")
     names = [inputs.c.input_name.startswith(_SQL_PREFIX)]
     if include_physical:
-        names.extend(
-            (
-                inputs.c.input_name.in_(
-                    [
-                        _IMPLEMENTATION + name
-                        for name in (*_PHYSICAL_ARTIFACTS.values(), "unified/linkml-types.yaml")
-                    ]
-                ),
-                inputs.c.input_name.startswith(_IMPLEMENTATION + _PHYSICAL_IMPORT_PREFIX),
-            )
-        )
+        names.extend((inputs.c.input_name.startswith(_PHYSICAL_PREFIX), inputs.c.input_name == _LINKML_TYPES))
     rows = conn.execute(
         select(inputs.c.input_name, inputs.c.content, inputs.c.content_digest).where(
             inputs.c.release_id == release_id,
@@ -497,17 +479,16 @@ def admit_archived_sql(
             physical_id,
         ):
             raise SQLAdmissionError("analyzed SQL binding differs")
-        from ._operation_calls import record_sql_admission
-        from ._operation_ids import ReleaseId
+        from sqlalchemy import LargeBinary, Text, bindparam, func
 
-        record_sql_admission(
-            conn,
-            release_id=ReleaseId(release_id),
-            input_kind="dependency",
-            input_name=name,
-            physical_id=physical_id,
-            content=artifact.content,
-        )
+        conn.execute(select(func.sem.record_sql_admission(
+            bindparam("release", type_=Text()),
+            bindparam("input_kind", type_=Text()),
+            bindparam("input_name", type_=Text()),
+            bindparam("physical", type_=Text()),
+            bindparam("content", type_=LargeBinary()),
+        )), {"release": release_id, "input_kind": "dependency", "input_name": name,
+             "physical": physical_id, "content": artifact.content})
         prior = conn.execute(
             select(admitted.c.content).where(
                 admitted.c.release_id == release_id,
