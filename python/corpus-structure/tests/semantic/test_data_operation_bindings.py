@@ -466,23 +466,6 @@ def test_projection_contract_and_typed_demand_refuse_unsafe_inputs(storage):
         )
 
 
-def test_archived_v2_is_exact_read_only_and_never_gains_projection_interpretation():
-    source = model(BindingExpression("scan", roles=("items",)))
-    archived = replace(source, version="data-operation-model-v2", graph_projections=())
-    content = archived.content
-    assert b'"graph_projections"' not in content
-    restored = read_effective_data_operations(content)
-    assert restored.content == content
-    with pytest.raises(ValueError, match="historical"):
-        restored.projection_graph("semantic-reference")
-    corrupt = json.loads(content)
-    corrupt["graph_projections"] = []
-    with pytest.raises(ValueError):
-        read_effective_data_operations(canonical_bytes(corrupt))
-    corrupt = json.loads(content)
-    corrupt["version"] = "data-operation-model-v1"
-    with pytest.raises(ValueError, match="unsupported"):
-        read_effective_data_operations(canonical_bytes(corrupt))
 
 
 def test_potential_producer_cycles_do_not_become_mandatory_prerequisites():
@@ -1492,16 +1475,9 @@ def _qualified_context_expression():
 def test_population_projection_preserves_historical_bytes_and_is_explicit():
     from corpus_structure.semantic.data_operation_compilation import _expression
 
-    historical = model(BindingExpression("scan", roles=("items",)))
-    for version in (
-        "data-operation-model-v2",
-        "data-operation-model-v3",
-        "data-operation-model-v4",
-        MODEL_VERSION,
-    ):
-        archived = replace(historical, version=version, identities=())
-        assert b"population_projection" not in archived.content
-        assert read_effective_data_operations(archived.content).content == archived.content
+    current = model(BindingExpression("scan", roles=("items",)))
+    assert b"population_projection" not in current.content
+    assert read_effective_data_operations(current.content).content == current.content
     parsed = _expression(
         {
             "operator": "covers",
@@ -1525,7 +1501,7 @@ def test_population_projection_preserves_historical_bytes_and_is_explicit():
     current = model(parsed)
     assert b'"population_projection":"qualified-context"' in current.content
     assert read_effective_data_operations(current.content).content == current.content
-    with pytest.raises(ValueError, match="historical"):
+    with pytest.raises(ValueError, match="unsupported"):
         _ = replace(current, version="data-operation-model-v3").content
 
 
@@ -1624,12 +1600,6 @@ def test_sql_subject_field_can_target_original_source_without_relabeling_context
     ] == [("p1", "doc", "source")]
     assert b'"subject_target":"original-source"' in schema.content
     assert read_effective_data_operations(schema.content).content == schema.content
-    for version in ("data-operation-model-v2", "data-operation-model-v3"):
-        archived = replace(base, version=version, identities=())
-        assert b"subject_target" not in archived.content
-        assert read_effective_data_operations(archived.content).content == archived.content
-        with pytest.raises(ValueError, match="historical"):
-            _ = replace(schema, version=version).content
 
 
 @pytest.mark.parametrize("header,selected", [("@product", "p2"), ("@member", "m2")])

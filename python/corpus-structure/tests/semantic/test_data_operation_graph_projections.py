@@ -92,25 +92,6 @@ def test_v6_specs_are_interpretations_not_selected_runtime_facts():
         compiled.projection_graph("selected-support")
 
 
-def test_v5_compact_archive_read_preserves_exact_bytes_and_headers():
-    import json
-
-    from corpus_structure.semantic.data_operation_model import EffectiveIdentity
-    from corpus_structure.semantic.identity import canonical_bytes
-
-    compiled = model(operation("op:alone"))
-    record = json.loads(compiled.content)
-    record["version"] = "data-operation-model-v5"
-    record["graph_projections"] = record["graph_projections"][:3]
-    for implementation in record["implementation_slices"]:
-        implementation.pop("references")
-    original = canonical_bytes(record)
-    restored = read_effective_data_operations(original)
-    assert restored.content == original
-    assert all(type(identity) is EffectiveIdentity for identity in restored.identities)
-    assert len(restored.graph_projections) == 3
-    with pytest.raises(ValueError, match="interpretation"):
-        restored.projection_definition("selected-support")
 
 
 def test_captured_reference_occurrences_are_diagnostic_not_recipe_salts():

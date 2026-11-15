@@ -21,11 +21,7 @@ from .data_operation_support import (
 )
 from .identity import canonical_bytes
 
-MODEL_VERSION = "data-operation-model-v6"
-COMPACT_ARCHIVED_MODEL_VERSION = "data-operation-model-v5"
-PREVIOUS_MODEL_VERSION = "data-operation-model-v4"
-LEGACY_MODEL_VERSION = "data-operation-model-v3"
-ARCHIVED_MODEL_VERSION = "data-operation-model-v2"
+MODEL_VERSION = "data-operation-model-v7"
 
 
 @dataclass(frozen=True)
@@ -319,13 +315,6 @@ class EffectiveIdentity:
 
 
 @dataclass(frozen=True)
-class ArchivedEffectiveIdentity(EffectiveIdentity):
-    """Expanded witnesses belong only to exact historical archive readback."""
-
-    canonical_input: bytes
-
-
-@dataclass(frozen=True)
 class ExternalExecutorContract:
     version: Literal["external-executor-v1"]
     instructions: str
@@ -387,7 +376,7 @@ class EffectiveOperation:
                 "outcomes": self.outcomes,
                 "precision": self.precision,
                 "dependencies": self.dependencies,
-                "behavior": self.behavior,
+                **({"behavior": self.behavior} if self.implementation_root is None else {}),
                 "parameters": json.loads(self.parameters),
                 "assets": [asdict(a) for a in self.assets],
                 "effects": [asdict(effect) for effect in self.effects],
@@ -805,23 +794,14 @@ class EffectiveDataOperationModel:
 
         record = asdict(self)
         record.pop("source_interfaces")
-        legacy_model = self.version in {LEGACY_MODEL_VERSION, ARCHIVED_MODEL_VERSION}
-        if self.version not in {
-            MODEL_VERSION,
-            COMPACT_ARCHIVED_MODEL_VERSION,
-            PREVIOUS_MODEL_VERSION,
-            LEGACY_MODEL_VERSION,
-            ARCHIVED_MODEL_VERSION,
-        }:
-            raise ValueError("unsupported archived data-operation model version")
+        if self.version != MODEL_VERSION:
+            raise ValueError("unsupported data-operation model version; regenerate target-native data")
 
         def binding_record(node):
             for operand in node["operands"]:
                 mode = operand["population_projection"]
                 if mode == "member":
                     operand.pop("population_projection")
-                elif legacy_model:
-                    raise ValueError("historical models cannot project population contexts")
             for child in node["children"]:
                 binding_record(child)
 
@@ -830,19 +810,9 @@ class EffectiveDataOperationModel:
         for operation in record["operations"]:
             if operation["external"] is None:
                 operation.pop("external")
-            elif legacy_model:
-                raise ValueError("historical models cannot declare external executors")
-            if legacy_model:
-                if operation["output_witnesses"]:
-                    raise ValueError("historical models cannot declare output witnesses")
-                operation.pop("consumer_selection")
-                operation["capabilities"].pop("stream_settlement")
-                operation["capabilities"].pop("prepared_factory")
             for role in operation["roles"]:
                 if role["subject_target"] == "subject":
                     role.pop("subject_target")
-                elif legacy_model:
-                    raise ValueError("historical models cannot target original-source associations")
                 if role["subject_field"] is None:
                     role.pop("subject_field")
                 if role["support"] is not None:
@@ -853,21 +823,8 @@ class EffectiveDataOperationModel:
                 operation.pop("output_witnesses")
             if not operation["result_fields"]:
                 operation.pop("result_fields")
-        if self.version == ARCHIVED_MODEL_VERSION:
-            # Retained v2 candidates retain their exact bytes, without invented projections.
-            if self.graph_projections:
-                raise ValueError("historical v2 cannot declare current graph projections")
-            record.pop("graph_projections")
-        if self.version != MODEL_VERSION:
-            for implementation in record["implementation_slices"]:
-                implementation.pop("references")
-        identity_type = (
-            EffectiveIdentity
-            if self.version in {MODEL_VERSION, COMPACT_ARCHIVED_MODEL_VERSION}
-            else ArchivedEffectiveIdentity
-        )
-        if any(type(identity) is not identity_type for identity in self.identities):
-            raise ValueError("model identity representation differs from its archive version")
+        if any(type(identity) is not EffectiveIdentity for identity in self.identities):
+            raise ValueError("effective identities require compact current headers")
         return canonical_bytes(encode(record))
 
 
@@ -1024,24 +981,15 @@ def _read_effective_data_operations_cached(content: bytes) -> EffectiveDataOpera
 
 
 def _read_effective_data_operations(content: bytes) -> EffectiveDataOperationModel:
-    """Read compact current or exact expanded historical meaning without promotion."""
+    """Read the supported target-native model; old encodings require regeneration."""
     from dataclasses import fields, is_dataclass
 
     from cattrs import Converter
     from cattrs.gen import make_dict_structure_fn
 
     record = json.loads(content)
-    if not isinstance(record, dict) or record.get("version") not in {
-        MODEL_VERSION,
-        COMPACT_ARCHIVED_MODEL_VERSION,
-        PREVIOUS_MODEL_VERSION,
-        LEGACY_MODEL_VERSION,
-        ARCHIVED_MODEL_VERSION,
-    }:
-        raise ValueError("unsupported archived data-operation model version")
-    archived_v2 = record["version"] == ARCHIVED_MODEL_VERSION
-    historical_model = record["version"] not in {MODEL_VERSION, COMPACT_ARCHIVED_MODEL_VERSION}
-    legacy_model = record["version"] in {LEGACY_MODEL_VERSION, ARCHIVED_MODEL_VERSION}
+    if not isinstance(record, dict) or record.get("version") != MODEL_VERSION:
+        raise ValueError("unsupported data-operation model version; regenerate target-native data")
     converter = Converter(forbid_extra_keys=True, detailed_validation=False)
 
     def structure_bytes(value, _):
@@ -1052,25 +1000,12 @@ def _read_effective_data_operations(content: bytes) -> EffectiveDataOperationMod
     def structure_record(cls):
         build = make_dict_structure_fn(cls, converter, _cattrs_forbid_extra_keys=True)
         expected = {field.name for field in fields(cls)}
-        historical: dict[str, Any] = (
-            {"graph_projections": []} if cls is EffectiveDataOperationModel and archived_v2 else {}
-        )
-        if cls is ImplementationSlice and record["version"] != MODEL_VERSION:
-            historical["references"] = []
-        if legacy_model and cls is ImplementationCapabilities:
-            historical["stream_settlement"] = None
-            historical["prepared_factory"] = None
-        if legacy_model and cls is EffectiveOperation:
-            historical["consumer_selection"] = None
-        if cls is EffectiveDataOperationModel:
-            historical["source_interfaces"] = None
-        archived_fields = expected - historical.keys()
+        omitted = {"source_interfaces": None} if cls is EffectiveDataOperationModel else {}
+        archived_fields = expected - omitted.keys()
 
         def structure(value, _):
             if cls is BindingOperand and isinstance(value, dict):
                 value = {"population_projection": "member", **value}
-                if legacy_model and value["population_projection"] != "member":
-                    raise ValueError("historical models cannot project population contexts")
             if cls is InputSupport and isinstance(value, dict):
                 value = {
                     "source_set": None,
@@ -1080,24 +1015,14 @@ def _read_effective_data_operations(content: bytes) -> EffectiveDataOperationMod
                 }
             if cls is OperationRole and isinstance(value, dict):
                 value = {"subject_field": None, "subject_target": "subject", **value}
-                if legacy_model and value["subject_target"] != "subject":
-                    raise ValueError("historical models cannot target original-source associations")
             if cls is EffectiveOperation and isinstance(value, dict):
-                if legacy_model and value.get("output_witnesses"):
-                    raise ValueError("historical models cannot declare output witnesses")
                 value = {"external": None, "result_fields": [], "output_witnesses": [], **value}
-                if legacy_model and value["external"] is not None:
-                    raise ValueError("historical models cannot declare external executors")
             if not isinstance(value, dict) or set(value) != archived_fields:
                 raise ValueError("incomplete archived " + cls.__name__ + " record")
-            return build({**value, **historical}, cls)
+            return build({**value, **omitted}, cls)
 
         return structure
 
     converter.register_structure_hook(bytes, structure_bytes)
     converter.register_structure_hook_factory(is_dataclass, structure_record)
-    if historical_model:
-        converter.register_structure_hook(
-            EffectiveIdentity, structure_record(ArchivedEffectiveIdentity)
-        )
     return converter.structure(record, EffectiveDataOperationModel)

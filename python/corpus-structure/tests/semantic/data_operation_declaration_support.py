@@ -66,6 +66,14 @@ def declaration(
         "binding": {"operator": "all", "children": []},
     }
     value.update(changes)
+    nonstandard = {"produced": "success", "unknown": "failed"}
+    selected = [outcome for outcome in value["outcomes"] if outcome in nonstandard]
+    if selected and "transitions" not in value:
+        value["state_dimensions"] = [{"name": "completion", "values": ["pending", "success", "empty", "failed"]}]
+        value["transitions"] = [
+            {"dimension": "completion", "before": "pending", "after": nonstandard[outcome], "outcome": outcome}
+            for outcome in selected
+        ]
     return value
 
 

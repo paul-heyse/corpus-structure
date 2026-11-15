@@ -11,11 +11,7 @@ from corpus_structure.semantic.data_operation_identity import (
     kind_fingerprint,
 )
 from corpus_structure.semantic.data_operation_model import (
-    ARCHIVED_MODEL_VERSION,
-    LEGACY_MODEL_VERSION,
     MODEL_VERSION,
-    PREVIOUS_MODEL_VERSION,
-    ArchivedEffectiveIdentity,
     EffectiveIdentity,
     read_effective_data_operations,
 )
@@ -58,40 +54,8 @@ def test_compact_archive_keeps_governing_graph_and_reconstructible_identity_keys
         assert witness.key == expected[implementation.root, "implementation-slice"]
 
 
-@pytest.mark.parametrize(
-    "version", [ARCHIVED_MODEL_VERSION, LEGACY_MODEL_VERSION, PREVIOUS_MODEL_VERSION]
-)
-def test_expanded_historical_identity_witnesses_retain_exact_bytes_and_no_execution(version):
-    model = compile_data_operations()
-    graph = model.projection_graph("semantic-reference")
-    record = json.loads(model.content)
-    record["version"] = version
-    for identity in record["identities"]:
-        witness = kind_fingerprint(graph, identity["owner"])
-        assert witness.key == identity["key"]
-        identity["canonical_input"] = {"json": json.loads(witness.canonical_input)}
-    if version == ARCHIVED_MODEL_VERSION:
-        record.pop("graph_projections")
-    content = canonical_bytes(record)
-    reopened = read_effective_data_operations(content)
-    assert reopened.content == content
-    assert all(type(identity) is ArchivedEffectiveIdentity for identity in reopened.identities)
-    with pytest.raises(ValueError, match="historical"):
-        reopened.projection_graph("semantic-reference")
-    with pytest.raises(ValueError, match="identity representation"):
-        _ = replace(reopened, version=MODEL_VERSION).content
 
 
-def test_retained_v4_keeps_full_external_contract_without_current_authority():
-    current = compile_data_operations(declarations=declarations(external_declaration()))
-    # This control isolates operation-field readback; identity witnesses are covered above.
-    retained = replace(current, version=PREVIOUS_MODEL_VERSION, identities=())
-    reopened = read_effective_data_operations(retained.content)
-    assert reopened.operations == current.operations
-    assert reopened.operations[0].external is not None
-    assert reopened.content == retained.content
-    with pytest.raises(ValueError, match="historical"):
-        reopened.projection_graph("semantic-reference")
 
 
 @pytest.mark.parametrize("mutation", ["expanded", "missing-key", "missing-owner", "unknown-field"])
@@ -110,13 +74,14 @@ def test_current_identity_archive_shape_refuses_expanded_or_incomplete_headers(m
         read_effective_data_operations(canonical_bytes(record))
 
 
-@pytest.mark.parametrize(
-    "version", [ARCHIVED_MODEL_VERSION, LEGACY_MODEL_VERSION, PREVIOUS_MODEL_VERSION]
-)
-def test_historical_identity_archive_cannot_omit_its_retained_witness(version):
-    record = json.loads(compile_data_operations().content)
+
+
+@pytest.mark.parametrize("version", [f"data-operation-model-v{number}" for number in range(2, 7)])
+def test_obsolete_model_encodings_require_target_native_regeneration(version):
+    model = compile_data_operations()
+    record = json.loads(model.content)
     record["version"] = version
-    if version == ARCHIVED_MODEL_VERSION:
-        record.pop("graph_projections")
-    with pytest.raises(ValueError, match="archived ArchivedEffectiveIdentity"):
+    with pytest.raises(ValueError, match="unsupported.*regenerate"):
         read_effective_data_operations(canonical_bytes(record))
+    with pytest.raises(ValueError, match="unsupported.*regenerate"):
+        _ = replace(model, version=version).content

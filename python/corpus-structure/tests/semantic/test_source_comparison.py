@@ -159,39 +159,15 @@ class Operation:
     assert not comparison.breakages
 
 
-def test_v1_interface_identity_preserves_archived_shape_and_owner_docs_stay_unknown():
+def test_obsolete_interface_projection_requires_regeneration():
+    from pydantic import ValidationError
+
     model = compile_source(operation_source())
     assert model.source_interfaces is not None
-    archived = json.loads(model.source_interfaces)
-    assert archived["version"] == "data-operation-source-interfaces-v2"
-    archived["version"] = "data-operation-source-interfaces-v1"
-    for operation in archived["operations"]:
-        del operation["documentation"]
-    original = json.dumps(
-        archived, ensure_ascii=False, sort_keys=True, separators=(",", ":")
-    ).encode()
-    projection = SourceInterfaceProjection.model_validate_json(original)
-    assert projection.operations[0].documentation is None
-    assert projection.content == original
-    assert projection.model_dump(mode="json") == archived
-    assert projection.identity == "source-interfaces:" + sha256(original).hexdigest()
-    retained = read_source_interfaces(
-        SimpleNamespace(
-            artifacts=(
-                SimpleNamespace(kind=SOURCE_INTERFACE_ARTIFACT, content=original),
-                SimpleNamespace(kind="data_operations.json", content=model.content),
-            ),
-            manifest=json.dumps(
-                {"data_operation_source_interfaces": sha256(original).hexdigest()}
-            ).encode(),
-        )
-    )
-    assert retained is not None
-    assert retained.content == original
-    assert retained.identity == projection.identity
-    comparison = compare_data_operation_models(replace(model, source_interfaces=original), model)
-    assert not comparison.changes
-    assert any("operation owner documentation unavailable" in item for item in comparison.unknowns)
+    original = json.loads(model.source_interfaces)
+    original["version"] = "data-operation-source-interfaces-v1"
+    with pytest.raises(ValidationError, match="version"):
+        SourceInterfaceProjection.model_validate_json(json.dumps(original))
 
 
 def test_missing_archive_projection_stays_unavailable_and_model_content_is_unchanged():

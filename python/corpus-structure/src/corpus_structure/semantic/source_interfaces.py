@@ -18,8 +18,6 @@ from pydantic import (
     BaseModel,
     ConfigDict,
     JsonValue,
-    SerializerFunctionWrapHandler,
-    model_serializer,
 )
 
 from .identity import canonical_bytes
@@ -66,9 +64,7 @@ class SourceOperationFacts(_Fact):
 
 
 class SourceInterfaceProjection(_Fact):
-    version: Literal[
-        "data-operation-source-interfaces-v1", "data-operation-source-interfaces-v2"
-    ] = "data-operation-source-interfaces-v2"
+    version: Literal["data-operation-source-interfaces-v2"] = "data-operation-source-interfaces-v2"
     model_digest: str
     interpreter: str
     interpretation: str
@@ -76,16 +72,6 @@ class SourceInterfaceProjection(_Fact):
     modules: tuple[SourceModuleFacts, ...]
     operations: tuple[SourceOperationFacts, ...]
     unknowns: tuple[str, ...] = ()
-
-    @model_serializer(mode="wrap")
-    def _serialize(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:
-        serialized = handler(self)
-        if self.version == "data-operation-source-interfaces-v1":
-            # Owner docs were not captured by v1. Preserve its archived shape and
-            # identity instead of injecting a later schema's default into it.
-            for operation in serialized.get("operations", ()):
-                operation.pop("documentation", None)
-        return serialized
 
     @property
     def content(self) -> bytes:

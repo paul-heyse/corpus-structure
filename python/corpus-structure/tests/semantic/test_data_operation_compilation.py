@@ -57,7 +57,11 @@ def test_declaration_and_closed_python_share_effective_domain_contract():
     extracted = compile_data_operations(python_sources=python_inputs(operation_source()))
     left, right = declared.operations[0], extracted.operations[0]
     assert left.roles == right.roles
-    assert left.recipe == right.recipe
+    # Declaration-owned behavior revision remains a determinant; captured Python
+    # bodies instead use their admitted implementation slice.
+    declared_recipe = json.loads(left.recipe)
+    assert declared_recipe.pop("behavior") == "integer-derive-v1"
+    assert declared_recipe == json.loads(right.recipe)
     assert right.callable_surfaces[0].parameters[0].default == "2"
     assert right.callable_surfaces[0].parameters[0].annotation == "int"
     assert {node.id for node in extracted.implementation_slices[0].nodes} == {
@@ -269,7 +273,10 @@ def test_discovery_aggregate_and_effectful_profiles_are_explicit():
                 "fulfillment": "receipt",
             }
         ],
-        state_dimensions=[{"name": "state", "values": ["owned", "published"]}],
+        state_dimensions=[
+            {"name": "state", "values": ["owned", "published"]},
+            {"name": "completion", "values": ["pending", "success", "failed"]},
+        ],
         transitions=[
             {
                 "dimension": "state",
@@ -277,7 +284,9 @@ def test_discovery_aggregate_and_effectful_profiles_are_explicit():
                 "after": "published",
                 "outcome": "produced",
                 "effects": ["publish"],
-            }
+            },
+            {"dimension": "completion", "before": "pending", "after": "success", "outcome": "produced"},
+            {"dimension": "completion", "before": "pending", "after": "failed", "outcome": "unknown"},
         ],
     )
     model = compile_data_operations(declarations=declarations(aggregate, command))
@@ -1319,3 +1328,23 @@ def test_keyword_argument_label_is_syntax_but_argument_value_remains_a_required_
     assert not any(
         item.owner == "urn:test:derive" and item.domain == "recipe" for item in broken.identities
     )
+
+
+def test_slice_owned_descriptive_behavior_is_not_a_semantic_identity_token():
+    before = compile_data_operations(python_sources=python_inputs(operation_source()))
+    after = compile_data_operations(python_sources=python_inputs(operation_source(metadata=contract(behavior="rewritten description"))))
+    assert identity(before, domain="recipe") == identity(after, domain="recipe")
+    assert identity(before, domain="definition") == identity(after, domain="definition")
+    authored_before = compile_data_operations(declarations=declarations(contract()))
+    authored_after = compile_data_operations(declarations=declarations(contract(behavior="real revision")))
+    assert identity(authored_before, domain="recipe") != identity(authored_after, domain="recipe")
+
+
+def test_completion_mappings_are_materialized_and_nonstandard_outcomes_need_explicit_mapping():
+    model = compile_data_operations(declarations=declarations(contract(outcomes=["success", "empty", "failed"], transitions=[])))
+    operation = model.operations[0]
+    assert {(t.outcome, t.after) for t in operation.transitions} == {
+        ("success", "success"), ("empty", "empty"), ("failed", "failed")
+    }
+    with pytest.raises(PreparationError, match="explicit completion"):
+        compile_data_operations(declarations=declarations(contract(outcomes=["unmapped"], transitions=[])))

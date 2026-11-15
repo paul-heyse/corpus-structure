@@ -166,46 +166,6 @@ def test_archived_shared_helper_occurrences_are_unioned_once(monkeypatch):
     assert single.occurrences and single.occurrences == repeated.occurrences
 
 
-def test_historical_projection_is_unavailable_without_current_execution_or_backfill():
-    from dataclasses import replace
-    from hashlib import sha256
-
-    from corpus_structure.semantic.data_operation_admission import (
-        archived_data_operation_model,
-        bound_data_operation_model,
-    )
-    from corpus_structure.semantic.data_operation_json import json_bytes
-    from corpus_structure.semantic.graph_inspection import archived_graph_snapshot
-    from corpus_structure.semantic.refusals import SemanticRefusal
-    from corpus_structure.semantic.types import PreparedArtifact
-    from semantic.test_source_comparison import compile_source, operation_source
-
-    model = compile_source(operation_source())
-    old = replace(
-        model,
-        version="data-operation-model-v5",
-        graph_projections=tuple(
-            replace(item, analyses=("root-inclusive-closure", "strong-components"))
-            for item in model.graph_projections[:3]
-        ),
-    )
-    content = old.content
-    prepared = type(
-        "Prepared",
-        (),
-        dict(
-            release_id="release:historical",
-            execution_model_id=None,
-            artifacts=(PreparedArtifact("data_operations.json", content),),
-            manifest=json_bytes(dict(data_operation_model=sha256(content).hexdigest())),
-        ),
-    )()
-    assert archived_data_operation_model(prepared).content == content
-    with pytest.raises(SemanticRefusal, match="current"):
-        bound_data_operation_model(prepared)
-    result = archived_graph_snapshot(prepared, "selected-support")
-    assert result.standing == "unavailable" and not result.nodes
-    assert archived_data_operation_model(prepared).content == content
 
 
 def test_assessment_roots_have_an_explicit_request_bound():

@@ -299,6 +299,13 @@ score_operation_event__data_operation__ = {
     "invariants": ["finite-features", "matching-feature-shape", "probability-in-unit-interval"],
     "coverage": "one-score-for-complete-feature-vector",
     "outcomes": ["scored", "invalid-applicability", "invalid-feature-shape", "numerical-failure"],
+    "state_dimensions": [{"name": "completion", "values": ["pending", "success", "failed"]}],
+    "transitions": [
+        {"dimension": "completion", "before": "pending", "after": "success", "outcome": "scored"},
+        {"dimension": "completion", "before": "pending", "after": "failed", "outcome": "invalid-applicability"},
+        {"dimension": "completion", "before": "pending", "after": "failed", "outcome": "invalid-feature-shape"},
+        {"dimension": "completion", "before": "pending", "after": "failed", "outcome": "numerical-failure"},
+    ],
     "precision": "numpy-float64-scipy-expit-finite-errors-raised-v1",
     "dependencies": [],
     "effects": [],

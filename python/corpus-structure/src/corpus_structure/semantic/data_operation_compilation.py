@@ -1452,6 +1452,29 @@ def compile_data_operations(
             }:
                 _fail(semantic_id, "transition outcome/effect correspondence differs")
             transitions.append(transition)
+        # Materialize conventional outcome correspondence into the admitted model.
+        # Native publication consumes these exact transitions; it has no fallback.
+        completion = next((item for item in dimensions if item.name == "completion"), None)
+        if completion is None:
+            completion = StateDimension("completion", ("pending", "success", "empty", "failed"))
+            dimensions.append(completion)
+        for outcome in outcomes:
+            matches = [
+                item for item in transitions
+                if item.dimension == "completion" and item.before == "pending"
+                and item.outcome == outcome
+            ]
+            if not matches and outcome in {"success", "empty", "failed"}:
+                transitions.append(StateTransition("completion", "pending", outcome, outcome, ()))
+                matches = [transitions[-1]]
+            if (
+                len(matches) != 1
+                or matches[0].after not in {"success", "empty", "failed"}
+                or matches[0].effects
+                or matches[0].after not in completion.values
+                or "pending" not in completion.values
+            ):
+                _fail(semantic_id, "outcome requires one explicit completion terminal mapping")
         capabilities = _mapping(
             raw.get("capabilities"),
             semantic_id,

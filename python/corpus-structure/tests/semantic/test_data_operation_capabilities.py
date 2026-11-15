@@ -12,7 +12,6 @@ import pytest
 from corpus_structure.semantic.data_operation_compilation import compile_data_operations
 from corpus_structure.semantic.data_operation_consumers import resolve_prepared_factory
 from corpus_structure.semantic.data_operation_model import (
-    LEGACY_MODEL_VERSION,
     MODEL_VERSION,
     read_effective_data_operations,
 )
@@ -53,15 +52,6 @@ def test_compiled_factory_is_captured_from_original_static_owner(tmp_path, monke
         acquired()
 
 
-def test_exact_v3_archive_read_has_no_current_execution_authority():
-    model = compile_data_operations()
-    previous = replace(model, version=LEGACY_MODEL_VERSION, identities=())
-    content = previous.content
-    reopened = read_effective_data_operations(content)
-    assert reopened.content == content
-    assert json.loads(content)["version"] == LEGACY_MODEL_VERSION
-    with pytest.raises(ValueError, match="historical"):
-        reopened.projection_graph("semantic-reference")
 
 
 @pytest.mark.parametrize("count", [0, 2])

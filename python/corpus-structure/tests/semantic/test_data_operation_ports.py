@@ -1295,14 +1295,10 @@ def test_builtin_mapping_subclass_cannot_hide_runtime_lookup(tmp_path, monkeypat
 def test_historical_effective_model_cannot_authorize_current_pure_port(tmp_path, monkeypatch):
     from dataclasses import replace
 
-    from corpus_structure.semantic.data_operation_model import (
-        ARCHIVED_MODEL_VERSION,
-        LEGACY_MODEL_VERSION,
-        PREVIOUS_MODEL_VERSION,
-    )
+
 
     model, inputs = fixture_source(tmp_path, monkeypatch, body='return "fixed"')
-    for version in (ARCHIVED_MODEL_VERSION, LEGACY_MODEL_VERSION, PREVIOUS_MODEL_VERSION):
+    for version in ("data-operation-model-v2", "data-operation-model-v3", "data-operation-model-v4", "data-operation-model-v5", "data-operation-model-v6"):
         historical = replace(model, version=version, graph_projections=())
         with pytest.raises(PortRefusal, match="historical model"):
             resolve_python_port(

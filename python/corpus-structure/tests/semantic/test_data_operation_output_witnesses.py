@@ -176,15 +176,6 @@ def test_compiler_refuses_untyped_or_ambiguous_witness_mapping(mutation):
         compiled(witness)
 
 
-def test_historical_archive_cannot_acquire_new_witness_meaning():
-    from corpus_structure.semantic.data_operation_model import LEGACY_MODEL_VERSION
-
-    old = replace(compiled(), version=LEGACY_MODEL_VERSION, identities=())
-    assert read_effective_data_operations(old.content).content == old.content
-    with pytest.raises(ValueError, match="historical models cannot"):
-        _ = replace(compiled(group()), version=LEGACY_MODEL_VERSION).content
-    retained_v4 = replace(compiled(group()), version="data-operation-model-v4", identities=())
-    assert read_effective_data_operations(retained_v4.content).content == retained_v4.content
 
 
 def test_missing_body_field_is_not_an_implicit_null_witness():
