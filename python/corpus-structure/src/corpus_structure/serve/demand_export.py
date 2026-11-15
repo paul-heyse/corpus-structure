@@ -335,13 +335,9 @@ def verify_demand_export(root: Path, *, manifest_digest: str):
             [_unpack(row) for row in captured["artifacts"]],
         )
         prepared[release_id] = acquired
-        projection = wire_json_loads(
-            next(
-                item
-                for item in acquired.artifacts
-                if item.kind == "data_operation_native_definitions.json"
-            ).content
-        )
+        from corpus_structure.semantic.native_definition_projection import read_native_definition_projection
+
+        projection = read_native_definition_projection(acquired)
         for operation in projection["operations"]:
             definitions[release_id, operation["operation_id"]] = dict(
                 operation, release_id=release_id

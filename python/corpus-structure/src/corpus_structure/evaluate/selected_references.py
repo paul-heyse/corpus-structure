@@ -16,23 +16,13 @@ from corpus_structure.semantic.data_operation_json import json_bytes
 from corpus_structure.semantic.data_operation_model import json_context_meaning
 from corpus_structure.semantic.demand_results import CutSelection, selected_record_index
 from corpus_structure.semantic.observations import source_python
+from corpus_structure.semantic.native_definition_projection import read_native_definition_projection
 
 _REFERENCE = "https://corpus-structure.dev/semantic/data-operation-assessment/DdoSelectedReference"
 _SNAPSHOT = (
     "https://corpus-structure.dev/semantic/data-operation-assessment/DdoSelectedReferenceSnapshot"
 )
 
-
-def _projection(prepared):
-    import json
-
-    return json.loads(
-        next(
-            artifact.content
-            for artifact in prepared.artifacts
-            if artifact.kind == "data_operation_native_definitions.json"
-        )
-    )
 
 
 def _body(index, product, member=None):
@@ -149,7 +139,7 @@ def author_selected_references(engine, prepared, *, request):
         raise ValueError("reference authoring requires its dedicated snapshot target")
     contracts = {
         kind["kind_contract"]
-        for kind in _projection(prepared)["kinds"]
+        for kind in read_native_definition_projection(prepared)["kinds"]
         if kind["kind"] == _REFERENCE and kind["universe"] == "evaluator"
     }
     if len(contracts) != 1:
@@ -229,7 +219,7 @@ def evaluate_selected_references(connection, request: SelectedReferenceEvaluatio
         prepared = open_release(connection, reference_cut.record["release_id"])
         admitted = {
             kind["kind_contract"]
-            for kind in _projection(prepared)["kinds"]
+            for kind in read_native_definition_projection(prepared)["kinds"]
             if kind["kind"] in {_REFERENCE, _SNAPSHOT} and kind["universe"] == "evaluator"
         }
         if reference_row["kind_contract"] not in admitted:
@@ -239,7 +229,7 @@ def evaluate_selected_references(connection, request: SelectedReferenceEvaluatio
             if reference_row["kind_contract"]
             in {
                 kind["kind_contract"]
-                for kind in _projection(prepared)["kinds"]
+                for kind in read_native_definition_projection(prepared)["kinds"]
                 if kind["kind"] == _SNAPSHOT
             }
             else "DdoSelectedReference",
@@ -253,7 +243,7 @@ def evaluate_selected_references(connection, request: SelectedReferenceEvaluatio
         # comparison independently checks its captured support and whole body.
         snapshot_contracts = {
             kind["kind_contract"]
-            for kind in _projection(prepared)["kinds"]
+            for kind in read_native_definition_projection(prepared)["kinds"]
             if kind["kind"] == _SNAPSHOT
         }
         if reference_row["kind_contract"] in snapshot_contracts:
@@ -277,7 +267,7 @@ def evaluate_selected_references(connection, request: SelectedReferenceEvaluatio
             )
             source_contracts = {
                 kind["kind_contract"]
-                for kind in _projection(prepared)["kinds"]
+                for kind in read_native_definition_projection(prepared)["kinds"]
                 if kind["kind"] == _REFERENCE
             }
             admissions = {

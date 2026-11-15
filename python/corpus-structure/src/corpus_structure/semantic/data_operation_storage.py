@@ -914,14 +914,9 @@ def admit_data_operation_definitions(
 ) -> str:
     """Install the authenticated exact fixed projection, never caller-shaped contracts."""
     require_data_operation_native(connection, prepared)
-    artifacts = [
-        a for a in prepared.artifacts if a.kind == "data_operation_native_definitions.json"
-    ]
-    if len(artifacts) != 1:
-        raise ValueError("release lacks authenticated native definition projections")
-    payload = json.loads(artifacts[0].content)
-    if payload["model_digest"] != sha256(model.content).hexdigest():
-        raise ValueError("native definition projection belongs to another effective model")
+    from .native_definition_projection import read_native_definition_projection
+
+    payload = read_native_definition_projection(prepared, model=model)
     value = connection.scalar(
         select(func.sem.admit_data_operation_definitions(bindparam("payload", type_=JSONB))),
         {"payload": {**payload, "release_id": prepared.release_id}},

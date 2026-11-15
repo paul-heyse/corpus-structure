@@ -631,13 +631,9 @@ def inspect_demand_definition(connection, request: DemandDefinitionRequest):
     selected.update(view="members", containers_only=True)
     result = read_demand_contributions(connection, DemandQueryRequest.model_validate(selected))
     release = open_release(connection, result["cut"]["release_id"])
-    projection = json.loads(
-        next(
-            artifact.content
-            for artifact in release.artifacts
-            if artifact.kind == "data_operation_native_definitions.json"
-        )
-    )
+    from corpus_structure.semantic.native_definition_projection import read_native_definition_projection
+
+    projection = read_native_definition_projection(release)
     kind = {
         "components": "urn:corpus:structural:DeclaredDefinitionComponentsReport",
         "applicability": "urn:corpus:structural:DeclaredDefinitionApplicabilityReport",

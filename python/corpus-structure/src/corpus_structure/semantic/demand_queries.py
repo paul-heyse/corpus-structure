@@ -13,11 +13,14 @@ from corpus_structure.semantic.data_operation_json import json_bytes, wire_json_
 from corpus_structure.semantic.demand_results import read_demand_result
 
 
+DemandView = Literal["members", "operations", "sources", "support", "coverage"]
+
+
 class DemandQueryRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
     demand_id: str = Field(min_length=1)
     project_id: str = Field(min_length=1)
-    view: Literal["members", "operations", "sources", "support", "coverage"] = "members"
+    view: DemandView = "members"
     operation_id: str | None = None
     subject: str | None = None
     original_source: str | None = None

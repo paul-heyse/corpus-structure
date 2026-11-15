@@ -7,6 +7,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from corpus_structure.methods.contextual_query import (
+    ContextRecipe,
     DeclaredQueryContextBinding,
     DeclaredQueryContextSelection,
     resolve_query_contexts,
@@ -39,7 +40,7 @@ class DemandContextRequest(BaseModel):
     primary_member_id: str = Field(min_length=1)
     focal_product_id: str = Field(min_length=1)
     focal_member_id: str | None = None
-    recipe: Literal["located-frame-2", "located-referent-2", "located-discourse-neighbor-2"]
+    recipe: ContextRecipe
     read_id: str | None = None
     expected_cut: str | None = None
     max_bytes: int = Field(default=1048576, strict=True, ge=1024, le=67108864)
