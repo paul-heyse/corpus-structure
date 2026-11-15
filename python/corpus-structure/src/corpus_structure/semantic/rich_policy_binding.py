@@ -68,4 +68,4 @@ def require_rich_policy(prepared, model, value):
 def rich_eligibility_policy_digest(checked_policy) -> str:
     """Actual checked policy meaning, including its explicit consumed kind universe."""
     from .data_operation_identity import semantic_value
-    return sha256(canonical_bytes(semantic_value(checked_policy))).hexdigest()
+    return sha256(canonical_bytes(semantic_value(checked_policy.model_dump(mode="python")))).hexdigest()
