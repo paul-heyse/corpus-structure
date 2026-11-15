@@ -161,3 +161,16 @@ def test_pinned_frontier_rejects_conflicting_pages(tmp_path):
             index.append_page({**cut.record, "obligations": [], "uses": [], "read_id": "other"})
     finally:
         index.close()
+
+
+def test_authored_admission_is_not_relabelled_original_source(tmp_path,monkeypatch):
+    from corpus_structure.semantic import data_operation_admission
+    monkeypatch.setattr(data_operation_admission,"bound_data_operation_model",lambda prepared: model(operation("operation")))
+    index,cut=selected_index(tmp_path)
+    try:
+        for relation,row in [("kb.data_product",dict(id="authored-product")),("ops.original_source_admission",dict(id="authored",product_id="authored-product",evidence=dict(standing="authored")))]:
+            index.append(json_bytes(dict(key=relation+":authored",relation=relation,record=row)))
+        snapshot=snapshot_from_index(SimpleNamespace(release_id="release"),cut,index,"selected-support")
+        assert next(node for node in snapshot.nodes if node.identity=='ops.original_source_admission:"authored"').kind=="authored"
+    finally:
+        index.close()
