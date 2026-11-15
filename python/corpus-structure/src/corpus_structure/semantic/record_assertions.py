@@ -29,28 +29,8 @@ from .record_contracts import (
 from .types import PreparationProfile, PreparedRelease, SourceArtifact, SourceBundle
 
 _NAMESPACE = "https://corpus-structure.dev/semantic/source-reading/"
-_FAMILIES = {
-    "definition": "DefinitionReading",
-    "assertion": "QualifiedAssertionReading",
-    "measurement": "MeasurementReading",
-    "table": "TableAssertionReading",
-    "formula_context": "FormulaContextReading",
-}
-_VALUE_FIELDS = frozenset(
-    {
-        "kind",
-        "state",
-        "meaning_changing",
-        "evidence_status",
-        "value",
-        "original",
-        "original_pieces",
-        "reason",
-        "policy",
-        "rule",
-        "premises",
-    }
-)
+from .rich_record_readings import READING_CLASSES as _FAMILIES, READING_VALUE_FIELDS as _VALUE_FIELDS
+
 _MODULE = "source-readings"
 _ROOT = "source-reading-root"
 
