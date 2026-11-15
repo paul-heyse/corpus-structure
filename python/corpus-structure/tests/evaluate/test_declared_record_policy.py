@@ -14,7 +14,7 @@ from corpus_structure.semantic.declared_structural_references import DeclaredPro
 from semantic.record_policy_support import vector
 
 
-from evaluate.declared_record_policy_support import source, address, grade_frame
+from evaluate.declared_record_policy_support import source, address, grade_frame, training_grade
 
 
 def validate_changes(frame, **changes):
@@ -24,6 +24,7 @@ def validate_changes(frame, **changes):
 def test_grade_preserves_low_scored_events_and_separate_no_output_coverage():
     frame = grade_frame(calibration=True)
     grade = DdoRecordGrade.from_frame(frame)
+    assert grade.frame.events[0].final_event is not None
     assert grade.frame.events[0].final_event.final_event_score == -123.5
     assert len(grade.frame.events) == 1
     assert [row.outcome for row in grade.frame.coverage] == ["completed", "no_output"]
@@ -84,48 +85,6 @@ def test_protected_declarations_have_one_closed_owner_for_grade_and_fitted():
     assert schema["definitions"]["DdoRecordGradeFrame"]["properties"]["reference_passes"]["minItems"] == 3
 
 
-def training_grade(*, calibration=False, feature=None, held_out_from=()):
-    from corpus_structure.semantic.record_policy import reading_potential
-    base = grade_frame()
-    sources = tuple(source(index + (100 if calibration else 0)) for index in range(6))
-    events, coverage, origins = [], [], []
-    for index, (selected, value) in enumerate(zip(sources, (-3., -2., -1., 1., 2., 3.), strict=True)):
-        reading = address(selected, f"product:{selected.original_source}")
-        features = vector(index + (100 if calibration else 0), value)
-        if calibration:
-            features = features.model_copy(update={"release_id": "release:compatible"})
-        event = DdoRecordGradeEvent(
-            record_id=features.record_id, interpretation_id=features.interpretation_id,
-            reading=reading, source=selected, source_release_id=features.release_id,
-            derivation_id=f"derivation:{index}", reading_recipe=base.reading_recipe,
-            features=features, correct=index >= 3, origin_group=f"origin:{selected.original_source}",
-            final_event=DdoRecordFinalEvent(
-                feature_instance_digest=feature.digest, feature_input_digest=features.input_digest,
-                event_procedure="procedure:whole-reading",
-                final_event_score=reading_potential(feature.parameters, features.values),
-            ) if calibration else None,
-        )
-        events.append(event)
-        coverage.append(DdoRecordCoverage(source=selected, outputs=(reading,), outcome="completed", event_ids=(features.interpretation_id,)))
-        origins.append(DdoRecordOrigin(source=selected, origin_group=event.origin_group))
-    if calibration:
-        a, b, c = base.reference_passes[:3]
-        passes = (a.model_copy(update={"content_digest": "1" * 64}),
-                  b.model_copy(update={"content_digest": "2" * 64}),
-                  c.model_copy(update={"content_digest": "3" * 64, "adjudicates": ("1" * 64, "2" * 64)}))
-    else:
-        passes = base.reference_passes[:3]
-    passes = tuple(row.model_copy(update={"source": selected, "question_digest": f"{index+1:064x}"})
-                   for index, selected in enumerate(sources) for row in passes)
-    return DdoRecordGrade.from_frame(validate_changes(
-        base, sources=sources, events=tuple(events), coverage=tuple(coverage), origin_groups=tuple(origins),
-        partition="final_event_calibration" if calibration else "feature_fit",
-        prediction_release_id="release:compatible" if calibration else "release:test",
-        reference_passes=passes, reference_digest=("3" if calibration else "d") * 64,
-        held_out_from=held_out_from,
-    ))
-
-
 @pytest.fixture(scope="module")
 def fit_basis():
     from corpus_structure.evaluate.declared_record_policy import (
@@ -168,6 +127,7 @@ def test_separate_actual_predictor_calibration_preserves_compatible_release_line
     instance = result.fitted.instance
     assert instance.feature.applicability.release_id == "release:test"
     assert second.frame.events[0].features.release_id == "release:compatible"
+    assert instance.calibration is not None
     assert instance.calibration.feature_instance_digest == instance.feature.digest
     assert instance.calibration.fit.frame_digest == second.frame_digest
     assert instance.feature.fit.frame_digest == first.frame_digest

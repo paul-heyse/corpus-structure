@@ -1,0 +1,181 @@
+"""Resource/transport refusals, independent of native permission qualification."""
+
+from contextlib import contextmanager
+from dataclasses import replace
+from types import SimpleNamespace
+
+import pytest
+
+from corpus_structure.evaluate.declared_record_policy import (
+    DdoRecordGrade, DdoRecordGradeSelection, DdoRecordFitSpecification,
+    RecordPolicyFitPlan, reacquire_record_feature_grade, prepare_record_feature_policy,
+    DdoRecordFeatureFitRequest, _check_source_coordinates,
+)
+from corpus_structure.semantic.data_operation_model import BoundRoleMember, ResolvedRoleBinding, SubjectContext
+from corpus_structure.semantic.data_operation_support import ComputationalSupportReference
+from corpus_structure.semantic.demand_results import CutSelection
+from corpus_structure.semantic.identity import canonical_bytes
+from corpus_structure.semantic.record_policy_authority import DdoRecordPolicyApplicability
+from evaluate.declared_record_policy_support import source, training_grade
+from semantic.record_policy_support import fitted, algorithm
+
+
+def selection(grade):
+    cut = CutSelection(canonical_bytes(dict(
+        project_id="project:one", demand_id="demand:grade", read_id="read:grade", release_id="release:selection",
+        runtime_id="runtime:selection", selection={}, trust_snapshot={}, read_snapshot="1:2:",
+        frontier_at="2026-11-15T00:00:00Z", scope={"product_ids": ["product:grade"]},
+    )))
+    return DdoRecordGradeSelection(
+        project_id="project:one", demand_id="demand:grade", read_id="read:grade", use_id="use:grade",
+        derivation_id="derivation:grade", product_id="product:grade", expected_cut=cut.identity,
+        cut_canonical_json=cut.content.decode(), frame_digest=grade.frame_digest,
+    )
+
+
+class AcquiredEngine:
+    def __init__(self, connection):
+        self.connection = connection
+        self.borrows = 0
+
+    @contextmanager
+    def begin(self):
+        self.borrows += 1
+        yield self.connection
+
+
+def test_fit_refuses_missing_fitter_without_borrowing_evaluator():
+    evaluator = AcquiredEngine(object())
+    plan = RecordPolicyFitPlan().plan(SimpleNamespace(arguments={}), binding=None,
+                                     check_active=lambda: None,
+                                     execution_owner=SimpleNamespace(engine=evaluator, fitter_engine=None))
+    with pytest.raises(ValueError, match="separately acquired fitter engine"):
+        next(plan)
+    assert evaluator.borrows == 0
+
+
+def test_fit_acquires_feature_labels_only_through_explicit_fitter_resource(monkeypatch):
+    import corpus_structure.evaluate.declared_record_policy as owner
+    grade = DdoRecordGrade.from_frame(training_grade().frame)
+    selected = selection(grade)
+    spec = DdoRecordFitSpecification(
+        feature_selection=selected, calibration_selection=selected, frozen_feature=fitted(),
+        applicability=DdoRecordPolicyApplicability(project_id="project:one", sources=(source(900),)),
+        family_contract=grade.frame.family_contract, reading_recipe=grade.frame.reading_recipe,
+        event_procedure="procedure:whole-reading", assumptions="controlled complete source population",
+        threshold=0.99, threshold_procedure="predeclared-threshold",
+    )
+    support = ComputationalSupportReference(derivation_id=selected.derivation_id, admission_use_id=selected.use_id)
+    member = BoundRoleMember(selected.product_id, "kind:grade", "knowledge-universe", None, b"{}", b"{}",
+                             (selected.derivation_id,), b"{}", subject_definition="knowledge-universe", support_references=(support,))
+    binding = SimpleNamespace(sufficient=True, subject_context=SubjectContext("project:one", "knowledge-universe", None, b"{}", subject_definition="knowledge-universe"),
+                              roles=(ResolvedRoleBinding("feature_grade", "present", (member,)), ResolvedRoleBinding("calibration_grade", "present", (member,))))
+    feature_connection, evaluator_connection = object(), object()
+    fitter, evaluator = AcquiredEngine(feature_connection), AcquiredEngine(evaluator_connection)
+    class CapturedRestrictedRead(Exception):
+        pass
+    def restricted(connection, actual):
+        assert connection is feature_connection
+        assert actual == selected
+        raise CapturedRestrictedRead
+    monkeypatch.setattr(owner, "reacquire_record_feature_grade", restricted)
+    values = SimpleNamespace(arguments={"specification": spec.model_dump(mode="json")})
+    plan = owner.RecordPolicyFitPlan().plan(values, binding=binding, check_active=lambda: None,
+                                           execution_owner=SimpleNamespace(engine=evaluator, fitter_engine=fitter))
+    with pytest.raises(CapturedRestrictedRead):
+        next(plan)
+    assert fitter.borrows == 1 and evaluator.borrows == 0
+
+
+def test_restricted_read_preserves_actual_cut_bytes_and_exact_frame(monkeypatch):
+    import corpus_structure.semantic.record_policy_native as native
+    grade = training_grade()
+    selected = selection(grade)
+    connection = object()
+    calls = []
+    def boundary(actual, **parameters):
+        assert actual is connection
+        assert parameters.pop("cut").content == selected.cut_canonical_json.encode()
+        assert parameters == selected.model_dump(mode="python", exclude={"cut_canonical_json"})
+        calls.append(parameters)
+        return {"product_id": selected.product_id, "derivation_id": selected.derivation_id, "frame": grade.model_dump(mode="json")}
+    monkeypatch.setattr(native, "read_record_feature_fit_frame", boundary)
+    assert reacquire_record_feature_grade(connection, selected) == grade
+    assert len(calls) == 1
+    with pytest.raises(ValueError, match="original acquired cut bytes"):
+        reacquire_record_feature_grade(connection, selected.model_copy(update={"expected_cut": "other-cut"}))
+    assert len(calls) == 1
+
+
+def test_preliminary_fit_emits_current_policy_without_changing_original_lineage(monkeypatch):
+    import corpus_structure.evaluate.declared_record_policy as owner
+    grade = training_grade()
+    selected = selection(grade)
+    connection = object()
+    def acquired(actual, actual_selection):
+        assert actual is connection and actual_selection == selected
+        return grade
+    monkeypatch.setattr(owner, "reacquire_record_feature_grade", acquired)
+    result = prepare_record_feature_policy(connection, DdoRecordFeatureFitRequest(selection=selected, algorithm=algorithm(), assumptions="independent complete source census"))
+    assert result["fit"]["instance"]["applicability"]["release_id"] == "release:test"
+    policy = result["reading_policy"]
+    assert isinstance(policy, dict)
+    assert policy["version"] == "reading-feature-policy-2"
+    from corpus_structure.semantic.observations import source_python
+    encoded = policy["feature_instances"]
+    assert isinstance(encoded, dict)
+    (instance,) = source_python(encoded)
+    assert instance["family_contract"] == grade.frame.family_contract
+    assert instance["reading_recipe"] == grade.frame.reading_recipe
+    assert instance["feature"]["fit"]["frame_digest"] == grade.frame_digest
+
+
+def test_evaluator_mcp_fitting_uses_separate_fit_connection(monkeypatch):
+    import anyio
+    import json
+    from fastmcp import Client
+    import corpus_structure.intervene.selected_assessment_server as adapter
+
+    fit_connection, evaluator_connection = object(), object()
+    fit, evaluator = AcquiredEngine(fit_connection), AcquiredEngine(evaluator_connection)
+    request = DdoRecordFeatureFitRequest(selection=selection(training_grade()), algorithm=algorithm(), assumptions="predeclared source-only frame")
+    calls = []
+    def prepare(connection, actual):
+        assert connection is fit_connection and actual == request
+        calls.append(actual)
+        return {"fit": {"diagnostics": {"standing": "provisional"}}, "reading_policy": None}
+    monkeypatch.setattr(adapter, "prepare_record_feature_policy", prepare)
+
+    async def journey():
+        async with Client(adapter.build_evaluator_server(project="project:one", evaluator_engine=evaluator, fitter_engine=fit)) as client:
+            tools = {tool.name for tool in await client.list_tools()}
+            assert tools == {"compare_selected_reference", "fit_complete_record_features"}
+            result = await client.call_tool("fit_complete_record_features", {"request": request.model_dump(mode="json")})
+            assert result.structured_content is not None
+            body = json.loads(result.structured_content["exact_json"])
+            assert body["fit"]["diagnostics"]["standing"] == "provisional"
+            assert body["reading_policy"] is None
+    anyio.run(journey)
+    assert len(calls) == 1 and fit.borrows == 1 and evaluator.borrows == 0
+
+
+def test_native_source_text_authentication_and_exact_observation_refusal():
+    from evaluate.declared_record_grading_support import current
+    from corpus_structure.semantic.source_products import FrozenNativeSource
+    prepared, _ = current()
+    native = FrozenNativeSource.from_projection(
+        prepared, document="original:1", section_pointer="#/groups/0", membership="descendants", text="Hello",
+        pieces=[dict(kind="native_text", start=0, end=5, item_ref="#/texts/0", source_field="text")],
+        items=[dict(self_ref="#/texts/0", label="text", text="Hello", orig="Hello", prov=[])],
+    )
+    pin = source(1).model_copy(update={"projection_digest": native.value["source"]["projection"]}).model_dump(mode="json", exclude_none=True)
+    coordinate = dict(pin=pin, space="native", pointer="#/texts/0", text="Hello")
+    _check_source_coordinates(prepared, ((pin, native.value),), (coordinate,))
+    with pytest.raises(ValueError, match="actual retained source bytes"):
+        _check_source_coordinates(prepared, ((pin, native.value),), ({**coordinate, "text": "invented"},))
+    with pytest.raises(ValueError, match="separately admitted observation"):
+        _check_source_coordinates(prepared, ((pin, native.value),), ({**coordinate, "space": "captured_recognition"},))
+    with pytest.raises(ValueError, match="synthetic or another source item"):
+        _check_source_coordinates(prepared, ((pin, native.value),), (coordinate,), (
+            dict(pin=pin, space="selected_projection", pointer="#/texts/0", precision="exact", start=0, end=6),
+        ))

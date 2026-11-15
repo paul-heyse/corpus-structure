@@ -761,11 +761,15 @@ def _record_frame(content):
     from .record_alignment import RecordEvaluationFrame
 
     value = _canonical_json_value(content)
-    return RecordEvaluationFrame(**{
-        **value, "anchor_ids": frozenset(value["anchor_ids"]),
-        "related_pins": tuple(value.get("related_pins", ())),
-        "anchor_scopes": tuple(value.get("anchor_scopes", ())),
-    })
+    expected = {"unit", "release_id", "guideline_version", "reference_policy_version", "prediction_policy_version", "pin", "anchor_ids", "related_pins", "anchor_scopes"}
+    if set(value) != expected:
+        raise ValueError("record question requires its exact complete source-frame fields")
+    return RecordEvaluationFrame(
+        unit=value["unit"], release_id=value["release_id"], guideline_version=value["guideline_version"],
+        reference_policy_version=value["reference_policy_version"], prediction_policy_version=value["prediction_policy_version"],
+        pin=value["pin"], anchor_ids=frozenset(value["anchor_ids"]),
+        related_pins=tuple(value["related_pins"]), anchor_scopes=tuple(value["anchor_scopes"]),
+    )
 
 
 def grade_complete_record_values(
@@ -837,7 +841,7 @@ def grade_complete_record_values(
     events = []
     for row in candidates:
         check_active()
-        if prediction_address is None or prediction_derivation is None:
+        if predictions is None or prediction_address is None or prediction_derivation is None:
             raise ValueError("scored record requires its actual prediction carrier and producing episode")
         correct = whole_reading_correct(
             prediction_prepared, row, reference_rows["C"], reference_frame,
@@ -933,9 +937,13 @@ def _check_source_coordinates(prepared, source_values, coordinates, anchors=()):
         if anchor["space"] != "selected_projection" or anchor["precision"] != "exact":
             continue
         value = sources.get(canonical_bytes(anchor["pin"]))
+        cell = re.fullmatch(r"(#/tables/(?:0|[1-9][0-9]*))/data/table_cells/(0|[1-9][0-9]*)", anchor["pointer"])
+        pointer, cell_index = (cell[1], int(cell[2])) if cell else (anchor["pointer"], None)
         if value is None or not any(
-            piece["kind"] == "native_text" and piece.get("item_ref") == anchor["pointer"]
+            piece["kind"] == "native_text" and piece.get("item_ref") == pointer
             and piece["start"] <= anchor["start"] < anchor["end"] <= piece["end"]
+            and (piece.get("source_field") == "cell_text" and piece.get("cell_index") == cell_index
+                 if cell_index is not None else piece.get("source_field") in {"text", "orig"})
             for piece in value["pieces"]
         ):
             raise ValueError("selected projection grading extent crosses synthetic or another source item")
@@ -1042,13 +1050,19 @@ def grade_complete_record_population_values(
 
 
 def execute_grade_kernel(reference_a: dict, reference_b: dict, adjudication: dict, prediction: list[dict],
-                         specification: dict, metadata: dict, *, check_active) -> dict:
+                         specification: dict, metadata: dict, *, prepared, check_active) -> dict:
     from corpus_structure.semantic.cpu_execution import hydrate_capsule
     from corpus_structure.semantic.data_operation_admission import bound_data_operation_model
 
     populations = tuple(DdoRecordReferencePopulation.model_validate_json(canonical_bytes(value)) for value in (reference_a, reference_b, adjudication))
-    reference_prepared = hydrate_capsule(bytes.fromhex(metadata["reference_capsule"]))
-    archives = tuple(hydrate_capsule(bytes.fromhex(content)) for content in metadata["prediction_capsules"])
+    captured = {prepared.release_id: prepared}
+    for release_id, content in metadata["historical_capsules"].items():
+        historical = hydrate_capsule(bytes.fromhex(content))
+        if historical.release_id != release_id or release_id in captured:
+            raise ValueError("captured grading archive differs from its original release identity")
+        captured[release_id] = historical
+    reference_prepared = captured[metadata["reference_release_id"]]
+    archives = tuple(captured[release_id] for release_id in metadata["prediction_release_ids"])
     checked = DdoRecordGradeSpecification.model_validate_json(canonical_bytes(specification))
     by_product = {address["product_id"]: body for address, body in zip(metadata["bound_prediction_addresses"], prediction, strict=True)}
     result = grade_complete_record_population_values(
@@ -1079,6 +1093,7 @@ def _bound_prediction_members(binding):
 
 @dataclass
 class RecordPolicyGradePlan:
+    prepared: Any
     port: Any = None
 
     def plan(self, arguments, *, binding, check_active, execution_owner):
@@ -1120,8 +1135,15 @@ class RecordPolicyGradePlan:
             ) or selection.project_id != context.project_id:
                 raise ValueError("record prediction selection differs from its exact acquired native cut")
         archives, addresses, recipes = [], [], []
+        historical = {}
+
+        def capture(prepared):
+            if prepared.release_id != self.prepared.release_id and prepared.release_id not in historical:
+                historical[prepared.release_id] = release_capsule(prepared).hex()
+            return prepared.release_id
         with execution_owner.engine.begin() as connection:
             reference_prepared = open_release(connection, questions[0].source_release_id)
+            reference_release_id = capture(reference_prepared)
             sources_by_question = _authenticate_question_sources(connection, reference_prepared, questions)
             with selected_record_index(connection, cut.record["demand_id"], project_id=context.project_id,
                                        scope=cut.record["scope"], read_id=cut.record["read_id"], expected_cut=cut.identity,
@@ -1144,7 +1166,7 @@ class RecordPolicyGradePlan:
                         if use["completion_state"] != state or use["fate"] != fate:
                             raise ValueError("absent/failed prediction is unknown, unavailable or not actually completed")
                         prepared = open_release(connection, cut.record["release_id"])
-                        archives.append(release_capsule(prepared).hex())
+                        archives.append(capture(prepared))
                         addresses.append(None)
                         recipes.append(reading_recipe_identity(bound_data_operation_model(prepared)))
                         continue
@@ -1164,18 +1186,20 @@ class RecordPolicyGradePlan:
                         raise ValueError("record prediction recipe differs from its actual admitted producer")
                     records = [packet["body"] for packet in actual["members"] if packet["body"]["candidate_type"] == "record"]
                     _check_source_coordinates(prepared, source_values, actual["coordinate_texts"], [anchor for row in records for anchor in row["anchors"]])
-                    archives.append(release_capsule(prepared).hex())
+                    archives.append(capture(prepared))
                     addresses.append(DeclaredProductRef.from_bound(member, project=context.project_id).model_dump(mode="json"))
                     recipes.append(recipe)
             metadata = dict(
-                reference_capsule=release_capsule(reference_prepared).hex(), prediction_capsules=archives,
+                reference_release_id=reference_release_id, prediction_release_ids=archives,
+                historical_capsules=historical,
                 reference_addresses=[DeclaredProductRef.from_bound(member, project=context.project_id).model_dump(mode="json") for member in reference_members],
                 prediction_addresses=addresses, prediction_recipes=recipes, cut_release_id=cut.record["release_id"],
                 bound_prediction_addresses=[DeclaredProductRef.from_bound(member, project=context.project_id).model_dump(mode="json") for member in prediction_members],
             )
         signature = inspect.signature(execute_grade_kernel, eval_str=True)
-        bound = signature.bind(**values, metadata=metadata, check_active=check_active)
+        bound = signature.bind(**values, metadata=metadata, prepared=self.prepared, check_active=check_active)
         return (yield from self.port.plan_cpu(execute_grade_kernel, bound, record_policy_operation_sources(),
+                                             prepared_release_id=self.prepared.release_id,
                                              execution_owner=execution_owner, check_active=check_active))
 
 
@@ -1191,12 +1215,13 @@ def acquire_grade_port(prepared, model, operation, *, identity, authorize, custo
             or selected.capabilities.prepared_factory.entrypoint != GRADE_FACTORY):
         raise PortRefusal("record grade requires its exact protected pure derivation/factory")
     receiver = RecordPolicyGrade(None)
-    plan = RecordPolicyGradePlan()
+    plan = RecordPolicyGradePlan(prepared)
     port = PreparedOriginalCallPort(
         identity, model, selected, sources, custody, receiver.run, plan.plan,
         "corpus_structure.evaluate.declared_record_policy.RecordPolicyGradePlan.plan", authorize,
         (record_policy_computation_assets(),), record_policy_operation_sources(),
         functions=(("corpus_structure.evaluate.declared_record_policy.execute_grade_kernel", execute_grade_kernel),),
+        requires_prepared_schema=True,
     )
     plan.port = port
     return port

@@ -120,7 +120,7 @@ def _authenticate_reference_sources(connection, body, *, project_id, max_bytes=8
             if (
                 any(
                     actual[key] != source[key]
-                    for key in ("kind_contract", "subject", "original_source")
+                    for key in ("kind_contract", "subject", "subject_definition", "original_source")
                 )
                 or json_context_meaning(json_bytes(actual["analyzed_scope"])).decode()
                 != source["analyzed_scope_meaning"]

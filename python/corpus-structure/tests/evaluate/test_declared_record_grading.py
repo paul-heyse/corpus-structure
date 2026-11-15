@@ -154,6 +154,8 @@ def test_actual_grade_and_fit_factories_compile_as_closed_project_derivations():
     grade, fit = model.operation("record_policy.grade"), model.operation("record_policy.fit")
     assert grade.subject == fit.subject
     assert all(operation.effects == () and operation.profile == "derivation" for operation in (grade, fit))
+    assert grade.capabilities.prepared_factory is not None
+    assert fit.capabilities.prepared_factory is not None
     assert grade.capabilities.prepared_factory.entrypoint == "corpus_structure.methods.declared_record_policy.RecordPolicyGrade.acquire_port"
     assert fit.capabilities.prepared_factory.entrypoint == "corpus_structure.methods.declared_record_policy.RecordPolicyFit.acquire_port"
     assert [role.name for role in grade.roles if role.direction == "output"] == ["grade"]

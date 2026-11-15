@@ -138,6 +138,7 @@ def reference_body() -> dict[str, Any]:
         product_id="product:source",
         member_id="source:one",
         subject="source",
+        subject_definition="original-source-view",
         original_source="document:A",
         kind_contract="kind:source",
         analyzed_scope_meaning='["mapping",[]]',
@@ -233,6 +234,7 @@ def selected_fixture(tmp_path, monkeypatch, acquired):
                     member_id=source_member["member_id"],
                     kind_contract=source_member["kind_contract"],
                     subject=source_member["subject"],
+                    subject_definition=source_member["subject_definition"],
                     original_source=source_member["original_source"],
                     analyzed_scope={},
                     body=semantic_value({}),
@@ -594,7 +596,7 @@ def test_current_evaluator_tool_and_resource_keep_both_selection_pins(
             build_evaluator_server(project="project:A", evaluator_engine=engine)
         ) as client:
             assert {tool.name for tool in await client.list_tools()} == {
-                "compare_selected_reference"
+                "compare_selected_reference", "fit_complete_record_features"
             }
             result = await client.call_tool(
                 "compare_selected_reference", {"request": request.model_dump(mode="python")}

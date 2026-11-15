@@ -2,6 +2,7 @@
 
 from dataclasses import asdict
 from functools import cache
+from typing import Any
 
 from corpus_structure.semantic import prepare_release
 from corpus_structure.semantic.data_operation_compilation import compile_data_operations
@@ -67,13 +68,13 @@ def references(family, source_index=1):
     from corpus_structure.evaluate.record_alignment import RecordEvaluationFrame
     prepared, model = current()
     row, coordinates = current_reading(family, source_index)
-    frame = asdict(RecordEvaluationFrame(
+    frame: dict[str, Any] = asdict(RecordEvaluationFrame(
         unit=source(source_index).source, release_id=prepared.release_id, guideline_version="independent-guideline:one",
         reference_policy_version="reference-acceptance-1", prediction_policy_version="reference-acceptance-1",
         pin=row["pin"], anchor_ids=frozenset(),
         anchor_scopes=tuple({key: value for key, value in anchor.items() if key in {"pin", "space", "pointer", "precision", "start", "end", "recognition"}} for anchor in row["anchors"]),
     ))
-    frame["anchor_ids"] = sorted(frame["anchor_ids"])
+    frame["anchor_ids"] = []
     selected = cut()
     question = DdoRecordReferenceQuestion(
         project_id="project:one", partition="feature_fit", family=family,
