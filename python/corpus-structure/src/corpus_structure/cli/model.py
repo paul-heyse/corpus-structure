@@ -100,6 +100,11 @@ class NativeBaseInspection(BaseModel):
         return cls(**base.model_dump(exclude={"files"}), file_count=len(base.files))
 
 
+class PreviewRequestReport(BaseModel):
+    preview_id: str
+    request: dict[str, JsonValue]
+
+
 class PreviewEffectsReport(EffectGuidance):
     preview_id: str
     revision: str
@@ -680,9 +685,9 @@ def inspect_preview(
     ctx: typer.Context,
     preview_id: Annotated[str, typer.Argument(metavar="PREVIEW_ID")],
     view: Annotated[
-        Literal["effects", "patch", "discovery", "sources", "model", "sql"],
+        Literal["effects", "request", "patch", "discovery", "sources", "model", "sql"],
         typer.Option(
-            help="Select effects, patch hunks, source migrations, declared model and retained query-analysis changes, discovery or SQL."
+            help="Select effects, original request, patch hunks, source migrations, declared model and retained query-analysis changes, discovery or SQL."
         ),
     ] = "effects",
     limit: Annotated[
@@ -747,6 +752,14 @@ def inspect_preview(
                     )
                 write_report_bytes(patch)
                 return
+        if view == "request":
+            emit(
+                PreviewRequestReport(
+                    preview_id=preview_id, request=staged.request.model_dump(mode="json")
+                ),
+                json=json_,
+            )
+            return
         paths = tuple(file.path for file in staged.files)
         if view == "patch":
             total, hunks = _patch_hunks(staged.patch, paths, after_hunk, limit or 8)

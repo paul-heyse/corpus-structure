@@ -18,6 +18,7 @@ from corpus_structure.schema.model_change import (
     ChangePreview,
     ChangeRequest,
     FileEffect,
+    NativeEffect,
 )
 from corpus_structure.schema.model_deployment import Candidate, migration_wrapper
 
@@ -1139,3 +1140,30 @@ def test_query_comparison_is_bound_to_preview_release_pair(current_query_release
             ChangePreview.model_validate(
                 {**body, "query_analysis": comparison.model_copy(update={field: "release:wrong"})}
             )
+
+
+def test_preview_request_view_retains_typed_native_intent(model_results):
+    preview = _preview().model_copy(
+        update={
+            "request": ChangeRequest(
+                packs=("statistics",),
+                native_predecessor="preceding",
+                native_revision="current",
+                retire=(
+                    NativeEffect(
+                        kind="function", schema="ops", name="retired", arguments=("text",)
+                    ),
+                ),
+            )
+        }
+    )
+    identity, _ = _publish(
+        model_results, "model.preview", "preview", preview.model_dump_json().encode()
+    )
+    result = _inspect(identity, "--view", "request", "--json")
+    assert result.exit_code == 0, result.output
+    body = json.loads(result.output)
+    assert body["preview_id"] == identity
+    assert body["request"]["native_revision"] == "current"
+    assert body["request"]["retire"][0]["name"] == "retired"
+    assert body["request"]["packs"] == ["statistics"]

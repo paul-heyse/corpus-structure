@@ -1,0 +1,225 @@
+{
+  "retire": [
+    {
+      "kind": "function",
+      "schema": "ops",
+      "name": "admit_original_source_view",
+      "arguments": [
+        "jsonb"
+      ],
+      "relation": null
+    },
+    {
+      "kind": "function",
+      "schema": "ops",
+      "name": "data_binding_rows",
+      "arguments": [
+        "text",
+        "text",
+        "jsonb",
+        "text",
+        "text",
+        "text",
+        "jsonb"
+      ],
+      "relation": null
+    },
+    {
+      "kind": "function",
+      "schema": "ops",
+      "name": "ddo_binding_rows",
+      "arguments": [
+        "text",
+        "text",
+        "jsonb",
+        "text",
+        "text",
+        "text",
+        "jsonb",
+        "boolean",
+        "jsonb"
+      ],
+      "relation": null
+    },
+    {
+      "kind": "function",
+      "schema": "ops",
+      "name": "ddo_impl_admit_original_source_view",
+      "arguments": [
+        "jsonb"
+      ],
+      "relation": null
+    },
+    {
+      "kind": "function",
+      "schema": "ops",
+      "name": "ddo_install_product",
+      "arguments": [
+        "ops.data_request",
+        "jsonb"
+      ],
+      "relation": null
+    },
+    {
+      "kind": "function",
+      "schema": "ops",
+      "name": "ddo_install_product_context",
+      "arguments": [
+        "jsonb",
+        "jsonb"
+      ],
+      "relation": null
+    },
+    {
+      "kind": "function",
+      "schema": "ops",
+      "name": "ddo_original_source_view",
+      "arguments": [
+        "jsonb",
+        "jsonb"
+      ],
+      "relation": null
+    },
+    {
+      "kind": "function",
+      "schema": "ops",
+      "name": "ddo_validate_source_sets",
+      "arguments": [
+        "jsonb",
+        "text"
+      ],
+      "relation": null
+    },
+    {
+      "kind": "function",
+      "schema": "ops",
+      "name": "index_pdf_visual_mapping",
+      "arguments": [
+        "bigint",
+        "text",
+        "text"
+      ],
+      "relation": null
+    },
+    {
+      "kind": "function",
+      "schema": "ops",
+      "name": "read_pdf_selected_source_events",
+      "arguments": [
+        "text",
+        "bigint",
+        "text",
+        "bigint",
+        "text",
+        "text",
+        "text",
+        "text",
+        "text"
+      ],
+      "relation": null
+    },
+    {
+      "kind": "function",
+      "schema": "ops",
+      "name": "read_published_coverage_batch",
+      "arguments": [
+        "text",
+        "bigint",
+        "text",
+        "bigint",
+        "text",
+        "text"
+      ],
+      "relation": null
+    },
+    {
+      "kind": "function",
+      "schema": "ops",
+      "name": "read_published_input_batch",
+      "arguments": [
+        "text",
+        "bigint",
+        "text",
+        "bigint",
+        "text",
+        "text"
+      ],
+      "relation": null
+    },
+    {
+      "kind": "function",
+      "schema": "ops",
+      "name": "read_published_input_batch_rows",
+      "arguments": [
+        "text",
+        "bigint",
+        "text",
+        "bigint",
+        "text",
+        "text",
+        "text",
+        "text"
+      ],
+      "relation": null
+    },
+    {
+      "kind": "function",
+      "schema": "ops",
+      "name": "read_published_mapping_report_batch",
+      "arguments": [
+        "text",
+        "bigint",
+        "text",
+        "bigint",
+        "text",
+        "text"
+      ],
+      "relation": null
+    },
+    {
+      "kind": "function",
+      "schema": "ops",
+      "name": "read_published_relation_batch",
+      "arguments": [
+        "text",
+        "bigint",
+        "text",
+        "bigint",
+        "text",
+        "text"
+      ],
+      "relation": null
+    },
+    {
+      "kind": "function",
+      "schema": "ops",
+      "name": "require_published_companion_pin",
+      "arguments": [
+        "text",
+        "bigint",
+        "text",
+        "bigint",
+        "text",
+        "text"
+      ],
+      "relation": null
+    }
+  ],
+  "recreate": [],
+  "baseline": "HEAD",
+  "core": null,
+  "system": null,
+  "physical": null,
+  "change": null,
+  "archive_release": null,
+  "packs": [
+    "statistics"
+  ],
+  "data_operations": null,
+  "native_predecessor": "semantic_ddo_graph_v2",
+  "native_revision": "semantic_ddo_domain_v8",
+  "deployment": false,
+  "deployment_profile": null,
+  "source_migrations": [],
+  "data_steps": []
+}
