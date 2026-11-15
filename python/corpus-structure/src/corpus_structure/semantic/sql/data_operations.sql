@@ -1731,7 +1731,7 @@ BEGIN
  PERFORM ops.ddo_authorize(universe);
  RETURN true;
 END $$;
-CREATE OR REPLACE FUNCTION ops.data_binding_rows(p_demand text,p_operation text,p_trust jsonb,p_read text DEFAULT NULL,p_subject text DEFAULT NULL,p_source text DEFAULT NULL,p_scope jsonb DEFAULT NULL)
+CREATE OR REPLACE FUNCTION ops.ddo_binding_rows(p_demand text,p_operation text,p_trust jsonb,p_read text DEFAULT NULL,p_subject text DEFAULT NULL,p_source text DEFAULT NULL,p_scope jsonb DEFAULT NULL,p_decode_body boolean DEFAULT true,p_selected jsonb DEFAULT NULL)
 RETURNS TABLE(__DDO_CORE_BINDING_RETURNS__)
 LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
 DECLARE d ops.data_demand; snapshot jsonb; boundary ops.data_demand_read;
@@ -1746,4 +1746,10 @@ BEGIN
  PERFORM ops.ddo_authorize(kind.universe) FROM sem.data_operation_definition operation CROSS JOIN LATERAL jsonb_array_elements(operation.input_roles) input_role(value) JOIN sem.data_kind_contract kind ON kind.kind_contract=input_role.value->>'kind_contract' WHERE operation.release_id=d.release_id AND operation.operation_id=p_operation;
  RETURN QUERY __DDO_CORE_BINDING_COMPUTED__;
  RETURN QUERY __DDO_CORE_BINDING_ORIGINAL__;
+END $$;
+CREATE OR REPLACE FUNCTION ops.data_binding_rows(p_demand text,p_operation text,p_trust jsonb,p_read text DEFAULT NULL,p_subject text DEFAULT NULL,p_source text DEFAULT NULL,p_scope jsonb DEFAULT NULL)
+RETURNS TABLE(__DDO_CORE_BINDING_RETURNS__)
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
+BEGIN
+ RETURN QUERY SELECT * FROM ops.ddo_binding_rows(p_demand,p_operation,p_trust,p_read,p_subject,p_source,p_scope,true,NULL);
 END $$;

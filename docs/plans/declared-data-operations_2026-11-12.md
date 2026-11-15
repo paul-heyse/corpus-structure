@@ -303,6 +303,22 @@ this amendment. Expected benefits remain Proposed and unmeasured.
 | [Domain PG I07](../plan_improvement_reviews/declared-data-operations-postgresql-domain-alignment_2026-11-14.md#I07) | **Open required preservation/recording:** DDO-07/08/10/11; **conditional Arrow extension** | Record transient typed-vector contract and retire legacy writers/readers. Retain exact JSON and transaction-sharing COPY. New DDO Arrow read requires an actual tabular consumer and PG-Q5; no mandatory backend investigation before trigger. |
 | [Domain PG I08](../plan_improvement_reviews/declared-data-operations-postgresql-domain-alignment_2026-11-14.md#I08) | **Open bounded cleanup:** DDO-03/04, carrying prior PostgreSQL I05; conditional DDO-09/10 cross-check | Selected pglast header edits/shared fact decoder with body/ACL preservation at next affected native authoring change. SQLGlot compiled-SQL cross-check only for a named diagnostic consumer; declared semantics stay authoritative. |
 
+### PostgreSQL execution increment · 2026-11-14
+
+**In progress; no enclosing completion.** The operator now authorizes the integrated PostgreSQL
+source/API increment across later DDO packages, including current consumer/legacy removal,
+rollback-only native authoring/registration and focused affected functional/native/type checks.
+Persistent deployment, historical-data conversion/activation, provider inference, unrelated retries
+and full campaigns remain excluded. This supersedes the earlier stop only for this selected scope.
+Current target API consumers must migrate with their replacements; retained compatibility requires
+a named sealed custody obligation and a narrowing/removal condition. Physical stored historical
+structures remain DDO-11 work, not justification for retaining obsolete current code paths.
+
+Work ownership: generated structural wire/correspondence and named native calls; public selected
+read/reuse/cut/query/export/evaluation integration; runtime/connection/COPY and legacy compiler
+reduction; coordinator-owned scoped verification, native successor integration and assembled review.
+The coordinator retains source/context-qualified receipts and all unfinished obligations here.
+
 ### Preparation questions and readiness
 
 The companion defines the investigation content and safe boundaries; this table owns current
@@ -310,10 +326,10 @@ question disposition. Settling a design does not certify its implementation.
 
 | Question | Current disposition / owner | Settling result and constrained work |
 |---|---|---|
-| PG-Q1 (I01) | **Open**, DDO-03 with DDO-01/04 | Current protocol construct/nominal correspondence and exact recursive decoding design; supports all current valid operations and archived generation. Precedes generator/correspondence changes and dependent consumer migration. |
-| PG-Q2 (I04) | **Open**, DDO-04/05 | Actual frozen-predicate scope/column analysis selects selective acquisition or justifies necessary scoped aggregate. Precedes native verification rewrite; not a benchmark gate. |
-| PG-Q3 (I05) | **Open**, DDO-06/store owner | Actual retained renewal checkout/settlement lock plus port/admission borrower lifetimes; select sufficient capacity/initialization hooks and reconcile D3/D9. Rule impact, if any, precedes dependent implementation. |
-| PG-Q4 (I06/I03) | **Open**, DDO-01/10/11 | Finite live helper/compiler/format and historical migration/reference consumer account; specifies preserved/imported/regenerated and removable portions. Blocks only affected destructive retirement. |
+| PG-Q1 (I01) | **In progress**, DDO-03 with DDO-01/04 | Current protocol construct/nominal correspondence and exact recursive decoding design; supports all current valid operations and archived generation. Precedes generator/correspondence changes and dependent consumer migration. |
+| PG-Q2 (I04) | **In progress**, DDO-04/05 | Actual frozen-predicate scope/column analysis selects selective acquisition or justifies necessary scoped aggregate. Precedes native verification rewrite; not a benchmark gate. |
+| PG-Q3 (I05) | **In progress**, DDO-06/store owner | Actual retained renewal checkout/settlement lock plus port/admission borrower lifetimes; select sufficient capacity/initialization hooks and reconcile D3/D9. Rule impact, if any, precedes dependent implementation. |
+| PG-Q4 (I06/I03) | **In progress**, DDO-01/10/11 | Finite live helper/compiler/format and historical migration/reference consumer account; specifies preserved/imported/regenerated and removable portions. Blocks only affected destructive retirement. |
 | PG-Q5 (I07) | **Deferred until trigger**, DDO-10 | Named tabular consumer first; then select and qualify native-pin/owner-XID visibility and snapshot handoff. Until then bounded native/Psycopg reads remain the route. |
 
 **Sequence:** establish I01 typed/correspondence and I02 selected-read design together before

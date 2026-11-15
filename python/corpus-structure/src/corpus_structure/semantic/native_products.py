@@ -203,6 +203,32 @@ def physical_products() -> tuple[NativeProduct, ...]:
     return tuple(products)
 
 
+def literal_json_descriptor(sql: str | PreparedSQL, name: str) -> dict[str, Any]:
+    """Decode a frozen literal descriptor without executing the supplied SQL."""
+    import json
+
+    from .prepared_sql import prepare_sql
+
+    body = function_bodies(sql)[name]
+    (raw,) = prepare_sql(body, source=name + ":descriptor").statements
+    query = raw.stmt
+    if not isinstance(query, ast.SelectStmt) or not query.targetList:
+        raise ValueError("native descriptor must be a literal SELECT")
+    (target,) = query.targetList
+    value = target.val if isinstance(target, ast.ResTarget) else None
+    if (
+        not isinstance(value, ast.TypeCast)
+        or not isinstance(value.arg, ast.A_Const)
+        or not isinstance(value.arg.val, ast.String)
+        or value.arg.val.sval is None
+    ):
+        raise ValueError("native descriptor must be a JSON string literal")
+    result = json.loads(value.arg.val.sval)
+    if not isinstance(result, dict):
+        raise ValueError("native descriptor must contain a JSON object")
+    return result
+
+
 def function_bodies(sql: str | PreparedSQL, *, by_signature: bool = False) -> dict[str, str]:
     """Inspect emitted function declarations structurally; never scrape a live deployment."""
     result = {}

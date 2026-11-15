@@ -509,10 +509,7 @@ def _selected_expectation(metadata: _RevisionMetadata) -> NativeExpectation:
 def _cached_selected_expectation(
     metadata: _RevisionMetadata, _admission_identity, _state_identity
 ) -> NativeExpectation:
-    from pglast import ast as pgast
-    from pglast import parse_sql
-
-    from .native_products import function_bodies
+    from .native_products import function_bodies, literal_json_descriptor
 
     assert metadata.admission is not None and metadata.state is not None
     path, digest = metadata.admission
@@ -521,23 +518,7 @@ def _cached_selected_expectation(
         raise ValueError(f"{path.name}: frozen native admission digest differs")
     bodies = function_bodies(sql.decode())
     body = bodies[_DESCRIPTOR]
-    # The frozen descriptor is one literal JSON SELECT, read without executing target SQL.
-    (statement,) = parse_sql(body)
-    query = statement.stmt
-    if not isinstance(query, pgast.SelectStmt) or query.targetList is None:
-        raise ValueError("frozen native descriptor is not a SELECT")
-    (column,) = query.targetList
-    value = column.val if isinstance(column, pgast.ResTarget) else None
-    if (
-        not isinstance(value, pgast.TypeCast)
-        or not isinstance(value.arg, pgast.A_Const)
-        or not isinstance(value.arg.val, pgast.String)
-    ):
-        raise ValueError("frozen native descriptor is not a literal")
-    literal = value.arg.val.sval
-    if literal is None:
-        raise ValueError("frozen native descriptor lacks a literal value")
-    descriptor = json.loads(literal)
+    descriptor = literal_json_descriptor(sql.decode(), _DESCRIPTOR)
     (view,) = (
         item["query"] for item in descriptor["views"] if item["relation"] == "data.selected_fact"
     )

@@ -1,11 +1,11 @@
 # Status
 
-_Updated 2026-11-14. Operator stopped this DDO increment so other structural work can proceed. No tests remain running. No deployment, activation or cutover._
+_Updated 2026-11-14. Integrated PostgreSQL source/API increment executing. Focused affected checks and rollback-only native authoring are authorized; no persistent deployment, historical conversion, activation, provider inference or full campaign._
 
 ## PostgreSQL alignment amendment
 
 - Adopted all actionable [domain-alignment review](docs/plan_improvement_reviews/declared-data-operations-postgresql-domain-alignment_2026-11-14.md) I01–I08 portions with conditional triggers preserved. The [DDO amendment](docs/plans/declared-data-operations_2026-11-12.md#postgresql-domain-alignment-amendment--accepted-2026-11-14) owns open scope/questions and the [new PostgreSQL companion](docs/plans/declared-data-operations/postgresql-realization-and-retirement.md) owns technical realization and complete migration/deletion boundaries. All ten existing companions are integrated; no product code or database changed.
-- **passed, 2026-11-14:** `uv run ci docs check --json`, `113cc730161547df8a968d06c7ae9717` (1277 pages, zero link errors, before final receipt/wording edits). Product/native/provider tests, broad checks and adoption remain **not_run** under the existing stop boundary. Earlier foundation completions/receipts are retained; new typed-interface and compiler-reduction slices remain open.
+- **passed, 2026-11-14:** `uv run ci docs check --json`, `113cc730161547df8a968d06c7ae9717` (1277 pages, zero link errors, before final receipt/wording edits). Prior product/native/provider checks retain their original bounds. New focused affected checks are authorized for the PostgreSQL increment; providers, broad campaigns and adoption remain excluded. Earlier foundation completions/receipts are retained; new typed-interface and compiler-reduction slices remain open.
 
 ## DDO handoff
 
@@ -32,7 +32,7 @@ _Updated 2026-11-14. Operator stopped this DDO increment so other structural wor
 
 ## Next
 
-When DDO implementation is requested, read the PostgreSQL amendment/readiness questions alongside the retained closeout. No automatic repair, provider or qualification continuation is scheduled.
+Complete the selected PostgreSQL increment through consumer integration/removal and focused verification; track current scope in the coordinator. Earlier unrelated failures remain retained, with no automatic provider/full-campaign continuation.
 
 ## Other retained checkpoint
 

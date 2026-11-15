@@ -10,6 +10,7 @@ from typing import Any
 
 from sqlalchemy import (
     BigInteger,
+    Boolean,
     Text,
     and_,
     case,
@@ -338,6 +339,21 @@ def binding_branches(metadata):
         _var("p_source", Text),
     )
     scope = _var("p_scope", JSONB)
+    selected = _var("p_selected", JSONB)
+
+    def selected_key(product, member):
+        requested = _items(selected, "selected_binding_key")
+        return or_(
+            selected.is_(None),
+            exists(select(1).select_from(requested).where(
+                requested.c.value["product_id"].astext == product,
+                requested.c.value["member_id"].astext.is_not_distinct_from(member),
+            )),
+        )
+
+    def decoded(value):
+        return case((_var("p_decode_body", Boolean), func.data.ddo_json(value)), else_=null())
+
     boundary = literal_column("boundary")
     definitions = metadata.tables["sem.data_operation_definition"]
     roles = _items(definitions.c.input_roles, "input_role")
@@ -534,7 +550,7 @@ def binding_branches(metadata):
                 ),
             )
         )
-        .where(admitted_role)
+        .where(admitted_role, selected_key(admitted.c.product_id, projected.c.member_id))
         .cte("candidates")
         .prefix_with("MATERIALIZED")
     )
@@ -583,7 +599,7 @@ def binding_branches(metadata):
         candidates.c.member_id,
         func.ops.ddo_episode_provider_identity(candidates.c.episode_id),
         candidates.c.producer_operation,
-        func.data.ddo_json(candidates.c.projected_body),
+        decoded(candidates.c.projected_body),
         candidates.c.projected_body,
     )
     computed = select(
@@ -631,6 +647,7 @@ def binding_branches(metadata):
             _visible(admissions),
             func.ops.ddo_original_admission_valid(admissions.table_valued(), boundary),
             factual_role,
+            selected_key(admissions.c.product_id, cast(null(), Text)),
         )
         .cte("factual")
         .prefix_with("MATERIALIZED")
@@ -669,7 +686,7 @@ def binding_branches(metadata):
         null(),
         null(),
         null(),
-        func.data.ddo_json(fact.c.canonical_body),
+        decoded(fact.c.canonical_body),
         fact.c.canonical_body,
     )
     original = (

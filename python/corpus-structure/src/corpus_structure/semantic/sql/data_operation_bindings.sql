@@ -655,7 +655,9 @@ BEGIN
  END LOOP;
  IF nullif(p_binding->>'read_id','') IS NULL THEN RAISE EXCEPTION 'native binding requires its authenticated read receipt'; END IF;
  SELECT * INTO STRICT boundary FROM ops.data_demand_read WHERE id=p_binding->>'read_id' AND demand_id=demand.id;
- SELECT coalesce(jsonb_agg(to_jsonb(v)),'[]') INTO universe FROM ops.data_binding_rows(p_demand,p_operation,p_trust,p_binding->>'read_id',p_subject,request.original_source,request.analyzed_scope) v;
+ SELECT coalesce(jsonb_agg(to_jsonb(v)),'[]') INTO universe FROM ops.ddo_binding_rows(p_demand,p_operation,p_trust,p_binding->>'read_id',p_subject,request.original_source,request.analyzed_scope,false,
+ CASE WHEN EXISTS(WITH RECURSIVE nodes(n) AS (SELECT expression UNION ALL SELECT value FROM nodes parent CROSS JOIN LATERAL jsonb_array_elements(coalesce(parent.n->'children','[]')))
+ SELECT FROM nodes WHERE n->>'operator' IN ('forall','absent','membership','covers')) THEN NULL ELSE p_binding->'inputs' END) v;
  raw:=data.ddo_json(p_binding->'request_inputs');
  FOR roledef IN SELECT value FROM jsonb_array_elements(compiled->'input_roles') LOOP
  role:=roledef->>'name'; values:='[]';

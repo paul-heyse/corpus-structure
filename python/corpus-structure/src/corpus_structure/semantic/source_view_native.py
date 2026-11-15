@@ -19,27 +19,9 @@ class PhysicalCatalogExpectations:
 
 
 def _admission_descriptor(admission):
-    import json
+    from .native_products import literal_json_descriptor
 
-    from pglast import ast, parse_sql
-
-    from .native_products import function_bodies
-
-    descriptor_body = function_bodies(admission)["data.execution_contract_descriptor"]
-    statement = parse_sql(descriptor_body)[0].stmt
-    if not isinstance(statement, ast.SelectStmt) or not statement.targetList:
-        raise ValueError("descriptor must be literal SELECT")
-    cast = statement.targetList[0].val
-    if (
-        not isinstance(cast, ast.TypeCast)
-        or not isinstance(cast.arg, ast.A_Const)
-        or not isinstance(cast.arg.val, ast.String)
-    ):
-        raise ValueError("descriptor must be JSONB string")
-    literal = cast.arg.val.sval
-    if literal is None:
-        raise ValueError("descriptor string is absent")
-    return json.loads(literal)
+    return literal_json_descriptor(admission, "data.execution_contract_descriptor")
 
 
 def recorded_authoring_provenance(admission: str) -> NativeAuthoringProvenance:
