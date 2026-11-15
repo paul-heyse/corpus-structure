@@ -143,6 +143,7 @@ class ValidatedRichGraph:
         self.retained_admissions = tuple(item.graph for item in retained_states)
         self._retained_sources = {}
         self.decoded = {}
+        self._value_entity_references = {}
         self.active = set()
         self.reached_values = set()
         from .rich_value_graph import RichValueGraph
@@ -239,20 +240,19 @@ class ValidatedRichGraph:
 
     def external(self, reference):
         key = rich_reference_key(reference)
-        if key not in self.inputs:
-            if not any(
-                parent.product_id == reference.product_id
-                and parent.support_references == reference.support_references
-                and members.get(reference.member_id) == reference.kind_contract
-                for parent, members in self.whole_members
-            ):
-                if key in self._retained_provenance.get(self._checking_member, ()):
-                    # Only an unchanged packet of an actual selected accepted root
-                    # may preserve its embedded opaque historical provenance.
-                    return
-                raise ValueError(
-                    "rich source reference differs from an actual selected input or unchanged retained packet"
-                )
+        if key not in self.inputs and not any(
+            parent.product_id == reference.product_id
+            and parent.support_references == reference.support_references
+            and members.get(reference.member_id) == reference.kind_contract
+            for parent, members in self.whole_members
+        ):
+            if key in self._retained_provenance.get(self._checking_member, ()):
+                # Only an unchanged packet of an actual selected accepted root
+                # may preserve its embedded opaque historical provenance.
+                return
+            raise ValueError(
+                "rich source reference differs from an actual selected input or unchanged retained packet"
+            )
         self.kind(reference.kind_contract)
 
     def occurrence_source(self, reference):
@@ -344,6 +344,40 @@ class ValidatedRichGraph:
         return self.prepared.property_adapter(
             definition.name, prop.name, item=item
         ).validate_python(value, strict=True)
+
+    def value_entity_ids(self, identifier) -> frozenset[str]:
+        """Project actual typed entity leaves, never entity-looking literal text.
+
+        This invocation-local projection uses the same checked value members as
+        decoding; record, qualification and collection edges retain their actual
+        ownership. No external provenance or arbitrary source string is an edge.
+        """
+        active = set()
+
+        def visit(value_id):
+            if value_id in self._value_entity_references:
+                return self._value_entity_references[value_id]
+            if value_id in active:
+                raise ValueError("rich value graph contains an ungrounded cycle")
+            active.add(value_id)
+            try:
+                body = self.member(value_id, _VALUES)
+                if isinstance(body, DdoRichEntityValue):
+                    references = frozenset((body.entity_id,))
+                else:
+                    if isinstance(body, (DdoRichRecordValue, DdoRichQualificationMeaning)):
+                        children = tuple(field.value_id for field in body.fields)
+                    elif isinstance(body, DdoRichCollectionValue):
+                        children = tuple(entry.value_id for entry in body.entries)
+                    else:
+                        children = ()
+                    references = frozenset(entity for child in children for entity in visit(child))
+                self._value_entity_references[value_id] = references
+                return references
+            finally:
+                active.remove(value_id)
+
+        return visit(identifier)
 
     def value(self, identifier, expected=None):
         body = self.member(identifier, _ORDINARY_VALUES)
