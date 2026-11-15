@@ -540,9 +540,27 @@ class NativeAuthoring:
                 "duplicate managed native identity: " + "; ".join(duplicates[:12])
             )
         if before - desired != self.retire:
-            raise NativeAuthoringError(
+            failure = NativeAuthoringError(
                 "native retirement must explicitly equal removed predecessor identities"
             )
+            # The operator must name these exact identities in the next intent.
+            # Reuse the managed authoring diagnostic rather than forcing a
+            # second catalog acquisition or an unrecorded SQL comparison.
+            failure.authoring_context = {
+                "missing_retirements": [
+                    identity.payload()
+                    for identity in sorted(
+                        before - desired - self.retire, key=lambda item: item.qualified
+                    )
+                ],
+                "unexpected_retirements": [
+                    identity.payload()
+                    for identity in sorted(
+                        self.retire - (before - desired), key=lambda item: item.qualified
+                    )
+                ],
+            }
+            raise failure
         if self.recreate - (desired & before):
             raise NativeAuthoringError(
                 "recreation must name a predecessor and desired native identity"

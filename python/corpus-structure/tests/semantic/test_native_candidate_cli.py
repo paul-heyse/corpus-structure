@@ -7,6 +7,41 @@ import pytest
 from corpus_structure.settings import Settings
 
 
+def test_native_retirement_refusal_reports_exact_missing_and_unexpected_intent():
+    from corpus_structure.semantic.native_objects import (
+        NativeAuthoring,
+        NativeAuthoringError,
+        NativeIdentity,
+        NativeObject,
+    )
+
+    removed = NativeIdentity("function", "ops", "old_reader", ("text", "jsonb"))
+    unrelated = NativeIdentity("view", "data", "unrelated")
+    predecessor = NativeObject(removed, "controlled predecessor", (), "{}")
+    with pytest.raises(NativeAuthoringError) as caught:
+        NativeAuthoring((), (predecessor,), retire=frozenset({unrelated}))
+    assert caught.value.authoring_context == {
+        "missing_retirements": [
+            {
+                "kind": "function",
+                "schema": "ops",
+                "name": "old_reader",
+                "arguments": ("text", "jsonb"),
+                "relation": None,
+            }
+        ],
+        "unexpected_retirements": [
+            {
+                "kind": "view",
+                "schema": "data",
+                "name": "unrelated",
+                "arguments": (),
+                "relation": None,
+            }
+        ],
+    }
+
+
 @pytest.mark.parametrize("database", ["", "postgres", "template0", "template1", "cs_template"])
 def test_native_candidate_refuses_system_and_template_databases_before_connection(
     cli, tmp_path, monkeypatch, database
