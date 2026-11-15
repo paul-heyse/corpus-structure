@@ -13,6 +13,7 @@ class HanlpEvidenceOperation:
     __data_operation__: ClassVar[dict] = {
         "id": "text.hanlp_native/source-native",
         "profile": "derivation",
+        "replicate_policy": "retained-observation-single-result",
         "subject": "original-source-view",
         "subject_definition": {'id': 'original-source-view', 'identifier_kind': 'string', 'scope': 'original-source'},
         "discovery_relation": 'subject-population',

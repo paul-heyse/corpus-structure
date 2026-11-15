@@ -667,3 +667,12 @@ def test_one_frozen_discovery_population_fans_out_distinct_child_targets_once():
                 DiscoverySelection("op:discover", "different-output", "op:b", "children"),
             ),
         )
+
+
+def test_retained_observation_policy_reuses_only_the_authentic_selected_sample():
+    compiled = model(operation("op:result", replicate_policy="retained-observation-single-result"))
+    frozen = freeze(compiled)
+    assert frozen.record["operations"][0]["replicate"] is None
+    assert freeze(compiled).content == frozen.content
+    with pytest.raises(ValueError, match="fresh independent replication is unsupported"):
+        freeze(compiled, selections=(OperationSelection("op:result", replicate="fresh-other-sample"),))

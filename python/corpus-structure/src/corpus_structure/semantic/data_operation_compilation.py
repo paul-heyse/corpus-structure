@@ -9,7 +9,7 @@ from __future__ import annotations
 import ast
 import json
 from dataclasses import asdict, fields, replace
-from typing import Any, Never, cast
+from typing import Any, Never, cast, get_args
 
 import yaml
 from linkml_runtime.dumpers import json_dumper
@@ -36,6 +36,8 @@ from .data_operation_model import (
     NumericalPolicyReference,
     OperationRole,
     RelationalBinding,
+    ReplicatePolicy,
+    validate_replicate_selection,
     SemanticEdge,
     SemanticNode,
     SourceUnknown,
@@ -1744,6 +1746,9 @@ def compile_data_operations(
             _fail(semantic_id, "operation requires explicit subject discovery relation")
         subject_node = "subject:" + subject
         edges.append(SemanticEdge(semantic_id, subject_node, "operation_subject"))
+        replicate_policy = raw.get("replicate_policy", "deterministic-single-result")
+        if replicate_policy not in get_args(ReplicatePolicy):
+            _fail(semantic_id, "unsupported replicate policy")
         operation = EffectiveOperation(
             semantic_id,
             raw["profile"],
@@ -1767,7 +1772,7 @@ def compile_data_operations(
             implementation_root,
             origins,
             binding_id,
-            _text(raw.get("replicate_policy", "deterministic-single-result"), semantic_id),
+            cast(ReplicatePolicy, replicate_policy),
             _text(raw.get("support_policy", "all-declared-input-support"), semantic_id),
             _strings(raw.get("potential_dependencies", []), semantic_id),
             tuple(sorted(result_fields.items())),
@@ -2122,15 +2127,10 @@ def project_operation_binding(model: EffectiveDataOperationModel, binding):
     recipe = identities.get((operation.semantic_id, "recipe"))
     if recipe is None:
         _fail(operation.semantic_id, "reusable identity has unknown implementation determinants")
-    if operation.replicate_policy == "deterministic-single-result":
-        if binding.replicate is not None:
-            _fail(
-                operation.semantic_id, "deterministic operation does not admit replicate selection"
-            )
-    elif operation.replicate_policy == "explicit-replicates":
-        _text(binding.replicate, operation.semantic_id + "/replicate")
-    else:
-        _fail(operation.semantic_id, "unsupported replicate identity policy")
+    try:
+        validate_replicate_selection(operation.replicate_policy, binding.replicate, owner=operation.semantic_id)
+    except ValueError as error:
+        _fail(operation.semantic_id, str(error))
     input_roles = {role.name: role for role in operation.roles if role.direction == "input"}
     from .data_operation_kind_refinements import input_kind_contracts
 

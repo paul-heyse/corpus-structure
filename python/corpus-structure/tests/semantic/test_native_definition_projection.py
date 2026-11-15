@@ -86,12 +86,12 @@ def test_native_operation_requires_its_exact_checked_subject():
         "recipe": "recipe", "profile": "derivation", "binding": {},
         "definition": "definition", "eligibility": "eligibility",
         "implementation_revision": "implementation", "input_roles": [],
-        "output_roles": [], "support_contract": {},
+        "output_roles": [], "support_contract": {"replicate_policy": "deterministic-single-result"},
     }
     model, prepared = _captured(operations=[operation])
-    model.operations = (SimpleNamespace(semantic_id="inspect", subject="selected-source"),)
+    model.operations = (SimpleNamespace(semantic_id="inspect", subject="selected-source", replicate_policy="deterministic-single-result"),)
     assert read_native_definition_projection(prepared, model=model)["operations"][0]["subject_definition"] == "selected-source"
-    model.operations = (SimpleNamespace(semantic_id="inspect", subject="project"),)
+    model.operations = (SimpleNamespace(semantic_id="inspect", subject="project", replicate_policy="deterministic-single-result"),)
     with pytest.raises(ValueError, match="checked effective model"):
         read_native_definition_projection(prepared, model=model)
 
@@ -101,7 +101,7 @@ def test_native_operation_missing_subject_is_an_invalid_current_projection():
         "operation_id": "inspect", "recipe": "recipe", "profile": "derivation",
         "binding": {}, "definition": "definition", "eligibility": "eligibility",
         "implementation_revision": "implementation", "input_roles": [],
-        "output_roles": [], "support_contract": {},
+        "output_roles": [], "support_contract": {"replicate_policy": "deterministic-single-result"},
     }])
     with pytest.raises(ValueError, match="subject_definition"):
         read_native_definition_projection(prepared, model=model)
@@ -134,3 +134,21 @@ classes:
         compile_source(source.replace(b"variant: location", b"variant: arbitrary"))
     with pytest.raises(PreparationError, match="native kind policies belong to classes"):
         compile_source(source.replace(b"  annotations: {cs:definition_variant: location}\n", b"").replace(b"{range: string}", b"{range: string, annotations: {cs:definition_variant: location}}"))
+
+
+def test_native_operation_policy_must_be_closed_and_match_checked_model():
+    operation = {
+        "operation_id": "inspect", "subject_definition": "selected-source",
+        "recipe": "recipe", "profile": "derivation", "binding": {},
+        "definition": "definition", "eligibility": "eligibility",
+        "implementation_revision": "implementation", "input_roles": [],
+        "output_roles": [], "support_contract": {"replicate_policy": "retained-observation-single-result"},
+    }
+    model, prepared = _captured(operations=[operation])
+    model.operations = (SimpleNamespace(semantic_id="inspect", subject="selected-source", replicate_policy="retained-observation-single-result"),)
+    assert read_native_definition_projection(prepared, model=model)["operations"][0]["support_contract"]["replicate_policy"] == "retained-observation-single-result"
+    operation["support_contract"]["replicate_policy"] = "invented"
+    model, prepared = _captured(operations=[operation])
+    model.operations = (SimpleNamespace(semantic_id="inspect", subject="selected-source", replicate_policy="retained-observation-single-result"),)
+    with pytest.raises(ValueError, match="unsupported native operation replicate policy"):
+        read_native_definition_projection(prepared, model=model)

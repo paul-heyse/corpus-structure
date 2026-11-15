@@ -72,6 +72,15 @@ def read_native_definition_projection(prepared, *, model=None) -> NativeDefiniti
     actual_subjects = {row["operation_id"]: row["subject_definition"] for row in projection["operations"]}
     if actual_subjects != expected_subjects:
         raise ValueError("native operation subjects differ from the checked effective model")
+    expected_policies = {operation.semantic_id: operation.replicate_policy for operation in model.operations}
+    actual_policies = {row["operation_id"]: row["support_contract"].get("replicate_policy") for row in projection["operations"]}
+    from typing import get_args
+    from .data_operation_model import ReplicatePolicy
+
+    if any(policy not in get_args(ReplicatePolicy) for policy in actual_policies.values()):
+        raise ValueError("unsupported native operation replicate policy")
+    if actual_policies != expected_policies:
+        raise ValueError("native operation replicate policies differ from the checked effective model")
     return projection
 
 

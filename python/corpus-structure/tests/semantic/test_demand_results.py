@@ -24,13 +24,13 @@ def _page(*, trust=None, member_id=None, empty=False) -> dict[str, Any]:
                     subject="one",
                     original_source="source:A",
                     analyzed_scope={"scale": Decimal("1.20")},
-                ),
+                 subject_definition="document"),
                 body={"amount": Decimal("12.340")},
             ),
             dict(
                 member_id="second",
                 kind_contract="kind:second",
-                context=dict(subject="two", original_source="source:A", analyzed_scope={}),
+                context=dict(subject="two", original_source="source:A", analyzed_scope={}, subject_definition="document"),
                 body={"target": "first", "direction": "outgoing"},
             ),
         ]
@@ -74,7 +74,7 @@ def _page(*, trust=None, member_id=None, empty=False) -> dict[str, Any]:
                         analyzed_scope={},
                         body_state="present",
                         body=semantic_value(body),
-                    )
+                     subject_definition="document")
                 ],
             )
         ],
@@ -241,7 +241,7 @@ def _detached_closure(
         canonical_body=semantic_value(body),
         body_digest=body_key,
         artifact_digest=None,
-    )
+     subject_definition="document")
     native = _page()
     native["uses"] = [
         dict(
@@ -282,11 +282,13 @@ def _detached_closure(
                 request_key=request.identity.key,
                 project_id="project:A",
                 operation_id="op:A",
+                release_id="release:A",
+                replicate=None,
                 recipe="recipe:A",
                 subject="root",
                 original_source="source:A",
                 analyzed_scope={"scale": Decimal("1.20")},
-            ),
+             subject_definition="document"),
         ),
         (
             "ops.data_derivation",
@@ -315,7 +317,7 @@ def _detached_closure(
         ),
         (
             "sem.data_operation_definition",
-            dict(release_id="release:A", operation_id="op:A", recipe="recipe:A"),
+            dict(release_id="release:A", operation_id="op:A", recipe="recipe:A", subject_definition="document", support_contract={"replicate_policy": "deterministic-single-result"}),
         ),
         (
             "ops.data_derivation_output",
@@ -493,7 +495,7 @@ def test_detached_container_requires_members_even_when_selected_as_whole_product
     packet = dict(
         member_id="member:A",
         kind_contract="kind:item",
-        context=dict(subject="item", original_source="source:A", analyzed_scope={}),
+        context=dict(subject="item", original_source="source:A", analyzed_scope={}, subject_definition="document"),
         body={"value": 1},
     )
     native, records = _detached_closure(body={"members": [packet]}, kind_contract="kind:container")
@@ -564,3 +566,20 @@ def test_scoped_operation_metadata_keeps_native_selected_obligation(monkeypatch)
         ),
     )
     assert result["items"][0]["obligation"]["obligation_id"] == "obligation:A"
+
+
+def test_detached_retained_observation_refuses_unqualified_fresh_replication():
+    from corpus_structure.semantic.demand_results import verify_detached_result
+
+    native, records = _detached_closure()
+    definition = next(row["record"] for row in records if row["relation"] == "sem.data_operation_definition")
+    request = next(row["record"] for row in records if row["relation"] == "ops.data_request")
+    definition["support_contract"]["replicate_policy"] = "retained-observation-single-result"
+    verify_detached_result(native, records=records, wire_schema={})
+    request["replicate"] = "fresh-unsupported"
+    with pytest.raises(ValueError, match="fresh independent replication is unsupported"):
+        verify_detached_result(native, records=records, wire_schema={})
+    request["replicate"] = None
+    definition["support_contract"]["replicate_policy"] = "invented-mode"
+    with pytest.raises(ValueError, match="unsupported replicate policy"):
+        verify_detached_result(native, records=records, wire_schema={})

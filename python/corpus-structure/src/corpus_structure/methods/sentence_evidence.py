@@ -12,6 +12,7 @@ class SentenceEvidenceOperation:
     __data_operation__: ClassVar[dict] = {
         "id": "segment.sentences/source-native",
         "profile": "derivation",
+        "replicate_policy": "retained-observation-single-result",
         "subject": "original-source-view",
         "subject_definition": {'id': 'original-source-view', 'identifier_kind': 'string', 'scope': 'original-source'},
         "discovery_relation": 'subject-population',

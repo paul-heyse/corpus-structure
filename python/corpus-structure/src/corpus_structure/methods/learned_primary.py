@@ -16,6 +16,7 @@ class MaverickPrimaryOperation:
     __data_operation__: ClassVar[dict] = {
         "id": "text.maverick/source-native",
         "profile": "derivation",
+        "replicate_policy": "retained-observation-single-result",
         "subject": "original-source-view",
         "subject_definition": {'id': 'original-source-view', 'identifier_kind': 'string', 'scope': 'original-source'},
         "discovery_relation": 'subject-population',
@@ -543,6 +544,7 @@ class DipoPrimaryOperation:
     __data_operation__: ClassVar[dict] = {
         "id": "text.dipo/source-native",
         "profile": "derivation",
+        "replicate_policy": "retained-observation-single-result",
         "subject": "original-source-view",
         "subject_definition": {'id': 'original-source-view', 'identifier_kind': 'string', 'scope': 'original-source'},
         "discovery_relation": 'subject-population',
@@ -1040,6 +1042,7 @@ class D1SourcePrimaryOperation:
     __data_operation__: ClassVar[dict] = {
         "id": "text.d1_source/source-native",
         "profile": "derivation",
+        "replicate_policy": "retained-observation-single-result",
         "subject": "original-source-view",
         "subject_definition": {'id': 'original-source-view', 'identifier_kind': 'string', 'scope': 'original-source'},
         "discovery_relation": 'subject-population',
@@ -1537,6 +1540,7 @@ class D1CandidatesPrimaryOperation:
     __data_operation__: ClassVar[dict] = {
         "id": "text.d1_candidates/source-native",
         "profile": "derivation",
+        "replicate_policy": "retained-observation-single-result",
         "subject": "original-source-view",
         "subject_definition": {'id': 'original-source-view', 'identifier_kind': 'string', 'scope': 'original-source'},
         "discovery_relation": 'subject-population',
@@ -2118,6 +2122,7 @@ class GlinerCuesPrimaryOperation:
     __data_operation__: ClassVar[dict] = {
         "id": "text.gliner_cues/source-native",
         "profile": "derivation",
+        "replicate_policy": "retained-observation-single-result",
         "subject": "original-source-view",
         "subject_definition": {'id': 'original-source-view', 'identifier_kind': 'string', 'scope': 'original-source'},
         "discovery_relation": 'subject-population',
@@ -2615,6 +2620,7 @@ class GlinerFunctionPrimaryOperation:
     __data_operation__: ClassVar[dict] = {
         "id": "text.gliner_function/source-native",
         "profile": "derivation",
+        "replicate_policy": "retained-observation-single-result",
         "subject": "original-source-view",
         "subject_definition": {'id': 'original-source-view', 'identifier_kind': 'string', 'scope': 'original-source'},
         "discovery_relation": 'subject-population',
@@ -3112,6 +3118,7 @@ class ContextualNativePrimaryOperation:
     __data_operation__: ClassVar[dict] = {
         "id": "text.contextual_native/source-native",
         "profile": "derivation",
+        "replicate_policy": "retained-observation-single-result",
         "subject": "original-source-view",
         "subject_definition": {'id': 'original-source-view', 'identifier_kind': 'string', 'scope': 'original-source'},
         "discovery_relation": 'subject-population',
@@ -3321,6 +3328,7 @@ class GlinerDefinitionPrimaryOperation:
     __data_operation__: ClassVar[dict] = {
         "id": "text.gliner_definitions/source-native",
         "profile": "derivation",
+        "replicate_policy": "retained-observation-single-result",
         "subject": "original-source-view",
         "subject_definition": {'id': 'original-source-view', 'identifier_kind': 'string', 'scope': 'original-source'},
         "discovery_relation": 'subject-population',

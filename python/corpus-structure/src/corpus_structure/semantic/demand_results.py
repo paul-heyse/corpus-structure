@@ -458,6 +458,12 @@ def verify_detached_result(
             if expected is None or value != {name: expected[name] for name in stored_fields}:
                 raise ValueError("detached operation differs from its captured release contract")
     requests = row_map("ops.data_request", "id")
+    if validate_closure:
+        from .data_operation_model import validate_replicate_selection
+
+        for request in requests.values():
+            definition = actual_definitions[request["release_id"], request["operation_id"]]
+            validate_replicate_selection(definition["support_contract"]["replicate_policy"], request["replicate"], owner=request["operation_id"])
     episodes = row_map("ops.data_derivation", "id")
     if validate_closure:
         for episode in episodes.values():

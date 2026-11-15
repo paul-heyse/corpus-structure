@@ -110,6 +110,8 @@ def freeze_demand(
     from .data_operation_bindings import effective_binding_parameters
     from .data_operation_identity import decode_semantic_value, semantic_value
 
+    from .data_operation_model import validate_replicate_selection
+
     if not targets or not inference or not execution_profile:
         raise ValueError("demand requires targets, inference and an execution profile")
     if len(
@@ -220,11 +222,7 @@ def freeze_demand(
         item = supplied.get(operation_id, OperationSelection(operation_id))
         if (operation_id, "recipe") not in identities:
             raise ValueError(f"unknown implementation determinants: {operation_id}")
-        if operation.replicate_policy == "explicit-replicates":
-            if not item.replicate:
-                raise ValueError("explicit replicate selection is required for " + operation_id)
-        elif item.replicate is not None:
-            raise ValueError("deterministic operation cannot select a replicate")
+        validate_replicate_selection(operation.replicate_policy, item.replicate, owner=operation_id)
         parameters, choices = json.loads(item.parameters), json.loads(item.choices)
         if item.parameter_meaning is not None:
             parameters = decode_semantic_value(json.loads(item.parameter_meaning))

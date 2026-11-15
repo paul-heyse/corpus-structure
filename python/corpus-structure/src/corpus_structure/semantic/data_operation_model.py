@@ -10,7 +10,7 @@ import json
 from dataclasses import asdict, dataclass, field
 from decimal import Decimal
 from functools import cached_property, lru_cache
-from typing import Any, Literal
+from typing import Any, Literal, get_args
 
 from .data_operation_json import json_bytes, json_loads
 from .data_operation_support import (
@@ -22,6 +22,22 @@ from .data_operation_support import (
 from .identity import canonical_bytes
 
 MODEL_VERSION = "data-operation-model-v7"
+
+
+ReplicatePolicy = Literal["deterministic-single-result", "retained-observation-single-result", "explicit-replicates"]
+
+
+def validate_replicate_selection(policy, replicate, *, owner):
+    """A retained value is reusable without promising a fresh bitwise-equivalent sample."""
+    if policy not in get_args(ReplicatePolicy):
+        raise ValueError("unsupported replicate policy for " + owner)
+    if policy == "explicit-replicates":
+        if type(replicate) is not str or not replicate:
+            raise ValueError("explicit replicate selection is required for " + owner)
+    elif replicate is not None:
+        if policy == "retained-observation-single-result":
+            raise ValueError("fresh independent replication is unsupported for retained observation " + owner)
+        raise ValueError("deterministic operation cannot select a replicate: " + owner)
 
 
 @dataclass(frozen=True)
@@ -406,7 +422,7 @@ class EffectiveOperation:
     implementation_root: str | None
     origins: tuple[FactOrigin, ...]
     binding: str
-    replicate_policy: str = "deterministic-single-result"
+    replicate_policy: ReplicatePolicy = "deterministic-single-result"
     support_policy: str = "all-declared-input-support"
     potential_dependencies: tuple[str, ...] = ()
     result_fields: tuple[tuple[str, str], ...] = ()

@@ -1453,3 +1453,17 @@ def test_bound_members_require_explicit_support_references():
 
     with pytest.raises(ValueError, match="computational support projection"):
         replace(member, support_references=())
+
+
+def test_retained_observation_binding_cannot_request_an_unqualified_fresh_sample():
+    from dataclasses import replace
+
+    model = compile_data_operations(declarations=declarations(contract(replicate_policy="retained-observation-single-result")))
+    binding = resolved_binding(model)
+    first, _ = project_operation_binding(model, binding)
+    second, _ = project_operation_binding(model, binding)
+    assert first.identity == second.identity
+    with pytest.raises(PreparationError, match="fresh independent replication is unsupported"):
+        project_operation_binding(model, replace(binding, replicate="independent-fresh"))
+    with pytest.raises(PreparationError, match="unsupported replicate policy"):
+        compile_data_operations(declarations=declarations(contract(replicate_policy="invented-policy")))
