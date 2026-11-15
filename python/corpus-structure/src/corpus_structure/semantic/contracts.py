@@ -1376,6 +1376,7 @@ def _read_analysis_implementation_inputs(
                 ("pdf/source_views.py", "semantic/source_views.py"),
                 ("pdf/requests.py", "semantic/native_requests.py"),
                 ("pdf/visual-requests.py", "semantic/visual_requests.py"),
+                ("pdf/retained-visual.py", "semantic/retained_visual.py"),
                 ("pdf/visual-mapping.py", "semantic/pdf_visual_mapping.py"),
                 ("pdf/visual-reader.py", "serve/pdf_visual_evidence.py"),
                 ("pdf/visual-packet.py", "serve/visual_evidence_packet.py"),
