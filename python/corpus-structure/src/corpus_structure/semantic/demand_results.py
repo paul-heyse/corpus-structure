@@ -21,6 +21,7 @@ from .data_operation_identity import (
 )
 from .data_operation_json import json_bytes, wire_json_loads
 from .data_operation_model import SubjectContext
+from ._data_operation_wire import WireCutSelection
 
 if TYPE_CHECKING:
     from ._data_operation_wire import WireReadDemandResultRequest
@@ -36,18 +37,7 @@ def _read_request(value):
     )
 
 
-_PIN_FIELDS = (
-    "demand_id",
-    "project_id",
-    "release_id",
-    "runtime_id",
-    "selection",
-    "trust_snapshot",
-    "read_id",
-    "read_snapshot",
-    "frontier_at",
-    "scope",
-)
+_PIN_FIELDS = tuple(WireCutSelection.__annotations__)
 
 
 @dataclass(frozen=True)

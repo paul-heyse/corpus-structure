@@ -1469,9 +1469,9 @@ END $$;
 -- Protected families can inspect an exact retained effect only through an
 -- already pinned current read and the same selected-support closure as serving.
 CREATE OR REPLACE FUNCTION ops.ddo_require_selected_output(
- p_demand text,p_read text,p_use text,p_product text,p_derivation text) RETURNS void
+ p_demand text,p_read text,p_use text,p_product text,p_derivation text) RETURNS jsonb
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
-DECLARE d ops.data_demand; boundary ops.data_demand_read; p jsonb; admitted boolean;
+DECLARE d ops.data_demand; boundary ops.data_demand_read; p jsonb; admitted boolean; cut jsonb;
 BEGIN
  SELECT * INTO STRICT d FROM ops.data_demand WHERE id=p_demand;
  SELECT * INTO STRICT boundary FROM ops.data_demand_read WHERE id=p_read AND demand_id=d.id;
@@ -1484,6 +1484,8 @@ BEGIN
  IF NOT coalesce(admitted,false) THEN
  RAISE EXCEPTION 'output is outside current pinned selected support' USING ERRCODE='23514';
  END IF;
+ __DDO_CORE_CUT_SELECTION__ INTO cut;
+ RETURN cut;
 END $$;
 
 

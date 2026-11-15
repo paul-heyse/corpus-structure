@@ -1059,6 +1059,26 @@ def selected_support_export(metadata, selected_uses, admissions, in_page):
     )
 
 
+def _cut_fields():
+    return dict(
+        demand_id=_var("d.id", Text),
+        project_id=_var("d.project_id", Text),
+        release_id=_var("d.release_id", Text),
+        runtime_id=_var("d.runtime_id", Text),
+        selection=_var("d.selection", JSONB),
+        trust_snapshot=_var("boundary.trust_snapshot", JSONB),
+        read_id=_var("boundary.id", Text),
+        read_snapshot=_var("boundary.read_snapshot", Text),
+        frontier_at=literal_column("boundary.frontier_at"),
+        scope=_var("boundary.scope", JSONB),
+    )
+
+
+def cut_selection_projection():
+    """The same authenticated native cut metadata at every family read boundary."""
+    return select(_obj(**_cut_fields()))
+
+
 def _scoped_read_obligations(metadata):
     """The exact declared read scope, independent of page size and continuation."""
     obligations = metadata.tables["ops.data_obligation"]
@@ -1154,7 +1174,8 @@ def selected_support_output(metadata):
             outputs.c.product_id == _var("p_product", Text),
             outputs.c.member_id.is_(None),
             products.c.project_id == _var("d.project_id", Text),
-            _visible(episodes), _visible(products),
+            # Episodes and products are immutable facts reached from the visible
+            # selected use; visibility belongs to that admission, not the fact.
             func.ops.ddo_support_valid(episodes.c.id, boundary),
             func.ops.ddo_kind_access(products.c.kind_contract),
             func.ops.ddo_body_access(products.c.kind_contract, products.c.canonical_body),
@@ -1388,14 +1409,7 @@ def read_page(metadata):
     more = and_(
         next_key.is_not(None),
         exists(
-            select(1)
-            .select_from(obligations)
-            .where(
-                obligations.c.demand_id == demand,
-                *scope_predicates,
-                obligations.c.id > next_key,
-                _visible(obligations),
-            )
+            _scoped_read_obligations(metadata).where(obligations.c.id > next_key)
         ),
     )
     admissions = metadata.tables["ops.original_source_admission"]
@@ -1505,16 +1519,12 @@ def read_page(metadata):
         ),
         else_=literal("active"),
     )
-    pins = dict(
-        demand_id=demand,
-        scope=func.coalesce(read_scope, _json({})),
-        selection=selection,
-        trust_snapshot=_var("snapshot", JSONB),
-        read_id=_var("boundary.id", Text),
-        read_snapshot=_var("boundary.read_snapshot", Text),
-        frontier_at=literal_column("boundary.frontier_at"),
-        view=_var("selected_view", Text),
-    )
+    cut_fields = _cut_fields()
+    pins = {
+        name: cut_fields[name]
+        for name in ("demand_id", "scope", "selection", "trust_snapshot", "read_id", "read_snapshot", "frontier_at")
+    }
+    pins["view"] = _var("selected_view", Text)
     continuation = case(
         (
             more,
@@ -1539,12 +1549,10 @@ def read_page(metadata):
     )
     payload = _obj(
         payload=_obj(
-            **pins,
+            **cut_fields,
+            view=_var("selected_view", Text),
             intent=selection,
             root=_var("d.root", JSONB),
-            project_id=_var("d.project_id", Text),
-            release_id=_var("d.release_id", Text),
-            runtime_id=_var("d.runtime_id", Text),
             state=state,
             uses=result_uses,
             obligations=result_obligations,
@@ -1614,6 +1622,7 @@ def capture_projection_sources(*, physical_sources=None, linkml_types=None):
         "binding_original": compiled(branches[1]),
         "read_page": compiled(read_page(metadata)),
         "selected_support_output": compiled(selected_support_output(metadata)),
+        "cut_selection": compiled(cut_selection_projection()),
     }
     return (
         SourceArtifact("native/data-operation-projections.py", Path(__file__).read_bytes()),
