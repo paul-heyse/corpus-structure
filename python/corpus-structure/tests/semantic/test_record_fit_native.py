@@ -115,7 +115,7 @@ def test_copied_self_consistent_fit_refuses_different_actual_specification(
     # with a different request. No producer/CPU receipt is invented in this control.
     body = fitted.model_dump(mode="json")
     body["judgment_basis_digest"] = basis_hash(first, second, altered)
-    with pytest.raises(DBAPIError, match="actual frozen feature|actual input frames"):
+    with pytest.raises(DBAPIError, match=r"actual frozen feature|actual input frames"):
         check(
             fit_correspondence_connection,
             first.model_dump(mode="json"),

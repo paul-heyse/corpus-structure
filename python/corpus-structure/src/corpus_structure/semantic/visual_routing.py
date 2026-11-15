@@ -726,7 +726,7 @@ def read_demand_visual_routes(
                 furniture[image["page_no"]],
             )
         )
-    for (_, _, page_no), group in grouped.items():
+    for (_, _, _page_no), group in grouped.items():
         samples = tuple(item[0] for item in group)
         publication = group[0][1]
         signals = _selected_page_signals(samples, group[0][2])

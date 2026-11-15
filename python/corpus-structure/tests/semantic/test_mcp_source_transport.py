@@ -28,7 +28,7 @@ from corpus_structure.serve.pdf_visual_evidence import (
 from corpus_structure.serve.selected_pdf import SelectedPdfSourceReference
 from corpus_structure.serve.visual_evidence_packet import VisualEvidencePacket
 
-PAYLOAD = 'Unicode α "quoted" \\ slash\n' * 25
+PAYLOAD = 'Unicode \u03b1 "quoted" \\ slash\n' * 25
 SOURCE = dict(
     project_id="project:A",
     demand_id="demand:A",

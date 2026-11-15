@@ -29,5 +29,5 @@ def test_spoofed_callable_name_and_namespace_do_not_change_original_source_owner
     )
     function.__module__ = owner.__name__
     function.__qualname__ = "_verify_prepared_callable"
-    with pytest.raises(PortRefusal, match="owning module|callable runtime binding was replaced"):
+    with pytest.raises(PortRefusal, match=r"owning module|callable runtime binding was replaced"):
         owner._verify_prepared_callable(owner.__name__ + "._verify_prepared_callable", function)

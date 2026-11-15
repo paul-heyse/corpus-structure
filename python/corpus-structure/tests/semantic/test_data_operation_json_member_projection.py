@@ -186,7 +186,7 @@ def test_member_derivation_refuses_open_ambiguous_or_generic_body_authority(defe
             record["json_schema"] = schema_closure(schema, definitions)
 
     model = captured_model(change)
-    with pytest.raises(PreparationError, match="closed nominal|disjoint|required|generic JSON"):
+    with pytest.raises(PreparationError, match=r"closed nominal|disjoint|required|generic JSON"):
         derive_member_kinds(model, PREFIX + "Container")
 
 

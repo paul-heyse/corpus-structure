@@ -1957,7 +1957,7 @@ def test_explicit_empty_source_set_is_closed_absence_and_never_an_unbounded_scan
     assert result.status == "ready"
     # A collection can be present and exactly empty; unknown/missing is separate.
     assert [(role.state, role.members) for role in result.roles] == [("present", ())]
-    with pytest.raises(ValueError, match="source.set"):
+    with pytest.raises(ValueError, match=r"source\.set"):
         bind(())
     required = replace(role, minimum=1, presence="required")
     required_schema = replace(

@@ -28,7 +28,7 @@ PREFIX = "https://corpus-structure.dev/semantic/data-operation-rich-knowledge/"
 
 def retained(source):
     context, graph, inputs = actual_graph(source)
-    prepared, model = source
+    _prepared, model = source
     ids = {item.owner: item.key for item in model.identities if item.domain == "kind"}
     old = inputs[0].model_copy(update={"kind_contract": "historical:opaque-source-kind"})
     packets = []
@@ -202,7 +202,7 @@ def test_retained_graph_refuses_unselected_roots_local_contract_changes_and_modi
 
 def authored(source):
     context, graph, _ = actual_graph(source)
-    prepared, model = source
+    _prepared, model = source
     ids = {item.owner: item.key for item in model.identities if item.domain == "kind"}
     packets = []
     for packet in graph.members:

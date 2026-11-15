@@ -30,6 +30,7 @@ from corpus_structure.semantic.pdf_integrated import (
     store_pdf_observation,
 )
 from semantic.operation_scenario_support import prepare_operation_scenario
+from semantic.pdf_native_source_support import native_source as native_source
 
 HOLDER = "pdf13-fixture"
 
@@ -65,7 +66,6 @@ def pdf13_context():
     return trusted_pdf_context()
 
 
-from semantic.pdf_native_source_support import native_source as native_source
 
 
 def observation(source, *, key="pass-a", outcome="succeeded", pass_role="A") -> dict[str, Any]:

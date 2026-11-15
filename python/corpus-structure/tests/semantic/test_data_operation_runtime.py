@@ -168,17 +168,16 @@ def test_native_runtime_validator_refuses_previous_versions(native_rollback, ver
     )
     validator = prepare_sql(source, source="current-runtime-validator").excerpt(0)
     connection.exec_driver_sql(validator, execution_options={"no_parameters": True})
-    with pytest.raises(DBAPIError, match="unsupported target runtime version") as refusal:
-        with connection.begin_nested():
-            connection.execute(
-                text("SELECT sem.validate_runtime_binding(:release,:runtime,:manifest,:archive)"),
-                {
-                    "release": "absent-release",
-                    "runtime": "runtime:untrusted",
-                    "manifest": canonical_bytes({"version": version}),
-                    "archive": canonical_bytes(
-                        {"version": "runtime-source-archive-1", "inputs": []}
-                    ),
-                },
-            )
+    with pytest.raises(DBAPIError, match="unsupported target runtime version") as refusal, connection.begin_nested():
+        connection.execute(
+            text("SELECT sem.validate_runtime_binding(:release,:runtime,:manifest,:archive)"),
+            {
+                "release": "absent-release",
+                "runtime": "runtime:untrusted",
+                "manifest": canonical_bytes({"version": version}),
+                "archive": canonical_bytes(
+                    {"version": "runtime-source-archive-1", "inputs": []}
+                ),
+            },
+        )
     assert getattr(refusal.value.orig, "sqlstate", None) == "23514"

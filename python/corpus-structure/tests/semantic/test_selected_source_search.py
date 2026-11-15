@@ -122,7 +122,7 @@ def test_current_find_mcp_preserves_selected_handles_unicode_and_fractional_cut(
 
     pin, cut, publication = selection()
     cut["scope"] = {"fraction": Decimal("0.123456789012345678901")}
-    payload = 'Unicode α "quoted" \\ slash\n' * 40
+    payload = 'Unicode \u03b1 "quoted" \\ slash\n' * 40
     monkeypatch.setattr(
         "corpus_structure.semantic.demand_results.selected_read_snapshot",
         lambda selected: nullcontext(None),

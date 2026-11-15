@@ -877,7 +877,7 @@ def test_detached_protected_authority_has_explicit_bounded_custody():
         verify_detached_result(native, records=records, **options).cut.identity
         == CutSelection.from_native(native).identity
     )
-    with pytest.raises(ValueError, match="support episode|support closure"):
+    with pytest.raises(ValueError, match=r"support episode|support closure"):
         verify_detached_result(
             native,
             records=[row for row in records if row["relation"] != "ops.data_authority_leaf"],

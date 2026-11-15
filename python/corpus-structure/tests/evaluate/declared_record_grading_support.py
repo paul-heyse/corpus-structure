@@ -80,7 +80,7 @@ def cut():
 def current_reading(family, source_index=1):
     from copy import deepcopy
 
-    prepared, model = current()
+    _prepared, model = current()
     raw, contexts = reading(family)
     row = deepcopy(raw)
     pin = source(source_index).model_dump(mode="json", exclude_none=True)
