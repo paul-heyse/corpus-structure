@@ -117,3 +117,54 @@ def test_native_service_creation_read_and_cancellation_preserve_original_pins(dd
         cancelled = service.cancel_data_demand(connection, demand, reason="operator cancelled")
         assert cancelled["state"] == "cancelled"
         assert service.read_data_demand(connection, demand)["state"] == "cancelled"
+
+
+@pytest.mark.parametrize("purpose", ["write", "evaluate"])
+def test_execution_target_observation_uses_explicit_purpose_without_switching_roles(monkeypatch, purpose):
+    from contextlib import contextmanager
+    from types import SimpleNamespace
+    from corpus_structure.semantic import data_operation_service, storage_target
+    from corpus_structure.semantic.storage_target import StorageTarget
+
+    @contextmanager
+    def connection(name):
+        yield name
+    engine = SimpleNamespace(begin=lambda: connection("execution"))
+    admission = SimpleNamespace(begin=lambda: connection("admission"))
+    seen = []
+    def target(conn, *, purpose):
+        seen.append((conn, purpose))
+        return StorageTarget(database="same", database_oid=1, system_identifier="same",
+                             host="localhost", port=5434, purpose=purpose)
+    monkeypatch.setattr(storage_target, "acquired_target", target)
+    class ReachedSnapshot(Exception):
+        pass
+    def read(*args, **kwargs):
+        raise ReachedSnapshot
+    monkeypatch.setattr(data_operation_service, "read_data_demand", read)
+    arguments = {} if purpose == "write" else {"purpose": purpose}
+    with pytest.raises(ReachedSnapshot):
+        data_operation_service.execute_data_demand(engine, "demand:exact", admission_engine=admission, **arguments)
+    assert seen == [("execution", purpose), ("admission", "admit")]
+
+
+def test_evaluator_execution_still_refuses_a_different_admission_target(monkeypatch):
+    from contextlib import contextmanager
+    from types import SimpleNamespace
+    from unittest.mock import Mock
+    from corpus_structure.semantic import data_operation_service, storage_target
+    from corpus_structure.semantic.storage_target import StorageTarget
+
+    @contextmanager
+    def connection(name):
+        yield name
+    engine = SimpleNamespace(begin=lambda: connection("execution"))
+    admission = SimpleNamespace(begin=lambda: connection("admission"))
+    monkeypatch.setattr(storage_target, "acquired_target", lambda conn, *, purpose:
+        StorageTarget(database="same", database_oid=1 if conn == "execution" else 2,
+            system_identifier="same", host="localhost", port=5434, purpose=purpose))
+    read = Mock()
+    monkeypatch.setattr(data_operation_service, "read_data_demand", read)
+    with pytest.raises(ValueError, match="another PostgreSQL target"):
+        data_operation_service.execute_data_demand(engine, "demand:exact", admission_engine=admission, purpose="evaluate")
+    read.assert_not_called()

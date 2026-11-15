@@ -160,6 +160,7 @@ def execute_data_demand(
     demand_id: str,
     *,
     source_root: Path | None = None,
+    purpose: Literal["write", "evaluate"] = "write",
     policy=None,
     project_id: str | None = None,
     admission_engine=None,
@@ -180,11 +181,13 @@ def execute_data_demand(
     from .releases import load_release_inputs
     from .runtime_binding_store import runtime_binding_for_release
 
+    if purpose not in {"write", "evaluate"}:
+        raise ValueError("native execution purpose must be write or evaluate")
     with engine.begin() as connection:
         if admission_engine is not None:
             from .storage_target import acquired_target
 
-            target = acquired_target(connection, purpose="write")
+            target = acquired_target(connection, purpose=purpose)
             with admission_engine.begin() as admitted:
                 if acquired_target(admitted, purpose="admit") != target.model_copy(
                     update={"purpose": "admit"}
