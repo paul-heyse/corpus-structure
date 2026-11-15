@@ -113,15 +113,17 @@ def _detached_closure() -> tuple[dict[str, Any], list[dict[str, Any]]]:
     selection = {"request_inputs": semantic_value({}), "parameters": semantic_value({}), "inference": "inference:A"}
     product = dict(id=product_id, kind_contract="kind:amount", project_id="project:A", subject="root", original_source="source:A", analyzed_scope={"scale": Decimal("1.20")}, canonical_body=semantic_value(body), body_digest=body_key, artifact_digest=None)
     native = _page()
-    native["uses"] = [dict(use_id="use:A", obligation_id="obligation:A", request_id="request:A", derivation_id="episode:A", selection=selection, trust_snapshot={}, fate="fulfilled", products=[dict(product_id=product_id, member_id=None, body=semantic_value(body))])]
+    native["uses"] = [dict(use_id="use:A", obligation_id="obligation:A", request_id="request:A", derivation_id="episode:A", selection=selection, trust_snapshot={}, fate="fulfilled", products=[dict(product_id=product_id, member_id=None, role="result", position=0, multiplicity=1, body=semantic_value(body))])]
     records = [
         ("kb.data_product", product),
         ("sem.data_kind_contract", dict(kind_contract="kind:amount", kind="urn:Amount", meaning_schema={"type": "array"}, body_schema={"type": "object", "required": ["amount"]})),
         ("ops.data_request", dict(id="request:A", request_key=request.identity.key, project_id="project:A", operation_id="op:A", recipe="recipe:A", subject="root", original_source="source:A", analyzed_scope={"scale": Decimal("1.20")})),
-        ("ops.data_derivation", dict(id="episode:A", request_id="request:A", release_id="release:A", runtime_id="runtime:A", recipe="recipe:A")),
+        ("ops.data_derivation", dict(id="episode:A", request_id="request:A", generation=1, intent_id="intent:A", producer_task_id=1, producer_attempt=1, release_id="release:A", runtime_id="runtime:A", recipe="recipe:A")),
         ("ops.demand_use", dict(id="use:A", obligation_id="obligation:A", request_id="request:A", derivation_id="episode:A", selection=selection, trust_snapshot={})),
         ("sem.data_operation_definition", dict(release_id="release:A", operation_id="op:A", recipe="recipe:A")),
         ("ops.data_derivation_output", dict(derivation_id="episode:A", product_id=product_id, member_id=None, role="result", position=0, multiplicity=1)),
+        ("ops.data_completion_intent", dict(id="intent:A", request_id="request:A", generation=1, runtime_id="runtime:A", producer_task_id=1, producer_attempt=1, payload=dict(inputs=[], support=[], outputs=[dict(role="result", position=0, multiplicity=1, product=dict(kind_contract="kind:amount", body=semantic_value(body)))]))),
+        ("ops.data_publication_receipt", dict(id="receipt:A", derivation_id="episode:A", intent_id="intent:A")),
     ]
     return native, [dict(key=relation + ":" + str(ordinal), relation=relation, record=row) for ordinal, (relation, row) in enumerate(records)]
 
@@ -151,7 +153,7 @@ def test_detached_verifier_uses_disk_index_and_independent_identity_support_cont
     with pytest.raises(ValueError, match="semantic identity"):
         verify_detached_result(native, records=altered, wire_schema={})
     incomplete = deepcopy(records)
-    incomplete.append(dict(key="support:A", relation="ops.data_derivation_support", record=dict(derivation_id="episode:A", support_derivation_id="episode:missing", admission_use_id=None)))
+    incomplete.append(dict(key="support:A", relation="ops.data_derivation_support", record=dict(derivation_id="episode:A", occurrence=0, support_derivation_id="episode:missing", admission_use_id=None)))
     with pytest.raises(ValueError, match="support closure"):
         verify_detached_result(native, records=incomplete, wire_schema={})
 
@@ -185,3 +187,12 @@ def test_operation_inspection_uses_frontier_without_output_body_hydration(monkey
     result = serve_demand_query(None,DemandQueryRequest(demand_id="demand:A",project_id="project:A",view="operations",max_bytes=8192))
     assert calls == ["frontier"]
     assert result["items"][0]["obligation"]["fate"] == "waiting"
+
+
+@pytest.mark.parametrize("relation", ["ops.data_derivation", "ops.data_derivation_output", "ops.data_completion_intent", "ops.data_publication_receipt"])
+def test_detached_selected_use_requires_its_producing_custody_even_without_remaining_edges(relation):
+    from corpus_structure.semantic.demand_results import verify_detached_result
+    native, records = _detached_closure()
+    retained = [row for row in records if row["relation"] != relation and not (relation == "ops.data_derivation" and row["relation"].startswith("ops.data_derivation_"))]
+    with pytest.raises(ValueError, match="missing"):
+        verify_detached_result(native, records=retained, wire_schema={})

@@ -38,7 +38,7 @@ class SelectedRecordIndex:
     def __init__(self, path):
         self.connection = sqlite3.connect(path)
         self.connection.execute("CREATE TABLE records(key TEXT PRIMARY KEY, relation TEXT NOT NULL, payload BLOB NOT NULL)")
-        for fields in (("id",), ("kind_contract",), ("product_id", "member_id")):
+        for fields in (("id",), ("kind_contract",), ("product_id", "member_id"), ("derivation_id", "role", "position"), ("derivation_id", "occurrence")):
             expression = ",".join("json_extract(payload, '$.record." + field + "')" for field in fields)
             self.connection.execute("CREATE INDEX record_" + "_".join(fields) + " ON records(relation," + expression + ")")
 
@@ -53,6 +53,11 @@ class SelectedRecordIndex:
 
     def rows(self, relation):
         for (payload,) in self.connection.execute("SELECT payload FROM records WHERE relation=? ORDER BY key", (relation,)):
+            yield wire_json_loads(payload)["record"]
+
+    def rows_for(self, relation, **fields):
+        predicates = " AND ".join("json_extract(payload, '$.record." + field + "')=?" for field in fields)
+        for (payload,) in self.connection.execute("SELECT payload FROM records WHERE relation=? AND " + predicates + " ORDER BY key", (relation, *fields.values())):
             yield wire_json_loads(payload)["record"]
 
     def mapping(self, relation, fields):

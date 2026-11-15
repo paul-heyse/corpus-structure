@@ -227,6 +227,9 @@ def verify_detached_result(record: Mapping[str, Any], *, records=(), index=None,
             closure[relation][key] = row["record"]
     def rows(name):
         return closure.get(name, {}).values() if index is None else index.rows(name)
+    def rows_for(name, **fields):
+        return (row for row in rows(name) if all(row[key] == value for key, value in fields.items())) if index is None else index.rows_for(name, **fields)
+
     def row_map(name, *fields):
         if index is not None:
             return index.mapping(name, fields)
@@ -255,8 +258,15 @@ def verify_detached_result(record: Mapping[str, Any], *, records=(), index=None,
         if not any(packet["member_id"] == member["member_id"] and packet["kind_contract"] == member["kind_contract"] and packet["body"] == decoded and packet["context"] == dict(subject=member["subject"], original_source=member["original_source"], analyzed_scope=member["analyzed_scope"]) for packet in packets):
             raise ValueError("detached member differs from its canonical container")
     actual_definitions = row_map("sem.data_operation_definition", "release_id", "operation_id")
-    if definitions is not None and any(definitions.get(key) != value for key, value in actual_definitions.items()):
-        raise ValueError("detached operation differs from its captured release contract")
+    if definitions is not None:
+        from .metadata import table
+        stored_fields = tuple(table("sem.data_operation_definition").c.keys())
+        # The archive additionally carries definition/eligibility/binding facts.
+        # Compare exactly the native row projection, not that larger artifact.
+        for key, value in actual_definitions.items():
+            expected = definitions.get(key)
+            if expected is None or value != {name: expected[name] for name in stored_fields}:
+                raise ValueError("detached operation differs from its captured release contract")
     requests = row_map("ops.data_request", "id")
     episodes = row_map("ops.data_derivation", "id")
     if validate_closure:
@@ -269,6 +279,81 @@ def verify_detached_result(record: Mapping[str, Any], *, records=(), index=None,
                 raise ValueError("detached producing recipe differs from captured definition")
     uses = row_map("ops.demand_use", "id")
     originals = row_map("ops.original_source_admission", "id")
+    output_edges = row_map("ops.data_derivation_output", "derivation_id", "role", "position")
+    populations = row_map("ops.data_population", "id")
+    intents = row_map("ops.data_completion_intent", "id")
+    receipts = row_map("ops.data_publication_receipt", "derivation_id")
+    supports = row_map("ops.data_derivation_support", "derivation_id", "occurrence")
+    original_supports = row_map("ops.data_derivation_original_support", "derivation_id", "occurrence")
+
+    def required(mapping, key, label):
+        value = mapping.get(key)
+        if value is None:
+            raise ValueError("detached " + label + " is missing from its support closure")
+        return value
+
+    def support_reference(reference):
+        if reference.get("kind", "computation") in {"original-source", "authored"}:
+            original = required(originals, reference["admission_id"], "original support")
+            if original["source_reference"] != reference["source_reference"]:
+                raise ValueError("detached original support names another source")
+        else:
+            episode = required(episodes, reference["derivation_id"], "support episode")
+            if reference.get("admission_use_id") is not None:
+                selected = required(uses, reference["admission_use_id"], "support use")
+                if selected["derivation_id"] != episode["id"]:
+                    raise ValueError("detached support use names another producing episode")
+
+    def binding_endpoints(binding):
+        for selected_input in binding.get("inputs", ()):
+            required(products, selected_input["product_id"], "selected input product")
+            if selected_input.get("member_id") is not None:
+                required(members, (selected_input["product_id"], selected_input["member_id"]), "selected input member")
+        for reference in binding.get("support", ()):
+            support_reference(reference)
+        for reference in binding.get("populations", ()):
+            required(populations, reference["population_id"], "selected population")
+
+    if validate_closure:
+        from collections import Counter
+        for episode in episodes.values():
+            request = required(requests, episode["request_id"], "producing request")
+            intent = required(intents, episode["intent_id"], "completion intent")
+            receipt = required(receipts, episode["id"], "publication receipt")
+            if receipt["intent_id"] != intent["id"] or any(intent[name] != episode[name] for name in ("request_id", "generation", "runtime_id", "producer_task_id", "producer_attempt")):
+                raise ValueError("detached producing episode differs from its completion/publication custody")
+            payload = intent["payload"]
+            definition = actual_definitions[episode["release_id"], request["operation_id"]]
+            collections = {role["name"]: role["collection"] for role in definition.get("input_roles", ())}
+            def input_signature(row):
+                return (row["role"], row["product_id"], row.get("member_id"), row["multiplicity"], row["position"] if collections.get(row["role"]) == "sequence" else None)
+            if Counter(map(input_signature, payload["inputs"])) != Counter(map(input_signature, rows_for("ops.data_derivation_input", derivation_id=episode["id"]))):
+                raise ValueError("detached input roles differ from the sealed completion")
+            expected_outputs = set()
+            for output in payload["outputs"]:
+                edge_key = (episode["id"], output["role"], output["position"])
+                edge = required(output_edges, edge_key, "producing output edge")
+                expected_outputs.add(edge_key)
+                produced = output["product"]
+                context = SubjectContext(request["project_id"], request["subject"], request["original_source"], json_bytes(request["analyzed_scope"]))
+                product_key = contextual_product_identity(kind=produced["kind_contract"], context=context, body=body_identity(decode_semantic_value(produced["body"])).key).key
+                if edge["product_id"] != product_key or edge["member_id"] != output.get("member_id") or edge["multiplicity"] != output["multiplicity"]:
+                    raise ValueError("detached output role differs from the sealed completion")
+            actual_outputs = {(row["derivation_id"], row["role"], row["position"]) for row in rows_for("ops.data_derivation_output", derivation_id=episode["id"])}
+            if actual_outputs != expected_outputs:
+                raise ValueError("detached output inventory differs from the sealed completion")
+            for occurrence, reference in enumerate(payload["support"]):
+                support_reference(reference)
+                original = reference.get("kind", "computation") in {"original-source", "authored"}
+                edge = required(original_supports if original else supports, (episode["id"], occurrence), "producing support edge")
+                expected = dict(role=reference.get("role", "support"), position=reference.get("position", occurrence))
+                expected.update({name: reference.get(name) for name in (("admission_id", "source_reference") if original else ("admission_use_id",))})
+                if not original:
+                    expected["support_derivation_id"] = reference["derivation_id"]
+                if any(edge[name] != value for name, value in expected.items()):
+                    raise ValueError("detached support edge differs from the sealed completion")
+            if sum(1 for _ in rows_for("ops.data_derivation_support", derivation_id=episode["id"])) + sum(1 for _ in rows_for("ops.data_derivation_original_support", derivation_id=episode["id"])) != len(payload["support"]):
+                raise ValueError("detached support closure inventory differs from the sealed completion")
     if validate_closure and source_artifacts is not None:
         for admission in originals.values():
             reference = admission["reference"]
@@ -285,8 +370,14 @@ def verify_detached_result(record: Mapping[str, Any], *, records=(), index=None,
                 # needed as semantic evidence, and its fate remains explicit.
                 if retained["derivation_id"] is not None:
                     raise ValueError("settled use lacks its semantic request")
+                binding_endpoints(retained["selection"])
                 continue
+            if retained["derivation_id"] is not None:
+                episode = required(episodes, retained["derivation_id"], "selected producing episode")
+                if episode["request_id"] != retained["request_id"]:
+                    raise ValueError("detached selected episode names another semantic request")
             binding = retained["selection"]
+            binding_endpoints(binding)
             expected = SemanticRequestKey(request["recipe"], request["subject"], decode_semantic_value(binding["request_inputs"]), decode_semantic_value(binding["parameters"]), binding["inference"], subject_context=SubjectContext(request["project_id"], request["subject"], request["original_source"], json_bytes(request["analyzed_scope"]))).identity.key
             if expected != request["request_key"]:
                 raise ValueError("detached request differs from its exact selected meaning")
@@ -294,10 +385,28 @@ def verify_detached_result(record: Mapping[str, Any], *, records=(), index=None,
         retained = uses.get(use["use_id"])
         if retained is None or any(retained[key] != use[key] for key in ("obligation_id", "request_id", "derivation_id", "selection", "trust_snapshot")):
             raise ValueError("detached selected use differs from its retained episode binding")
+        if use["derivation_id"] is None:
+            if use["products"]:
+                raise ValueError("detached unsettled use cannot supply produced outputs")
+        else:
+            required(episodes, use["derivation_id"], "selected producing episode")
         for product in use["products"]:
+            edge = required(output_edges, (use["derivation_id"], product["role"], product["position"]), "selected output edge")
+            if any(edge[name] != product[name] for name in ("product_id", "member_id", "multiplicity")):
+                raise ValueError("detached selected output differs from its authentic role edge")
             actual = products.get(product["product_id"])
             if actual is None or ("body" in product and actual["canonical_body"] != product["body"]):
                 raise ValueError("detached selected body differs from its support closure")
+    if validate_closure:
+        for population in populations.values():
+            evidence = population["evidence"]
+            if evidence.get("admission_use_id") is not None:
+                selected = required(uses, evidence["admission_use_id"], "population producing use")
+                if selected["derivation_id"] != evidence["derivation_id"] or selected["demand_id"] != population["demand_id"]:
+                    raise ValueError("detached population producer differs from its selected use")
+            parent = evidence.get("selection", {}).get("parent_population_id")
+            if parent is not None:
+                required(populations, parent, "parent population")
     from itertools import chain
     for edge in chain(rows("ops.data_derivation_input"), rows("ops.data_derivation_output")) if validate_closure else ():
         if edge["derivation_id"] not in episodes or edge["product_id"] not in products or (edge["member_id"] is not None and (edge["product_id"], edge["member_id"]) not in members):
