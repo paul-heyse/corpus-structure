@@ -723,73 +723,43 @@ def native_candidate_(
     "explain-operation",
     epilog=(
         "Example: ci schema explain-operation OPERATION --release RELEASE "
-        "--dependency-detail --json\n\nDomain contract: [domain "
+        "--json\n\nDomain contract: [domain "
         "reader](docs/design/D2-schema-and-guidelines.md)"
     ),
 )
 def explain_operation_(
     ctx: typer.Context,
-    operation: Annotated[
-        str, typer.Argument(metavar="OPERATION", help="Declared operation identifier.")
-    ],
-    release: Annotated[
-        str,
-        typer.Option("--release", help="Archived semantic release ID.", rich_help_panel="Inputs"),
-    ],
-    subject: Annotated[
-        Path | None,
-        typer.Option(
-            "--subject",
-            help="JSON file containing the operation subject.",
-            rich_help_panel="Inputs",
-        ),
-    ] = None,
-    dependency_detail: DependencyDetail = False,
-    dependency_family: DependencyFamily = None,
-    dependency_output: DependencyOutput = None,
-    dependency_occurrence: DependencyOccurrence = None,
-    dependency_after: DependencyAfter = 0,
-    dependency_limit: DependencyLimit = 100,
+    operation: Annotated[str, typer.Argument(metavar="OPERATION", help="Declared operation identifier.")],
+    release: Annotated[str, typer.Option("--release", help="Archived current semantic release ID.")],
+    demand: str | None = None,
+    project: str | None = None,
+    cursor: str | None = None,
+    limit: Annotated[int, typer.Option(min=1, max=1000)] = 100,
     json_: JsonOpt = False,
 ):
-    """Explain a declared operation; an observation never authorizes later effects."""
+    """Explain a current declared operation and its optional pinned native frontier."""
     from corpus_structure.cli.output import state
-    from corpus_structure.semantic.operation_reporting import (
-        explain_operation,
-        parse_operation_subject,
-    )
+    from corpus_structure.semantic.operation_reporting import explain_operation
+    from corpus_structure.semantic.demand_queries import DemandQueryRequest
     from corpus_structure.semantic.query import read_snapshot
     from corpus_structure.semantic.refusals import SemanticRefusal
     from corpus_structure.semantic.releases import open_release
     from corpus_structure.semantic.runtime import open_runtime_engine
 
-    with refusal(json_, expected=(SemanticRefusal, ValueError, OSError)) as failure:
-        raw_subject = subject.read_bytes() if subject is not None else None
+    with refusal(json_, expected=(SemanticRefusal, ValueError)) as failure:
+        if (demand is None) != (project is None) or (cursor is not None and demand is None):
+            raise ValueError("selected operation observation requires explicit demand and project")
         with (
-            open_runtime_engine(
-                state(ctx).settings(), "ci-explain-operation", purpose="read"
-            ) as engine,
+            open_runtime_engine(state(ctx).settings(), "ci-explain-operation", purpose="read") as engine,
             read_snapshot(engine) as conn,
         ):
             prepared = open_release(conn, release)
             failure.bind(prepared, operation)
-            reference = (
-                parse_operation_subject(prepared, operation, raw_subject, connection=conn)
-                if raw_subject is not None
-                else None
+            request = None if demand is None or project is None else DemandQueryRequest(
+                demand_id=demand, project_id=project, view="operations", operation_id=operation,
+                cursor=cursor, limit=limit,
             )
-            report = explain_operation(
-                prepared,
-                operation,
-                subject=reference,
-                connection=conn,
-                dependency_detail=dependency_detail,
-                dependency_family=dependency_family,
-                dependency_output=dependency_output,
-                dependency_occurrence=dependency_occurrence,
-                dependency_after=dependency_after,
-                dependency_limit=dependency_limit,
-            )
+            report = explain_operation(prepared, operation, connection=conn, observation=request)
         emit(report, json=json_)
 
 
@@ -797,47 +767,17 @@ def explain_operation_(
     "diff",
     epilog=(
         "Example: ci schema diff BEFORE_RELEASE AFTER_RELEASE "
-        "--dependency-detail --json\n\nDomain contract: [domain "
+        "--json\n\nDomain contract: [domain "
         "reader](docs/design/D2-schema-and-guidelines.md)"
     ),
 )
 def diff_(
     ctx: typer.Context,
-    before: Annotated[str, typer.Argument(metavar="BEFORE", help="Before semantic release ID.")],
-    after: Annotated[str, typer.Argument(metavar="AFTER", help="After semantic release ID.")],
-    source_run_id: Annotated[
-        int | None,
-        typer.Option(
-            min=1,
-            help="Pinned source run for interpretation-use comparison.",
-            rich_help_panel="Inputs",
-        ),
-    ] = None,
-    review_run_id: Annotated[
-        int | None, typer.Option(min=1, help="Pinned private review run.", rich_help_panel="Inputs")
-    ] = None,
-    review_cut_id: Annotated[
-        int | None, typer.Option(min=1, help="Pinned review cut.", rich_help_panel="Inputs")
-    ] = None,
-    use_limit: Annotated[
-        int, typer.Option(min=1, max=1000, help="Maximum retained use entries.")
-    ] = 100,
-    use_after: Annotated[
-        str | None,
-        typer.Option(
-            help="Opaque continuation for retained interpretation uses.", rich_help_panel="Inputs"
-        ),
-    ] = None,
-    use_side: Literal["before", "after"] = "before",
-    dependency_detail: DependencyDetail = False,
-    dependency_family: DependencyFamily = None,
-    dependency_output: DependencyOutput = None,
-    dependency_occurrence: DependencyOccurrence = None,
-    dependency_after: DependencyAfter = 0,
-    dependency_limit: DependencyLimit = 100,
+    before: Annotated[str, typer.Argument(metavar="BEFORE", help="Before current semantic release ID.")],
+    after: Annotated[str, typer.Argument(metavar="AFTER", help="After current semantic release ID.")],
     json_: JsonOpt = False,
 ):
-    """Explain declared semantic changes with unknown dependency coverage explicit."""
+    """Compare captured current meaning; retained-use impact is a separate query."""
     from corpus_structure.cli.output import state
     from corpus_structure.semantic.operation_reporting import compare_semantic_releases
     from corpus_structure.semantic.query import read_snapshot
@@ -847,30 +787,12 @@ def diff_(
 
     with refusal(json_, expected=(SemanticRefusal, ValueError)) as failure:
         with (
-            open_runtime_engine(
-                state(ctx).settings(), "ci-semantic-diff", purpose="read"
-            ) as engine,
+            open_runtime_engine(state(ctx).settings(), "ci-semantic-diff", purpose="read") as engine,
             read_snapshot(engine) as conn,
         ):
             old, new = open_release(conn, before), open_release(conn, after)
-            failure.bind(new, "compare_semantic_releases")
-            report = compare_semantic_releases(
-                old,
-                new,
-                connection=conn,
-                source_run_id=source_run_id,
-                review_run_id=review_run_id,
-                review_cut_id=review_cut_id,
-                use_limit=use_limit,
-                use_after=use_after,
-                use_side=use_side,
-                dependency_detail=dependency_detail,
-                dependency_family=dependency_family,
-                dependency_output=dependency_output,
-                dependency_occurrence=dependency_occurrence,
-                dependency_after=dependency_after,
-                dependency_limit=dependency_limit,
-            )
+            failure.bind(new, "compare_declared_models")
+            report = compare_semantic_releases(old, new)
         emit(report, json=json_)
 
 

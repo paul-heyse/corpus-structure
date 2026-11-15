@@ -200,20 +200,16 @@ def inspect_contract(
                                 ).decode(),
                             )
                         )
-            if prepared.execution_model_id:
-                from .contracts import bound_execution_model
+            if any(a.kind == "data_operations.json" for a in prepared.artifacts):
+                from .data_operation_admission import bound_data_operation_model
 
-                for operation in bound_execution_model(prepared).operations:
-                    if subject_id in (*operation.inputs, *operation.results):
-                        entries.append(
-                            dict(
-                                category="related_operation",
-                                name=operation.id,
-                                metadata_json=canonical_bytes(
-                                    dict(inputs=operation.inputs, results=operation.results)
-                                ).decode(),
-                            )
-                        )
+                model = bound_data_operation_model(prepared)
+                related_kinds = {kind.semantic_id for kind in model.kinds if json.loads(kind.facts).get("name") == subject_id}
+                for operation in model.operations:
+                    roles = [role for role in operation.roles if role.kind in related_kinds]
+                    if roles:
+                        entries.append(dict(category="related_operation", name=operation.semantic_id,
+                            metadata_json=canonical_bytes([asdict(role) for role in roles]).decode()))
             entries.extend(_correspondences(prepared, class_name=subject_id))
             # Keep unresolved required values outside the executable payload.
             skeleton = "{}"
@@ -390,53 +386,52 @@ def _jsonable(value):
 
 
 def _correspondences(prepared, *, class_name=None, operation_id=None) -> list[dict[str, Any]]:
-    if not prepared.execution_model_id:
+    if not any(a.kind == "data_operations.json" for a in prepared.artifacts):
         return []
-    from .contracts import bound_execution_model
+    from .data_operation_admission import bound_data_operation_calls
 
     result = []
-    for operation in bound_execution_model(prepared).operations:
-        if operation_id is not None and operation.id != operation_id:
+    for owner, call in bound_data_operation_calls(prepared):
+        if operation_id is not None and owner != operation_id:
             continue
-        for call in operation.calls:
-            relevant = class_name is None or call.result_class == class_name
-            fields = [(field.name, field) for field in (*call.parameters, *call.result_fields)]
-            fields.extend(
-                (record.name + "/" + field.name, field)
-                for record in call.records
-                for field in record.fields
-            )
-            for field_path, field in fields:
-                if (
-                    not relevant
-                    and field.semantic_type != class_name
-                    and (field.resolved is None or field.resolved.model_class != class_name)
-                ):
-                    continue
-                result.append(
-                    dict(
-                        category="physical_correspondence",
-                        name=f"{operation.id}/{call.id}/{field_path}",
-                        metadata_json=canonical_bytes(
-                            dict(
-                                operation=operation.id,
-                                call=call.id,
-                                semantic_class=field.resolved.model_class
-                                if field.resolved
-                                else None,
-                                semantic_type=field.semantic_type,
-                                result_class=call.result_class,
-                                source_reference=field.source,
-                                native_type=field.native_type,
-                                physical_kind=field.resolved.kind if field.resolved else None,
-                                nullable=field.nullable,
-                                multivalued=field.multivalued,
-                                standing=(
-                                    "released correspondence; semantic class and "
-                                    "physical kind remain distinct"
-                                ),
-                            )
-                        ).decode(),
-                    )
+        relevant = class_name is None or call.result_class == class_name
+        fields = [(field.name, field) for field in (*call.parameters, *call.result_fields)]
+        fields.extend(
+            (record.name + "/" + field.name, field)
+            for record in call.records
+            for field in record.fields
+        )
+        for field_path, field in fields:
+            if (
+                not relevant
+                and field.semantic_type != class_name
+                and (field.resolved is None or field.resolved.model_class != class_name)
+            ):
+                continue
+            result.append(
+                dict(
+                    category="physical_correspondence",
+                    name=f"{owner}/{call.id}/{field_path}",
+                    metadata_json=canonical_bytes(
+                        dict(
+                            operation=owner,
+                            call=call.id,
+                            semantic_class=field.resolved.model_class
+                            if field.resolved
+                            else None,
+                            semantic_type=field.semantic_type,
+                            result_class=call.result_class,
+                            source_reference=field.source,
+                            native_type=field.native_type,
+                            physical_kind=field.resolved.kind if field.resolved else None,
+                            nullable=field.nullable,
+                            multivalued=field.multivalued,
+                            standing=(
+                                "released correspondence; semantic class and "
+                                "physical kind remain distinct"
+                            ),
+                        )
+                    ).decode(),
                 )
+            )
     return result

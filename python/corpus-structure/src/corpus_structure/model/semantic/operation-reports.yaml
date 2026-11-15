@@ -105,70 +105,83 @@ classes:
       report_version:
         range: UrInteger
         required: true
-        minimum_value: 2
-        maximum_value: 2
+        minimum_value: 3
+        maximum_value: 3
         slot_uri: ur:OperationExplanation_report_version
       report_schema_digest:
         range: UrString
         required: true
         slot_uri: ur:OperationExplanation_report_schema_digest
-      projection_dependencies:
-        range: ProjectionDependencyPage
-        inlined: true
-        slot_uri: ur:OperationExplanation_projection_dependencies
       release_id:
         range: UrString
         required: true
         slot_uri: ur:OperationExplanation_release_id
-      model_id:
+      model_digest:
         range: UrString
         required: true
-        slot_uri: ur:OperationExplanation_model_id
+        slot_uri: ur:OperationExplanation_model_digest
       operation:
         range: UrString
         required: true
         slot_uri: ur:OperationExplanation_operation
-      implementation:
-        range: UrString
-        slot_uri: ur:OperationExplanation_implementation
-      inputs:
-        range: UrString
-        multivalued: true
-        slot_uri: ur:OperationExplanation_inputs
-        value_presence: PRESENT
-        minimum_cardinality: 0
-      results:
-        range: UrString
-        multivalued: true
-        slot_uri: ur:OperationExplanation_results
-        value_presence: PRESENT
-        minimum_cardinality: 0
-      effects:
-        range: UrString
-        multivalued: true
-        slot_uri: ur:OperationExplanation_effects
-        value_presence: PRESENT
-        minimum_cardinality: 0
-      transitions:
-        range: UrString
-        multivalued: true
-        slot_uri: ur:OperationExplanation_transitions
-        value_presence: PRESENT
-        minimum_cardinality: 0
-      checks:
-        range: OperationCheck
-        multivalued: true
-        inlined: true
-        slot_uri: ur:OperationExplanation_checks
-        value_presence: PRESENT
-        minimum_cardinality: 0
-      observed_at:
+      profile:
         range: UrString
         required: true
-        slot_uri: ur:OperationExplanation_observed_at
-      observed_revision:
+        slot_uri: ur:OperationExplanation_profile
+      subject_definition:
         range: UrString
-        slot_uri: ur:OperationExplanation_observed_revision
+        required: true
+        slot_uri: ur:OperationExplanation_subject_definition
+      definition:
+        range: UrString
+        required: true
+        slot_uri: ur:OperationExplanation_definition
+      recipe:
+        range: UrString
+        required: true
+        slot_uri: ur:OperationExplanation_recipe
+      eligibility:
+        range: UrString
+        required: true
+        slot_uri: ur:OperationExplanation_eligibility
+      implementation_revision:
+        range: UrString
+        required: true
+        slot_uri: ur:OperationExplanation_implementation_revision
+      declaration_json:
+        range: UrString
+        required: true
+        slot_uri: ur:OperationExplanation_declaration_json
+      eligibility_json:
+        range: UrString
+        required: true
+        slot_uri: ur:OperationExplanation_eligibility_json
+      binding_json:
+        range: UrString
+        required: true
+        slot_uri: ur:OperationExplanation_binding_json
+      support_json:
+        range: UrString
+        required: true
+        slot_uri: ur:OperationExplanation_support_json
+      coverage_description:
+        range: UrString
+        required: true
+        slot_uri: ur:OperationExplanation_coverage_description
+      observation_status:
+        range: UrString
+        required: true
+        slot_uri: ur:OperationExplanation_observation_status
+      authority:
+        range: UrString
+        required: true
+        slot_uri: ur:OperationExplanation_authority
+      precision_description:
+        range: UrString
+        slot_uri: ur:OperationExplanation_precision_description
+      observation_json:
+        range: UrString
+        slot_uri: ur:OperationExplanation_observation_json
       complete:
         range: UrBoolean
         required: true
@@ -372,17 +385,13 @@ classes:
       report_version:
         range: UrInteger
         required: true
-        minimum_value: 4
-        maximum_value: 4
+        minimum_value: 5
+        maximum_value: 5
         slot_uri: ur:SemanticImpactReport_report_version
       report_schema_digest:
         range: UrString
         required: true
         slot_uri: ur:SemanticImpactReport_report_schema_digest
-      vocabulary_uses:
-        range: SourceValue
-        inlined: true
-        slot_uri: ur:SemanticImpactReport_vocabulary_uses
       projection_dependencies:
         range: ProjectionDependencyPage
         inlined: true

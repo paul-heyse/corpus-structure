@@ -71,7 +71,7 @@ def test_cli_boundary_preserves_trusted_context_and_original_validation_error(ca
     value = json.loads(capsys.readouterr().out)["error"]["validation"]
     assert isinstance(original, ValidationError)
     assert value["release_id"] == prepared().release_id
-    assert value["model_id"] == prepared().execution_model_id
+    assert "model_id" not in value
     observation = value["observations"][0]
     assert observation["operation"] == "read_source_view"
     assert observation["input_path"] == "/label"
@@ -101,7 +101,7 @@ def test_mcp_boundary_preserves_invocation_context_without_leaking_between_calls
     value = json.loads(str(caught.value))["validation"]
     assert isinstance(caught.value.__cause__, ValidationError)
     assert value["release_id"] == prepared().release_id
-    assert value["model_id"] == prepared().execution_model_id
+    assert "model_id" not in value
     assert value["observations"][0]["operation"] == "read_source_view"
     with pytest.raises(ToolError) as separate:
         unbound()
@@ -168,80 +168,21 @@ def test_native_output_validation_is_not_reported_as_invalid_caller_input():
     )
 
 
-def test_static_operation_description_is_unresolved_and_does_not_authorize():
-    result = explain_operation(prepared(), "claim").model_dump(mode="json")
-    assert result["operation"] == "claim"
-    assert result["release_id"] == prepared().release_id
-    assert not result["complete"]
-    assert any(check["status"] == "unresolved" for check in result["checks"])
-    implementation = next(
-        check for check in result["checks"] if check["owner"] == "semantic.contracts"
-    )
-    assert implementation["status"] == "applicable"
-    with pytest.raises(SemanticRefusal):
-        explain_operation(prepared(), "not_an_operation")
 
 
-def test_changed_implementation_binding_is_observed_as_unavailable(monkeypatch):
-    from corpus_structure.semantic import operation_reporting as reports
-    from corpus_structure.semantic.contracts import bound_execution_model
-
-    model = bound_execution_model(prepared())
-    operation = model.operation("claim")
-    changed = replace(
-        model,
-        implementations=tuple(
-            replace(item, version="unqualified-test-version")
-            if item.id == operation.implementation
-            else item
-            for item in model.implementations
-        ),
-    )
-    monkeypatch.setattr(reports, "bound_execution_model", lambda release: changed)
-    report = reports.explain_operation(prepared(), "claim").model_dump(mode="json")
-    check = next(item for item in report["checks"] if item["owner"] == "semantic.contracts")
-    assert check["status"] == "unavailable"
-    assert "effects differ" in check["reason"]
-    assert report["complete"] is False
 
 
-def test_live_subject_family_follows_declared_inputs_and_refuses_unqualified_kinds():
-    from corpus_structure.semantic.contracts import bound_execution_model
-    from corpus_structure.semantic.operation_reporting import _subject_family
-    from corpus_structure.semantic.product_reference import ProductReference
-
-    model = bound_execution_model(prepared())
-    derive = model.operation("derive")
-    assert _subject_family(derive) == "snapshot"
-    assert _subject_family(model.operation("read_native_source")) == "published_document"
-    assert _subject_family(replace(derive, inputs=("SourceView",))) == "published_document"
-    assert _subject_family(replace(derive, inputs=("SnapshotBinding", "SourceView"))) is None
-    assert _subject_family(replace(derive, inputs=("PdfProductReference",))) is None
-    with pytest.raises(SemanticRefusal, match="no qualified observer"):
-        explain_operation(prepared(), "claim", subject=ProductReference(1, "observation", "0" * 64))
 
 
-def test_declared_class_change_reports_unknown_consumer_closure_not_no_impact():
+def test_declared_class_change_reports_actual_model_meaning_and_unknown_use_impact():
     before = prepared()
-    definition = before.definitions[0]
-    prop = replace(definition.properties[0], required=False)
-    after = replace(
-        before, release_id="release:changed", definitions=(replace(definition, properties=(prop,)),)
-    )
+    bundle, dependencies, profile = report_inputs()
+    changed = replace(bundle, sources=tuple(replace(s, content=s.content.replace(b"required: true", b"required: false")) for s in bundle.sources))
+    after = prepare_release(changed, dependencies, profile)
     value = compare_semantic_releases(before, after).model_dump(mode="json")
-    assert [(r["kind"], r["model_ref"]) for r in value["changes"]] == [("changed", "class:Thing")]
-    assert value["changes"][0]["members"] == [
-        {
-            "kind": "changed",
-            "model_path": "class:Thing/properties/label/required",
-            "before": {"kind": "boolean", "boolean": True},
-            "after": {"kind": "boolean", "boolean": False},
-        }
-    ]
-    assert not value["complete"]
-    assert value["unknowns"]
-    same = compare_semantic_releases(before, before).model_dump(mode="json")
-    assert same["changes"] == []
+    assert any(row["aspect"] == "semantic-node" and row["model_ref"].startswith("https://example.org/Thing") for row in value["changes"])
+    assert not value["complete"] and value["unknowns"]
+    assert compare_semantic_releases(before, before).model_dump(mode="json")["changes"] == []
 
 
 def test_normalized_member_facts_distinguish_absence_null_and_native_order():
@@ -319,7 +260,7 @@ def test_native_diagnostic_retains_owner_binding_without_supplied_prepared_conte
     assert report["model_id"] == "model:attested"
     assert report["release_id"] == "release:attested"
     assert report["observations"][0]["operation"] == "publish_pdf_region_artifact"
-    with pytest.raises(SemanticRefusal, match="model differs"):
+    with pytest.raises(SemanticRefusal, match="release differs"):
         validation_failure_report(error, prepared=prepared())
     raw = psycopg.errors.ForeignKeyViolation("independent native failure")
     record_operation_failure(raw, native)
@@ -329,150 +270,12 @@ def test_native_diagnostic_retains_owner_binding_without_supplied_prepared_conte
         validation_failure_report(raw, prepared=prepared())
 
 
-@pytest.mark.parametrize(
-    "error",
-    [
-        SemanticRefusal("unsupported binding"),
-        NativeResultViolation("read_native_source", "PublishedRegionRow", "pointer"),
-    ],
-)
-def test_region_observer_does_not_relabel_failed_evaluation_as_missing(monkeypatch, error):
-    from sqlalchemy import create_engine
-
-    from corpus_structure.semantic.operation_reporting import (
-        PublishedDocumentSubject,
-        _document_subject_checks,
-    )
-    from corpus_structure.semantic.pdf_record_reader import PublishedPdfReader
-    from corpus_structure.semantic.product_reference import ProductReference
-
-    def fail(self, pointer, region_index):
-        raise error
-
-    monkeypatch.setattr(PublishedPdfReader, "region", fail)
-    engine = create_engine("sqlite://")
-    try:
-        with engine.connect() as conn:
-            pin = ProductReference(1, "native", "0" * 64)
-            reader = PublishedPdfReader(conn, pin, revision={})
-            subject = PublishedDocumentSubject(pin, pointer="#/texts/0", region_index=0)
-            with pytest.raises(type(error)) as caught:
-                _document_subject_checks(prepared(), subject, conn, reader, [])
-            assert caught.value is error
-    finally:
-        engine.dispose()
 
 
-def test_native_admission_infrastructure_failure_propagates_without_missing_verdict(monkeypatch):
-    from sqlalchemy import create_engine
-
-    from corpus_structure.semantic import contracts
-
-    error = psycopg.OperationalError("independent connection failure")
-
-    def fail(*args, **kwargs):
-        raise error
-
-    monkeypatch.setattr(contracts, "require_database_operation", fail)
-    engine = create_engine("sqlite://")
-    try:
-        with engine.connect() as conn, pytest.raises(psycopg.OperationalError) as caught:
-            explain_operation(prepared(), "claim", connection=conn)
-        assert caught.value is error
-    finally:
-        engine.dispose()
 
 
-def test_retained_subject_contract_absence_refuses_without_current_schema_fallback(monkeypatch):
-    from types import SimpleNamespace
-
-    from sqlalchemy import create_engine
-
-    from corpus_structure.semantic import pdf_contracts
-    from corpus_structure.semantic.operation_reporting import parse_operation_subject
-
-    boundary = prepare_release(report_inputs()[0])
-    monkeypatch.setattr(
-        pdf_contracts, "pdf_context_for_release", lambda *args: SimpleNamespace(boundary=boundary)
-    )
-    engine = create_engine("sqlite://")
-    try:
-        with engine.connect() as conn, pytest.raises(SemanticRefusal, match="retained release"):
-            parse_operation_subject(prepared(), "read_native_source", b"{}", connection=conn)
-    finally:
-        engine.dispose()
 
 
-def test_relationship_lifecycle_and_removed_dependency_edges_reach_declared_consumers(monkeypatch):
-    from corpus_structure.semantic import operation_reporting as reports
-    from corpus_structure.semantic.contracts import bound_execution_model
-
-    before = prepared()
-    after = replace(before, release_id="release:changed-contracts")
-    model = bound_execution_model(before)
-    operation = next(op for op in model.operations if op.projections)
-    projection = next(p for p in model.projections if p.id in operation.projections)
-    relationship = model.relationships[0]
-    lifecycle = model.lifecycles[0]
-    implementation = model.implementations[0]
-    concept = replace(model.concepts[0], id=implementation.id, relationships=(relationship.id,))
-    input_consumer = replace(
-        operation,
-        id="declared_input_consumer",
-        inputs=(concept.id,),
-        projections=(),
-        transitions=(),
-        applicability=(),
-        dependencies=(),
-        implementation=None,
-    )
-    # Deliberately link this independently selected consumer through declared
-    # projection and transition edges; the changed side removes those edges.
-    projection = replace(projection, relationships=(relationship.id,))
-    transition = replace(model.transitions[0], operation=operation.id, lifecycle=lifecycle.id)
-    old = replace(
-        model,
-        operations=(operation, input_consumer),
-        concepts=(concept,),
-        projections=(projection,),
-        transitions=(transition,),
-    )
-    new = replace(
-        old,
-        operations=(replace(operation, projections=(), transitions=()), input_consumer),
-        projections=(replace(projection, relationships=()),),
-        transitions=(),
-        implementations=tuple(
-            replace(item, version="changed") if item.id == implementation.id else item
-            for item in old.implementations
-        ),
-        relationships=tuple(
-            replace(item, multiplicity="changed-independent-expectation")
-            if item.id == relationship.id
-            else item
-            for item in old.relationships
-        ),
-        lifecycles=tuple(
-            replace(item, initial_states=()) if item.id == lifecycle.id else item
-            for item in old.lifecycles
-        ),
-    )
-    monkeypatch.setattr(
-        "corpus_structure.semantic.contracts.bound_execution_model", lambda release: old if release is before else new
-    )
-    value = reports.compare_semantic_releases(before, after).model_dump(mode="json")
-    changes = {item["model_ref"]: item for item in value["changes"]}
-    assert changes["relationship:" + relationship.id]["consumers"] == sorted(
-        [
-            operation.id,
-            input_consumer.id,
-        ]
-    )
-    assert changes["lifecycle:" + lifecycle.id]["consumers"] == [operation.id]
-    assert changes["transition:" + transition.id]["consumers"] == [operation.id]
-    # A concept and implementation may have the same local ID. A concept input
-    # must not become an implementation dependency merely by matching its text.
-    assert input_consumer.id not in changes["implementation:" + implementation.id]["consumers"]
 
 
 def test_report_schema_is_the_real_model_bound_public_shape():
@@ -480,7 +283,7 @@ def test_report_schema_is_the_real_model_bound_public_shape():
     assert schema["type"] == "object"
     properties = schema["properties"]
     assert isinstance(properties, dict)
-    assert "checks" in properties
+    assert "binding_json" in properties
     version = properties["report_version"]
     assert isinstance(version, dict)
     assert type(version["minimum"]) is type(version["maximum"]) is int
@@ -516,7 +319,7 @@ def test_current_report_boundary_prepares_without_legacy_operation_authority(mon
     assert boundary.execution_model_id is None
     properties = boundary.json_schema("OperationExplanation")["properties"]
     assert isinstance(properties, dict)
-    assert "checks" in properties
+    assert "binding_json" in properties
 
 
 def test_graph_shape_execution_and_located_nonconformance_stay_distinct():
@@ -606,22 +409,19 @@ def test_alias_only_impact_retains_class_member_and_actual_consumer_kinds():
     assert len(changes) == 1
     change = changes[0]
     assert change["model_ref"] == "alias_policy:" + old.definitions[0].iri
-    assert "implementation:resolve_identity" in change["consumers"]
-    assert any(c.startswith("analysis_profile:") for c in change["consumers"])
+    assert change["consumers"] == []
+    assert any("Dynamic alias-policy consumer closure" in text for text in value["unknowns"])
     assert change["members"][0]["model_path"].endswith("/rewrites")
     assert not value["complete"]
 
 
 def test_origin_only_alias_impact_does_not_advise_semantic_regeneration():
-    from corpus_structure.semantic.operation_reporting import compatibility_advice
 
     report = compare_semantic_releases(alias_release(), alias_release(origins=["relocated"]))
     value = report.model_dump(mode="json")
     assert [c["aspect"] for c in value["changes"]] == ["alias_origin"]
     assert value["changes"][0]["consumers"] == []
-    advice = compatibility_advice(report)
-    assert any("provenance" in text for text in advice)
-    assert not any(text.startswith("Regenerate") for text in advice)
+    assert not any(c["aspect"] == "alias_normalization" for c in value["changes"])
 
 
 def test_unknown_alias_profile_is_unassessed_not_an_empty_policy():
@@ -691,72 +491,26 @@ def test_missing_neutral_alias_product_does_not_invent_a_normalization_change():
     assert any(c["aspect"] == "alias_origin" for c in report["changes"])
 
 
-@pytest.mark.parametrize("legacy", [False, True])
-def test_alias_profile_consumers_use_semantic_declarations_with_separate_runtime_custody(
-    monkeypatch, legacy
-):
-    from corpus_structure.semantic import operation_reporting as reports
-    from corpus_structure.semantic.contracts import bound_execution_model
-    from corpus_structure.semantic.identity import canonical_bytes
-
-    old = alias_release()
-    new = alias_release([{"match": "a", "replace": "b"}])
-    model = bound_execution_model(old)
-    import json
-
-    payload = json.loads(model.content)
-    if legacy:
-        payload["inputs"]["compiler_version"] = "26"
-    without_alignment = replace(
-        model,
-        content=canonical_bytes(payload),
-        implementation_digests=tuple(
-            pair
-            for pair in model.implementation_digests
-            if pair[0] != "alignment/semantic_alignment.py"
-        ),
-    )
-    monkeypatch.setattr(reports, "bound_execution_model", lambda prepared: without_alignment)
-    result = reports.compare_semantic_releases(old, new).model_dump(mode="json")
-    change = next(c for c in result["changes"] if c["aspect"] == "alias_normalization")
-    assert "implementation:resolve_identity" in change["consumers"]
-    assert any(c.startswith("analysis_profile:") for c in change["consumers"]) is not legacy
-    assert (
-        any("alignment implementation custody unavailable" in u for u in result["unknowns"])
-        is legacy
-    )
 
 
 def test_runtime_change_is_reported_separately_from_semantic_meaning():
-    from corpus_structure.semantic.contracts import analysis_implementation_inputs
-    from corpus_structure.semantic.runtime_bindings import prepare_runtime_binding
+    from semantic.operation_reporting_support import runtime
+    from corpus_structure.semantic.types import SourceArtifact
 
-    prepared = alias_release()
-    sources = analysis_implementation_inputs()
-    changed_sources = tuple(
-        replace(source, content=source.content + b"\n# runtime change\n")
-        if source.name == "text/sentences.py"
-        else source
-        for source in sources
-    )
-    before = prepare_runtime_binding(prepared, sources)
-    after = prepare_runtime_binding(prepared, changed_sources)
+    selected = alias_release()
+    before = runtime(selected, (SourceArtifact("report-extra.py", b"VALUE = 1"),))
+    after = runtime(selected, (SourceArtifact("report-extra.py", b"VALUE = 2"),))
     assert before.runtime_id != after.runtime_id
-    report = compare_semantic_releases(
-        prepared,
-        prepared,
-        before_runtime=before,
-        after_runtime=after,
-    ).model_dump(mode="json")
+    report = compare_semantic_releases(selected, selected, before_runtime=before, after_runtime=after).model_dump(mode="json")
     assert report["changes"] == []
     assert any("Executable runtime changed independently" in value for value in report["unknowns"])
 
 
 def test_runtime_comparison_refuses_a_relabelled_release():
-    from corpus_structure.semantic.runtime_bindings import prepare_runtime_binding
+    from semantic.operation_reporting_support import runtime as current_runtime
 
     prepared = alias_release()
-    runtime = prepare_runtime_binding(prepared)
+    runtime = current_runtime(prepared)
     with pytest.raises(ValueError, match="another semantic release"):
         compare_semantic_releases(
             prepared,
@@ -768,11 +522,12 @@ def test_runtime_comparison_refuses_a_relabelled_release():
 def test_runtime_comparison_refuses_unauthenticated_archive():
     from corpus_structure.semantic.runtime_bindings import (
         RuntimeBindingError,
-        prepare_runtime_binding,
     )
 
+    from semantic.operation_reporting_support import runtime as current_runtime
+
     prepared = alias_release()
-    runtime = prepare_runtime_binding(prepared)
+    runtime = current_runtime(prepared)
     with pytest.raises(RuntimeBindingError, match="noncanonical or unsupported shape"):
         compare_semantic_releases(
             prepared,
@@ -783,7 +538,7 @@ def test_runtime_comparison_refuses_unauthenticated_archive():
 
 
 def test_semantic_release_change_does_not_imply_executable_runtime_change():
-    from corpus_structure.semantic.runtime_bindings import prepare_runtime_binding
+    from semantic.operation_reporting_support import runtime as current_runtime
 
     bundle, dependencies, profile = report_inputs()
     before = prepare_release(bundle, dependencies, profile)
@@ -799,8 +554,8 @@ def test_semantic_release_change_does_not_imply_executable_runtime_change():
     )
     after = prepare_release(changed_bundle, dependencies, profile)
     assert before.release_id != after.release_id
-    before_runtime = prepare_runtime_binding(before)
-    after_runtime = prepare_runtime_binding(after)
+    before_runtime = current_runtime(before)
+    after_runtime = current_runtime(after)
     assert before_runtime.runtime_id != after_runtime.runtime_id
     report = compare_semantic_releases(
         before,
@@ -891,13 +646,13 @@ def test_archived_detail_unavailable_is_not_empty_or_reanalyzed(monkeypatch):
     )
 
 
-def test_report_v2_exposes_typed_optional_dependency_page():
-    schema = report_schema("OperationExplanation")
+def test_current_impact_report_exposes_typed_optional_dependency_page():
+    schema = report_schema("SemanticImpactReport")
     properties = schema["properties"]
     required = schema["required"]
     assert isinstance(properties, dict) and isinstance(required, list)
-    assert properties["report_version"]["minimum"] == 2
-    assert properties["report_version"]["maximum"] == 2
+    assert properties["report_version"]["minimum"] == 5
+    assert properties["report_version"]["maximum"] == 5
     assert "projection_dependencies" in properties
     assert "projection_dependencies" not in required
     definitions = schema["$defs"]
@@ -1005,8 +760,8 @@ def test_validation_v5_registration_versions_shared_consumers():
     assert "projection_dependencies" in schema["properties"]
     assert "projection_dependencies" not in schema["required"]
     for name, version in (
-        ("OperationExplanation", 2),
-        ("SemanticImpactReport", 4),
+        ("OperationExplanation", 3),
+        ("SemanticImpactReport", 5),
         ("ContractInspection", 3),
     ):
         other = cast(dict[str, Any], report_schema(name))

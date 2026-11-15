@@ -220,129 +220,40 @@ def build_retained_reader_server(
         ctx: Context,
         release: str,
         operation: str,
-        task_id: int | None = None,
-        product_key: str | None = None,
-        content_digest: str | None = None,
-        realization_id: str | None = None,
-        data_revision: int | None = None,
-        capture_id: str | None = None,
-        run_id: int | None = None,
-        section_pointer: str | None = None,
-        pointer: str | None = None,
-        region_index: int | None = None,
-        dependency_detail: bool = False,
-        dependency_family: str | None = None,
-        dependency_output: str | None = None,
-        dependency_occurrence: str | None = None,
-        dependency_after: int = 0,
-        dependency_limit: int = 100,
+        demand_id: str | None = None,
+        project_id: str | None = None,
+        cursor: str | None = None,
+        limit: int = 100,
     ) -> dict:
-        """Explain the exact operation contract and qualified observed prerequisites."""
-        from corpus_structure.semantic.identity import canonical_bytes
+        """Explain the captured DDO contract and optional exact selected native frontier."""
         from corpus_structure.semantic.operation_reporting import explain_operation as explain
-        from corpus_structure.semantic.operation_reporting import parse_operation_subject
+        from corpus_structure.semantic.demand_queries import DemandQueryRequest
         from corpus_structure.semantic.releases import open_release
 
-        raw_subject = None
-        if any(v is not None for v in (task_id, product_key, content_digest)):
-            if task_id is None or product_key is None or content_digest is None:
-                raise ValueError("product subject requires all three pin fields")
-            raw_subject = canonical_bytes(
-                dict(task_id=task_id, product_key=product_key, content_digest=content_digest)
-                | {
-                    name: value
-                    for name, value in dict(
-                        run_id=run_id,
-                        section_pointer=section_pointer,
-                        pointer=pointer,
-                        region_index=region_index,
-                    ).items()
-                    if value is not None
-                }
-            )
-        elif any(v is not None for v in (run_id, section_pointer, pointer, region_index)):
-            raise ValueError("document context requires its exact product pin")
-        if any(v is not None for v in (realization_id, data_revision, capture_id)):
-            if raw_subject is not None:
-                raise ValueError("select a product or snapshot subject")
-            if realization_id is None or data_revision is None or capture_id is None:
-                raise ValueError("snapshot subject requires realization, revision and capture")
-            raw_subject = canonical_bytes(
-                dict(
-                    release_id=release,
-                    realization_id=realization_id,
-                    data_revision=data_revision,
-                    capture_id=capture_id,
-                )
-            )
+        if (demand_id is None) != (project_id is None) or (cursor is not None and demand_id is None):
+            raise ValueError("operation observation requires explicit native demand and project")
+        request = None if demand_id is None or project_id is None else DemandQueryRequest(
+            demand_id=demand_id, project_id=project_id, view="operations", operation_id=operation,
+            cursor=cursor, limit=limit,
+        )
         with reader_snapshot(ctx) as conn:
             prepared = open_release(conn, release)
             with located_failure_context(prepared, operation):
-                reference = (
-                    parse_operation_subject(prepared, operation, raw_subject, connection=conn)
-                    if raw_subject is not None
-                    else None
-                )
-                return explain(
-                    prepared,
-                    operation,
-                    subject=reference,
-                    connection=conn,
-                    dependency_detail=dependency_detail,
-                    dependency_family=dependency_family,
-                    dependency_output=dependency_output,
-                    dependency_occurrence=dependency_occurrence,
-                    dependency_after=dependency_after,
-                    dependency_limit=dependency_limit,
-                ).model_dump(mode="json")
+                return explain(prepared, operation, connection=conn, observation=request).model_dump(mode="json")
 
     @server.tool(
         annotations={"readOnlyHint": True}, output_schema=report_schema("SemanticImpactReport")
     )
     @tool_refusals(ValueError)
-    def compare_semantic_releases(
-        ctx: Context,
-        before: str,
-        after: str,
-        source_run_id: int | None = None,
-        review_run_id: int | None = None,
-        review_cut_id: int | None = None,
-        use_limit: int = 100,
-        use_after: str | None = None,
-        use_side: str = "before",
-        dependency_detail: bool = False,
-        dependency_family: str | None = None,
-        dependency_output: str | None = None,
-        dependency_occurrence: str | None = None,
-        dependency_after: int = 0,
-        dependency_limit: int = 100,
-    ) -> dict:
-        """Compare supported immutable releases and retain unknown impact explicitly."""
-        from corpus_structure.semantic.operation_reporting import (
-            compare_semantic_releases as compare,
-        )
+    def compare_semantic_releases(ctx: Context, before: str, after: str) -> dict:
+        """Compare exact declared models; selected retained impact is a separate tool."""
+        from corpus_structure.semantic.operation_reporting import compare_semantic_releases as compare
         from corpus_structure.semantic.releases import open_release
 
         with reader_snapshot(ctx) as conn:
             old, new = open_release(conn, before), open_release(conn, after)
-            with located_failure_context(new, "compare_semantic_releases"):
-                return compare(
-                    old,
-                    new,
-                    connection=conn,
-                    source_run_id=source_run_id,
-                    review_run_id=review_run_id,
-                    review_cut_id=review_cut_id,
-                    use_limit=use_limit,
-                    use_after=use_after,
-                    use_side=use_side,
-                    dependency_detail=dependency_detail,
-                    dependency_family=dependency_family,
-                    dependency_output=dependency_output,
-                    dependency_occurrence=dependency_occurrence,
-                    dependency_after=dependency_after,
-                    dependency_limit=dependency_limit,
-                ).model_dump(mode="json")
+            with located_failure_context(new, "compare_declared_models"):
+                return compare(old, new).model_dump(mode="json")
 
     @server.tool(
         annotations={"readOnlyHint": True},

@@ -1462,11 +1462,7 @@ def preview(
                                 before_model, after_model,
                             )
                         else:
-                            from corpus_structure.semantic.operation_reporting import compare_semantic_releases
-
-                            impact = compare_semantic_releases(
-                                before, local, dependency_detail=True
-                            ).model_dump(mode="json")
+                            raise ValueError("current model comparison requires declared data operations; legacy catalog preview is retired")
                         sql_holder[0] = sql_holder[0].model_copy(update={"impact": impact})
                 model_stage(result, "validate and stage")
                 staged = prepare_preview(

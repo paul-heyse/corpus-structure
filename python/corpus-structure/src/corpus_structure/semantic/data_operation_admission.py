@@ -60,18 +60,36 @@ def require_data_operation_call_context(
     prepared: PreparedRelease, operation: str, variant: str, contract_digest: str
 ) -> None:
     """Check immutable correspondence, separately from actual acquired authorization."""
-    model = bound_data_operation_model(prepared)
-    artifacts = [a for a in prepared.artifacts if a.kind == "data_operation_ports.json"]
-    if len(artifacts) != 1:
-        raise SemanticRefusal("release lacks target call correspondence")
-    manifest = json.loads(artifacts[0].content)
-    if manifest["model_digest"] != sha256(model.content).hexdigest():
-        raise SemanticRefusal("target correspondence belongs to another effective model")
+    from dataclasses import asdict
+
     calls = [
-        call for owner, call in manifest["calls"] if owner == operation and call["id"] == variant
+        asdict(call) for owner, call in bound_data_operation_calls(prepared)
+        if owner == operation and call.id == variant
     ]
     if len(calls) != 1 or sha256(canonical_bytes(calls)).hexdigest() != contract_digest:
         raise SemanticRefusal(f"{operation}/{variant}: incompatible target call correspondence")
+
+
+def bound_data_operation_calls(prepared):
+    """Read captured fixed native correspondence through its actual typed owner."""
+    from pydantic import TypeAdapter
+    from .native_call_contracts import OperationCallBinding
+
+    model = bound_data_operation_model(prepared)
+    artifacts = [a for a in prepared.artifacts if a.kind == "data_operation_ports.json"]
+    if len(artifacts) != 1:
+        raise SemanticRefusal("release lacks one current native-call correspondence")
+    manifest = json.loads(artifacts[0].content)
+    if manifest["model_digest"] != sha256(model.content).hexdigest():
+        raise SemanticRefusal("native-call correspondence belongs to another effective model")
+    calls = TypeAdapter(tuple[tuple[str, OperationCallBinding], ...]).validate_json(
+        canonical_bytes(manifest["calls"]), strict=True,
+    )
+    keys = [(owner, call.id) for owner, call in calls]
+    operations = {operation.semantic_id for operation in model.operations}
+    if len(set(keys)) != len(keys) or any(owner not in operations for owner, call in calls):
+        raise SemanticRefusal("native-call correspondence has repeated or undeclared owners")
+    return calls
 
 
 def admit_data_operation_release(connection: Connection, prepared: PreparedRelease) -> str:

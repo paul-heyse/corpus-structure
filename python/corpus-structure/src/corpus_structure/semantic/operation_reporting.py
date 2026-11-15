@@ -26,11 +26,12 @@ from .types import Diagnostic, PreparedRelease
 
 if TYPE_CHECKING:
     from .runtime_bindings import RuntimeBinding
+    from .demand_queries import DemandQueryRequest
 
 _REPORT_VERSIONS = {
-    "OperationExplanation": 2,
+    "OperationExplanation": 3,
     "LocatedValidationReport": 5,
-    "SemanticImpactReport": 4,
+    "SemanticImpactReport": 5,
     "ContractInspection": 3,
 }
 _SCHEMA_NAMES = tuple(_REPORT_VERSIONS)
@@ -86,21 +87,10 @@ def _report_schemas() -> _ReportSchemaProduct:
 if TYPE_CHECKING:
     from sqlalchemy import Connection
 
-    from .contracts import OperationContract
     from .ontology import GraphProjectionBinding, GraphValidation
-    from .pdf_record_reader import PublishedPdfReader
-    from .product_reference import ProductReference
-    from .query import SnapshotBinding
     from .types import SourceBundle
 
 
-@dataclass(frozen=True)
-class PublishedDocumentSubject:
-    reference: ProductReference
-    run_id: int | None = None
-    section_pointer: str | None = None
-    pointer: str | None = None
-    region_index: int | None = None
 
 
 @lru_cache(maxsize=1)
@@ -154,345 +144,65 @@ def _report(name: str, data: dict) -> BaseModel:
     )
 
 
-def _subject_family(
-    operation: OperationContract,
-) -> Literal["snapshot", "published_document"] | None:
-    """Select qualified observers from this release's declared context concepts."""
-    snapshot = "SnapshotBinding" in operation.inputs
-    concepts = (*operation.inputs, *operation.results)
-    document = "SourceView" in concepts or (
-        "published_document_address" in operation.applicability and "SourceArtifact" in concepts
-    )
-    if snapshot == document:
-        # A mixed context needs its own qualified composition, not implicit precedence.
-        return None
-    return "snapshot" if snapshot else "published_document"
 
 
 def explain_operation(
     prepared: PreparedRelease,
     operation: str,
     *,
-    subject: ProductReference | PublishedDocumentSubject | SnapshotBinding | None = None,
     connection: Connection | None = None,
-    dependency_detail: bool = False,
-    dependency_family: str | None = None,
-    dependency_output: str | None = None,
-    dependency_occurrence: str | None = None,
-    dependency_after: int = 0,
-    dependency_limit: int = 100,
+    observation: DemandQueryRequest | None = None,
 ) -> BaseModel:
-    from .contracts import bound_execution_model
-    from .product_reference import ProductReference
-    from .query import SnapshotBinding
+    """Explain the captured DDO definition and optional actual selected frontier.
 
-    if isinstance(subject, ProductReference):
-        subject = PublishedDocumentSubject(subject)
-    model = bound_execution_model(prepared)
-    found = next((item for item in model.operations if item.id == operation), None)
-    if found is None:
-        raise SemanticRefusal(f"operation is not declared by this release: {operation}")
-    subject_family = _subject_family(found)
-    if subject is not None and (
-        subject_family is None
-        or isinstance(subject, SnapshotBinding) != (subject_family == "snapshot")
-    ):
-        raise SemanticRefusal(
-            "subject family has no qualified observer for this operation's declared concepts"
-        )
-    invariants = {item.id: item for item in model.invariants}
-    checks = [
-        dict(
-            contract_ref="invariant:" + name,
-            owner=invariants[name].implementation,
-            scope=invariants[name].scope,
-            status="unresolved",
-            reason="No qualified live evaluator was selected for this subject and invariant.",
-        )
-        for name in found.applicability
-    ]
-    if found.implementation is not None:
-        try:
-            model.require_operation(found.id)
-        except (SemanticRefusal, ValueError) as exc:
-            compatible, reason = False, str(exc)
-        else:
-            compatible, reason = True, "The trusted implementation supports this bound operation."
-        checks.append(
-            dict(
-                contract_ref="implementation:" + found.implementation,
-                owner="semantic.contracts",
-                scope=model.model_id,
-                status="applicable" if compatible else "unavailable",
-                expected="compatible trusted operation implementation",
-                actual="compatible" if compatible else "refused",
-                reason=reason,
-            )
-        )
-    if connection is not None:
-        from .contracts import require_database_operation
+    Binding reasons come from the owning native/planner result. This projection
+    neither reruns a competing applicability classifier nor authorizes execution.
+    """
+    from .data_operation_admission import bound_data_operation_model
+    from .native_definition_projection import read_native_definition_projection
+    from .demand_queries import serve_demand_query
+    from .data_operation_json import json_bytes
 
-        # A refusal must not poison the caller's read snapshot. The same protected
-        # admission check is used by invocation; this observation grants no authority.
-        try:
-            with connection.begin_nested():
-                require_database_operation(connection, prepared.release_id, found.id)
-        except DATABASE_ERRORS as exc:
-            from corpus_structure.core.db.store import operation_failure
-
-            failure = operation_failure(exc)
-            if failure.failure.sqlstate not in {"P0001", "23514"}:
-                raise
-            native_status = "unavailable"
-            reason = canonical_bytes(asdict(failure)).decode()
-        else:
-            native_status = "applicable"
-            reason = "The protected native owner admits this release and operation."
-        checks.append(
-            dict(
-                contract_ref="operation:" + found.id,
-                owner="sem.require_execution_operation",
-                scope=prepared.release_id,
-                status=native_status,
-                expected="native release and operation admission",
-                reason=reason,
-            )
-        )
-    if isinstance(subject, PublishedDocumentSubject) and connection is not None:
-        from .pdf_record_reader import published_record_reader
-
-        # Failed evaluation propagates to the located failure boundary; only an
-        # actual empty lookup establishes an unavailable publication.
-        with connection.begin_nested():
-            reader = published_record_reader(
-                connection, subject.reference, projection_context=prepared
-            )
-        published_status = "applicable" if reader is not None else "unavailable"
-        published_actual = "present" if reader else "No supported published record binding."
-        checks.append(
-            dict(
-                contract_ref="published_document",
-                owner="semantic.pdf_record_reader",
-                scope=canonical_bytes(subject.reference.values()).decode(),
-                status=published_status,
-                expected="supported exact published record binding",
-                actual=published_actual,
-                reason=(
-                    "Publication lookup uses the protected reader; "
-                    "other applicability remains independently assessed."
-                ),
-            )
-        )
-        _document_subject_checks(prepared, subject, connection, reader, checks)
-    if subject_family == "snapshot" and isinstance(subject, SnapshotBinding):
-        from .query import bind_realization
-
-        status, actual = "unresolved", "A live read snapshot was not supplied."
-        if subject.release_id != prepared.release_id:
-            status, actual = "unavailable", "Subject release differs from the selected release."
-        elif connection is not None:
-            try:
-                observed = bind_realization(connection, subject.realization_id, prepared.release_id)
-            except SemanticRefusal as exc:
-                status, actual = "unavailable", str(exc)
-            else:
-                revision = observed.binding.data_revision
-                status = "applicable" if revision == subject.data_revision else "unavailable"
-                actual = (
-                    f"Observed data revision {revision}; supplied revision {subject.data_revision}."
-                )
-        checks.append(
-            dict(
-                contract_ref="SnapshotBinding",
-                owner="semantic.query.bind_realization",
-                scope=subject.realization_id,
-                status=status,
-                expected="exact release and data revision",
-                actual=actual,
-                reason=(
-                    "Snapshot owner observation; "
-                    "publication independently rechecks its revision fence."
-                ),
-            )
-        )
-    if not found.applicability:
-        checks.insert(
-            0,
-            dict(
-                contract_ref="operation:" + found.id,
-                owner=found.implementation or "declared operation",
-                scope=found.universe,
-                status="unresolved",
-                reason=(
-                    "No complete operation-level applicability evaluator is declared; "
-                    "qualified context checks are reported separately."
-                ),
-            ),
-        )
-    revision = None
-    if isinstance(subject, PublishedDocumentSubject):
-        revision = subject.reference.content_digest
-    elif isinstance(subject, SnapshotBinding):
-        revision = str(subject.data_revision)
-    return _report(
-        "OperationExplanation",
-        dict(
-            release_id=prepared.release_id,
-            model_id=model.model_id,
-            projection_dependencies=projection_dependency_detail(
-                prepared,
-                operation=found.id,
-                family=dependency_family,
-                output=dependency_output,
-                occurrence=dependency_occurrence,
-                after=dependency_after,
-                limit=dependency_limit,
-            )
-            if dependency_detail
-            else None,
-            operation=found.id,
-            implementation=found.implementation,
-            inputs=list(found.inputs),
-            results=list(found.results),
-            effects=list(found.effects),
-            transitions=list(found.transitions),
-            checks=checks,
-            observed_at=datetime.now(UTC).isoformat(),
-            observed_revision=revision,
-            complete=all(check["status"] != "unresolved" for check in checks),
-        ),
-    )
+    model = bound_data_operation_model(prepared)
+    try:
+        found = model.operation(operation)
+    except StopIteration as exc:
+        raise SemanticRefusal("operation is not declared by this current release: " + operation) from exc
+    projection = read_native_definition_projection(prepared, model=model)
+    native = next(row for row in projection["operations"] if row["operation_id"] == operation)
+    selected = None
+    if observation is not None:
+        if connection is None or observation.view != "operations" or observation.operation_id != operation:
+            raise ValueError("operation observation requires its exact selected native operation query")
+        selected = serve_demand_query(connection, observation)
+        if selected["cut"]["release_id"] != prepared.release_id:
+            raise ValueError("operation observation belongs to another release")
+    return _report("OperationExplanation", dict(
+        release_id=prepared.release_id,
+        model_digest=projection["model_digest"],
+        operation=operation,
+        profile=found.profile,
+        subject_definition=found.subject,
+        definition=native["definition"],
+        recipe=native["recipe"],
+        eligibility=native["eligibility"],
+        implementation_revision=native["implementation_revision"],
+        declaration_json=found.definition.decode(),
+        eligibility_json=found.eligibility.decode(),
+        binding_json=canonical_bytes(native["binding"]).decode(),
+        support_json=canonical_bytes(native["support_contract"]).decode(),
+        precision_description=found.precision_description,
+        coverage_description=found.coverage.description,
+        observation_status="not_requested" if selected is None else "observed",
+        observation_json=None if selected is None else json_bytes(selected).decode(),
+        complete=selected is None or selected["page_complete"],
+        authority="declaration_and_observation_only",
+    ))
 
 
-def parse_operation_subject(
-    prepared: PreparedRelease, operation: str, raw: bytes, *, connection: Connection
-) -> PublishedDocumentSubject | SnapshotBinding:
-    """Use the exact retained execution boundary for this finite supported subject family."""
-    from .contracts import bound_execution_model
-    from .pdf_contracts import pdf_context_for_release
-    from .product_reference import ProductReference
-    from .query import SnapshotBinding
-
-    model = bound_execution_model(prepared)
-    found = next((item for item in model.operations if item.id == operation), None)
-    if found is None:
-        raise SemanticRefusal(f"operation is not declared by this release: {operation}")
-    family = _subject_family(found)
-    if family is None:
-        raise SemanticRefusal(
-            "no qualified subject observer for this operation's declared concepts"
-        )
-    context = pdf_context_for_release(connection, prepared)
-    subject_class = "CaptureSnapshotBinding" if family == "snapshot" else "PublishedDocumentSubject"
-    if subject_class not in {definition.name for definition in context.boundary.definitions}:
-        raise SemanticRefusal(
-            f"retained release does not support subject contract {subject_class}; "
-            "inspect the static operation or select a release that declares this subject"
-        )
-    if family == "snapshot":
-        value = context.boundary.validate_json(subject_class, raw)
-        return SnapshotBinding(**value.model_dump(mode="python"))
-    value = context.boundary.validate_json(subject_class, raw)
-    fields = value.model_dump(mode="python")
-    reference = ProductReference(
-        **{name: fields.pop(name) for name in ("task_id", "product_key", "content_digest")}
-    )
-    return PublishedDocumentSubject(reference, **fields)
 
 
-def _document_subject_checks(
-    prepared: PreparedRelease,
-    subject: PublishedDocumentSubject,
-    connection: Connection,
-    reader: PublishedPdfReader | None,
-    checks: list[dict[str, str]],
-) -> None:
-    """Observe existing owners; do not hydrate document bodies to explain prerequisites."""
-    from sqlalchemy import select
 
-    from .metadata import table
-    from .pdf_record_reader import PublishedRegionUnavailable
-    from .source_views import selected_source_views
-
-    if subject.run_id is not None:
-        run = table("ops.run")
-        release = connection.execute(
-            select(run.c.release_id).where(run.c.id == subject.run_id)
-        ).scalar_one_or_none()
-        if release == prepared.release_id:
-            selected = tuple(
-                view
-                for view in selected_source_views(connection, subject.run_id)
-                if view.native_product == subject.reference
-                and (
-                    subject.section_pointer is None
-                    or view.section_pointer == subject.section_pointer
-                )
-            )
-            status = "applicable" if selected else "unavailable"
-            actual = f"{len(selected)} selected source view(s) for the exact product/section."
-        else:
-            status, actual = "unavailable", "Run is absent or belongs to another release."
-        checks.append(
-            dict(
-                contract_ref="selected_source_views",
-                owner="semantic.source_views.selected_source_views",
-                scope=str(subject.run_id),
-                status=status,
-                expected="prepared selected source context",
-                actual=actual,
-                reason="Observation of the run's actual selected immutable source views.",
-            )
-        )
-    if subject.pointer is not None or subject.region_index is not None:
-        if reader is None:
-            status, actual = "unavailable", "Exact published document is unavailable."
-        elif subject.pointer is None or subject.region_index is None:
-            status, actual = "unresolved", "Both pointer and region index are needed."
-        else:
-            try:
-                region = reader.region(subject.pointer, subject.region_index)
-            except PublishedRegionUnavailable as exc:
-                status, actual = "unavailable", str(exc)
-            else:
-                status, actual = (
-                    "applicable",
-                    canonical_bytes(
-                        dict(pointer=region["pointer"], region_index=region["region_index"])
-                    ).decode(),
-                )
-        checks.append(
-            dict(
-                contract_ref="published_region",
-                owner="semantic.pdf_record_reader.PublishedPdfReader.region",
-                scope=subject.pointer or "region",
-                status=status,
-                expected="exact qualified region",
-                actual=actual,
-                reason="Protected finite region lookup; no rasterization is performed.",
-            )
-        )
-        if reader is not None:
-            digest = reader.revision.get("source_digest")
-            artifact = table("kb.source_artifact")
-            present = connection.execute(
-                select(
-                    select(artifact.c.artifact_digest)
-                    .where(artifact.c.artifact_digest == digest)
-                    .exists()
-                )
-            ).scalar_one()
-            checks.append(
-                dict(
-                    contract_ref="original_source",
-                    owner="semantic.pdf_record_reader",
-                    scope=str(digest or "unresolved"),
-                    status="applicable" if present else "unavailable",
-                    expected="retained original artifact custody",
-                    actual="present" if present else "absent",
-                    reason="Metadata-only artifact lookup; rendering verifies actual bytes again.",
-                )
-            )
 
 
 def unavailable_validation_evidence(report, reason: str):
@@ -700,8 +410,17 @@ def validation_report(
     )
 
 
-_NO_MEMBER = object()
 
+
+
+
+
+
+
+
+
+
+_NO_MEMBER = object()
 
 def _changed_members(before: Any, after: Any, model_path: str) -> list[dict[str, Any]]:
     """Compare normalized facts; named model members retain their declared identity."""
@@ -772,208 +491,59 @@ def _changed_members(before: Any, after: Any, model_path: str) -> list[dict[str,
     return visit(before, after, model_path)
 
 
-def compare_semantic_releases(
-    before: PreparedRelease,
-    after: PreparedRelease,
-    *,
-    connection=None,
-    source_run_id: int | None = None,
-    review_run_id: int | None = None,
-    review_cut_id: int | None = None,
-    use_limit: int = 100,
-    use_after: str | None = None,
-    use_side: str = "before",
-    before_runtime: RuntimeBinding | None = None,
-    after_runtime: RuntimeBinding | None = None,
-    dependency_detail: bool = False,
-    dependency_family: str | None = None,
-    dependency_output: str | None = None,
-    dependency_occurrence: str | None = None,
-    dependency_after: int = 0,
-    dependency_limit: int = 100,
-) -> BaseModel:
-    """Compare declared meaning, with optional separately identified runtime provenance."""
-    from .contracts import bound_execution_model
-    old_model, new_model = bound_execution_model(before), bound_execution_model(after)
-    changes = []
-    unknowns = set()
-    # Retain both sides' declared edges: an operation can stop referring to the
-    # changed definition in the same release, and is still an affected consumer.
-    operations = (*old_model.operations, *new_model.operations)
-
-    def dependencies(op):
-        references = set()
-
-        def add(kind, names):
-            references.update((kind, name) for name in names)
-
-        add("concept", (*op.inputs, *op.results))
-        add("invariant", op.applicability)
-        add("projection", op.projections)
-        add("effect", op.effects)
-        add("transition", op.transitions)
-        add(
-            "outcome_domain", (op.outcome_domain, *(d.outcome_domain for d in op.result_dimensions))
-        )
-        if op.implementation is not None:
-            add("implementation", (op.implementation,))
-        for model in (old_model, new_model):
-            for projection in model.projections:
-                if projection.id in op.projections:
-                    add("concept", projection.sources)
-                    add("relationship", projection.relationships)
-                    add("implementation", (projection.implementation,))
-            for invariant in model.invariants:
-                if invariant.id in op.applicability:
-                    add("concept", invariant.subjects)
-                    add("relationship", invariant.relationships)
-                    add("implementation", (invariant.implementation,))
-                    add(
-                        "native_guard",
-                        (d.guard for d in invariant.diagnostics if d.guard is not None),
-                    )
-            for transition in model.transitions:
-                if transition.id in op.transitions or transition.operation == op.id:
-                    add("transition", (transition.id,))
-                    add("lifecycle", (transition.lifecycle,))
-                    add("invariant", transition.invariants)
-                    add("effect", transition.effects)
-            for lifecycle in model.lifecycles:
-                if ("lifecycle", lifecycle.id) in references:
-                    add("concept", (lifecycle.subject,))
-            for concept in model.concepts:
-                if ("concept", concept.id) in references:
-                    add("relationship", concept.relationships)
-            for profile in model.analysis_profiles:
-                if op.id in profile.shared_consumers:
-                    add("analysis_profile", (profile.id,))
-        return references
-
-    operation_dependencies = [(op.id, dependencies(op)) for op in operations]
-
-    def compare_group(label, old_items, new_items, identity):
-        old = {identity(item): item for item in old_items}
-        new = {identity(item): item for item in new_items}
-        for name in sorted(old.keys() | new.keys()):
-            if name in old and name in new and asdict(old[name]) == asdict(new[name]):
-                continue
-            kind = "added" if name not in old else "removed" if name not in new else "changed"
-            consumers = sorted(
-                {
-                    op_id
-                    for op_id, references in operation_dependencies
-                    if (label, name) in references or (label == "operation" and op_id == name)
-                }
-            )
-            if not consumers:
-                unknowns.add(f"Consumer closure not declared for {label}:{name}")
-            changes.append(
-                dict(
-                    kind=kind,
-                    model_ref=label + ":" + name,
-                    aspect=label,
-                    consumers=consumers,
-                    reason="Normalized declared members differ; exact facts are retained below.",
-                    members=_changed_members(
-                        asdict(old[name]) if name in old else _NO_MEMBER,
-                        asdict(new[name]) if name in new else _NO_MEMBER,
-                        label + ":" + name,
-                    ),
-                )
-            )
-
-    compare_group("class", before.definitions, after.definitions, lambda item: item.name)
-    for label, attr in [
-        ("operation", "operations"),
-        ("invariant", "invariants"),
-        ("projection", "projections"),
-        ("implementation", "implementations"),
-        ("concept", "concepts"),
-        ("relationship", "relationships"),
-        ("lifecycle", "lifecycles"),
-        ("transition", "transitions"),
-        ("outcome_domain", "outcome_domains"),
-        ("native_guard", "native_guards"),
-        ("effect", "effect_definitions"),
-        ("analysis_profile", "analysis_profiles"),
-    ]:
-        compare_group(
-            label, getattr(old_model, attr), getattr(new_model, attr), lambda item: item.id
-        )
-    compare_group(
-        "outcome_translation",
-        old_model.outcome_translations,
-        new_model.outcome_translations,
-        lambda item: ":".join((item.source_domain, item.source, item.target_domain, item.target)),
-    )
-    compare_group(
-        "parsing_adapter",
-        old_model.parsing_adapters,
-        new_model.parsing_adapters,
-        lambda item: item.adapter_id,
-    )
-    if old_model.required_capabilities != new_model.required_capabilities:
-        changes.append(
-            dict(
-                kind="changed",
-                model_ref="execution:required_capabilities",
-                aspect="required_capabilities",
-                consumers=[],
-                reason=canonical_bytes(
-                    dict(
-                        before=old_model.required_capabilities,
-                        after=new_model.required_capabilities,
-                    )
-                ).decode(),
-                members=_changed_members(
-                    old_model.required_capabilities,
-                    new_model.required_capabilities,
-                    "execution:required_capabilities",
-                ),
-            )
-        )
-        unknowns.add(
-            "Release capability changes require native admission; consumer closure unassessed."
-        )
-    old_comparison = next(
-        (a.content for a in before.artifacts if a.kind == "comparison_projection.json"), None
-    )
-    new_comparison = next(
-        (a.content for a in after.artifacts if a.kind == "comparison_projection.json"), None
-    )
-    if old_comparison != new_comparison:
-        changes.append(
-            dict(
-                kind="added"
-                if old_comparison is None
-                else "removed"
-                if new_comparison is None
-                else "changed",
-                model_ref="comparison_projection",
-                aspect="comparison_roles",
-                consumers=["scientific_decisions"],
-                reason="Resolved comparison-role product differs.",
-                members=_changed_members(
-                    json.loads(old_comparison) if old_comparison is not None else _NO_MEMBER,
-                    json.loads(new_comparison) if new_comparison is not None else _NO_MEMBER,
-                    "comparison_projection",
-                ),
-            )
-        )
-    if old_model.implementation_digests != new_model.implementation_digests:
-        legacy = any(
-            int(json.loads(model.content)["inputs"]["compiler_version"]) <= 26
-            for model in (old_model, new_model)
-        )
-        unknowns.add(
-            "Changed legacy implementation custody mixes semantic determinants and executable "
-            "runtime bytes; behavior equivalence is unassessed."
-            if legacy
-            else "Changed semantic determinant bytes require qualified compatibility; "
-            "behavior equivalence is unassessed."
-        )
+def compare_semantic_releases(before: PreparedRelease, after: PreparedRelease, *,
+                              before_runtime: RuntimeBinding | None = None,
+                              after_runtime: RuntimeBinding | None = None,
+                              dependency_detail: bool = False) -> BaseModel:
+    """Compare current captured meaning, keeping source, runtime and use limits explicit."""
+    from .data_operation_admission import bound_data_operation_model
+    from .model_comparison import compare_declared_models
+    from .alias_policy import released_alias_product
+    from .projection_analysis_products import compare_retained_projection_analysis
     from .runtime_bindings import validate_runtime_binding
+    from .vocabulary_impact import append_vocabulary_impact
 
+    models = (bound_data_operation_model(before), bound_data_operation_model(after))
+    compared = compare_declared_models(*models, before_release=before.release_id, after_release=after.release_id)
+    changes: list[dict[str, Any]] = [dict(kind=change.kind, model_ref=change.model_ref, aspect=change.aspect,
+        consumers=change.consumers, reason="Captured declared model meaning differs; output change is unassessed.",
+        members=_changed_members(change.before if change.before is not None else _NO_MEMBER,
+                                 change.after if change.after is not None else _NO_MEMBER, change.model_ref))
+        for change in compared.changes]
+    unknowns = set(compared.unknowns)
+    try:
+        policies = (released_alias_product(before), released_alias_product(after))
+    except (ValueError, TypeError, KeyError) as error:
+        unknowns.add("Released alias policy unassessed: " + str(error))
+    else:
+        for group, aspect in (("classes", "alias_normalization"), ("origins", "alias_origin")):
+            old, new = (policy[group] for policy in policies)
+            for iri in sorted(old.keys() | new.keys()):
+                left, right = old.get(iri, _NO_MEMBER), new.get(iri, _NO_MEMBER)
+                if left == right:
+                    continue
+                consumers = set()
+                if group == "classes":
+                    for model in models:
+                        graph = model.projection_graph("semantic-reference")
+                        roots = [kind.semantic_id for kind in model.kinds if kind.semantic_id == iri]
+                        if roots:
+                            operations = {operation.semantic_id for operation in model.operations}
+                            consumers.update(set(graph.closure(roots, direction="dependents")) & operations)
+                    unknowns.add("Dynamic alias-policy consumer closure is unassessed for " + iri)
+                changes.append(dict(kind="added" if left is _NO_MEMBER else "removed" if right is _NO_MEMBER else "changed",
+                    model_ref="alias_policy:" + iri, aspect=aspect, consumers=sorted(consumers),
+                    reason="Released normalization differs." if group == "classes" else "Alias source origin differs; normalization is separate.",
+                    members=_changed_members(left, right, "alias_policy:" + iri + "/" + group)))
+    query_analysis = compare_retained_projection_analysis(before, after)
+    unknowns.update(query_analysis.unknowns)
+    for change in query_analysis.changes:
+        changes.append(dict(kind="added" if change.before is None else "removed" if change.after is None else "changed",
+            model_ref=change.model_ref, aspect="query-" + change.aspect, consumers=change.consumers,
+            reason="Captured query analysis differs; current source and retained data impact are separate.",
+            members=_changed_members(change.before if change.before is not None else _NO_MEMBER,
+                                     change.after if change.after is not None else _NO_MEMBER, change.model_ref)))
+    append_vocabulary_impact(before, after, changes, unknowns, _changed_members, _NO_MEMBER)
     for prepared, runtime in ((before, before_runtime), (after, after_runtime)):
         if runtime is not None:
             if runtime.release_id != prepared.release_id:
@@ -981,273 +551,14 @@ def compare_semantic_releases(
             validate_runtime_binding(runtime, prepared)
     if (before_runtime is None) != (after_runtime is None):
         unknowns.add("Runtime change is unassessed: supply both runtime bindings.")
-    elif (
-        before_runtime is not None
-        and after_runtime is not None
-        and (
-            before_runtime.implementation_digests != after_runtime.implementation_digests
-            or json.loads(before_runtime.manifest)["python_version"]
-            != json.loads(after_runtime.manifest)["python_version"]
-        )
+    elif before_runtime is not None and after_runtime is not None and (
+        before_runtime.implementation_digests != after_runtime.implementation_digests
+        or json.loads(before_runtime.manifest)["python_version"] != json.loads(after_runtime.manifest)["python_version"]
     ):
-        unknowns.add(
-            "Executable runtime changed independently of semantic release meaning: "
-            + before_runtime.runtime_id
-            + " -> "
-            + after_runtime.runtime_id
-            + "; behavior equivalence is unassessed."
-        )
-    from .vocabulary_impact import append_vocabulary_impact
-
-    append_vocabulary_impact(before, after, changes, unknowns, _changed_members, _NO_MEMBER)
-    use_survey = None
-    if use_after is not None and source_run_id is None:
-        raise ValueError("vocabulary use continuation requires a selected population")
-    if any(value is not None for value in (source_run_id, review_run_id, review_cut_id)):
-        if (
-            connection is None
-            or source_run_id is None
-            or review_run_id is None
-            or review_cut_id is None
-        ):
-            raise ValueError(
-                "vocabulary uses require source run, review run/cut and reader snapshot"
-            )
-        from .interpretation_queries import collect_interpretation_uses
-        from .observations import source_value
-
-        if use_side not in {"before", "after"}:
-            raise ValueError("vocabulary use side must be before or after")
-        selected = before if use_side == "before" else after
-        use_cursor = None
-        token = None
-        if use_after is not None:
-            try:
-                token = json.loads(use_after)
-                position = token["position"]
-                if (
-                    not isinstance(position, list)
-                    or len(position) != 3
-                    or type(position[0]) is not int
-                    or not all(type(v) is str for v in position[1:])
-                ):
-                    raise ValueError("context differs")
-                use_cursor = tuple(position)
-            except (ValueError, TypeError, KeyError) as exc:
-                raise ValueError("invalid or mismatched vocabulary use continuation") from exc
-        survey = collect_interpretation_uses(
-            connection,
-            source_run_id=source_run_id,
-            review_run_id=review_run_id,
-            review_cut_id=review_cut_id,
-            vocabulary_release=selected.release_id,
-            limit=use_limit,
-            after=use_cursor,
-        )
-        binding = sha256(
-            canonical_bytes(
-                dict(
-                    version=1,
-                    before=before.release_id,
-                    after=after.release_id,
-                    side=use_side,
-                    population={
-                        key: value
-                        for key, value in survey.items()
-                        if key not in {"items", "complete", "next_after"}
-                    },
-                )
-            )
-        ).hexdigest()
-        if token is not None and token.get("binding") != binding:
-            raise ValueError("invalid or mismatched vocabulary use continuation")
-        survey["side"] = use_side
-        if survey["next_after"] is not None:
-            survey["next_after"] = canonical_bytes(
-                dict(binding=binding, position=survey["next_after"])
-            ).decode()
-        use_survey = source_value(survey)
-        unknowns.discard(
-            "Retained vocabulary uses were not surveyed; supply an "
-            "explicit source/review population for impact assessment."
-        )
-        unknowns.add("Other retained vocabulary populations were not surveyed.")
-        if not survey["complete"]:
-            unknowns.add("Selected vocabulary use survey is incomplete; follow its continuation.")
-    _alias_impact(before, after, changes, unknowns)
-    _projection_impact(before, after, changes, unknowns)
-    return _report(
-        "SemanticImpactReport",
-        dict(
-            vocabulary_uses=use_survey,
-            before_release=before.release_id,
-            after_release=after.release_id,
-            projection_dependencies=_dependency_page(
-                (("before", before), ("after", after)),
-                family=dependency_family,
-                output=dependency_output,
-                occurrence=dependency_occurrence,
-                after=dependency_after,
-                limit=dependency_limit,
-            )
-            if dependency_detail
-            else None,
-            changes=changes,
-            unknowns=sorted(unknowns),
-            complete=not unknowns,
-        ),
-    )
-
-
-def _alias_impact(before: PreparedRelease, after: PreparedRelease, changes, unknowns) -> None:
-    from .contracts import bound_execution_model
-    from .alias_policy import released_alias_product
-
-    try:
-        old, new = released_alias_product(before), released_alias_product(after)
-    except (ValueError, TypeError, KeyError) as error:
-        unknowns.add(f"Released alias policy unassessed: {error}")
-        return
-    models = (bound_execution_model(before), bound_execution_model(after))
-    consumers = set()
-    consumer_unknowns = set()
-    for model in models:
-        for binding in model.implementations:
-            if (binding.owner, binding.symbol) == (
-                "semantic.domain_operations",
-                "_entity_mappings",
-            ):
-                consumers.add("implementation:" + binding.id)
-        for profile in model.analysis_profiles:
-            if profile.alignment_policy is None:
-                continue
-            reference = "analysis_profile:" + profile.id + "/alignment_policy"
-            if int(json.loads(model.content)["inputs"]["compiler_version"]) >= 27 or dict(
-                model.implementation_digests
-            ).get("alignment/semantic_alignment.py"):
-                # Current semantic declarations identify the consumer; exact executable
-                # custody belongs to a runtime binding, not this semantic product.
-                consumers.add(reference)
-            else:
-                consumer_unknowns.add(reference + ": alignment implementation custody unavailable")
-    for group, aspect in (("classes", "alias_normalization"), ("origins", "alias_origin")):
-        left, right = old[group], new[group]
-        for iri in sorted(left.keys() | right.keys()):
-            previous, current = left.get(iri, _NO_MEMBER), right.get(iri, _NO_MEMBER)
-            if previous == current:
-                continue
-            kind = (
-                "added"
-                if previous is _NO_MEMBER
-                else "removed"
-                if current is _NO_MEMBER
-                else "changed"
-            )
-            reason = (
-                "Released alias normalization differs."
-                if group == "classes"
-                else "Alias source origin differs; normalization is assessed separately."
-            )
-            changes.append(
-                dict(
-                    kind=kind,
-                    model_ref="alias_policy:" + iri,
-                    aspect=aspect,
-                    consumers=sorted(consumers) if group == "classes" else [],
-                    reason=reason,
-                    members=_changed_members(
-                        previous, current, "alias_policy:" + iri + "/" + group
-                    ),
-                )
-            )
-            if group == "classes":
-                unknowns.update(consumer_unknowns)
-                unknowns.add("Dynamic alias-policy consumer closure is unassessed for " + iri)
-
-
-def _projection_impact(before: PreparedRelease, after: PreparedRelease, changes, unknowns) -> None:
-    from .projection_analysis_products import read_projection_analysis
-
-    old, new = read_projection_analysis(before), read_projection_analysis(after)
-    for side, product in (("before", old), ("after", new)):
-        if product is None:
-            unknowns.add(f"{side}: archived qualified projection analysis unavailable")
-            continue
-        unknowns.update(f"{side}: {message}" for message in product.unknowns)
-        for entry in product.projections:
-            if entry.analysis.detail_status != "available":
-                unknowns.add(f"{side}: projection:{entry.family}: occurrence detail unavailable")
-            unknowns.update(
-                f"{side}: projection:{entry.family}: {message}"
-                for message in entry.analysis.unknowns
-            )
-
-        if (
-            not product.complete
-            and not product.unknowns
-            and not any(item.analysis.unknowns for item in product.projections)
-        ):
-            unknowns.add(f"{side}: projection dependency coverage is incomplete")
-    if old is None or new is None:
-        return
-    old_rows = {item.family: item.analysis for item in old.projections}
-    new_rows = {item.family: item.analysis for item in new.projections}
-    for family in sorted(old_rows.keys() | new_rows.keys()):
-        left, right = old_rows.get(family), new_rows.get(family)
-        if (left is None and not old.complete) or (right is None and not new.complete):
-            unknowns.add(
-                f"projection:{family}: absent from incomplete analysis; "
-                "addition or removal is unassessed"
-            )
-            continue
-        if left == right:
-            continue
-        consumers = sorted({name for row in (left, right) if row for name in row.consumers})
-        if not consumers:
-            unknowns.add(f"projection:{family}: consumer dependencies are not declared")
-        aspects = (
-            "profile",
-            "library_version",
-            "consumers",
-            "output_origins",
-            "output_types",
-            "value_dependencies",
-            "relational_sources",
-            "relational_dependencies",
-            "expressions",
-            "relationships",
-            "helpers",
-            "projection_id",
-            "logical_sources",
-            "occurrences",
-            "detail_status",
-        )
-        for aspect in aspects:
-            if aspect == "occurrences" and any(
-                row is not None and row.detail_status != "available" for row in (left, right)
-            ):
-                continue
-            old_value = getattr(left, aspect) if left else None
-            new_value = getattr(right, aspect) if right else None
-            if aspect == "occurrences":
-                old_value = [asdict(item) for item in old_value] if old_value is not None else None
-                new_value = [asdict(item) for item in new_value] if new_value is not None else None
-            if old_value == new_value:
-                continue
-            changes.append(
-                dict(
-                    kind="added" if left is None else "removed" if right is None else "changed",
-                    model_ref=f"projection:{family}",
-                    aspect=aspect,
-                    consumers=consumers,
-                    reason=canonical_bytes(dict(before=old_value, after=new_value)).decode(),
-                    members=_changed_members(
-                        old_value if left is not None else _NO_MEMBER,
-                        new_value if right is not None else _NO_MEMBER,
-                        f"projection:{family}/{aspect}",
-                    ),
-                )
-            )
+        unknowns.add("Executable runtime changed independently of semantic release meaning; behavior equivalence is unassessed.")
+    return _report("SemanticImpactReport", dict(before_release=before.release_id, after_release=after.release_id,
+        changes=changes, unknowns=sorted(unknowns), complete=not unknowns,
+        projection_dependencies=_dependency_page((("before", before), ("after", after))) if dependency_detail else None))
 
 
 def _dependency_page(
@@ -1332,32 +643,6 @@ def projection_dependency_detail(
     )
 
 
-def compatibility_advice(impact: BaseModel) -> tuple[str, ...]:
-    """Advice from the shared comparison; admission and migration stay independent."""
-    value = impact.model_dump(mode="json")
-    advice = []
-    semantic_changes = [change for change in value["changes"] if change["aspect"] != "alias_origin"]
-    if any(change["aspect"] == "alias_origin" for change in value["changes"]):
-        advice.append(
-            "Alias source provenance changed; normalization changes are reported separately."
-        )
-    if semantic_changes:
-        consumers = sorted({name for change in semantic_changes for name in change["consumers"]})
-        advice.append(
-            "Regenerate and qualify affected declared consumers"
-            + (": " + ", ".join(consumers) if consumers else "; consumer closure is unassessed")
-            + "."
-        )
-    else:
-        advice.append(
-            "No examined normalization changed."
-            if value["changes"]
-            else "No examined declared definitions changed."
-        )
-    if not value["complete"]:
-        advice.append("Resolve unknown dependency coverage before claiming compatibility.")
-    advice.append("Native admission, revision fences and explicit activation remain required.")
-    return tuple(advice)
 
 
 def projection_validation_report(
