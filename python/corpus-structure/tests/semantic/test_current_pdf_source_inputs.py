@@ -1,11 +1,14 @@
 """Current source journey preparation; native custody remains a separate obligation."""
 
+import pytest
+
 from semantic.current_pdf_source_support import current_pdf_recipe
 from semantic.data_operation_kernel_support import prepare_kernel
 
 
-def test_current_pdf_fixture_prepares_real_native_owners_without_legacy_seed(tmp_path):
-    recipe = current_pdf_recipe(tmp_path)
+@pytest.mark.parametrize("math_context", [False, True])
+def test_current_pdf_fixture_prepares_real_native_owners_without_legacy_seed(tmp_path, math_context):
+    recipe = current_pdf_recipe(tmp_path, math_context=math_context)
     assert recipe.project_id is None
     prepared = prepare_kernel(recipe)
     operations = {operation.semantic_id for operation in prepared.model.operations}
@@ -20,6 +23,17 @@ def test_current_pdf_fixture_prepares_real_native_owners_without_legacy_seed(tmp
         if not item.complete
     ]
     assert not incomplete
+    from corpus_structure.serve.selected_source import _captured_analysis_profile
+
+    context = _captured_analysis_profile(prepared.prepared)
+    assert (context is not None) is math_context
+    if context is not None:
+        from corpus_structure.semantic.analysis_contracts import prepare_interpretation_context
+
+        interpreted = prepare_interpretation_context(
+            prepared.prepared, macros={}, kind="formula", context_profile=context
+        )
+        assert interpreted.model_id == context.model_id
 
 
 def test_current_section_fixture_serializes_real_empty_and_formula_sections(tmp_path):

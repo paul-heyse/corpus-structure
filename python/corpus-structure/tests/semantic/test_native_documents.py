@@ -18,8 +18,8 @@ from corpus_structure.semantic.operations import (
     create_run,
     create_task,
     record_method,
-    register_document,
 )
+from corpus_structure.semantic.original_documents import register_original_document
 from corpus_structure.semantic.pdf_storage import read_native_items, read_native_regions
 from semantic.operation_scenario_support import prepare_operation_scenario
 
@@ -140,8 +140,9 @@ def test_pdf_original_and_native_product_need_no_rendition(
         config = record_method(conn, method, "default", {}, "pdf-fixture", prepared=prepared)
         if not captured_page:
             source_path.write_bytes(original)
-        document_id = register_document(
+        document_id = register_original_document(
             conn,
+            prepared=prepared,
             project_id="p",
             source_uri="file:pdf-fixture",
             original_path=str(source_path),

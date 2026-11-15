@@ -109,7 +109,17 @@ PostgreSQL/ADBC cancellation. Their collection is not native execution. Keep non
 families with duplicate endpoint ordinals, null-versus-empty values, nested coverage/caption references,
 wrong-project/read/use/product/derivation refusals and unresolved original-parent/prose ancestry on
 the required native union. Pure detached multiset/type/manifest and source-report validators retain
-independent expectations. Old integer-pin acceptance is retired, not a behavior to reproduce.
+independent expectations. Retired Run/SQLReader counterparts also leave exact domain cases for
+current rich query/value/lowering controls: T1 construction-only membership, base variable and
+positive-scale condition; T2 exact respectively pairing owned by the family rather than its random
+variable; T4 lognormal mu/sigma/shape/exp(mu) scale without an invented identical-parameter edge.
+Preserve nested inspector/custodian swapped-role and changed-custodian negatives, quantity/unit/basis
+and original `12.3400` source spelling. Preserve toy descriptive filing references as separate
+occurrences where fact meaning coincides, while meaning-bearing attribution/valid-time differs;
+unknown temporal applicability must not become not-applicable. Existing generic qualification and
+unknown controls are not these complete domain cases. Aliases, multiple occurrences and T3
+same-statement/premise scope have current independent controls; this does not qualify the retired
+native journeys. Old integer-pin acceptance is retired, not a behavior to reproduce.
 
 Qualification distinguishes authentic execution, source/family examination, retained fidelity and
 linguistic correctness. Preserve source-first and output-first assessment boundaries; do not use

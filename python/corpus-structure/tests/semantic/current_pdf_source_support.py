@@ -6,7 +6,7 @@ It requires the combined current native capture; the controlled converter is not
 """
 
 from contextlib import contextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from io import BytesIO
 from pathlib import Path
 
@@ -43,7 +43,7 @@ ROOT = Path(__file__).resolve().parents[4]
 PROJECT = "current-source-catalog"
 
 
-def current_pdf_recipe(directory):
+def current_pdf_recipe(directory, *, math_context=False):
     from corpus_structure.ingest.pdf import PdfRecipe
     from corpus_structure.ingest.pdf_assets import PreparedPdfAssets
 
@@ -75,6 +75,21 @@ def current_pdf_recipe(directory):
         source_discovery_operation_sources(),
         source_profile_operation_sources(),
     )
+    if math_context:
+        from corpus_structure.semantic.declared_math_products import (
+            DeclaredMathOptions,
+            math_profile_assets,
+        )
+
+        # Offline formula preparation consumes this actual captured profile;
+        # a source-only recipe does not acquire an ambient mathematical context.
+        sources = replace(
+            sources,
+            boundary_contracts=(
+                *sources.boundary_contracts,
+                math_profile_assets(DeclaredMathOptions()),
+            ),
+        )
     core = ROOT / "python/corpus-structure/src/corpus_structure/model/semantic/core.yaml"
     bundle = source_profile_inputs(
         pdf_region_inputs(
@@ -235,7 +250,9 @@ def _controlled_stream(
 
 
 @contextmanager
-def _current_pdf_source(scenario_seeds, tmp_path, monkeypatch, *, stream=None, sections=()):
+def _current_pdf_source(
+    scenario_seeds, tmp_path, monkeypatch, *, stream=None, sections=(), math_context=False
+):
     from hashlib import sha256
 
     import pypdfium2 as pdfium
@@ -265,7 +282,7 @@ def _current_pdf_source(scenario_seeds, tmp_path, monkeypatch, *, stream=None, s
     original = output.getvalue()
     path = tmp_path / "independent-original.pdf"
     path.write_bytes(original)
-    recipe = current_pdf_recipe(tmp_path)
+    recipe = current_pdf_recipe(tmp_path, math_context=math_context)
     with scenario_seeds.commit_clone(recipe) as clone:
         stage = clone.stage
         kernel = Kernel(clone.admin, stage.preparation, stage.identities, recipe, clone)
@@ -334,7 +351,7 @@ def current_pdf_source(scenario_seeds, tmp_path, monkeypatch):
 def current_pdf_source_factory(scenario_seeds, tmp_path, monkeypatch):
     """Real current custody with independently selected converter section contents."""
 
-    def acquire(rows):
+    def acquire(rows, *, math_context=False):
         rows = tuple(rows)
 
         def stream(self, source, **options):
@@ -346,6 +363,7 @@ def current_pdf_source_factory(scenario_seeds, tmp_path, monkeypatch):
             monkeypatch,
             stream=stream,
             sections=tuple("#/groups/" + str(i) for i in range(len(rows))),
+            math_context=math_context,
         )
 
     return acquire

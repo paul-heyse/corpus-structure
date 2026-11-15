@@ -18,9 +18,11 @@ from corpus_structure.ingest.pdf_stream_types import PdfReplayRef, PdfStreamRepl
 from corpus_structure.ingest.pdf_worker import PdfWorker
 from corpus_structure.orchestrate.pdf_streaming import run_private_native_pdf_build
 from corpus_structure.semantic.metadata import table
-from corpus_structure.semantic.operations import claim_tasks, create_task, register_document
+from corpus_structure.semantic.operations import claim_tasks, create_task
+from corpus_structure.semantic.original_documents import register_original_document
 from corpus_structure.semantic.pdf_contracts import store_pdf_original
 from corpus_structure.semantic.pdf_staging import inspect_pdf_progress
+from corpus_structure.semantic.releases import open_release
 
 private_build = staging_fixtures.private_build
 
@@ -120,8 +122,9 @@ def test_real_private_native_pipeline_adopts_pages_records_and_companions(
             .mappings()
             .one()
         )
-        document_id = register_document(
+        document_id = register_original_document(
             connection,
+            prepared=open_release(connection, private_build.release_id),
             project_id="p",
             source_uri="file:private-streaming-control",
             original_path=str(original_path),

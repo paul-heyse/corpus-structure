@@ -8,6 +8,7 @@ from corpus_structure.serve.selected_source import (
     SelectedSourceExportRequest,
     SelectedSourceReader,
     SelectedSourceSelection,
+    _captured_analysis_profile,
     export_selected_source,
 )
 from semantic.companion_export_native_support import read_settings as read_settings
@@ -25,7 +26,8 @@ def test_native_selection_context_and_offline_preparation(
         (
             ("formula", "x=1", "original A", "succeeded"),
             ("formula", "x=2", "original B", "succeeded"),
-        )
+        ),
+        math_context=True,
     ) as source:
         with source.kernel.purpose("read").begin() as connection:
             pin, _ = source.publication(connection)
@@ -34,7 +36,11 @@ def test_native_selection_context_and_offline_preparation(
             selection=SelectedSourceSelection(root="#/groups/0"),
             destination=tmp_path / "export",
         )
-        context = prepare_interpretation_context(source.kernel.prepared, macros={}, kind="formula")
+        profile = _captured_analysis_profile(source.kernel.prepared)
+        assert profile is not None
+        context = prepare_interpretation_context(
+            source.kernel.prepared, macros={}, kind="formula", context_profile=profile
+        )
         receipt = export_selected_source(
             request, read_settings(native_settings, source.kernel.engine)
         )
