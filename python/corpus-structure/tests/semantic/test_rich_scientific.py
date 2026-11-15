@@ -39,7 +39,6 @@ from corpus_structure.semantic.scientific_evidence import (
     parse_scientific_assessment_reason,
 )
 from corpus_structure.semantic.types import ResolvedDependencies
-from semantic.data_operation_declaration_support import contract, declarations
 from semantic.record_contracts_support import release_inputs
 from semantic.test_external_rich_extraction import packet
 
@@ -87,16 +86,12 @@ classes:
         ).encode(),
     )
     bundle = SourceBundle(source.name, (*bundle.sources, source))
-    operation = contract(
-        subject="knowledge-universe",
-        subject_definition={
-            "id": "knowledge-universe",
-            "identifier_kind": "string",
-            "scope": "project",
-        },
-    )
+    from corpus_structure.semantic.record_policy_authority import record_policy_kind_declarations
+    from corpus_structure.semantic.rich_invocations import rich_knowledge_operation_sources
+
     model = compile_data_operations(
-        bundle, declarations=(*rich_knowledge_declarations(dependencies), *declarations(operation))
+        bundle, declarations=(*rich_knowledge_declarations(dependencies), record_policy_kind_declarations()),
+        python_sources=rich_knowledge_operation_sources(),
     )
     prepared = prepare_release(bundle, dependencies)
     return prepared, model, profile, RichRulePolicy(prepared)

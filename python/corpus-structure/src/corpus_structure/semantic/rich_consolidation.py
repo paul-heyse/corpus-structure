@@ -77,7 +77,7 @@ class RichAssembly:
         )
         self.policy = require_rich_policy(prepared, model, inputs.scalar("policy").body)
         self.profile = rich_context_profile(prepared)
-        self.policy_digest = rich_eligibility_policy_digest(self.policy)
+        self.policy_digest = rich_eligibility_policy_digest(self.policy, self.model)
         self.packets = {}
         self.source_contexts = []
         self._source_context_index = {}

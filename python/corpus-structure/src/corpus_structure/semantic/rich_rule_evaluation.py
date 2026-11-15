@@ -345,7 +345,7 @@ def evaluate_rich_rules(
         raise RichRuleEvaluationRefused(
             "rich rule analysis context differs from its actual captured owner"
         )
-    policy_digest = rich_eligibility_policy_digest(checked_policy)
+    policy_digest = rich_eligibility_policy_digest(checked_policy, model)
     state = read_rich_graph(
         prepared,
         model,
@@ -509,9 +509,6 @@ def evaluate_rich_rules(
     unselected_facts = set(incomplete_alternatives) | {
         identifier for identifier, resolutions in dependent_identity.items() if resolutions
     }
-    # Observed qualification may retain an identity operand absent from its
-    # canonical equality meaning. It still limits this actual source assertion.
-    unselected_facts.update(occurrences[identifier].fact_id for identifier in limitation_reasons)
     tables = dict(
         claims=pa.Table.from_pylist(
             [
@@ -821,16 +818,14 @@ def evaluate_rich_rules(
             else "accepted"
         )
         decisions.append(RichRuleDecision(identifier, fact.fact_id, status, tuple(findings)))
-    selected_facts = {
-        identifier
-        for identifier, fact in facts.items()
-        if identifier not in state.retained_member_ids
-        and identifier not in unselected_facts
-        and policy.metadata.get(
-            (state.property(fact.property_contract)[0].name, fact.predicate), {}
-        ).get("cs:role")
-        != "predicate"
+    eligible_structural_occurrences = {
+        identifier for identifier, occurrence in occurrences.items()
+        if identifier not in state.retained_member_ids and identifier not in limitation_reasons
+        and occurrence.fact_id not in unselected_facts
+        and policy.metadata.get((state.property(facts[occurrence.fact_id].property_contract)[0].name,
+                                 facts[occurrence.fact_id].predicate), {}).get("cs:role") != "predicate"
     }
+    selected_facts = {occurrences[identifier].fact_id for identifier in eligible_structural_occurrences}
     # Display representatives are observable presentation choices, not equality
     # rewrites or evidence that other spellings were absent.
     display = defaultdict(list)
@@ -848,11 +843,8 @@ def evaluate_rich_rules(
             key=lambda identifier: (str(state.value(facts[identifier].object_value)), identifier),
         )
         selected_facts.difference_update(set(members) - {keep})
-    selected_occurrences = {
-        identifier
-        for identifier, occurrence in occurrences.items()
-        if occurrence.fact_id in selected_facts and identifier not in state.retained_member_ids
-    }
+    selected_occurrences = {identifier for identifier in eligible_structural_occurrences
+                            if occurrences[identifier].fact_id in selected_facts}
     selected_facts.update(
         decision.fact_id for decision in decisions if decision.status == "accepted"
     )

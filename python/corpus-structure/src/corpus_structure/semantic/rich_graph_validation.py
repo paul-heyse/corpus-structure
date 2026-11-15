@@ -341,9 +341,19 @@ class ValidatedRichGraph:
             if isinstance(body, DdoRichCollectionValue):
                 raise ValueError("rich scalar property cannot carry a collection")
             value = self.value(identifier, target)
-        return self.prepared.property_adapter(
+        checked = self.prepared.property_adapter(
             definition.name, prop.name, item=item
         ).validate_python(value, strict=True)
+        if checked is not None and prop.reference_role == "fact":
+            if prop.multivalued and not item:
+                collection = self.member(identifier, DdoRichCollectionValue)
+                references = checked.values() if collection.collection == "mapping" else checked
+            else:
+                references = (checked,)
+            for reference in references:
+                if reference is not None:
+                    self.member(reference, DdoRichFact)
+        return checked
 
     def value_entity_ids(self, identifier) -> frozenset[str]:
         """Project actual typed entity leaves, never entity-looking literal text.

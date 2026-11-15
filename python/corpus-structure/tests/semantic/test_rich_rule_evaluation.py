@@ -41,7 +41,6 @@ from corpus_structure.semantic.rich_rule_evaluation import (
 from corpus_structure.semantic.rich_rules import RichRulePolicy
 from corpus_structure.semantic.rich_scientific import assess_rich_scientific
 from corpus_structure.semantic.types import ResolvedDependencies
-from semantic.data_operation_declaration_support import contract, declarations
 from semantic.record_contracts_support import release_inputs
 from semantic.test_rich_scientific import formula, graph_inputs
 
@@ -49,7 +48,7 @@ PREFIX = "https://corpus-structure.dev/semantic/data-operation-rich-knowledge/"
 
 
 @pytest.fixture(scope="module")
-def rules():
+def rule_inputs():
     root = Path(__file__).resolve().parents[4]
     profile = acquire_analysis_context_profile()
     policy = {
@@ -73,8 +72,22 @@ def rules():
             {"id": "review.warn", "severity": "error", "check": "claim.value&.v != 'warn'"}
         ],
     }
+    base = release_inputs()[0]
+    sources = []
+    for item in base.sources:
+        if item.name == "semantic_core":
+            core = yaml.safe_load(item.content)
+            core["classes"]["Qualification"]["attributes"]["observer"] = {
+                "range": "Entity", "annotations": {"cs:key_role": "provenance"},
+            }
+            core["classes"]["Qualification"]["attributes"]["premises"] = {
+                "multivalued": True, "annotations": {"cs:reference_role": "fact"},
+            }
+            item = SourceArtifact(item.name, yaml.safe_dump(core).encode())
+        sources.append(item)
+    base = SourceBundle(base.root, tuple(sources))
     bundle, dependencies = rich_knowledge_inputs(
-        release_inputs()[0],
+        base,
         ResolvedDependencies(),
         domain_rules=yaml.safe_dump(policy).encode(),
         core_rules=(root / "domains/core/schema/rules.yaml").read_bytes(),
@@ -109,16 +122,17 @@ classes:
 """.replace(b"SOURCE_ROOT", bundle.root.encode()),
     )
     bundle = SourceBundle(source.name, (*bundle.sources, source))
-    operation = contract(
-        subject="knowledge-universe",
-        subject_definition={
-            "id": "knowledge-universe",
-            "identifier_kind": "string",
-            "scope": "project",
-        },
-    )
+    return bundle, dependencies, profile
+
+
+@pytest.fixture(scope="module")
+def rules(rule_inputs):
+    bundle, dependencies, profile = rule_inputs
+    from corpus_structure.semantic.record_policy_authority import record_policy_kind_declarations
+    from corpus_structure.semantic.rich_invocations import rich_knowledge_operation_sources
     model = compile_data_operations(
-        bundle, declarations=(*rich_knowledge_declarations(dependencies), *declarations(operation))
+        bundle, declarations=(*rich_knowledge_declarations(dependencies), record_policy_kind_declarations()),
+        python_sources=rich_knowledge_operation_sources(),
     )
     prepared = prepare_release(bundle, dependencies)
     return prepared, model, profile, RichRulePolicy(prepared)
@@ -669,3 +683,138 @@ def test_resolved_source_local_identity_and_literal_entity_spelling_still_select
     result = evaluate(rules, identity_graph(rules, dependency=dependency, outcome=outcome))
     assert result.decisions[0].status == "accepted"
     assert len(result.selected_fact_ids) == len(result.selected_occurrence_ids) == 1
+
+
+@pytest.mark.parametrize("property_name", ["annotation", "display"])
+def test_valid_other_occurrence_selects_structure_despite_observed_only_uncertainty(rules, property_name):
+    inputs = identity_graph(rules, dependency="literal", outcome="incomplete_key", property_name=property_name)
+    second_population = graph_inputs(rules, source_values("placeholder", "placeholder"), property_name=property_name)
+    for name in ("inputs", "source_contexts", "whole_inputs"):
+        inputs[name] = second_population[name]
+    # Rebuild with two real observations sharing exact fact equality. The first
+    # observer is provenance-only; it is not a semantic entity reference in the
+    # canonical proposition, and cannot limit the independent second observation.
+    from corpus_structure.semantic.rich_fact_graph import RichFactGraph
+    from corpus_structure.semantic.rich_knowledge_contracts import (
+        DdoRichEntity,
+        DdoRichIdentityResolution,
+    )
+    prepared, model, _, _ = rules
+    retained = tuple(packet for packet in inputs["graph"].members if isinstance(packet.body, (DdoRichEntity, DdoRichIdentityResolution)))
+    graph = RichFactGraph(prepared, model, context=inputs["context"],
+        entities={identifier: frozenset({"urn:rich-scientific:ScientificSubject"}) for identifier in ("entity:actual", "entity:operand")}, known_fact_ids=frozenset())
+    occurrences = []
+    for index, qualification in enumerate((
+        {"modality": "asserted", "polarity": True, "observer": "entity:operand"},
+        {"modality": "asserted", "polarity": True},
+    )):
+        result = graph.add_property_fact(subject_entity="entity:actual", class_name="ScientificSubject", property_name=property_name,
+            value={"kind": "text", "text": "independently supported"}, qualification=qualification)
+        occurrences.append(DdoRichOccurrence(member_type="source-occurrence", occurrence_id="observed:" + str(index), fact_id=result.fact.fact_id,
+            original=inputs["source_contexts"][index].original, statement=None, observed_qualification_value=result.observed_qualification_value,
+            dependencies=(), establishment="stated", statement_kind=None, statement_role=None, evidence_count=1))
+    assert occurrences[0].fact_id == occurrences[1].fact_id
+    bodies = (*graph.values, *graph.facts, *occurrences)
+    inputs["graph"] = RichGraphAssembly(members=(*retained, *(graph_packet(rules, inputs, body,
+        body.occurrence_id if isinstance(body, DdoRichOccurrence) else body.fact_id if isinstance(body, DdoRichFact) else body.value_id)
+        for body in bodies)), input_population=inputs["inputs"])
+    result = evaluate(rules, inputs)
+    assert result.selected_fact_ids == frozenset({occurrences[1].fact_id})
+    assert result.selected_occurrence_ids == frozenset({"observed:1"})
+    assert tuple((row.occurrence_id, row.status) for row in result.decisions) == (("observed:0", "candidate"),)
+
+
+@pytest.mark.parametrize("property_name", ["annotation", "display"])
+def test_unasserted_structural_fact_presence_does_not_grant_selection(rules, property_name):
+    inputs = graph_inputs(rules, source_values("retained canonical value"), property_name=property_name)
+    occurrence = next(packet.body for packet in inputs["graph"].members if isinstance(packet.body, DdoRichOccurrence))
+    inputs["graph"] = RichGraphAssembly(members=tuple(packet for packet in inputs["graph"].members
+        if packet.member_id not in {occurrence.occurrence_id, occurrence.observed_qualification_value}),
+        input_population=inputs["graph"].input_population)
+    result = evaluate(rules, inputs)
+    assert result.selected_fact_ids == result.selected_occurrence_ids == frozenset()
+    assert result.decisions == ()
+
+
+@pytest.mark.parametrize("collection", [False, True])
+def test_declared_fact_references_require_the_actual_premise_member(rules, collection):
+    import re
+
+    from corpus_structure.semantic.rich_graph_validation import read_rich_graph
+
+    original = graph_inputs(rules, source_values("premise"))
+    premise = next(packet.body.fact_id for packet in original["graph"].members if isinstance(packet.body, DdoRichOccurrence))
+    qualification: dict[str, Any] = {"modality": "asserted", "polarity": True}
+    qualification["premises" if collection else "condition"] = (premise,) if collection else {"kind": "claim", "ref": premise}
+    inputs: dict[str, Any] = graph_inputs(rules, source_values("premise", "conclusion"), qualifications=(
+        {"modality": "asserted", "polarity": True}, qualification,
+    ))
+    prepared, model, _, _ = rules
+    read_rich_graph(prepared, model, **{name: value for name, value in inputs.items() if name != "source_contexts"})
+    inputs["graph"] = RichGraphAssembly(members=tuple(packet for packet in inputs["graph"].members
+        if packet.member_id not in {premise, "occurrence:0"}), input_population=inputs["graph"].input_population)
+    with pytest.raises(ValueError, match="actual local member kind: " + re.escape(premise)):
+        read_rich_graph(prepared, model, **{name: value for name, value in inputs.items() if name != "source_contexts"})
+
+
+def test_eligibility_refuses_missing_actual_consolidation_owner(rules, rule_inputs):
+    from corpus_structure.semantic.refusals import SemanticRefusal
+    from corpus_structure.semantic.rich_policy_binding import rich_eligibility_policy_digest
+
+    prepared, model, _, _ = rules
+    bundle, dependencies, _ = rule_inputs
+    # A real schema/kind-only model has no computational owner. It cannot be
+    # promoted to an evaluator recipe merely by possessing policy bytes.
+    kinds_only = compile_data_operations(bundle, declarations=rich_knowledge_declarations(dependencies))
+    with pytest.raises(SemanticRefusal, match="actual bound consolidation recipe"):
+        rich_eligibility_policy_digest(rich_policy_value(prepared, model), kinds_only)
+
+
+def test_eligibility_binds_actual_captured_recipe_and_preserves_unrelated_model_changes(rules, rule_inputs):
+    import json
+    from dataclasses import replace
+
+    from corpus_structure.semantic.identity import canonical_bytes
+    from corpus_structure.semantic.record_policy_authority import record_policy_kind_declarations
+    from corpus_structure.semantic.rich_invocations import rich_knowledge_operation_sources
+    from corpus_structure.semantic.rich_policy_binding import rich_eligibility_policy_digest
+    from corpus_structure.semantic.types import SourceArtifact, SourceBundle
+
+    prepared, model, profile, policy = rules
+    bundle, dependencies, _ = rule_inputs
+    sources = rich_knowledge_operation_sources()
+    declarations = (*rich_knowledge_declarations(dependencies), record_policy_kind_declarations())
+    checked = rich_policy_value(prepared, model)
+    expected = rich_eligibility_policy_digest(checked, model)
+    unrelated = SourceArtifact("unrelated-root", b"""id: urn:unrelated-rich-input
+name: unrelated_rich_input
+imports: [SOURCE_ROOT]
+classes:
+  UnrelatedRecord:
+    attributes:
+      note: {range: string}
+""".replace(b"SOURCE_ROOT", bundle.root.encode()))
+    extended = compile_data_operations(SourceBundle(unrelated.name, (*bundle.sources, unrelated)),
+                                       declarations=declarations, python_sources=sources)
+    assert extended.content != model.content
+    assert rich_eligibility_policy_digest(checked, extended) == expected
+
+    # This is an explicit, closed counterfactual source proposal. Both the
+    # captured module and its existing opaque asset carry the altered kernel;
+    # no free recipe ID or runtime/native execution is fabricated.
+    module = "corpus_structure.semantic.rich_rule_evaluation"
+    original = next(source for source in sources.sources if source.module == module)
+    content = original.content.replace(b"source condition remains uninterpreted: ", b"uninterpreted source condition: ", 1)
+    assert content != original.content
+    asset = sources.boundary_contracts[0]
+    body = json.loads(asset.content)
+    body["files"] = [(name, content.hex() if name == "semantic/rich_rule_evaluation.py" else value) for name, value in body["files"]]
+    changed_sources = replace(sources,
+        sources=tuple(replace(source, content=content) if source.module == module else source for source in sources.sources),
+        boundary_contracts=(SourceArtifact(asset.name, canonical_bytes(body)),))
+    changed = compile_data_operations(bundle, declarations=declarations, python_sources=changed_sources)
+    assert rich_eligibility_policy_digest(checked, changed) != expected
+    prior, inputs = retained_inputs(rules)
+    assert prior.eligibility_policy_digest == expected
+    with pytest.raises(RichRuleEvaluationRefused, match="different actual policy basis"):
+        evaluate((prepared, changed, profile, policy), inputs)

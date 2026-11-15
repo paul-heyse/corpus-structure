@@ -85,10 +85,15 @@ def require_rich_policy(prepared, model, value):
     return actual
 
 
-def rich_eligibility_policy_digest(checked_policy) -> str:
-    """Actual checked policy meaning, including its explicit consumed kind universe."""
+def rich_eligibility_policy_digest(checked_policy, model) -> str:
+    """Actual checked policy and the selected consolidation implementation recipe."""
     from .data_operation_identity import semantic_value
+    from .refusals import SemanticRefusal
 
-    return sha256(
-        canonical_bytes(semantic_value(checked_policy.model_dump(mode="python")))
-    ).hexdigest()
+    recipes = tuple(identity.key for identity in model.identities
+                    if identity.domain == "recipe" and identity.owner == "rich.consolidate")
+    if len(recipes) != 1 or not any(operation.semantic_id == "rich.consolidate" for operation in model.operations):
+        raise SemanticRefusal("rich eligibility requires its actual bound consolidation recipe")
+    return sha256(canonical_bytes(semantic_value({
+        "policy": checked_policy.model_dump(mode="python"), "recipe": recipes[0],
+    }))).hexdigest()
