@@ -280,3 +280,133 @@ def test_cancelled_target_demand_is_not_reported_as_revoked(declared_serving_cas
         row.state == "inapplicable" and row.reasons == ("target_demand_cancelled",)
         for row in report.items
     )
+
+
+def _executed_change_recipe():
+    from semantic.data_operation_declaration_support import source_declaration
+    from semantic.data_operation_kernel_support import EXECUTION
+
+    producer = source_declaration()
+    producer.update(
+        id="urn:change:producer", parameters={"value": {"value_type": "integer", "default": 7}}
+    )
+    producer["roles"][0].update(collection="scalar", maximum=1, kind="primitive:integer")
+    producer["capabilities"]["cancellation"] = "call-boundary"
+    consumer = source_declaration()
+    consumer.update(id="urn:change:consumer", dependencies=[producer["id"]])
+    consumer["roles"][0].update(collection="scalar", maximum=1, kind="primitive:integer")
+    consumer["roles"].insert(
+        0,
+        dict(
+            name="item",
+            parameter="item",
+            kind="primitive:integer",
+            direction="input",
+            minimum=1,
+            maximum=1,
+            collection="scalar",
+            presence="required",
+            support=dict(
+                provenance="value_substitution",
+                source="same-original",
+                coverage="selected-scope",
+                identity_requirements=[],
+            ),
+        ),
+    )
+    consumer["binding"] = dict(operator="scan", roles=["item"])
+    consumer["capabilities"]["cancellation"] = "call-boundary"
+    source = (
+        "def helper(value: int) -> int:\n    return value\n"
+        "def producer(*, value: int = 7) -> int:\n    return helper(value)\n"
+        f"producer__data_operation__ = {producer!r}\n"
+        "def consumer(item: int) -> int:\n    return item * 2\n"
+        f"consumer__data_operation__ = {consumer!r}\n"
+    ).encode()
+    return replace(
+        EXECUTION,
+        name="source-change-cutoff",
+        python_sources=(("ddo_execution_fixture", "ddo_execution_fixture.py", source),),
+    )
+
+
+@pytest.mark.parametrize("ddo_kernel", [_executed_change_recipe()], indirect=True)
+def test_changed_python_helper_executes_new_recipe_and_equal_output_cuts_off_consumer(
+    ddo_kernel, tmp_path
+):
+    from corpus_structure.semantic.change_impact import resume_changed_demand
+    from corpus_structure.semantic.data_operation_demands import (
+        DemandPlanner,
+        RootSubject,
+        freeze_demand,
+    )
+    from corpus_structure.semantic.data_operation_storage import DataOperationStorage
+    from semantic.data_operation_kernel_support import admit_kernel, prepare_kernel
+
+    old = ddo_kernel
+    module, filename, content = old.recipe.python_sources[0]
+    target_directory = tmp_path / "target"
+    target_directory.mkdir()
+    new_recipe = replace(
+        old.recipe,
+        name="source-change-cutoff-new",
+        project_id=None,
+        python_sources=(
+            (module, filename, content.replace(b"return value\n", b"return value + 0\n")),
+        ),
+    )
+    preparation = prepare_kernel(new_recipe, directory=target_directory)
+    with old.engine.begin() as connection:
+        target = admit_kernel(connection, new_recipe, preparation=preparation)
+
+    def register(kernel):
+        intent = freeze_demand(
+            kernel.model,
+            roots=(RootSubject("one", "source:one", b"{}"),),
+            targets=("urn:change:consumer",),
+            inference="exact-source-change",
+            execution_profile="execution:test",
+        )
+        with old.engine.begin() as connection:
+            return DemandPlanner(kernel.model, DataOperationStorage(connection)).register(
+                intent,
+                project="execution",
+                release=kernel.prepared.release_id,
+                runtime=kernel.runtime,
+            )["demand_id"]
+
+    original_demand = register(old)
+    first = resume_changed_demand(
+        old.engine,
+        original_demand,
+        project_id="execution",
+        source_root=old.preparation.directory,
+        database_capacity=6,
+    )
+    assert first.receipt_count == 2
+    target_demand = register(target)
+    request = ChangeImpactRequest(
+        project_id="execution",
+        before_demand_id=original_demand,
+        target_release_id=target.prepared.release_id,
+        target_demand_id=target_demand,
+    )
+    with old.engine.begin() as connection:
+        waiting = inspect_change_impact(connection, request, target_prepared=target.prepared)
+    assert any(row.state == "awaiting" for row in waiting.items)
+    assert changed_operations(old.model, target.model)[0] == {"urn:change:producer"}
+    changed = resume_changed_demand(
+        old.engine,
+        target_demand,
+        project_id="execution",
+        source_root=target_directory,
+        database_capacity=6,
+    )
+    assert changed.receipt_count == 1
+    with old.engine.begin() as connection:
+        final = inspect_change_impact(connection, request, target_prepared=target.prepared)
+    assert all(row.state == "substitutable" for row in final.items)
+    consumer = next(row for row in final.items if row.member.operation == "urn:change:consumer")
+    assert len(consumer.witnesses) == 1  # Original consumer episode is genuinely reused.
+    producer = next(row for row in final.items if row.member.operation == "urn:change:producer")
+    assert len(producer.witnesses) == 2  # New source execution, equal semantic output.
