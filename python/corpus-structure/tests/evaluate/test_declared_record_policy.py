@@ -14,55 +14,7 @@ from corpus_structure.semantic.declared_structural_references import DeclaredPro
 from semantic.record_policy_support import vector
 
 
-def source(index):
-    return DeclaredStructuralSource(
-        source=f'["source:{index}",null]', source_product=f"source:{index}",
-        subject=f"subject:{index}", subject_definition="subject-definition:original-section",
-        document=f"original:{index}", original_source=f"original:{index}",
-        projection_digest="a" * 64, section_pointer="#/groups/0", membership="descendants",
-        project_id="project:one", analyzed_scope_meaning='["null"]', kind_contract="kind:source",
-    )
-
-
-def address(selected, product):
-    return DeclaredProductRef(
-        product_id=product, member_id=None, kind_contract="kind:reading",
-        project_id=selected.project_id, subject=selected.subject,
-        subject_definition=selected.subject_definition, original_source=selected.original_source,
-        analyzed_scope_meaning=selected.analyzed_scope_meaning,
-    )
-
-
-def grade_frame(*, calibration=False):
-    first, empty = source(1), source(2)
-    reading = address(first, "product:reading")
-    passes = tuple(DdoRecordReferencePass(
-        reference=address(first, "reference:" + kind), pass_kind=kind, author="author:" + kind,
-        content_digest=content * 64, question_digest="e" * 64, rubric_digest="f" * 64,
-        source_cut_id="cut:source", adjudicates=("b" * 64, "c" * 64) if kind == "C" else (),
-    ) for kind, content in (("A", "b"), ("B", "c"), ("C", "d")))
-    event = DdoRecordGradeEvent(
-        record_id="record:0", interpretation_id="reading:0", reading=reading,
-        source=first, source_release_id="release:test", derivation_id="derivation:reading",
-        reading_recipe="resolve.m1_readings/declared", features=vector(0, -3), correct=False,
-        origin_group="origin:one", final_event=DdoRecordFinalEvent(
-            feature_instance_digest="1" * 64, feature_input_digest="a" * 64,
-            event_procedure="procedure:whole-reading", final_event_score=-123.5,
-        ) if calibration else None,
-    )
-    return DdoRecordGradeFrame(
-        partition="final_event_calibration" if calibration else "feature_fit",
-        project_id="project:one", family="table", family_contract="kind:table-reading",
-        reading_recipe="resolve.m1_readings/declared", subset="source-sections",
-        question_digest="e" * 64, rubric_digest="f" * 64, reference_digest="d" * 64,
-        source_cut_id="cut:source", prediction_cut_id="cut:prediction",
-        source_release_id="release:original", prediction_release_id="release:test",
-        sources=(first, empty), reference_passes=passes, events=(event,),
-        coverage=(DdoRecordCoverage(source=first, outputs=(reading,), outcome="completed", event_ids=("reading:0",)),
-                  DdoRecordCoverage(source=empty, outputs=(), outcome="no_output", event_ids=())),
-        origin_groups=(DdoRecordOrigin(source=first, origin_group="origin:one"),
-                       DdoRecordOrigin(source=empty, origin_group="origin:two")),
-    )
+from evaluate.declared_record_policy_support import source, address, grade_frame
 
 
 def validate_changes(frame, **changes):
@@ -86,7 +38,7 @@ def test_grade_preserves_low_scored_events_and_separate_no_output_coverage():
             DdoRecordGrade.model_validate({**grade.model_dump(mode="python"), **changes})
 
 
-@pytest.mark.parametrize("change", ["drop-source", "drop-event", "duplicate-event", "wrong-recipe", "wrong-release", "missing-origin", "unscored-calibration"])
+@pytest.mark.parametrize("change", ["drop-source", "drop-event", "duplicate-event", "wrong-recipe", "missing-origin", "unscored-calibration"])
 def test_frame_refuses_incomplete_or_relabelled_population(change):
     frame = grade_frame()
     changes = {
@@ -94,7 +46,6 @@ def test_frame_refuses_incomplete_or_relabelled_population(change):
         "drop-event": {"events": ()},
         "duplicate-event": {"events": frame.events * 2},
         "wrong-recipe": {"reading_recipe": "different-recipe"},
-        "wrong-release": {"prediction_release_id": "release:unrelated"},
         "missing-origin": {"origin_groups": frame.origin_groups[:1]},
         "unscored-calibration": {"partition": "final_event_calibration"},
     }[change]
@@ -104,14 +55,14 @@ def test_frame_refuses_incomplete_or_relabelled_population(change):
 
 def test_reference_question_and_independence_are_explicit():
     frame = grade_frame()
-    a, b, c = frame.reference_passes
+    a, b, c = frame.reference_passes[:3]
     for passes in (
         (a, a, c), (a, b.model_copy(update={"reference": a.reference}), c),
         (a, b, c.model_copy(update={"adjudicates": ("1" * 64, "2" * 64)})),
         (a, b.model_copy(update={"question_digest": "0" * 64}), c),
     ):
         with pytest.raises(ValueError):
-            validate_changes(frame, reference_passes=passes)
+            validate_changes(frame, reference_passes=(*passes, *frame.reference_passes[3:]))
     with pytest.raises(ValueError, match="exposed prediction"):
         DdoRecordReferencePass.model_validate({**a.model_dump(mode="python"), "exposed_outputs": (a.reference,)})
 
@@ -158,12 +109,14 @@ def training_grade(*, calibration=False, feature=None, held_out_from=()):
         coverage.append(DdoRecordCoverage(source=selected, outputs=(reading,), outcome="completed", event_ids=(features.interpretation_id,)))
         origins.append(DdoRecordOrigin(source=selected, origin_group=event.origin_group))
     if calibration:
-        a, b, c = base.reference_passes
+        a, b, c = base.reference_passes[:3]
         passes = (a.model_copy(update={"content_digest": "1" * 64}),
                   b.model_copy(update={"content_digest": "2" * 64}),
                   c.model_copy(update={"content_digest": "3" * 64, "adjudicates": ("1" * 64, "2" * 64)}))
     else:
-        passes = base.reference_passes
+        passes = base.reference_passes[:3]
+    passes = tuple(row.model_copy(update={"source": selected, "question_digest": f"{index+1:064x}"})
+                   for index, selected in enumerate(sources) for row in passes)
     return DdoRecordGrade.from_frame(validate_changes(
         base, sources=sources, events=tuple(events), coverage=tuple(coverage), origin_groups=tuple(origins),
         partition="final_event_calibration" if calibration else "feature_fit",
@@ -186,10 +139,15 @@ def fit_basis():
     assert feature is not None
     second = training_grade(calibration=True, feature=feature, held_out_from=(first.frame_digest,))
     specification = DdoRecordFitSpecification(
+        calibration_selection=DdoRecordGradeSelection(
+            project_id="project:one", demand_id="demand:calibration", read_id="read:calibration",
+            use_id="use:calibration", derivation_id="derivation:calibration", product_id="product:calibration",
+            expected_cut="cut:calibration", cut_canonical_json="retained calibration cut bytes", frame_digest=second.frame_digest,
+        ),
         feature_selection=DdoRecordGradeSelection(
             project_id="project:one", demand_id="demand:grade", read_id="read:grade",
             use_id="use:grade", derivation_id="derivation:grade", product_id="product:grade",
-            expected_cut="cut:grade", frame_digest=first.frame_digest,
+            expected_cut="cut:grade", cut_canonical_json="retained native cut bytes", frame_digest=first.frame_digest,
         ),
         frozen_feature=feature, applicability=DdoRecordPolicyApplicability(
             project_id="project:one", sources=(source(900),),

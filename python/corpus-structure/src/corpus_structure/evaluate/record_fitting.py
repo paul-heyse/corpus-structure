@@ -207,8 +207,8 @@ def fit_whole_reading_features(
     names = tuple(feature.name for feature in algorithm.features)
     for observation in observations:
         vector = observation.features
-        if (vector.release_id, vector.family) != (applicability.release_id, applicability.family):
-            raise ValueError("training reading is outside declared release/family applicability")
+        if vector.family != applicability.family:
+            raise ValueError("training reading is outside declared family applicability")
         if vector.names != names or vector.feature_signature != algorithm.feature_signature:
             raise ValueError("training feature signature/order differs from released algorithm")
         if observation.label.event_id != vector.interpretation_id:

@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from hashlib import sha256
-from typing import Annotated, Literal, Self
+from typing import Annotated, Any, Literal, Self
 
 from pydantic import Field, FiniteFloat, model_validator
 
@@ -39,6 +39,7 @@ class DdoRecordReferencePass(FrozenContract):
     """
 
     reference: DeclaredProductRef
+    source: DeclaredStructuralSource
     pass_kind: Literal["A", "B", "C"]
     author: Nonempty
     content_digest: Digest
@@ -122,6 +123,8 @@ class DdoRecordCoverage(FrozenContract):
     outputs: tuple[DeclaredProductRef, ...]
     outcome: Literal["completed", "no_output", "failed"]
     event_ids: tuple[Nonempty, ...]
+    failure_request_id: Nonempty | None = None
+    failure_use_id: Nonempty | None = None
 
     @model_validator(mode="after")
     def exact_opportunity(self) -> Self:
@@ -130,8 +133,8 @@ class DdoRecordCoverage(FrozenContract):
             raise ValueError("record coverage repeats an output or eligible event")
         if self.outcome != "completed" and self.event_ids:
             raise ValueError("no-output or failed coverage cannot manufacture scored events")
-        if self.outcome == "no_output" and self.outputs:
-            raise ValueError("no-output coverage cannot contain a prediction product")
+        if (self.outcome == "failed") != (self.failure_request_id is not None and self.failure_use_id is not None):
+            raise ValueError("failed source coverage requires its actual native request and selected use")
         return self
 
 
@@ -150,7 +153,7 @@ class DdoRecordGradeFrame(FrozenContract):
     source_release_id: Nonempty
     prediction_release_id: Nonempty
     sources: Annotated[tuple[DeclaredStructuralSource, ...], Field(min_length=1)]
-    reference_passes: tuple[DdoRecordReferencePass, DdoRecordReferencePass, DdoRecordReferencePass]
+    reference_passes: Annotated[tuple[DdoRecordReferencePass, ...], Field(min_length=3)]
     events: tuple[DdoRecordGradeEvent, ...]
     coverage: Annotated[tuple[DdoRecordCoverage, ...], Field(min_length=1)]
     origin_groups: Annotated[tuple[DdoRecordOrigin, ...], Field(min_length=1)]
@@ -161,18 +164,26 @@ class DdoRecordGradeFrame(FrozenContract):
         sources = {row.identity: row for row in self.sources}
         if len(sources) != len(self.sources) or any(row.project_id != self.project_id for row in self.sources):
             raise ValueError("grade requires unique sources in its exact project")
-        passes = {row.pass_kind: row for row in self.reference_passes}
-        if len(passes) != 3 or set(passes) != {"A", "B", "C"}:
-            raise ValueError("grade requires exact independent A/B and C adjudication")
-        pass_addresses = {(row.reference.product_id, row.reference.member_id) for row in self.reference_passes}
-        if len(pass_addresses) != 3:
-            raise ValueError("A/B/C references require distinct retained pass identities")
-        if set(passes["C"].adjudicates) != {passes["A"].content_digest, passes["B"].content_digest}:
-            raise ValueError("C does not adjudicate the exact retained A/B answers")
-        if any((row.question_digest, row.rubric_digest, row.source_cut_id, row.reference.project_id) != (
-            self.question_digest, self.rubric_digest, self.source_cut_id, self.project_id,
-        ) for row in self.reference_passes):
-            raise ValueError("reference passes differ from the frozen question, rubric or source cut")
+        groups = {}
+        for row in self.reference_passes:
+            groups.setdefault(row.question_digest, []).append(row)
+        question_sources = []
+        for rows in groups.values():
+            passes = {row.pass_kind: row for row in rows}
+            if len(rows) != 3 or set(passes) != {"A", "B", "C"}:
+                raise ValueError("grade requires exact independent A/B and C adjudication for every question")
+            if len({(row.reference.product_id, row.reference.member_id) for row in rows}) != 3:
+                raise ValueError("A/B/C references require distinct retained pass identities")
+            if set(passes["C"].adjudicates) != {passes["A"].content_digest, passes["B"].content_digest}:
+                raise ValueError("C does not adjudicate the exact retained A/B answers")
+            source = passes["C"].source
+            if any((row.rubric_digest, row.source_cut_id, row.reference.project_id, row.source) != (
+                self.rubric_digest, self.source_cut_id, self.project_id, source,
+            ) for row in rows):
+                raise ValueError("reference passes differ from the frozen rubric, source or cut")
+            question_sources.append(source)
+        if tuple(question_sources) != self.sources:
+            raise ValueError("reference questions differ from the exact ordered source population")
         coverage = {row.source.identity: row for row in self.coverage}
         origins = {row.source.identity: row for row in self.origin_groups}
         if (len(coverage) != len(self.coverage) or len(origins) != len(self.origin_groups)
@@ -187,8 +198,8 @@ class DdoRecordGradeFrame(FrozenContract):
             if (source not in sources or row.interpretation_id not in coverage[source].event_ids
                     or row.reading not in coverage[source].outputs
                     or row.origin_group != origins[source].origin_group
-                    or (row.features.family, row.source_release_id, row.reading_recipe) != (
-                        self.family, self.prediction_release_id, self.reading_recipe)):
+                    or (row.features.family, row.reading_recipe) != (
+                        self.family, self.reading_recipe)):
                 raise ValueError("grade event differs from actual source, output, origin or producer context")
             if self.partition == "final_event_calibration" and row.final_event is None:
                 raise ValueError("calibration grade requires every eligible completed final event")
@@ -211,9 +222,156 @@ class DdoRecordGrade(FrozenContract):
         return self
 
     @classmethod
+    def from_selected_body(cls, body: dict) -> Self:
+        """Check an exact tagged selected-body projection against captured frame text.
+
+        This path requires preserved semantic number meaning. The separate native
+        fitter wrapper owns restoration of its lossy JSONB projection after native
+        authentication; that value must not pass through this stricter path.
+        """
+        from corpus_structure.semantic.data_operation_identity import semantic_value
+
+        frame = DdoRecordGradeFrame.model_validate_json(body["frame_canonical_json"])
+        original = frame.model_dump(mode="json")
+        if semantic_value(original) != semantic_value(body["frame"]):
+            raise ValueError("projected grade frame differs from authenticated captured frame meaning")
+        return cls.model_validate_json(canonical_bytes({**body, "frame": original}))
+
+    @classmethod
     def from_frame(cls, frame: DdoRecordGradeFrame) -> Self:
         content = canonical_bytes(frame.model_dump(mode="json"))
         return cls(frame=frame, frame_canonical_json=content.decode(), frame_digest=sha256(content).hexdigest())
+
+
+def _canonical_json_value(content: str):
+    import json
+
+    value = json.loads(content)
+    if canonical_bytes(value).decode() != content:
+        raise ValueError("protected record payload must retain its exact canonical JSON")
+    return value
+
+
+class DdoRecordReferenceQuestion(FrozenContract):
+    """Source-only frozen source, region, coordinate and rubric before predictions."""
+
+    project_id: Nonempty
+    partition: Partition
+    family: Family
+    family_contract: Nonempty
+    reading_recipe: Nonempty
+    subset: Nonempty
+    source: DeclaredStructuralSource
+    source_release_id: Nonempty
+    source_cut_id: Nonempty
+    source_cut_canonical_json: Nonempty
+    frame_canonical_json: Nonempty
+    coordinate_texts_canonical_json: Nonempty
+    rubric: Nonempty
+    origin_group: Nonempty
+    copied_from: tuple[DeclaredStructuralSource, ...] = ()
+    held_out_from: tuple[Digest, ...] = ()
+    sample_weight: Annotated[FiniteFloat, Field(gt=0)] = 1.0
+
+    @property
+    def rubric_digest(self) -> str:
+        return sha256(canonical_bytes(self.rubric)).hexdigest()
+
+    @model_validator(mode="after")
+    def frozen_source_question(self) -> Self:
+        from corpus_structure.semantic.demand_results import CutSelection
+
+        cut = CutSelection(self.source_cut_canonical_json.encode())
+        if (cut.identity, cut.record["project_id"], cut.record["release_id"]) != (
+            self.source_cut_id, self.project_id, self.source_release_id,
+        ) or self.source.project_id != self.project_id:
+            raise ValueError("record question differs from its exact acquired original source cut")
+        frame = _canonical_json_value(self.frame_canonical_json)
+        coordinates = _canonical_json_value(self.coordinate_texts_canonical_json)
+        if not isinstance(frame, dict) or not isinstance(coordinates, list):
+            raise ValueError("record question requires its complete source frame and coordinate list")
+        pin = self.source.model_dump(mode="json", exclude_none=True)
+        if frame.get("pin") != pin or frame.get("release_id") != self.source_release_id:
+            raise ValueError("record question frame differs from its actual original source")
+        for related in frame.get("related_pins", ()):
+            DeclaredStructuralSource.model_validate(related)
+        if len(set(self.held_out_from)) != len(self.held_out_from):
+            raise ValueError("record question repeats a held-out frame identity")
+        return self
+
+
+class DdoRecordReference(FrozenContract):
+    version: Literal["source-only-record-reference-1"] = "source-only-record-reference-1"
+    question: DdoRecordReferenceQuestion
+    pass_kind: Literal["A", "B", "C"]
+    author: Nonempty
+    records_canonical_json: Nonempty
+    exposed_outputs: tuple[DeclaredProductRef, ...] = ()
+    adjudicates: tuple[Digest, ...] = ()
+
+    @model_validator(mode="after")
+    def source_only_reading(self) -> Self:
+        rows = _canonical_json_value(self.records_canonical_json)
+        if not isinstance(rows, list) or any(not isinstance(row, dict) for row in rows):
+            raise ValueError("record reference requires the exact complete independently authored record sequence")
+        if self.exposed_outputs:
+            raise ValueError("source-only record references cannot expose prediction outputs")
+        if self.pass_kind in {"A", "B"} and self.adjudicates:
+            raise ValueError("independent A/B pass cannot adjudicate another answer")
+        if self.pass_kind == "C" and (len(self.adjudicates) != 2 or len(set(self.adjudicates)) != 2):
+            raise ValueError("C requires its exact two independent retained answer digests")
+        return self
+
+
+class DdoRecordReferencePopulation(FrozenContract):
+    """One genuine independently retained A/B/C pass over a frozen ordered population."""
+
+    version: Literal["source-only-record-reference-population-1"] = "source-only-record-reference-population-1"
+    pass_kind: Literal["A", "B", "C"]
+    references: Annotated[tuple[DdoRecordReference, ...], Field(min_length=1)]
+
+    @model_validator(mode="after")
+    def exact_ordered_population(self) -> Self:
+        first = self.references[0].question
+        sources = [row.question.source.identity for row in self.references]
+        if len(set(sources)) != len(sources) or any(row.pass_kind != self.pass_kind for row in self.references):
+            raise ValueError("record reference pass requires its unique ordered source population")
+        expected = (first.project_id, first.partition, first.family, first.family_contract,
+                    first.reading_recipe, first.subset, first.source_cut_id, first.source_release_id, first.rubric)
+        for row in self.references:
+            question = row.question
+            if (question.project_id, question.partition, question.family, question.family_contract,
+                    question.reading_recipe, question.subset, question.source_cut_id, question.source_release_id, question.rubric) != expected:
+                raise ValueError("record reference population changes its frozen family, source cut or rubric")
+        return self
+
+
+class DdoRecordPredictionSelection(FrozenContract):
+    source: DeclaredStructuralSource
+    outcome: Literal["completed", "no_output", "failed"]
+    request_id: Nonempty
+    obligation_id: Nonempty
+    derivation_id: Nonempty | None = None
+    use_id: Nonempty
+    project_id: Nonempty
+    demand_id: Nonempty
+    read_id: Nonempty
+    product_id: Nonempty | None = None
+    expected_cut: Nonempty
+    cut_canonical_json: Nonempty
+
+    @model_validator(mode="after")
+    def exact_outcome(self) -> Self:
+        if self.outcome == "completed" and (self.product_id is None or self.derivation_id is None):
+            raise ValueError("completed prediction requires its actual product and producing episode")
+        if self.outcome != "completed" and self.product_id is not None:
+            raise ValueError("absent/failed prediction cannot invent an output product")
+        return self
+
+
+class DdoRecordGradeSpecification(FrozenContract):
+    prediction_selections: Annotated[tuple[DdoRecordPredictionSelection, ...], Field(min_length=1)]
+    algorithm: RecordAlgorithm
 
 
 class DdoRecordGradeSelection(FrozenContract):
@@ -226,10 +384,18 @@ class DdoRecordGradeSelection(FrozenContract):
     derivation_id: Nonempty
     product_id: Nonempty
     expected_cut: Nonempty
+    cut_canonical_json: Nonempty
     frame_digest: Digest
 
 
+class DdoRecordFeatureFitRequest(FrozenContract):
+    selection: DdoRecordGradeSelection
+    algorithm: RecordAlgorithm
+    assumptions: Nonempty
+
+
 class DdoRecordFitSpecification(FrozenContract):
+    calibration_selection: DdoRecordGradeSelection
     feature_selection: DdoRecordGradeSelection
     frozen_feature: FeatureInstance
     applicability: DdoRecordPolicyApplicability
@@ -288,7 +454,15 @@ def reacquire_record_feature_grade(connection, selection: DdoRecordGradeSelectio
     """Use the actual restricted native fitter capability; never a general read fallback."""
     from corpus_structure.semantic.record_policy_native import read_record_feature_fit_frame
 
-    result = read_record_feature_fit_frame(connection, **selection.model_dump(mode="python"))
+    from corpus_structure.semantic.demand_results import CutSelection
+
+    cut = CutSelection(selection.cut_canonical_json.encode())
+    if (cut.identity, cut.record["project_id"], cut.record["demand_id"], cut.record["read_id"]) != (
+        selection.expected_cut, selection.project_id, selection.demand_id, selection.read_id,
+    ):
+        raise ValueError("fitter selection differs from the original acquired cut bytes")
+    values = selection.model_dump(mode="python", exclude={"cut_canonical_json"})
+    result = read_record_feature_fit_frame(connection, cut=cut, **values)
     if (result["product_id"], result["derivation_id"]) != (selection.product_id, selection.derivation_id):
         raise ValueError("native fitter result differs from selected grade product or derivation")
     grade = DdoRecordGrade.model_validate_json(canonical_bytes(result["frame"]))
@@ -400,6 +574,9 @@ class DdoProtectedRecordPolicyContracts(FrozenContract):
     grade: DdoRecordGrade
     fitted: DdoFittedRecordPolicy
     specification: DdoRecordFitSpecification
+    reference: DdoRecordReferencePopulation
+    grading: DdoRecordGradeSpecification
+    preliminary: DdoRecordFeatureFitRequest
 
 
 def protected_record_policy_kind_declarations():
@@ -414,3 +591,720 @@ def protected_record_policy_kind_declarations():
             namespace=PROTECTED_NAMESPACE, root_name="DdoProtectedRecordPolicyContracts",
         )],
     }))
+
+
+def execute_fit_profile(receiver, feature_grade, calibration_grade, specification):
+    result = fit_declared_record_policy(
+        DdoRecordGrade.model_validate_json(canonical_bytes(feature_grade)),
+        DdoRecordGrade.model_validate_json(canonical_bytes(calibration_grade)),
+        DdoRecordFitSpecification.model_validate_json(canonical_bytes(specification)),
+    )
+    if result.fitted is None:
+        raise ValueError("provisional numerical fit cannot produce a fitted policy")
+    return result.fitted.model_dump(mode="json")
+
+
+def execute_fit_kernel(feature_grade: dict, calibration_grade: dict, specification: dict, *, check_active) -> dict:
+    check_active()
+    result = fit_declared_record_policy(
+        DdoRecordGrade.model_validate_json(canonical_bytes(feature_grade)),
+        DdoRecordGrade.model_validate_json(canonical_bytes(calibration_grade)),
+        DdoRecordFitSpecification.model_validate_json(canonical_bytes(specification)),
+    )
+    check_active()
+    return {"fitted": result.fitted.model_dump(mode="json") if result.fitted else None,
+            "diagnostics": [row.model_dump(mode="json") for row in result.diagnostics]}
+
+
+def _bound_scalar(binding, role):
+    if binding is None or not binding.sufficient or binding.subject_context is None:
+        raise ValueError("record-policy computation requires its sufficient exact native binding")
+    selected = [value for value in binding.roles if value.role == role and value.state == "present"]
+    if len(selected) != 1 or len(selected[0].members) != 1:
+        raise ValueError("record-policy computation requires one exact scalar input")
+    member = selected[0].members[0]
+    if member.multiplicity != 1 or member.member is not None:
+        raise ValueError("record-policy grade requires its whole original protected product")
+    return member
+
+
+@dataclass
+class RecordPolicyFitPlan:
+    port: Any = None
+
+    def plan(self, arguments, *, binding, check_active, execution_owner):
+        import inspect
+        import json
+        from corpus_structure.semantic.data_operation_prepared_call import PreparedCallResult
+        from corpus_structure.semantic.data_operation_support import ComputationalSupportReference
+
+        check_active()
+        if execution_owner.fitter_engine is None:
+            raise ValueError("record-policy fitting requires its separately acquired fitter engine")
+        feature_member = _bound_scalar(binding, "feature_grade")
+        calibration_member = _bound_scalar(binding, "calibration_grade")
+        specification = DdoRecordFitSpecification.model_validate_json(canonical_bytes(arguments.arguments["specification"]))
+        selection = specification.feature_selection
+        if (selection.project_id != binding.subject_context.project_id
+                or selection.product_id != feature_member.product
+                or not any(isinstance(ref, ComputationalSupportReference)
+                           and (ref.derivation_id, ref.admission_use_id) == (selection.derivation_id, selection.use_id)
+                           for ref in feature_member.support_references)
+                or not calibration_member.support_episodes
+                or specification.calibration_selection.product_id != calibration_member.product
+                or specification.calibration_selection.derivation_id not in calibration_member.support_episodes):
+            raise ValueError("fitting selection differs from actual protected grade support")
+        with execution_owner.fitter_engine.begin() as connection:
+            grade = reacquire_record_feature_grade(connection, selection)
+        if canonical_bytes(grade.model_dump(mode="json")) != canonical_bytes(arguments.arguments["feature_grade"]):
+            raise ValueError("restricted fitter grade differs from the actual selected input body")
+        with execution_owner.engine.begin() as connection:
+            calibration = reacquire_selected_record_grade(connection, specification.calibration_selection)
+        if canonical_bytes(calibration.model_dump(mode="json")) != canonical_bytes(arguments.arguments["calibration_grade"]):
+            raise ValueError("evaluator calibration grade differs from its actual selected input body")
+        signature = inspect.signature(execute_fit_kernel, eval_str=True)
+        bound = signature.bind(
+            feature_grade=grade.model_dump(mode="json"), calibration_grade=arguments.arguments["calibration_grade"],
+            specification=specification.model_dump(mode="json"), check_active=check_active,
+        )
+        reply = yield from self.port.plan_cpu_reply(
+            execute_fit_kernel, bound, record_policy_operation_sources(),
+            execution_owner=execution_owner, check_active=check_active,
+        )
+        result = json.loads(reply.content)
+        evidence = canonical_bytes(reply.execution_receipt.record())
+        if result["fitted"] is None:
+            return PreparedCallResult(None, cpu_execution_evidence=evidence, outcome="empty")
+        return PreparedCallResult(result["fitted"], cpu_execution_evidence=evidence)
+
+
+def record_policy_inputs(bundle):
+    """Current source-only question extents, without the retired evaluator model."""
+    from pathlib import Path
+    import yaml
+    from corpus_structure.semantic.reading_resolution_products import reading_resolution_inputs
+    from corpus_structure.semantic.types import SourceArtifact, SourceBundle
+
+    bundle = reading_resolution_inputs(bundle)
+    name, root = "data_operation_record_policy_scope", "data_operation_record_policy_scope_root"
+    content = (Path(__file__).parents[1] / "model/semantic/data-operation-record-policy.yaml").read_bytes()
+    existing = {source.name: source.content for source in bundle.sources}
+    if name in existing:
+        if existing[name] != content:
+            raise ValueError("record policy source scope differs from its acquired current owner")
+        return bundle
+    if root in existing:
+        raise ValueError("record policy source scope uses its reserved root")
+    return SourceBundle(root, (*bundle.sources, SourceArtifact(name, content), SourceArtifact(root, yaml.safe_dump({
+        "id": "urn:corpus:record-policy-scope-root", "name": root, "imports": [bundle.root, name],
+    }).encode())))
+
+
+def record_policy_computation_assets():
+    from pathlib import Path
+    from corpus_structure.semantic.python_module_projection import admitted_operation_module_meaning
+    from corpus_structure.semantic.record_policy import READING_NUMERICS
+    from corpus_structure.semantic.types import SourceArtifact
+
+    root = Path(__file__).parents[1]
+    paths = (
+        "methods/declared_record_policy.py", "evaluate/declared_record_policy.py",
+        "evaluate/record_alignment.py", "evaluate/record_fitting.py",
+        "semantic/record_policy.py", "semantic/record_contracts.py",
+        "semantic/record_policy_authority.py", "semantic/declared_structural_references.py",
+        "semantic/data_operation_prepared_call.py",
+    )
+    return SourceArtifact("record-policy/computation-assets", canonical_bytes({
+        "version": "declared-complete-record-policy-1",
+        "scope_schema": (root / "model/semantic/data-operation-record-policy.yaml").read_bytes().hex(),
+        "numerical_policy": READING_NUMERICS.model_dump(mode="json"),
+        "protected_schema": DdoProtectedRecordPolicyContracts.model_json_schema(),
+        "files": [(name, admitted_operation_module_meaning((root / name).read_bytes()).hex()) for name in paths],
+    }))
+
+
+def record_policy_operation_sources():
+    from pathlib import Path
+    from corpus_structure.semantic.python_operation_sources import PythonSource, PythonSourceCollection
+
+    root = Path(__file__).parents[1]
+    paths = ("methods/declared_record_policy.py", "evaluate/declared_record_policy.py")
+    return PythonSourceCollection(tuple(PythonSource(
+        "corpus_structure." + name.removesuffix(".py").replace("/", "."),
+        (root / name).read_bytes(), str((root / name).resolve()),
+    ) for name in paths), boundary_contracts=(record_policy_computation_assets(),))
+
+
+def acquire_fit_port(prepared, model, operation, *, identity, authorize, custody, sources):
+    from corpus_structure.methods.declared_record_policy import RecordPolicyFit
+    from corpus_structure.semantic.data_operation_ports import PortRefusal
+    from corpus_structure.semantic.data_operation_prepared_call import PreparedOriginalCallPort
+
+    selected = model.operation(operation)
+    if (selected.semantic_id != "record_policy.fit" or selected.effects
+            or selected.capabilities.prepared_factory is None
+            or selected.capabilities.prepared_factory.entrypoint != "corpus_structure.methods.declared_record_policy.RecordPolicyFit.acquire_port"):
+        raise PortRefusal("record-policy fit requires its exact pure derivation and factory")
+    receiver = RecordPolicyFit()
+    plan = RecordPolicyFitPlan()
+    port = PreparedOriginalCallPort(
+        identity, model, selected, sources, custody, receiver.run, plan.plan,
+        "corpus_structure.evaluate.declared_record_policy.RecordPolicyFitPlan.plan",
+        authorize, (record_policy_computation_assets(),), record_policy_operation_sources(),
+        functions=(("corpus_structure.evaluate.declared_record_policy.execute_fit_kernel", execute_fit_kernel),),
+    )
+    plan.port = port
+    return port
+
+
+def _record_frame(content):
+    from .record_alignment import RecordEvaluationFrame
+
+    value = _canonical_json_value(content)
+    return RecordEvaluationFrame(**{
+        **value, "anchor_ids": frozenset(value["anchor_ids"]),
+        "related_pins": tuple(value.get("related_pins", ())),
+        "anchor_scopes": tuple(value.get("anchor_scopes", ())),
+    })
+
+
+def grade_complete_record_values(
+    references: tuple[DdoRecordReference, DdoRecordReference, DdoRecordReference],
+    predictions: dict | None, specification: DdoRecordGradeSpecification, *,
+    reference_prepared, prediction_prepared, reference_model, prediction_model, reference_addresses: tuple[DeclaredProductRef, ...],
+    prediction_address: DeclaredProductRef | None, prediction_derivation: str | None, prediction_recipe: str,
+    prediction_outcome: Literal["completed", "no_output", "failed"] = "completed",
+    failure_request_id: str | None = None, failure_use_id: str | None = None,
+    check_active=lambda: None,
+) -> DdoRecordGrade:
+    """Pure complete-family grading after actual selections/source custody are acquired.
+
+    Reference and prediction domain schemas and original identities remain separate.
+    This function produces no native authority and never treats selected-case field
+    equality as full-reading correctness. No-output opportunities remain in coverage.
+    """
+    import json
+    from dataclasses import replace
+    from corpus_structure.semantic.declared_candidate_products import candidate_member_values
+    from corpus_structure.semantic.reading_resolution_products import reading_diagnostics, resolved_reading_events
+    from corpus_structure.semantic.record_contracts import record_family_contract
+    from corpus_structure.semantic.record_policy import derive_record_features
+    from .record_alignment import RecordSide, align_records, whole_reading_correct
+
+    check_active()
+    if len(reference_addresses) != 3:
+        raise ValueError("record grade requires three exact independently retained pass addresses")
+    passes = {row.pass_kind: (row, address) for row, address in zip(references, reference_addresses, strict=True)}
+    if set(passes) != {"A", "B", "C"}:
+        raise ValueError("record grading requires independent A/B and C adjudication")
+    question = passes["C"][0].question
+    if any(row.question != question for row in references):
+        raise ValueError("record references differ from the same frozen source-only question")
+    if (question.source_release_id != reference_prepared.release_id
+            or prediction_recipe != question.reading_recipe
+            or specification.prediction_selections[0].project_id != question.project_id):
+        raise ValueError("record grade differs from actual source release, project or producing reading recipe")
+    if set(passes["C"][0].adjudicates) != {passes["A"][0].digest, passes["B"][0].digest}:
+        raise ValueError("adjudication does not retain the actual independent A/B answers")
+    reference_frame = _record_frame(question.frame_canonical_json)
+    coordinates = tuple(_canonical_json_value(question.coordinate_texts_canonical_json))
+    reference_rows = {}
+    for kind, (reference, _) in passes.items():
+        rows = tuple(reference_prepared.validate_json("SourceRecord", canonical_bytes(row)).model_dump(mode="python", exclude_unset=True)
+                     for row in _canonical_json_value(reference.records_canonical_json))
+        if any(row["family"] != question.family for row in rows):
+            raise ValueError("independent reference contains a record outside its declared family")
+        comparison = replace(reference_frame, prediction_policy_version=reference_frame.reference_policy_version)
+        align_records(RecordSide(comparison, rows), RecordSide(comparison, rows), reference_prepared, coordinate_texts=coordinates)
+        reference_rows[kind] = rows
+    if predictions is not None and predictions["source_pin"] != question.source.model_dump(mode="json", exclude_none=True):
+        raise ValueError("prediction source differs from the original frozen source-only question")
+    if predictions is not None and predictions["inspection_outcome"] not in {"produced", "empty"}:
+        raise ValueError("record grade requires its complete completed prediction carrier")
+    candidates = tuple(prediction_prepared.validate_json("SourceRecord", canonical_bytes(row)).model_dump(mode="python", exclude_unset=True)
+                       for row in candidate_member_values(predictions, candidate_type="record") if row["family"] == question.family) if predictions is not None else ()
+    for actual_model, rows in ((reference_model, reference_rows["C"]), (prediction_model, candidates)):
+        for row in rows:
+            if record_family_contract(actual_model, row["contract"]) != question.family_contract:
+                raise ValueError("record family semantics differ from the frozen consumed contract")
+    prediction_frame = replace(reference_frame, release_id=prediction_prepared.release_id)
+    pins = (reference_frame.pin, *reference_frame.related_pins)
+    correspondence = tuple({"reference_pin": pin, "prediction_pin": pin, "physical_digest": pin["projection_digest"]} for pin in pins)
+    if predictions is None and prediction_outcome == "completed":
+        raise ValueError("completed source grading requires its actual prediction carrier")
+    details = json.loads(predictions["diagnostics_json"]) if predictions is not None else {}
+    sealed = resolved_reading_events(predictions) if predictions is not None else ()
+    events = []
+    for row in candidates:
+        check_active()
+        if prediction_address is None or prediction_derivation is None:
+            raise ValueError("scored record requires its actual prediction carrier and producing episode")
+        correct = whole_reading_correct(
+            prediction_prepared, row, reference_rows["C"], reference_frame,
+            coordinate_texts=coordinates, reference_prepared=reference_prepared,
+            prediction_frame=prediction_frame, prediction_coordinate_texts=predictions["coordinate_texts"],
+            correspondence=correspondence,
+        )
+        diagnostics = reading_diagnostics(row, details.get("producer_diagnostics", details))
+        selected = [event for event in sealed if (event["record_id"], event["interpretation_id"]) == (row["record_id"], row["interpretation_id"])]
+        final_event = None
+        if len(selected) != 1:
+            raise ValueError("record grade requires every candidate's unique retained producer event")
+        retained = selected[0]
+        if retained["outcome"] == "completed":
+            diagnostics = retained.get("feature_diagnostics", retained["diagnostics"])
+        features = derive_record_features(prediction_prepared, row, algorithm=specification.algorithm, diagnostics=diagnostics)
+        if retained["outcome"] == "completed":
+            final_event = DdoRecordFinalEvent(
+                feature_instance_digest=retained["feature_instance_digest"], feature_input_digest=retained["feature_input_digest"],
+                event_procedure=retained["event_procedure"], final_event_score=retained["final_event_score"],
+            )
+        events.append(DdoRecordGradeEvent(
+            record_id=row["record_id"], interpretation_id=row["interpretation_id"], reading=prediction_address,
+            source=question.source, source_release_id=prediction_prepared.release_id,
+            derivation_id=prediction_derivation, reading_recipe=prediction_recipe, features=features,
+            correct=correct, origin_group=question.origin_group, sample_weight=question.sample_weight, final_event=final_event,
+        ))
+    metadata = tuple(DdoRecordReferencePass(
+        reference=address, source=question.source, pass_kind=row.pass_kind, author=row.author, content_digest=row.digest,
+        question_digest=question.digest, rubric_digest=question.rubric_digest, source_cut_id=question.source_cut_id,
+        adjudicates=row.adjudicates,
+    ) for row, address in zip(references, reference_addresses, strict=True))
+    return DdoRecordGrade.from_frame(DdoRecordGradeFrame(
+        partition=question.partition, project_id=question.project_id, family=question.family,
+        family_contract=question.family_contract, reading_recipe=question.reading_recipe, subset=question.subset,
+        question_digest=question.digest, rubric_digest=question.rubric_digest, reference_digest=passes["C"][0].digest,
+        source_cut_id=question.source_cut_id, prediction_cut_id=specification.prediction_selections[0].expected_cut,
+        source_release_id=reference_prepared.release_id, prediction_release_id=prediction_prepared.release_id,
+        sources=(question.source,), reference_passes=metadata, events=tuple(events),
+        coverage=(DdoRecordCoverage(source=question.source, outputs=(prediction_address,) if prediction_address is not None else (),
+                                    outcome=("completed" if events else "no_output") if predictions is not None else prediction_outcome,
+                                    event_ids=tuple(row.interpretation_id for row in events),
+                                    failure_request_id=failure_request_id, failure_use_id=failure_use_id),),
+        origin_groups=(DdoRecordOrigin(source=question.source, origin_group=question.origin_group, copied_from=question.copied_from),),
+        held_out_from=question.held_out_from,
+    ))
+
+
+def _selected_body(index, product, member=None):
+    from corpus_structure.semantic.data_operation_identity import decode_semantic_value
+
+    row = (index.mapping("kb.data_product", ("id",)).get(product) if member is None else
+           index.mapping("kb.data_product_member", ("product_id", "member_id")).get((product, member)))
+    if row is None:
+        raise ValueError("record-policy input is outside the exact selected native closure")
+    return row, decode_semantic_value(row["canonical_body" if member is None else "body"])
+
+
+def _check_source_coordinates(prepared, source_values, coordinates, anchors=()):
+    """Authenticate actual retained native coordinates, refusing missing recognition custody."""
+    import re
+    from corpus_structure.semantic.source_products import FrozenNativeSource
+
+    sources = {canonical_bytes(pin): FrozenNativeSource.acquire(prepared, body).value for pin, body in source_values}
+    for coordinate in coordinates:
+        value = sources.get(canonical_bytes(coordinate["pin"]))
+        if value is None:
+            raise ValueError("record coordinate is outside the frozen original source closure")
+        space, pointer = coordinate["space"], coordinate["pointer"]
+        if space == "captured_recognition":
+            raise ValueError("captured recognition grading requires its separately admitted observation product")
+        nodes = {row["self_ref"]: row for row in (*value["items"], *value.get("ancestors", ()))}
+        cell = re.fullmatch(r"(#/tables/(?:0|[1-9][0-9]*))/data/table_cells/(0|[1-9][0-9]*)", pointer)
+        node = nodes.get(cell[1] if cell else pointer)
+        if node is None:
+            raise ValueError("record coordinate names an item outside the selected native source")
+        if cell:
+            cells = node.get("data", {}).get("table_cells", ())
+            if int(cell[2]) >= len(cells):
+                raise ValueError("record coordinate cell is outside the selected native table")
+            node = cells[int(cell[2])]
+        if space == "selected_projection":
+            actual = value["text"]
+        elif space in {"native", "recognized_text"}:
+            actual = node.get("text")
+        else:
+            raise ValueError("model context cannot authenticate record grading evidence")
+        if coordinate["text"] != actual:
+            raise ValueError("record coordinate text differs from actual retained source bytes")
+    for anchor in anchors:
+        if anchor["space"] == "captured_recognition":
+            raise ValueError("captured recognition grading requires its separately admitted observation product")
+        if anchor["space"] != "selected_projection" or anchor["precision"] != "exact":
+            continue
+        value = sources.get(canonical_bytes(anchor["pin"]))
+        if value is None or not any(
+            piece["kind"] == "native_text" and piece.get("item_ref") == anchor["pointer"]
+            and piece["start"] <= anchor["start"] < anchor["end"] <= piece["end"]
+            for piece in value["pieces"]
+        ):
+            raise ValueError("selected projection grading extent crosses synthetic or another source item")
+
+
+def _authenticate_question_sources(connection, prepared, questions):
+    from corpus_structure.semantic.data_operation_json import json_bytes
+    from corpus_structure.semantic.data_operation_model import json_context_meaning
+    from corpus_structure.semantic.demand_results import CutSelection, selected_record_index
+
+    cut = CutSelection(questions[0].source_cut_canonical_json.encode())
+    if any(question.source_cut_canonical_json.encode() != cut.content for question in questions):
+        raise ValueError("record source population changes its exact frozen native source cut")
+    by_pin, question_pins = {}, []
+    with selected_record_index(connection, cut.record["demand_id"], project_id=questions[0].project_id,
+                               scope=cut.record["scope"], read_id=cut.record["read_id"], expected_cut=cut.identity) as (_, index):
+        for question in questions:
+            frame = _record_frame(question.frame_canonical_json)
+            pins = (frame.pin, *frame.related_pins)
+            question_pins.append(pins)
+            for pin in pins:
+                key = canonical_bytes(pin)
+                if key in by_pin:
+                    continue
+                source = DeclaredStructuralSource.model_validate(pin)
+                row, body = _selected_body(index, source.source_product, source.source_member)
+                if ((row["kind_contract"], row["subject"], row["subject_definition"], row["original_source"],
+                     json_context_meaning(json_bytes(row["analyzed_scope"])).decode()) !=
+                    (source.kind_contract, source.subject, source.subject_definition, source.original_source,
+                     source.analyzed_scope_meaning)):
+                    raise ValueError("record question source differs from actual selected native identity/context")
+                coordinate = body["source"]
+                if (coordinate["document"], coordinate["projection"], coordinate["section_pointer"], coordinate["membership"]) != (
+                    source.document, source.projection_digest, source.section_pointer, source.membership,
+                ):
+                    raise ValueError("record source coordinate differs from its retained native body")
+                by_pin[key] = (pin, body)
+    result = []
+    for question, pins in zip(questions, question_pins, strict=True):
+        values = tuple(by_pin[canonical_bytes(pin)] for pin in pins)
+        _check_source_coordinates(prepared, values, _canonical_json_value(question.coordinate_texts_canonical_json))
+        result.append(values)
+    return tuple(result)
+
+
+def execute_grade_profile(receiver, reference_a, reference_b, adjudication, prediction, specification):
+    if receiver.execute is None:
+        raise ValueError("record grading requires its acquired current source and release resources")
+    return receiver.execute(reference_a, reference_b, adjudication, prediction, specification)
+
+
+def grade_complete_record_population_values(
+    populations, predictions, specification, *, reference_prepared, reference_model,
+    prediction_prepared, prediction_models, reference_addresses, prediction_addresses,
+    prediction_recipes, cut_release_id, check_active=lambda: None,
+):
+    """Grade exactly the ordered predeclared source census, without acceptance filtering."""
+    if tuple(row.pass_kind for row in populations) != ("A", "B", "C"):
+        raise ValueError("record grade requires its ordered authentic A/B/C pass populations")
+    questions = tuple(row.question for row in populations[2].references)
+    if any(tuple(row.question for row in population.references) != questions for population in populations):
+        raise ValueError("A/B/C passes differ from the same exact ordered question/source population")
+    count = len(questions)
+    if any(len(items) != count for items in (predictions, specification.prediction_selections, prediction_prepared,
+                                               prediction_models, prediction_addresses, prediction_recipes)):
+        raise ValueError("grade requires exact all-of reference/source/prediction population coverage")
+    if len({selection.expected_cut for selection in specification.prediction_selections}) != 1:
+        raise ValueError("record prediction population must retain one exact frozen selection cut")
+    frames = []
+    for position, question in enumerate(questions):
+        check_active()
+        selection = specification.prediction_selections[position]
+        if selection.source != question.source:
+            raise ValueError("prediction population changes the original ordered source questions")
+        unit_specification = specification.model_copy(update={"prediction_selections": (selection,)})
+        grade = grade_complete_record_values(
+            tuple(population.references[position] for population in populations), predictions[position], unit_specification,
+            reference_prepared=reference_prepared, reference_model=reference_model,
+            prediction_prepared=prediction_prepared[position], prediction_model=prediction_models[position],
+            reference_addresses=reference_addresses, prediction_address=prediction_addresses[position],
+            prediction_derivation=selection.derivation_id, prediction_recipe=prediction_recipes[position],
+            prediction_outcome=selection.outcome,
+            failure_request_id=selection.request_id if selection.outcome == "failed" else None,
+            failure_use_id=selection.use_id if selection.outcome == "failed" else None, check_active=check_active,
+        )
+        frames.append(grade.frame)
+    first = frames[0]
+    if any(frame.held_out_from != first.held_out_from for frame in frames):
+        raise ValueError("record source population changes its predeclared held-out basis")
+    return DdoRecordGrade.from_frame(DdoRecordGradeFrame(
+        **{name: getattr(first, name) for name in (
+            "partition", "project_id", "family", "family_contract", "reading_recipe", "subset",
+            "rubric_digest", "source_cut_id", "prediction_cut_id", "source_release_id", "held_out_from",
+        )},
+        prediction_release_id=cut_release_id,
+        question_digest=sha256(canonical_bytes([frame.question_digest for frame in frames])).hexdigest(),
+        reference_digest=sha256(canonical_bytes([frame.reference_digest for frame in frames])).hexdigest(),
+        sources=tuple(source for frame in frames for source in frame.sources),
+        reference_passes=tuple(reference for frame in frames for reference in frame.reference_passes),
+        events=tuple(event for frame in frames for event in frame.events),
+        coverage=tuple(coverage for frame in frames for coverage in frame.coverage),
+        origin_groups=tuple(origin for frame in frames for origin in frame.origin_groups),
+    ))
+
+
+def execute_grade_kernel(reference_a: dict, reference_b: dict, adjudication: dict, prediction: list[dict],
+                         specification: dict, metadata: dict, *, check_active) -> dict:
+    from corpus_structure.semantic.cpu_execution import hydrate_capsule
+    from corpus_structure.semantic.data_operation_admission import bound_data_operation_model
+
+    populations = tuple(DdoRecordReferencePopulation.model_validate_json(canonical_bytes(value)) for value in (reference_a, reference_b, adjudication))
+    reference_prepared = hydrate_capsule(bytes.fromhex(metadata["reference_capsule"]))
+    archives = tuple(hydrate_capsule(bytes.fromhex(content)) for content in metadata["prediction_capsules"])
+    checked = DdoRecordGradeSpecification.model_validate_json(canonical_bytes(specification))
+    by_product = {address["product_id"]: body for address, body in zip(metadata["bound_prediction_addresses"], prediction, strict=True)}
+    result = grade_complete_record_population_values(
+        populations, tuple(by_product.get(selection.product_id) for selection in checked.prediction_selections), checked,
+        reference_prepared=reference_prepared, reference_model=bound_data_operation_model(reference_prepared),
+        prediction_prepared=archives, prediction_models=tuple(bound_data_operation_model(item) for item in archives),
+        reference_addresses=tuple(DeclaredProductRef.model_validate_json(canonical_bytes(value)) for value in metadata["reference_addresses"]),
+        prediction_addresses=tuple(DeclaredProductRef.model_validate_json(canonical_bytes(value)) if value is not None else None for value in metadata["prediction_addresses"]),
+        prediction_recipes=tuple(metadata["prediction_recipes"]), cut_release_id=metadata["cut_release_id"],
+        check_active=check_active,
+    )
+    return result.model_dump(mode="json")
+
+
+def _bound_prediction_members(binding):
+    if binding is None or not binding.sufficient or binding.subject_context is None:
+        raise ValueError("record grading requires its sufficient exact native binding")
+    roles = [role for role in binding.roles if role.role == "prediction"]
+    if len(roles) != 1 or roles[0].state not in {"present", "known-absent"}:
+        raise ValueError("record prediction population is unknown or unavailable")
+    members = roles[0].members
+    if any(member.member is not None or member.multiplicity != 1 for member in members):
+        raise ValueError("record grading requires whole actual prediction carriers")
+    if len({member.product for member in members}) != len(members):
+        raise ValueError("record prediction population repeats a carrier identity")
+    return members
+
+
+@dataclass
+class RecordPolicyGradePlan:
+    port: Any = None
+
+    def plan(self, arguments, *, binding, check_active, execution_owner):
+        import inspect
+        from corpus_structure.semantic.cpu_execution import release_capsule
+        from corpus_structure.semantic.demand_results import CutSelection, selected_record_index
+        from corpus_structure.semantic.releases import open_release
+        from corpus_structure.semantic.reading_resolution_products import reading_recipe_identity
+        from corpus_structure.semantic.data_operation_admission import bound_data_operation_model
+        from corpus_structure.semantic.data_operation_json import json_bytes
+        from corpus_structure.semantic.data_operation_model import json_context_meaning
+
+        check_active()
+        context = binding.subject_context if binding is not None else None
+        if context is None or context.original_source is not None:
+            raise ValueError("record grading requires its exact project knowledge-universe context")
+        values = arguments.arguments
+        populations = tuple(DdoRecordReferencePopulation.model_validate_json(canonical_bytes(values[name])) for name in ("reference_a", "reference_b", "adjudication"))
+        reference_members = tuple(_bound_scalar(binding, name) for name in ("reference_a", "reference_b", "adjudication"))
+        prediction_members = _bound_prediction_members(binding)
+        specification = DdoRecordGradeSpecification.model_validate_json(canonical_bytes(values["specification"]))
+        questions = tuple(row.question for row in populations[2].references)
+        if (any(tuple(row.question for row in population.references) != questions for population in populations)
+                or tuple(selection.source for selection in specification.prediction_selections) != tuple(question.source for question in questions)):
+            raise ValueError("record grade requires exact all-of ordered reference/source/prediction questions")
+        if len(prediction_members) != len(values["prediction"]):
+            raise ValueError("record prediction bodies differ from actual bound population")
+        bound_predictions = {member.product: (member, body) for member, body in zip(prediction_members, values["prediction"], strict=True)}
+        completed = {selection.product_id for selection in specification.prediction_selections if selection.outcome == "completed"}
+        if completed != set(bound_predictions):
+            raise ValueError("bound prediction carriers differ from exact complete predeclared population")
+        cuts = tuple(CutSelection(selection.cut_canonical_json.encode()) for selection in specification.prediction_selections)
+        cut = cuts[0]
+        if any(selected.content != cut.content for selected in cuts):
+            raise ValueError("record prediction population changes its exact frozen native cut")
+        for selection in specification.prediction_selections:
+            if (cut.identity, cut.record["demand_id"], cut.record["read_id"], cut.record["project_id"]) != (
+                selection.expected_cut, selection.demand_id, selection.read_id, selection.project_id,
+            ) or selection.project_id != context.project_id:
+                raise ValueError("record prediction selection differs from its exact acquired native cut")
+        archives, addresses, recipes = [], [], []
+        with execution_owner.engine.begin() as connection:
+            reference_prepared = open_release(connection, questions[0].source_release_id)
+            sources_by_question = _authenticate_question_sources(connection, reference_prepared, questions)
+            with selected_record_index(connection, cut.record["demand_id"], project_id=context.project_id,
+                                       scope=cut.record["scope"], read_id=cut.record["read_id"], expected_cut=cut.identity,
+                                       capture_frontier=True) as (_, index):
+                uses = {row["use_id"]: row for row in index.frontier_rows("uses")}
+                obligations = {row["obligation_id"]: row for row in index.frontier_rows("obligations")}
+                for question, selection, source_values in zip(questions, specification.prediction_selections, sources_by_question, strict=True):
+                    check_active()
+                    use = uses.get(selection.use_id)
+                    obligation = obligations.get(selection.obligation_id)
+                    if (use is None or obligation is None or use["obligation_id"] != selection.obligation_id
+                            or use["request_id"] != selection.request_id
+                            or obligation["operation_id"] != "resolve.m1_readings/declared"
+                            or (obligation["subject"], obligation["original_source"], json_context_meaning(json_bytes(obligation["analyzed_scope"])).decode()) !=
+                            (question.source.subject, question.source.original_source, question.source.analyzed_scope_meaning)):
+                        raise ValueError("record prediction lacks its exact current native source/request/use selection")
+                    if selection.outcome != "completed":
+                        state = "failed" if selection.outcome == "failed" else "empty"
+                        fate = "failed" if selection.outcome == "failed" else "known-absent"
+                        if use["completion_state"] != state or use["fate"] != fate:
+                            raise ValueError("absent/failed prediction is unknown, unavailable or not actually completed")
+                        prepared = open_release(connection, cut.record["release_id"])
+                        archives.append(release_capsule(prepared).hex())
+                        addresses.append(None)
+                        recipes.append(reading_recipe_identity(bound_data_operation_model(prepared)))
+                        continue
+                    member, passed_body = bound_predictions[selection.product_id]
+                    if selection.derivation_id not in member.support_episodes or use["derivation_id"] != selection.derivation_id or use["completion_state"] != "success" or use["fate"] not in {"fulfilled", "attached"}:
+                        raise ValueError("record prediction lacks valid completed selected producing support")
+                    _, actual = _selected_body(index, selection.product_id)
+                    if canonical_bytes(actual) != canonical_bytes(passed_body):
+                        raise ValueError("record prediction differs from its actual selected carrier body")
+                    episode = index.mapping("ops.data_derivation", ("id",)).get(selection.derivation_id)
+                    outputs = [row for row in index.rows("ops.data_derivation_output") if row["derivation_id"] == selection.derivation_id and row["product_id"] == selection.product_id]
+                    if episode is None or not outputs or episode["request_id"] != selection.request_id:
+                        raise ValueError("record prediction lacks its exact actual producing episode/output")
+                    prepared = open_release(connection, episode["release_id"])
+                    recipe = reading_recipe_identity(bound_data_operation_model(prepared))
+                    if episode["recipe"] != recipe:
+                        raise ValueError("record prediction recipe differs from its actual admitted producer")
+                    records = [packet["body"] for packet in actual["members"] if packet["body"]["candidate_type"] == "record"]
+                    _check_source_coordinates(prepared, source_values, actual["coordinate_texts"], [anchor for row in records for anchor in row["anchors"]])
+                    archives.append(release_capsule(prepared).hex())
+                    addresses.append(DeclaredProductRef.from_bound(member, project=context.project_id).model_dump(mode="json"))
+                    recipes.append(recipe)
+            metadata = dict(
+                reference_capsule=release_capsule(reference_prepared).hex(), prediction_capsules=archives,
+                reference_addresses=[DeclaredProductRef.from_bound(member, project=context.project_id).model_dump(mode="json") for member in reference_members],
+                prediction_addresses=addresses, prediction_recipes=recipes, cut_release_id=cut.record["release_id"],
+                bound_prediction_addresses=[DeclaredProductRef.from_bound(member, project=context.project_id).model_dump(mode="json") for member in prediction_members],
+            )
+        signature = inspect.signature(execute_grade_kernel, eval_str=True)
+        bound = signature.bind(**values, metadata=metadata, check_active=check_active)
+        return (yield from self.port.plan_cpu(execute_grade_kernel, bound, record_policy_operation_sources(),
+                                             execution_owner=execution_owner, check_active=check_active))
+
+
+def acquire_grade_port(prepared, model, operation, *, identity, authorize, custody, sources):
+    from corpus_structure.methods.declared_record_policy import RecordPolicyGrade
+    from corpus_structure.semantic.record_policy_authority import GRADE_OPERATION, GRADE_FACTORY
+    from corpus_structure.semantic.data_operation_ports import PortRefusal
+    from corpus_structure.semantic.data_operation_prepared_call import PreparedOriginalCallPort
+
+    selected = model.operation(operation)
+    if (selected.semantic_id != GRADE_OPERATION or selected.effects
+            or selected.capabilities.prepared_factory is None
+            or selected.capabilities.prepared_factory.entrypoint != GRADE_FACTORY):
+        raise PortRefusal("record grade requires its exact protected pure derivation/factory")
+    receiver = RecordPolicyGrade(None)
+    plan = RecordPolicyGradePlan()
+    port = PreparedOriginalCallPort(
+        identity, model, selected, sources, custody, receiver.run, plan.plan,
+        "corpus_structure.evaluate.declared_record_policy.RecordPolicyGradePlan.plan", authorize,
+        (record_policy_computation_assets(),), record_policy_operation_sources(),
+        functions=(("corpus_structure.evaluate.declared_record_policy.execute_grade_kernel", execute_grade_kernel),),
+    )
+    plan.port = port
+    return port
+
+
+def reacquire_selected_record_grade(connection, selection: DdoRecordGradeSelection) -> DdoRecordGrade:
+    """Evaluator-authorized exact grade selection, separate from the fitter-only read."""
+    from corpus_structure.semantic.demand_results import CutSelection, selected_record_index
+    from corpus_structure.semantic.data_operation_admission import bound_data_operation_model
+    from corpus_structure.semantic.releases import open_release
+    from corpus_structure.semantic.record_policy_authority import GRADE_OPERATION, GRADE_FACTORY, GRADE_KIND
+    from corpus_structure.semantic.native_definition_projection import read_native_definition_projection
+
+    cut = CutSelection(selection.cut_canonical_json.encode())
+    if (cut.identity, cut.record["project_id"], cut.record["demand_id"], cut.record["read_id"]) != (
+        selection.expected_cut, selection.project_id, selection.demand_id, selection.read_id,
+    ):
+        raise ValueError("grade selection differs from original acquired native cut bytes")
+    with selected_record_index(connection, selection.demand_id, project_id=selection.project_id,
+                               scope=cut.record["scope"], read_id=selection.read_id, expected_cut=cut.identity) as (_, index):
+        row, body = _selected_body(index, selection.product_id)
+        episode = index.mapping("ops.data_derivation", ("id",)).get(selection.derivation_id)
+        use = index.mapping("ops.demand_use", ("id",)).get(selection.use_id)
+        outputs = [edge for edge in index.rows("ops.data_derivation_output") if
+                   (edge["derivation_id"], edge["product_id"], edge["role"], edge["member_id"], edge["multiplicity"]) ==
+                   (selection.derivation_id, selection.product_id, "grade", None, 1)]
+        if episode is None or use is None or use["derivation_id"] != selection.derivation_id or len(outputs) != 1:
+            raise ValueError("selected protected grade lacks its exact producing episode/use/output")
+        prepared = open_release(connection, episode["release_id"])
+        model = bound_data_operation_model(prepared)
+        operation = model.operation(GRADE_OPERATION)
+        request = index.mapping("ops.data_request", ("id",)).get(episode["request_id"])
+        recipe = next(item.key for item in model.identities if item.domain == "recipe" and item.owner == GRADE_OPERATION)
+        if (request is None or request["operation_id"] != GRADE_OPERATION or episode["recipe"] != recipe
+                or operation.effects or operation.capabilities.prepared_factory is None
+                or operation.capabilities.prepared_factory.entrypoint != GRADE_FACTORY):
+            raise ValueError("protected grade differs from its actual captured grading operation/factory")
+        contracts = {kind["kind_contract"] for kind in read_native_definition_projection(prepared)["kinds"]
+                     if kind["kind"] == GRADE_KIND and kind["universe"] == "evaluator"}
+        if row["kind_contract"] not in contracts:
+            raise ValueError("selected grade lacks its actual protected nominal kind")
+        grade = DdoRecordGrade.from_selected_body(body)
+        if grade.frame_digest != selection.frame_digest or grade.frame.project_id != selection.project_id:
+            raise ValueError("selected grade differs from exact immutable frame digest or project")
+        return grade
+
+
+def author_record_policy_inputs(engine, prepared, *, request):
+    """Retain current source-only reference/specification facts; never authored grades."""
+    from corpus_structure.semantic.data_operation_identity import decode_semantic_value
+    from corpus_structure.semantic.native_definition_projection import read_native_definition_projection
+    from corpus_structure.serve.interpretation_authoring import author_interpretations
+    from .record_alignment import RecordSide, align_records
+    from corpus_structure.semantic.releases import open_release
+
+    if request.targets not in {("record_policy.grade",), ("record_policy.fit",)}:
+        raise ValueError("protected record authoring requires its exact grade or fit target")
+    supported = {PROTECTED_NAMESPACE + name: cls for name, cls in (
+        ("DdoRecordReferencePopulation", DdoRecordReferencePopulation),
+        ("DdoRecordGradeSpecification", DdoRecordGradeSpecification),
+        ("DdoRecordFitSpecification", DdoRecordFitSpecification),
+    )}
+    contracts = {row["kind_contract"]: supported[row["kind"]]
+                 for row in read_native_definition_projection(prepared)["kinds"]
+                 if row["kind"] in supported and row["universe"] == "evaluator"}
+    for selected in request.original_sources.values():
+        reference = selected.reference
+        cls = contracts.get(reference.get("kind_contract"))
+        if reference.get("kind") != "authored-fact" or cls is None:
+            raise ValueError("protected record authoring accepts only source-only references and exact specifications")
+        value = cls.model_validate_json(canonical_bytes(decode_semantic_value(reference["meaning_body"])))
+        if isinstance(value, DdoRecordReferencePopulation):
+            questions = tuple(row.question for row in value.references)
+            if questions[0].project_id != request.project_id:
+                raise ValueError("record reference belongs to another project")
+            with engine.begin() as connection:
+                original = open_release(connection, questions[0].source_release_id)
+                sources = _authenticate_question_sources(connection, original, questions)
+                for reference, question, source_values in zip(value.references, questions, sources, strict=True):
+                    rows = tuple(original.validate_json("SourceRecord", canonical_bytes(row)).model_dump(mode="python", exclude_unset=True)
+                                 for row in _canonical_json_value(reference.records_canonical_json))
+                    frame = _record_frame(question.frame_canonical_json)
+                    from dataclasses import replace
+                    comparison = replace(frame, prediction_policy_version=frame.reference_policy_version)
+                    coordinates = _canonical_json_value(question.coordinate_texts_canonical_json)
+                    _check_source_coordinates(original, source_values, coordinates, [anchor for row in rows for anchor in row["anchors"]])
+                    align_records(RecordSide(comparison, rows), RecordSide(comparison, rows), original, coordinate_texts=coordinates)
+    return author_interpretations(engine, prepared, request=request)
+
+
+def prepare_record_feature_policy(connection, request: DdoRecordFeatureFitRequest):
+    """Restricted preliminary fit and a genuine current authored reading policy value.
+
+    This is not a protected fit producer and grants no native policy authority.
+    The final declared fit recomputes the same immutable feature instance before
+    calibrating actual independently held-out producer events.
+    """
+    from corpus_structure.semantic.reading_resolution_products import DeclaredReadingFeatureInstance, RECIPE
+    from corpus_structure.semantic.observations import source_value
+
+    grade = reacquire_record_feature_grade(connection, request.selection)
+    fitted = _fit_feature_value(grade, algorithm=request.algorithm, assumptions=request.assumptions)
+    policy = None
+    if fitted.instance is not None:
+        checked = DeclaredReadingFeatureInstance(
+            feature=fitted.instance, family_contract=grade.frame.family_contract,
+            reading_recipe=grade.frame.reading_recipe,
+        )
+        policy = {"version": "reading-feature-policy-2", "recipe": RECIPE, "subset": grade.frame.subset,
+                  "feature_instances": source_value([checked.model_dump(mode="json")])}
+    return {"selection": request.selection.model_dump(mode="json"), "fit": fitted.model_dump(mode="json"), "reading_policy": policy}

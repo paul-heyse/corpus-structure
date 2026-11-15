@@ -106,7 +106,7 @@ def reading_resolution_operation_sources():
 def reading_diagnostics(row, details):
     """Keep one actual diagnostic per retained producer group, including repeated outputs."""
     group_ids = {
-        value for value in row["computation_dependencies"] if value.startswith("native-group:")
+        value for value in row.get("computation_dependencies", ()) if value.startswith("native-group:")
     }
     unique = {}
     for report in details.get("reports", ()):

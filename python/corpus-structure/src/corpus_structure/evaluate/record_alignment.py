@@ -44,7 +44,7 @@ def reference_contract(prepared: PreparedRelease) -> dict[str, Any]:
     # Independent reference authoring may be absent from a pure alignment release.
     names.update(
         name
-        for name in ("ReferenceRecordBatch", "RecordReferenceAnchorScope")
+        for name in ("ReferenceRecordBatch", "RecordReferenceAnchorScope", "DdoRecordAnchorScope")
         if f"json_schema/{name}" in artifacts
     )
     schemas = {name: json.loads(artifacts[f"json_schema/{name}"]) for name in sorted(names)}
@@ -265,14 +265,18 @@ def _frame(prepared: PreparedRelease, frame: RecordEvaluationFrame) -> dict[str,
     closure = (pin, *related)
     if len({canonical_bytes(value) for value in closure}) != len(closure):
         raise ValueError("record evaluation source closure contains duplicate pins")
-    product = ("native_product_task_id", "product_key", "product_digest")
+    product = (
+        ("format", "project_id", "document", "original_source", "projection_digest")
+        if pin.get("format") == "declared-native-source-v1"
+        else ("native_product_task_id", "product_key", "product_digest")
+    )
     if any(
         tuple(value[key] for key in product) != tuple(pin[key] for key in product)
         for value in related
     ):
         raise ValueError("related evaluation source requires the same native product")
     scopes = tuple(
-        prepared.validate_python("RecordReferenceAnchorScope", value).model_dump(mode="python")
+        prepared.validate_python("DdoRecordAnchorScope" if pin.get("format") == "declared-native-source-v1" else "RecordReferenceAnchorScope", value).model_dump(mode="python")
         for value in frame.anchor_scopes
     )
     for scope in scopes:

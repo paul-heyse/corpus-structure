@@ -1,0 +1,18 @@
+id: https://corpus-structure.dev/semantic/data-operation-record-policy-scope
+name: data_operation_record_policy_scope
+prefixes:
+  scope: https://corpus-structure.dev/semantic/data-operation-record-policy-scope/
+default_prefix: scope
+imports: [observations]
+classes:
+  DdoRecordAnchorScope:
+    is_a: SourceRecordProduct
+    description: Predeclared exact source extent, independent of either reference or predicted anchors.
+    attributes:
+      pin: {range: RecordSourcePin, inlined: true, required: true}
+      space: {range: RecordCoordinateSpace, required: true}
+      pointer: {required: true}
+      precision: {range: RecordMappingPrecision, required: true}
+      start: {range: integer, minimum_value: 0}
+      end: {range: integer, minimum_value: 0}
+      recognition: {range: RecordCapturedRecognition, inlined: true}

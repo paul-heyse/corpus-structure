@@ -114,6 +114,7 @@ class DataOperationInputs(BaseModel):
     record_bindings: bool = False
     pdf_contracts: bool = False
     protected_references: bool = False
+    protected_record_policy: bool = False
     primary_profile: PrimaryProfileInputs | None = None
 
 
@@ -196,6 +197,25 @@ def acquire_data_operation_inputs(
             if sources is None
             else combine_primary_sources(sources, reference_sources)
         )
+    declarations = artifacts(declared.declarations)
+    if declared.protected_record_policy:
+        from corpus_structure.evaluate.declared_record_policy import (
+            protected_record_policy_kind_declarations, record_policy_operation_sources, record_policy_inputs,
+        )
+        from .primary_operations import combine_primary_sources
+        from .reading_resolution_products import (
+            reading_resolution_inputs, reading_resolution_declarations, reading_resolution_operation_sources,
+        )
+        from .record_policy_authority import record_policy_kind_declarations, record_policy_authorization_sources
+
+        bundle = record_policy_inputs(bundle)
+        policy_sources = combine_primary_sources(
+            reading_resolution_operation_sources(), record_policy_operation_sources(), record_policy_authorization_sources(),
+        )
+        sources = policy_sources if sources is None else combine_primary_sources(sources, policy_sources)
+        declarations = (*declarations, record_policy_kind_declarations(), protected_record_policy_kind_declarations())
+        if declared.primary_profile is None or not declared.primary_profile.downstream:
+            declarations = (*declarations, reading_resolution_declarations())
     from .data_operation_artifacts import capture_port_generator_sources
     from .data_operation_storage import native_operation_declarations, native_protocol_sources
 
@@ -208,7 +228,7 @@ def acquire_data_operation_inputs(
             **primary,
             dependencies=ResolvedDependencies(artifacts(declared.dependencies)),
             extra_sources=sources,
-            declarations=artifacts(declared.declarations),
+            declarations=declarations,
         )
         dependencies = composed.dependencies
         if declared.pdf_contracts and declared.primary_profile.capture is None:
@@ -223,7 +243,7 @@ def acquire_data_operation_inputs(
     dependencies = data_operation_dependencies(
         ResolvedDependencies((*artifacts(declared.dependencies), *native, *generator)),
         (
-            *artifacts(declared.declarations),
+            *declarations,
             native_operation_declarations(native),
         ),
         sources,

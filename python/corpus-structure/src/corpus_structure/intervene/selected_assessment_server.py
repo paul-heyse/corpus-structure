@@ -6,6 +6,9 @@ from typing import Literal
 from fastmcp import Context, FastMCP
 from pydantic import BaseModel
 
+from corpus_structure.evaluate.declared_record_policy import (
+    DdoRecordFeatureFitRequest, prepare_record_feature_policy,
+)
 from corpus_structure.evaluate.selected_references import (
     SelectedReferenceEvaluationRequest,
     evaluate_selected_references,
@@ -26,7 +29,7 @@ class ExactReferenceComparison(BaseModel):
 
 
 def build_evaluator_server(
-    *, project: str, settings: Settings | None = None, evaluator_engine=None
+    *, project: str, settings: Settings | None = None, evaluator_engine=None, fitter_engine=None
 ):
     settings = Settings() if settings is None else settings
     server = FastMCP("corpus-structure selected reference evaluator")
@@ -46,6 +49,28 @@ def build_evaluator_server(
                 engine.begin() as connection,
             ):
                 yield connection
+
+    @contextmanager
+    def fitter():
+        if fitter_engine is not None:
+            with fitter_engine.begin() as connection:
+                yield connection
+        else:
+            from corpus_structure.semantic.runtime import open_runtime_engine
+
+            with (open_runtime_engine(settings, "ci-mcp-record-fitter", purpose="fit", max_size=1) as engine,
+                  engine.begin() as connection):
+                yield connection
+
+    @server.tool(annotations={"readOnlyHint": True})
+    @tool_refusals(ValueError, KeyError)
+    def fit_complete_record_features(ctx: Context, request: DdoRecordFeatureFitRequest):
+        """Fit preliminary whole-reading parameters through the dedicated protected fitter; no policy authority."""
+        if request.selection.project_id != project:
+            raise ValueError("record feature fitting belongs to another evaluator project")
+        with fitter() as connection:
+            report = prepare_record_feature_policy(connection, request)
+        return bounded_mcp_result(report, 8388608)
 
     def compare(request):
         if request.project_id != project:
