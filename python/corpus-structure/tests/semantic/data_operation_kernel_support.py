@@ -18,7 +18,6 @@ from typing import Any
 from scenario_recipes import register_scenario_builder
 from sqlalchemy import Connection, Engine, insert, select
 
-from corpus_structure.semantic.contracts import implementation_overridden
 from corpus_structure.semantic.data_operation_admission import (
     admit_data_operation_release,
     bound_data_operation_model,
@@ -164,8 +163,7 @@ _prepared_kernel = cache(_prepare_kernel)
 def prepare_kernel(recipe: KernelRecipe, *, directory: Path | None = None) -> KernelPreparation:
     if directory is not None:
         return _prepare_kernel(recipe, directory)
-    # An override bypasses both reads and writes, preserving the ordinary warm entry.
-    return _prepare_kernel(recipe) if implementation_overridden() else _prepared_kernel(recipe)
+    return _prepared_kernel(recipe)
 
 
 @dataclass(frozen=True)

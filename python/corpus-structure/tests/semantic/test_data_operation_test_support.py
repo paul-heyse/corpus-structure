@@ -9,10 +9,6 @@ from scenario_recipes import scenario_builder
 from corpus_structure.semantic._data_operation_wire import (
     WireInspectDataCompletionRequest,
 )
-from corpus_structure.semantic.contracts import (
-    IMPLEMENTATION_UNAVAILABLE,
-    implementation_override,
-)
 from semantic.data_operation_binding_support import WireCheckedStorage
 from semantic.data_operation_kernel_support import (
     CLAIM_SOURCE,
@@ -45,18 +41,6 @@ def test_recipe_prepares_its_captured_model_and_reuses_equal_value(recipe, opera
     assert scenario_builder(recipe) is build_kernel
 
 
-def test_implementation_override_bypasses_kernel_memo_and_restores_after_exception():
-    ordinary = prepare_kernel(STORAGE)
-    with (
-        pytest.raises(ValueError, match="case interrupted"),
-        implementation_override(IMPLEMENTATION_UNAVAILABLE),
-    ):
-        overridden = prepare_kernel(STORAGE)
-        assert overridden is not ordinary
-        assert overridden.directory != ordinary.directory
-        assert overridden.prepared.release_id == ordinary.prepared.release_id
-        raise ValueError("case interrupted")
-    assert prepare_kernel(STORAGE) is ordinary
 
 
 @pytest.mark.parametrize(

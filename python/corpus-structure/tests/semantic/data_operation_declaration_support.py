@@ -10,7 +10,6 @@ from dataclasses import dataclass, replace
 from functools import cache
 from typing import Any
 
-from corpus_structure.semantic.contracts import implementation_overridden
 from corpus_structure.semantic.data_operation_compilation import compile_data_operations
 from corpus_structure.semantic.data_operation_demands import RootSubject
 from corpus_structure.semantic.data_operation_identity import semantic_value
@@ -123,16 +122,9 @@ class DeclarationRecipe:
     name: str = "ops"
 
 
+@cache
 def compiled(recipe: DeclarationRecipe):
-    # Source/parser overrides must never consume or populate the normal memo.
-    return _compile(recipe) if implementation_overridden() else _compiled(recipe)
-
-
-def _compile(recipe):
     return compile_data_operations(declarations=(SourceArtifact(recipe.name, recipe.content),))
-
-
-_compiled = cache(_compile)
 
 
 def subject_context(*, project, subject, source, scope):
