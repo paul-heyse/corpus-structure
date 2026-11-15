@@ -1613,3 +1613,38 @@ def test_candidate_choice_prerequisite_preserves_full_term_root_not_normalized_h
         score_task(ref, "character_host_choice_v1", candidate_predictions(wire))["exact_match"]
         is False
     )
+
+
+def test_witness_continues_after_first_symmetric_mapping_has_cyclic_support(monkeypatch):
+    from corpus_structure.evaluate import graph_comparison, task_semantics
+
+    class Population:
+        def __init__(self, *args, **kwargs):
+            self.nodes, self.roots = {}, ()
+            self.entities = {"p": entity("p", "predicate", 2, 5), "s": entity("s", "participant", 0, 1)}
+            self.assertions = [
+                dict(subject="p", relation="grammatical_subject", object="s", requires=["a"], witness="cyclic"),
+                dict(subject="p", relation="grammatical_subject", object="s", requires=["b"], witness="grounded"),
+            ]
+            self.groups = [dict(id="group", compatibility="compatible", members=[dict(id="a", root="p", requires=["a"]), dict(id="b", root="s")], witness="group")]
+
+        def build(self):
+            pass
+
+    monkeypatch.setattr(task_semantics, "TaskPopulation", Population)
+    original = graph_comparison.comparison_mappings
+    examined = []
+
+    def mappings(*args, **kwargs):
+        # Both are genuine NetworkX mappings. Order the symmetric alternatives
+        # deliberately so the cyclic assertion is assessed before its grounded twin.
+        alternatives = sorted(original(*args, **kwargs), key=lambda mapping: next(actual[1] for actual, expected in mapping.items() if expected[0] == "assertion"))
+        for mapping in alternatives:
+            examined.append(mapping)
+            yield mapping
+
+    monkeypatch.setattr(graph_comparison, "comparison_mappings", mappings)
+    result = score_task(reference(mode="witness", complete_slots=[]), "construction.predication", [])
+    assert len(examined) == 2
+    assert result["status"] == "scored" and result["exact_match"] is True
+    assert result["support_conditions"]["assertion_witnesses"] == ["grounded"]

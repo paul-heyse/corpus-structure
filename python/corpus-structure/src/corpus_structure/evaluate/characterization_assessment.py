@@ -249,13 +249,10 @@ def project_graph(graph, projection):
     if projection not in {"source_semantics", "native_fidelity", "retained_identity"}:
         raise ReferenceError("graph expectations require a declared comparison projection")
     nodes = {node["id"]: node for node in graph["nodes"]}
-    pending, visited, retained = deque([graph["root"]]), set(), []
-    while pending:
-        identity = pending.popleft()
-        if identity in visited:
-            continue
-        visited.add(identity)
-        node = nodes[identity]
+    if len(nodes) != len(graph["nodes"]):
+        raise ReferenceError("assessment graph repeats a node identity")
+    retained = []
+    for identity, node in nodes.items():
         value = dict(node["value"])
         edges = list(node["edges"])
         if projection == "source_semantics":
@@ -311,8 +308,13 @@ def project_graph(graph, projection):
                 raise ReferenceError("retained identity comparison requires exact qualified nodes")
             value["qualified_identity"] = node["qualified_identity"]
         retained.append(dict(id=identity, value=value, edges=edges))
-        pending.extend(edge["target"] for edge in edges)
-    return dict(root=graph["root"], nodes=retained)
+    from corpus_structure.semantic.graph_topology import rooted_closure
+
+    from .graph_comparison import rooted_graph
+
+    projected = dict(root=graph["root"], nodes=retained)
+    selected = rooted_closure(rooted_graph(projected), (graph["root"],))
+    return dict(root=graph["root"], nodes=[node for node in retained if node["id"] in selected])
 
 
 def graph_equal(actual, expected, projection=None):
@@ -327,43 +329,9 @@ def graph_equal(actual, expected, projection=None):
                 project_graph(actual, projection),
                 project_graph(expected, projection),
             )
-        left = {row["id"]: row for row in actual["nodes"]}
-        right = {row["id"]: row for row in expected["nodes"]}
-        if len(left) != len(actual["nodes"]) or len(right) != len(expected["nodes"]):
-            return False
-        import networkx as nx
-        from networkx.algorithms.isomorphism import MultiDiGraphMatcher
+        from .graph_comparison import comparison_mappings, rooted_graph
 
-        def as_graph(graph, nodes):
-            result = nx.MultiDiGraph()
-            for identity, node in nodes.items():
-                result.add_node(
-                    identity, value=canonical_bytes(node["value"]), root=identity == graph["root"]
-                )
-            for identity, node in nodes.items():
-                for edge in node["edges"]:
-                    if edge["target"] not in nodes:
-                        raise ReferenceError("graph edge lacks an exact selected target")
-                    result.add_edge(
-                        identity,
-                        edge["target"],
-                        meaning=canonical_bytes(
-                            {key: value for key, value in edge.items() if key != "target"}
-                        ),
-                    )
-            return result
-
-        x, y = as_graph(actual, left), as_graph(expected, right)
-        matcher = MultiDiGraphMatcher(
-            x,
-            y,
-            node_match=lambda a, b: a == b,
-            edge_match=lambda a, b: (
-                Counter(item["meaning"] for item in a.values())
-                == Counter(item["meaning"] for item in b.values())
-            ),
-        )
-        return matcher.is_isomorphic()
+        return next(comparison_mappings(rooted_graph(actual), rooted_graph(expected), mode="exact", policy="exact"), None) is not None
     except KeyError, TypeError, ValueError:
         return False
 

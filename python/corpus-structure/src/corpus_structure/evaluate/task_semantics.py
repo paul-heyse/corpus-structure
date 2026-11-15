@@ -382,31 +382,20 @@ def witness_support(groups, required):
     queries keep their separate exact-selection meaning in joint_outcome.
     """
     members = {m["id"]: m for group in groups for m in group["members"]}
-    active, closed = set(), set()
-    pending = [(member, False) for member in sorted(set(required))]
-    while pending:
-        member, leaving = pending.pop()
-        if leaving:
-            active.remove(member)
-            closed.add(member)
-            continue
-        if member in closed:
-            continue
-        if member not in members:
-            return dict(
-                status="unknown",
-                reason="missing_prerequisite",
-                members=sorted(closed | active | {member}),
-            )
-        if member in active:
-            return dict(
-                status="unknown", reason="cyclic_prerequisite", members=sorted(closed | active)
-            )
-        active.add(member)
-        pending.append((member, True))
-        pending.extend(
-            (dependency, False) for dependency in sorted(set(members[member].get("requires", ())))
-        )
+    from corpus_structure.semantic.graph_runtime import nx
+    from corpus_structure.semantic.graph_topology import cyclic_components, rooted_closure
+
+    graph = nx.DiGraph(backend="networkx")
+    graph.add_nodes_from(members)
+    graph.add_edges_from((member, dependency) for member, value in members.items() for dependency in value.get("requires", ()))
+    roots = set(required)
+    # Missing roots/references are explicit unknown boundaries, not admitted members.
+    graph.add_nodes_from(roots)
+    closed = rooted_closure(graph, roots)
+    if not closed <= members.keys():
+        return dict(status="unknown", reason="missing_prerequisite", members=sorted(closed))
+    if cyclic_components(graph.subgraph(closed)):
+        return dict(status="unknown", reason="cyclic_prerequisite", members=sorted(closed))
     outcome = joint_outcome(groups, closed)
     return dict(
         status="feasible" if outcome == "permitted" else outcome,
@@ -501,21 +490,18 @@ class TaskPopulation:
             for e in node["edges"]
             if e["label"] == "child" and e.get("role") == "variable"
         }
-        self.claim_roots = set(self.roots)
-        pending = list(self.roots)
-        while pending:
-            root = pending.pop()
-            node = self.nodes[root]
-            children = [e for e in node["edges"] if e["label"] == "child"]
-            if (
-                node["value"]["collection"] == "terms"
-                and len(children) == 1
-                and children[0].get("role") == "reading"
-            ):
-                target = children[0]["target"]
-                if target not in self.claim_roots:
-                    self.claim_roots.add(target)
-                    pending.append(target)
+        from corpus_structure.semantic.graph_topology import rooted_closure
+
+        from .graph_comparison import attributed_graph
+
+        readings = attributed_graph(
+            ((identity, {}) for identity in self.nodes),
+            ((identity, children[0]["target"], {}) for identity, node in self.nodes.items()
+             if node["value"]["collection"] == "terms"
+             and len(children := [edge for edge in node["edges"] if edge["label"] == "child"]) == 1
+             and children[0].get("role") == "reading"),
+        )
+        self.claim_roots = set(rooted_closure(readings, self.roots))
         if len(self.nodes) > 20000:
             raise ContractUnavailable("retained task witness population exceeds bounded projection")
 
@@ -1265,11 +1251,17 @@ class TaskPopulation:
 
 
 def _task_graph(entities, assertions, groups, focus, *, expected=False):
-    from networkx import MultiDiGraph
+    from .graph_comparison import attributed_graph
 
-    graph = MultiDiGraph()
+    nodes, edges = [], []
+
+    def add_node(identity, **attributes):
+        nodes.append((identity, attributes))
+
+    def add_edge(source, target, **attributes):
+        edges.append((source, target, attributes))
     for entity in entities:
-        graph.add_node(
+        add_node(
             ("entity", entity["id"]),
             meaning=_entity_meaning(
                 entity, compare_value=not expected or entity.get("value") is not None
@@ -1283,27 +1275,32 @@ def _task_graph(entities, assertions, groups, focus, *, expected=False):
             meaning["order"] = assertion.get("order")
         if not expected or assertion.get("standing") is not None:
             meaning["standing"] = assertion.get("standing")
-        graph.add_node(key, meaning=meaning, focus=False)
-        graph.add_edge(key, ("entity", assertion["subject"]), label="subject")
-        graph.add_edge(key, ("entity", assertion["object"]), label="object")
+        add_node(key, meaning=meaning, focus=False)
+        add_edge(key, ("entity", assertion["subject"]), label="subject")
+        add_edge(key, ("entity", assertion["object"]), label="object")
         for required in set(assertion.get("requires", ())):
-            graph.add_edge(key, ("member", required), label="requires")
+            add_edge(key, ("member", required), label="requires")
     for group in groups:
         key = ("group", group["id"])
-        graph.add_node(key, meaning=dict(compatibility=group["compatibility"]), focus=False)
+        add_node(key, meaning=dict(compatibility=group["compatibility"]), focus=False)
         for member in group["members"]:
             target = ("member", member["id"])
-            graph.add_node(target, meaning=dict(choice_member=True), focus=False)
-            graph.add_edge(key, target, label="member")
-            graph.add_edge(target, ("entity", member["root"]), label="root")
+            add_node(target, meaning=dict(choice_member=True), focus=False)
+            add_edge(key, target, label="member")
+            add_edge(target, ("entity", member["root"]), label="root")
             for required in set(member.get("requires", ())):
-                graph.add_edge(target, ("member", required), label="requires")
-    return graph
+                add_edge(target, ("member", required), label="requires")
+    known = {identity for identity, _ in nodes}
+    # A missing prerequisite is represented only as an unknown boundary; support
+    # feasibility below must still refuse it, even if structural matching succeeds.
+    missing = {target for _, target, _ in edges if target not in known and target[0] == "member"}
+    nodes.extend((identity, {}) for identity in sorted(missing))
+    return attributed_graph(nodes, edges)
 
 
 def score_task(reference, family, predictions, *, output_first=False):
     """Project a complete relevant family population into the declared task boundary."""
-    from networkx.algorithms.isomorphism import MultiDiGraphMatcher
+    from .graph_comparison import comparison_mappings
 
     ref = (
         reference
@@ -1411,20 +1408,17 @@ def score_task(reference, family, predictions, *, output_first=False):
             )
         }
         selected_groups.update(member_groups[m] for m in required_members if m in member_groups)
-        while True:
-            prerequisites = {
-                member
-                for group in population.groups
-                if group["id"] in selected_groups
-                for m in group["members"]
-                for member in m.get("requires", ())
-            }
-            expanded = selected_groups | {
-                member_groups[m] for m in prerequisites if m in member_groups
-            }
-            if expanded == selected_groups:
-                break
-            selected_groups = expanded
+        from corpus_structure.semantic.graph_topology import rooted_closure
+
+        from .graph_comparison import attributed_graph
+
+        group_dependencies = attributed_graph(
+            ((group["id"], {}) for group in population.groups),
+            ((group["id"], member_groups[dependency], {})
+             for group in population.groups for member in group["members"]
+             for dependency in member.get("requires", ()) if dependency in member_groups),
+        )
+        selected_groups = rooted_closure(group_dependencies, selected_groups)
         groups = [g for g in population.groups if g["id"] in selected_groups]
         used.update(m["root"] for g in groups for m in g["members"])
         known_members = {m["id"] for g in groups for m in g["members"]}
@@ -1454,26 +1448,7 @@ def score_task(reference, family, predictions, *, output_first=False):
                 groups,
                 actual_focus["id"],
             )
-            matcher = MultiDiGraphMatcher(
-                actual_graph,
-                expected_graph,
-                node_match=lambda a, b: (
-                    a.get("focus") == b.get("focus")
-                    and all(
-                        key in a.get("meaning", {}) and a["meaning"][key] == value
-                        for key, value in b.get("meaning", {}).items()
-                    )
-                ),
-                edge_match=lambda a, b: (
-                    Counter(e["label"] for e in a.values())
-                    == Counter(e["label"] for e in b.values())
-                ),
-            )
-            mappings = (
-                matcher.isomorphisms_iter()
-                if ref.mode == "complete_slots"
-                else matcher.subgraph_monomorphisms_iter()
-            )
+            mappings = comparison_mappings(actual_graph, expected_graph, mode="exact" if ref.mode == "complete_slots" else "witness", policy="expected-fields")
             for mapping in mappings:
                 if assessed_choice_groups:
                     matched_focus_groups = {
