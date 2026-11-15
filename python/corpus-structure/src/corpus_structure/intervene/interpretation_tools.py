@@ -1,84 +1,42 @@
-"""Thin MCP adapters for the shared archived interpretation application."""
+"""Current terminology and selected private proposal read tools."""
 
-from __future__ import annotations
+from typing import Literal
 
 from fastmcp import Context
+from pydantic import BaseModel
 
+from corpus_structure.semantic.data_operation_json import json_bytes
 from corpus_structure.semantic.refusals import tool_refusals
-from corpus_structure.serve.interpretations import InterpretationAnswer
+from corpus_structure.serve.interpretations import SelectedProposalRequest, inspect_selected_proposals, term_lookup
 
 
-def register_interpretation_tools(server, reader_snapshot, source_snapshot):
-    from corpus_structure.intervene.mcp_results import bounded_mcp_result as _bounded_mcp_result
-    from corpus_structure.semantic.interpretation_queries import measurement_groups
-    from corpus_structure.serve.interpretations import answer, review_detail, term_lookup
+class ExactInterpretationResult(BaseModel):
+    format: Literal["interpretation-exact-json-v1"] = "interpretation-exact-json-v1"
+    exact_json: str
 
-    @server.tool(
-        annotations={"readOnlyHint": True}, output_schema=InterpretationAnswer.model_json_schema()
-    )
-    @tool_refusals(ValueError)
-    def lookup_terminology(
-        ctx: Context,
-        release: str,
-        field: str,
-        query: str | None = None,
-        browse: bool = False,
-        max_bytes: int = 1024**2,
-    ):
-        with reader_snapshot(ctx) as conn:
-            result = term_lookup(
-                conn,
-                release_id=release,
-                field=field,
-                query=query,
-                browse=browse,
-                max_bytes=max_bytes,
-            )
-        return _bounded_mcp_result(result, max_bytes)
 
-    @server.tool(
-        annotations={"readOnlyHint": True}, output_schema=InterpretationAnswer.model_json_schema()
-    )
-    @tool_refusals(ValueError)
-    def inspect_terminology_review(
-        ctx: Context,
-        review_run: int,
-        review_cut: int,
-        contribution_ids: list[str],
-        max_bytes: int = 1024**2,
-    ):
-        with source_snapshot(ctx, review_run) as conn:
-            result = review_detail(
-                conn,
-                review_run_id=review_run,
-                review_cut_id=review_cut,
-                contribution_ids=contribution_ids,
-                max_bytes=max_bytes,
-            )
-        return _bounded_mcp_result(result, max_bytes)
+def register_interpretation_tools(server, metadata_reader, selected_reader, *, project=None, demand=None):
+    from corpus_structure.intervene.mcp_results import bounded_mcp_result
 
-    @server.tool(
-        annotations={"readOnlyHint": True}, output_schema=InterpretationAnswer.model_json_schema()
-    )
-    @tool_refusals(ValueError)
-    def group_measurement_interpretations(
-        ctx: Context,
-        source_run: int,
-        review_run: int,
-        review_cut: int,
-        limit: int = 100,
-        max_bytes: int = 1024**2,
-    ):
-        with source_snapshot(ctx, source_run) as conn:
-            result = answer(
-                "measurement_groups",
-                measurement_groups(
-                    conn,
-                    source_run_id=source_run,
-                    review_run_id=review_run,
-                    review_cut_id=review_cut,
-                    limit=limit,
-                ),
-                max_bytes,
-            )
-        return _bounded_mcp_result(result, max_bytes)
+    def present(result, max_bytes):
+        return bounded_mcp_result(ExactInterpretationResult(exact_json=json_bytes(result.model_dump(mode="python")).decode()), max_bytes)
+
+    @server.tool(annotations={"readOnlyHint": True})
+    @tool_refusals(ValueError, KeyError)
+    def lookup_terminology(ctx: Context, release: str, field: str, query: str | None = None, browse: bool = False, max_bytes: int = 1024**2):
+        """Look up real released field vocabulary metadata."""
+        with metadata_reader(ctx) as connection:
+            result = term_lookup(connection, release_id=release, field=field, query=query, browse=browse, max_bytes=max_bytes)
+        return present(result, max_bytes)
+
+    @server.tool(annotations={"readOnlyHint": True})
+    @tool_refusals(ValueError, KeyError)
+    def inspect_private_proposals(ctx: Context, request: SelectedProposalRequest):
+        """Inspect actual selected private proposal kinds under native read authority."""
+        if project is not None and request.project_id != project:
+            raise ValueError("private proposal selection belongs to another server project")
+        if demand is not None and request.demand_id != demand:
+            raise ValueError("private proposal selection belongs to another server demand")
+        with selected_reader(ctx, request.project_id) as connection:
+            result = inspect_selected_proposals(connection, request)
+        return present(result, request.max_bytes)

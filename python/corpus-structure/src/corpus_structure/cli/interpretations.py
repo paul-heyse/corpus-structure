@@ -5,7 +5,8 @@ from typing import Annotated
 
 import typer
 
-from corpus_structure.cli.output import JsonOpt, emit, state
+from corpus_structure.cli.output import JsonOpt, emit, state, write_report_text
+from corpus_structure.semantic.data_operation_json import json_bytes, json_loads
 
 app = typer.Typer(
     help="Inspect released terminology and source-preserving private interpretations.",
@@ -17,10 +18,17 @@ def register(root):
     root.add_typer(app, name="interpretations")
 
 
+def _emit(result, *, json):
+    if json:
+        write_report_text(json_bytes(result.model_dump(mode="python")).decode() + "\n")
+    else:
+        emit(result, json=False)
+
+
 def snapshot(ctx):
     from contextlib import contextmanager
 
-    from corpus_structure.semantic.query import read_snapshot
+    from corpus_structure.semantic.demand_results import selected_read_snapshot
     from corpus_structure.semantic.runtime import open_runtime_engine
 
     @contextmanager
@@ -29,7 +37,7 @@ def snapshot(ctx):
             open_runtime_engine(
                 state(ctx).settings(), "ci-interpretations", purpose="read"
             ) as engine,
-            read_snapshot(engine) as conn,
+            selected_read_snapshot(engine) as conn,
         ):
             yield conn
 
@@ -73,167 +81,21 @@ def lookup(
 
     with failure_boundary(json), snapshot(ctx) as conn:
         result = term_lookup(conn, release_id=release, field=field, query=query, browse=browse)
-    emit(result, json=json)
+    _emit(result, json=json)
 
 
-@app.command(
-    "review",
-    epilog=(
-        "Example: ci interpretations review REVIEW_RUN REVIEW_CUT "
-        "--contribution CONTRIBUTION --json\n\nDomain contract: [domain "
-        "reader](docs/design/D8-agent-and-query-interfaces.md)"
-    ),
-)
-def review(
-    ctx: typer.Context,
-    review_run: Annotated[
-        int, typer.Argument(metavar="REVIEW_RUN", help="Pinned private review run ID.")
-    ],
-    review_cut: Annotated[int, typer.Argument(metavar="REVIEW_CUT", help="Pinned review cut ID.")],
-    contribution: Annotated[
-        list[str],
-        typer.Option(
-            "--contribution",
-            help="Pinned contribution ID; repeat to select several.",
-            rich_help_panel="Inputs",
-        ),
-    ],
-    json: JsonOpt = False,
-):
-    """Read pinned review contributions without changing their selection."""
+@app.command("review")
+def review(ctx: typer.Context, request: Annotated[Path, typer.Argument(help="SelectedProposalRequest JSON with explicit demand/project and optional product/member pins.")], json: JsonOpt = False):
+    """Inspect genuine selected private proposal members; no accepted standing follows."""
     from corpus_structure.cli.failures import failure_boundary
-    from corpus_structure.serve.interpretations import review_detail
+    from corpus_structure.cli.output import read_request_bytes
+    from corpus_structure.semantic.data_operation_json import json_loads
+    from corpus_structure.serve.interpretations import SelectedProposalRequest, inspect_selected_proposals
 
-    with failure_boundary(json), snapshot(ctx) as conn:
-        result = review_detail(
-            conn, review_run_id=review_run, review_cut_id=review_cut, contribution_ids=contribution
-        )
-    emit(result, json=json)
-
-
-@app.command(
-    "records",
-    epilog=(
-        "Example: ci interpretations records SOURCE_RUN REVIEW_RUN "
-        "REVIEW_CUT VOCABULARY_RELEASE FIELD --limit 20 --json\n\nDomain "
-        "contract: [domain reader](docs/design/D8-agent-and-query-interfac"
-        "es.md)"
-    ),
-)
-def records(
-    ctx: typer.Context,
-    source_run: Annotated[int, typer.Argument(metavar="SOURCE_RUN", help="Pinned source run ID.")],
-    review_run: Annotated[
-        int, typer.Argument(metavar="REVIEW_RUN", help="Pinned private review run ID.")
-    ],
-    review_cut: Annotated[int, typer.Argument(metavar="REVIEW_CUT", help="Pinned review cut ID.")],
-    vocabulary_release: Annotated[
-        str, typer.Argument(metavar="VOCABULARY_RELEASE", help="Pinned released vocabulary ID.")
-    ],
-    field: Annotated[str, typer.Argument(metavar="FIELD", help="Released field identifier.")],
-    value: Annotated[
-        str | None, typer.Option(help="Released vocabulary value filter.", rich_help_panel="Inputs")
-    ] = None,
-    mapping_predicate: Annotated[
-        str | None,
-        typer.Option(help="Exact mapping predicate IRI filter.", rich_help_panel="Inputs"),
-    ] = None,
-    contribution: Annotated[
-        list[str] | None,
-        typer.Option(
-            "--contribution",
-            help="Contribution ID filter; repeat to select several.",
-            rich_help_panel="Inputs",
-        ),
-    ] = None,
-    cursor: Annotated[
-        str | None,
-        typer.Option(
-            help="Opaque continuation from the previous records page.", rich_help_panel="Delivery"
-        ),
-    ] = None,
-    limit: Annotated[
-        int,
-        typer.Option(min=1, max=100, help="Maximum records per page.", rich_help_panel="Delivery"),
-    ] = 20,
-    page_bytes: Annotated[
-        int,
-        typer.Option(
-            min=1,
-            max=32 * 1024**2,
-            help="Maximum serialized page bytes.",
-            rich_help_panel="Delivery",
-        ),
-    ] = 1024**2,
-    json: JsonOpt = False,
-):
-    """Read source records using an explicitly pinned terminology review and vocabulary."""
-    from corpus_structure.cli.failures import failure_boundary
-    from corpus_structure.semantic.interpretation_queries import TerminologySelection
-    from corpus_structure.serve.record_results import RecordRequest, serve_record_results
-
-    with failure_boundary(json), snapshot(ctx) as conn:
-        result = serve_record_results(
-            conn,
-            RecordRequest(
-                run_id=source_run,
-                terminology=TerminologySelection(
-                    review_run_id=review_run,
-                    review_cut_id=review_cut,
-                    vocabulary_release=vocabulary_release,
-                    field=field,
-                    value=value,
-                    mapping_predicate=mapping_predicate,
-                    contribution_ids=tuple(contribution) if contribution else None,
-                ),
-                cursor=cursor,
-                limit=limit,
-                page_bytes=page_bytes,
-            ),
-        )
-    emit(result, json=json)
-
-
-@app.command(
-    "measurements",
-    epilog=(
-        "Example: ci interpretations measurements SOURCE_RUN REVIEW_RUN "
-        "REVIEW_CUT --json\n\nDomain contract: [domain "
-        "reader](docs/design/D8-agent-and-query-interfaces.md)"
-    ),
-)
-def measurements(
-    ctx: typer.Context,
-    source_run: Annotated[int, typer.Argument(metavar="SOURCE_RUN", help="Pinned source run ID.")],
-    review_run: Annotated[
-        int, typer.Argument(metavar="REVIEW_RUN", help="Pinned private review run ID.")
-    ],
-    review_cut: Annotated[int, typer.Argument(metavar="REVIEW_CUT", help="Pinned review cut ID.")],
-    limit: Annotated[
-        int,
-        typer.Option(
-            min=1, max=1000, help="Maximum measurement groups.", rich_help_panel="Delivery"
-        ),
-    ] = 100,
-    json: JsonOpt = False,
-):
-    """Read grouped measurement interpretations under a pinned review cut."""
-    from corpus_structure.cli.failures import failure_boundary
-    from corpus_structure.semantic.interpretation_queries import measurement_groups
-    from corpus_structure.serve.interpretations import answer
-
-    with failure_boundary(json), snapshot(ctx) as conn:
-        result = answer(
-            "measurement_groups",
-            measurement_groups(
-                conn,
-                source_run_id=source_run,
-                review_run_id=review_run,
-                review_cut_id=review_cut,
-                limit=limit,
-            ),
-        )
-    emit(result, json=json)
+    with failure_boundary(json, expected=(ValueError, OSError)), snapshot(ctx) as connection:
+        selected = SelectedProposalRequest.model_validate(json_loads(read_request_bytes(request)))
+        result = inspect_selected_proposals(connection, selected)
+    _emit(result, json=json)
 
 
 @app.command(
@@ -264,7 +126,7 @@ def export_contract(
         result = answer(
             "portable_contract", export_interpretation_contract(open_release(conn, release), out)
         )
-    emit(result, json=json)
+    _emit(result, json=json)
 
 
 @app.command(
@@ -303,7 +165,7 @@ def author(
 
     from corpus_structure.cli.failures import failure_boundary
     from corpus_structure.semantic.data_operation_service import NativeDemandRequest
-    from corpus_structure.semantic.query import read_snapshot
+    from corpus_structure.semantic.demand_results import selected_read_snapshot
     from corpus_structure.semantic.refusals import SemanticRefusal
     from corpus_structure.semantic.releases import open_release
     from corpus_structure.semantic.runtime import open_runtime_engine
@@ -316,7 +178,7 @@ def author(
         if len(content) > 4 * 1024**2:
             raise SemanticRefusal("authored review input exceeds 4MiB")
         try:
-            request = NativeDemandRequest.model_validate_json(content)
+            request = NativeDemandRequest.model_validate(json_loads(content))
         except ValidationError as error:
             raise SemanticRefusal(
                 "authored input must match the native demand request contract"
@@ -325,10 +187,10 @@ def author(
         with open_runtime_engine(
             selected, "ci-interpretation-authoring", purpose="write"
         ) as engine:
-            with read_snapshot(engine) as conn:
+            with selected_read_snapshot(engine) as conn:
                 prepared = open_release(conn, release)
             result = answer(
                 "authored_review_result",
                 author_interpretations(engine, prepared, request=request),
             )
-    emit(result, json=json)
+    _emit(result, json=json)

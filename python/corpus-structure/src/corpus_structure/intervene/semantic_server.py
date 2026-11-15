@@ -141,7 +141,7 @@ def build_retained_reader_server(
     register_characterization_tools(server, source_snapshot, _bounded_mcp_result)
     from corpus_structure.intervene.interpretation_tools import register_interpretation_tools
 
-    register_interpretation_tools(server, reader_snapshot, source_snapshot)
+    register_interpretation_tools(server, reader_snapshot, selected_source_snapshot, project=project)
 
     @server.tool(
         annotations={"readOnlyHint": True}, output_schema=report_schema("ContractInspection")
