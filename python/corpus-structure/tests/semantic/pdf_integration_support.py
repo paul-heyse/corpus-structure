@@ -18,8 +18,8 @@ from corpus_structure.semantic.operations import (
     create_run,
     create_task,
     record_method,
-    register_document,
 )
+from corpus_structure.semantic.original_documents import register_original_document
 from corpus_structure.semantic.pdf_contracts import (
     prepare_pdf_product,
     store_pdf_original,
@@ -277,8 +277,9 @@ def pdf13_db(commit_db_engine, commit_writer_engine, native_source, tmp_path):
             )
             path = tmp_path / f"{project}-{name}.pdf"
             path.write_bytes(original)
-            document = register_document(
+            document = register_original_document(
                 conn,
+                prepared=prepared,
                 project_id=project,
                 source_uri=f"file:{name}",
                 original_path=str(path),

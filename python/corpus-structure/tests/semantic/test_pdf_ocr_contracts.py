@@ -11,6 +11,7 @@ import pytest
 from pdf_acceptance_support import inventory as inventory
 from pydantic import ValidationError, create_model
 
+from corpus_structure.semantic.original_documents import register_original_document
 from corpus_structure.semantic.pdf_contracts import trusted_pdf_context
 from corpus_structure.semantic.pdf_ocr_contracts import (
     validate_pdf_cell_coverage,
@@ -336,8 +337,7 @@ def test_public_native_writer_checks_word_custody_and_retains_partial(
         create_run,
         create_task,
         record_method,
-        register_document,
-    )
+        )
     from corpus_structure.semantic.pdf_contracts import (
         prepare_pdf_product,
         store_pdf_original,
@@ -412,8 +412,9 @@ def test_public_native_writer_checks_word_custody_and_retains_partial(
             "ocr-fixture",
             prepared=prepared,
         )
-        document = register_document(
+        document = register_original_document(
             conn,
+            prepared=prepared,
             project_id="p",
             source_uri="file:ocr-fixture",
             original_path=str(path),

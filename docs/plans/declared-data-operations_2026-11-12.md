@@ -112,6 +112,73 @@ Root maintenance/index has run, with remaining owned diagnostics still being rep
 
 An environment interruption removed temporary worker worktrees. Committed slices and originals already transferred into root custody survive. Later untransferred nullable-Python and query-consumer results, including the previously reported nullable235 `3c3be7f186784edcb8b2a0c7272cc9c3`, are unavailable; do not count them as retained qualification. Lost model-worker results also include `33bd507e` (86pass), `6c467073` (21pass), `1da52cac` (211/213), `2c603de1` (233/234), `e2cc4e09` (6/7), `62e9bac6` (87/88), `cfdd07cd` (8pass), `a27c9179` (9pass) and an unfinished scope/read cohort. Lost ports-worker originals include `77ef`, `ba66` and `753` as reported prefixes; exact unavailable receipt identities must not be reconstructed by guessing. Workers are reconstructing uncommitted changes and rerunning under new IDs. Preserve the original loss and failed records rather than assigning old result IDs to replacements. No cleanup, persistent adoption or guard bypass was authorized or performed.
 
+### Consolidated closeout boundary · 2026-11-15
+
+The operator requested conclusion of active worker tasks, integration and worktree removal,
+repository-wide Ruff/Pyrefly repair, and documentation reconciliation. This is a bounded execution
+checkpoint; it does not close DDO-00–08 or the accepted bounded DDO-09/10 successor obligations.
+Persistent adoption/conversion remains separate. No new native capture, deployment or activation
+was performed during closeout. Checkout remains `semantic_ddo_graph_v2`; persistent development
+remains `semantic_bep_located_v2`. All subsequent semantic source changes require a fresh reviewed
+preview/candidate before checkout registration and native qualification.
+
+**Implemented; bounded Tested.** Current runtime DTOs/exact source validation now belong to
+`data_operation_runtime`, with current consumers disconnected from the legacy dispatcher. Shared
+pure read-only lifetime and `ReadLimit` have explicit resource/refusal owners; selected native
+acquisition retains its distinct read/write custody. The snapshot package passed twelve budget
+controls `8d655ca07cf446a09a17f20db811c29c` and two actual PostgreSQL isolation/read-only/reset
+controls `2f16da72c1d74c9eb67bd90c4bab463e`. Neutral native call generation and purpose acquisition
+remain independent of the old generated catalog. Old compiler/runtime/archive/SQLReader/domain
+orchestration retirement is still incomplete.
+
+Current selected private/consolidated/accepted facets and exact two-root exclusion comparison are
+integrated across CLI/MCP/cursors. Original component36 passed
+`767b228b27d14b0bba7e3475a9b3f3ad`; current decoder/acquisition11 passed
+`e8b3cbedd0114e93829b8373e8aa955f`. Seven captured structural report nominal whole facets now
+validate against their actual model and preserve declared private standing/defaults, exact whole
+references and nested bounds. Affected7 passed `6caf1a185bb74c7999cfe22bf0236b52`; original
+`ed04b507038b44f6ae96d301e203f00d` failed fixture setup, and
+`98d0208be27848f0b5d7feca22854546` had12passed/1failed, exposing the repaired omission of a
+validated declared standing default. Neither generic facets nor that correction grants acceptance.
+
+Source acquisition preserves the exact captured observation bytes and explicitly threads the
+selected preparation profile through eight composition owners. Semantic-1 unsupported-rule refusal
+remains intact; rich selects semantic-2. Original8 `281c7216f21d4ada917d3cb272d62b6a`
+had7passed/1incorrect inherited-field expectation; exact static rich-recipe retry passed
+`51399400fcba4d2cab8c12930bd68c87`. Authored protected/grade/fit/issuer/rich-native journeys
+remain **not_run**, requiring coherent registered native source. Earlier composition failures
+`c9c6fa0f9eb5400dbbe8a8d997157c41` and `ac12a36597024fffa7819392aa0158a2` remain retained.
+
+Current source request/cancellation controls use version5 semantic selection pins, and the inventory
+fixture patches the actual current PDF call owner. Root58 `7921850a2e814351a46fa5209c469b2e`
+had52passed/6stale test-target failures; exact6 retry passed
+`1da3882f58af4bef92846ea37b59b1d7`. Detached export/source diagnostic71 passed
+`0cbadeac82f4427e847fb9459d9dfb3e`. Actual independent PostgreSQL/ADBC JSON-null transport passed
+`cd5917eba1b44c99a4d5871be2f3277d`. The rich placement test now consumes actual nominal proposal
+members and an actual compiled model. It exposed precision loss through numeric JSON before the
+Decimal validator: rich proposal boundaries now use Pydantic's lexical Decimal serialization.
+Exact number/nested qualification retry passed `9b6a0d46c4804767af5bddb08ca6652a`; originals
+`d4b3c2cb15684a8a87e0333edf519c60` and `9a685d83d7f14c6e9140b6503c14e25b` remain failed.
+These are component receipts, not complete private/native publication qualification.
+
+Whole-native, selected-source and companion native export controls now use genuine current PDF
+fixture custody instead of old run/task aliases. Collection7 passed
+`cecaebb9cf994193b901309a93324e8e`, with functional execution **not_run**. The
+[preservation/qualification companion](declared-data-operations/preservation-adoption-and-qualification.md#ddo-12--series-owned-required-qualification)
+retains independent nonempty family, nested context, wrong-pin, source ancestry and cancellation
+obligations. Replacing or retiring obsolete test mechanisms does not satisfy these obligations.
+Mixed PDF/record fixture source registration calls the actual current original-document owner with
+its genuine prepared capsule; missing current composition is a refusal, not a compatibility fallback.
+
+**Remaining execution:** complete old operation/compiler/registry/reader/writer/configuration/grant
+retirement with actual consumers; current candidate/resolved/finite facets, source-decision journeys,
+structural gap views, immutable dossier membership/display, and grouped SourceRecord measurement
+interpretations. Current mutual-neighborhood producer/capture is not started: preserve actual cosine
+ranks/profile/vector coverage and exploratory standing; retrieval candidates are not mutual neighbors.
+Finish remaining coverage/numerical contracts, coherent native authoring/checkout registration and
+genuine protected/rich/public/export journeys. DDO-12 still owns the final-source functional,
+provider, fault and nonfunctional required union; no bounded receipt closes the enclosing packages.
+
 ### Target coverage by domain dimension
 
 | Dimension | Foundation and remaining obligation | Owner |

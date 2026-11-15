@@ -13,8 +13,8 @@ from corpus_structure.semantic.operations import (
     create_run,
     create_task,
     record_method,
-    register_document,
 )
+from corpus_structure.semantic.original_documents import register_original_document
 from corpus_structure.semantic.pdf_contracts import store_pdf_original
 from corpus_structure.semantic.pdf_records import native_schema_bytes
 from corpus_structure.semantic.pdf_staging import (
@@ -90,8 +90,9 @@ def _private_build_factory(commit_db_engine, commit_writer_engine, tmp_path, req
                 Config=create_model("PdfStageFixture"),
             )
             config = record_method(conn, method, "default", {}, "pdf-stage", prepared=prepared)
-            document = register_document(
+            document = register_original_document(
                 conn,
+                prepared=prepared,
                 project_id="p",
                 source_uri="file:pdf-stage",
                 original_path=str(path),

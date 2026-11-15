@@ -67,8 +67,8 @@ from corpus_structure.semantic.operations import (
     prepare_unit_completion,
     read_original,
     record_method,
-    register_document,
 )
+from corpus_structure.semantic.original_documents import register_original_document
 from corpus_structure.semantic.pdf_contracts import prepare_pdf_product, store_pdf_original
 from corpus_structure.semantic.pdf_publication import (
     adopt_pdf_companion_batch,
@@ -731,8 +731,9 @@ def publish_record_source(release, draft, writer, directory, *, admin):
         config = record_method(
             connection, method, "default", {}, "private-source-config", prepared=prepared
         )
-        document = register_document(
+        document = register_original_document(
             connection,
+            prepared=prepared,
             project_id=project_id,
             source_uri="source.pdf",
             original_path=str(path),
