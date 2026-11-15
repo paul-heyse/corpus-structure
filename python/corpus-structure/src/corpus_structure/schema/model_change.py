@@ -14,7 +14,7 @@ from pathlib import Path
 from tempfile import NamedTemporaryFile, TemporaryDirectory
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from corpus_structure.schema import change, model, preparation
 from corpus_structure.schema.change import ChangeRecord
@@ -31,6 +31,7 @@ from corpus_structure.schema.source_migrations import (
     prepare_source_migration,
 )
 from corpus_structure.semantic.migration_chain import NativeMigrationBase
+from corpus_structure.semantic.projection_analysis_products import ProjectionAnalysisComparison
 from corpus_structure.semantic.source_comparison import EffectiveChangeComparison
 from corpus_structure.semantic.storage_target import StorageTarget
 from corpus_structure.semantic.types import PreparedRelease
@@ -138,6 +139,17 @@ class ChangePreview(BaseModel):
     discovery: dict | None = None
     source_migrations: tuple[SourceMigrationPreview, ...] = ()
     source_comparison: EffectiveChangeComparison | None = None
+    query_analysis: ProjectionAnalysisComparison | None = None
+
+    @model_validator(mode="after")
+    def query_analysis_matches_release_pair(self):
+        if self.query_analysis is not None and (
+            not self.request.data_operations
+            or self.query_analysis.before_release != self.request.archive_release
+            or self.query_analysis.after_release != self.local_release
+        ):
+            raise ValueError("retained query analysis comparison differs from the preview release pair")
+        return self
 
     def verify_release(self, prepared: PreparedRelease) -> None:
         verify_release_products(
@@ -268,6 +280,7 @@ def prepare_preview(
     deployment_base: NativeMigrationBase | None = None,
     comparison: dict | None = None,
     source_comparison: EffectiveChangeComparison | None = None,
+    query_analysis: ProjectionAnalysisComparison | None = None,
     local_release: str | None = None,
     release_manifest_sha256: str | None = None,
     release_artifacts_sha256: str | None = None,
@@ -721,6 +734,7 @@ def prepare_preview(
         release_artifacts_sha256=release_artifacts_sha256,
         source_migrations=migrations,
         source_comparison=source_comparison,
+        query_analysis=query_analysis,
         discovery=locate_consumers(
             root,
             head,

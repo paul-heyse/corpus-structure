@@ -935,3 +935,110 @@ def test_candidate_summary_counts_exact_retained_upgrade_without_execution(
     damaged = CliRunner().invoke(app, ["model", "change", "inspect-candidate", result.id, "--json"])
     assert damaged.exit_code != 0
     assert "differs from candidate binding" in json.loads(damaged.stdout)["error"]["message"]
+
+
+@pytest.fixture(scope="module")
+def current_query_release_pair():
+    from corpus_structure.semantic.pdf_domain import CONTRACT, HELPER_CONTRACT, PREFIX, PdfDomainContract, pdf_domain_sources
+    from corpus_structure.semantic.prepare import prepare_release
+    from corpus_structure.semantic.types import ResolvedDependencies, SourceArtifact, SourceBundle
+    from semantic.pdf_domain_support import altered_domain
+    from corpus_structure.semantic.composed import data_operation_dependencies
+    from corpus_structure.semantic.data_operation_artifacts import capture_port_generator_sources
+    from corpus_structure.semantic.data_operation_storage import native_operation_declarations, native_protocol_sources
+    from corpus_structure.semantic.identity import canonical_bytes
+
+    def dependencies(captured):
+        physical = {source.name.removeprefix(PREFIX + "physical/"): source.content for source in captured.sources if source.name.startswith(PREFIX + "physical/")}
+        types = next(source.content for source in captured.sources if source.name == PREFIX + "logical/linkml:types")
+        native = native_protocol_sources(physical_sources=physical, linkml_types=types)
+        complete = json.loads(native_operation_declarations(native).content)
+        selected = next(operation for operation in complete["operations"] if operation["profile"] == "read")
+        selected["capabilities"]["preparation"] = "pdf-native"
+        selected["assets"].append({"reference":CONTRACT, "contract":HELPER_CONTRACT, "role":"native-pdf-helper-bindings", "content_digest":sha256(captured.content).hexdigest()})
+        return data_operation_dependencies(ResolvedDependencies((SourceArtifact(CONTRACT, captured.content), *captured.sources, *native, *capture_port_generator_sources())), (SourceArtifact("native-query-preview.json", canonical_bytes(complete)),))
+
+    contract, *sources = pdf_domain_sources()
+    domain = PdfDomainContract(contract.content, tuple(sources))
+    bundle = SourceBundle("query_preview", (SourceArtifact("query_preview", b"id: urn:query-preview\nname: query_preview\nclasses: {Thing: {}}\n"),))
+    before_dependencies = dependencies(domain)
+    before = prepare_release(bundle, before_dependencies)
+    # The query source context changes; value expressions and physical row shapes do not.
+    changed = altered_domain(domain, sources=tuple(SourceArtifact(source.name, source.content + b"\n# reviewed query source context\n") if source.name == PREFIX + "logical/companion_projections" else source for source in domain.sources))
+    after_dependencies = dependencies(changed)
+    after = prepare_release(bundle, after_dependencies)
+    return bundle, before, after_dependencies, after
+
+
+def test_current_preview_retains_query_analysis_in_existing_model_view(model_results, monkeypatch, current_query_release_pair):
+    from contextlib import nullcontext
+    from corpus_structure.cli import recipes
+    from corpus_structure.schema import model_change
+    from corpus_structure.semantic import authored_sql, query, releases, runtime
+    from corpus_structure.semantic.projection_analysis_products import compare_retained_projection_analysis
+
+    bundle, before, dependencies, after = current_query_release_pair
+    monkeypatch.setattr(recipes, "checkout", lambda ctx: Path(__file__).parents[3])
+    monkeypatch.setattr(model, "_prepare_release", lambda *args, **kwargs: (bundle, dependencies, None, after))
+    monkeypatch.setattr(runtime, "open_runtime_engine", lambda *args, **kwargs: nullcontext(object()))
+    monkeypatch.setattr(query, "read_snapshot", lambda *args, **kwargs: nullcontext(object()))
+    monkeypatch.setattr(releases, "open_release", lambda connection, identity: before if identity == before.release_id else pytest.fail("wrong archived baseline"))
+    monkeypatch.setattr(authored_sql, "_archive_inputs", lambda *args, **kwargs: {})
+    expected = compare_retained_projection_analysis(before, after)
+    captured = []
+    def stage(root, request, **kwargs):
+        captured.append(kwargs["query_analysis"])
+        return ChangePreview.model_validate({**_preview().model_dump(), "request": request,
+            "comparison": kwargs["comparison"], "source_comparison": kwargs["source_comparison"],
+            "local_release": kwargs["local_release"], "query_analysis": kwargs["query_analysis"]})
+    monkeypatch.setattr(model_change, "prepare_preview", stage)
+    output = CliRunner().invoke(app, ["model", "change", "preview", "-", "--json"], input=json.dumps({"data_operations":"current.yaml", "archive_release":before.release_id}))
+    assert output.exit_code == 0, output.output
+    assert captured == [expected]
+    preview_id = json.loads(output.stdout)["result_id"]
+    all_changes, all_unknowns = [], []
+    after_index = 0
+    while True:
+        shown = _inspect(preview_id, "--view", "model", "--limit", "2", "--after", str(after_index), "--json")
+        assert shown.exit_code == 0, shown.output
+        body = json.loads(shown.stdout)
+        assert body["comparison"]["version"] == "declared-data-model-comparison-v1"
+        assert body["total_query_changes"] == len(expected.changes)
+        assert body["total_query_unknowns"] == len(expected.unknowns)
+        query_report = body["query_analysis"]
+        assert query_report["before_release"] == before.release_id
+        assert query_report["after_release"] == after.release_id
+        assert not query_report["complete"]
+        all_changes.extend(query_report["changes"])
+        all_unknowns.extend(query_report["unknowns"])
+        if body["next_after"] is None:
+            break
+        after_index = body["next_after"]
+    assert all_changes == expected.model_dump(mode="json")["changes"]
+    assert all_unknowns == list(expected.unknowns)
+    assert any(change["aspect"] == "source_context" for change in all_changes)
+    for change in all_changes:
+        if change["aspect"] == "expressions":
+            prior, current = dict(change["before"]), dict(change["after"])
+            assert {field for field in prior.keys() | current.keys() if prior.get(field) != current.get(field)} == {change["model_ref"] + "/fields/projection_id"}
+    assert expected.before_source_id != expected.after_source_id
+    assert any("helper body not analyzed" in value for value in all_unknowns)
+    effects = json.loads(_inspect(preview_id, "--json").stdout)
+    sources = json.loads(_inspect(preview_id, "--view", "sources", "--json").stdout)
+    assert "query_analysis" not in effects and "query_analysis" not in sources
+    refused = _inspect(preview_id, "--view", "model", "--after", "99999", "--json")
+    assert refused.exit_code == 1
+    assert "outside its population" in refused.stdout
+
+
+def test_query_comparison_is_bound_to_preview_release_pair(current_query_release_pair):
+    from pydantic import ValidationError
+    from corpus_structure.semantic.projection_analysis_products import compare_retained_projection_analysis
+
+    _, before, _, after = current_query_release_pair
+    comparison = compare_retained_projection_analysis(before, after)
+    body = {**_preview().model_dump(), "request": ChangeRequest(data_operations="current.yaml", archive_release=before.release_id), "local_release":after.release_id, "query_analysis":comparison}
+    assert ChangePreview.model_validate(body).query_analysis == comparison
+    for field in ("before_release", "after_release"):
+        with pytest.raises(ValidationError, match="differs from the preview release pair"):
+            ChangePreview.model_validate({**body, "query_analysis":comparison.model_copy(update={field:"release:wrong"})})

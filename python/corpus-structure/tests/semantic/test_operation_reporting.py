@@ -514,7 +514,9 @@ def test_current_report_boundary_prepares_without_legacy_operation_authority(mon
     monkeypatch.setitem(sys.modules, "corpus_structure.semantic.contracts", None)
     boundary, _digest = reports._report_model()
     assert boundary.execution_model_id is None
-    assert "checks" in boundary.json_schema("OperationExplanation")["properties"]
+    properties = boundary.json_schema("OperationExplanation")["properties"]
+    assert isinstance(properties, dict)
+    assert "checks" in properties
 
 
 def test_graph_shape_execution_and_located_nonconformance_stay_distinct():
@@ -555,19 +557,19 @@ def test_graph_shape_execution_and_located_nonconformance_stay_distinct():
     assert len(value["evidence"]["digest"]) == 64
 
 
-def test_actual_schema_check_reports_retained_located_coverage(cli):
+def test_actual_schema_check_reports_unavailable_retained_query_analysis(cli):
     import json
 
     checked = cli("schema", "check", "--json")
     assert checked.exit_code == 0, checked.output
     located = json.loads(checked.stdout)["validation"]
     assert located["release_id"] == json.loads(checked.stdout)["release_id"]
-    assert located["model_id"] == json.loads(checked.stdout)["execution_model_id"]
+    assert "projection_analysis.json" not in {a["kind"] for a in json.loads(checked.stdout)["artifacts"]}
     assert not located["complete"]
     assert any(
         item["category"] == "unassessed"
-        and item["code"] == "projection_analysis_incomplete"
-        and item["model_path"].startswith("projection:")
+        and item["code"] == "projection_analysis_unavailable"
+        and item["model_path"] == "projection"
         for item in located["observations"]
     )
 

@@ -45,6 +45,7 @@ from corpus_structure.schema.source_migrations import ConsumerOutcome
 from corpus_structure.semantic.migration_chain import NativeMigrationBase
 from corpus_structure.semantic.source_comparison import EffectiveChangeComparison
 from corpus_structure.semantic.model_comparison import DeclaredModelComparison
+from corpus_structure.semantic.projection_analysis_products import ProjectionAnalysisComparison
 from corpus_structure.semantic.storage_target import StorageTarget
 from corpus_structure.settings import DeploymentProfile
 
@@ -156,6 +157,9 @@ class PreviewSourcesReport(BaseModel):
 class PreviewModelComparisonReport(BaseModel):
     preview_id: str
     comparison: DeclaredModelComparison | None
+    query_analysis: ProjectionAnalysisComparison | None = None
+    total_query_changes: int = 0
+    total_query_unknowns: int = 0
     total_changes: int
     total_unknowns: int
     next_after: int | None
@@ -678,7 +682,7 @@ def inspect_preview(
     view: Annotated[
         Literal["effects", "patch", "discovery", "sources", "model", "sql"],
         typer.Option(
-            help="Select effects, patch hunks, source migrations, declared model changes, discovery or SQL."
+            help="Select effects, patch hunks, source migrations, declared model and retained query-analysis changes, discovery or SQL."
         ),
     ] = "effects",
     limit: Annotated[
@@ -771,7 +775,11 @@ def inspect_preview(
             end = after + (limit or 8)
             total_changes = len(comparison.changes) if comparison else 0
             total_unknowns = len(comparison.unknowns) if comparison else 0
-            if after > max(total_changes, total_unknowns):
+            query = staged.query_analysis
+            total_query_changes = len(query.changes) if query else 0
+            total_query_unknowns = len(query.unknowns) if query else 0
+            population = max(total_changes, total_unknowns, total_query_changes, total_query_unknowns)
+            if after > population:
                 raise ValueError("model comparison continuation is outside its population")
             emit(
                 PreviewModelComparisonReport(
@@ -780,9 +788,15 @@ def inspect_preview(
                         "changes": comparison.changes[after:end],
                         "unknowns": comparison.unknowns[after:end],
                     }) if comparison else None,
+                    query_analysis=query.model_copy(update={
+                        "changes": query.changes[after:end],
+                        "unknowns": query.unknowns[after:end],
+                    }) if query else None,
+                    total_query_changes=total_query_changes,
+                    total_query_unknowns=total_query_unknowns,
                     total_changes=total_changes,
                     total_unknowns=total_unknowns,
-                    next_after=end if end < max(total_changes, total_unknowns) else None,
+                    next_after=end if end < population else None,
                 ),
                 json=json_,
             )
@@ -1361,6 +1375,7 @@ def preview(
                 )
                 impact = None
                 source_impact = None
+                query_analysis = None
                 local = None
                 dependencies = None
                 release = None
@@ -1400,9 +1415,6 @@ def preview(
                         )
                 if bound.archive_release:
                     model_stage(result, "compare archived release")
-                    from corpus_structure.semantic.operation_reporting import (
-                        compare_semantic_releases,
-                    )
                     from corpus_structure.semantic.query import read_snapshot
                     from corpus_structure.semantic.releases import open_release
                     from corpus_structure.semantic.runtime import open_runtime_engine
@@ -1436,8 +1448,11 @@ def preview(
                                 compare_declared_models,
                             )
 
+                            from corpus_structure.semantic.projection_analysis_products import compare_retained_projection_analysis
+
                             before_model = bound_data_operation_model(before)
                             after_model = bound_data_operation_model(local)
+                            query_analysis = compare_retained_projection_analysis(before, local)
                             impact = compare_declared_models(
                                 before_model, after_model,
                                 before_release=before.release_id,
@@ -1447,6 +1462,8 @@ def preview(
                                 before_model, after_model,
                             )
                         else:
+                            from corpus_structure.semantic.operation_reporting import compare_semantic_releases
+
                             impact = compare_semantic_releases(
                                 before, local, dependency_detail=True
                             ).model_dump(mode="json")
@@ -1464,6 +1481,7 @@ def preview(
                     deployment_base=deployment_base,
                     comparison=impact,
                     source_comparison=source_impact,
+                    query_analysis=query_analysis,
                     local_release=release,
                     expected_physical=physical_id,
                     release_manifest_sha256=sha256(local.manifest).hexdigest()
