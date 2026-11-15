@@ -297,6 +297,22 @@ def open_release_parts(
 
             read_effective_data_operations(target_artifacts[0].content)
             expected["data_operation_model"] = _digest(target_artifacts[0].content)
+            interface_artifacts = [
+                a for a in ordered if a.kind == "data_operation_source_interfaces.json"
+            ]
+            if interface_artifacts:
+                if len(interface_artifacts) != 1:
+                    raise ReleaseConflict("ambiguous archived source interface projection")
+                from .source_interfaces import SourceInterfaceProjection
+
+                interfaces = SourceInterfaceProjection.model_validate_json(
+                    interface_artifacts[0].content
+                )
+                if interfaces.model_digest != _digest(target_artifacts[0].content):
+                    raise ReleaseConflict("source interfaces belong to another effective model")
+                expected["data_operation_source_interfaces"] = _digest(
+                    interface_artifacts[0].content
+                )
         if canonical_bytes(expected) != manifest_bytes:
             raise ReleaseConflict("archived input manifest differs")
         prepared = reconstruct_release(products, manifest_bytes, bundle, profile, ordered)

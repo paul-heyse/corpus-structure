@@ -920,6 +920,15 @@ def _prepare_release_uncached(
                 if data_operations is not None
                 else {}
             ),
+            **(
+                {
+                    "data_operation_source_interfaces": sha256(
+                        data_operations.source_interfaces
+                    ).hexdigest()
+                }
+                if data_operations is not None and data_operations.source_interfaces is not None
+                else {}
+            ),
             **({"execution_model_id": execution.model_id} if execution is not None else {}),
             "profile": asdict(profile),
             "libraries": {

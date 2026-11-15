@@ -165,7 +165,15 @@ def test_normal_preparation_archives_projection_and_bound_reader_uses_its_bytes(
     archived = read_source_interfaces(prepared)
     assert archived is not None
     assert archived.operations[0].operation == "urn:test:derive"
+    assert json.loads(prepared.manifest)["data_operation_source_interfaces"] == next(
+        artifact.digest
+        for artifact in prepared.artifacts
+        if artifact.kind == SOURCE_INTERFACE_ARTIFACT
+    )
     assert sum(artifact.kind == SOURCE_INTERFACE_ARTIFACT for artifact in prepared.artifacts) == 1
+    from corpus_structure.semantic.releases import _validate_manifest
+
+    _validate_manifest(schema, dependencies, PreparationProfile(version="semantic-2"), prepared)
     # Bound reads consume the retained projection even if source extraction is unavailable.
     from corpus_structure.semantic import python_operation_sources
 
@@ -193,3 +201,12 @@ def test_mismatched_documentation_projection_cannot_be_attached_to_another_model
     after = compile_source(operation_source(body="return helper(x) + 1"))
     with pytest.raises(ValueError, match="another effective model"):
         compare_data_operation_models(before, after, after_interfaces=before.source_interfaces)
+
+
+def test_interface_rendering_participates_in_release_custody_not_semantic_recipe():
+    model = compile_source(operation_source())
+    assert model.source_interfaces is not None
+    projection = SourceInterfaceProjection.model_validate_json(model.source_interfaces)
+    altered = projection.model_copy(update={"unknowns": ("new documentation interpretation",)})
+    assert replace(model, source_interfaces=altered.content).content == model.content
+    assert altered.identity != projection.identity

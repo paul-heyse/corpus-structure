@@ -189,4 +189,9 @@ def read_source_interfaces(prepared) -> SourceInterfaceProjection | None:
     ]
     if len(models) != 1 or projection.model_digest != sha256(models[0].content).hexdigest():
         raise ValueError("source interface projection belongs to another effective model")
+    if (
+        json.loads(prepared.manifest).get("data_operation_source_interfaces")
+        != sha256(matches[0].content).hexdigest()
+    ):
+        raise ValueError("source interface projection differs from the release manifest")
     return projection

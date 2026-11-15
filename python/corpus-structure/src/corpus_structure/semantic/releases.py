@@ -117,6 +117,8 @@ def _validate_manifest(
         if model is None:
             raise ReleaseConflict("target release lacks its effective model")
         manifest["data_operation_model"] = _digest(model.content)
+        if model.source_interfaces is not None:
+            manifest["data_operation_source_interfaces"] = _digest(model.source_interfaces)
     elif profile.version == "semantic-2":
         from .composed import execution_model_from_dependencies
 
