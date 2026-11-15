@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from functools import lru_cache
 from types import MappingProxyType
@@ -81,7 +81,7 @@ def _visit(
     model: BaseModel,
     found: list[LocatedReference],
     path: tuple[str | int, ...],
-    classes: Mapping[str, str],
+    classes: Mapping[str, str] | Callable[[LocatedReference], str],
     facts: Mapping[str, str],
     collision: Literal["equal", "reject"],
     positions: Mapping[tuple[str, str], ReferencePosition],
@@ -113,9 +113,13 @@ def _visit(
                         f"{item_path}: a declared reference must be a string"
                     )
                 kind: Literal["class", "fact"] = "fact" if position.kind == "fact" else "class"
-                found.append(LocatedReference(kind, item, position.range, item_path))
-                mapping = facts if kind == "fact" else classes
-                return mapping.get(item, item)
+                reference = LocatedReference(kind, item, position.range, item_path)
+                found.append(reference)
+                if kind == "fact":
+                    return facts.get(item, item)
+                if callable(classes):
+                    return classes(reference)
+                return classes.get(item, item)
             if position.kind == "inlined":
                 if not isinstance(item, BaseModel):
                     raise ReferencePositionError(
@@ -199,11 +203,15 @@ def rewrite_references(
     class_name: str,
     value: Any,
     *,
-    classes: Mapping[str, str],
+    classes: Mapping[str, str] | Callable[[LocatedReference], str],
     facts: Mapping[str, str] | None = None,
     collision: Literal["equal", "reject"] = "equal",
 ) -> dict[str, Any]:
-    """Preserve ordered/bag positions and apply the caller's explicit keyed collision policy."""
+    """Resolve actual compiled positions and preserve the explicit collision policy.
+
+    A class resolver can distinguish family-local names using each reference's
+    actual range and path; mapping callers keep their existing exact substitutions.
+    """
     if collision not in {"equal", "reject"}:
         raise ReferencePositionError("unknown keyed collision policy")
     model = _validated(prepared, class_name, value)

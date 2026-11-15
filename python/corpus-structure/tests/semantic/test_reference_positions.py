@@ -29,6 +29,7 @@ def prepared():
         "types": {"string": {"base": "str"}},
         "classes": {
             "Tag": {"attributes": {"id": {"identifier": True}}},
+            "Statement": {"attributes": {"id": {"identifier": True}}},
             "Child": {
                 "attributes": {
                     "claims": {"multivalued": True, "annotations": {"cs:reference_role": "fact"}},
@@ -41,9 +42,16 @@ def prepared():
                     "text": {},
                 }
             },
+            "TaggedEntry": {
+                "attributes": {
+                    "id": {"identifier": True, "range": "Tag"},
+                    "text": {},
+                }
+            },
             "Root": {
                 "attributes": {
                     "plain": {},
+                    "statement": {"range": "Statement"},
                     "claims": {"multivalued": True, "annotations": {"cs:reference_role": "fact"}},
                     "entities": {"range": "Tag", "multivalued": True},
                     "children": {
@@ -53,6 +61,7 @@ def prepared():
                         "inlined_as_list": True,
                     },
                     "entries": {"range": "Entry", "multivalued": True, "inlined": True},
+                    "tagged_entries": {"range": "TaggedEntry", "multivalued": True, "inlined": True},
                 }
             },
         },
@@ -101,6 +110,40 @@ def test_keyed_collision_policy_is_explicit_and_distinct_members_always_refuse()
     raw["entries"]["b"]["text"] = "different"
     with pytest.raises(ReferencePositionError, match="collides"):
         rewrite_references(release, "Root", raw, classes={}, facts=mapping, collision="equal")
+
+
+def test_callable_class_resolution_uses_declared_ranges_and_actual_nested_positions():
+    seen = []
+
+    def resolve(reference):
+        seen.append(reference)
+        assert reference.target == "same"
+        return {"Tag": "tag:actual", "Statement": "statement:actual"}[reference.range]
+
+    raw = {"plain": "same", "statement": "same", "entities": ("same", "same"),
+           "children": ({"entity": "same", "claims": ("same",)},)}
+    rewritten = rewrite_references(prepared(), "Root", raw, classes=resolve, facts={"same": "fact:actual"})
+    assert rewritten == {"plain": "same", "statement": "statement:actual",
+                         "entities": ("tag:actual", "tag:actual"),
+                         "children": ({"entity": "tag:actual", "claims": ("fact:actual",)},)}
+    assert {(item.range, item.path) for item in seen} == {
+        ("Statement", ("statement",)), ("Tag", ("entities", 0)),
+        ("Tag", ("entities", 1)), ("Tag", ("children", 0, "entity")),
+    }
+
+
+def test_callable_class_resolution_preserves_keyed_collision_refusals():
+    raw = {"tagged_entries": {"a": {"id": "a", "text": "same"}, "b": {"id": "b", "text": "same"}}}
+    def resolve(reference):
+        assert reference.range == "Tag"
+        return "tag:merged"
+    result = rewrite_references(prepared(), "Root", raw, classes=resolve, collision="equal")
+    assert result == {"tagged_entries": {"tag:merged": {"id": "tag:merged", "text": "same"}}}
+    with pytest.raises(ReferencePositionError, match="collides"):
+        rewrite_references(prepared(), "Root", raw, classes=resolve, collision="reject")
+    raw["tagged_entries"]["b"]["text"] = "different"
+    with pytest.raises(ReferencePositionError, match="collides"):
+        rewrite_references(prepared(), "Root", raw, classes=resolve, collision="equal")
 
 
 def test_proposal_and_domain_property_reference_use_declared_nonentity_carrier():
