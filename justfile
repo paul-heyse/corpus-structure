@@ -265,10 +265,10 @@ doctor:
     fi
     printf '%-14s ' pg_virtualenv
     common_version=$(dpkg-query -W -f='${Version}' postgresql-common 2>/dev/null) || common_version=
-    if [[ -x /usr/bin/pg_virtualenv && $common_version =~ ^294([.+~]|$) ]]; then
+    if [[ -x /usr/bin/pg_virtualenv && $common_version =~ ^295([.+~]|$) ]]; then
       printf 'postgresql-common %s\n' "$common_version"
     else
-      echo 'MISSING pg_virtualenv from postgresql-common 294'
+      printf 'MISSING required pg_virtualenv from postgresql-common 295 (observed package: %s)\n' "${common_version:-unavailable}"
     fi
     printf '%-14s ' python; UV_LOCKED=0 uv run --no-project python --version
     printf '%-14s ' ruff; uv run ruff --version
