@@ -104,7 +104,7 @@ def _reference_node(reference):
     )
 
 
-def _support_walk(metadata, seed):
+def _support_walk(metadata, seed, *, public=False):
     """Visit finite receipt nodes, including explicitly selected replacement support.
 
     Indexed per-node lateral lookups avoid materializing every historical edge.
@@ -128,22 +128,34 @@ def _support_walk(metadata, seed):
     reference_kind, reference_id = _reference_node(reference.c.value)
     from sqlalchemy import case
 
+    def episode_kind(identity):
+        return (
+            case((func.ops.ddo_policy_authority_leaf(identity), literal("authority")), else_=literal("episode"))
+            if public else literal("episode")
+        )
+
+    use_inputs_visible = ~func.ops.ddo_policy_authority_leaf(uses.c.derivation_id) if public else literal(True)
+    if public:
+        reference_kind = case(
+            (and_(reference_kind == "episode", func.ops.ddo_policy_authority_leaf(reference_id)), literal("authority")),
+            else_=reference_kind,
+        )
     edge_queries = (
         _node(
             case(
-                (support.c.admission_use_id.is_not(None), literal("use")), else_=literal("episode")
+                (support.c.admission_use_id.is_not(None), literal("use")), else_=episode_kind(support.c.support_derivation_id)
             ),
             func.coalesce(support.c.admission_use_id, support.c.support_derivation_id),
         ).where(closure.c.kind == "episode", support.c.derivation_id == closure.c.id),
         _node("original", original_support.c.admission_id).where(
             closure.c.kind == "episode", original_support.c.derivation_id == closure.c.id
         ),
-        _node("episode", uses.c.derivation_id).where(
+        _node(episode_kind(uses.c.derivation_id), uses.c.derivation_id).where(
             closure.c.kind == "use", uses.c.id == closure.c.id
         ),
         _node(reference_kind, reference_id)
         .select_from(uses.join(reference, literal(True)))
-        .where(closure.c.kind == "use", uses.c.id == closure.c.id),
+        .where(closure.c.kind == "use", uses.c.id == closure.c.id, use_inputs_visible),
         _node("population", populations.c.id)
         .select_from(
             uses.join(population_ref, literal(True)).join(
@@ -154,7 +166,7 @@ def _support_walk(metadata, seed):
                 ),
             )
         )
-        .where(closure.c.kind == "use", uses.c.id == closure.c.id),
+        .where(closure.c.kind == "use", uses.c.id == closure.c.id, use_inputs_visible),
         _node("use", uses.c.id)
         .select_from(
             populations.join(
@@ -807,7 +819,7 @@ def selected_support_export(metadata, selected_uses, admissions, in_page):
             ),
         ),
     ).cte("export_support_seed")
-    nodes = _support_walk(metadata, seed)
+    nodes = _support_walk(metadata, seed, public=True)
     episodes = metadata.tables["ops.data_derivation"]
     inputs = metadata.tables["ops.data_derivation_input"]
     outputs = metadata.tables["ops.data_derivation_output"]
@@ -821,14 +833,16 @@ def selected_support_export(metadata, selected_uses, admissions, in_page):
 
     def reached(kind, identity):
         return exists(
-            select(1).select_from(nodes).where(nodes.c.kind == kind, nodes.c.id == identity)
+            select(1).select_from(nodes).where(nodes.c.kind == kind, nodes.c.id == identity).correlate_except(nodes)
         )
 
     episode_ids = select(episodes.c.id).where(reached("episode", episodes.c.id))
+    authority_ids = select(nodes.c.id).where(nodes.c.kind == "authority")
     request_ids = select(episodes.c.request_id).where(episodes.c.id.in_(episode_ids))
     product_ids = union(
         select(inputs.c.product_id).where(inputs.c.derivation_id.in_(episode_ids)),
         select(outputs.c.product_id).where(outputs.c.derivation_id.in_(episode_ids)),
+        select(outputs.c.product_id).where(outputs.c.derivation_id.in_(authority_ids)),
         select(admissions.c.product_id).where(reached("original", admissions.c.id)),
     ).cte("export_products")
 
@@ -854,7 +868,7 @@ def selected_support_export(metadata, selected_uses, admissions, in_page):
         ).where(predicate)
 
     fields = dict(
-        uses=records(uses, reached("use", uses.c.id), uses.c.id),
+        uses=records(uses, and_(reached("use", uses.c.id), ~func.ops.ddo_policy_authority_leaf(uses.c.derivation_id)), uses.c.id),
         episodes=records(episodes, episodes.c.id.in_(episode_ids), episodes.c.id),
         requests=records(requests, requests.c.id.in_(request_ids), requests.c.id),
         original_admissions=records(
@@ -914,7 +928,7 @@ def selected_support_export(metadata, selected_uses, admissions, in_page):
                 select(1)
                 .select_from(episodes.join(requests, requests.c.id == episodes.c.request_id))
                 .where(
-                    episodes.c.id.in_(episode_ids),
+                    or_(episodes.c.id.in_(episode_ids), episodes.c.id.in_(authority_ids)),
                     episodes.c.release_id == definitions.c.release_id,
                     requests.c.operation_id == definitions.c.operation_id,
                 )
@@ -923,6 +937,17 @@ def selected_support_export(metadata, selected_uses, admissions, in_page):
             definitions.c.operation_id,
         ),
     )
+    # This is an explicit bounded provenance form, not a second storage table.
+    # In particular no issuer use/binding, request, intent, protected input, other
+    # output or transitive protected support is exported as a normal episode.
+    authority_use = uses.alias("authority_use")
+    fields["authority_leaves"] = select(
+        (literal("ops.data_authority_leaf:") + func.jsonb_build_array(nodes.c.id, authority_use.c.id).cast(Text)).label("key"),
+        literal("ops.data_authority_leaf").label("relation"),
+        func.ops.ddo_policy_authority_summary(nodes.c.id, authority_use.c.id, _var("boundary.id", Text)).label("record"),
+    ).select_from(nodes.outerjoin(authority_use, and_(
+        authority_use.c.derivation_id == nodes.c.id, reached("use", authority_use.c.id),
+    ))).where(nodes.c.kind == "authority")
     # Revocation witnesses belong to the same authenticated, body-authorized
     # selected closure. Keep selector/epoch provenance; never infer cause merely
     # because a use is currently unavailable. No private table grant is added.

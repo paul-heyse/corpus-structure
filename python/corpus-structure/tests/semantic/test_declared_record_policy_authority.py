@@ -1,6 +1,7 @@
 """Pure policy application controls; possession of values grants no native authority."""
 
 import pytest
+from typing import Any
 from pydantic import ValidationError
 
 from corpus_structure.semantic.declared_structural_references import DeclaredStructuralSource
@@ -10,6 +11,12 @@ from corpus_structure.semantic.record_policy_authority import (
     check_record_policy_application, policy_authorization_value, record_policy_kind_declarations,
 )
 from semantic.record_policy_support import fitted, calibrated, vector
+
+
+def _apply(authorization, arguments: dict[str, Any], **changes: Any):
+    values: dict[str, Any] = dict(arguments)
+    values.update(changes)
+    return check_record_policy_application(authorization, **values)
 
 
 @pytest.fixture(scope="module")
@@ -34,13 +41,14 @@ def application():
     # This new production reading is deliberately absent from fit/calibration samples.
     features = vector(99, 3)
     score = score_record(feature, features, subset="native-tables")
+    assert instance.calibration is not None
     event = dict(
         record_id=features.record_id, interpretation_id=features.interpretation_id,
         feature_instance_digest=feature.digest, feature_input_digest=features.input_digest,
         event_procedure=instance.calibration.event_procedure, outcome="completed",
         final_event_score=score.compatibility_potential,
     )
-    arguments = dict(
+    arguments: dict[str, Any] = dict(
         source=source, source_release_id="release:test", family="table", family_contract="TableReading",
         reading_recipe="recipe:readings",
         record_id=features.record_id, interpretation_id=features.interpretation_id,
@@ -72,17 +80,15 @@ def test_public_policy_exposes_only_permitted_parameters(application):
 
 def test_new_record_checks_actual_population_and_final_event(application):
     _, authorization, arguments = application
-    assert check_record_policy_application(authorization, **arguments) > 0.5
+    assert _apply(authorization, arguments) > 0.5
     with pytest.raises(ValueError, match="checked source population"):
-        check_record_policy_application(authorization, **{
-            **arguments, "source": arguments["source"].model_copy(update={"subject": "another-source"}),
-        })
+        _apply(authorization, arguments, source=arguments["source"].model_copy(update={"subject": "another-source"}))
     with pytest.raises(ValueError, match="family interpretation"):
-        check_record_policy_application(authorization, **{**arguments, "family_contract": "OtherReading"})
+        _apply(authorization, arguments, family_contract="OtherReading")
     with pytest.raises(ValueError, match="family interpretation"):
-        check_record_policy_application(authorization, **{**arguments, "reading_recipe": "recipe:changed"})
+        _apply(authorization, arguments, reading_recipe="recipe:changed")
     with pytest.raises(ValueError, match="unique sealed final event"):
-        check_record_policy_application(authorization, **{**arguments, "events": arguments["events"] * 2})
+        _apply(authorization, arguments, events=arguments["events"] * 2)
 
 
 @pytest.mark.parametrize("changes", [
@@ -95,7 +101,7 @@ def test_changed_or_invented_event_refuses(application, changes):
     _, authorization, arguments = application
     event = {**arguments["events"][0], **changes}
     with pytest.raises(ValueError):
-        check_record_policy_application(authorization, **{**arguments, "events": (event,)})
+        _apply(authorization, arguments, events=(event,))
 
 
 def test_source_population_refuses_duplicates_and_cross_project(application):
@@ -130,6 +136,7 @@ def test_policy_issuer_has_closed_current_command_and_protected_input():
     )
     operation = model.operation("record_policy.authorize")
     assert operation.effects == (AUTHORIZATION_EFFECT,)
+    assert operation.capabilities.prepared_factory is not None
     assert operation.capabilities.prepared_factory.entrypoint == AUTHORIZATION_FACTORY
     assert operation.profile == "command"
     assert operation.roles[1].kind == AUTHORIZATION_KIND
@@ -142,9 +149,7 @@ def test_policy_issuer_has_closed_current_command_and_protected_input():
 def test_compatible_release_change_preserves_original_policy_lineage(application):
     _, authorization, arguments = application
     features = arguments["features"].model_copy(update={"release_id": "release:compatible"})
-    assert check_record_policy_application(authorization, **{
-        **arguments, "source_release_id": "release:compatible", "features": features,
-    }) > 0.5
+    assert _apply(authorization, arguments, source_release_id="release:compatible", features=features) > 0.5
     assert authorization.source_release_id == "release:test"
 
 

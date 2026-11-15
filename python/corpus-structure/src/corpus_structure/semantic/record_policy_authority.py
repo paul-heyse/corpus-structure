@@ -146,7 +146,7 @@ def check_record_policy_application(
     ):
         raise ValueError("sealed final event differs from exact authorized instance or input")
     score = event.get("final_event_score")
-    if type(score) not in (int, float) or not math.isfinite(score):
+    if not isinstance(score, (int, float)) or type(score) not in (int, float) or not math.isfinite(score):
         raise ValueError("sealed final event requires a finite numeric score")
     expected_score = reading_potential(
         authorization.parameters, tuple(value for value in features.values if value is not None),

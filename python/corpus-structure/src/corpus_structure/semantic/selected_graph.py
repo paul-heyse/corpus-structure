@@ -68,6 +68,24 @@ def snapshot_from_index(prepared, cut, index, projection):
         ):
             raise ValueError("selected frontier and support use custody differ")
     all_uses = uses | {name: {**row, "id": name} for name, row in frontier_uses.items()}
+    from .authority_leaf import NativeAuthorityLeaf
+
+    authorities = tuple(NativeAuthorityLeaf.model_validate(row) for row in index.rows("ops.data_authority_leaf"))
+    for leaf in authorities:
+        node("ops.data_authority_leaf", [leaf.derivation_id, leaf.use_id], "authority", leaf.model_dump(mode="json"))
+        unknowns.append("protected dependencies of native authority " + leaf.derivation_id + " are undisclosed")
+
+    def authority_reference(reference):
+        if reference.get("kind") in {"original-source", "authored"}:
+            return None
+        matching = tuple(leaf for leaf in authorities if (
+            leaf.derivation_id == reference.get("derivation_id")
+            and (reference.get("admission_use_id") is None or leaf.use_id == reference["admission_use_id"])
+        ))
+        if matching:
+            leaf = min(matching, key=lambda value: value.use_id or "")
+            return identity("ops.data_authority_leaf", [leaf.derivation_id, leaf.use_id])
+        return None
 
     def required(relation, key, field):
         name = identity(relation, key)
@@ -76,6 +94,9 @@ def snapshot_from_index(prepared, cut, index, projection):
         return name
 
     def reference(reference):
+        authority = authority_reference(reference)
+        if authority is not None:
+            return authority
         if reference.get("kind") in {"original-source", "authored"}:
             return required(
                 "ops.original_source_admission", reference["admission_id"], "original support"
@@ -127,17 +148,20 @@ def snapshot_from_index(prepared, cut, index, projection):
             node("ops.data_population", name, "population", row)
 
         def producer_request(ref):
+            authority = authority_reference(ref)
+            if authority is not None:
+                return authority
             if ref.get("kind") in {"original-source", "authored"}:
                 return None
             if ref.get("admission_use_id"):
                 support = all_uses.get(ref["admission_use_id"])
                 if support is None:
                     raise ValueError("bound request lacks its selected support use")
-                return support["request_id"]
+                return required("ops.data_request", support["request_id"], "producer request")
             producer = episodes.get(ref["derivation_id"])
             if producer is None:
                 raise ValueError("bound request lacks its producing episode")
-            return producer["request_id"]
+            return required("ops.data_request", producer["request_id"], "producer request")
 
         for name, row in all_uses.items():
             owner = required("ops.demand_use", name, "use")
@@ -155,7 +179,7 @@ def snapshot_from_index(prepared, cut, index, projection):
                 if target is not None:
                     edge(
                         owner,
-                        required("ops.data_request", target, "producer request"),
+                        target,
                         "selected-input",
                         ref.get("role", ""),
                         position=ref.get("position"),
@@ -197,6 +221,13 @@ def snapshot_from_index(prepared, cut, index, projection):
                 "output",
                 "member",
                 witness={"member_id": row["member_id"]},
+            )
+        for leaf in authorities:
+            edge(
+                identity("ops.data_authority_leaf", [leaf.derivation_id, leaf.use_id]),
+                required("kb.data_product", leaf.product_id, "authority output"),
+                "output", "authorization", position=0,
+                witness={"receipt_id": leaf.receipt_id, "protected_dependencies": "undisclosed"},
             )
         for table, relation in (
             ("ops.data_derivation_input", "input"),
@@ -272,11 +303,10 @@ def snapshot_from_index(prepared, cut, index, projection):
             for row in index.rows(table):
                 if row["derivation_id"] in selected_episodes:
                     continue  # Selected-use support supersedes the historical support list.
-                target = (
-                    required("ops.demand_use", row["admission_use_id"], "historical support use")
-                    if row.get("admission_use_id")
-                    else required(target_relation, row[target_field], "producing support")
-                )
+                if table == "ops.data_derivation_support":
+                    target = reference(dict(kind="computation", derivation_id=row[target_field], admission_use_id=row.get("admission_use_id")))
+                else:
+                    target = required(target_relation, row[target_field], "producing support")
                 edge(
                     required("ops.data_derivation", row["derivation_id"], "producing episode"),
                     target,

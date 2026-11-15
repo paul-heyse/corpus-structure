@@ -371,6 +371,7 @@ def verify_detached_result(
     models=None,
     runtimes=None,
     source_artifacts=None,
+    authority_schema=None,
     validate_closure=True,
 ) -> DemandResult:
     """Verify links and exact value identities against an explicit captured closure.
@@ -529,6 +530,29 @@ def verify_detached_result(
     original_supports = row_map(
         "ops.data_derivation_original_support", "derivation_id", "occurrence"
     )
+    from .authority_leaf import NativeAuthorityLeaf, validate_authority_leaf
+
+    authorities = {}
+    for value in rows("ops.data_authority_leaf"):
+        leaf = (
+            validate_authority_leaf(value, products=products, kinds=kinds, definitions=definitions,
+                                    runtimes=runtimes, schema=authority_schema)
+            if validate_closure else NativeAuthorityLeaf.model_validate(value)
+        )
+        key = (leaf.derivation_id, leaf.use_id)
+        if key in authorities and authorities[key] != leaf:
+            raise ValueError("detached bounded authority repeats conflicting custody")
+        if leaf.derivation_id in episodes or (leaf.use_id is not None and leaf.use_id in uses):
+            raise ValueError("detached bounded authority also discloses its hidden episode or use")
+        authorities[key] = leaf
+
+    def authority_reference(reference):
+        if reference.get("kind") in {"original-source", "authored"}:
+            return None
+        use = reference.get("admission_use_id")
+        return next((leaf for (episode, selected), leaf in authorities.items() if (
+            episode == reference.get("derivation_id") and (use is None or use == selected)
+        )), None)
 
     def required(mapping, key, label):
         value = mapping.get(key)
@@ -537,6 +561,8 @@ def verify_detached_result(
         return value
 
     def support_reference(reference):
+        if authority_reference(reference) is not None:
+            return
         if reference["kind"] in {"original-source", "authored"}:
             original = required(originals, reference["admission_id"], "original support")
             if original["source_reference"] != reference["source_reference"]:
@@ -780,10 +806,14 @@ def verify_detached_result(
         ):
             raise ValueError("detached role edge has an absent endpoint")
     for edge in rows("ops.data_derivation_support") if validate_closure else ():
+        authority = authority_reference(dict(kind="computation", derivation_id=edge["support_derivation_id"],
+                                             admission_use_id=edge["admission_use_id"]))
         if (
             edge["derivation_id"] not in episodes
-            or edge["support_derivation_id"] not in episodes
-            or (edge["admission_use_id"] is not None and edge["admission_use_id"] not in uses)
+            or (authority is None and (
+                edge["support_derivation_id"] not in episodes
+                or (edge["admission_use_id"] is not None and edge["admission_use_id"] not in uses)
+            ))
         ):
             raise ValueError("detached support closure is incomplete")
     for edge in rows("ops.data_derivation_original_support") if validate_closure else ():

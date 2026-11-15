@@ -56,6 +56,8 @@ def native_protocol_sources(
     from .data_operation_wire_native import wire_native_sources
     from .graph_runtime import nx
     from .pdf_completion_native import pdf_completion_native_sql
+    from .record_policy_native import record_policy_native_sql
+    from .authority_leaf import NativeAuthorityLeaf
 
     if physical_sources is None:
         protocol = (_ROOT / "data-operation-native.yaml").read_bytes()
@@ -88,6 +90,17 @@ def native_protocol_sources(
             "native/data-operation-pdf-effect-contract.py",
             Path(__file__).with_name("pdf_effect_contract.py").read_bytes(),
         ),
+        SourceArtifact("native/data-operation-record-policy.sql", record_policy_native_sql().encode()),
+        SourceArtifact(
+            "native/data-operation-record-policy.py",
+            Path(__file__).with_name("record_policy_native.py").read_bytes(),
+        ),
+        SourceArtifact(
+            "native/data-operation-record-policy-authority.py",
+            Path(__file__).with_name("record_policy_authority.py").read_bytes(),
+        ),
+        SourceArtifact("native/data-operation-authority-leaf.json", canonical_bytes(NativeAuthorityLeaf.model_json_schema())),
+        SourceArtifact("native/data-operation-authority-leaf.py", Path(__file__).with_name("authority_leaf.py").read_bytes()),
         SourceArtifact(ORIGINAL_REFERENCE_SCHEMA, original_source_reference_schema()),
         SourceArtifact(ORIGINAL_SUPPORT_REFERENCE_SCHEMA, original_support_reference_schema()),
         SourceArtifact(
@@ -181,6 +194,11 @@ def _captured(sources) -> dict[str, bytes]:
         "native/data-operation-source-native.py",
         "native/data-operation-original-reference.json",
         "native/data-operation-support.py",
+        "native/data-operation-record-policy.sql",
+        "native/data-operation-record-policy.py",
+        "native/data-operation-record-policy-authority.py",
+        "native/data-operation-authority-leaf.json",
+        "native/data-operation-authority-leaf.py",
     }
     if b"original_document_contracts" in result.get("native/data-operation-source-native.py", b""):
         required.update({"native/source-admission-calls.json", "native/original-document-contracts.py", "native/original-documents.py", "native/source-originals.sql"})
@@ -296,7 +314,7 @@ def _rename_native_entrypoints(sql: str, names: set[str]) -> str:
 def native_sql(sources=None) -> str:
     captured = native_protocol_sources() if sources is None else tuple(sources)
     sql = (
-        _captured(captured)["native/data-operations.sql"]
+        _captured(captured)["native/data-operation-record-policy.sql"].decode() + "\n" + _captured(captured)["native/data-operations.sql"]
         .decode()
         .replace("__DDO_SOURCE_DIGEST__", native_source_digest(captured))
     )

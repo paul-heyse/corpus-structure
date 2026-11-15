@@ -32,6 +32,29 @@ def _checksum(path):
         return file_digest(stream, "sha256").hexdigest()
 
 
+def _relation_schema(relation, names, cut_id):
+    """Physical rows and the explicit virtual authority form retain typed export columns."""
+    from typing import get_args
+    import pyarrow as pa
+    from corpus_structure.semantic.authority_leaf import NativeAuthorityLeaf
+    from corpus_structure.semantic.arrow_types import sql_arrow_type
+    from corpus_structure.semantic.metadata import table
+
+    if relation == "ops.data_authority_leaf":
+        if names != set(NativeAuthorityLeaf.model_fields):
+            raise ValueError("authority export differs from its closed disclosure fields")
+        columns = ()
+        fields = [pa.field(name, pa.string(), nullable=type(None) in get_args(field.annotation))
+                  for name, field in NativeAuthorityLeaf.model_fields.items()]
+    else:
+        columns = tuple(column for column in table(relation).c if column.name in names)
+        fields = [pa.field(column.name, sql_arrow_type(column.type), nullable=column.nullable) for column in columns]
+    return pa.schema(fields, metadata={
+        b"cs.cut": cut_id.encode(), b"cs.relation": relation.encode(),
+        b"cs.json": b"exact canonical JSON; tagged semantic bodies retain their exact value kinds",
+    }), columns
+
+
 def _capture_release(connection, release_id):
     from sqlalchemy import select
 
@@ -147,7 +170,7 @@ def export_demand_result(
                     and record["record"]["artifact_digest"] is not None
                 ):
                     source_digests.add(record["record"]["artifact_digest"])
-                if record["relation"] == "ops.data_derivation":
+                if record["relation"] in {"ops.data_derivation", "ops.data_authority_leaf"}:
                     producing = record["record"]
                     releases.add(producing["release_id"])
                     runtimes.add((producing["release_id"], producing["runtime_id"]))
@@ -215,6 +238,9 @@ def export_demand_result(
             "reader-contract.json",
             json_bytes(wire_contracts(native_protocol_sources())["read_demand_result"]["output"]),
         )
+        from corpus_structure.semantic.authority_leaf import NativeAuthorityLeaf
+
+        write("authority-contract.json", json_bytes(NativeAuthorityLeaf.model_json_schema()))
         closure_path = root / "closure.jsonl"
         with closure_path.open("wb") as output:
             for (payload,) in spool.execute("SELECT payload FROM records ORDER BY key"):
@@ -232,29 +258,15 @@ def export_demand_result(
             from sqlalchemy import DateTime
             from sqlalchemy.dialects.postgresql import JSONB
 
-            from corpus_structure.semantic.arrow_types import sql_arrow_type
-            from corpus_structure.semantic.metadata import table
-
             for (relation,) in spool.execute(
                 "SELECT DISTINCT relation FROM records ORDER BY relation"
             ):
-                native = table(relation)
+                authority = relation == "ops.data_authority_leaf"
                 first = spool.execute(
                     "SELECT payload FROM records WHERE relation=? ORDER BY key LIMIT 1", (relation,)
                 ).fetchone()
                 names = set(wire_json_loads(first[0])["record"])
-                columns = tuple(column for column in native.c if column.name in names)
-                schema = pa.schema(
-                    [
-                        pa.field(column.name, sql_arrow_type(column.type), nullable=column.nullable)
-                        for column in columns
-                    ],
-                    metadata={
-                        b"cs.cut": cut.identity.encode(),
-                        b"cs.relation": relation.encode(),
-                        b"cs.json": b"exact canonical JSON; tagged semantic bodies retain their exact value kinds",
-                    },
-                )
+                schema, columns = _relation_schema(relation, names, cut.identity)
                 name = relation.replace(".", "_") + ".parquet"
                 count = 0
                 with pq.ParquetWriter(root / name, schema) as writer:
@@ -265,6 +277,9 @@ def export_demand_result(
                         values = []
                         for (payload,) in batch:
                             record = wire_json_loads(payload)["record"]
+                            if authority:
+                                values.append(NativeAuthorityLeaf.model_validate(record).model_dump(mode="json"))
+                                continue
                             values.append(
                                 {
                                     column.name: json_bytes(record[column.name]).decode()
@@ -283,15 +298,18 @@ def export_demand_result(
                     sha256=_checksum(root / name), bytes=(root / name).stat().st_size
                 )
                 relations[relation] = dict(file=name, rows=count)
+        support_disclosure = "bounded" if spool.execute("SELECT EXISTS(SELECT 1 FROM records WHERE relation='ops.data_authority_leaf')").fetchone()[0] else "complete"
         spool.close()
         manifest = dict(
-            format="demand-result-export-v1",
+            format="demand-result-export-v2",
             encoding=format,
             cut_id=cut.identity,
             cut=cut.record,
             pages=pages,
             closure="closure.jsonl",
             reader_contract="reader-contract.json",
+            authority_contract="authority-contract.json",
+            support_disclosure=support_disclosure,
             releases=release_files,
             runtimes=runtime_files,
             source_artifacts=source_files,
@@ -315,7 +333,7 @@ def verify_demand_export(root: Path, *, manifest_digest: str):
     if sha256(manifest_bytes).hexdigest() != manifest_digest:
         raise ValueError("export manifest differs from the explicit trusted digest")
     manifest = wire_json_loads(manifest_bytes)
-    if manifest["format"] != "demand-result-export-v1":
+    if manifest["format"] != "demand-result-export-v2":
         raise ValueError("unsupported selected result export")
     for name, descriptor in manifest["files"].items():
         path = root / name
@@ -364,12 +382,16 @@ def verify_demand_export(root: Path, *, manifest_digest: str):
         validate_runtime_binding(binding, prepared[binding.release_id])
         runtime_ids.add((binding.release_id, binding.runtime_id))
     wire_schema = wire_json_loads((root / manifest["reader_contract"]).read_bytes())
+    authority_schema = wire_json_loads((root / manifest["authority_contract"]).read_bytes())
     with TemporaryDirectory(prefix="demand-verify-") as scratch:
         index = SelectedRecordIndex(Path(scratch) / "closure.sqlite")
         try:
             with (root / manifest["closure"]).open("rb") as stream:
                 for line in stream:
                     index.append(line.rstrip(b"\n"))
+            actual_disclosure = "bounded" if next(index.rows("ops.data_authority_leaf"), None) is not None else "complete"
+            if manifest["support_disclosure"] != actual_disclosure:
+                raise ValueError("detached manifest misstates its protected support disclosure")
             for ordinal, name in enumerate(manifest["pages"]):
                 page = verify_detached_result(
                     wire_json_loads((root / name).read_bytes()),
@@ -380,6 +402,7 @@ def verify_demand_export(root: Path, *, manifest_digest: str):
                     models=models,
                     runtimes=runtime_ids,
                     source_artifacts=manifest["source_artifacts"],
+                    authority_schema=authority_schema,
                     validate_closure=ordinal == 0,
                 )
                 if page.cut.identity != manifest["cut_id"]:
@@ -403,5 +426,7 @@ def verify_demand_export(root: Path, *, manifest_digest: str):
         cut_id=manifest["cut_id"],
         pages=len(manifest["pages"]),
         current_trust="not_assessed",
+        support_disclosure=manifest["support_disclosure"],
+        protected_dependencies="undisclosed" if manifest["support_disclosure"] == "bounded" else "not_encountered",
         inference="not_run",
     )

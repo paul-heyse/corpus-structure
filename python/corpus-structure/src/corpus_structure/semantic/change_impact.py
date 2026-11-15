@@ -123,6 +123,7 @@ class SelectionEvidence(BaseModel):
     inputs: tuple[tuple[str, str | None, str, int, int], ...] = ()
     support: tuple[str, ...] = ()
     invalidity_causes: tuple[RevocationCause, ...] = ()
+    read_unknowns: tuple[str, ...] = ()
 
 
 
@@ -536,6 +537,10 @@ def _acquire(connection, demand, *, project, scope, read_id, expected_cut, max_b
             from .data_operation_admission import bound_data_operation_model
             from .releases import open_release
             model = bound_data_operation_model(open_release(connection, cut.record["release_id"]))
+            read_unknowns = tuple(sorted({
+                "selected read has undisclosed protected dependencies at authority " + row["derivation_id"]
+                for row in index.rows("ops.data_authority_leaf")
+            }))
             evidence = []
             for identity, obligation in obligations.items():
                 selected = uses[identity]
@@ -597,6 +602,7 @@ def _acquire(connection, demand, *, project, scope, read_id, expected_cut, max_b
                         products=tuple(sorted(edges, key=json_bytes)),
                         inputs=tuple(sorted(inputs, key=json_bytes)),
                         support=tuple(sorted(support)),
+                        read_unknowns=read_unknowns,
                         invalidity_causes=_revocation_causes(
                             index, derivations, tuple(use["use_id"] for use in selected)
                         )
@@ -706,6 +712,7 @@ def inspect_change_impact(
         raise ValueError("impact continuation belongs to another comparison/context")
     population_complete = before_closed and target_closed
     unknowns = []
+    unknowns.extend(sorted({reason for observed in (*before, *target) for reason in observed.read_unknowns}))
     if not population_complete:
         unknowns.append(
             "native before/target requested and discovery populations are not both closed"
