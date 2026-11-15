@@ -68,3 +68,33 @@ def read_native_definition_projection(prepared, *, model=None) -> NativeDefiniti
     if len(set(kinds)) != len(kinds) or len(set(operations)) != len(operations):
         raise ValueError("native definition projection repeats a nominal identity")
     return projection
+
+
+DefinitionVariant = Literal["components", "applicability", "location"]
+
+
+def definition_variant_contract(model, projection, variant: DefinitionVariant) -> str | None:
+    """Resolve an explicit kind-owned association, never an IRI/name convention."""
+    import json
+    from typing import get_args
+
+    owners = {}
+    for kind in model.kinds:
+        facts = json.loads(kind.facts)
+        schema_value = facts.get("json_schema", {}).get("x-ddo-definition-variant")
+        policy_value = facts.get("policies", {}).get("cs:definition_variant")
+        values = {value for value in (schema_value, policy_value) if value is not None}
+        if len(values) > 1 or any(value not in get_args(DefinitionVariant) for value in values):
+            raise ValueError("invalid definition-variant association")
+        if values:
+            name = next(iter(values))
+            if name in owners:
+                raise ValueError("ambiguous definition-variant association")
+            owners[name] = kind.semantic_id
+    owner = owners.get(variant)
+    if owner is None:
+        return None
+    matches = [row["kind_contract"] for row in projection["kinds"] if row["kind"] == owner]
+    if len(matches) != 1:
+        raise ValueError("definition variant lacks one admitted nominal kind")
+    return matches[0]

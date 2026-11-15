@@ -50,3 +50,30 @@ def test_unknown_projection_fields_are_not_silently_discarded():
     model, prepared = _captured(unknown_policy="must not disappear")
     with pytest.raises(ValueError, match="Extra inputs"):
         read_native_definition_projection(prepared, model=model)
+
+
+def test_variant_is_explicit_kind_metadata_not_an_iri_convention():
+    from corpus_structure.semantic.native_definition_projection import definition_variant_contract
+
+    model = SimpleNamespace(kinds=(SimpleNamespace(
+        semantic_id="unrelated-name", facts=json_bytes({"policies": {"cs:definition_variant": "location"}})
+    ),))
+    projection = {"kinds": [{"kind": "unrelated-name", "kind_contract": "exact-kind"}]}
+    assert definition_variant_contract(model, projection, "location") == "exact-kind"
+    assert definition_variant_contract(model, projection, "components") is None
+
+
+def test_ambiguous_variant_metadata_refuses_instead_of_selecting_first():
+    from corpus_structure.semantic.native_definition_projection import definition_variant_contract
+
+    model = SimpleNamespace(kinds=tuple(SimpleNamespace(
+        semantic_id=name, facts=json_bytes({"json_schema": {"x-ddo-definition-variant": "components"}})
+    ) for name in ("first", "second")))
+    with pytest.raises(ValueError, match="ambiguous"):
+        definition_variant_contract(model, {"kinds": []}, "components")
+
+
+def test_actual_components_schema_owns_its_public_variant():
+    from corpus_structure.semantic.structural_products import DeclaredDefinitionComponentsReport
+
+    assert DeclaredDefinitionComponentsReport.model_json_schema()["x-ddo-definition-variant"] == "components"

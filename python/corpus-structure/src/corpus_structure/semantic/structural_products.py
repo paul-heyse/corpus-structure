@@ -9,7 +9,7 @@ from __future__ import annotations
 from hashlib import sha256
 from typing import Annotated, Any, Literal, Self
 
-from pydantic import Field, JsonValue, TypeAdapter, model_validator
+from pydantic import ConfigDict, Field, JsonValue, TypeAdapter, model_validator
 
 from .artifact_identity import (
     ArtifactAliasSpan,
@@ -1394,6 +1394,7 @@ class DeclaredConditionReport(DeclaredStructuralProductReport):
 
 
 class DeclaredDefinitionComponentsReport(DeclaredStructuralProductReport):
+    model_config = ConfigDict(json_schema_extra={"x-ddo-definition-variant": "components"})
     kind: Literal["definition_components"] = "definition_components"
     definition_components: DeclaredDefinitionComponentsProduct
     sources_input: tuple[DeclaredStructuralInputPin, ...] = Field(min_length=1)
@@ -1401,6 +1402,7 @@ class DeclaredDefinitionComponentsReport(DeclaredStructuralProductReport):
 
 
 class DeclaredDefinitionApplicabilityReport(DeclaredStructuralProductReport):
+    model_config = ConfigDict(json_schema_extra={"x-ddo-definition-variant": "applicability"})
     """Current usage result with independently bound exact component/relationship pins."""
 
     kind: Literal["definition_applicability"] = "definition_applicability"

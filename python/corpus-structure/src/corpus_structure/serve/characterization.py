@@ -617,9 +617,12 @@ def inspect_demand_characterization(connection, request: DemandCharacterizationR
     return read_demand_contributions(connection, DemandQueryRequest.model_validate(selected))
 
 
+from corpus_structure.semantic.native_definition_projection import DefinitionVariant
+
+
 class DemandDefinitionRequest(DemandQueryRequest):
     product_id: str = Field(min_length=1)
-    variant: Literal["components", "applicability", "location"]
+    variant: DefinitionVariant
 
 
 def inspect_demand_definition(connection, request: DemandDefinitionRequest):
@@ -634,12 +637,11 @@ def inspect_demand_definition(connection, request: DemandDefinitionRequest):
     from corpus_structure.semantic.native_definition_projection import read_native_definition_projection
 
     projection = read_native_definition_projection(release)
-    kind = {
-        "components": "urn:corpus:structural:DeclaredDefinitionComponentsReport",
-        "applicability": "urn:corpus:structural:DeclaredDefinitionApplicabilityReport",
-        "location": "https://corpus-structure.dev/semantic/data-operation-definition-location/DdoDefinitionLocationReport",
-    }[request.variant]
-    contracts = {row["kind_contract"] for row in projection["kinds"] if row["kind"] == kind}
+    from corpus_structure.semantic.data_operation_admission import bound_data_operation_model
+    from corpus_structure.semantic.native_definition_projection import definition_variant_contract
+
+    contract = definition_variant_contract(bound_data_operation_model(release), projection, request.variant)
+    contracts = set() if contract is None else {contract}
     if not contracts:
         return dict(
             result,

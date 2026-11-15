@@ -29,6 +29,7 @@ classes:
       original_source: {required: true}
       analyzed_scope_meaning: {required: true}
   DdoDefinitionLocationReport:
+    annotations: {"cs:definition_variant": location}
     is_a: DdoCandidateInspectionReport
     description: Source occurrences projected from exact retained definition components or independent model roles; no knowledge admission.
     attributes:
