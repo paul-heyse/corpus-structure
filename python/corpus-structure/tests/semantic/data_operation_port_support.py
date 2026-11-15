@@ -69,6 +69,8 @@ def captured(content: bytes | None = None):
         original_support_reference_schema,
     )
 
+    from corpus_structure.semantic.data_operation_visual_read import SOURCE as VISUAL_SOURCE, visual_read_schema
+
     return (
         SourceArtifact(
             "native/data-operation-protocol.yaml",
@@ -77,4 +79,5 @@ def captured(content: bytes | None = None):
         SourceArtifact(SOURCE, execution_evidence_schema()),
         SourceArtifact(ORIGINAL_REFERENCE_SCHEMA, original_source_reference_schema()),
         SourceArtifact(ORIGINAL_SUPPORT_REFERENCE_SCHEMA, original_support_reference_schema()),
+        SourceArtifact(VISUAL_SOURCE, visual_read_schema()),
     )

@@ -25,12 +25,18 @@ from semantic.data_operation_port_support import captured
 from semantic.data_operation_declaration_support import contract
 
 
-def wire_model(sources=None, binding=None):
+def controlled_wire_declaration():
     declaration: dict[str, Any] = contract(
         id="data.claim_data_request", profile="command",
         behavior="controlled-native-wire-v1", invariants=[], outcomes=["success"],
         transitions=[], state_dimensions=[],
+        effects=[{"name": "controlled-wire-effect", "authorization": ["controlled-native-purpose"], "idempotency": "request-generation-and-holder", "fulfillment": "native-transaction"}],
     )
+    return declaration
+
+
+def wire_model(sources=None, binding=None):
+    declaration = controlled_wire_declaration()
     declaration["roles"][0].update(
         name="request",
         parameter="payload",
@@ -213,7 +219,7 @@ def test_nested_support_and_product_member_attributes_cannot_hide_type_coercion(
         {
             "member_id": "m",
             "kind_contract": "kind:member",
-            "context": {"subject": "member:m", "original_source": "source:x", "analyzed_scope": {}},
+            "context": {"subject": "member:m", "original_source": "source:x", "analyzed_scope": {}, "subject_definition": "original-source-view"},
             "body": ["mapping", []],
             "choices": [{"choice_group": "g", "alternative": "a", "selected": True}],
         }
@@ -332,6 +338,7 @@ def test_read_receipt_lookup_and_cursor_pins_have_distinct_explicit_shapes():
         "release_id": "release:x",
         "runtime_id": "runtime:x",
         "trust_snapshot": {},
+        "scope": {},
         "uses": [],
         "obligations": [],
         "populations": [],
@@ -418,7 +425,7 @@ def test_member_context_is_required_and_does_not_reinterpret_domain_subject():
             "subject": "occurrence:x",
             "original_source": "source:x",
             "analyzed_scope": {"page": 2},
-        },
+         "subject_definition": "original-source-view"},
         "body": ["mapping", [["subject", ["string", "linguistic-subject"]]]],
     }
     accepted = validate_native_wire(
@@ -473,7 +480,7 @@ def test_endpoint_scope_is_explicit_and_local_never_embeds_a_self_product_key(en
     member = {
         "member_id": "member:x",
         "kind_contract": "kind:member",
-        "context": {"subject": "occurrence:x", "original_source": "source:x", "analyzed_scope": {}},
+        "context": {"subject": "occurrence:x", "original_source": "source:x", "analyzed_scope": {}, "subject_definition": "original-source-view"},
         "body": ["mapping", [["endpoints", ["sequence", []]]]],
         "endpoints": [endpoint],
     }
@@ -516,7 +523,7 @@ def test_frontier_and_products_views_expose_explicit_body_states():
         "original_source": "source:x",
         "analyzed_scope": {},
         "body_state": "not_requested",
-    }
+     "subject_definition": "original-source-view"}
     selection = {
         "inputs": [],
         "support": [],
@@ -535,6 +542,7 @@ def test_frontier_and_products_views_expose_explicit_body_states():
         "release_id": "release:x",
         "runtime_id": "runtime:x",
         "trust_snapshot": {},
+        "scope": {},
         "obligations": [],
         "populations": [],
         "continuation": None,
@@ -592,7 +600,7 @@ def test_member_wire_carries_a_distinct_authenticated_kind_contract():
     member: dict[str, Any] = {
         "member_id": "member:x",
         "kind_contract": "kind:member",
-        "context": {"subject": "occurrence:x", "original_source": "source:x", "analyzed_scope": {}},
+        "context": {"subject": "occurrence:x", "original_source": "source:x", "analyzed_scope": {}, "subject_definition": "original-source-view"},
         "body": ["integer", "7"],
     }
     request = member_completion(member, domain_body=7)
@@ -641,7 +649,7 @@ def test_custom_local_schema_definition_never_relabels_an_existing_wire_kind():
             },
         },
     }
-    declaration: dict[str, Any] = copy.deepcopy(claim_source_item__data_operation__)
+    declaration = controlled_wire_declaration()
     declaration["roles"][0]["kind"] = custom["id"]
     source = SourceArtifact(
         "custom-wire-collision.json",
@@ -746,7 +754,7 @@ def test_selected_population_wire_accepts_only_authenticated_parent_and_frozen_f
         "filter": {"operator": "all", "children": []},
         "parameter_meaning": ["mapping", []],
         "choices": {},
-    }
+     "subject_definition": "original-source-view"}
     result = {
         "population_id": "population:selected",
         "name": "selected-items",
