@@ -819,13 +819,23 @@ def evaluate_rich_rules(
         )
         decisions.append(RichRuleDecision(identifier, fact.fact_id, status, tuple(findings)))
     eligible_structural_occurrences = {
-        identifier for identifier, occurrence in occurrences.items()
-        if identifier not in state.retained_member_ids and identifier not in limitation_reasons
+        identifier
+        for identifier, occurrence in occurrences.items()
+        if identifier not in state.retained_member_ids
+        and identifier not in limitation_reasons
         and occurrence.fact_id not in unselected_facts
-        and policy.metadata.get((state.property(facts[occurrence.fact_id].property_contract)[0].name,
-                                 facts[occurrence.fact_id].predicate), {}).get("cs:role") != "predicate"
+        and policy.metadata.get(
+            (
+                state.property(facts[occurrence.fact_id].property_contract)[0].name,
+                facts[occurrence.fact_id].predicate,
+            ),
+            {},
+        ).get("cs:role")
+        != "predicate"
     }
-    selected_facts = {occurrences[identifier].fact_id for identifier in eligible_structural_occurrences}
+    selected_facts = {
+        occurrences[identifier].fact_id for identifier in eligible_structural_occurrences
+    }
     # Display representatives are observable presentation choices, not equality
     # rewrites or evidence that other spellings were absent.
     display = defaultdict(list)
@@ -843,8 +853,11 @@ def evaluate_rich_rules(
             key=lambda identifier: (str(state.value(facts[identifier].object_value)), identifier),
         )
         selected_facts.difference_update(set(members) - {keep})
-    selected_occurrences = {identifier for identifier in eligible_structural_occurrences
-                            if occurrences[identifier].fact_id in selected_facts}
+    selected_occurrences = {
+        identifier
+        for identifier in eligible_structural_occurrences
+        if occurrences[identifier].fact_id in selected_facts
+    }
     selected_facts.update(
         decision.fact_id for decision in decisions if decision.status == "accepted"
     )

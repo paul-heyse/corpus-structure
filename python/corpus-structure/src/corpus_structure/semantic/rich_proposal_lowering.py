@@ -155,14 +155,14 @@ def lower_rich_proposals(builder, *, check_active):
         known=builder.known,
     )
     by_source = {item[-1].reference: item for item in sources}
-    for role, parent, report, context_ref, packet, macros, grouped, source in sources:
+    for _role, _parent, _report, _context_ref, _packet, _macros, grouped, source in sources:
         mapping = mappings[source.reference]
-        for local, (member, entity) in grouped["entity"].items():
+        for local, (_entity_member, entity) in grouped["entity"].items():
             identifier = mapping[local]
             iri = entity["class_iri"]
             builder.entities[identifier] = builder.entities.get(identifier, frozenset()) | {iri}
         builder.values.entities.update(builder.entities)
-    for role, parent, report, context_ref, packet, macros, grouped, source in sources:
+    for _role, parent, report, context_ref, _packet, macros, grouped, source in sources:
         check_active()
         mapping = mappings[source.reference]
         statement_ids = {
@@ -196,7 +196,14 @@ def lower_rich_proposals(builder, *, check_active):
                     )
                 )
 
-        def class_reference(reference):
+        def class_reference(
+            reference,
+            *,
+            mapping=mapping,
+            grouped=grouped,
+            statement_ids=statement_ids,
+            statement_meta=statement_meta,
+        ):
             expected = prepared.index.definitions.get(reference.range)
             if expected is None:
                 raise ValueError("source reference has no actual declared class range")
@@ -230,7 +237,7 @@ def lower_rich_proposals(builder, *, check_active):
                 )
             return found[0]
 
-        def source_context(original):
+        def source_context(original, *, context_ref=context_ref, macros=macros):
             value = RichScientificSourceContext(
                 original=original, context=context_ref, macros=macros
             )
@@ -520,7 +527,7 @@ def lower_rich_proposals(builder, *, check_active):
                     )
                 except (KeyError, ValueError) as error:
                     builder.diagnostic("unrepresentable-source-attribute", str(error), (original,))
-        for local, (member, alternative) in grouped["alternative"].items():
+        for _local, (member, alternative) in grouped["alternative"].items():
             selected = tuple(
                 claim_facts.get(reference["member_id"].removeprefix("claim:"))
                 for reference in alternative["claims"]
@@ -569,7 +576,7 @@ def lower_rich_proposals(builder, *, check_active):
         for local, (member, exclusion) in grouped["identity_exclusion"].items():
             original = _member(parent, member)
 
-            def endpoint(value):
+            def endpoint(value, *, mapping=mapping):
                 if value["kind"] == "known":
                     return value["target"] if value["target"] in builder.known else None
                 return mapping.get(value["target"])
@@ -613,7 +620,7 @@ def lower_rich_proposals(builder, *, check_active):
                     member_type="identity-exclusion", exclusion_id=identifier, **fields
                 )
             )
-        for local, (member, unsupported) in grouped["unsupported"].items():
+        for _local, (member, unsupported) in grouped["unsupported"].items():
             builder.diagnostic(
                 "unsupported-source-proposal", unsupported["reason"], (_member(parent, member),)
             )

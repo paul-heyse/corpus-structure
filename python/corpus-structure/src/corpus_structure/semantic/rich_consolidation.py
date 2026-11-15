@@ -213,7 +213,7 @@ class RichAssembly:
 
         for role in self.inputs.selected("authored"):
             whole = DdoRichAuthoredPropositions.model_validate(role.body)
-            checked = read_rich_graph(
+            read_rich_graph(
                 self.prepared,
                 self.model,
                 context=self.context,
@@ -466,11 +466,6 @@ def admit_rich_knowledge(prepared, model, *, inputs, check_active):
     )
     # Genuine inherited known reading packets have already passed native current
     # producer/selection custody. Their exact member identities remain unchanged.
-    current = {
-        value.reading_id
-        for value in (packet.body for packet in consolidation.members)
-        if isinstance(value, DdoRichSourceReadingAssertion)
-    }
     current_pairs = {
         (
             rich_reference_key(value.original),

@@ -64,11 +64,14 @@ def select_rich_readings(prepared, inputs, *, original_population=None):
     from .reading_resolution_products import RECIPE, resolved_reading_events
 
     readings = []
-    reference = lambda role: (
-        inputs.reference(role)
-        if original_population is None
-        else _original_reference(inputs, role, original_population)
-    )
+
+    def reference(role):
+        return (
+            inputs.reference(role)
+            if original_population is None
+            else _original_reference(inputs, role, original_population)
+        )
+
     for role in inputs.selected("readings"):
         report = prepared.validate_json(
             "DdoResolvedReadingReport", json_bytes(role.body)

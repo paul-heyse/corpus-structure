@@ -213,34 +213,63 @@ classes:
     )
     assert len(value.eligibility.selected_fact_ids) == 1
 
-
     def run_variant(response, suffix):
-        located_variant = locate_external_extraction(prepared, original, response, model=model,
-            placement_policy=PlacementPolicy(), check_active=lambda: None)
-        variant_roles = tuple(replace(item, product_id=item.product_id + suffix,
-            body=located_variant if item.role == "proposals" else item.body) for item in roles)
-        return consolidate_rich_knowledge(prepared, model,
-            inputs=RichKernelInputs.from_basis(RichKernelInputs("actual-rich-core", context, variant_roles).basis()),
-            check_active=lambda: None)
+        located_variant = locate_external_extraction(
+            prepared,
+            original,
+            response,
+            model=model,
+            placement_policy=PlacementPolicy(),
+            check_active=lambda: None,
+        )
+        variant_roles = tuple(
+            replace(
+                item,
+                product_id=item.product_id + suffix,
+                body=located_variant if item.role == "proposals" else item.body,
+            )
+            for item in roles
+        )
+        return consolidate_rich_knowledge(
+            prepared,
+            model,
+            inputs=RichKernelInputs.from_basis(
+                RichKernelInputs("actual-rich-core", context, variant_roles).basis()
+            ),
+            check_active=lambda: None,
+        )
 
     # Two genuine source occurrences can have one canonical meaning. Preserve
     # both witnesses without inventing a competing or incomplete alternative.
     collapsed = deepcopy(raw)
     collapsed["claims"].append({**deepcopy(collapsed["claims"][0]), "id": "c2"})
-    collapsed["alternatives"] = [{"id": "same", "members": ["c1", "c2"], "faithful": True,
-                                  "reason": "two source branches have one actual meaning"}]
+    collapsed["alternatives"] = [
+        {
+            "id": "same",
+            "members": ["c1", "c2"],
+            "faithful": True,
+            "reason": "two source branches have one actual meaning",
+        }
+    ]
     collapsed_value = run_variant(collapsed, ":collapsed")
     assert not any(isinstance(item.body, DdoRichAlternative) for item in collapsed_value.members)
-    assert any(isinstance(item.body, DdoRichDiagnostic) and item.body.code == "equivalent-alternative" for item in collapsed_value.members)
+    assert any(
+        isinstance(item.body, DdoRichDiagnostic) and item.body.code == "equivalent-alternative"
+        for item in collapsed_value.members
+    )
     assert len(collapsed_value.eligibility.selected_fact_ids) == 1
     assert len(collapsed_value.eligibility.selected_occurrence_ids) == 2
 
     # Several attributes of one real entity share one interpretation packet;
     # their separate occurrences do not duplicate its source context authority.
     repeated = deepcopy(raw)
-    attribute = {"predicate": raw["claims"][0]["predicate"], "value": raw["claims"][0]["object"],
-                 "qualification": raw["claims"][0]["qualification"], "establishment": "stated",
-                 "evidence": raw["claims"][0]["evidence"]}
+    attribute = {
+        "predicate": raw["claims"][0]["predicate"],
+        "value": raw["claims"][0]["object"],
+        "qualification": raw["claims"][0]["qualification"],
+        "establishment": "stated",
+        "evidence": raw["claims"][0]["evidence"],
+    }
     repeated["entities"][0]["attributes"] = [deepcopy(attribute), deepcopy(attribute)]
     repeated_value = run_variant(repeated, ":attributes")
     assert len(repeated_value.eligibility.selected_fact_ids) == 1

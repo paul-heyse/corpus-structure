@@ -90,7 +90,11 @@ classes:
     from corpus_structure.semantic.rich_invocations import rich_knowledge_operation_sources
 
     model = compile_data_operations(
-        bundle, declarations=(*rich_knowledge_declarations(dependencies), record_policy_kind_declarations()),
+        bundle,
+        declarations=(
+            *rich_knowledge_declarations(dependencies),
+            record_policy_kind_declarations(),
+        ),
         python_sources=rich_knowledge_operation_sources(),
     )
     prepared = prepare_release(bundle, dependencies)

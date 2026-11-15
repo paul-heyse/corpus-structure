@@ -1,6 +1,5 @@
 """Actual typed raw/resolved family inputs and exact shared predictor application."""
 
-
 from corpus_structure.semantic.data_operation_cpu_basis import CPUInputRole
 from corpus_structure.semantic.data_operation_identity import decode_semantic_value
 from corpus_structure.semantic.data_operation_json import json_bytes

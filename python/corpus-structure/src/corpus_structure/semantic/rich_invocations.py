@@ -144,8 +144,7 @@ def _checked_kernel_inputs(action, input_basis, asset_content, prepared):
         rows = inputs.selected(name)
         if (
             len(rows) < declaration.minimum
-            or (declaration.maximum is not None
-            and len(rows) > declaration.maximum)
+            or (declaration.maximum is not None and len(rows) > declaration.maximum)
             or any(
                 row.multiplicity != 1
                 or row.member_id is not None
