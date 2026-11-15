@@ -862,7 +862,7 @@ BEGIN
  PERFORM ops.ddo_authorize(kind.universe) FROM jsonb_array_elements(def.input_roles||def.output_roles) role JOIN sem.data_kind_contract kind ON kind.kind_contract=role->>'kind_contract';
  IF coalesce(ops.ddo_pdf_command_eligible(def),false) THEN
  PERFORM ops.require_pdf_operation(d.release_id,'retain_pdf_original');
- ELSIF coalesce(ops.ddo_policy_command_eligible(def),false) THEN
+ ELSIF coalesce(ops.ddo_policy_command_eligible(def),false) OR coalesce(ops.ddo_structural_command_eligible(def),false) THEN
  IF NOT pg_has_role(coalesce(nullif(current_setting('role'),'none'),session_user),'corpus_sem_evaluator','MEMBER') THEN
  RAISE EXCEPTION 'policy authorization requires native evaluator purpose' USING ERRCODE='42501'; END IF;
  ELSIF def.profile NOT IN ('derivation','discovery') OR coalesce(def.support_contract->'effects','[]')<>'[]'::jsonb THEN
@@ -1182,6 +1182,8 @@ BEGIN
  PERFORM ops.ddo_require_record_grade_completion(r,p->'completion');
  PERFORM ops.ddo_require_record_fit_completion(r,p->'completion');
  PERFORM ops.ddo_require_policy_authorization_completion(r,p->'completion');
+ PERFORM ops.ddo_require_structural_admission_completion(r,p->'completion');
+ PERFORM ops.ddo_require_structural_dossier_completion(r,p->'completion');
  PERFORM ops.ddo_require_rich_preparation_completion(r,p->'completion');
  PERFORM ops.ddo_require_rich_admission_completion(r,p->'completion');
  PERFORM ops.ddo_assert_output_witnesses(r,p->'completion');
@@ -1421,6 +1423,8 @@ BEGIN
  PERFORM ops.ddo_require_record_grade_completion(r,i.payload);
  PERFORM ops.ddo_require_record_fit_completion(r,i.payload);
  PERFORM ops.ddo_require_policy_authorization_completion(r,i.payload);
+ PERFORM ops.ddo_require_structural_admission_completion(r,i.payload);
+ PERFORM ops.ddo_require_structural_dossier_completion(r,i.payload);
  PERFORM ops.ddo_require_rich_preparation_completion(r,i.payload);
  PERFORM ops.ddo_require_rich_admission_completion(r,i.payload);
  PERFORM ops.ddo_assert_output_witnesses(r,i.payload);

@@ -154,7 +154,8 @@ def policy_recipe(directory):
                 artifact
                 for artifact in captured.dependencies.artifacts
                 if not artifact.name.startswith("data-operations/")
-            ) + terminology_artifacts,
+            )
+            + terminology_artifacts,
             captured.dependencies.vocabularies,
             (*captured.dependencies.ontology_sources, *ontology_names),
         ),

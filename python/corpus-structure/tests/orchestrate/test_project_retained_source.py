@@ -94,9 +94,7 @@ def test_retained_original_fact_is_authenticated_without_descriptor_rewrite(init
         "release_id": "release",
         "documents": 1,
     }
-    f.initialized.assert_called_once_with(
-        {"project_id": "grinstead", "release_id": "release"}
-    )
+    f.initialized.assert_called_once_with({"project_id": "grinstead", "release_id": "release"})
     f.registered.assert_not_called()
     f.authenticated.assert_called_once_with(f.conn, project_id="grinstead", document_key="book")
 

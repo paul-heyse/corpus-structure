@@ -1063,7 +1063,7 @@ while external inputs retain full independent boundary enforcement.
 
 ## Cross-source structural admission
 
-**DDO successor Proposed; implementation and native qualification remain open · 2026-11-15.**
+**DDO successor Accepted target; integration and native qualification remain open · 2026-11-15.**
 The ordinary structural conclusion is issued by the dedicated evaluator command over an exact
 native comparison and original protected A/B/C authored passes. The issuer independently lowers
 the whole source-resolved statement, checks every selected passage and the immutable parent,
@@ -1079,7 +1079,7 @@ An ordinary dossier demand can expose the permitted conclusion through its genui
 without gaining access to the evaluator issuer demand or protected answers. Common native support
 validity, trust locks and revocation retain the hidden dependency closure.
 
-**Implemented; bounded native controls Tested, 2026-11-05.** Definition applicability,
+**Legacy implementation awaiting retirement; bounded native controls Tested, 2026-11-05.** Definition applicability,
 qualified comparison and dossier statements use supplemental `structural_assertion` rows in the
 existing realization and `PublicationBatch`, with the same atomic staging/fencing transaction.
 Three finite independent policies require exact current supported whole-statement group C with
@@ -1090,4 +1090,4 @@ and must emit the member citation in the required semantic role. Shared input in
 cannot authorize the edge. Final native publication recomputes eligibility. Original occurrence,
 semantic-denotation and stronger complete-record policies retain their meanings.
 
-> Decision: [ADR-0065](../adr/0065-cross-source-structural-products.md), [ADR-0110](../adr/0110-evaluator-authorized-policy-disclosure.md), [ADR-0113](../adr/0113-selected-structural-admission.md) (proposed successor)
+> Decision: [ADR-0065](../adr/0065-cross-source-structural-products.md) (legacy implementation), [ADR-0110](../adr/0110-evaluator-authorized-policy-disclosure.md), [ADR-0113](../adr/0113-selected-structural-admission.md) (DDO target)

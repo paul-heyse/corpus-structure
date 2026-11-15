@@ -47,6 +47,15 @@ def validate_authority_leaf(value, *, products, kinds, definitions, runtimes, sc
     leaf = NativeAuthorityLeaf.model_validate(value)
     if definitions is None or runtimes is None or kinds is None:
         raise ValueError("bounded authority requires its captured release/kind/runtime contracts")
+    from .declared_structural_admission import (
+        ADMISSION_OPERATION,
+        validate_structural_authority_leaf,
+    )
+
+    if leaf.issuer_operation == ADMISSION_OPERATION:
+        return validate_structural_authority_leaf(
+            leaf, products=products, kinds=kinds, definitions=definitions, runtimes=runtimes
+        )
     definition = definitions.get((leaf.release_id, leaf.issuer_operation))
     product = products.get(leaf.product_id)
     kind = kinds.get(leaf.kind_contract)

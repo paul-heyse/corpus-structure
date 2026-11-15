@@ -269,11 +269,19 @@ def primary_operation_inputs(
 
             declarations = (*declarations, math_operation_declarations())
     if downstream:
+        from corpus_structure.evaluate.declared_structural_admission import (
+            structural_reference_kind_declarations,
+        )
+
         from .artifact_products import artifact_inputs, artifact_operation_sources
         from .contextual_operations import (
             contextual_inputs,
             contextual_operation_declarations,
             contextual_operation_sources,
+        )
+        from .declared_structural_admission import (
+            structural_admission_kind_declarations,
+            structural_admission_sources,
         )
         from .declared_structural_calls import (
             structural_inputs,
@@ -314,6 +322,8 @@ def primary_operation_inputs(
             *declarations,
             finite_interpretation_declarations(),
             reading_resolution_declarations(),
+            structural_admission_kind_declarations(),
+            structural_reference_kind_declarations(),
         )
         bundle = finite_interpretation_inputs(bundle)
         bundle = reading_resolution_inputs(bundle)
@@ -328,6 +338,7 @@ def primary_operation_inputs(
             definition_location_operation_sources(),
             definition_component_operation_sources(include_learned=learned_selections is not None),
             dossier_operation_sources(),
+            structural_admission_sources(),
             finite_interpretation_operation_sources(),
             reading_resolution_operation_sources(),
             structural_operation_sources(),

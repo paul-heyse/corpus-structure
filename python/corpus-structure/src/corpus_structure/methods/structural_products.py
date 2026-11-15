@@ -1428,7 +1428,9 @@ def derive_dossier_members(
                 qualification="independently_supported"
                 if supported and binding is None and assessment_scope != "comparison_statement"
                 else "proposed",
-                assessment_id=supported if binding is None and assessment_scope != "comparison_statement" else None,
+                assessment_id=supported
+                if binding is None and assessment_scope != "comparison_statement"
+                else None,
             )
             if member.member_id in member_ids:
                 continue
@@ -1448,7 +1450,9 @@ def derive_dossier_members(
                         scope=p.scope,
                         member_id=key,
                         assessment_id=supported,
-                        assessment_scope="comparison_statement" if binding is not None or assessment_scope == "comparison_statement" else None,
+                        assessment_scope="comparison_statement"
+                        if binding is not None or assessment_scope == "comparison_statement"
+                        else None,
                         evidence=(p.passage_id, binding.opposite_citation.passage_id)
                         if binding is not None
                         else (p.passage_id,),

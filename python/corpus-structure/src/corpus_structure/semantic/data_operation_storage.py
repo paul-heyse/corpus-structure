@@ -64,6 +64,7 @@ def native_protocol_sources(
         record_policy_native_sql,
     )
     from .rich_admission_native import rich_admission_native_sql
+    from .structural_admission_native import structural_admission_native_sql
 
     if physical_sources is None:
         protocol = (_ROOT / "data-operation-native.yaml").read_bytes()
@@ -123,6 +124,18 @@ def native_protocol_sources(
         ),
         SourceArtifact(
             "native/data-operation-record-policy.sql", record_policy_native_sql().encode()
+        ),
+        SourceArtifact(
+            "native/data-operation-structural-admission.sql",
+            structural_admission_native_sql().encode(),
+        ),
+        SourceArtifact(
+            "native/data-operation-structural-admission-native.py",
+            Path(__file__).with_name("structural_admission_native.py").read_bytes(),
+        ),
+        SourceArtifact(
+            "native/data-operation-structural-admission.py",
+            Path(__file__).with_name("declared_structural_admission.py").read_bytes(),
         ),
         SourceArtifact(GRADE_SCHEMA_SOURCE, record_policy_grade_schema()),
         SourceArtifact(
@@ -254,6 +267,9 @@ def _captured(sources) -> dict[str, bytes]:
         "native/data-operation-rich-admission.py",
         "native/data-operation-record-grade-native.py",
         "native/data-operation-record-policy.sql",
+        "native/data-operation-structural-admission.sql",
+        "native/data-operation-structural-admission-native.py",
+        "native/data-operation-structural-admission.py",
         "native/data-operation-record-grade.schema.json",
         "native/data-operation-record-grade.py",
         "native/data-operation-record-policy-completion.sql",
@@ -391,6 +407,7 @@ def native_sql(sources=None) -> str:
         for name in (
             "native/data-operation-cpu-basis.sql",
             "native/data-operation-record-grade-native.sql",
+            "native/data-operation-structural-admission.sql",
             "native/data-operation-record-policy.sql",
             "native/data-operation-record-policy-completion.sql",
             "native/data-operations.sql",

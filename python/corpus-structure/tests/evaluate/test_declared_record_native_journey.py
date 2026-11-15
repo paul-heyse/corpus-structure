@@ -28,7 +28,8 @@ def test_current_record_policy_journey_recipe_has_real_closed_producers(tmp_path
     model = preparation.model
     vocabulary = preparation.prepared.vocabulary_metadata["enums"]
     for name, expected_count in (
-        ("StatisticalDistributionFamily", 6), ("StatisticalDistributionAttribute", 3),
+        ("StatisticalDistributionFamily", 6),
+        ("StatisticalDistributionAttribute", 3),
     ):
         members = vocabulary[name]["members"]
         assert len(members) == expected_count

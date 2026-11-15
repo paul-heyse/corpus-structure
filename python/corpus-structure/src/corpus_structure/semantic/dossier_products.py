@@ -519,10 +519,25 @@ class PreparedDossierInputs:
 
 
 def execute_dossier(
-    receiver, sources, components, definitions, comparisons, candidates, relationships, admissions, **selection
+    receiver,
+    sources,
+    components,
+    definitions,
+    comparisons,
+    candidates,
+    relationships,
+    admissions,
+    **selection,
 ):
     return receiver.inputs.run(
-        sources, components, definitions, comparisons, candidates, relationships, admissions, **selection
+        sources,
+        components,
+        definitions,
+        comparisons,
+        candidates,
+        relationships,
+        admissions,
+        **selection,
     )
 
 
@@ -539,7 +554,11 @@ def apply_structural_admissions(retained, admissions, *, project_id):
     from .structural_admission import structural_statement
 
     by_reference = {
-        canonical_bytes(DeclaredProductRef.model_validate(reference.model_dump(exclude={"structural_id"})).model_dump()): payload
+        canonical_bytes(
+            DeclaredProductRef.model_validate(
+                reference.model_dump(exclude={"structural_id"})
+            ).model_dump()
+        ): payload
         for reference, payload in retained
     }
     used = set()
@@ -547,15 +566,25 @@ def apply_structural_admissions(retained, admissions, *, project_id):
         value = DdoStructuralAdmission.model_validate(raw)
         key = canonical_bytes(value.report.model_dump())
         if value.report.project_id != project_id or key not in by_reference:
-            raise ValueError("dossier admission is outside its exact retained native report population")
+            raise ValueError(
+                "dossier admission is outside its exact retained native report population"
+            )
         if key in used:
             raise ValueError("dossier repeats admission for the same exact native report")
         used.add(key)
         payload = by_reference[key]
-        if value.statement_meaning_json != canonical_bytes(semantic_value(structural_statement(payload["report"]))).decode():
+        if (
+            value.statement_meaning_json
+            != canonical_bytes(semantic_value(structural_statement(payload["report"]))).decode()
+        ):
             raise ValueError("dossier admission substitutes its actual source-qualified statement")
-        payload["public_assertions"] = ({"statement": value.statement, "assessment_id": member.product,
-                                         "assessment_scope": "comparison_statement"},)
+        payload["public_assertions"] = (
+            {
+                "statement": value.statement,
+                "assessment_id": member.product,
+                "assessment_scope": "comparison_statement",
+            },
+        )
 
 
 def dossier_kernel(

@@ -463,9 +463,11 @@ legacy wait barrier rather than implying that every old option is supported.
 contracts preserve actual source, completion, trust and purpose authority while obsolete interpreters
 and compatibility paths retire. Ordinary policy authorization requires the exact evaluator command
 and common receipt; its bounded public authority leaf never replaces protected internal support.
+Structural admission applies that boundary to exact independently attributed A/B/C adjudication;
+its ordinary conclusion grants structural statement support without scientific or member truth.
 D3 and D7 own realization and qualification; no persistent adoption follows from this decision.
 
-> Decision: [ADR-0109](../adr/0109-ddo-current-domain-contracts.md), [ADR-0110](../adr/0110-evaluator-authorized-policy-disclosure.md), [ADR-0112](../adr/0112-cpu-reply-correspondence.md)
+> Decision: [ADR-0109](../adr/0109-ddo-current-domain-contracts.md), [ADR-0110](../adr/0110-evaluator-authorized-policy-disclosure.md), [ADR-0112](../adr/0112-cpu-reply-correspondence.md), [ADR-0113](../adr/0113-selected-structural-admission.md)
 
 **Accepted realization; implementation/qualification tracked by DDO (2026-11-14).** Purpose-owned
 Psycopg pools lend sessions through SQLAlchemy NullPool. Demand execution reserves one writer
@@ -720,8 +722,10 @@ fallback. Source occurrences consume their actual family contract; producer rele
 recipes retain separate original attribution. Protected policy conclusions and public provenance
 use the same typed model and native authority boundary. D1/D2/D7 own these contracts; the DDO
 coordinator owns implementation and retirement evidence.
+Structural statements retain canonical tagged scalar meaning and exact native report references;
+an ordinary dossier consumes the actual admitted conclusion through common support custody.
 
-> Decision: [ADR-0109](../adr/0109-ddo-current-domain-contracts.md), [ADR-0110](../adr/0110-evaluator-authorized-policy-disclosure.md), [ADR-0111](../adr/0111-contract-scoped-record-occurrences.md)
+> Decision: [ADR-0109](../adr/0109-ddo-current-domain-contracts.md), [ADR-0110](../adr/0110-evaluator-authorized-policy-disclosure.md), [ADR-0111](../adr/0111-contract-scoped-record-occurrences.md), [ADR-0113](../adr/0113-selected-structural-admission.md)
 
 **Accepted target; implementation/qualification Proposed · 2026-11-15.** CPU decisions used for
 native rich admission bind the actual reply bytes through the existing typed execution receipt.

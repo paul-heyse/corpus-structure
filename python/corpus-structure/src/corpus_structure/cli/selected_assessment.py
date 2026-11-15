@@ -244,6 +244,70 @@ def evaluate_records(
     write_report_text(json_bytes(report).decode() + "\n")
 
 
+@evaluation_app.command("structural")
+def evaluate_structural(
+    ctx: typer.Context,
+    request: Annotated[Path, typer.Option()],
+    source_root: Annotated[Path, typer.Option()],
+    json: JsonOpt = False,
+):
+    """Admit an exact independently adjudicated structural comparison."""
+    from corpus_structure.orchestrate.data_operations import NativeDemandExecutionError
+    from corpus_structure.orchestrate.source_reporting import (
+        record_native_demand,
+        retain_native_demand_result,
+    )
+    from corpus_structure.semantic.data_operation_service import (
+        NativeDemandRequest,
+        execute_data_demand,
+    )
+    from corpus_structure.semantic.declared_structural_admission import ADMISSION_OPERATION
+    from corpus_structure.semantic.refusals import SemanticRefusal
+    from corpus_structure.semantic.releases import open_release
+    from corpus_structure.semantic.runtime import open_runtime_engine
+    from corpus_structure.semantic.storage_target import acquired_target
+    from corpus_structure.serve.interpretation_authoring import author_interpretations
+
+    with managed_operation(
+        result_store(ctx), "eval.structural", json=json, expected=(OperationConflict, OSError)
+    ) as invocation:
+        parsed = read_request_model(request, NativeDemandRequest)
+        if parsed.targets != (ADMISSION_OPERATION,):
+            raise SemanticRefusal("structural evaluation requires exactly its adjudication target")
+        retained = invocation.directory / "request.json"
+        retained.write_bytes(json_bytes(parsed.model_dump(mode="python")))
+        invocation.publish("request", retained)
+        settings = state(ctx).settings()
+        with (
+            open_runtime_engine(settings, "ci-structural-evaluator", purpose="evaluate") as engine,
+            open_runtime_engine(settings, "ci-structural-admit", purpose="admit") as admitted,
+        ):
+            with engine.begin() as connection:
+                prepared = open_release(connection, parsed.release_id)
+                target = acquired_target(connection, purpose="evaluate")
+            authored = author_interpretations(engine, prepared, request=parsed)
+            invocation.record_target(target, None, None, prepared.release_id)
+            record_native_demand(invocation, {**authored, "project_id": parsed.project_id}, target)
+            try:
+                result = execute_data_demand(
+                    engine,
+                    authored["demand_id"],
+                    project_id=parsed.project_id,
+                    source_root=source_root,
+                    purpose="evaluate",
+                    admission_engine=admitted,
+                )
+            except NativeDemandExecutionError as error:
+                retain_native_demand_result(invocation, error.result)
+                raise
+            native = retain_native_demand_result(invocation, result)
+        invocation.settle(
+            "passed", demand_id=authored["demand_id"], receipt_count=result.receipt_count
+        )
+        report = dict(id=invocation.id, native=native)
+    write_report_text(json_bytes(report).decode() + "\n")
+
+
 @evaluation_app.command("fit-features")
 def fit_record_features(
     ctx: typer.Context, request: Annotated[Path, typer.Option()], json: JsonOpt = False

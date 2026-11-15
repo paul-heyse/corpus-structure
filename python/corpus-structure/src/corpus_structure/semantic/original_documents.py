@@ -138,14 +138,16 @@ def register_original_document(
             projection_context=prepared,
         )
     except DBAPIError as error:
-        if getattr(getattr(error.orig, "diag", None), "constraint_name", None) == "original_document_descriptor_identity":
-            raise OriginalDocumentConflict("source identity denotes another source descriptor") from error
+        if (
+            getattr(getattr(error.orig, "diag", None), "constraint_name", None)
+            == "original_document_descriptor_identity"
+        ):
+            raise OriginalDocumentConflict(
+                "source identity denotes another source descriptor"
+            ) from error
         raise
     actual = row.decoded_json_fields(operation="data.initialize_source_project")
-    if any(
-        actual[name] != value
-        for name, value in expected.items()
-    ):
+    if any(actual[name] != value for name, value in expected.items()):
         raise OriginalDocumentConflict("source identity denotes another source descriptor")
     return row.id
 

@@ -145,13 +145,28 @@ ops.ddo_structural_citations(jsonb,jsonb),ops.ddo_structural_clause_field(jsonb,
 def structural_admission_native_sql():
     import json
     from dataclasses import asdict
+
     from .declared_structural_admission import (
-        ADMISSION_EFFECT, ADMISSION_FACTORY, ADMISSION_KIND, ADMISSION_OPERATION,
-        DdoStructuralAdmission, REFERENCE_KIND,
+        ADMISSION_EFFECT,
+        ADMISSION_FACTORY,
+        ADMISSION_KIND,
+        ADMISSION_OPERATION,
+        REFERENCE_KIND,
+        DdoStructuralAdmission,
     )
 
-    fields = {"version", "report", "policy_id", "policy_version", "statement_encoding", "statement_meaning_json",
-              "standing", "assessment_basis", "scientific_truth", "member_truth"}
+    fields = {
+        "version",
+        "report",
+        "policy_id",
+        "policy_version",
+        "statement_encoding",
+        "statement_meaning_json",
+        "standing",
+        "assessment_basis",
+        "scientific_truth",
+        "member_truth",
+    }
     if fields != DdoStructuralAdmission.model_fields.keys():
         raise ValueError("native structural disclosure must cover its exact public contract")
     sql = r"""
@@ -344,7 +359,11 @@ EXCEPTION WHEN no_data_found OR too_many_rows THEN
 END $structural$;
 REVOKE ALL ON FUNCTION ops.ddo_require_structural_dossier_completion(ops.data_request,jsonb) FROM PUBLIC;
 """
-    sql = (sql.replace("__OPERATION__", ADMISSION_OPERATION).replace("__FACTORY__", ADMISSION_FACTORY)
-           .replace("__KIND__", ADMISSION_KIND).replace("__REFERENCE_KIND__", REFERENCE_KIND)
-           .replace("__EFFECTS__", json.dumps([asdict(ADMISSION_EFFECT)], separators=(",", ":"))))
+    sql = (
+        sql.replace("__OPERATION__", ADMISSION_OPERATION)
+        .replace("__FACTORY__", ADMISSION_FACTORY)
+        .replace("__KIND__", ADMISSION_KIND)
+        .replace("__REFERENCE_KIND__", REFERENCE_KIND)
+        .replace("__EFFECTS__", json.dumps([asdict(ADMISSION_EFFECT)], separators=(",", ":")))
+    )
     return structural_statement_native_sql() + sql

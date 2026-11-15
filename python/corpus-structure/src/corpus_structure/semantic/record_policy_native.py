@@ -101,6 +101,7 @@ def record_policy_native_sql():
     import json
     from dataclasses import asdict
 
+    from .declared_structural_admission import ADMISSION_KIND
     from .record_policy_authority import (
         AUTHORIZATION_EFFECT,
         AUTHORIZATION_FACTORY,
@@ -130,9 +131,11 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $poli
  JOIN ops.data_publication_receipt receipt ON receipt.derivation_id=d.id AND receipt.intent_id=d.intent_id
  JOIN ops.data_derivation_output output ON output.derivation_id=d.id
  JOIN sem.data_kind_contract kind ON kind.kind_contract=(SELECT product.kind_contract FROM kb.data_product product WHERE product.id=output.product_id)
- WHERE d.id=episode AND d.outcome='success' AND ops.ddo_policy_command_eligible(definition)
- AND output.role='authorization' AND output.position=0 AND output.multiplicity=1 AND output.member_id IS NULL
- AND kind.kind='__KIND__' AND kind.universe='ordinary'
+ WHERE d.id=episode AND d.outcome='success'
+ AND ((ops.ddo_policy_command_eligible(definition) AND output.role='authorization' AND kind.kind='__KIND__')
+ OR (ops.ddo_structural_command_eligible(definition) AND output.role='admission' AND kind.kind='__STRUCTURAL_KIND__'))
+ AND output.position=0 AND output.multiplicity=1 AND output.member_id IS NULL
+ AND kind.universe='ordinary'
  AND (SELECT count(*) FROM ops.data_derivation_output other WHERE other.derivation_id=d.id)=1)
 $policy$;
 REVOKE ALL ON FUNCTION ops.ddo_policy_authority_leaf(text) FROM PUBLIC;
@@ -164,7 +167,7 @@ BEGIN
  ELSE standing:=CASE WHEN ops.ddo_support_valid(episode,boundary) THEN 'valid' ELSE 'unavailable' END;
  END IF;
  RETURN jsonb_build_object('format','ddo-native-authority-leaf-v1','derivation_id',episode,
- 'use_id',selected_use,'issuer_operation','__OPERATION__','release_id',d.release_id,'runtime_id',d.runtime_id,
+ 'use_id',selected_use,'issuer_operation',(SELECT operation_id FROM ops.data_request WHERE id=d.request_id),'release_id',d.release_id,'runtime_id',d.runtime_id,
  'recipe',d.recipe,'product_id',output.product_id,
  'kind_contract',(SELECT kind_contract FROM kb.data_product WHERE id=output.product_id),
  'intent_id',d.intent_id,'receipt_id',receipt.id,'standing',standing,'protected_dependencies','undisclosed');
@@ -173,6 +176,7 @@ REVOKE ALL ON FUNCTION ops.ddo_policy_authority_summary(text,text,text) FROM PUB
 """.replace("__OPERATION__", AUTHORIZATION_OPERATION)
         .replace("__FACTORY__", AUTHORIZATION_FACTORY)
         .replace("__KIND__", AUTHORIZATION_KIND)
+        .replace("__STRUCTURAL_KIND__", ADMISSION_KIND)
         .replace("__EFFECTS__", json.dumps([asdict(AUTHORIZATION_EFFECT)], separators=(",", ":")))
         + _feature_fit_sql()
     )

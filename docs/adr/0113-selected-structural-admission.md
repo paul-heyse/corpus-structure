@@ -1,7 +1,7 @@
 ---
 id: ADR-0113
 title: Native structural admission preserves independent protected adjudication
-status: proposed
+status: accepted
 date: 2026-11-15
 supersedes: []
 superseded-by: null
@@ -17,7 +17,7 @@ run-qualified structural assertions. The existing policy admits one exact source
 whole statement only after independent A/B answers and C adjudication, matching source frame,
 question, rubric and all selected passages. Computational support cannot supply this judgment.
 Current generic reference comparisons and rich scientific admission do not implement that policy.
-The DDO coordinator owns implementation and qualification; this proposal closes neither.
+The DDO coordinator owns implementation and qualification; accepting this decision closes neither.
 
 ## Options
 
@@ -28,7 +28,7 @@ A/B/C parent population or establish this structural policy.
 Rejected: this preserves the superseded selection authority and duplicates effect, trust,
 revocation, receipt and export custody already owned by DDO.
 3. Issue an ordinary structural conclusion through the existing protected evaluator command
-and explicit authority-leaf boundary of ADR-0110. Selected proposal. Immutable authored passes
+and explicit authority-leaf boundary of ADR-0110. Selected. Immutable authored passes
 retain full attribution and parents, while ordinary readers receive only the permitted statement.
 
 The third option adds a typed structural policy application, rather than another lifecycle.

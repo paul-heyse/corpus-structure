@@ -166,7 +166,10 @@ class DossierOperation:
                     "provenance": "exact",
                     "source": "frozen-source-set",
                     "source_set": "dossier-admissions",
-                    "coverage": {"role": "admissions", "description": "exact-native-structural-admission"},
+                    "coverage": {
+                        "role": "admissions",
+                        "description": "exact-native-structural-admission",
+                    },
                     "identity_requirements": ["episode"],
                 },
             },

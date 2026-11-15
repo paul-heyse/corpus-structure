@@ -86,6 +86,7 @@ def policy_visibility_connection(semantic_bare_engine):
 
     relations = (
         "ops.data_derivation",
+        "ops.data_request",
         "ops.demand_use",
         "ops.data_demand_read",
         "ops.data_derivation_output",
@@ -137,6 +138,22 @@ def policy_visibility_connection(semantic_bare_engine):
                 owner_xid=xid,
                 trust_snapshot={},
                 scope={},
+            ),
+        )
+        connection.execute(
+            table("ops.data_request").insert(),
+            dict(
+                id="request:one",
+                request_key="request-key:one",
+                project_id="project:one",
+                release_id="release:one",
+                runtime_id="runtime:one",
+                operation_id="record_policy.authorize",
+                recipe="recipe:one",
+                subject="subject:one",
+                analyzed_scope={},
+                binding={},
+                generation=1,
             ),
         )
         connection.execute(
@@ -219,6 +236,7 @@ def test_authority_summary_preserves_visible_publication_and_exact_selected_use(
     )
     assert result["derivation_id"] == "episode:one"
     assert result["receipt_id"] == "receipt:one"
+    assert result["issuer_operation"] == "record_policy.authorize"
     assert result["use_id"] == selected_use
     assert result["standing"] == "valid"
     assert result["protected_dependencies"] == "undisclosed"

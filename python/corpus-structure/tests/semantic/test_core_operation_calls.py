@@ -30,9 +30,7 @@ def test_native_registration_request_and_selected_result_are_independently_typed
         meta=meta,
         original=b"independent original bytes",
     )
-    statement = calls.prepare_source_document_registration(
-        **values, projection_context=prepared
-    )
+    statement = calls.prepare_source_document_registration(**values, projection_context=prepared)
     assert statement.compile().params == values
     sql = str(statement.compile(dialect=postgresql.dialect()))
     assert "ops.register_original_document(" in sql
@@ -80,9 +78,7 @@ def test_core_boundaries_refuse_native_identity_or_unowned_executor(mutation):
         call for _, call in source_call_bindings() if call.id == "original_document_descriptor"
     )
     if mutation == "wrong_owner":
-        changed = replace(
-            original, symbol="semantic.original_documents.register_original_document"
-        )
+        changed = replace(original, symbol="semantic.original_documents.register_original_document")
     elif mutation == "native_parameter":
         changed = replace(
             original,

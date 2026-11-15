@@ -488,7 +488,9 @@ def test_live_cross_purpose_privilege_drift_refuses(
         with commit_db_engine.begin() as admin:
             admin.execute(text("SET LOCAL ROLE corpus_sem_publisher"))
             admin.execute(
-                text("GRANT EXECUTE ON FUNCTION ops.initialize_source_project(jsonb) TO corpus_sem_reader")
+                text(
+                    "GRANT EXECUTE ON FUNCTION ops.initialize_source_project(jsonb) TO corpus_sem_reader"
+                )
             )
             admin.execute(text("GRANT SELECT ON eval.reference_set TO corpus_sem_admitter"))
         with (

@@ -808,7 +808,7 @@ then the successive `phase0-golden` runs, whose scope resolves the dev set's uni
 
 ## Cross-source group assessment and portable feedback
 
-**DDO successor Proposed; native qualification remains open · 2026-11-15.** Structural
+**DDO successor Accepted target; integration and native qualification remain open · 2026-11-15.** Structural
 reference passes retain their actual original authored admissions, submitted principals and author
 assertions. Typed actor/session identities record independent attribution; they do not attest that
 a provider ran or verify independent provider execution. C identifies the exact native A/B products
@@ -831,4 +831,4 @@ quality. Actual automatic20-pair semantic findings remain separate from four sup
 assembled statements and cannot inherit their grades. Source-only A/B, output-first authoring,
 exposed development feedback and unseen-origin claims retain distinct provenance.
 
-> Decision: [ADR-0065](../adr/0065-cross-source-structural-products.md), [ADR-0113](../adr/0113-selected-structural-admission.md) (proposed successor)
+> Decision: [ADR-0065](../adr/0065-cross-source-structural-products.md) (legacy implementation), [ADR-0113](../adr/0113-selected-structural-admission.md) (DDO target)

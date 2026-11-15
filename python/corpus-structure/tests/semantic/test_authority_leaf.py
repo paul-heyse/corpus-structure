@@ -169,3 +169,61 @@ def test_virtual_authority_parquet_preserves_closed_fields_and_nullable_use(tmp_
         _relation_schema(
             "ops.data_authority_leaf", set(row) | {"hidden_reference"}, "cut:controlled"
         )
+
+
+def test_structural_disclosure_uses_its_exact_captured_issuer_and_ordinary_body():
+    from corpus_structure.evaluate.declared_structural_admission import structural_admission_value
+    from corpus_structure.semantic.data_operation_identity import semantic_value
+    from corpus_structure.semantic.declared_structural_admission import (
+        ADMISSION_EFFECT,
+        ADMISSION_FACTORY,
+        ADMISSION_KIND,
+        ADMISSION_OPERATION,
+    )
+    from semantic.test_declared_structural_admission import comparison_report, passes_for
+
+    report = comparison_report()
+    passes, _ = passes_for(report)
+    body = structural_admission_value(report.model_dump(mode="python"), passes)
+    row, contracts = disclosure()
+    row["issuer_operation"] = ADMISSION_OPERATION
+    contracts["definitions"] = {
+        ("release:one", ADMISSION_OPERATION): dict(
+            profile="command",
+            recipe="recipe:one",
+            support_contract=dict(
+                effects=[
+                    {
+                        **asdict(ADMISSION_EFFECT),
+                        "authorization": list(ADMISSION_EFFECT.authorization),
+                    }
+                ],
+                capabilities=dict(
+                    preparation="native-publication",
+                    forms=["scalar"],
+                    prepared_factory=dict(entrypoint=ADMISSION_FACTORY),
+                ),
+            ),
+        )
+    }
+    contracts["products"][row["product_id"]]["canonical_body"] = semantic_value(
+        body.model_dump(mode="python")
+    )
+    contracts["kinds"][row["kind_contract"]]["kind"] = ADMISSION_KIND
+    leaf = validate_authority_leaf(row, **contracts)
+    assert leaf.issuer_operation == ADMISSION_OPERATION
+    assert leaf.protected_dependencies == "undisclosed"
+    for changed in ("policy_body", "protected_kind", "wrong_factory"):
+        modified = deepcopy(contracts)
+        if changed == "policy_body":
+            modified["products"][row["product_id"]]["canonical_body"] = semantic_value(
+                public_policy_body()
+            )
+        elif changed == "protected_kind":
+            modified["kinds"][row["kind_contract"]]["universe"] = "evaluator"
+        else:
+            modified["definitions"]["release:one", ADMISSION_OPERATION]["support_contract"][
+                "capabilities"
+            ]["prepared_factory"]["entrypoint"] = AUTHORIZATION_FACTORY
+        with pytest.raises(ValueError):
+            validate_authority_leaf(row, **modified)

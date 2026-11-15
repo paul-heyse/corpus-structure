@@ -163,7 +163,8 @@ def test_native_authored_fact_has_no_computation_and_cannot_be_relabelled(ddo_ke
     )
     with pytest.raises(ValueError, match="resolved subject definition"):
         author_interpretations(
-            kernel.engine, kernel.prepared,
+            kernel.engine,
+            kernel.prepared,
             request=NativeDemandRequest.model_validate(wrong_subject),
         )
     admitted = author_interpretations(kernel.engine, kernel.prepared, request=request)

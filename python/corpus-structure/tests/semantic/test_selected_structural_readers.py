@@ -33,9 +33,11 @@ def test_structural_read_implementation_owns_actual_bootstrapped_helper_objects(
 
     # This checks the actual warm module objects, including this family's new
     # selected owner. A source bundle alone cannot authenticate a prior plain import.
-    with installed_read_implementation(reader.SelectedStructuralRequest,
-                                       sources=STRUCTURAL_READ_SOURCES,
-                                       profile="selected-structural-read-v1") as implementation:
+    with installed_read_implementation(
+        reader.SelectedStructuralRequest,
+        sources=STRUCTURAL_READ_SOURCES,
+        profile="selected-structural-read-v1",
+    ) as implementation:
         assert len(implementation) == 64
 
 

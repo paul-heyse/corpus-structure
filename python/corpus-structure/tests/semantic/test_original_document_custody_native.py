@@ -1,7 +1,7 @@
 """Native source initialization, immutable metadata, binary custody and actual purpose refusal."""
 
-from hashlib import sha256
 from collections.abc import Mapping
+from hashlib import sha256
 from typing import Any
 
 import pytest
@@ -9,8 +9,8 @@ from sqlalchemy import Connection, text
 from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.core.evidence import document_key
-from corpus_structure.semantic._data_operation_wire import WireInitializeSourceProjectRequest
 from corpus_structure.semantic import _source_admission_calls as calls
+from corpus_structure.semantic._data_operation_wire import WireInitializeSourceProjectRequest
 from corpus_structure.semantic.data_operation_admission import admit_data_operation_release
 from corpus_structure.semantic.data_operation_storage import DataOperationStorage
 from corpus_structure.semantic.identifiers import ProjectId, ReleaseId
@@ -42,6 +42,7 @@ def test_current_source_initialization_retains_exact_bytes_without_local_fallbac
         "project_id": ProjectId("source-custody"),
         "release_id": ReleaseId(prepared.release_id),
     }
+
     def register(
         connection: Connection,
         *,
@@ -65,12 +66,12 @@ def test_current_source_initialization_retains_exact_bytes_without_local_fallbac
     def native_register(
         connection: Connection,
         *,
-        release_id: ReleaseId = ReleaseId(prepared.release_id),
+        release_id: ReleaseId | None = None,
         content_hash: str = "0" * 64,
     ):
         return calls.source_document_registration(
             connection,
-            release_id=release_id,
+            release_id=ReleaseId(prepared.release_id) if release_id is None else release_id,
             project_id=ProjectId("source-custody"),
             source_uri="invalid-hash.pdf",
             content_hash=content_hash,
@@ -81,6 +82,7 @@ def test_current_source_initialization_retains_exact_bytes_without_local_fallbac
             meta={},
             projection_context=prepared,
         )
+
     with commit_writer_engine.begin() as connection:
         assert DataOperationStorage(connection).initialize_source_project(payload) == payload
         registered = register(connection)
@@ -94,7 +96,10 @@ def test_current_source_initialization_retains_exact_bytes_without_local_fallbac
             lambda: register(connection, metadata={"empty": []}),
             lambda: register(connection, original_path=str(copy)),
         ):
-            with pytest.raises(OriginalDocumentConflict, match="another source descriptor"), connection.begin_nested():
+            with (
+                pytest.raises(OriginalDocumentConflict, match="another source descriptor"),
+                connection.begin_nested(),
+            ):
                 changed()
         with pytest.raises(DBAPIError) as refusal, connection.begin_nested():
             connection.execute(text("INSERT INTO kb.document DEFAULT VALUES"))

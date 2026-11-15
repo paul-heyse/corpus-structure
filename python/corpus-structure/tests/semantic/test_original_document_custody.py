@@ -62,16 +62,19 @@ def test_registration_dispatches_descriptor_and_binary_in_one_admitted_native_ca
     connection.execute.return_value = Result(
         (17, "project", key, "book.pdf", digest, str(path), "application/pdf", None, '{"x":null}')
     )
-    assert register_original_document(
-        connection,
-        prepared=prepared,
-        project_id="project",
-        source_uri="book.pdf",
-        original_path=str(path),
-        original=original,
-        mime="application/pdf",
-        metadata={"x": None},
-    ) == 17
+    assert (
+        register_original_document(
+            connection,
+            prepared=prepared,
+            project_id="project",
+            source_uri="book.pdf",
+            original_path=str(path),
+            original=original,
+            mime="application/pdf",
+            metadata={"x": None},
+        )
+        == 17
+    )
     connection.execute.assert_called_once()
     statement = connection.execute.call_args.args[0]
     assert statement.compile().params == {

@@ -53,7 +53,8 @@ def source_call_bindings(*, target_metadata=None):
                 field("release_id", "sem.release", native="p_release"),
                 *(
                     field(name, "kb.document", native="p_" + name)
-                    for name in registration if name != "key"
+                    for name in registration
+                    if name != "key"
                 ),
                 field("original", "kb.source_artifact", "content", native="p_original"),
             ),
