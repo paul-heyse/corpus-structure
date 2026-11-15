@@ -616,25 +616,34 @@ def test_current_evaluator_tool_and_resource_keep_both_selection_pins(
 
 def test_admitted_assessment_snapshot_qualifies_members_and_parallel_occurrences(acquired, tmp_path):
     from corpus_structure.evaluate.assessment_graph import assessment_graph_snapshot
+    from corpus_structure.semantic.data_operation_admission import bound_data_operation_model
     from corpus_structure.semantic.graph_inspection import GraphInspectionRequest, inspect_graph
+    from semantic.formal_products_support import released_profile
 
+    acquired = released_profile().prepared
+    model = bound_data_operation_model(acquired)
+    contracts = {(identity.owner, identity.domain): identity.key for identity in model.identities}
+    by_name = {kind.name: kind.semantic_id for kind in model.kinds}
+    product_kind = contracts[by_name["DdoFormalProduct"], "kind"]
+    member_kind = contracts[by_name["DdoFormalTerm"], "kind"]
+    unrelated_kind = contracts[by_name["DdoSelectedNativeSource"], "kind"]
     inventory = graph_inventory()
     product = "product:graph-assessment"
-    payload = dict(source={}, selectors=[], members=[dict(member_id=row["local_id"], body=dict(row, record_type="term")) for row in inventory["terms"]])
+    payload = dict(source={}, selectors=[], members=[dict(member_id=row["local_id"], kind_contract=member_kind, body=dict(row, record_type="term")) for row in inventory["terms"]])
     with_index = SelectedRecordIndex(tmp_path / "assessment.sqlite")
     try:
-        with_index.append(json_bytes(dict(key="product", relation="kb.data_product", record=dict(id=product, canonical_body=semantic_value(payload)))))
+        with_index.append(json_bytes(dict(key="product", relation="kb.data_product", record=dict(id=product, kind_contract=product_kind, canonical_body=semantic_value(payload)))))
         for member in ("root", "leaf"):
-            with_index.append(json_bytes(dict(key=member, relation="kb.data_product_member", record=dict(product_id=product, member_id=member))))
+            with_index.append(json_bytes(dict(key=member, relation="kb.data_product_member", record=dict(product_id=product, member_id=member, kind_contract=member_kind))))
         native = _page()
         native["release_id"] = acquired.release_id
         cut = CutSelection.from_native(native)
         snapshot = assessment_graph_snapshot(acquired, cut, with_index, members=((product, "root"),))
         limited = assessment_graph_snapshot(acquired, cut, with_index, members=((product, "root"),), max_bytes=1)
         assert limited.standing == "partial" and not limited.nodes
-        with_index.append(json_bytes(dict(key="unrelated-product", relation="kb.data_product", record=dict(id="product:unrelated", canonical_body=semantic_value(7)))))
-        with_index.append(json_bytes(dict(key="unrelated-member", relation="kb.data_product_member", record=dict(product_id="product:unrelated", member_id="ordinary"))))
-        assert assessment_graph_snapshot(acquired, cut, with_index, members=(("product:unrelated", "ordinary"),)).standing == "unavailable"
+        with_index.append(json_bytes(dict(key="unrelated-product", relation="kb.data_product", record=dict(id="product:unrelated", kind_contract=unrelated_kind, canonical_body=semantic_value(payload)))))
+        with_index.append(json_bytes(dict(key="unrelated-member", relation="kb.data_product_member", record=dict(product_id="product:unrelated", member_id="root", kind_contract=member_kind))))
+        assert assessment_graph_snapshot(acquired, cut, with_index, members=(("product:unrelated", "root"),)).standing == "unavailable"
         assert assessment_graph_snapshot(acquired, cut, with_index, members=()).standing == "unavailable"
         assert snapshot.standing == "complete"
         assert len(snapshot.nodes) == 2

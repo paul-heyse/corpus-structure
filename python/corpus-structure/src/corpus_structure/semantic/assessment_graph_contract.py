@@ -61,3 +61,7 @@ ASSESSMENT_RELATION_KINDS = tuple(
 # They preserve assertion and choice incidence instead of renaming source nodes.
 TASK_ASSESSMENT_NODE_KINDS = ("entity", "assertion", "group", "member")
 TASK_ASSESSMENT_RELATION_KINDS = ("subject", "object", "requires", "member", "root")
+
+# This captured nominal base owns characterization envelopes. Descendant and
+# member acceptance is derived from the released inheritance/property graph.
+ASSESSMENT_PRODUCT_BASE = "https://corpus-structure.dev/semantic/data-operation-source/DdoCharacterizationEnvelope"

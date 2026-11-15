@@ -6,12 +6,16 @@ answers nor combines an independently authored reference with its predictions.
 
 from hashlib import sha256
 
+from corpus_structure.semantic.assessment_graph_contract import ASSESSMENT_PRODUCT_BASE
 from corpus_structure.semantic.data_operation_admission import bound_data_operation_model
 from corpus_structure.semantic.data_operation_identity import decode_semantic_value
 from corpus_structure.semantic.data_operation_json import json_bytes
+from corpus_structure.semantic.data_operation_kind_refinements import nominal_inheritance_graph
+from corpus_structure.semantic.data_operation_member_contracts import derive_member_kinds
 from corpus_structure.semantic.data_product_reference import DataProductReference
 from corpus_structure.semantic.declared_formal_readings import SelectedCharacterizationInventories
 from corpus_structure.semantic.graph_inspection import GraphNode, GraphOccurrence, GraphSnapshot
+from corpus_structure.semantic.graph_topology import rooted_closure
 
 from .characterization_assessment import LayerProjection, WitnessGraphBudgetExceeded
 
@@ -32,14 +36,30 @@ def assessment_graph_snapshot(prepared, cut, index, *, members, max_bytes=838860
 
     if not roots:
         return unavailable("no explicit assessed member population was selected")
+    selected_rows = {address: (products.get(address[0]), member_rows.get(address)) for address in roots}
+    if any(product is None or member is None for product, member in selected_rows.values()):
+        raise ValueError("assessment root is outside the selected native member closure")
+    identities = {(identity.owner, identity.domain): identity.key for identity in model.identities}
+    inheritance = nominal_inheritance_graph(model)
+    if ASSESSMENT_PRODUCT_BASE not in inheritance:
+        return unavailable("release has no admitted characterization envelope contract")
+    product_kinds = {identities[kind, "kind"]: kind for kind in rooted_closure(inheritance, (ASSESSMENT_PRODUCT_BASE,))}
     for product, member in roots:
-        record = products.get(product)
-        if record is None or member_rows.get((product, member)) is None:
+        record, member_row = selected_rows[product, member]
+        if record is None or member_row is None:
             raise ValueError("assessment root is outside the selected native member closure")
+        nominal_product = product_kinds.get(record["kind_contract"])
+        if nominal_product is None:
+            return unavailable("explicit assessed product has no admitted characterization envelope kind")
+        allowed_members = {identities[kind, "kind"] for kind in derive_member_kinds(model, nominal_product)}
+        if member_row["kind_contract"] not in allowed_members:
+            return unavailable("explicit assessed member has no admitted characterization member kind")
         body = decode_semantic_value(record["canonical_body"])
         if not isinstance(body, dict) or not {"source", "selectors", "members"} <= body.keys():
             return unavailable("explicit assessed member has no selected characterization interpretation")
         packet = next((packet for packet in body["members"] if packet["member_id"] == member), None)
+        if packet is not None and packet["kind_contract"] != member_row["kind_contract"]:
+            raise ValueError("assessment packet kind differs from its authenticated native member")
         if packet is None or packet["body"].get("record_type") not in {"occurrence", "annotation", "membership", "role", "term", "choice", "choice_member"}:
             return unavailable("explicit assessed member kind has no characterization witness projection")
     inventories = SelectedCharacterizationInventories(products)
