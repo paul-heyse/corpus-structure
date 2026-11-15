@@ -5465,18 +5465,6 @@ operations:
   transitions: [run_begin]
   projections: []
   calls:
-  - id: register_runtime_binding
-    symbol: sem.register_runtime_binding
-    parameters:
-    - {name: release_id, source: 'physical:sem.runtime_binding.release_id', nullable: false, native_parameter: r, semantic_type: ReleaseId}
-    - {name: runtime_id, source: 'physical:sem.runtime_binding.runtime_id', nullable: false, native_parameter: runtime, semantic_type: RuntimeId}
-    - {name: manifest, source: 'physical:sem.runtime_binding.manifest_bytes', nullable: false, native_parameter: manifest_content}
-    - {name: archive, source: 'physical:sem.runtime_binding.archive_bytes', nullable: false, native_parameter: archive_content}
-    result_mode: scalar
-    result_fields:
-    - {name: runtime_id, source: 'physical:sem.runtime_binding.runtime_id', nullable: false, semantic_type: RuntimeId}
-    cardinality: one
-    ordered: false
   - id: create_run
     symbol: ops.create_run
     parameters:
@@ -7072,31 +7060,6 @@ operations:
   transitions: []
   projections: []
   calls:
-  - id: require_runtime_principal
-    symbol: data.require_runtime_principal
-    parameters:
-    - name: purpose
-      source: model:NativeAdmissionParameters.purpose
-      nullable: false
-      native_parameter: purpose
-    result_fields: []
-    result_mode: void
-    cardinality: none
-    ordered: false
-    order_by: []
-  - id: require_native_execution_release
-    symbol: data.require_execution_release
-    parameters:
-    - name: release_id
-      source: physical:sem.release.release_id
-      nullable: false
-      native_parameter: r
-      semantic_type: ReleaseId
-    result_fields: []
-    result_mode: void
-    cardinality: none
-    ordered: false
-    order_by: []
   - id: require_execution_operation
     symbol: sem.require_execution_operation
     parameters:
@@ -7109,35 +7072,6 @@ operations:
       source: model:OperationContract.id
       nullable: false
       native_parameter: operation
-    result_fields: []
-    result_mode: void
-    cardinality: none
-    ordered: false
-    order_by: []
-  - id: record_sql_admission
-    symbol: sem.record_sql_admission
-    parameters:
-    - name: release_id
-      source: physical:sem.sql_admission.release_id
-      nullable: false
-      native_parameter: r
-      semantic_type: ReleaseId
-    - name: input_kind
-      source: physical:sem.sql_admission.input_kind
-      nullable: false
-      native_parameter: ik
-    - name: input_name
-      source: physical:sem.sql_admission.input_name
-      nullable: false
-      native_parameter: n
-    - name: physical_id
-      source: physical:sem.sql_admission.physical_id
-      nullable: false
-      native_parameter: p
-    - name: content
-      source: physical:sem.sql_admission.content
-      nullable: false
-      native_parameter: c
     result_fields: []
     result_mode: void
     cardinality: none

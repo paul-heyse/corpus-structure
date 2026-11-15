@@ -40,7 +40,6 @@ from ._operation_ids import DocumentId as DocumentId
 from ._operation_ids import InterventionId as InterventionId
 from ._operation_ids import MethodConfigId as MethodConfigId
 from ._operation_ids import MethodId as MethodId
-from ._operation_ids import NativeAdmissionParametersPurpose as NativeAdmissionParametersPurpose
 from ._operation_ids import ProjectId as ProjectId
 from ._operation_ids import RealizationId as RealizationId
 from ._operation_ids import ReleaseId as ReleaseId
@@ -274,90 +273,6 @@ def activate_release(
     with native_result_scope("activate", "activate_release"):
         row = _native_result.one()
         return materialize_activate_release(row)
-
-
-REGISTER_RUNTIME_BINDING_CONTRACT_DIGEST = (
-    "d3c89f02224b64ead142524a383fa2aef9721f9d8c98344ac079ef65eb5b797d"
-)
-
-
-class _register_runtime_bindingRequest(OperationResult):
-    release_id: ReleaseId
-    runtime_id: RuntimeId
-    manifest: bytes
-    archive: bytes
-
-
-_register_runtime_binding_function = func.sem.register_runtime_binding(
-    bindparam("release_id", type_=Text()),
-    bindparam("runtime_id", type_=Text()),
-    bindparam("manifest", type_=BYTEA()),
-    bindparam("archive", type_=BYTEA()),
-    type_=Text(),
-)
-_register_runtime_binding_statement = select(_register_runtime_binding_function)
-
-
-def prepare_register_runtime_binding(
-    *,
-    release_id: ReleaseId,
-    runtime_id: RuntimeId,
-    manifest: bytes,
-    archive: bytes,
-    projection_context: PreparedRelease | None = None,
-) -> Select[str]:
-    _request = _register_runtime_bindingRequest(
-        release_id=release_id,
-        runtime_id=runtime_id,
-        manifest=manifest,
-        archive=archive,
-    )
-    if projection_context is not None:
-        require_call_context(
-            projection_context,
-            "start_run",
-            "register_runtime_binding",
-            REGISTER_RUNTIME_BINDING_CONTRACT_DIGEST,
-        )
-    return _register_runtime_binding_statement.params(
-        **{
-            "release_id": _request.release_id,
-            "runtime_id": _request.runtime_id,
-            "manifest": _request.manifest,
-            "archive": _request.archive,
-        }
-    )
-
-
-_register_runtime_binding_adapter = TypeAdapter(RuntimeId)
-
-
-def materialize_register_runtime_binding(row: tuple[str]) -> RuntimeId:
-    with native_result_scope("start_run", "register_runtime_binding", "runtime_id"):
-        checked = _register_runtime_binding_adapter.validate_python(row[0], strict=True)
-        return checked
-
-
-def register_runtime_binding(
-    conn: Connection,
-    *,
-    release_id: ReleaseId,
-    runtime_id: RuntimeId,
-    manifest: bytes,
-    archive: bytes,
-    projection_context: PreparedRelease | None = None,
-) -> RuntimeId:
-    _statement = prepare_register_runtime_binding(
-        release_id=release_id,
-        runtime_id=runtime_id,
-        manifest=manifest,
-        archive=archive,
-        projection_context=projection_context,
-    )
-    _native_result = conn.execute(_statement)
-    with native_result_scope("start_run", "register_runtime_binding"):
-        row = _native_result.one()
-        return materialize_register_runtime_binding(row)
 
 
 CREATE_RUN_CONTRACT_DIGEST = "92b0350c481aad0fdb2f1c5c9dd950d3314a758ef5ce328a0b67e9f59dee6bff"
@@ -2557,112 +2472,6 @@ def publish_batch(
         return materialize_publish_batch(row)
 
 
-REQUIRE_RUNTIME_PRINCIPAL_CONTRACT_DIGEST = (
-    "ff1c5aa7194038bcf5c6ea50640ae8d97938aa75286129ca427bc9f6e7afa0fc"
-)
-
-
-class _require_runtime_principalRequest(OperationResult):
-    purpose: NativeAdmissionParametersPurpose
-
-
-_require_runtime_principal_function = func.data.require_runtime_principal(
-    bindparam("purpose", type_=Text()),
-)
-_require_runtime_principal_statement = select(_require_runtime_principal_function)
-
-
-def prepare_require_runtime_principal(
-    *,
-    purpose: NativeAdmissionParametersPurpose,
-    projection_context: PreparedRelease | None = None,
-) -> Select[None]:
-    _request = _require_runtime_principalRequest(
-        purpose=purpose,
-    )
-    if projection_context is not None:
-        require_call_context(
-            projection_context,
-            "admit",
-            "require_runtime_principal",
-            REQUIRE_RUNTIME_PRINCIPAL_CONTRACT_DIGEST,
-        )
-    return _require_runtime_principal_statement.params(
-        **{
-            "purpose": _request.purpose,
-        }
-    )
-
-
-def require_runtime_principal(
-    conn: Connection,
-    *,
-    purpose: NativeAdmissionParametersPurpose,
-    projection_context: PreparedRelease | None = None,
-) -> None:
-    _statement = prepare_require_runtime_principal(
-        purpose=purpose,
-        projection_context=projection_context,
-    )
-    _native_result = conn.execute(_statement)
-    with native_result_scope("admit", "require_runtime_principal"):
-        _native_result.scalar_one()
-    return None
-
-
-REQUIRE_NATIVE_EXECUTION_RELEASE_CONTRACT_DIGEST = (
-    "80f70a288d2e3c58a2387825a031f1832728a73a87925cf37de6cb002eb84fc4"
-)
-
-
-class _require_native_execution_releaseRequest(OperationResult):
-    release_id: ReleaseId
-
-
-_require_native_execution_release_function = func.data.require_execution_release(
-    bindparam("release_id", type_=Text()),
-)
-_require_native_execution_release_statement = select(_require_native_execution_release_function)
-
-
-def prepare_require_native_execution_release(
-    *,
-    release_id: ReleaseId,
-    projection_context: PreparedRelease | None = None,
-) -> Select[None]:
-    _request = _require_native_execution_releaseRequest(
-        release_id=release_id,
-    )
-    if projection_context is not None:
-        require_call_context(
-            projection_context,
-            "admit",
-            "require_native_execution_release",
-            REQUIRE_NATIVE_EXECUTION_RELEASE_CONTRACT_DIGEST,
-        )
-    return _require_native_execution_release_statement.params(
-        **{
-            "release_id": _request.release_id,
-        }
-    )
-
-
-def require_native_execution_release(
-    conn: Connection,
-    *,
-    release_id: ReleaseId,
-    projection_context: PreparedRelease | None = None,
-) -> None:
-    _statement = prepare_require_native_execution_release(
-        release_id=release_id,
-        projection_context=projection_context,
-    )
-    _native_result = conn.execute(_statement)
-    with native_result_scope("admit", "require_native_execution_release"):
-        _native_result.scalar_one()
-    return None
-
-
 REQUIRE_EXECUTION_OPERATION_CONTRACT_DIGEST = (
     "187959f14dccb0f2217512f8ed3db9d356df9547ee69ef88cbd8acb97efe39b6"
 )
@@ -2719,87 +2528,6 @@ def require_execution_operation(
     )
     _native_result = conn.execute(_statement)
     with native_result_scope("admit", "require_execution_operation"):
-        _native_result.scalar_one()
-    return None
-
-
-RECORD_SQL_ADMISSION_CONTRACT_DIGEST = (
-    "94b3bd508b50de36c3eb672e85c34dd2ac5206df9554225ebe588f810959450e"
-)
-
-
-class _record_sql_admissionRequest(OperationResult):
-    release_id: ReleaseId
-    input_kind: str
-    input_name: str
-    physical_id: str
-    content: bytes
-
-
-_record_sql_admission_function = func.sem.record_sql_admission(
-    bindparam("release_id", type_=Text()),
-    bindparam("input_kind", type_=Text()),
-    bindparam("input_name", type_=Text()),
-    bindparam("physical_id", type_=Text()),
-    bindparam("content", type_=BYTEA()),
-)
-_record_sql_admission_statement = select(_record_sql_admission_function)
-
-
-def prepare_record_sql_admission(
-    *,
-    release_id: ReleaseId,
-    input_kind: str,
-    input_name: str,
-    physical_id: str,
-    content: bytes,
-    projection_context: PreparedRelease | None = None,
-) -> Select[None]:
-    _request = _record_sql_admissionRequest(
-        release_id=release_id,
-        input_kind=input_kind,
-        input_name=input_name,
-        physical_id=physical_id,
-        content=content,
-    )
-    if projection_context is not None:
-        require_call_context(
-            projection_context,
-            "admit",
-            "record_sql_admission",
-            RECORD_SQL_ADMISSION_CONTRACT_DIGEST,
-        )
-    return _record_sql_admission_statement.params(
-        **{
-            "release_id": _request.release_id,
-            "input_kind": _request.input_kind,
-            "input_name": _request.input_name,
-            "physical_id": _request.physical_id,
-            "content": _request.content,
-        }
-    )
-
-
-def record_sql_admission(
-    conn: Connection,
-    *,
-    release_id: ReleaseId,
-    input_kind: str,
-    input_name: str,
-    physical_id: str,
-    content: bytes,
-    projection_context: PreparedRelease | None = None,
-) -> None:
-    _statement = prepare_record_sql_admission(
-        release_id=release_id,
-        input_kind=input_kind,
-        input_name=input_name,
-        physical_id=physical_id,
-        content=content,
-        projection_context=projection_context,
-    )
-    _native_result = conn.execute(_statement)
-    with native_result_scope("admit", "record_sql_admission"):
         _native_result.scalar_one()
     return None
 
@@ -4193,4 +3921,4 @@ def read_characterization_inventory(
         return materialize_read_characterization_inventory(row)
 
 
-CALL_CONTRACT_DIGEST = "03c8d4dd3d7e89167c652eada78573e8300c6dc102bc3d5af51fc43b5cab646e"
+CALL_CONTRACT_DIGEST = "fefc95ccac3acbd0ec722df93887bc51d3d93b70d7b0a9d7fe6e15245ad3532a"

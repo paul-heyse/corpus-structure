@@ -17,4 +17,3 @@ TaskAttempt = NewType("TaskAttempt", int)
 TaskId = NewType("TaskId", int)
 type CompletionReceiptProtocol = Literal["done", "empty", "failed"]
 type CompletionResultTransaction = Literal["applied", "replay"]
-type NativeAdmissionParametersPurpose = Literal["admit", "evaluate", "read", "write"]

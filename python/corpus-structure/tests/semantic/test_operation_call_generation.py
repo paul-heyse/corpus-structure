@@ -84,15 +84,6 @@ def test_semantic_identifiers_do_not_import_generated_calls_or_arrow():
     assert result.returncode == 0, result.stdout + result.stderr
 
 
-def test_admission_purpose_is_finite_and_void_output_errors_are_native_results():
-    _operation_calls.prepare_require_runtime_principal(purpose="read")
-    prepare = vars(_operation_calls)["prepare_require_runtime_principal"]
-    with pytest.raises(ValidationError):
-        prepare(purpose="maintenance")
-    code = render_operation_calls(current_model(), metadata)
-    assert "with native_result_scope('admit', 'require_runtime_principal'):" in code
-
-
 def test_named_held_transform_preserves_checked_submission():
     row: list[object] = list(native_row())
     row[-1] = {
