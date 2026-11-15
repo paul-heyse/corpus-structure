@@ -27,6 +27,7 @@ def inputs():
         binding={"operator": "scan", "roles": ["request"]},
     )
     metadata["roles"][0].update(name="request", parameter="payload", kind="json")
+    metadata["roles"][0]["support"]["coverage"]["role"] = "request"
     metadata["roles"][1].update(name="result", parameter="payload", kind="json")
     metadata["binding"]["roles"] = ["request"]
     model = compile_data_operations(

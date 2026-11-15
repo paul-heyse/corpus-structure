@@ -996,6 +996,8 @@ class WireRecordGradeDeclaredStructuralSource(TypedDict):
 
 class WireRecordGradeDdoRecordCoverage(TypedDict):
     event_ids: Required[list[str]]
+    failure_request_id: NotRequired[str | None]
+    failure_use_id: NotRequired[str | None]
     outcome: Required[Literal["completed", "no_output", "failed"]]
     outputs: Required[list[WireRecordGradeDeclaredProductRef]]
     source: Required[WireRecordGradeDeclaredStructuralSource]
@@ -1051,6 +1053,7 @@ class WireRecordGradeDdoRecordReferencePass(TypedDict):
     question_digest: Required[str]
     reference: Required[WireRecordGradeDeclaredProductRef]
     rubric_digest: Required[str]
+    source: Required[WireRecordGradeDeclaredStructuralSource]
     source_cut_id: Required[str]
 
 

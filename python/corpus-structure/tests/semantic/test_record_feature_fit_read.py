@@ -14,7 +14,7 @@ from corpus_structure.semantic.demand_results import CutSelection
 from corpus_structure.semantic.record_policy_native import (
     read_record_feature_fit_frame, record_policy_grade_schema,
 )
-from evaluate.test_declared_record_policy import grade_frame
+from evaluate.declared_record_policy_support import grade_frame
 
 
 def selection():
@@ -25,17 +25,17 @@ def selection():
     )))
 
 
-def test_captured_grade_schema_preserves_closed_fields_and_exact_three_pass_tuple():
+def test_captured_grade_schema_preserves_closed_fields_and_reference_population():
     schema = json.loads(record_policy_grade_schema())
     grade = DdoRecordGrade.from_frame(grade_frame()).model_dump(mode="json")
     validator = Draft7Validator(schema)
     validator.validate(grade)
-    for change in ("extra", "missing-custody", "two-passes", "four-passes", "unknown-partition"):
+    for change in ("extra", "missing-custody", "two-passes", "extra-pass-field", "unknown-partition"):
         value = deepcopy(grade)
         if change == "extra": value["labels"] = []
         elif change == "missing-custody": del value["frame_canonical_json"]
-        elif change == "two-passes": value["frame"]["reference_passes"].pop()
-        elif change == "four-passes": value["frame"]["reference_passes"].append(value["frame"]["reference_passes"][0])
+        elif change == "two-passes": value["frame"]["reference_passes"] = value["frame"]["reference_passes"][:2]
+        elif change == "extra-pass-field": value["frame"]["reference_passes"][0]["unqualified_answers"] = []
         else: value["frame"]["partition"] = "ordinary"
         with pytest.raises(ValidationError):
             validator.validate(value)
