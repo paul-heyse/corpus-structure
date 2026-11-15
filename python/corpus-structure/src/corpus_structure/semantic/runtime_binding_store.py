@@ -6,7 +6,7 @@ from sqlalchemy import Connection, select
 
 from .identifiers import RuntimeId
 from .metadata import table
-from .runtime_bindings import RuntimeBinding, RuntimeBindingError, validate_runtime_binding
+from .data_operation_runtime import RuntimeBinding, RuntimeBindingError, validate_data_operation_runtime
 from .types import PreparedRelease, SourceArtifact
 
 
@@ -96,5 +96,5 @@ def runtime_binding_for_release(
         bytes(row["manifest_bytes"]),
         bytes(row["archive_bytes"]),
     )
-    validate_runtime_binding(binding, prepared)
+    validate_data_operation_runtime(binding, prepared)
     return binding

@@ -5,12 +5,57 @@ from __future__ import annotations
 import json
 import sys
 from hashlib import sha256
+from dataclasses import dataclass
+from typing import Any
 
 from .data_operation_admission import bound_data_operation_model
 from .data_operation_identity import execution_attestation, runtime_artifact_identity
 from .identity import canonical_bytes
-from .runtime_bindings import RuntimeBinding, RuntimeBindingError, _document, _inputs
+from .refusals import SemanticRefusal
 from .types import PreparedRelease, SourceArtifact
+
+
+class RuntimeBindingError(SemanticRefusal):
+    """Runtime custody or its explicit semantic compatibility cannot be established."""
+
+
+def _document(content: bytes, keys: set[str]) -> dict[str, Any]:
+    try:
+        value = json.loads(content)
+    except ValueError as error:
+        raise RuntimeBindingError("runtime archive is not JSON") from error
+    if not isinstance(value, dict) or set(value) != keys or canonical_bytes(value) != content:
+        raise RuntimeBindingError("runtime archive has a noncanonical or unsupported shape")
+    return value
+
+
+@dataclass(frozen=True)
+class RuntimeBinding:
+    release_id: str
+    runtime_id: str
+    manifest: bytes
+    archive: bytes
+
+    @property
+    def implementation_digests(self) -> tuple[tuple[str, str], ...]:
+        return tuple(
+            (item["name"], item["sha256"])
+            for item in json.loads(self.manifest)["implementation_inputs"]
+        )
+
+    def input(self, name: str) -> SourceArtifact:
+        for item in json.loads(self.archive)["inputs"]:
+            if item["name"] == name:
+                return SourceArtifact(name, bytes.fromhex(item["content_hex"]))
+        raise RuntimeBindingError("runtime source input is unavailable: " + name)
+
+
+def _inputs(inputs: tuple[SourceArtifact, ...]) -> tuple[SourceArtifact, ...]:
+    """Validate explicit executable custody; never acquire a different installed model."""
+    if len({item.name for item in inputs}) != len(inputs):
+        raise RuntimeBindingError("runtime input names must be unique")
+    return tuple(sorted(inputs, key=lambda item: item.name))
+
 
 VERSION = "data-operation-runtime-binding-v2"
 

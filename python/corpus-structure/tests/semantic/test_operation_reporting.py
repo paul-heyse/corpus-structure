@@ -532,7 +532,7 @@ def test_runtime_comparison_refuses_a_relabelled_release():
 
 
 def test_runtime_comparison_refuses_unauthenticated_archive():
-    from corpus_structure.semantic.runtime_bindings import (
+    from corpus_structure.semantic.data_operation_runtime import (
         RuntimeBindingError,
     )
     from semantic.operation_reporting_support import runtime as current_runtime

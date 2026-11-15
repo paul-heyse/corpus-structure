@@ -48,7 +48,7 @@ from .types import PreparedRelease
 
 if TYPE_CHECKING:
     from .contextual_storage import PreparedContextualInventory
-    from .runtime_bindings import RuntimeBinding
+    from .data_operation_runtime import RuntimeBinding
 
 _SOURCE_RESULT_MAX_BYTES = 64 * 1024**2
 
@@ -98,7 +98,7 @@ def create_run(
     from ._operation_calls import create_run as invoke
     from .releases import open_release
     from .runtime_binding_store import persist_runtime_binding
-    from .runtime_bindings import require_installed_runtime
+    from .data_operation_runtime import require_installed_runtime
 
     prepared = prepared or open_release(conn, binding.release_id)
     if prepared.release_id != binding.release_id:
@@ -133,7 +133,7 @@ def _require_run_runtime(
 ) -> PreparedRelease:
     """Authenticate one execution/claim boundary, independently of historical read access."""
     from .releases import open_release
-    from .runtime_bindings import RuntimeBindingError, installed_runtime_id
+    from .data_operation_runtime import RuntimeBindingError, installed_runtime_id
 
     run = table("ops.run")
     selected = conn.execute(

@@ -17,7 +17,7 @@ from .python_operation_sources import PythonSourceCollection
 from .refusals import SemanticRefusal
 from .releases import load_release
 from .runtime_binding_store import runtime_binding_for_release
-from .runtime_bindings import RuntimeBinding
+from .data_operation_runtime import RuntimeBinding
 from .types import PreparedRelease, ResolvedDependencies, SourceArtifact, SourceBundle
 
 

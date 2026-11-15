@@ -31,7 +31,7 @@ if TYPE_CHECKING:
 
     from .data_operation_model import EffectiveDataOperationModel
     from .python_operation_sources import PythonSourceCollection
-    from .runtime_bindings import RuntimeBinding
+    from .data_operation_runtime import RuntimeBinding
     from .types import PreparedRelease, SourceArtifact, SourceBundle
 
 
@@ -241,11 +241,11 @@ def acquire_python_execution(
     """Acquire permissions briefly; no DB connection is retained through computation."""
     from .data_operation_ports import python_port_identity
     from .data_operation_storage import DataOperationStorage, require_data_operation_native
-    from .runtime_bindings import validate_runtime_binding
+    from .data_operation_runtime import validate_data_operation_runtime
 
     model = bound_data_operation_model(prepared)
     require_data_operation_native(connection, prepared)
-    validate_runtime_binding(runtime, prepared)
+    validate_data_operation_runtime(runtime, prepared)
     if schema is not None:
         manifest = json.loads(prepared.manifest)
         if schema.root != manifest["root"] or sorted(

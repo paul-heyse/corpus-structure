@@ -348,7 +348,7 @@ def verify_demand_export(root: Path, *, manifest_digest: str):
     """Verify a detached export relative to its explicitly trusted manifest digest."""
     from corpus_structure.semantic.archive_reader import open_release_parts
     from corpus_structure.semantic.demand_results import verify_detached_result
-    from corpus_structure.semantic.runtime_bindings import RuntimeBinding, validate_runtime_binding
+    from corpus_structure.semantic.data_operation_runtime import RuntimeBinding, validate_data_operation_runtime
 
     manifest_bytes = (root / "manifest.json").read_bytes()
     if sha256(manifest_bytes).hexdigest() != manifest_digest:
@@ -401,7 +401,7 @@ def verify_demand_export(root: Path, *, manifest_digest: str):
             bytes.fromhex(captured["manifest"]),
             bytes.fromhex(captured["archive"]),
         )
-        validate_runtime_binding(binding, prepared[binding.release_id])
+        validate_data_operation_runtime(binding, prepared[binding.release_id])
         runtime_ids.add((binding.release_id, binding.runtime_id))
     wire_schema = wire_json_loads((root / manifest["reader_contract"]).read_bytes())
     authority_schema = wire_json_loads((root / manifest["authority_contract"]).read_bytes())

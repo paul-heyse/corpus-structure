@@ -32,7 +32,7 @@ from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.releases import persist_release
 from corpus_structure.semantic.runtime_binding_store import persist_runtime_binding
-from corpus_structure.semantic.runtime_bindings import RuntimeBinding
+from corpus_structure.semantic.data_operation_runtime import RuntimeBinding
 from corpus_structure.semantic.types import (
     PreparationProfile,
     PreparedRelease,

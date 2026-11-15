@@ -16,10 +16,9 @@ from typing import Any
 from .identity import canonical_bytes
 from .refusals import SemanticRefusal
 from .types import PreparedRelease, SourceArtifact
+from .data_operation_runtime import RuntimeBinding, RuntimeBindingError, _document
 
 
-class RuntimeBindingError(SemanticRefusal):
-    """Runtime custody or its explicit semantic compatibility cannot be established."""
 
 
 def _inputs(inputs: tuple[SourceArtifact, ...] | None) -> tuple[SourceArtifact, ...]:
@@ -53,35 +52,8 @@ def runtime_fingerprint(
     return "runtime-code:" + artifact.digest
 
 
-def _document(content: bytes, keys: set[str]) -> dict[str, Any]:
-    try:
-        value = json.loads(content)
-    except ValueError as error:
-        raise RuntimeBindingError("runtime archive is not JSON") from error
-    if not isinstance(value, dict) or set(value) != keys or canonical_bytes(value) != content:
-        raise RuntimeBindingError("runtime archive has a noncanonical or unsupported shape")
-    return value
 
 
-@dataclass(frozen=True)
-class RuntimeBinding:
-    release_id: str
-    runtime_id: str
-    manifest: bytes
-    archive: bytes
-
-    @property
-    def implementation_digests(self) -> tuple[tuple[str, str], ...]:
-        return tuple(
-            (item["name"], item["sha256"])
-            for item in json.loads(self.manifest)["implementation_inputs"]
-        )
-
-    def input(self, name: str) -> SourceArtifact:
-        for item in json.loads(self.archive)["inputs"]:
-            if item["name"] == name:
-                return SourceArtifact(name, bytes.fromhex(item["content_hex"]))
-        raise RuntimeBindingError("runtime source input is unavailable: " + name)
 
 
 def _execution(prepared: PreparedRelease):
@@ -145,11 +117,6 @@ def _binding(
 
 def validate_runtime_binding(binding: RuntimeBinding, prepared: PreparedRelease) -> None:
     """Authenticate exact retained bytes and their released meaning, without installed defaults."""
-    if any(a.kind == "data_operations.json" for a in prepared.artifacts):
-        from .data_operation_runtime import validate_data_operation_runtime
-
-        validate_data_operation_runtime(binding, prepared)
-        return
     model, compiler = _execution(prepared)
     manifest = _document(
         binding.manifest,

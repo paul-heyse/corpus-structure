@@ -9,7 +9,7 @@ from corpus_structure.semantic.composed import data_operation_dependencies
 from corpus_structure.semantic.data_operation_runtime import prepare_data_operation_runtime
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.prepare import prepare_release
-from corpus_structure.semantic.runtime_bindings import RuntimeBindingError, validate_runtime_binding
+from corpus_structure.semantic.data_operation_runtime import RuntimeBindingError, validate_data_operation_runtime
 from corpus_structure.semantic.types import ResolvedDependencies, SourceArtifact, SourceBundle
 
 
@@ -38,7 +38,7 @@ def test_target_runtime_reuses_artifact_across_releases_but_attests_each_release
     binding = prepare_data_operation_runtime(
         first, sources, execution_profile="execution:one", observed={"device": "cuda"}
     )
-    validate_runtime_binding(binding, first)
+    validate_data_operation_runtime(binding, first)
     # A distinct admitted release can retain the same executable artifact.
     manifest = json.loads(first.manifest)
     manifest["root"] = "another"
@@ -68,9 +68,9 @@ def test_target_runtime_rejects_changed_bytes_and_detached_attestation():
     archive = json.loads(binding.archive)
     archive["inputs"][0]["content_hex"] = b"two".hex()
     with pytest.raises(RuntimeBindingError, match="bytes"):
-        validate_runtime_binding(replace(binding, archive=canonical_bytes(archive)), release)
+        validate_data_operation_runtime(replace(binding, archive=canonical_bytes(archive)), release)
     with pytest.raises(RuntimeBindingError, match="identity"):
-        validate_runtime_binding(replace(binding, runtime_id="runtime:wrong"), release)
+        validate_data_operation_runtime(replace(binding, runtime_id="runtime:wrong"), release)
 
 
 def test_unprofiled_historical_runtime_v1_is_refused():
@@ -91,7 +91,7 @@ def test_unprofiled_historical_runtime_v1_is_refused():
         binding, runtime_id="runtime:" + sha256(content).hexdigest(), manifest=content
     )
     with pytest.raises(RuntimeBindingError, match="runtime version"):
-        validate_runtime_binding(historical, release)
+        validate_data_operation_runtime(historical, release)
 
 
 def test_current_runtime_persistence_has_no_legacy_facade_dependency(monkeypatch):

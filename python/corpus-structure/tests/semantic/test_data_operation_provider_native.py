@@ -22,7 +22,7 @@ from corpus_structure.semantic.data_operation_identity import (
 from corpus_structure.semantic.data_operation_runtime import validate_data_operation_runtime
 from corpus_structure.semantic.data_operation_storage import DataOperationStorage
 from corpus_structure.semantic.identity import canonical_bytes
-from corpus_structure.semantic.runtime_bindings import RuntimeBindingError
+from corpus_structure.semantic.data_operation_runtime import RuntimeBindingError
 from semantic.test_data_operation_pinned_reuse_native import (
     CONSUMER,
     PINNED,

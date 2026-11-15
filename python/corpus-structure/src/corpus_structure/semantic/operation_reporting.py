@@ -25,7 +25,7 @@ from .types import Diagnostic, PreparedRelease
 
 if TYPE_CHECKING:
     from .demand_queries import DemandQueryRequest
-    from .runtime_bindings import RuntimeBinding
+    from .data_operation_runtime import RuntimeBinding
 
 _REPORT_VERSIONS = {
     "OperationExplanation": 3,
@@ -499,7 +499,7 @@ def compare_semantic_releases(
     from .data_operation_admission import bound_data_operation_model
     from .model_comparison import compare_declared_models
     from .projection_analysis_products import compare_retained_projection_analysis
-    from .runtime_bindings import validate_runtime_binding
+    from .data_operation_runtime import validate_data_operation_runtime
     from .vocabulary_impact import append_vocabulary_impact
 
     models = (bound_data_operation_model(before), bound_data_operation_model(after))
@@ -588,7 +588,7 @@ def compare_semantic_releases(
         if runtime is not None:
             if runtime.release_id != prepared.release_id:
                 raise ValueError("runtime binding belongs to another semantic release")
-            validate_runtime_binding(runtime, prepared)
+            validate_data_operation_runtime(runtime, prepared)
     if (before_runtime is None) != (after_runtime is None):
         unknowns.add("Runtime change is unassessed: supply both runtime bindings.")
     elif (
