@@ -878,9 +878,13 @@ def series_native_definitions(connection, *, include_selected=True, target_metad
     from .pdf_staging_native import stage_native_sql
     from .published_document import published_reader_definitions
 
+    from .pdf_domain import pdf_domain_sources
+
+    selected_metadata = metadata if target_metadata is None else target_metadata
+    pdf_sources = pdf_domain_sources(physical_sources=selected_metadata.info["physical_sources"], linkml_types=selected_metadata.info["physical_linkml_types"])
     access_sql = Path(__file__).with_name("sql") / "pdf_record_access_correspondence.sql"
     payload_sql = (
-        stage_native_sql()
+        stage_native_sql(target_metadata=selected_metadata, pdf_sources=pdf_sources)
         + "\n"
         + publication_sql()
         + "\n"
@@ -1720,8 +1724,7 @@ def candidate_admission_sql(
     target_metadata=metadata,
     physical_catalog=None,
 ):
-    from .contracts import compile_execution_model, trusted_execution_inputs
-    from .native_products import current_authoring_provenance
+    from .native_products import capture_native_authoring_inputs
     from .source_view_native import native_admission_sql
 
     # A descriptor cannot include its own body hash. The enforcing guard is not
@@ -1735,17 +1738,11 @@ def candidate_admission_sql(
         connection, predecessor=predecessor, predecessor_state=predecessor_state
     )
     desired = {item.identity for item in selected}
-    physical_sources = target_metadata.info.get("physical_sources")
-    execution = (
-        compile_execution_model(trusted_execution_inputs(physical_sources=physical_sources))
-        if physical_sources
-        else None
-    )
+    captured = capture_native_authoring_inputs(target_metadata=target_metadata)
     return native_admission_sql(
         definition_sql(products),
-        model=execution,
+        inputs=captured,
         base_admission=source.admission,
-        authoring_provenance=current_authoring_provenance(execution),
         native_objects=selected,
         target_metadata=target_metadata,
         retire=retire | (source.retirements - desired),

@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Iterable
 from dataclasses import dataclass
 from hashlib import sha256
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from pglast import ast
 from sqlalchemy.dialects.postgresql import dialect
@@ -20,6 +20,10 @@ from sqlalchemy.schema import (
 
 from .metadata import metadata
 from .prepared_sql import PreparedSQL
+
+if TYPE_CHECKING:
+    from .data_operation_model import EffectiveDataOperationModel
+    from .types import SourceArtifact
 
 
 def selected_fact_query(target_metadata: MetaData | None = None):
@@ -55,7 +59,7 @@ class NativeProduct:
 
 @dataclass(frozen=True)
 class NativeAuthoringProvenance:
-    """The exact release inputs used when a native revision was authored.
+    """The exact closed inputs used when a native revision was authored.
 
     These describe that authoring event. SQL bodies, effects, physical checks,
     privileges and inventories are derived independently by the current generator.
@@ -71,19 +75,66 @@ class NativeAuthoringProvenance:
         }
 
 
-def current_authoring_provenance(model=None) -> NativeAuthoringProvenance:
-    """Explicitly acquire live release provenance for a new candidate revision."""
-    from .composed import composed_dependencies
-    from .contracts import compile_execution_model, trusted_execution_inputs
-    from .types import ResolvedDependencies
+@dataclass(frozen=True)
+class NativeAuthoringInputs:
+    """Closed current native authority, independent of application producer acquisition."""
 
-    model = compile_execution_model(trusted_execution_inputs()) if model is None else model
+    model: EffectiveDataOperationModel
+    sources: tuple[SourceArtifact, ...]
+    physical_id: str
+
+
+def capture_native_authoring_inputs(*, target_metadata: MetaData | None = None) -> NativeAuthoringInputs:
+    """Acquire the native protocol, exact physical closure and real helper assets once.
+
+    Application operations, providers and historical execution catalogs are not inputs
+    to authoring the shared kernel. Frozen predecessors are separately supplied SQL.
+    """
+    from dataclasses import asdict
+    from pathlib import Path
+
+    from .data_operation_artifacts import capture_port_generator_sources
+    from .data_operation_compilation import compile_data_operations
+    from .data_operation_storage import native_operation_calls, native_operation_declarations, native_protocol_sources
+    from .identity import canonical_bytes
+    from .pdf_domain import pdf_domain_sources
+    from .types import SourceArtifact
+
+    selected = metadata if target_metadata is None else target_metadata
+    physical = selected.info.get("physical_sources")
+    types = selected.info.get("physical_linkml_types")
+    if not physical or not isinstance(types, bytes):
+        raise ValueError("native authoring requires captured physical sources and LinkML types")
+    native = native_protocol_sources(physical_sources=physical, linkml_types=types)
+    declarations = native_operation_declarations(native)
+    model = compile_data_operations(declarations=(declarations,))
+    calls = native_operation_calls(model, sources=native)
+    sources = (
+        *native,
+        declarations,
+        *capture_port_generator_sources(),
+        *pdf_domain_sources(physical_sources=physical, linkml_types=types),
+        *(SourceArtifact("physical/" + name, content) for name, content in sorted(physical.items())),
+        SourceArtifact("physical/linkml-types.yaml", types),
+        SourceArtifact("authoring/native-fixed-calls.json", canonical_bytes([(owner, asdict(call)) for owner, call in calls])),
+        *(SourceArtifact("authoring/" + name, Path(__file__).with_name(name).read_bytes()) for name in ("native_products.py", "source_view_native.py", "native_candidate.py", "data_operation_compilation.py", "data_operation_model.py", "data_operation_identity.py")),
+        SourceArtifact("authoring/scientific.yaml", Path(__file__).resolve().parents[1].joinpath("model/semantic/scientific.yaml").read_bytes()),
+        SourceArtifact("authoring/scientific-evidence.py", Path(__file__).with_name("scientific_evidence.py").read_bytes()),
+        SourceArtifact("authoring/execution-projection-check.sql", Path(__file__).with_name("sql").joinpath("execution_projection_check.sql").read_bytes()),
+        SourceArtifact("authoring/admission.sql", Path(__file__).with_name("sql").joinpath("admission.sql").read_bytes()),
+    )
+    names = [source.name for source in sources]
+    if len(names) != len(set(names)):
+        raise ValueError("native authoring source capture repeats an input")
+    return NativeAuthoringInputs(model, tuple(sorted(sources, key=lambda item: item.name)), selected.info["physical_model_id"])
+
+
+def current_authoring_provenance(inputs: NativeAuthoringInputs | None = None) -> NativeAuthoringProvenance:
+    """Fingerprint one explicit current native capture, never an application release."""
+    captured = capture_native_authoring_inputs() if inputs is None else inputs
     return NativeAuthoringProvenance(
-        model.model_id,
-        tuple(
-            (item.name, item.digest)
-            for item in composed_dependencies(ResolvedDependencies()).artifacts
-        ),
+        sha256(captured.model.content).hexdigest(),
+        tuple((item.name, item.digest) for item in captured.sources),
     )
 
 
@@ -279,18 +330,15 @@ def derived_publication_sql():
     )
 
 
-def current_admission_fields(model=None, *, target_metadata: MetaData | None = None) -> dict:
+def current_admission_fields(inputs: NativeAuthoringInputs | None = None, *, target_metadata: MetaData | None = None) -> dict:
     """Model-owned admission fields; immutable predecessors own unchanged native programs."""
-    from dataclasses import asdict
-
-    from .contracts import compile_execution_model, trusted_execution_inputs
+    from .data_operation_model import MODEL_VERSION
     from .identity import canonical_bytes
 
     target_metadata = metadata if target_metadata is None else target_metadata
-    model = compile_execution_model(trusted_execution_inputs()) if model is None else model
-    for operation in model.operations:
-        if operation.implementation is not None:
-            model.require_operation(operation.id)
+    captured = capture_native_authoring_inputs(target_metadata=target_metadata) if inputs is None else inputs
+    if captured.physical_id != target_metadata.info["physical_model_id"]:
+        raise ValueError("native authoring capture belongs to another physical model")
     check_sources = [
         (relation.fullname, str(check.name), str(check.sqltext))
         for relation in sorted(target_metadata.tables.values(), key=lambda item: item.fullname)
@@ -309,32 +357,20 @@ def current_admission_fields(model=None, *, target_metadata: MetaData | None = N
             "query": str(selected_fact_query(target_metadata).compile(dialect=dialect())),
         }
     ]
-    from .effect_support import SUPPORTED_EFFECT_VERSIONS, SUPPORTED_EFFECTS
-
-    descriptor["supported_effects"] = {
-        operation.id: {
-            **SUPPORTED_EFFECTS[operation.id],
-        }
-        for operation in model.operations
-        if operation.implementation is not None
-    }
-    descriptor["parsing_adapters"] = [asdict(adapter) for adapter in model.parsing_adapters]
     from .scientific_evidence import scientific_report_layout
 
-    layout = scientific_report_layout()
+    layout = scientific_report_layout(next(source.content for source in captured.sources if source.name == "authoring/scientific.yaml"))
     if not layout["comparison_paths"] or not layout["array_rules"]:
         raise ValueError(
             "owned scientific report layout must define comparison and array consumers"
         )
     descriptor["scientific_report_layout"] = layout
-    descriptor["supported_effect_versions"] = SUPPORTED_EFFECT_VERSIONS
     from .analytics import COMPILER_VERSION as analytical_compiler
-    from .contracts import EXECUTION_COMPILER_VERSION
 
     descriptor["analytical_abi"] = analytical_compiler
-    descriptor["execution_abi"] = EXECUTION_COMPILER_VERSION
+    descriptor["data_operation_abi"] = MODEL_VERSION
     descriptor["physical_id"] = target_metadata.info["physical_model_id"]
-    descriptor.update(current_authoring_provenance(model).descriptor_fields())
+    descriptor.update(current_authoring_provenance(captured).descriptor_fields())
     return descriptor
 
 

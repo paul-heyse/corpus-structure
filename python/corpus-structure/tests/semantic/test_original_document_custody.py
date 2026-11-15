@@ -38,7 +38,17 @@ def test_missing_or_corrupt_retained_bytes_do_not_open_a_local_fallback(monkeypa
     prepared = prepared_source_admission()
     connection = MagicMock()
     connection.execute.side_effect = [Result(), Result((17,"project","book",reference.content_hash,"application/pdf")), Result(None if body is None else (body,))]
-    monkeypatch.setattr(Path,"read_bytes",lambda self: (_ for _ in ()).throw(AssertionError("original read must use its retained artifact")))
+    from corpus_structure.semantic import original_documents
+
+    source_root = Path(original_documents.__file__).resolve().parents[1]
+    read_bytes = Path.read_bytes
+    def source_bytes_only(path):
+        # Current helper custody may authenticate installed code/schema sources.
+        # A document/corpus path must never replace missing retained bytes.
+        if not path.resolve().is_relative_to(source_root):
+            raise AssertionError("original read must use its retained artifact")
+        return read_bytes(path)
+    monkeypatch.setattr(Path, "read_bytes", source_bytes_only)
     with pytest.raises(OriginalDocumentReadRefused) as refusal:
         read_original_document_bytes(connection, reference, prepared=prepared)
     assert refusal.value.outcome == outcome

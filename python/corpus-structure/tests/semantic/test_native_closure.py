@@ -363,18 +363,16 @@ def _forward_descriptor(product):
     return json.loads(cast.arg.val.sval)
 
 
-def test_current_frozen_head_witness_records_current_authoring_provenance():
+def test_frozen_head_witness_preserves_its_explicit_authoring_provenance():
     from hashlib import sha256
     from pathlib import Path
 
     from alembic.script import ScriptDirectory
 
-    from corpus_structure.semantic.contracts import EXECUTION_COMPILER_VERSION
     from corpus_structure.semantic.execution_admission import _descriptor_sha256
     from corpus_structure.semantic.migrations import alembic_config, head_revision
     from corpus_structure.semantic.native_products import (
         NativeProduct,
-        current_authoring_provenance,
         function_bodies,
     )
 
@@ -396,12 +394,11 @@ def test_current_frozen_head_witness_records_current_authoring_provenance():
         == _descriptor_sha256()
     )
 
-    current = current_authoring_provenance()
-    assert recorded["execution_abi"] == EXECUTION_COMPILER_VERSION == "28"
-    assert recorded["model_id"] == current.model_id
-    assert recorded["inputs"] == [
-        {"name": name, "sha256": digest} for name, digest in current.inputs
-    ]
+    from corpus_structure.semantic.source_view_native import recorded_authoring_provenance
+
+    provenance = recorded_authoring_provenance(head.content.decode())
+    assert provenance.model_id == recorded["model_id"]
+    assert [{"name": name, "sha256": digest} for name, digest in provenance.inputs] == recorded["inputs"]
 
 
 def test_current_context_source_and_identity_helper_changes_are_visible(monkeypatch):
@@ -430,16 +427,6 @@ def test_current_context_source_and_identity_helper_changes_are_visible(monkeypa
     )
 
 
-def test_current_admission_refuses_unsupported_effect(monkeypatch):
-    from corpus_structure.semantic.effect_support import SUPPORTED_EFFECTS
-    from corpus_structure.semantic.native_products import current_admission_fields
-    from corpus_structure.semantic.types import PreparationError
-
-    monkeypatch.setitem(
-        SUPPORTED_EFFECTS["read_pdf_product"], "effects", ("atomic_native_publication",)
-    )
-    with pytest.raises(PreparationError, match="effect"):
-        current_admission_fields()
 
 
 @pytest.mark.parametrize(

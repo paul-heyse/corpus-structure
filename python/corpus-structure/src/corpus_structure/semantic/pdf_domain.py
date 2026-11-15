@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import json
 from dataclasses import asdict, dataclass, replace
-from functools import cache
 from hashlib import sha256
 from pathlib import Path
 from typing import Any
@@ -35,7 +34,7 @@ def _pdf_action(operation: str, owner: str, symbol: str) -> bool:
 HELPER_CONTRACT = "pdf-native/helper-bindings"
 
 
-def _action_sources():
+def _action_sources(*, physical_sources=None, linkml_types=None):
     """Read explicit current PDF helper declarations and their actual field owners."""
     import yaml
     from cattrs import Converter
@@ -62,14 +61,16 @@ def _action_sources():
             for value in (*call["parameters"], *call["result_fields"], *(field for record in call.get("records", ()) for field in record["fields"])):
                 value.setdefault("nullable", False)
             calls.append((action["id"], converter.structure(call, OperationCallBinding)))
-    logical = {name: root.joinpath(filename).read_bytes() for name, filename in (
+    physical = physical_source_closure(PHYSICAL_ROOT, lambda name: root.joinpath(name).read_bytes()) if physical_sources is None else dict(physical_sources)
+    if physical_sources is not None and not isinstance(linkml_types, bytes):
+        raise ValueError("explicit PDF physical capture requires LinkML types")
+    logical = {name: physical[filename] if filename in physical else root.joinpath(filename).read_bytes() for name, filename in (
         ("pdf_products", "pdf-products.yaml"), ("core", "core.yaml"),
         ("pdf_records", "pdf-records.yaml"), ("pdf_staging", "pdf-staging.yaml"),
         ("read_projections", "read-projections.yaml"), ("companion_projections", "companion-projections.yaml"),
         ("selected_source", "selected-source.yaml"),
     )}
-    logical["linkml:types"] = linkml_types_source()
-    physical = physical_source_closure(PHYSICAL_ROOT, lambda name: root.joinpath(name).read_bytes())
+    logical["linkml:types"] = linkml_types_source() if linkml_types is None else linkml_types
     resolved = resolve_call_bindings(tuple(calls), logical_sources=logical, physical_sources=physical)
     actions = {
         name: {"contract": {"id": name, "outcomes": action["outcomes"], "calls": [asdict(call) for owner, call in resolved if owner == name]},
@@ -81,19 +82,22 @@ def _action_sources():
     return actions, sources, document["diagnostics"]
 
 
-@cache
-def pdf_domain_sources() -> tuple[SourceArtifact, ...]:
+def pdf_domain_sources(*, physical_sources=None, linkml_types=None) -> tuple[SourceArtifact, ...]:
     """Acquire current PDF helper assets without an execution catalog/compiler."""
-    actions, action_sources, diagnostics = _action_sources()
+    actions, action_sources, diagnostics = _action_sources(physical_sources=physical_sources, linkml_types=linkml_types)
     root = Path(__file__).resolve().parents[1] / "model/semantic"
+    supplied = dict(physical_sources or {})
+    def content(name):
+        return supplied[name] if name in supplied else root.joinpath(name).read_bytes()
+
     sources = (
         *action_sources,
         SourceArtifact(PREFIX + "schema/pdf_products", root.joinpath("pdf-products.yaml").read_bytes()),
         SourceArtifact(PREFIX + "schema/core", root.joinpath("core.yaml").read_bytes()),
         SourceArtifact(PREFIX + "schema/pdf_domain_schema", canonical_bytes({"id": "urn:corpus:pdf-domain-schema", "name": "pdf_domain_schema", "imports": ["pdf_products", "core"]})),
-        SourceArtifact(PREFIX + "implementation/pdf/staging-model.yaml", root.joinpath("pdf-staging.yaml").read_bytes()),
+        SourceArtifact(PREFIX + "implementation/pdf/staging-model.yaml", content("pdf-staging.yaml")),
         SourceArtifact(PREFIX + "implementation/pdf/docling-validation.schema.json", root.joinpath("docling-validation.schema.json").read_bytes()),
-        SourceArtifact(PREFIX + "native/data-operation-protocol.yaml", root.joinpath("data-operation-native.yaml").read_bytes()),
+        SourceArtifact(PREFIX + "native/data-operation-protocol.yaml", content("data-operation-native.yaml")),
     )
     contract = SourceArtifact(CONTRACT, canonical_bytes({
         "version": "pdf-domain-contract-v2",

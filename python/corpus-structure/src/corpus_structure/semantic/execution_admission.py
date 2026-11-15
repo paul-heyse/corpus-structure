@@ -20,22 +20,6 @@ from .types import PreparedRelease
 if TYPE_CHECKING:
     from sqlalchemy import Connection
 
-# Code support is distinct from deployment: composed admission additionally checks
-# the exact native implementation on the caller's connection. This set is code-owned.
-_NATIVE_CAPABILITIES = frozenset(
-    {
-        "semantic_registry",
-        "scoped_publication",
-        "typed_values",
-        "execution.lifecycle.v1",
-        "execution.identity_exclusions.v1",
-        "execution.reference_evaluation.v1",
-        "execution.selected_result.v1",
-        "conditional_rules_native",
-    }
-)
-
-
 class ExecutionAdmissionError(SemanticRefusal):
     """The archived binding lacks a compatible trusted enforcing implementation."""
 
@@ -48,42 +32,12 @@ def admit_execution_release(
     Pure compiled products may be reused by the compiler. Database state and permissions
     are checked by their existing owners on every activation and are never cached here.
     """
-    if any(a.kind == "data_operations.json" for a in prepared.artifacts):
-        from .data_operation_admission import admit_data_operation_release
+    from .data_operation_admission import admit_data_operation_release, bound_data_operation_model
 
-        if connection is None:
-            raise ExecutionAdmissionError("target admission requires verified native deployment")
-        return admit_data_operation_release(connection, prepared)
-    if prepared.execution_model_id is not None:
-        from .contracts import bound_execution_model
-
-        current = bound_execution_model(prepared)
-        for operation in current.operations:
-            if operation.implementation is not None:
-                current.require_operation(operation.id)
-        missing_requirements = set(current.required_capabilities) - set(
-            prepared.required_capabilities
-        )
-        if missing_requirements:
-            raise ExecutionAdmissionError(
-                "release omits required execution capabilities: "
-                + ", ".join(sorted(missing_requirements))
-            )
-    if prepared.execution_model_id is None:
-        raise ExecutionAdmissionError("native execution requires a composed model")
-    unavailable = set(prepared.required_capabilities) - _NATIVE_CAPABILITIES
-    if unavailable:
-        raise ExecutionAdmissionError(
-            "required native enforcement is unavailable: " + ", ".join(sorted(unavailable))
-        )
-
+    bound_data_operation_model(prepared)
     if connection is None:
-        raise ExecutionAdmissionError("composed admission requires verified native deployment")
-    from .unicode_identity import require_unicode_identity_release, requires_unicode_identity
-
-    if requires_unicode_identity(prepared):
-        require_unicode_identity_release(connection, prepared)
-    return require_native_execution(connection, prepared)
+        raise ExecutionAdmissionError("target admission requires verified native deployment")
+    return admit_data_operation_release(connection, prepared)
 
 
 _DESCRIPTOR = "data.execution_contract_descriptor"
@@ -269,14 +223,17 @@ def _verify_deployment_functions(
 def require_native_execution(connection: Connection, prepared: PreparedRelease) -> str:
     from sqlalchemy.exc import DBAPIError
 
-    from ._operation_calls import require_native_execution_release
-    from ._operation_ids import ReleaseId
+    from sqlalchemy import text
+
+    from .data_operation_admission import bound_data_operation_model
+
+    bound_data_operation_model(prepared)
 
     physical_id = _verify_deployment_functions(connection)
     try:
-        require_native_execution_release(
-            connection,
-            release_id=ReleaseId(prepared.release_id),
+        connection.execute(
+            text("SELECT data.require_execution_release(:release)"),
+            {"release": prepared.release_id},
         )
     except DBAPIError as exc:
         if getattr(exc.orig, "sqlstate", None) not in {"23514", "P0001"}:

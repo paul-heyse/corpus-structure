@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 from dataclasses import asdict
-from functools import cache
 from hashlib import sha256
 from pathlib import Path
 
@@ -20,11 +19,12 @@ _ROOT = Path(__file__).resolve().parents[1]
 _SQL = Path(__file__).with_name("sql") / "source_originals.sql"
 
 
-@cache
-def source_call_bindings():
+def source_call_bindings(*, target_metadata=None):
     """Derive fixed transport correspondences from their actual physical field owners."""
     from .metadata import metadata
     from .native_call_sources import resolve_call_bindings
+
+    metadata = metadata if target_metadata is None else target_metadata
 
     def field(name, relation, column=None, *, native=None):
         target = metadata.tables[relation].c[column or name]
@@ -67,14 +67,15 @@ def source_call_bindings():
     )
 
 
-@cache
-def source_admission_asset() -> SourceArtifact:
-    from .metadata import PHYSICAL_MODEL_ID
+def source_admission_asset(*, target_metadata=None) -> SourceArtifact:
+    from .metadata import metadata
+
+    selected = metadata if target_metadata is None else target_metadata
 
     return SourceArtifact(ASSET, canonical_bytes({
         "version": "source-admission-helper-bindings-v1", "operation": OPERATION,
-        "physical_model": PHYSICAL_MODEL_ID,
-        "calls": [asdict(call) for _, call in source_call_bindings()],
+        "physical_model": selected.info["physical_model_id"],
+        "calls": [asdict(call) for _, call in source_call_bindings(target_metadata=selected)],
         "sources": {
             "original_document_contracts.py": sha256(Path(__file__).read_bytes()).hexdigest(),
             "original_documents.py": sha256(Path(__file__).with_name("original_documents.py").read_bytes()).hexdigest(),
@@ -83,9 +84,14 @@ def source_admission_asset() -> SourceArtifact:
     }))
 
 
-def source_admission_sources() -> tuple[SourceArtifact, ...]:
+def source_admission_sources(*, physical_sources=None, linkml_types=None) -> tuple[SourceArtifact, ...]:
+    from corpus_structure.schema.physical import compile_physical
+
+    if physical_sources is not None and not isinstance(linkml_types, bytes):
+        raise ValueError("explicit source helper capture requires LinkML types")
+    selected = None if physical_sources is None else compile_physical(physical_sources, linkml_types=linkml_types)
     return (
-        source_admission_asset(),
+        source_admission_asset(target_metadata=selected),
         SourceArtifact("native/original-document-contracts.py", Path(__file__).read_bytes()),
         SourceArtifact("native/original-documents.py", Path(__file__).with_name("original_documents.py").read_bytes()),
         SourceArtifact("native/source-originals.sql", _SQL.read_bytes()),
@@ -128,8 +134,13 @@ def require_source_database_context(connection, prepared) -> None:
     connection.execute(select(func.ops.require_source_admission(bindparam("_source_release", prepared.release_id, type_=Text())))).scalar_one()
 
 
-def source_original_sql() -> str:
-    return _SQL.read_text().replace("__SOURCE_ADMISSION_ASSET__", source_admission_asset().digest)
+def source_original_sql(sources=None) -> str:
+    if sources is None:
+        asset, sql = source_admission_asset(), _SQL.read_bytes()
+    else:
+        selected = {source.name: source for source in sources}
+        asset, sql = selected[ASSET], selected["native/source-originals.sql"].content
+    return sql.decode().replace("__SOURCE_ADMISSION_ASSET__", asset.digest)
 
 
 def generated_source_calls() -> str:

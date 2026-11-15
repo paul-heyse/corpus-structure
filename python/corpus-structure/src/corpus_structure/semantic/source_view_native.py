@@ -45,11 +45,10 @@ def recorded_authoring_provenance(admission: str) -> NativeAuthoringProvenance:
 
 def native_admission_sql(
     sql,
-    model=None,
+    inputs=None,
     *,
     extra_relations=(),
     base_admission=None,
-    authoring_provenance: NativeAuthoringProvenance | None = None,
     native_objects=(),
     retire=(),
     target_metadata: MetaData | None = None,
@@ -64,7 +63,9 @@ def native_admission_sql(
         raise ValueError("native admission requires an explicit frozen predecessor")
     target_metadata = metadata if target_metadata is None else target_metadata
     descriptor = _admission_descriptor(base_admission)
-    descriptor.update(current_admission_fields(model, target_metadata=target_metadata))
+    descriptor.update(current_admission_fields(inputs, target_metadata=target_metadata))
+    for obsolete in ("supported_effects", "supported_effect_versions", "parsing_adapters", "execution_abi"):
+        descriptor.pop(obsolete, None)
     descriptor.pop("base_derived_protocol", None)
     descriptor.pop("parsing_relationship_profiles", None)
     retired_views = {f"{item.schema}.{item.name}" for item in retire if item.kind == "view"}
@@ -101,10 +102,6 @@ def native_admission_sql(
     descriptor["checks"] = [
         item for item in descriptor["checks"] if item["relation"] in target_metadata.tables
     ]
-    if authoring_provenance is not None:
-        # This explicit authoring witness affects no enforcement field. In
-        # particular, do not inherit predecessor provenance as head provenance.
-        descriptor.update(authoring_provenance.descriptor_fields())
     from .native_inventory import update_function_inventory
 
     functions = {item["signature"]: item for item in descriptor["functions"]}

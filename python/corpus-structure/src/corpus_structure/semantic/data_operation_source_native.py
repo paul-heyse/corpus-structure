@@ -13,33 +13,34 @@ from .types import SourceArtifact
 _SQL = Path(__file__).with_name("sql") / "data_operation_source_admission.sql"
 
 
-def source_native_sources() -> tuple[SourceArtifact, ...]:
+def source_native_sources(*, physical_sources=None, linkml_types=None) -> tuple[SourceArtifact, ...]:
     from .original_document_contracts import source_admission_sources
     from .data_operation_visual_read import visual_read_sources
 
     return (
-        *source_admission_sources(),
+        *source_admission_sources(physical_sources=physical_sources, linkml_types=linkml_types),
         *visual_read_sources(),
         SourceArtifact("native/data-operation-source-admission.sql", _SQL.read_bytes()),
         SourceArtifact("native/data-operation-source-native.py", Path(__file__).read_bytes()),
     )
 
 
-def source_native_sql() -> str:
+def source_native_sql(sources=None) -> str:
     from .original_document_contracts import source_original_sql
     from .data_operation_storage import _rename_native_entrypoints
     from .data_operation_wire import wire_operations
 
     from .data_operation_visual_read import visual_read_sql
 
-    sql = _SQL.read_text() + "\n" + source_original_sql() + "\n" + visual_read_sql()
-    return _rename_native_entrypoints(sql, {item["name"] for item in wire_operations()})
+    selected = None if sources is None else {source.name: source.content for source in sources}
+    sql = (_SQL.read_text() if selected is None else selected["native/data-operation-source-admission.sql"].decode()) + "\n" + source_original_sql(sources) + "\n" + visual_read_sql()
+    return _rename_native_entrypoints(sql, {item["name"] for item in wire_operations(sources)})
 
 
 
-def source_native_definitions(connection) -> tuple[NativeDefinition, ...]:
+def source_native_definitions(connection, *, sources=None) -> tuple[NativeDefinition, ...]:
     source = "data-operation-source-admission:forward"
-    prepared = prepare_sql(source_native_sql(), source=source)
+    prepared = prepare_sql(source_native_sql(sources), source=source)
     definitions = []
     for index, raw in enumerate(prepared.statements):
         statement = raw.stmt

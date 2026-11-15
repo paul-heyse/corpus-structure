@@ -39,11 +39,15 @@ def native_payload_size_sql(relation, *, alias="s") -> str:
     return "(" + "+".join(sizes) + ")"
 
 
-def stage_native_sql() -> str:
+def stage_native_sql(*, target_metadata=None, pdf_sources=None) -> str:
     from .pdf_domain_native import pdf_domain_native_sql
 
+    if target_metadata is not None and pdf_sources is None:
+        from .pdf_domain import pdf_domain_sources
+
+        pdf_sources = pdf_domain_sources(physical_sources=target_metadata.info["physical_sources"], linkml_types=target_metadata.info["physical_linkml_types"])
     sql = (
-        pdf_domain_native_sql()
+        pdf_domain_native_sql(sources=pdf_sources)
         + """
 CREATE OR REPLACE FUNCTION ops.pdf_task_context(p_task bigint)
 RETURNS TABLE(project_id text,release_id text,request_id text,generation bigint,
@@ -239,7 +243,8 @@ BEGIN
  PERFORM ops.require_pdf_operation(build.release_id,'adopt_pdf_batch');
 """
     )
-    relations = [metadata.tables[name] for name in STAGE_FAMILIES.values()]
+    selected = metadata if target_metadata is None else target_metadata
+    relations = [selected.tables[name] for name in STAGE_FAMILIES.values()]
     pg = dialect()
     for relation in relations:
         scratch = "ps_" + relation.name

@@ -3,8 +3,9 @@
 from .pdf_domain import CONTRACT, PREFIX, pdf_domain_sources
 
 
-def pdf_domain_native_sql() -> str:
-    digest = next(source.digest for source in pdf_domain_sources() if source.name == CONTRACT)
+def pdf_domain_native_sql(*, sources=None) -> str:
+    captured = pdf_domain_sources() if sources is None else sources
+    digest = next(source.digest for source in captured if source.name == CONTRACT)
     return (
         """
 CREATE OR REPLACE FUNCTION ops.pdf_contract_input(p_release text,p_name text) RETURNS bytea

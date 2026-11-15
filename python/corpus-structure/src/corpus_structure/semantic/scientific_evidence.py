@@ -46,12 +46,16 @@ REFERENCE_PROFILE = "reference-evidence-2"
 SCIENTIFIC_POLICY_INPUT = "operation/scientific-policy.json"
 
 
-@lru_cache(maxsize=1)
-def scientific_model():
+def scientific_model(content: bytes | None = None):
+    raw = files("corpus_structure").joinpath("model/semantic/scientific.yaml").read_bytes() if content is None else content
+    return _scientific_model(raw)
+
+
+@lru_cache(maxsize=4)
+def _scientific_model(raw: bytes):
     from .prepare import prepare_release
     from .types import SourceArtifact, SourceBundle
 
-    raw = files("corpus_structure").joinpath("model/semantic/scientific.yaml").read_bytes()
     return prepare_release(SourceBundle("scientific", (SourceArtifact("scientific", raw),)))
 
 
@@ -70,9 +74,9 @@ def decision_rules():
     return rows
 
 
-def scientific_report_layout():
+def scientific_report_layout(content: bytes | None = None):
     """Derive native traversal from the very types used by report construction."""
-    model = scientific_model()
+    model = scientific_model(content)
     definitions = {definition.name: definition for definition in model.definitions}
     comparisons, arrays = [], []
     required = {

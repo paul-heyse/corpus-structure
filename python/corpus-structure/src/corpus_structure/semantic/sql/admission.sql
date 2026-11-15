@@ -1,5 +1,5 @@
 CREATE OR REPLACE FUNCTION data.require_execution_release(r text) RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $admission$
-DECLARE expected jsonb; spec jsonb; model jsonb; owner_name text; invalid_inference boolean; target boolean;
+DECLARE expected jsonb; spec jsonb; owner_name text; invalid_inference boolean;
 BEGIN
  -- {finalized_release}
  PERFORM sem.require_execution_projection(r);
@@ -77,23 +77,12 @@ BEGIN
  ) SELECT EXISTS(SELECT FROM invalid) INTO invalid_inference;
  IF invalid_inference THEN RAISE EXCEPTION 'unsupported required native binary inference profile' USING ERRCODE='23514'; END IF;
  SELECT pg_get_userbyid(nspowner) INTO owner_name FROM pg_namespace WHERE nspname='sem';
- SELECT convert_from(body,'UTF8')::jsonb INTO model FROM sem.registry_row
- WHERE release_id=r AND kind='execution_model';
- target:=EXISTS(SELECT FROM sem.release WHERE release_id=r
-  AND convert_from(manifest_bytes,'UTF8')::jsonb ? 'data_operation_model');
- IF target THEN
-  -- require_execution_projection has authenticated the current target artifact,
-  -- archive bytes and its absence of legacy execution rows. DDO admission owns
-  -- its declared operations; no legacy model or stage rows may be fabricated.
-  IF model IS NOT NULL THEN RAISE EXCEPTION 'target archive contains legacy execution model' USING ERRCODE='23514'; END IF;
- ELSE
- IF model IS NULL OR model->'inputs'->>'compiler_version' IS DISTINCT FROM expected->>'execution_abi' THEN
-  RAISE EXCEPTION 'incompatible archived execution ABI' USING ERRCODE='23514'; END IF;
- IF NOT EXISTS(SELECT FROM sem.execution_operation WHERE release_id=r) THEN
-  RAISE EXCEPTION 'release execution projection is unavailable' USING ERRCODE='23514'; END IF;
- FOR spec IN SELECT jsonb_build_object('id',operation_id) FROM sem.execution_operation WHERE release_id=r LOOP
-  PERFORM sem.require_execution_operation(r,spec->>'id');
- END LOOP;
+ IF NOT EXISTS(SELECT FROM sem.release WHERE release_id=r
+  AND convert_from(manifest_bytes,'UTF8')::jsonb ? 'data_operation_model') THEN
+  RAISE EXCEPTION 'native execution requires the current declared data operation model' USING ERRCODE='23514';
+ END IF;
+ IF EXISTS(SELECT FROM sem.registry_row WHERE release_id=r AND kind='execution_model') THEN
+  RAISE EXCEPTION 'target archive contains legacy execution model' USING ERRCODE='23514';
  END IF;
  IF EXISTS(SELECT FROM sem.artifact WHERE release_id=r AND artifact_name='operation/scientific-policy.json') THEN
   PERFORM sem.require_scientific_layout(r);

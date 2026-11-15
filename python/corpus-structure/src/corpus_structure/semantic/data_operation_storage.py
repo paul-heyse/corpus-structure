@@ -158,7 +158,7 @@ def native_protocol_sources(
         ),
         *binding_native_sources(),
         *wire_native_sources(),
-        *source_native_sources(),
+        *source_native_sources(physical_sources=physical_sources, linkml_types=linkml_types),
     )
 
 
@@ -1307,5 +1307,5 @@ def data_operation_native_definitions(connection, *, target_metadata=None):
         *wire_native_definitions(connection, sources=captured),
         *definitions,
         *binding_native_definitions(connection),
-        *source_native_definitions(connection),
+        *source_native_definitions(connection, sources=captured),
     )
