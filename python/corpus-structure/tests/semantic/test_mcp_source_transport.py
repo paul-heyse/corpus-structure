@@ -29,7 +29,9 @@ CUT=dict(project_id="project:A",demand_id="demand:A",read_id="read:A",release_id
 
 
 def _native_request(max_bytes=1024*1024,*,visual=False):
-    return NativeSourceRequest(**SOURCE,max_bytes=max_bytes,**(dict(view="visual_evidence",evidence=EVIDENCE,page_no=3) if visual else {}))
+    if visual:
+        return NativeSourceRequest(**SOURCE,max_bytes=max_bytes,view="visual_evidence",evidence=EVIDENCE,page_no=3)
+    return NativeSourceRequest(**SOURCE,max_bytes=max_bytes)
 
 
 def _wire(response):
@@ -72,7 +74,8 @@ def test_registered_current_source_tools_bound_whole_wire_and_preserve_payload(m
     async def journey():
         async with Client(build_retained_reader_server(project="project:A",read_engine=engine)) as client:
             tools={tool.name:tool for tool in await client.list_tools()}
-            assert tools[name].annotations.read_only_hint is True
+            annotation=tools[name].annotations
+            assert annotation is not None and annotation.read_only_hint is True
             def arguments(budget): return {"request":_native_request(budget,visual=visual).model_dump(mode="json")}
             refused=await client.call_tool(name,arguments(2048),raise_on_error=False)
             assert refused.is_error and "oversized_item" in str(refused.content)
@@ -83,6 +86,7 @@ def test_registered_current_source_tools_bound_whole_wire_and_preserve_payload(m
             assert json.loads(delivered.content[0].text)==produced[-1]
             encoded=_wire_size(delivered)
             assert 2048<encoded<=8192
+            assert delivered.meta is not None
             assert delivered.meta["io.modelcontextprotocol/serverInfo"]["name"]=="corpus-structure"
             exact=await client.call_tool(name,arguments(encoded))
             assert not exact.is_error and _wire_size(exact)==encoded
@@ -105,6 +109,7 @@ def test_manifest_uses_same_current_source_reference_and_preserves_raw_producer(
     async def journey():
         async with Client(build_retained_reader_server(project="project:A",read_engine=engine)) as client:
             result=await client.call_tool("list_visual_observations",{"source":SOURCE,"page_no":3,"limit":10})
+            assert result.structured_content is not None
             assert result.structured_content["cut"]==CUT
             assert result.structured_content["observations"][0]["raw"]==RAW.model_dump()
             assert result.structured_content["observations"][0]["raw_producer"]=={"id":"episode:raw"}
