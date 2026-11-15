@@ -193,3 +193,16 @@ def test_requestless_recorded_fate_preserves_obligation_and_use(tmp_path,monkeyp
         assert json.loads(next(node for node in snapshot.nodes if node.kind=="use").payload_json)["fate"]==fate
     finally:
         index.close()
+
+
+@pytest.mark.parametrize("fate", ["attached", "fulfilled"])
+def test_executable_use_cannot_omit_its_native_request(tmp_path,monkeypatch,fate):
+    from corpus_structure.semantic import data_operation_admission
+    monkeypatch.setattr(data_operation_admission,"bound_data_operation_model",lambda prepared: model(operation("operation")))
+    index,cut=selected_index(tmp_path)
+    try:
+        index.append_page(dict(**cut.record,obligations=[],uses=[dict(use_id="invalid",obligation_id="invalid",request_id=None,derivation_id=None,selection={},fate=fate)]))
+        with pytest.raises(ValueError,match="attached or fulfilled use lacks"):
+            snapshot_from_index(SimpleNamespace(release_id="release"),cut,index,"bound-requests")
+    finally:
+        index.close()
