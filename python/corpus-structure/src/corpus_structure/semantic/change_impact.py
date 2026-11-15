@@ -10,10 +10,11 @@ from __future__ import annotations
 import base64
 from collections import defaultdict
 from hashlib import sha256
-from typing import Any, Literal
+from typing import Any, Literal, assert_never
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from ._data_operation_fates import VisibleFate
 from .data_operation_json import json_bytes, json_loads
 from .data_operation_model import EffectiveDataOperationModel, json_context_meaning
 from .demand_results import read_demand_result, stream_selected_support
@@ -114,12 +115,34 @@ class SelectionEvidence(BaseModel):
 
     model_config = ConfigDict(frozen=True, extra="forbid")
     member: PopulationMember
-    fate: str
+    fate: VisibleFate
     derivations: tuple[str, ...] = ()
     products: tuple[tuple[str, str | None, str, int, int], ...] = ()
     inputs: tuple[tuple[str, str | None, str, int, int], ...] = ()
     support: tuple[str, ...] = ()
     invalidity_causes: tuple[RevocationCause, ...] = ()
+
+
+
+def _impact_fate_class(fate: VisibleFate) -> Literal[
+    "fulfilled", "awaiting", "unavailable", "cancelled", "inapplicable", "unestablished"
+]:
+    """Total protocol interpretation; observation fate alone is never value admission."""
+    match fate:
+        case "fulfilled":
+            return "fulfilled"
+        case "waiting" | "attached" | "awaiting-discovery" | "awaiting-inputs" | "awaiting-external" | "awaiting-population":
+            return "awaiting"
+        case "unavailable":
+            return "unavailable"
+        case "cancelled":
+            return "cancelled"
+        case "not-applicable":
+            return "inapplicable"
+        case "failed" | "partial" | "invalid" | "unknown" | "known-absent" | "closed":
+            return "unestablished"
+        case _:
+            assert_never(fate)
 
 
 def changed_operations(before: EffectiveDataOperationModel, target: EffectiveDataOperationModel):
@@ -211,20 +234,23 @@ def classify_change_impact(
                 )
             )
         )
+        fate_class = _impact_fate_class(current.fate) if current else None
         if member.operation not in target_operations:
             state, reason = "inapplicable", "operation_removed_from_target"
         elif population_complete and key in old_population and key not in new_population:
             state, reason = "inapplicable", "absent_under_complete_target_population"
-        elif current and current.fate == "cancelled":
+        elif fate_class == "cancelled":
             state, reason = "inapplicable", "target_demand_cancelled"
-        elif current and current.fate == "unavailable":
+        elif current and fate_class == "inapplicable":
+            state, reason = "inapplicable", "native_target_not_applicable"
+        elif current and fate_class == "unavailable":
             state = "revoked" if current.invalidity_causes else "unknown"
             reason = (
                 "native_target_revocation_witness"
                 if current.invalidity_causes
                 else "native_target_unavailable_cause_unestablished"
             )
-        elif current and current.fate == "fulfilled":
+        elif current and fate_class == "fulfilled":
             if previous and previous.products == current.products:
                 # A direct producer revocation cannot be laundered by reusing its
                 # exact episode; a distinct admitted producer may establish equal value.
@@ -255,16 +281,12 @@ def classify_change_impact(
                 if previous.invalidity_causes
                 else "native_selected_unavailable_cause_unestablished"
             )
+        elif current and fate_class == "unestablished":
+            state, reason = "unknown", "native_target_" + current.fate.replace("-", "_")
+        elif fate_class == "awaiting":
+            state, reason = "awaiting", "target_execution_not_settled"
         elif key in new_population and key not in old_population and population_complete:
             state, reason = "awaiting", "newly_applicable_or_never_derived_subject"
-        elif current and current.fate in {
-            "waiting",
-            "attached",
-            "awaiting-external",
-            "awaiting-population",
-            "unavailable",
-        }:
-            state, reason = "awaiting", "target_execution_not_settled"
         elif roots:
             state, reason = (
                 "awaiting" if target_observed else "potential",

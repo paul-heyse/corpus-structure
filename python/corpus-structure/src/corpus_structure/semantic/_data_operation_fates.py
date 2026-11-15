@@ -2,7 +2,9 @@
 
 from typing import Literal
 
-PROTOCOL_SHA256 = "439138b33daeb8daf89ee3fcddc9cde8eb5e257c02fa320142e99d289efe8137"
+PROTOCOL_SHA256 = "d0e96900848207c37428d8fc3217abe052f836738e776dd1644f6d891d1e60cd"
+
+type DataTaskState = Literal["pending", "running", "done", "empty", "failed", "cancelled"]
 
 type RecordableFate = Literal[
     "known-absent",

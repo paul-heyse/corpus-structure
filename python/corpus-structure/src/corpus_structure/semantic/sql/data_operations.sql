@@ -332,7 +332,6 @@ BEGIN
  WHERE t->>'dimension'='completion' AND t->>'outcome'=outcome AND t->>'before'='pending'
  AND t->>'after' IN ('success','empty','failed') AND coalesce(t->'effects','[]')='[]'::jsonb;
  IF n=1 THEN RETURN result; END IF;
- IF n=0 AND outcome IN ('success','empty','failed') THEN RETURN outcome; END IF;
  RAISE EXCEPTION 'completion requires one declared terminal-state mapping';
 END $$;
 

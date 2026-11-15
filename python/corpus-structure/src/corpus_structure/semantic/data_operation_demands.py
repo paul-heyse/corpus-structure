@@ -600,6 +600,7 @@ class DemandPlanner:
             return ()
 
         from .data_operation_bindings import (
+            recordable_binding_fate,
             BindingReason,
             PopulationBinding,
             compile_binding,
@@ -869,7 +870,7 @@ class DemandPlanner:
                         WireRecordDataFateRequest,
                         {
                             "obligation_id": obligation["obligation_id"],
-                            "fate": binding.status,
+                            "fate": recordable_binding_fate(binding.status),
                             "selection": {
                                 "reasons": [asdict(reason) for reason in binding.reasons]
                             },

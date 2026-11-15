@@ -1127,6 +1127,8 @@ type WireOriginalSourceSelection = (
     WireOriginalNativeSelection | WireOriginalDocumentSelection | WireAuthoredFactSelection
 )
 
+type WireDataTaskState = Literal["pending", "running", "done", "empty", "failed", "cancelled"]
+
 type WireFate = Literal[
     "known-absent",
     "unknown",

@@ -926,11 +926,15 @@ def series_native_definitions(connection, *, include_selected=True, target_metad
         ),
     ]
     from .migrations import ALEMBIC_DIR
+    from .data_operation_protocol import render_data_task_guard
 
     definitions.extend(
         _execution_task_definitions(
             connection,
-            Path(__file__).with_name("sql").joinpath("execution_guards.sql").read_text(),
+            render_data_task_guard(
+                Path(__file__).resolve().parents[1].joinpath("model/semantic/data-operation-native.yaml").read_bytes(),
+                Path(__file__).with_name("sql").joinpath("execution_guards.sql").read_text(),
+            ),
             ALEMBIC_DIR.joinpath("versions/semantic_0023_execution.sql").read_text(),
             source="execution task:forward",
         )

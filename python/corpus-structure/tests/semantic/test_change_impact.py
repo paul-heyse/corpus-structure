@@ -44,6 +44,50 @@ def observation(
     )
 
 
+@pytest.fixture(scope="module")
+def impact_models():
+    return models()
+
+
+@pytest.mark.parametrize(("fate", "state", "reason"), [
+    ("waiting", "awaiting", "target_execution_not_settled"),
+    ("attached", "awaiting", "target_execution_not_settled"),
+    ("awaiting-discovery", "awaiting", "target_execution_not_settled"),
+    ("awaiting-inputs", "awaiting", "target_execution_not_settled"),
+    ("awaiting-external", "awaiting", "target_execution_not_settled"),
+    ("awaiting-population", "awaiting", "target_execution_not_settled"),
+    ("unavailable", "unknown", "native_target_unavailable_cause_unestablished"),
+    ("cancelled", "inapplicable", "target_demand_cancelled"),
+    ("not-applicable", "inapplicable", "native_target_not_applicable"),
+    ("failed", "unknown", "native_target_failed"),
+    ("partial", "unknown", "native_target_partial"),
+    ("invalid", "unknown", "native_target_invalid"),
+    ("unknown", "unknown", "native_target_unknown"),
+    ("known-absent", "unknown", "native_target_known_absent"),
+    ("closed", "unknown", "native_target_closed"),
+])
+def test_nonfulfilled_target_fates_do_not_become_value_or_absence_proof(impact_models, fate, state, reason):
+    before, target = impact_models
+    current = observation(target, fate=fate)
+    (row,) = classify_change_impact(before, target, before=(observation(before),), target=(current,), target_observed=True)
+    assert row.state == state
+    assert row.reasons == (reason,)
+
+
+def test_unknown_protocol_fate_is_rejected_at_observation_boundary(impact_models):
+    before, _ = impact_models
+    with pytest.raises(ValueError, match="Input should be"):
+        observation(before, fate="unrecognized")
+
+
+def test_complete_population_absence_precedes_partial_target_fate(impact_models):
+    before, target = impact_models
+    old = observation(before)
+    (row,) = classify_change_impact(before, target, before=(old,), target=(observation(target, fate="partial"),), before_population=(old.member,), target_population=(), population_complete=True, target_observed=True)
+    assert row.state == "inapplicable"
+    assert row.reasons == ("absent_under_complete_target_population",)
+
+
 def test_helper_change_is_potential_while_unrelated_source_has_no_affected_roots():
     before, target = models()
     name = before.operations[0].semantic_id

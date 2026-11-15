@@ -2,6 +2,16 @@
 version: data-operation-native-v1
 wire_schema_version: draft7-closed-v1
 definitions:
+  data_task_state:
+    type: string
+    enum: [pending, running, done, empty, failed, cancelled]
+    x-ddo-lifecycle:
+      initial: pending
+      running: running
+      terminal: [done, empty, failed, cancelled]
+      receipt_required: [done, empty, failed]
+      new_attempt: [[pending, running], [running, running]]
+      same_attempt: [[running, pending], [running, done], [running, empty], [running, failed], [running, cancelled]]
   identifier:
     type: string
     minLength: 1
