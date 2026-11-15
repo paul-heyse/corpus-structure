@@ -113,10 +113,18 @@ class DdoRichQualificationMeaning(RichRecord):
     fields: tuple[DdoRichPropertyValue, ...]
 
 
+class DdoRichEntityIdentity(RichRecord):
+    """An actual class/key/label basis, retained for a later closed-universe join."""
+    class_contract: Nonempty
+    fields: tuple[DdoRichPropertyValue, ...]
+    label: str | None
+
+
 class DdoRichEntity(RichRecord):
     member_type: Literal["entity"]
     entity_id: Nonempty
     class_contracts: Annotated[tuple[Nonempty, ...], Field(min_length=1)]
+    identities: Annotated[tuple[DdoRichEntityIdentity, ...], Field(min_length=1)]
     source_members: tuple[DdoRichSelectedMember, ...]
 
 
@@ -233,6 +241,22 @@ class DdoRichConsolidation(RichRecord):
     standing: Literal["private-consolidated"]
     members: tuple[DdoRichPacket, ...]
     input_population: tuple[DdoRichSelectedMember, ...]
+
+
+class DdoRichAuthoredPropositions(RichRecord):
+    """Explicit typed propositions; actual authored admission supplies their origin."""
+    version: Literal["rich-authored-propositions-1"]
+    standing: Literal["authored-propositions"]
+    members: tuple[DdoRichPacket, ...]
+
+
+class DdoRichConsolidationPolicy(RichRecord):
+    version: Literal["rich-consolidation-policy-1"]
+    qualification_contract: Nonempty
+    statement_contract: Nonempty
+    rules_digest: Digest
+    scientific_digest: Digest
+    analysis_profile_digest: Digest
 
 
 class DdoRichReadingDecision(RichRecord):
@@ -365,7 +389,7 @@ def rich_kind_declarations():
 
     namespace = "https://corpus-structure.dev/semantic/data-operation-rich-knowledge/"
     records = {}
-    for owner in (DdoRichConsolidation, DdoRichAdmission):
+    for owner in (DdoRichConsolidation, DdoRichAdmission, DdoRichAuthoredPropositions, DdoRichConsolidationPolicy):
         for record in nominal_schema_kinds(owner.model_json_schema(), namespace=namespace, root_name=owner.__name__):
             previous = records.get(record["id"])
             if previous is not None and previous != record:

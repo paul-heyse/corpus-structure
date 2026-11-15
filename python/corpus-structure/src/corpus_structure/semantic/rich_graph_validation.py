@@ -14,7 +14,7 @@ from .data_operation_model import EffectiveDataOperationModel, SubjectContext, v
 from .data_operation_ports import _untrusted_value
 from .data_operation_wire import validate_wire_schema
 from .rich_knowledge_contracts import (
-    DdoRichAdmission, DdoRichAlternative, DdoRichAssessment, DdoRichCasefoldText,
+    DdoRichAdmission, DdoRichAuthoredPropositions, DdoRichAlternative, DdoRichAssessment, DdoRichCasefoldText,
     DdoRichCollectionValue, DdoRichConsolidation, DdoRichDiagnostic, DdoRichEntity,
     DdoRichEntityValue, DdoRichFact, DdoRichOccurrence, DdoRichQualificationMeaning,
     DdoRichRecordValue, DdoRichScalarValue, DdoRichSelectedMember,
@@ -258,10 +258,28 @@ class ValidatedRichGraph:
     def check(self):
         for body in self.members.values():
             if isinstance(body, DdoRichEntity):
+                if len(set(body.class_contracts)) != len(body.class_contracts):
+                    raise ValueError("rich entity repeats actual class membership")
                 for contract in body.class_contracts:
                     self.definition(contract)
-                for ref in body.source_members:
-                    self.external(ref)
+                represented = set()
+                for basis in body.identities:
+                    if basis.class_contract not in body.class_contracts:
+                        raise ValueError("rich entity identity belongs to another actual class")
+                    definition = self.definition(basis.class_contract)
+                    represented.add(basis.class_contract)
+                    names = {name for group in definition.identity_groups if group != definition.identity_slots for name in group}
+                    present = set()
+                    for field in basis.fields:
+                        _, prop, _ = self.property(field.property_contract, definition.iri)
+                        if prop.name not in names or prop.name in present:
+                            raise ValueError("rich entity basis is not an actual unique declared identity property")
+                        present.add(prop.name)
+                        self.property_value(field.value_id, definition, prop)
+                if represented != set(body.class_contracts):
+                    raise ValueError("rich entity lacks an explicit actual class identity basis")
+                for reference in body.source_members:
+                    self.external(reference)
             elif isinstance(body, DdoRichFact):
                 definition, prop, _ = self.property(body.property_contract)
                 self.class_member(body.subject_entity, definition)
@@ -315,13 +333,15 @@ class ValidatedRichGraph:
 
 
 def read_rich_graph(prepared: PreparedRelease, model: EffectiveDataOperationModel, *, context: SubjectContext,
-                    graph: DdoRichConsolidation | DdoRichAdmission, inputs: tuple[DdoRichSelectedMember, ...],
+                    graph: DdoRichConsolidation | DdoRichAdmission | DdoRichAuthoredPropositions, inputs: tuple[DdoRichSelectedMember, ...],
                     whole_inputs: tuple[RichWholeInput, ...] = ()) -> ValidatedRichGraph:
     """Validate once and expose the same finite typed decoder to current CPU consumers."""
     validate_subject_context(model, context)
     if model.subject_definition(context.subject_definition).scope != "project" or context.original_source is not None:
         raise ValueError("rich graph requires its actual source-free project context")
-    owner = DdoRichAdmission if isinstance(graph, DdoRichAdmission) else DdoRichConsolidation
+    owner = type(graph)
+    if owner not in {DdoRichAdmission, DdoRichConsolidation, DdoRichAuthoredPropositions}:
+        raise ValueError("rich graph has no actual declared whole-product owner")
     checked = owner.model_validate(_untrusted_value(graph), strict=True)
     state = ValidatedRichGraph(prepared, model, context, checked, inputs, whole_inputs)
     if isinstance(checked, DdoRichAdmission):
@@ -338,7 +358,7 @@ def read_rich_graph(prepared: PreparedRelease, model: EffectiveDataOperationMode
 
 
 def validate_rich_graph(prepared: PreparedRelease, model: EffectiveDataOperationModel, *, context: SubjectContext,
-                        graph: DdoRichConsolidation | DdoRichAdmission, inputs: tuple[DdoRichSelectedMember, ...],
+                        graph: DdoRichConsolidation | DdoRichAdmission | DdoRichAuthoredPropositions, inputs: tuple[DdoRichSelectedMember, ...],
                         whole_inputs: tuple[RichWholeInput, ...] = ()):
     """Validate finite graph meaning; selected/native publication custody stays with its owner."""
     return read_rich_graph(prepared, model, context=context, graph=graph, inputs=inputs, whole_inputs=whole_inputs).graph

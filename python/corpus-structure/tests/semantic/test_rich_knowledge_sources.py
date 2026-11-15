@@ -78,3 +78,24 @@ def test_schema_augmentation_consumes_already_captured_policy_without_a_second_p
     from corpus_structure.semantic.rich_rules import RichRulePolicy
     rules = RichRulePolicy(prepared)
     assert rules.rules and rules.version == "semantic-domain-3"
+
+
+def test_rich_policy_refs_resolve_exact_captured_profile_and_checked_kind_owners():
+    from corpus_structure.semantic import prepare_release
+    from corpus_structure.semantic.rich_policy_binding import rich_policy_value, require_rich_policy, rich_context_profile
+    root = Path(__file__).resolve().parents[4]
+    profile = acquire_analysis_context_profile()
+    bundle, deps = rich_knowledge_inputs(release_inputs()[0], ResolvedDependencies(),
+        domain_rules=(root / "domains/statistics/schema/rules.yaml").read_bytes(),
+        core_rules=(root / "domains/core/schema/rules.yaml").read_bytes(), context_profile=profile,
+        qualification_class="StatisticsQualification",statement_class="SourceStatement")
+    prepared=prepare_release(bundle,deps)
+    model=compile_data_operations(bundle,declarations=rich_knowledge_declarations(deps))
+    policy=rich_policy_value(prepared,model)
+    contracts={item.owner:item.key for item in model.identities if item.domain=="kind"}
+    assert policy.qualification_contract==contracts[prepared.qualification_definition("StatisticsQualification").iri]
+    assert policy.statement_contract==contracts[prepared.index.definitions["SourceStatement"].iri]
+    assert rich_context_profile(prepared)==profile
+    assert require_rich_policy(prepared,model,policy.model_dump(mode="python"))==policy
+    with pytest.raises(ValueError,match="checked captured"):
+        require_rich_policy(prepared,model,policy.model_copy(update={"rules_digest":"f"*64}))

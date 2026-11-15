@@ -46,6 +46,12 @@ classes:
     attributes:
       label: {required: true, slot_uri: r:shared}
       alias: {slot_uri: r:shared}
+  KeyedEntity:
+    is_a: Entity
+    attributes:
+      code: {required: true}
+    unique_keys:
+      business: {unique_key_slots: [code]}
   Qualification:
     attributes:
       label: {required: true, annotations: {cs:case: casefold}}
@@ -269,7 +275,7 @@ def actual_graph(source):
     claim_ref = DdoRichSelectedMember(product_id="selected:authored-fact", member_id="fact:source", kind_contract=ids[prefix + "DdoRichFact"], support_references=selected_support)
     values = RichFactGraph(prepared, model, context=context, entities={"entity:subject": frozenset({"urn:rich-values:Measurement"})}, known_fact_ids=frozenset())
     result = values.add_property_fact(subject_entity="entity:subject", class_name="Measurement", property_name="amount", value=Decimal("12.3"), qualification={"label": "Gaussian", "reporter": "original-source"})
-    entity = DdoRichEntity(member_type="entity", entity_id="entity:subject", class_contracts=(ids["urn:rich-values:Measurement"],), source_members=(entity_ref,))
+    entity = DdoRichEntity(member_type="entity", entity_id="entity:subject", class_contracts=(ids["urn:rich-values:Measurement"],), identities=({"class_contract": ids["urn:rich-values:Measurement"], "fields": (), "label": None},), source_members=(entity_ref,))
     occurrence = DdoRichOccurrence(member_type="source-occurrence", occurrence_id="occurrence:actual", fact_id=result.fact.fact_id, original=claim_ref, statement=None, observed_qualification_value=result.observed_qualification_value, dependencies=())
     bodies = (*((value.value_id, value) for value in values.values), (entity.entity_id, entity), (result.fact.fact_id, result.fact), (occurrence.occurrence_id, occurrence))
     packets = tuple(DdoRichPacket(member_id=identifier, kind_contract=ids[prefix + type(body).__name__], context=DdoRichContext(subject=context.subject, subject_definition=context.subject_definition, original_source=None, analyzed_scope={}), body=body) for identifier, body in bodies)
@@ -414,3 +420,25 @@ def test_rich_reading_decision_does_not_invent_unavailable_resolution():
     for change in ({"outcome":"accepted"}, {"interpretation_id":"interpretation:invented"}, {"resolved":raw}, {"score_hex":0.5.hex()}):
         with pytest.raises(ValidationError):
             DdoRichReadingDecision(**{**fields, **change})
+
+
+
+def test_entity_identity_bases_retain_actual_declared_key_values_and_refuse_other_fields(source):
+    from corpus_structure.semantic.rich_graph_validation import validate_rich_graph
+    from corpus_structure.semantic.rich_knowledge_contracts import DdoRichEntity, DdoRichEntityIdentity, DdoRichPropertyValue, DdoRichPacket
+    prepared,model=source
+    context,graph,inputs=actual_graph(source)
+    ids={item.owner:item.key for item in model.identities if item.domain=="kind"}
+    values=RichValueGraph(prepared,model)
+    key=values.lower_property("KeyedEntity","code","retained-key")
+    original=next(packet for packet in graph.members if isinstance(packet.body,DdoRichEntity))
+    basis=DdoRichEntityIdentity(class_contract=ids["urn:rich-values:KeyedEntity"],fields=(DdoRichPropertyValue(property_contract=ids["urn:rich-values:KeyedEntity/property/code"],value_id=key),),label="Observed label")
+    entity=original.model_copy(update={"body":original.body.model_copy(update={"class_contracts":(*original.body.class_contracts,basis.class_contract),"identities":(*original.body.identities,basis)})})
+    added=tuple(DdoRichPacket(member_id=value.value_id,kind_contract=ids["https://corpus-structure.dev/semantic/data-operation-rich-knowledge/"+type(value).__name__],context=original.context,body=value) for value in values.values)
+    actual=graph.model_copy(update={"members":tuple(entity if packet.member_id==entity.member_id else packet for packet in graph.members)+added})
+    assert validate_rich_graph(prepared,model,context=context,graph=actual,inputs=inputs)==actual
+    for field in (basis.fields[0].model_copy(update={"property_contract":ids["urn:rich-values:Measurement/property/amount"]}),basis.fields[0].model_copy(update={"value_id":"value:unselected"})):
+        changed=entity.model_copy(update={"body":entity.body.model_copy(update={"identities":(*original.body.identities,basis.model_copy(update={"fields":(field,)}))})})
+        invalid=actual.model_copy(update={"members":tuple(changed if packet.member_id==entity.member_id else packet for packet in actual.members)})
+        with pytest.raises(ValueError):
+            validate_rich_graph(prepared,model,context=context,graph=invalid,inputs=inputs)

@@ -1,0 +1,56 @@
+"""Resolve rich policy references to their single captured preparation owners."""
+
+from hashlib import sha256
+
+from pydantic import TypeAdapter
+
+from .analysis_contracts import AnalysisContextProfile
+from .rich_knowledge_sources import RULE_INPUT
+from .scientific_evidence import SCIENTIFIC_POLICY_INPUT, scientific_policy_recipe
+from .identity import canonical_bytes
+
+RICH_CONTEXT_INPUT = "operation/rich-analysis-context.json"
+
+
+def _artifact(prepared, name):
+    values = [item for item in prepared.artifacts if item.kind == name]
+    if len(values) != 1:
+        raise ValueError("rich policy requires its exact captured owner: " + name)
+    return values[0].content
+
+
+def rich_context_profile(prepared) -> AnalysisContextProfile:
+    profile = TypeAdapter(AnalysisContextProfile).validate_json(_artifact(prepared, RICH_CONTEXT_INPUT))
+    if canonical_bytes(scientific_policy_recipe(context_profile=profile)) != _artifact(prepared, SCIENTIFIC_POLICY_INPUT):
+        raise ValueError("rich analysis context differs from its actual captured scientific policy")
+    return profile
+
+
+def rich_policy_value(prepared, model):
+    from .rich_knowledge_contracts import DdoRichConsolidationPolicy
+    from .statement_types import effective_bindings
+
+    selected = effective_bindings(prepared)
+    qualification = prepared.qualification_definition(selected["qualification"])
+    statement = selected["statement"]
+    if statement is None:
+        raise ValueError("rich knowledge requires its actual checked statement binding")
+    # Effective bindings are serialized immutable records, not runtime type labels.
+    statement_name = statement["class_name"]
+    definition = prepared.index.definitions[statement_name]
+    contracts = {item.owner: item.key for item in model.identities if item.domain == "kind"}
+    return DdoRichConsolidationPolicy(
+        version="rich-consolidation-policy-1", qualification_contract=contracts[qualification.iri],
+        statement_contract=contracts[definition.iri],
+        rules_digest=sha256(_artifact(prepared, RULE_INPUT)).hexdigest(),
+        scientific_digest=sha256(_artifact(prepared, SCIENTIFIC_POLICY_INPUT)).hexdigest(),
+        analysis_profile_digest=rich_context_profile(prepared).model_id,
+    )
+
+
+def require_rich_policy(prepared, model, value):
+    from .rich_knowledge_contracts import DdoRichConsolidationPolicy
+    actual = DdoRichConsolidationPolicy.model_validate(value)
+    if actual != rich_policy_value(prepared, model):
+        raise ValueError("rich interpretation policy differs from its actual checked captured owners")
+    return actual

@@ -817,6 +817,7 @@ def _prepare_release_uncached(
             "operation/domain-rules.yaml",
             "operation/rule-view.yaml",
             "operation/scientific-policy.json",
+            "operation/rich-analysis-context.json",
         }:
             try:
                 declared = yaml.load(dependency.content, Loader=_SchemaYamlLoader)
@@ -1389,4 +1390,10 @@ def _prepare_release_uncached(
             RichRulePolicy(prepared)
         except (ValueError, TypeError, KeyError, AttributeError) as exc:
             _fail("domain_rules", RULE_INPUT, str(exc), "unsupported")
+    if any(artifact.kind == "operation/rich-analysis-context.json" for artifact in prepared.artifacts):
+        from .rich_policy_binding import RICH_CONTEXT_INPUT, rich_context_profile
+        try:
+            rich_context_profile(prepared)
+        except (ValueError, TypeError, KeyError, AttributeError) as exc:
+            _fail("rich_context_policy", RICH_CONTEXT_INPUT, str(exc), "unsupported")
     return prepared

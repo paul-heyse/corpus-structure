@@ -96,7 +96,7 @@ def graph_inputs(scientific, values, *, qualifications=None, macros=None, proper
                                        original=original, statement=None, observed_qualification_value=result.observed_qualification_value, dependencies=())
         bodies[result.fact.fact_id] = result.fact
         bodies[occurrence.occurrence_id] = occurrence
-    entity = DdoRichEntity(member_type="entity", entity_id="entity:actual", class_contracts=(ids["urn:rich-scientific:ScientificSubject"],), source_members=(inputs[0],))
+    entity = DdoRichEntity(member_type="entity", entity_id="entity:actual", class_contracts=(ids["urn:rich-scientific:ScientificSubject"],), identities=({"class_contract": ids["urn:rich-scientific:ScientificSubject"], "fields": (), "label": None},), source_members=(inputs[0],))
     bodies[entity.entity_id] = entity
     bodies.update((value.value_id, value) for value in graph.values)
     packets = tuple(DdoRichPacket(member_id=identifier, kind_contract=ids[PREFIX + type(body).__name__], context=DdoRichContext(subject=context.subject, subject_definition=context.subject_definition, original_source=None, analyzed_scope={}), body=body) for identifier, body in sorted(bodies.items()))

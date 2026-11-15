@@ -45,6 +45,8 @@ def rich_policy_inputs(
     from .alias_policy import SOURCE_PROFILE
     from .scientific_evidence import scientific_policy_recipe
 
+    from dataclasses import asdict
+
     source = parse_policy_yaml(domain) or {}
     base = parse_policy_yaml(core) or {}
     if set(base) - {"rules"}:
@@ -72,6 +74,7 @@ def rich_policy_inputs(
         artifacts=(
             *dependencies.artifacts,
             SourceArtifact(RULE_INPUT, yaml.safe_dump(source, sort_keys=True).encode()),
+            SourceArtifact("operation/rich-analysis-context.json", canonical_bytes(asdict(context_profile))),
             SourceArtifact(
                 "operation/scientific-policy.json",
                 canonical_bytes(scientific_policy_recipe(context_profile=context_profile)),
