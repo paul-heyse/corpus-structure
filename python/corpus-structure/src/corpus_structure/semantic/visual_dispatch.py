@@ -11,11 +11,11 @@ from corpus_structure.serve.pdf_visual_evidence import VisualEvidencePin
 
 from .metadata import table
 from .operations import OperationConflict
-from .visual_requests import (
+from .retained_visual import (
     VISUAL_NOMINATION_VERSION,
     VISUAL_REQUEST_CODE_COMMIT,
     VISUAL_REQUEST_CUT,
-    VisualSelection,
+    RetainedVisualSelection,
     _visual_mapping_raw_pin,
     _visual_product_pin,
     _visual_task,
@@ -33,7 +33,7 @@ _REQUEST_REASONS = {
 
 
 class VisualMemberProgress(BaseModel):
-    selection: VisualSelection
+    selection: RetainedVisualSelection
     inference: str | None = None
     mapping: str | None = None
     raw: VisualEvidencePin | None = None
@@ -94,7 +94,7 @@ def read_visual_dispatch_progress(conn, nomination_run_id: int) -> VisualDispatc
         for scope in group["selections"]:
             if scope not in nomination["selections"]:
                 raise OperationConflict("visual progress differs from the frozen nomination")
-            selection = VisualSelection.model_validate(scope)
+            selection = RetainedVisualSelection.model_validate(scope)
             inference = _visual_task(conn, run_id, "inference", selection)
             mapping = _visual_task(conn, run_id, "mapping", selection)
             raw = _visual_product_pin(conn, inference) or _visual_mapping_raw_pin(
@@ -127,17 +127,17 @@ def read_visual_dispatch_progress(conn, nomination_run_id: int) -> VisualDispatc
 
 def visual_dispatch_selections(
     report: VisualRouteReport, mode: VisualDispatchMode
-) -> tuple[VisualSelection, ...]:
+) -> tuple[RetainedVisualSelection, ...]:
     """Reproduce distinct scopes for historical and comparative analysis."""
     selections = []
     for page in report.pages:
         if mode == "all-page":
-            selections.append(VisualSelection(source=report.source, page_no=page.page_no))
+            selections.append(RetainedVisualSelection(source=report.source, page_no=page.page_no))
         elif page.action == "recognize":
             for reason in page.reasons:
                 if reason.code in _REQUEST_REASONS:
                     crop = reason.crop.model_dump() if reason.crop else {}
                     selections.append(
-                        VisualSelection(source=report.source, page_no=page.page_no, **crop)
+                        RetainedVisualSelection(source=report.source, page_no=page.page_no, **crop)
                     )
     return tuple(dict.fromkeys(selections))

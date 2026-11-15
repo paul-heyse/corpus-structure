@@ -1,0 +1,70 @@
+id: https://corpus-structure.dev/semantic/data-operation-visual
+name: data_operation_visual
+prefixes:
+  dv: https://corpus-structure.dev/semantic/data-operation-visual/
+default_prefix: dv
+default_range: string
+classes:
+  DdoVisualSelection:
+    is_a: SourceRecordProduct
+    attributes:
+      page_no: {range: integer, required: true, minimum_value: 1}
+      pointer: {pattern: '^#/.+'}
+      region_index: {range: integer, minimum_value: 0}
+      rotation: {range: integer}
+    rules:
+    - preconditions:
+        slot_conditions: {pointer: {value_presence: PRESENT}}
+      postconditions:
+        slot_conditions: {region_index: {value_presence: PRESENT}}
+    - preconditions:
+        slot_conditions: {region_index: {value_presence: PRESENT}}
+      postconditions:
+        slot_conditions: {pointer: {value_presence: PRESENT}}
+    - preconditions:
+        slot_conditions: {pointer: {value_presence: ABSENT}}
+      postconditions:
+        slot_conditions: {rotation: {value_presence: ABSENT}}
+  DdoVisualInput:
+    is_a: SourceRecordProduct
+    annotations: {cs:data_universe: source}
+    description: Exact submitted PNG and its original page/crop transform; absence of a crop is preserved.
+    attributes:
+      document: {required: true}
+      source_digest: {required: true, pattern: '^[0-9a-f]{64}$'}
+      logical_digest: {required: true, pattern: '^[0-9a-f]{64}$'}
+      selection: {range: DdoVisualSelection, inlined: true, required: true}
+      scale: {required: true}
+      encoding: {required: true, equals_string: png}
+      content_digest: {required: true, pattern: '^[0-9a-f]{64}$'}
+      content_hex: {required: true, pattern: '^(?:[0-9a-f]{2})+$'}
+      page_no: {range: integer, required: true, minimum_value: 1}
+      rotation: {range: integer, required: true}
+      width: {range: integer, required: true, minimum_value: 1}
+      height: {range: integer, required: true, minimum_value: 1}
+      transform_json: {required: true}
+  DdoChandraObservation:
+    is_a: SourceRecordProduct
+    annotations: {cs:data_universe: source}
+    description: Actual Chandra response and provider-reported runtime identity under an external native packet receipt. Source fidelity is unassessed.
+    attributes:
+      image: {range: DdoVisualInput, inlined: true, required: true}
+      raw_response: {required: true}
+      response_digest: {required: true, pattern: '^[0-9a-f]{64}$'}
+      finish_reason: {required: true}
+      runtime_identity_json: {required: true}
+      provider_outcome: {required: true, pattern: '^(succeeded|partial|unknown|failed)$'}
+      diagnostic: {required: true}
+  DdoVisualMapping:
+    is_a: SourceRecordProduct
+    annotations: {cs:data_universe: source}
+    description: Mechanical HTML parsing and original-coordinate mapping; a diagnostic record is not selected source knowledge.
+    attributes:
+      observation: {range: DdoChandraObservation, inlined: true, required: true}
+      parse_status: {required: true}
+      completion: {required: true}
+      issues: {multivalued: true, value_presence: PRESENT, minimum_cardinality: 0}
+      mapped_hex: {required: true}
+      mapping_outcome: {required: true, pattern: '^(unknown|partial|coarse)$'}
+      source_fidelity: {required: true, equals_string: unassessed}
+      diagnostic: {required: true}

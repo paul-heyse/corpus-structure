@@ -94,6 +94,7 @@ class PrimaryProfileInputs(BaseModel):
     construction: str | None = None
     math: str | None = None
     external_protocol: str | None = None
+    visual: bool = False
     downstream: bool = False
     m1: LiteralM1Inputs | None = None
     contextual_encoder: ContextualEncoderInputs | None = None
@@ -259,6 +260,7 @@ def _acquire_primary_profile(
         sentence_selection=sentence,
         hanlp_selection=selection(profile.hanlp_selection, "hanlp"),
         downstream=profile.downstream,
+        visual=profile.visual,
     )
     if profile.learned_selections is not None:
         if set(profile.learned_selections) != {"maverick", "dipo", "d1", "gliner"}:

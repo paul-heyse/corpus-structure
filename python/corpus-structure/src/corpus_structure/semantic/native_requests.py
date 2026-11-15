@@ -19,6 +19,7 @@ from .identity import canonical_bytes
 from .types import SourceArtifact, SourceBundle
 
 TARGET = "source.pdf_region/render"
+VISUAL_INPUT_TARGET = "source.visual_input/render"
 _MODEL = Path(__file__).parents[1] / "model/semantic/data-operation-pdf-region.yaml"
 
 
@@ -28,8 +29,9 @@ def pdf_region_inputs(bundle):
         raise ValueError("PDF region uses reserved schema names")
     return SourceBundle(root, (
         *bundle.sources, SourceArtifact(name, _MODEL.read_bytes()),
+        SourceArtifact("data_operation_visual", _MODEL.with_name("data-operation-visual.yaml").read_bytes()),
         SourceArtifact(root, yaml.safe_dump({"id": "urn:corpus:pdf-region-root", "name": root,
-                                            "imports": [bundle.root, name]}).encode()),
+                                            "imports": [bundle.root, name, "data_operation_visual"]}).encode()),
     ))
 
 
@@ -42,6 +44,8 @@ def pdf_region_profile():
         "files": [(name, (root / name).read_bytes().hex()) for name in (
             "serve/native_regions.py", "semantic/pdf_record_reader.py",
             "model/semantic/data-operation-pdf-region.yaml",
+            "semantic/pdf_visual_mapping.py",
+            "model/semantic/data-operation-visual.yaml",
         )],
         "libraries": {name: version(name) for name in ("pypdfium2", "Pillow")},
     }))
@@ -58,6 +62,7 @@ def pdf_region_operation_sources(capture_sources):
         PythonSource(module, path.read_bytes(), str(path)) for module, path in (
             ("corpus_structure.ingest.pdf_region_operation", root / "ingest/pdf_region_operation.py"),
             ("corpus_structure.semantic.native_requests", Path(__file__)),
+            ("corpus_structure.ingest.pdf_visual_input_operation", root / "ingest/pdf_visual_input_operation.py"),
         )
     ), boundary_contracts=(pdf_region_profile(),))
     return combine_primary_sources(capture_sources, own)
@@ -67,6 +72,15 @@ def execute_pdf_region(receiver, capture, pointer, region_index, scale):
     return receiver.port.render(capture, pointer, region_index, scale, binding=receiver.binding,
                                 execution_owner=receiver.execution_owner,
                                 check_active=receiver.check_active)
+
+
+def execute_pdf_visual_input(receiver, capture, selection):
+    selected = receiver.port.prepared.validate_python("DdoVisualSelection", selection).model_dump(mode="python", exclude_unset=True)
+    result = receiver.port.render(capture, selected.get("pointer"), selected.get("region_index"), "2",
+        binding=receiver.binding, execution_owner=receiver.execution_owner, check_active=receiver.check_active,
+        page_no=selected["page_no"], rotation=selected.get("rotation", 0))
+    result["selection"] = selected
+    return result
 
 
 @dataclass(frozen=True)
@@ -81,27 +95,32 @@ class PreparedPdfRegionPort:
     native_selections = ()
 
     @property
-    def logical_signature(self):
+    def implementation(self):
         from corpus_structure.ingest.pdf_region_operation import PdfRegionOperation
+        from corpus_structure.ingest.pdf_visual_input_operation import PdfVisualInputOperation
 
-        signature = inspect.signature(PdfRegionOperation.run, eval_str=True)
+        return PdfRegionOperation if self.operation.semantic_id == TARGET else PdfVisualInputOperation
+
+    @property
+    def logical_signature(self):
+        signature = inspect.signature(self.implementation.run, eval_str=True)
         return signature.replace(parameters=tuple(signature.parameters.values())[1:])
 
     def verify(self):
-        from corpus_structure.ingest.pdf_region_operation import PdfRegionOperation
-
         from .data_operation_prepared_products import verify_prepared_product
 
-        if self.operation.semantic_id != TARGET or self.operation.effects:
+        if self.operation.semantic_id not in {TARGET, VISUAL_INPUT_TARGET} or self.operation.effects:
             raise PortRefusal("renderer requires its exact declared pure computation")
         verify_prepared_product(self.identity, self.model, self.operation, self.sources,
                                 self.custody, assets=(pdf_region_profile(),), functions=(
-            (self.operation.callable_surfaces[0].declaration, PdfRegionOperation.run),
-            ("corpus_structure.semantic.native_requests.execute_pdf_region", execute_pdf_region),
+            (self.operation.callable_surfaces[0].declaration, self.implementation.run),
+            ("corpus_structure.semantic.native_requests." + (
+                "execute_pdf_region" if self.operation.semantic_id == TARGET else "execute_pdf_visual_input"
+            ), execute_pdf_region if self.operation.semantic_id == TARGET else execute_pdf_visual_input),
             ("corpus_structure.semantic.native_requests.PreparedPdfRegionPort.render", self.render),
         ), authorize=self.authorize, required_sources=self.sources)
 
-    def render(self, capture, pointer, region_index, scale, *, binding, execution_owner, check_active):
+    def render(self, capture, pointer, region_index, scale, *, binding, execution_owner, check_active, page_no=None, rotation=0):
         from corpus_structure.serve.native_regions import render_pdf_region
 
         from .metadata import table
@@ -134,7 +153,11 @@ class PreparedPdfRegionPort:
             reader = PublishedPdfReader(conn, ProductReference(publication.task_id,
                 publication.product_key, publication.logical_digest), projection_context=self.prepared,
                 read_budget=PublishedReadBudget(100_000, execution_owner.invocation.executor.policy.max_reply_bytes))
-            region = reader.region(pointer, region_index)
+            region = reader.region(pointer, region_index) if pointer else None
+            if page_no is None and region is None:
+                raise PortRefusal("region rendering requires its exact native occurrence")
+            if page_no is not None and region is not None and region["page_no"] != page_no:
+                raise PortRefusal("visual crop belongs to another physical page")
             documents, artifacts = table("kb.document"), table("kb.source_artifact")
             query = select(artifacts.c.content).join_from(documents, artifacts,
                 artifacts.c.artifact_digest == documents.c.content_hash).where(
@@ -148,17 +171,29 @@ class PreparedPdfRegionPort:
                 raise PortRefusal("retained original bytes differ from the exact publication")
         # No connection remains borrowed during rasterization.
         check_active()
-        content = render_pdf_region(original, region, scale=float(scale))
+        extra = {}
+        if page_no is None:
+            assert region is not None
+            content = render_pdf_region(original, region, scale=float(scale))
+        else:
+            from io import BytesIO
+            from PIL import Image
+            from .pdf_visual_mapping import render_visual_input
+
+            content, transform = render_visual_input(original, page_no, region, rotation)
+            with Image.open(BytesIO(content)) as image:
+                width, height = image.size
+            extra = dict(page_no=page_no, rotation=rotation, width=width, height=height,
+                         transform_json=json.dumps(transform, separators=(",", ":"), allow_nan=False))
         check_active()
+        if page_no is None:
+            extra.update(pointer=pointer, region_index=region_index)
         return dict(document=capture["document"], source_digest=publication.source_digest,
-                    logical_digest=publication.logical_digest, pointer=pointer,
-                    region_index=region_index, scale=scale, encoding="png",
-                    content_digest=sha256(content).hexdigest(), content_hex=content.hex())
+                    logical_digest=publication.logical_digest, scale=scale, encoding="png",
+                    content_digest=sha256(content).hexdigest(), content_hex=content.hex(), **extra)
 
     def plan_python(self, values, *, binding=None, check_active=lambda: None, execution_owner):
         from corpus_structure.core.method import PreparedWork
-        from corpus_structure.ingest.pdf_region_operation import PdfRegionOperation
-
         self.verify()
         if binding is None or not binding.sufficient or binding.operation != self.operation.semantic_id:
             raise PortRefusal("renderer requires its admitted sufficient binding")
@@ -169,14 +204,15 @@ class PreparedPdfRegionPort:
         capture = self.prepared.validate_json("DdoPdfPublication",
                     canonical_bytes(_untrusted_value(values[0].value))).model_dump(mode="json")
         parameters = decode_semantic_value(json.loads(binding.parameters))
-        if set(parameters) != {"pointer", "region_index", "scale"}:
+        expected = {"pointer", "region_index", "scale"} if self.operation.semantic_id == TARGET else {"selection"}
+        if set(parameters) != expected:
             raise PortRefusal("renderer requires its frozen native region selection")
 
         def compute():
             self.verify()
-            body = PdfRegionOperation(self, binding=binding, execution_owner=execution_owner,
+            body = self.implementation(self, binding=binding, execution_owner=execution_owner,
                                       check_active=check_active).run(capture, **parameters)
-            body = self.prepared.validate_python("DdoPdfRegion", body).model_dump(mode="python", exclude_unset=True)
+            body = self.prepared.validate_python("DdoPdfRegion" if self.operation.semantic_id == TARGET else "DdoVisualInput", body).model_dump(mode="python", exclude_unset=True)
             self.verify()
             output = next(role for role in self.operation.roles if role.direction == "output")
             return PortCompletion(self.operation.semantic_id, (RoleValue(output.name,

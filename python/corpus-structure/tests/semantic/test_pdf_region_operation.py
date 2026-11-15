@@ -4,7 +4,7 @@ from pathlib import Path
 
 from corpus_structure.ingest.pdf import PdfRecipe
 from corpus_structure.ingest.pdf_assets import PreparedPdfAssets
-from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
+from corpus_structure.semantic import PreparationProfile, ResolvedDependencies, SourceArtifact, SourceBundle, prepare_release
 from corpus_structure.semantic.data_operation_compilation import compile_data_operations
 from corpus_structure.semantic.native_requests import pdf_region_inputs, pdf_region_operation_sources
 from corpus_structure.semantic.pdf_capture import pdf_capture_inputs, pdf_capture_operation_sources
@@ -13,10 +13,12 @@ from corpus_structure.semantic.pdf_capture import pdf_capture_inputs, pdf_captur
 def test_render_profile_has_exact_capture_support_and_no_legacy_publisher(tmp_path):
     core = Path(__file__).parents[2] / "src/corpus_structure/model/semantic/core.yaml"
     bundle = pdf_region_inputs(pdf_capture_inputs(SourceBundle("core", (SourceArtifact("core", core.read_bytes()),))))
-    prepared = prepare_release(bundle)
     recipe = PdfRecipe("0" * 40, "1" * 40, recipe_id="docling-standard-pdf-stream-v1")
     assets = PreparedPdfAssets(tmp_path, b"{}", ())
     sources = pdf_region_operation_sources(pdf_capture_operation_sources(recipe, assets, directory=tmp_path / "owned"))
+    from corpus_structure.semantic.composed import data_operation_dependencies
+    dependencies = data_operation_dependencies(ResolvedDependencies(), python_sources=sources)
+    prepared = prepare_release(bundle, dependencies, PreparationProfile(version="semantic-2"))
     model = compile_data_operations(schema=bundle, python_sources=sources,
         definitions=prepared.definitions, vocabularies=prepared.vocabularies)
     from corpus_structure.ingest.pdf_region_operation import PdfRegionOperation
@@ -41,8 +43,10 @@ def test_render_profile_has_exact_capture_support_and_no_legacy_publisher(tmp_pa
     assert authorized == [identity, identity]
     assert render.profile == "derivation" and not render.effects
     assert render.dependencies == ("source.pdf/capture",)
+    assert render.roles[0].support is not None
     assert render.roles[0].support.origins == ("computation",)
     assert render.roles[0].support.identity_requirements == ("episode", "alternative")
+    assert render.capabilities.prepared_factory is not None
     assert render.capabilities.prepared_factory.entrypoint.endswith("PdfRegionFamily.acquire_port")
     body = dict(document="document:original", source_digest="0" * 64, logical_digest="1" * 64,
                 pointer="/texts/7", region_index=0, scale="2", encoding="png",

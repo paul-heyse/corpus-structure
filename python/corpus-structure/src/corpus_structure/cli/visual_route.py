@@ -1,5 +1,6 @@
 """Read Chandra diagnostics and retained dispatch results."""
 
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import typer
@@ -13,31 +14,25 @@ if TYPE_CHECKING:
 
 def visual_route(
     ctx: typer.Context,
-    run: int,
-    producing_task: int = typer.Option(...),
-    product: str = typer.Option(...),
-    native_digest: str = typer.Option(...),
+    demand: str,
+    project: str = typer.Option(...),
     first: int = 1,
     limit: int = 32,
+    continuation: Path | None = None,
     json: JsonOpt = False,
 ) -> None:
-    """Evaluate a bounded physical-page range of an exact published integrated PDF."""
+    """Assess selected visual products under their explicit native demand cut."""
     from corpus_structure.semantic.query import read_snapshot
     from corpus_structure.semantic.runtime import open_runtime_engine
-    from corpus_structure.semantic.visual_routing import read_visual_routes
-    from corpus_structure.serve.pdf_visual_evidence import VisualEvidencePin
+    from corpus_structure.semantic.visual_routing import read_demand_visual_routes
 
-    with (
-        failure_boundary(json, expected=(ValueError,)),
-        open_runtime_engine(
-            state(ctx).settings(), application_name="ci-visual-route", purpose="read"
-        ) as engine,
-        read_snapshot(engine) as conn,
-    ):
-        source = VisualEvidencePin(
-            run_id=run, task_id=producing_task, product_key=product, content_digest=native_digest
-        )
-        report = read_visual_routes(conn, source, first=first, limit=limit)
+    with (failure_boundary(json, expected=(ValueError,)),
+          open_runtime_engine(state(ctx).settings(), application_name="ci-visual-route", purpose="read") as engine,
+          read_snapshot(engine) as conn):
+        from corpus_structure.semantic.data_operation_json import wire_json_loads
+
+        cursor = None if continuation is None else wire_json_loads(continuation.read_bytes())
+        report = read_demand_visual_routes(conn, demand, project_id=project, first=first, limit=limit, continuation=cursor)
     emit(report, json=json)
 
 

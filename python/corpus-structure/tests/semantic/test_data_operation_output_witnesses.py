@@ -226,3 +226,38 @@ classes:
     value["roles"][0]["subject_field"] = "count"
     with pytest.raises(PreparationError, match="scalar subject identifier"):
         compile_data_operations(bundle, declarations=declarations(value))
+
+
+def test_nested_value_witness_preserves_optional_absence_and_subjects_stay_scalar():
+    bundle = SourceBundle("model", (SourceArtifact("model", b"""id: urn:record-witness:model
+name: model
+prefixes:
+  w: 'urn:record-witness:'
+  xsd: 'http://www.w3.org/2001/XMLSchema#'
+default_prefix: w
+default_range: string
+types:
+  integer: {base: int, uri: 'xsd:integer'}
+  string: {base: str, uri: 'xsd:string'}
+classes:
+  Selection:
+    attributes:
+      page: {range: integer, required: true}
+      pointer: {}
+  Record:
+    attributes:
+      selection: {range: Selection, inlined: true, required: true}
+"""),))
+    value = contract()
+    for role in value["roles"]:
+        role["kind"] = "Record"
+    value["output_witnesses"] = [{"output_role": "result", "records": "", "input_role": "source",
+        "comparisons": [{"output_field": "selection", "input": {"role": "source", "projection": "Record", "field": "selection"}, "encoding": "value"}]}]
+    operation = compile_data_operations(bundle, declarations=declarations(value)).operations[0]
+    selected = {"source": [{"body": {"selection": {"page": 1}}}]}
+    validate_output_witnesses(operation, {"result": [{"selection": {"page": 1}}]}, selected)
+    with pytest.raises(ValueError, match="no complete selected input"):
+        validate_output_witnesses(operation, {"result": [{"selection": {"page": 1, "pointer": None}}]}, selected)
+    value["roles"][0]["subject_field"] = "selection"
+    with pytest.raises(PreparationError, match="scalar subject identifier"):
+        compile_data_operations(bundle, declarations=declarations(value))

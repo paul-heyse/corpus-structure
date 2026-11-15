@@ -289,3 +289,54 @@ def test_dispatch_coalesces_reasons_and_respects_repair_and_blank():
     assert [
         (item.page_no, item.pointer) for item in visual_dispatch_selections(report, "all-page")
     ] == [(1, None), (2, None), (3, None)]
+
+
+def _current_pdf_custody():
+    from dataclasses import asdict
+    from types import SimpleNamespace
+    from corpus_structure.semantic.data_operation_identity import semantic_value
+    from corpus_structure.semantic.pdf_publication import PdfExecutionReceipt, PublishedPdfDocumentRef
+
+    publication = PublishedPdfDocumentRef("build:actual", 17, "native", "1" * 64,
+        "release:actual", "2" * 64, "3" * 64, "4" * 64, "5" * 64, "native")
+    image = dict(document="document:actual", logical_digest=publication.logical_digest, source_digest=publication.source_digest)
+    member = dict(derivation_id="episode:mapping", original_source="document:actual", body={"observation": {"image": image}})
+    page = SimpleNamespace(cut=SimpleNamespace(record={"project_id": "project:actual"}))
+    def row(relation, record):
+        return {"relation": relation, "record": record}
+    records = [
+        row("kb.data_product", dict(id="product:capture", kind_contract="kind:capture", project_id="project:actual",
+            original_source="document:actual", canonical_body=semantic_value(image))),
+        row("ops.data_derivation_support", dict(derivation_id="episode:mapping", support_derivation_id="episode:raw")),
+        row("ops.data_derivation_support", dict(derivation_id="episode:raw", support_derivation_id="episode:raster")),
+        row("ops.data_derivation_support", dict(derivation_id="episode:raster", support_derivation_id="episode:capture")),
+        row("ops.data_derivation_output", dict(derivation_id="episode:capture", product_id="product:capture")),
+        row("ops.data_publication_receipt", dict(id="publication:actual", derivation_id="episode:capture", intent_id="intent:actual")),
+        row("ops.data_completion_intent", dict(id="intent:actual", payload={"execution_evidence": {
+            "pdf_receipts": [asdict(PdfExecutionReceipt(publication, 2, "holder:actual"))]}})),
+    ]
+    return page, member, records, publication
+
+
+def test_current_visual_route_uses_actual_transitive_publisher_receipt_not_demand_task_alias():
+    page, member, records, publication = _current_pdf_custody()
+    actual = visual_routing._selected_pdf_publication(page, member, records, "kind:capture")
+    assert actual == publication and actual.task_id == 17
+    assert member["derivation_id"] == "episode:mapping"
+
+
+@pytest.mark.parametrize("change", ["unrelated-episode", "wrong-project", "wrong-source", "missing-intent", "wrong-kind"])
+def test_current_visual_route_refuses_unqualified_or_incomplete_physical_custody(change):
+    page, member, records, publication = _current_pdf_custody()
+    if change == "unrelated-episode":
+        records[4]["record"]["derivation_id"] = "episode:unrelated"
+    elif change == "wrong-project":
+        records[0]["record"]["project_id"] = "project:other"
+    elif change == "wrong-source":
+        member["original_source"] = "document:other"
+    elif change == "wrong-kind":
+        records[0]["record"]["kind_contract"] = "kind:another"
+    else:
+        records.pop()
+    with pytest.raises(ValueError):
+        visual_routing._selected_pdf_publication(page, member, records, "kind:capture")

@@ -72,6 +72,7 @@ def primary_operation_inputs(
     sentence_selection=None,
     math_options=None,
     external_protocol=None,
+    visual: bool = False,
     downstream: bool = False,
     m1_configuration=None,
     record_schemas=None,
@@ -85,6 +86,8 @@ def primary_operation_inputs(
     by the caller. Compiled demand closure still decides which operations execute;
     captured availability does not select an operation or imply provider success.
     """
+    if visual and capture_sources is None:
+        raise ValueError("visual preparation requires its actual captured PDF dependency")
     if dependencies is None:
         dependencies = ResolvedDependencies()
     if downstream or learned_selections is not None:
@@ -150,13 +153,17 @@ def primary_operation_inputs(
     if capture_sources is not None:
         from .pdf_views import pdf_views_operation_sources
         from .native_requests import pdf_region_operation_sources
-
         collections = (
             *collections,
             pdf_views_operation_sources(capture_sources),
             pdf_region_operation_sources(capture_sources),
             captured_document_view_operation_sources(include_dependencies=False),
         )
+    if visual:
+        from .visual_requests import visual_external_declaration, visual_operation_sources
+
+        declarations = (*declarations, visual_external_declaration())
+        collections = (*collections, visual_operation_sources())
     if pdf_enrichment_sources is not None or pdf_integration_sources is not None:
         import json
 

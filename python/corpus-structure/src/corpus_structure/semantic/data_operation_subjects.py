@@ -1,10 +1,10 @@
-"""Declared identifier projections through owned nominal properties."""
+"""Owned nominal property projections for value and identifier consumers."""
 
 import json
 
 
 def subject_field_path(field: str) -> tuple[str, ...]:
-    """A property name or RFC 6901 pointer identifies one scalar body leaf."""
+    """A property name or RFC 6901 pointer identifies one owned body field."""
     if not field.startswith("/"):
         return (field,)
     parts = field[1:].split("/")
@@ -15,31 +15,37 @@ def subject_field_path(field: str) -> tuple[str, ...]:
     return tuple(part.replace("~1", "/").replace("~0", "~") for part in parts)
 
 
-def scalar_field_kind(kinds, owner: str, field: str):
+def _field_range(kinds, owner: str, field: str):
     path = subject_field_path(field)
     for index, name in enumerate(path):
         prop = kinds.get(owner + "/property/" + name)
         if prop is None or prop.category != "property":
-            raise ValueError("subject association requires an owned kind property")
+            raise ValueError("field projection requires an owned kind property")
         facts = json.loads(prop.facts)
         target = kinds.get(facts.get("range"))
-        if facts.get("multivalued"):
-            raise ValueError("subject association requires a scalar subject identifier")
         if index < len(path) - 1:
-            if target is None or target.category != "class" or not facts.get("inlined"):
-                raise ValueError("subject association traverses only inline nominal records")
+            if facts.get("multivalued") or target is None or target.category != "class" or not facts.get("inlined"):
+                raise ValueError("field projection traverses only scalar inline nominal records")
             owner = target.semantic_id
-            continue
-        if target is None or (target.category == "class" and facts.get("inlined")):
-            raise ValueError("value comparison requires a declared scalar field")
-        return target
+        else:
+            if target is None:
+                raise ValueError("field projection requires a declared range")
+            return facts, target
+    raise ValueError("field projection requires a nonempty owned path")
+
+
+def value_field_kind(kinds, owner: str, field: str):
+    """Value witnesses compare the complete typed field, including nested records."""
+    return _field_range(kinds, owner, field)[1]
 
 
 def subject_field_kind(kinds, owner: str, field: str):
-    """Subject association additionally requires a nominal or lexical identifier."""
-    target = scalar_field_kind(kinds, owner, field)
-    facts = json.loads(target.facts)
-    primitive = facts.get("primitive", facts.get("effective_primitive"))
-    if primitive not in {"str", "string", "uri", "uriorcurie"} and target.category not in {"class", "enum"}:
+    """Subject association requires a scalar nominal or lexical identifier."""
+    facts, target = _field_range(kinds, owner, field)
+    target_facts = json.loads(target.facts)
+    primitive = target_facts.get("primitive", target_facts.get("effective_primitive"))
+    if facts.get("multivalued") or (target.category == "class" and facts.get("inlined")) or (
+        primitive not in {"str", "string", "uri", "uriorcurie"} and target.category not in {"class", "enum"}
+    ):
         raise ValueError("subject association requires a scalar subject identifier")
     return target

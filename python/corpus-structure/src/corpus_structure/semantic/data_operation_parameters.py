@@ -60,7 +60,9 @@ def compile_nominal_parameters(parameters, *, schema, definitions, vocabularies,
     from .prepare import _primitive, _view
     from .types import ClassDefinition, PropertyDefinition
 
-    view = _view(schema)
+    from .types import PreparationProfile
+
+    view = _view(schema, PreparationProfile(version="semantic-2"))
     class_names = {definition.name for definition in definitions}
     enum_names = {vocabulary.enum for vocabulary in vocabularies}
     primitives = {

@@ -1,132 +1,91 @@
-"""Explicit local Chandra recognition and raw replay for a pinned source."""
+"""Explicit current demand execution with the pinned local Chandra actor."""
 
 from pathlib import Path
 from typing import Annotated
 
 import typer
 
-from corpus_structure.cli.failures import failure_boundary
-from corpus_structure.cli.output import JsonOpt, emit, state
+from corpus_structure.cli.output import JsonOpt
 
 
 def visual_request(
     ctx: typer.Context,
-    run: int,
-    producing_task: Annotated[int, typer.Option()],
-    product: Annotated[str, typer.Option()],
-    native_digest: Annotated[str, typer.Option()],
-    page: Annotated[int, typer.Option()],
-    semantic_release: Annotated[str, typer.Option()],
-    realization: Annotated[str, typer.Option()],
-    artifacts: Annotated[Path | None, typer.Option(file_okay=False)] = None,
-    pointer: str | None = None,
-    region_index: int | None = None,
-    rotation: Annotated[
-        int | None, typer.Option(help="Clockwise crop rotation in degrees.")
-    ] = None,
-    replay_run: int | None = None,
-    replay_task: int | None = None,
-    replay_product: str | None = None,
-    replay_digest: str | None = None,
+    artifacts: Annotated[Path, typer.Option(file_okay=False)],
+    request: Annotated[Path | None, typer.Option(help="NativeDemandRequest JSON for source.visual/map; '-' reads stdin.")] = None,
+    demand: Annotated[str | None, typer.Option(help="Resume this exact retained visual demand.")] = None,
+    source_root: Path | None = None,
+    project: str | None = None,
+    execution_policy: Path | None = None,
+    limit: int = 100,
+    max_rounds: int = 100,
     json: JsonOpt = False,
-) -> None:
-    """Recognize one exact PDF page or crop, or replay its retained raw observation."""
-    from corpus_structure.semantic.runtime import open_runtime_engine
-    from corpus_structure.semantic.visual_requests import (
-        VisualSelection,
-        request_visual_observation,
-    )
-    from corpus_structure.serve.pdf_visual_evidence import VisualEvidencePin
+):
+    """Render genuine source input, retain actual Chandra output, then derive its mapping."""
+    from corpus_structure.cli.demands import execute_request
+    from corpus_structure.cli.failures import failure_boundary
+    from corpus_structure.cli.output import read_request_bytes, state
+    from corpus_structure.semantic.data_operation_json import json_loads
+    from corpus_structure.semantic.data_operation_service import NativeDemandRequest
+    from corpus_structure.semantic.visual_requests import ChandraActorInputs, VISUAL_MAP
 
-    with failure_boundary(json, expected=(ValueError, KeyError)):
-        selection = VisualSelection.model_validate(
-            {
-                "source": dict(
-                    run_id=run,
-                    task_id=producing_task,
-                    product_key=product,
-                    content_digest=native_digest,
-                ),
-                "page_no": page,
-                "pointer": pointer,
-                "region_index": region_index,
-                "rotation": rotation,
-            }
-        )
-        supplied = dict(
-            run_id=replay_run,
-            task_id=replay_task,
-            product_key=replay_product,
-            content_digest=replay_digest,
-        )
-        replay = (
-            VisualEvidencePin.model_validate(supplied)
-            if any(value is not None for value in supplied.values())
-            else None
-        )
+    if (request is None) == (demand is None):
+        raise typer.BadParameter("select exactly one --request or --demand")
+    with failure_boundary(json, expected=(ValueError, OSError)):
+        parsed = None if request is None else NativeDemandRequest.model_validate(json_loads(read_request_bytes(request)))
+        if parsed is not None and parsed.targets != (VISUAL_MAP,):
+            raise ValueError("visual-request requires the explicit source.visual/map target")
         settings = state(ctx).settings()
-        with open_runtime_engine(
-            settings, application_name="ci-visual-request", purpose="write"
-        ) as engine:
-            result = request_visual_observation(
-                engine,
-                selection=selection,
-                semantic_release=semantic_release,
-                realization=realization,
-                receipts=settings.nemotron.receipts,
-                artifacts=artifacts,
-                replay=replay,
-                nemotron_endpoint=settings.nemotron.endpoint,
-            )
-        failed = result.status == "failed"
-        emit(result, json=json, exit_code=int(failed))
-        if failed:
-            raise typer.Exit(1)
+        actor = ChandraActorInputs(artifacts, settings.nemotron.receipts, settings.nemotron.endpoint)
+        execute_request(ctx, request=parsed, demand=demand, source_root=source_root, project=project,
+                        execution_policy=execution_policy, limit=limit, max_rounds=max_rounds,
+                        action="source.visual-request", visual_actor=actor, json=json)
 
 
 def visual_group(
     ctx: typer.Context,
-    run: int,
-    producing_task: Annotated[int, typer.Option()],
-    product: Annotated[str, typer.Option()],
-    native_digest: Annotated[str, typer.Option()],
-    semantic_release: Annotated[str, typer.Option()],
-    realization: Annotated[str, typer.Option()],
     artifacts: Annotated[Path, typer.Option(file_okay=False)],
-    selections: Annotated[Path, typer.Option(dir_okay=False)],
+    requests: Annotated[Path | None, typer.Option(help="JSON list of up to four explicit visual NativeDemandRequests.")] = None,
+    demands: Annotated[Path | None, typer.Option(help="JSON list of up to four exact retained demand IDs.")] = None,
+    source_root: Path | None = None,
+    project: str | None = None,
+    execution_policy: Path | None = None,
     json: JsonOpt = False,
-) -> None:
-    """Recognize up to four pages or crops from a JSON list of source selections."""
-    from json import loads
+):
+    """Execute a bounded collection of explicit visual demands, retaining each native result."""
+    from pydantic import RootModel, TypeAdapter
 
-    from corpus_structure.semantic.runtime import open_runtime_engine
-    from corpus_structure.semantic.visual_requests import VisualSelection, request_visual_group
-    from corpus_structure.serve.pdf_visual_evidence import VisualEvidencePin
+    from corpus_structure.cli.demands import DemandActionReport, execute_request
+    from corpus_structure.cli.failures import failure_boundary
+    from corpus_structure.cli.output import emit, state
+    from corpus_structure.semantic.data_operation_json import json_loads
+    from corpus_structure.semantic.data_operation_service import NativeDemandRequest
+    from corpus_structure.semantic.visual_requests import ChandraActorInputs, VISUAL_MAP
 
-    with failure_boundary(json, expected=(ValueError, KeyError, OSError)):
-        source = VisualEvidencePin(
-            run_id=run, task_id=producing_task, product_key=product, content_digest=native_digest
-        )
-        rows = loads(selections.read_bytes())
-        if not isinstance(rows, list) or any(
-            not isinstance(row, dict) or "source" in row for row in rows
-        ):
-            raise ValueError("expected a JSON list of page or crop selections without source pins")
-        batch = tuple(VisualSelection.model_validate(dict(row, source=source)) for row in rows)
+    if (requests is None) == (demands is None):
+        raise typer.BadParameter("select exactly one --requests or --demands")
+    with failure_boundary(json, expected=(ValueError, OSError)):
+        path = requests if requests is not None else demands
+        assert path is not None
+        rows = json_loads(path.read_bytes())
+        if not isinstance(rows, list) or not 1 <= len(rows) <= 4:
+            raise ValueError("visual-group requires one to four explicit requests or demand IDs")
+        parsed = [NativeDemandRequest.model_validate(value) for value in rows] if requests is not None else None
+        if parsed is not None and any(value.targets != (VISUAL_MAP,) for value in parsed):
+            raise ValueError("every visual request requires its explicit source.visual/map target")
+        retained = TypeAdapter(tuple[str, ...]).validate_python(tuple(rows), strict=True) if parsed is None else None
+        if retained is not None and any(not value for value in retained):
+            raise ValueError("retained visual demands require actual nonempty demand IDs")
         settings = state(ctx).settings()
-        with open_runtime_engine(
-            settings, application_name="ci-visual-group", purpose="write"
-        ) as engine:
-            result = request_visual_group(
-                engine,
-                selections=batch,
-                semantic_release=semantic_release,
-                realization=realization,
-                receipts=settings.nemotron.receipts,
-                artifacts=artifacts,
-                nemotron_endpoint=settings.nemotron.endpoint,
-            )
-        failed = result.status == "failed"
-        emit(result, json=json, exit_code=int(failed))
-        if failed:
-            raise typer.Exit(1)
+        actor = ChandraActorInputs(artifacts, settings.nemotron.receipts, settings.nemotron.endpoint)
+        completed = []
+        try:
+            for index, value in enumerate(rows):
+                completed.append(execute_request(ctx, request=None if parsed is None else parsed[index],
+                    demand=retained[index] if retained is not None else None, source_root=source_root, project=project,
+                    execution_policy=execution_policy, action="source.visual-request", visual_actor=actor,
+                    json=json, deliver=False))
+        except BaseException as error:
+            if completed:
+                error.add_note("completed visual demand actions: " + ", ".join(result.id for result in completed))
+            raise
+        emit(RootModel[list[DemandActionReport]](completed), json=json)

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Generator
 from contextlib import contextmanager
+from functools import partial
 from pathlib import Path
 from typing import Annotated, Literal
 
@@ -80,7 +81,7 @@ def _mutation(
         native_path.write_bytes(json_bytes(native))
         invocation.publish("native", native_path)
         invocation.settle("passed", demand_id=native["demand_id"])
-        return DemandActionReport(id=invocation.id, native=native)
+        return DemandActionReport(id=invocation.id, native=dict(native))
 
 
 @app.command("create")
@@ -190,13 +191,15 @@ def execute_request(
     demand: str | None = None,
     request: NativeDemandRequest | None = None,
     source_request=None,
+    visual_actor=None,
+    deliver: bool = True,
     project: str | None = None,
     action: str = "demands.execute",
     execution_policy: Path | None = None,
     limit: int = 100,
     max_rounds: int = 100,
     json: bool = False,
-) -> None:
+) -> DemandActionReport:
     """One managed path for source creation, explicit native requests and exact resume."""
     from corpus_structure.cli.characterization_options import method_settings
     from corpus_structure.orchestrate.data_operations import NativeDemandExecutionError
@@ -250,7 +253,12 @@ def execute_request(
             record_native_demand(invocation, snapshot, target)
             assert demand is not None
             try:
-                result = execute_data_demand(
+                execute = execute_data_demand
+                if visual_actor is not None:
+                    from corpus_structure.semantic.visual_requests import execute_visual_demand
+
+                    execute = partial(execute_visual_demand, visual_actor=visual_actor)
+                result = execute(
                     engine,
                     demand,
                     source_root=source_root,
@@ -266,8 +274,10 @@ def execute_request(
                 raise
             native = retain_native_demand_result(invocation, result)
         invocation.settle("passed", demand_id=demand, receipt_count=result.receipt_count)
-        report = DemandActionReport(id=invocation.id, native=native)
-    _emit_demand(report, json=json)
+        report = DemandActionReport(id=invocation.id, native=dict(native))
+    if deliver:
+        _emit_demand(report, json=json)
+    return report
 
 
 @app.command("plan")
@@ -298,7 +308,7 @@ def plan(
         path.write_bytes(json_bytes(native))
         invocation.publish("native", path)
         invocation.settle("passed", demand_id=native["demand_id"])
-        report = DemandActionReport(id=invocation.id, native=native)
+        report = DemandActionReport(id=invocation.id, native=dict(native))
     _emit_demand(report, json=json)
 
 
@@ -374,5 +384,5 @@ def external(
         report_path.write_bytes(json_bytes(native))
         invocation.publish("native", report_path)
         invocation.settle("passed", packet_id=native.get("packet_id"))
-        report = DemandActionReport(id=invocation.id, native=native)
+        report = DemandActionReport(id=invocation.id, native=dict(native))
     _emit_demand(report, json=json)
