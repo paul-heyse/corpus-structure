@@ -29,7 +29,7 @@ from corpus_structure.semantic._data_operation_wire import WireDemandId, WireExt
 from corpus_structure.semantic._operation_ids import DocumentId
 from corpus_structure.semantic.analytical_profile import analytical_inputs
 from corpus_structure.semantic.contracts import implementation_overridden
-from corpus_structure.semantic.domain_operations import domain_rule_inputs
+from corpus_structure.semantic.rich_knowledge_sources import rich_policy_inputs
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.operation_results import MethodConfigId, RunId, TaskId
@@ -87,7 +87,7 @@ def _assemble_resubmission_preparation(
         schema["classes"]["Person"]["annotations"] = {"cs:scope": "global"}
     if identity_keyed:
         schema["classes"]["Person"]["unique_keys"] = {"name": {"unique_key_slots": ["name"]}}
-    deps = domain_rule_inputs(ResolvedDependencies(), b"rules: []", context_profile=acquire_analysis_context_profile())
+    deps = rich_policy_inputs(ResolvedDependencies(), b"rules: []", context_profile=acquire_analysis_context_profile())
     if query_inputs:
         deps = ResolvedDependencies(
             (*deps.artifacts, *query_inputs), deps.vocabularies, deps.ontology_sources
@@ -408,7 +408,7 @@ def native_build_resubmission_case(admin, writer, tmp_path, *, ancestor=False):
         default_prefix="ex",
         classes={"Person": {"is_a": "Entity", "attributes": {"name": {"range": "string"}}}},
     )
-    dependencies = domain_rule_inputs(ResolvedDependencies(), b"rules: []\n", context_profile=acquire_analysis_context_profile())
+    dependencies = rich_policy_inputs(ResolvedDependencies(), b"rules: []\n", context_profile=acquire_analysis_context_profile())
     dependencies = ResolvedDependencies(
         (
             *dependencies.artifacts,

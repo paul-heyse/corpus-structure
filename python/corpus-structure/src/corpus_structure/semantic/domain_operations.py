@@ -17,7 +17,6 @@ from typing import Any, Protocol
 
 import pyarrow as pa
 import yaml
-from linkml_runtime.utils.yamlutils import DupCheckYamlLoader
 from sqlalchemy import func, select
 from sqlalchemy.engine import Engine
 
@@ -57,8 +56,7 @@ from .refusals import (
 from .releases import open_release
 from .types import PreparedRelease, ResolvedDependencies, SourceArtifact
 
-RULE_INPUT = "operation/domain-rules.yaml"
-VERSION = "semantic-domain-3"
+from .rich_knowledge_sources import RULE_INPUT, VERSION, parse_policy_yaml
 
 
 def _claim_reference_order(dependencies: Mapping[str, set[str]]):
@@ -115,79 +113,6 @@ def _eligible_exclusion(exclusion):
     )
 
 
-def _policy_yaml(content):
-    """Keep LinkML duplicate refusal and lower its location-tagged strings to YAML scalars."""
-
-    def scalars(value):
-        if isinstance(value, str):
-            return value[:]
-        if isinstance(value, dict):
-            return {scalars(k): scalars(v) for k, v in value.items()}
-        if isinstance(value, list):
-            return [scalars(v) for v in value]
-        return value
-
-    return scalars(yaml.load(content, Loader=DupCheckYamlLoader))
-
-
-def domain_rule_inputs(
-    dependencies: ResolvedDependencies,
-    domain: bytes,
-    core: bytes = b"",
-    *,
-    aliases: Mapping[str, Any] | None = None,
-    context_profile,
-) -> ResolvedDependencies:
-    """Archive existing rules as one operation dependency, never read latest files in a run."""
-    from .alias_policy import SOURCE_PROFILE
-    from .scientific_evidence import scientific_policy_recipe
-
-    source = _policy_yaml(domain) or {}
-    base = _policy_yaml(core) or {}
-    if set(base) - {"rules"}:
-        raise ValueError("core operation rules must contain only rules")
-    source["rules"] = [*base.get("rules", ()), *source.get("rules", ())]
-    operation = {"name": "semantic-domain", "version": VERSION}
-    if "operation" in source and source["operation"] != operation:
-        raise ValueError("unsupported domain operation header")
-    source["operation"] = operation
-    from .rule_views import RULE_VIEW_ABI
-
-    source["rule_view_abi"] = RULE_VIEW_ABI
-    if aliases is not None:
-        source["identity"] = {"aliases": dict(aliases)}
-    identity = source.setdefault("identity", {})
-    if not isinstance(identity, dict):
-        raise ValueError("invalid operation identity policy")
-    if identity.get("alias_profile", SOURCE_PROFILE) != SOURCE_PROFILE:
-        raise ValueError("unsupported alias input profile")
-    identity["alias_profile"] = SOURCE_PROFILE
-    if any(a.name == RULE_INPUT for a in dependencies.artifacts):
-        raise ValueError("domain rules already declared")
-    return replace(
-        dependencies,
-        artifacts=(
-            *dependencies.artifacts,
-            SourceArtifact(RULE_INPUT, yaml.safe_dump(source, sort_keys=True).encode()),
-            SourceArtifact(
-                "operation/scientific-policy.json",
-                canonical_bytes(scientific_policy_recipe(context_profile=context_profile)),
-            ),
-            *(
-                SourceArtifact(
-                    "operation/" + name,
-                    (Path(__file__).resolve().parents[1] / "model/semantic" / name).read_bytes(),
-                )
-                for name in ("scientific.yaml", "scientific-policies.yaml")
-            ),
-            SourceArtifact(
-                "operation/rule-view.yaml",
-                (
-                    Path(__file__).resolve().parents[1] / "model/semantic/rule-view.yaml"
-                ).read_bytes(),
-            ),
-        ),
-    )
 
 
 @dataclass(frozen=True)
@@ -2473,7 +2398,7 @@ class ReleasedRulesPolicy:
         artifact = next((a for a in prepared.artifacts if a.kind == RULE_INPUT), None)
         if artifact is None:
             raise DomainOperationRefused("release has no declared domain rules operation")
-        self.source = _policy_yaml(artifact.content) or {}
+        self.source = parse_policy_yaml(artifact.content) or {}
         if not isinstance(self.source, dict):
             raise DomainOperationRefused("domain rule artifact is not an object")
         self.definitions = {d.name: d for d in prepared.definitions}

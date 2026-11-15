@@ -56,7 +56,7 @@ from corpus_structure.semantic.contextual_storage import (
     enrichment_report,
 )
 from corpus_structure.semantic.contributions import contribution_identity, occurrence_identity
-from corpus_structure.semantic.domain_operations import domain_rule_inputs
+from corpus_structure.semantic.rich_knowledge_sources import rich_policy_inputs
 from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.observations import bind_result, observation_inputs
 from corpus_structure.semantic.operations import (
@@ -408,7 +408,7 @@ def _assemble_record_preparation(recipe):
     )
     if bundle_transform is not None:
         bundle = bundle_transform(bundle)
-    dependencies = domain_rule_inputs(ResolvedDependencies(), b"rules: []\n", context_profile=acquire_analysis_context_profile())
+    dependencies = rich_policy_inputs(ResolvedDependencies(), b"rules: []\n", context_profile=acquire_analysis_context_profile())
     bundle, dependencies = analytical_inputs(bundle, dependencies)
     from semantic.method_dimensions_support import fixture_execution_inputs
 

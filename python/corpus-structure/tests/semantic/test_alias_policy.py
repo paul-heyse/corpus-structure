@@ -18,7 +18,7 @@ from corpus_structure.semantic.alias_policy import (
     label_normalizer,
     released_label_policy,
 )
-from corpus_structure.semantic.domain_operations import domain_rule_inputs
+from corpus_structure.semantic.rich_knowledge_sources import rich_policy_inputs
 from corpus_structure.semantic.prepare import prepare_release
 from corpus_structure.semantic.regeneration import acquire_pack, compose_pack_inputs, prepare_pack
 from corpus_structure.semantic.types import (
@@ -114,7 +114,7 @@ def small_inputs(seed, name, *, aliases=None, rules=b"rules: []"):
         origin=f"pack:{name}",
         name=name,
         bundle=SourceBundle(name, (core, SourceArtifact(name, yaml.safe_dump(schema).encode()))),
-        dependencies=domain_rule_inputs(ResolvedDependencies(), rules, aliases=aliases or {}, context_profile=acquire_analysis_context_profile()),
+        dependencies=rich_policy_inputs(ResolvedDependencies(), rules, aliases=aliases or {}, context_profile=acquire_analysis_context_profile()),
         qualifications=(),
         statements=(),
     )

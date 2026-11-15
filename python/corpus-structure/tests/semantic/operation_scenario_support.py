@@ -106,10 +106,10 @@ classes:
     profile = PreparationProfile()
     if evaluation:
         from corpus_structure.semantic.analytical_profile import analytical_inputs
-        from corpus_structure.semantic.domain_operations import domain_rule_inputs
+        from corpus_structure.semantic.rich_knowledge_sources import rich_policy_inputs
         from corpus_structure.semantic.proposals import proposal_inputs
 
-        dependencies = domain_rule_inputs(dependencies, b"rules: []\n", context_profile=acquire_analysis_context_profile())
+        dependencies = rich_policy_inputs(dependencies, b"rules: []\n", context_profile=acquire_analysis_context_profile())
         bundle = proposal_inputs(bundle, dependencies)
         bundle, dependencies = analytical_inputs(bundle, dependencies)
     if composed or evaluation:

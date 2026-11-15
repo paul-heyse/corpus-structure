@@ -15,7 +15,7 @@ import yaml
 from .analytical_profile import analytical_inputs
 from .composed import composed_dependencies
 from .contracts import ExecutionModelInputs, trusted_execution_inputs
-from .domain_operations import domain_rule_inputs
+from .rich_knowledge_sources import rich_policy_inputs
 from .observations import prepare_source_inputs
 from .prepare import prepare_release
 from .proposals import proposal_inputs
@@ -111,7 +111,7 @@ def acquire_pack(pack: Path, *, execution: ExecutionModelInputs | None = None) -
     rules = pack / "schema/rules.yaml"
     from .analysis_contracts import acquire_analysis_context_profile
 
-    deps = domain_rule_inputs(
+    deps = rich_policy_inputs(
         ResolvedDependencies(),
         rules.read_bytes() if rules.exists() else b"rules: []",
         core_rules.read_bytes() if core_rules.exists() else b"rules: []",

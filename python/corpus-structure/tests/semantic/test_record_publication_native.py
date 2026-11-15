@@ -893,7 +893,7 @@ def test_completed_public_reader_refuses_archive_without_record_projection(
     )
     from corpus_structure.semantic.analytical_profile import analytical_inputs
     from corpus_structure.semantic.composed import composed_dependencies
-    from corpus_structure.semantic.domain_operations import domain_rule_inputs
+    from corpus_structure.semantic.rich_knowledge_sources import rich_policy_inputs
     from corpus_structure.semantic.operations import OperationBinding, create_run
     from corpus_structure.semantic.query import read_snapshot
     from corpus_structure.semantic.record_queries import read_completed_record_projection
@@ -924,7 +924,7 @@ classes:
             ),
         ),
     )
-    dependencies = domain_rule_inputs(ResolvedDependencies(), b"rules: []\n", context_profile=acquire_analysis_context_profile())
+    dependencies = rich_policy_inputs(ResolvedDependencies(), b"rules: []\n", context_profile=acquire_analysis_context_profile())
     bundle, dependencies = analytical_inputs(bundle, dependencies)
     dependencies = composed_dependencies(dependencies)
     profile = PreparationProfile(version="semantic-2")

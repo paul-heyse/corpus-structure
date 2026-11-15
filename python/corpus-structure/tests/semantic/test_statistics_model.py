@@ -207,9 +207,9 @@ def test_released_conditions_preserve_operators_nested_math_and_uncertain_dates(
 
 def test_required_released_rules_are_compiled_at_preparation():
     from corpus_structure.semantic import PreparationError, ResolvedDependencies
-    from corpus_structure.semantic.domain_operations import domain_rule_inputs
+    from corpus_structure.semantic.rich_knowledge_sources import rich_policy_inputs
 
-    dependencies = domain_rule_inputs(
+    dependencies = rich_policy_inputs(
         ResolvedDependencies(),
         b"""rules:
 - id: invalid.unknown_property

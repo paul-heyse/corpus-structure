@@ -24,7 +24,7 @@ from corpus_structure.semantic import (
 from corpus_structure.semantic._operation_ids import CutId, DocumentId, RunId
 from corpus_structure.semantic.analytical_profile import analytical_inputs
 from corpus_structure.semantic.contracts import implementation_overridden
-from corpus_structure.semantic.domain_operations import domain_rule_inputs
+from corpus_structure.semantic.rich_knowledge_sources import rich_policy_inputs
 from corpus_structure.semantic.identity import canonical_bytes, fact_key, occurrence_key
 from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.observations import observation_inputs
@@ -171,7 +171,7 @@ def _assemble_domain_preparation(
             "range": "NaryValue",
             "inlined": True,
         }
-    deps = domain_rule_inputs(ResolvedDependencies(), rules, context_profile=acquire_analysis_context_profile())
+    deps = rich_policy_inputs(ResolvedDependencies(), rules, context_profile=acquire_analysis_context_profile())
     bundle = SourceBundle(
         "domain",
         (

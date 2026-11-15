@@ -1,6 +1,7 @@
 """Captured finite nominal packets retain exact member bodies and explicit project context."""
 
 import json
+from decimal import Decimal
 from typing import Literal
 
 import pytest
@@ -9,6 +10,7 @@ from pydantic import BaseModel, ConfigDict
 from corpus_structure.semantic.data_operation_compilation import compile_data_operations
 from corpus_structure.semantic.data_operation_member_contracts import derive_member_kinds
 from corpus_structure.semantic.data_operation_model import MODEL_VERSION
+from corpus_structure.semantic.data_operation_json import DdoJsonValue, json_loads
 from corpus_structure.semantic.data_operation_ports import PortRefusal, project_product_members
 from corpus_structure.semantic.data_operation_storage import data_operation_definition_projection
 from corpus_structure.semantic.identity import canonical_bytes
@@ -38,7 +40,7 @@ class Context(BaseModel):
     subject: str
     subject_definition: str
     original_source: str | None
-    analyzed_scope: str
+    analyzed_scope: DdoJsonValue
 
 
 class Packet(BaseModel):
@@ -154,3 +156,12 @@ def test_native_definition_projection_uses_exact_nominal_member_contracts():
     assert validate_wire_schema(container["member_schema"], value(model)["members"][0]["body"])["member_type"] == "fact"
     for name in ("Fact", "Finding"):
         assert kinds[PREFIX + name]["member_contracts"] == []
+
+
+def test_member_projection_keeps_fractional_context_scope_as_actual_json_numbers():
+    model = captured_model()
+    actual = value(model)
+    scope = {"threshold": Decimal("0.123456789012345678901234567890123456789")}
+    actual["members"][0]["context"]["analyzed_scope"] = scope
+    projected = project_product_members(model, PREFIX + "Container", actual)
+    assert json_loads(projected[0])["context"]["analyzed_scope"] == scope

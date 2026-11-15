@@ -273,7 +273,10 @@ def project_product_members(
                 validate_wire_schema(kind_facts[owner]["json_schema"], packet["body"])
             except ValueError as error:
                 raise PortRefusal("member body differs from its selected nominal contract: " + str(error)) from error
-        result.append(canonical_bytes({**packet, "body": semantic_value(packet["body"])}))
+        # Context is exact operator JSON, including fractional scope numbers;
+        # only the declared value body uses the semantic tagged representation.
+        from .data_operation_json import json_bytes
+        result.append(json_bytes({**packet, "body": semantic_value(packet["body"])}))
     return tuple(result)
 
 

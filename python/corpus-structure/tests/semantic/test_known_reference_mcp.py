@@ -21,7 +21,7 @@ from corpus_structure.semantic import (
 from corpus_structure.semantic.analytical_profile import analytical_inputs
 from corpus_structure.semantic.composed import composed_dependencies
 from corpus_structure.semantic.consolidation import SourceItem, assemble
-from corpus_structure.semantic.domain_operations import domain_rule_inputs
+from corpus_structure.semantic.rich_knowledge_sources import rich_policy_inputs
 from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.observations import observation_inputs
 from corpus_structure.semantic.operations import (
@@ -57,7 +57,7 @@ def test_native_known_reference_packet_mcp_and_finalizer(
             }
         },
     }
-    deps = domain_rule_inputs(ResolvedDependencies(), b"rules: []", context_profile=acquire_analysis_context_profile())
+    deps = rich_policy_inputs(ResolvedDependencies(), b"rules: []", context_profile=acquire_analysis_context_profile())
     bundle = SourceBundle(
         "known",
         (
