@@ -57,13 +57,13 @@ from corpus_structure.semantic.data_operation_ports import (
     PythonRoleValue,
     resolve_python_port,
 )
+from corpus_structure.semantic.data_operation_runtime import RuntimeBinding
 from corpus_structure.semantic.data_operation_storage import (
     DataOperationStorage,
 )
 from corpus_structure.semantic.identifiers import RuntimeId
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.python_operation_sources import PythonSourceCollection
-from corpus_structure.semantic.data_operation_runtime import RuntimeBinding
 from corpus_structure.semantic.types import PreparedRelease, SourceBundle
 
 

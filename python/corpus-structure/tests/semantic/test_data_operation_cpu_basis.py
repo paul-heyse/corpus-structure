@@ -1,5 +1,7 @@
 """Actual frozen native input basis and independent typed-value expectations."""
 
+from typing import Literal, TypedDict
+
 import pytest
 from pglast import ast
 from sqlalchemy import cast, literal, text
@@ -12,10 +14,36 @@ from corpus_structure.semantic.data_operation_cpu_basis import (
     cpu_input_basis_native_sql,
 )
 from corpus_structure.semantic.data_operation_identity import semantic_value
+from corpus_structure.semantic.data_operation_json import DdoJsonValue
 from corpus_structure.semantic.data_operation_model import SubjectContext
 from corpus_structure.semantic.data_operation_support import ComputationalSupportReference
 from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.prepared_sql import prepare_sql
+
+
+class _Context(TypedDict):
+    project_id: str
+    subject: str
+    subject_definition: str
+    original_source: str | None
+    analyzed_scope: DdoJsonValue
+
+
+class _Support(TypedDict):
+    kind: Literal["computation"]
+    derivation_id: str
+
+
+class _Role(TypedDict):
+    role: str
+    position: int | None
+    multiplicity: int
+    product_id: str
+    member_id: str | None
+    kind_contract: str
+    context: _Context
+    body: DdoJsonValue
+    support: list[_Support]
 
 
 @pytest.fixture
@@ -61,7 +89,11 @@ def cpu_basis_connection(semantic_bare_engine):
             parsed = prepare_sql(source, source="cpu-actual-input-basis-control")
             for index, statement in enumerate(parsed.statements):
                 node = statement.stmt
-                if isinstance(node, ast.CreateFunctionStmt) and node.funcname[-1].sval in names:
+                if (
+                    isinstance(node, ast.CreateFunctionStmt)
+                    and node.funcname
+                    and node.funcname[-1].sval in names
+                ):
                     connection.exec_driver_sql(
                         parsed.excerpt(index), execution_options={"no_parameters": True}
                     )
@@ -89,13 +121,13 @@ def test_basis_reads_exact_products_contexts_and_origin_support_sets(cpu_basis_c
             support_contract={},
         )
     )
-    rows = []
+    rows: list[_Role] = []
     for product, episode, value in (
         ("product:b", "episode:b", 0.0),
         ("product:a", "episode:a", -0.0),
     ):
-        body = {"members": [], "potential": value}
-        context = {
+        body: DdoJsonValue = {"members": [], "potential": value}
+        context: _Context = {
             "project_id": "project:actual",
             "subject": "source:" + product,
             "subject_definition": "subject:record",
@@ -182,7 +214,7 @@ def test_basis_reads_exact_products_contexts_and_origin_support_sets(cpu_basis_c
     )
     assert actual == semantic_value(expected)
 
-    def subject(value):
+    def subject(value: _Context):
         return SubjectContext(
             value["project_id"],
             value["subject"],

@@ -2,12 +2,7 @@
 
 from __future__ import annotations
 
-import json
-from dataclasses import asdict, replace
-from hashlib import sha256
-
-from .identity import canonical_bytes
-from .native_call_sources import _PRIMITIVES, _integer_bounds
+from dataclasses import replace
 
 
 def _legacy_sources(inputs):

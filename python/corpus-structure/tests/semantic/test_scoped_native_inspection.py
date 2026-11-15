@@ -327,10 +327,8 @@ def cell_reader(native_type="table", **changes):
         occurrence_context=Mock(return_value="complete owned custody"),
     )
     request = NativeSourceRequest(
-        run_id=14,
-        task_id=1,
-        product_key="integrated",
-        content_digest="a" * 64,
+        project_id="project:test", demand_id="demand:test", read_id="read:test",
+        use_id="use:test", product_id="product:test", derivation_id="derivation:test",
         view="cell",
         pointer=pointer,
         cell_index=3,
@@ -376,7 +374,7 @@ def inventory_reader(monkeypatch, source, rows):
         ),
     )
     monkeypatch.setattr(
-        "corpus_structure.semantic._operation_calls.prepare_read_published_items",
+        "corpus_structure.semantic._pdf_native_calls.prepare_read_published_items",
         lambda **kwargs: select(access),
     )
     raw = Mock(return_value=rows)

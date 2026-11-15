@@ -12,12 +12,12 @@ from dataclasses import dataclass
 from sqlalchemy import Connection, select
 
 from .composed import read_data_operation_inputs
+from .data_operation_runtime import RuntimeBinding
 from .metadata import table
 from .python_operation_sources import PythonSourceCollection
 from .refusals import SemanticRefusal
 from .releases import load_release
 from .runtime_binding_store import runtime_binding_for_release
-from .data_operation_runtime import RuntimeBinding
 from .types import PreparedRelease, ResolvedDependencies, SourceArtifact, SourceBundle
 
 

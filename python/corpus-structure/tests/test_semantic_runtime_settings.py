@@ -188,7 +188,9 @@ def test_report_preserves_explicit_socket_url_authority(url):
 @pytest.mark.parametrize("purpose", ["read", "write", "evaluate", "admit", "fit", "maintenance"])
 def test_current_principal_authentication_uses_one_explicit_native_purpose_route(purpose):
     from typing import cast
+
     from sqlalchemy import Connection
+
     from corpus_structure.semantic.runtime import require_runtime_principal
 
     class GuardResult:

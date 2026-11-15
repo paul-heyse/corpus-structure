@@ -6,10 +6,13 @@ from dataclasses import replace
 import pytest
 
 from corpus_structure.semantic.composed import data_operation_dependencies
-from corpus_structure.semantic.data_operation_runtime import prepare_data_operation_runtime
+from corpus_structure.semantic.data_operation_runtime import (
+    RuntimeBindingError,
+    prepare_data_operation_runtime,
+    validate_data_operation_runtime,
+)
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.prepare import prepare_release
-from corpus_structure.semantic.data_operation_runtime import RuntimeBindingError, validate_data_operation_runtime
 from corpus_structure.semantic.types import ResolvedDependencies, SourceArtifact, SourceBundle
 
 

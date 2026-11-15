@@ -27,7 +27,8 @@ def borrower():
 
 def request():
     return native_source.NativeSourceRequest(
-        run_id=1, task_id=2, product_key="native", content_digest="a" * 64
+        project_id="project:test", demand_id="demand:test", read_id="read:test",
+        use_id="use:test", product_id="product:test", derivation_id="derivation:test"
     )
 
 
@@ -200,7 +201,7 @@ def test_cli_publishes_only_after_snapshot_settlement(
 ):
     from contextlib import contextmanager
 
-    from corpus_structure.semantic import query, runtime
+    from corpus_structure.semantic import demand_results, runtime
 
     output = tmp_path / "native.json"
     settled = []
@@ -224,19 +225,17 @@ def test_cli_publishes_only_after_snapshot_settlement(
         destination.with_name(destination.name + ".manifest.json").write_text("{}")
 
     monkeypatch.setattr(runtime, "open_runtime_engine", engine)
-    monkeypatch.setattr(query, "read_snapshot", snapshot)
+    monkeypatch.setattr(demand_results, "selected_read_snapshot", snapshot)
     monkeypatch.setattr(native_source, "export_native_source", export)
     result = cli(
         "source",
         "native-export",
-        "--run",
-        "1",
-        "--producing-task",
-        "2",
-        "--product",
-        "native",
-        "--digest",
-        "a" * 64,
+        "--project", "project:test",
+        "--demand", "demand:test",
+        "--read", "read:test",
+        "--use", "use:test",
+        "--product", "product:test",
+        "--derivation", "derivation:test",
         "--output",
         str(output),
         "--format",

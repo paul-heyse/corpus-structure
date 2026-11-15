@@ -30,8 +30,8 @@ if TYPE_CHECKING:
     from sqlalchemy import Connection
 
     from .data_operation_model import EffectiveDataOperationModel
-    from .python_operation_sources import PythonSourceCollection
     from .data_operation_runtime import RuntimeBinding
+    from .python_operation_sources import PythonSourceCollection
     from .types import PreparedRelease, SourceArtifact, SourceBundle
 
 
@@ -240,8 +240,8 @@ def acquire_python_execution(
 ) -> AcquiredPythonExecution:
     """Acquire permissions briefly; no DB connection is retained through computation."""
     from .data_operation_ports import python_port_identity
-    from .data_operation_storage import DataOperationStorage, require_data_operation_native
     from .data_operation_runtime import validate_data_operation_runtime
+    from .data_operation_storage import DataOperationStorage, require_data_operation_native
 
     model = bound_data_operation_model(prepared)
     require_data_operation_native(connection, prepared)

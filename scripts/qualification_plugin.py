@@ -208,7 +208,7 @@ def pytest_sessionstart(session: pytest.Session) -> None:
 def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
     # xdist can finish its controller with NO_TESTS_COLLECTED after a worker
     # refuses an invalid selector. Preserve each actual session's exit status.
-    _emit("session_finish", exitstatus=int(exitstatus))
+    _emit("session_finish", exitstatus=exitstatus)
 
 
 def pytest_collection_finish(session: pytest.Session) -> None:

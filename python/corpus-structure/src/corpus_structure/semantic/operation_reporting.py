@@ -24,8 +24,8 @@ from .refusals import DATABASE_ERRORS, SemanticRefusal, trusted_operation_model_
 from .types import Diagnostic, PreparedRelease
 
 if TYPE_CHECKING:
-    from .demand_queries import DemandQueryRequest
     from .data_operation_runtime import RuntimeBinding
+    from .demand_queries import DemandQueryRequest
 
 _REPORT_VERSIONS = {
     "OperationExplanation": 3,
@@ -497,9 +497,9 @@ def compare_semantic_releases(
     """Compare current captured meaning, keeping source, runtime and use limits explicit."""
     from .alias_policy import released_alias_product
     from .data_operation_admission import bound_data_operation_model
+    from .data_operation_runtime import validate_data_operation_runtime
     from .model_comparison import compare_declared_models
     from .projection_analysis_products import compare_retained_projection_analysis
-    from .data_operation_runtime import validate_data_operation_runtime
     from .vocabulary_impact import append_vocabulary_impact
 
     models = (bound_data_operation_model(before), bound_data_operation_model(after))
