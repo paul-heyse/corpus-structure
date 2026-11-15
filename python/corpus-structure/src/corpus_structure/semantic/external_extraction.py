@@ -23,6 +23,7 @@ _FILES = (
     "semantic/rich_proposals.py",
     "semantic/declared_proposal_frames.py",
     "semantic/proposals.py",
+    "semantic/property_constraints.py",
     "semantic/declared_record_sources.py",
     "semantic/data_operation_cpu_basis.py",
     "methods/llm/cascade.py",

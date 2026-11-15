@@ -111,7 +111,7 @@ def test_expression_binding_variants_preserve_entities_claim_roles_and_unresolve
 
 
 def test_fact_reference_roles_are_declared_and_normalized():
-    from corpus_structure.semantic.publication import native_constraints
+    from corpus_structure.semantic.property_constraints import native_constraints
 
     source = Path(__file__).parents[2] / "src/corpus_structure/model/semantic/core.yaml"
     release = prepare_release(

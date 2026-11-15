@@ -28,6 +28,7 @@ _FILES = (
     "semantic/analytical_kernels.py", "semantic/value_codec.py",
     "semantic/reference_positions.py", "semantic/expression_context.py",
     "semantic/rich_proposals.py", "semantic/proposals.py",
+    "semantic/property_constraints.py",
     "semantic/identity_resolution.py", "semantic/alias_policy.py",
     "semantic/unicode_identity.py", "semantic/rule_views.py",
     "semantic/scientific_evidence.py",

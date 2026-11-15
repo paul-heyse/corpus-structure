@@ -647,8 +647,6 @@ def _check_references(
         if set(alternative["members"]) - claims:
             raise ProposalRefused("alternative refers to an undeclared claim")
     exclusions = raw.get("identity_exclusions", ())
-    if exclusions and prepared.execution_model_id is None:
-        raise ProposalRefused("identity exclusions require the composed semantic-2 profile")
     for exclusion in exclusions:
         if not exclusion["reason"].strip():
             raise ProposalRefused("identity exclusion needs a nonempty reason")
@@ -659,7 +657,7 @@ def _check_references(
             universe = entities if endpoint["kind"] == "local" else known
             if endpoint["target"] not in universe:
                 raise ProposalRefused("identity exclusion endpoint is outside the bound packet")
-    from .publication import native_constraints
+    from .property_constraints import native_constraints
     from .reference_positions import class_reference_value, reference_position
 
     constraints = native_constraints(prepared)
@@ -1107,11 +1105,6 @@ def proposal_packet(
     from .identity import canonical_bytes
 
     schema = prepared.json_schema("AgentAuthoredBatch", mode="serialization")
-    if prepared.execution_model_id is None:
-        schema = copy.deepcopy(schema)
-        properties = schema.get("properties")
-        if isinstance(properties, dict):
-            properties.pop("identity_exclusions", None)
     schema["$id"] = prepared.release_id + "/agent/authored"
     return ProposalPacket(
         prepared.release_id,

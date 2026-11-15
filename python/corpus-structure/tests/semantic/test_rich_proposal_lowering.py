@@ -69,7 +69,7 @@ classes:
         support=(AuthoredFactSupportReference(admission_id='policy-authoring',source_reference='actual-policy'),) if name=='policy' else (ComputationalSupportReference(derivation_id='actual-episode:'+name,admission_use_id='current-use:'+name),)
         return CPUInputRole(name,None,1,'product:'+name,None,ids[ns+kind],header,body,support)
     roles=(role('proposals','external-extraction/DdoLocatedExternalExtraction',located,source_context),role('proposal_contexts','external-extraction/DdoExternalExtractionPacket',original,source_context),role('policy','rich-knowledge/DdoRichConsolidationPolicy',rich_policy_value(prepared,model).model_dump(mode='python'),context))
-    value=consolidate_rich_knowledge(prepared,model,inputs=RichKernelInputs('actual-rich-core',context,roles),check_active=lambda:None)
+    value=consolidate_rich_knowledge(prepared,model,inputs=RichKernelInputs.from_basis(RichKernelInputs('actual-rich-core',context,roles).basis()),check_active=lambda:None)
     occurrences=[item.body for item in value.members if isinstance(item.body,DdoRichOccurrence)]
     assert len(occurrences)==1 and occurrences[0].original.product_id=='product:proposals'
     assert occurrences[0].statement.member_id=='statement:s'

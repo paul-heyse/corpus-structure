@@ -519,7 +519,7 @@ def test_synthetic_boundary_is_distinct_from_empty_literal_source(prepared):
 def test_entire_characterization_family_is_private_boundary_not_native_graph(prepared):
     import yaml
 
-    from corpus_structure.semantic.publication import native_constraints
+    from corpus_structure.semantic.property_constraints import native_constraints
     from corpus_structure.semantic.record_contracts import record_product_classes
 
     model = Path(__file__).parents[2] / "src/corpus_structure/model/semantic/characterization.yaml"

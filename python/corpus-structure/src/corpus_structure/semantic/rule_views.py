@@ -372,7 +372,7 @@ def build_rule_language(
 
     from pydantic import FiniteFloat
 
-    from .publication import native_constraints
+    from .property_constraints import native_constraints
 
     artifact = next((a for a in prepared.artifacts if a.kind == RULE_VIEW_INPUT), None)
     if artifact is None:

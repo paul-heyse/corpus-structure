@@ -245,6 +245,7 @@ def test_boundary_source_creation_does_not_generate_full_graph_artifacts(monkeyp
 
 
 def test_identity_exclusions_locate_and_bind_endpoints():
+    from corpus_structure.methods.llm.cascade import PlacementPolicy
     release = prepared(composed=True)
     proposal = batch()
     proposal["entities"].append({"id": "q", "class_iri": "https://example.org/Person"})
@@ -257,36 +258,33 @@ def test_identity_exclusions_locate_and_bind_endpoints():
             "evidence": [{"sentence": "s1", "quote": "Alice is here.", "role": "primary"}],
         }
     ]
-    result = locate_proposal(release, proposal, frame())
+    result = locate_proposal(release, proposal, frame(), placement_policy=PlacementPolicy())
     assert result.clean
     assert (
         result.stored.model_dump()["identity_exclusions"][0]["evidence"][0]["outcome"] == "located"
     )
     proposal["identity_exclusions"][0]["right"]["target"] = "missing"
     with pytest.raises(ProposalRefused, match="outside the bound packet"):
-        locate_proposal(release, proposal, frame())
+        locate_proposal(release, proposal, frame(), placement_policy=PlacementPolicy())
 
 
-def test_identity_exclusions_require_composed_profile():
+def test_identity_exclusions_use_actual_declared_schema_and_source_endpoints_without_execution_catalog():
     import json
-
     from corpus_structure.semantic.proposals import proposal_packet
 
-    packet = proposal_packet(prepared(composed=False), frame(), guideline="test", configuration={})
-    assert "identity_exclusions" not in json.loads(packet.schema)["properties"]
-    composed_packet = proposal_packet(
-        prepared(composed=True), frame(), guideline="test", configuration={}
-    )
-    assert "identity_exclusions" in json.loads(composed_packet.schema)["properties"]
+    from corpus_structure.methods.llm.cascade import PlacementPolicy
+
+    release = prepared(composed=False)
+    packet = proposal_packet(release, frame(), guideline="test", configuration={})
+    assert "identity_exclusions" in json.loads(packet.schema)["properties"]
     proposal = batch()
-    proposal["identity_exclusions"] = [
-        {
-            "id": "different",
-            "left": {"kind": "local", "target": "p"},
-            "right": {"kind": "known", "target": "known:other"},
-            "reason": "distinct",
-            "evidence": [{"sentence": "s1", "quote": "Alice is here.", "role": "primary"}],
-        }
-    ]
-    with pytest.raises(ProposalRefused, match="semantic-2"):
-        locate_proposal(prepared(composed=False), proposal, frame())
+    proposal["entities"].append({"id": "q", "class_iri": "https://example.org/Person"})
+    proposal["identity_exclusions"] = [{
+        "id": "different", "left": {"kind": "local", "target": "p"},
+        "right": {"kind": "local", "target": "q"}, "reason": "distinct",
+        "evidence": [{"sentence": "s1", "quote": "Alice is here.", "role": "primary"}],
+    }]
+    assert locate_proposal(release, proposal, frame(), placement_policy=PlacementPolicy()).clean
+    proposal["identity_exclusions"][0]["right"]["target"] = "outside"
+    with pytest.raises(ProposalRefused, match="outside the bound packet"):
+        locate_proposal(release, proposal, frame(), placement_policy=PlacementPolicy())

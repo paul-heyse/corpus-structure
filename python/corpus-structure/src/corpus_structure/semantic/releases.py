@@ -147,7 +147,7 @@ def _validate_manifest(
 
 
 def _projection_rows(prepared: PreparedRelease) -> dict[str, list[dict[str, Any]]]:
-    from .publication import native_constraints
+    from .property_constraints import native_constraints
     from .record_contracts import record_product_classes
 
     constraints = native_constraints(prepared)

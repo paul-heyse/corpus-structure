@@ -523,7 +523,7 @@ def _source_fact_id(prepared, output, item):
 
 def _property_value(prepared, definition, prop, value, mapping, claims=None):
     from .proposals import _property_value as scalar_projection
-    from .publication import native_constraints
+    from .property_constraints import native_constraints
 
     value = _native(value)
     by_name = {d.name: d for d in prepared.definitions}

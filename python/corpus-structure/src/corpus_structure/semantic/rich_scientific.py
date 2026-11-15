@@ -124,7 +124,11 @@ def checked_rich_source_contexts(
         if packet is None:
             raise ValueError("rich scientific context lacks its actual selected packet body")
         if owner == _PACKET:
-            checked_packet = prepared.validate_python("DdoExternalExtractionPacket", packet)
+            from .data_operation_json import json_bytes
+            # The packet owns lexical SourceValue floats and exact scope-meaning
+            # text. Its JSON wire arrays are realized by the captured adapter;
+            # actual rich graph contexts stay on their lossless Python route.
+            checked_packet = prepared.validate_json("DdoExternalExtractionPacket", json_bytes(_plain(packet)))
             actual_macros = source_python(_plain(checked_packet)["macros"])
         else:
             from .data_operation_ports import _untrusted_value
