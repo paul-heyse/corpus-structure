@@ -250,3 +250,4 @@ fields:
   "#/definitions/discovery_selection/properties/target": WireOperationId
   "#/definitions/demand_intent/properties/targets/items": WireOperationId
   "#/definitions/demand_intent/properties/root_operations/items": WireOperationId
+  '#/definitions/demand_read_scope/properties/product_ids/items': WireProductId

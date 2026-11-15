@@ -557,6 +557,7 @@ class WireCloseDataPopulationResult(TypedDict):
 class WireDemandReadScope(TypedDict):
     operation_id: NotRequired[WireOperationId]
     original_source: NotRequired[WireOriginalSourceId]
+    product_ids: NotRequired[list[WireProductId]]
     subject: NotRequired[WireSubjectId]
 
 
