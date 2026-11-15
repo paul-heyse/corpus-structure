@@ -61,6 +61,7 @@ dependencies = [
     "griffe==2.4.1",
     "libcst==1.9.0",
     "python-rapidjson==1.25",
+    "ast-grep-py==0.51.2",
 ]
 
 [project.scripts]
