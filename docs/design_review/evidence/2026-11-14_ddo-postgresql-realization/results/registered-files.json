@@ -1,0 +1,62 @@
+[
+  {
+    "path": "python/corpus-structure/semantic_alembic/versions/semantic_ddo_pg_v1.py",
+    "sha256": "eed2703f804c67934c5f3d8bdbb784cdcb1e3b89da3ac136fe3e83f7e0077bef",
+    "bytes": 1831
+  },
+  {
+    "path": "python/corpus-structure/semantic_alembic/versions/semantic_ddo_pg_v1_admission.sql",
+    "sha256": "f1a4b5ec94b95139fbdbb0654db6c89a59a2321a7750cea21b6d2ca341082ea3",
+    "bytes": 726088
+  },
+  {
+    "path": "python/corpus-structure/semantic_alembic/versions/semantic_ddo_pg_v1_native.json",
+    "sha256": "fdfd980bf7a7457d3972216dd2071354fa231e87a2af9347cc15130fd7f19d79",
+    "bytes": 11296995
+  },
+  {
+    "path": "python/corpus-structure/semantic_alembic/versions/semantic_ddo_pg_v1_upgrade.txt",
+    "sha256": "1551b416d14aff58cbbf44f3f2dfe2e664e76eb3e8ecb1c31a9f840394f7fe77",
+    "bytes": 3886564
+  },
+  {
+    "path": "python/corpus-structure/semantic_alembic/versions/semantic_ddo_pg_v2.py",
+    "sha256": "b159da7a2539acd5294c3d5bee2f3d04c603ea79d364176de81541fbf576f62d",
+    "bytes": 1822
+  },
+  {
+    "path": "python/corpus-structure/semantic_alembic/versions/semantic_ddo_pg_v2_admission.sql",
+    "sha256": "3e728c14d39fa3a1f8082e7c53dbef09ff2322226d25913866d54f99f0c25b13",
+    "bytes": 726152
+  },
+  {
+    "path": "python/corpus-structure/semantic_alembic/versions/semantic_ddo_pg_v2_native.json",
+    "sha256": "97fbbd61ada3f6ff47133b8845b1699a470e63a8a0711c9bbec8e02bfe8ef514",
+    "bytes": 10408429
+  },
+  {
+    "path": "python/corpus-structure/semantic_alembic/versions/semantic_ddo_pg_v2_upgrade.txt",
+    "sha256": "05d246bb4a3715a76c93bd14b7408db56d37d77f7e8fcdcb18d49afe10ed7ce8",
+    "bytes": 3080393
+  },
+  {
+    "path": "python/corpus-structure/semantic_alembic/versions/semantic_ddo_pg_v3.py",
+    "sha256": "751f12150f6a94e3732a564369c19259495085f694a96f24cab30adda1da4fa9",
+    "bytes": 1822
+  },
+  {
+    "path": "python/corpus-structure/semantic_alembic/versions/semantic_ddo_pg_v3_admission.sql",
+    "sha256": "2809bad98f0bc842d962d6174e3f053601f2492752f6aaf74d8e1fc67fb73285",
+    "bytes": 727853
+  },
+  {
+    "path": "python/corpus-structure/semantic_alembic/versions/semantic_ddo_pg_v3_native.json",
+    "sha256": "8136c3800f4910c733d4648afcd674af60fdf258f210f9206777e1bc56a776b0",
+    "bytes": 11386410
+  },
+  {
+    "path": "python/corpus-structure/semantic_alembic/versions/semantic_ddo_pg_v3_upgrade.txt",
+    "sha256": "674974bfa1ed7e00d2ea48313365818d17f418a753a25bb9a31796f8eefd3b61",
+    "bytes": 3904934
+  }
+]

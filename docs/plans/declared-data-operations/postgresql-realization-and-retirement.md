@@ -215,7 +215,9 @@ currentness, privileges or compatibility.
 
 The following is the planned consumer coverage, not evidence all dynamic callers are enumerated.
 Reacquire imports, entrypoints, registrations, configuration and retained artifacts before each
-replacement. Current callers must migrate; they do not justify indefinite compatibility dispatch.
+replacement. The coordinator's [rich consolidation boundary](../declared-data-operations_2026-11-12.md#rich-consolidation-and-complete-legacy-retirement-boundary)
+records the actual missing semantic contract: private candidates/authored inputs cannot be
+relabelled accepted rich knowledge or attached to synthetic legacy task/run/fact identifiers. Current callers must migrate; they do not justify indefinite compatibility dispatch.
 Preserve independent expectations when removing mechanism tests. Partial transfer does not close
 the enclosing coordinator finding.
 

@@ -1,0 +1,64 @@
+{
+  "schema_version": 1,
+  "id": "ddo.postgresql-native-realization",
+  "title": "Scoped PostgreSQL realization and nested body authorization successors",
+  "group": "Declared data operations",
+  "package": "DDO-03–10",
+  "finalized": "2026-11-14",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can current PostgreSQL typed/scoped realization and actual nested body confidentiality be frozen forward without historical rewrite or persistent deployment?",
+  "answers": [],
+  "method": "Complete rollback-only execution, independent catalog admission, bounded operation and owner/ACL inspection, and exact checkout registration verified through the model-change owner.",
+  "commands": [
+    "uv run ci model change preview docs/design_review/evidence/2026-11-14_ddo-postgresql-realization/change-body-access.yaml --json",
+    "uv run ci model change candidate b6cd90051f4f43d0a6abe0d6bd308621 --json",
+    "uv run ci model change inspect-candidate 082e93811989429785e07da82287d23b --view operations --limit 100 --json",
+    "uv run ci model change register 082e93811989429785e07da82287d23b --json"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "change.yaml",
+      "role": "native authoring request",
+      "sha256": "e292f50026215407e9bbb62169e6f577e07c20357367bb42ea469e3f8f93643f"
+    },
+    {
+      "path": "change-reader-fix.yaml",
+      "role": "native authoring request",
+      "sha256": "54b08711e5d75ce40f3f86e7d244dca78d4327310cbb9fa539fa987d76160ec1"
+    },
+    {
+      "path": "change-body-access.yaml",
+      "role": "native authoring request",
+      "sha256": "66bf6ba35cf7e50bc54c0b27f36766cf016159820c9adef3c1f271017de557d4"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "results/native-custody.json",
+      "role": "typed candidate/account/operation and verified-registration custody for all three successors",
+      "sha256": "2ab72f0e0526555622d9940ea99adcc27bc06bb62c26909336fd19083a63453e"
+    },
+    {
+      "path": "results/registered-files.json",
+      "role": "exact frozen registered successor file hashes",
+      "sha256": "28891a085d116a6cf4c19d91806d66749a62a72ab6369012a43ceba72e619634"
+    }
+  ],
+  "depends_on": [
+    "ddo.context-pdf-governance"
+  ],
+  "results": [],
+  "outcome": "passed",
+  "conclusion": "Registered forward chain semantic_ddo_pg_v1/v2/v3 has passed rollback authoring and verified exact files. Final v3 candidate082e93811989429785e07da82287d23b contains14 native/0ordinary/0privilege operations; changed functions retain owners/ACLs, three helpers are publisher-only. v1 adds scoped selected filtering and safely brackets frozen SQL-standard row-type dependencies; v2 repairs omitted scope SQLNULL and evaluator grant; v3 enforces actual recursive nominal body closure before predicates/witnesses/paged support and evaluator authored admission. Cleanup established for all. Persistent corpus_structure_dev remains semantic_bep_located_v2, OID25921445/system7701811359771751232 on5434. This record establishes native authoring/registration only; functional/type/provider qualification remains with the coordinator. Initial failed candidates and stale previews retain their outcomes. No deployment, activation or historical conversion.",
+  "consumed_by": [
+    "DDO-03",
+    "DDO-04",
+    "DDO-05",
+    "DDO-06",
+    "DDO-10",
+    "ADR-0106"
+  ]
+}
