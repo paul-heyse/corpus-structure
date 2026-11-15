@@ -43,3 +43,13 @@ The frozen predecessor returns a run ID; the current native request-based PDF co
 and maintained PDF consumers use its project/request/generation/document/source custody. The
 refreshed request explicitly recreates this exact signature. No CASCADE, return-shape compatibility
 adapter or native comparison bypass is introduced. This is still an unregistered request.
+
+Preview `1899bc4a76bf469b872e50f9df15c01e` and apply
+`bbf49847273d48a287e0e43121f80759` passed against `367352ffb`. Candidate
+`fd0807990ebf430e808ada6924e6da9f` refused the corresponding result change in
+`ops.require_pdf_stage_owner(bigint,bigint,text)`, also with established rollback cleanup.
+Read-only pglast comparison of the complete current series at `884f082ce` found exactly these
+two changed return/OUT contracts among469 exact matched function input signatures (79 new
+signatures); both drop only the obsolete run ID from the same PDF context tuple. This is static
+source inventory, not native authoring qualification. The refreshed request recreates both exact
+signatures; PostgreSQL authoring and catalog verification remain required.

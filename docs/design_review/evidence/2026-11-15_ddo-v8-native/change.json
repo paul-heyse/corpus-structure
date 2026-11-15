@@ -214,6 +214,17 @@
         "bigint"
       ],
       "relation": null
+    },
+    {
+      "kind": "function",
+      "schema": "ops",
+      "name": "require_pdf_stage_owner",
+      "arguments": [
+        "bigint",
+        "bigint",
+        "text"
+      ],
+      "relation": null
     }
   ],
   "baseline": "HEAD",
