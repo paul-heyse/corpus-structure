@@ -1105,7 +1105,6 @@ class ClosedPythonSources:
             return max(matches, key=lambda b: len(b.reference)) if matches else None
 
         def reference(path: str, target: str, relation: str, location: str) -> None:
-            references.add(ImplementationReferenceFact("python:" + path, target, "lexical_reference", location, path))
             if "unpack-typeddict-runtime" in self.inputs.generated_interfaces and target in {
                 "typing.TypedDict",
                 "typing.Unpack",
@@ -1233,6 +1232,8 @@ class ClosedPythonSources:
 
                 class HeaderReferences(cst.CSTVisitor):
                     def visit_Name(self, node: cst.Name) -> None:
+                        position = module.positions[node].start
+                        location = f"{module.source.filename}:{position.line}:{position.column}"
                         candidates = module.names.get(node, set())
                         candidates = candidates() if callable(candidates) else candidates
                         for candidate in candidates:
@@ -1321,7 +1322,6 @@ class ClosedPythonSources:
                             "requires an explicit boundary",
                         )
                     )
-            seen_names: set[tuple[str, str]] = set()
 
             extractor = self
             value_methods = {
@@ -1649,6 +1649,8 @@ class ClosedPythonSources:
 
             class References(cst.CSTVisitor):
                 def visit_Name(self, node: cst.Name) -> None:
+                    position = module.positions[node].start
+                    location = f"{module.source.filename}:{position.line}:{position.column}"
                     candidates = module.names.get(node, set())
                     candidates = candidates() if callable(candidates) else candidates
                     parent = module.parent_nodes.get(node)
@@ -1671,6 +1673,7 @@ class ClosedPythonSources:
                             )
                         )
                     if module.contexts.get(node) == ExpressionContext.LOAD:
+                        references.add(ImplementationReferenceFact(node_id, node.value, "lexical_reference", location, path))
                         kind, _ = expression_binding(node)
                         allowed = (
                             (isinstance(parent, cst.Attribute) and parent.value is node)
@@ -1745,13 +1748,13 @@ class ClosedPythonSources:
                         if (
                             ".<locals>." in target
                             or target == path
-                            or (target, relation) in seen_names
                         ):
                             continue
-                        seen_names.add((target, relation))
                         reference(path, target, relation, location)
 
                 def visit_Attribute(self, node: cst.Attribute) -> None:
+                    position = module.positions[node].start
+                    location = f"{module.source.filename}:{position.line}:{position.column}"
                     if module.contexts.get(node) in {
                         ExpressionContext.STORE,
                         ExpressionContext.DEL,
@@ -1766,6 +1769,7 @@ class ClosedPythonSources:
                                 )
                             )
                     if module.contexts.get(node) == ExpressionContext.LOAD:
+                        references.add(ImplementationReferenceFact(node_id, module.wrapper.module.code_for_node(node), "lexical_reference", location, path))
                         kind, targets = expression_binding(node)
                         if kind == "unknown":
                             unknowns.add(
@@ -1793,6 +1797,8 @@ class ClosedPythonSources:
                         )
 
                 def visit_Call(self, node: cst.Call) -> bool | None:
+                    position = module.positions[node].start
+                    location = f"{module.source.filename}:{position.line}:{position.column}"
                     if extractor._runtime_dataclass_field(path, node):
                         for arg in node.args:
                             assert arg.keyword is not None
