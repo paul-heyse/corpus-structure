@@ -104,6 +104,7 @@ class RevocationCause(BaseModel):
     reference: str
     selector_kind: str
     selector: str
+    derivation_id: str | None = None
 
 
 class SelectionEvidence(BaseModel):
@@ -225,9 +226,16 @@ def classify_change_impact(
             if previous and previous.products == current.products:
                 # A direct producer revocation cannot be laundered by reusing its
                 # exact episode; a distinct admitted producer may establish equal value.
-                if previous.fate == "unavailable" and set(previous.derivations) & set(
-                    current.derivations
-                ):
+                shared = set(previous.derivations) & set(current.derivations)
+                direct_revoked = any(
+                    cause.kind == "direct"
+                    and (
+                        cause.derivation_id in shared
+                        or (cause.selector_kind == "derivation" and cause.selector in shared)
+                    )
+                    for cause in previous.invalidity_causes
+                )
+                if direct_revoked:
                     state, reason = (
                         "unknown",
                         "unavailable_producer_requires_distinct_native_admission",
@@ -337,9 +345,10 @@ def _revocation_causes(index, roots):
                 revoked["scope"] == scope
                 and (revoked["selector_kind"], revoked["selector"]) in selectors
             ):
-                causes[revoked["id"]] = RevocationCause(
+                causes[revoked["id"], identity] = RevocationCause(
                     kind="direct" if kind == "episode" and identity in roots else "upstream",
                     reference=revoked["id"],
+                    derivation_id=identity if kind == "episode" else None,
                     selector_kind=revoked["selector_kind"],
                     selector=revoked["selector"],
                 )

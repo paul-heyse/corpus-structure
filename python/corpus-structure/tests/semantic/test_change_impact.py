@@ -89,12 +89,6 @@ def test_unavailable_producer_cannot_be_rehabilitated_by_equal_bytes_or_same_epi
     before, target = models()
     old = observation(before, fate="unavailable")
     equal = observation(target)
-    assert (
-        classify_change_impact(
-            before, target, before=(old,), target=(equal,), target_observed=True
-        )[0].state
-        == "unknown"
-    )
     fresh = equal.model_copy(update={"derivations": ("episode:independent",)})
     assert (
         classify_change_impact(
@@ -116,6 +110,41 @@ def test_unavailable_producer_cannot_be_rehabilitated_by_equal_bytes_or_same_epi
         }
     )
     assert classify_change_impact(before, target, before=(proven,))[0].state == "revoked"
+    assert (
+        classify_change_impact(
+            before, target, before=(proven,), target=(equal,), target_observed=True
+        )[0].state
+        == "unknown"
+    )
+    assert (
+        classify_change_impact(
+            before, target, before=(proven,), target=(fresh,), target_observed=True
+        )[0].state
+        == "substitutable"
+    )
+
+
+def test_native_admitted_rebound_support_preserves_same_trusted_producer_episode():
+    before, target = models()
+    original = observation(before, fate="unavailable").model_copy(
+        update={
+            "support": ("episode:withdrawn-upstream",),
+            "invalidity_causes": (
+                RevocationCause(
+                    kind="upstream",
+                    reference="revocation:upstream",
+                    selector_kind="derivation",
+                    selector="episode:withdrawn-upstream",
+                    derivation_id="episode:withdrawn-upstream",
+                ),
+            ),
+        }
+    )
+    rebound = observation(target).model_copy(update={"support": ("episode:trusted-replacement",)})
+    row = classify_change_impact(
+        before, target, before=(original,), target=(rebound,), target_observed=True
+    )[0]
+    assert row.state == "substitutable" and row.witnesses == ("episode:one", "revocation:upstream")
 
 
 def test_complete_populations_find_never_derived_addition_and_removed_subject():
