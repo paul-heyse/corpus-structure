@@ -712,3 +712,83 @@ def test_declared_preview_uses_explicit_archived_source_comparison(model_checkou
             ChangeRequest(data_operations="target.yaml"),
             source_comparison=comparison.model_copy(update={"after_digest": "0" * 64}),
         )
+
+
+def test_native_cli_compares_archived_ddo_without_source_migrations(
+    model_checkout, commit_db_engine, commit_application_settings, monkeypatch, tmp_path
+):
+    import json
+
+    import yaml
+    from sqlalchemy import select
+    from typer.testing import CliRunner
+
+    from corpus_structure.cli import recipes
+    from corpus_structure.cli.app import app
+    from corpus_structure.cli.output import CliState
+    from corpus_structure.semantic.data_operation_admission import bound_data_operation_model
+    from corpus_structure.semantic.data_operation_preparation import prepare_data_operation_inputs
+    from corpus_structure.semantic.metadata import table
+    from corpus_structure.semantic.migrations import current_revision
+    from corpus_structure.semantic.releases import open_release, persist_release
+
+    root, _ = model_checkout
+    migration(root)
+    bundle, dependencies, profile, archived = prepare_data_operation_inputs(root, "target.yaml")
+    old_model = bound_data_operation_model(archived)
+    with commit_db_engine.begin() as connection:
+        persist_release(connection, bundle, dependencies, profile, archived)
+        predecessor = current_revision(connection)
+        before_releases = connection.execute(select(table("sem.release").c.release_id)).all()
+
+    # The archived before-source now differs from the checkout. Neither comparison
+    # side may be replaced by a second reading of this proposed local source.
+    path = root / "src/api.py"
+    proposed = path.read_text().replace("return x\n", "return x + 9\n")
+    path.write_text(proposed)
+    new_model = bound_data_operation_model(prepare_data_operation_inputs(root, "target.yaml")[3])
+    configured = commit_application_settings.model_copy(
+        update={"ci_results": tmp_path / "native-cli-results"}
+    )
+    monkeypatch.setattr(recipes, "checkout", lambda ctx=None: root)
+    runner = CliRunner()
+
+    def invoke(*args, body=None):
+        result = runner.invoke(
+            app,
+            [*args, "--json"],
+            input=body,
+            obj=CliState(settings_factory=lambda: configured),
+        )
+        assert result.exit_code == 0, result.output
+        return json.loads(result.stdout)
+
+    request = ChangeRequest(data_operations="target.yaml", archive_release=archived.release_id)
+    assert request.source_migrations == ()
+    preview = invoke(
+        "model", "change", "preview", "-", body=yaml.safe_dump(request.model_dump(mode="json"))
+    )
+    sources = invoke("model", "change", "inspect", preview["result_id"], "--view", "sources")
+    assert sources["migrations"] == sources["outcomes"] == []
+    comparison = sources["comparison"]
+    assert comparison["before_digest"] == sha256(old_model.content).hexdigest()
+    assert comparison["after_digest"] == sha256(new_model.content).hexdigest()
+    assert comparison["before_digest"] != comparison["after_digest"]
+    assert {change["facet"] for change in comparison["changes"]} == {"implementation", "recipe"}
+    assert {change["operation"] for change in comparison["changes"]} == {"urn:test:source-change"}
+    assert comparison["breakages"] == []
+
+    unbound = invoke(
+        "model", "change", "preview", "-", body=yaml.safe_dump({"data_operations": "target.yaml"})
+    )
+    unavailable = invoke("model", "change", "inspect", unbound["result_id"], "--view", "sources")
+    assert unavailable["comparison"] is None
+    assert path.read_text() == proposed
+    with commit_db_engine.connect() as connection:
+        assert current_revision(connection) == predecessor
+        assert (
+            connection.execute(select(table("sem.release").c.release_id)).all() == before_releases
+        )
+        retained = bound_data_operation_model(open_release(connection, archived.release_id))
+    assert retained.content == old_model.content
+    assert retained.source_interfaces == old_model.source_interfaces
