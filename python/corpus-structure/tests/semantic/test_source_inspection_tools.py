@@ -28,9 +28,15 @@ def test_mcp_prepared_facts_and_actual_navigation(monkeypatch):
         modules=(),
         operations=(),
     )
-    monkeypatch.setattr(releases, "open_release", lambda connection, release: type("Prepared", (), {"release_id": release})())
+    monkeypatch.setattr(
+        releases,
+        "open_release",
+        lambda connection, release: type("Prepared", (), {"release_id": release})(),
+    )
     monkeypatch.setattr(source_interfaces, "read_source_interfaces", lambda prepared: projection)
-    monkeypatch.setattr(source_interface_read, "read_source_interfaces", lambda prepared: projection)
+    monkeypatch.setattr(
+        source_interface_read, "read_source_interfaces", lambda prepared: projection
+    )
     monkeypatch.setattr(
         source_navigation, "archived_navigation_snapshot", lambda connection, release: snapshot
     )

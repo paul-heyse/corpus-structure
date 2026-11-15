@@ -78,6 +78,7 @@ The [architecture map](../design/README.md) and its section owners own contracts
 | [ADR-0104](0104-ddo-discovery-input-association.md) | Bind discovery child inputs to explicit parent members | 2026-11-14 | [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
 | [ADR-0105](0105-compact-effective-identity-archives.md) | Archive effective identity headers without repeated canonical witnesses | 2026-11-14 | [§B1](../design/DESIGN.md#section-b1), [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
 | [ADR-0106](0106-postgresql-current-realization.md) | DDO PostgreSQL derives structural wire APIs and reserves renewal custody | 2026-11-14 | [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
+| [ADR-0107](0107-ddo-source-change-inspection.md) | Captured source drives migration, change explanation and explicit navigation | 2026-11-14 | [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
 
 ## Superseded, still in the tree
 

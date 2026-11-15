@@ -84,3 +84,38 @@ def test_actual_hierarchy_locations(operation, direction, needle, expected):
 
     assert expected in json.dumps(result.items)
     assert all("file://" not in json.dumps(row) for row in result.items)
+
+
+def test_archived_bare_package_initializer_maps_to_package(monkeypatch):
+    from hashlib import sha256
+    from types import SimpleNamespace
+
+    from corpus_structure.semantic import releases, source_interfaces
+    from corpus_structure.semantic.source_navigation import archived_navigation_snapshot
+
+    content = b"def member():\n    return 1\n"
+    digest = sha256(content).hexdigest()
+    facts = SimpleNamespace(
+        modules=(
+            SimpleNamespace(
+                module="package",
+                path="__init__.py",
+                source_digest=digest,
+                stub_digest=None,
+                captured_artifact="data-operations/python/0.py",
+            ),
+        )
+    )
+    monkeypatch.setattr(releases, "open_release", lambda connection, release: object())
+    monkeypatch.setattr(source_interfaces, "read_source_interfaces", lambda prepared: facts)
+
+    class Connection:
+        def execute(self, statement):
+            return self
+
+        def one(self):
+            return SimpleNamespace(content=content, content_digest=digest)
+
+    snapshot = archived_navigation_snapshot(Connection(), "release:captured")
+    assert snapshot.documents[0].path == "package/__init__.py"
+    assert snapshot.documents[0].content == content.decode()

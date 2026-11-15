@@ -38,6 +38,7 @@ class NavigationSnapshot(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
     documents: tuple[SourceDocument, ...]
     python_version: Literal["3.14"] = "3.14"
+    analyzer_profile: Literal["ty-0.0.102-captured-only-v1"] = "ty-0.0.102-captured-only-v1"
 
     @model_validator(mode="after")
     def unique_paths(self):
@@ -128,8 +129,17 @@ class _Session:
         environment = {
             key: value
             for key, value in os.environ.items()
-            if key not in {"VIRTUAL_ENV", "PYTHONPATH", "UV_PROJECT_ENVIRONMENT"}
+            if key
+            not in {
+                "VIRTUAL_ENV",
+                "PYTHONPATH",
+                "UV_PROJECT_ENVIRONMENT",
+                "PYTHONHOME",
+                "PYTHONUSERBASE",
+            }
+            and not key.startswith("TY_")
         }
+        environment["XDG_CONFIG_HOME"] = str(root / ".config")
         self.process = subprocess.Popen(
             ["ty", "server"],
             cwd=root,
@@ -236,7 +246,14 @@ def inspect_source_navigation(
                 path = root / name
                 path.parent.mkdir(parents=True, exist_ok=True)
                 path.write_bytes(content.encode())
-            (root / "ty.toml").write_text('[environment]\npython-version = "3.14"\n')
+            isolated_environment = root / ".source-environment"
+            (isolated_environment / "lib/python3.14/site-packages").mkdir(parents=True)
+            (isolated_environment / "pyvenv.cfg").write_text(
+                "version = 3.14.10\ninclude-system-site-packages = false\n"
+            )
+            (root / "ty.toml").write_text(
+                '[environment]\npython-version = "3.14"\npython = ".source-environment"\n'
+            )
             session = _Session(root, request.timeout_seconds)
             try:
                 initialized = session.request(
@@ -406,7 +423,7 @@ def archived_navigation_snapshot(connection, release_id: str) -> NavigationSnaps
                 raise ValueError("archived navigation source differs from prepared identity")
             name = (
                 module.module.replace(".", "/")
-                + ("/__init__" if module.path.endswith("/__init__.py") else "")
+                + ("/__init__" if Path(module.path).name == "__init__.py" else "")
                 + suffix
             )
             documents.append(SourceDocument(path=name, content=content.decode("utf-8")))
