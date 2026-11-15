@@ -67,6 +67,7 @@ class WireCPUExecutionReceipt(TypedDict):
     native_thread_limit: Required[int | None]
     pid: Required[int]
     request_digest: Required[str]
+    result_digest: Required[str]
 
 
 class WireExternalExecutionReceipt(TypedDict):
@@ -160,6 +161,7 @@ class WireAdmitAuthoredDataRequest(TypedDict):
 class WireNativeExecutionEvidence(TypedDict):
     attempt: Required[TaskAttempt]
     cpu_receipts: Required[list[WireCPUExecutionReceipt]]
+    cpu_replies: NotRequired[list[str]]
     external_receipts: NotRequired[list[WireExternalExecutionReceipt]]
     generation: Required[WireGeneration]
     holder: Required[str]

@@ -136,6 +136,7 @@ class CPUReply:
             self.main_thread,
             self.native_thread_limit,
             canonical_bytes(self.native_pools),
+            sha256(self.content).hexdigest(),
         )
 
 

@@ -388,16 +388,22 @@ END $fit$;
 
 CREATE OR REPLACE FUNCTION ops.ddo_require_record_fit_completion(r ops.data_request,completion jsonb)
 RETURNS void LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $fit$
-DECLARE selected record; feature jsonb; calibration jsonb; output jsonb; specification jsonb;
+DECLARE selected record; feature jsonb; calibration jsonb; output jsonb; specification jsonb; cpu_output jsonb;
 BEGIN
  IF r.operation_id IS DISTINCT FROM 'record_policy.fit' THEN RETURN; END IF;
  PERFORM ops.ddo_record_fit_require_producer(r,completion);
+ cpu_output:=data.ddo_field(ops.ddo_cpu_reply_output(r,completion),'fitted');
  FOR selected IN SELECT * FROM ops.ddo_record_fit_selections(r) LOOP
  IF selected.role_name='feature_grade' THEN feature:=ops.ddo_record_fit_require_selection(r,selected.role_name,selected.selection,true);
  ELSE calibration:=ops.ddo_record_fit_require_selection(r,selected.role_name,selected.selection,true); END IF;
  END LOOP;
- IF completion->>'outcome'='empty' THEN RETURN; END IF;
+ IF completion->>'outcome'='empty' THEN
+ IF cpu_output IS DISTINCT FROM '["null"]'::jsonb THEN
+ RAISE EXCEPTION 'empty fit differs from its actual CPU result' USING ERRCODE='23514'; END IF;
+ RETURN; END IF;
  output:=completion->'outputs'->0;
+ IF cpu_output IS DISTINCT FROM data.ddo_normalize(output->'product'->'body') THEN
+ RAISE EXCEPTION 'fitted policy differs from its actual CPU result' USING ERRCODE='23514'; END IF;
  SELECT product.canonical_body INTO STRICT specification FROM jsonb_array_elements(r.binding->'inputs') chosen
  JOIN kb.data_product product ON product.id=chosen->>'product_id' AND product.project_id=r.project_id
  WHERE chosen->>'role'='specification' AND chosen->>'member_id' IS NULL AND (chosen->>'multiplicity')::integer=1;

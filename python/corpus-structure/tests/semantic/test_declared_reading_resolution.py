@@ -48,7 +48,7 @@ def prepared_ingress():
 
 def application_model():
     return SimpleNamespace(
-        kinds=(SimpleNamespace(name="ControlledFields", semantic_id="controlled-fields-owner"),),
+        kinds=(SimpleNamespace(name="ControlledFields", semantic_id="controlled-fields-owner", category="class", complete=True),),
         identities=(SimpleNamespace(owner="controlled-fields-owner", domain="kind", key="controlled-family-contract"),
                     SimpleNamespace(owner="resolve.m1_readings/declared", domain="recipe", key="controlled-reading-recipe")),
     )

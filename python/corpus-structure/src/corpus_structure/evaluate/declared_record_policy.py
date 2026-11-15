@@ -621,16 +621,50 @@ def execute_fit_profile(receiver, feature_grade, calibration_grade, specificatio
     return result.fitted.model_dump(mode="json")
 
 
-def execute_fit_kernel(feature_grade: dict, calibration_grade: dict, specification: dict, *, check_active) -> dict:
+def _record_cpu_inputs(input_basis: list, *, scalar_roles: tuple[str, ...], set_roles: tuple[str, ...] = ()):
+    from corpus_structure.semantic.data_operation_identity import decode_semantic_value
+
+    basis = decode_semantic_value(input_basis)
+    if not isinstance(basis, dict) or basis.get("version") != "cpu-input-basis-1":
+        raise SemanticRefusal("record CPU computation requires its exact typed input basis")
+    grouped = {name: [] for name in (*scalar_roles, *set_roles)}
+    for role in basis["roles"]:
+        if role["role"] not in grouped or role["multiplicity"] != 1:
+            raise SemanticRefusal("record CPU inputs differ from actual whole scalar/set roles")
+        grouped[role["role"]].append(role["body"])
+    if any(len(grouped[name]) != 1 for name in scalar_roles):
+        raise SemanticRefusal("record CPU computation requires each exact scalar input")
+    return basis, {**{name: grouped[name][0] for name in scalar_roles},
+                   **{name: grouped[name] for name in set_roles}}
+
+
+def _record_cpu_basis(port, binding, values):
+    from corpus_structure.semantic.data_operation_cpu_basis import cpu_input_basis_from_binding
+
+    roles = {role.name: role for role in port.operation.roles if role.direction == "input"}
+    bodies = {name: ((values[role.parameter or name],) if role.collection == "scalar"
+                     else tuple(values[role.parameter or name])) for name, role in roles.items()}
+    recipe = next(identity.key for identity in port.model.identities
+                  if identity.owner == port.operation.semantic_id and identity.domain == "recipe")
+    return cpu_input_basis_from_binding(recipe, binding, bodies)
+
+
+def execute_fit_kernel(input_basis: list, *, check_active) -> dict:
+    from corpus_structure.semantic.data_operation_cpu_basis import cpu_authority_reply
+    from corpus_structure.semantic.data_operation_json import json_bytes
+
+    _basis, values = _record_cpu_inputs(input_basis, scalar_roles=("feature_grade", "calibration_grade", "specification"))
     check_active()
     result = fit_declared_record_policy(
-        DdoRecordGrade.model_validate_json(canonical_bytes(feature_grade)),
-        DdoRecordGrade.model_validate_json(canonical_bytes(calibration_grade)),
-        DdoRecordFitSpecification.model_validate_json(canonical_bytes(specification)),
+        DdoRecordGrade.model_validate_json(json_bytes(values["feature_grade"])),
+        DdoRecordGrade.model_validate_json(json_bytes(values["calibration_grade"])),
+        DdoRecordFitSpecification.model_validate_json(json_bytes(values["specification"])),
     )
     check_active()
-    return {"fitted": result.fitted.model_dump(mode="json") if result.fitted else None,
-            "diagnostics": [row.model_dump(mode="json") for row in result.diagnostics]}
+    return cpu_authority_reply(input_basis, {
+        "fitted": result.fitted.model_dump(mode="python") if result.fitted else None,
+        "diagnostics": [row.model_dump(mode="python") for row in result.diagnostics],
+    })
 
 
 def _bound_scalar(binding, role):
@@ -680,19 +714,19 @@ class RecordPolicyFitPlan:
         if canonical_bytes(calibration.model_dump(mode="json")) != canonical_bytes(arguments.arguments["calibration_grade"]):
             raise SemanticRefusal("evaluator calibration grade differs from its actual selected input body")
         signature = inspect.signature(execute_fit_kernel, eval_str=True)
-        bound = signature.bind(
-            feature_grade=grade.model_dump(mode="json"), calibration_grade=arguments.arguments["calibration_grade"],
-            specification=specification.model_dump(mode="json"), check_active=check_active,
-        )
+        input_basis = _record_cpu_basis(self.port, binding, arguments.arguments)
+        bound = signature.bind(input_basis=input_basis, check_active=check_active)
         reply = yield from self.port.plan_cpu_reply(
             execute_fit_kernel, bound, record_policy_operation_sources(),
             execution_owner=execution_owner, check_active=check_active,
         )
-        result = json.loads(reply.content)
+        from corpus_structure.semantic.data_operation_cpu_basis import cpu_authority_value
+
+        result = cpu_authority_value(reply.content, expected_basis=input_basis)
         evidence = canonical_bytes(reply.execution_receipt.record())
         if result["fitted"] is None:
-            return PreparedCallResult(None, cpu_execution_evidence=evidence, outcome="empty")
-        return PreparedCallResult(result["fitted"], cpu_execution_evidence=evidence)
+            return PreparedCallResult(None, cpu_execution_evidence=evidence, outcome="empty", cpu_execution_reply=reply.content)
+        return PreparedCallResult(result["fitted"], cpu_execution_evidence=evidence, cpu_execution_reply=reply.content)
 
 
 def record_policy_inputs(bundle):
@@ -729,7 +763,7 @@ def record_policy_computation_assets():
         "evaluate/record_alignment.py", "evaluate/record_fitting.py",
         "semantic/record_policy.py", "semantic/record_contracts.py",
         "semantic/record_policy_authority.py", "semantic/declared_structural_references.py",
-        "semantic/data_operation_prepared_call.py",
+        "semantic/data_operation_prepared_call.py", "semantic/data_operation_cpu_basis.py",
     )
     return SourceArtifact("record-policy/computation-assets", canonical_bytes({
         "version": "declared-complete-record-policy-1",
@@ -769,6 +803,7 @@ def acquire_fit_port(prepared, model, operation, *, identity, authorize, custody
         "corpus_structure.evaluate.declared_record_policy.RecordPolicyFitPlan.plan",
         authorize, (record_policy_computation_assets(),), record_policy_operation_sources(),
         functions=(("corpus_structure.evaluate.declared_record_policy.execute_fit_kernel", execute_fit_kernel),),
+        retain_cpu_reply=True,
     )
     plan.port = port
     return port
@@ -1067,12 +1102,19 @@ def grade_complete_record_population_values(
     ))
 
 
-def execute_grade_kernel(sources: list[dict], reference_a: dict, reference_b: dict, adjudication: dict, prediction: list[dict],
-                         specification: dict, metadata: dict, *, prepared, check_active) -> dict:
+def execute_grade_kernel(input_basis: list, metadata: dict, *, prepared, check_active) -> dict:
     from corpus_structure.semantic.cpu_execution import hydrate_capsule
     from corpus_structure.semantic.data_operation_admission import bound_data_operation_model
 
-    populations = tuple(DdoRecordReferencePopulation.model_validate_json(canonical_bytes(value)) for value in (reference_a, reference_b, adjudication))
+    from corpus_structure.semantic.data_operation_cpu_basis import cpu_authority_reply
+    from corpus_structure.semantic.data_operation_json import json_bytes
+
+    basis, values = _record_cpu_inputs(
+        input_basis, scalar_roles=("reference_a", "reference_b", "adjudication", "specification"),
+        set_roles=("sources", "prediction"),
+    )
+    populations = tuple(DdoRecordReferencePopulation.model_validate_json(json_bytes(values[name]))
+                        for name in ("reference_a", "reference_b", "adjudication"))
     captured = {prepared.release_id: prepared}
     for release_id, content in metadata["historical_capsules"].items():
         historical = hydrate_capsule(bytes.fromhex(content))
@@ -1081,8 +1123,10 @@ def execute_grade_kernel(sources: list[dict], reference_a: dict, reference_b: di
         captured[release_id] = historical
     reference_prepared = captured[metadata["reference_release_id"]]
     archives = tuple(captured[release_id] for release_id in metadata["prediction_release_ids"])
-    checked = DdoRecordGradeSpecification.model_validate_json(canonical_bytes(specification))
-    by_product = {address["product_id"]: body for address, body in zip(metadata["bound_prediction_addresses"], prediction, strict=True)}
+    checked = DdoRecordGradeSpecification.model_validate_json(json_bytes(values["specification"]))
+    by_product = {role["product_id"]: role["body"] for role in basis["roles"] if role["role"] == "prediction"}
+    if set(by_product) != {address["product_id"] for address in metadata["bound_prediction_addresses"]}:
+        raise SemanticRefusal("record CPU predictions differ from their actual selected addresses")
     result = grade_complete_record_population_values(
         populations, tuple(by_product.get(selection.product_id) for selection in checked.prediction_selections), checked,
         reference_prepared=reference_prepared, reference_model=bound_data_operation_model(reference_prepared),
@@ -1092,7 +1136,7 @@ def execute_grade_kernel(sources: list[dict], reference_a: dict, reference_b: di
         prediction_recipes=tuple(metadata["prediction_recipes"]), cut_release_id=metadata["cut_release_id"],
         check_active=check_active,
     )
-    return result.model_dump(mode="json")
+    return cpu_authority_reply(input_basis, result.model_dump(mode="python"))
 
 
 def _bound_source_members(binding):
@@ -1253,7 +1297,8 @@ class RecordPolicyGradePlan:
                 bound_prediction_addresses=[DeclaredProductRef.from_bound(member, project=context.project_id).model_dump(mode="json") for member in prediction_members],
             )
         signature = inspect.signature(execute_grade_kernel, eval_str=True)
-        bound = signature.bind(**values, metadata=metadata, prepared=self.prepared, check_active=check_active)
+        bound = signature.bind(input_basis=_record_cpu_basis(self.port, binding, values),
+                               metadata=metadata, prepared=self.prepared, check_active=check_active)
         return (yield from self.port.plan_cpu(execute_grade_kernel, bound, record_policy_operation_sources(),
                                              prepared_release_id=self.prepared.release_id,
                                              execution_owner=execution_owner, check_active=check_active))
@@ -1278,6 +1323,7 @@ def acquire_grade_port(prepared, model, operation, *, identity, authorize, custo
         (record_policy_computation_assets(),), record_policy_operation_sources(),
         functions=(("corpus_structure.evaluate.declared_record_policy.execute_grade_kernel", execute_grade_kernel),),
         requires_prepared_schema=True,
+        retain_cpu_reply=True,
     )
     plan.port = port
     return port

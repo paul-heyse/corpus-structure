@@ -7,13 +7,14 @@ import json
 from dataclasses import dataclass
 from hashlib import sha256
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal, get_args
 
 from .identity import canonical_bytes
 from .types import SourceArtifact, SourceBundle
 from .python_module_projection import admitted_operation_module_meaning
 
-RECIPE = "retained-m1-reading-resolution-1"
+ReadingRecipe = Literal["retained-m1-reading-resolution-2"]
+RECIPE: ReadingRecipe = get_args(ReadingRecipe)[0]
 EVENT_PROCEDURE = "independent-complete-reading-logistic-1"
 _ROOT = Path(__file__).parents[1]
 _MODEL = _ROOT / "model/semantic/data-operation-reading-resolution.yaml"
@@ -23,6 +24,7 @@ _FILES = (
     "semantic/record_policy.py",
     "semantic/record_contracts.py",
     "semantic/declared_candidate_products.py",
+    "semantic/data_operation_cpu_basis.py",
 )
 
 
@@ -32,10 +34,13 @@ def reading_resolution_inputs(bundle):
     from .declared_candidate_products import candidate_inspection_inputs
 
     bundle = candidate_inspection_inputs(bundle)
+    declaration = yaml.safe_load(_MODEL.read_bytes())
+    declaration["classes"]["DdoReadingFeaturePolicy"]["attributes"]["recipe"]["equals_string"] = RECIPE
+    content = yaml.safe_dump(declaration, sort_keys=False).encode()
     name, root = "data_operation_reading_resolution", "data_operation_reading_resolution_root"
     existing = {source.name: source.content for source in bundle.sources}
     if name in existing:
-        if existing[name] != _MODEL.read_bytes():
+        if existing[name] != content:
             raise ValueError("reading resolution schema differs from its acquired owner")
         return bundle
     if root in existing:
@@ -44,7 +49,7 @@ def reading_resolution_inputs(bundle):
         root,
         (
             *bundle.sources,
-            SourceArtifact(name, _MODEL.read_bytes()),
+            SourceArtifact(name, content),
             SourceArtifact(
                 root,
                 yaml.safe_dump(
@@ -169,7 +174,9 @@ def resolve_reading_values(prepared, candidates, policy, *, model, check_active=
         raise ValueError("reading policy repeats a fitted instance applicability")
     recipe = reading_recipe_identity(model)
     detail = json.loads(candidates["diagnostics_json"])
-    digest = sha256(json_bytes(candidates)).hexdigest()
+    from .data_operation_identity import semantic_value
+
+    digest = sha256(canonical_bytes(semantic_value(candidates))).hexdigest()
     packets, events = [], []
     for packet in candidates["members"]:
         check_active()
@@ -268,10 +275,18 @@ def execute_reading_profile(receiver, candidates, policy):
     return receiver.execute(candidates, policy)
 
 
-def execute_reading_kernel(candidates: dict, policy: dict, *, prepared, check_active) -> dict:
+def execute_reading_kernel(input_basis: list, *, prepared, check_active) -> dict:
     from .data_operation_admission import bound_data_operation_model
+    from .data_operation_identity import decode_semantic_value
+    from .data_operation_cpu_basis import cpu_authority_reply
 
-    return resolve_reading_values(prepared, candidates, policy, model=bound_data_operation_model(prepared), check_active=check_active)
+    basis = decode_semantic_value(input_basis)
+    roles = basis["roles"]
+    if basis["version"] != "cpu-input-basis-1" or len(roles) != 2 or {role["role"] for role in roles} != {"candidates", "policy"} or any(role["multiplicity"] != 1 for role in roles):
+        raise ValueError("reading CPU computation requires its exact two whole inputs")
+    values = {role["role"]: role["body"] for role in roles}
+    result = resolve_reading_values(prepared, values["candidates"], values["policy"], model=bound_data_operation_model(prepared), check_active=check_active)
+    return cpu_authority_reply(input_basis, result)
 
 
 @dataclass
@@ -309,8 +324,14 @@ class ReadingInvocationPlan:
         ):
             raise ValueError("reading candidates differ from the acquired source context")
         signature = inspect.signature(execute_reading_kernel, eval_str=True)
+        from .data_operation_cpu_basis import cpu_input_basis_from_binding, cpu_authority_value
+
+        recipe = next(item.key for item in self.model.identities if item.owner == self.port.operation.semantic_id and item.domain == "recipe")
+        input_basis = cpu_input_basis_from_binding(recipe, binding, {
+            "candidates": (arguments.arguments["candidates"],), "policy": (arguments.arguments["policy"],),
+        })
         bound = signature.bind(
-            candidates=candidates, policy=policy, prepared=self.prepared, check_active=check_active
+            input_basis=input_basis, prepared=self.prepared, check_active=check_active
         )
         captured = reading_resolution_operation_sources()
         reply = yield from self.port.plan_cpu_reply(
@@ -322,8 +343,9 @@ class ReadingInvocationPlan:
             check_active=check_active,
         )
         return PreparedCallResult(
-            json.loads(reply.content),
+            cpu_authority_value(reply.content, expected_basis=input_basis),
             cpu_execution_evidence=canonical_bytes(reply.execution_receipt.record()),
+            cpu_execution_reply=reply.content,
         )
 
 
@@ -357,6 +379,7 @@ def resolve_reading_port(prepared, model, operation, *, identity, authorize, cus
             ),
         ),
         requires_prepared_schema=True,
+        retain_cpu_reply=True,
     )
     plan.port = port
     return port

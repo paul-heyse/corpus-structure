@@ -183,6 +183,8 @@ DECLARE a jsonb:=ops.ddo_record_grade_input(r,'reference_a'); b jsonb:=ops.ddo_r
  predicted jsonb; carrier jsonb; candidate jsonb; event jsonb; actual_event jsonb; coverage jsonb; ref jsonb; pin jsonb; bound jsonb;
  pins jsonb:='[]'; sources_ jsonb:='[]'; event_count integer:=0; selected_count integer:=0; n bigint; pass_row record;
  producer ops.data_derivation; reading sem.data_operation_definition;
+ reading_request ops.data_request; reading_completion jsonb; reading_body jsonb;
+ verified_readings jsonb:='{}'; reading_key text;
 BEGIN
  IF grade->>'version' IS DISTINCT FROM 'record-grade-1'
  OR grade->>'frame_digest' IS DISTINCT FROM encode(sha256(convert_to(grade->>'frame_canonical_json','UTF8')),'hex')
@@ -283,6 +285,21 @@ BEGIN
  SELECT * INTO STRICT reading FROM sem.data_operation_definition WHERE release_id=producer.release_id AND operation_id='resolve.m1_readings/declared';
  IF producer.recipe IS DISTINCT FROM reading.recipe OR reading.recipe IS DISTINCT FROM question->>'reading_recipe' THEN
  RAISE EXCEPTION 'record prediction changed its admitted reading recipe' USING ERRCODE='23514'; END IF;
+ reading_key:=data.canonical_json(jsonb_build_array(producer.id,selected->>'product_id'));
+ IF NOT verified_readings ? reading_key THEN
+ SELECT * INTO STRICT reading_request FROM ops.data_request WHERE id=producer.request_id AND project_id=r.project_id;
+ SELECT intent.payload INTO STRICT reading_completion FROM ops.data_completion_intent intent
+ JOIN ops.data_publication_receipt receipt ON receipt.intent_id=intent.id AND receipt.derivation_id=producer.id
+ WHERE intent.id=producer.intent_id;
+ SELECT canonical_body INTO STRICT reading_body FROM kb.data_product WHERE id=selected->>'product_id' AND project_id=r.project_id;
+ IF reading.profile IS DISTINCT FROM 'derivation'
+ OR reading.support_contract->'effects' IS DISTINCT FROM '[]'::jsonb
+ OR reading.support_contract->'capabilities'->'prepared_factory'->>'entrypoint' IS DISTINCT FROM 'corpus_structure.methods.reading_resolution.ReadingResolutionOperation.acquire_port'
+ OR reading_completion->>'implementation_revision' IS DISTINCT FROM reading.implementation_revision
+ OR ops.ddo_cpu_reply_output(reading_request,reading_completion) IS DISTINCT FROM reading_body THEN
+ RAISE EXCEPTION 'record prediction differs from its actual reading CPU result and native basis' USING ERRCODE='23514'; END IF;
+ verified_readings:=verified_readings||jsonb_build_object(reading_key,true);
+ END IF;
  predicted:=ops.ddo_record_grade_input_value(r.project_id,selected->>'product_id',NULL); carrier:=predicted->'body';
  IF carrier->'source_pin' IS DISTINCT FROM jsonb_strip_nulls(question->'source') OR jsonb_array_length(coverage->'outputs')<>1
  OR coverage->'outputs'->0->>'product_id' IS DISTINCT FROM selected->>'product_id' THEN
@@ -357,6 +374,8 @@ RETURNS void LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog
 BEGIN
  IF r.operation_id IS DISTINCT FROM '__GRADE_OPERATION__' THEN RETURN; END IF;
  PERFORM ops.ddo_record_grade_require_producer(r,completion);
+ IF ops.ddo_cpu_reply_output(r,completion) IS DISTINCT FROM data.ddo_normalize(completion->'outputs'->0->'product'->'body') THEN
+ RAISE EXCEPTION 'record grade differs from actual CPU result and reference basis' USING ERRCODE='23514'; END IF;
  PERFORM ops.ddo_record_grade_require_frame(r,data.ddo_json(completion->'outputs'->0->'product'->'body'));
 END $grade$;
 

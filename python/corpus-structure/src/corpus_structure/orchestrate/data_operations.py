@@ -743,6 +743,7 @@ class NativeDemandExecutor:
                 fence=claim.fence,
                 runtime_id=self.runtime.runtime_id,
                 cpu_content=answer.cpu_execution_evidence,
+                cpu_reply_content=answer.cpu_execution_reply,
                 pdf_content=answer.pdf_execution_evidence,
                 provider_content=answer.provider_execution_evidence,
             )

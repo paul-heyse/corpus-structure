@@ -1,6 +1,7 @@
 """Actual CPU process facts remain immutable, typed, and outside semantic products."""
 
 import json
+from hashlib import sha256
 
 import pytest
 from pydantic import TypeAdapter, ValidationError
@@ -11,7 +12,8 @@ from corpus_structure.semantic.identity import canonical_bytes
 
 def receipt():
     return CPUExecutionReceipt(
-        "a" * 64, 123, True, 1, canonical_bytes([{"num_threads": 1, "version": None}])
+        "a" * 64, 123, True, 1, canonical_bytes([{"num_threads": 1, "version": None}]),
+        sha256(b"actual reply").hexdigest(),
     )
 
 
@@ -20,8 +22,13 @@ def test_receipt_schema_and_wire_retain_actual_scalar_constraints_and_json_text(
     value = receipt()
     assert json.loads(adapter.dump_json(value)) == value.record()
     assert adapter.validate_json(adapter.dump_json(value), strict=True) == value
+    missing = value.record()
+    missing.pop("result_digest")
+    with pytest.raises(ValidationError, match="result_digest"):
+        adapter.validate_json(canonical_bytes(missing), strict=True)
     for field, wrong in (
         ("request_digest", "wrong"),
+        ("result_digest", "wrong"),
         ("pid", 0),
         ("pid", True),
         ("native_thread_limit", 0),
@@ -46,10 +53,13 @@ def test_cpu_reply_sidecar_copies_actual_diagnostics_without_reply_body():
         native_pools=(pool,),
     )
     value = reply.execution_receipt
+    assert value.result_digest == sha256(b"private body").hexdigest()
+    assert value.result_digest != sha256(b"substituted body").hexdigest()
     pool["version"] = "mutated caller"
     assert value.native_pools()[0]["version"] == "actual"
     assert set(value.record()) == {
         "request_digest",
+        "result_digest",
         "pid",
         "main_thread",
         "native_thread_limit",
@@ -63,4 +73,4 @@ def test_cpu_reply_sidecar_copies_actual_diagnostics_without_reply_body():
 @pytest.mark.parametrize("raw", [b"{}", b'[ {"num_threads":1} ]', b"not JSON"])
 def test_receipt_refuses_noncanonical_or_nonarray_native_diagnostics(raw):
     with pytest.raises(ValueError):
-        CPUExecutionReceipt("a" * 64, 123, True, None, raw)
+        CPUExecutionReceipt("a" * 64, 123, True, None, raw, sha256(b"reply").hexdigest())

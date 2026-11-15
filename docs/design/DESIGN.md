@@ -723,6 +723,14 @@ coordinator owns implementation and retirement evidence.
 
 > Decision: [ADR-0109](../adr/0109-ddo-current-domain-contracts.md), [ADR-0110](../adr/0110-evaluator-authorized-policy-disclosure.md), [ADR-0111](../adr/0111-contract-scoped-record-occurrences.md)
 
+**Accepted target; implementation/qualification Proposed · 2026-11-15.** CPU decisions used for
+native rich admission bind the actual reply bytes through the existing typed execution receipt.
+Native admission checks the declared input basis and exact result projection; CPU/library numerical
+semantics remain authoritative. [D6](D6-orchestration-metrics-policies.md#native-demand-and-request-execution)
+owns execution and receipt correspondence. Digests do not replace source, policy or publication authority.
+
+> Decision: [ADR-0112](../adr/0112-cpu-reply-correspondence.md)
+
 **Accepted realization; implementation/qualification tracked by DDO (2026-11-14).** Captured native
 schemas and explicit field correspondence derive structural Python wire types and fixed methods.
 Draft7 and exact JSON transport retain runtime enforcement; static types do not confer native

@@ -18,6 +18,7 @@ from corpus_structure.semantic.proposals import native_source_frame
 from corpus_structure.semantic.reading_resolution_products import (
     EVENT_PROCEDURE,
     RECIPE,
+    ReadingRecipe,
     reading_diagnostics,
 )
 from corpus_structure.semantic.record_contracts import interpretation_identity
@@ -36,7 +37,7 @@ UPSTREAM = "extract.m1_candidates"
 
 class M1ReadingConfig(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
-    recipe: Literal["retained-m1-reading-resolution-1"] = RECIPE
+    recipe: ReadingRecipe = RECIPE
     source_dependencies: Literal["source_view_product", "retained_source_result"] = (
         "source_view_product"
     )

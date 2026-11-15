@@ -8,12 +8,21 @@ products and the request's frozen binding. This adds no execution or receipt own
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from collections.abc import Mapping
+from hashlib import sha256
+import json
+import re
+from typing import TYPE_CHECKING, Any
 
-from .data_operation_identity import semantic_value
+from .data_operation_identity import decode_semantic_value, semantic_value
 from .data_operation_model import SubjectContext
 from .data_operation_support import SupportReference, support_reference_records
 from .identity import canonical_bytes
+
+CPU_AUTHORITY_REPLY_VERSION = "cpu-authority-reply-1"
+
+if TYPE_CHECKING:
+    from .data_operation_bindings import BindingResult
 
 
 @dataclass(frozen=True)
@@ -50,6 +59,57 @@ def cpu_input_basis(recipe: str, context: SubjectContext, roles: tuple[CPUInputR
         "version": "cpu-input-basis-1", "recipe": recipe,
         "context": context.identity_record, "roles": entries,
     })
+
+
+def cpu_input_basis_from_binding(
+    recipe: str, binding: BindingResult, bodies_by_role: Mapping[str, tuple[Any, ...]],
+) -> list:
+    """Pair actual consumed values with their existing selected headers and support."""
+    if not binding.sufficient or binding.subject_context is None:
+        raise ValueError("CPU authority basis requires its sufficient native binding")
+    roles = []
+    declared = {role.role for role in binding.roles}
+    if set(bodies_by_role) != declared:
+        raise ValueError("CPU authority values differ from their actual bound roles")
+    for selected in binding.roles:
+        bodies = bodies_by_role[selected.role]
+        if len(bodies) != len(selected.members):
+            raise ValueError("CPU authority values differ from their actual selected population")
+        for member, body in zip(selected.members, bodies, strict=True):
+            roles.append(CPUInputRole(
+                selected.role, member.position, member.multiplicity,
+                member.product, member.member, member.kind_contract,
+                SubjectContext(
+                    binding.subject_context.project_id, member.subject, member.original_source,
+                    member.analyzed_scope, subject_definition=member.subject_definition,
+                ),
+                body, member.support_references,
+            ))
+    return cpu_input_basis(recipe, binding.subject_context, tuple(roles))
+
+
+def cpu_authority_reply(input_basis: list, output: Any) -> dict:
+    """Bind an actual child result to the exact typed inputs it processed."""
+    return {
+        "version": CPU_AUTHORITY_REPLY_VERSION,
+        "input_basis_digest": sha256(canonical_bytes(input_basis)).hexdigest(),
+        "output": semantic_value(output),
+    }
+
+
+def cpu_authority_value(content: bytes, *, expected_basis: list) -> Any:
+    """Decode the retained exact result without losing typed scalar meaning."""
+    reply = json.loads(content)
+    if (
+        not isinstance(reply, dict)
+        or set(reply) != {"version", "input_basis_digest", "output"}
+        or reply["version"] != CPU_AUTHORITY_REPLY_VERSION
+        or not isinstance(reply["input_basis_digest"], str)
+        or not re.fullmatch(r"[0-9a-f]{64}", reply["input_basis_digest"])
+        or reply["input_basis_digest"] != sha256(canonical_bytes(expected_basis)).hexdigest()
+    ):
+        raise ValueError("CPU authority reply differs from its actual processed input basis")
+    return decode_semantic_value(reply["output"])
 
 
 def cpu_input_basis_native_sql() -> str:
@@ -110,4 +170,17 @@ BEGIN
 END $rich$;
 
 REVOKE ALL ON FUNCTION ops.ddo_cpu_input_basis(ops.data_request) FROM PUBLIC;
-"""
+""" + r"""
+CREATE OR REPLACE FUNCTION ops.ddo_cpu_reply_output(r ops.data_request,completion jsonb)
+RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $cpu$
+DECLARE reply jsonb:=ops.ddo_cpu_reply_value(completion);
+BEGIN
+ IF NOT reply ?& ARRAY['version','input_basis_digest','output']
+ OR reply-ARRAY['version','input_basis_digest','output'] IS DISTINCT FROM '{}'::jsonb
+ OR reply->>'version' IS DISTINCT FROM '__CPU_AUTHORITY_REPLY_VERSION__'
+ OR reply->>'input_basis_digest' IS DISTINCT FROM ops.ddo_digest(ops.ddo_cpu_input_basis(r)) THEN
+ RAISE EXCEPTION 'CPU authority reply differs from exact native input basis' USING ERRCODE='23514'; END IF;
+ RETURN data.ddo_normalize(reply->'output');
+END $cpu$;
+REVOKE ALL ON FUNCTION ops.ddo_cpu_reply_output(ops.data_request,jsonb) FROM PUBLIC;
+""".replace('__CPU_AUTHORITY_REPLY_VERSION__', CPU_AUTHORITY_REPLY_VERSION)

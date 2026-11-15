@@ -34,8 +34,8 @@ def cpu_basis_connection(semantic_bare_engine):
         for source, names in (
             (root.joinpath("identity.sql").read_text(), {"canonical_json", "decimal_canonical"}),
             (float_sql, {"require_float_lexical"}),
-            (native_sql(native_protocol_sources()), {"ddo_normalize", "ddo_json_meaning", "ddo_operation_subject"}),
-            (cpu_input_basis_native_sql(), {"ddo_cpu_input_basis"}),
+            (native_sql(native_protocol_sources()), {"ddo_normalize", "ddo_json_meaning", "ddo_operation_subject", "ddo_digest", "ddo_cpu_reply_value"}),
+            (cpu_input_basis_native_sql(), {"ddo_cpu_input_basis", "ddo_cpu_reply_output"}),
         ):
             parsed = prepare_sql(source, source="cpu-actual-input-basis-control")
             for index, statement in enumerate(parsed.statements):

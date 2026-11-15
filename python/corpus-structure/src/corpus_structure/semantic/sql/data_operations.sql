@@ -33,6 +33,24 @@ BEGIN
  'model_digest',projection->>'model_digest','native_digest',projection->>'native_digest'));
 END $$;
 
+CREATE OR REPLACE FUNCTION ops.ddo_cpu_reply_value(completion jsonb) RETURNS jsonb
+LANGUAGE plpgsql IMMUTABLE STRICT SET search_path=pg_catalog,pg_temp AS $$
+DECLARE evidence jsonb:=completion->'execution_evidence'; reply text; value jsonb;
+BEGIN
+ IF jsonb_array_length(coalesce(evidence->'cpu_receipts','[]'))<>1
+ OR jsonb_array_length(coalesce(evidence->'cpu_replies','[]'))<>1
+ OR jsonb_typeof(evidence->'cpu_replies'->0) IS DISTINCT FROM 'string' THEN
+ RAISE EXCEPTION 'authority completion requires its actual CPU reply and original receipt' USING ERRCODE='23514'; END IF;
+ reply:=evidence->'cpu_replies'->>0;
+ IF encode(sha256(convert_to(reply,'UTF8')),'hex') IS DISTINCT FROM evidence->'cpu_receipts'->0->>'result_digest' THEN
+ RAISE EXCEPTION 'authority CPU reply differs from its original execution receipt' USING ERRCODE='23514'; END IF;
+ value:=reply::jsonb;
+ IF jsonb_typeof(value) IS DISTINCT FROM 'object' THEN
+ RAISE EXCEPTION 'authority CPU reply lacks its declared object result' USING ERRCODE='23514'; END IF;
+ RETURN value;
+END $$;
+REVOKE ALL ON FUNCTION ops.ddo_cpu_reply_value(jsonb) FROM PUBLIC;
+
 CREATE OR REPLACE FUNCTION ops.inspect_data_execution(p_payload jsonb) RETURNS jsonb
 LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
 DECLARE p jsonb:=p_payload; definition sem.data_operation_definition; runtime sem.runtime_binding; retained jsonb;
@@ -219,15 +237,17 @@ BEGIN
 END $$;
 
 CREATE OR REPLACE FUNCTION ops.ddo_direct_support_valid(episode text) RETURNS boolean
-LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
- SELECT EXISTS(SELECT FROM ops.data_derivation WHERE id=episode AND outcome IN ('success','empty'))
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
+BEGIN
+ RETURN (SELECT EXISTS(SELECT FROM ops.data_derivation WHERE id=episode AND outcome IN ('success','empty'))
  AND ops.ddo_record_grade_dependencies_valid(episode)
- AND ops.ddo_record_fit_dependencies_valid(episode) AND NOT EXISTS(
+ AND ops.ddo_record_fit_dependencies_valid(episode)
+ AND ops.ddo_rich_admission_dependencies_valid(episode) AND NOT EXISTS(
  SELECT FROM ops.data_derivation d JOIN ops.data_request r ON r.id=d.request_id
  JOIN ops.data_revocation v ON v.scope=ops.ddo_scope(r.project_id,r.original_source)
  WHERE d.id=episode AND ((v.selector_kind='derivation' AND v.selector=d.id) OR (v.selector_kind='recipe' AND v.selector=d.recipe)
- OR (v.selector_kind='runtime' AND v.selector=d.runtime_id) OR (v.selector_kind='product' AND EXISTS(SELECT FROM ops.data_derivation_output o WHERE o.derivation_id=d.id AND o.product_id=v.selector))))
-$$;
+ OR (v.selector_kind='runtime' AND v.selector=d.runtime_id) OR (v.selector_kind='product' AND EXISTS(SELECT FROM ops.data_derivation_output o WHERE o.derivation_id=d.id AND o.product_id=v.selector)))));
+END $$;
 CREATE OR REPLACE FUNCTION ops.ddo_support_valid(episode text,boundary ops.data_demand_read DEFAULT NULL) RETURNS boolean
 LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
 DECLARE s ops.data_derivation_support; u ops.demand_use; original ops.original_source_admission;
@@ -1137,7 +1157,7 @@ DECLARE p jsonb:=p_payload; r ops.data_request; t ops.task; snapshot jsonb; key 
 BEGIN
  PERFORM ops.ddo_fields(p,ARRAY['request_id','generation','task_id','attempt','holder','runtime_id','completion']);
  PERFORM ops.ddo_fields(p->'completion',ARRAY['outcome','outputs','support','inputs','implementation_revision'],ARRAY['execution_evidence']);
- IF p->'completion' ? 'execution_evidence' AND ((p->'completion'->'execution_evidence') - 'version' - 'host_receipts' - 'cpu_receipts' - 'pdf_receipts' - 'provider_receipts' - 'external_receipts') IS DISTINCT FROM (p - 'completion') THEN RAISE EXCEPTION 'execution evidence differs from native producer fence/runtime'; END IF;
+ IF p->'completion' ? 'execution_evidence' AND ((p->'completion'->'execution_evidence') - 'version' - 'host_receipts' - 'cpu_receipts' - 'cpu_replies' - 'pdf_receipts' - 'provider_receipts' - 'external_receipts') IS DISTINCT FROM (p - 'completion') THEN RAISE EXCEPTION 'execution evidence differs from native producer fence/runtime'; END IF;
  IF EXISTS(SELECT FROM jsonb_array_elements(coalesce(p->'completion'->'execution_evidence'->'provider_receipts','[]')) receipt
  WHERE jsonb_array_length(receipt->'logical_members')=0 OR EXISTS(
  SELECT FROM jsonb_array_elements(receipt->'logical_members') member
@@ -1162,6 +1182,7 @@ BEGIN
  PERFORM ops.ddo_require_record_grade_completion(r,p->'completion');
  PERFORM ops.ddo_require_record_fit_completion(r,p->'completion');
  PERFORM ops.ddo_require_policy_authorization_completion(r,p->'completion');
+ PERFORM ops.ddo_require_rich_admission_completion(r,p->'completion');
  PERFORM ops.ddo_assert_output_witnesses(r,p->'completion');
  key:='intent:'||ops.ddo_digest(jsonb_build_array(r.id,r.generation,t.id,t.attempt,t.claimed_by,p->>'runtime_id',p->'completion'));
  INSERT INTO ops.data_completion_intent VALUES(key,r.id,r.generation,t.id,t.attempt,t.claimed_by,p->>'runtime_id',p->'completion',ops.ddo_digest(p->'completion'),clock_timestamp()) ON CONFLICT DO NOTHING;
@@ -1399,6 +1420,7 @@ BEGIN
  PERFORM ops.ddo_require_record_grade_completion(r,i.payload);
  PERFORM ops.ddo_require_record_fit_completion(r,i.payload);
  PERFORM ops.ddo_require_policy_authorization_completion(r,i.payload);
+ PERFORM ops.ddo_require_rich_admission_completion(r,i.payload);
  PERFORM ops.ddo_assert_output_witnesses(r,i.payload);
  episode:='derivation:'||ops.ddo_digest(jsonb_build_array(i.id,i.payload_digest));
  INSERT INTO ops.data_derivation VALUES(episode,r.id,r.generation,i.id,r.release_id,r.recipe,i.runtime_id,i.producer_task_id,i.producer_attempt,result_state,clock_timestamp());

@@ -21,10 +21,13 @@ class CPUExecutionReceipt:
     main_thread: Annotated[bool, Field(strict=True)]
     native_thread_limit: Annotated[int, Field(strict=True, ge=1)] | None
     native_pools_json: Annotated[bytes, Field(strict=True, min_length=2)]
+    result_digest: Annotated[str, Field(strict=True, pattern=r"^[0-9a-f]{64}$")]
 
     def __post_init__(self) -> None:
         if not re.fullmatch(r"[0-9a-f]{64}", self.request_digest):
             raise ValueError("CPU execution receipt requires its actual request digest")
+        if not re.fullmatch(r"[0-9a-f]{64}", self.result_digest):
+            raise ValueError("CPU execution receipt requires its actual reply digest")
         if type(self.pid) is not int or self.pid < 1 or type(self.main_thread) is not bool:
             raise TypeError("CPU execution receipt requires actual process/thread facts")
         if self.native_thread_limit is not None and (
@@ -43,6 +46,7 @@ class CPUExecutionReceipt:
         """JSON-text field matches TypeAdapter's bytes wire schema exactly."""
         return dict(
             request_digest=self.request_digest,
+            result_digest=self.result_digest,
             pid=self.pid,
             main_thread=self.main_thread,
             native_thread_limit=self.native_thread_limit,

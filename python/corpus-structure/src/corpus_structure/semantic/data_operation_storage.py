@@ -57,6 +57,8 @@ def native_protocol_sources(
     from .record_policy_native import record_policy_native_sql, record_policy_grade_schema, GRADE_SCHEMA_SOURCE
     from .record_policy_completion_native import record_policy_completion_native_sql
     from .record_grade_native import record_grade_native_sql
+    from .data_operation_cpu_basis import cpu_input_basis_native_sql
+    from .rich_admission_native import rich_admission_native_sql
     from .authority_leaf import NativeAuthorityLeaf
 
     if physical_sources is None:
@@ -91,6 +93,11 @@ def native_protocol_sources(
             Path(__file__).with_name("pdf_effect_contract.py").read_bytes(),
         ),
         SourceArtifact("native/data-operation-record-grade-native.sql", record_grade_native_sql().encode()),
+        SourceArtifact("native/data-operation-cpu-basis.sql", cpu_input_basis_native_sql().encode()),
+        SourceArtifact("native/data-operation-cpu-basis.py", Path(__file__).with_name("data_operation_cpu_basis.py").read_bytes()),
+        SourceArtifact("native/data-operation-cpu-receipts.py", Path(__file__).with_name("cpu_receipts.py").read_bytes()),
+        SourceArtifact("native/data-operation-rich-admission.sql", rich_admission_native_sql().encode()),
+        SourceArtifact("native/data-operation-rich-admission.py", Path(__file__).with_name("rich_admission_native.py").read_bytes()),
         SourceArtifact("native/data-operation-record-grade-native.py", Path(__file__).with_name("record_grade_native.py").read_bytes()),
         SourceArtifact("native/data-operation-record-policy.sql", record_policy_native_sql().encode()),
         SourceArtifact(GRADE_SCHEMA_SOURCE, record_policy_grade_schema()),
@@ -199,6 +206,11 @@ def _captured(sources) -> dict[str, bytes]:
         "native/data-operation-source-native.py",
         "native/data-operation-support.py",
         "native/data-operation-record-grade-native.sql",
+        "native/data-operation-cpu-basis.sql",
+        "native/data-operation-cpu-basis.py",
+        "native/data-operation-cpu-receipts.py",
+        "native/data-operation-rich-admission.sql",
+        "native/data-operation-rich-admission.py",
         "native/data-operation-record-grade-native.py",
         "native/data-operation-record-policy.sql",
         "native/data-operation-record-grade.schema.json",
@@ -325,10 +337,12 @@ def native_sql(sources=None) -> str:
     captured = native_protocol_sources() if sources is None else tuple(sources)
     bodies = _captured(captured)
     sql = "\n".join(bodies[name].decode() for name in (
+        "native/data-operation-cpu-basis.sql",
         "native/data-operation-record-grade-native.sql",
         "native/data-operation-record-policy.sql",
         "native/data-operation-record-policy-completion.sql",
         "native/data-operations.sql",
+        "native/data-operation-rich-admission.sql",
     ))
     sql += "\n" + bodies.get("native/data-operation-external.sql", b"").decode()
     # Every private completion guard attests the same captured native kernel.

@@ -10,6 +10,17 @@ provenance. Preparation/identity foundations do not activate the replacement nat
 legacy readers. The [DDO coordinator](../plans/declared-data-operations_2026-11-12.md) owns current
 scope and evidence; all older implemented sections retain their stated selected/archived boundary.
 
+**Accepted target; integration/qualification Proposed · 2026-11-15.** The existing typed CPU
+execution receipt binds its actual request and reply bytes while retaining actual process/thread
+facts outside semantic product identity. At rich admission, the actual child reply carries the
+processed input basis and has a declared exact projection to the accepted output. Native admission
+checks that basis against frozen binding/product/member/context/support facts and verifies the
+reply digest against the original receipt. The approved CPU/library owner performs numerical policy
+application; native lineage, evidence, alternatives, trust and publication fences remain required.
+The receipt contains no reply-body copy, and other operations acquire no new result archive.
+
+> Decision: [ADR-0112](../adr/0112-cpu-reply-correspondence.md)
+
 **Implemented; scoped native Tested · 2026-11-14.** A discovery selection can explicitly
 associate a target input role with its selected parent product/member. The planner filters that role
 to authenticated population membership before cardinality; native admission independently checks

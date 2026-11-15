@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from hashlib import sha256
 from functools import cache
 from typing import Annotated, Literal
 
@@ -34,6 +35,7 @@ class NativeExecutionEvidence(BaseModel):
     runtime_id: _Identifier
     host_receipts: tuple[NativeExecutionReceipt, ...]
     cpu_receipts: tuple[CPUExecutionReceipt, ...]
+    cpu_replies: tuple[str, ...] = ()
     pdf_receipts: tuple[PdfExecutionReceipt, ...] = ()
     provider_receipts: tuple[ProviderExecutionReceipt, ...] = ()
     external_receipts: tuple[ExternalExecutionReceipt, ...] = ()
@@ -70,6 +72,7 @@ def bind_execution_evidence(
     fence: dict,
     runtime_id: str,
     cpu_content: bytes | None = None,
+    cpu_reply_content: bytes | None = None,
     pdf_content: bytes | None = None,
     provider_content: bytes | None = None,
     external_content: bytes | None = None,
@@ -81,12 +84,19 @@ def bind_execution_evidence(
         "runtime_id": runtime_id,
         "host_receipts": json.loads(content) if content is not None else [],
         "cpu_receipts": [json.loads(cpu_content)] if cpu_content is not None else [],
+        "cpu_replies": [cpu_reply_content.decode("utf-8")] if cpu_reply_content is not None else [],
         "pdf_receipts": [json.loads(pdf_content)] if pdf_content is not None else [],
         "provider_receipts": json.loads(provider_content) if provider_content is not None else [],
         "external_receipts": json.loads(external_content) if external_content is not None else [],
     }
     Draft7Validator(json.loads(execution_evidence_schema())).validate(value)
     checked = NativeExecutionEvidence.model_validate_json(canonical_bytes(value))
+    if checked.cpu_replies and (
+        len(checked.cpu_replies) != len(checked.cpu_receipts)
+        or any(sha256(reply.encode("utf-8")).hexdigest() != receipt.result_digest
+               for reply, receipt in zip(checked.cpu_replies, checked.cpu_receipts, strict=True))
+    ):
+        raise ValueError("retained CPU reply differs from its actual execution receipt")
     claim = tuple(fence[name] for name in ("request_id", "generation", "task_id", "attempt"))
     for receipt in checked.provider_receipts:
         # The existing provider handle validates work/cohort/scatter and actual

@@ -2,6 +2,7 @@
 
 import json
 import os
+from hashlib import sha256
 from collections.abc import Callable
 from concurrent.futures import Future
 from typing import cast
@@ -35,6 +36,7 @@ def test_real_worker_main_thread_warm_process_and_source_exactness(prepared):
             assert first.native_pools
             assert all(pool["num_threads"] == 1 for pool in first.native_pools)
             assert execution.native_thread_reports[first_pid]["pools"] == first.native_pools
+            assert first.execution_receipt.result_digest == sha256(first.content).hexdigest()
             layer = json.loads(first.content)
             assert any(
                 extent["text"] == "x≥2"

@@ -21,6 +21,7 @@ class PreparedCallResult:
     execution_evidence: bytes | None = None
     outcome: str | None = None
     provider_execution_evidence: bytes | None = None
+    cpu_execution_reply: bytes | None = None
 
 
 @dataclass
@@ -47,6 +48,7 @@ class PreparedOriginalCallPort:
     native_selections: tuple = ()
     requires_prepared_schema: bool = False
     completion_type: Any = None
+    retain_cpu_reply: bool = False
     _port: ResolvedPythonPort = field(init=False, repr=False)
 
     def __post_init__(self):
@@ -168,9 +170,16 @@ class PreparedOriginalCallPort:
         from .identity import canonical_bytes
 
         reply = yield from self.plan_cpu_reply(kernel, bound, captured, **options)
+        if self.retain_cpu_reply:
+            from .data_operation_cpu_basis import cpu_authority_value
+
+            value = cpu_authority_value(reply.content, expected_basis=bound.arguments["input_basis"])
+        else:
+            value = json.loads(reply.content)
         return PreparedCallResult(
-            json.loads(reply.content),
+            value,
             cpu_execution_evidence=canonical_bytes(reply.execution_receipt.record()),
+            cpu_execution_reply=reply.content if self.retain_cpu_reply else None,
         )
 
     def plan_python(self, values, *, binding=None, check_active=lambda: None, execution_owner):
@@ -190,6 +199,8 @@ class PreparedOriginalCallPort:
         check_active()
         self._verify()
         if isinstance(result, PreparedCallResult):
+            if self.retain_cpu_reply and result.cpu_execution_evidence is not None and result.cpu_execution_reply is None:
+                raise PortRefusal("prepared authority boundary requires its actual retained CPU reply")
             if result.outcome in {"failed", "empty"}:
                 if result.outcome not in self.operation.outcomes or result.value is not None:
                     raise PortRefusal(
@@ -209,6 +220,7 @@ class PreparedOriginalCallPort:
                 cpu_execution_evidence=result.cpu_execution_evidence,
                 execution_evidence=result.execution_evidence,
                 provider_execution_evidence=result.provider_execution_evidence,
+                cpu_execution_reply=result.cpu_execution_reply,
             )
         return self._port._complete(
             result, self.completion_type or self._port.signature.return_annotation

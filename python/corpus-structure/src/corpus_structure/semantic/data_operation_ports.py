@@ -161,6 +161,7 @@ class PortCompletion:
     outcome: str = "success"
     pdf_execution_evidence: bytes | None = None
     provider_execution_evidence: bytes | None = None
+    cpu_execution_reply: bytes | None = None
 
     def __post_init__(self) -> None:
         if type(self.outcome) is not str or not self.outcome:
@@ -172,6 +173,10 @@ class PortCompletion:
             and type(self.cpu_execution_evidence) is not bytes
         ):
             raise TypeError("CPU execution evidence requires owned immutable bytes")
+        if self.cpu_execution_reply is not None and (
+            type(self.cpu_execution_reply) is not bytes or self.cpu_execution_evidence is None
+        ):
+            raise TypeError("retained CPU reply requires owned bytes and its original receipt")
         if (
             self.pdf_execution_evidence is not None
             and type(self.pdf_execution_evidence) is not bytes
