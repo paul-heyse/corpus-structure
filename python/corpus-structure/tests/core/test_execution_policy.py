@@ -16,7 +16,6 @@ def test_selected_defaults_and_frozen_roundtrip():
         workers=2,
         max_submissions=2,
         max_regions=4,
-        max_active_stage_runs=4,
         max_claims=8,
         provider_threads=4,
         provider_interop_threads=1,

@@ -113,8 +113,31 @@ def test_owned_stream_has_only_terminal_completion_and_spawned_receipt(
     assert cpu.budget.used_bytes == 0
 
 
-def test_no_future_submission_keeps_its_byte_credit_until_physical_retirement():
+@pytest.fixture
+def request_invocation():
+    """Real invocation resource owners; tests inject only the failing transport."""
     from types import SimpleNamespace
+    from corpus_structure.core.execution_policy import CharacterizationExecutionPolicy
+    from corpus_structure.orchestrate.data_operations import _InvocationExecution
+
+    invocations = []
+    def make(pool, budget):
+        executor = SimpleNamespace(
+            prepared=SimpleNamespace(release_id="test:request-transport"),
+            policy=CharacterizationExecutionPolicy(workers=1, max_submissions=1),
+            budget=budget, nemotron_endpoint=None, engine=None,
+        )
+        invocation = _InvocationExecution(executor, pool)
+        invocations.append(invocation)
+        return invocation
+    yield make
+    for invocation in invocations:
+        invocation.providers.close()
+        invocation.native_hosts.close()
+        invocation.cpu.close()
+
+
+def test_no_future_submission_keeps_its_byte_credit_until_physical_retirement(request_invocation):
 
     from corpus_structure.orchestrate.data_operations import _RequestExecution
     from corpus_structure.semantic.cpu_execution import OwnedByteBudget
@@ -126,13 +149,7 @@ def test_no_future_submission_keeps_its_byte_credit_until_physical_retirement():
         def submit(self, callback):
             raise RuntimeError("acknowledgement lost")
 
-    invocation = SimpleNamespace(
-        pool=FailedSubmit(),
-        uncertain_python=[],
-        cpu=None,
-        native_hosts=None,
-        executor=SimpleNamespace(engine=None),
-    )
+    invocation = request_invocation(FailedSubmit(), budget)
     owner = _RequestExecution(invocation, reservation)
     with pytest.raises(RuntimeError, match="acknowledgement lost"):
         owner.submit_python(lambda: None)
@@ -431,8 +448,7 @@ def test_hydrated_consumer_preserves_typed_decimal_body_independently_of_json_di
     assert type(value.value()) is Decimal
 
 
-def test_uncertain_thread_without_future_cannot_claim_physical_retirement():
-    from types import SimpleNamespace
+def test_uncertain_thread_without_future_cannot_claim_physical_retirement(request_invocation):
 
     from corpus_structure.orchestrate.data_operations import _RequestExecution
     from corpus_structure.semantic.cpu_execution import OwnedByteBudget
@@ -443,14 +459,7 @@ def test_uncertain_thread_without_future_cannot_claim_physical_retirement():
 
     budget = OwnedByteBudget(32)
     reservation = budget.admit(32)
-    invocation = SimpleNamespace(
-        pool=UnknownSubmit(),
-        uncertain_python=[],
-        physical_retired=False,
-        cpu=SimpleNamespace(reservation_retired=lambda _: True),
-        native_hosts=None,
-        executor=SimpleNamespace(engine=None),
-    )
+    invocation = request_invocation(UnknownSubmit(), budget)
     physical = _RequestExecution(invocation, reservation)
     with pytest.raises(RuntimeError, match="no acknowledged future"):
         physical.submit_python(lambda: None)

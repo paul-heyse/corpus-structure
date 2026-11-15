@@ -15,7 +15,6 @@ class CharacterizationExecutionPolicy:
     workers: _PositiveInt = 2
     max_submissions: _PositiveInt = 2
     max_regions: _PositiveInt = 4
-    max_active_stage_runs: _PositiveInt = 4
     max_claims: _PositiveInt = 8
     provider_threads: _PositiveInt = 4
     provider_interop_threads: _PositiveInt = 1
