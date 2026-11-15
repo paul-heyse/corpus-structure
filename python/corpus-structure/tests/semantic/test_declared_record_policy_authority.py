@@ -166,3 +166,17 @@ def test_private_parameter_custody_preserves_exact_canonical_bytes(application):
     body["feature_canonical_json"] += " "
     with pytest.raises(ValueError, match="canonical bytes"):
         DdoFittedRecordPolicy.model_validate(body)
+
+
+def test_checked_probability_retains_a_genuine_below_threshold_decision(application):
+    from corpus_structure.semantic.record_policy_authority import record_policy_application_probability
+    _, authorization, arguments = application
+    probability = record_policy_application_probability(authorization, **arguments)
+    assert 0 < probability < 1
+    stricter = authorization.model_copy(update={"threshold": 1.0})
+    assert record_policy_application_probability(stricter, **arguments) == probability
+    with pytest.raises(ValueError, match="below its exact authorized threshold"):
+        check_record_policy_application(stricter, **arguments)
+    changed = {**arguments["events"][0], "final_event_score": -100.0}
+    with pytest.raises(ValueError, match="exact authorized predictor"):
+        record_policy_application_probability(stricter, **{**arguments, "events": (changed,)})

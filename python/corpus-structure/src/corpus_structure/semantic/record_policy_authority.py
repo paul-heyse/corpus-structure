@@ -109,7 +109,7 @@ def policy_authorization_value(
     )
 
 
-def check_record_policy_application(
+def record_policy_application_probability(
     authorization: DdoRecordPolicyAuthorization, *, source: DeclaredStructuralSource,
     source_release_id: str, family: str, family_contract: str, reading_recipe: str,
     record_id: str, interpretation_id: str, features: RecordFeatures,
@@ -160,7 +160,24 @@ def check_record_policy_application(
     if not math.isfinite(calibrated):
         raise ValueError("final-event calibration produced a nonfinite argument")
     probability = float(expit(calibrated))
-    if not math.isfinite(probability) or probability < authorization.threshold:
+    if not math.isfinite(probability):
+        raise ValueError("final-event calibration produced a nonfinite probability")
+    return probability
+
+
+def check_record_policy_application(
+    authorization: DdoRecordPolicyAuthorization, *, source: DeclaredStructuralSource,
+    source_release_id: str, family: str, family_contract: str, reading_recipe: str,
+    record_id: str, interpretation_id: str, features: RecordFeatures,
+    events: tuple[dict, ...],
+) -> float:
+    """Enforce threshold after the single exact predictor/event probability owner."""
+    probability = record_policy_application_probability(
+        authorization, source=source, source_release_id=source_release_id, family=family,
+        family_contract=family_contract, reading_recipe=reading_recipe, record_id=record_id,
+        interpretation_id=interpretation_id, features=features, events=events,
+    )
+    if probability < authorization.threshold:
         raise ValueError("final-event probability is below its exact authorized threshold")
     return probability
 
