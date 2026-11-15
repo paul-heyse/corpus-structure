@@ -175,6 +175,22 @@ def test_reading_scoring_retains_real_center_scale_parameters_and_raw_observatio
     assert product["members"][0]["body"]["interpretation_id"] != "original-reading"
 
 
+def test_reading_without_optional_dependencies_keeps_actual_resolution_dependencies():
+    upstream = candidate_report()
+    upstream["members"][0]["body"].pop("computation_dependencies")
+    product = resolve_reading_values(
+        prepared_ingress(), upstream, policy(), model=application_model(),
+    )
+    (event,) = resolved_reading_events(product)
+    assert event["outcome"] == "not_run"
+    assert event["final_event_score"] is None
+    dependencies = product["members"][0]["body"]["computation_dependencies"]
+    assert len(dependencies) == 2
+    assert "reading-recipe:" + RECIPE in dependencies
+    assert any(item.startswith("raw-candidate-result:") for item in dependencies)
+    assert "computation_dependencies" not in upstream["members"][0]["body"]
+
+
 @pytest.mark.parametrize("mismatch", ["family", "subset"])
 def test_reading_policy_never_applies_outside_exact_applicability(mismatch):
     instance = feature()

@@ -195,7 +195,7 @@ def resolve_reading_values(prepared, candidates, policy, *, model, check_active=
         row["computation_dependencies"] = tuple(
             sorted(
                 {
-                    *row["computation_dependencies"],
+                    *row.get("computation_dependencies", ()),
                     "reading-recipe:" + RECIPE,
                     "raw-candidate-result:" + digest,
                     *(("record-feature-instance:" + instance.digest,) if instance else ()),
