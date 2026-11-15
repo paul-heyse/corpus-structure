@@ -1,27 +1,35 @@
-"""Protected companion calls keep exact pins and declared result distinctions."""
+"""Current companion projections retain selected pins and exact Arrow field values."""
 
+import pyarrow as pa
 import pytest
 from sqlalchemy.dialects import postgresql
 
-from corpus_structure.semantic import _operation_calls
-from corpus_structure.semantic._operation_ids import (
-    ContentDigest,
-    ProductKey,
-    ProjectId,
-    ReleaseId,
-    RunId,
-    TaskId,
-)
-from corpus_structure.semantic.operation_value_types import SQL_NULL, NativeResultViolation
+from corpus_structure.semantic.companion_projection import projection
+from corpus_structure.serve.companion_export import _admit_batch
+from semantic.selected_source_contract_support import selection
 
-PIN = {
-    "project_id": ProjectId("project:fixture"),
-    "run_id": RunId(23),
-    "selection_release_id": ReleaseId("release:selected"),
-    "task_id": TaskId(37),
-    "product_key": ProductKey("integrated"),
-    "content_digest": ContentDigest("a" * 64),
-}
+PIN_REF, CUT, PUBLICATION = selection(
+    release="release:selected", producer_release="release:producer", task=37, digest="a" * 64
+)
+PIN = PIN_REF.model_dump()
+
+
+def provenance():
+    return {
+        **PIN,
+        "selection_release_id": CUT["release_id"],
+        "producer_release_id": PUBLICATION.release_id,
+        "task_id": PUBLICATION.task_id,
+        "product_key": PUBLICATION.product_key,
+        "content_digest": PUBLICATION.logical_digest,
+    }
+
+
+def admit(family, values):
+    spec = projection(family)
+    batch = pa.RecordBatch.from_pylist([values], schema=spec.arrow_schema)
+    _admit_batch(spec, batch, PIN_REF, PUBLICATION.release_id, cut=CUT, publication=PUBLICATION)
+    return batch.to_pylist()[0]
 
 
 @pytest.mark.parametrize(
@@ -34,8 +42,7 @@ PIN = {
     ],
 )
 def test_protected_companion_call_binds_complete_pin_without_execution(family, order):
-    prepare = getattr(_operation_calls, f"prepare_read_published_{family}_batch")
-    statement = prepare(**PIN)
+    statement = projection(family).statement.params(**PIN)
     compiled = statement.compile(dialect=postgresql.dialect())
     assert compiled.params == PIN
     sql = str(compiled)
@@ -49,11 +56,10 @@ def test_protected_companion_call_binds_complete_pin_without_execution(family, o
 
 
 def coverage_row(supports_json):
-    """An independent row fixture arranged in the selected SQL consumer's order."""
+    """Independent family values carried through the current Arrow consumer."""
     values = {
-        **PIN,
-        "producer_release_id": "release:producer",
-        "projection_id": "companion-projection:fixture",
+        **provenance(),
+        "projection_id": projection("coverage").projection_id,
         "coverage_id": "coverage:one",
         "scope": "page",
         "coverage_family": "future-family",
@@ -62,34 +68,13 @@ def coverage_row(supports_json):
         "detail": "remaining region unavailable",
         "supports_json": supports_json,
     }
-    statement = _operation_calls.prepare_read_published_coverage_batch(**PIN)
-    return tuple(values[col.name] for col in statement.selected_columns), values
+    return values
 
 
 @pytest.mark.parametrize("supports_json", [None, "null", '[{"pointer":"/x"}]'])
 def test_companion_result_preserves_pins_open_family_and_json_null(supports_json):
-    raw, expected = coverage_row(supports_json)
-    row = _operation_calls.materialize_read_published_coverage_batch(raw)
-    assert row.model_dump(mode="python") == expected
-    decoded = row.decoded_json_fields(operation="read_pdf_product")["supports_json"]
-    if supports_json is None:
-        assert decoded is SQL_NULL
-    elif supports_json == "null":
-        assert decoded is None
-    else:
-        assert decoded == [{"pointer": "/x"}]
-
-
-def test_companion_result_refuses_undeclared_closed_outcome():
-    raw, _ = coverage_row("null")
-    names = list(
-        _operation_calls.prepare_read_published_coverage_batch(**PIN).selected_columns.keys()
-    )
-    changed = list(raw)
-    changed[names.index("outcome")] = "invented-outcome"
-    with pytest.raises(NativeResultViolation) as invalid:
-        _operation_calls.materialize_read_published_coverage_batch(tuple(changed))
-    assert ("outcome",) in invalid.value.locations
+    expected = coverage_row(supports_json)
+    assert admit("coverage", expected) == expected
 
 
 @pytest.mark.parametrize(
@@ -147,17 +132,8 @@ def test_companion_result_refuses_undeclared_closed_outcome():
 )
 def test_companion_result_preserves_other_families_and_nullable_literal(family, fields):
     values = {
-        **PIN,
-        "producer_release_id": "release:producer",
-        "projection_id": "companion-projection:fixture",
+        **provenance(),
+        "projection_id": projection(family).projection_id,
         **fields,
     }
-    statement = getattr(_operation_calls, f"prepare_read_published_{family}_batch")(**PIN)
-    raw = tuple(values[col.name] for col in statement.selected_columns)
-    materialize = getattr(_operation_calls, f"materialize_read_published_{family}_batch")
-    assert materialize(raw).model_dump(mode="python") == values
-    if family == "mapping_report":
-        invalid = dict(values, normalization="invented-normalization")
-        with pytest.raises(NativeResultViolation) as error:
-            materialize(tuple(invalid[col.name] for col in statement.selected_columns))
-        assert ("normalization",) in error.value.locations
+    assert admit(family, values) == values

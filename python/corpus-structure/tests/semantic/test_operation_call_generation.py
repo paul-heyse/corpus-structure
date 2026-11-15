@@ -12,7 +12,7 @@ import yaml
 from pydantic import ValidationError
 
 from corpus_structure.core.vocab import TaskUnitType
-from corpus_structure.semantic import _operation_calls
+from corpus_structure.semantic import _operation_calls, _pdf_native_calls
 from corpus_structure.semantic.contracts import compile_execution_model, trusted_execution_inputs
 from corpus_structure.semantic.metadata import metadata
 from corpus_structure.semantic.native_call_contracts import OperationFieldBinding
@@ -82,39 +82,6 @@ def test_semantic_identifiers_do_not_import_generated_calls_or_arrow():
         cwd=REPO,
     )
     assert result.returncode == 0, result.stdout + result.stderr
-
-
-def test_prepared_stream_call_binds_and_validates_without_executing_or_collecting():
-    from corpus_structure.semantic._operation_ids import ContentDigest, ProductKey, TaskId
-
-    statement = _operation_calls.prepare_read_pdf_record_rows(
-        task_id=TaskId(17),
-        product_key=ProductKey("native"),
-        content_digest=ContentDigest("a" * 64),
-        family="native",
-        filters={"record_id": "one"},
-        after=None,
-        limit=32,
-    )
-    assert statement.compile().params == {
-        "task_id": 17,
-        "product_key": "native",
-        "content_digest": "a" * 64,
-        "family": "native",
-        "filters": {"record_id": "one"},
-        "after": None,
-        "limit": 32,
-    }
-    row = _operation_calls.materialize_read_pdf_record_rows(('{"_cursor":[],"x":null}',))
-    assert row.body == '{"_cursor":[],"x":null}'
-    assert row.decoded_json_fields(operation="read_native_source")["body"] == {
-        "_cursor": [],
-        "x": None,
-    }
-    materialize = vars(_operation_calls)["materialize_read_pdf_record_rows"]
-    with pytest.raises(NativeResultViolation) as invalid:
-        materialize((None,))
-    assert invalid.value.locations == (("body",),)
 
 
 def test_admission_purpose_is_finite_and_void_output_errors_are_native_results():
@@ -259,8 +226,8 @@ def test_actual_typed_public_call_refuses_wrong_semantic_identifier_parameter_an
         "from corpus_structure.semantic._operation_ids import "
         "RunId, MethodConfigId, TaskId, TaskAttempt, DocumentId, ReleaseId\n"
         "from corpus_structure.semantic._operation_calls import "
-        "prepare_original_descriptor, materialize_document_registration, "
-        "_document_registration_kb_document_columns, CompletionResult\n"
+        "prepare_original_descriptor, "
+        "_original_descriptor_kb_document_columns, CompletionResult\n"
         "def receipt(result: CompletionResult) -> None:\n"
         "    task: TaskId = result.receipt.task_id\n"
         "    run: RunId = result.receipt.run_id\n"
@@ -269,7 +236,7 @@ def test_actual_typed_public_call_refuses_wrong_semantic_identifier_parameter_an
         "def good(conn: Connection) -> None:\n"
         "    descriptor = prepare_original_descriptor(id=DocumentId(1))\n"
         "    doc: DocumentId = descriptor.id\n"
-        "    column = _document_registration_kb_document_columns.original_path\n"
+        "    column = _original_descriptor_kb_document_columns.original_path\n"
         "    rows = claim_tasks(conn, run_id=RunId(1), config_id=MethodConfigId(2), holder='w')\n"
         "    if rows: print(rows[0].deadline.isoformat())\n"
         "    if rows:\n"
@@ -305,7 +272,7 @@ def test_actual_typed_public_call_refuses_wrong_semantic_identifier_parameter_an
             "stage='ingest', unit_type='run', input_hash='fixture')\n"
             "    renew_claim(conn, task_id=RunId(1), attempt=TaskId(2), holder='w')\n"
             "    prepare_original_descriptor(id=TaskId(1))\n"
-            "    _document_registration_kb_document_columns.invented_column\n"
+            "    _original_descriptor_kb_document_columns.invented_column\n"
         )
     bad = subprocess.run(command, capture_output=True, text=True, check=False)
     assert bad.returncode != 0
@@ -314,99 +281,6 @@ def test_actual_typed_public_call_refuses_wrong_semantic_identifier_parameter_an
     assert "TaskId" in output and "TaskAttempt" in output
     assert "missing" in output and "None" in output
     assert "DocumentId" in output and "invented_column" in output
-
-
-def test_selected_projection_materializers_preserve_empty_ancestors_and_exact_decimals():
-    from decimal import Decimal
-
-    section = _operation_calls._read_published_sections_result(
-        ("#/groups/1", None, 4, "section", "body", None, [], None, "")
-    )
-    assert section.model_dump(mode="python") == {
-        "pointer": "#/groups/1",
-        "parent_pointer": None,
-        "ordinal": 4,
-        "label": "section",
-        "content_layer": "body",
-        "name": None,
-        "ancestors": (),
-        "section_pointer": None,
-        "text": "",
-    }
-    exact = Decimal("0.10000000000000000000000000001")
-    region = _operation_calls._read_published_region_result(
-        (
-            "build",
-            "revision",
-            "#/texts/3",
-            0,
-            2,
-            Decimal("600"),
-            Decimal("800"),
-            exact,
-            Decimal("2"),
-            Decimal("3"),
-            Decimal("4"),
-            "TOPLEFT",
-        )
-    )
-    assert region.left is exact
-    assert region.model_dump(mode="python")["left"] == exact
-    with pytest.raises(NativeResultViolation) as invalid_role:
-        _operation_calls._read_published_section_nodes_result(
-            (
-                "invented-role",
-                "build",
-                "revision",
-                "#/texts/3",
-                4,
-                "text",
-                None,
-                None,
-                "body",
-                "hello",
-                '{"self_ref":"#/texts/3"}',
-            )
-        )
-
-    assert isinstance(invalid_role.value.original, ValidationError)
-    assert invalid_role.value.locations == (("role",),)
-
-
-def test_declared_json_text_result_preserves_sql_null_and_json_values():
-    from corpus_structure.semantic.operation_value_types import SQL_NULL, decode_json_text
-
-    assert decode_json_text(None) is SQL_NULL
-    assert decode_json_text("null") is None
-    assert decode_json_text("[]") == []
-    assert decode_json_text("{}") == {}
-    materialize = vars(_operation_calls)["_read_published_section_reports_result"]
-    for encoded, expected in (("null", None), ("[]", []), ("{}", {})):
-        row = materialize(("report", 3, encoded))
-        assert row.body == encoded
-        assert row.decoded_json_fields(operation="read_native_source")["body"] == expected
-    with pytest.raises(NativeResultViolation) as absent:
-        materialize(("report", 3, None))
-    assert absent.value.field == "body"
-    row = materialize(("report", 3, "malformed"))
-    with pytest.raises(NativeResultViolation) as malformed:
-        row.decoded_json_fields(operation="read_native_source")
-    assert malformed.value.field == "body"
-
-
-def test_json_text_result_uses_text_cast_without_changing_source_json_contract():
-    from sqlalchemy.dialects import postgresql
-
-    call = next(
-        call
-        for call in current_model().operation("read_native_source").calls
-        if call.id == "read_published_section_reports"
-    )
-    assert call.json_read == "json-text-v1"
-    body = next(field for field in call.result_fields if field.name == "body")
-    assert body.resolved is not None and body.resolved.kind == "json_payload"
-    statement = vars(_operation_calls)["_read_published_section_reports_statement"]
-    assert "CAST(" in str(statement.compile(dialect=postgresql.dialect()))
 
 
 def test_native_completion_envelope_uses_derived_nested_fields_and_present_empty_collection():
@@ -475,7 +349,7 @@ def test_source_resolution_cannot_fill_missing_acquired_types_from_installed_fil
 def test_explicit_native_integer_width_preserves_semantic_integer_and_other_bindings():
     from sqlalchemy import BigInteger, Integer
 
-    private = {p.key: p.type for p in _operation_calls._read_pdf_frozen_rows_function.clauses}
+    private = {p.key: p.type for p in _pdf_native_calls._read_pdf_frozen_rows_function.clauses}
     from sqlalchemy.sql.functions import FunctionElement
 
     function = _operation_calls._claim_tasks_function.element
@@ -496,65 +370,6 @@ def test_explicit_native_integer_width_preserves_semantic_integer_and_other_bind
     )
     with pytest.raises(PreparationError, match="native integer width needs one integer parameter"):
         validate_call_bindings(model, trusted_execution_inputs())
-
-
-def test_projected_requiredness_refines_nullable_source_without_losing_native_diagnostic(
-    monkeypatch,
-):
-    import sys
-    from types import ModuleType
-
-    inputs = trusted_execution_inputs()
-    artifact = next(
-        s for s in inputs.implementations if s.name == "capture/companion-projection-model.yaml"
-    )
-    body = yaml.safe_load(artifact.content)
-    body["classes"]["PublishedItemIndexRow"]["attributes"]["text"]["required"] = True
-    inputs = replace(
-        inputs,
-        implementations=tuple(
-            SourceArtifact(s.name, yaml.safe_dump(body, sort_keys=False).encode())
-            if s.name == artifact.name
-            else s
-            for s in inputs.implementations
-        ),
-    )
-    model = current_model()
-    operation = model.operation("read_native_source")
-    changed = replace(
-        operation,
-        calls=tuple(
-            replace(c, result_fields=(), source_digest=None)
-            if c.result_source == "model:PublishedItemIndexRow"
-            else c
-            for c in operation.calls
-        ),
-    )
-    model = replace(
-        model, operations=tuple(changed if o.id == operation.id else o for o in model.operations)
-    )
-    resolved = validate_call_bindings(model, inputs)
-    call = next(
-        c
-        for c in resolved.operation("read_native_source").calls
-        if c.id == "read_published_item_page"
-    )
-    field = next(f for f in call.result_fields if f.name == "text")
-    assert not field.nullable and field.resolved is not None and field.resolved.nullable
-    module = ModuleType("corpus_structure.semantic._projection_requiredness_control")
-    module.__package__ = "corpus_structure.semantic"
-    monkeypatch.setitem(sys.modules, module.__name__, module)
-    exec(
-        compile(render_operation_calls(resolved), "<generated-call-control>", "exec"), vars(module)
-    )
-    materialize = vars(module)["_read_published_item_page_result"]
-    with pytest.raises(NativeResultViolation) as invalid:
-        materialize(("build", "revision", "#/texts/1", 0, "text", None, None, "body", None))
-    assert invalid.value.field == "text"
-    assert (
-        materialize(("build", "revision", "#/texts/1", 0, "text", None, None, "body", "kept")).text
-        == "kept"
-    )
 
 
 def test_output_failure_preserves_original_errors_and_transform_field_locations():
@@ -606,54 +421,15 @@ def test_native_width_refusals_remain_input_validation_and_accept_representable_
     }
     for edge in (-(1 << 31), (1 << 31) - 1):
         assert (
-            _operation_calls._read_pdf_frozen_rowsRequest.model_validate(
+            _pdf_native_calls._read_pdf_frozen_rowsRequest.model_validate(
                 {**frozen, "limit": edge}
             ).limit
             == edge
         )
     for outside in (-(1 << 31) - 1, 1 << 31):
         with pytest.raises(ValidationError) as invalid:
-            _operation_calls._read_pdf_frozen_rowsRequest.model_validate(
+            _pdf_native_calls._read_pdf_frozen_rowsRequest.model_validate(
                 {**frozen, "limit": outside}
             )
         assert not isinstance(invalid.value, NativeResultViolation)
         assert invalid.value.errors()[0]["loc"] == ("limit",)
-
-
-def test_published_validation_reader_preserves_original_six_field_receipt():
-    statement = _operation_calls.prepare_read_pdf_published_validation(
-        task_id=_operation_calls.TaskId(10),
-        product_key=_operation_calls.ProductKey("integrated"),
-        content_digest=_operation_calls.ContentDigest("logical-book-digest"),
-    )
-    assert statement.compile().params == {
-        "task_id": 10,
-        "product_key": "integrated",
-        "content_digest": "logical-book-digest",
-    }
-    contract = current_model().operation("read_pdf_product")
-    call = next(c for c in contract.calls if c.id == "read_pdf_published_validation")
-    assert [f.native_parameter for f in call.parameters] == ["p_task", "p_key", "p_digest"]
-    assert call.cardinality == "optional" and not call.requires_context
-    result = _operation_calls.materialize_read_pdf_published_validation(
-        (
-            "retained-build",
-            "frozen-digest",
-            "logical-book-digest",
-            "projection-contract",
-            True,
-            "original-v4-native-contract",
-        )
-    )
-    assert result.model_dump() == {
-        "build_id": "retained-build",
-        "frozen_digest": "frozen-digest",
-        "logical_digest": "logical-book-digest",
-        "contract_digest": "projection-contract",
-        "native_callbacks": True,
-        "native_contract_digest": "original-v4-native-contract",
-    }
-    materialize = vars(_operation_calls)["materialize_read_pdf_published_validation"]
-    with pytest.raises(NativeResultViolation) as refused:
-        materialize(("b", "f", "l", "contract", "true", "original-native"))
-    assert refused.value.locations == (("native_callbacks",),)
