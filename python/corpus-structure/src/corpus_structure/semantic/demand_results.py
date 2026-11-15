@@ -111,7 +111,7 @@ class DemandResult:
 def read_demand_result(connection, demand_id: str, *, project_id: str, continuation=None,
                        cut: CutSelection | None = None, limit: int = 100,
                        max_bytes: int = 8 * 1024 * 1024,
-                       view: Literal["frontier", "products", "support"] = "products", scope: Mapping[str, str] | None = None) -> DemandResult:
+                       view: Literal["frontier", "products", "support"] = "products", scope: Mapping[str, Any] | None = None) -> DemandResult:
     """Acquire or continue one explicit target, with no default project or run lookup."""
     from .data_operation_storage import DataOperationStorage
     if not demand_id or not project_id:
@@ -137,12 +137,12 @@ def read_demand_result(connection, demand_id: str, *, project_id: str, continuat
 
 
 def stream_demand_result(connection, demand_id: str, *, project_id: str, limit=100,
-                         max_bytes=8 * 1024 * 1024) -> Iterator[DemandResult]:
+                         max_bytes=8 * 1024 * 1024, scope: Mapping[str, Any] | None = None) -> Iterator[DemandResult]:
     """Same-session bounded pages retain the acquisition and its transaction locks."""
     continuation, cut = None, None
     while True:
         page = read_demand_result(connection, demand_id, project_id=project_id,
-                                  continuation=continuation, cut=cut, limit=limit, max_bytes=max_bytes)
+                                  continuation=continuation, cut=cut, limit=limit, max_bytes=max_bytes, scope=scope)
         cut = page.cut
         yield page
         continuation = page.continuation

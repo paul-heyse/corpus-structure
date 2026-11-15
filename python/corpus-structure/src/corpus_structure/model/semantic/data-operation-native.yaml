@@ -1934,6 +1934,11 @@ definitions:
   demand_read_scope:
     type: object
     properties:
+      product_ids:
+        type: array
+        items: {$ref: '#/definitions/identifier'}
+        minItems: 1
+        uniqueItems: true
       operation_id: {$ref: '#/definitions/identifier'}
       subject: {$ref: '#/definitions/identifier'}
       original_source: {$ref: '#/definitions/identifier'}

@@ -721,7 +721,8 @@ def selected_support_export(metadata, selected_uses, admissions, in_page):
         _node("use", selected_uses.c.id),
         _node("original", admissions.c.id).where(
             admissions.c.demand_id == _var("d.id", Text), in_page, _visible(admissions),
-            *(or_(_var("p", JSONB)["scope"][name].astext.is_(None), admissions.c[name] == _var("p", JSONB)["scope"][name].astext) for name in ("subject", "original_source"))
+            *(or_(_var("p", JSONB)["scope"][name].astext.is_(None), admissions.c[name] == _var("p", JSONB)["scope"][name].astext) for name in ("subject", "original_source")),
+            or_(~_var("p", JSONB)["scope"].op("?")(literal("product_ids")), exists(select(1).select_from(_items(_var("p", JSONB)["scope"]["product_ids"], "scope_original_product")).where(literal_column("scope_original_product.value", type_=JSONB).op("#>>")(literal_column("'{}'::text[]")) == admissions.c.product_id)))
         ),
     ).cte("export_support_seed")
     nodes = _support_walk(metadata, seed)
@@ -778,6 +779,10 @@ def selected_support_export(metadata, selected_uses, admissions, in_page):
         ), kinds.c.kind_contract),
         definitions=records(definitions, exists(select(1).select_from(episodes.join(requests, requests.c.id == episodes.c.request_id)).where(episodes.c.id.in_(episode_ids), episodes.c.release_id == definitions.c.release_id, requests.c.operation_id == definitions.c.operation_id)), definitions.c.release_id, definitions.c.operation_id),
     )
+    intents = metadata.tables["ops.data_completion_intent"]
+    receipts = metadata.tables["ops.data_publication_receipt"]
+    fields["completion_intents"] = records(intents, intents.c.id.in_(select(episodes.c.intent_id).where(episodes.c.id.in_(episode_ids))), intents.c.id)
+    fields["publication_receipts"] = records(receipts, receipts.c.derivation_id.in_(episode_ids), receipts.c.id)
     for name in ("data_derivation_support", "data_derivation_original_support"):
         relation = metadata.tables["ops." + name]
         fields[name.removeprefix("data_derivation_")] = records(relation, relation.c.derivation_id.in_(episode_ids), *relation.primary_key.columns)
@@ -810,6 +815,13 @@ def read_page(metadata):
     definitions = metadata.tables["sem.data_operation_definition"]
     read_scope = _var("p", JSONB)["scope"]
     scope_predicates = tuple(or_(read_scope[name].astext.is_(None), obligations.c[name] == read_scope[name].astext) for name in ("operation_id", "subject", "original_source"))
+    scoped_use = uses.alias("scope_use")
+    later_scope_use = uses.alias("scope_later_use")
+    selected_product = func.jsonb_array_elements_text(read_scope["product_ids"]).table_valued(column("value", Text())).render_derived(name="scope_product")
+    product_match = exists(select(1).select_from(scoped_use.join(outputs, outputs.c.derivation_id == scoped_use.c.derivation_id).join(selected_product, selected_product.c.value == outputs.c.product_id)).where(
+        scoped_use.c.obligation_id == obligations.c.id, _visible(scoped_use),
+        ~exists(select(1).select_from(later_scope_use).where(later_scope_use.c.obligation_id == scoped_use.c.obligation_id, _visible(later_scope_use), or_(later_scope_use.c.created_at > scoped_use.c.created_at, and_(later_scope_use.c.created_at == scoped_use.c.created_at, later_scope_use.c.id > scoped_use.c.id))))))
+    scope_predicates += (or_(~read_scope.op("?")(literal("product_ids")), product_match),)
     bounded = (
         select(obligations)
         .where(
