@@ -40,7 +40,7 @@ classes:
     schema = kind_meaning_schema(
         kind, model.kinds, prepared.index.definitions, prepared.enum_members
     )
-    actual = prepared.validate_json("Event", b'{"at":"2030-01-02T03:04:05+02:00"}').at
+    actual = prepared.validate_json("Event", b'{"at":"2030-01-02T03:04:05+02:00"}').model_dump(mode="python")["at"]
     assert actual == datetime(2030, 1, 2, 1, 4, 5, tzinfo=UTC)
     validate_wire_schema(schema, semantic_value({"at": actual}))
     with pytest.raises(ValueError):
