@@ -54,7 +54,7 @@ class SentenceEvidenceOperation:
         ],
         "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "exact-selected-original-blocks"},
         "outcomes": ["success", "failed"],
-        "precision": "exact-original-projection-offsets",
+        "precision_description": "exact-original-projection-offsets",
         "dependencies": [],
         "effects": [],
         "capabilities": {

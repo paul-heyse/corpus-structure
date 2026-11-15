@@ -90,7 +90,7 @@ def visual_external_declaration():
         "invariants": [{'kind': 'documentation', 'text': 'same-submitted-image'}, {'kind': 'documentation', 'text': 'actual-raw-response'}, {'kind': 'documentation', 'text': 'provider-reported-runtime'}],
         "coverage": {"binding": "self", "result_owners": [{"kind":'declared-contract',"reference":"self"}], "description": "exact-submitted-png"},
         "outcomes": ["success"],
-        "precision": "unselected-chandra-raw-observation",
+        "precision_description": "unselected-chandra-raw-observation",
         "effects": [
             {
                 "name": "external-chandra-observation",

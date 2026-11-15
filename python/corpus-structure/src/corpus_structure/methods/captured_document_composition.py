@@ -200,7 +200,7 @@ class ComposeCapturedDocumentFamily(ComposeFullDocumentOperation):
         ],
         "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "complete-frozen-source-population-per-declared-family"},
         "outcomes": ["success", "empty", "failed"],
-        "precision": "retained-positioned-characterization",
+        "precision_description": "retained-positioned-characterization",
         "dependencies": ["source.pdf_views/discovery"],
         "effects": [],
         "capabilities": {

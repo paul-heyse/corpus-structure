@@ -150,7 +150,7 @@ class DossierOperation:
         ],
         "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "explicit-selected-predecessor-and-native-passage-closure"},
         "outcomes": ["success"],
-        "precision": "original-native-half-open-extents",
+        "precision_description": "original-native-half-open-extents",
         "dependencies": [],
         "effects": [],
         "capabilities": {

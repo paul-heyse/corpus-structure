@@ -83,7 +83,7 @@ class DefinitionComponentsOperation:
         ],
         "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "actual-inspected-original-block-windows"},
         "outcomes": ["success"],
-        "precision": "original-native-half-open-extents",
+        "precision_description": "original-native-half-open-extents",
         "dependencies": ["text.gliner_definitions/source-native"],
         "effects": [],
         "capabilities": {

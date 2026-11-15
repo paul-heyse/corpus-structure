@@ -35,7 +35,7 @@ class DeclarationVocabulary:
     invariants: tuple[str, ...]
     coverage: str
     outcomes: tuple[str, ...]
-    precision: str
+    precision_description: str
     cancellation: str
     ownership: str
 
@@ -56,7 +56,7 @@ def declaration(
         "invariants": [{"kind": "documentation", "text": text} for text in vocabulary.invariants],
         "coverage": {"binding": "self", "result_owners": [{"kind": "implementation" if implementation_coverage else "declared-contract", "reference": "self"}], "description": coverage_description},
         "outcomes": list(vocabulary.outcomes),
-        "precision": vocabulary.precision,
+        "precision_description": vocabulary.precision_description,
         "dependencies": [],
         "effects": [],
         "capabilities": {
@@ -151,7 +151,7 @@ COMPILATION = DeclarationVocabulary(
     invariants=("exact-integer",),
     coverage="selected-scope",
     outcomes=("produced", "unknown"),
-    precision="exact",
+    precision_description="exact",
     cancellation="call-boundary",
     ownership="immutable",
 )
@@ -164,7 +164,7 @@ DEMAND = DeclarationVocabulary(
     invariants=("integer",),
     coverage="whole",
     outcomes=("produced",),
-    precision="exact",
+    precision_description="exact",
     cancellation="call-boundary",
     ownership="immutable",
 )
@@ -177,7 +177,7 @@ BINDING = DeclarationVocabulary(
     invariants=(),
     coverage="complete",
     outcomes=("produced",),
-    precision="exact",
+    precision_description="exact",
     cancellation="boundary",
     ownership="immutable",
 )
@@ -190,7 +190,7 @@ NATIVE = DeclarationVocabulary(
     invariants=("integer",),
     coverage="declared-scope",
     outcomes=("success", "empty", "failed"),
-    precision="exact",
+    precision_description="exact",
     cancellation="transaction-boundary",
     ownership="one-claim",
 )
@@ -203,7 +203,7 @@ PARAMETER = DeclarationVocabulary(
     invariants=(),
     coverage="selected",
     outcomes=("success",),
-    precision="exact",
+    precision_description="exact",
     cancellation="call-boundary",
     ownership="immutable",
 )

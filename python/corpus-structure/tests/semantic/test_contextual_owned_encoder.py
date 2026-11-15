@@ -111,7 +111,7 @@ def test_contextual_encoder_captures_cpu_acquisition_and_closed_source_factory(t
     from corpus_structure.semantic.data_operation_demands import OperationSelection, RootSubject, freeze_demand
 
     assert operation.replicate_policy == selected.replicate_policy == "explicit-replicates"
-    assert operation.precision is None and operation.numerical_policy is not None
+    assert operation.precision_description is None and operation.numerical_policy is not None
     arguments = dict(roots=(RootSubject("source", "original", b"{}"),), targets=(operation.semantic_id,), inference="declared", execution_profile="cpu")
     with pytest.raises(ValueError, match="explicit replicate selection is required"):
         freeze_demand(model, **arguments)

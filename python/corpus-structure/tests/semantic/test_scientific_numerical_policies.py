@@ -42,7 +42,7 @@ def test_actual_finite_selected_library_policy_reaches_recipe_and_has_no_label_f
     declarations = (finite_interpretation_declarations(),)
     actual = compile_data_operations(bundle, declarations, sources)
     operation = actual.operation("interpret.finite_candidates")
-    assert operation.precision is None
+    assert operation.precision_description is None
     assert operation.numerical_policy is not None
     assert operation.numerical_policy.kind == "urn:corpus:kind:finite:NumericalPolicy"
     assert json.loads(operation.numerical_policy.body)["normalization"] == "centered-logsumexp"

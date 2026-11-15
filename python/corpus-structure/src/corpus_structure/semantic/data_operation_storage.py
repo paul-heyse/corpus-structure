@@ -415,7 +415,7 @@ def native_operation_declarations(sources=None) -> SourceArtifact:
                 "outcomes": ["returned"],
                 "state_dimensions": [{"name": "completion", "values": ["pending", "success", "empty", "failed"]}],
                 "transitions": [{"dimension": "completion", "before": "pending", "after": "success", "outcome": "returned", "effects": []}],
-                "precision": "exact",
+                "precision_description": "exact",
                 "dependencies": [],
                 "effects": (
                     []

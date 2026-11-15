@@ -332,7 +332,7 @@ score_operation_event__data_operation__ = {
         {"dimension": "completion", "before": "pending", "after": "failed", "outcome": "invalid-feature-shape"},
         {"dimension": "completion", "before": "pending", "after": "failed", "outcome": "numerical-failure"},
     ],
-    "precision": None,
+    "precision_description": None,
     "numerical_policy": {"asset": "operation-score/numerical-policy", "pointer": "/policy", "kind": "urn:corpus:kind:operation-event:OperationScoreNumericalPolicy"},
     "assets": [{"reference": "operation-score-policy", "contract": "operation-score/numerical-policy", "role": "numerical-policy"}],
     "dependencies": [],

@@ -90,7 +90,7 @@ class ConstructionOperation:
         ],
         "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "exact-selected-source-scope"},
         "outcomes": ["success", "failed"],
-        "precision": "retained-positioned-characterization",
+        "precision_description": "retained-positioned-characterization",
         "dependencies": ["text.formal_evidence/source-native"],
         "effects": [],
         "capabilities": {

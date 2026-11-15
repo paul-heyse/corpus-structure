@@ -54,7 +54,7 @@ def test_actual_score_uses_selected_float64_policy_and_finite_probability():
 def test_score_policy_is_a_checked_nominal_body_and_current_archive_fact():
     model = compile_data_operations(declarations=operation_score_inputs(), python_sources=operation_score_sources())
     operation = model.operation("urn:corpus:operation:score-operation-event")
-    assert operation.precision is None
+    assert operation.precision_description is None
     assert operation.numerical_policy is not None
     assert json.loads(operation.numerical_policy.body) == operation_score_numerical_policy().model_dump(mode="json")
     field = next(kind for kind in model.kinds if kind.semantic_id == "urn:corpus:kind:operation-event:parameters/property/numerical")

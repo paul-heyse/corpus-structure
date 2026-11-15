@@ -88,7 +88,7 @@ class MaverickPrimaryOperation:
         ],
         "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "complete-original-selected-blocks-with-explicit-limitations"},
         "outcomes": ["success", "failed"],
-        "precision": "unchanged-native-model-and-original-mapping-policy",
+        "precision_description": "unchanged-native-model-and-original-mapping-policy",
         "capabilities": {
             "forms": ["scalar"],
             "preparation": "resource",
@@ -599,7 +599,7 @@ class DipoPrimaryOperation:
         ],
         "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "complete-original-selected-blocks-with-explicit-limitations"},
         "outcomes": ["success", "failed"],
-        "precision": "unchanged-native-model-and-original-mapping-policy",
+        "precision_description": "unchanged-native-model-and-original-mapping-policy",
         "capabilities": {
             "forms": ["scalar"],
             "preparation": "resource",
@@ -1097,7 +1097,7 @@ class D1SourcePrimaryOperation:
         ],
         "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "complete-original-selected-blocks-with-explicit-limitations"},
         "outcomes": ["success", "failed"],
-        "precision": "unchanged-native-model-and-original-mapping-policy",
+        "precision_description": "unchanged-native-model-and-original-mapping-policy",
         "capabilities": {
             "forms": ["scalar"],
             "preparation": "resource",
@@ -1650,7 +1650,7 @@ class D1CandidatesPrimaryOperation:
         ],
         "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "complete-original-selected-blocks-with-explicit-limitations"},
         "outcomes": ["success", "failed"],
-        "precision": "unchanged-native-model-and-original-mapping-policy",
+        "precision_description": "unchanged-native-model-and-original-mapping-policy",
         "capabilities": {
             "forms": ["scalar"],
             "preparation": "resource",
@@ -2177,7 +2177,7 @@ class GlinerCuesPrimaryOperation:
         ],
         "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "complete-original-selected-blocks-with-explicit-limitations"},
         "outcomes": ["success", "failed"],
-        "precision": "unchanged-native-model-and-original-mapping-policy",
+        "precision_description": "unchanged-native-model-and-original-mapping-policy",
         "capabilities": {
             "forms": ["scalar"],
             "preparation": "resource",
@@ -2675,7 +2675,7 @@ class GlinerFunctionPrimaryOperation:
         ],
         "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "complete-original-selected-blocks-with-explicit-limitations"},
         "outcomes": ["success", "failed"],
-        "precision": "unchanged-native-model-and-original-mapping-policy",
+        "precision_description": "unchanged-native-model-and-original-mapping-policy",
         "capabilities": {
             "forms": ["scalar"],
             "preparation": "resource",
@@ -3237,7 +3237,7 @@ class ContextualNativePrimaryOperation:
         ],
         "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "complete-original-selected-blocks-with-explicit-limitations"},
         "outcomes": ["success", "failed"],
-        "precision": "unchanged-native-model-and-original-mapping-policy",
+        "precision_description": "unchanged-native-model-and-original-mapping-policy",
         "capabilities": {
             "forms": ["scalar"],
             "preparation": "resource",
@@ -3389,7 +3389,7 @@ class GlinerDefinitionPrimaryOperation:
         ],
         "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "complete-original-selected-blocks-with-explicit-limitations"},
         "outcomes": ["success", "failed"],
-        "precision": "unchanged-native-model-and-original-mapping-policy",
+        "precision_description": "unchanged-native-model-and-original-mapping-policy",
         "capabilities": {
             "forms": ["scalar"],
             "preparation": "resource",

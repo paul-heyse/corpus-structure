@@ -71,7 +71,7 @@ class HanlpEvidenceOperation:
         ],
         "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "exact-selected-canonical-sentences"},
         "outcomes": ["success", "failed"],
-        "precision": "native-one-based-heads-and-half-open-word-spans",
+        "precision_description": "native-one-based-heads-and-half-open-word-spans",
         "dependencies": ["segment.sentences/canonical-projection"],
         "effects": [],
         "capabilities": {

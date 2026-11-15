@@ -101,7 +101,7 @@ class DeclaredStructuralComparison:
         ],
         "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "exact-selected-passages-and-retained-report-inventory"},
         "outcomes": ["success"],
-        "precision": "original-native-half-open-extents",
+        "precision_description": "original-native-half-open-extents",
         "dependencies": [],
         "effects": [],
         "capabilities": {
@@ -663,7 +663,7 @@ class DeclaredConditionQualification:
         ],
         "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "exact-selected-passages-and-retained-report-inventory"},
         "outcomes": ["success"],
-        "precision": "original-native-half-open-extents",
+        "precision_description": "original-native-half-open-extents",
         "dependencies": [],
         "effects": [],
         "capabilities": {

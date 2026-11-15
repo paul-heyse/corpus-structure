@@ -155,7 +155,7 @@ class ClauseClassificationOperation:
         ],
         "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "exact-inspected-native-predicate-focus-population"},
         "outcomes": ["success"],
-        "precision": "original-native-half-open-extents",
+        "precision_description": "original-native-half-open-extents",
         "dependencies": [
             "structure.predicate_evidence/declared",
             "segment.sentences/canonical-projection",

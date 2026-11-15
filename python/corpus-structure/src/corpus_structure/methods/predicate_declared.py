@@ -98,7 +98,7 @@ class PredicateEvidenceOperation:
         ],
         "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "exact-inspected-native-blocks-with-unavailable-coverage"},
         "outcomes": ["success", "failed"],
-        "precision": "original-native-half-open-extents",
+        "precision_description": "original-native-half-open-extents",
         "dependencies": [
             "segment.sentences/source-native",
             "text.formal_evidence/source-native",

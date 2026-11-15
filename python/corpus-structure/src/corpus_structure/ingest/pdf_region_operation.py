@@ -67,7 +67,7 @@ class PdfRegionFamily:
         ],
         "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "native-occurrence-region"},
         "outcomes": ["success", "failed"],
-        "precision": "png-from-native-pdf-point-region",
+        "precision_description": "png-from-native-pdf-point-region",
         "behavior": "render selected native geometry using the authenticated original PDF",
         "binding": {"operator": "scan", "roles": ["capture"]},
         "opaque": [

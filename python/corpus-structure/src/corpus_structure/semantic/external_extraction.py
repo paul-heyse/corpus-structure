@@ -183,7 +183,7 @@ def rich_external_declarations(protocol):
         ],
         "coverage": {"binding": "self", "result_owners": [{"kind":'declared-contract',"reference":"self"}], "description": "complete-selected-packet"},
         "outcomes": ["success"],
-        "precision": "authored_source_report",
+        "precision_description": "authored_source_report",
         "effects": [
             {
                 "name": "external-rich-extraction",

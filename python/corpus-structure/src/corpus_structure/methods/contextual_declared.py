@@ -321,7 +321,7 @@ class ContextualInventoryOperation:
         ],
         "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "complete-selected-eligible-inventory"},
         "outcomes": ["success"],
-        "precision": "exact-frozen-inventory",
+        "precision_description": "exact-frozen-inventory",
         "dependencies": [],
         "effects": [],
         "capabilities": {

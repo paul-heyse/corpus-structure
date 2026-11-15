@@ -60,7 +60,7 @@ class ChandraMappingFamily:
         ],
         "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "exact-submitted-png"},
         "outcomes": ["success", "failed"],
-        "precision": "incumbent-chandra-html-parser-and-qualified-pdf-map",
+        "precision_description": "incumbent-chandra-html-parser-and-qualified-pdf-map",
         "behavior": "retain parser outcomes and independently mapped original coordinates without selecting source knowledge",
         "binding": {"operator": "scan", "roles": ["observation"]},
         "opaque": [

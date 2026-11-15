@@ -73,7 +73,7 @@ class SelectedSourceViewsOperation:
         ],
         "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "frozen-selected-view-set"},
         "outcomes": ["success", "failed"],
-        "precision": "exact-original-source-addresses",
+        "precision_description": "exact-original-source-addresses",
         "dependencies": [],
         "effects": [],
         "capabilities": {

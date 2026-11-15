@@ -85,7 +85,7 @@ class DeclarationSyntaxOperation:
         ],
         "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "exact-selected-canonical-sentence-population"},
         "outcomes": ["success", "failed"],
-        "precision": "original-native-half-open-extents",
+        "precision_description": "original-native-half-open-extents",
         "dependencies": [
             "segment.sentences/canonical-projection",
             "text.hanlp_native/source-native",

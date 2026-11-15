@@ -456,7 +456,7 @@ class EffectiveOperation:
     invariants: tuple[EnforcementClaim, ...]
     coverage: CoverageContract
     outcomes: tuple[str, ...]
-    precision: str | None
+    precision_description: str | None
     dependencies: tuple[str, ...]
     state_dimensions: tuple[StateDimension, ...]
     transitions: tuple[StateTransition, ...]
@@ -499,7 +499,6 @@ class EffectiveOperation:
                 "invariants": enforced_claims(self.invariants),
                 "coverage": self.coverage.record(result_only=True),
                 "outcomes": self.outcomes,
-                **({"precision": self.precision} if self.precision is not None else {}),
                 **({"numerical_policy": self.numerical_policy.record} if self.numerical_policy is not None else {}),
                 "dependencies": self.dependencies,
                 **({"behavior": self.behavior} if self.implementation_root is None else {}),

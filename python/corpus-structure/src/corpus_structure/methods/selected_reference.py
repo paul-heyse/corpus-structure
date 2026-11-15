@@ -49,7 +49,7 @@ class SelectedReferenceSnapshotOperation:
         ],
         "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "exact-frozen-reference-population"},
         "outcomes": ["success", "failed"],
-        "precision": "exact-authored-semantic-values",
+        "precision_description": "exact-authored-semantic-values",
         "dependencies": [],
         "effects": [],
         "parameters": {},

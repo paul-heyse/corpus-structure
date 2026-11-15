@@ -58,7 +58,7 @@ class FormalEvidenceOperation:
         ],
         "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "exact-selected-source-scope"},
         "outcomes": ["success", "failed"],
-        "precision": "positioned-source-evidence",
+        "precision_description": "positioned-source-evidence",
         "dependencies": [],
         "effects": [],
         "capabilities": {

@@ -60,7 +60,7 @@ class PdfSourceViewsFamily:
         ],
         "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "frozen-relative-section-selection"},
         "outcomes": ["success", "failed"],
-        "precision": "actual-published-native-atom-and-ancestor-projection",
+        "precision_description": "actual-published-native-atom-and-ancestor-projection",
         "capabilities": {
             "forms": ["scalar"],
             "preparation": "resource",

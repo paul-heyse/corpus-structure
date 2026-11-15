@@ -97,7 +97,7 @@ class ArtifactIdentityOperation:
         ],
         "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "exact-selected-artifact-cohort-and-authored-source-passages"},
         "outcomes": ["success"],
-        "precision": "original-native-half-open-extents",
+        "precision_description": "original-native-half-open-extents",
         "dependencies": ["text.constructions/source-native"],
         "effects": [],
         "capabilities": {

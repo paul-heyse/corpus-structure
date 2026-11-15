@@ -71,7 +71,7 @@ class PdfIntegrationOperation:
         ],
         "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "whole-document"},
         "outcomes": ["success", "failed"],
-        "precision": "native-pdf-records-and-original-coordinates",
+        "precision_description": "native-pdf-records-and-original-coordinates",
         "behavior": "immutable per-page recognition receipts and explicit retained reconciliation",
         "binding": {"operator": "scan", "roles": ["capture"]},
         "opaque": [

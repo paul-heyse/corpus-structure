@@ -1500,3 +1500,29 @@ def test_captured_semantic_contract_pool_merges_equal_bytes_and_refuses_conflict
     assert first.content == same.content
     with pytest.raises(PreparationError, match="disagree on exact source bytes"):
         compile_data_operations(python_sources=sources, captured_contracts=(SourceArtifact(asset.name, b"different policy"),))
+
+
+def test_precision_description_is_archived_documentation_without_semantic_identity():
+    from corpus_structure.semantic.data_operation_model import read_effective_data_operations
+
+    for source_owned in (False, True):
+        def compile_description(description):
+            metadata = contract(precision_description=description)
+            return (
+                compile_data_operations(python_sources=python_inputs(operation_source(metadata=metadata)))
+                if source_owned else compile_data_operations(declarations=declarations(metadata))
+            )
+        before, after = compile_description("source coordinate description"), compile_description("reworded coordinate description")
+        assert before.content != after.content
+        assert after.operations[0].precision_description == "reworded coordinate description"
+        assert read_effective_data_operations(after.content).content == after.content
+        for domain in ("recipe", "definition"):
+            assert identity(before, domain=domain) == identity(after, domain=domain)
+        assert "precision_description" not in json.loads(after.operations[0].recipe)
+        archived = json.loads(after.content)
+        assert "precision" not in archived["operations"][0]
+        archived["operations"][0]["precision"] = archived["operations"][0].pop("precision_description")
+        with pytest.raises(ValueError, match="archived EffectiveOperation"):
+            read_effective_data_operations(canonical_bytes(archived))
+    with pytest.raises(PreparationError, match="unsupported fields: precision"):
+        compile_data_operations(declarations=declarations(contract(precision="obsolete legacy label")))

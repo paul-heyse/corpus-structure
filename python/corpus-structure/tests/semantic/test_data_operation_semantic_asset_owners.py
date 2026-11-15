@@ -39,7 +39,9 @@ def test_actual_finite_wrapper_prose_is_custody_but_algorithm_remains_semantic(m
     assert "semantic/record_interpretation.py" in files
     wrapper_bytes = (root / wrapper).read_bytes()
     changed = wrapper_bytes.replace(
-        b'"behavior": "', b'"behavior": "Reworded description. '
+        b'"behavior": "',
+        b'"precision_description": "Descriptive numerical context only", '
+        b'"behavior": "Reworded description. '
     ).replace(b"retained-private-candidates-and-explicit-policy", b"Descriptive applicability reworded").replace(b"complete-selected-candidate-and-factor-population", b"Descriptive coverage reworded").replace(b"selected-candidate-population", b"Descriptive input scope reworded")
     assert changed != wrapper_bytes
     altered_wrapper = tmp_path / "finite_interpretation.py"
@@ -54,6 +56,8 @@ def test_actual_finite_wrapper_prose_is_custody_but_algorithm_remains_semantic(m
     assert after.operations[0].capabilities.prepared_factory is not None
     assert before.operations[0].capabilities.prepared_factory.source_digest != after.operations[0].capabilities.prepared_factory.source_digest
     assert before.operations[0].capabilities.prepared_factory.semantic_digest == after.operations[0].capabilities.prepared_factory.semantic_digest
+    assert after.operations[0].precision_description == "Descriptive numerical context only"
+    assert after.operations[0].numerical_policy == before.operations[0].numerical_policy
     assert before.operations[0].definition == after.operations[0].definition
     assert recipe(before) == recipe(after)
 
@@ -122,3 +126,10 @@ def test_module_projection_retains_metadata_when_executable_code_inspects_it():
     ):
         first = declaration + reflection
         assert admitted_operation_module_digest(first) != admitted_operation_module_digest(first.replace(b"'first'", b"'second'"))
+
+
+def test_reflective_precision_description_remains_a_real_executable_determinant():
+    from corpus_structure.semantic.python_module_projection import admitted_operation_module_digest
+
+    source = b"class Op:\n    __data_operation__ = {'profile':'derivation','subject':'local','roles':[],'precision_description':'first'}\ndef run():\n    return Op.__data_operation__['precision_description']\n"
+    assert admitted_operation_module_digest(source) != admitted_operation_module_digest(source.replace(b"'first'", b"'second'"))

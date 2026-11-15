@@ -25,7 +25,7 @@ def test_compact_archive_keeps_governing_graph_and_reconstructible_identity_keys
     source = (
         "OFFSET = 3\n"
         "def derive(x: int = 2) -> int: return x + OFFSET\n"
-        f"derive__data_operation__ = {contract()!r}\n"
+        f"derive__data_operation__ = {contract(implementation_coverage=True)!r}\n"
     )
     model = compile_data_operations(
         python_sources=PythonSourceCollection(

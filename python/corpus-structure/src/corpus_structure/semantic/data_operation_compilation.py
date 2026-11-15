@@ -114,7 +114,7 @@ _METADATA_FIELDS = {
     "invariants",
     "coverage",
     "outcomes",
-    "precision",
+    "precision_description",
     "numerical_policy",
     "dependencies",
     "potential_dependencies",
@@ -1625,8 +1625,6 @@ def compile_data_operations(
                     _fail(semantic_id, "numerical policy requires every explicit semantic field")
             except (KeyError, TypeError, ValueError) as error:
                 _fail(semantic_id, "numerical policy differs from its nominal captured kind: " + str(error))
-            if raw.get("precision") is not None:
-                _fail(semantic_id, "typed numerical policy replaces its untyped precision label")
             numerical_policy = NumericalPolicyReference(policy_kind, asset_name, asset.digest, pointer, canonical_bytes(body))
         from .data_operation_parameters import compile_nominal_parameters
 
@@ -1763,7 +1761,7 @@ def compile_data_operations(
             _enforcement_claims(raw.get("invariants"), semantic_id),
             _coverage_contract(raw.get("coverage"), binding_id, semantic_id),
             outcomes,
-            None if numerical_policy is not None else _text(raw.get("precision"), semantic_id),
+            None if raw.get("precision_description") is None else _text(raw["precision_description"], semantic_id),
             _strings(raw.get("dependencies"), semantic_id),
             tuple(dimensions),
             tuple(transitions),

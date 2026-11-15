@@ -93,7 +93,7 @@ class M1SourceCandidatesOperation:
         ],
         "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "exact-inspected-regions-with-explicit-partial-or-unavailable-coverage"},
         "outcomes": ["success", "failed"],
-        "precision": "original-native-half-open-extents",
+        "precision_description": "original-native-half-open-extents",
         "dependencies": ["segment.sentences/source-native"],
         "effects": [],
         "capabilities": {

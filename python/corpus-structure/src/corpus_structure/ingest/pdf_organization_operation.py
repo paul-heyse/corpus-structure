@@ -68,7 +68,7 @@ class PdfOrganizationOperation:
         ],
         "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "whole-document"},
         "outcomes": ["success", "failed"],
-        "precision": "native-pdf-records-and-original-coordinates",
+        "precision_description": "native-pdf-records-and-original-coordinates",
         "behavior": "selected inline and cell recognition under exact native source scopes",
         "binding": {"operator": "scan", "roles": ["capture"]},
         "opaque": [

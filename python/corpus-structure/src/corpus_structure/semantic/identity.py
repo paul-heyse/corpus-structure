@@ -92,7 +92,7 @@ claim_source_item__data_operation__ = {
             "outcome": "invalid-index",
         },
     ],
-    "precision": "exact-integer-decimal-spelling",
+    "precision_description": "exact-integer-decimal-spelling",
     "dependencies": [],
     "effects": [],
     "capabilities": {

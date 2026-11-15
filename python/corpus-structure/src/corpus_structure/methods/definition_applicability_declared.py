@@ -95,7 +95,7 @@ class DefinitionApplicabilityOperation:
         ],
         "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "exact-selected-usage-and-actual-native-component"},
         "outcomes": ["success"],
-        "precision": "original-native-half-open-extents",
+        "precision_description": "original-native-half-open-extents",
         "dependencies": [
             "structure.definition_declaration_components/declared",
             "retrieve.contextual/declared",

@@ -141,7 +141,7 @@ class RichExtractionInputOperation:
         ],
         "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "complete-selected-input"},
         "outcomes": ["success"],
-        "precision": "mechanically-checked-source-report",
+        "precision_description": "mechanically-checked-source-report",
         "dependencies": [],
         "effects": [],
         "capabilities": {
@@ -408,7 +408,7 @@ class RichExtractionPlacementOperation:
         ],
         "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "complete-selected-input"},
         "outcomes": ["success"],
-        "precision": "mechanically-checked-source-report",
+        "precision_description": "mechanically-checked-source-report",
         "dependencies": ["extract.rich_external"],
         "effects": [],
         "capabilities": {

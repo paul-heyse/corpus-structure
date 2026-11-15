@@ -84,7 +84,7 @@ class NamedDefinitionComponentsOperation:
         ],
         "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "actual-inspected-original-block-windows"},
         "outcomes": ["success"],
-        "precision": "original-native-half-open-extents",
+        "precision_description": "original-native-half-open-extents",
         "dependencies": ["segment.sentences/source-native", "text.constructions/source-native"],
         "effects": [],
         "capabilities": {

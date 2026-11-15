@@ -21,7 +21,7 @@ class RecordPolicyAuthorization:
         "applicability": [{"kind": "documentation", "text": "native-authenticated-protected-policy-instance-and-checked-application-sources"}],
         "invariants": [{"kind": "documentation", "text": "native-exact-issuer-and-public-disclosure-boundary"}],
         "coverage": {"binding": "self", "result_owners": [{"kind": "implementation", "reference": "self"}], "description": "one-exact-policy-authorization"},
-        "outcomes": ["success"], "precision": "exact-finite-parameter-projection", "dependencies": [],
+        "outcomes": ["success"], "precision_description": "exact-finite-parameter-projection", "dependencies": [],
         "effects": [{"name": "native-evaluator-policy-authorization", "authorization": ["native-purpose:evaluator", "exact-protected-policy-basis"], "idempotency": "request-generation/exact-instance", "fulfillment": "native-publication-receipt"}],
         "capabilities": {"forms": ["scalar"], "preparation": "native-publication", "prepared_factory": "acquire_port", "cancellation": "cooperative", "ownership": "invocation-owned-cpu"},
         "behavior": "allowlisted-policy-conclusion-issued-only-by-native-publication",

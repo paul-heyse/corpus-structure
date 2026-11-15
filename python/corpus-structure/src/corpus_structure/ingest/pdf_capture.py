@@ -67,7 +67,7 @@ class PdfCaptureOperation:
         ],
         "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "whole-document"},
         "outcomes": ["success", "failed"],
-        "precision": "native-pdf-records-and-original-coordinates",
+        "precision_description": "native-pdf-records-and-original-coordinates",
         "behavior": "existing owned finite native PDF capture and sealed publication",
         "binding": {"operator": "scan", "roles": ["original"]},
         "opaque": [

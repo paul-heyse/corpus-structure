@@ -67,7 +67,7 @@ class PdfVisualInputFamily:
         ],
         "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "page-or-native-region"},
         "outcomes": ["success", "failed"],
-        "precision": "qualified-png-and-native-pdf-point-transform",
+        "precision_description": "qualified-png-and-native-pdf-point-transform",
         "behavior": "render the exact page or native crop with the incumbent visual geometry kernel",
         "binding": {"operator": "scan", "roles": ["capture"]},
         "opaque": [

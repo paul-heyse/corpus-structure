@@ -87,7 +87,7 @@ class DefinitionDeclarationOperation:
         ],
         "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "exact-selected-local-declaration-passage"},
         "outcomes": ["success"],
-        "precision": "original-native-half-open-extents",
+        "precision_description": "original-native-half-open-extents",
         "dependencies": [
             "text.declaration_syntax/source-native",
             "text.hanlp_native/source-native",

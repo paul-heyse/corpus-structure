@@ -43,16 +43,12 @@ contract or the existing narrow typed-port/source-migration controls. See the
 
 ## Responsibility and delivered contracts
 
-**Archive contract · 2026-11-14:** implemented effective model v6 archives the complete governing
-graph, kinds, operations, bindings, projections and admitted implementation slices. Effective
-identity records retain owner/domain/key, with canonical witnesses computed transiently by the
-existing fingerprint algorithms. Generic canonical identities still expose their witnesses.
-The implemented v2–v5 readers preserve old meaning but cannot authorize current execution.
-Their retirement is required by Domain-model I09; target adoption imports useful data or regenerates
-it instead of maintaining old interpreters. This is the
-[ADR-0105](../../adr/0105-compact-effective-identity-archives.md) representation boundary, not
-permission to trim governing semantics or replace typed binary archive staging.
-
+**Archive contract · 2026-11-15:** current effective model v7 archives the complete governing
+graph, normalized subject definitions, checked operations/bindings/projections and admitted
+implementation slices. Effective identities retain owner/domain/key; canonical witnesses remain
+transient. The sole current reader refuses v2–v6 and obsolete expanded identity records, requiring
+regeneration or a separate finite data import. No old interpreter authorizes execution. ADR-0109
+owns the hard current-contract adoption; the compact archive boundary continues ADR-0105.
 One composed released model governs every supported domain operation: source capture and
 projection, derivation, discovery, selection, external work, publication, consolidation, and
 affected serving/evaluation behavior. Algorithms implement its contracts; they do not own
@@ -224,9 +220,28 @@ actual kernel uses them; they do not introduce approximate equality between cano
 
 The finite and reading policies do not infer fresh-execution bit determinism from their library
 versions. Provider observations retain their checked retained-observation reuse policy; fresh samples
-need their explicit supported contract. Symbolic precision, source coordinate exactness and remaining
-family coverage labels still require their own owner accounting before retirement; this inventory
-alone is not a full I01 completion claim.
+need their explicit supported contract. The remaining operation-level precision labels are archived
+as `precision_description`, outside recipe/definition identity. They may describe the following
+actual contracts; the description itself enforces none of them. Real source/body/anchor precision,
+measurement qualifiers and scientific-policy parameters retain their original typed meaning.
+
+| Former operation label family | Actual semantic owner retained |
+|---|---|
+| Integer decimal spelling; exact native publication/read values; finite fitted-parameter projection | Canonical tagged value encoding in `identity`; checked wire/nominal input/output schemas; the actual native admission or parameter projection implementation. No decimal rounding is inferred from prose |
+| Original source addresses, canonical sentence offsets, native half-open structural extents, positioned formal evidence | Checked `SubjectDefinition` and occurrence context, source-pin schemas and exact output witnesses; `SourceSlice`/native coordinate validators and captured source-discovery, sentence, structural and parser kernels retain address space, units and bounds |
+| PDF capture/organization/enrichment/integration records, Chandra map, published views, cropped PNG and visual transform | Actual PDF recipe/library/model assets; typed native record/recognition/mapping precision and coordinate schemas; captured publication, reconciliation, page/region renderer and visual geometry kernels. Provider coarse/inherited/unavailable precision remains substantive data |
+| Learned/HanLP native model outputs and native heads | Captured `NativeProfile` semantic projection, model/decoder assets, explicit dtype/device/backend and retained-observation policy; checked canonical-word/native-head mapping schemas and actual span/token conversion kernels |
+| Symbolic exactness with retained ambiguity | `DeclaredMathOptions`, captured symbolic execution/profile/library selection, nominal symbolic result schemas and actual math parser/analysis kernels; ambiguity remains an explicit result rather than a precision slogan |
+| Exact frozen inventories, retained positioned characterization and full-document compositions | Checked relational bindings and population/support contracts, typed inventory/characterization/composition schemas and captured owners; completeness remains relative to the declared selected population |
+| Authored or mechanically checked source reports and independent reference snapshots | Exact submitted schemas, external standing/effects and authored support; the selected-reference snapshot implementation retains original lineage. Structural validation does not certify a scientific claim |
+
+The closed source frontend recognizes only `precision_description`; old `precision` operation
+metadata and old archived field spellings refuse. Typed `NumericalPolicyReference` remains an
+independent real determinant and can coexist with a description. Supplying-module and semantic
+asset projections omit only explicit admitted metadata declarations; direct metadata reads or
+reflection conservatively retain those source bytes as executable meaning. Raw source custody
+always remains available. This owner inventory and targeted controls do not alone establish full
+DDO qualification.
 
 ### Operation and binding definitions
 
@@ -239,7 +254,7 @@ Each operation definition owns:
 - Named input and output roles, semantic kinds, relation constraints, cardinality, ordering,
   multiplicity and explicit alternative/optional behavior.
 - Applicability, invariants, coverage/completeness requirements, supported outcome domains,
-  precision/numerical policy and result-affecting dependencies.
+  typed numerical policy and result-affecting dependencies; precision descriptions remain documentation.
 - State dimensions/transitions, immutable bindings, effects and their authorization,
   fulfillment/idempotency requirements, and failure/partial/unknown outcomes.
 - Admitted implementation capabilities: scalar/batch/stream forms, preparation, cancellation,
