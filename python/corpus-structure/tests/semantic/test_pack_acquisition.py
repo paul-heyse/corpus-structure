@@ -53,6 +53,10 @@ def test_current_pack_acquisition_has_real_source_contracts_without_old_catalog(
     model = bound_data_operation_model(prepared)
     assert prepared.execution_model_id is None
     assert model.operation("data.inspect_data_operation_release").profile == "read"
+    assert model.operation("rich.consolidate").profile == "derivation"
+    admission = model.operation("rich.admit")
+    assert admission.profile == "command"
+    assert {effect.name for effect in admission.effects} == {"native-rich-knowledge-admission"}
     assert "StatisticsQualification" in prepared.index.definitions
     assert {"data_operation_rich_proposals", "source-readings"} <= {
         source.name for source in bundle.sources

@@ -11,7 +11,6 @@ from typing import Any
 
 import psycopg
 import pytest
-import yaml
 from native_refusals import native_refusal
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
@@ -513,8 +512,6 @@ def test_native_bound_comparison_is_lossless_beyond_numeric_capacity(
             )
             == 1
         )
-
-
 
 
 def test_independent_value_encodings_merge_fact_and_preserve_reports(

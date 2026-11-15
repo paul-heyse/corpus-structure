@@ -72,4 +72,3 @@ def native_constraints(prepared: PreparedRelease) -> dict[tuple[str, str], dict[
                     constraints["native_" + bound] = lexical
             result[definition.iri, prop.iri] = constraints
     return result
-

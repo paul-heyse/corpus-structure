@@ -66,8 +66,6 @@ def pdf13_context():
     return trusted_pdf_context()
 
 
-
-
 def observation(source, *, key="pass-a", outcome="succeeded", pass_role="A") -> dict[str, Any]:
     result = {
         "version": 1,

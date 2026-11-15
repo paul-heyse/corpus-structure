@@ -9,6 +9,46 @@ from corpus_structure.semantic.data_operation_json import json_bytes
 from corpus_structure.semantic.native_definition_projection import read_native_definition_projection
 
 
+def test_native_projection_preserves_actual_timezone_aware_datetime_meaning():
+    from datetime import UTC, datetime
+
+    from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
+    from corpus_structure.semantic.composed import data_operation_dependencies
+    from corpus_structure.semantic.data_operation_admission import bound_data_operation_model
+    from corpus_structure.semantic.data_operation_identity import semantic_value
+    from corpus_structure.semantic.data_operation_storage import kind_meaning_schema
+    from corpus_structure.semantic.data_operation_wire import validate_wire_schema
+    from corpus_structure.semantic.types import ResolvedDependencies
+
+    declaration = b"""id: urn:projection-event
+name: event
+prefixes: {e: 'urn:projection-event:'}
+default_prefix: e
+types:
+  datetime: {base: datetime}
+classes:
+  Event:
+    attributes:
+      at: {range: datetime, required: true}
+"""
+    prepared = prepare_release(
+        SourceBundle("event", (SourceArtifact("event", declaration),)),
+        data_operation_dependencies(ResolvedDependencies()),
+    )
+    model = bound_data_operation_model(prepared)
+    kind = next(kind for kind in model.kinds if kind.category == "class" and kind.name == "Event")
+    schema = kind_meaning_schema(
+        kind, model.kinds, prepared.index.definitions, prepared.enum_members
+    )
+    actual = prepared.validate_json("Event", b'{"at":"2030-01-02T03:04:05+02:00"}').at
+    assert actual == datetime(2030, 1, 2, 1, 4, 5, tzinfo=UTC)
+    validate_wire_schema(schema, semantic_value({"at": actual}))
+    with pytest.raises(ValueError):
+        validate_wire_schema(schema, semantic_value({"at": "2030-01-02T03:04:05+02:00"}))
+    with pytest.raises(ValueError):
+        prepared.validate_json("Event", b'{"at":"2030-01-02T03:04:05"}')
+
+
 def _captured(**changes):
     operations = changes.get("operations", [])
     coverage = {

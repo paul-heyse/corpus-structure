@@ -96,13 +96,30 @@ def rich_source_reading_assertion(prepared, model, *, context, selection, values
 
     if selection.row is None or selection.resolution is None or selection.resolved is None:
         raise ValueError("unresolved source reading cannot lower an assertion")
-    value = rich_reading_value(prepared, model, selection.row, coordinate_texts=selection.raw_report["coordinate_texts"])
-    identity = canonical_identity("rich-source-reading", [context.identity_record,
-        selection.original.model_dump(mode="python"), selection.resolution.model_dump(mode="python"),
-        selection.resolved.model_dump(mode="python"), selection.row["record_id"],
-        selection.raw["interpretation_id"], selection.row["interpretation_id"]]).key
+    value = rich_reading_value(
+        prepared, model, selection.row, coordinate_texts=selection.raw_report["coordinate_texts"]
+    )
+    identity = canonical_identity(
+        "rich-source-reading",
+        [
+            context.identity_record,
+            selection.original.model_dump(mode="python"),
+            selection.resolution.model_dump(mode="python"),
+            selection.resolved.model_dump(mode="python"),
+            selection.row["record_id"],
+            selection.raw["interpretation_id"],
+            selection.row["interpretation_id"],
+        ],
+    ).key
     reading_value = values.lower_record(value.class_name, {"id": identity, **value.fields})
-    return DdoRichSourceReadingAssertion(member_type="source-reading-assertion", reading_id=identity,
-        record_id=selection.row["record_id"], source_interpretation_id=selection.raw["interpretation_id"],
-        interpretation_id=selection.row["interpretation_id"], original=selection.original,
-        resolution=selection.resolution, resolved=selection.resolved, reading_value=reading_value)
+    return DdoRichSourceReadingAssertion(
+        member_type="source-reading-assertion",
+        reading_id=identity,
+        record_id=selection.row["record_id"],
+        source_interpretation_id=selection.raw["interpretation_id"],
+        interpretation_id=selection.row["interpretation_id"],
+        original=selection.original,
+        resolution=selection.resolution,
+        resolved=selection.resolved,
+        reading_value=reading_value,
+    )

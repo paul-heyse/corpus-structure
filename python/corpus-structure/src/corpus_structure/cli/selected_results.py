@@ -12,7 +12,6 @@ from corpus_structure.cli.output import JsonOpt, state, write_report_text
 from corpus_structure.semantic.data_operation_json import json_bytes
 from corpus_structure.semantic.demand_queries import DemandView
 from corpus_structure.semantic.rich_queries import QUERY_NAMES, RichQueryName
-
 from corpus_structure.serve.demand_journey import DemandQueryRequest, serve_demand_query
 
 QueryName = Literal[DemandView, RichQueryName]

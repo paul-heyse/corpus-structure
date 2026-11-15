@@ -542,7 +542,6 @@ class PublicationInput(Protocol):
     def content(self) -> bytes: ...
 
 
-
 def _admit_inference(prepared: PreparedRelease) -> None:
     """Admit only the finite binary profile implemented by protected inference validation."""
     classes = {d.name: d for d in prepared.definitions}
@@ -601,9 +600,8 @@ def _admit_inference(prepared: PreparedRelease) -> None:
 def admit_release(prepared: PreparedRelease, *, connection: Connection | None = None) -> None:
     """Refuse required semantics outside the currently implemented native lowering."""
     from .execution_admission import admit_execution_release
-    from .record_contracts import record_product_classes
-
     from .property_constraints import native_constraints
+    from .record_contracts import record_product_classes
 
     admit_execution_release(prepared, connection=connection)
     native_constraints(prepared)

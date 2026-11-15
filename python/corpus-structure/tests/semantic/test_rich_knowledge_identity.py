@@ -316,7 +316,10 @@ def test_current_scientific_context_needs_exact_archive_but_no_legacy_execution_
     )
     prepared = replace(
         prepared,
-        artifacts=(*(item for item in prepared.artifacts if item.kind != SCIENTIFIC_POLICY_INPUT), artifact),
+        artifacts=(
+            *(item for item in prepared.artifacts if item.kind != SCIENTIFIC_POLICY_INPUT),
+            artifact,
+        ),
     )
     comparator = SemanticComparator({}, prepared=prepared, context_profile=profile)
     equal = comparator.compare({"kind": "number", "number": 7}, {"kind": "number", "number": 7})

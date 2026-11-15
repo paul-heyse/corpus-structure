@@ -5,14 +5,13 @@ from typing import Any
 import yaml
 from linkml_runtime.dumpers import json_dumper
 
-from .types import PreparationProfile, SourceArtifact, SourceBundle
-
 from .rich_record_readings import (
     READING_CLASSES as _FAMILIES,
 )
 from .rich_record_readings import (
     READING_VALUE_FIELDS as _VALUE_FIELDS,
 )
+from .types import PreparationProfile, SourceArtifact, SourceBundle
 
 _NAMESPACE = "https://corpus-structure.dev/semantic/source-reading/"
 _MODULE = "source-readings"

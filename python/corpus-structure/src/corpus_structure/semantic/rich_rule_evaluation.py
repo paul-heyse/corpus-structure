@@ -465,7 +465,9 @@ def evaluate_rich_rules(
     unresolved_identity = defaultdict(set)
     for body in state.members.values():
         if isinstance(body, DdoRichIdentityResolution) and body.outcome in {
-            "incomplete_key", "ambiguous_anchor", "ungrounded_cycle",
+            "incomplete_key",
+            "ambiguous_anchor",
+            "ungrounded_cycle",
         }:
             unresolved_identity[body.resolved_entity_id].add(body.resolution_id)
     incomplete_alternatives = defaultdict(set)
@@ -475,24 +477,38 @@ def evaluate_rich_rules(
                 incomplete_alternatives[fact_id].add(identifier)
     dependent_identity = {}
     for identifier, fact in facts.items():
-        referenced = ({fact.subject_entity} | state.value_entity_ids(fact.object_value)
-                      | state.value_entity_ids(fact.qualification_meaning))
-        dependent_identity[identifier] = frozenset(resolution for entity in referenced
-                                                   for resolution in unresolved_identity.get(entity, ()))
+        referenced = (
+            {fact.subject_entity}
+            | state.value_entity_ids(fact.object_value)
+            | state.value_entity_ids(fact.qualification_meaning)
+        )
+        dependent_identity[identifier] = frozenset(
+            resolution
+            for entity in referenced
+            for resolution in unresolved_identity.get(entity, ())
+        )
     limitation_reasons = {}
     for identifier, occurrence in occurrences.items():
         identity = dependent_identity[occurrence.fact_id] | frozenset(
-            resolution for entity in state.value_entity_ids(occurrence.observed_qualification_value)
+            resolution
+            for entity in state.value_entity_ids(occurrence.observed_qualification_value)
             for resolution in unresolved_identity.get(entity, ())
         )
         reasons = []
         if incomplete_alternatives.get(occurrence.fact_id):
-            reasons.append("actual source alternatives are incomplete: " + ", ".join(sorted(incomplete_alternatives.get(occurrence.fact_id, ()))))
+            reasons.append(
+                "actual source alternatives are incomplete: "
+                + ", ".join(sorted(incomplete_alternatives.get(occurrence.fact_id, ())))
+            )
         if identity:
-            reasons.append("actual consumed entity identity is unresolved: " + ", ".join(sorted(identity)))
+            reasons.append(
+                "actual consumed entity identity is unresolved: " + ", ".join(sorted(identity))
+            )
         if reasons:
             limitation_reasons[identifier] = tuple(reasons)
-    unselected_facts = set(incomplete_alternatives) | {identifier for identifier, resolutions in dependent_identity.items() if resolutions}
+    unselected_facts = set(incomplete_alternatives) | {
+        identifier for identifier, resolutions in dependent_identity.items() if resolutions
+    }
     # Observed qualification may retain an identity operand absent from its
     # canonical equality meaning. It still limits this actual source assertion.
     unselected_facts.update(occurrences[identifier].fact_id for identifier in limitation_reasons)
@@ -576,7 +592,9 @@ def evaluate_rich_rules(
             )
     for identifier, occurrence in sorted(occurrences.items()):
         relations.check_active()
-        if identifier in state.retained_member_ids or (identifier not in predicate_occurrences and identifier not in limitation_reasons):
+        if identifier in state.retained_member_ids or (
+            identifier not in predicate_occurrences and identifier not in limitation_reasons
+        ):
             continue
         fact, definition, prop, qualification, raw_value = terms[identifier]
         findings, unknown = [], identifier in unresolved
@@ -594,7 +612,16 @@ def evaluate_rich_rules(
             )
         )
 
-        def assess(rule, outcome, severity, reason, semantic_reason=None, *, occurrence_id=identifier, source_evidence=evidence):
+        def assess(
+            rule,
+            outcome,
+            severity,
+            reason,
+            semantic_reason=None,
+            *,
+            occurrence_id=identifier,
+            source_evidence=evidence,
+        ):
             identity = canonical_identity(
                 "rich-rule-assessment",
                 [
@@ -624,9 +651,13 @@ def evaluate_rich_rules(
 
         for reason in limitation_reasons.get(identifier, ()):
             finding_id = assess("operation.not_checkable", "undecided", "warning", reason)
-            findings.append(RichRuleFinding("operation.not_checkable", "not-checkable", "warning", finding_id))
+            findings.append(
+                RichRuleFinding("operation.not_checkable", "not-checkable", "warning", finding_id)
+            )
         if identifier not in predicate_occurrences:
-            decisions.append(RichRuleDecision(identifier, fact.fact_id, "candidate", tuple(findings)))
+            decisions.append(
+                RichRuleDecision(identifier, fact.fact_id, "candidate", tuple(findings))
+            )
             continue
         reading, reading_reason = _reading(
             prepared,

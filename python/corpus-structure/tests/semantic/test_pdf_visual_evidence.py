@@ -1,6 +1,5 @@
 """Explicit visual evidence has independent identity, scope and bounded delivery."""
 
-
 import pytest
 from pydantic import ValidationError
 

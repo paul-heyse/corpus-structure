@@ -175,7 +175,8 @@ class Graph:
                 entity_id=key,
                 class_contracts=class_ids,
                 identities=tuple(
-                    {"class_contract": cls_id, "fields": (), "label": key, "source_context": None} for cls_id in class_ids
+                    {"class_contract": cls_id, "fields": (), "label": key, "source_context": None}
+                    for cls_id in class_ids
                 ),
                 source_members=(self.origin,),
             )

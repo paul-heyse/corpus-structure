@@ -29,4 +29,3 @@ def test_native_constraints_prepares_datatype_aliases_and_scientific_bounds():
         constraints["https://example/Thing", "https://example/cost"]["native_minimum"]
         == "10000000000"
     )
-

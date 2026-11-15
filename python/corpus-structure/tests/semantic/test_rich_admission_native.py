@@ -39,11 +39,10 @@ def rich_guard_connection(cpu_basis_connection):
         parsed = prepare_sql(source, source="rich-private-correspondence-control")
         for index, statement in enumerate(parsed.statements):
             node = statement.stmt
-            if (
-                names is None
-                or (isinstance(node, ast.CreateFunctionStmt)
+            if names is None or (
+                isinstance(node, ast.CreateFunctionStmt)
                 and node.funcname
-                and node.funcname[-1].sval in names)
+                and node.funcname[-1].sval in names
             ):
                 connection.exec_driver_sql(
                     parsed.excerpt(index), execution_options={"no_parameters": True}

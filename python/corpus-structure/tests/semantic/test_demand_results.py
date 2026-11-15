@@ -655,15 +655,18 @@ def test_selected_record_acquisition_enforces_whole_unique_record_budget(monkeyp
         assert index.retained_records == 3
         assert cut.identity == CutSelection.from_native(_page()).identity
     selected = pages()
-    with pytest.raises(
-        owner.SelectedGraphBudgetExceeded, match="closure exceeds record bound"
-    ) as captured, owner.selected_record_index(
-        None,
-        "demand:A",
-        project_id="project:A",
-        scope={},
-        max_total_records=2,
-        capture_frontier=True,
+    with (
+        pytest.raises(
+            owner.SelectedGraphBudgetExceeded, match="closure exceeds record bound"
+        ) as captured,
+        owner.selected_record_index(
+            None,
+            "demand:A",
+            project_id="project:A",
+            scope={},
+            max_total_records=2,
+            capture_frontier=True,
+        ),
     ):
         pytest.fail("an over-budget selected graph was exposed")
     assert captured.value.cut.identity == CutSelection.from_native(_page()).identity
@@ -678,8 +681,11 @@ def test_selected_record_acquisition_refuses_invalid_record_bounds_before_read(m
         "read_demand_result",
         lambda *args, **kwargs: pytest.fail("invalid budget reached native read"),
     )
-    with pytest.raises(ValueError, match="nonnegative integer"), owner.selected_record_index(
-        None, "demand:A", project_id="project:A", scope={}, max_total_records=bound
+    with (
+        pytest.raises(ValueError, match="nonnegative integer"),
+        owner.selected_record_index(
+            None, "demand:A", project_id="project:A", scope={}, max_total_records=bound
+        ),
     ):
         pytest.fail("invalid bound produced an index")
 

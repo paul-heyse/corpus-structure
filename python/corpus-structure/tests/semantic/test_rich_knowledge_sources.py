@@ -47,15 +47,28 @@ def test_actual_rich_composition_captures_schema_policy_and_nominal_members_with
         source.name for source in deps.artifacts
     }
     model = compile_data_operations(bundle, declarations=rich_knowledge_declarations(deps))
-    assert (
-        len(
-            derive_member_kinds(
-                model,
-                "https://corpus-structure.dev/semantic/data-operation-rich-knowledge/DdoRichConsolidation",
-            )
+    prefix = "https://corpus-structure.dev/semantic/data-operation-rich-knowledge/"
+    assert set(derive_member_kinds(model, prefix + "DdoRichConsolidation")) == {
+        prefix + name
+        for name in (
+            "DdoRichScalarValue",
+            "DdoRichEntityValue",
+            "DdoRichRecordValue",
+            "DdoRichCollectionValue",
+            "DdoRichCasefoldText",
+            "DdoRichQualificationMeaning",
+            "DdoRichEntity",
+            "DdoRichFact",
+            "DdoRichOccurrence",
+            "DdoRichSourceReadingAssertion",
+            "DdoRichAlternative",
+            "DdoRichAssessment",
+            "DdoRichDiagnostic",
+            "DdoRichIdentityResolution",
+            "DdoRichIdentityExclusion",
+            "DdoRichOccurrenceDecision",
         )
-        == 15
-    )
+    }
     assert not any("execution_model" in artifact.name for artifact in deps.artifacts)
     from pydantic import ValidationError
 

@@ -268,13 +268,16 @@ class CurrentRecordPolicyJourney:
             for identity in self.kernel.model.identities
             if identity.domain == "kind" and identity.owner == kind
         }
-        with engine.begin() as connection, selected_record_index(
-            connection,
-            demand,
-            project_id=PROJECT,
-            scope={} if scope is None else scope,
-            capture_frontier=True,
-        ) as (cut, index):
+        with (
+            engine.begin() as connection,
+            selected_record_index(
+                connection,
+                demand,
+                project_id=PROJECT,
+                scope={} if scope is None else scope,
+                capture_frontier=True,
+            ) as (cut, index),
+        ):
             products = []
             for row in index.rows("kb.data_product"):
                 if kind is None or row["kind_contract"] in contracts:
@@ -442,7 +445,9 @@ def current_record_policy_journey(scenario_seeds, tmp_path, monkeypatch, *, reci
 
 @pytest.fixture
 def current_record_policy(scenario_seeds, tmp_path, monkeypatch):
-    with current_record_policy_journey(scenario_seeds, tmp_path, monkeypatch, recipe=policy_recipe(tmp_path)) as journey:
+    with current_record_policy_journey(
+        scenario_seeds, tmp_path, monkeypatch, recipe=policy_recipe(tmp_path)
+    ) as journey:
         yield journey
 
 
@@ -797,11 +802,25 @@ def run_readings(journey, selected_sources, *, policy, inference, empty_sources=
     cut, selected_products, uses, episodes, outputs = journey.selected_products(
         journey.kernel.purpose("evaluate"), retained["demand_id"]
     )
-    kinds = {item.owner: item.key for item in journey.kernel.model.identities if item.domain == "kind"}
-    products = tuple((row, body) for row, body in selected_products
-                     if row["kind_contract"] == kinds["https://corpus-structure.dev/semantic/data-operation-reading-resolution/DdoResolvedReadingReport"])
-    raw = tuple((row, body) for row, body in selected_products
-                if row["kind_contract"] == kinds["https://corpus-structure.dev/semantic/data-operation-candidate-inspection/DdoCandidateInspectionReport"])
+    kinds = {
+        item.owner: item.key for item in journey.kernel.model.identities if item.domain == "kind"
+    }
+    products = tuple(
+        (row, body)
+        for row, body in selected_products
+        if row["kind_contract"]
+        == kinds[
+            "https://corpus-structure.dev/semantic/data-operation-reading-resolution/DdoResolvedReadingReport"
+        ]
+    )
+    raw = tuple(
+        (row, body)
+        for row, body in selected_products
+        if row["kind_contract"]
+        == kinds[
+            "https://corpus-structure.dev/semantic/data-operation-candidate-inspection/DdoCandidateInspectionReport"
+        ]
+    )
     assert len(raw) == len(selected_sources)
     assert len(products) == len(selected_sources)
     selections = []
@@ -837,8 +856,13 @@ def run_readings(journey, selected_sources, *, policy, inference, empty_sources=
             )
         )
     return ReadingPopulation(
-        DdoRecordGradeSpecification(prediction_selections=tuple(selections), algorithm=RecordAlgorithm()),
-        products, raw, cut, retained["demand_id"],
+        DdoRecordGradeSpecification(
+            prediction_selections=tuple(selections), algorithm=RecordAlgorithm()
+        ),
+        products,
+        raw,
+        cut,
+        retained["demand_id"],
     )
 
 
@@ -1105,8 +1129,14 @@ def complete_policy_fit(journey):
     )
     assert len(fitted) == len(authorization) == 1
     return FittedJourney(
-        journey, feature, calibration, fitted[0][1], authorization[0][1], retained["demand_id"],
-        feature_readings, calibration_readings,
+        journey,
+        feature,
+        calibration,
+        fitted[0][1],
+        authorization[0][1],
+        retained["demand_id"],
+        feature_readings,
+        calibration_readings,
     )
 
 

@@ -1,7 +1,6 @@
 """Reconstruct actual rich child inputs from the shared lossless CPU authority basis."""
 
 from dataclasses import dataclass
-from typing import Any
 
 from .data_operation_cpu_basis import CPUInputRole, cpu_input_basis
 from .data_operation_identity import decode_semantic_value
@@ -12,10 +11,21 @@ from .rich_knowledge_contracts import DdoRichSelectedMember
 
 
 def _context(value):
-    if set(value) != {"project_id", "subject", "subject_definition", "original_source", "analyzed_scope"}:
+    if set(value) != {
+        "project_id",
+        "subject",
+        "subject_definition",
+        "original_source",
+        "analyzed_scope",
+    }:
         raise ValueError("rich child context differs from its actual shared basis shape")
-    return SubjectContext(value["project_id"], value["subject"], value["original_source"],
-                          json_bytes(value["analyzed_scope"]), subject_definition=value["subject_definition"])
+    return SubjectContext(
+        value["project_id"],
+        value["subject"],
+        value["original_source"],
+        json_bytes(value["analyzed_scope"]),
+        subject_definition=value["subject_definition"],
+    )
 
 
 @dataclass(frozen=True)
@@ -27,20 +37,44 @@ class RichKernelInputs:
     @classmethod
     def from_basis(cls, meaning: list):
         value = decode_semantic_value(meaning)
-        if not isinstance(value, dict) or set(value) != {"version", "recipe", "context", "roles"} or value["version"] != "cpu-input-basis-1":
+        if (
+            not isinstance(value, dict)
+            or set(value) != {"version", "recipe", "context", "roles"}
+            or value["version"] != "cpu-input-basis-1"
+        ):
             raise ValueError("rich computation requires the actual shared CPU input basis")
         roles = []
         for role in value["roles"]:
-            if set(role) != {"role", "position", "multiplicity", "product_id", "member_id", "kind_contract", "context", "body", "support"}:
+            if set(role) != {
+                "role",
+                "position",
+                "multiplicity",
+                "product_id",
+                "member_id",
+                "kind_contract",
+                "context",
+                "body",
+                "support",
+            }:
                 raise ValueError("rich child input differs from the actual finite role shape")
-            roles.append(CPUInputRole(
-                role=role["role"], position=role["position"], multiplicity=role["multiplicity"],
-                product_id=role["product_id"], member_id=role["member_id"], kind_contract=role["kind_contract"],
-                context=_context(role["context"]), body=role["body"], support=read_support_references(role["support"]),
-            ))
+            roles.append(
+                CPUInputRole(
+                    role=role["role"],
+                    position=role["position"],
+                    multiplicity=role["multiplicity"],
+                    product_id=role["product_id"],
+                    member_id=role["member_id"],
+                    kind_contract=role["kind_contract"],
+                    context=_context(role["context"]),
+                    body=role["body"],
+                    support=read_support_references(role["support"]),
+                )
+            )
         result = cls(value["recipe"], _context(value["context"]), tuple(roles))
         if result.basis() != meaning:
-            raise ValueError("rich child basis differs from the inputs actually reconstructed for computation")
+            raise ValueError(
+                "rich child basis differs from the inputs actually reconstructed for computation"
+            )
         return result
 
     def basis(self):
@@ -58,6 +92,8 @@ class RichKernelInputs:
     @staticmethod
     def reference(role: CPUInputRole) -> DdoRichSelectedMember:
         return DdoRichSelectedMember(
-            product_id=role.product_id, member_id=role.member_id,
-            kind_contract=role.kind_contract, support_references=role.support,
+            product_id=role.product_id,
+            member_id=role.member_id,
+            kind_contract=role.kind_contract,
+            support_references=role.support,
         )

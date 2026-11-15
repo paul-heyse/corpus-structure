@@ -308,6 +308,8 @@ def acquire_packs(
     from .composed import data_operation_dependencies
     from .data_operation_artifacts import capture_port_generator_sources
     from .data_operation_storage import native_operation_declarations, native_protocol_sources
+    from .record_policy_authority import record_policy_kind_declarations
+    from .rich_invocations import rich_knowledge_operation_sources
     from .rich_knowledge_sources import (
         rich_knowledge_declarations,
         rich_knowledge_schema_inputs,
@@ -338,7 +340,12 @@ def acquire_packs(
             dependencies.vocabularies,
             dependencies.ontology_sources,
         ),
-        (*rich_knowledge_declarations(dependencies), native_operation_declarations(native)),
+        (
+            *rich_knowledge_declarations(dependencies),
+            record_policy_kind_declarations(),
+            native_operation_declarations(native),
+        ),
+        rich_knowledge_operation_sources(),
     )
     return bundle, dependencies, PreparationProfile(version="semantic-2")
 

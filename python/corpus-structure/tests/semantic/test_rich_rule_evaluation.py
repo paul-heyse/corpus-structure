@@ -473,25 +473,56 @@ def test_known_structural_packets_do_not_gain_selection_from_retained_presence(r
 
 def graph_packet(rules, inputs, body, identifier):
     _, model, _, _ = rules
-    kind = next(item.key for item in model.identities if item.domain == "kind" and item.owner == PREFIX + type(body).__name__)
-    return DdoRichPacket(member_id=identifier, kind_contract=kind,
-        context=DdoRichContext(subject=inputs["context"].subject, subject_definition=inputs["context"].subject_definition,
-                               original_source=None, analyzed_scope={}), body=body)
+    kind = next(
+        item.key
+        for item in model.identities
+        if item.domain == "kind" and item.owner == PREFIX + type(body).__name__
+    )
+    return DdoRichPacket(
+        member_id=identifier,
+        kind_contract=kind,
+        context=DdoRichContext(
+            subject=inputs["context"].subject,
+            subject_definition=inputs["context"].subject_definition,
+            original_source=None,
+            analyzed_scope={},
+        ),
+        body=body,
+    )
 
 
 @pytest.mark.parametrize("property_name", ["value", "annotation", "display"])
 def test_incomplete_source_alternative_never_selects_surviving_actual_meaning(rules, property_name):
-    inputs = graph_inputs(rules, source_values("surviving actual meaning"), property_name=property_name)
-    fact = next(packet.body for packet in inputs["graph"].members if isinstance(packet.body, DdoRichFact))
-    alternative = DdoRichAlternative(member_type="alternative", alternative_id="controlled:incomplete-alternative",
-        fact_ids=(fact.fact_id,), origin="source-proposal", completeness="incomplete", faithful=True,
-        reason="one authored alternative did not materialize", source_members=(inputs["source_contexts"][0].original,))
-    inputs["graph"] = RichGraphAssembly(members=(*inputs["graph"].members, graph_packet(rules, inputs, alternative, alternative.alternative_id)),
-                                       input_population=inputs["graph"].input_population)
+    inputs = graph_inputs(
+        rules, source_values("surviving actual meaning"), property_name=property_name
+    )
+    fact = next(
+        packet.body for packet in inputs["graph"].members if isinstance(packet.body, DdoRichFact)
+    )
+    alternative = DdoRichAlternative(
+        member_type="alternative",
+        alternative_id="controlled:incomplete-alternative",
+        fact_ids=(fact.fact_id,),
+        origin="source-proposal",
+        completeness="incomplete",
+        faithful=True,
+        reason="one authored alternative did not materialize",
+        source_members=(inputs["source_contexts"][0].original,),
+    )
+    inputs["graph"] = RichGraphAssembly(
+        members=(
+            *inputs["graph"].members,
+            graph_packet(rules, inputs, alternative, alternative.alternative_id),
+        ),
+        input_population=inputs["graph"].input_population,
+    )
     result = evaluate(rules, inputs)
     assert len(result.decisions) == 1 and result.decisions[0].status == "candidate"
     assert result.selected_fact_ids == result.selected_occurrence_ids == frozenset()
-    assert any(item.outcome == "undecided" and "alternatives are incomplete" in item.reason for item in result.assessments)
+    assert any(
+        item.outcome == "undecided" and "alternatives are incomplete" in item.reason
+        for item in result.assessments
+    )
 
 
 def identity_graph(rules, *, dependency, outcome, property_name="value"):
@@ -504,56 +535,137 @@ def identity_graph(rules, *, dependency, outcome, property_name="value"):
 
     inputs = graph_inputs(rules, source_values("good"))
     prepared, model, _, _ = rules
-    class_contract = next(item.key for item in model.identities if item.domain == "kind" and item.owner == "urn:rich-scientific:ScientificSubject")
-    graph = RichFactGraph(prepared, model, context=inputs["context"],
-        entities={identifier: frozenset({"urn:rich-scientific:ScientificSubject"}) for identifier in ("entity:actual", "entity:operand")}, known_fact_ids=frozenset())
+    class_contract = next(
+        item.key
+        for item in model.identities
+        if item.domain == "kind" and item.owner == "urn:rich-scientific:ScientificSubject"
+    )
+    graph = RichFactGraph(
+        prepared,
+        model,
+        context=inputs["context"],
+        entities={
+            identifier: frozenset({"urn:rich-scientific:ScientificSubject"})
+            for identifier in ("entity:actual", "entity:operand")
+        },
+        known_fact_ids=frozenset(),
+    )
     value = {"kind": "text", "text": "entity:operand" if dependency == "literal" else "good"}
     qualification: dict[str, Any] = {"modality": "asserted", "polarity": True}
-    operand = {**formula("x"), "bindings": [{"kind": "variable", "symbol": "x", "entity": "entity:operand"}]}
+    operand = {
+        **formula("x"),
+        "bindings": [{"kind": "variable", "symbol": "x", "entity": "entity:operand"}],
+    }
     if dependency == "object":
         value = bind_expression_context(operand, {})
     elif dependency == "qualification":
         qualification["attribution"] = "entity:operand"
-    result = graph.add_property_fact(subject_entity="entity:actual", class_name="ScientificSubject", property_name=property_name,
-                                     value=value, qualification=qualification)
+    result = graph.add_property_fact(
+        subject_entity="entity:actual",
+        class_name="ScientificSubject",
+        property_name=property_name,
+        value=value,
+        qualification=qualification,
+    )
     original = inputs["source_contexts"][0].original
     unresolved = "entity:actual" if dependency == "subject" else "entity:operand"
-    entities = tuple(DdoRichEntity(member_type="entity", entity_id=identifier, class_contracts=(class_contract,),
-        identities=({"class_contract": class_contract, "fields": (), "label": None, "source_context": None},), source_members=(original,))
-        for identifier in ("entity:actual", "entity:operand"))
-    occurrence = DdoRichOccurrence(member_type="source-occurrence", occurrence_id="occurrence:0", fact_id=result.fact.fact_id,
-        original=original, statement=None, observed_qualification_value=result.observed_qualification_value, dependencies=(),
-        establishment="stated", statement_kind=None, statement_role=None, evidence_count=1)
-    resolution = DdoRichIdentityResolution(member_type="identity-resolution", resolution_id="controlled:identity-resolution",
-        resolved_entity_id=unresolved, source_members=(original,), basis="source_local", outcome=outcome,
-        candidate_identity_keys=(), matched_entity_ids=(), dependency_sources=())
+    entities = tuple(
+        DdoRichEntity(
+            member_type="entity",
+            entity_id=identifier,
+            class_contracts=(class_contract,),
+            identities=(
+                {
+                    "class_contract": class_contract,
+                    "fields": (),
+                    "label": None,
+                    "source_context": None,
+                },
+            ),
+            source_members=(original,),
+        )
+        for identifier in ("entity:actual", "entity:operand")
+    )
+    occurrence = DdoRichOccurrence(
+        member_type="source-occurrence",
+        occurrence_id="occurrence:0",
+        fact_id=result.fact.fact_id,
+        original=original,
+        statement=None,
+        observed_qualification_value=result.observed_qualification_value,
+        dependencies=(),
+        establishment="stated",
+        statement_kind=None,
+        statement_role=None,
+        evidence_count=1,
+    )
+    resolution = DdoRichIdentityResolution(
+        member_type="identity-resolution",
+        resolution_id="controlled:identity-resolution",
+        resolved_entity_id=unresolved,
+        source_members=(original,),
+        basis="source_local",
+        outcome=outcome,
+        candidate_identity_keys=(),
+        matched_entity_ids=(),
+        dependency_sources=(),
+    )
     bodies = (*entities, result.fact, occurrence, resolution, *graph.values)
-    members = tuple(graph_packet(rules, inputs, body,
-        body.entity_id if isinstance(body, DdoRichEntity) else body.fact_id if isinstance(body, DdoRichFact)
-        else body.occurrence_id if isinstance(body, DdoRichOccurrence) else body.resolution_id if isinstance(body, DdoRichIdentityResolution) else body.value_id)
-        for body in bodies)
-    inputs["graph"] = RichGraphAssembly(members=members, input_population=inputs["graph"].input_population)
+    members = tuple(
+        graph_packet(
+            rules,
+            inputs,
+            body,
+            body.entity_id
+            if isinstance(body, DdoRichEntity)
+            else body.fact_id
+            if isinstance(body, DdoRichFact)
+            else body.occurrence_id
+            if isinstance(body, DdoRichOccurrence)
+            else body.resolution_id
+            if isinstance(body, DdoRichIdentityResolution)
+            else body.value_id,
+        )
+        for body in bodies
+    )
+    inputs["graph"] = RichGraphAssembly(
+        members=members, input_population=inputs["graph"].input_population
+    )
     return inputs
 
 
 @pytest.mark.parametrize("dependency", ["subject", "object", "qualification"])
 @pytest.mark.parametrize("outcome", ["incomplete_key", "ambiguous_anchor", "ungrounded_cycle"])
-def test_typed_unresolved_identity_keeps_actual_dependent_meaning_candidate(rules, dependency, outcome):
+def test_typed_unresolved_identity_keeps_actual_dependent_meaning_candidate(
+    rules, dependency, outcome
+):
     result = evaluate(rules, identity_graph(rules, dependency=dependency, outcome=outcome))
     assert result.decisions[0].status == "candidate"
     assert result.selected_fact_ids == result.selected_occurrence_ids == frozenset()
-    assert any(item.outcome == "undecided" and "entity identity is unresolved" in item.reason for item in result.assessments)
+    assert any(
+        item.outcome == "undecided" and "entity identity is unresolved" in item.reason
+        for item in result.assessments
+    )
 
 
 @pytest.mark.parametrize("property_name", ["annotation", "display"])
 def test_unresolved_subject_cannot_auto_select_structural_or_display_facts(rules, property_name):
-    result = evaluate(rules, identity_graph(rules, dependency="subject", outcome="incomplete_key", property_name=property_name))
+    result = evaluate(
+        rules,
+        identity_graph(
+            rules, dependency="subject", outcome="incomplete_key", property_name=property_name
+        ),
+    )
     assert result.decisions[0].status == "candidate"
     assert result.selected_fact_ids == result.selected_occurrence_ids == frozenset()
 
 
-@pytest.mark.parametrize("dependency,outcome", [("subject", "resolved"), ("literal", "incomplete_key")])
-def test_resolved_source_local_identity_and_literal_entity_spelling_still_select(rules, dependency, outcome):
+@pytest.mark.parametrize(
+    "dependency,outcome", [("subject", "resolved"), ("literal", "incomplete_key")]
+)
+def test_resolved_source_local_identity_and_literal_entity_spelling_still_select(
+    rules, dependency, outcome
+):
     result = evaluate(rules, identity_graph(rules, dependency=dependency, outcome=outcome))
     assert result.decisions[0].status == "accepted"
     assert len(result.selected_fact_ids) == len(result.selected_occurrence_ids) == 1

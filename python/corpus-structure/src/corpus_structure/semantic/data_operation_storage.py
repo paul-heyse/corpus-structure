@@ -704,6 +704,7 @@ def _kind_schema(prepared: PreparedRelease, kind) -> dict[str, Any]:
         "str": "string",
         "bool": "boolean",
         "Decimal": "decimal",
+        "AwareDatetime": "datetime",
         "bytes": "string",
     }.get(primitive, primitive)
     types = {
@@ -782,6 +783,7 @@ def kind_meaning_schema(kind, kind_records, class_definitions, enum_members) -> 
             "str": "string",
             "bool": "boolean",
             "Decimal": "decimal",
+            "AwareDatetime": "datetime",
             "bytes": "string",
         }.get(primitive_name, primitive_name)
         if current.category == "primitive" or primitive_name in {
@@ -1299,6 +1301,7 @@ def admitted_data_projection(
                     "str": "string",
                     "bool": "boolean",
                     "Decimal": "decimal",
+                    "AwareDatetime": "datetime",
                 }.get(value_type, value_type)
             label = "body_" + name
             # Headers retain decoder columns. A semantic class property always

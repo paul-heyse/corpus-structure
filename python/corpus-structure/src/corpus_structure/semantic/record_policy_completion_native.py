@@ -43,10 +43,9 @@ def record_policy_completion_native_sql() -> str:
     fields = ",\n".join(f"'{name}',{value}" for name, value in sorted(projection.items()))
 
     def exact_field(name, expression):
-        if (
-            name == "version"
-            or (name.endswith("_digest")
-            and name in {"policy_instance_digest", "feature_instance_digest", "calibration_digest"})
+        if name == "version" or (
+            name.endswith("_digest")
+            and name in {"policy_instance_digest", "feature_instance_digest", "calibration_digest"}
         ):
             return f"jsonb_build_array('string',projected->>'{name}')"
         # Every other public field copies one declared private semantic subtree.
