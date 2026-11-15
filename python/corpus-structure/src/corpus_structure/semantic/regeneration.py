@@ -109,12 +109,14 @@ def acquire_pack(pack: Path, *, execution: ExecutionModelInputs | None = None) -
     methods = _mapping(pack / "methods.yaml")
     core_rules = pack.parent / "core/schema/rules.yaml"
     rules = pack / "schema/rules.yaml"
+    from .analysis_contracts import acquire_analysis_context_profile
+
     deps = domain_rule_inputs(
         ResolvedDependencies(),
         rules.read_bytes() if rules.exists() else b"rules: []",
         core_rules.read_bytes() if core_rules.exists() else b"rules: []",
         aliases=methods.get("aliases", {}),
-        execution_model=execution_model,
+        context_profile=acquire_analysis_context_profile(),
     )
     artifacts = tuple(
         SourceArtifact("operation/" + filename, (pack / filename).read_bytes())

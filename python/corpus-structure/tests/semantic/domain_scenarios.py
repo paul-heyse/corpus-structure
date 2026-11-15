@@ -1,5 +1,7 @@
 """Explicit synthetic semantic scenarios used by domain operation tests."""
 
+from corpus_structure.semantic.analysis_contracts import acquire_analysis_context_profile
+
 from collections.abc import Sequence
 from dataclasses import dataclass, replace
 from functools import cache, wraps
@@ -169,7 +171,7 @@ def _assemble_domain_preparation(
             "range": "NaryValue",
             "inlined": True,
         }
-    deps = domain_rule_inputs(ResolvedDependencies(), rules)
+    deps = domain_rule_inputs(ResolvedDependencies(), rules, context_profile=acquire_analysis_context_profile())
     bundle = SourceBundle(
         "domain",
         (

@@ -1,5 +1,7 @@
 """Synthetic semantic releases for isolated operation contract tests."""
 
+from corpus_structure.semantic.analysis_contracts import acquire_analysis_context_profile
+
 from sqlalchemy import Engine, insert
 
 from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
@@ -107,7 +109,7 @@ classes:
         from corpus_structure.semantic.domain_operations import domain_rule_inputs
         from corpus_structure.semantic.proposals import proposal_inputs
 
-        dependencies = domain_rule_inputs(dependencies, b"rules: []\n")
+        dependencies = domain_rule_inputs(dependencies, b"rules: []\n", context_profile=acquire_analysis_context_profile())
         bundle = proposal_inputs(bundle, dependencies)
         bundle, dependencies = analytical_inputs(bundle, dependencies)
     if composed or evaluation:

@@ -21,9 +21,7 @@ Tiers 2 and 3 run on a process's main thread only (the grammar's timer); `compar
 `OffMainThread` anywhere else. Results are cached by canonical pair, canonical conditions and
 declared variables.
 
-`decisions` is a test-only input (the S0 parity test supplies S0's recorded equivalence decisions
-through it): a pair it names is decided by it instead of counting as undecided. No command or
-configuration passes it.
+
 """
 
 from __future__ import annotations
@@ -62,7 +60,6 @@ class Tier(StrEnum):
     CANONICAL = "canonical"
     SYMBOLIC = "symbolic"
     NUMERIC = "numeric"
-    DECIDED = "decided"  # the test-only decision input
     UNDECIDED = "undecided"
 
 
@@ -93,11 +90,11 @@ class ValueComparator:
         macros: Mapping[str, MacroDef],
         constants: Sequence[str] = (),
         *,
-        decisions: Mapping[tuple[str, str], bool] | None = None,
+        context_profile,
     ) -> None:
+        self.context_profile = context_profile
         self.macros = macros
         self.constants = frozenset(constants)
-        self.decisions = dict(decisions or {})
         self.log: list[Equivalence] = []
         self._cache: dict[tuple[str, str, str, tuple[str, ...]], Equivalence] = {}
 
@@ -148,9 +145,6 @@ class ValueComparator:
     # -- tiers -----------------------------------------------------------------------------------
 
     def _undecided(self, kind: str, fa: str, fb: str, why: str, status: str = "") -> Equivalence:
-        decided = self.decisions.get((fa, fb), self.decisions.get((fb, fa)))
-        if decided is not None:
-            return Equivalence(decided, Tier.DECIDED, kind, fa, fb, why, status)
         return Equivalence(False, Tier.UNDECIDED, kind, fa, fb, why, status)
 
     def _compare(
@@ -186,7 +180,7 @@ class ValueComparator:
     ) -> _Reading:
         from corpus_structure.semantic.scientific_evidence import MathematicalEvidence
 
-        return MathematicalEvidence(self.macros, self.constants)._read(latex, kinds, variables)
+        return MathematicalEvidence(self.macros, self.constants, context_profile=self.context_profile)._read(latex, kinds, variables)
 
     def _math(
         self,
@@ -202,7 +196,7 @@ class ValueComparator:
         from corpus_structure.semantic.scientific_evidence import EvidenceTier, MathematicalEvidence
 
         evidence = MathematicalEvidence(
-            self.macros, self.constants, constraints=self._constraints
+            self.macros, self.constants, constraints=self._constraints, context_profile=self.context_profile,
         )._math(t, la, lb, fa, fb, conds, cform, variables)
         if evidence.tier is EvidenceTier.UNDECIDED:
             return self._undecided(t, fa, fb, evidence.detail, evidence.grammar)

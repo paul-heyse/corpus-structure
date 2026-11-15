@@ -3,6 +3,8 @@
 Requires the coherent forward native candidate, never edits frozen100 or a live default.
 """
 
+from corpus_structure.semantic.analysis_contracts import acquire_analysis_context_profile
+
 from collections.abc import Mapping, Sequence
 from dataclasses import replace
 from typing import Any, cast
@@ -924,7 +926,7 @@ classes:
             ),
         ),
     )
-    dependencies = domain_rule_inputs(ResolvedDependencies(), b"rules: []\n")
+    dependencies = domain_rule_inputs(ResolvedDependencies(), b"rules: []\n", context_profile=acquire_analysis_context_profile())
     bundle, dependencies = analytical_inputs(bundle, dependencies)
     dependencies = composed_dependencies(dependencies)
     profile = PreparationProfile(version="semantic-2")

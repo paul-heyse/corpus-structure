@@ -373,54 +373,33 @@ def test_scientific_profile_and_source_sharing_are_admitted_data():
     assert context().profile.transformer_recipe == "sympy-transform-3"
 
 
-def test_candidate_scientific_parameters_rebind_supplied_recipe_without_ambient_acquisition():
+def test_candidate_scientific_parameters_rebind_supplied_recipe_without_ambient_acquisition(monkeypatch):
     import json
-    from pathlib import Path
+    from corpus_structure.semantic import SourceArtifact, SourceBundle
+    from corpus_structure.semantic.analysis_contracts import acquire_analysis_context_profile
+    from corpus_structure.semantic.identity import canonical_bytes
+    from corpus_structure.semantic.scientific_evidence import SCIENTIFIC_POLICY_INPUT, SemanticComparator, require_scientific_policy, scientific_policy_recipe
+    from corpus_structure.semantic.types import PreparedArtifact
 
-    from corpus_structure.semantic.analysis_contracts import scientific_computation_profile
-    from corpus_structure.semantic.regeneration import acquire_pack, compose_pack_inputs
-    from corpus_structure.semantic.scientific_evidence import require_scientific_policy
-
-    pack = Path(__file__).resolve().parents[4] / "domains/statistics"
-    acquired = acquire_pack(pack)
-    data = yaml.safe_load(acquired.execution.catalog.content)
-    data["analysis_profiles"][0]["scientific_profiles"][0]["minimum_valid_points"] = 7
-    execution = replace(
-        acquired.execution,
-        catalog=replace(acquired.execution.catalog, content=yaml.safe_dump(data).encode()),
-    )
-    candidate = replace(acquired, execution=execution)
-    from corpus_structure.semantic.contracts import (
-        IMPLEMENTATION_UNAVAILABLE,
-        implementation_override,
-    )
-
-    with implementation_override(IMPLEMENTATION_UNAVAILABLE):
-        bundle, dependencies, profile = compose_pack_inputs((candidate,))
-        prepared = prepare_release(bundle, dependencies, profile)
-    recipe = next(
-        item for item in prepared.artifacts if item.kind == "operation/scientific-policy.json"
-    )
+    current = acquire_analysis_context_profile()
+    profile = replace(current, profile=replace(current.profile, scientific_profiles=tuple(
+        replace(item, minimum_valid_points=7) if item.policy_id == "consolidation-evidence-2" else item
+        for item in current.profile.scientific_profiles
+    )))
+    prepared = prepare_release(SourceBundle("scientific", (SourceArtifact("scientific", b"id: urn:scientific\nname: scientific\nclasses: {Thing: {}}\n"),)))
+    recipe = PreparedArtifact(SCIENTIFIC_POLICY_INPUT, canonical_bytes(scientific_policy_recipe(context_profile=profile)))
+    prepared = replace(prepared, artifacts=(*prepared.artifacts, recipe))
+    import corpus_structure.semantic.analysis_contracts as contracts
+    monkeypatch.setattr(contracts, "_legacy_profile", lambda *_: (_ for _ in ()).throw(AssertionError("legacy lookup")))
     decoded = json.loads(recipe.content)
     assert decoded["consolidation"]["minimum_valid_points"] == 7
     assert decoded["computation_profiles"][0]["minimum_valid_points"] == 7
-    assert (
-        scientific_computation_profile("consolidation-evidence-2", prepared).minimum_valid_points
-        == 7
-    )
-    require_scientific_policy(prepared)
+    assert SemanticComparator({}, prepared=prepared, context_profile=profile).computation.minimum_valid_points == 7
+    require_scientific_policy(prepared, context_profile=profile)
     decoded["consolidation"]["minimum_valid_points"] = 6
-    from corpus_structure.semantic.identity import canonical_bytes
-
-    altered = replace(
-        prepared,
-        artifacts=tuple(
-            replace(item, content=canonical_bytes(decoded)) if item is recipe else item
-            for item in prepared.artifacts
-        ),
-    )
+    altered = replace(prepared, artifacts=tuple(replace(item, content=canonical_bytes(decoded)) if item is recipe else item for item in prepared.artifacts))
     with pytest.raises(ValueError, match="recipe is unsupported"):
-        require_scientific_policy(altered)
+        require_scientific_policy(altered, context_profile=profile)
 
 
 def test_current_compilation_and_preparation_refuse_retained_analysis_profile():

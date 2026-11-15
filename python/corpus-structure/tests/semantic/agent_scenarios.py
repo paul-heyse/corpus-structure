@@ -1,5 +1,7 @@
 """Native source/task scenarios shared by semantic acceptance cases."""
 
+from corpus_structure.semantic.analysis_contracts import acquire_analysis_context_profile
+
 import json
 from dataclasses import dataclass
 from functools import cache
@@ -85,7 +87,7 @@ def _assemble_resubmission_preparation(
         schema["classes"]["Person"]["annotations"] = {"cs:scope": "global"}
     if identity_keyed:
         schema["classes"]["Person"]["unique_keys"] = {"name": {"unique_key_slots": ["name"]}}
-    deps = domain_rule_inputs(ResolvedDependencies(), b"rules: []")
+    deps = domain_rule_inputs(ResolvedDependencies(), b"rules: []", context_profile=acquire_analysis_context_profile())
     if query_inputs:
         deps = ResolvedDependencies(
             (*deps.artifacts, *query_inputs), deps.vocabularies, deps.ontology_sources
@@ -406,7 +408,7 @@ def native_build_resubmission_case(admin, writer, tmp_path, *, ancestor=False):
         default_prefix="ex",
         classes={"Person": {"is_a": "Entity", "attributes": {"name": {"range": "string"}}}},
     )
-    dependencies = domain_rule_inputs(ResolvedDependencies(), b"rules: []\n")
+    dependencies = domain_rule_inputs(ResolvedDependencies(), b"rules: []\n", context_profile=acquire_analysis_context_profile())
     dependencies = ResolvedDependencies(
         (
             *dependencies.artifacts,

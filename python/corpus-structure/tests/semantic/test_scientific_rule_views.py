@@ -37,7 +37,7 @@ def test_numeric_agreement_is_evidence_with_two_preserved_consumer_policies():
 
 
 def test_semantic_comparator_preserves_scalar_and_unit_policies_without_legacy_values():
-    comparator = SemanticComparator({})
+    comparator = SemanticComparator({}, context_profile=analysis_context())
     assert comparator.compare(" Hello  WORLD ", {"kind": "text", "text": "hello world"}).equal
     assert comparator.compare(
         {"kind": "quantity", "number": 2, "unit": "m"},
@@ -103,7 +103,7 @@ def expression(text):
 
 
 def test_raw_semantic_math_keeps_symbolic_numeric_and_restriction_policies():
-    comparator = SemanticComparator({})
+    comparator = SemanticComparator({}, context_profile=analysis_context())
     assert comparator.compare(expression("x+1"), expression("1+x")).tier is EvidenceTier.SYMBOLIC
     a, b = expression(r"\sqrt{x^2}"), expression("x")
     unrestricted = comparator.compare(a, b)
@@ -130,7 +130,7 @@ def test_no_valid_points_remains_inconclusive(monkeypatch):
     from corpus_structure.semantic import scientific_evidence as owner
 
     monkeypatch.setattr(owner, "sample_points", lambda *args: [])
-    result = SemanticComparator({}).compare(expression(r"\sqrt{x^2}"), expression("x"))
+    result = SemanticComparator({}, context_profile=analysis_context()).compare(expression(r"\sqrt{x^2}"), expression("x"))
     assert not result.equal and result.tier is EvidenceTier.UNDECIDED
     assert result.evidence.numeric == "inconclusive" and result.evidence.valid_points == 0
 
@@ -139,12 +139,12 @@ def test_macro_context_changes_operand_meaning():
     from corpus_structure.core.evidence import MacroDef
 
     assert (
-        SemanticComparator({r"\A": MacroDef(body="x")})
+        SemanticComparator({r"\A": MacroDef(body="x")}, context_profile=analysis_context())
         .compare(expression(r"\A"), expression("x"))
         .equal
     )
     assert (
-        not SemanticComparator({r"\A": MacroDef(body="y")})
+        not SemanticComparator({r"\A": MacroDef(body="y")}, context_profile=analysis_context())
         .compare(expression(r"\A"), expression("x"))
         .equal
     )
@@ -156,7 +156,7 @@ def test_symbolic_timeout_is_retained_when_numeric_points_unavailable(monkeypatc
     from corpus_structure.methods.math import grammar
     from corpus_structure.semantic import scientific_evidence as owner
 
-    comparator = owner.MathematicalEvidence({})
+    comparator = owner.MathematicalEvidence({}, context_profile=analysis_context())
     x = sympy.Symbol("x")
     monkeypatch.setattr(
         comparator,
@@ -333,11 +333,11 @@ classes:
         composed_dependencies(ResolvedDependencies()),
         PreparationProfile(version="semantic-2"),
     )
-    recipe = canonical_bytes(scientific_policy_recipe())
+    recipe = canonical_bytes(scientific_policy_recipe(context_profile=analysis_context()))
     prepared = replace(
         prepared, artifacts=(*prepared.artifacts, PreparedArtifact(SCIENTIFIC_POLICY_INPUT, recipe))
     )
-    require_scientific_policy(prepared)
+    require_scientific_policy(prepared, context_profile=analysis_context())
     assert "numpy" in json.loads(prepared.manifest)["libraries"]
     original = determinants.determinant_version
     monkeypatch.setattr(
@@ -345,16 +345,16 @@ classes:
         "determinant_version",
         lambda name: "different" if name == "numpy" else original(name),
     )
-    assert canonical_bytes(scientific_policy_recipe()) == recipe
+    assert canonical_bytes(scientific_policy_recipe(context_profile=analysis_context())) == recipe
     with pytest.raises(ValueError, match="runtime differs"):
-        require_scientific_policy(prepared)
+        require_scientific_policy(prepared, context_profile=analysis_context())
 
 
 def test_actual_reference_kernel_retains_agreement_before_policy():
     from corpus_structure.semantic.scientific_evidence import decide_reference, reference_evidence
 
     a, b = expression("x"), expression("x+0.000000000001")
-    raw = reference_evidence(a, b)
+    raw = reference_evidence(a, b, context_profile=analysis_context())
     assert raw.tier is EvidenceTier.NUMERIC
     assert raw.agreement is True
     assert raw.numeric == "agreement" and raw.valid_points == 12
@@ -405,7 +405,7 @@ def test_scientific_report_paths_and_construction_share_linkml_shape():
 
 
 def test_consolidation_reads_each_operands_own_roles(monkeypatch):
-    comparator = SemanticComparator({})
+    comparator = SemanticComparator({}, context_profile=analysis_context())
     seen = []
 
     def compare_math(kind, la, lb, fa, fb, conditions, cform, variables, *, operand_contexts):
@@ -425,7 +425,7 @@ def test_consolidation_reads_each_operands_own_roles(monkeypatch):
 
 
 def test_unresolved_operand_cannot_gain_symbolic_agreement():
-    comparator = SemanticComparator({})
+    comparator = SemanticComparator({}, context_profile=analysis_context())
     left = {**expression("x+1"), "bindings": [{"symbol": "x", "kind": "unresolved"}]}
     result = comparator.compare(left, expression("1+x"))
     assert result.tier is EvidenceTier.UNDECIDED
@@ -438,7 +438,7 @@ def test_equation_orientations_cannot_borrow_valid_point_counts(monkeypatch):
     from corpus_structure.semantic import scientific_evidence as owner
 
     x = sympy.Symbol("x")
-    kernel = owner.MathematicalEvidence({})
+    kernel = owner.MathematicalEvidence({}, context_profile=analysis_context())
     monkeypatch.setattr(
         kernel,
         "_read",
@@ -469,7 +469,7 @@ def test_equation_orientations_cannot_borrow_valid_point_counts(monkeypatch):
 def test_equal_text_with_different_binding_cannot_gain_canonical_agreement():
     left = {**expression("x"), "bindings": [{"kind": "free", "symbol": "x"}]}
     right = {**expression("x"), "bindings": [{"kind": "constant", "symbol": "x"}]}
-    decision = SemanticComparator({}).compare(left, right)
+    decision = SemanticComparator({}, context_profile=analysis_context()).compare(left, right)
     assert decision.tier is EvidenceTier.UNDECIDED
     assert "distinct explicit" in decision.detail
 
@@ -489,22 +489,22 @@ def test_symbolic_conversion_timeout_remains_unavailable_and_transient(monkeypat
         raise grammar.Expired()
 
     monkeypatch.setattr(PreparedMathInput, "symbolic_value", expire)
-    kernel = MathematicalEvidence({})
+    kernel = MathematicalEvidence({}, context_profile=analysis_context())
     for _ in range(2):
         value = kernel._read("x", ("formula",), ("x",))
         assert value.expr is None and "timeout" in value.error
     assert calls == ["x", "x"]
-    value, reason = read_reference_operand(expression("x"))
+    value, reason = read_reference_operand(expression("x"), context_profile=analysis_context())
     assert value is None and "timeout" in reason
 
 
 def test_cancelled_denominator_holes_do_not_establish_partial_function_equality():
     from corpus_structure.semantic.scientific_evidence import reference_evidence
 
-    decision = SemanticComparator({}).compare(expression("x/x"), expression("1"))
+    decision = SemanticComparator({}, context_profile=analysis_context()).compare(expression("x/x"), expression("1"))
     assert decision.tier is EvidenceTier.UNDECIDED
     assert "definedness" in decision.detail
-    reference = reference_evidence(expression("x/x"), expression("1"))
+    reference = reference_evidence(expression("x/x"), expression("1"), context_profile=analysis_context())
     assert reference.tier is EvidenceTier.UNDECIDED
     assert "definedness" in reference.detail
 
@@ -513,10 +513,10 @@ def test_cancelled_denominator_holes_do_not_establish_partial_function_equality(
 def test_negative_power_cancellation_cannot_prove_total_function_equality(source):
     from corpus_structure.semantic.scientific_evidence import reference_evidence
 
-    decision = SemanticComparator({}).compare(expression(source), expression("1"))
+    decision = SemanticComparator({}, context_profile=analysis_context()).compare(expression(source), expression("1"))
     assert decision.tier is EvidenceTier.UNDECIDED
     assert "definedness" in decision.detail
-    reference = reference_evidence(expression(source), expression("1"))
+    reference = reference_evidence(expression(source), expression("1"), context_profile=analysis_context())
     assert reference.tier is EvidenceTier.UNDECIDED
     assert "definedness" in reference.detail
 
@@ -524,9 +524,14 @@ def test_negative_power_cancellation_cannot_prove_total_function_equality(source
 def test_unknown_power_domain_cannot_become_empty_domain_proof():
     from corpus_structure.semantic.scientific_evidence import reference_evidence
 
-    decision = SemanticComparator({}).compare(expression(r"x^{-n}x^n"), expression("1"))
+    decision = SemanticComparator({}, context_profile=analysis_context()).compare(expression(r"x^{-n}x^n"), expression("1"))
     assert decision.tier is EvidenceTier.UNDECIDED
     assert "definedness incomplete" in decision.detail
-    reference = reference_evidence(expression(r"x^{-n}x^n"), expression("1"))
+    reference = reference_evidence(expression(r"x^{-n}x^n"), expression("1"), context_profile=analysis_context())
     assert reference.tier is EvidenceTier.UNDECIDED
     assert "definedness incomplete" in reference.detail
+
+
+def analysis_context():
+    from corpus_structure.semantic.analysis_contracts import acquire_analysis_context_profile
+    return acquire_analysis_context_profile()

@@ -1,5 +1,7 @@
 """Shared controlled inputs and builders for semantic reason producers support."""
 
+from corpus_structure.semantic.analysis_contracts import acquire_analysis_context_profile
+
 from functools import cache
 from pathlib import Path
 
@@ -43,7 +45,7 @@ classes:
             "attributes": {"kind": {"equals_string": "custom_binding"}},
         }
         core_content = yaml.safe_dump(schema).encode()
-    dependencies = domain_rule_inputs(ResolvedDependencies(), b"rules: []\n")
+    dependencies = domain_rule_inputs(ResolvedDependencies(), b"rules: []\n", context_profile=acquire_analysis_context_profile())
     bundle = proposal_inputs(
         SourceBundle(
             "reasons",

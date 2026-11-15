@@ -37,7 +37,7 @@ def s(latex: str) -> V.SetValue:
 
 
 def cmp(a: Any, b: Any, conds: tuple[Any, ...] = ()) -> tuple[bool, Tier]:
-    out = ValueComparator(MACROS, ("e", "\\pi")).compare(a, b, conds)
+    out = ValueComparator(MACROS, ("e", "\\pi"), context_profile=analysis_context()).compare(a, b, conds)
     return out.equal, out.tier
 
 
@@ -83,18 +83,10 @@ def test_the_numeric_tier_uses_the_conditions() -> None:
 
 
 def test_undecided_counts_unequal_and_is_logged() -> None:
-    comparator = ValueComparator(MACROS)
+    comparator = ValueComparator(MACROS, context_profile=analysis_context())
     out = comparator.compare(f("\\Phi(x)"), f("\\Phi(y)"))  # application or product, undeclared
     assert (out.equal, out.tier) == (False, Tier.UNDECIDED)
     assert comparator.undecided == [out] and "ambiguous" in out.grammar
-
-
-def test_a_decision_input_decides_an_undecided_pair() -> None:
-    plain = ValueComparator(MACROS)
-    first = plain.compare(f("\\Phi(x)"), f("\\Phi(y)"))
-    decided = ValueComparator(MACROS, decisions={(first.a, first.b): True})
-    out = decided.compare(f("\\Phi(x)"), f("\\Phi(y)"))
-    assert (out.equal, out.tier) == (True, Tier.DECIDED)
 
 
 def test_a_comparison_off_the_main_thread_raises() -> None:
@@ -102,7 +94,7 @@ def test_a_comparison_off_the_main_thread_raises() -> None:
 
     def call() -> None:
         try:
-            ValueComparator(MACROS).compare(f("a + b"), f("b + a"))
+            ValueComparator(MACROS, context_profile=analysis_context()).compare(f("a + b"), f("b + a"))
         except BaseException as error:
             raised.append(error)
 
@@ -118,7 +110,7 @@ def test_numeric_seeds_do_not_depend_on_argument_order(a: str, b: str, c: str) -
 
 
 def test_the_cache_is_symmetric() -> None:
-    comparator = ValueComparator(MACROS)
+    comparator = ValueComparator(MACROS, context_profile=analysis_context())
     one = comparator.compare(f("a + b"), f("b + a"))
     assert comparator.compare(f("b + a"), f("a + b")) is one
 
@@ -134,7 +126,7 @@ def _match(comparator: ValueComparator, claims: dict[str, str] | None = None) ->
 
 
 def test_condition_trees_match_their_leaves_one_to_one() -> None:
-    comparator = ValueComparator(MACROS)
+    comparator = ValueComparator(MACROS, context_profile=analysis_context())
     member = V.MemberNode(op="member", x=f("x"), set=s("\\R"))
     gt = V.CmpNode(op="cmp", rel=Relation.GT, lhs=f("x"), rhs=f("0"))
     lt = V.CmpNode(op="cmp", rel=Relation.LT, lhs=f("0"), rhs=f("x"))
@@ -148,3 +140,8 @@ def test_condition_trees_match_their_leaves_one_to_one() -> None:
     )
     single = V.StoredAnd(op="and", args=(member,))
     assert trees_equivalent(single, member, _match(comparator))
+
+
+def analysis_context():
+    from corpus_structure.semantic.analysis_contracts import acquire_analysis_context_profile
+    return acquire_analysis_context_profile()

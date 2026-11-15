@@ -1,5 +1,7 @@
 """A supported bound input referent survives the actual MCP packet and fresh evaluation."""
 
+from corpus_structure.semantic.analysis_contracts import acquire_analysis_context_profile
+
 import json
 from contextlib import contextmanager
 from dataclasses import replace
@@ -55,7 +57,7 @@ def test_native_known_reference_packet_mcp_and_finalizer(
             }
         },
     }
-    deps = domain_rule_inputs(ResolvedDependencies(), b"rules: []")
+    deps = domain_rule_inputs(ResolvedDependencies(), b"rules: []", context_profile=acquire_analysis_context_profile())
     bundle = SourceBundle(
         "known",
         (

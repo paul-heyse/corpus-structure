@@ -1,5 +1,7 @@
 """Small controlled native publications for maintained source-consumer journeys."""
 
+from corpus_structure.semantic.analysis_contracts import acquire_analysis_context_profile
+
 import json
 from collections.abc import Mapping
 from dataclasses import dataclass, replace
@@ -405,7 +407,7 @@ def _assemble_record_preparation(recipe):
     )
     if bundle_transform is not None:
         bundle = bundle_transform(bundle)
-    dependencies = domain_rule_inputs(ResolvedDependencies(), b"rules: []\n")
+    dependencies = domain_rule_inputs(ResolvedDependencies(), b"rules: []\n", context_profile=acquire_analysis_context_profile())
     bundle, dependencies = analytical_inputs(bundle, dependencies)
     from semantic.method_dimensions_support import fixture_execution_inputs
 

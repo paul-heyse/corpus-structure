@@ -10,7 +10,11 @@ import unicodedata
 from collections.abc import Mapping
 from dataclasses import dataclass, field, replace
 from decimal import Decimal
-from typing import Any
+from typing import Any, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from corpus_structure.semantic.analysis_contracts import AnalysisContextProfile
+    from corpus_structure.semantic.analysis_policies import AlignmentPolicyDefinition
 
 import numpy as np
 from scipy.optimize import linear_sum_assignment
@@ -156,12 +160,6 @@ def _assignment(weights):
     return [(int(i), int(j)) for i, j in zip(a, b, strict=True) if weights[i, j] > 0]
 
 
-def _math_read(value):
-    from corpus_structure.semantic.scientific_evidence import read_reference_operand
-
-    return read_reference_operand(value)
-
-
 def equivalent(
     a,
     b,
@@ -172,6 +170,7 @@ def equivalent(
     model: AlignmentModel | None = None,
     range_name: str | None = None,
     science_scope=None,
+    context_profile: AnalysisContextProfile | None = None,
 ):
     """Canonical typed values, aligned references, commutative condition trees and math.
 
@@ -180,7 +179,7 @@ def equivalent(
     """
     from corpus_structure.semantic.scientific_evidence import ReferenceComparisonScope
 
-    science_scope = science_scope or ReferenceComparisonScope(model)
+    science_scope = science_scope or ReferenceComparisonScope(model, context_profile=context_profile)
     claim_map = {} if claim_map is None else claim_map
     if isinstance(a, Mapping) and isinstance(b, Mapping):
         definition = record_definition(model, range_name, a) if model else None
@@ -744,19 +743,18 @@ def _entity_pairs(ref, pred, prepared, out, science_scope):
 
 
 def align_semantic(
-    ref: SemanticSide, pred: SemanticSide, prepared: AlignmentModel
+    ref: SemanticSide, pred: SemanticSide, prepared: AlignmentModel, *, alignment_policy: AlignmentPolicyDefinition, context_profile: AnalysisContextProfile
 ) -> SemanticAlignment:
     if ref.unit != pred.unit:
         raise ValueError("alignment sides refer to different source units")
-    from corpus_structure.semantic.analysis_contracts import prepare_alignment_policy
     from corpus_structure.semantic.scientific_evidence import ReferenceComparisonScope
 
     from .alignment_preparation import CandidateComparisons, OwnedSide, independent_assignment
 
-    policy = prepare_alignment_policy(prepared)
+    policy = alignment_policy
     # Own nested input records before preparing any operation-local indexes or reusable results.
     ref_side, pred_side = OwnedSide.from_side(ref), OwnedSide.from_side(pred)
-    science_scope = ReferenceComparisonScope(prepared)
+    science_scope = ReferenceComparisonScope(prepared, context_profile=context_profile)
     out = SemanticAlignment(ref.unit)
     emap = _entity_pairs(ref_side, pred_side, prepared, out, science_scope)
     entity_comparisons = tuple(out.comparisons)

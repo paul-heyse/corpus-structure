@@ -135,7 +135,7 @@ def domain_rule_inputs(
     core: bytes = b"",
     *,
     aliases: Mapping[str, Any] | None = None,
-    execution_model=None,
+    context_profile,
 ) -> ResolvedDependencies:
     """Archive existing rules as one operation dependency, never read latest files in a run."""
     from .alias_policy import SOURCE_PROFILE
@@ -170,7 +170,7 @@ def domain_rule_inputs(
             SourceArtifact(RULE_INPUT, yaml.safe_dump(source, sort_keys=True).encode()),
             SourceArtifact(
                 "operation/scientific-policy.json",
-                canonical_bytes(scientific_policy_recipe(model=execution_model)),
+                canonical_bytes(scientific_policy_recipe(context_profile=context_profile)),
             ),
             *(
                 SourceArtifact(

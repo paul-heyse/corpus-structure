@@ -185,22 +185,10 @@ def bind_scientific_computation(recipe: Mapping[str, Any], profiles) -> dict[str
     return result
 
 
-def scientific_policy_recipe(prepared=None, *, model=None) -> dict[str, Any]:
+def scientific_policy_recipe(*, context_profile) -> dict[str, Any]:
     from dataclasses import asdict
 
-    from .analysis_contracts import scientific_computation_profile
-
-    if model is not None:
-        profiles = {
-            p.policy_id: p
-            for profile in model.analysis_profiles
-            for p in profile.scientific_profiles
-        }
-    else:
-        profiles = {
-            policy: scientific_computation_profile(policy, prepared)
-            for policy in (CONSOLIDATION_PROFILE, REFERENCE_PROFILE)
-        }
+    profiles = {profile.policy_id: profile for profile in context_profile.profile.scientific_profiles}
     consolidation = profiles[CONSOLIDATION_PROFILE]
     reference = profiles[REFERENCE_PROFILE]
     recipe = {
@@ -249,19 +237,11 @@ def scientific_policy_recipe(prepared=None, *, model=None) -> dict[str, Any]:
     return bind_scientific_computation(recipe, tuple(profiles.values()))
 
 
-@lru_cache(maxsize=1)
-def _scientific_policy_bytes():
-    return canonical_bytes(scientific_policy_recipe())
-
-
-def require_scientific_policy(prepared) -> None:
-    from .contracts import bound_execution_model
+def require_scientific_policy(prepared, *, context_profile) -> None:
     from .determinants import scientific_compatible
 
-    bound_execution_model(prepared).require_operation("scientific_policy")
-
     artifact = next((a for a in prepared.artifacts if a.kind == SCIENTIFIC_POLICY_INPUT), None)
-    if artifact is None or artifact.content != canonical_bytes(scientific_policy_recipe(prepared)):
+    if artifact is None or artifact.content != canonical_bytes(scientific_policy_recipe(context_profile=context_profile)):
         raise ValueError(
             "scientific evidence/policy recipe is unsupported; "
             "derive a release with the supported profiles"
@@ -459,13 +439,16 @@ class MathematicalEvidence:
         *,
         constraints=None,
         prepared=None,
+        context_profile,
     ):
         from types import MappingProxyType
 
-        from .analysis_contracts import scientific_computation_profile
-
         self.prepared = prepared
-        self.computation = scientific_computation_profile(CONSOLIDATION_PROFILE, prepared)
+        self.context_profile = context_profile
+        profiles = tuple(profile for profile in context_profile.profile.scientific_profiles if profile.policy_id == CONSOLIDATION_PROFILE)
+        if len(profiles) != 1:
+            raise ValueError("captured consolidation scientific computation profile is unavailable")
+        self.computation = profiles[0]
         self.macros = MappingProxyType(dict(macros))
         self.constants = frozenset(constants)
         self.constraints = constraints
@@ -493,6 +476,7 @@ class MathematicalEvidence:
 
         context = context or prepare_interpretation_context(
             getattr(self, "prepared", None),
+            context_profile=self.context_profile,
             macros=self.macros,
             constants=self.constants,
             bindings=tuple({"kind": "free", "symbol": name} for name in variables),
@@ -942,10 +926,10 @@ class ScientificInterpretationUnavailable(ValueError):
 class SemanticComparator(MathematicalEvidence):
     """Consolidation adapter over semantic operands; evidence kernel owns the mathematics."""
 
-    def __init__(self, macros, constants=(), *, prepared=None):
+    def __init__(self, macros, constants=(), *, prepared=None, context_profile):
         if prepared is not None:
-            require_scientific_policy(prepared)
-        super().__init__(macros, constants, prepared=prepared)
+            require_scientific_policy(prepared, context_profile=context_profile)
+        super().__init__(macros, constants, prepared=prepared, context_profile=context_profile)
         self.prepared = prepared
 
     def _constraints(self, conditions, variables):
@@ -967,6 +951,7 @@ class SemanticComparator(MathematicalEvidence):
 
             context = prepare_interpretation_context(
                 self.prepared,
+                context_profile=self.context_profile,
                 macros=self.macros,
                 constants=self.constants,
                 bindings=node.get("bindings", ()),
@@ -1021,6 +1006,7 @@ class SemanticComparator(MathematicalEvidence):
         if key not in self._contexts:
             self._contexts[key] = prepare_interpretation_context(
                 self.prepared,
+                context_profile=self.context_profile,
                 macros=self.macros,
                 constants=self.constants,
                 bindings=operand.get("bindings", ()),
@@ -1119,8 +1105,9 @@ def json_operand(value: Any) -> Mapping[str, Any]:
 class ReferenceComparisonScope:
     """Reference-only operand lifetime for one alignment; never a global memo."""
 
-    def __init__(self, prepared=None):
+    def __init__(self, prepared=None, *, context_profile=None):
         self.prepared = prepared
+        self.context_profile = context_profile
         self._computation = None
         self._operands = {}
         self._definedness = {}
@@ -1128,11 +1115,14 @@ class ReferenceComparisonScope:
     @property
     def computation(self):
         if self._computation is None:
-            from .analysis_contracts import scientific_computation_profile
-
+            if self.context_profile is None:
+                raise ValueError("reference mathematics requires its explicit captured analysis context profile")
             if self.prepared is not None:
-                require_scientific_policy(self.prepared)
-            self._computation = scientific_computation_profile(REFERENCE_PROFILE, self.prepared)
+                require_scientific_policy(self.prepared, context_profile=self.context_profile)
+            profiles = tuple(profile for profile in self.context_profile.profile.scientific_profiles if profile.policy_id == REFERENCE_PROFILE)
+            if len(profiles) != 1:
+                raise ValueError("captured reference scientific computation profile is unavailable")
+            self._computation = profiles[0]
         return self._computation
 
     def read(self, value):
@@ -1143,6 +1133,7 @@ class ReferenceComparisonScope:
             reading = read_reference_operand(
                 value,
                 prepared=self.prepared,
+                context_profile=self.context_profile,
                 capture=lambda operand: restrictions.extend(operand.unproved_definedness()),
             )
             if reading[0] is not None:
@@ -1152,7 +1143,7 @@ class ReferenceComparisonScope:
         return self._operands[key]
 
 
-def read_reference_operand(value, *, prepared=None, capture=None):
+def read_reference_operand(value, *, prepared=None, capture=None, context_profile=None):
     from corpus_structure.core.evidence import MacroDef
     from corpus_structure.core.vocab import ParseOutcome
 
@@ -1172,8 +1163,10 @@ def read_reference_operand(value, *, prepared=None, capture=None):
     }
     from .analysis_contracts import prepare_interpretation_context
 
+    if context_profile is None:
+        raise ValueError("reference mathematics requires its explicit captured analysis context profile")
     context = prepare_interpretation_context(
-        prepared, macros=env, bindings=tuple(bindings), demand="symbolic"
+        prepared, macros=env, bindings=tuple(bindings), demand="symbolic", context_profile=context_profile,
     )
     from corpus_structure.methods.math.prepared import IncompleteDefinedness, PreparedMathInput
 
@@ -1202,7 +1195,7 @@ def read_reference_operand(value, *, prepared=None, capture=None):
 
 
 def reference_evidence(
-    a: Mapping[str, Any], b: Mapping[str, Any], *, conditions=None, prepared=None, scope=None
+    a: Mapping[str, Any], b: Mapping[str, Any], *, conditions=None, prepared=None, scope=None, context_profile=None
 ) -> ScientificEvidence:
     """Preserved reference profile: numeric evidence can disprove, never prove equality."""
     fa, fb = _json(dict(a)), _json(dict(b))
@@ -1223,8 +1216,8 @@ def reference_evidence(
         )
 
     grammar.require_main_thread()
-    scope = scope or ReferenceComparisonScope(prepared)
-    if scope.prepared is not prepared:
+    scope = scope or ReferenceComparisonScope(prepared, context_profile=context_profile)
+    if scope.prepared is not prepared or (context_profile is not None and scope.context_profile != context_profile):
         raise ValueError("reference operand scope belongs to another prepared interpretation")
     x, why_a = scope.read(a)
     y, why_b = scope.read(b)
