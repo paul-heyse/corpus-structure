@@ -37,7 +37,7 @@ def observation(
 ):
     return SelectionEvidence(
         member=PopulationMember(
-            operation=model.operations[0].semantic_id, subject=subject, original_source="source:one"
+            operation=model.operations[0].semantic_id, subject=subject, subject_definition=model.operations[0].subject, original_source="source:one"
         ),
         fate=fate,
         derivations=(episode,),
@@ -239,7 +239,7 @@ def test_actual_native_currentness_pins_target_and_continuation(declared_serving
         assert first.items[0].state == "substitutable"
         assert first.population_complete
         invented = PopulationMember(
-            operation="urn:invented", subject="not-in-demand", original_source="source:invented"
+            operation="urn:invented", subject="not-in-demand", subject_definition="invented-subject", original_source="source:invented"
         )
         uncorroborated = inspect_change_impact(
             connection,
@@ -281,9 +281,10 @@ def test_actual_native_currentness_pins_target_and_continuation(declared_serving
 
 def test_population_context_uses_jsonb_number_meaning_without_bool_or_string_conflation():
     base = PopulationMember(
-        operation="op", subject="one", original_source="source", analyzed_scope={"index": 1}
+        operation="op", subject="one", subject_definition="declared-subject", original_source="source", analyzed_scope={"index": 1}
     )
     assert base.key == base.model_copy(update={"analyzed_scope": {"index": Decimal("1.00")}}).key
+    assert base.key != base.model_copy(update={"subject_definition": "another-subject"}).key
     assert base.key != base.model_copy(update={"analyzed_scope": {"index": True}}).key
     assert base.key != base.model_copy(update={"analyzed_scope": {"index": "1"}}).key
 

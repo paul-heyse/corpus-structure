@@ -24,6 +24,7 @@ class PopulationMember(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
     operation: str
     subject: str
+    subject_definition: str
     original_source: str
     analyzed_scope: dict[str, Any] = Field(default_factory=dict)
 
@@ -33,6 +34,7 @@ class PopulationMember(BaseModel):
             dict(
                 operation=self.operation,
                 subject=self.subject,
+                subject_definition=self.subject_definition,
                 original_source=self.original_source,
                 analyzed_scope_meaning=json_context_meaning(
                     json_bytes(self.analyzed_scope)
@@ -432,7 +434,7 @@ def _revocation_causes(index, roots, selected_uses=()):
     return tuple(causes[key] for key in sorted(causes))
 
 
-def _population_universe(selection, evidence, populations, *, scope):
+def _population_universe(selection, evidence, populations, *, model, scope):
     """Require an authentic complete receipt for each frozen producer context."""
     population = {row.member.key: row.member for row in evidence}
     closed = True
@@ -444,7 +446,7 @@ def _population_universe(selection, evidence, populations, *, scope):
         }
         if producer in selection["root_operations"]:
             for root in selection["roots"]:
-                member = PopulationMember(operation=producer, **root)
+                member = PopulationMember(operation=producer, subject_definition=model.operation(producer).subject, **root)
                 required[member.key] = member
         if not required:
             closed = False
@@ -464,6 +466,7 @@ def _population_universe(selection, evidence, populations, *, scope):
                     PopulationMember(
                         operation=owner["operation_id"],
                         subject=owner["subject"],
+                        subject_definition=owner["subject_definition"],
                         original_source=owner["original_source"],
                         analyzed_scope=owner["analyzed_scope"],
                     ).key
@@ -477,6 +480,7 @@ def _population_universe(selection, evidence, populations, *, scope):
                 child = PopulationMember(
                     operation=relation["target"],
                     subject=member["subject"],
+                    subject_definition=member["subject_definition"],
                     original_source=member["original_source"],
                     analyzed_scope=member["analyzed_scope"],
                 )
@@ -529,12 +533,18 @@ def _acquire(connection, demand, *, project, scope, read_id, expected_cut, max_b
                 continuation = page.continuation
                 if continuation is None:
                     break
+            from .data_operation_admission import bound_data_operation_model
+            from .releases import open_release
+            model = bound_data_operation_model(open_release(connection, cut.record["release_id"]))
             evidence = []
             for identity, obligation in obligations.items():
                 selected = uses[identity]
+                if obligation["subject_definition"] != model.operation(obligation["operation_id"]).subject:
+                    raise ValueError("impact obligation subject definition differs from checked operation")
                 member = PopulationMember(
                     operation=obligation["operation_id"],
                     subject=obligation["subject"],
+                    subject_definition=obligation["subject_definition"],
                     original_source=obligation["original_source"],
                     analyzed_scope=obligation["analyzed_scope"],
                 )
@@ -595,7 +605,7 @@ def _acquire(connection, demand, *, project, scope, read_id, expected_cut, max_b
                     )
                 )
             population, closed = _population_universe(
-                cut.record["selection"], evidence, populations.values(), scope=scope
+                cut.record["selection"], evidence, populations.values(), model=model, scope=scope
             )
             return cut, tuple(evidence), tuple(population.values()), closed
         finally:
