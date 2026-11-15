@@ -14,20 +14,58 @@ from hashlib import sha256
 from .identity import canonical_bytes
 
 
-def _metadata_target(target, *, in_class):
-    return (
-        isinstance(target, ast.Name) and (target.id == "__data_operation__" if in_class else target.id != "__data_operation__" and target.id.endswith("__data_operation__"))
-    ) or (isinstance(target, ast.Attribute) and target.attr == "__data_operation__")
-
-
 class _OperationMetadata(ast.NodeTransformer):
-    def __init__(self):
-        self.in_class = False
+    def __init__(self, tree):
+        self.path = ()
+        self.declarations = set()
+
+        def collect(body, prefix):
+            for node in body:
+                if isinstance(node, (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)):
+                    owner = (*prefix, node.name)
+                    self.declarations.add(owner)
+                    if isinstance(node, ast.ClassDef):
+                        collect(node.body, owner)
+
+        collect(tree.body, ())
+
+    def owner(self, target):
+        if isinstance(target, ast.Name):
+            if target.id == "__data_operation__":
+                return self.path if self.path else None
+            if target.id.endswith("__data_operation__"):
+                return (*self.path, target.id.removesuffix("__data_operation__"))
+        if isinstance(target, ast.Attribute) and target.attr == "__data_operation__":
+            parts, value = [], target.value
+            while isinstance(value, ast.Attribute):
+                parts.insert(0, value.attr)
+                value = value.value
+            if isinstance(value, ast.Name):
+                return (*self.path, value.id, *parts)
+        return None
+
+    def declared_metadata(self, targets, value):
+        if not targets or any(self.owner(target) not in self.declarations for target in targets):
+            return False
+        if not isinstance(value, ast.Dict):
+            return False
+        try:
+            record = ast.literal_eval(value)
+        except (ValueError, TypeError):
+            return False
+        # This identifies declaration intent, not a second admission validator.
+        # The closed frontend still validates the complete operation contract.
+        return (
+            isinstance(record, dict)
+            and record.get("profile") in {"derivation", "discovery", "selection", "command", "read"}
+            and isinstance(record.get("roles"), list)
+            and isinstance(record.get("subject"), str)
+        )
 
     def visit_ClassDef(self, node):
-        previous, self.in_class = self.in_class, True
+        previous, self.path = self.path, (*self.path, node.name)
         result = self.generic_visit(node)
-        self.in_class = previous
+        self.path = previous
         return result
 
     def visit_FunctionDef(self, node):
@@ -38,22 +76,17 @@ class _OperationMetadata(ast.NodeTransformer):
     visit_Lambda = visit_FunctionDef
 
     def visit_Assign(self, node):
-        if node.targets and all(_metadata_target(target, in_class=self.in_class) for target in node.targets):
-            if isinstance(node.value, ast.Dict) and isinstance(ast.literal_eval(node.value), dict):
-                return None
-        return node
+        return None if self.declared_metadata(node.targets, node.value) else node
 
     def visit_AnnAssign(self, node):
-        if _metadata_target(node.target, in_class=self.in_class) and isinstance(node.value, ast.Dict):
-            if isinstance(ast.literal_eval(node.value), dict):
-                return None
-        return node
+        return None if self.declared_metadata((node.target,), node.value) else node
 
 
 @lru_cache(maxsize=128)
 def admitted_operation_module_meaning(content: bytes) -> bytes:
     """Retain the complete supplying module except its explicit operation metadata."""
-    tree = _OperationMetadata().visit(ast.parse(content))
+    tree = ast.parse(content)
+    tree = _OperationMetadata(tree).visit(tree)
     return canonical_bytes({
         "interpretation": "admitted-operation-module-v1",
         "syntax": ast.dump(tree, include_attributes=False),

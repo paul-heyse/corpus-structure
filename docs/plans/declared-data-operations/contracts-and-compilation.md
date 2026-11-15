@@ -126,7 +126,9 @@ factory or selector acquisition. Its `semantic_digest` covers the complete suppl
 removing explicit module/class operation metadata declarations; the typed operation model owns those
 metadata projections. Definition identity uses the semantic digest. Constructors, factories, globals,
 docstrings, imports and reflective code remain in the module projection. Function-local variables and
-ordinary class attributes that resemble metadata names remain executable syntax. Manual
+ordinary class attributes that resemble metadata names remain executable syntax. Projection requires
+a locally declared callable/class owner and a full declaration shape; unattributed, imported or
+partial metadata stays conservative source meaning rather than being erased by its spelling. Manual
 `consumer_selection` descriptor maps are retired; the declaration resolves an actual captured method.
 
 The following semantic asset owners apply that same module projection to their admitted declaration

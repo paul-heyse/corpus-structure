@@ -97,3 +97,14 @@ def test_module_projection_retains_executable_locals_and_ordinary_class_attribut
     assert admitted_operation_module_digest(local) != admitted_operation_module_digest(local.replace(b"'value': 1", b"'value': 2"))
     attribute = b"class Data:\n    ordinary__data_operation__ = {'value': 1}\n"
     assert admitted_operation_module_digest(attribute) != admitted_operation_module_digest(attribute.replace(b"'value': 1", b"'value': 2"))
+
+
+def test_module_projection_does_not_strip_unattributed_reflective_metadata():
+    from corpus_structure.semantic.python_module_projection import admitted_operation_module_digest
+
+    foreign = b"foreign = object()\nforeign.__data_operation__ = {'profile':'derivation','subject':'foreign','roles':[],'value':1}\n"
+    assert admitted_operation_module_digest(foreign) != admitted_operation_module_digest(foreign.replace(b"'value':1", b"'value':2"))
+    suffix = b"unrelated__data_operation__ = {'profile':'derivation','subject':'foreign','roles':[],'value':1}\n"
+    assert admitted_operation_module_digest(suffix) != admitted_operation_module_digest(suffix.replace(b"'value':1", b"'value':2"))
+    unrelated = b"class Data:\n    __data_operation__ = {'value':1}\n"
+    assert admitted_operation_module_digest(unrelated) != admitted_operation_module_digest(unrelated.replace(b"'value':1", b"'value':2"))
