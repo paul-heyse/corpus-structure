@@ -308,3 +308,21 @@ def test_documentation_claim_edit_does_not_masquerade_as_domain_enforcement_chan
     comparison = compare_data_operation_models(before, after)
     assert facets(comparison) == {"documentation"}
     assert not comparison.breakages
+
+
+@pytest.mark.parametrize("description", ["precision", "coverage", "input_coverage"])
+def test_descriptive_precision_and_coverage_are_visible_without_domain_change(description):
+    metadata = contract()
+    before = compile_source(operation_source(metadata=metadata))
+    if description == "precision":
+        metadata["precision_description"] = "Documented output spelling, unchanged value semantics."
+    elif description == "coverage":
+        metadata["coverage"]["description"] = "Reworded examined-population explanation."
+    else:
+        metadata["roles"][0]["support"]["coverage"]["description"] = "Reworded selected-input explanation."
+    after = compile_source(operation_source(metadata=metadata))
+    comparison = compare_data_operation_models(before, after)
+    assert facets(comparison) == {"documentation"}
+    assert not comparison.breakages
+    assert before.operations[0].definition == after.operations[0].definition
+    assert before.operations[0].recipe == after.operations[0].recipe

@@ -15,6 +15,7 @@ import griffe
 from pydantic import BaseModel, ConfigDict, JsonValue
 
 from .identity import canonical_bytes
+from .data_operation_model import operation_role_record
 from .source_interfaces import SourceInterfaceProjection
 
 
@@ -169,7 +170,7 @@ def compare_data_operation_models(
                     )
                     for surface in operation.callable_surfaces
                 ],
-                "roles": [asdict(role) for role in operation.roles],
+                "roles": [operation_role_record(role) for role in operation.roles],
                 "outcomes": operation.outcomes,
                 "parameters": json.loads(operation.parameters),
             }
@@ -194,6 +195,9 @@ def compare_data_operation_models(
                 "behavior": operation.behavior if operation.implementation_root is not None else None,
                 "applicability": [claim.text for claim in operation.applicability if claim.kind == "documentation"],
                 "invariants": [claim.text for claim in operation.invariants if claim.kind == "documentation"],
+                "precision_description": operation.precision_description,
+                "coverage": operation.coverage.description,
+                "input_coverage": {role.name: role.support.coverage.description for role in operation.roles if role.support is not None},
             }
 
         append(
