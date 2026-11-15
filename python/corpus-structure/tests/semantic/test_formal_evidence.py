@@ -1,7 +1,5 @@
 """Independent positions and domain outcomes for retained positioned formal syntax."""
 
-from hashlib import sha256
-from typing import Any, cast
 
 import pytest
 from lark.exceptions import VisitError
@@ -269,29 +267,7 @@ def test_ordinary_retained_annotation_read_preserves_formal_fields_without_parsi
     prepared, monkeypatch
 ):
     from corpus_structure.semantic import formal_evidence
-    from corpus_structure.semantic.characterization import validate_view
-    from corpus_structure.semantic.identity import canonical_bytes
-    from corpus_structure.serve.characterization import (
-        CharacterizationRequest,
-        inspect_captured_characterization,
-    )
-
     layer = report(prepared, "Date: 2026-02-30")
-    pin = layer.reference(12)
-    payload = layer.payload
-    composed = validate_view(
-        prepared,
-        dict(
-            format="enriched-document-view-v1",
-            base_document=payload["base_document"],
-            release_id=prepared.release_id,
-            source_scope=payload["source_scope"],
-            layers=[pin.values()],
-            profile="selected_layers",
-            coverage=payload["coverage"],
-        ),
-        {pin: layer},
-    ).payload
     monkeypatch.setattr(
         formal_evidence,
         "nominate_fields",
@@ -300,27 +276,14 @@ def test_ordinary_retained_annotation_read_preserves_formal_fields_without_parsi
     monkeypatch.setattr(
         math_grammar, "syntax", lambda *args: pytest.fail("retained read reran parsing")
     )
-    response = inspect_captured_characterization(
-        composed,
-        {(pin.task_id, pin.product_key, pin.content_digest): payload},
-        CharacterizationRequest(
-            run_id=1,
-            task_id=13,
-            product_key="view",
-            content_digest=sha256(canonical_bytes(composed)).hexdigest(),
-            view="annotations",
-            family="formal.date",
-            kind="formal.input",
-        ),
-    )
-    row = response.items[0]
-    assert isinstance(row, dict)
-    row = cast(dict[str, Any], row)
-    field = row["annotation"]["formal_input"]
+    retained = decode_layer(prepared, encode_layer(layer)).payload
+    row = next(annotation for annotation in retained["annotations"] if annotation["family"] == "formal.date" and annotation["kind"] == "formal.input")
+    field = row["formal_input"]
     assert field["text"] == "Date: 2026-02-30"
     assert field["syntax_outcome"] == "complete"
     assert field["interpretation_outcome"] == "invalid"
-    assert row["occurrences"][0]["extents"][0]["text"] == "Date: 2026-02-30"
+    occurrence = next(value for value in retained["occurrences"] if value["local_id"] == row["occurrences"][0])
+    assert occurrence["extents"][0]["text"] == "Date: 2026-02-30"
 
 
 def test_failed_recognition_and_deadline_preserve_input_and_lexical_siblings(prepared, monkeypatch):

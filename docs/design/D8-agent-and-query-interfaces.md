@@ -606,6 +606,18 @@ The CLI `native-render` shares the same native creation/resume/execution route. 
 claims, effects and publication custody; the tool's `readOnlyHint` is false. The separate retained
 reader server remains read-only. Registration and adapter controls do not establish genuine rendering
 or end-to-end native publication qualification.
+Current `records list|support|export` and MCP `read_result` consume explicit demand/project
+selections and native product/member, use and producing derivation coordinates. Selected detached
+JSONL/Parquet export owns portable result/support delivery, including the pinned cut and authority-leaf
+limits. Computational custody and derivation edges confer no scientific support/opposition standing.
+The task/layer `enriched` inspector, integer record/review presentation and record-specific physical
+export are retired. Current characterization inventory reads genuine selected nominal members;
+`interpretations review` and `inspect_private_proposals` restrict membership to captured
+`DdoRichProposalValue` descendants and preserve `private_proposed` standing. Terminology lookup,
+portable schema delivery and explicit native authoring remain separate consumers. Generic selected
+member rows do not supply grouped measurement semantics; that undelivered DDO-09/10 obligation
+remains with the declared-data-operations plan.
+
 Separate native proposal frames hash the actual section context, native objects and coverage.
 Their projection ranges and direct native item addresses remain distinct from PDF geometry.
 Deterministic `native_evidence:<piece index>` handles identify an exact retained item, formula

@@ -344,7 +344,7 @@ def test_authored_review_completion_filter_and_selected_root_ambiguity(
     from corpus_structure.semantic.interpretation_queries import TerminologySelection
     from corpus_structure.semantic.metadata import table
     from corpus_structure.semantic.refusals import SemanticRefusal
-    from corpus_structure.serve.record_results import RecordRequest, serve_record_results
+    from corpus_structure.semantic.record_queries import RecordReadSelection, read_completed_record_projection
     from corpus_structure.settings import Settings
 
     case = private_source
@@ -493,21 +493,15 @@ def test_authored_review_completion_filter_and_selected_root_ambiguity(
         value="normal",
     )
     with read_snapshot(case.writer) as conn:
-        second = serve_record_results(
-            conn,
-            RecordRequest(
-                run_id=case.run, record_id=records[1]["record_id"], terminology=selection
-            ),
+        second = read_completed_record_projection(
+            conn, run_id=case.run, selection=RecordReadSelection(record_id=records[1]["record_id"], terminology=selection)
         )
-        assert second.matching_records == 1 and len(second.records) == 1
-        assert len(second.records[0].terminology_reviews) == 1
-        assert second.records[0].record["record_id"] == records[1]["record_id"]
+        assert second.matching_records == 1 and len(second.rows["source_record"]) == 1
+        assert len(second.terminology_matches) == 1
+        assert second.rows["source_record"][0].record_id == records[1]["record_id"]
         with pytest.raises(SemanticRefusal, match="multiple field reviews"):
-            serve_record_results(
-                conn,
-                RecordRequest(
-                    run_id=case.run, record_id=records[0]["record_id"], terminology=selection
-                ),
+            read_completed_record_projection(
+                conn, run_id=case.run, selection=RecordReadSelection(record_id=records[0]["record_id"], terminology=selection)
             )
     # Later record-result custody is distinct from the original coordinate authority.
     # Retain another located record through the ordinary authored-record producer,

@@ -443,9 +443,6 @@ def inspect_review(
     ctx: typer.Context,
     bundle: Annotated[Path | None, typer.Argument()] = None,
     result_id: Annotated[str | None, typer.Option("--result", metavar="RESULT_ID")] = None,
-    request: Annotated[
-        str | None, typer.Option(help="Bounded enriched-document request, JSON path or '-'.")
-    ] = None,
     json: JsonOpt = False,
 ):
     """Verify a detached bundle or managed result and summarize its coverage."""
@@ -456,22 +453,8 @@ def inspect_review(
     if (bundle is None) == (result_id is None):
         raise typer.BadParameter("supply a detached bundle path or --result, exactly one")
     with failure_boundary(json, expected=(OSError, ValueError, ResultError)):
-        query = None
-        if request is not None:
-            from corpus_structure.serve.characterization import CharacterizationRequest
-
-            query = CharacterizationRequest.model_validate_json(read_request_bytes(request))
-
         def inspect(root, digest=None):
-            if query is None:
-                return inspect_review_bundle(root, manifest_digest=digest)
-            from corpus_structure.serve.characterization_replay import (
-                inspect_characterization_review,
-            )
-
-            return inspect_characterization_review(root, query, manifest_digest=digest).model_dump(
-                mode="json"
-            )
+            return inspect_review_bundle(root, manifest_digest=digest)
 
         if bundle is not None:
             report = inspect(bundle)

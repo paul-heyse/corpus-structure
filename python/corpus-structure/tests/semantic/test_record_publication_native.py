@@ -522,7 +522,7 @@ def test_completed_record_journey_preserves_sealed_no_output_diagnostics(
 ):
     from corpus_structure.semantic.operations import claim_tasks, complete_task, create_task
     from corpus_structure.semantic.query import read_snapshot
-    from corpus_structure.serve.record_results import RecordRequest, serve_record_results
+    from corpus_structure.semantic.record_queries import RecordReadSelection, read_completed_record_projection
 
     case = private_source
     coverage = (
@@ -593,16 +593,13 @@ def test_completed_record_journey_preserves_sealed_no_output_diagnostics(
             )
         cut = seal_cut(conn, case.run, "empty-coverage-final", final=True)
     consolidate_cut(case.writer, cut, "public-coverage-diagnostics")
-    request = RecordRequest(
-        run_id=case.run, family="table", standing="accepted", include_diagnostics=True
-    )
+    request = RecordReadSelection(family="table", standing="accepted")
     with read_snapshot(record_source_reader) as conn:
-        page = serve_record_results(conn, request)
-        selected = serve_record_results(
-            conn, request.model_copy(update={"source_view_ids": (case.other_view,)})
+        page = read_completed_record_projection(conn, run_id=case.run, selection=request, include_diagnostics=True)
+        selected = read_completed_record_projection(
+            conn, run_id=case.run, selection=request, source_view_ids=(case.other_view,), include_diagnostics=True
         )
-    assert page.records == () and page.population_paging_complete
-    assert page.source_coverage == "not_established_by_record_projection"
+    assert page.rows["source_record"] == () and not page.more_records
     by_source = {report.source_view_id: report for report in page.coverage}
     report = by_source[case.view]
     assert report.coverage == coverage and report.diagnostics == diagnostics
@@ -660,7 +657,7 @@ def test_record_continuation_keeps_completed_cut_after_project_selection_changes
     from sqlalchemy import update
 
     from corpus_structure.semantic.query import read_snapshot
-    from corpus_structure.serve.record_results import RecordRequest, serve_record_results
+    from corpus_structure.semantic.record_queries import RecordReadSelection, read_completed_record_projection
 
     case = private_source
     cut = record_cut(case)
@@ -676,10 +673,11 @@ def test_record_continuation_keeps_completed_cut_after_project_selection_changes
                 generation=project.c.generation + 1,
             )
         )
-    request = RecordRequest(run_id=case.run, limit=1)
+    request = RecordReadSelection(limit=1)
     with read_snapshot(record_source_reader) as conn:
-        first = serve_record_results(conn, request)
-    assert first.next_cursor is not None
+        first = read_completed_record_projection(conn, run_id=case.run, selection=request)
+    assert first.more_records
+    last = first.rows["source_record"][-1]
     # This is a genuinely changed selection, not a second read of one snapshot.
     with record_source_admin.begin() as conn:
         conn.execute(
@@ -691,12 +689,12 @@ def test_record_continuation_keeps_completed_cut_after_project_selection_changes
             )
         )
     with read_snapshot(record_source_reader) as conn:
-        second = serve_record_results(
-            conn, request.model_copy(update={"cursor": first.next_cursor})
+        second = read_completed_record_projection(
+            conn, run_id=case.run, selection=RecordReadSelection(limit=1, after=(last.record_id, last.interpretation_id))
         )
     assert second.binding == first.binding and second.cut_id == first.cut_id == cut
     assert second.coverage == first.coverage
-    assert second.records != first.records and second.population_paging_complete
+    assert second.rows["source_record"] != first.rows["source_record"] and not second.more_records
 
 
 @pytest.mark.parametrize(

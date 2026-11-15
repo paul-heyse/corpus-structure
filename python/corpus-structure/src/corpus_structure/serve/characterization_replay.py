@@ -735,51 +735,6 @@ def _verify_companions(product, proof, content, schemas, proof_content):
             )
 
 
-def inspect_characterization_review(root: Path | int, request, *, manifest_digest=None):
-    """Replay the same bounded domain inspection from an authenticated detached closure."""
-    from .characterization import (
-        _source_pointers,
-        add_source_context,
-        inspect_captured_characterization,
-    )
-    from .review_bundle import _member
-
-    if not isinstance(root, int):
-        descriptor = os.open(root, os.O_RDONLY | os.O_DIRECTORY)
-        try:
-            return inspect_characterization_review(
-                descriptor, request, manifest_digest=manifest_digest
-            )
-        finally:
-            os.close(descriptor)
-    manifest = verify_characterization_review(root, manifest_digest=manifest_digest)
-    selection = CharacterizationReviewSelection.model_validate(manifest["selection"])
-    if request.reference() != selection.reference() or request.run_id != selection.run_id:
-        raise ValueError("detached characterization inspection differs from captured selection")
-
-    def content(name):
-        spec = manifest["files"][name]
-        with _member(root, name, digest=spec["sha256"], size=spec["bytes"]) as stream:
-            return stream.read()
-
-    layers = _LayerPayloads(_LayerFiles(manifest["layers"], content))
-    response = inspect_captured_characterization(
-        json.loads(content(manifest["view"])), layers, request
-    )
-    if not _source_pointers(response):
-        return response
-    from corpus_structure.semantic.pdf_contracts import resolve_native_pointer
-
-    document = json.loads(content("base.json"))["product"]["content"]
-    return add_source_context(
-        response,
-        request,
-        lambda pointers: {
-            pointer: resolve_native_pointer(document, pointer) for pointer in pointers
-        },
-    )
-
-
 def _native_root(proof):
     from .review_source_projection import _fields, _scalar_matches
 

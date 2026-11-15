@@ -17,7 +17,6 @@ from corpus_structure.serve.characterization_replay import (
     CharacterizationReviewSelection,
     _Budget,
     _Sink,
-    inspect_characterization_review,
 )
 from corpus_structure.serve.review_bundle import inspect_review_bundle, verify_review_bundle
 from semantic.characterization_replay_support import (
@@ -87,32 +86,6 @@ def test_stream_budget_refuses_before_oversized_write():
     with pytest.raises(SemanticRefusal, match="budget"):
         sink.write(b"d")
     assert output.getvalue() == b"abc"
-
-
-@pytest.mark.parametrize("view", ["terms", "coverage"])
-def test_detached_inspection_uses_same_domain_projection(tmp_path, prepared, view):
-    from corpus_structure.serve.characterization import CharacterizationRequest
-
-    root = tmp_path / "review"
-    manifest = bundle(root, prepared)
-    selection = manifest["selection"]
-    request = CharacterizationRequest(
-        run_id=selection["run_id"],
-        task_id=selection["task_id"],
-        product_key=selection["product_key"],
-        content_digest=selection["content_digest"],
-        view=view,
-    )
-    response = inspect_characterization_review(root, request)
-    assert response.standing == "private_analyses"
-    if view == "coverage":
-        assert list(response.items) == json.loads((root / "view.json").read_bytes())["coverage"]
-        assert response.coverage_total == 1
-        assert response.source_items == {}
-        return
-    assert response.model_dump(mode="json")["items"][0]["term"]["value"] == "all"
-    assert response.model_dump(mode="json")["source_items"]["#/texts/0"]["text"] == "all"
-    assert "#/body" in response.source_items
 
 
 @pytest.mark.parametrize("case", ["metadata_envelope", "external_scalar"])

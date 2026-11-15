@@ -136,9 +136,6 @@ def build_retained_reader_server(
     from corpus_structure.semantic.operation_reporting import report_schema
 
     register_record_tools(server, source_snapshot)
-    from corpus_structure.intervene.characterization_tools import register_characterization_tools
-
-    register_characterization_tools(server, source_snapshot, _bounded_mcp_result)
     from corpus_structure.intervene.interpretation_tools import register_interpretation_tools
 
     register_interpretation_tools(server, reader_snapshot, selected_source_snapshot, project=project)

@@ -539,25 +539,6 @@ def test_native_composition_source_only_and_indexed_keyset_pages(
         assert read_nodes(conn, view_pin, "annotations", selectors={"page": 999})["nodes"] == []
         on_page = read_nodes(conn, view_pin, "annotations", selectors={"page": 3})["nodes"]
         assert [row["node"]["local_id"] for row in on_page] == ["a0"]
-        from corpus_structure.serve.characterization import (
-            CharacterizationRequest,
-            inspect_characterization,
-        )
-
-        cross_page = inspect_characterization(
-            conn,
-            CharacterizationRequest(
-                run_id=source.task["run_id"],
-                **view_pin.values(),
-                view="membership",
-                annotation_id="a0",
-                page=3,
-            ),
-        )
-        assert [
-            (row["membership"]["local_id"], row["outside_selection"]) for row in cross_page.items
-        ] == [("m0", False), ("m1", True)]
-        assert cross_page.items[1]["occurrences"][0]["extents"][0]["page"] == 4
         with pytest.raises(DBAPIError), conn.begin_nested():
             read_layer(conn, layer_pin, max_bytes=1)
         with pytest.raises(DBAPIError), conn.begin_nested():
@@ -624,11 +605,9 @@ def test_native_capture_detached_characterization_closure_while_run_unfinished(
     """Real reader snapshot capture; public detached verify/inspect dispatch, no NLP."""
     from corpus_structure.core.db.cancellation import OperationCancellation
     from corpus_structure.semantic.query import read_snapshot
-    from corpus_structure.serve.characterization import CharacterizationRequest
     from corpus_structure.serve.characterization_replay import (
         CharacterizationReviewSelection,
         capture_characterization_review,
-        inspect_characterization_review,
     )
     from corpus_structure.serve.review_bundle import inspect_review_bundle, verify_review_bundle
 
@@ -678,53 +657,6 @@ def test_native_capture_detached_characterization_closure_while_run_unfinished(
         captured = capture_characterization_review(conn, selection, destination, cancellation)
     assert verify_review_bundle(destination) == captured
     assert inspect_review_bundle(destination)["layers"] == 1
-    response = inspect_characterization_review(
-        destination,
-        CharacterizationRequest(
-            run_id=source.task["run_id"], **view_pin.values(), view="membership", annotation_id="a0"
-        ),
-    )
-    assert len(response.items) == 2
-    assert response.membership_scope == "complete_recorded_members"
-    page_response = inspect_characterization_review(
-        destination,
-        CharacterizationRequest(
-            run_id=source.task["run_id"],
-            **view_pin.values(),
-            view="membership",
-            annotation_id="a0",
-            page=3,
-        ),
-    )
-    assert [
-        (row["membership"]["local_id"], row["outside_selection"]) for row in page_response.items
-    ] == [("m0", False), ("m1", True)]
-    assert (
-        response.model_dump(mode="json")["items"][1]["occurrences"][0]["extents"][0]["start"] == 4
-    )
-
-    from corpus_structure.serve.characterization import inspect_characterization
-
-    for mode in ("annotations", "membership"):
-        request = CharacterizationRequest(
-            run_id=source.task["run_id"],
-            **view_pin.values(),
-            view=mode,
-            annotation_id="a0" if mode == "membership" else None,
-            limit=1,
-        )
-        with read_snapshot(commit_reader_engine) as conn:
-            live = inspect_characterization(conn, request)
-        detached = inspect_characterization_review(destination, request)
-        assert detached.model_dump(mode="json") == live.model_dump(mode="json")
-        assert detached.source_items
-        assert detached.continuation is not None
-        following = request.model_copy(update={"cursor": detached.continuation})
-        with read_snapshot(commit_reader_engine) as conn:
-            live_following = inspect_characterization(conn, following)
-        assert inspect_characterization_review(destination, following).model_dump(
-            mode="json"
-        ) == live_following.model_dump(mode="json")
 
 
 @pytest.mark.parametrize("private_build", ["characterization_pdf"], indirect=True)
@@ -1142,11 +1074,9 @@ def test_native_new_rule_release_reuses_original_native_layer_and_detached_contr
 
     from corpus_structure.core.db.cancellation import OperationCancellation
     from corpus_structure.semantic.query import read_snapshot
-    from corpus_structure.serve.characterization import CharacterizationRequest
     from corpus_structure.serve.characterization_replay import (
         CharacterizationReviewSelection,
         capture_characterization_review,
-        inspect_characterization_review,
     )
     from corpus_structure.serve.review_bundle import verify_review_bundle
 
@@ -1161,17 +1091,6 @@ def test_native_new_rule_release_reuses_original_native_layer_and_detached_contr
             cancellation,
         )
     verify_review_bundle(destination)
-    response = inspect_characterization_review(
-        destination,
-        CharacterizationRequest(
-            run_id=run,
-            **view_pin.values(),
-            view="terms",
-            layer_key=semantic_pin.product_key,
-            annotation_id="predicate",
-        ),
-    )
-    assert response.items[0]["roles"][0]["basis"]["rule_id"] == "toy:retained-native-v1"
     with commit_reader_engine.connect() as conn:
         assert read_layer(conn, original_pin).content == original.content
 
