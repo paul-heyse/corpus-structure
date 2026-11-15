@@ -182,4 +182,6 @@ def selected_graph_snapshot(connection, prepared, request):
                 return assessment_graph_snapshot(prepared, cut, index, members=addresses)
             return snapshot_from_index(prepared, cut, index, request.projection)
     except SelectedGraphBudgetExceeded as error:
+        pins.update(error.cut.record)
+        pins["cut_id"] = error.cut.identity
         return GraphSnapshot(projection=request.projection, specification=specification.identity_bytes.hex(), pins_json=json_bytes(pins).decode(), nodes=(), occurrences=(), standing="partial", unknowns=(str(error),))
