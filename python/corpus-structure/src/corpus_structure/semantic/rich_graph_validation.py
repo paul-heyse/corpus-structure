@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from dataclasses import dataclass
 from datetime import date, datetime
 from decimal import Decimal
 from typing import Any
@@ -18,6 +19,7 @@ from .rich_knowledge_contracts import (
     DdoRichEntityValue, DdoRichFact, DdoRichOccurrence, DdoRichQualificationMeaning,
     DdoRichRecordValue, DdoRichScalarValue, DdoRichSelectedMember,
     DdoRichSourceReadingAssertion,
+    rich_reference_key,
 )
 from .types import PreparedRelease
 from .unicode_identity import identity_casefold
@@ -25,6 +27,13 @@ from .unicode_identity import identity_casefold
 _NAMESPACE = "https://corpus-structure.dev/semantic/data-operation-rich-knowledge/"
 _VALUES = (DdoRichScalarValue, DdoRichEntityValue, DdoRichRecordValue, DdoRichCollectionValue, DdoRichQualificationMeaning, DdoRichCasefoldText)
 _ORDINARY_VALUES = (DdoRichScalarValue, DdoRichEntityValue, DdoRichRecordValue)
+
+
+@dataclass(frozen=True)
+class RichWholeInput:
+    """An actual selected whole value, supplied by the prepared binding owner."""
+    reference: DdoRichSelectedMember
+    value: Any
 
 
 def _body_id(body) -> str:
@@ -48,7 +57,7 @@ def _body_id(body) -> str:
 
 
 class _RichGraph:
-    def __init__(self, prepared, model, context, graph, inputs):
+    def __init__(self, prepared, model, context, graph, inputs, whole_inputs):
         self.prepared, self.model, self.context = prepared, model, context
         self.kinds = {kind.semantic_id: kind for kind in model.kinds}
         self.kind_facts = {kind.semantic_id: json.loads(kind.facts) for kind in model.kinds}
@@ -68,12 +77,20 @@ class _RichGraph:
         from .rich_value_graph import RichValueGraph
         self.qualification_projector = RichValueGraph(prepared, model)
         self.qualification_projections = {}
-        self.inputs = {(item.product_id, item.member_id): item.kind_contract for item in inputs}
+        self.inputs = {rich_reference_key(item) for item in inputs}
         if len(self.inputs) != len(inputs):
             raise ValueError("rich selected input population repeats an actual address")
-        observed_inputs = {(item.product_id, item.member_id): item.kind_contract for item in graph.input_population} if isinstance(graph, DdoRichConsolidation) else None
+        observed_inputs = {rich_reference_key(item) for item in graph.input_population} if isinstance(graph, DdoRichConsolidation) else None
         if observed_inputs is not None and (observed_inputs != self.inputs or len(observed_inputs) != len(graph.input_population)):
             raise ValueError("rich graph input population differs from its actual selected inputs")
+        self.whole_members = []
+        from .data_operation_ports import project_product_members
+        for whole in whole_inputs:
+            if whole.reference.member_id is not None or rich_reference_key(whole.reference) not in self.inputs:
+                raise ValueError("rich whole-input proof differs from its actual binding")
+            owner = self.kind(whole.reference.kind_contract)
+            packets = tuple(json_loads(packet) for packet in project_product_members(model, owner.semantic_id, whole.value))
+            self.whole_members.append((whole.reference, {packet["member_id"]: packet["kind_contract"] for packet in packets}))
         for packet in graph.members:
             if packet.member_id != _body_id(packet.body) or packet.member_id in self.members:
                 raise ValueError("rich member identity differs from its body or repeats")
@@ -96,8 +113,11 @@ class _RichGraph:
         return body
 
     def external(self, reference):
-        if self.inputs.get((reference.product_id, reference.member_id)) != reference.kind_contract:
-            raise ValueError("rich source reference differs from an actual selected input")
+        if rich_reference_key(reference) not in self.inputs:
+            if not any(parent.product_id == reference.product_id and parent.support_references == reference.support_references
+                       and members.get(reference.member_id) == reference.kind_contract
+                       for parent, members in self.whole_members):
+                raise ValueError("rich source reference differs from an actual selected input or nominal whole member")
         self.kind(reference.kind_contract)
 
     def kind(self, contract):
@@ -267,6 +287,8 @@ class _RichGraph:
                     raise ValueError("rich occurrence qualification differs from its fact equality")
             elif isinstance(body, DdoRichSourceReadingAssertion):
                 self.external(body.original)
+                self.external(body.resolution)
+                self.external(body.resolved)
                 record = self.member(body.reading_value, DdoRichRecordValue)
                 definition = self.definition(record.kind_contract)
                 if definition.name != "SourceReading" and "SourceReading" not in definition.ancestors:
@@ -292,14 +314,15 @@ class _RichGraph:
 
 
 def validate_rich_graph(prepared: PreparedRelease, model: EffectiveDataOperationModel, *, context: SubjectContext,
-                        graph: DdoRichConsolidation | DdoRichAdmission, inputs: tuple[DdoRichSelectedMember, ...]):
+                        graph: DdoRichConsolidation | DdoRichAdmission, inputs: tuple[DdoRichSelectedMember, ...],
+                        whole_inputs: tuple[RichWholeInput, ...] = ()):
     """Validate finite graph meaning; selected/native publication custody stays with its owner."""
     validate_subject_context(model, context)
     if model.subject_definition(context.subject_definition).scope != "project" or context.original_source is not None:
         raise ValueError("rich graph requires its actual source-free project context")
     owner = DdoRichAdmission if isinstance(graph, DdoRichAdmission) else DdoRichConsolidation
     checked = owner.model_validate(_untrusted_value(graph), strict=True)
-    state = _RichGraph(prepared, model, context, checked, inputs)
+    state = _RichGraph(prepared, model, context, checked, inputs, whole_inputs)
     if isinstance(checked, DdoRichAdmission):
         state.external(checked.consolidation)
         if state.kind(checked.consolidation.kind_contract).semantic_id != _NAMESPACE + "DdoRichConsolidation":

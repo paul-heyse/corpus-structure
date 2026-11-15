@@ -263,8 +263,10 @@ def actual_graph(source):
     context = SubjectContext("project:actual", "knowledge:actual", None, b'{}', subject_definition="knowledge-universe")
     ids = {item.owner: item.key for item in model.identities if item.domain == "kind"}
     prefix = "https://corpus-structure.dev/semantic/data-operation-rich-knowledge/"
-    entity_ref = DdoRichSelectedMember(product_id="selected:known-entities", member_id="entity:subject", kind_contract=ids[prefix + "DdoRichEntity"])
-    claim_ref = DdoRichSelectedMember(product_id="selected:authored-fact", member_id="fact:source", kind_contract=ids[prefix + "DdoRichFact"])
+    from corpus_structure.semantic.data_operation_support import ComputationalSupportReference
+    selected_support = (ComputationalSupportReference(kind="computation", derivation_id="derivation:actual", admission_use_id="use:actual"),)
+    entity_ref = DdoRichSelectedMember(product_id="selected:known-entities", member_id="entity:subject", kind_contract=ids[prefix + "DdoRichEntity"], support_references=selected_support)
+    claim_ref = DdoRichSelectedMember(product_id="selected:authored-fact", member_id="fact:source", kind_contract=ids[prefix + "DdoRichFact"], support_references=selected_support)
     values = RichFactGraph(prepared, model, context=context, entities={"entity:subject": frozenset({"urn:rich-values:Measurement"})}, known_fact_ids=frozenset())
     result = values.add_property_fact(subject_entity="entity:subject", class_name="Measurement", property_name="amount", value=Decimal("12.3"), qualification={"label": "Gaussian", "reporter": "original-source"})
     entity = DdoRichEntity(member_type="entity", entity_id="entity:subject", class_contracts=(ids["urn:rich-values:Measurement"],), source_members=(entity_ref,))
@@ -354,3 +356,61 @@ def test_rich_context_pin_uses_shared_json_number_equality_without_collapsing_bo
         return rich_context_pin(SubjectContext("project", "knowledge", None, scope, subject_definition="knowledge-universe"))
     assert pin(b'{"page":1}') == pin(b'{"page":1.0}')
     assert pin(b'{"page":1}') != pin(b'{"page":true}')
+
+
+def test_whole_input_member_proof_uses_actual_nominal_members_and_same_support(source):
+    from corpus_structure.semantic.rich_graph_validation import RichWholeInput, validate_rich_graph
+    from corpus_structure.semantic.rich_knowledge_contracts import DdoRichSelectedMember, DdoRichEntity, DdoRichOccurrence
+    prepared, model = source
+    context, graph, inputs = actual_graph(source)
+    root_kind = next(item.key for item in model.identities if item.domain == "kind" and item.owner == "https://corpus-structure.dev/semantic/data-operation-rich-knowledge/DdoRichConsolidation")
+    parent = DdoRichSelectedMember(product_id="selected:whole", member_id=None, kind_contract=root_kind, support_references=inputs[0].support_references)
+    by_kind = {type(packet.body).__name__: packet for packet in graph.members}
+    def reference(name):
+        packet = by_kind[name]
+        return parent.model_copy(update={"member_id": packet.member_id, "kind_contract": packet.kind_contract})
+    packets = tuple(packet.model_copy(update={"body": packet.body.model_copy(update={
+        "source_members": (reference("DdoRichEntity"),)
+    })}) if isinstance(packet.body, DdoRichEntity) else packet.model_copy(update={"body": packet.body.model_copy(update={
+        "original": reference("DdoRichFact")
+    })}) if isinstance(packet.body, DdoRichOccurrence) else packet for packet in graph.members)
+    output = graph.model_copy(update={"members": packets, "input_population": (parent,)})
+    proof = (RichWholeInput(parent, graph),)
+    assert validate_rich_graph(prepared, model, context=context, graph=output, inputs=(parent,), whole_inputs=proof) == output
+    with pytest.raises(ValueError, match="actual selected input"):
+        validate_rich_graph(prepared, model, context=context, graph=output, inputs=(parent,))
+    # Possessing another member string or a different episode does not prove membership.
+    entity = next(packet for packet in output.members if isinstance(packet.body, DdoRichEntity))
+    for changed in (reference("DdoRichEntity").model_copy(update={"member_id": "entity:unselected"}),
+                    reference("DdoRichEntity").model_copy(update={"support_references": (inputs[0].support_references[0].model_copy(update={"derivation_id": "other-episode"}),)})):
+        forged = entity.model_copy(update={"body": entity.body.model_copy(update={"source_members": (changed,)})})
+        invalid = output.model_copy(update={"members": tuple(forged if item.member_id == entity.member_id else item for item in output.members)})
+        with pytest.raises(ValueError, match="actual selected input"):
+            validate_rich_graph(prepared, model, context=context, graph=invalid, inputs=(parent,), whole_inputs=proof)
+    with pytest.raises(ValueError, match="input population"):
+        validate_rich_graph(prepared, model, context=context, graph=output.model_copy(update={"input_population": (parent, reference("DdoRichEntity"))}), inputs=(parent,), whole_inputs=proof)
+
+
+def test_selected_rich_reference_requires_actual_support_and_normalizes_population():
+    from corpus_structure.semantic.rich_knowledge_contracts import DdoRichSelectedMember
+    from corpus_structure.semantic.data_operation_support import ComputationalSupportReference
+    a = ComputationalSupportReference(kind="computation", derivation_id="episode:a", admission_use_id="use:a")
+    b = ComputationalSupportReference(kind="computation", derivation_id="episode:b", admission_use_id="use:b")
+    fields = dict(product_id="product:actual", member_id=None, kind_contract="kind:actual")
+    with pytest.raises(ValidationError):
+        DdoRichSelectedMember(**fields, support_references=())
+    assert DdoRichSelectedMember(**fields, support_references=(a,b,a)) == DdoRichSelectedMember(**fields, support_references=(b,a))
+
+
+def test_rich_reading_decision_does_not_invent_unavailable_resolution():
+    from corpus_structure.semantic.rich_knowledge_contracts import DdoRichReadingDecision, DdoRichSelectedMember
+    from corpus_structure.semantic.data_operation_support import ComputationalSupportReference
+    support = (ComputationalSupportReference(kind="computation", derivation_id="episode:actual", admission_use_id="use:actual"),)
+    raw = DdoRichSelectedMember(product_id="product:raw", member_id="member:raw", kind_contract="kind:record", support_references=support)
+    fields = dict(original=raw,resolution=None,resolved=None,record_id="record:actual",source_interpretation_id="interpretation:raw",interpretation_id=None,
+                  authorization=None,outcome="not-checkable",feature_input_digest=None,feature_instance_digest=None,event_procedure=None,score_hex=None,probability_hex=None,
+                  reason_code="resolution-unavailable",assertion_member_id=None)
+    assert DdoRichReadingDecision(**fields).interpretation_id is None
+    for change in ({"outcome":"accepted"}, {"interpretation_id":"interpretation:invented"}, {"resolved":raw}, {"score_hex":0.5.hex()}):
+        with pytest.raises(ValidationError):
+            DdoRichReadingDecision(**{**fields, **change})
