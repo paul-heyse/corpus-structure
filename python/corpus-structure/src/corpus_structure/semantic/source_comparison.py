@@ -40,6 +40,7 @@ class EffectiveChange(BaseModel):
 class SourceCompatibilityBreakage(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
     operation: str
+    exposed: str
     kind: str
     old_value: str | None = None
     new_value: str | None = None
@@ -85,7 +86,9 @@ def _interfaces(model, supplied):
 
 def _callable_container(operation):
     container = griffe.Module("operation")
-    for index, surface in enumerate(operation.callable_surfaces):
+    for surface in operation.callable_surfaces:
+        if surface.exposed in container.members:
+            raise ValueError("duplicate exposed callable " + surface.exposed)
         parameters = griffe.Parameters(
             *(
                 griffe.Parameter(
@@ -97,12 +100,12 @@ def _callable_container(operation):
                 for parameter in surface.parameters
             )
         )
-        # Keep stable semantic entrypoint positions separate from relocation of
-        # the supplying Python module. Full callable facts retain those origins.
+        # Sequence keys preserve the exact exposed identity as a single member.
+        # Reordering/adding entrypoints must never pair two unrelated callables.
         container.set_member(
-            f"entrypoint_{index}",
+            (surface.exposed,),
             griffe.Function(
-                f"entrypoint_{index}",
+                surface.exposed,
                 parameters=parameters,
                 returns=surface.returns,
             ),
@@ -228,6 +231,7 @@ def compare_data_operation_models(
                 breakages.append(
                     SourceCompatibilityBreakage(
                         operation=owner,
+                        exposed=item.obj.name,
                         kind=item.kind.value,
                         old_value=None if item.old_value is None else str(item.old_value),
                         new_value=None if item.new_value is None else str(item.new_value),

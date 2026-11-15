@@ -47,10 +47,15 @@ def bound_data_operation_model(prepared: PreparedRelease) -> EffectiveDataOperat
     model = read_effective_data_operations(artifacts[0].content)
     if model.version != MODEL_VERSION:
         raise SemanticRefusal("execution requires the current target operation model; regenerate")
-    from .source_interfaces import read_source_interfaces
-
-    interfaces = read_source_interfaces(prepared)
-    return replace(model, source_interfaces=interfaces.content) if interfaces is not None else model
+    # Ordinary runtime admission does not parse/render documentation. The normal
+    # archive reader authenticates the artifact set; explicit inspection/comparison
+    # validates its version and effective-model binding when those facts are used.
+    interfaces = [
+        a for a in prepared.artifacts if a.kind == "data_operation_source_interfaces.json"
+    ]
+    if len(interfaces) > 1:
+        raise SemanticRefusal("release has ambiguous source interface projection")
+    return replace(model, source_interfaces=interfaces[0].content) if interfaces else model
 
 
 def require_data_operation_call_context(

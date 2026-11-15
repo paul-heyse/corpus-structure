@@ -210,3 +210,33 @@ def test_interface_rendering_participates_in_release_custody_not_semantic_recipe
     altered = projection.model_copy(update={"unknowns": ("new documentation interpretation",)})
     assert replace(model, source_interfaces=altered.content).content == model.content
     assert altered.identity != projection.identity
+
+
+def test_griffe_entrypoints_match_exposed_identity_across_addition_and_reorder():
+    from corpus_structure.semantic.data_operation_model import CallableParameter, CallableSurface
+
+    before = compile_source(operation_source())
+    original = before.operations[0]
+    run = CallableSurface(
+        "example.Operation.run",
+        "example.Operation.run",
+        (CallableParameter("x", "positional or keyword", "int", "2"),),
+        "int",
+    )
+    close = CallableSurface("example.Operation.close", "example.Operation.close", (), "None")
+    first = replace(
+        before, operations=(replace(original, callable_surfaces=(run,)),), source_interfaces=None
+    )
+    added = replace(
+        before,
+        operations=(replace(original, callable_surfaces=(close, run)),),
+        source_interfaces=None,
+    )
+    comparison = compare_data_operation_models(first, added)
+    assert not comparison.breakages
+    reordered = replace(added, operations=(replace(original, callable_surfaces=(run, close)),))
+    assert not compare_data_operation_models(added, reordered).breakages
+    from corpus_structure.semantic.source_comparison import _callable_container
+
+    with pytest.raises(ValueError, match="duplicate exposed callable"):
+        _callable_container(replace(original, callable_surfaces=(run, run)))
