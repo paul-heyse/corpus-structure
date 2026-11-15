@@ -46,6 +46,7 @@ classes:
     attributes:
       id: {identifier: true, required: true}
   Measurement:
+    annotations: {cs:scope: global}
     attributes:
       amount: {range: decimal, required: true}
       at: {range: datetime, required: true}
@@ -61,6 +62,7 @@ classes:
       label: {required: true, slot_uri: r:shared}
       alias: {slot_uri: r:shared}
   KeyedEntity:
+    annotations: {cs:scope: global}
     is_a: Entity
     attributes:
       code: {required: true}
@@ -527,7 +529,12 @@ def actual_graph(source):
         entity_id="entity:subject",
         class_contracts=(ids["urn:rich-values:Measurement"],),
         identities=(
-            {"class_contract": ids["urn:rich-values:Measurement"], "fields": (), "label": None},
+            {
+                "class_contract": ids["urn:rich-values:Measurement"],
+                "fields": (),
+                "source_context": None,
+                "label": None,
+            },
         ),
         source_members=(entity_ref,),
     )
@@ -943,6 +950,7 @@ def test_entity_identity_bases_retain_actual_declared_key_values_and_refuse_othe
                 property_contract=ids["urn:rich-values:KeyedEntity/property/code"], value_id=key
             ),
         ),
+        source_context=None,
         label="Observed label",
     )
     entity = original.model_copy(

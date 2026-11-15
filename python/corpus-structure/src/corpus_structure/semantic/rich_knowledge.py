@@ -7,7 +7,7 @@ values grant no accepted standing; native admission owns that effect.
 from __future__ import annotations
 
 import json
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from hashlib import sha256
 from typing import Any, Literal
@@ -15,6 +15,7 @@ from typing import Any, Literal
 from .data_operation_identity import semantic_value
 from .data_operation_model import SubjectContext
 from .identity import canonical_bytes
+from .reference_positions import LocatedReference
 from .types import ClassDefinition, PreparedRelease, PropertyDefinition
 
 
@@ -115,7 +116,7 @@ def rich_property_value(
     definition: ClassDefinition,
     prop: PropertyDefinition,
     value: Mapping[str, Any],
-    entities: Mapping[str, str],
+    entities: Mapping[str, str] | Callable[[LocatedReference], str],
     claims: Mapping[str, str] | None = None,
 ) -> Any:
     """Use the actual declared property boundary and compiled reference positions."""
@@ -126,7 +127,13 @@ def rich_property_value(
     if prop.range in classes:
         if not prop.inlined:
             reference = class_reference_value(prepared, value)
-            raw = entities.get(reference, reference)
+            raw = (
+                entities(
+                    LocatedReference("class", reference, prop.range, (definition.name, prop.name))
+                )
+                if callable(entities)
+                else entities.get(reference, reference)
+            )
         else:
             raw = rewrite_references(
                 prepared, prop.range, value, classes=entities, facts=claims, collision="equal"

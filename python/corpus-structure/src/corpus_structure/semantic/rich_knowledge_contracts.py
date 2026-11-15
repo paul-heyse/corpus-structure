@@ -151,6 +151,7 @@ class DdoRichEntityIdentity(RichRecord):
 
     class_contract: Nonempty
     fields: tuple[DdoRichPropertyValue, ...]
+    source_context: DdoRichContextPin | None
     label: str | None
 
 
@@ -169,7 +170,8 @@ class DdoRichIdentityResolution(RichRecord):
     source_members: Annotated[tuple[DdoRichSelectedMember, ...], Field(min_length=1)]
     basis: IdentityBasis
     outcome: IdentityOutcome
-    relevant_entity_ids: tuple[Nonempty, ...]
+    candidate_identity_keys: tuple[Nonempty, ...]
+    matched_entity_ids: tuple[Nonempty, ...]
     dependency_sources: tuple[DdoRichSelectedMember, ...]
 
 
@@ -278,11 +280,22 @@ class DdoRichSourceReadingAssertion(RichRecord):
 class DdoRichAlternative(RichRecord):
     member_type: Literal["alternative"]
     alternative_id: Nonempty
-    fact_ids: Annotated[tuple[Nonempty, ...], Field(min_length=2)]
+    fact_ids: Annotated[tuple[Nonempty, ...], Field(min_length=1)]
+    completeness: Literal["complete", "incomplete"]
     origin: Literal["source-proposal", "value-disagreement"]
     faithful: bool
     reason: Nonempty
     source_members: tuple[DdoRichSelectedMember, ...]
+
+    @model_validator(mode="after")
+    def actual_known_alternative_population(self):
+        if len(set(self.fact_ids)) != len(self.fact_ids) or (
+            self.completeness == "complete" and len(self.fact_ids) < 2
+        ):
+            raise ValueError(
+                "rich alternative completeness differs from its actual distinct fact population"
+            )
+        return self
 
 
 class DdoRichAssessment(RichRecord):
@@ -583,13 +596,10 @@ def rich_context_pin(context: SubjectContext) -> DdoRichContextPin:
     )
 
 
-def materialize_rich_context(
-    pin: DdoRichContextPin, model: EffectiveDataOperationModel, *, expected_context: SubjectContext
-) -> DdoRichContext:
-    """Recover actual JSON only against the invocation's selected authentic context."""
+def read_rich_context_pin(pin: DdoRichContextPin) -> SubjectContext:
+    """Decode the existing exact JSON context meaning without generic JSON coercion."""
     from .data_operation_identity import decode_semantic_value
     from .data_operation_json import json_bytes, json_loads
-    from .data_operation_model import SubjectContext, validate_subject_context
 
     scope = decode_semantic_value(json_loads(pin.analyzed_scope_meaning))
     context = SubjectContext(
@@ -599,6 +609,19 @@ def materialize_rich_context(
         original_source=pin.original_source,
         analyzed_scope=json_bytes(scope),
     )
+    if rich_context_pin(context) != pin:
+        raise ValueError("rich source context differs from its canonical JSON meaning")
+    return context
+
+
+def materialize_rich_context(
+    pin: DdoRichContextPin, model: EffectiveDataOperationModel, *, expected_context: SubjectContext
+) -> DdoRichContext:
+    """Recover actual JSON only against the invocation's selected authentic context."""
+    from .data_operation_json import json_loads
+    from .data_operation_model import validate_subject_context
+
+    context = read_rich_context_pin(pin)
     validate_subject_context(model, context)
     validate_subject_context(model, expected_context)
     if context != expected_context:

@@ -162,6 +162,7 @@ class ValidatedRichGraph:
         ):
             raise ValueError("rich graph input population differs from its actual selected inputs")
         self.whole_members = []
+        self.source_member_contexts = {}
         from .data_operation_ports import project_product_members
 
         for whole in whole_inputs:
@@ -181,6 +182,14 @@ class ValidatedRichGraph:
                     {packet["member_id"]: packet["kind_contract"] for packet in packets},
                 )
             )
+            for packet in packets:
+                reference = whole.reference.model_copy(
+                    update={
+                        "member_id": packet["member_id"],
+                        "kind_contract": packet["kind_contract"],
+                    }
+                )
+                self.source_member_contexts[rich_reference_key(reference)] = packet["context"]
         for packet in graph.members:
             if packet.member_id != _body_id(packet.body) or packet.member_id in self.members:
                 raise ValueError("rich member identity differs from its body or repeats")
@@ -519,6 +528,44 @@ class ValidatedRichGraph:
                         raise ValueError("rich entity identity belongs to another actual class")
                     definition = self.definition(basis.class_contract)
                     represented.add(basis.class_contract)
+                    from .rich_knowledge_contracts import read_rich_context_pin
+
+                    metadata = next(
+                        (
+                            json.loads(row.body)
+                            for row in self.prepared.registry_rows
+                            if row.kind == "operation_class" and row.name == definition.name
+                        ),
+                        {},
+                    )
+                    if metadata.get("cs:scope") == "global" and basis.source_context is not None:
+                        raise ValueError(
+                            "global entity identity cannot acquire a documentary source context"
+                        )
+                    if basis.source_context is not None:
+                        source = read_rich_context_pin(basis.source_context)
+                        validate_subject_context(self.model, source)
+                        if (
+                            source.project_id != self.context.project_id
+                            or source.original_source is None
+                        ):
+                            raise ValueError(
+                                "local entity identity requires its genuine documentary source context"
+                            )
+                        expected = {
+                            "subject": source.subject,
+                            "subject_definition": source.subject_definition,
+                            "original_source": source.original_source,
+                            "analyzed_scope": json_loads(source.analyzed_scope),
+                        }
+                        if self._checking_member not in self.retained_member_ids and not any(
+                            self.source_member_contexts.get(rich_reference_key(reference))
+                            == expected
+                            for reference in body.source_members
+                        ):
+                            raise ValueError(
+                                "local entity identity context differs from its actual selected source member"
+                            )
                     names = {
                         name
                         for group in definition.identity_groups
@@ -639,7 +686,7 @@ class ValidatedRichGraph:
                     self.external(ref)
             elif isinstance(body, DdoRichIdentityResolution):
                 self.member(body.resolved_entity_id, DdoRichEntity)
-                for entity in body.relevant_entity_ids:
+                for entity in body.matched_entity_ids:
                     self.member(entity, DdoRichEntity)
                 for reference in (*body.source_members, *body.dependency_sources):
                     self.external(reference)

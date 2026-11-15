@@ -71,6 +71,7 @@ default_prefix: r
 classes:
   ScientificSubject:
     is_a: Entity
+    annotations: {cs:scope: global}
     attributes:
       value:
         range: Value
@@ -182,6 +183,7 @@ def graph_inputs(scientific, values, *, qualifications=None, macros=None, proper
             {
                 "class_contract": ids["urn:rich-scientific:ScientificSubject"],
                 "fields": (),
+                "source_context": None,
                 "label": None,
             },
         ),

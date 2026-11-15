@@ -226,6 +226,7 @@ def test_duplicate_reports_of_one_fact_do_not_compete_and_source_alternatives_re
     )
     body = DdoRichAlternative(
         member_type="alternative",
+        completeness="complete",
         alternative_id=canonical_identity("controlled-alternative", facts).key,
         fact_ids=facts,
         origin="source-proposal",
