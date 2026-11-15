@@ -17,7 +17,6 @@ from pydantic.dataclasses import dataclass
 
 from corpus_structure.schema.physical import compile_physical
 
-from .contracts import retained_physical_sources
 from .determinants import projection_analysis_runtime
 from .identity import canonical_bytes
 from .projection_analysis import ProjectionAnalysis, analyze_recipe
@@ -158,6 +157,8 @@ def prepare_projection_analysis(dependencies: ResolvedDependencies) -> PreparedA
             *("Required retained projection source unavailable: " + item for item in missing)
         )
     linkml_types = supplied[types_name]
+    from .contracts import retained_physical_sources
+
     try:
         physical = compile_physical(
             retained_physical_sources(

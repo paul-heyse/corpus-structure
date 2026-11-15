@@ -997,8 +997,6 @@ def parse(
     seconds: float = PARSE_SECONDS,
 ) -> MathResult:
     """Read `latex` under the start symbol `kind` with the effective macro table `macros`."""
-    from corpus_structure.semantic.contracts import implementation_overridden
-
     require_main_thread()
     if kind not in STARTS:
         raise ValueError(f"kind {kind!r} is not one of {STARTS}")
@@ -1008,13 +1006,12 @@ def parse(
         context = _standalone_context(table, kind)
     ctx = context
     key = (latex, kind, _table_key(table), ctx.key())
-    overridden = implementation_overridden()
-    hit = None if overridden else _MEMO.get(key)
+    hit = _MEMO.get(key)
     if hit is not None:
         _MEMO.move_to_end(key)
         return hit
     result = _read(latex, kind, table, ctx, seconds)
-    if not overridden and (result.failure is None or result.failure.category != "timeout"):
+    if result.failure is None or result.failure.category != "timeout":
         _MEMO[key] = result
         if len(_MEMO) > MEMO_SIZE:
             _MEMO.popitem(last=False)
