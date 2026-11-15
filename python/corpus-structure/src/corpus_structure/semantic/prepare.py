@@ -942,6 +942,12 @@ def _prepare_release_uncached(
     ]
     if data_operations is not None:
         artifacts.append(PreparedArtifact("data_operations.json", data_operations.content))
+        if data_operations.source_interfaces is not None:
+            from .source_interfaces import SOURCE_INTERFACE_ARTIFACT
+
+            artifacts.append(
+                PreparedArtifact(SOURCE_INTERFACE_ARTIFACT, data_operations.source_interfaces)
+            )
         artifacts.append(
             PreparedArtifact(
                 "data_operation_runtime_inputs.json",

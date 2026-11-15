@@ -803,6 +803,7 @@ def compile_data_operations(
     """
     kinds, nodes, edges, aliases = _kind_products(schema, definitions, vocabularies)
     frontend = ClosedPythonSources(python_sources) if python_sources is not None else None
+    python_facts = frontend.operations() if frontend is not None else ()
     authored: list[tuple[dict[str, Any], tuple, tuple[FactOrigin, ...], str | None]] = []
     slices = []
     seen_sources: set[str] = set()
@@ -836,7 +837,7 @@ def compile_data_operations(
                 )
             )
     if frontend is not None:
-        for facts in frontend.operations():
+        for facts in python_facts:
             slices.append(facts.implementation)
             authored.append(
                 (
@@ -1731,7 +1732,15 @@ def compile_data_operations(
         graph_projections=compiled_graph_projections(tuple(nodes.values()), edges),
     )
 
-    return replace(model, identities=_compile_identities(model))
+    from .source_interfaces import export_source_interfaces
+
+    return replace(
+        model,
+        identities=_compile_identities(model),
+        source_interfaces=export_source_interfaces(frontend, python_facts).content
+        if frontend is not None
+        else None,
+    )
 
 
 def _binding_record(expression: BindingExpression, *, result_only: bool = False) -> dict | None:

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from hashlib import sha256
 from typing import TYPE_CHECKING, cast
 
@@ -47,7 +47,10 @@ def bound_data_operation_model(prepared: PreparedRelease) -> EffectiveDataOperat
     model = read_effective_data_operations(artifacts[0].content)
     if model.version != MODEL_VERSION:
         raise SemanticRefusal("execution requires the current target operation model; regenerate")
-    return model
+    from .source_interfaces import read_source_interfaces
+
+    interfaces = read_source_interfaces(prepared)
+    return replace(model, source_interfaces=interfaces.content) if interfaces is not None else model
 
 
 def require_data_operation_call_context(

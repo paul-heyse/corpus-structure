@@ -289,6 +289,8 @@ class ImplementationSlice:
     def complete(self) -> bool:
         return not any(item.required for item in self.unknowns)
 
+    source_interfaces: bytes | None = field(default=None, repr=False, compare=False)
+
     def semantic_records(self) -> dict:
         return {
             "nodes": tuple(node.record() for node in self.nodes),
@@ -512,6 +514,8 @@ class EffectiveDataOperationModel:
     identities: tuple[EffectiveIdentity, ...] = ()
     graph_projections: tuple[GraphProjectionDefinition, ...] = ()
 
+    source_interfaces: bytes | None = field(default=None, repr=False, compare=False)
+
     def semantic_records(self) -> dict:
         return {
             "nodes": tuple(node.record() for node in self.nodes),
@@ -596,6 +600,7 @@ class EffectiveDataOperationModel:
             return value
 
         record = asdict(self)
+        record.pop("source_interfaces")
         legacy_model = self.version in {LEGACY_MODEL_VERSION, ARCHIVED_MODEL_VERSION}
         if self.version not in {
             MODEL_VERSION,
@@ -844,6 +849,8 @@ def _read_effective_data_operations(content: bytes) -> EffectiveDataOperationMod
             historical["prepared_factory"] = None
         if legacy_model and cls is EffectiveOperation:
             historical["consumer_selection"] = None
+        if cls is EffectiveDataOperationModel:
+            historical["source_interfaces"] = None
         archived_fields = expected - historical.keys()
 
         def structure(value, _):
