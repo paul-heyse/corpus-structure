@@ -86,9 +86,7 @@ def captured(content: bytes | None = None):
         execution_evidence_schema,
     )
     from corpus_structure.semantic.data_operation_support import (
-        ORIGINAL_REFERENCE_SCHEMA,
         ORIGINAL_SUPPORT_REFERENCE_SCHEMA,
-        original_source_reference_schema,
         original_support_reference_schema,
     )
 
@@ -101,7 +99,6 @@ def captured(content: bytes | None = None):
             source.read_bytes() if content is None else content,
         ),
         SourceArtifact(SOURCE, execution_evidence_schema()),
-        SourceArtifact(ORIGINAL_REFERENCE_SCHEMA, original_source_reference_schema()),
         SourceArtifact(ORIGINAL_SUPPORT_REFERENCE_SCHEMA, original_support_reference_schema()),
         SourceArtifact(VISUAL_SOURCE, visual_read_schema()),
         SourceArtifact(GRADE_SCHEMA_SOURCE, record_policy_grade_schema()),

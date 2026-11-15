@@ -212,19 +212,8 @@ definitions:
       minItems: 4
       maxItems: 4
       additionalItems: false
-  original_source_selector:
-    type: object
-    properties:
-      projection: {$ref: '#/definitions/identifier'}
-      native_pointer: {$ref: '#/definitions/identifier'}
-      page: {$ref: '#/definitions/positive_integer'}
-      start: {$ref: '#/definitions/nonnegative_integer'}
-      end: {$ref: '#/definitions/nonnegative_integer'}
-    required: [projection]
-    additionalProperties: false
   original_source_selection:
     oneOf:
-    - {$ref: '#/definitions/original_native_selection'}
     - {$ref: '#/definitions/original_document_selection'}
     - {$ref: '#/definitions/authored_fact_selection'}
   authored_fact_selector:
@@ -253,13 +242,6 @@ definitions:
       selectors: {type: array, minItems: 1, maxItems: 1, items: {$ref: '#/definitions/original_document_selector'}}
     required: [reference, selectors]
     additionalProperties: false
-  original_native_selection:
-    type: object
-    properties:
-      reference: {$ref: '#/definitions/external_source_reference'}
-      selectors: {type: array, minItems: 1, items: {$ref: '#/definitions/original_source_selector'}}
-    required: [reference, selectors]
-    additionalProperties: false
   semantic_source_reference:
     type: object
     properties:
@@ -281,10 +263,7 @@ definitions:
         - $ref: '#/definitions/identifier'
         - type: 'null'
       source_reference: {$ref: '#/definitions/identifier'}
-      reference:
-        oneOf:
-        - {$ref: '#/definitions/external_source_reference'}
-        - {$ref: '#/definitions/semantic_source_reference'}
+      reference: {$ref: '#/definitions/semantic_source_reference'}
     required: [project_id, original_source, subject, subject_definition, analyzed_scope, product, member, source_reference, reference]
     additionalProperties: false
   root_subject:
@@ -1197,16 +1176,7 @@ definitions:
       selectors: {type: array, minItems: 1, maxItems: 1, items: {$ref: '#/definitions/authored_fact_selector'}}
     required: [demand_id, selection_name, reference, selectors]
     additionalProperties: false
-  admit_original_source_view_request:
-    type: object
-    properties:
-      demand_id: {$ref: '#/definitions/identifier'}
-      selection_name: {$ref: '#/definitions/identifier'}
-      reference: {$ref: '#/definitions/external_source_reference'}
-      selectors: {type: array, minItems: 1, items: {$ref: '#/definitions/original_source_selector'}}
-    required: [demand_id, selection_name, reference, selectors]
-    additionalProperties: false
-  admit_original_source_view_result:
+  original_source_admission_result:
     type: object
     properties:
       admission_id: {$ref: '#/definitions/identifier'}
@@ -2077,7 +2047,7 @@ definitions:
         minItems: 0
       original_source_admissions:
         type: array
-        items: {$ref: '#/definitions/admit_original_source_view_result'}
+        items: {$ref: '#/definitions/original_source_admission_result'}
       attempt_failures:
         type: array
         items: {$ref: '#/definitions/attempt_failure_observation'}
@@ -2492,7 +2462,7 @@ operations:
 - name: admit_authored_data
   profile: command
   request: admit_authored_data_request
-  result: admit_original_source_view_result
+  result: original_source_admission_result
   purposes: [write, evaluate]
 - name: inspect_data_operation_release
   profile: read
@@ -2507,12 +2477,7 @@ operations:
 - name: admit_original_document_asset
   profile: read
   request: admit_original_document_asset_request
-  result: admit_original_source_view_result
-  purposes: [read, write, evaluate]
-- name: admit_original_source_view
-  profile: read
-  request: admit_original_source_view_request
-  result: admit_original_source_view_result
+  result: original_source_admission_result
   purposes: [read, write, evaluate]
 - name: register_data_demand
   profile: command

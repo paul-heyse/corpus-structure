@@ -456,35 +456,14 @@ def test_asset_contract_resolution_is_explicit_and_changed_bytes_change_recipe(p
     )
 
 
-def test_target_preserves_packed_alternatives_and_original_source_custody_is_not_meaning(
+def test_target_preserves_packed_alternatives_for_current_source_projection(
     profile, monkeypatch
 ):
-    from dataclasses import replace
-
     from corpus_structure.methods.math import grammar
-    from corpus_structure.semantic.product_reference import ProductReference
-    from semantic.primary_formal_fixture import source as original_source
 
-    view = original_source(("original", "formula", "f(x)", "succeeded"))
-    selectors = [dict(projection=view.ref.projection_digest, start=0, end=len(view.text))]
-    first = FrozenFormalSource.from_source_view(
-        profile.prepared, view, document="document:exact-original", selectors=selectors
-    )
-    relocated = replace(
-        view,
-        ref=replace(
-            view.ref,
-            id=99,
-            document_id=50,
-            native_product=ProductReference(
-                777, "relocated-document", view.ref.native_product.content_digest
-            ),
-        ),
-    )
-    second = FrozenFormalSource.from_source_view(
-        profile.prepared, relocated, document="document:exact-original", selectors=selectors
-    )
-    assert first.content == second.content
+    first = selected(profile, "f(x)",
+        items=[dict(self_ref="#/texts/0", label="formula", text="f(x)", orig="f(x)", prov=[dict(page_no=1)])],
+        recognition=[dict(pointer="#/texts/0", outcome="succeeded")])
     monkeypatch.setattr(
         grammar, "syntax", lambda *a, **k: pytest.fail("expanded conventional trees")
     )
@@ -492,10 +471,6 @@ def test_target_preserves_packed_alternatives_and_original_source_custody_is_not
         grammar, "to_sympy", lambda *a, **k: pytest.fail("constructed native algebra")
     )
     left = profile.run(first, FormalEvidenceOptions(), subject_context=_publication_context(first))
-    right = profile.run(
-        second, FormalEvidenceOptions(), subject_context=_publication_context(second)
-    )
-    assert left.content == right.content
     body = left.inventory()
     assert body["choices"]
     assert {"application", "multiply"} <= {row["value"] for row in body["terms"]}

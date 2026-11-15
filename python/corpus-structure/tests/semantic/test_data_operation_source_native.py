@@ -8,7 +8,6 @@ from typing import Any
 import pglast
 import pytest
 from pglast import ast
-from pglast.stream import RawStream
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
@@ -21,8 +20,6 @@ from corpus_structure.semantic.data_operation_source_native import (
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.prepared_sql import prepare_sql
 from corpus_structure.semantic.source_products import FrozenNativeSource, source_product_inputs
-from semantic.native_record_fixtures import RecordSourceRecipe
-from semantic.native_record_fixtures import private_source as private_source
 
 
 @pytest.fixture(scope="module")
@@ -124,9 +121,14 @@ def test_native_source_builder_matches_source_owner_without_legacy_diagnostic_sa
         health=projection["health"],
         ancestors=[],
     )
-    expected = FrozenNativeSource.from_source_view(
-        source_prepared, view, document="document:semantic", selectors=selectors
+    expected = FrozenNativeSource.from_projection(
+        source_prepared, document="document:semantic", section_pointer=view.ref.section_pointer,
+        membership=view.ref.membership, text=view.text, pieces=view.pieces, items=view.items,
+        ancestors=view.ancestors, recognition=view.health.get("formula_outcomes", ()),
     )
+    value = expected.value
+    value["selectors"] = [{**row, "projection": value["source"]["projection"]} for row in selectors]
+    expected = FrozenNativeSource.acquire(source_prepared, value)
     actual = build(source_builder_connection, projection, [atom], selectors)
     assert canonical_bytes(actual) == expected.content
     assert (
@@ -156,52 +158,6 @@ def test_native_source_builder_refuses_non_original_coordinates(source_builder_c
         projection["pieces"][0]["start"] = 1
     with pytest.raises(DBAPIError, match="original source"):
         build(source_builder_connection, projection, [atom], selectors)
-
-
-@pytest.mark.parametrize(
-    "private_source", [RecordSourceRecipe()], indirect=True, ids=("record-base",)
-)
-def test_authenticated_original_source_read_matches_original_published_custody(
-    private_source, source_prepared, record_source_admin
-):
-    from corpus_structure.semantic.source_admission import acquire_original_source_selection
-
-    from .original_source_fixture import completed_original_source_reference
-
-    reference, selectors = completed_original_source_reference(private_source)
-    with record_source_admin.connect() as connection:
-        transaction = connection.begin()
-        try:
-            for statement in prepare_sql(
-                source_native_sql(), source="original-source-read"
-            ).statements:
-                connection.exec_driver_sql(
-                    RawStream()(statement), execution_options={"no_parameters": True}
-                )
-            acquired = acquire_original_source_selection(
-                connection, source_prepared, reference, selectors
-            )
-            actual = connection.execute(
-                text(
-                    "SELECT ops.ddo_original_source_view("
-                    "CAST(:reference AS jsonb),CAST(:selectors AS jsonb))"
-                ),
-                dict(reference=reference.model_dump_json(), selectors=json.dumps(selectors)),
-            ).scalar_one()
-            assert canonical_bytes(actual["body"]) == acquired.source.content
-            assert actual["subject"] == acquired.root.subject
-            assert actual["original_source"] == acquired.root.original_source
-            assert actual["analyzed_scope"] == json.loads(acquired.root.analyzed_scope)
-            assert actual["meaning_body"] == semantic_value(acquired.source.value)
-            assert actual["original_source"] == acquired.source.value["source"]["document"]
-            assert actual["original_source"] != acquired.original_content_hash
-            frozen_selection = acquired.selection().record()
-            assert frozen_selection == {
-                "reference": reference.model_dump(mode="json"),
-                "selectors": selectors,
-            }
-        finally:
-            transaction.rollback()
 
 
 def test_native_source_retains_ordered_ancestry_links_and_typed_table_context(
@@ -262,9 +218,14 @@ def test_native_source_retains_ordered_ancestry_links_and_typed_table_context(
         ancestors=[ancestor],
         health=projection["health"],
     )
-    expected = FrozenNativeSource.from_source_view(
-        source_prepared, view, document="document:semantic", selectors=selectors
+    expected = FrozenNativeSource.from_projection(
+        source_prepared, document="document:semantic", section_pointer=view.ref.section_pointer,
+        membership=view.ref.membership, text=view.text, pieces=view.pieces, items=view.items,
+        ancestors=view.ancestors, recognition=view.health.get("formula_outcomes", ()),
     )
+    value = expected.value
+    value["selectors"] = [{**row, "projection": value["source"]["projection"]} for row in selectors]
+    expected = FrozenNativeSource.acquire(source_prepared, value)
     actual = build(source_builder_connection, projection, [ancestor, atom], selectors)
     assert canonical_bytes(actual) == expected.content
     assert actual["ancestors"][0]["children"] == ["#/texts/0"]
@@ -278,8 +239,10 @@ def test_native_source_retains_ordered_ancestry_links_and_typed_table_context(
     assert index.matches({"native_pointer": "#/groups/0"}, "#/texts/0") is True
     assert index.matches({"native_pointer": "#/different"}, "#/texts/0") is False
     ancestor["parent"] = {"$ref": "#/unretained"}
-    unresolved = FrozenNativeSource.from_source_view(
-        source_prepared, view, document="document:semantic", selectors=selectors
+    unresolved = FrozenNativeSource.from_projection(
+        source_prepared, document="document:semantic", section_pointer=view.ref.section_pointer,
+        membership=view.ref.membership, text=view.text, pieces=view.pieces, items=view.items,
+        ancestors=view.ancestors, recognition=view.health.get("formula_outcomes", ()),
     )
     assert (
         unresolved.selector_index().matches({"native_pointer": "#/different"}, "#/texts/0") is None
@@ -321,23 +284,6 @@ def test_computed_projection_uses_same_language_value_without_legacy_source_iden
         recognition=[],
         selectors=selectors,
     )
-    view = SimpleNamespace(
-        ref=SimpleNamespace(
-            section_pointer="#/groups/0", membership="descendants", projection_digest="b" * 64
-        ),
-        text=projection["text"],
-        pieces=projection["pieces"],
-        items=[atom],
-        ancestors=[],
-        health=projection["health"],
-    )
-    original = FrozenNativeSource.from_source_view(
-        source_prepared,
-        view,
-        document="document:semantic",
-        selectors=[{**selector, "projection": "b" * 64} for selector in selectors],
-    )
-    assert native.content == original.content
     assert native.value["source"]["document"] == "document:semantic"
     assert native.value["items"][0]["prov"] == [{"page_no": 1}]
     assert b"task_id" not in native.content and b"bbox" not in native.content

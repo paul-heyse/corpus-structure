@@ -61,6 +61,7 @@ def test_source_selector_preflight_is_shared_and_pure(kwargs):
     "field,value",
     [
         ("graph", {}),
+        ("retained_sources", []),
         ("registry_for", "owner"),
         ("fresh", ["text.formal_evidence"]),
         ("realization_id", "legacy-run-input"),

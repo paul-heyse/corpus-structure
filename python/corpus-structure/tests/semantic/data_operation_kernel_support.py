@@ -511,11 +511,13 @@ python:
 )
 
 
-def _original_recipe(kind, execution_profile):
+def _original_recipe(*, pdf_capability):
+    kind = "DdoOriginalDocument"
+    execution_profile = "execution:original-pdf" if pdf_capability else "execution:original-document"
     operation = source_declaration()
     operation.update(id="urn:original-fact-test:consume", behavior="source-value-consumer-v1")
     operation["roles"][0].update(maximum=1, collection="scalar")
-    if kind == "DdoOriginalDocument":
+    if pdf_capability:
         from corpus_structure.semantic.pdf_domain import CONTRACT, HELPER_CONTRACT, pdf_helper_asset
         operation["capabilities"]["preparation"] = "pdf-native"
         operation["assets"] = [{"reference": CONTRACT, "contract": HELPER_CONTRACT, "role": "native-pdf-helper-bindings", "content_digest": pdf_helper_asset().digest}]
@@ -545,10 +547,10 @@ schemas: [{name: target, path: schema.yaml}, {name: core, path: core.yaml}]
 declarations: [{name: operations, path: operations.yaml}]
 source_bindings: true
 """
-    if kind == "DdoOriginalDocument":
+    if pdf_capability:
         manifest += "pdf_contracts: true\n"
     return KernelRecipe(
-        "original-pdf" if kind == "DdoOriginalDocument" else "original-fact",
+        "original-pdf" if pdf_capability else "original-document",
         """id: urn:original-fact-test
 name: target
 imports: [core]
@@ -565,13 +567,10 @@ classes: {Marker: {}}
     )
 
 
-ORIGINAL_FACT = _original_recipe("DdoSelectedNativeSource", "execution:original-fact")
-ORIGINAL_PDF = _original_recipe("DdoOriginalDocument", "execution:original-pdf")
+ORIGINAL_DOCUMENT = _original_recipe(pdf_capability=False)
+ORIGINAL_PDF = _original_recipe(pdf_capability=True)
 
 
 def original_target(tmp_path, request):
-    recipe = (
-        ORIGINAL_PDF if getattr(request, "param", None) == "DdoOriginalDocument" else ORIGINAL_FACT
-    )
-    preparation = prepare_kernel(recipe)
+    preparation = prepare_kernel(ORIGINAL_DOCUMENT)
     return preparation.bundle, preparation.dependencies, preparation.profile, preparation.prepared

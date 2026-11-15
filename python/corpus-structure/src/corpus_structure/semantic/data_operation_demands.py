@@ -18,7 +18,7 @@ from typing import TYPE_CHECKING, Any, Literal, cast
 
 from pydantic import TypeAdapter
 
-from corpus_structure.semantic._data_operation_wire import WireAdmitAuthoredDataRequest, WireAdmitOriginalDocumentAssetRequest, WireAdmitOriginalSourceViewRequest, WireAttachDataRequestRequest, WireCloseDataPopulationResult, WireDemandId, WireDemandIntent, WireDerivationId, WireInspectDataCompletionRequest, WireInspectDataCompletionResult, WireObligationId, WireOperationId, WireProductId, WireReadDemandResultRequest, WireReadDemandResultResult, WireReadIdentity, WireRecordDataFateRequest, WireRegisterDataDemandResult, WireSelectDataPopulationRequest
+from corpus_structure.semantic._data_operation_wire import WireAdmitAuthoredDataRequest, WireAdmitOriginalDocumentAssetRequest, WireAttachDataRequestRequest, WireCloseDataPopulationResult, WireDemandId, WireDemandIntent, WireDerivationId, WireInspectDataCompletionRequest, WireInspectDataCompletionResult, WireObligationId, WireOperationId, WireProductId, WireReadDemandResultRequest, WireReadDemandResultResult, WireReadIdentity, WireRecordDataFateRequest, WireRegisterDataDemandResult, WireSelectDataPopulationRequest
 
 from .data_operation_compilation import project_operation_binding
 from .data_operation_json import json_bytes, json_loads, wire_json_loads
@@ -473,9 +473,7 @@ class DemandPlanner:
                     cast(WireAdmitOriginalDocumentAssetRequest, payload)
                 )
             else:
-                self.storage.admit_original_source_view(
-                    cast(WireAdmitOriginalSourceViewRequest, payload)
-                )
+                raise ValueError("unknown original source admission reference")
         for root in record["roots"]:
             for operation in record["operations"]:
                 if operation["operation"] not in record["root_operations"]:

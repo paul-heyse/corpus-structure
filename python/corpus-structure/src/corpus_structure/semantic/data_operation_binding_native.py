@@ -25,13 +25,7 @@ def binding_native_sources() -> tuple[SourceArtifact, ...]:
 
 
 def binding_native_sql() -> str:
-    from .identity import canonical_bytes
-    from .structural_products import ExternalSourceRef
-
-    # Reuse the authoritative typed domain contract at the native boundary.
-    # Capturing the rendered SQL freezes the complete selected schema content.
-    schema = canonical_bytes(ExternalSourceRef.model_json_schema()).decode().replace("'", "''")
-    return _SQL.read_text().replace("__DDO_EXTERNAL_SOURCE_SCHEMA__", schema)
+    return _SQL.read_text()
 
 
 def binding_native_definitions(connection: Connection) -> tuple[NativeDefinition, ...]:

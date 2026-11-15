@@ -24,7 +24,6 @@ def regenerate(
     whole_document: Annotated[bool, typer.Option()] = False,
     source_membership: Annotated[Literal["direct", "descendants"], typer.Option()] = "descendants",
     document: Annotated[list[str] | None, typer.Option()] = None,
-    source: Annotated[list[Path] | None, typer.Option(exists=True, dir_okay=False)] = None,
     target: Annotated[list[str] | None, typer.Option()] = None,
     operation_options: Annotated[Path | None, typer.Option(exists=True, dir_okay=False)] = None,
     execution_policy: Annotated[Path | None, typer.Option(exists=True, dir_okay=False)] = None,
@@ -51,7 +50,6 @@ def regenerate(
             )
             or whole_document
             or document
-            or source
             or target
             or source_membership != "descendants"
         ):
@@ -85,7 +83,6 @@ def regenerate(
         whole_document=whole_document,
         source_membership=source_membership,
         document=document,
-        source=source,
         target=target,
         operation_options=operation_options,
         execution_policy=execution_policy,

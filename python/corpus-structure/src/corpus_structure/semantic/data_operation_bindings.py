@@ -41,7 +41,6 @@ from .data_operation_model import (
 from .data_operation_projections import member_columns
 from .data_operation_source_sets import (
     FrozenSourceSet,
-    is_semantic_source_reference,
     source_sets_record,
 )
 from .identity import canonical_bytes
@@ -589,17 +588,6 @@ def compile_binding(
         )
         support = roles[name].support
         if support is not None and support.source_set is not None:
-            fields = [
-                field
-                for field in projected[roles[name].kind].fields
-                if field.name == support.source_reference_field
-            ]
-            entries = selected_source_sets[support.source_set]
-            if (
-                any(not is_semantic_source_reference(entry["reference"]) for entry in entries)
-                and len(fields) != 1
-            ):
-                raise ValueError("external source-set policy requires its admitted reference field")
             permitted = [
                 and_(
                     alias.c.product == entry["product"],
@@ -611,9 +599,6 @@ def compile_binding(
                         alias.c.analyzed_scope,
                         literal(entry["analyzed_scope"], type_=ContextJSONB()),
                     ),
-                    true()
-                    if is_semantic_source_reference(entry["reference"])
-                    else alias.c[fields[0].column] == entry["source_reference"],
                 )
                 for entry in selected_source_sets[support.source_set]
             ]

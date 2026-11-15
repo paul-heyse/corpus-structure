@@ -10,7 +10,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.semantic._data_operation_wire import (
-    WireAdmitOriginalSourceViewRequest,
+    WireAdmitOriginalDocumentAssetRequest,
     WireClaimDataRequestRequest,
     WirePublishDataDerivationRequest,
     WireReadDemandResultRequest,
@@ -23,11 +23,8 @@ from corpus_structure.semantic.data_operation_admission import (
 from corpus_structure.semantic.data_operation_demands import DemandPlanner, freeze_demand
 from corpus_structure.semantic.data_operation_identity import semantic_value
 from corpus_structure.semantic.data_operation_storage import DataOperationStorage
-from corpus_structure.semantic.source_admission import acquire_original_source_selection
-from semantic.data_operation_kernel_support import ORIGINAL_FACT, ORIGINAL_PDF
-from semantic.data_operation_original_support import OriginalSeedRecipe
-from semantic.native_record_fixtures import RecordSourceRecipe, claim_record_source
-from semantic.original_source_fixture import completed_original_source_reference
+from corpus_structure.semantic.original_documents import acquire_original_document_selection, register_original_document
+from semantic.data_operation_kernel_support import ORIGINAL_DOCUMENT, ORIGINAL_PDF
 
 
 def test_original_fact_target_has_explicit_value_based_origin_policy(original_target):
@@ -42,35 +39,26 @@ def test_original_fact_target_has_explicit_value_based_origin_policy(original_ta
 
 
 @pytest.mark.parametrize(
-    "ddo_original_source",
-    [OriginalSeedRecipe(RecordSourceRecipe(), ORIGINAL_FACT)],
-    indirect=True,
-    ids=("record-base",),
+    "ddo_kernel", [ORIGINAL_DOCUMENT], indirect=True, ids=("original-document",),
 )
-def test_authentic_original_fact_admission_publication_and_revocation(ddo_original_source):
-    source = claim_record_source(
-        ddo_original_source.source,
-        writer=ddo_original_source.writer,
-        clone=ddo_original_source.clone,
-    )
-    reference, selectors = completed_original_source_reference(source)
-    kernel = ddo_original_source.kernel
+def test_authentic_original_fact_admission_publication_and_revocation(ddo_kernel, tmp_path):
+    kernel = ddo_kernel
     prepared, model = kernel.prepared, kernel.model
-    with ddo_original_source.admin.begin() as connection:
+    with kernel.engine.begin() as connection:
         runtime = kernel.preparation.runtime
-        acquired = acquire_original_source_selection(connection, prepared, reference, selectors)
+        acquired = _register_document(connection, kernel, tmp_path)
         intent = freeze_demand(
             model,
             roots=(acquired.root,),
             targets=("urn:original-fact-test:consume",),
             inference="inference:original-value",
-            execution_profile="execution:original-fact",
+            execution_profile=kernel.recipe.execution_profile,
             original_sources=(acquired.selection(),),
         )
         storage = DataOperationStorage(connection)
         demand = DemandPlanner(model, storage).register(
             intent,
-            project=source.project_id,
+            project=acquired.reference.project_id,
             release=prepared.release_id,
             runtime=runtime.runtime_id,
         )
@@ -80,13 +68,13 @@ def test_authentic_original_fact_admission_publication_and_revocation(ddo_origin
         admission = admissions[0]
         assert admission["original_source"] == acquired.root.original_source
         assert isinstance(admission["evidence"], dict)
-        assert admission["evidence"]["document_content_hash"] == acquired.original_content_hash
+        assert admission["evidence"]["document_content_hash"] == acquired.reference.content_hash
         assert connection.scalar(text("SELECT count(*) FROM ops.data_derivation")) == 0
         assert connection.scalar(text("SELECT count(*) FROM ops.data_request")) == 0
         # Repeated authenticated admission neither invents an episode nor a new value.
-        repeated = storage.admit_original_source_view(
+        repeated = storage.admit_original_document_asset(
             typing_cast(
-                WireAdmitOriginalSourceViewRequest,
+                WireAdmitOriginalDocumentAssetRequest,
                 {
                     "demand_id": demand["demand_id"],
                     "selection_name": acquired.name,
@@ -115,7 +103,7 @@ def test_authentic_original_fact_admission_publication_and_revocation(ddo_origin
         wrong_scope = connection.execute(
             text(
                 "SELECT count(*) FROM ops.data_binding_rows(:demand,:operation,"
-                "CAST(:trust AS jsonb),:read,:subject,:source,CAST(:scope AS jsonb))"
+                "CAST(:trust AS jsonb),:read,:subject,CAST(:source AS jsonb),CAST(:scope AS jsonb))"
             ),
             {
                 "demand": demand["demand_id"],
@@ -123,8 +111,8 @@ def test_authentic_original_fact_admission_publication_and_revocation(ddo_origin
                 "trust": json.dumps(snapshot["trust_snapshot"]),
                 "read": snapshot["read_id"],
                 "subject": acquired.root.subject,
-                "source": acquired.root.original_source,
-                "scope": json.dumps({"source": acquired.source.value["source"], "selectors": []}),
+                "source": json.dumps(acquired.root.original_source),
+                "scope": json.dumps({"document": acquired.reference.document_key, "scope": "different"}),
             },
         ).scalar_one()
         assert wrong_scope == 0
@@ -202,7 +190,7 @@ def test_authentic_original_fact_admission_publication_and_revocation(ddo_origin
             typing_cast(
                 WireRevokeDataSupportRequest,
                 {
-                    "project_id": source.project_id,
+                    "project_id": acquired.reference.project_id,
                     "original_source": acquired.root.original_source,
                     "selector_kind": "original-admission",
                     "selector": admission["admission_id"],
@@ -218,9 +206,9 @@ def test_authentic_original_fact_admission_publication_and_revocation(ddo_origin
         assert connection.scalar(text("SELECT count(*) FROM ops.original_source_admission")) == 1
         with connection.begin_nested() as savepoint:
             with pytest.raises(DBAPIError, match="revoked"):
-                storage.admit_original_source_view(
+                storage.admit_original_document_asset(
                     typing_cast(
-                        WireAdmitOriginalSourceViewRequest,
+                        WireAdmitOriginalDocumentAssetRequest,
                         {
                             "demand_id": demand["demand_id"],
                             "selection_name": acquired.name,
@@ -232,35 +220,22 @@ def test_authentic_original_fact_admission_publication_and_revocation(ddo_origin
 
 
 @pytest.mark.parametrize(
-    "ddo_original_source",
-    [OriginalSeedRecipe(RecordSourceRecipe(), ORIGINAL_PDF)],
-    indirect=True,
-    ids=("DdoOriginalDocument-record-base",),
+    "ddo_kernel", [ORIGINAL_PDF], indirect=True, ids=("original-document",),
 )
 def test_original_pdf_fact_admission_and_runless_private_stage_use_actual_request_context(
-    ddo_original_source,
+    ddo_kernel,
     tmp_path,
 ):
     from corpus_structure.semantic.original_documents import acquire_original_document_selection
     from corpus_structure.semantic.pdf_contracts import store_pdf_original
 
-    source = ddo_original_source.source
-    kernel = ddo_original_source.kernel
+    kernel = ddo_kernel
     prepared, model = kernel.prepared, kernel.model
-    with ddo_original_source.admin.begin() as connection:
+    with kernel.engine.begin() as connection:
         runtime = kernel.preparation.runtime
-        document = connection.execute(
-            text(
-                "SELECT d.id,d.key,d.content_hash FROM kb.source_view view "
-                "JOIN kb.document d ON d.id=view.document_id WHERE view.id=:view"
-            ),
-            {"view": source.view},
-        ).one()
-        acquired = acquire_original_document_selection(
-            connection,
-            project_id=source.project_id,
-            document_key=document.key,
-        )
+        acquired = _register_document(connection, kernel, tmp_path)
+        document = connection.execute(text("SELECT id,key,content_hash FROM kb.document WHERE key=:key"),
+            {"key": acquired.reference.document_key}).one()
         intent = freeze_demand(
             model,
             roots=(acquired.root,),
@@ -273,7 +248,7 @@ def test_original_pdf_fact_admission_and_runless_private_stage_use_actual_reques
         planner = DemandPlanner(model, storage)
         demand = planner.register(
             intent,
-            project=source.project_id,
+            project=acquired.reference.project_id,
             release=prepared.release_id,
             runtime=runtime.runtime_id,
         )
@@ -288,7 +263,7 @@ def test_original_pdf_fact_admission_and_runless_private_stage_use_actual_reques
         manifest = export_demand_result(
             connection,
             demand["demand_id"],
-            project_id=source.project_id,
+            project_id=acquired.reference.project_id,
             destination=destination,
             page_rows=1,
         )
@@ -357,3 +332,21 @@ def test_original_pdf_fact_admission_and_runless_private_stage_use_actual_reques
             )
             == 0
         )
+
+
+def _register_document(connection, kernel, tmp_path):
+    from corpus_structure.semantic.identifiers import ProjectId, RealizationId, ReleaseId
+
+    project = "original-factual-support"
+    DataOperationStorage(connection).initialize_source_project({"project_id": ProjectId(project),
+        "release_id": ReleaseId(kernel.prepared.release_id), "realization_id": RealizationId("original-document-test")})
+    original = b"%PDF-1.7\n% retained independent original bytes\n%%EOF\n"
+    path = tmp_path / "original.pdf"
+    path.write_bytes(original)
+    register_original_document(connection, prepared=kernel.prepared, project_id=project,
+        source_uri="original.pdf", original_path=str(path), original=original, mime="application/pdf")
+    from hashlib import sha256
+    from corpus_structure.core.evidence import document_key
+    key = document_key(project, "original.pdf", sha256(original).hexdigest())
+    path.unlink()
+    return acquire_original_document_selection(connection, project_id=project, document_key=key)

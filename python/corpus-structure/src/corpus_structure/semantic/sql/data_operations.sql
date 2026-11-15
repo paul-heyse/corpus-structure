@@ -1281,7 +1281,7 @@ END $$;
 CREATE OR REPLACE FUNCTION ops.ddo_admit_original_source(p_payload jsonb) RETURNS jsonb
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
 DECLARE p jsonb:=p_payload; d ops.data_demand; frozen jsonb; fact jsonb; kind text; product text; identity text;
- snapshot jsonb; kind_name text; kind_universe text; key text; admitted ops.original_source_admission; rooted boolean; documentary jsonb; document_fact jsonb; subject_scopes jsonb;
+ snapshot jsonb; kind_name text; kind_universe text; key text; admitted ops.original_source_admission; rooted boolean; subject_scopes jsonb;
 BEGIN
  PERFORM ops.ddo_fields(p,ARRAY['demand_id','selection_name','reference','selectors']);
  SELECT * INTO STRICT d FROM ops.data_demand WHERE id=p->>'demand_id';
@@ -1306,28 +1306,13 @@ BEGIN
  fact:=ops.ddo_original_document_view(p->'reference');
  kind_name:='https://corpus-structure.dev/semantic/data-operation-source/DdoOriginalDocument';
  ELSE
- fact:=ops.ddo_original_source_view(p->'reference',p->'selectors');
- kind_name:='https://corpus-structure.dev/semantic/data-operation-source/DdoSelectedNativeSource';
+ RAISE EXCEPTION 'unknown original source admission reference';
  END IF;
  subject_scopes:=ops.ddo_release_subject_scopes(d.release_id);
  PERFORM ops.ddo_require_subject_source(subject_scopes,fact->>'subject_definition',fact->>'original_source');
  rooted:=EXISTS(SELECT FROM jsonb_array_elements(d.root) root WHERE
  (root->>'subject',root->>'original_source') IS NOT DISTINCT FROM (fact->>'subject',fact->>'original_source')
  AND root->'analyzed_scope'=fact->'analyzed_scope');
- IF NOT rooted AND kind_name='https://corpus-structure.dev/semantic/data-operation-source/DdoSelectedNativeSource' THEN
-  -- A frozen selected view is an input of its authenticated whole-document root,
-  -- not an additional execution root. Reconstruct that declared original fact;
-  -- no ambient document, inferred source context or admission order supplies it.
-  FOR documentary IN SELECT value FROM jsonb_each(d.selection->'original_sources') named
-   WHERE value->'reference'->>'kind'='original-document'
-   AND value->'selectors'='[{"scope":"whole-document"}]'::jsonb LOOP
-   document_fact:=ops.ddo_original_document_view(documentary->'reference');
-   IF document_fact->>'original_source'=fact->>'original_source' AND EXISTS(
-    SELECT FROM jsonb_array_elements(d.root) root WHERE
-    (root->>'subject',root->>'original_source') IS NOT DISTINCT FROM (document_fact->>'subject',document_fact->>'original_source')
-    AND root->'analyzed_scope'=document_fact->'analyzed_scope') THEN rooted:=true; EXIT; END IF;
-  END LOOP;
- END IF;
  IF NOT rooted THEN RAISE EXCEPTION 'authenticated source context is outside frozen roots'; END IF;
  snapshot:=ops.ddo_lock_support(d.project_id,fact->>'original_source','[]');
  PERFORM ops.ddo_require_active_demand(d.id);
@@ -1366,12 +1351,6 @@ BEGIN
  RETURN ops.ddo_admit_original_source(p_payload);
 END $$;
 
-CREATE OR REPLACE FUNCTION ops.admit_original_source_view(p_payload jsonb) RETURNS jsonb
-LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
-BEGIN
- IF p_payload->'reference' ? 'kind' THEN RAISE EXCEPTION 'source view requires its actual external reference'; END IF;
- RETURN ops.ddo_admit_original_source(p_payload);
-END $$;
 CREATE OR REPLACE FUNCTION ops.admit_original_document_asset(p_payload jsonb) RETURNS jsonb
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
 BEGIN

@@ -10,8 +10,7 @@ from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, field_validator
 
 from corpus_structure.core.execution_policy import CharacterizationExecutionPolicy
 from corpus_structure.core.method import MethodSettings
-from corpus_structure.semantic.data_operation_service import DdoJsonValue, DemandOperationSelection
-from corpus_structure.semantic.structural_products import ExternalSourceRef
+from corpus_structure.semantic.data_operation_service import DemandOperationSelection
 from corpus_structure.semantic.refusals import SemanticRefusal
 
 
@@ -50,12 +49,6 @@ SourceSelection = Annotated[
 ]
 
 
-class RetainedSourceSelection(BaseModel):
-    model_config = ConfigDict(extra="forbid", frozen=True)
-    source: ExternalSourceRef
-    selectors: tuple[dict[str, DdoJsonValue], ...] = Field(min_length=1)
-
-
 class SourceRunRequest(BaseModel):
     """Source frontdoor choices, independent of stages, registries and old run IDs."""
 
@@ -70,7 +63,6 @@ class SourceRunRequest(BaseModel):
     pdf_mode: Literal["standard", "enriched", "integrated"] = "standard"
     recognition_pages: tuple[int, ...] = ()
     documents: tuple[str, ...] = ()
-    retained_sources: tuple[RetainedSourceSelection, ...] = ()
     targets: tuple[str, ...] = ()
     selections: tuple[DemandOperationSelection, ...] = ()
     execution_profile: str = "source-native"

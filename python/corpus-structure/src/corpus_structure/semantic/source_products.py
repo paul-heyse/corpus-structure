@@ -312,28 +312,6 @@ class FrozenNativeSource:
         )
         return cls.acquire(prepared, value)
 
-    @classmethod
-    def from_source_view(
-        cls, prepared: PreparedRelease, view, *, document: str, selectors
-    ) -> FrozenNativeSource:
-        """Adapt exact selected legacy custody into the shared source-value boundary."""
-        if any(selector["projection"] != view.ref.projection_digest for selector in selectors):
-            raise ValueError("selected native scope differs from acquired legacy projection")
-        value = _projection_body(
-            document=document,
-            section_pointer=view.ref.section_pointer,
-            membership=view.ref.membership,
-            text=view.text,
-            pieces=view.pieces,
-            items=view.items,
-            ancestors=view.ancestors,
-            recognition=view.health.get("formula_outcomes", ()),
-        )
-        value["selectors"] = [
-            {**selector, "projection": value["source"]["projection"]} for selector in selectors
-        ]
-        return cls.acquire(prepared, value)
-
     def selector_index(self) -> NativeSourceSelectorIndex:
         return NativeSourceSelectorIndex.from_value(self.value)
 

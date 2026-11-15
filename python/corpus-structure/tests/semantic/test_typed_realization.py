@@ -407,9 +407,9 @@ def test_physical_nominal_correspondences_are_checked_without_execution_catalog(
 def test_current_wire_and_column_nominals_share_the_canonical_owner():
     from typing import Required, get_args, get_origin, get_type_hints
     from corpus_structure.semantic import identifiers
-    from corpus_structure.semantic._data_operation_wire import WireExternalSourceRef
+    from corpus_structure.semantic._data_operation_wire import WireRegisterDataDemandRequest
 
-    release_type = get_type_hints(WireExternalSourceRef, include_extras=True)["release_id"]
+    release_type = get_type_hints(WireRegisterDataDemandRequest, include_extras=True)["release_id"]
     assert get_origin(release_type) is Required
     assert get_args(release_type) == (identifiers.ReleaseId,)
     assert metadata.tables["data.occurrence"].c.release_id.info["python_type"] == "corpus_structure.semantic.identifiers.ReleaseId"

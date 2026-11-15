@@ -11,7 +11,7 @@ $$;
 
 CREATE OR REPLACE FUNCTION ops.ddo_validate_source_sets(source_sets jsonb,project text,subject_scopes jsonb) RETURNS void
 LANGUAGE plpgsql IMMUTABLE STRICT SET search_path=pg_catalog,pg_temp AS $$
-DECLARE named record; entry jsonb; reference_schema constant jsonb:='__DDO_EXTERNAL_SOURCE_SCHEMA__';
+DECLARE named record; entry jsonb;
 BEGIN
  IF jsonb_typeof(source_sets)<>'object' THEN RAISE EXCEPTION 'frozen source sets must be a named object'; END IF;
  FOR named IN SELECT * FROM jsonb_each(source_sets) LOOP
@@ -25,22 +25,18 @@ BEGIN
 
  OR (entry->'member'<>'null'::jsonb AND nullif(entry->>'member','') IS NULL) THEN RAISE EXCEPTION 'source-set entry differs from original qualified reference'; END IF;
  PERFORM ops.ddo_require_subject_source(subject_scopes,entry->>'subject_definition',entry->>'original_source');
- IF ops.ddo_semantic_source_reference(entry->'reference') THEN
+ IF NOT ops.ddo_semantic_source_reference(entry->'reference') THEN
+ RAISE EXCEPTION 'source sets require exact semantic product/member references'; END IF;
  IF entry->'reference'->>'product_id' IS DISTINCT FROM entry->>'product'
  OR entry->'reference'->>'member_id' IS DISTINCT FROM entry->>'member'
  OR entry->>'source_reference' IS DISTINCT FROM (CASE WHEN entry->'reference' ? 'member_id' THEN 'member:'||ops.ddo_digest(entry->'reference') ELSE entry->>'product' END) THEN RAISE EXCEPTION 'source-set semantic reference differs from exact native product/member'; END IF;
- ELSE
- IF entry->>'original_source' IS NULL THEN RAISE EXCEPTION 'external source reference requires its actual original source'; END IF;
- IF NOT public.json_matches_schema(reference_schema::json,(entry->'reference')::json) OR entry->'reference'->>'project_id' IS DISTINCT FROM project
- OR entry->>'source_reference' IS DISTINCT FROM ops.ddo_digest(entry->'reference') THEN RAISE EXCEPTION 'source-set entry differs from original external reference'; END IF;
- END IF;
  END LOOP;
  END LOOP;
 END $$;
 
 CREATE OR REPLACE FUNCTION ops.ddo_binding_source(roledef jsonb,row_value jsonb,consumer_source text,source_sets jsonb) RETURNS boolean
 LANGUAGE plpgsql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $$
-DECLARE name text:=roledef->'support'->>'source_set'; reference_field text:=roledef->'support'->>'source_reference_field';
+DECLARE name text:=roledef->'support'->>'source_set';
 BEGIN
  IF name IS NULL THEN RETURN row_value->>'original_source' IS NOT DISTINCT FROM consumer_source; END IF;
  IF jsonb_typeof(source_sets->name) IS DISTINCT FROM 'array' THEN RETURN false; END IF;
@@ -48,7 +44,7 @@ BEGIN
  (entry->>'product',entry->>'member',entry->>'subject',entry->>'subject_definition',entry->>'original_source') IS NOT DISTINCT FROM
  (row_value->>'product',row_value->>'member',row_value->>'subject',row_value->>'subject_definition',row_value->>'original_source')
  AND entry->'analyzed_scope'=row_value->'analyzed_scope'
- AND (ops.ddo_semantic_source_reference(entry->'reference') OR (reference_field IS NOT NULL AND data.ddo_field(row_value->'meaning_body',reference_field)=jsonb_build_array('string',entry->>'source_reference'))));
+ AND ops.ddo_semantic_source_reference(entry->'reference'));
 END $$;
 
 CREATE OR REPLACE FUNCTION ops.ddo_binding_population_product(population jsonb,row_value jsonb) RETURNS boolean

@@ -1088,36 +1088,20 @@ def test_sql_covers_requires_every_requested_typed_value(storage):
 
 def test_sql_source_set_selects_exact_product_without_relabelling_source(storage):
     from corpus_structure.semantic.data_operation_source_sets import FrozenSourceSet, SourceSetEntry
-    from corpus_structure.semantic.structural_products import ExternalSourceRef
+    from corpus_structure.semantic.data_product_reference import DataProductReference, DataProductMemberReference
+    from corpus_structure.semantic.data_operation_model import SubjectContext
 
     connection, table, projection = storage
-    reference = ExternalSourceRef(
-        project_id="project",
-        run_id=1,
-        cut_id=2,
-        release_id="release",
-        result_revision=0,
-        source_view_id=3,
-        native_task_id=4,
-        native_product_key="native:key",
-        native_content_digest="a" * 64,
-        projection_digest="b" * 64,
-        recipe_digest="c" * 64,
-        coordinate_version=3,
-    )
+
     connection.execute(
         table.update()
         .where(table.c.product == "p2")
-        .values(original_source="foreign-source", base=reference.identity)
+        .values(original_source="foreign-source", base="opaque-unrelated-value")
     )
-    frozen = SourceSetEntry.from_structural_source(
-        reference,
-        original_source="foreign-source",
-        subject="doc",
-        analyzed_scope=b'{"page":1}',
-        product="p2",
-        member="m2",
-     subject_definition="document")
+    frozen = SourceSetEntry.from_semantic_source(
+        DataProductMemberReference(DataProductReference('p2'), 'm2'),
+        context=SubjectContext('project', 'doc', 'foreign-source', b'{"page":1}', subject_definition='document'),
+    )
     schema = model(BindingExpression("scan", roles=("items",)))
     operation = schema.operations[0]
     support = operation.roles[0].support
@@ -1128,7 +1112,6 @@ def test_sql_source_set_selects_exact_product_without_relabelling_source(storage
             support,
             source="frozen-source-set",
             source_set="inputs",
-            source_reference_field="base",
         ),
     )
     schema = replace(schema, operations=(replace(operation, roles=(role,)),))
@@ -1146,7 +1129,7 @@ def test_sql_source_set_selects_exact_product_without_relabelling_source(storage
         (member.product, member.member, member.original_source)
         for member in result.roles[0].members
     ] == [("p2", "m2", "foreign-source")]
-    assert json.loads(result.source_sets)["inputs"][0]["source_reference"] == reference.identity
+    assert json.loads(result.source_sets)["inputs"][0]["source_reference"] == DataProductMemberReference(DataProductReference("p2"), "m2").identity
     with pytest.raises(ValueError, match=r"lacks.*source set"):
         compile_binding(schema, "urn:op", (projection,), subject="doc")
     wrong = replace(frozen, analyzed_scope=b'{"page":2}')
@@ -1831,7 +1814,7 @@ def test_semantic_source_set_association_compiles_without_fabricated_body_refere
     actual = next(op for op in compiled.operations if op.semantic_id == "urn:op").roles[0]
     assert actual.subject_target == "source-set"
     assert actual.support is not None
-    assert actual.subject_field is None and actual.support.source_reference_field is None
+    assert actual.subject_field is None and actual.support.source_set == "selected"
     assert read_effective_data_operations(compiled.content).content == compiled.content
     role["subject_field"] = "fabricated"
     with pytest.raises(ValueError, match="source-set association"):
@@ -1874,6 +1857,7 @@ def test_explicit_empty_source_set_is_closed_absence_and_never_an_unbounded_scan
     assert read_source_sets({"selected": []}) == sources
     base = model(BindingExpression("scan", roles=("items",)), minimum=0, presence="optional")
     original = base.operations[0].roles[0]
+    assert original.support is not None
     role = replace(original, subject_target="source-set", support=replace(original.support, source="frozen-source-set", source_set="selected"))
     schema = replace(base, operations=(replace(base.operations[0], roles=(role,)),))
     def bind(selected):

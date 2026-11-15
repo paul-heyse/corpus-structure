@@ -13,7 +13,7 @@ from semantic.data_operation_binding_support import WireCheckedStorage
 from semantic.data_operation_kernel_support import (
     CLAIM_SOURCE,
     EXECUTION,
-    ORIGINAL_FACT,
+    ORIGINAL_DOCUMENT,
     ORIGINAL_PDF,
     POPULATION,
     STORAGE,
@@ -29,7 +29,7 @@ from semantic.data_operation_kernel_support import (
         (POPULATION, "urn:discover"),
         (EXECUTION, "urn:ddo-execution:answer"),
         (CLAIM_SOURCE, "urn:corpus:operation:claim-source-item"),
-        (ORIGINAL_FACT, "urn:original-fact-test:consume"),
+        (ORIGINAL_DOCUMENT, "urn:original-fact-test:consume"),
         (ORIGINAL_PDF, "urn:original-fact-test:consume"),
     ],
     ids=lambda value: getattr(value, "name", value),

@@ -48,9 +48,7 @@ def native_protocol_sources(
     from .data_operation_source_native import source_native_sources
     from .data_operation_subjects import subject_scope_values
     from .data_operation_support import (
-        ORIGINAL_REFERENCE_SCHEMA,
         ORIGINAL_SUPPORT_REFERENCE_SCHEMA,
-        original_source_reference_schema,
         original_support_reference_schema,
     )
     from .data_operation_wire_native import wire_native_sources
@@ -109,7 +107,6 @@ def native_protocol_sources(
         ),
         SourceArtifact("native/data-operation-authority-leaf.json", canonical_bytes(NativeAuthorityLeaf.model_json_schema())),
         SourceArtifact("native/data-operation-authority-leaf.py", Path(__file__).with_name("authority_leaf.py").read_bytes()),
-        SourceArtifact(ORIGINAL_REFERENCE_SCHEMA, original_source_reference_schema()),
         SourceArtifact(ORIGINAL_SUPPORT_REFERENCE_SCHEMA, original_support_reference_schema()),
         SourceArtifact(
             "native/data-operation-support.py",
@@ -200,7 +197,6 @@ def _captured(sources) -> dict[str, bytes]:
         "native/data-operation-wire.py",
         "native/data-operation-source-admission.sql",
         "native/data-operation-source-native.py",
-        "native/data-operation-original-reference.json",
         "native/data-operation-support.py",
         "native/data-operation-record-grade-native.sql",
         "native/data-operation-record-grade-native.py",

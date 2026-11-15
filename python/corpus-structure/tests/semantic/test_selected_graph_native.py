@@ -1,10 +1,8 @@
 """Actual selected topology, public delivery and detached graph reconstruction."""
 
 import base64
-from contextlib import ExitStack, contextmanager
+from contextlib import contextmanager
 from hashlib import sha256
-from pathlib import Path
-from tempfile import TemporaryDirectory
 
 import anyio
 import pytest
@@ -13,69 +11,12 @@ from mcp.types import TextResourceContents
 
 from corpus_structure.semantic.data_operation_json import json_bytes, json_loads
 from corpus_structure.semantic.graph_inspection import GraphInspectionRequest, read_graph_inspection
-from corpus_structure.semantic.selected_graph import selected_graph_snapshot, snapshot_from_index
 from corpus_structure.settings import Settings
-from semantic.data_operation_kernel_support import ORIGINAL_FACT
-from semantic.data_operation_original_support import OriginalSeedRecipe
-from semantic.native_record_fixtures import RecordSourceRecipe
 from semantic.serving_scenarios import declared_serving_case as declared_serving_case
 from semantic.serving_scenarios import declared_serving_seed as declared_serving_seed
 
 
-def _selected_snapshot(reader, prepared, request):
-    """Independent full-snapshot view of an actual native cut for export comparison."""
-    from corpus_structure.semantic.demand_results import selected_record_index
-
-    with ExitStack() as witnesses:
-        with reader() as connection:
-            cut, index = witnesses.enter_context(
-                selected_record_index(
-                    connection,
-                    request.demand_id,
-                    project_id=request.project_id,
-                    scope=request.scope,
-                    read_id=request.read_id,
-                    expected_cut=request.expected_cut,
-                    capture_frontier=True,
-                )
-            )
-        return selected_graph_snapshot(prepared, cut, index, request)
-
-
-def _offline_snapshot(destination, projection):
-    from corpus_structure.semantic.archive_reader import open_release_parts
-    from corpus_structure.semantic.data_operation_read_index import SelectedRecordIndex
-    from corpus_structure.semantic.demand_results import CutSelection
-
-    manifest = json_loads((destination / "manifest.json").read_bytes())
-
-    def unpack(row):
-        return {
-            key: bytes.fromhex(value) if key in row["binary"] else value
-            for key, value in row["values"].items()
-        }
-
-    release = manifest["cut"]["release_id"]
-    captured = json_loads((destination / manifest["releases"][release]).read_bytes())
-    prepared = open_release_parts(
-        release,
-        unpack(captured["row"]),
-        [unpack(row) for row in captured["inputs"]],
-        [unpack(row) for row in captured["artifacts"]],
-    )
-    scratch = TemporaryDirectory(prefix="offline-graph-")
-    index = SelectedRecordIndex(Path(scratch.name) / "inspection.sqlite")
-    try:
-        for row in (destination / manifest["closure"]).read_bytes().splitlines():
-            index.append(row)
-        for page in manifest["pages"]:
-            index.append_page(json_loads((destination / page).read_bytes()))
-        return snapshot_from_index(
-            prepared, CutSelection(json_bytes(manifest["cut"])), index, projection
-        )
-    finally:
-        index.close()
-        scratch.cleanup()
+from semantic.selected_graph_test_support import _selected_snapshot, _offline_snapshot
 
 
 @pytest.mark.parametrize("encoding", ["jsonl", "parquet"])
@@ -202,94 +143,6 @@ def test_actual_selected_precedence_support_public_and_offline(
             assert refused.is_error
 
     anyio.run(inspect)
-
-
-@pytest.mark.parametrize(
-    "ddo_original_source", [OriginalSeedRecipe(RecordSourceRecipe(), ORIGINAL_FACT)], indirect=True
-)
-def test_actual_original_source_hierarchy_keeps_native_pointer_custody(
-    ddo_original_source, tmp_path
-):
-    from corpus_structure.semantic.data_operation_demands import DemandPlanner, freeze_demand
-    from corpus_structure.semantic.data_operation_storage import DataOperationStorage
-    from corpus_structure.semantic.source_admission import acquire_original_source_selection
-    from corpus_structure.serve.demand_export import export_demand_result
-    from semantic.native_record_fixtures import claim_record_source
-    from semantic.original_source_fixture import completed_original_source_reference
-
-    source = claim_record_source(
-        ddo_original_source.source,
-        writer=ddo_original_source.writer,
-        clone=ddo_original_source.clone,
-    )
-    reference, selectors = completed_original_source_reference(source)
-    kernel = ddo_original_source.kernel
-    with ddo_original_source.admin.begin() as connection:
-        acquired = acquire_original_source_selection(
-            connection, kernel.prepared, reference, selectors
-        )
-        intent = freeze_demand(
-            kernel.model,
-            roots=(acquired.root,),
-            targets=("urn:original-fact-test:consume",),
-            inference="source-graph",
-            execution_profile="execution:original-fact",
-            original_sources=(acquired.selection(),),
-        )
-        demand = DemandPlanner(kernel.model, DataOperationStorage(connection)).register(
-            intent,
-            project=source.project_id,
-            release=kernel.prepared.release_id,
-            runtime=kernel.runtime,
-        )["demand_id"]
-    request = GraphInspectionRequest(
-        release_id=kernel.prepared.release_id,
-        demand_id=demand,
-        project_id=source.project_id,
-        projection="source-hierarchy",
-    )
-    reader_engine = kernel.purpose("read")
-    snapshot = _selected_snapshot(reader_engine.begin, kernel.prepared, request)
-    assert snapshot.nodes
-    assert {node.kind for node in snapshot.nodes} == {"record"}
-    pointers = {json_loads(node.payload_json)["atom"]["self_ref"] for node in snapshot.nodes}
-    assert all(pointer.startswith("#/") for pointer in pointers)
-    assert {"#/groups/0", "#/tables/0"} <= pointers
-    atoms = {
-        json_loads(node.payload_json)["atom"]["self_ref"]: json_loads(node.payload_json)["atom"]
-        for node in snapshot.nodes
-    }
-    cells = atoms["#/tables/0"]["data"]["table_cells"]
-    assert [cell["text"] for cell in cells] == ["12", "12"]
-    assert [cell["start_col_offset_idx"] for cell in cells] == [0, 1]
-    assert any(
-        edge.source.endswith(":#/groups/0")
-        and edge.target.endswith(":#/tables/0")
-        and edge.position == 0
-        for edge in snapshot.occurrences
-    )
-    assert all(edge.relation == "contains" for edge in snapshot.occurrences)
-    assert snapshot.occurrences
-    inspected = read_graph_inspection(reader_engine.begin, request)
-    assert inspected.standing == "partial"
-    assert inspected.unknowns == snapshot.unknowns
-    assert any("outside captured source scope" in unknown for unknown in inspected.unknowns)
-    assert inspected.examined_nodes == len(snapshot.nodes)
-    assert inspected.examined_occurrences == len(snapshot.occurrences)
-    with reader_engine.begin() as connection:
-        destination = tmp_path / "source"
-        manifest = export_demand_result(
-            connection,
-            demand,
-            project_id=source.project_id,
-            destination=destination,
-            format="jsonl",
-        )
-    pinned = request.model_copy(
-        update={"read_id": manifest["cut"]["read_id"], "expected_cut": manifest["cut_id"]}
-    )
-    live = _selected_snapshot(reader_engine.begin, kernel.prepared, pinned)
-    assert _offline_snapshot(destination, "source-hierarchy").identity == live.identity
 
 
 def test_native_requestless_population_fate_survives_tools_and_resources(declared_serving_case):

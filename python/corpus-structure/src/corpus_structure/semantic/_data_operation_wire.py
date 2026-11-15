@@ -86,21 +86,6 @@ class WireExternalExecutionReceipt(TypedDict):
     version: Required[Literal["external-execution-receipt-v1"]]
 
 
-class WireExternalSourceRef(TypedDict):
-    coordinate_version: Required[Literal[2, 3]]
-    cut_id: Required[int]
-    native_content_digest: Required[str]
-    native_product_key: Required[str]
-    native_task_id: Required[int]
-    project_id: Required[ProjectId]
-    projection_digest: Required[str]
-    recipe_digest: Required[str]
-    release_id: Required[ReleaseId]
-    result_revision: Required[int]
-    run_id: Required[int]
-    source_view_id: Required[int]
-
-
 class WireLogicalProviderMember(TypedDict):
     attempt: Required[TaskAttempt]
     count: Required[int]
@@ -330,50 +315,6 @@ class WireAdmitOriginalDocumentAssetRequest(TypedDict):
     selectors: Required[list[WireOriginalDocumentSelector]]
 
 
-class WireExternalSourceReference(TypedDict):
-    coordinate_version: Required[Literal[2, 3]]
-    cut_id: Required[int]
-    native_content_digest: Required[str]
-    native_product_key: Required[str]
-    native_task_id: Required[int]
-    project_id: Required[ProjectId]
-    projection_digest: Required[str]
-    recipe_digest: Required[str]
-    release_id: Required[ReleaseId]
-    result_revision: Required[int]
-    run_id: Required[int]
-    source_view_id: Required[int]
-
-
-class WireOriginalSourceSelector(TypedDict):
-    end: NotRequired[WireNonnegativeInteger]
-    native_pointer: NotRequired[WireIdentifier]
-    page: NotRequired[WirePositiveInteger]
-    projection: Required[WireIdentifier]
-    start: NotRequired[WireNonnegativeInteger]
-
-
-class WireAdmitOriginalSourceViewRequest(TypedDict):
-    demand_id: Required[WireDemandId]
-    reference: Required[WireExternalSourceReference]
-    selection_name: Required[WireIdentifier]
-    selectors: Required[list[WireOriginalSourceSelector]]
-
-
-class WireAdmitOriginalSourceViewResult(TypedDict):
-    admission_id: Required[WireAdmissionId]
-    analyzed_scope: Required[WireJsonValue]
-    evidence: Required[WireJsonValue]
-    kind_contract: Required[WireKindContract]
-    original_source: Required[WireOriginalSourceId | None]
-    product_id: Required[WireProductId]
-    selection_name: Required[WireIdentifier]
-    source_reference: Required[WireIdentifier]
-    subject: Required[WireSubjectId]
-    subject_definition: Required[WireIdentifier]
-    trust_snapshot: Required[WireTrustSnapshot]
-
-
 class WireAdoptDataCompletionIntentRequest(TypedDict):
     attempt: Required[TaskAttempt]
     generation: Required[WireGeneration]
@@ -592,11 +533,6 @@ class WireSelectedOperation(TypedDict):
     replicate: Required[WireIdentifier | None]
 
 
-class WireOriginalNativeSelection(TypedDict):
-    reference: Required[WireExternalSourceReference]
-    selectors: Required[list[WireOriginalSourceSelector]]
-
-
 class WireOriginalDocumentSelection(TypedDict):
     reference: Required[WireOriginalDocumentRef]
     selectors: Required[list[WireOriginalDocumentSelector]]
@@ -619,7 +555,7 @@ class WireSourceSetEntry(TypedDict):
     original_source: Required[WireOriginalSourceId | None]
     product: Required[WireIdentifier]
     project_id: Required[ProjectId]
-    reference: Required[WireExternalSourceReference | WireSemanticSourceReference]
+    reference: Required[WireSemanticSourceReference]
     source_reference: Required[WireIdentifier]
     subject: Required[WireSubjectId]
     subject_definition: Required[WireIdentifier]
@@ -796,6 +732,20 @@ class WireInspectExternalDataResultResult(TypedDict):
     ]
 
 
+class WireOriginalSourceAdmissionResult(TypedDict):
+    admission_id: Required[WireAdmissionId]
+    analyzed_scope: Required[WireJsonValue]
+    evidence: Required[WireJsonValue]
+    kind_contract: Required[WireKindContract]
+    original_source: Required[WireOriginalSourceId | None]
+    product_id: Required[WireProductId]
+    selection_name: Required[WireIdentifier]
+    source_reference: Required[WireIdentifier]
+    subject: Required[WireSubjectId]
+    subject_definition: Required[WireIdentifier]
+    trust_snapshot: Required[WireTrustSnapshot]
+
+
 class WirePopulation(TypedDict):
     complete: Required[bool]
     demand_id: Required[WireDemandId]
@@ -920,7 +870,7 @@ class WireReadDemandResultResult(TypedDict):
     frontier_at: Required[WireFrontierAt]
     intent: Required[WireDemandIntent]
     obligations: Required[list[WireResultObligation]]
-    original_source_admissions: NotRequired[list[WireAdmitOriginalSourceViewResult]]
+    original_source_admissions: NotRequired[list[WireOriginalSourceAdmissionResult]]
     populations: Required[list[WirePopulation]]
     project_id: Required[ProjectId]
     read_id: Required[WireReadIdentity]
@@ -1480,14 +1430,14 @@ type WireSupportMember = (
     WireComputationalSupportMember | WireOriginalSourceSupportMember | WireAuthoredFactSupportMember
 )
 
-type WireTrustSnapshot = dict[str, WireNonnegativeInteger]
-
 type WireTaskId = TaskId
 
 type WireRequestMeaning = (
     WireSemanticValue
     | list[Literal["ddo"] | Literal["semantic-request"] | Literal["1"] | WireSemanticValue]
 )
+
+type WireTrustSnapshot = dict[str, WireNonnegativeInteger]
 
 type WireText = str
 
@@ -1501,9 +1451,7 @@ type WireFrontierAt = str
 
 type WireReadSnapshot = WireReadSnapshotIdentity
 
-type WireOriginalSourceSelection = (
-    WireOriginalNativeSelection | WireOriginalDocumentSelection | WireAuthoredFactSelection
-)
+type WireOriginalSourceSelection = WireOriginalDocumentSelection | WireAuthoredFactSelection
 
 type WireDataTaskState = Literal["pending", "running", "done", "empty", "failed", "cancelled"]
 
@@ -1546,9 +1494,7 @@ type WireInspectDataCompletionResult = (
     | WireInspectDataCompletionResultVariant4
 )
 
-type WireOriginalSupportReference = (
-    WireOriginalDocumentRef | WireExternalSourceRef | WireAuthoredFactRef
-)
+type WireOriginalSupportReference = WireOriginalDocumentRef | WireAuthoredFactRef
 
 type WireVisibleFate = Literal[
     "known-absent",
@@ -1610,8 +1556,8 @@ class DataOperationCalls:
 
     def admit_authored_data(
         self, payload: WireAdmitAuthoredDataRequest
-    ) -> WireAdmitOriginalSourceViewResult:
-        return cast(WireAdmitOriginalSourceViewResult, self._invoke("admit_authored_data", payload))
+    ) -> WireOriginalSourceAdmissionResult:
+        return cast(WireOriginalSourceAdmissionResult, self._invoke("admit_authored_data", payload))
 
     def inspect_data_operation_release(
         self, payload: WireInspectDataOperationReleaseRequest
@@ -1628,17 +1574,10 @@ class DataOperationCalls:
 
     def admit_original_document_asset(
         self, payload: WireAdmitOriginalDocumentAssetRequest
-    ) -> WireAdmitOriginalSourceViewResult:
+    ) -> WireOriginalSourceAdmissionResult:
         return cast(
-            WireAdmitOriginalSourceViewResult,
+            WireOriginalSourceAdmissionResult,
             self._invoke("admit_original_document_asset", payload),
-        )
-
-    def admit_original_source_view(
-        self, payload: WireAdmitOriginalSourceViewRequest
-    ) -> WireAdmitOriginalSourceViewResult:
-        return cast(
-            WireAdmitOriginalSourceViewResult, self._invoke("admit_original_source_view", payload)
         )
 
     def register_data_demand(

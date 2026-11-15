@@ -146,3 +146,38 @@ def test_acquire_preserves_body_under_its_older_pinned_source_contract(profile):
     preserved = FrozenNativeSource.acquire(older, value)
     assert preserved.value == value
     assert "document_subject" not in preserved.value["source"]
+
+
+def test_discovery_views_require_computational_origin_without_precomputed_source_ids(profile):
+    operation = profile.model.operation("source.selected_views/discovery")
+    role = next(role for role in operation.roles if role.name == "views")
+    assert role.support.origins == ("computation",)
+    assert role.support.identity_requirements == ("episode",)
+    assert role.support.source == "same-original" and role.support.source_set is None
+    assert role.subject_field == "/source/document_subject"
+
+
+def test_source_hierarchy_preserves_distinct_computational_member_addresses(profile, tmp_path):
+    from corpus_structure.semantic.data_operation_identity import semantic_value
+    from corpus_structure.semantic.data_operation_json import json_bytes, json_loads
+    from corpus_structure.semantic.data_operation_read_index import SelectedRecordIndex
+    from corpus_structure.semantic.demand_results import CutSelection
+    from corpus_structure.semantic.source_hierarchy_graph import source_hierarchy_snapshot
+
+    kind = next(item.key for item in profile.model.identities if item.domain == "kind"
+        and item.owner == profile.prepared.index.definitions["DdoSelectedNativeSource"].iri)
+    index = SelectedRecordIndex(tmp_path / "source-members.sqlite")
+    try:
+        for member, value in (("first", source(profile, end=2)), ("second", source(profile, start=2))):
+            row = dict(product_id="actual-container", member_id=member, kind_contract=kind, body=semantic_value(value))
+            index.append(json_bytes(dict(key="member:" + member, relation="kb.data_product_member", record=row)))
+        cut = CutSelection(json_bytes({"project_id": "project", "release_id": "release", "demand_id": "demand",
+            "runtime_id": "runtime", "read_id": "read", "read_snapshot": "1:1:", "frontier_at": "2026-11-15T00:00:00Z",
+            "scope": {}, "selection": {}, "trust_snapshot": {}}))
+        snapshot = source_hierarchy_snapshot(profile.prepared, profile.model, cut, index)
+        assert len(snapshot.nodes) == 2 and len({row.identity for row in snapshot.nodes}) == 2
+        assert {json_loads(row.payload_json)["member_id"] for row in snapshot.nodes} == {"first", "second"}
+        assert all(json_loads(row.payload_json)["product_id"] == "actual-container" for row in snapshot.nodes)
+        assert all(json_loads(row.payload_json)["atom"]["self_ref"] == "#/texts/0" for row in snapshot.nodes)
+    finally:
+        index.close()

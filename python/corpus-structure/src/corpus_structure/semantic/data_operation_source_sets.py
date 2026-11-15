@@ -9,14 +9,9 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
 
 from .data_operation_json import json_bytes, json_loads
 from .identity import canonical_bytes
-
-if TYPE_CHECKING:
-    from .structural_products import ExternalSourceRef, StructuralInput
-
 
 def is_semantic_source_reference(record):
     return (
@@ -39,8 +34,6 @@ class SourceSetEntry:
     reference: bytes
 
     def __post_init__(self) -> None:
-        from .structural_products import ExternalSourceRef
-
         if (
             any(
                 type(value) is not str
@@ -61,42 +54,33 @@ class SourceSetEntry:
         if self.member is not None and type(self.member) is not str:
             raise TypeError("source-set member must be an original string identifier")
         raw = json.loads(self.reference)
-        if is_semantic_source_reference(raw):
-            from .data_product_reference import DataProductMemberReference, DataProductReference
+        if not is_semantic_source_reference(raw):
+            raise ValueError("source sets require exact semantic product/member references")
+        from .data_product_reference import DataProductMemberReference, DataProductReference
 
-            product = DataProductReference(raw["product_id"])
-            reference = (
-                DataProductMemberReference(product, raw["member_id"])
-                if "member_id" in raw
-                else product
+        product = DataProductReference(raw["product_id"])
+        reference = (
+            DataProductMemberReference(product, raw["member_id"])
+            if "member_id" in raw
+            else product
+        )
+        member = (
+            reference.member_id if isinstance(reference, DataProductMemberReference) else None
+        )
+        identity = (
+            reference.identity
+            if isinstance(reference, DataProductMemberReference)
+            else product.product_id
+        )
+        if (
+            product.product_id != self.product
+            or member != self.member
+            or identity != self.source_reference
+        ):
+            raise ValueError(
+                "source-set semantic reference differs from its exact product/member"
             )
-            member = (
-                reference.member_id if isinstance(reference, DataProductMemberReference) else None
-            )
-            identity = (
-                reference.identity
-                if isinstance(reference, DataProductMemberReference)
-                else product.product_id
-            )
-            if (
-                product.product_id != self.product
-                or member != self.member
-                or identity != self.source_reference
-            ):
-                raise ValueError(
-                    "source-set semantic reference differs from its exact product/member"
-                )
-            canonical = canonical_bytes(reference.values())
-        else:
-            reference = ExternalSourceRef.model_validate_json(self.reference)
-            if self.original_source is None:
-                raise ValueError("an original source reference requires its actual source association")
-            if (
-                reference.project_id != self.project_id
-                or reference.identity != self.source_reference
-            ):
-                raise ValueError("source-set reference differs from its original identity/project")
-            canonical = canonical_bytes(reference.model_dump(mode="json", exclude_none=True))
+        canonical = canonical_bytes(reference.values())
         if not all((self.project_id, self.subject, self.subject_definition, self.product)):
             raise ValueError("source-set entries require exact qualified original custody")
         if self.member is not None and not self.member:
@@ -136,30 +120,6 @@ class SourceSetEntry:
             subject_definition=context.subject_definition,
         )
 
-    @classmethod
-    def from_structural_source(
-        cls,
-        reference: ExternalSourceRef,
-        *,
-        original_source: str | None,
-        subject: str,
-        subject_definition: str,
-        analyzed_scope: bytes,
-        product: str,
-        member: str | None = None,
-    ) -> SourceSetEntry:
-        return cls(
-            reference.project_id,
-            original_source,
-            subject,
-            analyzed_scope,
-            product,
-            member,
-            reference.identity,
-            canonical_bytes(reference.model_dump(mode="json", exclude_none=True)),
-            subject_definition=subject_definition,
-        )
-
     def record(self) -> dict:
         return {
             "project_id": self.project_id,
@@ -191,20 +151,6 @@ class FrozenSourceSet:
         identities = {(entry.product, entry.member) for entry in self.entries}
         if len(identities) != len(self.entries):
             raise ValueError("source sets require unique qualified product/member pins")
-
-    @classmethod
-    def from_structural_input(
-        cls, name: str, inputs: StructuralInput, entries: tuple[SourceSetEntry, ...]
-    ) -> FrozenSourceSet:
-        references = {
-            source.identity: canonical_bytes(source.model_dump(mode="json", exclude_none=True))
-            for source in inputs.sources
-        }
-        if any(references.get(entry.source_reference) != entry.reference for entry in entries):
-            raise ValueError(
-                "source-set entry is outside the captured StructuralInput original sources"
-            )
-        return cls(name, entries)
 
     def record(self) -> list[dict]:
         return [

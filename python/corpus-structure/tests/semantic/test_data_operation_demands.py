@@ -409,7 +409,8 @@ def test_frozen_source_sets_are_explicit_selected_operation_scope():
 
     from corpus_structure.semantic.data_operation_model import InputCoverage, InputSupport, OperationRole
     from corpus_structure.semantic.data_operation_source_sets import FrozenSourceSet, SourceSetEntry
-    from corpus_structure.semantic.structural_products import ExternalSourceRef
+    from corpus_structure.semantic.data_product_reference import DataProductReference, DataProductMemberReference
+    from corpus_structure.semantic.data_operation_model import SubjectContext
 
     compiled = model(operation("op:result"))
     op = compiled.operations[0]
@@ -427,31 +428,14 @@ def test_frozen_source_sets_are_explicit_selected_operation_scope():
             InputCoverage("source", "whole"),
             identity_requirements=("episode",),
             source_set="inputs",
-            source_reference_field="source_ref",
         ),
     )
     compiled = replace(compiled, operations=(replace(op, roles=(role,)),))
-    reference = ExternalSourceRef(
-        project_id="project",
-        run_id=1,
-        cut_id=2,
-        release_id="release",
-        result_revision=0,
-        source_view_id=3,
-        native_task_id=4,
-        native_product_key="native:key",
-        native_content_digest="a" * 64,
-        projection_digest="b" * 64,
-        recipe_digest="c" * 64,
-        coordinate_version=3,
+
+    entry = SourceSetEntry.from_semantic_source(
+        DataProductReference('product:one'),
+        context=SubjectContext('project', 'view:original', 'source:foreign', b'{"page":1}', subject_definition='document'),
     )
-    entry = SourceSetEntry.from_structural_source(
-        reference,
-        original_source="source:foreign",
-        subject="view:original",
-        analyzed_scope=b'{"page":1}',
-        product="product:one",
-     subject_definition="document")
     scope = FrozenSourceSet("inputs", (entry,))
     with pytest.raises(ValueError, match=r"lacks.*source set"):
         freeze(compiled)

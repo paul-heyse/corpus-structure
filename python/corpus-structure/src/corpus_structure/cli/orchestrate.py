@@ -109,7 +109,6 @@ def execute_source_choices(
     pdf_mode: Literal["standard", "enriched", "integrated"] = "standard",
     recognition_page=None,
     document=None,
-    source=None,
     target=None,
     operation_options=None,
     operation_selections=(),
@@ -118,7 +117,6 @@ def execute_source_choices(
     json=False,
 ):
     from corpus_structure.orchestrate.source_request import (
-        RetainedSourceSelection,
         SourceRunRequest,
         SourceRequestError,
         source_selection,
@@ -143,7 +141,6 @@ def execute_source_choices(
             )
             or whole_document
             or document
-            or source
             or target
             or operation_selections
             or source_membership != "descendants"
@@ -170,10 +167,6 @@ def execute_source_choices(
                 pdf_mode=pdf_mode,
                 recognition_pages=tuple(recognition_page or ()),
                 documents=tuple(document or ()),
-                retained_sources=tuple(
-                    read_request_model(value, RetainedSourceSelection)
-                    for value in source or ()
-                ),
                 targets=tuple(target or ()),
                 selections=(
                     *operation_selections,
@@ -228,14 +221,6 @@ def run(
     document: Annotated[
         list[str] | None, typer.Option(help="Exact registered document key; repeat.")
     ] = None,
-    source: Annotated[
-        list[Path] | None,
-        typer.Option(
-            exists=True,
-            dir_okay=False,
-            help="Exact retained source reference and selectors JSON; repeat.",
-        ),
-    ] = None,
     target: Annotated[
         list[str] | None, typer.Option(help="Explicit declared operation target; repeat.")
     ] = None,
@@ -265,7 +250,6 @@ def run(
             )
             or whole_document
             or document
-            or source
             or target
             or source_membership != "descendants"
             or pdf_mode != "standard"
@@ -303,7 +287,6 @@ def run(
         pdf_mode=pdf_mode,
         recognition_page=recognition_page,
         document=document,
-        source=source,
         target=target,
         operation_options=operation_options,
         execution_profile=execution_profile,
@@ -459,13 +442,12 @@ def run_characterize_command(
         ),
     ] = None,
     document: Annotated[list[str] | None, typer.Option()] = None,
-    source: Annotated[list[Path] | None, typer.Option(exists=True, dir_okay=False)] = None,
     target: Annotated[list[str] | None, typer.Option()] = None,
     operation_options: Annotated[Path | None, typer.Option(exists=True, dir_okay=False)] = None,
     execution_policy: Annotated[Path | None, typer.Option(exists=True, dir_okay=False)] = None,
     json: JsonOpt = False,
 ) -> None:
-    """Characterize an exact retained source selection or explicit new capture."""
+    """Characterize registered originals or resume an exact native demand."""
     execute_source_choices(
         ctx,
         action="run.characterize",
@@ -483,7 +465,6 @@ def run_characterize_command(
         pdf_mode=pdf_mode,
         recognition_page=recognition_page,
         document=document,
-        source=source,
         target=target,
         operation_options=operation_options,
         execution_policy=execution_policy,
@@ -533,7 +514,6 @@ def _execute_capability_choices(
     pdf_mode,
     recognition_page,
     document,
-    source,
     operation_options,
     operation_selections,
     execution_profile,
@@ -555,7 +535,6 @@ def _execute_capability_choices(
             )
             or whole_document
             or document
-            or source
             or source_membership != "descendants"
             or pdf_mode != "standard"
             or recognition_page
@@ -603,7 +582,6 @@ def _execute_capability_choices(
         pdf_mode=pdf_mode,
         recognition_page=recognition_page,
         document=document,
-        source=source,
         target=(operation,),
         operation_options=operation_options,
         operation_selections=operation_selections,
@@ -647,13 +625,12 @@ def run_parsers_command(
         ),
     ] = None,
     document: Annotated[list[str] | None, typer.Option()] = None,
-    source: Annotated[list[Path] | None, typer.Option(exists=True, dir_okay=False)] = None,
     operation_options: Annotated[Path | None, typer.Option(exists=True, dir_okay=False)] = None,
     execution_profile: Annotated[str, typer.Option()] = "source-native",
     execution_policy: Annotated[Path | None, typer.Option(exists=True, dir_okay=False)] = None,
     json: JsonOpt = False,
 ) -> None:
-    """Parse explicit registered originals or retained source selectors with an acquired profile."""
+    """Parse registered originals or execute an exact native request with an acquired profile."""
     if request is None and demand is None and parser is None:
         raise typer.BadParameter("ordinary parser execution requires --parser")
     operation = (
@@ -679,7 +656,6 @@ def run_parsers_command(
         pdf_mode=pdf_mode,
         recognition_page=recognition_page,
         document=document,
-        source=source,
         operation_options=operation_options,
         operation_selections=(),
         execution_profile=execution_profile,
@@ -741,7 +717,6 @@ def run_interpretation_command(
         ),
     ] = None,
     document: Annotated[list[str] | None, typer.Option()] = None,
-    source: Annotated[list[Path] | None, typer.Option(exists=True, dir_okay=False)] = None,
     operation_options: Annotated[Path | None, typer.Option(exists=True, dir_okay=False)] = None,
     execution_profile: Annotated[str, typer.Option()] = "source-native",
     execution_policy: Annotated[Path | None, typer.Option(exists=True, dir_okay=False)] = None,
@@ -798,7 +773,6 @@ def run_interpretation_command(
         pdf_mode=pdf_mode,
         recognition_page=recognition_page,
         document=document,
-        source=source,
         operation_options=operation_options,
         operation_selections=selections,
         execution_profile=execution_profile,

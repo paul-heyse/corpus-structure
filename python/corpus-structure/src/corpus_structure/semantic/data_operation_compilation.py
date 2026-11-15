@@ -1129,7 +1129,6 @@ def compile_data_operations(
                         "closure",
                         "identity_requirements",
                         "source_set",
-                        "source_reference_field",
                         "origins",
                     },
                 )
@@ -1176,43 +1175,10 @@ def compile_data_operations(
                         "original-source identity requires an allowed original support origin",
                     )
                 source_set = data.get("source_set")
-                source_reference_field = data.get("source_reference_field")
-                if source_set is None and source_reference_field is not None:
-                    _fail(semantic_id, "source sets require an explicit owned reference field")
                 if (source_set is not None) != (data.get("source") == "frozen-source-set"):
-                    _fail(
-                        semantic_id,
-                        "frozen source-set policy requires its explicit set and reference field",
-                    )
+                    _fail(semantic_id, "frozen source-set policy requires its explicit named set")
                 if source_set is not None:
                     source_set = _text(source_set, semantic_id + "/source_set")
-                    if (
-                        source_reference_field is None
-                        and record.get("subject_target") != "source-set"
-                    ):
-                        _fail(semantic_id, "source sets require an explicit owned reference field")
-                if source_reference_field is not None:
-                    source_reference_field = _text(
-                        source_reference_field, semantic_id + "/source_reference_field"
-                    )
-                    prop = kinds.get(kind + "/property/" + source_reference_field)
-                    facts = json.loads(prop.facts) if prop is not None else {}
-                    range_id = facts.get("range")
-                    target = kinds.get(range_id) if isinstance(range_id, str) else None
-                    target_facts = json.loads(target.facts) if target is not None else {}
-                    primitive = target_facts.get(
-                        "primitive", target_facts.get("effective_primitive")
-                    )
-                    if (
-                        prop is None
-                        or prop.category != "property"
-                        or facts.get("multivalued")
-                        or primitive not in {"str", "string", "uri", "uriorcurie"}
-                    ):
-                        _fail(
-                            semantic_id,
-                            "source reference requires an owned scalar identifier property",
-                        )
                 support = InputSupport(
                     data["provenance"],
                     _text(data.get("source"), semantic_id),
@@ -1221,7 +1187,6 @@ def compile_data_operations(
                     _strings(data.get("closure", []), semantic_id),
                     cast(Any, identity_requirements),
                     source_set,
-                    source_reference_field,
                     cast(Any, allowed_origins),
                 )
             elif record.get("support") is not None:

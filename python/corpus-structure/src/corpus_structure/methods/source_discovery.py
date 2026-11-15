@@ -50,8 +50,8 @@ class SelectedSourceViewsOperation:
                     "provenance": "exact",
                     "source": "same-original",
                     "coverage": {"role": "views", "description": "frozen-selected-view-set"},
-                    "origins": ["original-source", "computation"],
-                    "identity_requirements": ["original-source", "episode"],
+                    "origins": ["computation"],
+                    "identity_requirements": ["episode"],
                 },
             },
             {

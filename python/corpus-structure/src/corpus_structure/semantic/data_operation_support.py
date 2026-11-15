@@ -51,12 +51,10 @@ class AuthoredFactRef(BaseModel):
 
 
 def read_original_source_reference(content: bytes):
-    from .structural_products import ExternalSourceRef
-
     parsed = json_loads(content)
     if isinstance(parsed, dict) and parsed.get("kind") == "authored-fact":
         return AuthoredFactRef.model_validate(parsed, strict=True)
-    return TypeAdapter(OriginalDocumentRef | ExternalSourceRef).validate_json(content, strict=True)
+    return OriginalDocumentRef.model_validate_json(content, strict=True)
 
 
 class ComputationalSupportReference(BaseModel):
@@ -185,31 +183,13 @@ def authored_fact_selection(name, value, *, kind_contract, context, author, sele
     )
 
 
-ORIGINAL_REFERENCE_SCHEMA = "native/data-operation-original-reference.json"
-
-
-def original_source_reference_schema() -> bytes:
-    from jsonschema import Draft7Validator
-
-    from .structural_products import ExternalSourceRef
-
-    schema = TypeAdapter(ExternalSourceRef).json_schema(ref_template="#/definitions/{model}")
-    if "$defs" in schema:
-        schema["definitions"] = schema.pop("$defs")
-    schema["$schema"] = "http://json-schema.org/draft-07/schema#"
-    Draft7Validator.check_schema(schema)
-    return canonical_bytes(schema)
-
-
 ORIGINAL_SUPPORT_REFERENCE_SCHEMA = "native/data-operation-original-support-reference.json"
 
 
 def original_support_reference_schema() -> bytes:
     from jsonschema import Draft7Validator
 
-    from .structural_products import ExternalSourceRef
-
-    schema = TypeAdapter(OriginalDocumentRef | ExternalSourceRef | AuthoredFactRef).json_schema(
+    schema = TypeAdapter(OriginalDocumentRef | AuthoredFactRef).json_schema(
         ref_template="#/definitions/{model}"
     )
     if "$defs" in schema:

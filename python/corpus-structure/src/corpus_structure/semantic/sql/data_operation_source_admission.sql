@@ -90,31 +90,6 @@ BEGIN
  RETURN jsonb_build_object('source',coordinate,'text',text_value,'pieces',pieces,'items',atoms,'ancestors',ancestors,'recognition',recognition,'selectors',selected);
 END $$;
 
-CREATE OR REPLACE FUNCTION ops.ddo_original_source_view(p_reference jsonb,p_selectors jsonb) RETURNS jsonb
-LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
-DECLARE view_ kb.source_view; document_ kb.document; placement record; wanted text[]; atoms jsonb; body jsonb;
-BEGIN
- PERFORM ops.validate_structural_source(p_reference);
- SELECT * INTO STRICT view_ FROM kb.source_view WHERE id=(p_reference->>'source_view_id')::bigint;
- SELECT * INTO STRICT document_ FROM kb.document WHERE id=view_.document_id AND project_id=p_reference->>'project_id';
- PERFORM sem.require_execution_operation(p_reference->>'release_id','read_native_source');
- SELECT * INTO STRICT placement FROM ops.read_pdf_published_revision(view_.native_task_id,view_.native_product_key,view_.native_content_digest);
- IF (placement.task_id,placement.product_key,placement.logical_digest) IS DISTINCT FROM (view_.native_task_id,view_.native_product_key,view_.native_content_digest)
- OR view_.native_build_id IS DISTINCT FROM placement.build_id OR view_.native_revision_id IS DISTINCT FROM placement.build_id THEN RAISE EXCEPTION 'original source view escaped its published native placement'; END IF;
- wanted:=ARRAY(SELECT DISTINCT value#>>'{}' FROM jsonb_array_elements((view_.projection->'items')||(view_.projection->'ancestors')) ORDER BY value#>>'{}');
- SELECT coalesce(jsonb_agg(selected.native_json ORDER BY requested.ordinal),'[]') INTO atoms
- FROM unnest(wanted) WITH ORDINALITY requested(pointer,ordinal)
- JOIN ops.read_pdf_published_items(view_.native_task_id,view_.native_product_key,view_.native_content_digest,wanted) selected ON selected.pointer=requested.pointer
- WHERE selected.product_id=placement.build_id AND selected.revision_id=placement.build_id;
- IF jsonb_array_length(atoms)<>cardinality(wanted) THEN RAISE EXCEPTION 'original source native atom inventory is absent or ambiguous'; END IF;
- body:=ops.ddo_native_source_body(document_.key,view_.section_pointer,view_.membership,view_.projection,view_.projection_digest,atoms,p_selectors);
- RETURN jsonb_build_object('body',body,'meaning_body',data.ddo_normalize(data.record_json_meaning(body)),
- 'subject_definition','original-source-view','subject','source-native:'||ops.ddo_digest(body->'source'),'original_source',document_.key,
- 'analyzed_scope',jsonb_build_object('source',body->'source','selectors',body->'selectors'),
- 'evidence',jsonb_build_object('reference',p_reference,'document_content_hash',document_.content_hash,'original_projection_digest',view_.projection_digest,
- 'native_build_id',placement.build_id,'native_revision_id',placement.build_id,'producer_release_id',placement.release_id));
-END $$;
-
 CREATE OR REPLACE FUNCTION ops.ddo_original_document_view(p_reference jsonb) RETURNS jsonb
 LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
 DECLARE document kb.document; original bytea; body jsonb; coordinate jsonb;

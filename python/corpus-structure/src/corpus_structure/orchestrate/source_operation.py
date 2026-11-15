@@ -77,7 +77,6 @@ def prepare_source_demand(
     from corpus_structure.semantic.original_documents import acquire_original_document_selection
     from corpus_structure.semantic.primary_operations import primary_operation_targets
     from corpus_structure.semantic.releases import load_release
-    from corpus_structure.semantic.source_admission import acquire_original_source_selection
 
     from .commands import resolve_source_domain
     from .slices import records
@@ -98,45 +97,27 @@ def prepare_source_demand(
     documents = list(connection.execute(query.order_by(document.c.key)).mappings())
     if request.documents and {value["key"] for value in documents} != set(request.documents):
         raise SourceRequestError("a selected document is outside the project")
-    if request.retained_sources:
-        if isinstance(request.selection, (NamedSlice, NamedScope)):
-            raise SourceRequestError("retained source selectors cannot combine with named scopes")
-        acquired_views = tuple(
-            acquire_original_source_selection(
-                connection, prepared, value.source, value.selectors, name="view:" + str(index)
-            )
-            for index, value in enumerate(request.retained_sources)
-        )
-        if any(value.reference.project_id != request.project_id for value in acquired_views):
-            raise SourceRequestError("retained source belongs to a different project")
-        keys = {value.root.original_source for value in acquired_views}
-        if not keys <= {value["key"] for value in documents}:
-            raise SourceRequestError("retained source is outside the selected originals")
-        documents = [value for value in documents if value["key"] in keys]
-        sections = []
-    else:
-        acquired_views = ()
-        pack = (domains or DOMAINS) / domain
-        scopes = (
-            yaml.safe_load((pack / "slices.yaml").read_text())
-            if (pack / "slices.yaml").exists()
-            else {}
-        )
-        scope = (
-            request.selection.name
-            if isinstance(request.selection, NamedScope)
-            else scopes.get("default_scope")
-            if isinstance(request.selection, PackDefault)
-            else None
-        )
-        _, selected = records(
-            documents,
-            scopes.get("slices", scopes),
-            slice=request.selection.name if isinstance(request.selection, NamedSlice) else None,
-            scope=scope,
-            corpus=None,
-        )
-        sections = selected["sections"] if selected is not None else []
+    pack = (domains or DOMAINS) / domain
+    scopes = (
+        yaml.safe_load((pack / "slices.yaml").read_text())
+        if (pack / "slices.yaml").exists()
+        else {}
+    )
+    scope = (
+        request.selection.name
+        if isinstance(request.selection, NamedScope)
+        else scopes.get("default_scope")
+        if isinstance(request.selection, PackDefault)
+        else None
+    )
+    _, selected = records(
+        documents,
+        scopes.get("slices", scopes),
+        slice=request.selection.name if isinstance(request.selection, NamedSlice) else None,
+        scope=scope,
+        corpus=None,
+    )
+    sections = selected["sections"] if selected is not None else []
     originals = tuple(
         acquire_original_document_selection(
             connection,
@@ -150,18 +131,15 @@ def prepare_source_demand(
         raise SourceRequestError("source demand requires at least one registered PDF original")
     if any(value.reference.mime != "application/pdf" for value in originals):
         raise SourceRequestError("source acquisition requires immutable PDF originals")
-    captured = not request.retained_sources
-    if (not captured and request.pdf_mode != "standard") or (
-        request.recognition_pages and request.pdf_mode != "integrated"
-    ):
+    if request.recognition_pages and request.pdf_mode != "integrated":
         raise SourceRequestError(
             "PDF transformation mode/pages require an explicit new captured source"
         )
-    organized = captured and any(
+    organized = any(
         operation.semantic_id == "source.pdf_sections/organize" for operation in model.operations
     )
     targets = request.targets or primary_operation_targets(
-        request.workflow, captured=captured, pdf_mode=request.pdf_mode, organized=organized
+        request.workflow, captured=True, pdf_mode=request.pdf_mode, organized=organized
     )
     supplied = {value.operation: value for value in request.selections}
     if len(supplied) != len(request.selections):
@@ -173,13 +151,8 @@ def prepare_source_demand(
         "organized" if organized and request.pdf_mode == "standard" else request.pdf_mode
     )
     producer = (
-        (
-            "source.pdf_views/discovery"
-            if selected_pdf_mode == "standard"
-            else "source.pdf_" + selected_pdf_mode + "_views/discovery"
-        )
-        if captured
-        else "source.selected_views/discovery"
+        "source.pdf_views/discovery" if selected_pdf_mode == "standard"
+        else "source.pdf_" + selected_pdf_mode + "_views/discovery"
     )
     if request.pdf_mode != "standard":
         transform = (
@@ -203,9 +176,7 @@ def prepare_source_demand(
         supplied[transform] = transformed
     selection = DemandOperationSelection(
         operation=producer,
-        parameters={"sections": sections, "membership": request.membership}
-        if captured
-        else {"complete": True},
+        parameters={"sections": sections, "membership": request.membership},
     )
     if producer in supplied and supplied[producer] != selection:
         raise SourceRequestError(
@@ -267,7 +238,7 @@ def prepare_source_demand(
                 reference=value.selection().record()["reference"],
                 selectors=tuple(value.selection().record()["selectors"]),
             )
-            for value in (*originals, *acquired_views)
+            for value in originals
         },
         inference=request.inference,
         execution_profile=request.execution_profile,

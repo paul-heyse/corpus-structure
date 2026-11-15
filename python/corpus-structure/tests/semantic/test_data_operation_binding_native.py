@@ -335,30 +335,14 @@ def test_native_source_set_authenticates_exact_original_pins(binding_native_conn
         SourceSetEntry,
         source_sets_record,
     )
-    from corpus_structure.semantic.structural_products import ExternalSourceRef
+    from corpus_structure.semantic.data_product_reference import DataProductReference, DataProductMemberReference
+    from corpus_structure.semantic.data_operation_model import SubjectContext
 
-    reference = ExternalSourceRef(
-        project_id="project",
-        run_id=1,
-        cut_id=2,
-        release_id="release",
-        result_revision=0,
-        source_view_id=3,
-        native_task_id=4,
-        native_product_key="native:key",
-        native_content_digest="a" * 64,
-        projection_digest="b" * 64,
-        recipe_digest="c" * 64,
-        coordinate_version=3,
+
+    pin = SourceSetEntry.from_semantic_source(
+        DataProductMemberReference(DataProductReference('product:original'), 'member:original'),
+        context=SubjectContext('project', 'view:original', 'foreign-source', b'{"page":1}', subject_definition='original-occurrence'),
     )
-    pin = SourceSetEntry.from_structural_source(
-        reference,
-        original_source="foreign-source",
-        subject="view:original",
-        analyzed_scope=b'{"page":1}',
-        product="product:original",
-        member="member:original",
-     subject_definition="original-occurrence")
     scopes = source_sets_record((FrozenSourceSet("inputs", (pin,)),))
     binding_native_connection.execute(
         text("SELECT ops.ddo_validate_source_sets(CAST(:sets AS jsonb),'project',jsonb_build_object('original-occurrence','original-source'))"),
@@ -371,9 +355,9 @@ def test_native_source_set_authenticates_exact_original_pins(binding_native_conn
         "subject_definition":pin.subject_definition,
         "original_source": pin.original_source,
         "analyzed_scope": {"page": 1},
-        "meaning_body": ["mapping", [["source_ref", ["string", reference.identity]]]],
+        "meaning_body": ["mapping", []],
     }
-    roledef = {"support": {"source_set": "inputs", "source_reference_field": "source_ref"}}
+    roledef = {"support": {"source_set": "inputs"}}
     query = text(
         "SELECT ops.ddo_binding_source(CAST(:role AS jsonb),CAST(:row AS jsonb),"
         "'analysis-root',CAST(:sets AS jsonb))"
@@ -394,7 +378,7 @@ def test_native_source_set_authenticates_exact_original_pins(binding_native_conn
         assert admitted({**actual, key: value}) is False
     forged = json.loads(json.dumps(scopes))
     forged["inputs"][0]["source_reference"] = "0" * 64
-    with pytest.raises(DBAPIError, match="original external reference"):
+    with pytest.raises(DBAPIError, match="semantic reference"):
         binding_native_connection.execute(
             text("SELECT ops.ddo_validate_source_sets(CAST(:sets AS jsonb),'project',jsonb_build_object('original-occurrence','original-source'))"),
             {"sets": json.dumps(forged)},

@@ -31,8 +31,6 @@ fields:
   '#/definitions/ExternalExecutionReceipt/properties/request_id': WireRequestId
   '#/definitions/ExternalExecutionReceipt/properties/runtime_id': corpus_structure.semantic.identifiers.RuntimeId
   '#/definitions/ExternalExecutionReceipt/properties/task_id': corpus_structure.semantic.identifiers.TaskId
-  '#/definitions/ExternalSourceRef/properties/project_id': corpus_structure.semantic.identifiers.ProjectId
-  '#/definitions/ExternalSourceRef/properties/release_id': corpus_structure.semantic.identifiers.ReleaseId
   '#/definitions/LogicalProviderMember/properties/attempt': corpus_structure.semantic.identifiers.TaskAttempt
   '#/definitions/LogicalProviderMember/properties/generation': WireGeneration
   '#/definitions/LogicalProviderMember/properties/request_id': WireRequestId
@@ -49,12 +47,11 @@ fields:
   '#/definitions/admit_external_data_result_request/properties/task_id': corpus_structure.semantic.identifiers.TaskId
   '#/definitions/admit_external_data_result_result/properties/intent_id': WireCompletionIntentId
   '#/definitions/admit_original_document_asset_request/properties/demand_id': WireDemandId
-  '#/definitions/admit_original_source_view_request/properties/demand_id': WireDemandId
-  '#/definitions/admit_original_source_view_result/properties/admission_id': WireAdmissionId
-  '#/definitions/admit_original_source_view_result/properties/kind_contract': WireKindContract
-  '#/definitions/admit_original_source_view_result/properties/original_source': WireOriginalSourceId
-  '#/definitions/admit_original_source_view_result/properties/product_id': WireProductId
-  '#/definitions/admit_original_source_view_result/properties/subject': WireSubjectId
+  '#/definitions/original_source_admission_result/properties/admission_id': WireAdmissionId
+  '#/definitions/original_source_admission_result/properties/kind_contract': WireKindContract
+  '#/definitions/original_source_admission_result/properties/original_source': WireOriginalSourceId
+  '#/definitions/original_source_admission_result/properties/product_id': WireProductId
+  '#/definitions/original_source_admission_result/properties/subject': WireSubjectId
   '#/definitions/adopt_data_completion_intent_request/properties/attempt': corpus_structure.semantic.identifiers.TaskAttempt
   '#/definitions/adopt_data_completion_intent_request/properties/generation': WireGeneration
   '#/definitions/adopt_data_completion_intent_request/properties/intent_id': WireCompletionIntentId
@@ -116,8 +113,6 @@ fields:
   '#/definitions/external_packet_head/properties/request_id': WireRequestId
   '#/definitions/external_packet_head/properties/subject': WireSubjectId
   '#/definitions/external_packet_head/properties/task_id': corpus_structure.semantic.identifiers.TaskId
-  '#/definitions/external_source_reference/properties/project_id': corpus_structure.semantic.identifiers.ProjectId
-  '#/definitions/external_source_reference/properties/release_id': corpus_structure.semantic.identifiers.ReleaseId
   '#/definitions/input_member/properties/member_id': WireMemberId
   '#/definitions/input_member/properties/product_id': WireProductId
   '#/definitions/inspect_data_completion_request/properties/demand_id': WireDemandId

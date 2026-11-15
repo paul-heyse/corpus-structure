@@ -17,7 +17,8 @@ from corpus_structure.semantic.data_operation_storage import native_operation_de
 from corpus_structure.semantic.pdf_capture import pdf_capture_inputs, pdf_capture_operation_sources
 from corpus_structure.semantic.pdf_domain import pdf_domain_dependencies
 from corpus_structure.semantic.pdf_views import pdf_views_operation_sources
-from corpus_structure.semantic.source_discovery import source_discovery_inputs
+from corpus_structure.semantic.source_discovery import source_discovery_inputs, source_discovery_operation_sources
+from corpus_structure.semantic.source_profiles import source_profile_inputs, source_profile_operation_sources, source_profile_declarations
 from corpus_structure.semantic.types import SourceArtifact, SourceBundle, ResolvedDependencies, PreparationProfile
 from semantic.data_operation_kernel_support import KernelRecipe, CapturedKernelInputs, Kernel
 
@@ -34,13 +35,13 @@ def current_pdf_recipe(directory):
     from corpus_structure.semantic.native_requests import pdf_region_inputs, pdf_region_operation_sources
     from corpus_structure.semantic.visual_requests import visual_operation_sources, visual_external_declaration
     from corpus_structure.semantic.primary_operations import combine_primary_sources
-    sources = combine_primary_sources(pdf_views_operation_sources(capture), pdf_region_operation_sources(capture), visual_operation_sources())
+    sources = combine_primary_sources(pdf_views_operation_sources(capture), pdf_region_operation_sources(capture), visual_operation_sources(), source_discovery_operation_sources(), source_profile_operation_sources())
     core = ROOT / "python/corpus-structure/src/corpus_structure/model/semantic/core.yaml"
-    bundle = pdf_region_inputs(source_discovery_inputs(pdf_capture_inputs(SourceBundle("core", (SourceArtifact("core", core.read_bytes()),)))))
+    bundle = source_profile_inputs(pdf_region_inputs(source_discovery_inputs(pdf_capture_inputs(SourceBundle("core", (SourceArtifact("core", core.read_bytes()),))))))
     native = native_protocol_sources()
     pdf = pdf_domain_dependencies(ResolvedDependencies())
     dependencies = data_operation_dependencies(ResolvedDependencies((*pdf.artifacts, *native, *capture_port_generator_sources())),
-        (native_operation_declarations(native), visual_external_declaration()), sources)
+        (native_operation_declarations(native), visual_external_declaration(), source_profile_declarations()), sources)
     return KernelRecipe("current-pdf-source", "", None, "", project_id=None,
         execution_profile="source-native", captured_inputs=CapturedKernelInputs(bundle, dependencies, PreparationProfile(version="semantic-2")))
 

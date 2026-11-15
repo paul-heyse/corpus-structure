@@ -1,6 +1,7 @@
 """Original captured source containment; semantic graphs are not coerced to trees."""
 
 from hashlib import sha256
+from typing import Any
 
 from .data_operation_identity import decode_semantic_value
 from .data_operation_json import json_bytes
@@ -30,13 +31,22 @@ def source_hierarchy_snapshot(prepared, model, cut, index):
             return value["$ref"]
         raise ValueError("source containment reference is not a captured native pointer")
 
-    for product in index.rows("kb.data_product"):
-        if product["kind_contract"] not in contracts:
+    from itertools import chain
+    from .data_product_reference import DataProductReference, DataProductMemberReference
+
+    products = ((row["id"], None, row["kind_contract"], row["canonical_body"])
+        for row in index.rows("kb.data_product"))
+    members = ((row["product_id"], row["member_id"], row["kind_contract"], row["body"])
+        for row in index.rows("kb.data_product_member"))
+    for product_id, member_id, kind_contract, meaning in chain(products, members):
+        if kind_contract not in contracts:
             continue
+        address = (product_id if member_id is None else
+            DataProductMemberReference(DataProductReference(product_id), member_id).identity)
         body = prepared.validate_json(
-            "DdoSelectedNativeSource", json_bytes(decode_semantic_value(product["canonical_body"]))
+            "DdoSelectedNativeSource", json_bytes(decode_semantic_value(meaning))
         ).model_dump(mode="python", exclude_unset=True)
-        atoms = {}
+        atoms: dict[str, dict[str, Any]] = {}
         for atom in (*body.get("ancestors", ()), *body.get("items", ())):
             pointer = atom["self_ref"]
             if pointer in atoms and atoms[pointer] != atom:
@@ -45,12 +55,12 @@ def source_hierarchy_snapshot(prepared, model, cut, index):
         graph = nx.DiGraph(backend="networkx")
         graph.add_nodes_from(atoms)
         for pointer, atom in atoms.items():
-            identity = product["id"] + ":" + pointer
+            identity = address + ":" + pointer
             nodes[identity] = GraphNode(
                 identity=identity,
                 kind="record",
                 payload_json=json_bytes(
-                    dict(product_id=product["id"], source=body["source"], atom=atom)
+                    dict(product_id=product_id, member_id=member_id, source=body["source"], atom=atom)
                 ).decode(),
             )
             parent = reference(atom.get("parent"))
@@ -61,8 +71,8 @@ def source_hierarchy_snapshot(prepared, model, cut, index):
                 edges.append(
                     GraphOccurrence(
                         identity="source-containment:"
-                        + sha256(json_bytes([product["id"], parent, pointer])).hexdigest(),
-                        source=product["id"] + ":" + parent,
+                        + sha256(json_bytes([product_id, member_id, parent, pointer])).hexdigest(),
+                        source=address + ":" + parent,
                         target=identity,
                         relation="contains",
                         position=position,
@@ -77,7 +87,7 @@ def source_hierarchy_snapshot(prepared, model, cut, index):
             for child in children:
                 if child not in atoms:
                     unknowns.append(
-                        product["id"]
+                        address
                         + ":"
                         + pointer
                         + ": child outside captured source scope: "

@@ -103,7 +103,6 @@ class InputSupport:
         Literal["episode", "provider", "alternative", "original-source"], ...
     ] = ()
     source_set: str | None = None
-    source_reference_field: str | None = None
     origins: tuple[Literal["computation", "original-source", "authored"], ...] = ("computation",)
 
 
@@ -134,7 +133,7 @@ def operation_role_record(role: OperationRole, *, result_only: bool = False) -> 
     if role.support is not None:
         support = asdict(role.support)
         support["coverage"] = {"role": role.support.coverage.role}
-        for name in ("source_set", "source_reference_field"):
+        for name in ("source_set",):
             if support[name] is None:
                 support.pop(name)
         if result_only or role.support.origins == ("computation",):
@@ -957,7 +956,7 @@ class EffectiveDataOperationModel:
                 if role["subject_field"] is None:
                     role.pop("subject_field")
                 if role["support"] is not None:
-                    for name in ("source_set", "source_reference_field"):
+                    for name in ("source_set",):
                         if role["support"][name] is None:
                             role["support"].pop(name)
             if not operation["output_witnesses"]:
@@ -1161,7 +1160,6 @@ def _read_effective_data_operations(content: bytes) -> EffectiveDataOperationMod
             if cls is InputSupport and isinstance(value, dict):
                 value = {
                     "source_set": None,
-                    "source_reference_field": None,
                     "origins": ["computation"],
                     **value,
                 }
