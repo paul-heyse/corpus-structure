@@ -1734,7 +1734,7 @@ def compile_data_operations(
         tuple(nodes[key] for key in sorted(nodes)),
         tuple(sorted(edges, key=lambda e: (e.source, e.target, e.relation, e.role))),
         tuple(slices),
-        graph_projections=compiled_graph_projections(tuple(nodes.values()), edges),
+        graph_projections=compiled_graph_projections(tuple(nodes.values()), edges, slices),
     )
 
     from .source_interfaces import export_source_interfaces

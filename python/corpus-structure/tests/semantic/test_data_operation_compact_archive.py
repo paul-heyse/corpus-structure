@@ -37,7 +37,7 @@ def test_compact_archive_keeps_governing_graph_and_reconstructible_identity_keys
         )
     )
     record = json.loads(model.content)
-    assert record["version"] == "data-operation-model-v5"
+    assert record["version"] == MODEL_VERSION
     assert model.identities and model.implementation_slices
     assert all(type(identity) is EffectiveIdentity for identity in model.identities)
     assert all(set(identity) == {"owner", "domain", "key"} for identity in record["identities"])

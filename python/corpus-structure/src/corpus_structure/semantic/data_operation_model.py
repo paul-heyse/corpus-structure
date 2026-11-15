@@ -487,7 +487,7 @@ class GraphProjectionDefinition:
         return canonical_bytes(asdict(self))
 
 
-def compiled_graph_projections(nodes, edges) -> tuple[GraphProjectionDefinition, ...]:
+def compiled_graph_projections(nodes, edges, implementation_slices=()) -> tuple[GraphProjectionDefinition, ...]:
     """Derive views of the owned typed facts, not a second authored graph catalogue."""
     return (
         GraphProjectionDefinition(
@@ -509,16 +509,19 @@ def compiled_graph_projections(nodes, edges) -> tuple[GraphProjectionDefinition,
             ("operation_dependency", "selected_operation_dependency"),
             selection="explicit-producer-choices",
         ),
-        *compiled_snapshot_projections(),
+        *compiled_snapshot_projections(implementation_slices),
     )
 
 
-def compiled_snapshot_projections() -> tuple[GraphProjectionDefinition, ...]:
+def compiled_snapshot_projections(implementation_slices=()) -> tuple[GraphProjectionDefinition, ...]:
     """Interpret the owned native/source/assessment protocols, never selected facts.
 
     Native row and reference contracts own occurrence roles; these profiles bind their
     supported graph interpretation into each release. Concrete cuts are acquired later.
     """
+    implementation_kinds = tuple(sorted({node.category for item in implementation_slices for node in item.nodes} | {"lexical-reference", "unresolved-reference"}))
+    determinant_relations = tuple(sorted({edge.relation for item in implementation_slices for edge in item.edges}))
+
     def native(
         name: Literal["bound-requests", "selected-support", "source-hierarchy", "assessment"],
         nodes: tuple[str, ...], relationships: tuple[str, ...], *,
@@ -536,13 +539,13 @@ def compiled_snapshot_projections() -> tuple[GraphProjectionDefinition, ...]:
         native("selected-support", ("product", "member", "episode", "use", "population", "original", "authored"), ("input", "output", "support", "admission", "population")),
         native("source-hierarchy", ("source", "record", "member"), ("contains",), source="selected-source-records", orientation="parent-to-child"),
         native("assessment", ("entity", "assertion", "group", "member"), ("subject", "object", "requires", "member", "root"), source="protected-assessment-records", orientation="assertion-incidence", selection="protected-question-and-prediction", attributes="protected-asymmetric-fields"),
-        *(GraphProjectionDefinition(name, "captured-implementation-records", ("implementation", "definition", "opaque_dependency"), relations, snapshot="captured-source", unresolved="explicit-unknown-boundary", completeness="explicit-examined-universe", analyses=("root-inclusive-closure", "strong-components", "witness-path", "scope-boundary"))
+        *(GraphProjectionDefinition(name, "captured-implementation-records", implementation_kinds, relations, snapshot="captured-source", unresolved="explicit-unknown-boundary", completeness="explicit-examined-universe", analyses=("root-inclusive-closure", "strong-components", "witness-path", "scope-boundary"))
           for name, relations in (
               ("lexical-reference", ("lexical_reference",)),
               ("possible-call", ("possible_call",)),
               ("resolved-definition", ("resolved_definition",)),
               ("type-reference", ("type_reference",)),
-              ("implementation-determinant", ("implementation_determinant",)),
+              ("implementation-determinant", determinant_relations),
           )),
     )
 
@@ -568,7 +571,7 @@ class EffectiveDataOperationModel:
         }
 
     def projection_definition(self, name: str) -> GraphProjectionDefinition:
-        if self.version != MODEL_VERSION or self.graph_projections != compiled_graph_projections(self.nodes, self.edges):
+        if self.version != MODEL_VERSION or self.graph_projections != compiled_graph_projections(self.nodes, self.edges, self.implementation_slices):
             raise ValueError("missing or incompatible compiled graph projection interpretation")
         definition = next((p for p in self.graph_projections if p.name == name), None)
         if definition is None:
@@ -581,7 +584,7 @@ class EffectiveDataOperationModel:
 
         if self.version != MODEL_VERSION:
             raise ValueError("historical model cannot supply current projection interpretation")
-        expected = compiled_graph_projections(self.nodes, self.edges)
+        expected = compiled_graph_projections(self.nodes, self.edges, self.implementation_slices)
         if self.graph_projections != expected:
             raise ValueError("missing or incompatible compiled graph projection interpretation")
         definition = next((p for p in self.graph_projections if p.name == name), None)

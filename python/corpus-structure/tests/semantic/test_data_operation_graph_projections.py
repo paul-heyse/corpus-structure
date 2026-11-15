@@ -109,6 +109,8 @@ def test_captured_reference_occurrences_are_diagnostic_not_recipe_salts():
         python_sources=python_inputs(operation_source(body="return helper(x) + helper(x)"))
     )
     implementation = compiled.implementation_slices[0]
+    assert {node.category for node in implementation.nodes} <= set(compiled.projection_definition("possible-call").node_kinds)
+    assert {edge.relation for edge in implementation.edges} == set(compiled.projection_definition("implementation-determinant").relationship_kinds)
     calls = [fact for fact in implementation.references if fact.relation == "possible_call" and fact.target == "python:example.helper"]
     assert len(calls) == 2
     assert len({fact.location for fact in calls}) == 2
