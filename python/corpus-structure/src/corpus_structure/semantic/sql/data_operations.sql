@@ -1466,6 +1466,27 @@ BEGIN
 END $$;
 
 
+-- Protected families can inspect an exact retained effect only through an
+-- already pinned current read and the same selected-support closure as serving.
+CREATE OR REPLACE FUNCTION ops.ddo_require_selected_output(
+ p_demand text,p_read text,p_use text,p_product text,p_derivation text) RETURNS void
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
+DECLARE d ops.data_demand; boundary ops.data_demand_read; p jsonb; admitted boolean;
+BEGIN
+ SELECT * INTO STRICT d FROM ops.data_demand WHERE id=p_demand;
+ SELECT * INTO STRICT boundary FROM ops.data_demand_read WHERE id=p_read AND demand_id=d.id;
+ p:=jsonb_build_object('demand_id',d.id,'read_id',boundary.id,'scope',boundary.scope,
+ 'view','frontier','limit',1,'trust_snapshot',boundary.trust_snapshot,
+ 'read_snapshot',boundary.read_snapshot,'frontier_at',boundary.frontier_at);
+ -- Reacquire current purpose, visibility and trust locks at the owning boundary.
+ PERFORM ops.read_demand_result(p);
+ __DDO_CORE_SELECTED_SUPPORT_OUTPUT__ INTO admitted;
+ IF NOT coalesce(admitted,false) THEN
+ RAISE EXCEPTION 'output is outside current pinned selected support' USING ERRCODE='23514';
+ END IF;
+END $$;
+
+
 -- Derive the row-local qualification portion of an owned binding. Aggregate and
 -- cross-role checks remain in the original binding and are enforced on attachment.
 CREATE OR REPLACE FUNCTION ops.ddo_population_filter(node jsonb,role text,choices jsonb) RETURNS jsonb

@@ -1059,20 +1059,11 @@ def selected_support_export(metadata, selected_uses, admissions, in_page):
     )
 
 
-def read_page(metadata):
-    """One pure atomic page under already acquired native pins."""
-    from sqlalchemy import case
-
-    demand, selection = _var("d.id", Text), _var("d.selection", JSONB)
-    boundary = literal_column("boundary")
+def _scoped_read_obligations(metadata):
+    """The exact declared read scope, independent of page size and continuation."""
     obligations = metadata.tables["ops.data_obligation"]
     uses = metadata.tables["ops.demand_use"]
-    episodes = metadata.tables["ops.data_derivation"]
-    intents = metadata.tables["ops.data_completion_intent"]
-    products = metadata.tables["kb.data_product"]
     outputs = metadata.tables["ops.data_derivation_output"]
-    requests = metadata.tables["ops.data_request"]
-    definitions = metadata.tables["sem.data_operation_definition"]
     read_scope = _requested_read_scope()
     scope_predicates = tuple(
         or_(read_scope[name].astext.is_(None), obligations.c[name] == read_scope[name].astext)
@@ -1113,27 +1104,88 @@ def read_page(metadata):
         )
     )
     scope_predicates += (or_(~read_scope.op("?")(literal("product_ids")), product_match),)
-    bounded = (
-        select(obligations)
+    return select(obligations).where(
+        obligations.c.demand_id == _var("d.id", Text),
+        *scope_predicates,
+        _visible(obligations),
+    )
+
+
+def _latest_read_use(metadata, obligations):
+    uses = metadata.tables["ops.demand_use"]
+    return (
+        select(uses)
+        .where(uses.c.obligation_id == obligations.c.id, _visible(uses))
+        .order_by(uses.c.created_at.desc(), uses.c.id.desc())
+        .limit(1)
+        .correlate(obligations)
+        .lateral("latest")
+    )
+
+
+def selected_support_output(metadata):
+    """Prove one whole output in an explicit selected use's current support closure."""
+    obligations = _scoped_read_obligations(metadata).cte("scoped_obligations")
+    latest = _latest_read_use(metadata, obligations)
+    selected = (
+        select(latest)
+        .select_from(obligations.join(latest, literal(True)))
+        .cte("selected_uses")
+    )
+    boundary = literal_column("boundary")
+    seed = _node("use", selected.c.id).where(
+        selected.c.id == _var("p_use", Text),
+        selected.c.fate == "fulfilled",
+        func.ops.ddo_use_valid(selected.table_valued(), boundary),
+    ).cte("selected_output_seed")
+    nodes = _support_walk(metadata, seed)
+    outputs = metadata.tables["ops.data_derivation_output"]
+    episodes = metadata.tables["ops.data_derivation"]
+    products = metadata.tables["kb.data_product"]
+    reached = exists(select(1).select_from(nodes).where(
+        nodes.c.kind == "episode", nodes.c.id == episodes.c.id,
+    ))
+    return select(exists(
+        select(1)
+        .select_from(episodes.join(outputs, outputs.c.derivation_id == episodes.c.id).join(products, products.c.id == outputs.c.product_id))
         .where(
-            obligations.c.demand_id == demand,
-            *scope_predicates,
-            obligations.c.id > _var("after_key", Text),
-            _visible(obligations),
+            reached,
+            episodes.c.id == _var("p_derivation", Text),
+            outputs.c.product_id == _var("p_product", Text),
+            outputs.c.member_id.is_(None),
+            products.c.project_id == _var("d.project_id", Text),
+            _visible(episodes), _visible(products),
+            func.ops.ddo_support_valid(episodes.c.id, boundary),
+            func.ops.ddo_kind_access(products.c.kind_contract),
+            func.ops.ddo_body_access(products.c.kind_contract, products.c.canonical_body),
         )
+    ))
+
+
+def read_page(metadata):
+    """One pure atomic page under already acquired native pins."""
+    from sqlalchemy import case
+
+    demand, selection = _var("d.id", Text), _var("d.selection", JSONB)
+    boundary = literal_column("boundary")
+    obligations = metadata.tables["ops.data_obligation"]
+    uses = metadata.tables["ops.demand_use"]
+    episodes = metadata.tables["ops.data_derivation"]
+    intents = metadata.tables["ops.data_completion_intent"]
+    products = metadata.tables["kb.data_product"]
+    outputs = metadata.tables["ops.data_derivation_output"]
+    requests = metadata.tables["ops.data_request"]
+    definitions = metadata.tables["sem.data_operation_definition"]
+    read_scope = _requested_read_scope()
+    bounded = (
+        _scoped_read_obligations(metadata)
+        .where(obligations.c.id > _var("after_key", Text))
         .order_by(obligations.c.id)
         .limit(_var("lim", BigInteger))
         .cte("bounded")
         .prefix_with("MATERIALIZED")
     )
-    latest = (
-        select(uses)
-        .where(uses.c.obligation_id == bounded.c.id, _visible(uses))
-        .order_by(uses.c.created_at.desc(), uses.c.id.desc())
-        .limit(1)
-        .correlate(bounded)
-        .lateral("latest")
-    )
+    latest = _latest_read_use(metadata, bounded)
     selected_uses = (
         select(latest)
         .select_from(bounded.join(latest, literal(True)))
@@ -1561,6 +1613,7 @@ def capture_projection_sources(*, physical_sources=None, linkml_types=None):
         "binding_computed": compiled(branches[0]),
         "binding_original": compiled(branches[1]),
         "read_page": compiled(read_page(metadata)),
+        "selected_support_output": compiled(selected_support_output(metadata)),
     }
     return (
         SourceArtifact("native/data-operation-projections.py", Path(__file__).read_bytes()),
