@@ -77,6 +77,7 @@ def primary_operation_inputs(
     m1_configuration=None,
     record_schemas=None,
     contextual_encoder=None,
+    contextual_retrieval_options=None,
     extra_sources: PythonSourceCollection | None = None,
     declarations: tuple[SourceArtifact, ...] = (),
 ) -> PrimaryOperationInputs:
@@ -86,6 +87,8 @@ def primary_operation_inputs(
     by the caller. Compiled demand closure still decides which operations execute;
     captured availability does not select an operation or imply provider success.
     """
+    if contextual_retrieval_options is not None and not downstream:
+        raise ValueError("contextual retrieval options require the downstream profile")
     if visual and capture_sources is None:
         raise ValueError("visual preparation requires its actual captured PDF dependency")
     if dependencies is None:
@@ -263,7 +266,7 @@ def primary_operation_inputs(
             declarations = (*declarations, math_operation_declarations())
     if downstream:
         from .artifact_products import artifact_inputs, artifact_operation_sources
-        from .contextual_operations import contextual_inputs, contextual_operation_sources
+        from .contextual_operations import contextual_inputs, contextual_operation_sources, contextual_operation_declarations
         from .declared_structural_calls import (
             structural_inputs,
             structural_operation_declarations,
@@ -302,6 +305,7 @@ def primary_operation_inputs(
         declarations = (*declarations, finite_interpretation_declarations(), reading_resolution_declarations())
         bundle = finite_interpretation_inputs(bundle)
         bundle = reading_resolution_inputs(bundle)
+        declarations = (*declarations, contextual_operation_declarations())
         bundle = structural_inputs(contextual_inputs(bundle))
         collections = (
             *collections,
@@ -315,7 +319,7 @@ def primary_operation_inputs(
             finite_interpretation_operation_sources(),
             reading_resolution_operation_sources(),
             structural_operation_sources(),
-            contextual_operation_sources(),
+            contextual_operation_sources(contextual_retrieval_options),
         )
         declarations = (*declarations, structural_operation_declarations())
         if learned_selections is not None:

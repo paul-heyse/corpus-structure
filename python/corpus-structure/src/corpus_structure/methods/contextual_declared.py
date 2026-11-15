@@ -107,7 +107,8 @@ class ContextualRetrievalOperation:
         ],
         "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "complete-frozen-eligible-inventory"},
         "outcomes": ["success"],
-        "precision": "exact-pgvector-cosine-and-lexical-ranking",
+        "numerical_policy": {"asset": "contextual/retrieval-numerical-policy", "pointer": "/policy", "kind": "urn:corpus:kind:contextual-retrieval:NumericalPolicy"},
+        "replicate_policy": "retained-observation-single-result",
         "dependencies": [],
         "effects": [],
         "capabilities": {
@@ -245,6 +246,7 @@ class ContextualRetrievalOperation:
             }
         ],
         "assets": [
+            {"reference": "retrieval-numerics", "contract": "contextual/retrieval-numerical-policy", "role": "selected-fts-cosine-and-rank-policy"},
             {
                 "reference": "retrieval-algorithms",
                 "contract": "contextual/retrieval-assets",

@@ -13,10 +13,12 @@ from typing import Any, Literal, Protocol
 from typing import cast as typing_cast
 
 from pgvector.sqlalchemy import VECTOR
-from sqlalchemy import Float, Integer, Text, any_, bindparam, cast, func, literal, select, union_all
-from sqlalchemy.dialects.postgresql import REGCONFIG
+from sqlalchemy import Integer, Text, any_, bindparam, cast, func, literal, select, union_all
+from sqlalchemy.dialects.postgresql import REGCONFIG, DOUBLE_PRECISION
 from sqlalchemy.engine import Connection
 from sqlalchemy.sql.selectable import FromClause
+
+from .contextual_numerics import RetrievalNumericalPolicy, default_retrieval_numerics
 
 from corpus_structure.methods.contextual_embeddings import (
     EncodedVector,
@@ -293,6 +295,7 @@ def fuse_candidates(
     budget: int = 10,
     channel_budget: int = 30,
     lexical_query: str = "",
+    numerical_policy: RetrievalNumericalPolicy | None = None,
 ) -> CandidateList:
     if not occurrence_id:
         raise ValueError("candidate list requires an occurrence identity")
@@ -331,8 +334,9 @@ def fuse_candidates(
             by_target.setdefault(hit.target_id, []).append(
                 ChannelEvidence(channel, rank, hit.score, hit.evidence)
             )
+    numerics = default_retrieval_numerics() if numerical_policy is None else numerical_policy
     scores = {
-        target: sum(1 / (60 + value.rank) for value in evidence)
+        target: sum(1 / (numerics.reciprocal_rank_offset + value.rank) for value in evidence)
         for target, evidence in by_target.items()
     }
     exact_targets = {hit.target_id for hit in channels.get("witness", ())}
@@ -387,6 +391,7 @@ def retrieve_candidates(
     dimension: int,
     budget: int = 10,
     channel_budget: int = 30,
+    numerical_policy: RetrievalNumericalPolicy | None = None,
 ) -> CandidateList:
     """Score one authenticated frozen eligible relation, set-wise, without Python all-pairs.
 
@@ -394,6 +399,7 @@ def retrieve_candidates(
     A MATERIALIZED eligible CTE prevents an ANN index from changing exact neighbor membership.
     The caller retains its owned read snapshot/cancellation and authenticates selected membership.
     """
+    numerics = default_retrieval_numerics() if numerical_policy is None else numerical_policy
     vector = validate_vector(query.values, dimension)
     if not lexical_query.strip():
         raise ValueError("retrieval lexical query cannot be empty")
@@ -412,7 +418,9 @@ def retrieve_candidates(
             budget=budget,
             channel_budget=channel_budget,
             lexical_query=lexical_query,
+            numerical_policy=numerics,
         )
+    numerics.require_runtime(conn)
     eligible = (
         select(relation)
         .where(
@@ -426,7 +434,7 @@ def retrieve_candidates(
     distance = eligible.c.vector.cosine_distance(
         cast(bindparam("query_vector", list(vector), type_=VECTOR(dimension)), VECTOR(dimension))
     )
-    config = literal("english").cast(REGCONFIG)
+    config = literal(numerics.text_configuration).cast(REGCONFIG)
     tsquery = func.websearch_to_tsquery(config, lexical_query)
     tsvector = func.to_tsvector(config, eligible.c.search_text)
     lexical_score = func.ts_rank_cd(tsvector, tsquery)
@@ -435,7 +443,7 @@ def retrieve_candidates(
         cast(literal(None), Text).label("channel"),
         eligible.c.target_id,
         cast(literal(None), Integer).label("rank"),
-        cast(literal(None), Float).label("score"),
+        cast(literal(None), DOUBLE_PRECISION).label("score"),
     )
     branches = [membership]
     for name, score, ordering, predicate in (
@@ -455,7 +463,7 @@ def retrieve_candidates(
     ):
         hits = select(
             eligible.c.target_id,
-            score.label("score"),
+            cast(score, DOUBLE_PRECISION).label("score"),
             func.row_number().over(order_by=ordering).label("rank"),
         )
         if predicate is not None:
@@ -504,4 +512,5 @@ def retrieve_candidates(
         budget=budget,
         channel_budget=channel_budget,
         lexical_query=lexical_query,
+        numerical_policy=numerics,
     )

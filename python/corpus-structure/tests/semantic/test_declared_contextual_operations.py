@@ -11,6 +11,7 @@ from corpus_structure.semantic.contextual_operations import (
     contextual_interpretation_candidates,
     contextual_inventory_values,
     contextual_operation_sources,
+    contextual_operation_declarations,
     contextual_retrieval_values,
 )
 from corpus_structure.semantic.contextual_retrieval import freeze_inventory, target_representation
@@ -95,7 +96,7 @@ def test_contextual_retrieval_captures_factory_and_source_witness():
     bundle = contextual_inputs(
         SourceBundle("core", (SourceArtifact("core", (root / "core.yaml").read_bytes()),))
     )
-    model = compile_data_operations(bundle, python_sources=contextual_operation_sources())
+    model = compile_data_operations(bundle, declarations=(contextual_operation_declarations(),), python_sources=contextual_operation_sources())
     operation = model.operation("retrieve.contextual/declared")
     assert operation.capabilities.prepared_factory is not None
     assert len(operation.output_witnesses) == 1

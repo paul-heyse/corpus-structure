@@ -33,6 +33,7 @@ from corpus_structure.semantic.formal_products import (
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.python_operation_sources import PythonSourceCollection
 from corpus_structure.semantic.types import PreparationProfile, ResolvedDependencies
+from corpus_structure.semantic.contextual_operations import contextual_operation_declarations
 from semantic.formal_products_support import selected
 
 
@@ -52,7 +53,7 @@ def acquired():
     sources = combine_primary_sources(*collections)
     prepared = prepare_release(
         bundle,
-        data_operation_dependencies(ResolvedDependencies(), python_sources=sources),
+        data_operation_dependencies(ResolvedDependencies(), declarations=(contextual_operation_declarations(),), python_sources=sources),
         PreparationProfile(version="semantic-2"),
     )
     model = bound_data_operation_model(prepared)

@@ -11,7 +11,7 @@ from corpus_structure.semantic.contextual_encoder import (
     contextual_encoder_operation_sources,
     contextual_encoder_declarations,
 )
-from corpus_structure.semantic.contextual_operations import contextual_inputs
+from corpus_structure.semantic.contextual_operations import contextual_inputs, contextual_operation_declarations
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.types import SourceArtifact, SourceBundle
 
@@ -93,7 +93,7 @@ def test_contextual_encoder_captures_cpu_acquisition_and_closed_source_factory(t
 
     prepared = prepare_release(
         bundle,
-        data_operation_dependencies(ResolvedDependencies(), declarations=(contextual_encoder_declarations(),), python_sources=sources),
+        data_operation_dependencies(ResolvedDependencies(), declarations=(contextual_encoder_declarations(), contextual_operation_declarations()), python_sources=sources),
         PreparationProfile(version="semantic-2"),
     )
     model = bound_data_operation_model(prepared)

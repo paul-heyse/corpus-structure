@@ -208,7 +208,7 @@ introduced.
 
 ### Numerical policy owner inventory
 
-The event-score, contextual encoder, finite interpretation, reading-score and source-ratio owners now
+The event-score, contextual retrieval/encoder, finite interpretation, reading-score and source-ratio owners now
 select typed numerical bodies through actual captured semantic assets and generated nominal schemas.
 They retain exact canonical product equality. Tolerances describe numerical acceptance where the
 actual kernel uses them; they do not introduce approximate equality between canonical products.
@@ -216,6 +216,7 @@ actual kernel uses them; they do not introduce approximate equality between cano
 | Owner | Actual consumed numerical basis |
 |---|---|
 | `operation_policy` | Selected NumPy/SciPy versions, float64 arithmetic, finite input/output refusal and selected arithmetic semantics; fitted parameters carry their numerical contract |
+| `contextual_retrieval` | Explicit selected PostgreSQL 18.x patch and pgvector extension/Python/SQLAlchemy versions, fully qualified English FTS, cosine distance, float8 score transport and ordered binary64 reciprocal-rank fusion; verify the selected backend before executing retrieval queries. The primary profile captures `contextual_retrieval_options` as a typed YAML input; its independent numerical asset affects retrieval rather than inventory identity |
 | `contextual_embeddings` | CPU float32, normalization and vector acceptance tolerances; backend-dependent result bits require an explicit replicate selection |
 | `record_interpretation` | Selected NumPy/SciPy versions, float64 arrays, centered logsumexp and explicit overflow/invalid failure; exact enumeration remains relative to the retained finite joint and its authored limits |
 | `record_policy` | Selected Python/SciPy versions, binary64 inputs, `math.fsum` accumulation and `scipy.special.expit`; whole-reading potentials remain private and uncalibrated until their separate calibration/admission premises hold |

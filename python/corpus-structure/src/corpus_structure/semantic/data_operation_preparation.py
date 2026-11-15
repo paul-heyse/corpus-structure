@@ -98,6 +98,7 @@ class PrimaryProfileInputs(BaseModel):
     downstream: bool = False
     m1: LiteralM1Inputs | None = None
     contextual_encoder: ContextualEncoderInputs | None = None
+    contextual_retrieval_options: str | None = None
     capture: PrimaryCaptureInputs | None = None
 
 
@@ -318,6 +319,11 @@ def _acquire_primary_profile(
             m1_configuration=selected_m1,
             record_schemas=SourceBundle(profile.m1.schema_root, schemas),
         )
+    if profile.contextual_retrieval_options is not None:
+        from .contextual_numerics import RetrievalNumericalPolicy
+        if not profile.downstream:
+            raise ValueError("contextual retrieval options require the downstream profile")
+        arguments["contextual_retrieval_options"] = RetrievalNumericalPolicy.model_validate(yaml.safe_load(read(profile.contextual_retrieval_options)))
     if profile.contextual_encoder is not None:
         from pydantic import TypeAdapter
 

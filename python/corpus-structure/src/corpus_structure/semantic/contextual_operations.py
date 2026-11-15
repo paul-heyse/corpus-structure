@@ -19,6 +19,7 @@ from .contextual_links import (
 )
 from .contextual_retrieval import FrozenInventory, SemanticTargetGroup, TargetRepresentation
 from .identity import canonical_bytes
+from .contextual_numerics import RetrievalNumericalPolicy, default_retrieval_numerics
 from .types import SourceArtifact, SourceBundle
 from .python_module_projection import admitted_operation_module_meaning
 
@@ -28,6 +29,7 @@ _FILES = (
     "methods/contextual_declared.py",
     "semantic/contextual_operations.py",
     "semantic/contextual_retrieval.py",
+    "semantic/contextual_numerics.py",
     "semantic/contextual_links.py",
     "semantic/contextual_storage.py",
     "methods/contextual_embeddings.py",
@@ -89,7 +91,22 @@ def contextual_retrieval_assets():
     )
 
 
-def contextual_operation_sources():
+def contextual_numerical_asset(numerical_policy=None):
+    selected = default_retrieval_numerics() if numerical_policy is None else numerical_policy
+    return SourceArtifact("contextual/retrieval-numerical-policy", canonical_bytes({"policy": selected.model_dump(mode="json")}))
+
+
+def contextual_operation_declarations():
+    from .data_operation_model import MODEL_VERSION
+    from .nominal_schema_kinds import nominal_schema_kinds
+
+    return SourceArtifact("contextual/retrieval-numerical-kinds", canonical_bytes({
+        "version": MODEL_VERSION,
+        "kinds": nominal_schema_kinds(RetrievalNumericalPolicy.model_json_schema(), namespace="urn:corpus:kind:contextual-retrieval:", root_name="NumericalPolicy"),
+    }))
+
+
+def contextual_operation_sources(numerical_policy=None):
     from .python_operation_sources import PythonSource, PythonSourceCollection
 
     return PythonSourceCollection(
@@ -101,7 +118,7 @@ def contextual_operation_sources():
             )
             for name in _FILES[:2]
         ),
-        boundary_contracts=(contextual_retrieval_assets(),),
+        boundary_contracts=(contextual_retrieval_assets(), contextual_numerical_asset(numerical_policy)),
     )
 
 
@@ -201,7 +218,7 @@ def prepare_contextual_retrieval(query, inventory, vectors, policy, *, check_act
     )
 
 
-def query_contextual_retrieval(connection, inputs, query, policy):
+def query_contextual_retrieval(connection, inputs, query, policy, *, numerical_policy=None):
     from .contextual_retrieval import retrieve_candidates
 
     selected, profile, encoded, relation = (
@@ -220,6 +237,7 @@ def query_contextual_retrieval(connection, inputs, query, policy):
         dimension=profile.dimension,
         budget=policy["budget"],
         channel_budget=policy["channel_budget"],
+        numerical_policy=numerical_policy,
     )
 
 
@@ -256,13 +274,13 @@ def finish_contextual_retrieval(inputs, candidates, query, *, check_active=lambd
 
 
 def contextual_retrieval_values(
-    connection, query, inventory, vectors, policy, *, check_active=lambda: None
+    connection, query, inventory, vectors, policy, *, check_active=lambda: None, numerical_policy=None
 ):
     """Execute under a caller-owned borrow; invocation ports release it before interpretation."""
     inputs = prepare_contextual_retrieval(
         query, inventory, vectors, policy, check_active=check_active
     )
-    candidates = query_contextual_retrieval(connection, inputs, query, policy)
+    candidates = query_contextual_retrieval(connection, inputs, query, policy, numerical_policy=numerical_policy)
     return finish_contextual_retrieval(inputs, candidates, query, check_active=check_active)
 
 
@@ -291,6 +309,7 @@ def execute_retrieval_profile(receiver, query, inventory, vectors, policy):
 @dataclass
 class ContextualRetrievalPlan:
     prepared: Any
+    numerical_policy: RetrievalNumericalPolicy
     port: Any = None
 
     def plan(self, arguments, *, binding, check_active, execution_owner):
@@ -334,7 +353,7 @@ class ContextualRetrievalPlan:
             inputs = prepare_contextual_retrieval(**values, check_active=check_active)
             with execution_owner.engine.begin() as connection:
                 candidates = query_contextual_retrieval(
-                    connection, inputs, values["query"], values["policy"]
+                    connection, inputs, values["query"], values["policy"], numerical_policy=self.numerical_policy
                 )
             product = finish_contextual_retrieval(
                 inputs, candidates, values["query"], check_active=check_active
@@ -361,7 +380,10 @@ def resolve_retrieval_port(prepared, model, operation, *, identity, authorize, c
     if selected.semantic_id != ContextualRetrievalOperation.__data_operation__["id"]:
         raise PortRefusal("contextual retrieval factory belongs to another operation")
     receiver = ContextualRetrievalOperation(None)
-    plan = ContextualRetrievalPlan(prepared)
+    if selected.numerical_policy is None:
+        raise PortRefusal("contextual retrieval lacks its checked numerical policy")
+    numerical_policy = RetrievalNumericalPolicy.model_validate_json(selected.numerical_policy.body)
+    plan = ContextualRetrievalPlan(prepared, numerical_policy)
     port = PreparedOriginalCallPort(
         identity,
         model,
@@ -372,8 +394,8 @@ def resolve_retrieval_port(prepared, model, operation, *, identity, authorize, c
         plan.plan,
         "corpus_structure.semantic.contextual_operations.ContextualRetrievalPlan.plan",
         authorize,
-        (contextual_retrieval_assets(),),
-        contextual_operation_sources(),
+        (contextual_retrieval_assets(), contextual_numerical_asset(numerical_policy)),
+        contextual_operation_sources(numerical_policy),
         functions=(
             (
                 "corpus_structure.semantic.contextual_operations.prepare_contextual_retrieval",
