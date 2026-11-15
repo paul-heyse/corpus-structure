@@ -180,18 +180,6 @@ SUPPORTED_EFFECTS = {
         "transitions": {},
         "version": "1",
     },
-    "request_native_source": {
-        "effects": ("atomic_native_publication",),
-        "implementation": "request_native_source",
-        "transitions": {},
-        "version": "1",
-    },
-    "publish_pdf_region_artifact": {
-        "effects": ("atomic_native_publication",),
-        "implementation": "publish_pdf_region_artifact",
-        "transitions": {},
-        "version": "1",
-    },
     "prepare_native_document": {
         "effects": (),
         "implementation": "prepare_native_document",

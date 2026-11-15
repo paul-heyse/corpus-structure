@@ -830,14 +830,6 @@ def _assert_m1_owned_context_and_annotation_dependency(
     )
 
 
-@pytest.mark.parametrize("seconds", [float("inf"), float("-inf"), float("nan"), 0, -1])
-def test_native_request_budget_is_finite_and_positive(seconds):
-    from corpus_structure.semantic.native_requests import NativeRequestLimits
-
-    with pytest.raises(ValueError):
-        NativeRequestLimits(seconds=seconds)
-
-
 def test_source_view_health_is_relative_to_its_named_native_universe():
     from corpus_structure.semantic.source_views import source_view_health
 

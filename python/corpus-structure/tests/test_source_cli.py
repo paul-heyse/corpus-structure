@@ -12,7 +12,6 @@ import pytest
 from sqlalchemy import Connection, Engine
 
 from corpus_structure.core.method import SourceViewRef
-from corpus_structure.semantic.native_requests import NativeRequestResult
 from corpus_structure.semantic.product_reference import ProductReference
 
 
@@ -240,74 +239,6 @@ def test_native_views_json_retains_nested_pins_and_eligibility(
     source_runtime.context.boundary.validate_json.assert_called_once_with(
         "PdfNativeRunRequest", '{"run_id": 17}'
     )
-
-
-@pytest.mark.parametrize("failed", [False, True])
-def test_native_request_json_emits_dataclass_and_preserves_failure_exit(
-    cli, monkeypatch, source_runtime, failed
-):
-    from corpus_structure.semantic import native_requests
-
-    payload = {"items": [{"pointer": "#/texts/2", "definedness": {"status": "defined"}}]}
-    completed = NativeRequestResult(
-        run_id=18,
-        task_id=42,
-        cut_id=None if failed else 9,
-        status="failed" if failed else "source_ready",
-        source_view_id=31,
-        product_digest=None if failed else "d" * 64,
-        result=None if failed else payload,
-        error="budget exhausted" if failed else None,
-    )
-    request = MagicMock(return_value=completed)
-    monkeypatch.setattr(native_requests, "request_source_view", request)
-
-    result = cli(
-        "source",
-        "native-request",
-        "17",
-        "31",
-        "assessment",
-        "--pointer",
-        "#/texts/2",
-        "--question",
-        "definedness",
-        "--predicate",
-        "positive",
-        "--seconds",
-        "0.75",
-        "--json",
-    )
-
-    assert result.exit_code == (1 if failed else 0), (result.output, result.exception)
-    assert result.stderr == ""
-    assert json.loads(result.stdout) == {
-        "run_id": 18,
-        "task_id": 42,
-        "cut_id": None if failed else 9,
-        "status": "failed" if failed else "source_ready",
-        "source_view_id": 31,
-        "product_digest": None if failed else "d" * 64,
-        "artifact_digest": None,
-        "result": None if failed else payload,
-        "error": "budget exhausted" if failed else None,
-    }
-    request.assert_called_once_with(
-        source_runtime.engine,
-        source_run_id=17,
-        source_view_id=31,
-        demand="assessment",
-        pointer="#/texts/2",
-        region_index=None,
-        scale=2,
-        question="definedness",
-        predicate="positive",
-        seconds=0.75,
-        code_commit="native-source-cli-v2",
-        writer_release=None,
-        writer_realization=None,
-    )
-    assert source_runtime.opened == [("ci-native-request", "write")]
 
 
 def test_current_inspection_preserves_exact_product_and_companion_selector(

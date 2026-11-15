@@ -263,7 +263,7 @@ def test_published_address_constraint_is_qualified_and_operation_bound():
         "pdf.published_document_address",
         "published_document_address",
     )
-    assert classify_invariant_failure(model, "publish_pdf_region_artifact", error) is None
+    assert classify_invariant_failure(model, "publish_pdf_observation", error) is None
     error.diag.constraint_name = "fk_source_view_native_task_key_section"
     assert classify_invariant_failure(model, "publish_source_view", error) is None
 

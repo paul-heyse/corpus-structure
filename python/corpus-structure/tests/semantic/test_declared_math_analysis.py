@@ -109,23 +109,6 @@ def test_timeout_is_failed_even_when_a_partial_math_payload_is_available():
         )
 
 
-def test_current_source_view_mutation_refuses_math_before_any_database_access():
-    from unittest.mock import MagicMock
-
-    from sqlalchemy import Engine
-
-    from corpus_structure.semantic.native_requests import request_source_view
-
-    engine = MagicMock(spec=Engine)
-    with pytest.raises(ValueError, match="NativeDemandRequest"):
-        request_source_view(
-            engine,
-            source_run_id=1,
-            source_view_id=2,
-            demand="lexical",
-            code_commit="no-legacy-execution",
-        )
-    engine.begin.assert_not_called()
 
 
 def test_context_reads_exact_retained_parent_function_and_variable_with_native_order(math_profile):

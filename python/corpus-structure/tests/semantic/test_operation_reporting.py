@@ -214,7 +214,6 @@ def test_live_subject_family_follows_declared_inputs_and_refuses_unqualified_kin
     derive = model.operation("derive")
     assert _subject_family(derive) == "snapshot"
     assert _subject_family(model.operation("read_native_source")) == "published_document"
-    assert _subject_family(model.operation("publish_pdf_region_artifact")) == "published_document"
     assert _subject_family(replace(derive, inputs=("SourceView",))) == "published_document"
     assert _subject_family(replace(derive, inputs=("SnapshotBinding", "SourceView"))) is None
     assert _subject_family(replace(derive, inputs=("PdfProductReference",))) is None

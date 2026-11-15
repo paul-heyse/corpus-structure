@@ -399,63 +399,30 @@ def native_products(
 @app.command("native-render")
 def native_render(
     ctx: typer.Context,
-    run: int,
-    source_view: int,
-    pointer: str | None = None,
-    region_index: int | None = None,
-    scale: float = 2,
-    seconds: float = 2,
-    output: Path | None = None,
-    writer_release: str | None = None,
-    writer_realization: str | None = None,
+    request: Annotated[Path | None, typer.Option(help="NativeDemandRequest JSON for source.pdf_region/render; '-' reads stdin.")] = None,
+    demand: Annotated[str | None, typer.Option(help="Resume an exact retained rendering demand.")] = None,
+    source_root: Path | None = None,
+    project: str | None = None,
+    execution_policy: Path | None = None,
     json: JsonOpt = False,
 ):
-    """Render an exact published PDF occurrence under genuine archived source custody."""
-    from sqlalchemy import select
-
+    """Render frozen native geometry under an explicit demand and actual source custody."""
+    from corpus_structure.cli.demands import execute_request
     from corpus_structure.cli.failures import failure_boundary
-    from corpus_structure.semantic.metadata import table
-    from corpus_structure.semantic.native_requests import request_source_view
-    from corpus_structure.semantic.operations import OperationConflict
-    from corpus_structure.semantic.runtime import open_runtime_engine
+    from corpus_structure.cli.output import read_request_bytes
+    from corpus_structure.semantic.data_operation_json import json_loads
+    from corpus_structure.semantic.data_operation_service import NativeDemandRequest
+    from corpus_structure.semantic.native_requests import TARGET
 
-    if output is not None and output.exists():
-        raise typer.BadParameter("a new --output path is available only for render demands")
-    with (
-        failure_boundary(json, expected=(ValueError, OperationConflict, FileExistsError)),
-        open_runtime_engine(
-            state(ctx).settings(), application_name="ci-native-request", purpose="write"
-        ) as engine,
-    ):
-        result = request_source_view(
-            engine,
-            source_run_id=run,
-            source_view_id=source_view,
-            demand="render",
-            pointer=pointer,
-            region_index=region_index,
-            scale=scale,
-            seconds=seconds,
-            code_commit="native-source-cli-v2",
-            writer_release=writer_release,
-            writer_realization=writer_realization,
-        )
-        if result.status == "failed":
-            emit(RootModel(result), json=json, exit_code=1)
-            raise typer.Exit(1)
-        if output is not None:
-            artifacts = table("kb.source_artifact")
-            with engine.connect() as conn:
-                value = bytes(
-                    conn.execute(
-                        select(artifacts.c.content).where(
-                            artifacts.c.artifact_digest == result.artifact_digest
-                        )
-                    ).scalar_one()
-                )
-            with output.open("xb") as target:
-                target.write(value)
-        emit(RootModel(result), json=json)
+    if (request is None) == (demand is None):
+        raise typer.BadParameter("select exactly one --request or --demand")
+    with failure_boundary(json, expected=(ValueError, OSError)):
+        parsed = None if request is None else NativeDemandRequest.model_validate(json_loads(read_request_bytes(request)))
+        if parsed is not None and parsed.targets != (TARGET,):
+            raise ValueError("native-render requires the explicit source.pdf_region/render target")
+        execute_request(ctx, request=parsed, demand=demand, source_root=source_root,
+                        project=project, execution_policy=execution_policy, limit=100,
+                        max_rounds=100, action="source.native-render", json=json)
 
 
 @app.command("views")

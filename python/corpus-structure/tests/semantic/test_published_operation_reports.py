@@ -89,26 +89,6 @@ def test_cli_mcp_published_pin_and_preparation_are_separate_read_only_observatio
     assert checks["published_document"]["status"] == "applicable"
     assert checks["selected_source_views"]["status"] == "applicable"
     assert after["observed_revision"] == published.logical_digest
-    publication = cli(
-        "schema",
-        "explain-operation",
-        "publish_pdf_region_artifact",
-        "--release",
-        private_build.release_id,
-        "--subject",
-        str(subject),
-        "--json",
-        settings=lambda: settings,
-    )
-    assert publication.exit_code == 0, publication.output
-    publication_checks = {
-        item["contract_ref"]: item for item in json.loads(publication.stdout)["checks"]
-    }
-    assert publication_checks["published_document"]["status"] == "applicable"
-    # Exact publication is observable; task ownership and mutation guards remain
-    # native execution obligations rather than preflight authorization.
-    assert publication_checks["invariant:published_document_address"]["status"] == "unresolved"
-
     async def journey():
         server = build_retained_reader_server(read_engine=commit_reader_engine, project="published")
         async with Client(server) as client:

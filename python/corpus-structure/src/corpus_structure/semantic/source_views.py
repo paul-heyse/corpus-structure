@@ -730,53 +730,6 @@ def read_native_source(conn, request):
     return inspect_native_source(conn, request)
 
 
-def request_source_view(*args, **kwargs):
-    from .native_requests import request_source_view as request
-
-    return request(*args, **kwargs)
-
-
-def store_region_artifact(
-    conn: Connection,
-    *,
-    task_id: int,
-    attempt: int,
-    holder: str,
-    selection: Mapping[str, JsonValue],
-    recipe_bytes: bytes,
-    content: bytes,
-) -> str:
-    from ._operation_calls import TaskAttempt, TaskId
-    from ._operation_calls import publish_pdf_region_artifact as invoke
-    from .invariant_failures import InvariantViolation, classify_invariant_failure
-    from .pdf_contracts import pdf_context_for_task
-    from .refusals import DATABASE_ERRORS
-    from .releases import open_release
-
-    context = pdf_context_for_task(conn, task_id)
-    if context.release_id is None:
-        raise ValueError("region artifact requires its bound task release")
-    prepared = open_release(conn, context.release_id)
-    try:
-        return invoke(
-            conn,
-            task_id=TaskId(task_id),
-            attempt=TaskAttempt(attempt),
-            holder=holder,
-            selection=dict(selection),
-            recipe=recipe_bytes,
-            content=content,
-            projection_context=prepared,
-        )
-    except DATABASE_ERRORS as exc:
-        failure = classify_invariant_failure(
-            context.execution, "publish_pdf_region_artifact", exc, release_id=context.release_id
-        )
-        if failure is not None:
-            raise InvariantViolation(failure) from exc
-        raise
-
-
 def _native_section_title_parts(value: str) -> tuple[str | None, str]:
     import re
     import unicodedata

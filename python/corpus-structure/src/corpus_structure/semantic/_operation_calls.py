@@ -5951,111 +5951,6 @@ def capture_native_source_frame(
     return None
 
 
-PUBLISH_PDF_REGION_ARTIFACT_CONTRACT_DIGEST = (
-    "df6e6e61d570ad62af4a8db023050d5f6b2be3bea1d33f4e4f27d46f4b73b363"
-)
-
-
-class _publish_pdf_region_artifactRequest(OperationResult):
-    task_id: Annotated[
-        TaskId, Field(ge=TaskId(-9223372036854775808), le=TaskId(9223372036854775807))
-    ]
-    attempt: Annotated[
-        TaskAttempt,
-        Field(ge=TaskAttempt(-9223372036854775808), le=TaskAttempt(9223372036854775807)),
-    ]
-    holder: str
-    selection: JsonValue
-    recipe: bytes
-    content: bytes
-
-
-_publish_pdf_region_artifact_function = func.ops.publish_pdf_region_artifact(
-    bindparam("task_id", type_=BigInteger()),
-    bindparam("attempt", type_=BigInteger()),
-    bindparam("holder", type_=Text()),
-    bindparam("selection", type_=JSONB()),
-    bindparam("recipe", type_=BYTEA()),
-    bindparam("content", type_=BYTEA()),
-    type_=Text(),
-)
-_publish_pdf_region_artifact_statement = select(_publish_pdf_region_artifact_function)
-
-
-def prepare_publish_pdf_region_artifact(
-    *,
-    task_id: TaskId,
-    attempt: TaskAttempt,
-    holder: str,
-    selection: JsonValue,
-    recipe: bytes,
-    content: bytes,
-    projection_context: PreparedRelease | None = None,
-) -> Select[str]:
-    _request = _publish_pdf_region_artifactRequest(
-        task_id=task_id,
-        attempt=attempt,
-        holder=holder,
-        selection=selection,
-        recipe=recipe,
-        content=content,
-    )
-    if projection_context is not None:
-        require_call_context(
-            projection_context,
-            "publish_pdf_region_artifact",
-            "publish_pdf_region_artifact",
-            PUBLISH_PDF_REGION_ARTIFACT_CONTRACT_DIGEST,
-        )
-    return _publish_pdf_region_artifact_statement.params(
-        **{
-            "task_id": _request.task_id,
-            "attempt": _request.attempt,
-            "holder": _request.holder,
-            "selection": _request.selection,
-            "recipe": _request.recipe,
-            "content": _request.content,
-        }
-    )
-
-
-_publish_pdf_region_artifact_adapter = TypeAdapter(str)
-
-
-def materialize_publish_pdf_region_artifact(row: tuple[str]) -> str:
-    with native_result_scope(
-        "publish_pdf_region_artifact", "publish_pdf_region_artifact", "digest"
-    ):
-        checked = _publish_pdf_region_artifact_adapter.validate_python(row[0], strict=True)
-        return checked
-
-
-def publish_pdf_region_artifact(
-    conn: Connection,
-    *,
-    task_id: TaskId,
-    attempt: TaskAttempt,
-    holder: str,
-    selection: JsonValue,
-    recipe: bytes,
-    content: bytes,
-    projection_context: PreparedRelease | None = None,
-) -> str:
-    _statement = prepare_publish_pdf_region_artifact(
-        task_id=task_id,
-        attempt=attempt,
-        holder=holder,
-        selection=selection,
-        recipe=recipe,
-        content=content,
-        projection_context=projection_context,
-    )
-    _native_result = conn.execute(_statement)
-    with native_result_scope("publish_pdf_region_artifact", "publish_pdf_region_artifact"):
-        row = _native_result.one()
-        return materialize_publish_pdf_region_artifact(row)
-
-
 PUBLISH_PDF_OBSERVATION_CONTRACT_DIGEST = (
     "f2835d980a95f69355dcd74b6fbaeaa0e33b3c1db4cf6a8bbdf2921bc47ba835"
 )
@@ -10859,4 +10754,4 @@ def read_characterization_inventory(
         return materialize_read_characterization_inventory(row)
 
 
-CALL_CONTRACT_DIGEST = "05c3468222969fec7931b6c97a253cea43a84ea6d132e269619ec75f61a25652"
+CALL_CONTRACT_DIGEST = "3964571427b6a31a6dd9c7f7b3bbbedf2beb83a9ff7c816d477e8fb95855af9f"

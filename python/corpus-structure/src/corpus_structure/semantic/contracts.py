@@ -433,8 +433,6 @@ def approved_implementations() -> Mapping[str, Any]:
             "read_source_view": source_views.load_source_view,
             "read_native_source": source_views.read_native_source,
             "capture_native_source_frame": source_views.store_native_source_frame,
-            "request_native_source": source_views.request_source_view,
-            "publish_pdf_region_artifact": source_views.store_region_artifact,
             "bind_report": observations.bind_result,
             "packet": proposals.proposal_packet,
             "locate": proposals.locate_proposal,

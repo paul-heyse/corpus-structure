@@ -122,7 +122,9 @@ def primary_operation_inputs(
     if sentence_configuration is None or hanlp_selection is None:
         raise ValueError("primary preparation requires explicitly acquired provider profiles")
     if capture_sources is not None:
-        bundle = pdf_capture_inputs(bundle)
+        from .native_requests import pdf_region_inputs
+
+        bundle = pdf_region_inputs(pdf_capture_inputs(bundle))
         dependencies = pdf_domain_dependencies(dependencies)
     bundle = hanlp_product_inputs(
         construction_product_inputs(source_profile_inputs(source_discovery_inputs(bundle)))
@@ -147,10 +149,12 @@ def primary_operation_inputs(
     )
     if capture_sources is not None:
         from .pdf_views import pdf_views_operation_sources
+        from .native_requests import pdf_region_operation_sources
 
         collections = (
             *collections,
             pdf_views_operation_sources(capture_sources),
+            pdf_region_operation_sources(capture_sources),
             captured_document_view_operation_sources(include_dependencies=False),
         )
     if pdf_enrichment_sources is not None or pdf_integration_sources is not None:

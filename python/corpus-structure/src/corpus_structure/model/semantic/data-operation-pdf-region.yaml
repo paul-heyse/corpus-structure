@@ -1,0 +1,21 @@
+id: https://corpus-structure.dev/semantic/data-operation-pdf-region
+name: data_operation_pdf_region
+prefixes:
+  dpr: https://corpus-structure.dev/semantic/data-operation-pdf-region/
+default_prefix: dpr
+default_range: string
+classes:
+  DdoPdfRegion:
+    is_a: SourceRecordProduct
+    annotations: {cs:data_universe: source}
+    description: Rendered PNG bytes and exact original, publisher, native-region and renderer determinants. The declared derivation retains its authentic producing episode.
+    attributes:
+      document: {required: true}
+      source_digest: {required: true, pattern: '^[0-9a-f]{64}$'}
+      logical_digest: {required: true, pattern: '^[0-9a-f]{64}$'}
+      pointer: {required: true}
+      region_index: {range: integer, required: true, minimum_value: 0}
+      scale: {required: true}
+      encoding: {required: true, equals_string: png}
+      content_digest: {required: true, pattern: '^[0-9a-f]{64}$'}
+      content_hex: {required: true, pattern: '^(?:[0-9a-f]{2})+$'}
