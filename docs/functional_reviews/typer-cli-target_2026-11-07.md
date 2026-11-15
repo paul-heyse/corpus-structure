@@ -353,8 +353,7 @@ product, subject to the existing role and byte bounds. Report what was included 
 a predecessor is missing or inaccessible, emit the missing dependency with a direct remedy.
 A result view or test retry should never trigger PDF conversion, recognition or another provider
 run just because a local export expired. A fitting command should report compatible-event and
-protected-evaluation prerequisites when the selected corpus has none. [Portable closure owner](
-../../python/corpus-structure/src/corpus_structure/serve/review_bundle.py) ·
+protected-evaluation prerequisites when the selected corpus has none. Portable closure owner (`serve/review_bundle.py`, retired; historical finding baseline) ·
 [Operation fitting availability](../design_review/evidence/2026-11-06_wce-gs120/assessment/operation-fit-availability/README.md)
 
 Use a small production operations family for health, database contract checks, migration and

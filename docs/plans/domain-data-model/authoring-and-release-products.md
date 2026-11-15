@@ -52,7 +52,7 @@ already builds trusted model-bound explanations, located validation reports and 
 exposes `explain_operation` against an explicit archived release in a reader snapshot;
 [cli/model.py](../../../python/corpus-structure/src/corpus_structure/cli/model.py) owns the
 operator's model-change interaction.
-[review_bundle.py](../../../python/corpus-structure/src/corpus_structure/serve/review_bundle.py)
+review_bundle.py (`serve/review_bundle.py`, retired; historical finding baseline)
 already exports selected release contracts. These are foundations to compose, not missing
 services to replace.
 

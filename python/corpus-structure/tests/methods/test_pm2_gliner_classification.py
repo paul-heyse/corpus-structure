@@ -3,7 +3,7 @@
 import base64
 import json
 from copy import deepcopy
-from dataclasses import asdict, replace
+from dataclasses import asdict
 from hashlib import sha256
 from importlib.resources import files
 from types import SimpleNamespace
@@ -29,7 +29,6 @@ from corpus_structure.methods.pm2_gliner_classification import (
     classification_mapping,
     classification_product,
     classification_request,
-    profile_digest,
 )
 from corpus_structure.methods.pm2_result import pm2_input_digest, pm2_unit_result
 from corpus_structure.semantic.identity import canonical_bytes
@@ -38,14 +37,13 @@ from corpus_structure.semantic.interpretation_questions import (
     compile_question_families,
     declared_families,
 )
-from corpus_structure.semantic.observations import source_python, source_value
+from corpus_structure.semantic.observations import source_python
 from corpus_structure.semantic.product_reference import ProductReference
 from corpus_structure.semantic.proposals import native_source_frame
 from corpus_structure.semantic.source_contexts import PreparedNativeSources
 from corpus_structure.semantic.source_views import PreparedSourceView
 from corpus_structure.semantic.types import SourceArtifact
 from corpus_structure.serve.contribution_composition import composition_facets
-from corpus_structure.serve.pm2_classification_replay import verify_classification_replay
 
 
 @pytest.fixture
@@ -332,49 +330,6 @@ def test_custody_refuses_changed_source_question_order_profile_or_reply(case, ch
         _result(case, reply, request)
 
 
-def test_detached_replay_verifies_archived_question_and_raw_task_custody(case):
-    result, digest = _result(case, _reply(case, [{"label": "schedule", "confidence": 0.8}]))
-    assert result.contributions is not None
-    (row,) = result.contributions
-    config_hash = profile_digest(case.profile)
-    raw = {
-        "method": METHOD,
-        "origin_unit_id": case.view.ref.id,
-        "configuration": case.profile.startup,
-        "config_hash": config_hash,
-        "input_hash": digest,
-        "body": {
-            "method": METHOD,
-            "operation_version": VERSION,
-            "source": case.source.unit_ref,
-            "outcome": "produced",
-            "release_id": case.prepared.release_id,
-            "configuration_hash": config_hash,
-            "input_hash": digest,
-            "parse_detail": source_value(result.parse_detail),
-            "contribution_operations": json.loads(canonical_bytes(result.contribution_operations)),
-        },
-    }
-    verify_classification_replay(raw, row, case.view, case.contract)
-    wrong_version = deepcopy(raw)
-    wrong_version["body"]["operation_version"] = "unsupported-version"
-    with pytest.raises(ValueError, match="exact producer"):
-        verify_classification_replay(wrong_version, row, case.view, case.contract)
-    wrong_source = replace(case.view, text="X" + case.view.text[1:])
-    with pytest.raises(ValueError):
-        verify_classification_replay(raw, row, wrong_source, case.contract)
-    wrong_declaration = deepcopy(case.contract)
-    wrong_declaration["interpretation_question_inputs"][QUESTION_INPUT] = base64.b64encode(
-        b"[]"
-    ).decode()
-    with pytest.raises(ValueError, match="question input digest"):
-        verify_classification_replay(raw, row, case.view, wrong_declaration)
-    false_product = source_python(row["value"])
-    false_product["native_answer"]["scores"]["schedule"] = 0.7
-    with pytest.raises(ValueError, match="replayed raw observation"):
-        verify_classification_replay(
-            raw, {**row, "value": source_value(false_product)}, case.view, case.contract
-        )
 
 
 def test_batch_receipt_keeps_exact_member_and_choice_projection(case):
@@ -447,71 +402,3 @@ def test_batch_receipt_keeps_exact_member_and_choice_projection(case):
     reply["member_ordinal"] = 0
     with pytest.raises(GlinerRefused, match="exact released request"):
         classification_product(request, reply, case.profile)
-
-
-def test_historical_observation_requires_original_policy_and_has_no_batch_provenance(case):
-    from corpus_structure.methods.gliner import GlinerInput
-    from corpus_structure.methods.model_observation import legacy_request_digest
-    from corpus_structure.serve.model_observation_replay import (
-        _retained_request_digest,
-        _verify_request,
-    )
-
-    request = classification_request(
-        case.prepared.release_id,
-        case.family,
-        "purpose",
-        case.mapping,
-        case.profile,
-        installed_policy()[0]["inference"],
-        operation_version="1",
-    )
-    pack, item = GlinerPack(**request["pack"]), GlinerInput(**request["item"])
-    args = (pack, asdict(case.profile.profile), (item,), 0.7, "flat", False, request["inference"])
-    expected = legacy_request_digest(*args)
-    # Independent historical domain/field sequence, rather than a current batch receipt.
-    profile = args[1]
-    normalized = {k: v for k, v in profile.items() if k not in {"snapshot", "artifact_hashes"}}
-    normalized["timeout_seconds"] = str(int(profile["timeout_seconds"]))
-    normalized["artifact_hashes"] = sorted(profile["artifact_hashes"])
-    assert (
-        expected
-        == sha256(
-            canonical_bytes(
-                [
-                    "located-model-request-1",
-                    pack.release,
-                    pack.version,
-                    pack.declaration_json,
-                    normalized,
-                    [[item.operation, item.context_id, item.context_digest, item.text]],
-                    "0.7",
-                    "flat",
-                    False,
-                    request["inference"],
-                ]
-            )
-        ).hexdigest()
-    )
-    report = _reply(case, [{"label": "schedule", "confidence": 0.8}])["gliner"]
-    report.pop("batch_receipt_json")
-    report.pop("member_ordinal")
-    report["request_digest"] = report["computation"] = expected
-    report["observation_digest"] = sha256(
-        canonical_bytes(
-            [
-                expected,
-                report["raw_json"],
-                report["effective_profile_json"],
-            ]
-        )
-    ).hexdigest()
-    historical = {"request_version": "located-model-request-1"}
-    assert _retained_request_digest(historical, *args) == expected
-    _verify_request(report, expected, historical)
-    product = classification_product(
-        request, report, case.profile, request_version="located-model-request-1"
-    )
-    assert product.value["native_answer"]["scores"]["schedule"] == 0.8
-    with pytest.raises(ValueError, match="batch receipt"):
-        _verify_request(report, expected, {"request_version": "located-model-request-2"})

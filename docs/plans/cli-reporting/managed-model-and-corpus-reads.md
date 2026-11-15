@@ -53,7 +53,7 @@ witnesses and assessment coverage. On large bundles, account for full verificati
 and lease duration. Add a manifest-only view only for a named decision that can use
 unverified metadata, explicitly label it and keep verified inspection available.
 Review CLI (`cli/review.py`, retired; historical finding baseline) ·
-[Bundle owner](../../../python/corpus-structure/src/corpus_structure/serve/review_bundle.py)
+Bundle owner (`serve/review_bundle.py`, retired; historical finding baseline)
 
 For `review export` and `review export-evaluated`, compose a selection through the
 existing positional operand, using `-` for stdin and the existing path for intentional

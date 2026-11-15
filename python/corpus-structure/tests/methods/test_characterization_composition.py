@@ -107,7 +107,7 @@ def test_unbound_config_and_wrong_document_refuse(prepared):
 
 
 def test_composition_resolves_original_release_without_rewriting_retained_layer(prepared):
-    from semantic.characterization_replay_support import construction_release_inputs
+    from semantic.characterization_construction_support import construction_release_inputs
 
     from corpus_structure.semantic import prepare_release
 

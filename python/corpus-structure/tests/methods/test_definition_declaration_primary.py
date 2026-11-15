@@ -353,7 +353,7 @@ def test_primary_declaration_missing_or_substituted_native_evidence_refuses(fail
         primary_declaration_component(layers, view, passage)
 
 
-def test_retained_projection_and_detached_replay_use_exact_same_evidence(monkeypatch):
+def test_retained_projection_keeps_exact_primary_evidence():
     from corpus_structure.methods.definition_declaration import (
         CHAIN_METHOD,
         DeclarationChainSelection,
@@ -364,12 +364,10 @@ def test_retained_projection_and_detached_replay_use_exact_same_evidence(monkeyp
         PRIVATE_DECLARATION_INPUT,
         PRIVATE_DECLARATION_POLICY,
     )
-    from corpus_structure.semantic.observations import source_value
     from corpus_structure.semantic.structural_products import (
         ExternalSourceRef,
         StructuralInput,
     )
-    from corpus_structure.serve import model_observation_replay as replay
 
     view, passage, layers = fixture()
     ref = ExternalSourceRef(
@@ -428,7 +426,7 @@ def test_retained_projection_and_detached_replay_use_exact_same_evidence(monkeyp
             layers if set(references) == set(layers) else pytest.fail("wrong frozen primary pins")
         ),
     )
-    report, detail = project_retained_declarations(reader, cfg)
+    report, _detail = project_retained_declarations(reader, cfg)
     from semantic.structural_release_fixture import released_report
 
     released = released_report(report, method=CHAIN_METHOD, version="2")
@@ -437,30 +435,6 @@ def test_retained_projection_and_detached_replay_use_exact_same_evidence(monkeyp
     assert "parser" not in chain and chain["primary_evidence"]
     assert chain["naming_frame"].startswith("annotation:")
     assert chain["bindings"][0]["frame"].startswith("annotation:")
-    retained = dict(
-        configuration=cfg.model_dump(mode="json"),
-        body=dict(
-            method=CHAIN_METHOD,
-            operation_version="2",
-            parse_detail=source_value(detail),
-        ),
-    )
-    monkeypatch.setattr(replay, "_primary_observation_reader", lambda *_args: (reader, layers))
-    replay._verify_primary_observation(None, None, retained, report, {}, iter(()), None)
-    assert report.definition_components is not None
-    (component,) = report.definition_components.components
-    changed = component.model_copy(
-        update=dict(term=component.term.model_copy(update=dict(text="wrong")))
-    )
-    tampered = report.model_copy(
-        update=dict(
-            definition_components=report.definition_components.model_copy(
-                update=dict(components=(changed,))
-            )
-        )
-    )
-    with pytest.raises(ValueError, match="exact retained projection"):
-        replay._verify_primary_observation(None, None, retained, tampered, {}, iter(()), None)
 
 
 @pytest.mark.parametrize("corruption", ["missing_column", "srl_support"])

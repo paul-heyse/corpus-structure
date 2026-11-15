@@ -312,7 +312,7 @@ alongside installed CLI and detached export. (FP-01/04/05, DP-01/08/20/21/23.)
 [CLI source adapter](../../python/corpus-structure/src/corpus_structure/cli/source.py) ·
 [MCP server](../../python/corpus-structure/src/corpus_structure/intervene/semantic_server.py) ·
 [Shared refusal owner](../../python/corpus-structure/src/corpus_structure/semantic/refusals.py) ·
-[Review bundle owner](../../python/corpus-structure/src/corpus_structure/serve/review_bundle.py) ·
+Review bundle owner (`serve/review_bundle.py`, retired; historical finding baseline) ·
 [FastMCP 4.1.3 ToolResult](https://github.com/PrefectHQ/fastmcp/blob/v4.1.3/fastmcp_slim/fastmcp/tools/base.py) ·
 [FastMCP 4.1.3 context](https://github.com/PrefectHQ/fastmcp/blob/v4.1.3/fastmcp_slim/fastmcp/server/context.py)
 

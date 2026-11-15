@@ -56,9 +56,9 @@ to the archived contract and the membership and excluded frontier to
 the selected product. Verify refusal of resealed current bundles that
 drop a required field by downgrading coverage or by fabricating the
 frontier. Preserve valid current replay and supported archived reads.
-[Detached replay branch](../../../python/corpus-structure/src/corpus_structure/serve/review_source_projection.py#L62) ·
-[Archived contract capture](../../../python/corpus-structure/src/corpus_structure/serve/review_bundle.py#L150) ·
-[Bundle verification](../../../python/corpus-structure/src/corpus_structure/serve/review_bundle.py#L2599)
+Detached replay branch (`serve/review_source_projection.py:62`, retired; historical finding baseline) ·
+Archived contract capture (`serve/review_bundle.py:150`, retired; historical finding baseline) ·
+Bundle verification (`serve/review_bundle.py:2599`, retired; historical finding baseline)
 
 <a id="DMA-07"></a>
 

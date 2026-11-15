@@ -21,7 +21,6 @@ from corpus_structure.methods.gliner import GlinerRefused
 from corpus_structure.methods.model_observation import (
     MODEL_OBSERVATION_INPUT,
     installed_policy,
-    observation_digest,
 )
 from corpus_structure.semantic.contextual_links import RetainedRelationshipDecisionRef
 from corpus_structure.semantic.structural_admission import structural_statement
@@ -538,7 +537,6 @@ def test_production_retains_valid_attachment_and_failed_stage_with_indexed_raw_e
     from corpus_structure.core.method import UnitRef
     from corpus_structure.core.vocab import TaskUnitType
     from corpus_structure.methods.gliner import GlinerProfile
-    from corpus_structure.serve.model_observation_replay import _verify_definition_roles
 
     value = inputs()
     returned = raw(value.passages[0].text)
@@ -571,7 +569,7 @@ def test_production_retains_valid_attachment_and_failed_stage_with_indexed_raw_e
 
     from semantic.sealed_definition_fixture import controlled_component_result
 
-    policy, policy_digest = installed_policy()
+    _policy, policy_digest = installed_policy()
     prepared = SimpleNamespace(
         release_id="r",
         manifest=json.dumps({"dependencies": [(MODEL_OBSERVATION_INPUT, policy_digest)]}),
@@ -599,39 +597,6 @@ def test_production_retains_valid_attachment_and_failed_stage_with_indexed_raw_e
             reason="attachment endpoints lack the declared decoded roles",
         )
     ]
-    config = cfg.model_dump(mode="json", exclude_none=True)
-    _verify_definition_roles(report, config, result.parse_detail, "r", policy, primary=True)
-    original_window = retained[0]["window_start"]
-    assert isinstance(original_window, int)
-    retained[0]["window_start"] = original_window + 1
-    with pytest.raises(ValueError, match="returned window"):
-        _verify_definition_roles(report, config, result.parse_detail, "r", policy, primary=True)
-    retained[0]["window_start"] = original_window
-    with pytest.raises(ValueError, match="exact configured population"):
-        _verify_definition_roles(
-            report,
-            config,
-            {**result.parse_detail, "window_outcomes": []},
-            "r",
-            policy,
-            primary=True,
-        )
-    # All entity roles and exact source coordinates survive, but the valid directed
-    # relation is gone. The component can no longer be admitted as a model reading.
-    returned["relation_extraction"][cfg.attachment_relation].pop(0)
-    retained[0]["raw_json"] = json.dumps(returned)
-    receipt_text = retained[0]["batch_receipt_json"]
-    ordinal = retained[0]["member_ordinal"]
-    assert isinstance(receipt_text, str) and type(ordinal) is int
-    retained[0]["observation_digest"] = observation_digest(
-        retained[0]["computation"],
-        retained[0]["raw_json"],
-        "{}",
-        ordinal=ordinal,
-        member=json.loads(receipt_text)["members"][ordinal],
-    )
-    with pytest.raises(ValueError, match="retained directed attachments"):
-        _verify_definition_roles(report, config, result.parse_detail, "r", policy, primary=True)
 
 
 def test_labelled_copula_display_requires_same_block_explicit_definition_label():
@@ -828,71 +793,8 @@ def test_naming_resolves_only_a_unique_selected_restricted_antecedent(context):
         assert "content_antecedent" not in match
 
 
-def test_detached_named_basis_refuses_genuine_spans_without_its_witness():
-    from corpus_structure.semantic.structural_products import (
-        LocatedDefinitionSpan,
-        definition_component,
-    )
-    from corpus_structure.serve.model_observation_replay import _verify_primary_observation
-
-    original = inputs()
-    passage = original.passages[0]
-
-    def located(start, end):
-        return LocatedDefinitionSpan(
-            passage_id=passage.passage_id,
-            start=start,
-            end=end,
-            text=passage.text[start - passage.start : end - passage.start],
-        )
-
-    unsupported = definition_component(
-        term=located(49, 57),
-        content=located(22, 48),
-        interpretation="explanation",
-        basis="matched_cue",
-        scope=passage.scope,
-        evidence=(passage.passage_id,),
-        reason="Both phrases are in the source.",
-    )
-    report = StructuralProductReport(
-        kind="definition_components",
-        inputs=original,
-        definition_components=DefinitionComponentsProduct(components=(unsupported,), stages=()),
-    )
-    with pytest.raises(ValueError, match="exact retained annotation witness"):
-        _verify_primary_observation(
-            None, {}, dict(body={}, configuration={}), report, {}, iter(()), None
-        )
 
 
-@pytest.mark.parametrize(
-    ("method", "version"),
-    [
-        ("structure.definition_components", "8"),
-        ("structure.definition_components", "9"),
-        ("structure.definition_declaration_components", "1"),
-    ],
-)
-def test_obsolete_semantic_closure_requires_regeneration_without_reinterpreting_bytes(
-    monkeypatch, method, version
-):
-    from corpus_structure.serve import model_observation_replay as replay
-    from corpus_structure.serve import review_bundle
-
-    report = StructuralProductReport(
-        kind="definition_components",
-        inputs=inputs(),
-        definition_components=DefinitionComponentsProduct(components=(), stages=()),
-    )
-    original = dict(origin_task_id=1, body=dict(method=method, operation_version=version))
-    monkeypatch.setattr(
-        review_bundle,
-        "_detached_relation",
-        lambda _root, _manifest, relation: [original] if relation == "reports" else [],
-    )
-    with pytest.raises(ValueError, match="requires regeneration"):
-        replay.verify_model_observation_closure(None, {}, [(None, None, 1, report)], (), ())
 
 
 def test_current_named_definition_primary_witness_crosses_released_batch():

@@ -1,22 +1,18 @@
 """Exact inline syntax and portable replay over the frozen affine-transform spelling."""
 
-import json
 from dataclasses import replace
 from hashlib import sha256
 from types import SimpleNamespace
 
 import pytest
 
-from corpus_structure.core.canonical import canonical_numbers
 from corpus_structure.methods.contextual_candidates import retained_occurrences
-from corpus_structure.methods.scoped_relations import ScopedRelationsConfig
 from corpus_structure.semantic.contributions import occurrence_identity
 from corpus_structure.semantic.formal_evidence import build_formal_layer
 from corpus_structure.semantic.identity import canonical_bytes
-from corpus_structure.semantic.observations import source_python, source_value
+from corpus_structure.semantic.observations import source_python
 from corpus_structure.semantic.proposals import native_source_frame
 from corpus_structure.semantic.source_contexts import record_source_pin
-from corpus_structure.serve.inline_formula_replay import verify_inline_formula_report
 from methods.inline_formula_support import _FROZEN_TEXT as _FROZEN_TEXT
 from methods.m1_source_preparation_support import source
 from methods.primary_reading_fixture import prepared
@@ -195,62 +191,3 @@ def test_unavailable_formula_diagnostics_survive_contribution_binding():
     )
     (operation,) = [o for o in operations if o["question"] == "source_formula_occurrences"]
     assert operation["outcome"] == "unsupported" and operation["emitted_count"] == 0
-
-
-@pytest.mark.parametrize("tampering", ["wrong_native_symbol", "added_attachment"])
-def test_detached_verifier_rejects_wrong_symbol_or_link(tampering):
-    view, frame, output = discovery(_FROZEN_TEXT)
-    report = json.loads(
-        canonical_bytes(
-            {
-                "configuration": canonical_numbers(ScopedRelationsConfig().model_dump(mode="json")),
-                "body": {
-                    "contribution_operations": output["extra_operations"],
-                    "contributions": output["contributions"],
-                    "parse_detail": source_value({"formula_syntax": output["formula_diagnostics"]}),
-                },
-            }
-        )
-    )
-    original = json.loads(
-        canonical_bytes(
-            {
-                "source_view_id": frame.source_view_id,
-                "text": view.text,
-                "context": {"items": view.items, "pieces": view.pieces},
-                "ref": {
-                    "key": frame.unit_ref,
-                    "projection_digest": frame.projection_digest,
-                    "recipe_digest": frame.recipe_digest,
-                    "native_product": frame.native_product.values(),
-                },
-            }
-        )
-    )
-    verify_inline_formula_report(report, original, primary_layers=output["_primary_layers"])
-
-    operation, _ = inline_rows(output)
-    (row,) = [
-        r
-        for r in report["body"]["contributions"]
-        if r["operation_key"] == operation["operation_key"]
-        and source_python(r["value"])["text"] == "Z"
-    ]
-    if tampering == "added_attachment":
-        report["body"]["contributions"].append(
-            dict(
-                kind="relation",
-                operation_key=output["operation"]["operation_key"],
-                endpoints=[dict(role="attachment", contribution_id=row["contribution_id"])],
-            )
-        )
-        with pytest.raises(ValueError, match="must remain syntax-only evidence"):
-            verify_inline_formula_report(report, original, primary_layers=output["_primary_layers"])
-        return
-    value = source_python(row["value"])
-    start = _FROZEN_TEXT.rindex("Z", 0, 242)
-    value.update(start=start, end=start + 1)
-    row["value"] = source_value(value)
-    row["anchors"][0].update(start=start, end=start + 1)
-    with pytest.raises(ValueError, match="inline formula occurrence differs"):
-        verify_inline_formula_report(report, original, primary_layers=output["_primary_layers"])

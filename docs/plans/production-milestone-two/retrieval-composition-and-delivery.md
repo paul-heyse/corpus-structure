@@ -186,7 +186,7 @@ shared proof closure. Exercise authenticated exact closure and refusal for subst
 or incomplete source custody. The retained view 382 export establishes its own
 delivery scope. Report larger requests that exceed hydration or row budgets explicitly.
 [D8 contribution inspection](../../design/D8-agent-and-query-interfaces.md#independent-contribution-inspection) ·
-[Bundle verification](../../../python/corpus-structure/src/corpus_structure/serve/review_bundle.py) ·
+Bundle verification (`serve/review_bundle.py`, retired; historical finding baseline) ·
 [Current Reader controls](../../examples/README.md)
 
 Use a textbook condition on an assertion and an authored business condition on an
@@ -243,13 +243,13 @@ rendering stays the default; a protected comparison needs a competitive eligible
 **Detached v11 receipts · tested on a controlled fixture, 2026-11-09.**
 `ci review export SELECTION DESTINATION --exact-closure` includes the parser contribution and
 its exact selected cut, source and member population. The
-[detached verifier](../../../python/corpus-structure/src/corpus_structure/serve/contextual_query_replay.py)
+detached verifier (`serve/contextual_query_replay.py`, retired; historical finding baseline)
 reconstructs the signal and omissions with the existing query context recipe, checks the rendered
 input against the exact native context window and prompt, and binds its digest to the retained
 vector. A resealed substitute cut, missing endpoint, changed signal anchor, changed rendered text
 or changed vector binding is refused. This verifies retained context custody and input bytes;
 it does not rerun the tokenizer or encoder or establish query ranking quality. The
-[fixture](../../../python/corpus-structure/tests/semantic/test_contextual_query_replay.py)
+fixture (`tests/semantic/test_contextual_query_replay.py`, retired; historical finding baseline)
 uses a constructed retained frame and does not establish a native result on the matched scope.
 
 The [blocked matched attempt](../../design_review/evidence/2026-11-09_pm2-adoption/README.md)

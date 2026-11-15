@@ -78,7 +78,7 @@ through completed result projection; a direct projector test alone would miss th
 [`compare_assessments`](../../python/corpus-structure/src/corpus_structure/evaluate/operation_assessment.py)
 treats `unsupported → unsupported` as unchanged; the
 managed evaluator CLI (`cli/eval.py`, retired; historical finding baseline)
-and [review view](../../python/corpus-structure/src/corpus_structure/serve/review_views.py)
+and review view (`serve/review_views.py`, retired; historical finding baseline)
 share this comparison. Keep the old transition categories. Derive an orthogonal revised
 state view (supported, unsupported, ambiguous, unassessed) and retain non-comparability as
 a separate pairing judgment. Identify persistently unsupported cases from both sides, so

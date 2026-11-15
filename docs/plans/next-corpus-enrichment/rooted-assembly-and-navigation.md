@@ -70,7 +70,7 @@ or prepare exact predecessor closure once per scoped product and reuse it across
 members rather than fetching per side or facet. [Native owner](../../../python/corpus-structure/src/corpus_structure/semantic/sql/structural_products.sql) ·
 [Contribution-backed membership](../../../python/corpus-structure/src/corpus_structure/methods/dossier_contributions.py) ·
 [Bounded serving](../../../python/corpus-structure/src/corpus_structure/serve/structural_products.py) ·
-[Detached verifier](../../../python/corpus-structure/src/corpus_structure/serve/review_bundle.py)
+Detached verifier (`serve/review_bundle.py`, retired; historical finding baseline)
 
 **Report three scoped gaps.** Add bounded read-only projections to the existing named
 Reader queries, CLI and MCP. Use existing typed products and indexed joins on selected
@@ -205,7 +205,7 @@ operation must refuse the conflicting selector or report uninspected coverage. E
 a genuinely supported unconnected comparison, a successful empty inspection and an
 unavailable operation, including re-sealed source and support substitution and exact
 pagination. [Gap capture](../../../python/corpus-structure/src/corpus_structure/serve/structural_gaps.py#L507) ·
-[Detached gap verification](../../../python/corpus-structure/src/corpus_structure/serve/review_bundle.py#L1505).
+Detached gap verification (`serve/review_bundle.py:1505`, retired; historical finding baseline).
 
 **2026-11-07 execution.** Exact export carries the original reports and views,
 typed selected bindings and authorized assertion support. Detached replay rederives

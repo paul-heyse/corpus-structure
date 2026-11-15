@@ -34,9 +34,10 @@ comparison and complete-record grading/fitting use `eval run|records|fit-feature
 separate evaluator/fitter purposes and declared policy authorization. `review export|verify` binds
 an explicit project/demand and trusted detached manifest digest through the current native export
 owner. `structure export|verify` carries the exact selected structural request and native closure.
-These commands do not reinterpret historical integer reference sets or evaluation IDs. Shared
-programmatic historical review/replay and evaluation consumers retain their owning DDO migration
-obligations; removing CLI adapters does not establish their retirement or native qualification.
+These commands do not reinterpret historical integer reference sets or evaluation IDs. The closed
+programmatic legacy review-bundle/export/replay cluster is removed; current selected archives own
+detached delivery. Historical evaluation consumers retain their owning DDO migration obligations.
+Reader retirement does not establish native qualification of the selected replacements.
 
 > Decision: [ADR-0109](../adr/0109-ddo-current-domain-contracts.md)
 
@@ -1249,9 +1250,10 @@ which binds its request and installed interpretation to the authenticated native
 
 Protected reference snapshots and complete-record assessment use the evaluator/fitter routes above.
 Native purpose and body-access policy govern every exported population. Ordinary review export
-cannot acquire historical assessment sets or grant evaluator exposure. Shared programmatic historical
-review/replay consumers remain internal while their owning DDO migrations are incomplete; they are
-not mounted CLI commands.
+cannot acquire historical assessment sets or grant evaluator exposure. The superseded task/source-view
+review bundle, its archive-specific replay adapters and historical format compatibility are removed.
+Scientific kernels and native admission controls retain their current owners; detached selected reads
+authenticate captured products and support without rerunning historical producers.
 
 > Decision: [ADR-0065](../adr/0065-cross-source-structural-products.md)
 

@@ -163,7 +163,7 @@ Preserve existing singleton reports under their original evidence custody. Conve
 single field to a single-member reading only where it supplies the exact new meaning. Regenerate
 when the required grouped evidence is absent. Regenerate selected new comparisons through the new
 release and invalidate dependent dossier views only when the bound inputs or membership change. [Native structural functions](../../../python/corpus-structure/src/corpus_structure/semantic/sql/structural_products.sql)
-· [Released observations](../../../python/corpus-structure/src/corpus_structure/model/semantic/observations.yaml) · [Portable verification](../../../python/corpus-structure/src/corpus_structure/serve/review_bundle.py)
+· [Released observations](../../../python/corpus-structure/src/corpus_structure/model/semantic/observations.yaml) · Portable verification (`serve/review_bundle.py`, retired; historical finding baseline)
 
 **Acceptance.** Compare changed responsible role, optional versus required modality, added
 exception, narrowed condition and multiple objects or conditions. Exercise an explicit
@@ -211,7 +211,7 @@ formal condition on a nonformal premise. Detached replay derives the complete re
 and may refuse what native admission accepted. Verify parity on a forged polarity or
 formal condition and the exact source-backed or escape reading through the ordinary
 consumers. [Native predicate guard](../../../python/corpus-structure/src/corpus_structure/semantic/sql/source_contributions.sql#L1088) ·
-[Detached reconstruction](../../../python/corpus-structure/src/corpus_structure/serve/review_bundle.py#L1968).
+Detached reconstruction (`serve/review_bundle.py:1968`, retired; historical finding baseline).
 
 **2026-11-07 execution.** The native guard derives predicate form, voice, polarity
 and conditional meaning from the retained annotation and selected rule asset. It

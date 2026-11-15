@@ -137,7 +137,7 @@ selected computation policy or reconstruct the configured definition window inve
 Check a resealed substituted schema, overlap or threshold setting, and a different
 same-passage window through both admission and detached replay. Preserve deterministic
 interpretation and the actual provider receipts. [Native validation](../../../python/corpus-structure/src/corpus_structure/semantic/sql/structural_products.sql#L1241) ·
-[Detached model replay](../../../python/corpus-structure/src/corpus_structure/serve/model_observation_replay.py#L68).
+Detached model replay (`serve/model_observation_replay.py:68`, retired; historical finding baseline).
 
 **2026-11-07 execution.** Definition operation 9 and clause-classification operation
 2 bind the ordered declaration, exact configured windows, context, threshold,

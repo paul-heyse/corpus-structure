@@ -29,16 +29,10 @@ from corpus_structure.semantic.structural_products import (
     StructuralInput,
     StructuralPassage,
 )
-from corpus_structure.serve.review_bundle import (
-    ReviewSelection,
-    export_review_bundle,
-    verify_review_bundle,
-)
 from corpus_structure.serve.structural_products import (
     StructuralExportRequest,
     read_structural_export_page,
 )
-from semantic.companion_export_native_support import read_settings
 from semantic.native_record_fixtures import (
     RecordSourceRecipe,
     build_record_source,
@@ -288,14 +282,6 @@ def test_registered_artifact_canonical_config_completes_and_policy_forgery_refus
             page = read_structural_export_page(conn, selection)
         (retained,) = page.reports
         assert retained.artifact_identity == ArtifactIdentityProduct.model_validate(product)
-        bundle = tmp_path / "typed-artifact-closure"
-        export_review_bundle(
-            ReviewSelection(structural_selections=(selection,)),
-            bundle,
-            read_settings(native_settings, record_source_admin),
-            exact_closure=True,
-        )
-        verify_review_bundle(bundle)
     else:
         assert product["pairs"] == []
         assert product["declared_relationships"] == []

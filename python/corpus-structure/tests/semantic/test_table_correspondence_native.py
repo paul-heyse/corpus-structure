@@ -2,7 +2,7 @@
 
 import json
 from copy import deepcopy
-from dataclasses import asdict, replace
+from dataclasses import replace
 from math import exp
 from threading import Event
 
@@ -341,14 +341,6 @@ def test_native_admission_refuses_resealed_factor_mask_and_missing_policy(privat
             envelope=report,
         )
 
-    from corpus_structure.serve.table_correspondence_replay import verify_table_correspondence
-
-    source = dict(
-        source_view_id=view.ref.id, ref=asdict(view.ref), text=view.text, context=view.context()
-    )
-    verify_table_correspondence(
-        dict(body=envelope(prepared), configuration=config.model_dump()), source
-    )
     with case.writer.begin() as conn:
         for mutation in ("gap", "order", "repeat"):
             malformed = envelope(prepared)
@@ -361,10 +353,6 @@ def test_native_admission_refuses_resealed_factor_mask_and_missing_policy(privat
             malform_source_fields(selection["fields"], mutation)
             report["request_digest"] = _digest(report["request"])
             report["seal"] = _digest({key: value for key, value in report.items() if key != "seal"})
-            with pytest.raises(ValueError, match=r"source report.*(ordered|repeated)"):
-                verify_table_correspondence(
-                    dict(body=malformed, configuration=config.model_dump()), source
-                )
             with (
                 pytest.raises(DBAPIError, match=r"source report.*(ordered|repeated)"),
                 conn.begin_nested(),
@@ -382,10 +370,6 @@ def test_native_admission_refuses_resealed_factor_mask_and_missing_policy(privat
         report["result"] = json.loads(canonical_bytes(source_value(output)))
         report["result_digest"] = _digest(report["result"])
         report["seal"] = _digest({key: value for key, value in report.items() if key != "seal"})
-        with pytest.raises(ValueError, match="marginal probability differs from displayed support"):
-            verify_table_correspondence(
-                dict(body=malformed, configuration=config.model_dump()), source
-            )
         with (
             pytest.raises(DBAPIError, match="marginal probability differs from displayed support"),
             conn.begin_nested(),
@@ -397,10 +381,6 @@ def test_native_admission_refuses_resealed_factor_mask_and_missing_policy(privat
         ):
             forged = deepcopy(prepared)
             forged[0]["request"][field][0][subfield][index] = value
-            with pytest.raises(ValueError, match="differs from source-conditioned replay"):
-                verify_table_correspondence(
-                    dict(body=envelope(forged), configuration=config.model_dump()), source
-                )
             with (
                 pytest.raises(DBAPIError, match="authoritative source-conditioned request"),
                 conn.begin_nested(),

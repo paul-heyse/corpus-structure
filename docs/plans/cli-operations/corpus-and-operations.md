@@ -71,7 +71,7 @@ report and route remediation to its producer or assessment owner. Publish the op
 outcome, settled effects and exact cut or missing dependency to the
 [CLI-02 diagnostic view](managed-results-and-testing.md#action-driven-diagnostics).
 [Source read owner](../../../python/corpus-structure/src/corpus_structure/serve/native_source.py) ·
-[Review closure and verification](../../../python/corpus-structure/src/corpus_structure/serve/review_bundle.py) ·
+Review closure and verification (`serve/review_bundle.py`, retired; historical finding baseline) ·
 [Fitting availability evidence](../../design_review/evidence/2026-11-06_wce-gs120/assessment/operation-fit-availability/README.md)
 
 **Acceptance.** Use an existing completed corpus cut to inspect source and status, export
@@ -196,7 +196,7 @@ and exercise an interrupted export, edited same-root selection, missing predeces
 from retained data with no new extraction. The two successful manifests do not exercise
 interruption.
 Export and retry (`cli/review.py:20`, retired; historical finding baseline) ·
-[Snapshot binding](../../../python/corpus-structure/src/corpus_structure/serve/review_bundle.py#L966)
+Snapshot binding (`serve/review_bundle.py:966`, retired; historical finding baseline)
 
 **CLI-CA04 · Source preparation and run lifecycle.** `ci ingest` still requires domain and
 corpus even for an existing bound project and calls regeneration, which archives/adopts a release

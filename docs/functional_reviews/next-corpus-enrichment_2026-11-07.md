@@ -534,7 +534,7 @@ Reader, CLI and MCP routes and the detached bundle verification that reconstruct
 Preserve the split between complete membership and bounded display. Keep the supported-facet greedy
 projection until interacting display constraints are demonstrated on identical membership. A SciPy
 `milp` challenger should then specify the constraints and compare useful facet coverage and
-preservation of required qualifiers under the same budget. [Membership code](../../python/corpus-structure/src/corpus_structure/methods/structural_products.py) · [Native owner](../../python/corpus-structure/src/corpus_structure/semantic/sql/structural_products.sql) · [Portable verifier](../../python/corpus-structure/src/corpus_structure/serve/review_bundle.py)
+preservation of required qualifiers under the same budget. [Membership code](../../python/corpus-structure/src/corpus_structure/methods/structural_products.py) · [Native owner](../../python/corpus-structure/src/corpus_structure/semantic/sql/structural_products.sql) · Portable verifier (`serve/review_bundle.py`, retired; historical finding baseline)
 
 **Similarity and concept family browsing.** Keep exact authenticated meaning groups. Produce a
 separate bounded projection with a typed witnessed lane for related, broader, narrower, alternative

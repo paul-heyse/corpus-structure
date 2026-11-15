@@ -233,7 +233,7 @@ retain section-only matches as candidates. Verify with unrelated and incomplete
 same-section populations, plus a correctly bound target, through native and detached
 reconstruction. [Candidate route](../../../python/corpus-structure/src/corpus_structure/methods/contextual_candidates.py#L717) ·
 [Native witness reconstruction](../../../python/corpus-structure/src/corpus_structure/semantic/sql/source_contributions.sql#L2569) ·
-[Detached witness replay](../../../python/corpus-structure/src/corpus_structure/serve/contextual_witness_replay.py#L489).
+Detached witness replay (`serve/contextual_witness_replay.py:489`, retired; historical finding baseline).
 
 **2026-11-07 execution.** A named section supports a nomination. Selection requires
 an exact quoted source subject and a unique matching term component in the compatible
@@ -264,7 +264,7 @@ authenticated section cue to discover portable closure as native admission. The
 detached component path looks for literal `Section ` and can skip witnesses for
 valid lowercase or tab-separated cues. Verify both spellings and refuse a substituted
 portable decision. [Procedure projection](../../../python/corpus-structure/src/corpus_structure/methods/scoped_relations.py#L1193) ·
-[Detached cue discovery](../../../python/corpus-structure/src/corpus_structure/serve/contextual_witness_replay.py#L55).
+Detached cue discovery (`serve/contextual_witness_replay.py:55`, retired; historical finding baseline).
 
 **2026-11-07 execution.** The procedure edge requires an exact retained verbal
 frame sharing the source cue and the authenticated artifact endpoint. Lowercase and

@@ -34,7 +34,7 @@ per native product across views and providers. The current exact-closure evidenc
 covers view 382 at cut 517 under its recorded bounds. Preserve supported historical
 reads under their own recipes. Current provider inputs use the current released
 projection. [DMA projection and formula witnesses](../domain-model-alignment/source-projection.md) ·
-[Portable verification](../../../python/corpus-structure/src/corpus_structure/serve/review_bundle.py)
+Portable verification (`serve/review_bundle.py`, retired; historical finding baseline)
 
 Use existing retained operation, report, and contribution contracts to express
 scope, native result and alignment availability. Reuse their vocabulary and

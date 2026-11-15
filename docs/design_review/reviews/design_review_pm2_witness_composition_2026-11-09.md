@@ -55,7 +55,7 @@ and competing cases.
 
 **F02 · Ordered affine declaration (PM2-09/11).** The existing
 [producer](../../../python/corpus-structure/src/corpus_structure/methods/witnessed_source_links.py)
-and [replay](../../../python/corpus-structure/src/corpus_structure/serve/witnessed_source_link_replay.py)
+and replay (`serve/witnessed_source_link_replay.py`, retired; historical finding baseline)
 assume one physical declaration item. Reuse ordered multi-piece anchors under a separate
 version. Authenticate the bounded population and sibling membership, including omitted valid
 rows, incomplete or reordered anchors, and duplicate prior declarations. Preserve the

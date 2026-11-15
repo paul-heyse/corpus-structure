@@ -10,29 +10,6 @@ from corpus_structure.methods.clause_classification import (
 )
 from corpus_structure.semantic.retained_contributions import RetainedContributionRef
 from corpus_structure.semantic.structural_products import ClauseFocusSelection, StructuralPassage
-from corpus_structure.serve.model_observation_replay import clause_context, clause_labels
-
-
-def test_native_fallback_preserves_score_without_accepting_presentation():
-    function, presentation, state = clause_labels(
-        {
-            "clause_function": {"label": "definition", "confidence": 0.9},
-            "presentation_context": [{"label": "historical", "confidence": 0.3}],
-        }
-    )
-    assert function[0].accepted and state == "observed"
-    assert (presentation[0].label, presentation[0].score, presentation[0].accepted) == (
-        "historical",
-        0.3,
-        False,
-    )
-    _, _, withheld = clause_labels(
-        {
-            "clause_function": {"label": "unresolved", "confidence": 0.9},
-            "presentation_context": [{"label": "example", "confidence": 0.3}],
-        }
-    )
-    assert withheld == "withheld"
 
 
 def test_concordance_matches_retained_and_current_focus_extents():
@@ -132,12 +109,6 @@ def test_context_contains_only_exact_focus_and_source_owned_adjacent_sentences()
     focus, preceding, following = spans
     assert preceding is not None and following is not None
     assert (focus.text, preceding.text, following.text) == ("Focus", "Before.", "Next.")
-    context = clause_context(selection, "adjacent_sentences", *spans)
-    exact = clause_context(
-        selection, "exact_focus", *clause_focus(selection, passage, source, retained)
-    )
-    assert context.text == "Before.\n<focus>Focus</focus>\nNext."
-    assert exact.text == "Focus" and exact.context_digest != context.context_digest
     retained["contributions"][0]["component"]["focus_state"] = "partial"
     with pytest.raises(ValueError, match="exact retained focus"):
         clause_focus(selection, passage, source, retained)

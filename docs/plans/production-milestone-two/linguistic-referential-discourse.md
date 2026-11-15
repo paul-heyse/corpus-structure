@@ -111,7 +111,7 @@ producer, native and detached checks. Exercise a qualification inside defining
 content versus a qualification of the defining act, reported and conditional
 acts, competing bindings, and unresolved demonstratives.
 [Definition witness owner](../domain-model-alignment/semantic-admission.md#DMA-05) ·
-[Portable witness replay](../../../python/corpus-structure/src/corpus_structure/serve/model_observation_replay.py)
+Portable witness replay (`serve/model_observation_replay.py`, retired; historical finding baseline)
 
 **Execution and closure.** Use actual subword lengths and sentence boundaries to form
 outer batches. The checkpoint's 8192 sequence setting and first-task sampler settings

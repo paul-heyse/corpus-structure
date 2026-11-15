@@ -7,16 +7,8 @@ from unittest.mock import MagicMock
 import pytest
 
 from corpus_structure.semantic.refusals import InvalidContinuation, SemanticRefusal
-from corpus_structure.serve.queries import GENERIC
-from corpus_structure.serve.registry import build_registry
-from corpus_structure.serve.review_bundle import (
-    ReviewSelection,
-    verify_review_bundle,
-    write_review_bundle,
-)
 from corpus_structure.serve.structural_gaps import (
     METHODS,
-    GapPage,
     GapRequest,
     _read_payload,
     gap_page,
@@ -203,68 +195,10 @@ def test_supported_comparison_gap_requires_authorized_summary_and_inspected_bind
         GapRequest.model_validate({**request.model_dump(), "protected_labels": True})
 
 
-def test_pre_hydration_budget_and_named_registry():
-    registry = build_registry(GENERIC)
-    assert all(registry[name].result is GapPage for name in METHODS)
+def test_pre_hydration_budget():
     request = GapRequest(report="unresolved_binding", run_id=1, task_id=4, max_bytes=100)
     conn = MagicMock()
     conn.scalar.return_value = 200
     with pytest.raises(SemanticRefusal, match="byte budget"):
         _read_payload(conn, producer(request.report), request)
     assert conn.scalar.call_count == 1
-
-
-def test_detached_gap_replays_same_pages_and_rejects_substitution(tmp_path):
-    name = "unknown_applicability_premise"
-    request = GapRequest(report=name, run_id=1, cut_id=2, task_id=4, limit=1)
-    captured = capture(name, applicability().model_dump(mode="json"))
-    selection = ReviewSelection(structural_gap_selections=(request,))
-    first = gap_page(request, captured)
-    second = gap_page(request.model_copy(update={"cursor": first.next_cursor}), captured)
-    rows = [
-        ("structural_gap_sources", dict(selection_index=0, **captured)),
-        ("structural_gaps", dict(selection_index=0, **first.model_dump(mode="json"))),
-        ("structural_gaps", dict(selection_index=0, **second.model_dump(mode="json"))),
-    ]
-    output = tmp_path / "valid"
-    manifest = write_review_bundle(selection, output, iter(rows))
-    assert verify_review_bundle(output) == manifest
-    rows[0] = (
-        "structural_gap_sources",
-        dict(selection_index=0, **{**captured, "producer": producer(name, origin_task_id=12)}),
-    )
-    output = tmp_path / "forged"
-    with pytest.raises(ValueError, match="differs from selected producer evidence"):
-        write_review_bundle(selection, output, iter(rows))
-
-
-def test_exact_detached_gap_rejects_consistent_projection_substitution(tmp_path):
-    name = "unknown_applicability_premise"
-    request = GapRequest(report=name, run_id=1, cut_id=2, task_id=4)
-    original = applicability().model_dump(mode="json")
-    selection = ReviewSelection(
-        structural_gap_selections=(request,), require_original_gap_reports=True
-    )
-    custody = {
-        "selection_index": 0,
-        "bodies": {"producer": {"structural_product": original}, "binding": None},
-        "assertions": [],
-    }
-
-    def rows(payload):
-        captured = capture(name, payload)
-        page = gap_page(request, captured)
-        return iter(
-            [
-                ("structural_gap_sources", dict(selection_index=0, **captured)),
-                ("structural_gap_custody", custody),
-                ("structural_gaps", dict(selection_index=0, **page.model_dump(mode="json"))),
-            ]
-        )
-
-    manifest = write_review_bundle(selection, tmp_path / "original", rows(original))
-    assert verify_review_bundle(tmp_path / "original") == manifest
-    changed = deepcopy(original)
-    changed["definition"]["readings"] = changed["definition"]["readings"][:1]
-    with pytest.raises(ValueError, match="differs from the original producer report"):
-        write_review_bundle(selection, tmp_path / "changed", rows(changed))

@@ -3,9 +3,7 @@
 import os
 import subprocess
 import sys
-from copy import deepcopy
 from hashlib import sha256
-from itertools import chain
 from pathlib import Path
 
 import anyio
@@ -16,7 +14,6 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.exc import DBAPIError
 
-from corpus_structure.core.db.cancellation import OperationCancellation
 from corpus_structure.core.method import Digest, Resources, UnitRef, UnitResult, UnitView
 from corpus_structure.core.vocab import ObservationOutcome, Stage, TaskUnitType
 from corpus_structure.evaluate.record_references import assign_origin
@@ -35,23 +32,14 @@ from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.operations import OperationBinding
 from corpus_structure.semantic.read_snapshot import read_snapshot
 from corpus_structure.semantic.retained_contributions import RetainedContributionRef
-from corpus_structure.semantic.structural_admission import structural_claim_id, structural_statement
+from corpus_structure.semantic.structural_admission import structural_statement
 from corpus_structure.semantic.structural_products import StructuralInput
 from corpus_structure.semantic.structural_sources import (
     StructuralPassageSelection,
     prepare_structural_sources,
 )
 from corpus_structure.serve.contributions import ContributionRequest, serve_contributions
-from corpus_structure.serve.review_bundle import (
-    ReviewSelection,
-    _exact_closure,
-    capture_review_relations,
-    verify_review_bundle,
-    write_review_bundle,
-)
-from corpus_structure.serve.review_views import compose_review_views
 from corpus_structure.serve.structural_products import (
-    StructuralExportRequest,
     StructuralPage,
     StructuralRequest,
     serve_structural_products,
@@ -514,51 +502,6 @@ def test_condition_admits_only_the_exact_supported_roles(
             and isinstance(row := item.get("row"), dict)
             and row["outcome"] == "failed"
             for item in failure.items
-        )
-        review = ReviewSelection(
-            selections=(sibling_request,),
-            structural_selections=(
-                StructuralExportRequest(
-                    run_id=published,
-                    kind="condition_qualification",
-                    include_publication=True,
-                    include_support=True,
-                ),
-            ),
-        )
-        cancellation = OperationCancellation()
-        review, reasons = _exact_closure(conn, review, cancellation)
-        rows = tuple(
-            compose_review_views(
-                review,
-                chain(
-                    capture_review_relations(conn, review, cancellation),
-                    (("closure_dependencies", reason) for reason in reasons),
-                ),
-            )
-        )
-        bundle = tmp_path / "review"
-        write_review_bundle(review, bundle, rows)
-    assert verify_review_bundle(bundle)["completeness"] == "selected_source_closure"
-    replaced = [(relation, deepcopy(dict(row))) for relation, row in rows]
-    (altered,) = [row for relation, row in replaced if relation == "structural_public_assertions"]
-    altered["statement"]["condition_qualification"]["host_predicate"][0]["passage"]["text"] = (
-        "wrong"
-    )
-    altered["claim_id"] = structural_claim_id(altered["statement"])
-    substituted = tmp_path / "review-altered-condition"
-    with pytest.raises(ValueError, match="condition public assertion differs"):
-        write_review_bundle(review, substituted, replaced)
-    omitted = tmp_path / "review-missing-condition"
-    with pytest.raises(ValueError, match="condition public assertion membership differs"):
-        write_review_bundle(
-            review,
-            omitted,
-            [
-                (relation, row)
-                for relation, row in rows
-                if relation != "structural_public_assertions"
-            ],
         )
     _assert_transport_parity(page, record_source_settings, case.project_id, tmp_path)
 

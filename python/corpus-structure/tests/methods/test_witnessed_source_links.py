@@ -12,24 +12,14 @@ from corpus_structure.methods.scoped_relations import (
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.observations import source_python, source_value
 from corpus_structure.semantic.proposals import native_source_frame
-from corpus_structure.semantic.source_contexts import record_source_pin
 from corpus_structure.semantic.structural_products import (
     ExternalSourceRef,
     StructuralInput,
     StructuralPassage,
 )
-from corpus_structure.serve.inline_formula_replay import (
-    verify_inline_formula_report as _verify_inline_formula_report,
-)
-from corpus_structure.serve.witnessed_source_link_replay import verify_witnessed_links
 from methods.inline_formula_support import _FROZEN_TEXT
 from methods.m1_source_preparation_support import source
 from methods.scoped_relations_support import complete_native_fields, discover_relations
-
-
-def verify_inline_formula_report(report, source):
-    return _verify_inline_formula_report(report, source, primary_layers=report["_primary_layers"])
-
 
 _DECLARATION = (
     "Let Z be a normal random variable with parameters µ = 0 and \u03c3 = 1. "
@@ -94,7 +84,7 @@ def frozen(distraction="", *, different_parent=False, clipped=False):
 
 
 def test_formula_uses_only_the_source_declared_symbol():
-    frame, view, passage, output = frozen()
+    _frame, _view, _passage, output = frozen()
     rows = output["contributions"]
     (op,) = [op for op in output["extra_operations"] if op["question"] == "source_witnessed_links"]
     (relation,) = [
@@ -110,52 +100,6 @@ def test_formula_uses_only_the_source_declared_symbol():
     assert relation["component"]["scope"] == "normal-variates"
     assert source_python(use["value"])["syntax_standing"] == "syntax_only"
 
-    body = json.loads(
-        canonical_bytes(
-            dict(
-                operation_version=SCOPED_VERSION,
-                contribution_operations=(output["operation"], *output["extra_operations"]),
-                contributions=rows,
-                parse_detail=source_value({"formula_syntax": output["formula_diagnostics"]}),
-            )
-        )
-    )
-    original = {
-        "source_view_id": frame.source_view_id,
-        "text": frame.text,
-        "context": {"items": view.items, "pieces": view.pieces},
-    }
-    inputs = SimpleNamespace(
-        sources=(SimpleNamespace(identity="original", source_view_id=frame.source_view_id),),
-        passages=(passage,),
-    )
-    verify_witnessed_links(
-        {"body": body},
-        original,
-        record_source_pin(frame),
-        inputs,
-        primary_layers=output["_primary_layers"],
-    )
-    forged = next(
-        r for r in body["contributions"] if r["contribution_id"] == relation["contribution_id"]
-    )
-    forged["computation_dependencies"].remove(
-        next(
-            r["contribution_id"]
-            for r in rows
-            if r["operation_key"] == op["operation_key"]
-            and r["kind"] == "occurrence"
-            and source_python(r["value"])["role"] == "declaration_recap"
-        )
-    )
-    with pytest.raises(ValueError, match="declared direction or premises"):
-        verify_witnessed_links(
-            {"body": body},
-            original,
-            record_source_pin(frame),
-            inputs,
-            primary_layers=output["_primary_layers"],
-        )
 
 
 @pytest.mark.parametrize(
@@ -344,13 +288,12 @@ def ordered_run(view, query, wider):
         "context": {"items": view.items, "ancestors": view.ancestors, "pieces": view.pieces},
     }
     report["_primary_layers"] = output["_primary_layers"]
-    verify_inline_formula_report(report, source)
     return witness, report, source
 
 
 def test_ordered_formula_witness_keeps_exact_pieces_and_original_formula_population():
     view, query, wider = ordered_fixture()
-    op, report, source = ordered_run(view, query, wider)
+    op, report, _source = ordered_run(view, query, wider)
     rows = report["body"]["contributions"]
     by_id = {r["contribution_id"]: r for r in rows}
     (link,) = [
@@ -378,25 +321,6 @@ def test_ordered_formula_witness_keeps_exact_pieces_and_original_formula_populat
     assert source_python(name["value"])["source_pointer"] == "#/texts/2"
     assert source_python(name["value"])["region"] == wider.passage_id
 
-    name["anchors"].reverse()
-    with pytest.raises(ValueError, match="exact named target"):
-        verify_inline_formula_report(report, source)
-    name["anchors"].reverse()
-    report["body"]["contributions"] = [r for r in rows if r["operation_key"] != op["operation_key"]]
-    (claimed,) = [
-        o
-        for o in report["body"]["contribution_operations"]
-        if o["operation_key"] == op["operation_key"]
-    ]
-    claimed.update(outcome="limited", emitted_count=0)
-    with pytest.raises(ValueError, match="exact named target"):
-        verify_inline_formula_report(report, source)
-    prior = link["computation_dependencies"][-1]
-    report["body"]["contributions"] = [
-        r for r in report["body"]["contributions"] if r["contribution_id"] != prior
-    ]
-    with pytest.raises(ValueError, match="one exact prior binding"):
-        verify_inline_formula_report(report, source)
 
 
 def test_ordered_formula_witness_refuses_same_extent_or_changed_source_bytes():

@@ -1,14 +1,11 @@
 """Controlled comparison publication through protected native and detached custody."""
 
-import json
-from copy import deepcopy
 from hashlib import sha256
 from types import SimpleNamespace
 
 import pytest
 from sqlalchemy import text
 
-from corpus_structure.core.db.cancellation import OperationCancellation
 from corpus_structure.core.vocab import Stage
 from corpus_structure.evaluate.record_references import assign_origin
 from corpus_structure.evaluate.structural_assessment import (
@@ -26,7 +23,7 @@ from corpus_structure.semantic.operations import OperationBinding
 from corpus_structure.semantic.read_snapshot import read_snapshot
 from corpus_structure.semantic.refusals import SemanticRefusal
 from corpus_structure.semantic.retained_contributions import RetainedContributionRef
-from corpus_structure.semantic.structural_admission import structural_claim_id, structural_statement
+from corpus_structure.semantic.structural_admission import structural_statement
 from corpus_structure.semantic.structural_products import (
     DIMENSIONS,
     RetainedStructuralRef,
@@ -37,13 +34,6 @@ from corpus_structure.semantic.structural_sources import (
     StructuralPassageSelection,
     prepare_structural_sources,
 )
-from corpus_structure.serve.review_bundle import (
-    ReviewSelection,
-    capture_review_relations,
-    verify_review_bundle,
-    write_review_bundle,
-)
-from corpus_structure.serve.review_views import compose_review_views
 from corpus_structure.serve.source_decision_journey import (
     SourceDecisionJourneyParams,
     capture_source_decision_journey,
@@ -463,11 +453,6 @@ def test_protected_comparison_yields_detached_unconnected_sides(
             task_id=dossier_custody["selected_task_id"],
         ),
     )
-    review = ReviewSelection(
-        structural_gap_selections=(request,),
-        require_original_gap_reports=True,
-    )
-    bundle = tmp_path / "review"
     with read_snapshot(record_source_reader) as conn:
         page = serve_structural_gap(conn, request)
         assert page.status == "actionable"
@@ -513,27 +498,3 @@ def test_protected_comparison_yields_detached_unconnected_sides(
             "comparison": "observed",
             "dossier": "inspected_empty",
         }
-        rows = tuple(
-            compose_review_views(
-                review, capture_review_relations(conn, review, OperationCancellation())
-            )
-        )
-        write_review_bundle(review, bundle, rows)
-    assert verify_review_bundle(bundle)["completeness"] == "selected_source_closure"
-    manifest = json.loads((bundle / "manifest.json").read_bytes())
-    assert manifest["relations"]["structural_gaps"]["rows"] == 1
-
-    substituted = deepcopy(rows)
-    (assertion,) = next(row for name, row in substituted if name == "structural_gap_custody")[
-        "assertions"
-    ]
-    assertion["statement"]["scope"] = "substituted support scope"
-    assertion["claim_id"] = structural_claim_id(assertion["statement"])
-    support = [{"assertion_id": assertion["assertion_id"], "claim_id": assertion["claim_id"]}]
-    source_row = next(row for name, row in substituted if name == "structural_gap_sources")
-    assert isinstance(source_row, dict)
-    source_row["support"] = support
-    page = next(row for name, row in substituted if name == "structural_gaps")
-    page["rows"][0]["evidence"]["support"] = support
-    with pytest.raises(ValueError, match="support differs from the original comparison"):
-        write_review_bundle(review, tmp_path / "substituted", substituted)

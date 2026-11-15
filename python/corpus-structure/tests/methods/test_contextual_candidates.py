@@ -7,7 +7,6 @@ from typing import Any
 
 import pytest
 from semantic.sealed_contextual_fixture import (
-    contextual_descriptor,
     contextual_fixture_inputs,
     contextual_fixture_result,
 )
@@ -884,7 +883,6 @@ def test_explicit_cross_view_definition_witness_survives_exploration(
     from corpus_structure.semantic.proposals import native_source_frame
     from corpus_structure.semantic.source_contexts import record_source_pin
 
-    method = contextual_descriptor()
     quoted = subject != "section"
     spelling = {"term": "Expected definition", "identifier": "PX:18.1", "section": "Section 6.2"}[
         subject
@@ -1186,115 +1184,3 @@ def test_explicit_cross_view_definition_witness_survives_exploration(
             retrieval["outcome"] == "limited"
             and "controlled encoder failure" in retrieval["reason"]
         )
-
-    if rich:
-        # Enriched source context has its own detached refusal control.
-        return
-
-    import json
-
-    from corpus_structure.core.evidence import config_key
-    from corpus_structure.semantic.identity import canonical_bytes
-    from corpus_structure.serve.contextual_witness_replay import verify_contextual_witness_closure
-
-    stored = json.loads(
-        canonical_bytes(
-            {
-                "origin_task_id": 8,
-                "origin_unit_id": source.ref.id,
-                "method": "retrieve.contextual",
-                "configuration": cfg.model_dump(mode="json"),
-                "body": {
-                    "source": source.ref.key,
-                    "operation_version": method.version,
-                    "configuration_hash": config_key(
-                        method.name, method.version, cfg.model_dump(mode="json")
-                    ),
-                    "contribution_operations": result.contribution_operations,
-                    "contributions": result.contributions,
-                },
-            }
-        )
-    )
-
-    def detached_relation(_root, _manifest, name):
-        if name == "reports":
-            return (stored,)
-        return (
-            {
-                "source_view_id": source.ref.id,
-                "ref": {"native_product": {"content_digest": pin["product_digest"]}},
-                "context": {"items": source.items},
-            },
-        )
-
-    monkeypatch.setattr(
-        "corpus_structure.serve.review_bundle._detached_relation",
-        detached_relation,
-    )
-    monkeypatch.setattr(
-        "corpus_structure.serve.contextual_witness_replay._term_binding",
-        lambda t, *_: (
-            SimpleNamespace(native_content_digest=pin["product_digest"]),
-            SimpleNamespace(text=t.label),
-            "6.2" if t.reference == right.reference else "6.1",
-        ),
-    )
-    monkeypatch.setattr(
-        "corpus_structure.serve.contextual_witness_replay._section",
-        lambda code, _term, **_kwargs: code,
-    )
-    monkeypatch.setattr(
-        "corpus_structure.serve.contextual_navigation.verify_detached_neighborhood",
-        lambda *_args, **_kwargs: None,
-    )
-    # Adapter control starts after shared archive/pin authentication, tested separately.
-    monkeypatch.setattr(
-        "corpus_structure.serve.primary_characterization_replay.retained_primary_layers",
-        lambda *_args: (primary_layers, {}),
-    )
-    verify_contextual_witness_closure(None, {"relations": {"reports": {}}})
-    if quoted:
-        (stored_decision,) = stored["body"]["contribution_operations"][0]["contextual_enrichment"][
-            "relationship_decisions"
-        ]
-        stored_decision["outcome"] = "insufficient_evidence"
-        with pytest.raises(ValueError, match="exact source-bound selection"):
-            verify_contextual_witness_closure(None, {"relations": {"reports": {}}})
-        stored_decision["outcome"] = "selected"
-    stored_candidate = stored["body"]["contribution_operations"][0]["contextual_enrichment"][
-        "candidate_lists"
-    ][0]
-    stored_candidate["channel_results"] = [
-        ch for ch in stored_candidate["channel_results"] if ch["channel"] != "witness"
-    ]
-    with pytest.raises(ValueError, match="complete source population"):
-        verify_contextual_witness_closure(None, {"relations": {"reports": {}}})
-
-
-def test_detached_alias_matches_the_original_term_occurrence():
-    from corpus_structure.serve.contextual_witness_replay import _term_alias
-
-    pin = dict(native_product_task_id=4, product_key="organized", product_digest="digest")
-    source = {
-        "ref": {
-            "native_product": {"task_id": 4, "product_key": "organized", "content_digest": "digest"}
-        },
-        "context": {
-            "pieces": [{"kind": "native_text", "item_ref": "#/texts/3", "start": 50, "end": 80}]
-        },
-    }
-    target = SimpleNamespace(scope="chapter", effective_version="1")
-    term = SimpleNamespace(start=52, end=57, text="Event")
-    named_term = dict(pin=pin, pointer="#/texts/3", start=2, end=7, source_piece="Event")
-    alias = dict(pin=pin, pointer="#/texts/3", start=11, end=12, source_piece="E")
-    edge = dict(scope="chapter", effective_version="1")
-    assert _term_alias(target, term, source, (edge, (named_term, alias))) == "E"
-    assert (
-        _term_alias(target, term, source, (edge, (dict(named_term, start=15, end=20), alias)))
-        is None
-    )
-    assert (
-        _term_alias(target, term, source, (dict(edge, effective_version="2"), (named_term, alias)))
-        is None
-    )

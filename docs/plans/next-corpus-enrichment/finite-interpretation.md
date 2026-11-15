@@ -109,7 +109,7 @@ source-conditioned detached replay, a substituted factor or premise, and cancell
 without partial publication. The controlled ambiguity and exact-header results stand.
 [Native request reconstruction](../../../python/corpus-structure/src/corpus_structure/semantic/sql/source_contributions.sql#L3002) ·
 [Worker call](../../../python/corpus-structure/src/corpus_structure/methods/scoped_relations.py#L1496) ·
-[Detached dispatch](../../../python/corpus-structure/src/corpus_structure/serve/review_bundle.py#L2325).
+Detached dispatch (`serve/review_bundle.py:2325`, retired; historical finding baseline).
 
 **2026-11-07 execution.** The ordinary finite executor receives the worker lease
 callback and the source producer emits a typed `not_run` report for a table without
