@@ -52,6 +52,7 @@ class SelectedRecordIndex:
     def __init__(self, path):
         self.connection = sqlite3.connect(path)
         self.retained_bytes = 0
+        self.retained_records = 0
         self.cut = None
         self.has_frontier = False
         self.connection.execute(
@@ -91,6 +92,7 @@ class SelectedRecordIndex:
             "INSERT INTO records VALUES(?,?,?)", (row["key"], row["relation"], payload)
         )
         self.retained_bytes += len(payload)
+        self.retained_records += 1
 
     def append_page(self, page):
         """Retain exact pinned frontier projections separately from raw support rows."""
@@ -119,6 +121,7 @@ class SelectedRecordIndex:
                     "INSERT INTO frontier VALUES(?,?,?)", (kind, identity, payload)
                 )
                 self.retained_bytes += len(payload)
+                self.retained_records += 1
 
     def frontier_rows(self, kind):
         for (payload,) in self.connection.execute(

@@ -302,6 +302,7 @@ def selected_record_index(
     max_bytes=8388608,
     page_rows=100,
     max_total_bytes=None,
+    max_total_records=None,
     capture_frontier=False,
 ):
     """Keep one pinned native acquisition and its complete temporary witness index."""
@@ -310,6 +311,8 @@ def selected_record_index(
 
     from .data_operation_read_index import SelectedRecordIndex
 
+    if max_total_records is not None and (type(max_total_records) is not int or max_total_records < 0):
+        raise ValueError("selected record bound must be a nonnegative integer")
     continuation = (
         None
         if read_id is None
@@ -339,8 +342,12 @@ def selected_record_index(
                     raise SelectedGraphBudgetExceeded(
                         "selected graph examined frontier exceeds byte bound", cut=cut
                     )
+                if max_total_records is not None and index.retained_records > max_total_records:
+                    raise SelectedGraphBudgetExceeded("selected graph examined frontier exceeds record bound", cut=cut)
                 for record in stream_selected_support(connection, page):
                     index.append(json_bytes(record), allow_equal=True)
+                    if max_total_records is not None and index.retained_records > max_total_records:
+                        raise SelectedGraphBudgetExceeded("selected graph examined closure exceeds record bound", cut=cut)
                     if max_total_bytes is not None and index.retained_bytes > max_total_bytes:
                         raise SelectedGraphBudgetExceeded(
                             "selected graph examined closure exceeds byte bound", cut=cut

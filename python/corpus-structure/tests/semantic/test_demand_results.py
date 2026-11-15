@@ -583,3 +583,56 @@ def test_detached_retained_observation_refuses_unqualified_fresh_replication():
     definition["support_contract"]["replicate_policy"] = "invented-mode"
     with pytest.raises(ValueError, match="unsupported replicate policy"):
         verify_detached_result(native, records=records, wire_schema={})
+
+
+def test_selected_record_index_counts_unique_support_and_frontier_rows(tmp_path):
+    from corpus_structure.semantic.data_operation_read_index import SelectedRecordIndex
+
+    index = SelectedRecordIndex(tmp_path / "bounded.sqlite")
+    payload = json_bytes({"key": "record:A", "relation": "controlled", "record": {"id": "A"}})
+    try:
+        index.append(payload)
+        index.append(payload, allow_equal=True)
+        assert index.retained_records == 1
+        before_bytes = index.retained_bytes
+        index.append_page(_page())
+        assert index.retained_records == 3  # One support, one use and one obligation.
+        retained_bytes = index.retained_bytes
+        assert retained_bytes > before_bytes
+        index.append_page(_page())
+        assert (index.retained_records, index.retained_bytes) == (3, retained_bytes)
+    finally:
+        index.close()
+
+
+def test_selected_record_acquisition_enforces_whole_unique_record_budget(monkeypatch):
+    from corpus_structure.semantic import demand_results as owner
+
+    payload = {"key": "record:A", "relation": "controlled", "record": {"id": "A"}}
+
+    def pages():
+        first, last = _page(), _page()
+        first["continuation"] = {"after": "obligation:A"}
+        return iter((DemandResult(json_bytes(first)), DemandResult(json_bytes(last))))
+
+    selected = pages()
+    monkeypatch.setattr(owner, "read_demand_result", lambda *args, **kwargs: next(selected))
+    monkeypatch.setattr(owner, "stream_selected_support", lambda *args: iter((payload, payload)))
+    with owner.selected_record_index(None, "demand:A", project_id="project:A", scope={}, max_total_records=3, capture_frontier=True) as (cut, index):
+        assert index.retained_records == 3
+        assert cut.identity == CutSelection.from_native(_page()).identity
+    selected = pages()
+    with pytest.raises(owner.SelectedGraphBudgetExceeded, match="closure exceeds record bound") as captured:
+        with owner.selected_record_index(None, "demand:A", project_id="project:A", scope={}, max_total_records=2, capture_frontier=True):
+            pytest.fail("an over-budget selected graph was exposed")
+    assert captured.value.cut.identity == CutSelection.from_native(_page()).identity
+
+
+@pytest.mark.parametrize("bound", [-1, True, 1.5])
+def test_selected_record_acquisition_refuses_invalid_record_bounds_before_read(monkeypatch, bound):
+    from corpus_structure.semantic import demand_results as owner
+
+    monkeypatch.setattr(owner, "read_demand_result", lambda *args, **kwargs: pytest.fail("invalid budget reached native read"))
+    with pytest.raises(ValueError, match="nonnegative integer"):
+        with owner.selected_record_index(None, "demand:A", project_id="project:A", scope={}, max_total_records=bound):
+            pytest.fail("invalid bound produced an index")
