@@ -756,7 +756,7 @@ def _recorded_interpretations(
 
 
 NativeExportFormat = Literal[
-    "jsonl", "parquet", "docling-json", "integrated-json", "selected-source-v1"
+    "jsonl", "parquet", "docling-json", "integrated-json", "selected-source-v2"
 ]
 
 
@@ -779,11 +779,11 @@ def _export_native_source(
     destination = Path(destination)
     source = acquire_selected_pdf_source(conn, request)
     pin = source.physical.values()
-    if format == "selected-source-v1":
+    if format == "selected-source-v2":
         from .selected_source import export_selected_native_source
 
         if settings is None:
-            raise ValueError("selected-source-v1 requires the owned runtime settings")
+            raise ValueError("selected-source-v2 requires the owned runtime settings")
         export_selected_native_source(request, destination, settings)
         return
     if destination.exists():
@@ -1046,11 +1046,11 @@ def export_native_source(
     if destination.exists():
         raise FileExistsError(destination)
     destination.parent.mkdir(parents=True, exist_ok=True)
-    if format == "selected-source-v1":
+    if format == "selected-source-v2":
         from .selected_source import export_selected_native_source
 
         if settings is None:
-            raise ValueError("selected-source-v1 requires the owned runtime settings")
+            raise ValueError("selected-source-v2 requires the owned runtime settings")
         export_selected_native_source(request, destination, settings, cancellation=cancellation)
         return
     with (

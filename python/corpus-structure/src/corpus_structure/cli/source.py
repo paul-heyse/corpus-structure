@@ -81,7 +81,7 @@ def inspect(
     json: JsonOpt = False,
 ):
     from corpus_structure.cli.failures import failure_boundary
-    from corpus_structure.semantic.query import read_snapshot
+    from corpus_structure.semantic.demand_results import selected_read_snapshot
     from corpus_structure.semantic.runtime import open_runtime_engine
     from corpus_structure.serve.native_source import inspect_native_source
 
@@ -127,7 +127,7 @@ def inspect(
         open_runtime_engine(
             state(ctx).settings(), application_name="ci-source", purpose="read"
         ) as engine,
-        read_snapshot(engine, cancellation=cancellation) as conn,
+        selected_read_snapshot(engine, cancellation=cancellation) as conn,
     ):
         response = inspect_native_source(conn, request, cancellation=cancellation)
 
@@ -237,12 +237,12 @@ def native_export(
 ):
     """Export pinned projections or complete native Docling JSON without inference."""
     from corpus_structure.cli.failures import failure_boundary
-    from corpus_structure.semantic.query import read_snapshot
+    from corpus_structure.semantic.demand_results import selected_read_snapshot
     from corpus_structure.semantic.runtime import open_runtime_engine
     from corpus_structure.serve.native_source import NativeSourceRequest, export_native_source
 
     cancellation = BorrowerCancellation()
-    if format == "selected-source-v1":
+    if format == "selected-source-v2":
         from corpus_structure.serve.selected_source import export_selected_native_source
 
         with failure_boundary(True, expected=(ValueError, FileExistsError)):
@@ -273,7 +273,7 @@ def native_export(
                 open_runtime_engine(
                     state(ctx).settings(), application_name="ci-native-export", purpose="read"
                 ) as engine,
-                read_snapshot(engine, cancellation=cancellation) as conn,
+                selected_read_snapshot(engine, cancellation=cancellation) as conn,
             ):
                 export_native_source(
                     conn,
@@ -468,12 +468,12 @@ def native_views(ctx: typer.Context, run: int, json: JsonOpt = False):
 @app.command("companion-export")
 def companion_export(
     ctx: typer.Context,
-    run: Annotated[int, typer.Option()],
-    producing_task: Annotated[int, typer.Option()],
+    demand: Annotated[str, typer.Option()],
+    read: Annotated[str, typer.Option()],
+    use: Annotated[str, typer.Option()],
+    derivation: Annotated[str, typer.Option()],
     product: Annotated[str, typer.Option()],
-    digest: Annotated[str, typer.Option()],
     project: Annotated[str, typer.Option()],
-    selection_release: Annotated[str, typer.Option()],
     output: Annotated[Path, typer.Option()],
     family: Annotated[list[str] | None, typer.Option("--family")] = None,
     json: JsonOpt = False,
@@ -482,19 +482,16 @@ def companion_export(
     from corpus_structure.cli.failures import failure_boundary
     from corpus_structure.serve.companion_export import (
         CompanionExportRequest,
-        PublishedSourcePin,
         export_companion_parquet,
     )
 
+    from corpus_structure.serve.selected_pdf import SelectedPdfSourceReference
+
     with failure_boundary(json, expected=(ValueError, FileExistsError)):
         values: dict = dict(
-            pin=PublishedSourcePin(
-                project_id=project,
-                selection_release_id=selection_release,
-                run_id=run,
-                task_id=producing_task,
-                product_key=product,
-                content_digest=digest,
+            pin=SelectedPdfSourceReference(
+                project_id=project, demand_id=demand, read_id=read,
+                use_id=use, product_id=product, derivation_id=derivation,
             ),
             destination=output,
         )

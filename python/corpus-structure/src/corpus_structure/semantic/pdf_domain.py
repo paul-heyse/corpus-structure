@@ -66,6 +66,7 @@ def _action_sources():
         ("pdf_products", "pdf-products.yaml"), ("core", "core.yaml"),
         ("pdf_records", "pdf-records.yaml"), ("pdf_staging", "pdf-staging.yaml"),
         ("read_projections", "read-projections.yaml"), ("companion_projections", "companion-projections.yaml"),
+        ("selected_source", "selected-source.yaml"),
     )}
     logical["linkml:types"] = linkml_types_source()
     physical = physical_source_closure(PHYSICAL_ROOT, lambda name: root.joinpath(name).read_bytes())

@@ -6,13 +6,13 @@ from hashlib import file_digest
 import pyarrow as pa
 import pyarrow.parquet as pq
 import pytest
+from semantic.selected_source_contract_support import selection
 
 from corpus_structure.semantic.capture_storage import LogicalRows
 from corpus_structure.semantic.refusals import SemanticRefusal
 from corpus_structure.serve.companion_export import (
     CompanionExportManifest,
     FamilyFile,
-    PublishedSourcePin,
     _export_schema,
     _publish_directory,
     compare_companion_exports,
@@ -33,22 +33,19 @@ def _export(
     from corpus_structure.semantic.companion_projection import projection
 
     root.mkdir()
-    pin = PublishedSourcePin(
-        project_id="p",
-        run_id=1,
-        selection_release_id=release,
-        task_id=task,
-        product_key="integrated",
-        content_digest="a" * 64,
+    pin, cut, publication = selection(release=release, producer_release=producer_release, task=task, digest="a" * 64)
+    provenance = dict(
+        **pin.model_dump(), selection_release_id=release, task_id=task,
+        product_key=publication.product_key, content_digest=publication.logical_digest,
     )
     spec = projection("relation")
     projection_id = projection_id or spec.projection_id
-    schema = _export_schema(spec, pin, producer_release_id=producer_release)
+    schema = _export_schema(spec, pin, producer_release_id=producer_release, cut=cut, publication=publication)
     schema = schema.with_metadata({**schema.metadata, b"cs.projection": projection_id.encode()})
     batch = pa.RecordBatch.from_pylist(
         [
             dict(
-                **pin.model_dump(),
+                **provenance,
                 producer_release_id=producer_release,
                 projection_id=projection_id,
                 relation_outcome="unknown",
@@ -71,7 +68,7 @@ def _export(
         batches["input"] = pa.RecordBatch.from_pylist(
             [
                 dict(
-                    **pin.model_dump(),
+                    **provenance,
                     producer_release_id=producer_release,
                     projection_id=projection_id,
                     input_ordinal=0,
@@ -81,7 +78,7 @@ def _export(
                     input_content_digest="b" * 64,
                 ),
             ],
-            schema=_export_schema(projection("input"), pin, producer_release_id=producer_release),
+            schema=_export_schema(projection("input"), pin, producer_release_id=producer_release, cut=cut, publication=publication),
         )
     entries = {}
     for family, family_batch in batches.items():
@@ -100,10 +97,10 @@ def _export(
             schema_base64=base64.b64encode(family_batch.schema.serialize().to_pybytes()).decode(),
         )
     manifest = CompanionExportManifest(
-        pin=pin,
+        pin=pin, cut=cut, publication=publication,
         producer_release_id=producer_release,
         projection_id=projection_id,
-        profile_id="flat-exact-companion-v2",
+        profile_id="flat-exact-companion-v3",
         created_at=datetime.now(UTC),
         families=entries,
         not_requested=tuple(
@@ -147,7 +144,7 @@ def test_compare_preserves_multiset_difference(tmp_path):
     other_release = _export(tmp_path / "other", [row], release="other")
     assert not compare_companion_exports(left, other_release)["comparable"]
     changed = json.loads(right.read_text())
-    changed["pin"]["selection_release_id"] = "other"
+    changed["cut"]["release_id"] = "other"
     right.write_text(json.dumps(changed))
     with pytest.raises(SemanticRefusal, match="pin binding"):
         compare_companion_exports(left, right)
@@ -174,8 +171,8 @@ def test_cross_product_local_ids_never_establish_correspondence(tmp_path):
     assert result["comparable"]
     relations = result["differences"]["relation"]
     assert relations["correspondence"] == "none"
-    assert relations["left_pin"]["task_id"] == 1
-    assert relations["right_pin"]["task_id"] == 2
+    assert relations["left_pin"]["product_id"] == "semantic-product:1"
+    assert relations["right_pin"]["product_id"] == "semantic-product:2"
     assert len(relations["removed"]) == len(relations["added"]) == 1
 
 
@@ -194,7 +191,7 @@ def test_producer_binding_is_independent_and_manifest_tampering_refuses(tmp_path
     row = dict(relation_id="r1", relation_kind="support", endpoint_ordinal=0)
     path = _export(tmp_path / "source", [row], release="consumer", producer_release="producer")
     inventory = inventory_companion_export(path)
-    assert inventory["pin"]["selection_release_id"] == "consumer"
+    assert inventory["cut"]["release_id"] == "consumer"
     assert inventory["producer_release_id"] == "producer"
     value = json.loads(path.read_bytes())
     value["producer_release_id"] = "substituted"
@@ -223,7 +220,7 @@ def test_projection_batch_refuses_missing_values_and_misbound_releases(tmp_path,
     index = batch.schema.get_field_index(field)
     batch = batch.set_column(index, batch.schema.field(index), pa.array([value], type=pa.string()))
     with pytest.raises(SemanticRefusal, match=r"null|binding differs"):
-        _admit_batch(projection("relation"), batch, manifest.pin, manifest.producer_release_id)
+        _admit_batch(projection("relation"), batch, manifest.pin, manifest.producer_release_id, cut=manifest.cut, publication=manifest.publication)
 
 
 @pytest.mark.parametrize("cancel,fault", [(False, False), (True, False), (False, True)])
@@ -245,14 +242,7 @@ def test_export_acquires_configured_driver_and_settles_snapshot_borrower(
 
     events: list[dict[str, object] | str] = []
     cancellation = OperationCancellation()
-    pin = PublishedSourcePin(
-        project_id="p",
-        run_id=1,
-        selection_release_id="r",
-        task_id=2,
-        product_key="native",
-        content_digest="a" * 64,
-    )
+    pin, cut, publication = selection(release="r", producer_release="producer", task=2, digest="a" * 64, key="native")
     spec = projection("input")
     primary, writer_failure, reader_failure, cursor_failure, rollback_failure, close_failure = (
         RuntimeError(name) for name in ("body", "writer", "reader", "cursor", "rollback", "close")
@@ -324,11 +314,11 @@ def test_export_acquires_configured_driver_and_settles_snapshot_borrower(
 
     monkeypatch.setattr(adbc_manager, "connect", acquire)
     monkeypatch.setattr(export, "open_runtime_engine", engine)
-    monkeypatch.setattr(export, "read_snapshot", snapshot)
+    monkeypatch.setattr(export, "selected_read_snapshot", snapshot)
     monkeypatch.setattr(
-        native_source,
-        "inspect_native_source",
-        lambda *args, **kwargs: SimpleNamespace(release_id="producer"),
+        export,
+        "acquire_selected_pdf_source",
+        lambda *args, **kwargs: SimpleNamespace(receipt=SimpleNamespace(publication=publication), cut=SimpleNamespace(record=cut)),
     )
     settings = Settings(
         analytics={"adbc_driver_path": Path("/selected/driver.so"), "batch_size_hint_bytes": 123456}
@@ -380,7 +370,7 @@ def test_export_acquires_configured_driver_and_settles_snapshot_borrower(
     assert isinstance(options, dict)
     assert options["adbc.postgresql.type_resolver_mode"] == "builtin"
     assert events[1] == {"adbc.postgresql.use_copy": "false"}
-    assert "SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY" in events
+    assert "SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ WRITE" in events
     assert "SET TRANSACTION SNAPSHOT '00000001-00000002-1'" in events
     assert {
         "adbc.postgresql.use_copy": "true",

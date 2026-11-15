@@ -6,7 +6,7 @@ import base64
 import json
 import sqlite3
 from collections import Counter
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from functools import lru_cache
 from hashlib import sha256
 from importlib.resources import files
@@ -16,14 +16,17 @@ from typing import TYPE_CHECKING, Any, Literal
 
 import ijson
 import yaml
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from corpus_structure.core.db.lifetime import BorrowerCancellation
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.metadata import PHYSICAL_MODEL_ID
 from corpus_structure.semantic.prepare import prepare_release
 from corpus_structure.semantic.types import SourceArtifact, SourceBundle
-from corpus_structure.serve.companion_export import PublishedSourcePin, _publish_directory
+from corpus_structure.serve.companion_export import _publish_directory
+from corpus_structure.serve.selected_pdf import SelectedPdfSourceReference, acquire_selected_pdf_source
+from corpus_structure.semantic.pdf_publication import PublishedPdfDocumentRef
+from corpus_structure.semantic.demand_results import CutSelection, selected_read_snapshot
 
 if TYPE_CHECKING:
     from corpus_structure.methods.math.pdf import PreparedFormulaOccurrence
@@ -50,7 +53,7 @@ class SelectedSourceSelection(BaseModel):
 
 class SelectedSourceExportRequest(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
-    pin: PublishedSourcePin
+    pin: SelectedPdfSourceReference
     selection: SelectedSourceSelection
     destination: Path
     context_policy: Literal["section-source-context-v1"] = "section-source-context-v1"
@@ -58,9 +61,11 @@ class SelectedSourceExportRequest(BaseModel):
 
 class SelectedSourceExportReceipt(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
-    format: Literal["selected-source-v1"] = "selected-source-v1"
-    pin: PublishedSourcePin
+    format: Literal["selected-source-v2"] = "selected-source-v2"
+    pin: SelectedPdfSourceReference
     producer_release_id: str = Field(min_length=1)
+    cut: dict[str, Any]
+    publication: PublishedPdfDocumentRef
     selection: SelectedSourceSelection
     context_policy: str
     projection_id: str
@@ -71,6 +76,16 @@ class SelectedSourceExportReceipt(BaseModel):
     event_counts: dict[str, int]
     selected_record_count: int
     membership_sha256: str
+
+
+    @model_validator(mode="after")
+    def consistent_selection(self):
+        cut = CutSelection.from_native(self.cut)
+        if (cut.record["project_id"], cut.record["demand_id"], cut.record["read_id"]) != (
+            self.pin.project_id, self.pin.demand_id, self.pin.read_id,
+        ) or self.publication.release_id != self.producer_release_id:
+            raise ValueError("selected source receipt selection/cut/publication differ")
+        return self
 
 
 class SelectedSourceUnavailable(ValueError):
@@ -141,9 +156,9 @@ def _write_selected_package(
     request,
     temporary: Path,
     *,
-    interpretation_model_id,
+    analysis_context_profile_id,
+    cut, publication,
     implementation_digests,
-    runtime_id=None,
     cancellation: BorrowerCancellation | None = None,
 ):
     cancellation = cancellation or BorrowerCancellation()
@@ -157,13 +172,14 @@ def _write_selected_package(
         format=spec["format"],
         pin=request.pin.model_dump(),
         producer_release_id=reader.revision["release_id"],
+        cut=cut, publication=asdict(publication),
         selection=request.selection.model_dump(),
         context_policy=request.context_policy,
         schema_digest=schema,
         projection_id="selected-source:"
         + sha256(canonical_bytes([schema, PHYSICAL_MODEL_ID])).hexdigest(),
         physical_model_id=PHYSICAL_MODEL_ID,
-        interpretation_model_id=interpretation_model_id,
+        analysis_context_profile_id=analysis_context_profile_id,
         implementation_digests=list(implementation_digests),
         included_families=spec["included_families"],
         omissions=spec["omissions"],
@@ -178,8 +194,6 @@ def _write_selected_package(
             )
         ],
     )
-    if runtime_id is not None:
-        header["runtime_id"] = runtime_id
     counts = Counter()
     digest, membership = sha256(), sha256()
     length = selected_count = 0
@@ -307,6 +321,7 @@ def _write_selected_package(
     receipt = SelectedSourceExportReceipt(
         pin=request.pin,
         producer_release_id=header["producer_release_id"],
+        cut=cut, publication=publication,
         selection=request.selection,
         context_policy=request.context_policy,
         projection_id=header["projection_id"],
@@ -322,6 +337,27 @@ def _write_selected_package(
     return receipt
 
 
+def _captured_analysis_profile(prepared):
+    """Decode only profiles archived by the selected current operation model."""
+    from pydantic import TypeAdapter
+    from corpus_structure.semantic.analysis_contracts import AnalysisContextProfile
+    from corpus_structure.semantic.composed import read_data_operation_inputs
+    from corpus_structure.semantic.types import ResolvedDependencies
+
+    inputs = read_data_operation_inputs(ResolvedDependencies(tuple(
+        SourceArtifact(artifact.kind, artifact.content)
+        for artifact in prepared.artifacts if artifact.kind.startswith("data-operations/")
+    )))
+    profiles = tuple(
+        TypeAdapter(AnalysisContextProfile).validate_json(canonical_bytes(json.loads(artifact.content)["profile"]))
+        for artifact in (inputs[1].boundary_contracts if inputs is not None and inputs[1] is not None else ())
+        if artifact.name in {"math/declared-profile", "math-analysis/profile"}
+    )
+    if len({profile.model_id for profile in profiles}) > 1:
+        raise SelectedSourceUnavailable("selected operations disagree on mathematical context")
+    return profiles[0] if profiles else None
+
+
 def export_selected_source(
     request: SelectedSourceExportRequest,
     settings,
@@ -329,13 +365,8 @@ def export_selected_source(
     cancellation: BorrowerCancellation | None = None,
 ):
     """Close readers and settle the snapshot before atomic no-replace publication."""
-    from corpus_structure.semantic.contracts import bound_execution_model
     from corpus_structure.semantic.pdf_record_reader import published_record_reader
-    from corpus_structure.semantic.product_reference import ProductReference
-    from corpus_structure.semantic.query import read_snapshot
-    from corpus_structure.semantic.releases import open_release
     from corpus_structure.semantic.runtime import open_runtime_engine
-    from corpus_structure.semantic.runtime_binding_store import runtime_binding_for_run
 
     cancellation = cancellation or BorrowerCancellation()
     cancellation.check_active()
@@ -351,61 +382,26 @@ def export_selected_source(
             open_runtime_engine(
                 settings, application_name="ci-selected-source", purpose="read"
             ) as engine,
-            read_snapshot(engine, cancellation=cancellation) as connection,
+            selected_read_snapshot(engine, cancellation=cancellation) as connection,
         ):
-            release = open_release(connection, request.pin.selection_release_id)
-            if release.execution_model_id is None:
-                raise SelectedSourceUnavailable(
-                    "selected source requires an admitted retained interpretation model"
-                )
-            model = bound_execution_model(release)
+            selected = acquire_selected_pdf_source(connection, request.pin)
+            release = selected.prepared
+            profile = _captured_analysis_profile(release)
             reader = published_record_reader(
-                connection,
-                ProductReference(
-                    request.pin.task_id, request.pin.product_key, request.pin.content_digest
-                ),
-                cancellation=cancellation,
+                connection, selected.physical, cancellation=cancellation,
                 projection_context=release,
             )
             if reader is None:
-                raise SelectedSourceUnavailable(
-                    "selected source requires a published record-backed product"
-                )
-            from sqlalchemy import select
-
-            from corpus_structure.semantic.metadata import table
-
-            producer_run_id = connection.execute(
-                select(table("ops.task").c.run_id).where(
-                    table("ops.task").c.id == request.pin.task_id
-                )
-            ).scalar_one()
-            producer_release = open_release(connection, reader.revision["release_id"])
-            runtime = runtime_binding_for_run(connection, producer_run_id, producer_release)
-            from corpus_structure.semantic._operation_calls import (
+                raise SelectedSourceUnavailable("selected source requires a published record-backed product")
+            from corpus_structure.semantic._pdf_native_calls import (
                 materialize_read_pdf_selected_source_events,
                 prepare_read_pdf_selected_source_events,
-            )
-            from corpus_structure.semantic._operation_ids import (
-                ContentDigest,
-                ProductKey,
-                ProjectId,
-                ReleaseId,
-                RunId,
-                TaskId,
             )
             from corpus_structure.semantic.pdf_record_reader import _record_envelope
 
             statement = prepare_read_pdf_selected_source_events(
-                project_id=ProjectId(request.pin.project_id),
-                run_id=RunId(request.pin.run_id),
-                selection_release_id=ReleaseId(request.pin.selection_release_id),
-                task_id=TaskId(request.pin.task_id),
-                product_key=ProductKey(request.pin.product_key),
-                content_digest=ContentDigest(request.pin.content_digest),
-                section=request.selection.root,
-                membership=request.selection.membership,
-                policy=spec["context_policy"],
+                **request.pin.model_dump(), section=request.selection.root,
+                membership=request.selection.membership, policy=spec["context_policy"],
                 projection_context=release,
             )
             with connection.execute(
@@ -419,9 +415,9 @@ def export_selected_source(
                     ),
                     request,
                     temporary,
-                    interpretation_model_id=model.model_id,
-                    implementation_digests=runtime.implementation_digests,
-                    runtime_id=runtime.runtime_id,
+                    analysis_context_profile_id=profile.model_id if profile is not None else None,
+                    implementation_digests=profile.implementation_digests if profile is not None else (),
+                    cut=selected.cut.record, publication=selected.receipt.publication,
                     cancellation=cancellation,
                 )
         cancellation.check_active()
@@ -431,7 +427,7 @@ def export_selected_source(
 
 @dataclass(frozen=True)
 class PreparedSelectedFormulaInputs:
-    pin: PublishedSourcePin
+    pin: SelectedPdfSourceReference
     selection: SelectedSourceSelection
     formulas: tuple[PreparedFormulaOccurrence, ...]
     context_policy: str
@@ -536,7 +532,9 @@ class SelectedSourceReader:
                             or self.receipt.schema_digest != header["schema_digest"]
                             or self.receipt.projection_id != header["projection_id"]
                             or header["producer_release_id"] != self.receipt.producer_release_id
-                            or PublishedSourcePin.model_validate(header["pin"]) != self.receipt.pin
+                            or CutSelection.from_native(header["cut"]).content != CutSelection.from_native(self.receipt.cut).content
+                            or PublishedPdfDocumentRef(**header["publication"]) != self.receipt.publication
+                            or SelectedPdfSourceReference.model_validate(header["pin"]) != self.receipt.pin
                             or SelectedSourceSelection.model_validate(header["selection"])
                             != self.receipt.selection
                             or sha256(canonical_bytes(header)).hexdigest()
@@ -812,11 +810,10 @@ class SelectedSourceReader:
         if self._closed or not self._verified:
             raise SelectedSourceUnavailable("selected source reader is closed/unverified")
         if (
-            context.release_id != self.receipt.pin.selection_release_id
-            or context.model_id != self.header["interpretation_model_id"]
+            context.release_id != self.receipt.cut["release_id"]
+            or context.model_id != self.header["analysis_context_profile_id"]
             or [list(value) for value in context.implementation_digests]
             != self.header["implementation_digests"]
-            or ("runtime_id" in self.header and context.runtime_id != self.header["runtime_id"])
         ):
             raise SelectedSourceUnavailable(
                 "admitted retained interpretation context/model/artifacts are required"
@@ -863,7 +860,7 @@ class SelectedSourceReader:
                 raise SelectedSourceUnavailable("formula native address differs")
             prepared.append(
                 FormulaOccurrence(
-                    self.receipt.pin.content_digest,
+                    self.receipt.publication.logical_digest,
                     pointer,
                     body.get("text", ""),
                     body.get("orig", ""),
@@ -878,13 +875,7 @@ class SelectedSourceReader:
 def export_selected_native_source(
     request, destination: Path, settings, *, cancellation: BorrowerCancellation | None = None
 ):
-    """Resolve the CLI's run qualification, then execute the owned package service."""
-    from sqlalchemy import select
-
-    from corpus_structure.semantic.metadata import table
-    from corpus_structure.semantic.query import read_snapshot
-    from corpus_structure.semantic.runtime import open_runtime_engine
-
+    """Validate the explicit semantic selection, then execute the owned package service."""
     cancellation = cancellation or BorrowerCancellation()
     cancellation.check_active()
     if (
@@ -901,26 +892,11 @@ def export_selected_native_source(
         )
     ):
         raise SelectedSourceUnavailable(
-            "selected-source-v1 requires one section and descendant membership"
+            "selected-source-v2 requires one section and descendant membership"
         )
-    with (
-        open_runtime_engine(
-            settings, application_name="ci-selected-source-pin", purpose="read"
-        ) as engine,
-        read_snapshot(engine, cancellation=cancellation) as connection,
-    ):
-        runs = table("ops.run")
-        row = connection.execute(
-            select(runs.c.project_id, runs.c.release_id).where(runs.c.id == request.run_id)
-        ).one()
     selected = SelectedSourceExportRequest(
-        pin=PublishedSourcePin(
-            project_id=row.project_id,
-            selection_release_id=row.release_id,
-            run_id=request.run_id,
-            task_id=request.task_id,
-            product_key=request.product_key,
-            content_digest=request.content_digest,
+        pin=SelectedPdfSourceReference.model_validate(
+            request.model_dump(include=set(SelectedPdfSourceReference.model_fields))
         ),
         selection=SelectedSourceSelection(root=request.section_pointer),
         destination=destination,

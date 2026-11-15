@@ -12,7 +12,7 @@ types:
   SourceDigest: {base: str, uri: 'xsd:string', pattern: '^[0-9a-f]{64}$'}
   SourcePointer: {base: str, uri: 'xsd:string', pattern: '^#(/[^/]+)+$'}
 enums:
-  SourceFormat: {permissible_values: {selected-source-v1: {}}}
+  SourceFormat: {permissible_values: {selected-source-v2: {}}}
   SourceMembership: {permissible_values: {descendants: {}}}
   SourceContextPolicy: {permissible_values: {section-source-context-v1: {}}}
   SourceEventKind:
@@ -32,11 +32,11 @@ classes:
   SelectedSourcePin:
     attributes:
       project_id: {required: true}
-      run_id: {range: SourceInteger, required: true, minimum_value: 1}
-      selection_release_id: {required: true}
-      task_id: {range: SourceInteger, required: true, minimum_value: 1}
-      product_key: {required: true}
-      content_digest: {range: SourceDigest, required: true}
+      demand_id: {required: true}
+      read_id: {required: true}
+      use_id: {required: true}
+      product_id: {required: true}
+      derivation_id: {required: true}
   SelectedSourceSelection:
     attributes:
       root: {range: SourcePointer, required: true}
@@ -81,7 +81,7 @@ classes:
       final: {range: SourceBoolean, required: false}
 annotations:
   selected-source: >-
-    {"format":"selected-source-v1","context_policy":"section-source-context-v1",
+    {"format":"selected-source-v2","context_policy":"section-source-context-v1",
     "max_event_bytes":131072,"part_bytes":32768,
     "included_families":["native","ancestor","frame","occurrence","relation","endpoint","input","coverage","mapping_report","health","recognition","outside_reference"],
     "omissions":["outside_subtree_bodies","original_artifact_bodies","unselected_observations","complete_docling_envelope"]}

@@ -3,23 +3,25 @@ from typing import Literal
 
 from sqlalchemy import Named, TypedColumns
 
-from ._operation_ids import ContentDigest as ContentDigest
-from ._operation_ids import ProductKey as ProductKey
-from ._operation_ids import ProjectId as ProjectId
-from ._operation_ids import ReleaseId as ReleaseId
-from ._operation_ids import RunId as RunId
-from ._operation_ids import TaskId as TaskId
+from .identifiers import ContentDigest as ContentDigest
+from .identifiers import ProductKey as ProductKey
+from .identifiers import ReleaseId as ReleaseId
+from .identifiers import TaskId as TaskId
 
 
 class PublishedInputRow(TypedColumns):
     input_ordinal: Named[int]
     input_role: Named[Literal["alternative", "policy_input", "recognition", "structural"]]
-    input_task_id: Named[int]
+    input_task_id: Named[TaskId]
     input_product_key: Named[str]
     input_content_digest: Named[str]
-    project_id: Named[ProjectId]
-    run_id: Named[RunId]
-    selection_release_id: Named[ReleaseId]
+    project_id: Named[str]
+    demand_id: Named[str]
+    read_id: Named[str]
+    use_id: Named[str]
+    product_id: Named[str]
+    derivation_id: Named[str]
+    selection_release_id: Named[str]
     producer_release_id: Named[ReleaseId]
     task_id: Named[TaskId]
     product_key: Named[ProductKey]
@@ -40,9 +42,13 @@ class PublishedRelationRow(TypedColumns):
     target_product_key: Named[str]
     target_content_digest: Named[str]
     target_occurrence_id: Named[str]
-    project_id: Named[ProjectId]
-    run_id: Named[RunId]
-    selection_release_id: Named[ReleaseId]
+    project_id: Named[str]
+    demand_id: Named[str]
+    read_id: Named[str]
+    use_id: Named[str]
+    product_id: Named[str]
+    derivation_id: Named[str]
+    selection_release_id: Named[str]
     producer_release_id: Named[ReleaseId]
     task_id: Named[TaskId]
     product_key: Named[ProductKey]
@@ -60,9 +66,13 @@ class PublishedCoverageRow(TypedColumns):
     ]
     detail: Named[str]
     supports_json: Named[str | None]
-    project_id: Named[ProjectId]
-    run_id: Named[RunId]
-    selection_release_id: Named[ReleaseId]
+    project_id: Named[str]
+    demand_id: Named[str]
+    read_id: Named[str]
+    use_id: Named[str]
+    product_id: Named[str]
+    derivation_id: Named[str]
+    selection_release_id: Named[str]
     producer_release_id: Named[ReleaseId]
     task_id: Named[TaskId]
     product_key: Named[ProductKey]
@@ -73,7 +83,7 @@ class PublishedCoverageRow(TypedColumns):
 class PublishedMappingReportRow(TypedColumns):
     report_ordinal: Named[int]
     input_index: Named[int]
-    input_task_id: Named[int]
+    input_task_id: Named[TaskId]
     input_product_key: Named[str]
     input_content_digest: Named[str]
     occurrence_id: Named[str | None]
@@ -84,9 +94,13 @@ class PublishedMappingReportRow(TypedColumns):
     coordinate_frame: Named[str | None]
     coordinate_scale: Named[float | None]
     normalization: Named[Literal["clipped", "inherited", "none", "normalized", "unknown"] | None]
-    project_id: Named[ProjectId]
-    run_id: Named[RunId]
-    selection_release_id: Named[ReleaseId]
+    project_id: Named[str]
+    demand_id: Named[str]
+    read_id: Named[str]
+    use_id: Named[str]
+    product_id: Named[str]
+    derivation_id: Named[str]
+    selection_release_id: Named[str]
     producer_release_id: Named[ReleaseId]
     task_id: Named[TaskId]
     product_key: Named[ProductKey]

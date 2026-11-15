@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
+from contextlib import nullcontext
 from dataclasses import dataclass
 from hashlib import sha256
 from typing import TYPE_CHECKING, Any, Literal, cast
@@ -38,6 +39,25 @@ def _read_request(value):
 
 
 _PIN_FIELDS = tuple(WireCutSelection.__annotations__)
+
+
+@contextmanager
+def selected_read_snapshot(engine, *, cancellation=None):
+    """One snapshot allowing the native read's acquisition and trust-lock custody.
+
+    Read purpose roles and protected native entrypoints own authority. PostgreSQL
+    READ ONLY would forbid both the read receipt and its required trust locks.
+    """
+    with (
+        engine.connect().execution_options(
+            isolation_level="REPEATABLE READ", postgresql_readonly=False,
+        ) as connection,
+        cancellation.borrow(connection) if cancellation is not None else nullcontext(),
+        connection.begin(),
+    ):
+        yield connection
+        if cancellation is not None:
+            cancellation.check_active()
 
 
 @dataclass(frozen=True)

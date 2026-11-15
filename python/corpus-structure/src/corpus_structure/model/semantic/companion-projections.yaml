@@ -8,9 +8,9 @@ imports:
 - pdf-staging
 default_range: string
 annotations:
-  cp:version: pdf-companion-projection-v3
+  cp:version: pdf-companion-projection-v4
   cp:json_materialization: '{"python":"jsonb-text-v1","arrow":"jsonb-arrow-json-v1"}'
-  cp:parameters: '[{"name":"project_id","native_name":"p_project","source":"physical:ops.run.project_id"},{"name":"run_id","native_name":"p_run","source":"physical:ops.run.id"},{"name":"selection_release_id","native_name":"p_selection_release","source":"physical:ops.run.release_id"},{"name":"task_id","native_name":"p_task","source":"PdfPublishedRevision.task_id"},{"name":"product_key","native_name":"p_product","source":"PdfPublishedRevision.product_key"},{"name":"content_digest","native_name":"p_digest","source":"PdfPublishedRevision.logical_digest"}]'
+  cp:parameters: '[{"name":"project_id","native_name":"p_project","source":"physical:ops.data_demand.project_id"},{"name":"demand_id","native_name":"p_demand","source":"physical:ops.data_demand.id"},{"name":"read_id","native_name":"p_read","source":"physical:ops.data_demand_read.id"},{"name":"use_id","native_name":"p_use","source":"physical:ops.demand_use.id"},{"name":"product_id","native_name":"p_product","source":"physical:kb.data_product.id"},{"name":"derivation_id","native_name":"p_derivation","source":"physical:ops.data_derivation.id"}]'
   cp:helpers: '[{"name":"companion_body","function":"ops.pdf_companion_body","arguments":["physical:kb.pdf_record_companion.product_id","physical:kb.pdf_record_companion.revision_id","physical:kb.pdf_record_companion.family","physical:kb.pdf_record_companion.local_id","physical:kb.pdf_record_companion.body"],"result_source":"physical:kb.pdf_record_companion.body"}]'
   cp:sources: '[{"name":"raw_companion","relation":"kb.pdf_record_companion"},{"name":"endpoint","relation":"kb.pdf_record_endpoint"},{"name":"companions","input":{"name":"raw_companion","alias":"raw"},"fields":[{"name":"product_id","source":"physical:kb.pdf_record_companion.product_id","expression":{"field":["raw","product_id"]}},{"name":"revision_id","source":"physical:kb.pdf_record_companion.revision_id","expression":{"field":["raw","revision_id"]}},{"name":"family","source":"physical:kb.pdf_record_companion.family","expression":{"field":["raw","family"]}},{"name":"local_id","source":"physical:kb.pdf_record_companion.local_id","expression":{"field":["raw","local_id"]}},{"name":"ordinal","source":"physical:kb.pdf_record_companion.ordinal","expression":{"field":["raw","ordinal"]}},{"name":"body","source":"physical:kb.pdf_record_companion.body","expression":{"call":{"helper":"companion_body","arguments":[{"field":["raw","product_id"]},{"field":["raw","revision_id"]},{"field":["raw","family"]},{"field":["raw","local_id"]},{"field":["raw","body"]}]}}}],"predicate":{"all":[{"equal":[{"field":["raw","product_id"]},{"internal":"published_build_id"}]},{"equal":[{"field":["raw","revision_id"]},{"internal":"published_build_id"}]},{"one_of":{"value":{"field":["raw","family"]},"choices":{"context":"families"}}}]},"materialized":true}]'
 classes:
@@ -61,18 +61,38 @@ classes:
     attributes:
       project_id:
         annotations:
-          cp:source: physical:ops.run.project_id
+          cp:source: physical:ops.data_demand.project_id
           cp:expr: '{"parameter":"project_id"}'
           cp:role: provenance
-      run_id:
+      demand_id:
         annotations:
-          cp:source: physical:ops.run.id
-          cp:expr: '{"parameter":"run_id"}'
+          cp:source: physical:ops.data_demand.id
+          cp:expr: '{"parameter":"demand_id"}'
+          cp:role: provenance
+      read_id:
+        annotations:
+          cp:source: physical:ops.data_demand_read.id
+          cp:expr: '{"parameter":"read_id"}'
+          cp:role: provenance
+      use_id:
+        annotations:
+          cp:source: physical:ops.demand_use.id
+          cp:expr: '{"parameter":"use_id"}'
+          cp:role: provenance
+      product_id:
+        annotations:
+          cp:source: physical:kb.data_product.id
+          cp:expr: '{"parameter":"product_id"}'
+          cp:role: provenance
+      derivation_id:
+        annotations:
+          cp:source: physical:ops.data_derivation.id
+          cp:expr: '{"parameter":"derivation_id"}'
           cp:role: provenance
       selection_release_id:
         annotations:
-          cp:source: physical:ops.run.release_id
-          cp:expr: '{"parameter":"selection_release_id"}'
+          cp:source: physical:ops.data_demand.release_id
+          cp:expr: '{"internal":"selection_release_id"}'
           cp:role: provenance
       producer_release_id:
         annotations:
@@ -82,17 +102,17 @@ classes:
       task_id:
         annotations:
           cp:source: PdfPublishedRevision.task_id
-          cp:expr: '{"parameter":"task_id"}'
+          cp:expr: '{"internal":"published_task_id"}'
           cp:role: provenance
       product_key:
         annotations:
           cp:source: PdfPublishedRevision.product_key
-          cp:expr: '{"parameter":"product_key"}'
+          cp:expr: '{"internal":"published_product_key"}'
           cp:role: provenance
       content_digest:
         annotations:
           cp:source: PdfPublishedRevision.logical_digest
-          cp:expr: '{"parameter":"content_digest"}'
+          cp:expr: '{"internal":"published_content_digest"}'
           cp:role: provenance
       projection_id:
         annotations:
@@ -121,7 +141,7 @@ classes:
           cp:role: value
       input_task_id:
         annotations:
-          cp:source: physical:ops.pdf_product_input.input_task_id
+          cp:source: physical:ops.task.id
           cp:expr: '{"cast":{"value":{"json_text":{"value":{"field":["c","body"]},"path":["task_id"]}},"type":"bigint"}}'
           cp:role: value
       input_product_key:
@@ -187,17 +207,17 @@ classes:
       target_task_id:
         annotations:
           cp:source: PdfRecordEndpoint.target_task_id
-          cp:expr: '{"case":{"when":{"equal":[{"field":["e","target_task_id"]},{"constant":0}]},"then":{"parameter":"task_id"},"else":{"field":["e","target_task_id"]}}}'
+          cp:expr: '{"case":{"when":{"equal":[{"field":["e","target_task_id"]},{"constant":0}]},"then":{"internal":"published_task_id"},"else":{"field":["e","target_task_id"]}}}'
           cp:role: value
       target_product_key:
         annotations:
           cp:source: PdfRecordEndpoint.target_product_key
-          cp:expr: '{"case":{"when":{"equal":[{"field":["e","target_task_id"]},{"constant":0}]},"then":{"parameter":"product_key"},"else":{"field":["e","target_product_key"]}}}'
+          cp:expr: '{"case":{"when":{"equal":[{"field":["e","target_task_id"]},{"constant":0}]},"then":{"internal":"published_product_key"},"else":{"field":["e","target_product_key"]}}}'
           cp:role: value
       target_content_digest:
         annotations:
           cp:source: PdfRecordEndpoint.target_content_digest
-          cp:expr: '{"case":{"when":{"equal":[{"field":["e","target_task_id"]},{"constant":0}]},"then":{"parameter":"content_digest"},"else":{"field":["e","target_content_digest"]}}}'
+          cp:expr: '{"case":{"when":{"equal":[{"field":["e","target_task_id"]},{"constant":0}]},"then":{"internal":"published_content_digest"},"else":{"field":["e","target_content_digest"]}}}'
           cp:role: value
       target_occurrence_id:
         annotations:
@@ -271,7 +291,7 @@ classes:
           cp:role: value
       input_task_id:
         annotations:
-          cp:source: physical:ops.pdf_product_input.input_task_id
+          cp:source: physical:ops.task.id
           cp:expr: '{"cast":{"value":{"json_text":{"value":{"field":["i","body"]},"path":["task_id"]}},"type":"bigint"}}'
           cp:role: value
       input_product_key:

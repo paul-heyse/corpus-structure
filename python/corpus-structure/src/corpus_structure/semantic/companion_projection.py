@@ -57,15 +57,11 @@ from .types import PreparationError
 
 MODEL = Path(__file__).resolve().parents[1] / "model/semantic/companion-projections.yaml"
 FAMILIES = ("input", "relation", "coverage", "mapping_report")
-PIN_FIELDS = (
-    "project_id",
-    "run_id",
-    "selection_release_id",
-    "task_id",
-    "product_key",
-    "content_digest",
-)
-RECIPE_VERSION = "pdf-companion-projection-v3"
+from ._data_operation_wire import WireReadSelectedPdfSourceRequest
+
+PIN_FIELDS = tuple(WireReadSelectedPdfSourceRequest.__annotations__)
+
+RECIPE_VERSION = "pdf-companion-projection-v4"
 JSON_MATERIALIZATION = {"python": "jsonb-text-v1", "arrow": "jsonb-arrow-json-v1"}
 
 
@@ -103,7 +99,7 @@ class CompanionProjection:
         for part in self.function_name.split("."):
             function = getattr(function, part)
         return function(
-            *(bindparam(name, type_=columns[name].type) for name in PIN_FIELDS)
+            *(bindparam(p.name, type_=p.sql_type) for p in self.recipe.parameters)
         ).table_valued(*(column(item.name, item.type) for item in self.columns))
 
     def _ordered(self, relation):
@@ -229,7 +225,7 @@ def _recipe(view, family, cls, fields, keys, projection_id, physical):
                 not required,
             )
         )
-    if tuple(p.name for p in parameters) != PIN_FIELDS or len(
+    if set(p.name for p in parameters) != set(PIN_FIELDS) or len(parameters) != len(PIN_FIELDS) or len(
         {p.native_name for p in parameters}
     ) != len(parameters):
         refuse(path, "public parameter layout differs from the declared six-part pin")
@@ -554,12 +550,17 @@ def projection(family: str) -> CompanionProjection:
 def render_static_columns() -> str:
     from dataclasses import replace
 
-    from .contracts import compile_execution_model, trusted_execution_inputs
-    from .operation_call_generation import _PRIMITIVES, source_bindings
+    from .native_call_sources import _PRIMITIVES, source_bindings
+    from .pdf_domain import PREFIX, pdf_call_bindings, pdf_domain_sources
 
-    inputs = trusted_execution_inputs()
-    model = compile_execution_model(inputs)
-    view, _, model_field, resolve = source_bindings(model, inputs)
+    sources = pdf_domain_sources()
+    logical = {source.name.removeprefix(PREFIX + "logical/"): source.content
+               for source in sources if source.name.startswith(PREFIX + "logical/")}
+    physical = {source.name.removeprefix(PREFIX + "physical/"): source.content
+                for source in sources if source.name.startswith(PREFIX + "physical/")}
+    view, _, model_field, resolve = source_bindings(
+        pdf_call_bindings(), logical_sources=logical, physical_sources=physical,
+    )
     declarations, imports = [], set()
     for family in FAMILIES:
         selected = projection(family)
@@ -594,7 +595,7 @@ def render_static_columns() -> str:
         "# Generated from model/semantic/companion-projections.yaml.\n"
         "from typing import Literal\n"
         "from sqlalchemy import Named, TypedColumns\n"
-        + "".join(f"from ._operation_ids import {name} as {name}\n" for name in sorted(imports))
+        + "".join(f"from .identifiers import {name} as {name}\n" for name in sorted(imports))
         + "\n\n"
         + "\n\n".join(declarations)
         + "\n"

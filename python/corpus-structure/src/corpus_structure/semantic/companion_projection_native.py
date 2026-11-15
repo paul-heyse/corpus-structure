@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from pglast import ast, enums
 from pglast.stream import RawStream
-from sqlalchemy import literal_column, select
 from sqlalchemy.dialects.postgresql import dialect
 
 from .companion_projection import FAMILIES, projection
@@ -23,40 +22,22 @@ def parameters_sql() -> str:
 
 
 def pin_guard_sql() -> str:
-    from .pdf_storage import selected_native_ancestry
-
-    ancestry = selected_native_ancestry(literal_column("p_run"))
-    query = select(ancestry.c.task_id).where(
-        ancestry.c.task_id == literal_column("p_task"),
-        ancestry.c.product_key == literal_column("p_product"),
-        ancestry.c.content_digest == literal_column("p_digest"),
-    )
-    membership = str(
-        query.compile(dialect=dialect(paramstyle="named"), compile_kwargs={"literal_binds": True})
-    )
     return f"""CREATE OR REPLACE FUNCTION ops.require_published_companion_pin({parameters_sql()})
-RETURNS ops.pdf_published_revision LANGUAGE plpgsql STABLE SECURITY DEFINER
+RETURNS ops.pdf_published_revision LANGUAGE plpgsql VOLATILE SECURITY DEFINER
 SET search_path=pg_catalog,pg_temp AS $pin$
-DECLARE published ops.pdf_published_revision; origin_run bigint;
+DECLARE published ops.pdf_published_revision; boundary ops.data_demand_read; receipt jsonb;
 BEGIN
  PERFORM data.require_runtime_principal('read');
- IF p_project IS NULL OR p_run IS NULL OR p_selection_release IS NULL OR p_task IS NULL
- OR p_product IS NULL OR p_digest IS NULL OR NOT EXISTS(
- SELECT FROM ops.run r WHERE r.id=p_run AND r.project_id=p_project
- AND r.release_id=p_selection_release) THEN
- RAISE EXCEPTION 'published source run/project/release pin is unavailable'
- USING ERRCODE='22023'; END IF;
- PERFORM sem.require_execution_operation(p_selection_release,'read_native_source');
- SELECT p.* INTO published FROM ops.read_pdf_published_revision(p_task,p_product,p_digest) p;
- IF NOT FOUND OR published.release_id IS NULL THEN
- RAISE EXCEPTION 'published source pin is unavailable or staged' USING ERRCODE='22023'; END IF;
- PERFORM sem.require_execution_operation(published.release_id,'read_native_source');
- SELECT t.run_id INTO origin_run FROM ops.task t JOIN ops.run r ON r.id=t.run_id
- WHERE t.id=p_task AND r.project_id=p_project;
- IF NOT FOUND THEN
- RAISE EXCEPTION 'published source is unavailable in this project' USING ERRCODE='22023'; END IF;
- IF origin_run<>p_run AND NOT EXISTS({membership}) THEN
- RAISE EXCEPTION 'published source is outside selected run ancestry' USING ERRCODE='22023'; END IF;
+ IF NOT EXISTS(SELECT FROM ops.data_demand d WHERE d.id=p_demand AND d.project_id=p_project) THEN
+ RAISE EXCEPTION 'published source demand/project differs' USING ERRCODE='22023'; END IF;
+ PERFORM ops.ddo_require_selected_output(p_demand,p_read,p_use,p_product,p_derivation);
+ SELECT * INTO STRICT boundary FROM ops.data_demand_read WHERE id=p_read AND demand_id=p_demand;
+ receipt:=ops.ddo_pdf_derivation_receipt(p_project,p_product,p_derivation,NULL,boundary);
+ SELECT revision.* INTO STRICT published FROM ops.pdf_published_revision revision
+ WHERE revision.build_id=receipt->'publication'->>'build_id'
+ AND revision.task_id=(receipt->'publication'->>'task_id')::bigint
+ AND revision.product_key=receipt->'publication'->>'product_key'
+ AND revision.logical_digest=receipt->'publication'->>'logical_digest';
  RETURN published;
 END $pin$;
 """
@@ -69,7 +50,7 @@ def family_sql(family: str) -> str:
     returns = ",".join(quote(c.name) + " " + c.type.compile(dialect=pg) for c in selected.columns)
     if family == "input":
         arguments = [p.native_name for p in selected.recipe.parameters]
-        arguments.extend(("published.build_id", "published.release_id"))
+        arguments.extend(("published.build_id", "published.release_id", "published.task_id", "published.product_key", "published.logical_digest", "selected_release"))
         body = "SELECT * FROM " + selected.function_name + "_rows(" + ",".join(arguments) + ")"
     else:
         body = str(
@@ -78,11 +59,12 @@ def family_sql(family: str) -> str:
             )
         )
     return f"""CREATE OR REPLACE FUNCTION {selected.function_name}({parameters_sql()})
-RETURNS TABLE({returns}) LANGUAGE plpgsql STABLE SECURITY DEFINER
+RETURNS TABLE({returns}) LANGUAGE plpgsql VOLATILE SECURITY DEFINER
 SET search_path=pg_catalog,pg_temp AS $projection$
-DECLARE published ops.pdf_published_revision;
+DECLARE published ops.pdf_published_revision; selected_release text;
 BEGIN
- published:=ops.require_published_companion_pin(p_project,p_run,p_selection_release,p_task,p_product,p_digest);
+ published:=ops.require_published_companion_pin(p_project,p_demand,p_read,p_use,p_product,p_derivation);
+ SELECT release_id INTO STRICT selected_release FROM ops.data_demand WHERE id=p_demand;
  RETURN QUERY {body};
 END $projection$;
 """
@@ -112,10 +94,10 @@ def input_body_definition(connection):
     internal = tuple(
         ast.FunctionParameter(
             name=name,
-            argType=ast.TypeName(names=(ast.String(sval="text"),)),
+            argType=ast.TypeName(names=(ast.String(sval=typ),)),
             mode=enums.FunctionParameterMode.FUNC_PARAM_IN,
         )
-        for name in ("p_build", "p_producer_release")
+        for name, typ in (("p_build", "text"), ("p_producer_release", "text"), ("p_native_task", "bigint"), ("p_native_product", "text"), ("p_native_digest", "text"), ("p_selection_release", "text"))
     )
     envelope.parameters = (*inputs, *internal, *outputs)
     # This helper is not a second public authorization surface.
@@ -137,6 +119,10 @@ def input_body_definition(connection):
             internal_bindings={
                 "_published_build_id": "p_build",
                 "_published_release_id": "p_producer_release",
+                "_published_task_id": "p_native_task",
+                "_published_product_key": "p_native_product",
+                "_published_content_digest": "p_native_digest",
+                "_selection_release_id": "p_selection_release",
             },
         ),
     )

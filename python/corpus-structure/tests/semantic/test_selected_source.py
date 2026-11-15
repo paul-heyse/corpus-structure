@@ -10,7 +10,8 @@ import pytest
 
 from corpus_structure.semantic.analysis_contracts import prepare_interpretation_context
 from corpus_structure.semantic.pdf_record_reader import PublishedPdfReader
-from corpus_structure.serve.companion_export import PublishedSourcePin
+from semantic.selected_source_contract_support import selection
+from corpus_structure.semantic.analysis_contracts import acquire_analysis_context_profile
 from corpus_structure.serve.selected_source import (
     AdditionalContextRequired,
     SelectedSourceExportRequest,
@@ -170,17 +171,10 @@ def source_events(records, outcome="succeeded"):
 @pytest.fixture
 def offline_package(tmp_path):
     context = replace(
-        prepare_interpretation_context(macros={}, kind="formula"), release_id="retained-release"
+        prepare_interpretation_context(macros={}, kind="formula", context_profile=acquire_analysis_context_profile()), release_id="retained-release"
     )
     assert context.release_id is not None
-    pin = PublishedSourcePin(
-        project_id="p",
-        run_id=7,
-        selection_release_id=context.release_id,
-        task_id=70,
-        product_key="integrated",
-        content_digest="1" * 64,
-    )
+    pin, _, _ = selection(release=context.release_id)
     request = SelectedSourceExportRequest(
         pin=pin,
         selection=SelectedSourceSelection(root="#/groups/8"),
@@ -196,7 +190,8 @@ def write_package(request, context, *, records=None, outcome="succeeded"):
         source_events(records or independent_records(), outcome),
         request,
         request.destination,
-        interpretation_model_id=context.model_id,
+        analysis_context_profile_id=context.model_id,
+        cut=selection(release=context.release_id)[1], publication=selection(release=context.release_id)[2],
         implementation_digests=context.implementation_digests,
     )
 
@@ -218,7 +213,7 @@ def test_exact_offline_membership_table_original_addresses_and_formula_preparati
         table = json.loads(Path(paths[2][1]).read_bytes())
         assert table["data"]["table_cells"][0]["text"] == "cell"
         assert receipt.selected_record_count == 4
-        assert receipt.pin.selection_release_id == "retained-release"
+        assert receipt.cut["release_id"] == "retained-release"
         assert receipt.producer_release_id == "source-production-release"
         assert reader.header["producer_release_id"] == receipt.producer_release_id
         with pytest.raises(AdditionalContextRequired) as error:
@@ -316,7 +311,8 @@ def test_early_native_source_failure_emits_no_complete_trailer_or_receipt(offlin
             broken(),
             request,
             request.destination,
-            interpretation_model_id=context.model_id,
+            analysis_context_profile_id=context.model_id,
+        cut=selection(release=context.release_id)[1], publication=selection(release=context.release_id)[2],
             implementation_digests=context.implementation_digests,
         )
     assert not (request.destination / "receipt.json").exists()
@@ -386,19 +382,12 @@ def test_early_sink_failure_has_no_receipt_or_complete_trailer(offline_package, 
     assert b'"event":"trailer"' not in (request.destination / "events.jsonl").read_bytes()
 
 
-def test_runtime_provenance_is_retained_and_required_when_exported(offline_package):
+def test_physical_runtime_stays_in_cut_and_semantic_context_stays_explicit(offline_package):
     request, context = offline_package
-    _write_selected_package(
-        SourceBytes(),
-        source_events(independent_records()),
-        request,
-        request.destination,
-        interpretation_model_id=context.model_id,
-        implementation_digests=context.implementation_digests,
-        runtime_id=context.runtime_id,
-    )
+    write_package(request, context)
     with SelectedSourceReader(request.destination) as reader:
-        assert reader.header["runtime_id"] == context.runtime_id
+        assert reader.header["cut"]["runtime_id"] == "runtime:fixture"
+        assert reader.header["analysis_context_profile_id"] == context.model_id
         reader.prepare_formula_inputs(context)
         with pytest.raises(SelectedSourceUnavailable, match="context/model/artifacts"):
-            reader.prepare_formula_inputs(replace(context, runtime_id="runtime:different"))
+            reader.prepare_formula_inputs(replace(context, model_id="profile:different"))

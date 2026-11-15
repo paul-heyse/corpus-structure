@@ -3434,6 +3434,126 @@ def record_integrated_source_context(
         return materialize_record_integrated_source_context(row)
 
 
+READ_PDF_SELECTED_SOURCE_EVENTS_CONTRACT_DIGEST = (
+    "c2239f1e05d1d064a9021a6531f3c929ac9b06703f410d447b92a4cf2a07efdd"
+)
+
+
+class _read_pdf_selected_source_eventsRequest(OperationResult):
+    project_id: str
+    demand_id: str
+    read_id: str
+    use_id: str
+    product_id: str
+    derivation_id: str
+    section: str
+    membership: str
+    policy: str
+
+
+_read_pdf_selected_source_events_function = func.ops.read_pdf_selected_source_events(
+    bindparam("project_id", type_=Text()),
+    bindparam("demand_id", type_=Text()),
+    bindparam("read_id", type_=Text()),
+    bindparam("use_id", type_=Text()),
+    bindparam("product_id", type_=Text()),
+    bindparam("derivation_id", type_=Text()),
+    bindparam("section", type_=Text()),
+    bindparam("membership", type_=Text()),
+    bindparam("policy", type_=Text()),
+    type_=JSONB(),
+)
+_read_pdf_selected_source_events_statement = select(
+    _read_pdf_selected_source_events_function.cast(Text())
+)
+
+
+def prepare_read_pdf_selected_source_events(
+    *,
+    project_id: str,
+    demand_id: str,
+    read_id: str,
+    use_id: str,
+    product_id: str,
+    derivation_id: str,
+    section: str,
+    membership: str,
+    policy: str,
+    projection_context: PreparedRelease | None = None,
+) -> Select[str]:
+    _request = _read_pdf_selected_source_eventsRequest(
+        project_id=project_id,
+        demand_id=demand_id,
+        read_id=read_id,
+        use_id=use_id,
+        product_id=product_id,
+        derivation_id=derivation_id,
+        section=section,
+        membership=membership,
+        policy=policy,
+    )
+    if projection_context is not None:
+        require_call_context(
+            projection_context,
+            "read_native_source",
+            "read_pdf_selected_source_events",
+            READ_PDF_SELECTED_SOURCE_EVENTS_CONTRACT_DIGEST,
+        )
+    return _read_pdf_selected_source_events_statement.params(
+        **{
+            "project_id": _request.project_id,
+            "demand_id": _request.demand_id,
+            "read_id": _request.read_id,
+            "use_id": _request.use_id,
+            "product_id": _request.product_id,
+            "derivation_id": _request.derivation_id,
+            "section": _request.section,
+            "membership": _request.membership,
+            "policy": _request.policy,
+        }
+    )
+
+
+_read_pdf_selected_source_events_adapter = TypeAdapter(str)
+
+
+def materialize_read_pdf_selected_source_events(row: tuple[str]) -> NativeJsonEnvelope:
+    with native_result_scope("read_native_source", "NativeJsonEnvelope", "body"):
+        checked = _read_pdf_selected_source_events_adapter.validate_python(row[0], strict=True)
+        return NativeJsonEnvelope(body=checked)
+
+
+def read_pdf_selected_source_events(
+    conn: Connection,
+    *,
+    project_id: str,
+    demand_id: str,
+    read_id: str,
+    use_id: str,
+    product_id: str,
+    derivation_id: str,
+    section: str,
+    membership: str,
+    policy: str,
+    projection_context: PreparedRelease | None = None,
+) -> tuple[NativeJsonEnvelope, ...]:
+    _statement = prepare_read_pdf_selected_source_events(
+        project_id=project_id,
+        demand_id=demand_id,
+        read_id=read_id,
+        use_id=use_id,
+        product_id=product_id,
+        derivation_id=derivation_id,
+        section=section,
+        membership=membership,
+        policy=policy,
+        projection_context=projection_context,
+    )
+    _native_result = conn.execute(_statement)
+    with native_result_scope("read_native_source", "NativeJsonEnvelope"):
+        return tuple(materialize_read_pdf_selected_source_events(row) for row in _native_result)
+
+
 READ_PDF_PUBLISHED_REVISION_CONTRACT_DIGEST = (
     "eec229e6780c4ebde2fc65a9f65c5b0f68a9ed7cecf364c93ea9fe0accfec56e"
 )
@@ -4863,4 +4983,4 @@ def read_pdf_frozen_rows(
         return tuple(materialize_read_pdf_frozen_rows(row) for row in _native_result)
 
 
-CALL_CONTRACT_DIGEST = "3288c1de739a3d6e777756260b2665b56ebc163642cea3312489f1c559152ac4"
+CALL_CONTRACT_DIGEST = "a3188a88cc2912d1418d18947ebff5a955a7facd18321594a3fef1c547d3bf36"

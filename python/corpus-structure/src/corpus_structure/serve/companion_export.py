@@ -23,37 +23,22 @@ from corpus_structure.core.db.adbc_lifetime import (
     owned_adbc_read,
 )
 from corpus_structure.core.db.cancellation import OperationCancellation
-from corpus_structure.semantic._operation_ids import (
-    ContentDigest,
-    ProductKey,
-    ProjectId,
-    ReleaseId,
-    RunId,
-    TaskId,
-)
+from corpus_structure.semantic.identifiers import ReleaseId
+from corpus_structure.semantic.pdf_publication import PublishedPdfDocumentRef
+from corpus_structure.serve.selected_pdf import SelectedPdfSourceReference, acquire_selected_pdf_source
 from corpus_structure.semantic.capture_storage import LogicalRows
-from corpus_structure.semantic.query import read_snapshot
+from corpus_structure.semantic.demand_results import selected_read_snapshot, CutSelection
 from corpus_structure.semantic.refusals import SemanticRefusal
 from corpus_structure.semantic.runtime import connection_settings, open_runtime_engine
 from corpus_structure.settings import Settings
 
 Family = Literal["input", "relation", "coverage", "mapping_report"]
 FAMILIES: tuple[Family, ...] = ("input", "relation", "coverage", "mapping_report")
-PROFILE_ID = "flat-exact-companion-v2"
-
-
-class PublishedSourcePin(BaseModel):
-    model_config = ConfigDict(frozen=True, extra="forbid")
-    project_id: ProjectId = Field(min_length=1)
-    run_id: RunId = Field(gt=RunId(0))
-    selection_release_id: ReleaseId = Field(min_length=1)
-    task_id: TaskId = Field(gt=TaskId(0))
-    product_key: ProductKey = Field(min_length=1)
-    content_digest: ContentDigest = Field(pattern=r"^[0-9a-f]{64}$")
+PROFILE_ID = "flat-exact-companion-v3"
 
 
 class CompanionExportRequest(BaseModel):
-    pin: PublishedSourcePin
+    pin: SelectedPdfSourceReference
     families: tuple[Family, ...] = FAMILIES
     destination: Path
 
@@ -74,14 +59,26 @@ class FamilyFile(BaseModel):
 
 
 class CompanionExportManifest(BaseModel):
-    format: Literal["pdf-companion-export-v2"] = "pdf-companion-export-v2"
-    pin: PublishedSourcePin
+    format: Literal["pdf-companion-export-v3"] = "pdf-companion-export-v3"
+    pin: SelectedPdfSourceReference
     producer_release_id: ReleaseId = Field(min_length=1)
+    cut: dict[str, Any]
+    publication: PublishedPdfDocumentRef
     projection_id: str
     profile_id: str
     created_at: datetime
     families: dict[str, FamilyFile]
     not_requested: tuple[str, ...]
+
+
+    @model_validator(mode="after")
+    def consistent_selection(self):
+        cut = CutSelection.from_native(self.cut)
+        if (cut.record["project_id"], cut.record["demand_id"], cut.record["read_id"]) != (
+            self.pin.project_id, self.pin.demand_id, self.pin.read_id,
+        ) or self.publication.release_id != self.producer_release_id:
+            raise ValueError("companion manifest selection/cut/publication differ")
+        return self
 
 
 def _literal_statement(stmt) -> str:
@@ -99,7 +96,6 @@ def export_companion_parquet(
     cancellation: OperationCancellation | None = None,
 ) -> CompanionExportManifest:
     from corpus_structure.semantic.companion_projection import projection
-    from corpus_structure.serve.native_source import NativeSourceRequest, inspect_native_source
 
     cancellation = cancellation or OperationCancellation()
     cancellation.check_active()
@@ -119,23 +115,11 @@ def export_companion_parquet(
         root.mkdir()
         with (
             open_runtime_engine(settings, "companion-export", purpose="read") as engine,
-            read_snapshot(engine, cancellation=cancellation.postgresql) as conn,
+            selected_read_snapshot(engine, cancellation=cancellation.postgresql) as conn,
         ):
-            response = inspect_native_source(
-                conn,
-                NativeSourceRequest(
-                    run_id=request.pin.run_id,
-                    task_id=request.pin.task_id,
-                    product_key=request.pin.product_key,
-                    content_digest=request.pin.content_digest,
-                    view="products",
-                    limit=1,
-                ),
-                cancellation=cancellation.postgresql,
-            )
-            producer_release_id = response.release_id
-            if not producer_release_id:
-                raise SemanticRefusal("published producer release is unavailable")
+            selected = acquire_selected_pdf_source(conn, request.pin)
+            publication = selected.receipt.publication
+            producer_release_id = publication.release_id
             # Native family functions independently check every pin component.
             snapshot = conn.execute(text("SELECT pg_export_snapshot()")).scalar_one()
             cancellation.check_active()
@@ -151,7 +135,7 @@ def export_companion_parquet(
                 owned_adbc_child(bulk.cursor()) as cursor,
             ):
                 cursor.adbc_statement.set_options(**{"adbc.postgresql.use_copy": "false"})
-                cursor.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
+                cursor.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ WRITE")
                 dialect = postgresql.dialect(paramstyle="named")
                 snapshot_sql = dialect.statement_compiler(dialect, None).render_literal_value(
                     snapshot, String()
@@ -170,7 +154,7 @@ def export_companion_parquet(
                     stmt = spec.arrow_statement.params(**request.pin.model_dump())
                     cursor.execute(_literal_statement(stmt))
                     schema = _export_schema(
-                        spec, request.pin, producer_release_id=producer_release_id
+                        spec, request.pin, producer_release_id=producer_release_id, cut=selected.cut.record, publication=publication
                     )
                     logical = LogicalRows(schema, spec.keys)
                     path = root / (family + ".parquet")
@@ -183,7 +167,7 @@ def export_companion_parquet(
                             cancellation.check_active()
                             # Exact scalar projections refuse lossy conversion.
                             _admit_schema(family, schema, batch.schema)
-                            _admit_batch(spec, batch, request.pin, producer_release_id)
+                            _admit_batch(spec, batch, request.pin, producer_release_id, cut=selected.cut.record, publication=publication)
                             batch = batch.cast(schema, safe=True)
                             logical.write(batch)
                             writer.write_batch(batch)
@@ -199,6 +183,7 @@ def export_companion_parquet(
                     )
         manifest = CompanionExportManifest(
             pin=request.pin,
+            cut=selected.cut.record, publication=publication,
             producer_release_id=producer_release_id,
             projection_id=projection_id,
             profile_id=PROFILE_ID,
@@ -212,7 +197,7 @@ def export_companion_parquet(
         return manifest
 
 
-def _export_schema(spec, pin: PublishedSourcePin, *, producer_release_id: str) -> pa.Schema:
+def _export_schema(spec, pin: SelectedPdfSourceReference, *, producer_release_id: str, cut, publication) -> pa.Schema:
     from corpus_structure.semantic.metadata import PHYSICAL_MODEL_ID
 
     return spec.arrow_schema.with_metadata(
@@ -220,11 +205,12 @@ def _export_schema(spec, pin: PublishedSourcePin, *, producer_release_id: str) -
             b"cs.projection": spec.projection_id.encode(),
             b"cs.pin": pin.model_dump_json().encode(),
             b"cs.profile": PROFILE_ID.encode(),
-            b"cs.selection_release": pin.selection_release_id.encode(),
+            b"cs.selection_release": cut["release_id"].encode(),
+            b"cs.cut": CutSelection.from_native(cut).content,
             b"cs.producer_release": producer_release_id.encode(),
             b"cs.physical": PHYSICAL_MODEL_ID.encode(),
             b"cs.family": spec.family.encode(),
-            b"cs.product": pin.content_digest.encode(),
+            b"cs.product": publication.logical_digest.encode(),
         }
     )
 
@@ -239,7 +225,7 @@ def _admit_schema(family: str, expected: pa.Schema, actual: pa.Schema) -> None:
 
 
 def _admit_batch(
-    spec, batch: pa.RecordBatch, pin: PublishedSourcePin, producer_release_id: str
+    spec, batch: pa.RecordBatch, pin: SelectedPdfSourceReference, producer_release_id: str, *, cut, publication
 ) -> None:
     """Enforce declared required values and exact publication provenance per batch."""
     for field in spec.arrow_schema:
@@ -248,6 +234,9 @@ def _admit_batch(
     bindings = {
         **pin.model_dump(),
         "producer_release_id": producer_release_id,
+        "selection_release_id": cut["release_id"],
+        "task_id": publication.task_id, "product_key": publication.product_key,
+        "content_digest": publication.logical_digest,
         "projection_id": spec.projection_id,
     }
     for name, value in bindings.items():
@@ -279,7 +268,10 @@ def _publish_directory(source: Path, destination: Path) -> None:
 def _verified(path: Path):
     from corpus_structure.semantic.companion_projection import projection
 
-    manifest = CompanionExportManifest.model_validate_json(path.read_bytes())
+    try:
+        manifest = CompanionExportManifest.model_validate_json(path.read_bytes())
+    except ValueError as error:
+        raise SemanticRefusal("companion manifest/schema/pin binding differs") from error
     resolved = {}
     for name, entry in manifest.families.items():
         if (
@@ -302,9 +294,10 @@ def _verified(path: Path):
             b"cs.projection": manifest.projection_id.encode(),
             b"cs.profile": manifest.profile_id.encode(),
             b"cs.family": name.encode(),
-            b"cs.selection_release": manifest.pin.selection_release_id.encode(),
+            b"cs.selection_release": manifest.cut["release_id"].encode(),
+            b"cs.cut": CutSelection.from_native(manifest.cut).content,
             b"cs.producer_release": manifest.producer_release_id.encode(),
-            b"cs.product": manifest.pin.content_digest.encode(),
+            b"cs.product": manifest.publication.logical_digest.encode(),
         }
         if any((expected.metadata or {}).get(key) != value for key, value in bindings.items()):
             raise SemanticRefusal("companion projection/schema/pin binding differs")
@@ -313,7 +306,7 @@ def _verified(path: Path):
             and manifest.profile_id == PROFILE_ID
             and not expected.equals(
                 _export_schema(
-                    spec, manifest.pin, producer_release_id=manifest.producer_release_id
+                    spec, manifest.pin, producer_release_id=manifest.producer_release_id, cut=manifest.cut, publication=manifest.publication
                 ),
                 check_metadata=True,
             )
@@ -328,7 +321,7 @@ def _verified(path: Path):
         logical = LogicalRows(expected)
         for batch in parquet.iter_batches():
             if manifest.projection_id == spec.projection_id and manifest.profile_id == PROFILE_ID:
-                _admit_batch(spec, batch, manifest.pin, manifest.producer_release_id)
+                _admit_batch(spec, batch, manifest.pin, manifest.producer_release_id, cut=manifest.cut, publication=manifest.publication)
             logical.write(batch)
         if logical.digest != entry.logical_digest:
             raise SemanticRefusal("companion logical rows differ")
@@ -407,7 +400,7 @@ def inventory_companion_export(path: Path) -> dict:
                     "SELECT CASE WHEN target_task_id=? AND target_product_key=? "
                     "AND target_content_digest=? THEN 'own_product' ELSE 'external_product' END "
                     "AS scope,count(*) FROM family GROUP BY scope ORDER BY scope",
-                    [manifest.pin.task_id, manifest.pin.product_key, manifest.pin.content_digest],
+                    [manifest.publication.task_id, manifest.publication.product_key, manifest.publication.logical_digest],
                 ).fetchall()
             elif name == "coverage":
                 detail["scoped_outcomes"] = _inventory_groups(
@@ -435,6 +428,7 @@ def inventory_companion_export(path: Path) -> dict:
                 )
     return {
         "pin": manifest.pin.model_dump(),
+        "cut": manifest.cut,
         "producer_release_id": manifest.producer_release_id,
         "projection_id": manifest.projection_id,
         "families": inventory,
@@ -463,7 +457,7 @@ def compare_companion_exports(left: Path, right: Path) -> dict:
         and lm.profile_id == rm.profile_id == PROFILE_ID
         and set(lf) == set(rf)
         and lm.pin.project_id == rm.pin.project_id
-        and lm.pin.selection_release_id == rm.pin.selection_release_id
+        and lm.cut["release_id"] == rm.cut["release_id"]
         and lm.producer_release_id == rm.producer_release_id
     )
     result: dict[str, Any] = {
@@ -502,7 +496,7 @@ def compare_companion_exports(left: Path, right: Path) -> dict:
             # Provenance differs by product; all projected value columns retain exact multiplicity.
             excluded = {
                 "project_id",
-                "run_id",
+                "demand_id", "read_id", "use_id", "product_id", "derivation_id",
                 "selection_release_id",
                 "producer_release_id",
                 "task_id",

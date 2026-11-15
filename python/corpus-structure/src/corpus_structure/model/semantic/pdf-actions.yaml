@@ -512,6 +512,55 @@ actions:
     order_by: []
     result_class: NativeJsonEnvelope
     json_read: json-text-v1
+  - id: read_pdf_selected_source_events
+    symbol: ops.read_pdf_selected_source_events
+    parameters:
+    - name: project_id
+      source: physical:ops.data_demand.project_id
+      nullable: false
+      native_parameter: p_project
+    - name: demand_id
+      source: physical:ops.data_demand.id
+      nullable: false
+      native_parameter: p_demand
+    - name: read_id
+      source: physical:ops.data_demand_read.id
+      nullable: false
+      native_parameter: p_read
+    - name: use_id
+      source: physical:ops.demand_use.id
+      nullable: false
+      native_parameter: p_use
+    - name: product_id
+      source: physical:kb.data_product.id
+      nullable: false
+      native_parameter: p_product
+    - name: derivation_id
+      source: physical:ops.data_derivation.id
+      nullable: false
+      native_parameter: p_derivation
+    - name: section
+      source: primitive:string
+      nullable: false
+      native_parameter: p_section
+    - name: membership
+      source: primitive:string
+      nullable: false
+      native_parameter: p_membership
+    - name: policy
+      source: primitive:string
+      nullable: false
+      native_parameter: p_policy
+    result_fields:
+    - name: body
+      source: primitive:json_payload
+      nullable: false
+    result_mode: scalar
+    cardinality: many
+    ordered: false
+    order_by: []
+    result_class: NativeJsonEnvelope
+    json_read: json-text-v1
 - id: prepare_integrated_pdf
   implementation:
     owner: semantic.pdf_integrated

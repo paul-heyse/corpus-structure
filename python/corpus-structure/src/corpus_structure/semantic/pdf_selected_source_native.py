@@ -62,17 +62,18 @@ def selected_source_reader_sql() -> str:
     sql = (
         """
 CREATE OR REPLACE FUNCTION ops.read_pdf_selected_source_events(
- p_project text,p_run bigint,p_release text,p_task bigint,p_product text,p_digest text,
+ p_project text,p_demand text,p_read text,p_use text,p_product text,p_derivation text,
  p_section text,p_membership text,p_policy text)
-RETURNS SETOF jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER
+RETURNS SETOF jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER
 SET search_path=pg_catalog,pg_temp AS $selected$
-DECLARE revision ops.pdf_published_revision;
+DECLARE revision ops.pdf_published_revision; p_task bigint; p_native_product text; p_digest text;
 BEGIN
  IF p_section IS NULL OR p_membership IS DISTINCT FROM 'descendants'
  OR p_policy IS DISTINCT FROM 'section-source-context-v1' THEN
  RAISE EXCEPTION 'invalid selected source selector/policy' USING ERRCODE='22023'; END IF;
  SELECT * INTO STRICT revision FROM ops.require_published_companion_pin(
- p_project,p_run,p_release,p_task,p_product,p_digest);
+ p_project,p_demand,p_read,p_use,p_product,p_derivation);
+ p_task:=revision.task_id; p_native_product:=revision.product_key; p_digest:=revision.logical_digest;
  IF NOT EXISTS(SELECT FROM kb.pdf_record_access a WHERE a.product_id=revision.build_id
  AND a.revision_id=revision.build_id AND a.pointer=p_section
  AND a.label IN ('section','chapter')) THEN
@@ -83,7 +84,7 @@ BEGIN
         + """,
  companion AS MATERIALIZED (
  SELECT c.family,c.local_id,c.ordinal,c.body::text AS payload
- FROM ops.pdf_record_context_rows(p_task,p_product,p_digest,
+ FROM ops.pdf_record_context_rows(p_task,p_native_product,p_digest,
  ARRAY(SELECT pointer FROM selected),p_section) c
  UNION ALL SELECT c.family,c.local_id,c.ordinal,
  c.body::text
@@ -94,14 +95,14 @@ BEGIN
  UNION ALL SELECT 'endpoint',e.relation_id||':'||e.ordinal::text,e.ordinal,
  jsonb_build_object('relation_id',e.relation_id,'endpoint_ordinal',e.ordinal,'role',e.role,
  'target_task_id',CASE WHEN e.target_task_id=0 THEN p_task ELSE e.target_task_id END,
- 'target_product_key',CASE WHEN e.target_task_id=0 THEN p_product ELSE e.target_product_key END,
+ 'target_product_key',CASE WHEN e.target_task_id=0 THEN p_native_product ELSE e.target_product_key END,
  'target_content_digest',CASE WHEN e.target_task_id=0
  THEN p_digest ELSE e.target_content_digest END,
  'occurrence_id',e.occurrence_id)::text
  FROM kb.pdf_record_endpoint e JOIN published p
  ON e.product_id=p.build_id AND e.revision_id=p.build_id
  WHERE e.relation_id IN (SELECT c.local_id FROM ops.pdf_record_context_rows(
- p_task,p_product,p_digest,ARRAY(SELECT pointer FROM selected),p_section) c
+ p_task,p_native_product,p_digest,ARRAY(SELECT pointer FROM selected),p_section) c
  WHERE c.family='relation')
  ), companion_order AS (
  SELECT *,row_number() OVER(ORDER BY family COLLATE "C",ordinal,local_id COLLATE "C") AS position
@@ -110,7 +111,7 @@ BEGIN
  SELECT jsonb_build_object('from_pointer',a.pointer,'field',r.field_name,
  'reference_id',r.reference_id,'source_id',r.source_id,'native_address',origin.native_address,
  'source_ordinal',a.ordinal,'source_order',to_jsonb(w.path),
- 'target',jsonb_build_object('task_id',p_task,'product_key',p_product,'content_digest',p_digest)||
+ 'target',jsonb_build_object('task_id',p_task,'product_key',p_native_product,'content_digest',p_digest)||
  CASE WHEN r.field_name IN ('source_cell_id','target_cell_id')
  THEN jsonb_build_object('address_space','native_graph_cell','cell_id_lexical',r.native_pointer)
  ELSE jsonb_build_object('address_space','native_item','pointer',r.native_pointer) END,
@@ -125,14 +126,14 @@ BEGIN
  SELECT jsonb_build_object('relation_id',e.relation_id,'endpoint_ordinal',e.ordinal,
  'role',e.role,'target',jsonb_build_object('task_id',CASE WHEN e.target_task_id=0
  THEN p_task ELSE e.target_task_id END,
- 'product_key',CASE WHEN e.target_task_id=0 THEN p_product ELSE e.target_product_key END,
+ 'product_key',CASE WHEN e.target_task_id=0 THEN p_native_product ELSE e.target_product_key END,
  'content_digest',CASE WHEN e.target_task_id=0 THEN p_digest ELSE e.target_content_digest END,
  'occurrence_id',e.occurrence_id),'resolution','qualified_external')
  FROM kb.pdf_record_endpoint e JOIN published p
  ON e.product_id=p.build_id AND e.revision_id=p.build_id
  WHERE e.relation_id IN (SELECT local_id FROM companion WHERE family='relation')
  AND NOT ((e.target_task_id,e.target_product_key,e.target_content_digest) IN
- ((p_task,p_product,p_digest),(0::bigint,'@self','@self'))
+ ((p_task,p_native_product,p_digest),(0::bigint,'@self','@self'))
  AND e.occurrence_id IN (SELECT local_id FROM companion WHERE family='occurrence'))
  ), output(phase,path,event) AS (
  SELECT -1,ARRAY[]::bigint[],jsonb_build_object('event','selection_metadata',

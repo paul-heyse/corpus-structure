@@ -56,7 +56,17 @@ class ContextValue:
 
 @dataclass(frozen=True, slots=True)
 class InternalBinding:
-    name: Literal["published_build_id", "published_release_id"]
+    name: Literal["published_build_id", "published_release_id", "published_task_id", "published_product_key", "published_content_digest", "selection_release_id"]
+
+
+_INTERNAL_BINDINGS = {
+    "published_build_id": ("published.build_id", Text()),
+    "published_release_id": ("published.release_id", Text()),
+    "published_task_id": ("published.task_id", BigInteger()),
+    "published_product_key": ("published.product_key", Text()),
+    "published_content_digest": ("published.logical_digest", Text()),
+    "selection_release_id": ("selected_release", Text()),
+}
 
 
 @dataclass(frozen=True, slots=True)
@@ -233,7 +243,7 @@ def read_expression(value: Any, path: str) -> Expression:
             return Parameter(body)
         if operator == "context" and body in {"projection_id", "families"}:
             return ContextValue(body)
-        if operator == "internal" and body in {"published_build_id", "published_release_id"}:
+        if operator == "internal" and body in _INTERNAL_BINDINGS:
             return InternalBinding(body)
         refuse(path, "unknown preparation context or internal binding")
     if operator == "field":
@@ -341,7 +351,9 @@ def expression_type(expression: Expression, aliases, parameters, helpers, path: 
         if expression.name not in parameters:
             refuse(path, "undeclared operation parameter: " + expression.name)
         return parameters[expression.name].sql_type
-    if isinstance(expression, (ContextValue, InternalBinding)):
+    if isinstance(expression, InternalBinding):
+        return _INTERNAL_BINDINGS[expression.name][1]
+    if isinstance(expression, ContextValue):
         return Text()
     if isinstance(expression, Constant):
         return (
@@ -418,7 +430,7 @@ def core_statement(recipe: ProjectionRecipe, metadata):
                 literal(recipe.projection_id) if node.name == "projection_id" else recipe.families
             )
         if isinstance(node, InternalBinding):
-            return bindparam("_" + node.name, type_=Text())
+            return bindparam("_" + node.name, type_=_INTERNAL_BINDINGS[node.name][1])
         if isinstance(node, JsonPath):
             value = lower(node.value, aliases)
             result = value[node.path[0] if len(node.path) == 1 else node.path]
@@ -497,15 +509,14 @@ def native_statement(
     from sqlalchemy.sql.elements import BindParameter
 
     variables = {p.name: (p.native_name, p.sql_type) for p in recipe.parameters}
-    variables["_published_build_id"] = ("published.build_id", Text())
-    variables["_published_release_id"] = ("published.release_id", Text())
+    variables.update({"_" + name: value for name, value in _INTERNAL_BINDINGS.items()})
     for name, value in (internal_bindings or {}).items():
         if (
-            name not in {"_published_build_id", "_published_release_id"}
+            name.removeprefix("_") not in _INTERNAL_BINDINGS
             or re.fullmatch(r"[a-z][a-z0-9_]*", value) is None
         ):
             raise ValueError("unsupported native internal binding")
-        variables[name] = (value, Text())
+        variables[name] = (value, _INTERNAL_BINDINGS[name.removeprefix("_")][1])
 
     def replace(element: ClauseElement, **kw: Any) -> ClauseElement | None:
         if isinstance(element, BindParameter) and element.key in variables:

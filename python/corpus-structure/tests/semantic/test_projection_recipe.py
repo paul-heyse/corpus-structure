@@ -65,7 +65,7 @@ def json_annotation(container, key):
 
 
 @pytest.mark.parametrize(
-    "family,count", [("input", 13), ("relation", 20), ("coverage", 15), ("mapping_report", 21)]
+    "family,count", [("input", 17), ("relation", 24), ("coverage", 19), ("mapping_report", 25)]
 )
 def test_four_families_share_resolved_core_native_and_arrow_contract(family, count):
     spec = projection(family)
@@ -74,18 +74,18 @@ def test_four_families_share_resolved_core_native_and_arrow_contract(family, cou
     assert spec.keys == tuple(order.field for order in spec.recipe.order)
     assert tuple(p.name for p in spec.recipe.parameters) == (
         "project_id",
-        "run_id",
-        "selection_release_id",
-        "task_id",
-        "product_key",
-        "content_digest",
+        "demand_id",
+        "read_id",
+        "use_id",
+        "product_id",
+        "derivation_id",
     )
     assert all(p.native_name != p.name for p in spec.recipe.parameters)
     bindings = spec.body_statement.compile(dialect=dialect()).params
     assert "_published_build_id" in bindings
     assert "_published_release_id" in bindings
     outputs = {field.name: field for field in spec.recipe.fields}
-    assert outputs["selection_release_id"].expression == Parameter("selection_release_id")
+    assert outputs["selection_release_id"].expression == InternalBinding("selection_release_id")
     assert outputs["producer_release_id"].expression == InternalBinding("published_release_id")
     assert spec.projection_id == spec.recipe.projection_id == installed_projection_id()
     body = str(
@@ -97,8 +97,8 @@ def test_four_families_share_resolved_core_native_and_arrow_contract(family, cou
     if family == "input":
         assert (
             "RETURN QUERY SELECT * FROM ops.read_published_input_batch_rows("
-            "p_project,p_run,p_selection_release,p_task,p_product,p_digest,"
-            "published.build_id,published.release_id);"
+            "p_project,p_demand,p_read,p_use,p_product,p_derivation,"
+            "published.build_id,published.release_id,published.task_id,published.product_key,published.logical_digest,selected_release);"
         ) in sql
     else:
         assert "RETURN QUERY " + body + ";" in sql
@@ -134,9 +134,9 @@ def test_relational_keys_roles_multiplicity_and_conditional_own_product_identity
         assert isinstance(expression.when, Equal)
         assert isinstance(expression.when.left, Field)
         assert isinstance(expression.when.right, Constant)
-        assert isinstance(expression.then, Parameter) and isinstance(expression.otherwise, Field)
+        assert isinstance(expression.then, InternalBinding) and isinstance(expression.otherwise, Field)
         assert expression.when.left.name == "target_task_id" and expression.when.right.value == 0
-        assert expression.then.name == parameter and expression.otherwise.name == name
+        assert expression.then.name == "published_" + parameter and expression.otherwise.name == name
     mapping = projection("mapping_report").recipe
     assert mapping.joins[0].multiplicity == "many_to_one"
     assert len(mapping.joins[0].keys) == 3
