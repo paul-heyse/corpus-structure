@@ -6,6 +6,8 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from corpus_structure.core.evidence import MacroDef
+
 from .data_operation_json import DdoJsonValue
 from .data_operation_model import EffectiveDataOperationModel, SubjectContext
 from .data_operation_support import SupportReference, read_support_references, support_reference_records
@@ -181,6 +183,7 @@ class DdoRichAlternative(RichRecord):
 
 
 class DdoRichAssessment(RichRecord):
+    severity: Literal["error", "warning"] | None
     member_type: Literal["assessment"]
     assessment_id: Nonempty
     occurrences: Annotated[tuple[Nonempty, ...], Field(min_length=1)]
@@ -243,11 +246,35 @@ class DdoRichConsolidation(RichRecord):
     input_population: tuple[DdoRichSelectedMember, ...]
 
 
+class DdoRichAuthoredProposition(RichRecord):
+    """An authored claim before admission supplies its actual product/member origin."""
+    member_type: Literal["authored-proposition"]
+    proposition_id: Nonempty
+    fact_id: Nonempty
+    observed_qualification_value: Nonempty
+    dependencies: tuple[Nonempty, ...]
+
+
+type DdoRichAuthoredBody = (
+    DdoRichScalarValue | DdoRichEntityValue | DdoRichRecordValue | DdoRichCollectionValue
+    | DdoRichCasefoldText | DdoRichQualificationMeaning
+    | DdoRichEntity | DdoRichFact | DdoRichAuthoredProposition
+)
+
+
+class DdoRichAuthoredPacket(RichRecord):
+    member_id: Nonempty
+    kind_contract: Nonempty
+    context: DdoRichContext
+    body: DdoRichAuthoredBody
+
+
 class DdoRichAuthoredPropositions(RichRecord):
-    """Explicit typed propositions; actual authored admission supplies their origin."""
+    """Explicit domain propositions, with no fabricated computation or source origin."""
     version: Literal["rich-authored-propositions-1"]
     standing: Literal["authored-propositions"]
-    members: tuple[DdoRichPacket, ...]
+    members: tuple[DdoRichAuthoredPacket, ...]
+    macros: dict[str, MacroDef]
 
 
 class DdoRichConsolidationPolicy(RichRecord):

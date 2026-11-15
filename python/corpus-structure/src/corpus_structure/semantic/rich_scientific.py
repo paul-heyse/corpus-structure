@@ -22,9 +22,9 @@ from .expression_context import bind_expression_context
 from .identity import canonical_bytes
 from .observations import source_python
 from .refusals import SemanticReason
-from .rich_graph_validation import RichWholeInput, read_rich_graph
+from .rich_graph_validation import RichWholeInput, ValidatedRichGraph, read_rich_graph
 from .rich_knowledge_contracts import (
-    DdoRichAssessment, DdoRichConsolidation, DdoRichFact, DdoRichOccurrence,
+    DdoRichAssessment, DdoRichAuthoredPropositions, DdoRichConsolidation, DdoRichFact, DdoRichOccurrence,
     DdoRichSelectedMember, rich_reference_key,
 )
 from .rich_rules import RichRulePolicy
@@ -36,11 +36,12 @@ from .scientific_evidence import (
 from .types import PreparedRelease
 
 _RULE = "scientific.value_equivalence"
+_AUTHORED = "https://corpus-structure.dev/semantic/data-operation-rich-knowledge/DdoRichAuthoredPropositions"
 _PACKET = "https://corpus-structure.dev/semantic/data-operation-external-extraction/DdoExternalExtractionPacket"
 
 
 class RichScientificSourceContext(BaseModel):
-    """Actual proposal member and its selected extraction packet's explicit macros."""
+    """Actual proposition member and its selected interpretation owner's explicit macros."""
     model_config = ConfigDict(extra="forbid", frozen=True)
     original: DdoRichSelectedMember
     context: DdoRichSelectedMember
@@ -80,6 +81,43 @@ def _macros(value: Any, context: RichScientificSourceContext) -> dict[str, Macro
     return {name: context.macros[name] for name in sorted(names)}
 
 
+def checked_rich_source_contexts(
+    prepared: PreparedRelease, state: ValidatedRichGraph, *,
+    source_contexts: tuple[RichScientificSourceContext, ...], whole_inputs: tuple[RichWholeInput, ...],
+) -> dict[bytes, RichScientificSourceContext]:
+    """Check actual selected packet/authored macros once for scientific and rule consumers."""
+    packet_inputs = {rich_reference_key(item.reference): item.value for item in whole_inputs}
+    if len(packet_inputs) != len(whole_inputs):
+        raise ValueError("rich scientific context repeats an actual whole input")
+    contexts = {}
+    for source in source_contexts:
+        state.occurrence_source(source.original)
+        state.external(source.context)
+        owner = state.kind(source.context.kind_contract).semantic_id
+        if source.context.member_id is not None or owner not in {_PACKET, _AUTHORED}:
+            raise ValueError("rich scientific context is not its actual selected extraction packet or authored propositions")
+        packet = packet_inputs.get(rich_reference_key(source.context))
+        if packet is None:
+            raise ValueError("rich scientific context lacks its actual selected packet body")
+        if owner == _PACKET:
+            checked_packet = prepared.validate_python("DdoExternalExtractionPacket", packet)
+            actual_macros = source_python(_plain(checked_packet)["macros"])
+        else:
+            from .data_operation_ports import _untrusted_value
+            authored = DdoRichAuthoredPropositions.model_validate(_untrusted_value(packet))
+            actual_macros = _plain(authored.macros)
+        if not isinstance(actual_macros, dict):
+            raise ValueError("rich scientific packet macros are not an explicit source mapping")
+        parsed_macros = {name: MacroDef.model_validate(value) for name, value in actual_macros.items()}
+        if parsed_macros != source.macros:
+            raise ValueError("rich scientific macros differ from the actual selected packet")
+        key = rich_reference_key(source.original)
+        if key in contexts:
+            raise ValueError("rich scientific source context repeats an actual proposal member")
+        contexts[key] = source
+    return contexts
+
+
 def assess_rich_scientific(
     prepared: PreparedRelease,
     model: EffectiveDataOperationModel,
@@ -91,6 +129,7 @@ def assess_rich_scientific(
     context_profile: AnalysisContextProfile,
     source_contexts: tuple[RichScientificSourceContext, ...],
     whole_inputs: tuple[RichWholeInput, ...] = (),
+    retained_graphs: tuple[RichWholeInput, ...] = (),
 ) -> tuple[DdoRichAssessment, ...]:
     """Compare distinct functional accepted-value facts within exact qualification slots.
 
@@ -101,28 +140,8 @@ def assess_rich_scientific(
     if policy.prepared != prepared:
         raise ValueError("rich scientific policy differs from its actual prepared interpretation")
     require_scientific_policy(prepared, context_profile=context_profile)
-    state = read_rich_graph(prepared, model, context=context, graph=graph, inputs=inputs, whole_inputs=whole_inputs)
-    packet_inputs = {rich_reference_key(item.reference): item.value for item in whole_inputs}
-    contexts = {}
-    for source in source_contexts:
-        state.external(source.original)
-        state.external(source.context)
-        if source.context.member_id is not None or state.kind(source.context.kind_contract).semantic_id != _PACKET:
-            raise ValueError("rich scientific context is not its actual selected extraction packet")
-        packet = packet_inputs.get(rich_reference_key(source.context))
-        if packet is None:
-            raise ValueError("rich scientific context lacks its actual selected packet body")
-        checked_packet = prepared.validate_python("DdoExternalExtractionPacket", packet)
-        actual_macros = source_python(_plain(checked_packet)["macros"])
-        if not isinstance(actual_macros, dict):
-            raise ValueError("rich scientific packet macros are not an explicit source mapping")
-        parsed_macros = {name: MacroDef.model_validate(value) for name, value in actual_macros.items()}
-        if parsed_macros != source.macros:
-            raise ValueError("rich scientific macros differ from the actual selected packet")
-        key = rich_reference_key(source.original)
-        if key in contexts:
-            raise ValueError("rich scientific source context repeats an actual proposal member")
-        contexts[key] = source
+    state = read_rich_graph(prepared, model, context=context, graph=graph, inputs=inputs, whole_inputs=whole_inputs, retained_graphs=retained_graphs)
+    contexts = checked_rich_source_contexts(prepared, state, source_contexts=source_contexts, whole_inputs=whole_inputs)
     groups = defaultdict(list)
     for occurrence in state.members.values():
         if not isinstance(occurrence, DdoRichOccurrence):
@@ -145,6 +164,8 @@ def assess_rich_scientific(
         members = sorted(groups[slot], key=lambda item: item.occurrence_id)
         for left_occurrence, right_occurrence in combinations(members, 2):
             if left_occurrence.fact_id == right_occurrence.fact_id:
+                continue
+            if {left_occurrence.occurrence_id, right_occurrence.occurrence_id} <= state.retained_member_ids:
                 continue
             operands, qualifiers, source_pair, macros = [], [], [], []
             for occurrence in (left_occurrence, right_occurrence):
@@ -202,7 +223,7 @@ def assess_rich_scientific(
                 [item.model_dump(mode="python") for item in evidence_members],
             ]).key
             results.append(DdoRichAssessment(
-                member_type="assessment", assessment_id=identity, occurrences=occurrences,
+                severity=None, member_type="assessment", assessment_id=identity, occurrences=occurrences,
                 rule=_RULE, outcome=outcome, reason=reason, evidence_members=evidence_members,
             ))
     return tuple(sorted(results, key=lambda item: item.assessment_id))

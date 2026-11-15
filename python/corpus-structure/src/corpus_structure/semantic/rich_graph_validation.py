@@ -8,13 +8,15 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import Any
 
-from .data_operation_identity import canonical_identity
+from pydantic import BaseModel
+
+from .data_operation_identity import canonical_identity, semantic_value
 from .data_operation_json import json_bytes, json_loads
 from .data_operation_model import EffectiveDataOperationModel, SubjectContext, validate_subject_context
 from .data_operation_ports import _untrusted_value
 from .data_operation_wire import validate_wire_schema
 from .rich_knowledge_contracts import (
-    DdoRichAdmission, DdoRichAuthoredPropositions, DdoRichAlternative, DdoRichAssessment, DdoRichCasefoldText,
+    DdoRichAdmission, DdoRichAuthoredPropositions, DdoRichAuthoredProposition, DdoRichAlternative, DdoRichAssessment, DdoRichCasefoldText,
     DdoRichCollectionValue, DdoRichConsolidation, DdoRichDiagnostic, DdoRichEntity,
     DdoRichEntityValue, DdoRichFact, DdoRichOccurrence, DdoRichQualificationMeaning,
     DdoRichRecordValue, DdoRichScalarValue, DdoRichSelectedMember,
@@ -45,6 +47,8 @@ def _body_id(body) -> str:
         return body.fact_id
     if isinstance(body, DdoRichOccurrence):
         return body.occurrence_id
+    if isinstance(body, DdoRichAuthoredProposition):
+        return body.proposition_id
     if isinstance(body, DdoRichSourceReadingAssertion):
         return body.reading_id
     if isinstance(body, DdoRichAlternative):
@@ -56,8 +60,27 @@ def _body_id(body) -> str:
     raise ValueError("rich member has no declared current identity owner")
 
 
+def _meaning(value):
+    from .identity import canonical_bytes
+    return canonical_bytes(semantic_value(_untrusted_value(value)))
+
+
+def _references(value):
+    if isinstance(value, DdoRichSelectedMember):
+        yield value
+    elif isinstance(value, BaseModel):
+        for name in type(value).model_fields:
+            yield from _references(getattr(value, name))
+    elif isinstance(value, dict):
+        for item in value.values():
+            yield from _references(item)
+    elif isinstance(value, (tuple, list)):
+        for item in value:
+            yield from _references(item)
+
+
 class ValidatedRichGraph:
-    def __init__(self, prepared, model, context, graph, inputs, whole_inputs):
+    def __init__(self, prepared, model, context, graph, inputs, whole_inputs, retained_states=()):
         self.prepared, self.model, self.context = prepared, model, context
         self.graph = graph
         self.kinds = {kind.semantic_id: kind for kind in model.kinds}
@@ -72,6 +95,10 @@ class ValidatedRichGraph:
         self.ids = {item.owner: item.key for item in model.identities if item.domain == "kind"}
         self.owners = {contract: owner for owner, contract in self.ids.items()}
         self.members = {}
+        self.packets = {}
+        self._checking_member = None
+        self._retained_provenance = {}
+        self.retained_roots = tuple(item.selection for item in retained_states)
         self.decoded = {}
         self.active = set()
         self.reached_values = set()
@@ -106,6 +133,15 @@ class ValidatedRichGraph:
             if actual != context:
                 raise ValueError("rich member context differs from its actual knowledge subject")
             self.members[packet.member_id] = packet.body
+            self.packets[packet.member_id] = packet
+            for retained in retained_states:
+                original = retained.packets.get(packet.member_id)
+                if original is not None and _meaning(original) == _meaning(packet):
+                    self._retained_provenance[packet.member_id] = {rich_reference_key(ref) for ref in _references(original.body)}
+
+    @property
+    def retained_member_ids(self) -> frozenset[str]:
+        return frozenset(self._retained_provenance)
 
     def member(self, identifier, classes):
         body = self.members.get(identifier)
@@ -114,12 +150,27 @@ class ValidatedRichGraph:
         return body
 
     def external(self, reference):
-        if rich_reference_key(reference) not in self.inputs:
+        key = rich_reference_key(reference)
+        if key not in self.inputs:
             if not any(parent.product_id == reference.product_id and parent.support_references == reference.support_references
                        and members.get(reference.member_id) == reference.kind_contract
                        for parent, members in self.whole_members):
-                raise ValueError("rich source reference differs from an actual selected input or nominal whole member")
+                if key in self._retained_provenance.get(self._checking_member, ()):
+                    # Only an unchanged packet of an actual selected accepted root
+                    # may preserve its embedded opaque historical provenance.
+                    return
+                raise ValueError("rich source reference differs from an actual selected input or unchanged retained packet")
         self.kind(reference.kind_contract)
+
+    def occurrence_source(self, reference):
+        """Identify an unchanged occurrence's original; this grants no input authority."""
+        key = rich_reference_key(reference)
+        if any(isinstance(packet.body, DdoRichOccurrence)
+               and rich_reference_key(packet.body.original) == key
+               and key in self._retained_provenance.get(identifier, ())
+               for identifier, packet in self.packets.items()):
+            return
+        self.external(reference)
 
     def kind(self, contract):
         owner = self.owners.get(contract)
@@ -256,7 +307,31 @@ class ValidatedRichGraph:
         return body
 
     def check(self):
+        if isinstance(self.graph, DdoRichAuthoredPropositions):
+            from .record_contracts import record_product_classes
+            source_classes = record_product_classes(self.prepared.definitions)
+            def domain_class(definition):
+                if definition.name in source_classes or definition.name == "SourceReading" or "SourceReading" in definition.ancestors:
+                    raise ValueError("authored propositions cannot manufacture source-reading or private record members")
+            for body in self.members.values():
+                if isinstance(body, DdoRichEntity):
+                    if body.source_members:
+                        raise ValueError("authored entity origin is supplied by its actual admission, not embedded source references")
+                    for contract in body.class_contracts:
+                        domain_class(self.definition(contract))
+                elif isinstance(body, DdoRichRecordValue):
+                    domain_class(self.definition(body.kind_contract))
+        if isinstance(self.graph, DdoRichAdmission):
+            for decision in self.graph.reading_decisions:
+                if decision.assertion_member_id is not None:
+                    assertion = self.member(decision.assertion_member_id, DdoRichSourceReadingAssertion)
+                    if (assertion.record_id, assertion.source_interpretation_id, assertion.interpretation_id,
+                        assertion.original, assertion.resolution, assertion.resolved) != (
+                            decision.record_id, decision.source_interpretation_id, decision.interpretation_id,
+                            decision.original, decision.resolution, decision.resolved):
+                        raise ValueError("rich reading decision differs from its actual local assertion")
         for body in self.members.values():
+            self._checking_member = _body_id(body)
             if isinstance(body, DdoRichEntity):
                 if len(set(body.class_contracts)) != len(body.class_contracts):
                     raise ValueError("rich entity repeats actual class membership")
@@ -290,11 +365,18 @@ class ValidatedRichGraph:
                 expected = canonical_identity("rich-fact", [self.context.identity_record, body.subject_entity, body.property_contract, body.object_value, body.qualification_meaning]).key
                 if expected != body.fact_id:
                     raise ValueError("rich fact identity differs from its actual context and values")
-            elif isinstance(body, DdoRichOccurrence):
+            elif isinstance(body, (DdoRichOccurrence, DdoRichAuthoredProposition)):
                 fact = self.member(body.fact_id, DdoRichFact)
-                self.external(body.original)
-                if body.statement is not None:
-                    self.external(body.statement)
+                if isinstance(body, DdoRichOccurrence):
+                    self.external(body.original)
+                    if body.statement is not None:
+                        self.external(body.statement)
+                else:
+                    expected_id = canonical_identity("rich-authored-proposition", [
+                        self.context.identity_record, body.fact_id, body.observed_qualification_value, sorted(set(body.dependencies)),
+                    ]).key
+                    if body.proposition_id != expected_id or len(set(body.dependencies)) != len(body.dependencies):
+                        raise ValueError("authored proposition differs from its actual fact/qualification/dependency meaning")
                 for dependency in body.dependencies:
                     self.member(dependency, DdoRichFact)
                 observed = self.value(body.observed_qualification_value)
@@ -328,13 +410,58 @@ class ValidatedRichGraph:
             elif isinstance(body, DdoRichDiagnostic):
                 for ref in body.source_members:
                     self.external(ref)
+        self._checking_member = None
         if self.reached_values != {identifier for identifier, body in self.members.items() if isinstance(body, _VALUES)}:
             raise ValueError("rich graph retains unreferenced or unchecked value members")
 
 
+class _RetainedRichGraph(ValidatedRichGraph):
+    """Local current meaning, with only its actual root's embedded opaque provenance."""
+
+    def __init__(self, prepared, model, context, graph, selection):
+        self.selection = selection
+        self._embedded_provenance = {rich_reference_key(ref) for ref in _references(graph)}
+        super().__init__(prepared, model, context, graph, (), ())
+
+    def external(self, reference):
+        if rich_reference_key(reference) not in self._embedded_provenance:
+            raise ValueError("reference is not embedded unchanged in the actual retained rich root")
+
+
+def read_retained_rich_graph(prepared: PreparedRelease, model: EffectiveDataOperationModel, *, context: SubjectContext,
+                             retained: RichWholeInput, inputs: tuple[DdoRichSelectedMember, ...],
+                             whole_inputs: tuple[RichWholeInput, ...]) -> ValidatedRichGraph:
+    """Decode a selected accepted whole without pretending its old sources are inputs.
+
+    Pure decoding grants no accepted standing. The native producer owner separately
+    authenticates the actual admission/effect/CPU/common receipt and current seal.
+    """
+    validate_subject_context(model, context)
+    if model.subject_definition(context.subject_definition).scope != "project" or context.original_source is not None:
+        raise ValueError("retained rich graph requires its actual source-free project context")
+    reference = DdoRichSelectedMember.model_validate(_untrusted_value(retained.reference), strict=True)
+    key = rich_reference_key(reference)
+    if reference.member_id is not None or key not in {rich_reference_key(item) for item in inputs}:
+        raise ValueError("retained rich graph is not an actual selected whole input")
+    actual = [item for item in whole_inputs if rich_reference_key(item.reference) == key]
+    if len(actual) != 1 or _meaning(actual[0].value) != _meaning(retained.value):
+        raise ValueError("retained rich graph differs from its actual selected whole body")
+    owner = _NAMESPACE + "DdoRichAdmission"
+    contract = next((item.key for item in model.identities if item.domain == "kind" and item.owner == owner), None)
+    kind = next((item for item in model.kinds if item.semantic_id == owner), None)
+    if kind is None or not kind.complete or reference.kind_contract != contract:
+        raise ValueError("retained graph lacks its current-compatible whole admission contract; regenerate")
+    validate_wire_schema(json.loads(kind.facts)["json_schema"], json_loads(json_bytes(_untrusted_value(retained.value))))
+    checked = DdoRichAdmission.model_validate(_untrusted_value(retained.value))
+    state = _RetainedRichGraph(prepared, model, context, checked, retained)
+    state.check()
+    return state
+
+
 def read_rich_graph(prepared: PreparedRelease, model: EffectiveDataOperationModel, *, context: SubjectContext,
                     graph: DdoRichConsolidation | DdoRichAdmission | DdoRichAuthoredPropositions, inputs: tuple[DdoRichSelectedMember, ...],
-                    whole_inputs: tuple[RichWholeInput, ...] = ()) -> ValidatedRichGraph:
+                    whole_inputs: tuple[RichWholeInput, ...] = (),
+                    retained_graphs: tuple[RichWholeInput, ...] = ()) -> ValidatedRichGraph:
     """Validate once and expose the same finite typed decoder to current CPU consumers."""
     validate_subject_context(model, context)
     if model.subject_definition(context.subject_definition).scope != "project" or context.original_source is not None:
@@ -343,7 +470,15 @@ def read_rich_graph(prepared: PreparedRelease, model: EffectiveDataOperationMode
     if owner not in {DdoRichAdmission, DdoRichConsolidation, DdoRichAuthoredPropositions}:
         raise ValueError("rich graph has no actual declared whole-product owner")
     checked = owner.model_validate(_untrusted_value(graph), strict=True)
-    state = ValidatedRichGraph(prepared, model, context, checked, inputs, whole_inputs)
+    kind = next((item for item in model.kinds if item.semantic_id == _NAMESPACE + owner.__name__), None)
+    if kind is None or not kind.complete:
+        raise ValueError("rich graph lacks its actual current-compatible root kind")
+    validate_wire_schema(json.loads(kind.facts)["json_schema"], json_loads(json_bytes(checked.model_dump(mode="python"))))
+    if len({rich_reference_key(item.reference) for item in retained_graphs}) != len(retained_graphs):
+        raise ValueError("retained rich graph repeats an actual selected whole")
+    retained_states = tuple(read_retained_rich_graph(prepared, model, context=context, retained=item,
+                                                    inputs=inputs, whole_inputs=whole_inputs) for item in retained_graphs)
+    state = ValidatedRichGraph(prepared, model, context, checked, inputs, whole_inputs, retained_states)
     if isinstance(checked, DdoRichAdmission):
         state.external(checked.consolidation)
         if state.kind(checked.consolidation.kind_contract).semantic_id != _NAMESPACE + "DdoRichConsolidation":
@@ -359,6 +494,7 @@ def read_rich_graph(prepared: PreparedRelease, model: EffectiveDataOperationMode
 
 def validate_rich_graph(prepared: PreparedRelease, model: EffectiveDataOperationModel, *, context: SubjectContext,
                         graph: DdoRichConsolidation | DdoRichAdmission | DdoRichAuthoredPropositions, inputs: tuple[DdoRichSelectedMember, ...],
-                        whole_inputs: tuple[RichWholeInput, ...] = ()):
+                        whole_inputs: tuple[RichWholeInput, ...] = (),
+                        retained_graphs: tuple[RichWholeInput, ...] = ()):
     """Validate finite graph meaning; selected/native publication custody stays with its owner."""
-    return read_rich_graph(prepared, model, context=context, graph=graph, inputs=inputs, whole_inputs=whole_inputs).graph
+    return read_rich_graph(prepared, model, context=context, graph=graph, inputs=inputs, whole_inputs=whole_inputs, retained_graphs=retained_graphs).graph

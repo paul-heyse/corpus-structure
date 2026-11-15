@@ -180,3 +180,67 @@ def test_reading_fidelity_cannot_be_lowered_into_a_scientific_fact(scientific):
         graph.add_property_fact(subject_entity="reading:actual", class_name="DefinitionReading", property_name="label",
                                 value="A faithful quotation is not a scientific conclusion", qualification={"modality": "asserted", "polarity": True})
     assert graph.facts == ()
+
+
+def test_actual_authored_propositions_supply_explicit_interpretation_without_a_synthetic_packet(scientific):
+    from corpus_structure.semantic.data_operation_identity import canonical_identity
+    from corpus_structure.semantic.data_operation_support import AuthoredFactSupportReference
+    from corpus_structure.semantic.rich_knowledge_contracts import DdoRichAuthoredProposition, DdoRichAuthoredPacket, DdoRichAuthoredPropositions
+
+    inputs = graph_inputs(scientific, ({"kind": "number", "number": Decimal("1")}, {"kind": "number", "number": Decimal("2")}))
+    _, model, _, _ = scientific
+    ids = {item.owner: item.key for item in model.identities if item.domain == "kind"}
+    authored_packets, originals = [], {}
+    for packet_value in inputs["graph"].members:
+        body = packet_value.body
+        if isinstance(body, DdoRichEntity):
+            body = body.model_copy(update={"source_members": ()})
+        if isinstance(body, DdoRichOccurrence):
+            key = canonical_identity("rich-authored-proposition", [inputs["context"].identity_record, body.fact_id, body.observed_qualification_value, sorted(set(body.dependencies))]).key
+            body = DdoRichAuthoredProposition(member_type="authored-proposition", proposition_id=key, fact_id=body.fact_id,
+                                             observed_qualification_value=body.observed_qualification_value, dependencies=body.dependencies)
+            originals[packet_value.member_id] = key
+        identifier = body.proposition_id if isinstance(body, DdoRichAuthoredProposition) else packet_value.member_id
+        authored_packets.append(DdoRichAuthoredPacket(member_id=identifier, kind_contract=ids[PREFIX + type(body).__name__], context=packet_value.context, body=body))
+    authored = DdoRichAuthoredPropositions(version="rich-authored-propositions-1", standing="authored-propositions", members=tuple(authored_packets), macros={})
+    reference = DdoRichSelectedMember(product_id="product:authored-domain", member_id=None, kind_contract=ids[PREFIX + "DdoRichAuthoredPropositions"],
+                                      support_references=(AuthoredFactSupportReference(admission_id="admission:authored", source_reference="authored:domain"),))
+    contexts, packets = [], []
+    for packet_value in inputs["graph"].members:
+        body = packet_value.body
+        if isinstance(body, DdoRichEntity):
+            body = body.model_copy(update={"source_members": (reference.model_copy(update={"member_id": body.entity_id, "kind_contract": ids[PREFIX + "DdoRichEntity"]}),)})
+        elif isinstance(body, DdoRichOccurrence):
+            original = reference.model_copy(update={"member_id": originals[body.occurrence_id], "kind_contract": ids[PREFIX + "DdoRichAuthoredProposition"]})
+            body = body.model_copy(update={"original": original})
+            contexts.append(RichScientificSourceContext(original=original, context=reference, macros={}))
+        packets.append(packet_value.model_copy(update={"body": body}))
+    actual = {**inputs, "graph": inputs["graph"].model_copy(update={"members": tuple(packets), "input_population": (reference,)}),
+              "inputs": (reference,), "whole_inputs": (RichWholeInput(reference, authored),), "source_contexts": tuple(contexts)}
+    result = assess(scientific, actual)
+    assert result[0].outcome == "different" and result[0].severity is None
+    assert {item.product_id for item in result[0].evidence_members} == {reference.product_id}
+    assert all(item.support_references[0].kind == "authored" for item in result[0].evidence_members)
+
+
+def test_known_known_comparisons_preserve_prior_assessment_but_new_known_requires_actual_context(scientific):
+    from corpus_structure.semantic.rich_knowledge_contracts import DdoRichAdmission
+    inputs = graph_inputs(scientific, ({"kind": "number", "number": Decimal("1")}, {"kind": "number", "number": Decimal("2")}))
+    _, model, _, _ = scientific
+    ids = {item.owner: item.key for item in model.identities if item.domain == "kind"}
+    reference = inputs["inputs"][0].model_copy(update={"product_id": "product:known-admission", "member_id": None, "kind_contract": ids[PREFIX + "DdoRichAdmission"]})
+    consolidation = reference.model_copy(update={"product_id": "historical:consolidation", "kind_contract": "historical:consolidation-kind"})
+    root = DdoRichAdmission(version="rich-admission-1", standing="accepted", members=inputs["graph"].members, consolidation=consolidation, policy_authorizations=(), reading_decisions=())
+    retained = RichWholeInput(reference, root)
+    graph = inputs["graph"].model_copy(update={"input_population": (reference,)})
+    actual = {**inputs, "graph": graph, "inputs": (reference,), "source_contexts": (), "whole_inputs": (retained,), "retained_graphs": (retained,)}
+    assert assess(scientific, actual) == ()
+    prior = root.model_copy(update={"members": tuple(item for item in root.members if item.member_id != "occurrence:1")})
+    retained = RichWholeInput(reference, prior)
+    fresh = inputs["source_contexts"][1]
+    selected = (reference, fresh.original, fresh.context)
+    graph = graph.model_copy(update={"input_population": selected})
+    actual = {**actual, "graph": graph, "inputs": selected, "source_contexts": (fresh,),
+              "whole_inputs": (retained, inputs["whole_inputs"][1]), "retained_graphs": (retained,)}
+    with pytest.raises(ValueError, match="explicit selected source context"):
+        assess(scientific, actual)
