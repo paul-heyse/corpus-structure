@@ -1738,7 +1738,7 @@ END $$;
 -- The captured member schema/contracts decide whether `members` has this meaning.
 CREATE OR REPLACE FUNCTION ops.ddo_body_kind_contracts(p_kind text,p_body jsonb) RETURNS SETOF text
 LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
-DECLARE kind sem.data_kind_contract; members jsonb; packet jsonb; child text; child_body jsonb;
+DECLARE kind sem.data_kind_contract; child_kind sem.data_kind_contract; members jsonb; packet jsonb; child text; child_body jsonb;
 BEGIN
  SELECT * INTO STRICT kind FROM sem.data_kind_contract WHERE kind_contract=p_kind;
  RETURN NEXT p_kind;
@@ -1751,6 +1751,10 @@ BEGIN
  child_body:=data.ddo_field(packet,'body');
  IF child IS NULL OR child_body IS NULL OR NOT kind.member_contracts ? child THEN
  RAISE EXCEPTION 'body member kind is outside its captured nominal contract'; END IF;
+ SELECT * INTO STRICT child_kind FROM sem.data_kind_contract WHERE kind_contract=child;
+ IF NOT public.json_matches_schema(child_kind.meaning_schema::json,child_body::json)
+ OR NOT public.json_matches_schema(child_kind.body_schema::json,data.ddo_json(child_body)::json) THEN
+ RAISE EXCEPTION 'body member value differs from its captured nominal kind'; END IF;
  RETURN QUERY SELECT * FROM ops.ddo_body_kind_contracts(child,child_body);
  END LOOP;
 END $$;
