@@ -94,7 +94,12 @@ def test_actual_cli_and_mcp_reports_share_current_archived_declaration_and_front
                 }
                 selected = json.loads(result["observation_json"])
                 assert selected["items"] == frontier["items"]
-                assert selected["cut_id"] == frontier["cut_id"]
+                # Separate fresh reads own separate read/snapshot pins. Compare the
+                # actual demand/release and frontier rather than relabelling cuts.
+                for field in ("release_id", "project_id", "demand_id"):
+                    assert selected["cut"][field] == frontier["cut"][field]
+                assert selected["cut"]["read_id"]
+                assert frontier["cut"]["read_id"]
                 difference = await client.call_tool(
                     "compare_semantic_releases",
                     {
