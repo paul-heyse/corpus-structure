@@ -61,9 +61,6 @@ def test_primary_inputs_compile_owned_factories_and_exact_provider_custody(tmp_p
         if operation.capabilities.prepared_factory is not None
     }
     assert factories == expected
-    for operation in sorted(expected):
-        factory = resolve_prepared_factory(model, inputs.sources, operation)
-        assert callable(factory)
     custody = {artifact.name: artifact for artifact in inputs.sources.boundary_contracts}
     assert json.loads(custody["sentences/execution-custody"].content)["configuration"] == (
         configuration.model_dump(mode="json")
@@ -86,7 +83,6 @@ def test_primary_inputs_compile_owned_factories_and_exact_provider_custody(tmp_p
     assert set(dependencies["text.contextual_evaluation/source-native"]) == {
         "text.formal_evidence/source-native",
         "text.constructions/source-native",
-        "text.declaration_syntax/source-native",
     }
     assert not model.operation("text.compose_view/source-native").potential_dependencies
     assert set(model.operation("text.compose_view/full-native").potential_dependencies) == {
@@ -109,6 +105,7 @@ def test_primary_inputs_compile_owned_factories_and_exact_provider_custody(tmp_p
         "formal",
         "constructions",
         "contextual",
+        "declaration_syntax",
     }
     assert all(
         role.presence == "alternative" and role.minimum == 0 and len(role.alternatives) == 1

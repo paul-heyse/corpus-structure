@@ -13,7 +13,6 @@ from corpus_structure.methods.native_profiles import (
 )
 from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
 from corpus_structure.semantic.data_operation_admission import bound_data_operation_model
-from corpus_structure.semantic.data_operation_consumers import resolve_prepared_factory
 from corpus_structure.semantic.primary_operations import primary_operation_inputs
 
 
@@ -89,7 +88,6 @@ def test_learned_profile_captures_actual_provider_factories_and_private_outputs(
     for identity in expected:
         operation = model.operation(identity)
         assert operation.capabilities.prepared_factory is not None
-        assert callable(resolve_prepared_factory(model, inputs.sources, identity))
         assert {role.name for role in operation.roles if role.direction == "output"} == {
             "result",
             "candidates",

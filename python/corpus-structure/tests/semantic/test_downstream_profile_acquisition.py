@@ -75,6 +75,16 @@ def test_public_learned_math_downstream_profile_has_complete_captured_factories(
     assert captured is not None and captured[1] is not None
     sources = captured[1]
     expected = {
+        "source.selected_views/discovery",
+        "text.formal_evidence/source-native",
+        "text.constructions/source-native",
+        "text.contextual_evaluation/source-native",
+        "text.contextual_native/source-native",
+        "text.compose_view/source-native",
+        "text.compose_view/full-native",
+        "locate.definition_terms/declared",
+        "retrieve.contextual_inventory/declared",
+        "resolve.m1_readings/declared",
         "segment.sentences/source-native",
         "segment.sentences/canonical-projection",
         "text.hanlp_native/source-native",
@@ -111,7 +121,7 @@ def test_public_learned_math_downstream_profile_has_complete_captured_factories(
         identity for identity, operation in operations.items()
         if operation.implementation_root is not None and operation.capabilities.preparation != "none"
     }
-    assert expected <= factory_operations
+    assert expected == factory_operations
     for identity in sorted(factory_operations):
         assert operations[identity].capabilities.prepared_factory is not None, identity
         assert callable(resolve_prepared_factory(model, sources, identity)), identity
@@ -142,6 +152,7 @@ def test_public_learned_math_downstream_profile_has_complete_captured_factories(
         "kind_contract",
         "project_id",
         "subject",
+        "subject_definition",
         "original_source",
         "analyzed_scope",
     }
@@ -303,7 +314,6 @@ def test_public_downstream_acquires_private_reading_resolution_without_model_sel
     model, sources = _compiled_acquisition(root)
     operation = model.operation("resolve.m1_readings/declared")
     assert operation.dependencies == ()
-    assert callable(resolve_prepared_factory(model, sources, operation.semantic_id))
     roles = {role.name: role for role in operation.roles}
     assert roles["policy"].support is not None
     assert roles["policy"].support.origins == ("authored",)
@@ -349,7 +359,6 @@ def test_public_downstream_acquires_definition_location_with_exact_report_witnes
     assert inputs["selection"].support is not None and inputs["selection"].support.origins == (
         "authored",
     )
-    assert callable(resolve_prepared_factory(model, sources, operation.semantic_id))
     witnesses = {witness.input_role: witness for witness in operation.output_witnesses}
     assert set(witnesses) == {"source", "components", "selection"}
     for role, witness in witnesses.items():

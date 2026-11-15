@@ -19,14 +19,18 @@ from corpus_structure.semantic.data_operation_wire import (
     wire_kind_declarations,
     wire_role_kind,
 )
-from corpus_structure.semantic.identity import canonical_bytes, claim_source_item__data_operation__
+from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.types import SourceArtifact
 from semantic.data_operation_port_support import captured
+from semantic.data_operation_declaration_support import contract
 
 
 def wire_model(sources=None, binding=None):
-    declaration: dict[str, Any] = copy.deepcopy(claim_source_item__data_operation__)
-    declaration["id"] = "data.claim_data_request"
+    declaration: dict[str, Any] = contract(
+        id="data.claim_data_request", profile="command",
+        behavior="controlled-native-wire-v1", invariants=[], outcomes=["success"],
+        transitions=[], state_dimensions=[],
+    )
     declaration["roles"][0].update(
         name="request",
         parameter="payload",
