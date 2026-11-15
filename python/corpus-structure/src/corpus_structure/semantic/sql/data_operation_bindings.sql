@@ -632,7 +632,10 @@ DECLARE demand ops.data_demand; request ops.data_request; archived jsonb; projec
 BEGIN
  SELECT * INTO STRICT demand FROM ops.data_demand WHERE id=p_demand;
  SELECT * INTO STRICT request FROM ops.data_request WHERE request_key=data.ddo_identity('semantic-request',p_request_meaning);
- IF request.operation_id<>p_operation OR request.subject<>p_subject OR request.release_id<>demand.release_id OR request.project_id<>demand.project_id THEN RAISE EXCEPTION 'native binding request custody differs'; END IF;
+ -- A semantic request can be reused across releases when the target admits its
+ -- exact recipe. The producing episode retains its original immutable release.
+ IF request.operation_id<>p_operation OR request.subject<>p_subject OR request.project_id<>demand.project_id
+ OR NOT EXISTS(SELECT FROM sem.data_operation_definition target WHERE target.release_id=demand.release_id AND target.operation_id=p_operation AND target.recipe=request.recipe) THEN RAISE EXCEPTION 'native binding request custody differs'; END IF;
  SELECT convert_from(content,'UTF8')::jsonb,encode(sha256(content),'hex') INTO STRICT archived,archive_digest FROM sem.artifact WHERE release_id=demand.release_id AND artifact_name='data_operations.json';
  SELECT convert_from(content,'UTF8')::jsonb INTO STRICT projection FROM sem.artifact WHERE release_id=demand.release_id AND artifact_name='data_operation_native_definitions.json';
  IF projection->>'model_digest' IS DISTINCT FROM archive_digest THEN RAISE EXCEPTION 'native binding artifact model correspondence differs'; END IF;

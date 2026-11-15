@@ -471,13 +471,14 @@ def test_native_population_closure_requires_each_frozen_producer_context(ddo_ker
     from corpus_structure.semantic._data_operation_wire import (
         WireCloseDataPopulationRequest,
         WireExpandDataObligationRequest,
+        WireRetainDataCompletionIntentRequest,
     )
     from corpus_structure.semantic.change_impact import _acquire
     from corpus_structure.semantic.data_operation_demands import DemandPlanner, RootSubject
     from corpus_structure.semantic.data_operation_identity import semantic_value
     from corpus_structure.semantic.data_operation_storage import DataOperationStorage
     from semantic.data_operation_binding_support import discover
-    from semantic.data_operation_demand_support import claim, publish, retain
+    from semantic.data_operation_demand_support import claim, publish
 
     demand, _, _ = discover(
         ddo_kernel,
@@ -503,6 +504,7 @@ def test_native_population_closure_requires_each_frozen_producer_context(ddo_ker
         planner.storage.expand_data_obligation(
             cast(
                 WireExpandDataObligationRequest,
+                WireRetainDataCompletionIntentRequest,
                 dict(
                     demand_id=demand["demand_id"],
                     operation_id="urn:discover",
@@ -522,12 +524,35 @@ def test_native_population_closure_requires_each_frozen_producer_context(ddo_ker
         next(k.semantic_id for k in ddo_kernel["model"].kinds if k.name == "Population"), "kind"
     ]
 
-    def output(completion):
-        completion["outputs"][0]["product"].update(
-            kind_contract=kind, body=semantic_value({"complete": True, "members": []}), members=[]
+    with ddo_kernel["engine"].begin() as connection:
+        intent = DataOperationStorage(connection).retain_data_completion_intent(
+            cast(
+                WireRetainDataCompletionIntentRequest,
+                dict(
+                    **fence,
+                    runtime_id=ddo_kernel["runtime"],
+                    completion=dict(
+                        outcome="success",
+                        implementation_revision="native-test-source-v1",
+                        inputs=[],
+                        support=[],
+                        outputs=[
+                            dict(
+                                role="result",
+                                position=0,
+                                multiplicity=1,
+                                product=dict(
+                                    kind_contract=kind,
+                                    body=semantic_value({"complete": True, "members": []}),
+                                    members=[],
+                                ),
+                            )
+                        ],
+                    ),
+                ),
+            )
         )
-
-    receipt = publish(ddo_kernel, fence, retain(ddo_kernel, fence, mutate=output))
+    receipt = publish(ddo_kernel, fence, intent)
     with ddo_kernel["engine"].begin() as connection:
         storage = DataOperationStorage(connection)
         snapshot = planner.__class__(ddo_kernel["model"], storage).resume(demand["demand_id"])
