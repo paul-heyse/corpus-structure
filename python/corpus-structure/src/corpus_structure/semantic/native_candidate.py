@@ -243,7 +243,6 @@ _PDF_PAYLOAD_FUNCTIONS = frozenset(
         "publish_source_view",
         "validate_projected_source_fields",
         "validate_native_frame_source",
-        "publish_pdf_region_artifact",
         "pdf_record_scope_health",
         "publish_pdf_observation",
         "index_pdf_visual_mapping",
@@ -590,6 +589,7 @@ _RETIRED_SOURCE_FUNCTIONS = frozenset(
     {
         ("sem", "publish_release_archive"),
         ("ops", "pdf_check_build_inventory"),
+        ("ops", "publish_pdf_region_artifact"),
         ("kb", "check_offsets"),
         ("data", "structural_public_statement"),
         ("ops", "dossier_contribution_members"),
@@ -2024,6 +2024,59 @@ def _order_physical_retirement(upgrade_ops):
     upgrade_ops.ops[:] = [*ordinary, *constraints, *native, *drops]
 
 
+def _order_row_type_evolution(connection, upgrade_ops, authoring):
+    """Bracket physical row changes with exact declared dependent transitions.
+
+    PostgreSQL refuses some table rewrites while SQL-standard bodies retain its
+    composite type. The existing bounded catalog graph supplies ordering facts;
+    frozen predecessors and declared targets supply every dropped/restored body.
+    Unmanaged dependents remain a RESTRICT refusal, never an implicit CASCADE.
+    """
+    import networkx as nx
+    from alembic.operations import ops
+
+    from .alembic_native import NativeTransitionOp
+    from .native_objects import native_dependency_graph
+
+    relations = set()
+
+    def visit(operation):
+        if isinstance(operation, (ops.AddColumnOp, ops.DropColumnOp)) or (
+            isinstance(operation, ops.AlterColumnOp) and operation.modify_type is not None
+        ):
+            relations.add(NativeIdentity("table", operation.schema or "public", operation.table_name))
+        for child in getattr(operation, "ops", ()):
+            visit(child)
+
+    visit(upgrade_ops)
+    if not relations:
+        return
+    before = {item.identity: item for item in authoring.predecessor}
+    after = {item.identity: item for item in authoring.desired}
+    identities = (*before, *sorted(relations, key=lambda identity: identity.qualified))
+    graph = native_dependency_graph(connection, identities)
+    selected = set().union(*(nx.descendants(graph, identity, backend="networkx") for identity in relations)) & before.keys()
+    if not selected:
+        return
+    declared = {identity: position for position, identity in enumerate(graph)}
+    try:
+        order = tuple(nx.lexicographical_topological_sort(graph, key=declared.__getitem__, backend="networkx"))
+    except nx.NetworkXUnfeasible as error:
+        raise NativeAuthoringError("physical/native row-type dependency scope is cyclic") from error
+    native = [operation for operation in upgrade_ops.ops if isinstance(operation, NativeTransitionOp)]
+    physical = [operation for operation in upgrade_ops.ops if not isinstance(operation, (NativeTransitionOp, ops.DropTableOp))]
+    dropped_tables = [operation for operation in upgrade_ops.ops if isinstance(operation, ops.DropTableOp)]
+    retiring = [operation for operation in native if operation.after is None and operation.identity not in selected]
+    installing = {operation.identity: operation for operation in native if operation.after is not None and operation.identity not in selected}
+    early = [NativeTransitionOp(before[identity], None) for identity in reversed(order) if identity in selected]
+    late = [
+        NativeTransitionOp(None, item) if item.identity in selected else installing[item.identity]
+        for item in authoring.desired
+        if item.identity in selected or item.identity in installing
+    ]
+    upgrade_ops.ops[:] = [*early, *physical, *retiring, *late, *dropped_tables]
+
+
 def _prepare_series_authoring(
     connection,
     *,
@@ -2455,6 +2508,7 @@ def prepare_series_candidate(
         # Native and physical dependency retirement stays explicit. Privileges follow installation.
         candidate.upgrade_ops.ops[:] = ordered
         _order_physical_retirement(candidate.upgrade_ops)
+        _order_row_type_evolution(connection, candidate.upgrade_ops, authoring)
         candidate.upgrade_ops.ops.extend(compared_privileges)
         if physical_contract is not None:
             candidate.upgrade_ops.ops.append(OwnedSQLOp("corpus_sem_publisher", physical_contract))
