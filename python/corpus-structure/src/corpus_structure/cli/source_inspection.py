@@ -105,3 +105,41 @@ def impact(
             target = open_release(connection, request.target_release_id)
             result = inspect_change_impact(connection, request, target_prepared=target)
     emit(result, json=json)
+
+
+@app.command("compare")
+def compare(
+    ctx: typer.Context,
+    before: str,
+    target: str,
+    cursor: str | None = None,
+    limit: int = 100,
+    max_bytes: int = 262144,
+    json: JsonOpt = False,
+):
+    """Compare explicit archived effective releases, including declaration-owned changes."""
+    from corpus_structure.cli.failures import failure_boundary
+    from corpus_structure.semantic.runtime import open_runtime_engine
+    from corpus_structure.semantic.source_interface_read import (
+        SourceComparisonRequest,
+        read_source_comparison_page,
+    )
+
+    with (
+        failure_boundary(json, expected=(ValueError, KeyError)),
+        open_runtime_engine(
+            state(ctx).settings(), "ci-source-comparison", purpose="read"
+        ) as engine,
+        engine.begin() as connection,
+    ):
+        result = read_source_comparison_page(
+            connection,
+            SourceComparisonRequest(
+                before_release_id=before,
+                target_release_id=target,
+                cursor=cursor,
+                limit=limit,
+                max_bytes=max_bytes,
+            ),
+        )
+    emit(result, json=json)

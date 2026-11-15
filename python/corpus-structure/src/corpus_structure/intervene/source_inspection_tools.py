@@ -61,6 +61,19 @@ def register_source_inspection_tools(server, reader, *, project=None, demand=Non
             snapshot = archived_navigation_snapshot(connection, release_id)
         return bounded_mcp_result(inspect_source_navigation(snapshot, request), max_bytes)
 
+    from corpus_structure.semantic.source_interface_read import (
+        SourceComparisonRequest,
+        read_source_comparison_page,
+    )
+
+    @server.tool(annotations={"readOnlyHint": True})
+    @tool_refusals(ValueError, KeyError)
+    def compare_source_releases(request: SourceComparisonRequest):
+        """Compare pinned canonical effective records without consulting current source."""
+        with reader() as connection:
+            result = read_source_comparison_page(connection, request)
+        return bounded_mcp_result(result, request.max_bytes)
+
     @server.tool(annotations={"readOnlyHint": True})
     @tool_refusals(ValueError, KeyError)
     def inspect_source_change_impact(request: ChangeImpactRequest):
