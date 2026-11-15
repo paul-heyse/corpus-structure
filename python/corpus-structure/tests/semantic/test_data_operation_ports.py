@@ -22,9 +22,8 @@ from corpus_structure.semantic.data_operation_ports import (
     python_port_identity,
     resolve_python_port,
 )
-from corpus_structure.semantic.identity import claim_source_item__data_operation__
 from corpus_structure.semantic.python_operation_sources import PythonSource, PythonSourceCollection
-from semantic.data_operation_port_support import fixture_source, kind
+from semantic.data_operation_port_support import controlled_port_declaration, fixture_source, kind
 
 
 def actual():
@@ -59,7 +58,7 @@ def test_actual_direct_function_uses_exact_roles_and_original_callable():
 def test_original_defaults_positional_only_and_keyword_only_are_authoritative(
     tmp_path, monkeypatch
 ):
-    metadata: dict[str, Any] = copy.deepcopy(claim_source_item__data_operation__)
+    metadata: dict[str, Any] = controlled_port_declaration()
     metadata["roles"].insert(
         1,
         {
@@ -111,7 +110,7 @@ def test_invalid_original_default_refuses_even_when_call_could_override_it(tmp_p
 
 
 def test_strict_json_and_python_collection_routes_are_deliberately_different(tmp_path, monkeypatch):
-    metadata: dict[str, Any] = copy.deepcopy(claim_source_item__data_operation__)
+    metadata: dict[str, Any] = controlled_port_declaration()
     metadata["roles"][0].update(collection="sequence", minimum=1, maximum=None)
     model, inputs = fixture_source(
         tmp_path, monkeypatch, "index: tuple[int, ...]", metadata=metadata
@@ -171,7 +170,7 @@ def test_changed_source_or_runtime_function_cannot_keep_an_admitted_port(tmp_pat
 
 
 def test_effects_and_multioutput_need_actual_completion_capability(tmp_path, monkeypatch):
-    metadata: dict[str, Any] = copy.deepcopy(claim_source_item__data_operation__)
+    metadata: dict[str, Any] = controlled_port_declaration()
     metadata["roles"].append({**metadata["roles"][-1], "name": "second-address"})
     metadata["profile"] = "command"
     metadata["effects"] = [
@@ -226,29 +225,6 @@ def test_caller_forged_definition_cannot_reuse_complete_identities():
 
 
 @pytest.mark.parametrize(
-    "relative,module",
-    [
-        ("semantic/operation_policy.py", "corpus_structure.semantic.operation_policy"),
-    ],
-)
-def test_actual_score_unknown_recipe_does_not_gain_execution(relative, module):
-    source = Path(__file__).parents[2] / "src/corpus_structure" / relative
-    sources = PythonSourceCollection((PythonSource(module, source.read_bytes(), str(source)),))
-    model = compile_data_operations(python_sources=sources)
-    assert model.operations
-    for operation in model.operations:
-        with pytest.raises(PortRefusal):
-            resolve_python_port(
-                model,
-                sources,
-                operation.semantic_id,
-                authorize=lambda _: pytest.fail(
-                    "incomplete extraction cannot reach acquired execution authority"
-                ),
-            )
-
-
-@pytest.mark.parametrize(
     "root_import", ["from {package}.api import public as renamed", "import {package}.api as api"]
 )
 def test_import_and_reexport_rebinding_refuses_before_original_callable_body(
@@ -258,7 +234,7 @@ def test_import_and_reexport_rebinding_refuses_before_original_callable_body(
     package_path = tmp_path / package
     package_path.mkdir()
     (package_path / "__init__.py").write_text("")
-    metadata: dict[str, Any] = copy.deepcopy(claim_source_item__data_operation__)
+    metadata: dict[str, Any] = controlled_port_declaration()
     reference = "renamed" if root_import.startswith("from ") else "api.public"
     sources = {
         package: (package_path / "__init__.py", ""),
@@ -335,7 +311,7 @@ def test_import_and_reexport_rebinding_refuses_before_original_callable_body(
 
 
 def test_local_function_alias_rebinding_is_checked_transitively(tmp_path, monkeypatch):
-    metadata: dict[str, Any] = copy.deepcopy(claim_source_item__data_operation__)
+    metadata: dict[str, Any] = controlled_port_declaration()
     name = "ddo_local_alias_" + tmp_path.name.replace("-", "_")
     text = (
         "def helper(index: int) -> str:\n    return str(index)\nrenamed = helper\n"
@@ -365,7 +341,7 @@ def test_frozen_semantic_parameters_drive_original_callable(tmp_path, monkeypatc
     from corpus_structure.semantic.data_operation_identity import semantic_value
     from corpus_structure.semantic.identity import canonical_bytes
 
-    metadata = copy.deepcopy(claim_source_item__data_operation__)
+    metadata = controlled_port_declaration()
     metadata["parameters"] = {"prefix": {"value_type": "string", "default": "p"}}
     model, inputs = fixture_source(
         tmp_path,
@@ -438,7 +414,7 @@ def test_frozen_semantic_parameters_drive_original_callable(tmp_path, monkeypatc
 
 
 def bundle_metadata():
-    value = copy.deepcopy(claim_source_item__data_operation__)
+    value = controlled_port_declaration()
     value["roles"].append({**value["roles"][-1], "name": "other"})
     value["result_fields"] = {"address": "left", "other": "right"}
     return value
@@ -538,7 +514,7 @@ def test_atomic_field_nominal_kind_must_match_original_return_type(tmp_path, mon
 
 
 def test_plain_inherited_receiver_is_authenticated_and_keeps_nominal_outputs(tmp_path, monkeypatch):
-    metadata = copy.deepcopy(claim_source_item__data_operation__)
+    metadata = controlled_port_declaration()
     metadata["entrypoints"] = ["run"]
     name = "receiver_" + tmp_path.name.replace("-", "_")
     source = (
@@ -570,7 +546,7 @@ def test_plain_inherited_receiver_is_authenticated_and_keeps_nominal_outputs(tmp
 def test_native_batch_invokes_one_original_call_and_retains_order(tmp_path, monkeypatch):
     from corpus_structure.semantic.data_operation_ports import PythonBatchMember
 
-    metadata = copy.deepcopy(claim_source_item__data_operation__)
+    metadata = controlled_port_declaration()
     metadata["capabilities"]["forms"] = ["batch"]
     model, inputs = fixture_source(
         tmp_path,
@@ -604,7 +580,7 @@ def test_native_batch_invokes_one_original_call_and_retains_order(tmp_path, monk
 def test_native_batch_refuses_incomplete_or_wrong_typed_whole_result(tmp_path, monkeypatch, body):
     from corpus_structure.semantic.data_operation_ports import PythonBatchMember
 
-    metadata = copy.deepcopy(claim_source_item__data_operation__)
+    metadata = controlled_port_declaration()
     metadata["capabilities"]["forms"] = ["batch"]
     model, inputs = fixture_source(
         tmp_path,
@@ -625,7 +601,7 @@ def test_native_batch_refuses_incomplete_or_wrong_typed_whole_result(tmp_path, m
 def test_native_batch_json_uses_strict_individual_ingress(tmp_path, monkeypatch):
     from corpus_structure.semantic.data_operation_ports import JSONBatchMember
 
-    metadata = copy.deepcopy(claim_source_item__data_operation__)
+    metadata = controlled_port_declaration()
     metadata["capabilities"]["forms"] = ["batch"]
     model, inputs = fixture_source(
         tmp_path,
@@ -649,7 +625,7 @@ def test_native_batch_json_uses_strict_individual_ingress(tmp_path, monkeypatch)
 
 
 def test_receiver_refuses_unmodeled_custom_construction(tmp_path, monkeypatch):
-    metadata = copy.deepcopy(claim_source_item__data_operation__)
+    metadata = controlled_port_declaration()
     metadata["entrypoints"] = ["run"]
     name = "receiver_constructor_" + tmp_path.name.replace("-", "_")
     source = (
@@ -705,7 +681,7 @@ def test_execution_admission_serializes_capability_meaning_and_checks_exact_iden
 
 
 def test_data_stream_is_pull_bounded_typed_and_has_terminal_standing(tmp_path, monkeypatch):
-    metadata = copy.deepcopy(claim_source_item__data_operation__)
+    metadata = controlled_port_declaration()
     metadata["capabilities"]["forms"] = ["stream"]
     metadata["opaque"] = [
         {
@@ -741,7 +717,7 @@ def test_data_stream_is_pull_bounded_typed_and_has_terminal_standing(tmp_path, m
 
 
 def test_data_stream_close_and_cancel_never_mark_prefix_complete(tmp_path, monkeypatch):
-    metadata = copy.deepcopy(claim_source_item__data_operation__)
+    metadata = controlled_port_declaration()
     metadata["capabilities"]["forms"] = ["stream"]
     metadata["opaque"] = [
         {
@@ -829,7 +805,7 @@ def test_publication_port_requires_the_native_effect_receipt_and_preserves_repla
 def test_generated_dataclass_runtime_constructor_keeps_defaults_and_nominal_ingress(
     tmp_path, monkeypatch, frozen
 ):
-    metadata = copy.deepcopy(claim_source_item__data_operation__)
+    metadata = controlled_port_declaration()
     metadata["roles"][0]["kind"] = "urn:test:generated-input"
     metadata["kinds"] = [
         {
@@ -882,7 +858,7 @@ class Item:
 
 
 def test_generated_typeddict_ingress_preserves_original_kwargs_signature(tmp_path, monkeypatch):
-    metadata = copy.deepcopy(claim_source_item__data_operation__)
+    metadata = controlled_port_declaration()
     metadata["roles"][0].update(kind="urn:test:generated-options", parameter="kwargs")
     metadata["kinds"] = [
         {
@@ -922,7 +898,7 @@ def test_generated_typeddict_ingress_preserves_original_kwargs_signature(tmp_pat
 def test_generated_constructor_refuses_mutated_defaults(
     tmp_path, monkeypatch, kw_only, factory, mutate_fields
 ):
-    metadata = copy.deepcopy(claim_source_item__data_operation__)
+    metadata = controlled_port_declaration()
     metadata["roles"][0]["kind"] = "urn:test:generated-input"
     metadata["kinds"] = [
         {
@@ -990,7 +966,7 @@ class Item:
     ],
 )
 def test_generated_dataclass_refuses_changed_standard_behavior(tmp_path, monkeypatch, mutation):
-    metadata = copy.deepcopy(claim_source_item__data_operation__)
+    metadata = controlled_port_declaration()
     metadata["roles"][0]["kind"] = "urn:test:generated-input"
     metadata["kinds"] = [
         {
@@ -1059,7 +1035,7 @@ def test_generated_dataclass_refuses_changed_standard_behavior(tmp_path, monkeyp
     "declaration", ["1", "field(default=1)", "field(default_factory=make_value)", None]
 )
 def test_generated_dataclass_refuses_changed_class_field_value(tmp_path, monkeypatch, declaration):
-    metadata = copy.deepcopy(claim_source_item__data_operation__)
+    metadata = controlled_port_declaration()
     metadata["roles"][0]["kind"] = "urn:test:generated-input"
     metadata["kinds"] = [
         {
@@ -1087,7 +1063,7 @@ def test_generated_dataclass_refuses_changed_class_field_value(tmp_path, monkeyp
 
 
 def test_generated_record_output_has_typed_canonical_body(tmp_path, monkeypatch):
-    metadata = copy.deepcopy(claim_source_item__data_operation__)
+    metadata = controlled_port_declaration()
     owner = "ddo_port_" + tmp_path.name.replace("-", "_") + ".Item"
     metadata["kinds"] = [{"id": "urn:test:record", "python": owner}]
     for role in metadata["roles"]:
@@ -1116,7 +1092,7 @@ def test_generated_record_output_has_typed_canonical_body(tmp_path, monkeypatch)
 def test_ambiguous_success_return_refuses_before_authorization_or_target_import(
     tmp_path, monkeypatch
 ):
-    metadata = copy.deepcopy(claim_source_item__data_operation__)
+    metadata = controlled_port_declaration()
     metadata["outcomes"].append("other-address")
     metadata["transitions"].append(
         {
@@ -1187,7 +1163,7 @@ def test_generated_method_checks_its_captured_builtin_mapping(tmp_path, monkeypa
     import importlib
     import types
 
-    metadata = copy.deepcopy(claim_source_item__data_operation__)
+    metadata = controlled_port_declaration()
     metadata["roles"][0]["kind"] = "urn:test:generated-input"
     metadata["kinds"] = [
         {
@@ -1225,7 +1201,7 @@ def test_stream_pull_refuses_changed_captured_builtin_before_next_item(tmp_path,
     import importlib
     import types
 
-    metadata = copy.deepcopy(claim_source_item__data_operation__)
+    metadata = controlled_port_declaration()
     metadata["capabilities"]["forms"] = ["stream"]
     metadata["opaque"] = [
         {

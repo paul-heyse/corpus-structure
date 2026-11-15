@@ -10,7 +10,7 @@ from typing import cast
 from corpus_structure.core.execution_policy import CharacterizationExecutionPolicy
 from corpus_structure.semantic.cpu_execution import CPUExecutionScope
 from corpus_structure.semantic.data_operation_compilation import compile_data_operations
-from corpus_structure.semantic.identity import claim_source_item__data_operation__
+from semantic.data_operation_declaration_support import contract
 from corpus_structure.semantic.python_operation_sources import PythonSource, PythonSourceCollection
 from corpus_structure.semantic.types import PreparedRelease, SourceArtifact
 
@@ -18,6 +18,27 @@ from corpus_structure.semantic.types import PreparedRelease, SourceArtifact
 def kind(model, role):
     name = next(r.kind for r in model.operations[0].roles if r.name == role)
     return next(i.key for i in model.identities if i.owner == name and i.domain == "kind")
+
+
+def controlled_port_declaration():
+    value = contract(
+        id="urn:controlled:port-index-address",
+        subject="document",
+        subject_definition={"id": "document", "identifier_kind": "string", "scope": "project"},
+        context=["controlled-index-address"],
+        behavior="controlled-original-callable-v1",
+        applicability=[], invariants=[],
+        outcomes=["addressed", "invalid-index"],
+        state_dimensions=[{"name": "completion", "values": ["pending", "success", "failed"]}],
+        transitions=[
+            {"dimension": "completion", "before": "pending", "after": "success", "outcome": "addressed"},
+            {"dimension": "completion", "before": "pending", "after": "failed", "outcome": "invalid-index"},
+        ],
+        binding={"operator": "scan", "roles": ["index"]},
+    )
+    value["roles"][0].update(name="index", parameter="index")
+    value["roles"][1].update(name="address", kind="string")
+    return value
 
 
 def fixture_source(
@@ -31,7 +52,7 @@ def fixture_source(
     returns="str",
     profiles=(),
 ):
-    declaration = copy.deepcopy(metadata or claim_source_item__data_operation__)
+    declaration = copy.deepcopy(metadata if metadata is not None else controlled_port_declaration())
     name = "ddo_port_" + tmp_path.name.replace("-", "_")
     source = (
         f"{header}\ndef derive({signature}) -> {returns}:\n    {body}\n"
