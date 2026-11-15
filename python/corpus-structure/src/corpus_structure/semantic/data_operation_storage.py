@@ -329,6 +329,8 @@ def native_operation_declarations(sources=None) -> SourceArtifact:
                 "id": "data." + name,
                 "profile": item["profile"],
                 "subject": "authenticated-native-invocation",
+                "subject_definition": {"id": "authenticated-native-invocation", "identifier_kind": "string", "scope": "invocation"},
+                "discovery_relation": "role-associated",
                 "context": ["release", "purpose"],
                 "roles": [
                     {

@@ -1710,6 +1710,9 @@ BEGIN
  END LOOP;
  FOR o IN SELECT value FROM jsonb_array_elements(p->'operations') LOOP
  SELECT value INTO STRICT operation FROM jsonb_array_elements(archived->'operations') op WHERE op->>'semantic_id'=o->>'operation_id';
+ IF NOT EXISTS(SELECT FROM jsonb_array_elements(archived->'subject_definitions') subject_definition
+ WHERE subject_definition->>'semantic_id'=operation->>'subject') THEN
+ RAISE EXCEPTION 'operation subject has no admitted definition'; END IF;
  SELECT coalesce(jsonb_agg(role||jsonb_build_object('kind_contract',(SELECT id->>'key' FROM jsonb_array_elements(archived->'identities') id WHERE id->>'owner'=role->>'kind' AND id->>'domain'='kind'),'identity_requirements',coalesce(role->'support'->'identity_requirements','[]'),'accepted_kind_contracts',sem.ddo_input_kind_contracts(archived,role->>'kind')) ORDER BY ord),'[]') INTO expected_inputs FROM jsonb_array_elements(operation->'roles') WITH ORDINALITY entry(role,ord) WHERE role->>'direction'='input';
  SELECT coalesce(jsonb_agg(role||jsonb_build_object('kind_contract',(SELECT id->>'key' FROM jsonb_array_elements(archived->'identities') id WHERE id->>'owner'=role->>'kind' AND id->>'domain'='kind'),'identity_requirements',coalesce(role->'support'->'identity_requirements','[]')) ORDER BY ord),'[]') INTO expected_outputs FROM jsonb_array_elements(operation->'roles') WITH ORDINALITY entry(role,ord) WHERE role->>'direction'='output';
  expected_support:=jsonb_build_object('policy',operation->'support_policy','outcomes',operation->'outcomes','replicate_policy',operation->'replicate_policy','state_dimensions',operation->'state_dimensions','transitions',operation->'transitions','effects',operation->'effects','capabilities',operation->'capabilities','provenance',CASE WHEN EXISTS(SELECT FROM jsonb_array_elements(operation->'roles') role WHERE role->'support'<>'null'::jsonb AND role->'support'->>'provenance'<>'value_substitution') THEN 'exact' ELSE 'value_substitution' END);
