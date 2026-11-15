@@ -105,6 +105,23 @@ def rich_knowledge_inputs(
     semantic authority. The returned declaration artifact is passed explicitly
     to the same current DDO compiler via rich_knowledge_declarations().
     """
+    bundle, dependencies = rich_knowledge_schema_inputs(
+        bundle, dependencies, qualification_class=qualification_class, statement_class=statement_class,
+    )
+    return bundle, rich_policy_inputs(
+        dependencies, domain_rules, core_rules, context_profile=context_profile, aliases=aliases,
+    )
+
+
+def rich_knowledge_schema_inputs(
+    bundle: SourceBundle, dependencies: ResolvedDependencies, *,
+    qualification_class: str, statement_class: str,
+) -> tuple[SourceBundle, ResolvedDependencies]:
+    """Acquire the actual current rich/source schemas and nominal declarations once.
+
+    Policy/terminology composition may already have occurred over captured inputs;
+    this stage preserves those dependencies and does not recapture domain rules.
+    """
     from .external_extraction import external_extraction_inputs
     from .observations import prepare_source_inputs
     from .record_assertions import source_reading_inputs
@@ -116,9 +133,6 @@ def rich_knowledge_inputs(
     bundle, dependencies = prepare_source_inputs(bundle, dependencies)
     bundle = external_extraction_inputs(bundle, dependencies, qualification_class=qualification_class, statement_class=statement_class)
     bundle = source_reading_inputs(bundle)
-    dependencies = rich_policy_inputs(
-        dependencies, domain_rules, core_rules, context_profile=context_profile, aliases=aliases,
-    )
     declarations = SourceArtifact(RICH_CONTRACT_INPUT, canonical_bytes({
         "version": MODEL_VERSION, "kinds": rich_kind_declarations(),
     }))

@@ -9,7 +9,7 @@ from corpus_structure.semantic.data_operation_compilation import compile_data_op
 from corpus_structure.semantic.data_operation_member_contracts import derive_member_kinds
 from corpus_structure.semantic.rich_knowledge_sources import (
     RICH_CONTRACT_INPUT, RULE_INPUT, rich_knowledge_declarations, rich_knowledge_inputs,
-    rich_policy_inputs,
+    rich_policy_inputs, rich_knowledge_schema_inputs,
 )
 from corpus_structure.semantic.types import ResolvedDependencies
 from semantic.record_contracts_support import release_inputs
@@ -61,3 +61,20 @@ def test_policy_capture_keeps_duplicate_key_refusal_and_one_actual_archived_owne
         rich_policy_inputs(deps, b"rules: []", context_profile=profile)
     with pytest.raises(ValueError, match="exact captured"):
         rich_knowledge_declarations(ResolvedDependencies())
+
+
+def test_schema_augmentation_consumes_already_captured_policy_without_a_second_policy_owner():
+    from corpus_structure.semantic import prepare_release
+    root = Path(__file__).resolve().parents[4]
+    policy = rich_policy_inputs(ResolvedDependencies(), (root / "domains/statistics/schema/rules.yaml").read_bytes(),
+                                (root / "domains/core/schema/rules.yaml").read_bytes(),
+                                context_profile=acquire_analysis_context_profile())
+    bundle, dependencies = rich_knowledge_schema_inputs(release_inputs()[0], policy,
+                                                        qualification_class="StatisticsQualification", statement_class="SourceStatement")
+    assert sum(artifact.name == RULE_INPUT for artifact in dependencies.artifacts) == 1
+    assert all(artifact in dependencies.artifacts for artifact in policy.artifacts)
+    prepared = prepare_release(bundle, dependencies)
+    assert {prop.name for prop in prepared.index.definitions["RecordSourcePin"].properties} >= {"format", "source_product", "analyzed_scope_meaning"}
+    from corpus_structure.semantic.rich_rules import RichRulePolicy
+    rules = RichRulePolicy(prepared)
+    assert rules.rules and rules.version == "semantic-domain-3"
