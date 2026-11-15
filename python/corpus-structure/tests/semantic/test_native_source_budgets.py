@@ -168,53 +168,47 @@ def test_interactive_packet_propagates_one_budget_and_refuses_whole_packet(monke
     assert references.call_args.kwargs["read_budget"] is budget
 
 
-def test_source_search_uses_one_budget_and_refuses_old_cursor(monkeypatch):
-    from corpus_structure.semantic import pdf_contracts, source_views
+@pytest.mark.parametrize("bytes_limit,oversized", [(1048576, False), (2048, True)])
+def test_current_search_shares_budget_across_exact_source_population_before_ranking(monkeypatch, bytes_limit, oversized):
+    from corpus_structure.ingest import pdf_section_views
+    from corpus_structure.semantic import pdf_record_reader, source_products
+    from corpus_structure.semantic.data_operation_json import json_bytes
+    from corpus_structure.semantic.demand_results import CutSelection
     from corpus_structure.serve import source_search
+    from semantic.selected_source_contract_support import selection
 
-    monkeypatch.setattr(pdf_contracts, "pdf_context_for_run", lambda *args: Mock())
-    selected = Mock(return_value=())
-    rows = Mock(return_value=[])
-    monkeypatch.setattr(source_views, "selected_source_views", selected)
-    monkeypatch.setattr(source_search, "source_search_rows", rows)
-    request = source_search.SourceSearchRequest(run_id=1, text="Alice", max_bytes=1024)
-    answer = source_search.search_source(Mock(), request)
-    assert answer.version == "integrated-source-4" and answer.population_complete
-    assert selected.call_args.kwargs["read_budget"] is rows.call_args.kwargs["read_budget"]
-    with pytest.raises(InvalidContinuation):
-        source_search.search_source(Mock(), request.model_copy(update={"cursor": "e30="}))
-
-
-def test_source_search_preflights_selected_scalar_bytes_on_postgresql(semantic_bare_engine):
-    from sqlalchemy import event, text
-
-    from corpus_structure.serve.source_search import source_search_rows
-
-    with semantic_bare_engine.begin() as conn:
-        for ddl in (
-            "CREATE SCHEMA kb",
-            "CREATE SCHEMA ops",
-            "CREATE TABLE kb.document(id bigint,source_uri text)",
-            "CREATE TABLE kb.source_view(id bigint,document_id bigint,native_task_id bigint,"
-            "native_product_key text,native_content_digest text,section_pointer text,"
-            "membership text,projection_digest text,projection jsonb)",
-            "CREATE TABLE ops.run_source_view(run_id bigint,source_view_id bigint,"
-            "supersedes_source_view_id bigint)",
-            "INSERT INTO kb.document VALUES(1,repeat('u',4096))",
-            "INSERT INTO kb.source_view VALUES(1,1,2,'native',repeat('a',64),'#/body','direct',"
-            "repeat('b',64),'{\"text\":\"Alice publishes exact evidence.\"}')",
-            "INSERT INTO ops.run_source_view VALUES(1,1,NULL)",
-        ):
-            conn.execute(text(ddl))
-        statements = []
-        event.listen(
-            conn,
-            "before_cursor_execute",
-            lambda c, cur, statement, params, ctx, many: statements.append(statement),
-        )
-        with pytest.raises(ReadLimit) as caught:
-            source_search_rows(
-                conn, run_id=1, text="Alice", limit=1, read_budget=PublishedReadBudget(10, 1024)
-            )
-        assert caught.value.reason == "oversized_item"
-        assert len(statements) == 1 and "octet_length" in statements[0]
+    pin, cut, publication = selection()
+    second = pin.model_copy(update={"product_id": "product:second", "use_id": "use:second"})
+    budgets = []
+    def acquire(connection, reference):
+        return SimpleNamespace(reference=reference, cut=CutSelection(json_bytes(cut)), physical=publication,
+            prepared=object(), original_source="original:selected", receipt=SimpleNamespace(publication=publication))
+    def reader(connection, physical, *, projection_context, read_budget):
+        budgets.append(read_budget)
+        return SimpleNamespace(read_budget=read_budget)
+    def sections(reader, *, selections, membership, scope):
+        assert selections == ("#/body",) and membership == "descendants"
+        return [SimpleNamespace(section_pointer="#/body", membership=membership, text="Alice "*130,
+            pieces=(), items=(), ancestors=(), health={})]
+    ranked = Mock(return_value=())
+    monkeypatch.setattr(source_search, "acquire_selected_pdf_source", acquire)
+    monkeypatch.setattr(pdf_record_reader, "PublishedPdfReader", reader)
+    monkeypatch.setattr(pdf_section_views, "published_section_projections", sections)
+    monkeypatch.setattr(source_products.FrozenNativeSource, "from_projection", lambda *args, **kwargs: SimpleNamespace(value={"source": {"projection": "projection:controlled"}}))
+    monkeypatch.setattr(source_search, "_rank_sections", ranked)
+    request = source_search.SourceSearchRequest(project_id=pin.project_id, demand_id=pin.demand_id,
+        read_id=pin.read_id, sources=(pin, second), sections=("#/body",), membership="descendants",
+        text="Alice", max_rows=10, max_bytes=bytes_limit)
+    if oversized:
+        with pytest.raises(ReadLimit):
+            source_search.search_source(Mock(), request)
+        ranked.assert_not_called()
+    else:
+        answer = source_search.search_source(Mock(), request)
+        assert answer.rows == [] and answer.population_complete
+        assert answer.cut["read_id"] == pin.read_id
+        assert len(ranked.call_args.args[1]) == 2
+        with pytest.raises(InvalidContinuation):
+            source_search.search_source(Mock(), request.model_copy(update={"cursor": "e30="}))
+    assert len(budgets) >= 2 and all(budget is budgets[0] for budget in budgets[:2])
+    assert budgets[0].max_rows == 10

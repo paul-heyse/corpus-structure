@@ -11,7 +11,6 @@ from corpus_structure.semantic.query import (
     QueryRow,
     ValueNode,
 )
-from corpus_structure.serve.native_source import NativeSourceRequest
 
 
 class Answer(BaseModel):
@@ -35,18 +34,6 @@ class EvidenceAnswer(Answer):
     standing: FactStanding
     fact_id: str
     evidence: Evidence
-
-
-class FindAnswer(Answer):
-    entity: EntityAnswer | None = None
-    source_uri: str | None = None
-    locator: str | None = None
-    text: str | None = None
-    score: float = 0
-    source_selection: NativeSourceRequest | None = None
-    source_view_id: int | None = None
-    projection_digest: str | None = None
-    text_is_excerpt: bool = False
 
 
 class TransformationAnswer(Answer):

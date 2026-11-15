@@ -18,6 +18,20 @@ class ExactSourceCatalog(BaseModel):
     exact_json: str
 
 
+class ExactSourceSearch(BaseModel):
+    format: Literal["selected-source-search-exact-json-v1"] = "selected-source-search-exact-json-v1"
+    cut_id: str
+    exact_json: str
+
+
+def exact_source_search(response):
+    """Keep native JSON numbers in the cut and score through MCP's JSON transport."""
+    return ExactSourceSearch(
+        cut_id="cut-selection:" + sha256(json_bytes(response.cut)).hexdigest(),
+        exact_json=json_bytes(response.model_dump(mode="python")).decode(),
+    )
+
+
 def register_native_source_tools(server, reader, *, project=None, demand=None):
     from corpus_structure.intervene.mcp_results import bounded_mcp_result
     from corpus_structure.semantic.refusals import tool_refusals
@@ -47,7 +61,7 @@ def register_native_source_tools(server, reader, *, project=None, demand=None):
         scope(request)
         with reader() as connection:
             response = search_source(connection, request)
-        return bounded_mcp_result(response, request.max_bytes)
+        return bounded_mcp_result(exact_source_search(response), request.max_bytes)
 
     @server.tool(annotations={"readOnlyHint": True})
     @tool_refusals(ValueError, KeyError)

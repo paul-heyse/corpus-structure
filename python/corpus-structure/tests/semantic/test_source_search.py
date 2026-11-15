@@ -11,6 +11,7 @@ from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.intervene.server import build_server
 from corpus_structure.semantic.demand_results import selected_read_snapshot
+from corpus_structure.semantic.data_operation_json import json_loads
 from corpus_structure.serve.native_source import NativeSourceRequest, inspect_native_source
 from corpus_structure.serve.source_search import SourceSearchRequest, search_source
 from semantic.current_pdf_source_support import PROJECT
@@ -36,7 +37,7 @@ def test_source_search_requires_only_source_demand_and_mcp_returns_exact_handles
             response = await client.call_tool("find", {"request": dict(project_id=PROJECT,
                 demand_id=case.demand_id, read_id=pin.read_id, sources=[pin.model_dump(mode="json")], text="Alice")})
             assert not response.is_error and response.structured_content is not None
-            rows = response.structured_content["rows"]
+            rows = json_loads(response.structured_content["exact_json"])["rows"]
             assert rows and rows[0]["selection"]["product_id"] == pin.product_id
             inspected = await client.call_tool("inspect_source", {"request": rows[0]["selection"]})
             assert not inspected.is_error and inspected.structured_content is not None

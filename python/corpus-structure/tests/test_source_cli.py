@@ -162,3 +162,51 @@ def test_retired_run_catalog_options_refuse_before_opening_runtime(cli, source_r
         assert cli("source", command, "17", "--json").exit_code != 0
     assert cli("source", "native-products", PIN["demand_id"], "--project", PIN["project_id"], "--observations", "--task", "23").exit_code != 0
     assert not source_runtime.opened
+
+
+@pytest.mark.parametrize("empty", [False, True])
+def test_source_find_routes_exact_selected_request_and_preserves_current_handles(cli, source_runtime, tmp_path, monkeypatch, empty):
+    from corpus_structure.semantic.data_operation_json import json_loads
+    from corpus_structure.serve import source_search
+    from corpus_structure.serve.selected_pdf import SelectedPdfSourceReference
+    from corpus_structure.serve.native_source import NativeSourceRequest
+
+    content = dict(project_id=PIN["project_id"], demand_id=PIN["demand_id"], read_id=PIN["read_id"],
+        sources=[PIN], sections=["#/body"], membership="descendants", text="Alice", cursor="selected:continuation",
+        limit=3, max_rows=500, max_bytes=8192)
+    path = tmp_path / "search.json"
+    path.write_text(json.dumps(content))
+    seen = []
+    def search(connection, request):
+        assert connection is source_runtime.connection
+        seen.append(request)
+        return source_search.SourceSearchResponse(
+            cut={"read_id": PIN["read_id"], "scope": {"ratio": Decimal("0.123456789012345678901")}},
+            rows=[] if empty else [source_search.SourceSearchHit(source=SelectedPdfSourceReference(**PIN),
+                original_source="original:selected", source_digest="a"*64, projection_digest="projection:selected",
+                selection=NativeSourceRequest(**PIN, section_pointer="#/body", membership="descendants"),
+                excerpt="<b>Alice</b> was running.", score=0.25)],
+            next_cursor="next:selected", population_complete=False)
+    monkeypatch.setattr(source_search, "search_source", search)
+    reply = cli("source", "find", str(path), "--json")
+    assert reply.exit_code == 0, (reply.output, reply.exception)
+    value = json_loads(reply.stdout)
+    assert value["cut"]["scope"]["ratio"] == Decimal("0.123456789012345678901")
+    assert value["next_cursor"] == "next:selected" and not value["population_complete"]
+    if not empty:
+        selection = value["rows"][0]["selection"]
+        assert {key: selection[key] for key in PIN} == PIN
+        assert selection["section_pointer"] == "#/body" and selection["membership"] == "descendants"
+        assert value["rows"][0]["original_source"] == "original:selected"
+    else:
+        assert value["rows"] == []
+    assert seen[0].model_dump(mode="json", exclude_defaults=True) == content
+    assert source_runtime.opened == [("ci-source-find", "read")]
+
+
+def test_source_find_refuses_unqualified_or_retired_request_before_acquisition(cli, source_runtime, tmp_path):
+    for value in ({"run_id": 17, "text": "Alice"}, {"project_id": PIN["project_id"], "demand_id": PIN["demand_id"], "text": "Alice"}):
+        path = tmp_path / "bad.json"
+        path.write_text(json.dumps(value))
+        assert cli("source", "find", str(path), "--json").exit_code != 0
+    assert not source_runtime.opened

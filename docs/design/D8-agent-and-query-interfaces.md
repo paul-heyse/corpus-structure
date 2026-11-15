@@ -684,7 +684,7 @@ full source coverage rows are not copied into every prompt. Unknown coverage giv
 nonblocking diagnostic rather than an assertion that relevant context is absent. CLI/MCP transport, provider
 and adoption evidence belong to [PP-10](../plans/parsing-pipeline_2026-10-30.md#remaining-scope-execution).
 
-**Implemented; component interfaces scoped Tested (2026-10-31).** Native inspection3 returns one integrated content/companion contract, scoped manifest/trace and protected artifact bytes in fixed64KiB pages. Source-only `find` shares the selected SourceView query and returns exact retrievable handles before any completed knowledge result exists. CLI/MCP, source frames, packets and JSONL/Parquet retain selection/companion bindings; integrated JSON includes both contract halves, while content-only Docling JSON explicitly declares omissions. Rendering uses qualified original regions. Retained reads initialize no model service. Actual external stdio, extraction and adopted-result journeys remain PDF-11 acceptance.
+**Implemented; component interfaces scoped Tested (2026-10-31).** Native inspection3 returns one integrated content/companion contract, scoped manifest/trace and protected artifact bytes in fixed64KiB pages. Current source-only `ci source find REQUEST` and MCP `find` consume `SourceSearchRequest` with explicit project/demand/read and publication pins, returning exact retrievable handles before any completed knowledge result exists. CLI/MCP, source frames, packets and JSONL/Parquet retain selection/companion bindings; integrated JSON includes both contract halves, while content-only Docling JSON explicitly declares omissions. Rendering uses qualified original regions. Retained reads initialize no model service. Actual external stdio, extraction and adopted-result journeys remain PDF-11 acceptance.
 
 > Decision: [ADR-0040](../adr/0040-forward-pdf-only-contracts.md)
 
@@ -986,8 +986,16 @@ claim keys and evidence locators so a consumer can cite.
 | `claims` | subject?, predicate?, object?, status?, modality? | claims with values and conditions rendered |
 | `statement` | statement key or a locator ([D1 §3.4](D1-knowledge-representation.md#34-locators): `page#unit-id`, `page@u:…`, `page@p:…`), resolved on the run's rendition of the page | the statement's kind, premises, conditions, conclusions, definientia, proof link, each with evidence |
 | `evidence` | claim key | evidence spans with sentence context and segment locators |
-| `find` | text | BM25 hits over segments (D3 §5) and alias hits over entities |
 | `unsupported` | — | `unsupported` items with their text, reason and evidence locators; clustering is the digest's (D7 §8.1) |
+
+Source search is a separate current `ci source find REQUEST` / MCP `find` operation over
+explicit selected PDF publication/source-section populations. It uses the existing English
+PostgreSQL full-text ranking and preserves exact retrievable source handles and bounded continuation.
+MCP source search returns `selected-source-search-exact-json-v1` with a native cut identity and
+`exact_json`, preserving fractional cut scope and numeric scores through SDK serialization. The
+complete SDK response remains byte-bounded. The old named `find` multiplexer and run-shaped
+source-hit DTO are retired. Entity label/alias lookup
+continues through `entity(label=...)`; these entity rows do not confer source-coordinate authority.
 
 ### 5.2 Statistics
 

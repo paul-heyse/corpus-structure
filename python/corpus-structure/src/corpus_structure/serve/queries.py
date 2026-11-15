@@ -17,7 +17,6 @@ from corpus_structure.serve.results import (
     ClaimAnswer,
     EntityAnswer,
     EvidenceAnswer,
-    FindAnswer,
     StatementAnswer,
 )
 from corpus_structure.serve.source_decision_journey import SourceDecisionJourneyQuery
@@ -54,11 +53,6 @@ class StatementParams(Params):
 class EvidenceParams(BaseModel):
     model_config = ConfigDict(extra="forbid")
     key: str
-
-
-class FindParams(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-    text: str
 
 
 class Query:
@@ -272,51 +266,6 @@ class Unsupported(Query):
             after = rows[-1]["coverage_id"]
 
 
-class Find(Query):
-    result: type[BaseModel]
-    name, params, result = "find", FindParams, FindAnswer
-    version = "integrated-source-4"
-
-    def rows(self, ctx, p, after=None):
-        from corpus_structure.serve.source_search import source_search_rows
-
-        phase, score_after, key_after = (0, None, None) if after is None else after
-        if phase not in (0, 1):
-            raise ValueError("invalid source search cursor")
-        if phase == 0:
-            from corpus_structure.semantic.pdf_record_reader import PublishedReadBudget
-
-            budget = PublishedReadBudget(10000, 8 * 1024 * 1024)
-            while True:
-                rows = source_search_rows(
-                    ctx.conn,
-                    run_id=ctx.run_id,
-                    text=p.text,
-                    limit=ctx.row_batch,
-                    after_score=None if score_after is None else float(score_after),
-                    after_id=None if key_after is None else int(key_after),
-                    read_budget=budget,
-                )
-                for row in rows:
-                    yield Positioned(
-                        FindAnswer(
-                            source_uri=row.source_uri,
-                            source_selection=row.selection,
-                            source_view_id=row.source_view_id,
-                            projection_digest=row.projection_digest,
-                            text=row.excerpt,
-                            text_is_excerpt=True,
-                            score=row.score,
-                        ),
-                        [0, str(row.score), str(row.source_view_id)],
-                    )
-                if len(rows) < ctx.row_batch:
-                    break
-                score_after, key_after = rows[-1].score, str(rows[-1].source_view_id)
-        for entity in ctx.reader.entity_rows(label=p.text, after=key_after if phase == 1 else None):
-            yield Positioned(FindAnswer(entity=entity), [1, "0", entity.entity.entity_id])
-
-
 class StructuralParams(BaseModel):
     model_config = ConfigDict(extra="forbid")
     include_publication: bool = False
@@ -472,7 +421,6 @@ GENERIC = (
     Claims(),
     Statement(),
     Evidence(),
-    Find(),
     Unsupported(),
     StructuralProducts("structural_definitions", "definition_components"),
     StructuralProducts("structural_applicability", "definition_applicability"),

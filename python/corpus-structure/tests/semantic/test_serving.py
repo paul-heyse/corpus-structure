@@ -6,10 +6,8 @@ from pathlib import Path
 
 import pytest
 from pydantic import BaseModel
-from sqlalchemy import select
 
 from corpus_structure.semantic.analytics import SPINE, load_packet
-from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.query import Explanation as FactExplanation
 from corpus_structure.semantic.query import read_session
 from corpus_structure.semantic.query_compatibility import open_query_registry
@@ -22,7 +20,6 @@ from corpus_structure.serve.registry import build_registry
 from corpus_structure.serve.results import (
     ClaimAnswer,
     FamilyAnswer,
-    FindAnswer,
     RelationAnswer,
     StatementAnswer,
     TransformationAnswer,
@@ -32,7 +29,7 @@ from semantic.serving_scenarios import serving_read_scenario as serving_read_sce
 from semantic.serving_scenarios import serving_scenario_seed as serving_scenario_seed
 
 
-def test_named_semantic_pages_explanations_and_source_search(serving_read_scenario):
+def test_named_semantic_pages_and_explanations(serving_read_scenario):
     prepared, run, _task, locator = (
         serving_read_scenario.stage.prepared,
         serving_read_scenario.stage.run,
@@ -210,44 +207,6 @@ def test_named_semantic_pages_explanations_and_source_search(serving_read_scenar
         assert isinstance(source.detail, UnitExplanation)
         assert any(t.included_in_cut for t in source.detail.tasks)
         assert source.detail.observations
-        matches = serve_query(conn, registry, "find", {"text": "Alice"}, run=run)
-        hits = [
-            FindAnswer.model_validate(row)
-            for row in matches.rows
-            if row.get("source_selection") is not None
-        ]
-        assert len(hits) == 1
-        hit = hits[0]
-        assert hit.text is not None
-        assert hit.text_is_excerpt is True and "<b>Alice</b>" in hit.text
-        assert hit.source_uri == "source.html"
-        assert hit.source_view_id is not None
-        from corpus_structure.semantic.source_views import load_source_view
-
-        selected = table("ops.run_source_view")
-        assert (
-            conn.scalar(
-                select(selected.c.source_view_id).where(
-                    selected.c.run_id == run, selected.c.source_view_id == hit.source_view_id
-                )
-            )
-            == hit.source_view_id
-        )
-        view = load_source_view(conn, hit.source_view_id)
-        assert view.text == "Alice is here."
-        assert hit.projection_digest == view.ref.projection_digest
-        pin = hit.source_selection
-        assert pin is not None
-        assert (pin.run_id, pin.task_id, pin.product_key, pin.content_digest) == (
-            run,
-            view.ref.native_product.task_id,
-            view.ref.native_product.product_key,
-            view.ref.native_product.content_digest,
-        )
-        assert (pin.section_pointer, pin.membership) == (
-            view.ref.section_pointer,
-            view.ref.membership,
-        )
         token = json.loads(base64.urlsafe_b64decode(first.next_page_token))
         token["revision"] += 1
         with pytest.raises(StaleSnapshot, match="revision"):

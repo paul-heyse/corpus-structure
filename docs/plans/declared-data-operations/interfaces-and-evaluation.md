@@ -58,6 +58,23 @@ that query/grouping obligation: define the genuine selected interpretation kind 
 then implement grouping against those contracts; never relabel private proposals as accepted knowledge.
 Computational provenance likewise does not establish scientific support/opposition.
 
+The obsolete named `find` source/entity multiplexer and `FindAnswer` are deleted: its source
+branch imported the retired run-shaped search reader, while its entity fallback duplicated the
+existing `entity(label=...)` query. `ci source find REQUEST` now delegates to current selected native
+search with explicit project/demand/read and publication pins, preserving exact handles, ranking,
+budgets and continuation. Main and retained-reader MCP `find` use that same source owner and the established `exact_json`
+transport pattern (`selected-source-search-exact-json-v1`) so fractional cut scope and numeric scores
+retain JSON number meaning. Full SDK delivery remains byte-bounded. Entity queries retain their
+separate domain authority.
+
+Remaining domain-query integration is explicit: `cli/query.py::query/context` (`ci retained-query`)
+still calls `semantic.query_compatibility.open_query_registry` and `serve.journey.serve_query` against
+completed historical result bindings. `domains/statistics/queries.py::QUERIES` (family/construction
+profiles, mappings, transformations and relations) and `domains/toy/queries.py::OwnershipAt` still
+have actual consumers. DDO-09/10 must map these questions to actual new rich/nominal knowledge
+contracts and pinned query owners, or explicitly retire unsupported questions. Generic selected
+member inspection supplies neither those domain semantics nor permission to fabricate current pins.
+
 The lower-level historical `semantic.record_queries` / terminology selection controls remain only
 while protected `evaluate.record_references` consumes that owner; its current protected successor
 must remove that last consumer and obsolete query code together. Native tests still using old

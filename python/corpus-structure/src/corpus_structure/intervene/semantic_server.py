@@ -24,7 +24,8 @@ from corpus_structure.semantic.proposals import ProposalRefused
 from corpus_structure.semantic.refusals import located_failure_context, tool_refusals
 from corpus_structure.serve.native_source import NativeSourceRequest, NativeSourceResponse
 from corpus_structure.serve.selected_pdf import SelectedPdfSourceReference
-from corpus_structure.serve.source_search import SourceSearchRequest, SourceSearchResponse
+from corpus_structure.serve.source_search import SourceSearchRequest
+from corpus_structure.intervene.native_source_tools import ExactSourceSearch, exact_source_search
 from corpus_structure.settings import Settings
 
 from .mcp_observations import ObservationMiddleware
@@ -255,7 +256,7 @@ def build_retained_reader_server(
     @server.tool(
         annotations={"readOnlyHint": True},
         output_schema=compress_schema(
-            SourceSearchResponse.model_json_schema(mode="serialization"), prune_titles=True
+            ExactSourceSearch.model_json_schema(mode="serialization"), prune_titles=True
         ),
     )
     @tool_refusals(ProposalRefused, OperationConflict, ValueError)
@@ -265,7 +266,7 @@ def build_retained_reader_server(
 
         with selected_source_snapshot(ctx, request.project_id) as conn:
             response = search_source(conn, request)
-        return _bounded_mcp_result(response, request.max_bytes)
+        return _bounded_mcp_result(exact_source_search(response), request.max_bytes)
 
     @server.tool(
         annotations={"readOnlyHint": True},

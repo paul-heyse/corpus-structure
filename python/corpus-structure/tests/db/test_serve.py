@@ -34,3 +34,24 @@ def test_the_registry_loads_a_pack_plugin_and_refuses_malformed_ones(tmp_path: P
     )
     with pytest.raises(QueryRegistryError, match=r"broken.*|no rows\(\)"):
         build_registry([], pack)
+
+
+def test_named_source_entity_multiplexer_is_retired_without_removing_entity_query():
+    from types import SimpleNamespace
+    from corpus_structure.semantic.query import EntityReference
+    from corpus_structure.serve.queries import GENERIC, Entity, EntityParams
+    from corpus_structure.serve.results import EntityAnswer
+    from corpus_structure.serve.registry import build_registry
+
+    registry = build_registry(GENERIC)
+    assert "find" not in registry
+    seen = []
+    answer = EntityAnswer(entity=EntityReference(entity_id="entity:alice", memberships=()))
+    def rows(key, label, after):
+        seen.append((key, label, after))
+        yield answer
+    query = registry["entity"]
+    assert isinstance(query, Entity)
+    selected = list(query.rows(SimpleNamespace(reader=SimpleNamespace(entity_rows=rows)), EntityParams(label="Alice"), after="entity:before"))
+    assert selected[0].row is answer and selected[0].position == "entity:alice"
+    assert seen == [(None, "Alice", "entity:before")]

@@ -27,6 +27,33 @@ class SourceCoverageReport(BaseModel):
     next_cursor: str | None
 
 
+@app.command("find")
+def find(
+    ctx: typer.Context,
+    request: Annotated[str, typer.Argument(help="SourceSearchRequest JSON path or '-' with explicit project/demand/read and source publication pins.")],
+    json: JsonOpt = False,
+):
+    """Search the explicit selected native source population and retain retrievable handles."""
+    from corpus_structure.cli.failures import failure_boundary
+    from corpus_structure.cli.output import read_request_bytes, write_report_text
+    from corpus_structure.semantic.data_operation_json import json_bytes, json_loads
+    from corpus_structure.semantic.demand_results import selected_read_snapshot
+    from corpus_structure.semantic.runtime import open_runtime_engine
+    from corpus_structure.serve.source_search import SourceSearchRequest, search_source
+
+    with failure_boundary(json, expected=(ValueError, OSError)):
+        selected = SourceSearchRequest.model_validate(json_loads(read_request_bytes(request)))
+        with (
+            open_runtime_engine(state(ctx).settings(), application_name="ci-source-find", purpose="read") as engine,
+            selected_read_snapshot(engine) as connection,
+        ):
+            response = search_source(connection, selected)
+    if json:
+        write_report_text(json_bytes(response.model_dump(mode="python")).decode() + "\n")
+    else:
+        emit(response, json=False)
+
+
 @app.command("inspect")
 def inspect(
     ctx: typer.Context,

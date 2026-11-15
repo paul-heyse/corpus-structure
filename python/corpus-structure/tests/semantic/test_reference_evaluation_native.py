@@ -1,15 +1,14 @@
-"""Independent protected reference privilege and physical projection expectations."""
+"""Independent protected reference privilege refusals; source search has its current owner."""
 
 import pytest
 from psycopg.errors import InsufficientPrivilege, NoDataFound
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
-from corpus_structure.serve.source_search import source_search_rows
 
 
 def test_reference_storage_is_unavailable_to_source_writer(
-    commit_db_engine, commit_writer_engine, commit_evaluator_engine
+    commit_writer_engine, commit_evaluator_engine
 ):
     with commit_writer_engine.connect() as conn:
         assert (
@@ -57,18 +56,3 @@ def test_reference_storage_is_unavailable_to_source_writer(
         assert isinstance(foreign.value.orig, NoDataFound)
         assert foreign.value.orig.sqlstate == "P0002"
         assert conn.scalar(text("SELECT count(*) FROM eval.reference_unit")) == 0
-    with commit_db_engine.connect() as conn:
-        assert (
-            conn.scalar(
-                text(
-                    "SELECT indexdef LIKE '%USING btree (native_task_id, native_product_key, "
-                    "section_pointer)%' FROM pg_indexes WHERE schemaname='kb' "
-                    "AND tablename='source_view' "
-                    "AND indexname='ix_source_view_native_task_id_native_product_key_sectio_0359'"
-                )
-            )
-            is True
-        )
-        # Current search derives its vector from SourceView.projection['text'];
-        # execute that consumer's query without inventing a retained rendition index.
-        assert source_search_rows(conn, run_id=1, text="foreign", limit=1) == []

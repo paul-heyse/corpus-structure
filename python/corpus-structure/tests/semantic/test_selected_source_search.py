@@ -1,6 +1,7 @@
 """Exact current search scope, native ranking and continuation refusals."""
 
 import base64
+from decimal import Decimal
 
 import pytest
 from pydantic import ValidationError
@@ -74,7 +75,8 @@ def test_native_search_retains_english_stemming_rank_and_total_tie_order(semanti
         assert [row["key"] for row in remaining] == ["z"]
 
 
-def test_current_find_mcp_preserves_selected_handles_and_unicode_payload(monkeypatch):
+@pytest.mark.parametrize("surface", ["main", "retained"])
+def test_current_find_mcp_preserves_selected_handles_unicode_and_fractional_cut(monkeypatch, surface):
     from contextlib import nullcontext
 
     import anyio
@@ -86,6 +88,7 @@ def test_current_find_mcp_preserves_selected_handles_and_unicode_payload(monkeyp
     from corpus_structure.serve.source_search import SourceSearchHit, SourceSearchResponse
 
     pin, cut, publication = selection()
+    cut["scope"] = {"fraction": Decimal("0.123456789012345678901")}
     payload = 'Unicode α "quoted" \\ slash\n' * 40
     monkeypatch.setattr(
         "corpus_structure.semantic.demand_results.selected_read_snapshot",
@@ -109,16 +112,28 @@ def test_current_find_mcp_preserves_selected_handles_and_unicode_payload(monkeyp
     monkeypatch.setattr("corpus_structure.serve.source_search.search_source", search)
     engine = create_engine("sqlite://")
 
+    from corpus_structure.intervene.server import build_server
+    from corpus_structure.semantic.data_operation_json import json_loads
+    from corpus_structure.semantic.demand_results import CutSelection
+    server = build_server(project="p", demand=pin.demand_id, read_engine=engine) if surface == "main" else build_retained_reader_server(project="p", read_engine=engine)
     async def journey():
-        async with Client(build_retained_reader_server(project="p", read_engine=engine)) as client:
+        async with Client(server) as client:
             result = await client.call_tool("find", {"request": request().model_dump(mode="json")})
             assert not result.is_error
             assert result.structured_content is not None
-            row = result.structured_content["rows"][0]
+            assert result.structured_content["format"] == "selected-source-search-exact-json-v1"
+            exact = json_loads(result.structured_content["exact_json"])
+            assert exact["cut"]["scope"]["fraction"] == Decimal("0.123456789012345678901")
+            assert exact["rows"][0]["score"] == Decimal("0.5")
+            from corpus_structure.semantic.data_operation_json import json_bytes
+            assert result.structured_content["cut_id"] == CutSelection(json_bytes(cut)).identity
+            row = exact["rows"][0]
             assert row["excerpt"] == payload
             assert row["source"] == pin.model_dump()
             assert row["selection"]["product_id"] == pin.product_id
-            assert result.structured_content["cut"] == cut
+            assert exact["cut"] == cut
+            refused = await client.call_tool("find", {"request": request(max_bytes=1024).model_dump(mode="json")}, raise_on_error=False)
+            assert refused.is_error
 
     try:
         anyio.run(journey)
