@@ -221,4 +221,9 @@ def test_candidate_consumer_validates_actual_refined_kind_without_dropping_field
     )
     actual = validate_bound_candidate_report(prepared, model, binding, "candidates", value)
     assert calls == ["DdoResolvedReadingReport"]
-    assert actual == value
+    # This controlled ingress returns JSON presentation, not a generated typed
+    # model: tuple-valued SourceValue.items crosses JSON as an array.
+    assert actual == {
+        "reading_policy_digest": "actual-policy",
+        "reading_events": {"kind": "array", "items": []},
+    }

@@ -485,7 +485,6 @@ class RichInvocationPlan:
     port: Any = None
 
     def plan(self, arguments, *, binding, check_active, execution_owner):
-        from .data_operation_cpu import PythonCPUDescriptor, plan_cpu_call
         from .data_operation_prepared_call import PreparedCallResult
         from .declared_record_sources import DeclaredRecordSource
         from .source_products import FrozenNativeSource
@@ -516,20 +515,11 @@ class RichInvocationPlan:
             check_active=check_active,
         )
         captured = external_extraction_operation_sources()
-        descriptor = PythonCPUDescriptor(
-            tuple((source.module, source.filename, source.content) for source in captured.sources),
-            "corpus_structure.semantic.external_extraction.execute_rich_kernel",
-            (),
-            verification="prepared-kernel",
-            control_parameter="check_active",
-            prepared_parameter="prepared",
-            prepared_release_id=self.prepared.release_id,
-        )
-        reply = yield from plan_cpu_call(
-            descriptor,
+        reply = yield from self.port.plan_cpu_reply(
+            execute_rich_kernel,
             bound,
-            signature,
-            verify=self.port._verify,
+            captured,
+            prepared_release_id=self.prepared.release_id,
             execution_owner=execution_owner,
             check_active=check_active,
         )

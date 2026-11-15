@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import inspect
-import json
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
@@ -282,13 +281,10 @@ class DefinitionCallPlan:
     port: Any = None
 
     def verify(self):
-        self.port._verify()
         if definition_profile_assets() != self.port.assets[0]:
             raise ValueError("definition source or semantic assets changed")
 
     def plan(self, arguments, *, binding, check_active, execution_owner):
-        from .data_operation_cpu import PythonCPUDescriptor, plan_cpu_call
-        from .data_operation_prepared_call import PreparedCallResult
 
         if binding is None or binding.subject_context is None:
             raise ValueError("definition call requires its exact qualified binding")
@@ -301,27 +297,15 @@ class DefinitionCallPlan:
             check_active=check_active,
         )
         captured = definition_operation_sources()
-        descriptor = PythonCPUDescriptor(
-            tuple((source.module, source.filename, source.content) for source in captured.sources),
-            "corpus_structure.semantic.definition_products." + self.kernel.__name__,
-            (),
-            verification="prepared-kernel",
-            control_parameter="check_active",
-            prepared_parameter="prepared",
-            prepared_release_id=self.prepared.release_id,
-        )
-        reply = yield from plan_cpu_call(
-            descriptor,
+        return (yield from self.port.plan_cpu(
+            self.kernel,
             bound,
-            signature,
+            captured,
+            prepared_release_id=self.prepared.release_id,
             verify=self.verify,
             execution_owner=execution_owner,
             check_active=check_active,
-        )
-        return PreparedCallResult(
-            json.loads(reply.content),
-            cpu_execution_evidence=canonical_bytes(reply.execution_receipt.record()),
-        )
+        ))
 
 
 def resolve_definition_port(prepared, model, operation, *, identity, authorize, custody, sources):

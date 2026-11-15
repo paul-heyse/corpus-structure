@@ -7,7 +7,6 @@ from corpus_structure.methods.native_profiles import NativeProfile, NativeSelect
 from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
 from corpus_structure.semantic.composed import data_operation_dependencies
 from corpus_structure.semantic.data_operation_admission import bound_data_operation_model
-from corpus_structure.semantic.data_operation_consumers import resolve_prepared_factory
 from corpus_structure.semantic.predicate_products import (
     predicate_inputs,
     predicate_operation_sources,
@@ -70,4 +69,3 @@ def test_predicate_capability_has_real_primary_inputs_and_exact_source_witnesses
     assert operation.output_witnesses and all(
         witness.input_role == "source" for witness in operation.output_witnesses
     )
-    assert callable(resolve_prepared_factory(model, sources, operation.semantic_id))

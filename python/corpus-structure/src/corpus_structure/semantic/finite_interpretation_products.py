@@ -242,7 +242,6 @@ class FiniteInvocationPlan:
     port: Any = None
 
     def plan(self, arguments, *, binding, check_active, execution_owner):
-        from .data_operation_cpu import PythonCPUDescriptor, plan_cpu_call
         from .data_operation_json import json_bytes
         from .data_operation_prepared_call import PreparedCallResult
 
@@ -275,18 +274,10 @@ class FiniteInvocationPlan:
         signature = inspect.signature(execute_finite_kernel, eval_str=True)
         bound = signature.bind(candidates=candidates, policy=policy, check_active=check_active)
         captured = finite_interpretation_operation_sources()
-        descriptor = PythonCPUDescriptor(
-            tuple((source.module, source.filename, source.content) for source in captured.sources),
-            "corpus_structure.semantic.finite_interpretation_products.execute_finite_kernel",
-            (),
-            verification="prepared-kernel",
-            control_parameter="check_active",
-        )
-        reply = yield from plan_cpu_call(
-            descriptor,
+        reply = yield from self.port.plan_cpu_reply(
+            execute_finite_kernel,
             bound,
-            signature,
-            verify=self.port._verify,
+            captured,
             execution_owner=execution_owner,
             check_active=check_active,
         )

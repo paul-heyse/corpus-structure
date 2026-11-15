@@ -7,7 +7,6 @@ from corpus_structure.methods.native_profiles import NativeProfile, NativeSelect
 from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
 from corpus_structure.semantic.composed import data_operation_dependencies
 from corpus_structure.semantic.data_operation_admission import bound_data_operation_model
-from corpus_structure.semantic.data_operation_consumers import resolve_prepared_factory
 from corpus_structure.semantic.declaration_products import (
     declaration_inputs,
     declaration_operation_sources,
@@ -68,7 +67,6 @@ def test_declaration_syntax_is_distinct_from_source_grammar_and_uses_actual_cano
     assert next(role for role in operation.roles if role.direction == "output").kind.endswith(
         "/DdoDeclarationSyntaxProduct"
     )
-    assert callable(resolve_prepared_factory(model, sources, operation.semantic_id))
     full = model.operation("text.compose_view/full-native")
     syntax = next(role for role in full.roles if role.name == "declaration_syntax")
     assert syntax.kind.endswith("/DdoConstructionManifest")

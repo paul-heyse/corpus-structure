@@ -362,7 +362,6 @@ class ContextualEncoderPlan:
     selected_context: bool = False
 
     def plan(self, arguments, *, binding, check_active, execution_owner):
-        from .data_operation_cpu import PythonCPUDescriptor, plan_cpu_call
         from .data_operation_json import json_bytes
         from .data_operation_prepared_call import PreparedCallResult
         from .declared_record_sources import DeclaredNativeFrameSource
@@ -407,18 +406,10 @@ class ContextualEncoderPlan:
             context_inputs=context_inputs,
         )
         captured = contextual_encoder_operation_sources(self.selection, include_dependencies=False)
-        descriptor = PythonCPUDescriptor(
-            tuple((source.module, source.filename, source.content) for source in captured.sources),
-            "corpus_structure.semantic.contextual_encoder.execute_contextual_encoder_kernel",
-            (),
-            verification="prepared-kernel",
-            control_parameter="check_active",
-        )
-        reply = yield from plan_cpu_call(
-            descriptor,
+        reply = yield from self.port.plan_cpu_reply(
+            execute_contextual_encoder_kernel,
             bound,
-            signature,
-            verify=self.port._verify,
+            captured,
             execution_owner=execution_owner,
             check_active=check_active,
         )

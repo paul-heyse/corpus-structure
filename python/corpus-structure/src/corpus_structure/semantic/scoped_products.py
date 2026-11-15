@@ -264,13 +264,10 @@ class ScopedCallPlan:
     port: Any = None
 
     def verify(self):
-        self.port._verify()
         if scoped_profile_assets() != self.port.assets[0]:
             raise ValueError("scoped relation source or semantic assets changed")
 
     def plan(self, arguments, *, binding, check_active, execution_owner):
-        from .data_operation_cpu import PythonCPUDescriptor, plan_cpu_call
-        from .data_operation_prepared_call import PreparedCallResult
 
         if binding is None or binding.subject_context is None:
             raise ValueError("scoped relation call requires its exact qualified binding")
@@ -283,27 +280,15 @@ class ScopedCallPlan:
             check_active=check_active,
         )
         captured = scoped_operation_sources()
-        descriptor = PythonCPUDescriptor(
-            tuple((source.module, source.filename, source.content) for source in captured.sources),
-            "corpus_structure.semantic.scoped_products.scoped_kernel",
-            (),
-            verification="prepared-kernel",
-            control_parameter="check_active",
-            prepared_parameter="prepared",
-            prepared_release_id=self.prepared.release_id,
-        )
-        reply = yield from plan_cpu_call(
-            descriptor,
+        return (yield from self.port.plan_cpu(
+            scoped_kernel,
             bound,
-            signature,
+            captured,
+            prepared_release_id=self.prepared.release_id,
             verify=self.verify,
             execution_owner=execution_owner,
             check_active=check_active,
-        )
-        return PreparedCallResult(
-            json.loads(reply.content),
-            cpu_execution_evidence=canonical_bytes(reply.execution_receipt.record()),
-        )
+        ))
 
 
 def resolve_scoped_port(prepared, model, operation, *, identity, authorize, custody, sources):

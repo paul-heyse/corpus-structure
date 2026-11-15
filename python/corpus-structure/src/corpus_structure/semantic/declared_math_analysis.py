@@ -483,14 +483,12 @@ class MathAnalysisPlan:
     port: Any = None
 
     def verify(self):
-        self.port._verify()
         if math_analysis_assets(self.options) != self.port.assets[0]:
             raise ValueError("mathematical analysis source or captured profile changed")
 
     def plan(self, arguments, *, binding, check_active, execution_owner):
         from corpus_structure.methods.math.native import analysis_failure
 
-        from .data_operation_cpu import PythonCPUDescriptor, plan_cpu_call
         from .data_operation_prepared_call import PreparedCallResult
 
         if binding is None or binding.subject_context is None:
@@ -505,19 +503,11 @@ class MathAnalysisPlan:
             check_active=check_active,
         )
         captured = math_analysis_operation_sources(self.options)
-        descriptor = PythonCPUDescriptor(
-            tuple((source.module, source.filename, source.content) for source in captured.sources),
-            "corpus_structure.semantic.declared_math_analysis.math_analysis_kernel",
-            (),
-            verification="prepared-kernel",
-            control_parameter="check_active",
-            prepared_parameter="prepared",
-            prepared_release_id=self.prepared.release_id,
-        )
-        reply = yield from plan_cpu_call(
-            descriptor,
+        reply = yield from self.port.plan_cpu_reply(
+            math_analysis_kernel,
             bound,
-            signature,
+            captured,
+            prepared_release_id=self.prepared.release_id,
             verify=self.verify,
             execution_owner=execution_owner,
             check_active=check_active,

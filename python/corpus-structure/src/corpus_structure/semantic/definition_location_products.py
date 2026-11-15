@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import inspect
-import json
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -321,8 +320,6 @@ class DefinitionLocationPlan:
     port: Any = None
 
     def plan(self, arguments, *, binding, check_active, execution_owner):
-        from .data_operation_cpu import PythonCPUDescriptor, plan_cpu_call
-        from .data_operation_prepared_call import PreparedCallResult
 
         if binding is None or binding.subject_context is None:
             raise ValueError("definition location requires its actual qualified binding")
@@ -335,27 +332,14 @@ class DefinitionLocationPlan:
             check_active=check_active,
         )
         captured = definition_location_operation_sources()
-        descriptor = PythonCPUDescriptor(
-            tuple((source.module, source.filename, source.content) for source in captured.sources),
-            "corpus_structure.semantic.definition_location_products.definition_location_kernel",
-            (),
-            verification="prepared-kernel",
-            control_parameter="check_active",
-            prepared_parameter="prepared",
-            prepared_release_id=self.prepared.release_id,
-        )
-        reply = yield from plan_cpu_call(
-            descriptor,
+        return (yield from self.port.plan_cpu(
+            definition_location_kernel,
             bound,
-            signature,
-            verify=self.port._verify,
+            captured,
+            prepared_release_id=self.prepared.release_id,
             execution_owner=execution_owner,
             check_active=check_active,
-        )
-        return PreparedCallResult(
-            json.loads(reply.content),
-            cpu_execution_evidence=canonical_bytes(reply.execution_receipt.record()),
-        )
+        ))
 
 
 def resolve_definition_location_port(

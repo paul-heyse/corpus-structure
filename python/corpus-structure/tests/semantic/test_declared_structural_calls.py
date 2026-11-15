@@ -57,7 +57,6 @@ def test_structural_current_producers_have_closed_original_callable_and_nominal_
         identity = python_port_identity(model, sources, operation.semantic_id, schema=bundle)
         assert identity.recipe
         assert operation.consumer_selection is not None
-        assert operation.capabilities.prepared_factory is not None
         assert operation.dependencies == ()
         assert len(operation.output_witnesses) == (
             4 if operation.semantic_id == "structure.compare/declared" else 3

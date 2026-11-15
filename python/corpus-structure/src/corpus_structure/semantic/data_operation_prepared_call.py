@@ -113,6 +113,59 @@ class PreparedOriginalCallPort:
             required_sources=self.required_sources,
         )
 
+    def plan_cpu_reply(
+        self,
+        kernel,
+        bound: inspect.BoundArguments,
+        captured: PythonSourceCollection,
+        *,
+        prepared_release_id: str | None = None,
+        verify=None,
+        check_active,
+        execution_owner,
+    ):
+        """Execute a family-bound kernel using the existing physical CPU owner.
+
+        The family owns binding, resources and domain validation. This owner
+        constructs the fixed source descriptor and keeps admission verification
+        attached through submission and collection; it acquires no resources.
+        """
+        from .data_operation_cpu import PythonCPUDescriptor, plan_cpu_call
+
+        def verify_call():
+            self._verify()
+            if verify is not None:
+                verify()
+
+        descriptor = PythonCPUDescriptor(
+            tuple((source.module, source.filename, source.content) for source in captured.sources),
+            kernel.__module__ + "." + kernel.__qualname__,
+            (),
+            verification="prepared-kernel",
+            control_parameter="check_active",
+            prepared_parameter="prepared" if prepared_release_id is not None else None,
+            prepared_release_id=prepared_release_id,
+        )
+        return (yield from plan_cpu_call(
+            descriptor,
+            bound,
+            bound.signature,
+            verify=verify_call,
+            execution_owner=execution_owner,
+            check_active=check_active,
+        ))
+
+    def plan_cpu(self, kernel, bound, captured, **options):
+        """Complete the common JSON kernel shape with its authentic CPU receipt."""
+        import json
+        from .identity import canonical_bytes
+
+        reply = yield from self.plan_cpu_reply(kernel, bound, captured, **options)
+        return PreparedCallResult(
+            json.loads(reply.content),
+            cpu_execution_evidence=canonical_bytes(reply.execution_receipt.record()),
+        )
+
     def plan_python(self, values, *, binding=None, check_active=lambda: None, execution_owner):
         check_active()
         self._verify()

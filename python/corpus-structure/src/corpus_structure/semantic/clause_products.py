@@ -621,13 +621,10 @@ class ClauseCallPlan:
     port: Any = None
 
     def verify(self):
-        self.port._verify()
         if clause_profile_assets() != self.port.assets[0]:
             raise ValueError("clause source or semantic assets changed")
 
     def plan(self, arguments, *, binding, check_active, execution_owner):
-        from .data_operation_cpu import PythonCPUDescriptor, plan_cpu_call
-        from .data_operation_prepared_call import PreparedCallResult
 
         if binding is None or binding.subject_context is None:
             raise ValueError("clause call requires its exact qualified binding")
@@ -640,27 +637,15 @@ class ClauseCallPlan:
             check_active=check_active,
         )
         captured = clause_operation_sources()
-        descriptor = PythonCPUDescriptor(
-            tuple((source.module, source.filename, source.content) for source in captured.sources),
-            "corpus_structure.semantic.clause_products.clause_kernel",
-            (),
-            verification="prepared-kernel",
-            control_parameter="check_active",
-            prepared_parameter="prepared",
-            prepared_release_id=self.prepared.release_id,
-        )
-        reply = yield from plan_cpu_call(
-            descriptor,
+        return (yield from self.port.plan_cpu(
+            clause_kernel,
             bound,
-            signature,
+            captured,
+            prepared_release_id=self.prepared.release_id,
             verify=self.verify,
             execution_owner=execution_owner,
             check_active=check_active,
-        )
-        return PreparedCallResult(
-            json.loads(reply.content),
-            cpu_execution_evidence=canonical_bytes(reply.execution_receipt.record()),
-        )
+        ))
 
 
 def resolve_clause_port(prepared, model, operation, *, identity, authorize, custody, sources):

@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import ast
 import inspect
-import json
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
@@ -475,13 +474,10 @@ class StructuralCallPlan:
     def verify(self):
         from .data_operation_ports import PortRefusal
 
-        self.port._verify()
         if structural_call_assets() != self.port.assets[0]:
             raise PortRefusal("structural original algorithm/DTO schema assets changed")
 
     def plan(self, arguments, *, binding, check_active, execution_owner):
-        from .data_operation_cpu import PythonCPUDescriptor, plan_cpu_call
-        from .data_operation_prepared_call import PreparedCallResult
 
         if binding is None or binding.subject_context is None:
             raise ValueError("structural call lacks its actual bound qualified context")
@@ -501,27 +497,15 @@ class StructuralCallPlan:
             check_active=check_active,
         )
         captured = structural_operation_sources()
-        descriptor = PythonCPUDescriptor(
-            tuple((source.module, source.filename, source.content) for source in captured.sources),
-            self.kernel.__module__ + "." + self.kernel.__qualname__,
-            (),
-            verification="prepared-kernel",
-            control_parameter="check_active",
-            prepared_parameter="prepared",
-            prepared_release_id=self.prepared.release_id,
-        )
-        reply = yield from plan_cpu_call(
-            descriptor,
+        return (yield from self.port.plan_cpu(
+            self.kernel,
             bound,
-            signature,
+            captured,
+            prepared_release_id=self.prepared.release_id,
             verify=self.verify,
             execution_owner=execution_owner,
             check_active=check_active,
-        )
-        return PreparedCallResult(
-            json.loads(reply.content),
-            cpu_execution_evidence=canonical_bytes(reply.execution_receipt.record()),
-        )
+        ))
 
 
 def resolve_structural_call(
