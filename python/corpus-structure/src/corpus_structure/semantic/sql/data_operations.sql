@@ -213,6 +213,16 @@ BEGIN
  END LOOP;
  RETURN true;
 END $$;
+CREATE OR REPLACE FUNCTION ops.ddo_replicate_required(policy text) RETURNS boolean
+LANGUAGE plpgsql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $$
+BEGIN
+ CASE policy
+ WHEN 'deterministic-single-result' THEN RETURN false;
+ WHEN 'retained-observation-single-result' THEN RETURN false;
+ WHEN 'explicit-replicates' THEN RETURN true;
+ ELSE RAISE EXCEPTION 'unknown operation replicate policy' USING ERRCODE='23514';
+ END CASE;
+END $$;
 CREATE OR REPLACE FUNCTION ops.ddo_operation_subject(p_release text,p_operation text) RETURNS text
 LANGUAGE sql STABLE STRICT SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
  SELECT definition.subject_definition FROM sem.data_operation_definition definition
@@ -468,6 +478,11 @@ BEGIN
  WHERE a.release_id=p->>'release_id' AND a.artifact_name='data_operations.json';
  PERFORM ops.ddo_authorize(kind.universe) FROM jsonb_array_elements(p->'selection'->'operations') selected JOIN sem.data_operation_definition operation ON operation.release_id=p->>'release_id' AND operation.operation_id=selected->>'operation' CROSS JOIN LATERAL jsonb_array_elements(operation.input_roles||operation.output_roles) role JOIN sem.data_kind_contract kind ON kind.kind_contract=role->>'kind_contract';
  IF p->>'strength'='independent' THEN RAISE EXCEPTION 'independent strength requires declared distinct-episode replicate obligations' USING ERRCODE='23514'; END IF;
+ IF EXISTS(SELECT FROM jsonb_array_elements(p->'selection'->'operations') selected
+ JOIN sem.data_operation_definition definition ON definition.release_id=p->>'release_id' AND definition.operation_id=selected->>'operation'
+ WHERE selected->>'replicate'='' OR ops.ddo_replicate_required(definition.support_contract->>'replicate_policy')
+ IS DISTINCT FROM (selected->>'replicate' IS NOT NULL)) THEN
+ RAISE EXCEPTION 'replicate selection differs from declared operation policy' USING ERRCODE='23514'; END IF;
  IF p->>'strength'='episode' AND EXISTS(SELECT FROM sem.data_operation_definition op
  CROSS JOIN LATERAL jsonb_array_elements(op.input_roles) role
  WHERE op.release_id=p->>'release_id' AND EXISTS(SELECT FROM jsonb_array_elements(p->'selection'->'operations') sel WHERE sel->>'operation'=op.operation_id)
@@ -740,6 +755,9 @@ BEGIN
  IF def.profile<>'command' OR def.support_contract->'external' IS NULL OR coalesce(def.support_contract->'effects','[]')='[]'::jsonb
  OR EXISTS(SELECT FROM jsonb_array_elements(def.support_contract->'effects') effect WHERE effect->'authorization'<>'["native-purpose:write"]'::jsonb OR effect->>'idempotency'<>'external-packet' OR effect->>'fulfillment'<>'native-publication-receipt') THEN RAISE EXCEPTION 'operation profile requires its own declared command/read execution contract'; END IF;
  END IF;
+ IF p->>'replicate'='' OR ops.ddo_replicate_required(def.support_contract->>'replicate_policy')
+ IS DISTINCT FROM (p->>'replicate' IS NOT NULL) THEN
+ RAISE EXCEPTION 'replicate selection differs from declared operation policy' USING ERRCODE='23514'; END IF;
  PERFORM ops.ddo_fields(p->'binding',ARRAY['inputs','support','parameters','inference','request_inputs','populations','read_id']);
  IF data.ddo_field(p->'request_meaning','recipe') IS DISTINCT FROM jsonb_build_array('string',def.recipe)
  OR data.ddo_field(p->'request_meaning','subject') IS DISTINCT FROM jsonb_build_array('string',o.subject)
@@ -1744,6 +1762,7 @@ BEGIN
  END LOOP;
  FOR o IN SELECT value FROM jsonb_array_elements(p->'operations') LOOP
  SELECT value INTO STRICT operation FROM jsonb_array_elements(archived->'operations') op WHERE op->>'semantic_id'=o->>'operation_id';
+ PERFORM ops.ddo_replicate_required(operation->>'replicate_policy');
  IF NOT EXISTS(SELECT FROM jsonb_array_elements(archived->'subject_definitions') subject_definition
  WHERE subject_definition->>'semantic_id'=operation->>'subject') THEN
  RAISE EXCEPTION 'operation subject has no admitted definition'; END IF;
