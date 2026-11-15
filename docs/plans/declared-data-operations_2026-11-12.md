@@ -28,7 +28,7 @@ First settle decision records and shared I01/I03 contracts; operation classifica
 preparation can proceed independently of rich implementation. Rich design consumes checked subject/
 enforcement contracts, while public requirements inform producers early. Migrate actual consumers with
 each replacement and remove obsolete paths in that slice. Final physical adoption waits for its own
-schema/native readiness, not every optional old-data conversion. The root serializes native capture/registration; workers coordinate shared contracts in isolated worktrees. The operator authorized execution of DDO-00–08 plus bounded DDO-09/10 successor contracts and actual callers needed for retirement. Persistent adoption and historical conversion remain separate; old cancelled campaigns stay cancelled. Existing TS-05/06/17, TS-21/22 dependencies retain their actual scope below.
+schema/native readiness, not every optional old-data conversion. The root serializes native capture/registration. The closeout integrated all active worker packages and removed auxiliary worktrees; later concurrent production work follows the repository isolation rule. The operator authorized execution of DDO-00–08 plus bounded DDO-09/10 successor contracts and actual callers needed for retirement. Persistent adoption and historical conversion remain separate; old cancelled campaigns stay cancelled. Existing TS-05/06/17, TS-21/22 dependencies retain their actual scope below.
 
 ### Domain-model implementation boundary · 2026-11-15
 
@@ -169,6 +169,43 @@ retains independent nonempty family, nested context, wrong-pin, source ancestry 
 obligations. Replacing or retiring obsolete test mechanisms does not satisfy these obligations.
 Mixed PDF/record fixture source registration calls the actual current original-document owner with
 its genuine prepared capsule; missing current composition is a refusal, not a compatibility fallback.
+
+**Worker integration and diagnostic endpoint.** All relevant worktree commits are integrated on
+main, mixed-file conflicts retained current consumers and prior legacy deletions, and all auxiliary
+worktrees are removed after inode-preserving receipt transfer and root hold/read. Obsolete Run/Task
+scenario wrappers and fourteen unused lazy fixtures are retired. Actual current declared scenarios
+have their own `declared_scenarios` owner; independent publication schema/batch/inference controls
+and seven canonical alias spellings survive. Focused projection/read/scenario/alias31 passed
+`956636be28b34b55aa46e9b64333b28e`. Remaining old production callers now require their actual
+captured context/alignment and bound model rather than invented defaults; existing old runtime APIs
+remain confined to their still-old consumers pending complete production retirement.
+
+Root current rich/composite/proposal/Decimal61 passed `1f2d024640214e648f6e8cc91c7c45d4`.
+Whole ordinary collection passed8534 `f1e9510449a545429f8e6d1d02b4e8a2`; functional execution of
+that whole selection is **not_run**. Post-integration `uv run ci check --only types --json` passed
+`369a7a874b744101be0a08ea6d66020a` at warning severity, and `ci check --only lint --json` passed
+`1a61aa4d3b2a403dafa4ced45bcd22fa` with no diagnostics. Original failures
+`68113698411040009a5617d47ca1d678`/`6c3c70c1b91541738a7b1c4bf55b9cec` remain retained;
+no suppression or configuration exclusion was added to obtain these results.
+
+The selected-source static test additionally exposed a real profile lookup defect: dependency bytes
+were incorrectly sought among prepared outputs. The export now obtains authenticated archived
+release inputs, checks their operation dependency digests against the prepared manifest, and decodes
+the actual captured mathematical profile. Its formula fixture explicitly acquires that profile;
+source-only fixtures retain no ambient mathematical context. Original3
+`3ceb107435f4449bb185192c9c46ea38` had2passed/1failed. Exact retry
+`b05adfdc151849baacec92b2436c02af` refused an installed generator changed by concurrent final
+formatting; the source guard was preserved. Stable-source exact retry passed
+`f039b5b478a044cabad8aad4b1f6df0e`. This is static preparation, not native export execution.
+
+Final scoped projection/read/scenario/alias/source/generator/runtime43 passed
+`df7a01d3b5bc4fcdb8bbfe57ae10e877` through `uv run ci test --workers 4 --json -- …`.
+`uv run ci docs check --json` passed `29e62929b43a475ea80e469b4d4c2daa` without warnings or broken
+links, after original `7e842a71b12e4341a2ec45108f59792d` found two citations to retired tests.
+Those citations retain exact Git recovery and current qualification ownership. Root `just turn-end`
+completed; its final formatting pass changed no source. All active worker tasks concluded; only the
+main working tree remains. This closes the requested integration/diagnostic/documentation checkpoint,
+with the remaining functional scope below still open.
 
 **Remaining execution:** complete old operation/compiler/registry/reader/writer/configuration/grant
 retirement with actual consumers; current candidate/resolved/finite facets, source-decision journeys,

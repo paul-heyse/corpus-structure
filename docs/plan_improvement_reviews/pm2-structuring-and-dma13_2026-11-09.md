@@ -90,8 +90,10 @@ preferable to a new stored assessment ledger or changing past grade semantics.
 Closure: mixed transitions including regression, persistent failure and non-comparability
 agree with existing protected case details on both delivery paths. Reuse the existing
 source-first and output-first frames rather than introducing an additional grader (FP-02/06).
-Retain the [native exact-arm control](../../python/corpus-structure/tests/evaluate/test_operation_assessment_native.py);
-a summary extension must not admit a changed configuration or semantic grain.
+Retain the exact-arm invariant: a summary extension must not admit a changed configuration or
+semantic grain. The old Run/Task native test wrapper retired on 2026-11-15 (recoverable from
+`c3f39ba15^:python/corpus-structure/tests/evaluate/test_operation_assessment_native.py`); current
+native qualification belongs to the [DDO owner](../plans/declared-data-operations/preservation-adoption-and-qualification.md#ddo-12--series-owned-required-qualification).
 
 <a id="I03"></a>
 ### I03 · Compose located parts before asking another model

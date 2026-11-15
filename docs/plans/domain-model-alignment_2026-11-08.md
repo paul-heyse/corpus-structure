@@ -271,10 +271,12 @@ publication invariants. The visual work bounds that need correction stay
 with DMA-10 and DMA-11. Revisit wider admission or high-degree traversal
 when a supported query exposes an access-path or work-bound problem.
 
-The [toy pack control](../../python/corpus-structure/tests/semantic/test_serving.py#L441)
-checks authored ownership, same-name resolution, compound conditions and
-the delivered quantity and note through an actual Reader. That is the
-bounded DA-046/048 transfer case. The
+The historical toy pack control (`test_serving.py`, recoverable from
+`c3f39ba15^:python/corpus-structure/tests/semantic/test_serving.py`) checked authored ownership,
+same-name resolution, compound conditions and delivered quantity/note through the old Reader.
+That remains the bounded DA-046/048 receipt; its obsolete wrapper retired on 2026-11-15. Current
+counterpart and native qualification obligations belong to the
+[DDO qualification owner](declared-data-operations/preservation-adoption-and-qualification.md#ddo-12--series-owned-required-qualification). The
 [two-run MCP control](../../python/corpus-structure/tests/semantic/test_runtime_entrypoints.py#L151)
 and settled receipt `972aaf4b3726444b9c9d51381ff9df3f` establish the
 project inventory, implicit selection and explicit override in that scope.
