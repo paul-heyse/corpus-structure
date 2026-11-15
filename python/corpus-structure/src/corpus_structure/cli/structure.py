@@ -18,7 +18,9 @@ def _read(ctx, path, contract, operation, json):
     with failure_boundary(json, expected=(ValueError, KeyError)):
         request = contract.model_validate(json_loads(read_request_bytes(path)))
         with (
-            open_runtime_engine(state(ctx).settings(), "ci-selected-structure", purpose="read") as engine,
+            open_runtime_engine(
+                state(ctx).settings(), "ci-selected-structure", purpose="read"
+            ) as engine,
             selected_read_snapshot(engine) as connection,
         ):
             result = operation(connection, request)
@@ -28,14 +30,22 @@ def _read(ctx, path, contract, operation, json):
 @app.command("list")
 def structures(ctx: typer.Context, request: Path, json: JsonOpt = False):
     """Inspect exact product/member/use/derivation roots from request JSON."""
-    from corpus_structure.serve.structural_products import SelectedStructuralRequest, inspect_selected_structures
+    from corpus_structure.serve.structural_products import (
+        SelectedStructuralRequest,
+        inspect_selected_structures,
+    )
+
     _read(ctx, request, SelectedStructuralRequest, inspect_selected_structures, json)
 
 
 @app.command("dossier-page")
 def dossier_page(ctx: typer.Context, request: Path, json: JsonOpt = False):
     """Page immutable membership or its selected display, retaining exact citations."""
-    from corpus_structure.serve.structural_products import SelectedDossierRequest, inspect_selected_dossier
+    from corpus_structure.serve.structural_products import (
+        SelectedDossierRequest,
+        inspect_selected_dossier,
+    )
+
     _read(ctx, request, SelectedDossierRequest, inspect_selected_dossier, json)
 
 
@@ -43,13 +53,18 @@ def dossier_page(ctx: typer.Context, request: Path, json: JsonOpt = False):
 def structural_gap(ctx: typer.Context, request: Path, json: JsonOpt = False):
     """Inspect recorded relationship decisions or applicability premises."""
     from corpus_structure.serve.structural_gaps import SelectedGapRequest, inspect_selected_gap
+
     _read(ctx, request, SelectedGapRequest, inspect_selected_gap, json)
 
 
 @app.command("journey")
 def source_journey(ctx: typer.Context, request: Path, json: JsonOpt = False):
     """Follow an original-relative opportunity through explicit selected layer roots."""
-    from corpus_structure.serve.source_decision_journey import SelectedSourceDecisionJourneyRequest, inspect_selected_source_journey
+    from corpus_structure.serve.source_decision_journey import (
+        SelectedSourceDecisionJourneyRequest,
+        inspect_selected_source_journey,
+    )
+
     _read(ctx, request, SelectedSourceDecisionJourneyRequest, inspect_selected_source_journey, json)
 
 
@@ -59,12 +74,19 @@ def export_review(ctx: typer.Context, request: Path, out: Path, json: JsonOpt = 
     from corpus_structure.cli.failures import failure_boundary
     from corpus_structure.semantic.demand_results import selected_read_snapshot
     from corpus_structure.semantic.runtime import open_runtime_engine
-    from corpus_structure.serve.selected_structural_review import SelectedStructuralReviewRequest, export_selected_structural_review
+    from corpus_structure.serve.selected_structural_review import (
+        SelectedStructuralReviewRequest,
+        export_selected_structural_review,
+    )
 
     with failure_boundary(json, expected=(ValueError, KeyError, OSError)):
-        selection = SelectedStructuralReviewRequest.model_validate(json_loads(read_request_bytes(request)))
+        selection = SelectedStructuralReviewRequest.model_validate(
+            json_loads(read_request_bytes(request))
+        )
         with (
-            open_runtime_engine(state(ctx).settings(), "ci-structural-review", purpose="read") as engine,
+            open_runtime_engine(
+                state(ctx).settings(), "ci-structural-review", purpose="read"
+            ) as engine,
             selected_read_snapshot(engine) as connection,
         ):
             result = export_selected_structural_review(connection, selection, destination=out)

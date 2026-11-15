@@ -106,7 +106,9 @@ class RetainedFiniteInterpretation(GroupedRecord):
 
 class RetainedAuthoredJudgment(GroupedRecord):
     reference: DdoRichSelectedMember
-    author: Nonempty = Field(description="Author assertion from the immutable AuthoredFactRef; the support reference identifies actual native admission.")
+    author: Nonempty = Field(
+        description="Author assertion from the immutable AuthoredFactRef; the support reference identifies actual native admission."
+    )
     selection_id: Nonempty
     source_reference: Nonempty
     body: dict[str, DdoJsonValue]

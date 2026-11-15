@@ -25,10 +25,18 @@ def payload(statistics_pack_prepared):
         standing="private_authored_judgment",
         judgment_type="terminology.interpretation",
         source_record=dict(
-            project_id="research", demand_id="demand:source", read_id="read:source",
-            cut_id="cut:source", release_id=statistics_pack_prepared.release_id,
-            runtime_id="runtime:source", read_scope_json="{}", product_id="product:source", member_id="member:source",
-            kind_contract="kind:source", family_contract="family:source", record_id="record",
+            project_id="research",
+            demand_id="demand:source",
+            read_id="read:source",
+            cut_id="cut:source",
+            release_id=statistics_pack_prepared.release_id,
+            runtime_id="runtime:source",
+            read_scope_json="{}",
+            product_id="product:source",
+            member_id="member:source",
+            kind_contract="kind:source",
+            family_contract="family:source",
+            record_id="record",
             interpretation_id="interpretation",
             source_pin=source(1).model_dump(mode="json", exclude_none=True),
         ),
@@ -103,7 +111,8 @@ def test_normalization_does_not_strip_accents_or_punctuation():
 def test_released_subtype_and_semantic_closure(statistics_pack_prepared):
     value = payload(statistics_pack_prepared)
     statistics_pack_prepared.validate_json(
-        "DdoAuthoredTerminologyJudgment", json.dumps(value).encode(),
+        "DdoAuthoredTerminologyJudgment",
+        json.dumps(value).encode(),
     )
     validate_interpretation_payload(statistics_pack_prepared, "terminology.interpretation", value)
     assert value["decisions"][0]["mapping_predicate"].endswith("closeMatch")
@@ -236,6 +245,7 @@ def test_authored_source_records_decode_json_lists_without_scalar_loss(
 
     record, coordinates = measurement_record()
     from evaluate.declared_record_policy_support import source
+
     from corpus_structure.semantic.record_contracts import anchor_identity, evidence_set_identity
 
     pin = source(1).model_dump(mode="json", exclude_none=True)

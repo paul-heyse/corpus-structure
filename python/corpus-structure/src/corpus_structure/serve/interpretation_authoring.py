@@ -54,23 +54,30 @@ def author_interpretations(engine, prepared, *, request: NativeDemandRequest):
         model = bound_data_operation_model(prepared)
         definitions = {item.iri: item.name for item in prepared.definitions}
         judgment_kinds = {
-            item.key: item.owner for item in model.identities
+            item.key: item.owner
+            for item in model.identities
             if item.domain == "kind" and definitions.get(item.owner) in JUDGMENT_KINDS
         }
         for value in request.original_sources.values():
             reference = value.reference
-            nominal = judgment_kinds.get(reference.get("kind_contract"))
+            kind_contract = reference.get("kind_contract")
+            nominal = judgment_kinds.get(kind_contract) if isinstance(kind_contract, str) else None
             if reference.get("kind") != "authored-fact" or nominal is None:
                 continue
             body, context = authenticate_judgment_source(
-                connection, prepared, nominal, decode_semantic_value(reference["meaning_body"]),
-                expected_project=request.project_id
+                connection,
+                prepared,
+                nominal,
+                decode_semantic_value(reference["meaning_body"]),
+                expected_project=request.project_id,
             )
             if reference["project_id"] != body["source_record"]["project_id"] or any(
                 json_bytes(reference[name]) != json_bytes(getattr(context, name))
                 for name in ("subject", "subject_definition", "original_source", "analyzed_scope")
             ):
-                raise SemanticRefusal("authored judgment admission differs from selected source context")
+                raise SemanticRefusal(
+                    "authored judgment admission differs from selected source context"
+                )
         runtime_binding_for_release(connection, prepared, request.runtime_id)
         storage = DataOperationStorage(connection)
         registered = DemandPlanner(bound_data_operation_model(prepared), storage).register(
@@ -123,15 +130,18 @@ def author_interpretations(engine, prepared, *, request: NativeDemandRequest):
 
 def authenticate_judgment_source(connection, prepared, nominal, body, *, expected_project=None):
     """Reopen the actual pinned source cut, never infer custody from payload labels."""
-    from corpus_structure.semantic.authored_interpretations import checked_judgment, judgment_reading
+    from corpus_structure.semantic.authored_interpretations import (
+        checked_judgment,
+        judgment_reading,
+    )
+    from corpus_structure.semantic.data_operation_admission import bound_data_operation_model
+    from corpus_structure.semantic.data_operation_json import json_loads
+    from corpus_structure.semantic.demand_results import selected_record_index
     from corpus_structure.semantic.grouped_record_interpretations import (
         GroupedInterpretationRequest,
         InterpretationRoot,
         grouped_candidate_product,
     )
-    from corpus_structure.semantic.data_operation_admission import bound_data_operation_model
-    from corpus_structure.semantic.data_operation_json import json_loads
-    from corpus_structure.semantic.demand_results import selected_record_index
     from corpus_structure.semantic.releases import load_release
     from corpus_structure.serve.selected_contributions import SelectedContributionScope
 
@@ -143,19 +153,31 @@ def authenticate_judgment_source(connection, prepared, nominal, body, *, expecte
     if not isinstance(scope, dict):
         raise ValueError("authored judgment source read requires its exact object scope")
     request = GroupedInterpretationRequest(
-        project_id=source["project_id"], demand_id=source["demand_id"],
-        read_id=source["read_id"], expected_cut=source["cut_id"],
+        project_id=source["project_id"],
+        demand_id=source["demand_id"],
+        read_id=source["read_id"],
+        expected_cut=source["cut_id"],
         roots=(InterpretationRoot(product_id=source["product_id"], member_id=source["member_id"]),),
     )
     with selected_record_index(
-        connection, request.demand_id, project_id=request.project_id,
-        scope=scope, read_id=request.read_id, expected_cut=request.expected_cut,
-        max_bytes=request.max_graph_bytes, max_total_bytes=request.max_graph_bytes,
-        max_total_records=request.max_graph_records, capture_frontier=True,
+        connection,
+        request.demand_id,
+        project_id=request.project_id,
+        scope=scope,
+        read_id=request.read_id,
+        expected_cut=request.expected_cut,
+        max_bytes=request.max_graph_bytes,
+        max_total_bytes=request.max_graph_bytes,
+        max_total_records=request.max_graph_records,
+        capture_frontier=True,
     ) as (cut, index):
         original = load_release(connection, cut.record["release_id"])
         selected = SelectedContributionScope(
-            cut, index, original, bound_data_operation_model(original), scope,
+            cut,
+            index,
+            original,
+            bound_data_operation_model(original),
+            scope,
             request.max_support_edges,
         )
         groups = tuple(
@@ -189,8 +211,14 @@ def selected_authored_judgments(connection, selected, product_ids):
         if admission is None or any(
             json_bytes(frontier[name]) != json_bytes(admission[name])
             for name in (
-                "product_id", "selection_name", "source_reference", "subject", "original_source",
-                "analyzed_scope", "trust_snapshot", "evidence",
+                "product_id",
+                "selection_name",
+                "source_reference",
+                "subject",
+                "original_source",
+                "analyzed_scope",
+                "trust_snapshot",
+                "evidence",
             )
         ):
             raise ValueError("valid authored frontier differs from its exact original admission")
@@ -199,7 +227,9 @@ def selected_authored_judgments(connection, selected, product_ids):
             or admission["project_id"] != selected.cut.record["project_id"]
             or admission["evidence"].get("standing") != "authored"
         ):
-            raise ValueError("judgment requires an actual authored admission in this selected demand")
+            raise ValueError(
+                "judgment requires an actual authored admission in this selected demand"
+            )
         original = read_original_source_reference(json_bytes(admission["reference"]))
         if not isinstance(original, AuthoredFactRef):
             raise ValueError("selected judgment cannot relabel an original or computed input")
@@ -221,7 +251,10 @@ def selected_authored_judgments(connection, selected, product_ids):
         ):
             raise ValueError("authored judgment differs from its admitted original body or context")
         body, context = authenticate_judgment_source(
-            connection, selected.prepared, kinds[product["kind_contract"]]["kind"], body,
+            connection,
+            selected.prepared,
+            kinds[product["kind_contract"]]["kind"],
+            body,
             expected_project=selected.cut.record["project_id"],
         )
         if any(
@@ -230,19 +263,27 @@ def selected_authored_judgments(connection, selected, product_ids):
         ) or json_bytes(original.analyzed_scope) != json_bytes(context.analyzed_scope):
             raise ValueError("authored judgment context differs from its actual selected source")
         found.add(product_id)
-        yield body, dict(
-            reference=DdoRichSelectedMember(
-                product_id=product_id, member_id=None, kind_contract=product["kind_contract"],
-                support_references=(AuthoredFactSupportReference(
-                    admission_id=admission["id"], source_reference=admission["source_reference"]
-                ),),
+        yield (
+            body,
+            dict(
+                reference=DdoRichSelectedMember(
+                    product_id=product_id,
+                    member_id=None,
+                    kind_contract=product["kind_contract"],
+                    support_references=(
+                        AuthoredFactSupportReference(
+                            admission_id=admission["id"],
+                            source_reference=admission["source_reference"],
+                        ),
+                    ),
+                ),
+                author=original.author,
+                selection_id=original.selection_id,
+                source_reference=admission["source_reference"],
             ),
-            author=original.author, selection_id=original.selection_id,
-            source_reference=admission["source_reference"],
         )
     if found != set(product_ids):
         raise ValueError("authored judgment roots require exact selected authored admissions")
-
 
 
 def read_authored_judgment_selection(connection, request, selected_read):
@@ -253,15 +294,24 @@ def read_authored_judgment_selection(connection, request, selected_read):
     from corpus_structure.serve.selected_contributions import SelectedContributionScope
 
     with selected_record_index(
-        connection, selected_read.demand_id, project_id=request.project_id,
-        scope=selected_read.scope, read_id=selected_read.read_id,
-        expected_cut=selected_read.expected_cut, max_bytes=request.max_graph_bytes,
-        max_total_bytes=request.max_graph_bytes, max_total_records=request.max_graph_records,
+        connection,
+        selected_read.demand_id,
+        project_id=request.project_id,
+        scope=selected_read.scope,
+        read_id=selected_read.read_id,
+        expected_cut=selected_read.expected_cut,
+        max_bytes=request.max_graph_bytes,
+        max_total_bytes=request.max_graph_bytes,
+        max_total_records=request.max_graph_records,
         capture_frontier=True,
     ) as (cut, index):
         prepared = load_release(connection, cut.record["release_id"])
         selected = SelectedContributionScope(
-            cut, index, prepared, bound_data_operation_model(prepared), selected_read.scope,
+            cut,
+            index,
+            prepared,
+            bound_data_operation_model(prepared),
+            selected_read.scope,
             request.max_support_edges,
         )
         yield from selected_authored_judgments(connection, selected, selected_read.product_ids)

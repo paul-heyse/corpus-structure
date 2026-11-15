@@ -281,9 +281,9 @@ def test_native_product_scoped_authored_fact_preserves_context_and_current_trust
             for row in records
             if row["relation"] == "ops.original_source_admission"
         ] == [fact["admission_id"]]
-        assert [
-            row["record"]["id"] for row in records if row["relation"] == "kb.data_product"
-        ] == [fact["product_id"]]
+        assert [row["record"]["id"] for row in records if row["relation"] == "kb.data_product"] == [
+            fact["product_id"]
+        ]
         assert not {"ops.demand_use", "ops.data_derivation"}.intersection(
             row["relation"] for row in records
         )
@@ -336,7 +336,10 @@ def test_native_product_scoped_authored_fact_preserves_context_and_current_trust
                 },
             )
         )
-        with pytest.raises(DBAPIError, match="pins or current trust differ"), connection.begin_nested():
+        with (
+            pytest.raises(DBAPIError, match="pins or current trust differ"),
+            connection.begin_nested(),
+        ):
             storage.read_demand_result(
                 typing_cast(WireReadDemandResultRequest, {**request, "read_id": scoped["read_id"]})
             )

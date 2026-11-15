@@ -303,7 +303,9 @@ def _group_selected_interpretations(connection, request, implementation):
             "finite_universes": finite_universes,
             "authored_judgment_contracts": judgment_contracts,
             "authored_judgment_products": list(request.authored_products),
-            "authored_judgment_reads": [value.model_dump(mode="python") for value in request.authored_reads],
+            "authored_judgment_reads": [
+                value.model_dump(mode="python") for value in request.authored_reads
+            ],
             "items": items[offset:end],
             "continuation": continuation,
             "page_complete": continuation is None,

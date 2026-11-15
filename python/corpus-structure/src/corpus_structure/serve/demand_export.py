@@ -155,8 +155,14 @@ def export_demand_result(
 
         for ordinal, page in enumerate(
             stream_demand_result(
-                connection, demand_id, project_id=project_id, limit=page_rows, max_bytes=page_bytes,
-                scope=scope, read_id=read_id, expected_cut=expected_cut,
+                connection,
+                demand_id,
+                project_id=project_id,
+                limit=page_rows,
+                max_bytes=page_bytes,
+                scope=scope,
+                read_id=read_id,
+                expected_cut=expected_cut,
             )
         ):
             cut = page.cut
@@ -467,13 +473,13 @@ def verify_demand_export(root: Path, *, manifest_digest: str):
     """Verify a detached export relative to its explicitly trusted manifest digest."""
     with verified_demand_export(root, manifest_digest=manifest_digest) as (manifest, _, _, _):
         return dict(
-        outcome="passed",
-        cut_id=manifest["cut_id"],
-        pages=len(manifest["pages"]),
-        current_trust="not_assessed",
-        support_disclosure=manifest["support_disclosure"],
-        protected_dependencies="undisclosed"
-        if manifest["support_disclosure"] == "bounded"
-        else "not_encountered",
-        inference="not_run",
-    )
+            outcome="passed",
+            cut_id=manifest["cut_id"],
+            pages=len(manifest["pages"]),
+            current_trust="not_assessed",
+            support_disclosure=manifest["support_disclosure"],
+            protected_dependencies="undisclosed"
+            if manifest["support_disclosure"] == "bounded"
+            else "not_encountered",
+            inference="not_run",
+        )

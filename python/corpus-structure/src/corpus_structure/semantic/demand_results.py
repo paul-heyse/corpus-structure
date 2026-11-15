@@ -237,8 +237,10 @@ def stream_demand_result(
     """Same-session bounded pages retain the acquisition and its transaction locks."""
     if (read_id is None) != (expected_cut is None):
         raise ValueError("pinned result stream requires both read_id and expected_cut")
-    continuation = None if read_id is None else dict(
-        demand_id=demand_id, read_id=read_id, scope=dict(scope or {}), view="products"
+    continuation = (
+        None
+        if read_id is None
+        else dict(demand_id=demand_id, read_id=read_id, scope=dict(scope or {}), view="products")
     )
     cut = None
     while True:

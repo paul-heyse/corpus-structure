@@ -30,10 +30,13 @@ def judgment_reading(body, groups, source_cut):
     source = body["source_record"]
     if json_bytes(json_loads(source["read_scope_json"])) != json_bytes(source_cut.record["scope"]):
         raise ValueError("authored judgment differs from its pinned source read scope")
-    if any(
-        source[name] != source_cut.record[name]
-        for name in ("project_id", "demand_id", "read_id", "release_id", "runtime_id")
-    ) or source["cut_id"] != source_cut.identity:
+    if (
+        any(
+            source[name] != source_cut.record[name]
+            for name in ("project_id", "demand_id", "read_id", "release_id", "runtime_id")
+        )
+        or source["cut_id"] != source_cut.identity
+    ):
         raise ValueError("authored judgment differs from its exact pinned source cut")
     matches = [
         (group, reading)
@@ -78,7 +81,8 @@ def judgment_reading(body, groups, source_cut):
             or not anchor["start"] <= focus["start"] < focus["end"] <= anchor["end"]
             or anchor["source_piece"][
                 focus["start"] - anchor["start"] : focus["end"] - anchor["start"]
-            ] != focus["source_piece"]
+            ]
+            != focus["source_piece"]
         ):
             raise ValueError("judgment focus differs from exact selected field source evidence")
     return group, reading
@@ -88,7 +92,8 @@ def attach_authored_judgment(groups, body, *, reference, author, selection_id, s
     """Attach an authenticated judgment to one selected occurrence, retaining its own body."""
     source = body["source_record"]
     matches = [
-        group for group in groups
+        group
+        for group in groups
         if group.candidate_universe.product_id == source["product_id"]
         and group.family_contract == source["family_contract"]
         and group.record_id == source["record_id"]
@@ -114,11 +119,15 @@ def attach_authored_judgment(groups, body, *, reference, author, selection_id, s
                 raise ValueError("one authored source reference has conflicting judgment values")
             return tuple(groups)
     judgment = RetainedAuthoredJudgment(
-        reference=reference, author=author, selection_id=selection_id,
-        source_reference=source_reference, body=body,
+        reference=reference,
+        author=author,
+        selection_id=selection_id,
+        source_reference=source_reference,
+        body=body,
     )
     return tuple(
         group.model_copy(update={"authored_judgments": (*group.authored_judgments, judgment)})
-        if group.identity == target.identity else group
+        if group.identity == target.identity
+        else group
         for group in groups
     )
