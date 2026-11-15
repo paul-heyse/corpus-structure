@@ -5,7 +5,7 @@ from pathlib import Path
 from corpus_structure.schema.generate import _format
 
 from .metadata import metadata
-from .operation_call_generation import render_call_bindings, render_call_identifiers
+from .native_call_generation import render_call_bindings, render_call_identifiers
 from .pdf_domain import pdf_call_bindings
 
 

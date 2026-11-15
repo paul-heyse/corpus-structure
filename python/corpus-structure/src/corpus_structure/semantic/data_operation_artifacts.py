@@ -15,13 +15,13 @@ from .data_operation_identity import ENCODING_VERSION
 from .data_operation_model import EffectiveDataOperationModel, EffectiveOperation, OperationRole
 from .identity import canonical_bytes
 from .native_call_contracts import OperationCallBinding, OperationFieldBinding
-from .operation_call_generation import render_call_bindings, render_call_identifiers
+from .native_call_generation import render_call_bindings, render_call_identifiers
 from .types import SourceArtifact
 
 GENERATOR_VERSION = "data-operation-ports-v1"
 _GENERATOR_FILES = (
     "data_operation_artifacts.py",
-    "operation_call_generation.py",
+    "native_call_generation.py",
     "native_call_contracts.py",
     "native_call_sources.py",
     "data_operation_ports.py",
@@ -126,7 +126,7 @@ def compile_data_operation_artifacts(
                 )
             ).hexdigest(),
             "renderer_digest": sha256(
-                acquired["generator/operation_call_generation.py"]
+                acquired["generator/native_call_generation.py"]
             ).hexdigest(),
             "runtime_ports_digest": sha256(
                 acquired["generator/data_operation_ports.py"]

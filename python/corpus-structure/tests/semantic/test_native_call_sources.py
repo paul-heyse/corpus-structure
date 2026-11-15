@@ -91,7 +91,7 @@ def test_current_call_facade_imports_the_actual_physical_nominal_owner(monkeypat
     from types import ModuleType
 
     from corpus_structure.semantic import identifiers
-    from corpus_structure.semantic.operation_call_generation import (
+    from corpus_structure.semantic.native_call_generation import (
         render_call_bindings,
         render_call_identifiers,
     )
@@ -110,5 +110,5 @@ def test_current_call_facade_imports_the_actual_physical_nominal_owner(monkeypat
     wrong = replace(call, parameters=(replace(call.parameters[0], semantic_type="TaskId"),))
     with pytest.raises(ValueError, match="canonical physical encoding: TaskId"):
         render_call_bindings(
-            (("release-activation-asset", wrong),), metadata, canonical_identifiers=True
+            (("release-activation-asset", wrong),), metadata, canonical_identifiers=True, identifiers_module="._unused_call_enums"
         )

@@ -18,7 +18,7 @@ from corpus_structure.semantic.native_call_contracts import (
     OperationFieldBinding,
     OperationFieldType,
 )
-from corpus_structure.semantic.operation_call_generation import render_call_bindings
+from corpus_structure.semantic.native_call_generation import render_call_bindings
 from corpus_structure.semantic.types import SourceArtifact
 from semantic.data_operation_declaration_support import contract
 
@@ -95,7 +95,7 @@ def test_artifact_manifest_carries_complete_correspondence_and_emission_identiti
 
 def test_neutral_renderer_is_the_same_native_result_and_core_call_mechanism():
     _, calls = inputs()
-    source = render_call_bindings(calls)
+    source = render_call_bindings(calls, identifiers_module=".data_operation_ids")
     digest = sha256(canonical_bytes([asdict(calls[0][1])])).hexdigest()
     assert digest in source
     assert "_read_demand_result_statement = select(" in source
@@ -191,12 +191,13 @@ def test_generated_native_table_rows_own_nested_state_and_revalidate_instances(
 ):
     from pydantic import ValidationError
 
-    from corpus_structure.semantic.operation_call_generation import render_call_bindings
+    from corpus_structure.semantic.native_call_generation import render_call_bindings
 
     _, calls = inputs()
     call = replace(calls[0][1], result_mode="table", json_read=json_read)
     source = render_call_bindings(
         ((calls[0][0], call),),
+        identifiers_module=".data_operation_ids",
         value_base=("corpus_structure.semantic.data_operation_ports", "DataOperationWireValue"),
         row_base=("corpus_structure.semantic.data_operation_ports", "DataOperationNativeRow"),
     )
@@ -226,3 +227,10 @@ def test_generated_native_table_rows_own_nested_state_and_revalidate_instances(
     invalid = cls.model_construct(payload=object())
     with pytest.raises(ValidationError):
         cls.model_validate(invalid, strict=True)
+
+
+def test_current_renderer_requires_the_actual_declared_context_owner():
+    _, calls = inputs()
+    call = replace(calls[0][1], requires_context=True)
+    with pytest.raises(ValueError, match="actual context owner"):
+        render_call_bindings(((calls[0][0], call),), identifiers_module=".data_operation_ids")

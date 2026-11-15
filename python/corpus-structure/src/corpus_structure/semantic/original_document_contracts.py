@@ -229,7 +229,7 @@ def generated_source_calls() -> str:
     from corpus_structure.schema.generate import _format
 
     from .metadata import metadata
-    from .operation_call_generation import render_call_bindings
+    from .native_call_generation import render_call_bindings
 
     return _format(
         "semantic/_source_admission_calls.py",
