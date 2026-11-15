@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import keyword
 from collections.abc import Iterable, Mapping
 from typing import Any
 
@@ -139,6 +140,7 @@ def _compile_physical(view: View, *, read_only: bool = False) -> MetaData:
         "vector": Vector,
         "timestamptz": lambda: TIMESTAMP(timezone=True),
     }
+    nominal = _physical_nominals(view)
     for name, cls in physical_classes.items():
         subsets = [str(s) for s in cls.in_subset]
         if len(subsets) != 1 or subsets[0] not in {"sem", "data", "ops", "kb", "eval"}:
@@ -181,6 +183,7 @@ def _compile_physical(view: View, *, read_only: bool = False) -> MetaData:
                     nullable=not slot.required,
                     server_default=text(default) if default is not None else None,
                     info={
+                        **nominal(subsets[0], str(name), str(slot.name)),
                         "minimum": slot.minimum_value,
                         "maximum": slot.maximum_value,
                         "pattern": slot.pattern,
@@ -276,6 +279,114 @@ def _compile_physical(view: View, *, read_only: bool = False) -> MetaData:
     return md
 
 
+
+def _physical_nominals(view: View):
+    """Resolve explicit scalar identities without consulting an operation catalog."""
+    resolved: dict[str, dict[str, str]] = {}
+    encodings: dict[str, tuple] = {}
+
+    def field(schema: str, cls: str, name: str, trail: tuple[str, ...] = ()):
+        reference = f"physical:{schema}.{cls}.{name}"
+        if reference in trail:
+            raise ModelError([f"{reference}: cyclic physical type correspondence"])
+        if reference in resolved:
+            return resolved[reference]
+        definition = view.get_class(cls)
+        if definition is None or schema not in (definition.in_subset or ()):
+            raise ModelError([f"{reference}: physical type source relation is unavailable"])
+        slot = next((slot for slot in view.class_induced_slots(cls) if slot.name == name), None)
+        if slot is None:
+            raise ModelError([f"{reference}: physical type source field is unavailable"])
+        annotations = ci_annotations(slot)
+        result: dict[str, str] = {}
+        if declared := annotations.get("ph:python_type"):
+            parts = declared.split(".")
+            if len(parts) < 2 or any(not part.isidentifier() or keyword.iskeyword(part) for part in parts):
+                raise ModelError([f"{reference}: Python nominal requires a qualified identifier"])
+            encoding = _physical_encoding(view, slot)
+            if encoding[0] not in {"string", "integer"} or slot.multivalued or view.get_enum(str(slot.range)) is not None:
+                raise ModelError([f"{reference}: Python nominal requires one scalar"])
+            if declared in encodings and encodings[declared] != encoding:
+                raise ModelError([f"{reference}: physical nominal encodings differ"])
+            encodings[declared] = encoding
+            result["python_type"] = declared
+        parent = annotations.get("cp:type_source")
+        if parent == reference:
+            # A model projection can declare the physical field as its type source.
+            # Its inherited backreference does not become a reflexive physical edge.
+            ancestors = [view.get_class(ancestor) for ancestor in view.class_ancestors(cls, reflexive=True)]
+            def declared_edge(definition):
+                for declared in (definition.attributes.get(name), definition.slot_usage.get(name)):
+                    if declared is not None and (edge := ci_annotations(declared).get("cp:type_source")):
+                        return edge
+                if name in (definition.slots or ()):
+                    return ci_annotations(view.get_slot(name)).get("cp:type_source")
+                return None
+            if not any(schema in (ancestor.in_subset or ()) and declared_edge(ancestor) for ancestor in ancestors if ancestor is not None) and any(
+                schema not in (ancestor.in_subset or ()) and declared_edge(ancestor) == reference
+                for ancestor in ancestors if ancestor is not None
+            ):
+                parent = None
+        if parent:
+            parts = parent.removeprefix("physical:").split(".")
+            if not parent.startswith("physical:") or len(parts) != 3:
+                raise ModelError([f"{reference}: physical type source must be qualified"])
+            inherited = field(parts[0], parts[1], parts[2], (*trail, reference))
+            target = next((slot for slot in view.class_induced_slots(parts[1]) if slot.name == parts[2]), None)
+            assert target is not None  # validated by recursive source resolution
+            if _physical_encoding(view, slot) != _physical_encoding(view, target):
+                raise ModelError([f"{reference}: physical type correspondence encoding differs"])
+            if result and inherited and result != inherited:
+                raise ModelError([f"{reference}: physical nominal identifiers differ"])
+            result = result or inherited
+        resolved[reference] = result
+        return result
+
+    return field
+
+
+def _physical_encoding(view: View, slot):
+    """Compare transport encodings while retaining distinct model-owned identities."""
+    name = str(slot.range or "string")
+    declared = view.get_type(name)
+    sql = ci_annotations(declared).get("ph:sql_type")
+    uri = str(declared.uri) if declared is not None else ""
+    primitive = sql or {
+        "xsd:string": "string", "xsd:long": "integer", "xsd:integer": "integer",
+        "xsd:int": "integer", "xsd:boolean": "boolean",
+    }.get(uri, name)
+    members = tuple(sorted(m.text for m in expand_enum(view, name))) if view.get_enum(name) is not None else ()
+    return primitive, bool(slot.multivalued), members
+
+
+def column_type_annotation(column: Column[Any]) -> str:
+    """Project a checked physical column, preserving nominal, closed and optional types."""
+    if isinstance(column.type, JSONB):
+        kind = "JsonValue"
+    elif isinstance(column.type, BaseARRAY):
+        item_type = column.type.item_type.python_type
+        if item_type is object:
+            raise ModelError([f"unsupported typed column {column}"])
+        kind = f"list[{item_type.__name__}]"
+    else:
+        try:
+            python_type = column.type.python_type
+            if python_type is object:
+                raise ModelError([f"unsupported typed column {column}"])
+            kind = python_type.__name__
+        except NotImplementedError as exc:
+            raise ModelError([f"unsupported typed column {column}"]) from exc
+    if members := column.info.get("enum"):
+        kind = "Literal[" + ", ".join(repr(value) for value in sorted(members)) + "]"
+        if isinstance(column.type, BaseARRAY):
+            kind = f"list[{kind}]"
+    if nominal := column.info.get("python_type"):
+        kind = nominal.rsplit(".", 1)[1]
+    if column.nullable:
+        kind += " | None"
+    return kind
+
+
 def render_typed_column_class(
     name: str, columns: Iterable[Column[Any]], *, bindings: Mapping[str, str] | None = None
 ) -> str:
@@ -290,23 +401,7 @@ def render_typed_column_class(
     for column in columns:
         if not column.name.isidentifier():
             raise ModelError([f"invalid typed column name {column.name!r}"])
-        if isinstance(column.type, JSONB):
-            kind = "JsonValue"
-        elif isinstance(column.type, BaseARRAY):
-            item_type = column.type.item_type.python_type
-            if item_type is object:
-                raise ModelError([f"unsupported typed column {column}"])
-            kind = f"list[{item_type.__name__}]"
-        else:
-            try:
-                python_type = column.type.python_type
-                if python_type is object:
-                    raise ModelError([f"unsupported typed column {column}"])
-                kind = python_type.__name__
-            except NotImplementedError as exc:
-                raise ModelError([f"unsupported typed column {column}"]) from exc
-        if column.nullable:
-            kind += " | None"
+        kind = column_type_annotation(column)
         kind = bindings.get(column.name, kind) if bindings is not None else kind
         result.append(f"    {column.name}: Named[{kind}]")
     if len(result) == 1:
@@ -330,6 +425,7 @@ def render_typed_columns(
     bindings: Mapping[str, Mapping[str, str]] | None = None,
     imports: Iterable[str] = (),
     type_model_id: str | None = None,
+    identifiers_module: str = "._operation_ids",
 ) -> str:
     """Generate declarations and typed views of existing model-owned Core tables."""
     out = [
@@ -348,7 +444,7 @@ def render_typed_columns(
         "",
         "from .metadata import table",
         "",
-        *(f"from ._operation_ids import {name} as {name}" for name in sorted(imports)),
+        *(f"from {identifiers_module} import {name} as {name}" for name in sorted(imports)),
         f"PHYSICAL_MODEL_ID = {revision!r}",
         f"TYPE_MODEL_ID = {type_model_id!r}",
     ]

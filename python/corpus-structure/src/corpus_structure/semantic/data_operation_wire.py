@@ -471,7 +471,7 @@ def wire_nominal_correspondence(sources=None) -> tuple[tuple[str, str], ...]:
     if not isinstance(fields, dict):
         raise ValueError("wire nominal fields must be source pointer bindings")
     for pointer, nominal in fields.items():
-        if not isinstance(nominal, str) or not nominal.isidentifier():
+        if not isinstance(nominal, str) or any(not part.isidentifier() for part in nominal.split(".")):
             raise ValueError("invalid nominal wire name at " + pointer)
         value = {"definitions": definitions}
         try:
@@ -501,7 +501,7 @@ def render_wire_types(definitions, nominals=()):
 
     nominal = dict(nominals)
     classes, aliases, active = {}, {}, set()
-    nominal_bases = {}
+    nominal_bases, nominal_imports = {}, {}
 
     def union(values):
         return " | ".join(dict.fromkeys(values)) or "Never"
@@ -524,7 +524,15 @@ def render_wire_types(definitions, nominals=()):
                     branch = definitions[branch["$ref"].removeprefix("#/definitions/")]
                 types.append(branch.get("type"))
             base = "int" if "integer" in types else "str"
-            alias = nominal[pointer]
+            qualified = nominal[pointer]
+            alias = qualified.rsplit(".", 1)[-1]
+            if "." in qualified:
+                module = qualified.rsplit(".", 1)[0]
+                if any(not part.isidentifier() or iskeyword(part) for part in qualified.split(".")):
+                    raise ValueError("invalid nominal wire owner: " + qualified)
+                if alias in nominal_imports and nominal_imports[alias] != module:
+                    raise ValueError("inconsistent nominal wire owner: " + alias)
+                nominal_imports[alias] = module
             if alias in nominal_bases and nominal_bases[alias] != base:
                 raise ValueError("inconsistent nominal wire scalar: " + alias)
             nominal_bases[alias] = base
@@ -644,11 +652,12 @@ def render_wire_types(definitions, nominals=()):
                 for key in fence_fields
             ],
         ]
-    out = [
+    out = [f"from {module} import {name}" for name, module in sorted(nominal_imports.items())]
+    out += [
         "type WireExactJSONValue = dict[str, WireExactJSONValue] | list[WireExactJSONValue] | str | bool | int | float | Decimal | None",
         "",
     ]
-    out += [f"{name} = NewType({name!r}, {base})" for name, base in sorted(nominal_bases.items())]
+    out += [f"{name} = NewType({name!r}, {base})" for name, base in sorted(nominal_bases.items()) if name not in nominal_imports]
     for lines in classes.values():
         out += ["", *lines]
     for name, expression in aliases.items():

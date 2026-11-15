@@ -103,6 +103,7 @@ classes:
     - sem
     attributes:
       release_id:
+        annotations: {ph:python_type: "corpus_structure.semantic.identifiers.ReleaseId"}
         range: string
         required: true
       parent_release_id:
@@ -440,6 +441,7 @@ classes:
     - data
     attributes:
       realization_id:
+        annotations: {ph:python_type: "corpus_structure.semantic.identifiers.RealizationId"}
         range: string
         required: true
       project_id:

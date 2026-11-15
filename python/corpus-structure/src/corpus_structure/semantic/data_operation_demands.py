@@ -34,7 +34,6 @@ from corpus_structure.semantic._data_operation_wire import (
     WireReadIdentity,
     WireRecordDataFateRequest,
     WireRegisterDataDemandResult,
-    WireReleaseId,
     WireRuntimeId,
     WireSelectDataPopulationRequest,
 )
@@ -55,6 +54,7 @@ from .data_operation_support import (
 )
 from .graph_runtime import nx
 from .graph_topology import rooted_closure
+from .identifiers import ReleaseId
 from .identity import canonical_bytes
 
 if TYPE_CHECKING:
@@ -461,7 +461,7 @@ class DemandPlanner:
         result = self.storage.register_data_demand(
             {
                 "project_id": WireProjectId(project),
-                "release_id": WireReleaseId(release),
+                "release_id": ReleaseId(release),
                 "runtime_id": WireRuntimeId(runtime),
                 "root": record["roots"],
                 "selection": record,

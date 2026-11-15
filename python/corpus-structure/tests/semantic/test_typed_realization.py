@@ -17,7 +17,7 @@ from corpus_structure.semantic.analytics import compile_projection, compile_sql
 from corpus_structure.semantic.metadata import metadata
 from corpus_structure.semantic.pdf_record_model import record_arrow_schema, record_write_profile
 from corpus_structure.semantic.query import SnapshotBinding
-from corpus_structure.semantic.typed_generation import generated_source
+from corpus_structure.semantic.typed_generation import generated_identifiers, generated_source
 from semantic.analytics_support import prepared_inputs
 
 REPO = Path(__file__).resolve().parents[4]
@@ -26,6 +26,8 @@ REPO = Path(__file__).resolve().parents[4]
 def test_generated_surface_is_current_and_attaches_existing_table():
     assert Path(_typed_columns.__file__).read_text() == generated_source()
     assert _typed_columns.data_occurrence is metadata.tables["data.occurrence"]
+    from corpus_structure.semantic import identifiers
+    assert Path(identifiers.__file__).read_text() == generated_identifiers()
 
 
 def test_one_modeled_field_updates_static_native_and_arrow_products():
@@ -85,7 +87,7 @@ def test_actual_static_consumer_refuses_wrong_column_and_incompatible_type(tmp_p
         "from sqlalchemy import select\n"
         "from sqlalchemy.sql.elements import ColumnElement\n"
         "from corpus_structure.semantic._typed_columns import data_occurrence_columns\n"
-        "from corpus_structure.semantic._operation_ids import ReleaseId, RealizationId\n"
+        "from corpus_structure.semantic.identifiers import ReleaseId, RealizationId\n"
         "def needs_release(value: ColumnElement[ReleaseId]) -> None: pass\n"
         "def needs_text(value: ColumnElement[str]) -> None: pass\n"
         "def needs_integer(value: ColumnElement[int]) -> None: pass\n"
@@ -334,8 +336,7 @@ def test_type_correspondence_cannot_hide_behind_value_projection():
         resolve(OperationFieldBinding("release", "physical:data.occurrence.release_id", False), {})
 
 
-@pytest.mark.parametrize("consumer", ["columns", "companions"])
-def test_generators_cannot_bypass_invalid_anchored_correspondence(consumer):
+def test_companion_generator_cannot_bypass_invalid_anchored_correspondence():
     from corpus_structure.semantic import contracts
     from corpus_structure.semantic.companion_projection import render_static_columns
     from corpus_structure.semantic.types import PreparationError
@@ -356,7 +357,7 @@ def test_generators_cannot_bypass_invalid_anchored_correspondence(consumer):
         contracts.implementation_override(snapshot),
         pytest.raises(PreparationError, match="semantic identifiers differ"),
     ):
-        (generated_source if consumer == "columns" else render_static_columns)()
+        render_static_columns()
 
 
 def test_correspondence_preserves_value_projection_lineage_and_rejects_collection_mismatch():
@@ -410,3 +411,40 @@ def test_schema_slot_cannot_hide_anchored_self_correspondence(declaration):
 
     with pytest.raises(PreparationError, match="cyclic"):
         compile_execution_model(_changed_correspondence_inputs(mutate))
+
+
+@pytest.mark.parametrize(
+    "target, message",
+    [
+        ("physical:data.occurrence.realization_id", "cyclic physical type correspondence"),
+        ("physical:data.occurrence.missing_field", "field is unavailable"),
+        ("physical:ops.task.id", "encoding differs"),
+        ("physical:data.realization.realization_id", "nominal identifiers differ"),
+    ],
+)
+def test_physical_nominal_correspondences_are_checked_without_execution_catalog(target, message):
+    import yaml
+    from corpus_structure.schema.model import ModelError
+    from corpus_structure.schema.physical import compile_physical
+
+    sources = dict(metadata.info["physical_sources"])
+    document = yaml.safe_load(sources["physical.yaml"])
+    # Preserve each independent nominal declaration while deliberately corrupting its edge.
+    cls = "occurrence" if target != "physical:data.realization.realization_id" else "release"
+    field = "realization_id" if cls == "occurrence" else "release_id"
+    document["classes"][cls]["attributes"][field].setdefault("annotations", {})["cp:type_source"] = target
+    sources["physical.yaml"] = yaml.safe_dump(document).encode()
+    with pytest.raises(ModelError, match=message):
+        compile_physical(sources)
+
+
+def test_current_wire_and_column_nominals_share_the_canonical_owner():
+    from typing import Required, get_args, get_origin, get_type_hints
+    from corpus_structure.semantic import identifiers
+    from corpus_structure.semantic._data_operation_wire import WireExternalSourceRef
+
+    release_type = get_type_hints(WireExternalSourceRef, include_extras=True)["release_id"]
+    assert get_origin(release_type) is Required
+    assert get_args(release_type) == (identifiers.ReleaseId,)
+    assert metadata.tables["data.occurrence"].c.release_id.info["python_type"] == "corpus_structure.semantic.identifiers.ReleaseId"
+    assert metadata.tables["data.occurrence"].c.realization_id.info["python_type"] == "corpus_structure.semantic.identifiers.RealizationId"

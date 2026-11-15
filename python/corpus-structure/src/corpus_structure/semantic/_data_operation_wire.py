@@ -6,6 +6,8 @@ from collections.abc import Mapping
 from decimal import Decimal
 from typing import Any, Literal, NewType, NotRequired, Required, TypedDict, cast
 
+from corpus_structure.semantic.identifiers import ReleaseId
+
 type WireExactJSONValue = (
     dict[str, WireExactJSONValue]
     | list[WireExactJSONValue]
@@ -36,7 +38,6 @@ WireProjectId = NewType("WireProjectId", str)
 WirePublicationReceiptId = NewType("WirePublicationReceiptId", str)
 WireReadIdentity = NewType("WireReadIdentity", str)
 WireReadSnapshotIdentity = NewType("WireReadSnapshotIdentity", str)
-WireReleaseId = NewType("WireReleaseId", str)
 WireRequestId = NewType("WireRequestId", str)
 WireRuntimeId = NewType("WireRuntimeId", str)
 WireSubjectId = NewType("WireSubjectId", str)
@@ -89,7 +90,7 @@ class WireExternalSourceRef(TypedDict):
     project_id: Required[WireProjectId]
     projection_digest: Required[str]
     recipe_digest: Required[str]
-    release_id: Required[WireReleaseId]
+    release_id: Required[ReleaseId]
     result_revision: Required[int]
     run_id: Required[int]
     source_view_id: Required[int]
@@ -131,7 +132,7 @@ class WirePublishedPdfDocumentRef(TypedDict):
     logical_digest: Required[str]
     product_key: Required[str]
     recipe_digest: Required[str]
-    release_id: Required[WireReleaseId]
+    release_id: Required[ReleaseId]
     schema_digest: Required[str]
     source_digest: Required[str]
     task_id: Required[WireTaskIdentity]
@@ -196,10 +197,11 @@ class WireChoice(TypedDict):
     selected: Required[bool]
 
 
-class WireRootSubject(TypedDict):
+class WireMemberContext(TypedDict):
     analyzed_scope: Required[WireJsonValue]
-    original_source: Required[WireOriginalSourceId]
-    subject: Required[WireSubjectId]
+    original_source: Required[WireIdentifier]
+    subject: Required[WireIdentifier]
+    subject_definition: Required[WireIdentifier]
 
 
 class WireCoordinate(TypedDict):
@@ -332,7 +334,7 @@ class WireExternalSourceReference(TypedDict):
     project_id: Required[WireProjectId]
     projection_digest: Required[str]
     recipe_digest: Required[str]
-    release_id: Required[WireReleaseId]
+    release_id: Required[ReleaseId]
     result_revision: Required[int]
     run_id: Required[int]
     source_view_id: Required[int]
@@ -363,6 +365,7 @@ class WireAdmitOriginalSourceViewResult(TypedDict):
     selection_name: Required[WireIdentifier]
     source_reference: Required[WireIdentifier]
     subject: Required[WireSubjectId]
+    subject_definition: Required[WireIdentifier]
     trust_snapshot: Required[WireTrustSnapshot]
 
 
@@ -509,6 +512,7 @@ class WirePopulationProducerContext(TypedDict):
     operation_id: Required[WireOperationId]
     original_source: Required[WireOriginalSourceId]
     subject: Required[WireSubjectId]
+    subject_definition: Required[WireIdentifier]
 
 
 class WirePopulationSelectionEvidence(TypedDict):
@@ -525,6 +529,7 @@ class WirePopulationSelectionEvidence(TypedDict):
     read_id: Required[WireReadIdentity]
     role: Required[WireIdentifier]
     subject: Required[WireSubjectId]
+    subject_definition: Required[WireIdentifier]
 
 
 class WirePopulationEvidence(TypedDict):
@@ -543,6 +548,7 @@ class WirePopulationMember(TypedDict):
     member_id: Required[WireMemberId]
     original_source: Required[WireOriginalSourceId]
     subject: Required[WireSubjectId]
+    subject_definition: Required[WireIdentifier]
 
 
 class WireCloseDataPopulationResult(TypedDict):
@@ -591,6 +597,12 @@ class WireOriginalDocumentSelection(TypedDict):
     selectors: Required[list[WireOriginalDocumentSelector]]
 
 
+class WireRootSubject(TypedDict):
+    analyzed_scope: Required[WireJsonValue]
+    original_source: Required[WireOriginalSourceId]
+    subject: Required[WireSubjectId]
+
+
 class WireSemanticSourceReference(TypedDict):
     member_id: NotRequired[WireMemberId]
     product_id: Required[WireProductId]
@@ -605,6 +617,7 @@ class WireSourceSetEntry(TypedDict):
     reference: Required[WireExternalSourceReference | WireSemanticSourceReference]
     source_reference: Required[WireIdentifier]
     subject: Required[WireSubjectId]
+    subject_definition: Required[WireIdentifier]
 
 
 class WireDemandIntent(TypedDict):
@@ -711,7 +724,7 @@ class WireInspectDataCompletionResultVariant4(TypedDict):
 
 class WireInspectDataExecutionRequest(TypedDict):
     operation_id: Required[WireOperationId]
-    release_id: Required[WireReleaseId]
+    release_id: Required[ReleaseId]
     runtime_id: NotRequired[WireRuntimeId]
 
 
@@ -871,7 +884,7 @@ class WireReadDemandResultResult(TypedDict):
     project_id: Required[WireProjectId]
     read_id: Required[WireReadIdentity]
     read_snapshot: Required[WireReadSnapshot]
-    release_id: Required[WireReleaseId]
+    release_id: Required[ReleaseId]
     root: Required[list[WireRootSubject]]
     runtime_id: Required[WireRuntimeId]
     scope: NotRequired[WireDemandReadScope]
@@ -926,7 +939,7 @@ class WireRecordDataFateResult(TypedDict):
 
 class WireRegisterDataDemandRequest(TypedDict):
     project_id: Required[WireProjectId]
-    release_id: Required[WireReleaseId]
+    release_id: Required[ReleaseId]
     root: Required[list[WireRootSubject]]
     runtime_id: Required[WireRuntimeId]
     selection: Required[WireDemandIntent]
@@ -1093,8 +1106,6 @@ type WireSemanticValue = (
     | list[Literal["sequence", "ordered-bag", "bag", "set"] | list[WireSemanticValue]]
     | WireTaggedMapping
 )
-
-type WireMemberContext = WireRootSubject
 
 type WireEndpoint = WireEndpointVariant1 | WireEndpointVariant2
 

@@ -13,14 +13,14 @@ fields:
   '#/definitions/ExternalExecutionReceipt/properties/runtime_id': WireRuntimeId
   '#/definitions/ExternalExecutionReceipt/properties/task_id': WireTaskIdentity
   '#/definitions/ExternalSourceRef/properties/project_id': WireProjectId
-  '#/definitions/ExternalSourceRef/properties/release_id': WireReleaseId
+  '#/definitions/ExternalSourceRef/properties/release_id': corpus_structure.semantic.identifiers.ReleaseId
   '#/definitions/LogicalProviderMember/properties/attempt': WireAttempt
   '#/definitions/LogicalProviderMember/properties/generation': WireGeneration
   '#/definitions/LogicalProviderMember/properties/request_id': WireRequestId
   '#/definitions/LogicalProviderMember/properties/task_id': WireTaskIdentity
   '#/definitions/NativeExecutionReceipt/properties/request_id': WireRequestId
   '#/definitions/OriginalDocumentRef/properties/project_id': WireProjectId
-  '#/definitions/PublishedPdfDocumentRef/properties/release_id': WireReleaseId
+  '#/definitions/PublishedPdfDocumentRef/properties/release_id': corpus_structure.semantic.identifiers.ReleaseId
   '#/definitions/PublishedPdfDocumentRef/properties/task_id': WireTaskIdentity
   '#/definitions/admit_authored_data_request/properties/demand_id': WireDemandId
   '#/definitions/admit_external_data_result_request/properties/attempt': WireAttempt
@@ -98,7 +98,7 @@ fields:
   '#/definitions/external_packet_head/properties/subject': WireSubjectId
   '#/definitions/external_packet_head/properties/task_id': WireTaskIdentity
   '#/definitions/external_source_reference/properties/project_id': WireProjectId
-  '#/definitions/external_source_reference/properties/release_id': WireReleaseId
+  '#/definitions/external_source_reference/properties/release_id': corpus_structure.semantic.identifiers.ReleaseId
   '#/definitions/input_member/properties/member_id': WireMemberId
   '#/definitions/input_member/properties/product_id': WireProductId
   '#/definitions/inspect_data_completion_request/properties/demand_id': WireDemandId
@@ -109,7 +109,7 @@ fields:
   '#/definitions/inspect_data_completion_result/oneOf/2/properties/receipt_id': WirePublicationReceiptId
   '#/definitions/inspect_data_completion_result/oneOf/2/properties/runtime_id': WireRuntimeId
   '#/definitions/inspect_data_execution_request/properties/operation_id': WireOperationId
-  '#/definitions/inspect_data_execution_request/properties/release_id': WireReleaseId
+  '#/definitions/inspect_data_execution_request/properties/release_id': corpus_structure.semantic.identifiers.ReleaseId
   '#/definitions/inspect_data_execution_request/properties/runtime_id': WireRuntimeId
   '#/definitions/inspect_external_data_result_request/properties/packet_id': WireExternalPacketId
   '#/definitions/inspect_external_data_result_result/properties/intent_id': WireCompletionIntentId
@@ -153,7 +153,7 @@ fields:
   '#/definitions/read_demand_result_result/properties/demand_id': WireDemandId
   '#/definitions/read_demand_result_result/properties/project_id': WireProjectId
   '#/definitions/read_demand_result_result/properties/read_id': WireReadIdentity
-  '#/definitions/read_demand_result_result/properties/release_id': WireReleaseId
+  '#/definitions/read_demand_result_result/properties/release_id': corpus_structure.semantic.identifiers.ReleaseId
   '#/definitions/read_demand_result_result/properties/runtime_id': WireRuntimeId
   '#/definitions/read_external_data_packet_request/properties/attempt': WireAttempt
   '#/definitions/read_external_data_packet_request/properties/generation': WireGeneration
@@ -168,7 +168,7 @@ fields:
   '#/definitions/record_data_fate_request/properties/obligation_id': WireObligationId
   '#/definitions/record_data_fate_request/properties/request_id': WireRequestId
   '#/definitions/register_data_demand_request/properties/project_id': WireProjectId
-  '#/definitions/register_data_demand_request/properties/release_id': WireReleaseId
+  '#/definitions/register_data_demand_request/properties/release_id': corpus_structure.semantic.identifiers.ReleaseId
   '#/definitions/register_data_demand_request/properties/runtime_id': WireRuntimeId
   '#/definitions/register_data_demand_result/properties/demand_id': WireDemandId
   '#/definitions/release_data_attempt_request/properties/attempt': WireAttempt

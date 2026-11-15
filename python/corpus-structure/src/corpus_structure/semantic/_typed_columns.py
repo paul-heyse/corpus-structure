@@ -7,12 +7,12 @@ from typing import Literal, Protocol, cast
 from pydantic import JsonValue
 from sqlalchemy import Column, Named, TypedColumns
 
-from ._operation_ids import RealizationId as RealizationId
-from ._operation_ids import ReleaseId as ReleaseId
+from .identifiers import RealizationId as RealizationId
+from .identifiers import ReleaseId as ReleaseId
 from .metadata import table
 
-PHYSICAL_MODEL_ID = "physical:8f4716ac2251ba4f94a833023017b33f5a02c955f954cebc0b076e2ee9a72ee1"
-TYPE_MODEL_ID = "42e52652691f93e9e717fd58dc2f7cc5629ddde088e0adebc20282576eec6453"
+PHYSICAL_MODEL_ID = "physical:2c581bf9c8b12225e0bba084c95285b3939f851d1af2e66a52bb9a0e8e825d5b"
+TYPE_MODEL_ID = "62ad46fb309abbb1c636e790b4700b28515dabc53abec932f65d676a3068d4da"
 
 
 class DataOccurrenceColumns(TypedColumns):
@@ -48,8 +48,8 @@ class OpsPdfStageDocumentColumns(TypedColumns):
     revision_id: Named[str]
     release_id: Named[ReleaseId]
     source_digest: Named[str]
-    mapping_profile: Named[str]
-    contract_version: Named[str]
+    mapping_profile: Named[Literal["pdf-native-records-v1"]]
+    contract_version: Named[Literal["pdf-native-records-v1"]]
     native_schema_digest: Named[str]
     root_id: Named[str]
 
@@ -59,8 +59,8 @@ class OpsPdfStageDocumentColumnsSet(Protocol):
     revision_id: Column[str]
     release_id: Column[ReleaseId]
     source_digest: Column[str]
-    mapping_profile: Column[str]
-    contract_version: Column[str]
+    mapping_profile: Column[Literal["pdf-native-records-v1"]]
+    contract_version: Column[Literal["pdf-native-records-v1"]]
     native_schema_digest: Column[str]
     root_id: Column[str]
 

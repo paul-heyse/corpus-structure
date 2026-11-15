@@ -115,6 +115,10 @@ def native_protocol_sources(
         ),
         SourceArtifact("native/data-operation-storage.py", Path(__file__).read_bytes()),
         SourceArtifact(
+            "native/identifiers.py",
+            Path(__file__).with_name("identifiers.py").read_bytes(),
+        ),
+        SourceArtifact(
             "native/native-call-contracts.py",
             Path(__file__).with_name("native_call_contracts.py").read_bytes(),
         ),
@@ -176,6 +180,8 @@ def _captured(sources) -> dict[str, bytes]:
         "native/data-operation-original-reference.json",
         "native/data-operation-support.py",
     }
+    if b"corpus_structure.semantic.identifiers." in result.get("native/data-operation-wire-types.yaml", b""):
+        required.add("native/identifiers.py")
     if b"native_call_contracts" in result.get("native/data-operation-storage.py", b""):
         required.add("native/native-call-contracts.py")
     if b"data_operation_kind_refinements" in result.get("native/data-operation-storage.py", b""):

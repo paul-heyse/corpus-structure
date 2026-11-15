@@ -5,7 +5,7 @@ from pathlib import Path
 from corpus_structure.schema.generate import _format
 from corpus_structure.schema.relational import render_typed_columns
 
-from .metadata import PHYSICAL_MODEL_ID, metadata
+from .metadata import metadata
 
 # Operation selection only; every field, type and optionality comes from the model.
 TYPED_RELATIONS = (
@@ -19,57 +19,69 @@ TYPED_RELATIONS = (
 )
 
 
-def generated_source() -> str:
-    from dataclasses import asdict
+def generated_identifiers(model=metadata) -> str:
+    """One current nominal owner, projected from explicit physical declarations."""
+    from keyword import iskeyword
+
+    declarations = {}
+    for relation in model.tables.values():
+        for column in relation.columns:
+            if qualified := column.info.get("python_type"):
+                module, name = qualified.rsplit(".", 1)
+                base = column.type.python_type
+                if module != "corpus_structure.semantic.identifiers" or base not in {str, int} or iskeyword(name):
+                    raise ValueError("unsupported canonical physical nominal " + qualified)
+                if name in declarations and declarations[name] != base.__name__:
+                    raise ValueError("inconsistent canonical physical nominal " + qualified)
+                declarations[name] = base.__name__
+    return _format(
+        "semantic/identifiers.py",
+        '\n'.join([
+            '"""Current semantic identifiers generated from explicit physical declarations."""',
+            'from typing import NewType',
+            '',
+            *(f"{name} = NewType({name!r}, {base})" for name, base in sorted(declarations.items())),
+            '',
+        ]),
+    )
+
+
+def generated_source(model=metadata) -> str:
     from hashlib import sha256
 
-    from .native_call_contracts import OperationFieldBinding
-    from .contracts import compile_execution_model, trusted_execution_inputs
-    from .identity import canonical_bytes
-    from .operation_call_generation import _PRIMITIVES, source_bindings
+    from corpus_structure.schema.relational import column_type_annotation
 
-    inputs = trusted_execution_inputs()
-    model = compile_execution_model(inputs)
-    _, nominal, _, resolve = source_bindings(model, inputs)
+    from .identity import canonical_bytes
+
     bindings, imports, facts = {}, set(), {}
     for relation in TYPED_RELATIONS:
-        target = metadata.tables[relation]
+        target = model.tables[relation]
         fields = bindings[relation] = {}
         for column in target.columns:
-            reference = f"physical:{target.schema}.{target.info['model_class']}.{column.name}"
-            binding = OperationFieldBinding(column.name, reference, bool(column.nullable))
-            resolved, source = resolve(binding, {})
-            name = nominal(reference)
-            kind = name or (
-                "Literal[" + ", ".join(repr(v) for v in resolved.enum_values) + "]"
-                if resolved.enum_values
-                else _PRIMITIVES[resolved.kind]
-            )
-            if name:
+            fields[column.name] = column_type_annotation(column)
+            if qualified := column.info.get("python_type"):
+                module, name = qualified.rsplit(".", 1)
+                if module != "corpus_structure.semantic.identifiers":
+                    raise ValueError("typed columns require the canonical physical nominal owner")
                 imports.add(name)
-            if resolved.multivalued:
-                kind = f"list[{kind}]"
-            if column.nullable:
-                kind += " | None"
-            fields[column.name] = kind
-            facts[reference] = {"source": source, "nominal": name, "type": asdict(resolved)}
-    identity = sha256(
-        canonical_bytes(
-            {
-                "renderer": "semantic-typed-columns/2",
-                "physical": PHYSICAL_MODEL_ID,
-                "bindings": facts,
+            facts[f"{relation}.{column.name}"] = {
+                "type": fields[column.name],
+                "nominal": column.info.get("python_type"),
+                "enum": column.info.get("enum", ()),
             }
-        )
+    physical_id = model.info["physical_model_id"]
+    identity = sha256(
+        canonical_bytes({"renderer": "semantic-typed-columns/3", "physical": physical_id, "bindings": facts})
     ).hexdigest()
     return _format(
         "semantic/_typed_columns.py",
         render_typed_columns(
-            metadata,
+            model,
             TYPED_RELATIONS,
-            PHYSICAL_MODEL_ID,
+            physical_id,
             bindings=bindings,
             imports=imports,
+            identifiers_module=".identifiers",
             type_model_id=identity,
         ),
     )
@@ -86,5 +98,6 @@ def generated_fates() -> str:
 
 
 if __name__ == "__main__":
+    Path(__file__).with_name("identifiers.py").write_text(generated_identifiers())
     Path(__file__).with_name("_typed_columns.py").write_text(generated_source())
     Path(__file__).with_name("_data_operation_fates.py").write_text(generated_fates())
