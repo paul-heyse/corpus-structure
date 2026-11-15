@@ -182,7 +182,9 @@ preserving the writer for leases and proposals. Verify the affected operations w
 reader-only client, wrong-run and denied-role controls, and the existing writer queue journey.
 Keep the 1,895-byte `find` wire result scoped to that operation and actual transport.
 [MCP composition](../../../python/corpus-structure/src/corpus_structure/intervene/semantic_server.py#L556) ·
-[Record and structural tools](../../../python/corpus-structure/src/corpus_structure/intervene/record_tools.py#L23)
+`record_tools.py` (retired; historical finding baseline). Current selected reads use
+[demand_read_tools.py](../../../python/corpus-structure/src/corpus_structure/intervene/demand_read_tools.py)
+with explicit project/demand pins. The DDO coordinator owns their migration and native qualification.
 
 **F05 · Exact interrupted export.** Retained native exports verify replay of a settled selection
 and reject a changed connection route. Retry reads `selection.json` without checking a digest
