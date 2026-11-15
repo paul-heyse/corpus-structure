@@ -2328,7 +2328,7 @@ operations:
   profile: command
   request: admit_authored_data_request
   result: admit_original_source_view_result
-  purposes: [write]
+  purposes: [write, evaluate]
 - name: inspect_data_execution
   profile: read
   request: inspect_data_execution_request
