@@ -51,6 +51,7 @@ class _RecordMapping(Mapping):
 class SelectedRecordIndex:
     def __init__(self, path):
         self.connection = sqlite3.connect(path)
+        self.retained_bytes = 0
         self.connection.execute(
             "CREATE TABLE records(key TEXT PRIMARY KEY, relation TEXT NOT NULL, payload BLOB NOT NULL)"
         )
@@ -84,6 +85,11 @@ class SelectedRecordIndex:
         self.connection.execute(
             "INSERT INTO records VALUES(?,?,?)", (row["key"], row["relation"], payload)
         )
+        self.retained_bytes += len(payload)
+
+    def records(self):
+        for (payload,) in self.connection.execute("SELECT payload FROM records ORDER BY key"):
+            yield wire_json_loads(payload)
 
     def rows(self, relation):
         for (payload,) in self.connection.execute(

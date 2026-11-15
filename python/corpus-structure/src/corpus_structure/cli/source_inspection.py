@@ -21,6 +21,9 @@ def register(root):
     from corpus_structure.cli.model import app as model_app
 
     model_app.add_typer(app, name="source")
+    from corpus_structure.cli.demands import app as demands_app
+
+    demands_app.command("graph")(graph)
 
 
 @app.command("navigate")
@@ -142,4 +145,29 @@ def compare(
                 max_bytes=max_bytes,
             ),
         )
+    emit(result, json=json)
+
+
+@app.command("graph")
+def graph(
+    ctx: typer.Context,
+    input: Annotated[Path, typer.Argument(exists=True, dir_okay=False)],
+    json: JsonOpt = False,
+):
+    """Inspect an explicitly declared archived or selected graph projection."""
+    from corpus_structure.cli.failures import failure_boundary
+    from corpus_structure.cli.output import read_request_bytes
+    from corpus_structure.semantic.runtime import open_runtime_engine
+    from corpus_structure.semantic.graph_inspection import (
+        GraphInspectionRequest,
+        read_graph_inspection,
+    )
+
+    with (
+        failure_boundary(json, expected=(ValueError, KeyError, OSError)),
+        open_runtime_engine(state(ctx).settings(), "ci-graph-inspection", purpose="read") as engine,
+        engine.begin() as connection,
+    ):
+        request = GraphInspectionRequest.model_validate_json(read_request_bytes(input))
+        result = read_graph_inspection(connection, request)
     emit(result, json=json)

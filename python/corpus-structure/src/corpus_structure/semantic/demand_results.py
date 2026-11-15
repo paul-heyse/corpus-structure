@@ -271,6 +271,10 @@ def stream_selected_support(connection, page: DemandResult) -> Iterator[dict[str
         request["support_after"] = support["after"]
 
 
+class SelectedGraphBudgetExceeded(ValueError):
+    """The authenticated closure exceeds the caller's whole-examination budget."""
+
+
 @contextmanager
 def selected_record_index(
     connection,
@@ -282,6 +286,7 @@ def selected_record_index(
     expected_cut=None,
     max_bytes=8388608,
     page_rows=100,
+    max_total_bytes=None,
 ):
     """Keep one pinned native acquisition and its complete temporary witness index."""
     from pathlib import Path
@@ -314,6 +319,10 @@ def selected_record_index(
                     raise ValueError("selected resource belongs to another cut/trust assessment")
                 for record in stream_selected_support(connection, page):
                     index.append(json_bytes(record), allow_equal=True)
+                    if max_total_bytes is not None and index.retained_bytes > max_total_bytes:
+                        raise SelectedGraphBudgetExceeded(
+                            "selected graph examined closure exceeds byte bound"
+                        )
                 continuation = page.continuation
                 if continuation is None:
                     break

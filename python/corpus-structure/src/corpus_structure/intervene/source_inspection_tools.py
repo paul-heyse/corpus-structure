@@ -86,3 +86,36 @@ def register_source_inspection_tools(server, reader, *, project=None, demand=Non
             target = open_release(connection, request.target_release_id)
             result = inspect_change_impact(connection, request, target_prepared=target)
         return bounded_mcp_result(result, request.max_bytes)
+
+    from corpus_structure.semantic.graph_inspection import (
+        GraphInspectionRequest,
+        read_graph_inspection,
+    )
+
+    @server.tool(annotations={"readOnlyHint": True})
+    @tool_refusals(ValueError, KeyError)
+    def inspect_declared_graph(request: GraphInspectionRequest):
+        """Inspect bounded members, occurrences, SCCs, paths or scope crossings."""
+        if project is not None and request.demand_id is not None and request.project_id != project:
+            raise ValueError("graph belongs to another server project")
+        if demand is not None and request.demand_id is not None and request.demand_id != demand:
+            raise ValueError("graph belongs to another server demand")
+        with reader() as connection:
+            result = read_graph_inspection(connection, request)
+        return bounded_mcp_result(result, request.max_bytes)
+
+    @server.resource("corpus://declared-graph/{handle}")
+    def declared_graph_resource(handle: str):
+        import base64
+
+        request = GraphInspectionRequest.model_validate_json(base64.urlsafe_b64decode(handle))
+        if project is not None and request.demand_id is not None and request.project_id != project:
+            raise ValueError("graph belongs to another server project")
+        if demand is not None and request.demand_id is not None and request.demand_id != demand:
+            raise ValueError("graph belongs to another server demand")
+        with reader() as connection:
+            result = read_graph_inspection(connection, request)
+        content = result.model_dump_json()
+        if len(content.encode()) > request.max_bytes:
+            raise ValueError("complete graph resource exceeds response bound")
+        return content
