@@ -35,6 +35,7 @@ classes:
     attributes:
       release_id: {range: string, required: true}
       operation_id: {range: string, required: true}
+      subject_definition: {range: string, required: true}
       recipe: {range: string, required: true}
       profile: {range: string, required: true}
       implementation_revision: {range: string, required: true}

@@ -215,9 +215,8 @@ BEGIN
 END $$;
 CREATE OR REPLACE FUNCTION ops.ddo_operation_subject(p_release text,p_operation text) RETURNS text
 LANGUAGE sql STABLE STRICT SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
- SELECT operation->>'subject' FROM sem.artifact artifact
- CROSS JOIN LATERAL jsonb_array_elements(convert_from(artifact.content,'UTF8')::jsonb->'operations') operation
- WHERE artifact.release_id=p_release AND artifact.artifact_name='data_operations.json' AND operation->>'semantic_id'=p_operation
+ SELECT definition.subject_definition FROM sem.data_operation_definition definition
+ WHERE definition.release_id=p_release AND definition.operation_id=p_operation
 $$;
 CREATE OR REPLACE FUNCTION ops.ddo_population_producer_context(pop ops.data_population) RETURNS jsonb
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
@@ -1732,14 +1731,15 @@ BEGIN
  IF operation->'external' IS NOT NULL THEN expected_support:=expected_support||jsonb_build_object('external',operation->'external'); END IF;
  IF coalesce(operation->'output_witnesses','[]')<>'[]'::jsonb THEN expected_support:=expected_support||jsonb_build_object('output_witnesses',operation->'output_witnesses'); END IF;
  IF o->'input_roles' IS DISTINCT FROM expected_inputs OR o->'output_roles' IS DISTINCT FROM expected_outputs
+ OR o->>'subject_definition' IS DISTINCT FROM operation->>'subject'
  OR o->'support_contract' IS DISTINCT FROM expected_support OR o->'profile' IS DISTINCT FROM operation->'profile'
  OR o->'binding' IS DISTINCT FROM (SELECT binding->'expression' FROM jsonb_array_elements(archived->'bindings') binding WHERE binding->>'semantic_id'=operation->>'binding')
  OR o->>'definition' IS DISTINCT FROM (SELECT id->>'key' FROM jsonb_array_elements(archived->'identities') id WHERE id->>'owner'=o->>'operation_id' AND id->>'domain'='definition')
  OR o->>'eligibility' IS DISTINCT FROM (SELECT id->>'key' FROM jsonb_array_elements(archived->'identities') id WHERE id->>'owner'=o->>'operation_id' AND id->>'domain'='eligibility')
  OR o->>'implementation_revision' IS DISTINCT FROM coalesce((SELECT id->>'key' FROM jsonb_array_elements(archived->'identities') id WHERE id->>'owner'=operation->>'implementation_root' AND id->>'domain'='implementation-slice'),CASE WHEN operation->'external' IS NULL THEN operation->>'behavior' ELSE 'external:'||(o->>'recipe') END) THEN RAISE EXCEPTION 'native definition projection disagrees with archived operation facts'; END IF;
  IF NOT EXISTS(SELECT FROM jsonb_array_elements(archived->'identities') a WHERE a->>'owner'=o->>'operation_id' AND a->>'domain'='recipe' AND a->>'key'=o->>'recipe') THEN RAISE EXCEPTION 'recipe differs from archived effective model'; END IF;
- INSERT INTO sem.data_operation_definition VALUES(p->>'release_id',o->>'operation_id',o->>'recipe',o->>'profile',o->>'implementation_revision',o->'input_roles',o->'output_roles',o->'support_contract') ON CONFLICT DO NOTHING;
- IF NOT EXISTS(SELECT FROM sem.data_operation_definition d WHERE d.release_id=p->>'release_id' AND d.operation_id=o->>'operation_id' AND d.recipe=o->>'recipe' AND d.profile=o->>'profile' AND d.implementation_revision=o->>'implementation_revision' AND d.input_roles=o->'input_roles' AND d.output_roles=o->'output_roles' AND d.support_contract=o->'support_contract') THEN RAISE EXCEPTION 'operation definition changed under admitted release'; END IF;
+ INSERT INTO sem.data_operation_definition VALUES(p->>'release_id',o->>'operation_id',o->>'subject_definition',o->>'recipe',o->>'profile',o->>'implementation_revision',o->'input_roles',o->'output_roles',o->'support_contract') ON CONFLICT DO NOTHING;
+ IF NOT EXISTS(SELECT FROM sem.data_operation_definition d WHERE d.release_id=p->>'release_id' AND d.operation_id=o->>'operation_id' AND d.subject_definition=o->>'subject_definition' AND d.recipe=o->>'recipe' AND d.profile=o->>'profile' AND d.implementation_revision=o->>'implementation_revision' AND d.input_roles=o->'input_roles' AND d.output_roles=o->'output_roles' AND d.support_contract=o->'support_contract') THEN RAISE EXCEPTION 'operation definition changed under admitted release'; END IF;
  END LOOP;
  RETURN jsonb_build_object('release_id',p->>'release_id','model_digest',p->>'model_digest');
 END $$;
