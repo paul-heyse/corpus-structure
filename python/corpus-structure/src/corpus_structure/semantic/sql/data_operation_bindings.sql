@@ -9,7 +9,7 @@ LANGUAGE sql IMMUTABLE STRICT SET search_path=pg_catalog,pg_temp AS $$
  AND (NOT reference ? 'member_id' OR (jsonb_typeof(reference->'member_id')='string' AND nullif(reference->>'member_id','') IS NOT NULL))
 $$;
 
-CREATE OR REPLACE FUNCTION ops.ddo_validate_source_sets(source_sets jsonb,project text) RETURNS void
+CREATE OR REPLACE FUNCTION ops.ddo_validate_source_sets(source_sets jsonb,project text,subject_scopes jsonb) RETURNS void
 LANGUAGE plpgsql IMMUTABLE STRICT SET search_path=pg_catalog,pg_temp AS $$
 DECLARE named record; entry jsonb; reference_schema constant jsonb:='__DDO_EXTERNAL_SOURCE_SCHEMA__';
 BEGIN
@@ -19,16 +19,18 @@ BEGIN
  IF EXISTS(SELECT FROM jsonb_array_elements(named.value) value GROUP BY value->>'product',value->>'member' HAVING count(*)<>1) THEN RAISE EXCEPTION 'duplicate qualified source-set product/member'; END IF;
  FOR entry IN SELECT value FROM jsonb_array_elements(named.value) LOOP
  PERFORM ops.ddo_fields(entry,ARRAY['project_id','original_source','subject','subject_definition','analyzed_scope','product','member','source_reference','reference']);
- IF EXISTS(SELECT FROM unnest(ARRAY['project_id','original_source','subject','subject_definition','product','source_reference']) field WHERE jsonb_typeof(entry->field) IS DISTINCT FROM 'string') OR jsonb_typeof(entry->'member') NOT IN ('string','null')
+ IF EXISTS(SELECT FROM unnest(ARRAY['project_id','subject','subject_definition','product','source_reference']) field WHERE jsonb_typeof(entry->field) IS DISTINCT FROM 'string') OR jsonb_typeof(entry->'member') NOT IN ('string','null')
  OR entry->>'project_id' IS DISTINCT FROM project
- OR nullif(entry->>'original_source','') IS NULL OR nullif(entry->>'subject','') IS NULL OR nullif(entry->>'subject_definition','') IS NULL OR nullif(entry->>'product','') IS NULL
- OR jsonb_typeof(entry->'analyzed_scope') IS DISTINCT FROM 'object'
+ OR jsonb_typeof(entry->'original_source') NOT IN ('string','null') OR nullif(entry->>'subject','') IS NULL OR nullif(entry->>'subject_definition','') IS NULL OR nullif(entry->>'product','') IS NULL
+
  OR (entry->'member'<>'null'::jsonb AND nullif(entry->>'member','') IS NULL) THEN RAISE EXCEPTION 'source-set entry differs from original qualified reference'; END IF;
+ PERFORM ops.ddo_require_subject_source(subject_scopes,entry->>'subject_definition',entry->>'original_source');
  IF ops.ddo_semantic_source_reference(entry->'reference') THEN
  IF entry->'reference'->>'product_id' IS DISTINCT FROM entry->>'product'
  OR entry->'reference'->>'member_id' IS DISTINCT FROM entry->>'member'
  OR entry->>'source_reference' IS DISTINCT FROM (CASE WHEN entry->'reference' ? 'member_id' THEN 'member:'||ops.ddo_digest(entry->'reference') ELSE entry->>'product' END) THEN RAISE EXCEPTION 'source-set semantic reference differs from exact native product/member'; END IF;
  ELSE
+ IF entry->>'original_source' IS NULL THEN RAISE EXCEPTION 'external source reference requires its actual original source'; END IF;
  IF NOT public.json_matches_schema(reference_schema::json,(entry->'reference')::json) OR entry->'reference'->>'project_id' IS DISTINCT FROM project
  OR entry->>'source_reference' IS DISTINCT FROM ops.ddo_digest(entry->'reference') THEN RAISE EXCEPTION 'source-set entry differs from original external reference'; END IF;
  END IF;
@@ -40,7 +42,7 @@ CREATE OR REPLACE FUNCTION ops.ddo_binding_source(roledef jsonb,row_value jsonb,
 LANGUAGE plpgsql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $$
 DECLARE name text:=roledef->'support'->>'source_set'; reference_field text:=roledef->'support'->>'source_reference_field';
 BEGIN
- IF name IS NULL THEN RETURN consumer_source IS NULL OR row_value->>'original_source'=consumer_source; END IF;
+ IF name IS NULL THEN RETURN row_value->>'original_source' IS NOT DISTINCT FROM consumer_source; END IF;
  IF jsonb_typeof(source_sets->name) IS DISTINCT FROM 'array' THEN RETURN false; END IF;
  RETURN EXISTS(SELECT FROM jsonb_array_elements(source_sets->name) entry WHERE
  (entry->>'product',entry->>'member',entry->>'subject',entry->>'subject_definition',entry->>'original_source') IS NOT DISTINCT FROM
@@ -580,7 +582,7 @@ BEGIN
  IF jsonb_typeof(witness) IS DISTINCT FROM 'object' OR jsonb_typeof(witness->'identity') IS DISTINCT FROM 'string' OR nullif(witness->>'identity','') IS NULL
  OR jsonb_typeof(witness->'complete') IS DISTINCT FROM 'boolean' OR jsonb_typeof(witness->'members') IS DISTINCT FROM 'array' OR jsonb_typeof(witness->'evidence') IS DISTINCT FROM 'object'
  OR (coalesce(witness->>'projection','member')='member' AND EXISTS(SELECT FROM jsonb_array_elements(witness->'members') m WHERE jsonb_typeof(m) IS DISTINCT FROM 'string' OR m#>>'{}'=''))
- OR (witness->>'projection'='qualified-context' AND EXISTS(SELECT FROM jsonb_array_elements(witness->'members') m WHERE jsonb_typeof(m)<>'object' OR nullif(m->>'project_id','') IS NULL OR nullif(m->>'subject','') IS NULL OR nullif(m->>'subject_definition','') IS NULL OR nullif(m->>'original_source','') IS NULL OR jsonb_typeof(m->'analyzed_scope') IS DISTINCT FROM 'object' OR (SELECT count(*) FROM jsonb_object_keys(m))<>5))
+ OR (witness->>'projection'='qualified-context' AND EXISTS(SELECT FROM jsonb_array_elements(witness->'members') m WHERE jsonb_typeof(m)<>'object' OR nullif(m->>'project_id','') IS NULL OR nullif(m->>'subject','') IS NULL OR nullif(m->>'subject_definition','') IS NULL OR NOT m ? 'original_source' OR jsonb_typeof(m->'original_source') NOT IN ('string','null') OR NOT m ? 'analyzed_scope' OR (SELECT count(*) FROM jsonb_object_keys(m))<>5))
  OR coalesce(witness->>'projection','member') NOT IN ('member','qualified-context')
  OR EXISTS(SELECT FROM jsonb_array_elements(witness->'members') m GROUP BY m HAVING count(*)<>1) THEN RAISE EXCEPTION 'invalid structured native population witness'; END IF;
  result:=jsonb_build_object('identity',witness->'identity','complete',witness->'complete','members',witness->'members');
@@ -658,7 +660,7 @@ BEGIN
  END LOOP;
  IF nullif(p_binding->>'read_id','') IS NULL THEN RAISE EXCEPTION 'native binding requires its authenticated read receipt'; END IF;
  SELECT * INTO STRICT boundary FROM ops.data_demand_read WHERE id=p_binding->>'read_id' AND demand_id=demand.id;
- SELECT coalesce(jsonb_agg(to_jsonb(v)),'[]') INTO universe FROM ops.ddo_binding_rows(p_demand,p_operation,p_trust,p_binding->>'read_id',p_subject,request.original_source,request.analyzed_scope,false,
+ SELECT coalesce(jsonb_agg(to_jsonb(v)),'[]') INTO universe FROM ops.ddo_binding_rows(p_demand,p_operation,p_trust,p_binding->>'read_id',p_subject,coalesce(to_jsonb(request.original_source),'null'::jsonb),request.analyzed_scope,false,
  CASE WHEN EXISTS(WITH RECURSIVE nodes(n) AS (SELECT expression UNION ALL SELECT value FROM nodes parent CROSS JOIN LATERAL jsonb_array_elements(coalesce(parent.n->'children','[]')))
  SELECT FROM nodes WHERE n->>'operator' IN ('forall','absent','membership','covers')) THEN NULL ELSE p_binding->'inputs' END) v;
  raw:=data.ddo_json(p_binding->'request_inputs');
@@ -698,9 +700,9 @@ BEGIN
  AND EXISTS(SELECT FROM jsonb_array_elements(p_binding->'populations') reference WHERE reference->>'population_id'=pop.id AND reference->>'name'=pop.name)
  AND (EXISTS(SELECT FROM jsonb_array_elements(p_binding->'populations') reference WHERE reference->>'population_id'=pop.id
  AND ops.ddo_discovery_role_population(demand,pop,p_operation,reference->>'role',p_subject,request.original_source,request.analyzed_scope,boundary))
- OR (NOT (pop.evidence ? 'selection') AND EXISTS(SELECT FROM ops.data_derivation producer JOIN ops.data_request produced ON produced.id=producer.request_id WHERE producer.id=pop.evidence->>'derivation_id' AND produced.subject=p_subject AND produced.original_source=request.original_source AND produced.analyzed_scope=request.analyzed_scope)) OR (
+ OR (NOT (pop.evidence ? 'selection') AND EXISTS(SELECT FROM ops.data_derivation producer JOIN ops.data_request produced ON produced.id=producer.request_id WHERE producer.id=pop.evidence->>'derivation_id' AND produced.subject=p_subject AND produced.original_source IS NOT DISTINCT FROM request.original_source AND produced.analyzed_scope=request.analyzed_scope)) OR (
  pop.evidence->'selection'->>'subject'=p_subject
- AND pop.evidence->'selection'->>'original_source'=request.original_source
+ AND pop.evidence->'selection'->>'original_source' IS NOT DISTINCT FROM request.original_source
  AND pop.evidence->'selection'->>'operation_id'=p_operation
  AND pop.evidence->'selection'->'analyzed_scope'=request.analyzed_scope)) LOOP
  SELECT coalesce(ops.ddo_binding_population_projection(expression,jsonb_build_object('choices',selection->'choices'),reference->>'role'),'member') INTO projection_mode FROM jsonb_array_elements(p_binding->'populations') reference WHERE reference->>'population_id'=native_population.id LIMIT 1;

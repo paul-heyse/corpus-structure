@@ -46,6 +46,7 @@ def native_protocol_sources(
     from .data_operation_execution_evidence import SOURCE, execution_evidence_schema
     from .data_operation_protocol import recordable_fate_sql
     from .data_operation_source_native import source_native_sources
+    from .data_operation_subjects import subject_scope_values
     from .data_operation_support import (
         ORIGINAL_REFERENCE_SCHEMA,
         ORIGINAL_SUPPORT_REFERENCE_SCHEMA,
@@ -148,6 +149,7 @@ def native_protocol_sources(
                 }
             ),
         ),
+        SourceArtifact("native/data-operation-subject-scopes.json",canonical_bytes(subject_scope_values())),
         SourceArtifact(
             "native/data-operation-subjects.py",
             Path(__file__).with_name("data_operation_subjects.py").read_bytes(),
@@ -299,6 +301,8 @@ def native_sql(sources=None) -> str:
         .replace("__DDO_SOURCE_DIGEST__", native_source_digest(captured))
     )
     sql += "\n" + _captured(captured).get("native/data-operation-external.sql", b"").decode()
+    if "__DDO_SUBJECT_SCOPES__" in sql:
+        sql=sql.replace("__DDO_SUBJECT_SCOPES__",_captured(captured)["native/data-operation-subject-scopes.json"].decode().replace("'","''"))
     if "__DDO_RECORDABLE_FATES__" in sql:
         sql = sql.replace(
             "'__DDO_RECORDABLE_FATES__'",
@@ -958,13 +962,13 @@ def admit_data_operation_definitions(
     return native_source_digest()
 
 
-_UNQUALIFIED_SCOPE = object()
+_UNQUALIFIED_CONTEXT_FIELD = object()
 
 
-def _binding_scope_parameter(scope=_UNQUALIFIED_SCOPE):
+def _binding_context_parameter(value=_UNQUALIFIED_CONTEXT_FIELD, *, name):
     return bindparam(
-        "data_binding_scope",
-        None if scope is _UNQUALIFIED_SCOPE else json_context_value(scope),
+        name,
+        None if value is _UNQUALIFIED_CONTEXT_FIELD else json_context_value(value),
         type_=ContextJSONB(),
     )
 
@@ -1011,8 +1015,8 @@ def admitted_data_read(
     *,
     read_id: str,
     subject: str | None = None,
-    original_source: str | None = None,
-    analyzed_scope: Any = _UNQUALIFIED_SCOPE,
+    original_source: Any = _UNQUALIFIED_CONTEXT_FIELD,
+    analyzed_scope: Any = _UNQUALIFIED_CONTEXT_FIELD,
 ):
     """Construct SQL bindings only through the demand-pinned native admission reader.
 
@@ -1022,6 +1026,8 @@ def admitted_data_read(
     from .data_operation_kind_refinements import input_kind_contracts
 
     operation = model.operation(operation_id)
+    if original_source is not _UNQUALIFIED_CONTEXT_FIELD and original_source is not None and (not isinstance(original_source,str) or not original_source):
+        raise ValueError("source filter requires a nonempty identifier or explicit None")
     # Acquire the exact demand now; execution of the TVF repeats its pin check.
     acquired = DataOperationStorage(connection).read_demand_result(
         {
@@ -1046,8 +1052,8 @@ def admitted_data_read(
         bindparam("data_binding_trust", trust_snapshot, type_=JSONB),
         read_id,
         subject,
-        original_source,
-        _binding_scope_parameter(analyzed_scope),
+        _binding_context_parameter(original_source,name="data_binding_source"),
+        _binding_context_parameter(analyzed_scope,name="data_binding_scope"),
     ).table_valued(*columns)
     return AdmittedDataRead(
         relation,
@@ -1075,8 +1081,8 @@ def admitted_data_projection(
     *,
     read_id: str,
     subject: str | None = None,
-    original_source: str | None = None,
-    analyzed_scope: Any = _UNQUALIFIED_SCOPE,
+    original_source: Any = _UNQUALIFIED_CONTEXT_FIELD,
+    analyzed_scope: Any = _UNQUALIFIED_CONTEXT_FIELD,
 ):
     """Derive kind/property projections from the same admitted binding-row base."""
     from .data_operation_bindings import ProjectionBinding, ProjectionField

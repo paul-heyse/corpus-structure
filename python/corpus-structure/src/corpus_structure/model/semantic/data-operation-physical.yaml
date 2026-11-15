@@ -108,7 +108,7 @@ classes:
       demand_id: {range: string, required: true}
       operation_id: {range: string, required: true}
       subject: {range: string, required: true}
-      original_source: {range: string, required: true}
+      original_source: {range: string, required: false}
       analyzed_scope: {range: json_payload, required: true}
       parameters: {range: json_payload, required: true}
       created_at: {range: timestamp, required: true}
@@ -130,7 +130,7 @@ classes:
       operation_id: {range: string, required: true}
       recipe: {range: string, required: true}
       subject: {range: string, required: true}
-      original_source: {range: string, required: true}
+      original_source: {range: string, required: false}
       analyzed_scope: {range: json_payload, required: true}
       binding: {range: json_payload, required: true}
       replicate: {range: string, required: false}
@@ -164,7 +164,7 @@ classes:
       project_id: {range: string, required: true}
       subject: {range: string, required: true}
       subject_definition: {range: string, required: true}
-      original_source: {range: string, required: true}
+      original_source: {range: string, required: false}
       analyzed_scope: {range: json_payload, required: true}
       canonical_body: {range: json_payload, required: true}
       body_digest: {range: string, required: true}
@@ -183,7 +183,7 @@ classes:
       kind_contract: {range: string, required: true}
       subject: {range: string, required: true}
       subject_definition: {range: string, required: true}
-      original_source: {range: string, required: true}
+      original_source: {range: string, required: false}
       analyzed_scope: {range: json_payload, required: true}
       body: {range: json_payload, required: true}
     unique_keys:
@@ -510,7 +510,7 @@ classes:
       selectors: {range: json_payload, required: true}
       product_id: {range: string, required: true}
       subject: {range: string, required: true}
-      original_source: {range: string, required: true}
+      original_source: {range: string, required: false}
       analyzed_scope: {range: json_payload, required: true}
       trust_snapshot: {range: json_payload, required: true}
       evidence: {range: json_payload, required: true}

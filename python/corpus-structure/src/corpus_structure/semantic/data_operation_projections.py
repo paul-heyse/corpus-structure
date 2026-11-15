@@ -199,7 +199,7 @@ def _scope_projection(metadata, nodes, project, direct_sources):
         .where(admissions.c.project_id == project),
     ).cte("support_sources")
     scope = func.ops.ddo_scope(project, sources.c.source)
-    return select(scope.label("scope")).where(sources.c.source.is_not(None)).order_by(scope)
+    return select(scope.label("scope")).order_by(scope)
 
 
 def support_scopes(metadata):
@@ -341,13 +341,17 @@ def binding_branches(metadata):
         _var("d.release_id", Text),
     )
     selection = _var("d.selection", JSONB)
-    operation_id, subject, source = (
-        _var("p_operation", Text),
-        _var("p_subject", Text),
-        _var("p_source", Text),
-    )
+    operation_id, subject = _var("p_operation", Text), _var("p_subject", Text)
+    source_filter=_var("p_source",JSONB)
+    source=cast(source_filter.op("#>>")(literal("{}")),Text)
     scope = _var("p_scope", JSONB)
     selected = _var("p_selected", JSONB)
+
+    def source_matches(roledef, header):
+        return or_(
+            and_(source_filter.is_(None),roledef["support"]["source_set"].astext.is_(None)),
+            func.ops.ddo_binding_source(roledef,header,source,func.coalesce(selection["source_sets"],_json({}))),
+        )
 
     def selected_key(product, member=None):
         requested = _items(selected, "selected_binding_key")
@@ -531,6 +535,7 @@ def binding_branches(metadata):
                             roles.c.value["support"]["origins"], _json(["computation"])
                         ).op("?")(literal("computation")),
                         or_(
+                            scope.is_(None),
                             roles.c.value["subject_field"].astext.is_not(None),
                             roles.c.value["subject_target"].astext == "source-set",
                             projected.c.projected_scope.is_not_distinct_from(scope),
@@ -551,12 +556,7 @@ def binding_branches(metadata):
                                         roles.c.value, header, subject, source
                                     ),
                                 ),
-                                func.ops.ddo_binding_source(
-                                    roles.c.value,
-                                    full_header,
-                                    source,
-                                    func.coalesce(selection["source_sets"], _json({})),
-                                ),
+                                source_matches(roles.c.value,full_header),
                             ),
                         ),
                         else_=literal(False),
@@ -654,7 +654,9 @@ def binding_branches(metadata):
         (admissions.c.reference["kind"].astext == "authored-fact", literal("authored")),
         else_=literal("original-source"),
     )
-    factual_header = _obj(subject=admissions.c.subject, meaning_body=products.c.canonical_body)
+    factual_header = _obj(product=admissions.c.product_id,member=cast(null(),Text),subject=admissions.c.subject,
+        subject_definition=products.c.subject_definition,original_source=admissions.c.original_source,
+        analyzed_scope=admissions.c.analyzed_scope,meaning_body=products.c.canonical_body)
     factual_role = exists(
         select(1)
         .select_from(definitions.join(roles, literal(True)))
@@ -669,10 +671,12 @@ def binding_branches(metadata):
                             roles.c.value["support"]["origins"], _json(["computation"])
                         ).op("?")(fact_origin),
                         or_(
+                            scope.is_(None),
                             roles.c.value["subject_field"].astext.is_not(None),
+                            roles.c.value["subject_target"].astext == "source-set",
                             admissions.c.analyzed_scope.is_not_distinct_from(scope),
                         ),
-                        or_(source.is_(None), admissions.c.original_source == source),
+                        source_matches(roles.c.value,factual_header),
                     ),
                     case(
                         (
@@ -781,8 +785,8 @@ def selected_support_export(metadata, selected_uses, admissions, in_page):
             _visible(admissions),
             *(
                 or_(
-                    _requested_read_scope()[name].astext.is_(None),
-                    admissions.c[name] == _requested_read_scope()[name].astext,
+                    ~_requested_read_scope().op("?")(literal(name)),
+                    admissions.c[name].is_not_distinct_from(_requested_read_scope()[name].astext),
                 )
                 for name in ("subject", "original_source")
             ),
@@ -1086,7 +1090,7 @@ def _scoped_read_obligations(metadata):
     outputs = metadata.tables["ops.data_derivation_output"]
     read_scope = _requested_read_scope()
     scope_predicates = tuple(
-        or_(read_scope[name].astext.is_(None), obligations.c[name] == read_scope[name].astext)
+        or_(~read_scope.op("?")(literal(name)), obligations.c[name].is_not_distinct_from(read_scope[name].astext))
         for name in ("operation_id", "subject", "original_source")
     )
     scoped_use = uses.alias("scope_use")
@@ -1431,7 +1435,7 @@ def read_page(metadata):
         .select_from(bounded)
         .where(
             bounded.c.subject == admissions.c.subject,
-            bounded.c.original_source == admissions.c.original_source,
+            bounded.c.original_source.is_not_distinct_from(admissions.c.original_source),
             bounded.c.analyzed_scope == admissions.c.analyzed_scope,
         )
     )

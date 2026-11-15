@@ -1,13 +1,12 @@
 """Explicit JSON null context stays distinct from an unqualified SQL NULL bind."""
 
 import json
-from importlib.resources import files
 
 import pytest
 from sqlalchemy import JSON, bindparam, func, literal_column, select
 
 from corpus_structure.semantic.data_operation_json import ContextJSONB, json_context_equal
-from corpus_structure.semantic.data_operation_storage import _binding_scope_parameter
+from corpus_structure.semantic.data_operation_storage import _binding_context_parameter
 from semantic.data_operation_kernel_support import STORAGE
 
 
@@ -29,18 +28,16 @@ def test_context_bind_and_comparison_distinguish_json_null_from_sql_null(semanti
 
 @pytest.mark.db
 @pytest.mark.parametrize("qualified", [False, True])
-def test_native_original_scope_predicate_selects_only_the_explicit_json_null_root(
+def test_scope_parameter_keeps_explicit_json_null_distinct_from_unqualified_sql_null(
     semantic_bare_engine,
     qualified,
 ):
-    source = files("corpus_structure.semantic").joinpath("sql/data_operations.sql").read_text()
-    assert "admission.analyzed_scope IS NOT DISTINCT FROM p_scope" in source
-    # Exact native original-source branch predicate, with the production projection
-    # parameter binder. These VALUES test context selection, not original admission.
+    # Independent SQL/JSON NULL values exercise the production context binder.
+    # These VALUES establish parameter meaning, not protected original admission.
     admission = select(
         literal_column("'null'::jsonb", ContextJSONB()).label("analyzed_scope")
     ).subquery("admission")
-    parameter = _binding_scope_parameter(None) if qualified else _binding_scope_parameter()
+    parameter = _binding_context_parameter(None,name="data_binding_scope") if qualified else _binding_context_parameter(name="data_binding_scope")
     query = select(
         admission.c.analyzed_scope.is_not_distinct_from(parameter), func.jsonb_typeof(parameter)
     )

@@ -271,7 +271,7 @@ definitions:
     type: object
     properties:
       project_id: {$ref: '#/definitions/identifier'}
-      original_source: {$ref: '#/definitions/identifier'}
+      original_source: {anyOf: [{$ref: '#/definitions/identifier'}, {type: 'null'}]}
       subject: {$ref: '#/definitions/identifier'}
       subject_definition: {$ref: '#/definitions/identifier'}
       analyzed_scope: {$ref: '#/definitions/json_value'}
@@ -292,8 +292,7 @@ definitions:
     properties:
       subject:
         $ref: '#/definitions/identifier'
-      original_source:
-        $ref: '#/definitions/identifier'
+      original_source: {anyOf: [{$ref: '#/definitions/identifier'}, {type: 'null'}]}
       analyzed_scope:
         $ref: '#/definitions/json_value'
     required:
@@ -811,8 +810,7 @@ definitions:
         $ref: '#/definitions/identifier'
       subject_definition:
         $ref: '#/definitions/identifier'
-      original_source:
-        $ref: '#/definitions/identifier'
+      original_source: {anyOf: [{$ref: '#/definitions/identifier'}, {type: 'null'}]}
       analyzed_scope:
         $ref: '#/definitions/json_value'
     required:
@@ -837,8 +835,7 @@ definitions:
         $ref: '#/definitions/identifier'
       subject_definition:
         $ref: '#/definitions/identifier'
-      original_source:
-        $ref: '#/definitions/identifier'
+      original_source: {anyOf: [{$ref: '#/definitions/identifier'}, {type: 'null'}]}
       analyzed_scope:
         $ref: '#/definitions/json_value'
       role:
@@ -864,8 +861,7 @@ definitions:
         $ref: '#/definitions/identifier'
       subject_definition:
         $ref: '#/definitions/identifier'
-      original_source:
-        $ref: '#/definitions/identifier'
+      original_source: {anyOf: [{$ref: '#/definitions/identifier'}, {type: 'null'}]}
       analyzed_scope:
         $ref: '#/definitions/json_value'
     required: [operation_id, subject, subject_definition, original_source, analyzed_scope]
@@ -950,8 +946,7 @@ definitions:
         $ref: '#/definitions/identifier'
       subject_definition:
         $ref: '#/definitions/identifier'
-      original_source:
-        $ref: '#/definitions/identifier'
+      original_source: {anyOf: [{$ref: '#/definitions/identifier'}, {type: 'null'}]}
       analyzed_scope:
         $ref: '#/definitions/json_value'
       body:
@@ -1101,8 +1096,7 @@ definitions:
         $ref: '#/definitions/identifier'
       subject:
         $ref: '#/definitions/identifier'
-      original_source:
-        $ref: '#/definitions/identifier'
+      original_source: {anyOf: [{$ref: '#/definitions/identifier'}, {type: 'null'}]}
       analyzed_scope:
         $ref: '#/definitions/json_value'
       parameters:
@@ -1221,7 +1215,7 @@ definitions:
       kind_contract: {$ref: '#/definitions/identifier'}
       subject: {$ref: '#/definitions/identifier'}
       subject_definition: {$ref: '#/definitions/identifier'}
-      original_source: {$ref: '#/definitions/identifier'}
+      original_source: {anyOf: [{$ref: '#/definitions/identifier'}, {type: 'null'}]}
       analyzed_scope: {$ref: '#/definitions/json_value'}
       source_reference: {$ref: '#/definitions/identifier'}
       trust_snapshot: {$ref: '#/definitions/trust_snapshot'}
@@ -1320,8 +1314,7 @@ definitions:
         $ref: '#/definitions/identifier'
       subject:
         $ref: '#/definitions/identifier'
-      original_source:
-        $ref: '#/definitions/identifier'
+      original_source: {anyOf: [{$ref: '#/definitions/identifier'}, {type: 'null'}]}
       analyzed_scope:
         $ref: '#/definitions/json_value'
       parameters:
@@ -1917,8 +1910,7 @@ definitions:
     properties:
       project_id:
         $ref: '#/definitions/identifier'
-      original_source:
-        $ref: '#/definitions/identifier'
+      original_source: {anyOf: [{$ref: '#/definitions/identifier'}, {type: 'null'}]}
       selector_kind:
         type: string
         enum:
@@ -1963,7 +1955,7 @@ definitions:
         uniqueItems: true
       operation_id: {$ref: '#/definitions/identifier'}
       subject: {$ref: '#/definitions/identifier'}
-      original_source: {$ref: '#/definitions/identifier'}
+      original_source: {anyOf: [{$ref: '#/definitions/identifier'}, {type: 'null'}]}
     additionalProperties: false
   read_demand_result_request:
     type: object
@@ -2191,7 +2183,7 @@ definitions:
     properties:
       subject: {$ref: '#/definitions/identifier'}
       subject_definition: {$ref: '#/definitions/identifier'}
-      original_source: {$ref: '#/definitions/identifier'}
+      original_source: {anyOf: [{$ref: '#/definitions/identifier'}, {type: 'null'}]}
       analyzed_scope: {$ref: '#/definitions/json_value'}
     required: [subject, subject_definition, original_source, analyzed_scope]
     additionalProperties: false

@@ -204,7 +204,7 @@ class WireChoice(TypedDict):
 
 class WireMemberContext(TypedDict):
     analyzed_scope: Required[WireJsonValue]
-    original_source: Required[WireIdentifier]
+    original_source: Required[WireIdentifier | None]
     subject: Required[WireIdentifier]
     subject_definition: Required[WireIdentifier]
 
@@ -365,7 +365,7 @@ class WireAdmitOriginalSourceViewResult(TypedDict):
     analyzed_scope: Required[WireJsonValue]
     evidence: Required[WireJsonValue]
     kind_contract: Required[WireKindContract]
-    original_source: Required[WireOriginalSourceId]
+    original_source: Required[WireOriginalSourceId | None]
     product_id: Required[WireProductId]
     selection_name: Required[WireIdentifier]
     source_reference: Required[WireIdentifier]
@@ -515,7 +515,7 @@ class WireCloseDataPopulationRequest(TypedDict):
 class WirePopulationProducerContext(TypedDict):
     analyzed_scope: Required[WireJsonValue]
     operation_id: Required[WireOperationId]
-    original_source: Required[WireOriginalSourceId]
+    original_source: Required[WireOriginalSourceId | None]
     subject: Required[WireSubjectId]
     subject_definition: Required[WireIdentifier]
 
@@ -528,7 +528,7 @@ class WirePopulationSelectionEvidence(TypedDict):
     filter: Required[WireJsonValue]
     obligation_id: Required[WireObligationId]
     operation_id: Required[WireOperationId]
-    original_source: Required[WireOriginalSourceId]
+    original_source: Required[WireOriginalSourceId | None]
     parameter_meaning: Required[WireSemanticValue]
     parent_population_id: Required[WireIdentifier]
     read_id: Required[WireReadIdentity]
@@ -551,7 +551,7 @@ class WirePopulationEvidence(TypedDict):
 class WirePopulationMember(TypedDict):
     analyzed_scope: Required[WireJsonValue]
     member_id: Required[WireMemberId]
-    original_source: Required[WireOriginalSourceId]
+    original_source: Required[WireOriginalSourceId | None]
     subject: Required[WireSubjectId]
     subject_definition: Required[WireIdentifier]
 
@@ -567,7 +567,7 @@ class WireCloseDataPopulationResult(TypedDict):
 
 class WireDemandReadScope(TypedDict):
     operation_id: NotRequired[WireOperationId]
-    original_source: NotRequired[WireOriginalSourceId]
+    original_source: NotRequired[WireOriginalSourceId | None]
     product_ids: NotRequired[list[WireProductId]]
     subject: NotRequired[WireSubjectId]
 
@@ -604,7 +604,7 @@ class WireOriginalDocumentSelection(TypedDict):
 
 class WireRootSubject(TypedDict):
     analyzed_scope: Required[WireJsonValue]
-    original_source: Required[WireOriginalSourceId]
+    original_source: Required[WireOriginalSourceId | None]
     subject: Required[WireSubjectId]
 
 
@@ -616,7 +616,7 @@ class WireSemanticSourceReference(TypedDict):
 class WireSourceSetEntry(TypedDict):
     analyzed_scope: Required[WireJsonValue]
     member: Required[WireIdentifier | None]
-    original_source: Required[WireOriginalSourceId]
+    original_source: Required[WireOriginalSourceId | None]
     product: Required[WireIdentifier]
     project_id: Required[ProjectId]
     reference: Required[WireExternalSourceReference | WireSemanticSourceReference]
@@ -681,7 +681,7 @@ class WireExpandDataObligationRequest(TypedDict):
     analyzed_scope: Required[WireJsonValue]
     demand_id: Required[WireDemandId]
     operation_id: Required[WireOperationId]
-    original_source: Required[WireOriginalSourceId]
+    original_source: Required[WireOriginalSourceId | None]
     parameters: Required[WireParameterMap]
     population_id: NotRequired[WirePopulationId]
     subject: Required[WireSubjectId]
@@ -839,7 +839,7 @@ class WireResultObligation(TypedDict):
     intent_id: Required[WireCompletionIntentId | None]
     obligation_id: Required[WireObligationId]
     operation_id: Required[WireOperationId]
-    original_source: Required[WireOriginalSourceId]
+    original_source: Required[WireOriginalSourceId | None]
     parameters: Required[WireParameterMap]
     request_id: Required[WireRequestId | None]
     subject: Required[WireSubjectId]
@@ -864,7 +864,7 @@ class WireResultProduct(TypedDict):
     kind_contract: Required[WireKindContract]
     member_id: Required[WireMemberId | None]
     multiplicity: Required[WirePositiveInteger]
-    original_source: Required[WireOriginalSourceId]
+    original_source: Required[WireOriginalSourceId | None]
     position: Required[WireNonnegativeInteger]
     product_id: Required[WireProductId]
     role: Required[WireIdentifier]
@@ -1256,7 +1256,7 @@ class WireRetainExternalDataPacketResult(TypedDict):
 
 
 class WireRevokeDataSupportRequest(TypedDict):
-    original_source: Required[WireOriginalSourceId]
+    original_source: Required[WireOriginalSourceId | None]
     project_id: Required[ProjectId]
     reason: Required[WireIdentifier]
     selector: Required[WireIdentifier]

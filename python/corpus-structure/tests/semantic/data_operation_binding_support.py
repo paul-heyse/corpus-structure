@@ -91,7 +91,7 @@ def build_binding_source(recipe, admin, writer, directory, *, purpose_engine=Non
                 if not isinstance(raw.stmt, ast.CreateFunctionStmt):
                     continue
                 name = (raw.stmt.funcname or ())[-1].sval
-                if (codecs and name in {"ddo_normalize", "ddo_field", "ddo_json"}) or (
+                if (codecs and name in {"ddo_normalize", "ddo_field", "ddo_json", "ddo_require_subject_source", "ddo_scope", "ddo_digest"}) or (
                     not codecs and name != "ddo_require_binding"
                 ):
                     connection.exec_driver_sql(

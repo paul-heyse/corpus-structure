@@ -59,3 +59,13 @@ def subject_field_kind(kinds, owner: str, field: str):
     ):
         raise ValueError("subject association requires a scalar subject identifier")
     return target
+
+
+def subject_scope_values() -> tuple[str, ...]:
+    """Project the checked subject owner's closed scope type for native validation."""
+    from typing import get_args, get_type_hints
+    from .data_operation_model import SubjectDefinition
+    values=get_args(get_type_hints(SubjectDefinition)["scope"])
+    if not values or any(type(value) is not str for value in values):
+        raise ValueError("subject scope owner is not a closed string contract")
+    return tuple(sorted(values))
