@@ -1449,3 +1449,12 @@ def test_native_enforcement_requires_the_actual_captured_policy_asset():
     metadata["assets"][0]["content_digest"] = asset.digest
     with pytest.raises(PreparationError, match="captured native admission enforcement"):
         compile_data_operations(python_sources=python_inputs(operation_source(metadata=metadata)))
+
+
+def test_bound_members_require_explicit_support_references():
+    model = compile_data_operations(declarations=declarations(contract()))
+    member = resolved_binding(model).roles[0].members[0]
+    from dataclasses import replace
+
+    with pytest.raises(ValueError, match="computational support projection"):
+        replace(member, support_references=())

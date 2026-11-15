@@ -131,7 +131,7 @@ def storage(native_rollback):
         ),
         *(
             Column(name, JSONB)
-            for name in ("analyzed_scope", "coverage", "support_episodes", "support_evidence")
+            for name in ("analyzed_scope", "coverage", "support_episodes", "support_evidence", "support_references")
         ),
         Column("position", Integer),
         Column("multiplicity", Integer),
@@ -155,6 +155,7 @@ def storage(native_rollback):
                 analyzed_scope={"page": 1},
                 coverage={"complete": True},
                 support_episodes=[f"ep{value}"],
+                support_references=[{"kind": "computation", "derivation_id": f"ep{value}", "admission_use_id": None}],
                 support_evidence={"trust": "pinned"},
                 position=3 - value,
                 multiplicity=1,
@@ -278,7 +279,10 @@ def test_sql_range_membership_defaults_and_exact_identity(storage):
 )
 def test_postgresql_full_binding_result_preserves_selected_facts(storage, facet, value):
     connection, relation, projection = storage
-    connection.execute(relation.update().where(relation.c.value == 2).values({facet: value}))
+    selected = {facet: value}
+    if facet == "support_episodes":
+        selected["support_references"] = [{"kind": "computation", "derivation_id": "selected-episode", "admission_use_id": None}]
+    connection.execute(relation.update().where(relation.c.value == 2).values(selected))
     expression = BindingExpression(
         "membership", operands=(field(), BindingOperand("parameter", "integer", name="allowed"))
     )

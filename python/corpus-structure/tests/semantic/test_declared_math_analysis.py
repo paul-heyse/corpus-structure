@@ -183,7 +183,7 @@ def test_context_reads_exact_retained_parent_function_and_variable_with_native_o
             b"{}",
             (),
             b"{}",
-         subject_definition="original-source-view")
+         subject_definition="original-source-view", support_references=())
 
     parent_pin, child_pin = bind(parent, "parent-source"), bind(child, "child-source")
     parent_frame = DeclaredNativeFrameSource.acquire(

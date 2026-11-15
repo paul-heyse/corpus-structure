@@ -709,7 +709,7 @@ def _controlled_source_pin(source):
         b"{}",
         (),
         b"{}",
-     subject_definition="original-source-view")
+     subject_definition="original-source-view", support_references=())
     return DeclaredSourcePin(
         canonical_bytes(
             DeclaredRecordSource.from_bound(source, member, project=context.project_id).pin()

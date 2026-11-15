@@ -899,23 +899,9 @@ class BoundRoleMember:
     member: str | None = None
     provider_identity: str | None = None
     alternative_identity: str | None = None
-    support_references: tuple[SupportReference, ...] = ()
+    support_references: tuple[SupportReference, ...] = field(kw_only=True)
 
     def __post_init__(self) -> None:
-        if not self.support_references and self.support_episodes:
-            evidence = json.loads(self.support_evidence)
-            use_id = evidence.get("use_id") if isinstance(evidence, dict) else None
-            object.__setattr__(
-                self,
-                "support_references",
-                tuple(
-                    ComputationalSupportReference(
-                        derivation_id=episode,
-                        admission_use_id=use_id if len(self.support_episodes) == 1 else None,
-                    )
-                    for episode in self.support_episodes
-                ),
-            )
         computed = tuple(
             reference.derivation_id
             for reference in self.support_references

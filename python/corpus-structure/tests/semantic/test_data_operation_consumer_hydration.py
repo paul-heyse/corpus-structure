@@ -39,7 +39,7 @@ def _member(**changes):
             ("episode:one",),
             b'{"use_id":"use:one"}',
             member="member:shared",
-         subject_definition="document"),
+         subject_definition="document", support_references=(ComputationalSupportReference(derivation_id="episode:one", admission_use_id="use:one"),)),
         **changes,
     )
 
@@ -52,6 +52,7 @@ def _admitted_rows(records):
             "product": member.product,
             "kind_contract": member.kind_contract,
             "subject": member.subject,
+            "subject_definition": member.subject_definition,
             "original_source": member.original_source,
             "analyzed_scope": json_context_value(json_loads(member.analyzed_scope)),
             "coverage": json_loads(member.coverage),
@@ -85,6 +86,7 @@ def hydration_case(monkeypatch, native_rollback):
             SimpleNamespace(owner="operation", domain="eligibility", key="eligibility"),
         ),
         operation=lambda _: SimpleNamespace(
+            subject="document",
             roles=tuple(
                 SimpleNamespace(name=name, kind="kind") for name in ("left", "right", "empty")
             )
@@ -175,10 +177,11 @@ def test_hydration_uses_one_body_query_per_bounded_values_page(hydration_case, c
         {"member": "other"},
         {"kind_contract": "kind:other"},
         {"subject": "other"},
+        {"subject_definition": "other-kind"},
         {"original_source": "other"},
         {"analyzed_scope": b"null"},
         {"support_evidence": b"{}"},
-        {"support_episodes": ("episode:other",), "support_references": ()},
+        {"support_episodes": ("episode:other",), "support_references": (ComputationalSupportReference(derivation_id="episode:other", admission_use_id="use:one"),)},
         {
             "support_references": (
                 ComputationalSupportReference(
@@ -194,6 +197,7 @@ def test_hydration_uses_one_body_query_per_bounded_values_page(hydration_case, c
         "member",
         "kind",
         "subject",
+        "subject-definition",
         "original",
         "scope",
         "support",

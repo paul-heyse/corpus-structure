@@ -25,7 +25,7 @@ def test_qualified_product_ref_preserves_header_and_does_not_alias_domain_conten
         b"{}",
         (),
         b"{}",
-     subject_definition="document")
+     subject_definition="document", support_references=())
     reference = DeclaredContributionRef.from_bound(
         member, project="p", contribution_id="source-contribution:" + "a" * 64
     )

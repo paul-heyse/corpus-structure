@@ -147,7 +147,7 @@ def test_declared_member_maps_literal_spans_without_a_physical_view_or_task():
         (),
         b"{}",
         member="member:one",
-     subject_definition="original-source-view")
+     subject_definition="original-source-view", support_references=())
     frame = DeclaredNativeFrameSource.acquire(prepared, source.value, member, project="p")
     assert not hasattr(frame, "source_view_id") and not hasattr(frame, "native_product")
     preparation = PreparedNativeSources((frame,))
@@ -235,7 +235,7 @@ def test_declared_literal_record_assembly_preserves_semantic_member_pin():
         (),
         b"{}",
         member="member:one",
-     subject_definition="original-source-view")
+     subject_definition="original-source-view", support_references=())
     frame = DeclaredNativeFrameSource.acquire(prepared, native.value, member, project="p")
     context = NativeSourceContext(
         frame,
@@ -313,7 +313,7 @@ def test_candidate_preparation_accepts_explicit_declared_frame_without_view_refe
         (),
         b"{}",
         member="member:one",
-     subject_definition="original-source-view")
+     subject_definition="original-source-view", support_references=())
     frame = DeclaredNativeFrameSource.acquire(prepared, native.value, member, project="p")
     data = SimpleNamespace(
         text=text, pieces=native.value["pieces"], items=native.value["items"], health={}
@@ -378,7 +378,7 @@ def test_declared_formula_occurrence_keeps_original_member_address_without_conve
         (),
         b"{}",
         member="member:one",
-     subject_definition="original-source-view")
+     subject_definition="original-source-view", support_references=())
     frame = DeclaredNativeFrameSource.acquire(prepared, native.value, member, project="p")
     occurrence = formula_occurrence(frame, item, "succeeded")
     assert isinstance(occurrence, DeclaredFormulaOccurrence)
@@ -463,7 +463,7 @@ def test_declared_related_context_selects_only_closed_native_link_members():
                 (),
                 b"{}",
                 member="member:" + str(ordinal),
-             subject_definition="original-source-view")
+             subject_definition="original-source-view", support_references=())
         )
     witness = canonical_bytes(
         {

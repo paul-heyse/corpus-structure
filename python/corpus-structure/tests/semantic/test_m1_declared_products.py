@@ -89,7 +89,7 @@ def test_empty_m1_inspection_has_successful_typed_report_and_exact_denominator()
         (),
         b"{}",
         member="member:source",
-     subject_definition="original-source-view")
+     subject_definition="original-source-view", support_references=())
     frame = DeclaredNativeFrameSource.acquire(prepared, source.value, member, project="p")
     product = M1CandidateProduct(
         ObservationOutcome.EMPTY,
@@ -205,7 +205,7 @@ def test_candidate_body_is_stored_once_and_keeps_required_source_record_anchors(
         (),
         b"{}",
         member="member:source",
-     subject_definition="original-source-view")
+     subject_definition="original-source-view", support_references=())
     frame = DeclaredNativeFrameSource.acquire(prepared, source.value, member, project="p")
     context = NativeSourceContext(
         frame,
@@ -324,7 +324,7 @@ def test_partial_produced_inspection_preserves_real_candidates_after_later_worke
         (),
         b"{}",
         member="member:source",
-     subject_definition="original-source-view")
+     subject_definition="original-source-view", support_references=())
     frame = DeclaredNativeFrameSource.acquire(prepared, source.value, member, project="p")
     context = NativeSourceContext(
         frame,
@@ -516,7 +516,7 @@ def test_m1_scoped_source_and_direct_context_cannot_inspect_unselected_original_
             (),
             b"{}",
             member="selected:scope",
-         subject_definition="original-source-view")
+         subject_definition="original-source-view", support_references=())
         return DeclaredNativeFrameSource.acquire(prepared, source.value, member, project="p")
 
     selected = frame(
@@ -616,7 +616,7 @@ def test_related_m1_context_consumes_only_related_members_own_selected_span():
             (),
             b"{}",
             member="source:" + str(ordinal),
-         subject_definition="original-source-view")
+         subject_definition="original-source-view", support_references=())
         return DeclaredNativeFrameSource.acquire(prepared, value, member, project="p")
 
     primary, related = frame(primary, 0), frame(related, 1)

@@ -60,7 +60,7 @@ def population(prepared):
         (),
         b"{}",
         member="member:section",
-     subject_definition="original-source-view")
+     subject_definition="original-source-view", support_references=())
     frame = DeclaredNativeFrameSource.acquire(
         prepared, source.value, member, project="outside-statistics"
     )

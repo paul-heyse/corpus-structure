@@ -1310,9 +1310,7 @@ def decode_binding_rows(
                     row["member"],
                     row["provider_identity"],
                     row["alternative_identity"],
-                    read_support_references(row["support_references"])
-                    if "support_references" in row
-                    else (),
+                    support_references=read_support_references(row["support_references"]),
                     subject_definition=row["subject_definition"],
                 )
             )

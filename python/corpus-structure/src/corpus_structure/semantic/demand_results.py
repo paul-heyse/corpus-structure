@@ -498,7 +498,7 @@ def verify_detached_result(
         return value
 
     def support_reference(reference):
-        if reference.get("kind", "computation") in {"original-source", "authored"}:
+        if reference["kind"] in {"original-source", "authored"}:
             original = required(originals, reference["admission_id"], "original support")
             if original["source_reference"] != reference["source_reference"]:
                 raise ValueError("detached original support names another source")
@@ -596,7 +596,7 @@ def verify_detached_result(
                 raise ValueError("detached output inventory differs from the sealed completion")
             for occurrence, reference in enumerate(payload["support"]):
                 support_reference(reference)
-                original = reference.get("kind", "computation") in {"original-source", "authored"}
+                original = reference["kind"] in {"original-source", "authored"}
                 edge = required(
                     original_supports if original else supports,
                     (episode["id"], occurrence),

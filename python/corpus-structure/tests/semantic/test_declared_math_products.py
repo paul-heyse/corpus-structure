@@ -89,7 +89,7 @@ def _inputs(profile):
         (),
         b"{}",
         member="selected",
-     subject_definition="original-source-view")
+     subject_definition="original-source-view", support_references=())
     formal_member = replace(
         source_member, product=formal.semantic_id, member=None, kind_contract="kind:formal"
     )
@@ -319,7 +319,7 @@ def test_symbol_scope_uses_retained_cues_forward_and_preserves_original_formula_
         (),
         b"{}",
         member="selected",
-     subject_definition="original-source-view")
+     subject_definition="original-source-view", support_references=())
     formal_pin = replace(pin, product=formal.semantic_id, member=None, kind_contract="kind:formal")
     binders = Binders(sentence_initial=("suppose",))
     profile = PreparedMathInputs(

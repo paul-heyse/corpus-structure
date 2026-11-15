@@ -314,7 +314,7 @@ def member_columns():
     return tuple(
         item.name
         for item in binding_columns()
-        if item.name not in {"body", "meaning_body", "support_references"}
+        if item.name not in {"body", "meaning_body"}
     )
 
 

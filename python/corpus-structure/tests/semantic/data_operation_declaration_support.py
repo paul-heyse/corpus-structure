@@ -24,6 +24,7 @@ from corpus_structure.semantic.data_operation_model import (
 )
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.types import SourceArtifact
+from corpus_structure.semantic.data_operation_support import ComputationalSupportReference
 
 
 @dataclass(frozen=True)
@@ -273,7 +274,7 @@ def resolved_binding(model, *, episodes=("episode-a",), witness=None):
         canonical_bytes({"complete": True}),
         episodes,
         canonical_bytes({"authority": "selected"}),
-     subject_definition="original-occurrence")
+     subject_definition="original-occurrence", support_references=tuple(ComputationalSupportReference(derivation_id=episode) for episode in episodes))
     return ResolvedOperationBinding(
         "urn:test:derive",
         "subject:one",

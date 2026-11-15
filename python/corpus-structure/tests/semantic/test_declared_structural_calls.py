@@ -176,7 +176,7 @@ def test_original_comparison_kernel_retains_declared_sources_and_native_ref_witn
             b"{}",
             (),
             b"{}",
-         subject_definition="document")
+         subject_definition="document", support_references=())
         for source in sources
     )
     report_members = tuple(
@@ -189,7 +189,7 @@ def test_original_comparison_kernel_retains_declared_sources_and_native_ref_witn
             b"{}",
             (),
             b"{}",
-         subject_definition="document")
+         subject_definition="document", support_references=())
         for ref, source in zip(refs, sources, strict=True)
     )
     current = DeclaredComparisonReport.model_validate(

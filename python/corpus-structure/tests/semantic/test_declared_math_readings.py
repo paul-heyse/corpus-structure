@@ -47,7 +47,7 @@ def _source(profile, *, clipped=False):
         (),
         b"{}",
         member="source:formula",
-     subject_definition="original-source-view")
+     subject_definition="original-source-view", support_references=())
     return source, DeclaredNativeFrameSource.acquire(
         profile.prepared, source.value, member, project="nonstatistics"
     )

@@ -11,6 +11,7 @@ from corpus_structure.semantic.data_operation_model import (
     BoundRoleMember,
     ResolvedRoleBinding,
 )
+from corpus_structure.semantic.data_operation_support import ComputationalSupportReference
 
 
 def retained(operation):
@@ -24,7 +25,7 @@ def retained(operation):
         ("episode:one",),
         b"{}",
         member="view:member",
-     subject_definition="document")
+     subject_definition="document", support_references=tuple(ComputationalSupportReference(derivation_id=episode) for episode in ('episode:one',)))
     return BindingResult(
         operation,
         "document:consumer",
