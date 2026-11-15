@@ -68,6 +68,7 @@ def reading_resolution_assets():
             {
                 "version": "declared-reading-resolution-1",
                 "schema": _MODEL.read_bytes().hex(),
+                "feature_instance_schema": DeclaredReadingFeatureInstance.model_json_schema(),
                 "numerical_policy": READING_NUMERICS.model_dump(mode="json"),
                 "files": [(name, (admitted_operation_module_meaning((_ROOT / name).read_bytes()).hex() if name in ('methods/reading_resolution.py',) else (_ROOT / name).read_bytes().hex())) for name in _FILES],
             }
@@ -118,16 +119,35 @@ def reading_diagnostics(row, details):
     return list(unique.values())
 
 
-def resolve_reading_values(prepared, candidates, policy, *, check_active=lambda: None):
+from .record_policy import FeatureInstance, FrozenContract, Nonempty
+
+
+class DeclaredReadingFeatureInstance(FrozenContract):
+    """Frozen predictor plus the exact consumed semantics needed for later scoring."""
+
+    feature: FeatureInstance
+    family_contract: Nonempty
+    reading_recipe: Nonempty
+
+
+def reading_recipe_identity(model):
+    recipes = {item.key for item in model.identities if item.domain == "recipe"
+               and item.owner == "resolve.m1_readings/declared"}
+    if len(recipes) != 1:
+        raise ValueError("reading resolution requires its actual admitted recipe identity")
+    return next(iter(recipes))
+
+
+def resolve_reading_values(prepared, candidates, policy, *, model, check_active=lambda: None):
     from .data_operation_json import json_bytes
     from .declared_candidate_products import candidate_member_id
     from .observations import source_python, source_value
-    from .record_contracts import interpretation_identity
-    from .record_policy import FeatureInstance, derive_record_features, score_record
+    from .record_contracts import interpretation_identity, record_family_contract
+    from .record_policy import derive_record_features, score_record_features
 
     if (
         candidates["standing"] != "private_uncalibrated_candidates"
-        or policy["version"] != "reading-feature-policy-1"
+        or policy["version"] != "reading-feature-policy-2"
         or policy["recipe"] != RECIPE
     ):
         raise ValueError(
@@ -139,14 +159,15 @@ def resolve_reading_values(prepared, candidates, policy, *, check_active=lambda:
     if not isinstance(raw_instances, list):
         raise ValueError("reading feature policy requires its complete instance sequence")
     instances = tuple(
-        FeatureInstance.model_validate_json(json_bytes(value)) for value in raw_instances
+        DeclaredReadingFeatureInstance.model_validate_json(json_bytes(value)) for value in raw_instances
     )
     by_applicability = {
-        (item.applicability.release_id, item.applicability.family, item.applicability.subset): item
+        (item.family_contract, item.reading_recipe, item.feature.applicability.family, item.feature.applicability.subset): item.feature
         for item in instances
     }
     if len(by_applicability) != len(instances):
         raise ValueError("reading policy repeats a fitted instance applicability")
+    recipe = reading_recipe_identity(model)
     detail = json.loads(candidates["diagnostics_json"])
     digest = sha256(json_bytes(candidates)).hexdigest()
     packets, events = [], []
@@ -163,7 +184,7 @@ def resolve_reading_values(prepared, candidates, policy, *, check_active=lambda:
         ).model_dump(mode="python", exclude_unset=True)
         if row["standing"] != "candidate":
             raise ValueError("reading resolution requires private upstream candidates")
-        instance = by_applicability.get((prepared.release_id, row["family"], policy["subset"]))
+        instance = by_applicability.get((record_family_contract(model, row["contract"]), recipe, row["family"], policy["subset"]))
         row["computation_dependencies"] = tuple(
             sorted(
                 {
@@ -196,7 +217,7 @@ def resolve_reading_values(prepared, candidates, policy, *, check_active=lambda:
                 feature_input_canonical_json=canonical_bytes([row, diagnostics]).decode(),
             )
             try:
-                score = score_record(instance, vector, subset=policy["subset"])
+                score = score_record_features(instance, vector)
                 event.update(
                     final_event_score=score.compatibility_potential,
                     outcome="completed",
@@ -248,7 +269,9 @@ def execute_reading_profile(receiver, candidates, policy):
 
 
 def execute_reading_kernel(candidates: dict, policy: dict, *, prepared, check_active) -> dict:
-    return resolve_reading_values(prepared, candidates, policy, check_active=check_active)
+    from .data_operation_admission import bound_data_operation_model
+
+    return resolve_reading_values(prepared, candidates, policy, model=bound_data_operation_model(prepared), check_active=check_active)
 
 
 @dataclass

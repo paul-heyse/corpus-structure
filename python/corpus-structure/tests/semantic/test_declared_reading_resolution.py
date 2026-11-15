@@ -11,6 +11,7 @@ from corpus_structure.semantic.data_operation_compilation import compile_data_op
 from corpus_structure.semantic.observations import source_value
 from corpus_structure.semantic.reading_resolution_products import (
     RECIPE,
+    DeclaredReadingFeatureInstance,
     reading_resolution_inputs,
     reading_resolution_declarations,
     reading_resolution_operation_sources,
@@ -42,6 +43,14 @@ def prepared_ingress():
         validate_json=lambda name, content: SimpleNamespace(
             model_dump=lambda **kwargs: json.loads(content)
         ),
+    )
+
+
+def application_model():
+    return SimpleNamespace(
+        kinds=(SimpleNamespace(name="ControlledFields", semantic_id="controlled-fields-owner"),),
+        identities=(SimpleNamespace(owner="controlled-fields-owner", domain="kind", key="controlled-family-contract"),
+                    SimpleNamespace(owner="resolve.m1_readings/declared", domain="recipe", key="controlled-reading-recipe")),
     )
 
 
@@ -126,10 +135,10 @@ def feature():
 
 def policy(instances=()):
     return {
-        "version": "reading-feature-policy-1",
+        "version": "reading-feature-policy-2",
         "recipe": RECIPE,
         "subset": "controlled-subset",
-        "feature_instances": source_value([value.model_dump(mode="json") for value in instances]),
+        "feature_instances": source_value([DeclaredReadingFeatureInstance(feature=value, family_contract="controlled-family-contract", reading_recipe="controlled-reading-recipe").model_dump(mode="json") for value in instances]),
     }
 
 
@@ -153,7 +162,7 @@ def test_reading_producer_has_closed_factory_and_source_witness():
 
 def test_reading_scoring_retains_real_center_scale_parameters_and_raw_observations():
     upstream = candidate_report()
-    product = resolve_reading_values(prepared_ingress(), upstream, policy((feature(),)))
+    product = resolve_reading_values(prepared_ingress(), upstream, policy((feature(),)), model=application_model())
     (event,) = resolved_reading_events(product)
     assert event["outcome"] == "completed"
     assert event["final_event_score"] == pytest.approx(-0.25 + (1.0 - 0.5) / 2.0 * 3.0)
@@ -166,13 +175,13 @@ def test_reading_scoring_retains_real_center_scale_parameters_and_raw_observatio
     assert product["members"][0]["body"]["interpretation_id"] != "original-reading"
 
 
-@pytest.mark.parametrize("mismatch", ["release_id", "family", "subset"])
+@pytest.mark.parametrize("mismatch", ["family", "subset"])
 def test_reading_policy_never_applies_outside_exact_applicability(mismatch):
     instance = feature()
     values = instance.applicability.model_dump(mode="json")
     values[mismatch] = "definition" if mismatch == "family" else "other"
     instance = instance.model_copy(update={"applicability": PolicyApplicability(**values)})
-    product = resolve_reading_values(prepared_ingress(), candidate_report(), policy((instance,)))
+    product = resolve_reading_values(prepared_ingress(), candidate_report(), policy((instance,)), model=application_model())
     (event,) = resolved_reading_events(product)
     assert event["outcome"] == "not_run"
     assert event["final_event_score"] is None
@@ -180,12 +189,12 @@ def test_reading_policy_never_applies_outside_exact_applicability(mismatch):
 
 
 def test_reading_resolution_keeps_unavailable_policy_honest_and_refuses_duplicate_instances():
-    product = resolve_reading_values(prepared_ingress(), candidate_report(), policy())
+    product = resolve_reading_values(prepared_ingress(), candidate_report(), policy(), model=application_model())
     (event,) = resolved_reading_events(product)
     assert event["outcome"] == "not_run" and event["final_event_score"] is None
     with pytest.raises(ValueError, match="repeats a fitted instance"):
         resolve_reading_values(
-            prepared_ingress(), candidate_report(), policy((feature(), feature()))
+            prepared_ingress(), candidate_report(), policy((feature(), feature())), model=application_model()
         )
 
 
@@ -228,3 +237,22 @@ def test_candidate_consumer_validates_actual_refined_kind_without_dropping_field
         "reading_policy_digest": "actual-policy",
         "reading_events": {"kind": "array", "items": []},
     }
+
+
+def test_compatible_release_keeps_original_instance_and_checks_consumed_contract_recipe():
+    prepared = prepared_ingress()
+    prepared.release_id = "later-compatible-release"
+    original = feature()
+    product = resolve_reading_values(prepared, candidate_report(), policy((original,)), model=application_model())
+    (event,) = resolved_reading_events(product)
+    assert event["outcome"] == "completed"
+    assert event["feature_instance_digest"] == original.digest
+    assert original.applicability.release_id == "controlled-release"
+    for index in (0, 1):
+        model = application_model()
+        model.identities[index].key = "changed-consumed-meaning"
+        (event,) = resolved_reading_events(resolve_reading_values(
+            prepared, candidate_report(), policy((original,)), model=model,
+        ))
+        assert event["outcome"] == "not_run"
+        assert event["final_event_score"] is None

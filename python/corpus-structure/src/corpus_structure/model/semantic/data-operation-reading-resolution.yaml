@@ -9,7 +9,7 @@ classes:
   DdoReadingFeaturePolicy:
     is_a: SourceRecordProduct
     attributes:
-      version: {required: true, equals_string: reading-feature-policy-1}
+      version: {required: true, equals_string: reading-feature-policy-2}
       recipe: {required: true, equals_string: retained-m1-reading-resolution-1}
       subset: {required: true}
       feature_instances: {range: SourceValue, inlined: true, required: true}

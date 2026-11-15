@@ -377,6 +377,19 @@ def score_record(feature: FeatureInstance, vector: RecordFeatures, *, subset: st
         applicability.subset,
     ):
         raise ValueError("record is outside exact instance release/family/subset applicability")
+    return score_record_features(feature, vector)
+
+
+def score_record_features(feature: FeatureInstance, vector: RecordFeatures) -> RecordScore:
+    """Numerical score after the owning application boundary checks consumed applicability.
+
+    The original instance release remains attribution. This function checks exact
+    family and ordered feature meaning; it grants no source/recipe authorization.
+    """
+    READING_NUMERICS.require_runtime()
+    parameters = feature.parameters
+    if vector.family != feature.applicability.family:
+        raise ValueError("record family differs from fitted instance")
     if vector.feature_signature != parameters.feature_signature or vector.names != parameters.names:
         raise ValueError("record feature signature or order differs from fitted instance")
     if any(value is None for value in vector.values):
