@@ -641,65 +641,6 @@ def release_activate(
         )
 
 
-def promote(
-    ctx: typer.Context,
-    run: int,
-    project: str | None = None,
-    target: DeploymentProfile | None = None,
-    expected_generation: int | None = None,
-    json: JsonOpt = False,
-) -> None:
-    """Explicitly select a completed run for the active release."""
-    from corpus_structure.cli.failures import failure_boundary
-    from corpus_structure.cli.managed import ResultError
-    from corpus_structure.cli.target import select_target
-    from corpus_structure.semantic.refusals import OperationConflict
-    from corpus_structure.semantic.releases import ActivationConflict, activation_token
-    from corpus_structure.semantic.runtime import open_runtime_engine, select_completed_result
-    from corpus_structure.semantic.storage_target import (
-        acquired_target,
-        verify_declared_route,
-        verify_target,
-    )
-
-    with failure_boundary(
-        json,
-        expected=(ActivationConflict, OperationConflict, ResultError),
-        report_expected_validation=False,
-    ):
-        selected, settings = select_target(ctx, target, effect=True)
-        project = project or settings.runtime.default_project
-        with (
-            open_runtime_engine(settings, "ci-promote-read", purpose="read") as reader,
-            reader.connect() as read,
-            open_runtime_engine(settings, "ci-promote", purpose="admit") as engine,
-            engine.begin() as conn,
-        ):
-            if selected == "deployment":
-                verify_declared_route(read, settings)
-            acquired = verify_target(conn, acquired_target(read, purpose="read"), purpose="admit")
-            try:
-                before = activation_token(conn, project)
-            except KeyError as error:
-                if error.args != (project,):
-                    raise
-                raise ResultError("project is unavailable on the selected target") from error
-            if expected_generation is not None and before.generation != expected_generation:
-                raise ActivationConflict("project generation differs from the approved selection")
-            generation = select_completed_result(conn, project, run, before.generation)
-        emit(
-            SelectionReport(
-                project=project,
-                release_id=before.release_id,
-                generation=generation,
-                run_id=run,
-                target=selected,
-                acquired=acquired.model_dump(mode="json"),
-            ),
-            json=json,
-        )
-
-
 @adr_app.command("lint")
 def adr_lint(json: JsonOpt = False) -> None:
     recipe_action("adr", json, "lint")
@@ -746,7 +687,6 @@ def register(app: typer.Typer) -> None:
     app.command("setup")(setup)
     app.command("check")(check)
     app.command("format")(format_source)
-    app.command("promote")(promote)
     app.add_typer(context_app, name="context")
     app.add_typer(docs_app, name="docs")
     app.add_typer(evidence_app, name="evidence")

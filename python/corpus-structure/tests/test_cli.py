@@ -15,7 +15,7 @@ from corpus_structure.settings import Settings, SettingsReport
 
 GROUPS = (
     "db", "schema", "ingest", "project", "run", "status", "tasks", "query", "explain", "golden",
-    "eval", "mcp", "direct", "context", "doctor", "setup", "results", "test", "promote", "model",
+    "eval", "mcp", "direct", "context", "doctor", "setup", "results", "test", "model",
 )  # fmt: skip
 
 
