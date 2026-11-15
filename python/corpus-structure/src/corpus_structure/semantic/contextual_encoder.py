@@ -9,7 +9,7 @@ from hashlib import file_digest
 from pathlib import Path
 from typing import Any, TypedDict
 
-from corpus_structure.methods.contextual_embeddings import EncoderProfile
+from corpus_structure.methods.contextual_embeddings import ENCODER_NUMERICS, EncoderNumericalPolicy, EncoderProfile
 
 from .identity import canonical_bytes
 from .types import SourceArtifact
@@ -62,11 +62,10 @@ def contextual_encoder_assets(selection):
         "contextual/encoder-assets",
         canonical_bytes(
             {
-                "version": "contextual-owned-cpu-encoder-1",
+                "version": "contextual-owned-cpu-encoder-2",
                 "profile": asdict(selection.profile),
                 "artifacts": selection.artifacts,
-                "device": "cpu",
-                "dtype": "float32",
+                "numerical_policy": ENCODER_NUMERICS.model_dump(mode="json"),
                 "files": [(name, (_ROOT / name).read_bytes().hex()) for name in _FILES],
             }
         ),
@@ -79,11 +78,22 @@ def contextual_encoder_custody(selection):
         canonical_bytes(
             {
                 "model_path": str(selection.model_path),
+                "numerical_policy": ENCODER_NUMERICS.model_dump(mode="json"),
                 "profile": asdict(selection.profile),
                 "artifacts": selection.artifacts,
             }
         ),
     )
+
+
+def contextual_encoder_declarations():
+    from .data_operation_model import MODEL_VERSION
+    from .nominal_schema_kinds import nominal_schema_kinds
+
+    return SourceArtifact("contextual/encoder-policy-kinds", canonical_bytes({
+        "version": MODEL_VERSION,
+        "kinds": nominal_schema_kinds(EncoderNumericalPolicy.model_json_schema(), namespace="urn:corpus:kind:contextual-encoder:", root_name="NumericalPolicy"),
+    }))
 
 
 def contextual_encoder_operation_sources(selection, *, include_dependencies=True):
@@ -444,6 +454,8 @@ def resolve_contextual_encoder_port(
     if "contextual/encoder-custody" not in acquired:
         raise PortRefusal("contextual encoder lacks its explicitly acquired CPU model")
     value = json.loads(acquired["contextual/encoder-custody"].content)
+    if value["numerical_policy"] != ENCODER_NUMERICS.model_dump(mode="json"):
+        raise PortRefusal("encoder numerical policy differs from acquired implementation")
     selection = ContextualEncoderSelection(
         EncoderProfile(**value["profile"]),
         Path(value["model_path"]),

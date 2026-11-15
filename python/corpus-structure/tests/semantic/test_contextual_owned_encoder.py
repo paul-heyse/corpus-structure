@@ -9,6 +9,7 @@ from corpus_structure.methods import contextual_embeddings as embeddings
 from corpus_structure.semantic.contextual_encoder import (
     ContextualEncoderSelection,
     contextual_encoder_operation_sources,
+    contextual_encoder_declarations,
 )
 from corpus_structure.semantic.contextual_operations import contextual_inputs
 from corpus_structure.semantic.identity import canonical_bytes
@@ -92,7 +93,7 @@ def test_contextual_encoder_captures_cpu_acquisition_and_closed_source_factory(t
 
     prepared = prepare_release(
         bundle,
-        data_operation_dependencies(ResolvedDependencies(), python_sources=sources),
+        data_operation_dependencies(ResolvedDependencies(), declarations=(contextual_encoder_declarations(),), python_sources=sources),
         PreparationProfile(version="semantic-2"),
     )
     model = bound_data_operation_model(prepared)
@@ -107,3 +108,26 @@ def test_contextual_encoder_captures_cpu_acquisition_and_closed_source_factory(t
     assert len(selected.output_witnesses) == 2
     assert all(value.complete for value in model.implementation_slices)
     assert {name for name, _ in selection.artifacts} == {"config.json", "modules.json"}
+    from corpus_structure.semantic.data_operation_demands import OperationSelection, RootSubject, freeze_demand
+
+    assert operation.replicate_policy == selected.replicate_policy == "explicit-replicates"
+    assert operation.precision is None and operation.numerical_policy is not None
+    arguments = dict(roots=(RootSubject("source", "original", b"{}"),), targets=(operation.semantic_id,), inference="declared", execution_profile="cpu")
+    with pytest.raises(ValueError, match="explicit replicate selection is required"):
+        freeze_demand(model, **arguments)
+    intent = freeze_demand(model, selections=(OperationSelection(operation.semantic_id, replicate="operator-selected-sample-A"),), **arguments)
+    frozen = next(value for value in intent.record["operations"] if value["operation"] == operation.semantic_id)
+    assert frozen["replicate"] == "operator-selected-sample-A"
+
+
+def test_encoder_numerical_policy_changes_space_without_approximate_product_equality(monkeypatch):
+    profile = embeddings.E5
+    original = profile.profile_id
+    policy = embeddings.ENCODER_NUMERICS
+    assert profile.semantic_configuration["numerical_policy"]["nondeterminism"] == "backend-dependent-result-bits"
+    assert profile.semantic_configuration["numerical_policy"]["result_equality"] == "exact-canonical-value"
+    with pytest.raises(ValueError, match="L2-normalized"):
+        embeddings.validate_vector((1.0001, 0.0), 2)
+    monkeypatch.setattr(embeddings, "ENCODER_NUMERICS", policy.model_copy(update={"absolute_tolerance": 1e-3}))
+    assert profile.profile_id != original
+    assert embeddings.validate_vector((1.0001, 0.0), 2) == (1.0001, 0.0)

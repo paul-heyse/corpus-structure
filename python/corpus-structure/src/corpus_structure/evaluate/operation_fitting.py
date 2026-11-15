@@ -25,6 +25,7 @@ from corpus_structure.semantic.operation_policy import (
     OperationEvent,
     OperationEventAlgorithm,
     OperationEventParameters,
+    operation_score_numerical_policy,
 )
 from corpus_structure.semantic.operation_policy import (
     score_operation_event as score_operation_event,
@@ -419,6 +420,7 @@ def _fit_operation_event(
             predictions=predictions(),
         )
     parameters = OperationEventParameters(
+        numerical=operation_score_numerical_policy(),
         algorithm=algorithm,
         event=frame.event,
         event_version=frame.event_version,

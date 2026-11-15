@@ -368,6 +368,21 @@ def enforced_claims(claims: tuple[EnforcementClaim, ...]) -> list[dict]:
 
 
 @dataclass(frozen=True)
+class NumericalPolicyReference:
+    """A typed numerical body selected from an exact captured semantic asset."""
+
+    kind: str
+    asset: str
+    content_digest: str
+    pointer: str
+    body: bytes
+
+    @property
+    def record(self) -> dict:
+        return {"kind": self.kind, "asset": self.asset, "content_digest": self.content_digest, "pointer": self.pointer, "body": json.loads(self.body)}
+
+
+@dataclass(frozen=True)
 class EffectiveOperation:
     semantic_id: str
     profile: Literal["derivation", "discovery", "selection", "command", "read"]
@@ -378,7 +393,7 @@ class EffectiveOperation:
     invariants: tuple[EnforcementClaim, ...]
     coverage: str
     outcomes: tuple[str, ...]
-    precision: str
+    precision: str | None
     dependencies: tuple[str, ...]
     state_dimensions: tuple[StateDimension, ...]
     transitions: tuple[StateTransition, ...]
@@ -399,6 +414,7 @@ class EffectiveOperation:
     output_witnesses: tuple[OutputWitnessGroup, ...] = ()
     external: ExternalExecutorContract | None = None
     discovery_relation: Literal["role-associated", "subject-population"] = field(kw_only=True)
+    numerical_policy: NumericalPolicyReference | None = field(default=None, kw_only=True)
 
     @property
     def recipe(self) -> bytes:
@@ -420,7 +436,8 @@ class EffectiveOperation:
                 "invariants": enforced_claims(self.invariants),
                 "coverage": self.coverage,
                 "outcomes": self.outcomes,
-                "precision": self.precision,
+                **({"precision": self.precision} if self.precision is not None else {}),
+                **({"numerical_policy": self.numerical_policy.record} if self.numerical_policy is not None else {}),
                 "dependencies": self.dependencies,
                 **({"behavior": self.behavior} if self.implementation_root is None else {}),
                 "parameters": json.loads(self.parameters),

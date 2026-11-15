@@ -180,7 +180,33 @@ class OperationEventAlgorithm(EventContract):
     weights: Literal["unit"] = "unit"
 
 
+class OperationScoreNumericalPolicy(EventContract):
+    """The actual native arithmetic policy; canonical result equality stays exact."""
+
+    version: Literal["operation-score-numerics-v1"] = "operation-score-numerics-v1"
+    numpy_version: str = Field(min_length=1)
+    scipy_version: str = Field(min_length=1)
+    dtype: Literal["float64"] = "float64"
+    device: Literal["cpu"] = "cpu"
+    backend: Literal["numpy-scipy-native"] = "numpy-scipy-native"
+    preprocessing: Literal["fitted-centering-and-scaling"] = "fitted-centering-and-scaling"
+    overflow: Literal["raise"] = "raise"
+    invalid: Literal["raise"] = "raise"
+    divide: Literal["raise"] = "raise"
+    underflow: Literal["ignore"] = "ignore"
+    result_equality: Literal["exact-canonical-value"] = "exact-canonical-value"
+    nondeterminism: Literal["backend-dependent-result-bits"] = "backend-dependent-result-bits"
+
+
+def operation_score_numerical_policy() -> OperationScoreNumericalPolicy:
+    import numpy as np
+    import scipy
+
+    return OperationScoreNumericalPolicy(numpy_version=np.__version__, scipy_version=scipy.__version__)
+
+
 class OperationEventParameters(EventContract):
+    numerical: OperationScoreNumericalPolicy
     algorithm: OperationEventAlgorithm
     event: OperationEvent
     event_version: str
@@ -222,6 +248,9 @@ def score_operation_event(
     import numpy as np
     from scipy.special import expit
 
+    policy = parameters.numerical
+    if policy != operation_score_numerical_policy():
+        raise ValueError("operation score numerical policy differs from the selected native libraries")
     if (corpus_id, event, event_version, producer_version) != (
         parameters.corpus_id,
         parameters.event,
@@ -231,10 +260,13 @@ def score_operation_event(
         raise ValueError("operation score applicability differs from fitted corpus/event/producer")
     if len(features) != len(parameters.feature_names) or not np.isfinite(features).all():
         raise ValueError("operation feature shape or finite values differ")
-    with np.errstate(over="raise", invalid="raise", divide="raise"):
-        x = (np.asarray(features) - parameters.means) / parameters.scales
+    with np.errstate(over=policy.overflow, invalid=policy.invalid, divide=policy.divide, under=policy.underflow):
+        x = (np.asarray(features, dtype=policy.dtype) - parameters.means) / parameters.scales
         linear = np.dot(x, parameters.coefficients) + parameters.intercept
-    return float(expit(linear))
+        result = float(expit(linear))
+    if not np.isfinite(result) or not 0 <= result <= 1:
+        raise ValueError("operation score is not a finite probability")
+    return result
 
 
 # Domain meaning is colocated with the typed callable. The closed compiler reads
@@ -250,7 +282,7 @@ score_operation_event__data_operation__ = {
         {
             "name": "parameters",
             "parameter": "parameters",
-            "kind": "urn:corpus:kind:operation-event-parameters",
+            "kind": "urn:corpus:kind:operation-event:parameters",
             "direction": "input",
             "minimum": 1,
             "maximum": 1,
@@ -288,15 +320,7 @@ score_operation_event__data_operation__ = {
             "presence": "required",
         },
     ],
-    "kinds": [
-        {
-            "id": "urn:corpus:kind:operation-event-parameters",
-            "python": "corpus_structure.semantic.operation_policy.OperationEventParameters",
-            "scope": "corpus-event-producer",
-            "invariants": ["finite-nonzero-scales", "matching-feature-shape"],
-            "interpretation": "operation-event-parameters-v1",
-        }
-    ],
+
     "applicability": [{"kind": "binding", "reference": "urn:corpus:operation:score-operation-event/binding", "interpretation": "binding-expression-v1", "parameters": {}}, {'kind': 'documentation', 'text': 'exact-fitted-corpus-event-version-producer'}],
     "invariants": [{'kind': 'documentation', 'text': 'finite-features'}, {'kind': 'documentation', 'text': 'matching-feature-shape'}, {'kind': 'documentation', 'text': 'probability-in-unit-interval'}],
     "coverage": "one-score-for-complete-feature-vector",
@@ -308,7 +332,9 @@ score_operation_event__data_operation__ = {
         {"dimension": "completion", "before": "pending", "after": "failed", "outcome": "invalid-feature-shape"},
         {"dimension": "completion", "before": "pending", "after": "failed", "outcome": "numerical-failure"},
     ],
-    "precision": "numpy-float64-scipy-expit-finite-errors-raised-v1",
+    "precision": None,
+    "numerical_policy": {"asset": "operation-score/numerical-policy", "pointer": "/policy", "kind": "urn:corpus:kind:operation-event:OperationScoreNumericalPolicy"},
+    "assets": [{"reference": "operation-score-policy", "contract": "operation-score/numerical-policy", "role": "numerical-policy"}],
     "dependencies": [],
     "effects": [],
     "capabilities": {
@@ -321,6 +347,7 @@ score_operation_event__data_operation__ = {
     "parameters": {},
     "binding": {"operator": "scan", "roles": ["parameters", "features"]},
     "opaque": [
+        {"reference": "corpus_structure.semantic.operation_policy.operation_score_numerical_policy", "contract": "operation-score/numerical-policy", "role": "checked-native-arithmetic-policy"},
         {
             "reference": "numpy",
             "contract": "numpy-float64-array-arithmetic-v1",
@@ -338,5 +365,5 @@ score_operation_event__data_operation__ = {
         },
         {"reference": "typing", "contract": "python-3.14-typing-v1", "role": "type-interpretation"},
     ],
-    "bound_inputs": [],
+    "bound_inputs": ["parameters"],
 }

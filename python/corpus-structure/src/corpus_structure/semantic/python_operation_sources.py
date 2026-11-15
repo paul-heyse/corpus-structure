@@ -1414,7 +1414,7 @@ class ClosedPythonSources:
                 },
             }
 
-            def annotated_value(annotation) -> tuple[str, tuple[str, ...]]:
+            def annotated_value(annotation, active_aliases=frozenset()) -> tuple[str, tuple[str, ...]]:
                 """Nominal data provenance, distinct from class/function objects."""
                 if annotation is None:
                     return "unknown", ()
@@ -1439,7 +1439,15 @@ class ClosedPythonSources:
                         names = [text] if isinstance(text, str) else []
                 else:
                     names = [getattr(annotation, "canonical_path", None) or str(annotation)]
-                outcomes = []
+                literal_name = getattr(annotation, "canonical_path", None)
+                if literal_name == "typing.Literal" and isinstance(annotation, griffe.ExprSubscript):
+                    with suppress(ValueError, SyntaxError):
+                        values = ast.literal_eval(str(annotation.slice))
+                        values = values if isinstance(values, tuple) else (values,)
+                        types = {type(value).__name__ for value in values}
+                        if len(types) == 1 and types <= {"str", "int", "bool", "bytes", "float"}:
+                            return "value", ("builtins." + next(iter(types)),)
+                outcomes: list[tuple[str, tuple[str, ...]]] = []
                 for name in names:
                     name = name.removeprefix("builtins.")
                     # Generic containers retain container operations, not arbitrary
@@ -1459,10 +1467,21 @@ class ClosedPythonSources:
                     }:
                         outcomes.append(("value", ("builtins." + primitive,)))
                         continue
+                    if name == "pydantic.FiniteFloat" and boundary_for(name) is not None:
+                        # This is the runtime value category only. The exact finite
+                        # annotation and validation contract remain captured facts.
+                        outcomes.append(("value", ("builtins.float",)))
+                        continue
+                    target = name if "." in name else module_name + "." + name
+                    if target in active_aliases:
+                        return "unknown", ()
                     try:
-                        obj = extractor.resolve(name if "." in name else module_name + "." + name)
+                        obj = extractor.resolve(target)
                     except PreparationError:
                         return "unknown", ()
+                    if isinstance(obj, griffe.Attribute) and obj.value is not None:
+                        outcomes.append(annotated_value(obj.value, active_aliases | {target}))
+                        continue
                     if not isinstance(obj, griffe.Class):
                         return "unknown", ()
                     outcomes.append(("instance", (obj.path,)))
@@ -1656,6 +1675,14 @@ class ClosedPythonSources:
             extractor = self
 
             class References(cst.CSTVisitor):
+                def visit_Import(self, node: cst.Import) -> bool:
+                    # Import spellings are syntax; actual imported uses resolve
+                    # through qualified-name facts and captured boundaries below.
+                    return False
+
+                def visit_ImportFrom(self, node: cst.ImportFrom) -> bool:
+                    return False
+
                 def visit_Name(self, node: cst.Name) -> None:
                     position = module.positions[node].start
                     location = f"{module.source.filename}:{position.line}:{position.column}"
@@ -1702,6 +1729,12 @@ class ClosedPythonSources:
                             if isinstance(ancestor_for_use, cst.Annotation):
                                 allowed = True
                                 break
+                            if isinstance(ancestor_for_use, cst.Subscript):
+                                type_names = module.names.get(ancestor_for_use.value, set())
+                                type_names = type_names() if callable(type_names) else type_names
+                                if any(item.name in {"typing.Literal", "typing.Annotated", "typing.Union", "typing.Optional"} for item in type_names):
+                                    allowed = True
+                                    break
                             ancestor_for_use = module.parent_nodes.get(ancestor_for_use)
                         if (
                             kind

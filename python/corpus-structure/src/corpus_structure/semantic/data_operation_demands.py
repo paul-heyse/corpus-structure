@@ -222,7 +222,7 @@ def freeze_demand(
             raise ValueError(f"unknown implementation determinants: {operation_id}")
         if operation.replicate_policy == "explicit-replicates":
             if not item.replicate:
-                raise ValueError("explicit replicate selection is required")
+                raise ValueError("explicit replicate selection is required for " + operation_id)
         elif item.replicate is not None:
             raise ValueError("deterministic operation cannot select a replicate")
         parameters, choices = json.loads(item.parameters), json.loads(item.choices)

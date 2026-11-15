@@ -101,7 +101,9 @@ class ContextualEncodingOperation:
         ],
         "coverage": "complete-selected-query-and-inventory",
         "outcomes": ["success", "failed"],
-        "precision": "captured-cpu-normalized-float32-encoder",
+        "precision": None,
+        "numerical_policy": {"asset": "contextual/encoder-assets", "pointer": "/numerical_policy", "kind": "urn:corpus:kind:contextual-encoder:NumericalPolicy"},
+        "replicate_policy": "explicit-replicates",
         "dependencies": ["retrieve.contextual_inventory/declared"],
         "effects": [],
         "capabilities": {
@@ -386,7 +388,9 @@ class SelectedContextEncodingOperation:
         ],
         "coverage": "complete-selected-query-and-inventory",
         "outcomes": ["success", "failed"],
-        "precision": "captured-cpu-normalized-float32-encoder",
+        "precision": None,
+        "numerical_policy": {"asset": "contextual/encoder-assets", "pointer": "/numerical_policy", "kind": "urn:corpus:kind:contextual-encoder:NumericalPolicy"},
+        "replicate_policy": "explicit-replicates",
         "dependencies": ["retrieve.contextual_inventory/declared"],
         "effects": [],
         "capabilities": {

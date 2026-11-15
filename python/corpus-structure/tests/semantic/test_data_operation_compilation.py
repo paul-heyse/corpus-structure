@@ -409,15 +409,9 @@ def test_preparation_archives_effective_products_only_when_explicitly_supplied()
 def test_real_score_operation_has_owned_facts():
     root = Path(__file__).parents[2] / "src/corpus_structure"
     score = root / "semantic/operation_policy.py"
-    score_model = compile_data_operations(
-        python_sources=PythonSourceCollection(
-            (
-                PythonSource(
-                    "corpus_structure.semantic.operation_policy", score.read_bytes(), str(score)
-                ),
-            )
-        )
-    )
+    from corpus_structure.semantic.operation_score_sources import operation_score_inputs, operation_score_sources
+
+    score_model = compile_data_operations(declarations=operation_score_inputs(), python_sources=operation_score_sources())
     operation = score_model.operations[0]
     assert operation.semantic_id == "urn:corpus:operation:score-operation-event"
     assert [p.name for p in operation.callable_surfaces[0].parameters] == [
@@ -429,12 +423,13 @@ def test_real_score_operation_has_owned_facts():
         "event",
     ]
     assert any(
-        kind.semantic_id == "urn:corpus:kind:operation-event-parameters"
+        kind.semantic_id == "urn:corpus:kind:operation-event:parameters"
         for kind in score_model.kinds
     )
-    assert not score_model.implementation_slices[
-        0
-    ].complete  # no invented provider contract revisions
+    assert score_model.implementation_slices[0].complete
+    assert any(item.owner == operation.semantic_id and item.domain == "recipe" for item in score_model.identities)
+    with pytest.raises(PreparationError, match="unresolved role kind"):
+        compile_data_operations(python_sources=operation_score_sources())
 
 
 def test_inherited_family_preserves_supplying_metadata_and_exposed_callable():

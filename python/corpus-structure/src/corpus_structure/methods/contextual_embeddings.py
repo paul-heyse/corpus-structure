@@ -19,6 +19,8 @@ from threading import Event
 from time import monotonic
 from typing import Literal
 
+from pydantic import BaseModel, ConfigDict, Field, FiniteFloat
+
 from corpus_structure.semantic.identity import canonical_bytes
 
 
@@ -39,6 +41,25 @@ def numeric_identity(kind: str, value: object) -> str:
         return value
 
     return identity(kind, normalize(value))
+
+
+class EncoderNumericalPolicy(BaseModel):
+    """Vector admission tolerance never changes exact canonical value equality."""
+
+    model_config = ConfigDict(frozen=True, strict=True, extra="forbid")
+    version: Literal["cpu-encoder-numerics-v1"] = "cpu-encoder-numerics-v1"
+    device: Literal["cpu"] = "cpu"
+    dtype: Literal["float32"] = "float32"
+    backend: Literal["torch-sentence-transformers"] = "torch-sentence-transformers"
+    normalization: Literal["l2"] = "l2"
+    absolute_tolerance: FiniteFloat = Field(default=1e-5, ge=0)
+    relative_tolerance: FiniteFloat = Field(default=1e-9, ge=0)
+    nonfinite: Literal["reject"] = "reject"
+    result_equality: Literal["exact-canonical-value"] = "exact-canonical-value"
+    nondeterminism: Literal["backend-dependent-result-bits"] = "backend-dependent-result-bits"
+
+
+ENCODER_NUMERICS = EncoderNumericalPolicy()
 
 
 @dataclass(frozen=True)
@@ -82,6 +103,7 @@ class EncoderProfile:
         meaning = asdict(self)
         for key in ("max_items", "max_input_bytes", "timeout_seconds"):
             del meaning[key]
+        meaning["numerical_policy"] = ENCODER_NUMERICS.model_dump(mode="json")
         return meaning
 
     @property
@@ -263,7 +285,7 @@ def validate_vector(values: Sequence[float], dimension: int) -> tuple[float, ...
     if len(result) != dimension or any(not math.isfinite(value) for value in result):
         raise ValueError("vector has invalid dimension or nonfinite values")
     norm = math.sqrt(sum(value * value for value in result))
-    if norm == 0 or not math.isfinite(norm) or not math.isclose(norm, 1, abs_tol=1e-5):
+    if norm == 0 or not math.isfinite(norm) or not math.isclose(norm, 1, abs_tol=ENCODER_NUMERICS.absolute_tolerance, rel_tol=ENCODER_NUMERICS.relative_tolerance):
         raise ValueError("vector must be nonzero and L2-normalized")
     return result
 
@@ -289,7 +311,10 @@ class EncoderLimited(RuntimeError):
 @lru_cache(maxsize=1)
 def _owned_cpu_encoder(profile_content, model_path, artifact_hashes):
     """Reuse immutable acquired model resources inside the existing CPU worker."""
-    profile = EncoderProfile(**json.loads(profile_content))
+    content = json.loads(profile_content)
+    if content.pop("numerical_policy") != ENCODER_NUMERICS.model_dump(mode="json"):
+        raise ValueError("encoder numerical policy differs from the selected implementation")
+    profile = EncoderProfile(**content)
     root = Path(model_path)
     observations = ()
     if artifact_hashes:
@@ -314,7 +339,7 @@ def _owned_cpu_encoder(profile_content, model_path, artifact_hashes):
     model = SentenceTransformer(
         model_path,
         revision=profile.revision,
-        device="cpu",
+        device=ENCODER_NUMERICS.device,
         trust_remote_code=False,
         local_files_only=True,
     )
@@ -393,8 +418,8 @@ def _encode_owned_cpu(profile, items, cached_vectors, *, model_path, artifact_ha
         values = encode(
             [rendered[i].text for i in positions],
             prompt=prompt,
-            normalize_embeddings=True,
-            precision="float32",
+            normalize_embeddings=ENCODER_NUMERICS.normalization == "l2",
+            precision=ENCODER_NUMERICS.dtype,
             batch_size=profile.batch_size,
             show_progress_bar=False,
         )

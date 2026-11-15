@@ -157,3 +157,17 @@ def test_full_source_profile_recurses_declared_options_and_preserves_explicit_ch
     explicit = DemandOperationSelection(operation="op:child", selected_dependencies=())
     chosen = _default_profile_selections(compiled, ("op:result",), {"op:child": explicit})
     assert chosen["op:child"] == explicit and "op:leaf" not in chosen
+
+
+def test_source_operation_options_preserve_authoritative_encoder_replicate():
+    from corpus_structure.orchestrate.source_operation import _default_profile_selections
+
+    identifier = "retrieve.contextual_vectors/declared"
+    selection = DemandOperationSelection(operation=identifier, replicate="operator-sample-2026-A")
+    original = request(targets=(identifier,), selections=(selection,))
+    restored = SourceRunRequest.model_validate_json(original.model_dump_json())
+    assert restored.selections == (selection,)
+    model = SimpleNamespace(operation=lambda _: SimpleNamespace(potential_dependencies=(), dependencies=()))
+    assert _default_profile_selections(model, restored.targets, {identifier: restored.selections[0]})[identifier].replicate == "operator-sample-2026-A"
+    with pytest.raises(ValidationError, match="replicate"):
+        DemandOperationSelection(operation=identifier, replicate="")

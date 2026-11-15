@@ -338,10 +338,11 @@ def primary_operation_inputs(
     elif record_schemas is not None:
         raise ValueError("record schemas require an explicit literal M1 configuration")
     if contextual_encoder is not None:
-        from .contextual_encoder import contextual_encoder_operation_sources
+        from .contextual_encoder import contextual_encoder_declarations, contextual_encoder_operation_sources
         from .contextual_operations import contextual_inputs
 
         bundle = contextual_inputs(bundle)
+        declarations = (*declarations, contextual_encoder_declarations())
         collections = (
             *collections,
             contextual_encoder_operation_sources(

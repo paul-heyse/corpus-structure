@@ -33,6 +33,7 @@ from .data_operation_model import (
     ImplementationCapabilities,
     InputSupport,
     OpaqueBoundary,
+    NumericalPolicyReference,
     OperationRole,
     RelationalBinding,
     SemanticEdge,
@@ -105,6 +106,7 @@ _METADATA_FIELDS = {
     "coverage",
     "outcomes",
     "precision",
+    "numerical_policy",
     "dependencies",
     "potential_dependencies",
     "state_dimensions",
@@ -1593,6 +1595,33 @@ def compile_data_operations(
                 validate_opaque_boundary(asdict(asset))
             except ValueError as exc:
                 _fail(semantic_id, "invalid captured semantic asset: " + str(exc))
+        numerical_policy = None
+        if raw.get("numerical_policy") is not None:
+            policy_reference = _mapping(raw["numerical_policy"], semantic_id, {"asset", "pointer", "kind"})
+            asset_name = _text(policy_reference.get("asset"), semantic_id)
+            supplied = {} if python_sources is None else {artifact.name: artifact for artifact in python_sources.boundary_contracts}
+            asset = supplied.get(asset_name)
+            if asset is None or not any(owner.contract == asset_name and owner.content_digest == asset.digest for owner in assets):
+                _fail(semantic_id, "numerical policy requires its actual captured operation asset")
+            pointer = _text(policy_reference.get("pointer"), semantic_id)
+            from .data_operation_subjects import subject_field_path
+            from .data_operation_wire import validate_wire_schema
+            try:
+                body = wire_json_loads(asset.content)
+                for part in subject_field_path(pointer):
+                    body = body[part]
+                policy_kind = _text(policy_reference.get("kind"), semantic_id)
+                policy_kind = aliases.get(policy_kind, policy_kind)
+                policy_schema = json.loads(kinds[policy_kind].facts)["json_schema"]
+                validate_wire_schema(policy_schema, body)
+                from .data_operation_wire import json_schema_properties
+                if not isinstance(body, dict) or set(body) != {name for name, _, _ in json_schema_properties(policy_schema)}:
+                    _fail(semantic_id, "numerical policy requires every explicit semantic field")
+            except (KeyError, TypeError, ValueError) as error:
+                _fail(semantic_id, "numerical policy differs from its nominal captured kind: " + str(error))
+            if raw.get("precision") is not None:
+                _fail(semantic_id, "typed numerical policy replaces its untyped precision label")
+            numerical_policy = NumericalPolicyReference(policy_kind, asset_name, asset.digest, pointer, canonical_bytes(body))
         from .data_operation_parameters import compile_nominal_parameters
 
         try:
@@ -1725,7 +1754,7 @@ def compile_data_operations(
             _enforcement_claims(raw.get("invariants"), semantic_id),
             _text(raw.get("coverage"), semantic_id),
             outcomes,
-            _text(raw.get("precision"), semantic_id),
+            None if numerical_policy is not None else _text(raw.get("precision"), semantic_id),
             _strings(raw.get("dependencies"), semantic_id),
             tuple(dimensions),
             tuple(transitions),
@@ -1746,6 +1775,7 @@ def compile_data_operations(
             output_witnesses,
             external,
             discovery_relation=discovery_relation,
+            numerical_policy=numerical_policy,
         )
         operations.append(operation)
         nodes[semantic_id] = SemanticNode(semantic_id, "operation", operation.definition)

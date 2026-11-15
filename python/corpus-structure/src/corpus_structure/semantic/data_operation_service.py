@@ -37,7 +37,7 @@ class DemandOperationSelection(BaseModel):
     parameters: dict[str, DdoJsonValue] = Field(default_factory=dict)
     choices: dict[str, DdoJsonValue] = Field(default_factory=dict)
     selected_dependencies: tuple[str, ...] = ()
-    replicate: str | None = None
+    replicate: str | None = Field(default=None, min_length=1)
 
 
 class DemandDiscoverySelection(BaseModel):
