@@ -44,7 +44,6 @@ class SymbolDeclaration:
     end: int | None = None
 
 
-
 @dataclass(frozen=True)
 class PreparedInterpretationContext:
     profile: MathInterpretationPolicy
@@ -164,10 +163,8 @@ class PreparedInterpretationContext:
         )
 
 
-
 def _rows(value: Any) -> Iterable[Any]:
     return value.values() if isinstance(value, Mapping) else value
-
 
 
 @dataclass(frozen=True)
@@ -190,7 +187,6 @@ class AnalysisContextProfile:
         ).hexdigest()
 
 
-
 def acquire_analysis_context_profile() -> AnalysisContextProfile:
     """Acquire trusted current analysis semantics once before operation admission."""
     from .analysis_policies import analysis_policy_sources, compile_analysis_policies
@@ -207,7 +203,6 @@ def acquire_analysis_context_profile() -> AnalysisContextProfile:
             if source.name != "analysis/policy.yaml"
         ),
     )
-
 
 
 def prepare_interpretation_context(
@@ -360,7 +355,6 @@ def prepare_interpretation_context(
     )
 
 
-
 def validate_analysis_result(
     context: PreparedInterpretationContext,
     *,
@@ -404,7 +398,6 @@ def validate_analysis_result(
         )
     if interpretation == "ok" and "interpretation" not in actual:
         _fail("analysis_result", context.demand, "syntax-only work cannot assert interpreted OK")
-
 
 
 def scientific_question_rule(profile: MathInterpretationPolicy, question: str):

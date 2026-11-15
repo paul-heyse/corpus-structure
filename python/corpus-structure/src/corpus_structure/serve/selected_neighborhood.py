@@ -27,10 +27,20 @@ def neighborhood_projection(product, target_id):
         raise ValueError("neighborhood consumer requires its declared mutual-neighborhood product")
     inventory = admitted_contextual_inventory(product)
     neighborhood = source_python(product["neighborhood"])
-    if neighborhood["inventory_id"] != inventory.inventory_id or neighborhood["policy"] != "mutual-exact-cosine-top5-2":
+    if (
+        neighborhood["inventory_id"] != inventory.inventory_id
+        or neighborhood["policy"] != "mutual-exact-cosine-top5-2"
+    ):
         raise ValueError("neighborhood differs from its retained inventory or native policy")
     groups = {group.target_id: asdict(group) for group in inventory.semantic_groups}
-    group = next((group for group in groups.values() if target_id == group["target_id"] or target_id in group["member_target_ids"]), None)
+    group = next(
+        (
+            group
+            for group in groups.values()
+            if target_id == group["target_id"] or target_id in group["member_target_ids"]
+        ),
+        None,
+    )
     if group is None:
         raise ValueError("target is outside the exact selected neighborhood inventory")
     neighbors = []
@@ -74,9 +84,12 @@ def inspect_demand_neighborhood(connection, request: DemandNeighborhoodRequest):
         )
         if not selected:
             result = dict(
-                format="selected-contextual-neighborhood-v1", availability="unavailable",
+                format="selected-contextual-neighborhood-v1",
+                availability="unavailable",
                 reason="requested neighborhood whole is not an output of a selected fulfillment",
-                cut_id=cut.identity, cut=cut.record, inference="not_run",
+                cut_id=cut.identity,
+                cut=cut.record,
+                inference="not_run",
             )
         else:
             nominal = "https://corpus-structure.dev/semantic/data-operation-contextual/DdoContextualNeighborhoodProduct"
@@ -91,7 +104,11 @@ def inspect_demand_neighborhood(connection, request: DemandNeighborhoodRequest):
             ):
                 raise ValueError("selected product is not a declared mutual-neighborhood product")
             definition = next(
-                (definition for definition in scope.prepared.definitions if definition.iri == nominal),
+                (
+                    definition
+                    for definition in scope.prepared.definitions
+                    if definition.iri == nominal
+                ),
                 None,
             )
             if definition is None:
@@ -104,8 +121,11 @@ def inspect_demand_neighborhood(connection, request: DemandNeighborhoodRequest):
                 update=dict(read_id=cut.record["read_id"], expected_cut=cut.identity)
             )
             result = dict(
-                format="selected-contextual-neighborhood-v1", availability="available",
-                cut_id=cut.identity, cut=cut.record, product_id=request.product_id,
+                format="selected-contextual-neighborhood-v1",
+                availability="available",
+                cut_id=cut.identity,
+                cut=cut.record,
+                product_id=request.product_id,
                 selected_outputs=[
                     dict(
                         reference=output.reference.model_dump(mode="python"),
@@ -116,7 +136,8 @@ def inspect_demand_neighborhood(connection, request: DemandNeighborhoodRequest):
                     )
                     for output in selected
                 ],
-                **projection, resource_handle=_cursor(pinned.model_dump(mode="python")),
+                **projection,
+                resource_handle=_cursor(pinned.model_dump(mode="python")),
             )
         if len(json_bytes(result)) > request.max_bytes:
             raise ValueError("selected neighborhood response exceeds max_bytes")

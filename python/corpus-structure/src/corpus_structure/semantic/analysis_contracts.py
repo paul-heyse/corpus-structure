@@ -113,9 +113,7 @@ def validate_analysis_profiles(model: ExecutionModelProducts) -> None:
                 )
 
 
-def _legacy_profile(
-    prepared: PreparedRelease, *, require_current_implementations: bool = True
-):
+def _legacy_profile(prepared: PreparedRelease, *, require_current_implementations: bool = True):
     import json
 
     from .contracts import (
@@ -220,13 +218,14 @@ def bind_analysis_family(prepared: PreparedRelease, family: str) -> BoundAnalysi
     contract = next((item for item in profile.ownership if item.id == family), None)
     if contract is None:
         _fail("analysis_input_family", family, "use an admitted preparation family")
-    if family == "read" and (
-        contract.concept, contract.operation, contract.lifetime, contract.dependencies
-    ) != _OWNERSHIP_SUPPORT["read"]:
+    if (
+        family == "read"
+        and (contract.concept, contract.operation, contract.lifetime, contract.dependencies)
+        != _OWNERSHIP_SUPPORT["read"]
+    ):
         _fail("analysis_input_family", family, "archived read ownership contract is unsupported")
     model.require_operation(contract.operation)
     return BoundAnalysisFamily(prepared.release_id, model.model_id, contract)
-
 
 
 def prepare_text_policy(prepared: PreparedRelease | None = None):

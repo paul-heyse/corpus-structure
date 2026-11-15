@@ -71,7 +71,10 @@ class GroupedInterpretationRequest(GroupedRecord):
         return None
 
     def selection(self):
-        value = self.model_dump(mode="python", exclude={"read_id", "expected_cut", "implementation", "cursor", "limit", "max_bytes"})
+        value = self.model_dump(
+            mode="python",
+            exclude={"read_id", "expected_cut", "implementation", "cursor", "limit", "max_bytes"},
+        )
         if "original_source" not in self.model_fields_set:
             value.pop("original_source")
         return value
@@ -104,7 +107,9 @@ class RecordInterpretationGroup(GroupedRecord):
     computation_dependencies: tuple[str, ...]
     retained_input_digest: Nonempty
     standing: Literal["private_uncalibrated_candidates"] = "private_uncalibrated_candidates"
-    alternatives_complete_within: Literal["selected_candidate_product"] = "selected_candidate_product"
+    alternatives_complete_within: Literal["selected_candidate_product"] = (
+        "selected_candidate_product"
+    )
 
 
 def grouped_candidate_product(
@@ -138,9 +143,18 @@ def grouped_candidate_product(
         analyzed_scope=json_loads(selected.context.analyzed_scope),
     )
     pin = report["source_pin"]
-    if (pin["project_id"], pin["subject"], pin["subject_definition"], pin["original_source"], pin["analyzed_scope_meaning"]) != (
-        selected.context.project_id, context.subject, context.subject_definition,
-        context.original_source, json_context_meaning(selected.context.analyzed_scope).decode(),
+    if (
+        pin["project_id"],
+        pin["subject"],
+        pin["subject_definition"],
+        pin["original_source"],
+        pin["analyzed_scope_meaning"],
+    ) != (
+        selected.context.project_id,
+        context.subject,
+        context.subject_definition,
+        context.original_source,
+        json_context_meaning(selected.context.analyzed_scope).decode(),
     ):
         raise ValueError("candidate universe differs from its selected source context")
     packets = {packet["member_id"]: packet for packet in report["members"]}
@@ -170,11 +184,22 @@ def grouped_candidate_product(
         fields = {value["role"]: value for value in row["fields"]}
         if len(fields) != len(row["fields"]):
             raise ValueError("candidate reading repeats a field role")
-        prepared.validate_json(row["contract"], json_bytes({
-            "family": row["family"], "occurrence_recipe": row["occurrence_recipe"], **fields,
-        }))
-        if row["record_id"] != record_identity(family_contract, row) or row["interpretation_id"] != interpretation_identity(row):
-            raise ValueError("candidate reading differs from its exact occurrence or reading identity")
+        prepared.validate_json(
+            row["contract"],
+            json_bytes(
+                {
+                    "family": row["family"],
+                    "occurrence_recipe": row["occurrence_recipe"],
+                    **fields,
+                }
+            ),
+        )
+        if row["record_id"] != record_identity(family_contract, row) or row[
+            "interpretation_id"
+        ] != interpretation_identity(row):
+            raise ValueError(
+                "candidate reading differs from its exact occurrence or reading identity"
+            )
         if json_bytes(row["pin"]) != json_bytes(pin):
             raise ValueError("candidate reading differs from its complete source universe")
         packet = packets[candidate_member_id("record", row)]
@@ -182,7 +207,10 @@ def grouped_candidate_product(
             raise ValueError("candidate reading differs from its selected member context")
         partitions[family_contract].append(row)
     events = ()
-    if definition.name == "DdoResolvedReadingReport" or "DdoResolvedReadingReport" in definition.ancestors:
+    if (
+        definition.name == "DdoResolvedReadingReport"
+        or "DdoResolvedReadingReport" in definition.ancestors
+    ):
         events = resolved_reading_events(report)
     event_map = defaultdict(list)
     identities = {(row["record_id"], row["interpretation_id"]) for row in records}
@@ -197,10 +225,19 @@ def grouped_candidate_product(
             raise ValueError("interpretation root differs from the selected candidate universe")
         if root.member_id is not None and root.member_id not in packets:
             raise ValueError("selected interpretation member is outside its candidate universe")
-        matched = [row for row in records if (root.member_id is None or candidate_member_id("record", row) == root.member_id) and (root.interpretation_id is None or row["interpretation_id"] == root.interpretation_id)]
+        matched = [
+            row
+            for row in records
+            if (root.member_id is None or candidate_member_id("record", row) == root.member_id)
+            and (
+                root.interpretation_id is None or row["interpretation_id"] == root.interpretation_id
+            )
+        ]
         if (root.member_id is not None or root.interpretation_id is not None) and not matched:
             raise ValueError("selected interpretation root does not identify a retained reading")
-        selected_groups.update((record_family_contract(model, row["contract"]), row["record_id"]) for row in matched)
+        selected_groups.update(
+            (record_family_contract(model, row["contract"]), row["record_id"]) for row in matched
+        )
     result = []
     for family_contract, rows in sorted(partitions.items()):
         for group in retained_reading_groups(rows):
@@ -209,27 +246,47 @@ def grouped_candidate_product(
             readings = []
             for row in group.readings:
                 packet = packets[candidate_member_id("record", row)]
-                readings.append(RetainedReading(
-                    reference=DdoRichSelectedMember(
-                        product_id=selected.reference.product_id,
-                        member_id=packet["member_id"], kind_contract=packet["kind_contract"],
-                        support_references=selected.reference.support_references,
+                readings.append(
+                    RetainedReading(
+                        reference=DdoRichSelectedMember(
+                            product_id=selected.reference.product_id,
+                            member_id=packet["member_id"],
+                            kind_contract=packet["kind_contract"],
+                            support_references=selected.reference.support_references,
+                        ),
+                        interpretation_id=row["interpretation_id"],
+                        body=dict(row),
+                        reading_events=tuple(event_map[group.record_id, row["interpretation_id"]]),
+                    )
+                )
+            identity = sha256(
+                json_bytes(
+                    [
+                        selected.reference.model_dump(mode="python"),
+                        context.model_dump(mode="python"),
+                        family_contract,
+                        group.record_id,
+                    ]
+                )
+            ).hexdigest()
+            result.append(
+                RecordInterpretationGroup(
+                    identity=identity,
+                    record_id=group.record_id,
+                    family=group.family,
+                    family_contract=family_contract,
+                    context=context,
+                    candidate_universe=selected.reference,
+                    readings=tuple(readings),
+                    dependency_coverage=(
+                        "recorded"
+                        if all("computation_dependencies" in row for row in group.readings)
+                        else "unknown"
                     ),
-                    interpretation_id=row["interpretation_id"], body=dict(row),
-                    reading_events=tuple(event_map[group.record_id, row["interpretation_id"]]),
-                ))
-            identity = sha256(json_bytes([selected.reference.model_dump(mode="python"), context.model_dump(mode="python"), family_contract, group.record_id])).hexdigest()
-            result.append(RecordInterpretationGroup(
-                identity=identity, record_id=group.record_id, family=group.family,
-                family_contract=family_contract, context=context,
-                candidate_universe=selected.reference, readings=tuple(readings),
-                dependency_coverage=(
-                    "recorded" if all("computation_dependencies" in row for row in group.readings)
-                    else "unknown"
-                ),
-                computation_dependencies=group.dependencies,
-                retained_input_digest=group.input_digest,
-            ))
+                    computation_dependencies=group.dependencies,
+                    retained_input_digest=group.input_digest,
+                )
+            )
     return tuple(result)
 
 
@@ -237,7 +294,9 @@ def attach_finite_interpretations(prepared, selected, groups, *, candidate_produ
     """Attach actual record-mode reports only to their exact bound candidate universe."""
     from .finite_interpretation_products import finite_interpretation_reports
 
-    definition = next((value for value in prepared.definitions if value.iri == selected.nominal), None)
+    definition = next(
+        (value for value in prepared.definitions if value.iri == selected.nominal), None
+    )
     if definition is None or not (
         definition.name == "DdoFiniteInterpretationProduct"
         or "DdoFiniteInterpretationProduct" in definition.ancestors
@@ -267,10 +326,15 @@ def attach_finite_interpretations(prepared, selected, groups, *, candidate_produ
             if (
                 report["family"] != group.family
                 or report["retained_input_digest"] != group.retained_input_digest
-                or sorted(report["interpretation_ids"]) != sorted(row.interpretation_id for row in group.readings)
+                or sorted(report["interpretation_ids"])
+                != sorted(row.interpretation_id for row in group.readings)
             ):
-                raise ValueError("finite interpretation differs from the complete retained readings")
+                raise ValueError(
+                    "finite interpretation differs from the complete retained readings"
+                )
             value = RetainedFiniteInterpretation(reference=selected.reference, report=report)
-            group = group.model_copy(update={"finite_interpretations": (*group.finite_interpretations, value)})
+            group = group.model_copy(
+                update={"finite_interpretations": (*group.finite_interpretations, value)}
+            )
         result.append(group)
     return tuple(result)

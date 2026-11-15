@@ -1,13 +1,16 @@
 """Independent exact-form expectations and provenance/refusal controls."""
 
-
 import json
 
 import pytest
 
 from corpus_structure.evaluate.affine import NonzeroPremise, assess_exact_affine
 from corpus_structure.methods.math.prepared import PreparedMathInput
-from corpus_structure.semantic.math_context import SymbolDeclaration, acquire_analysis_context_profile, prepare_interpretation_context
+from corpus_structure.semantic.math_context import (
+    SymbolDeclaration,
+    acquire_analysis_context_profile,
+    prepare_interpretation_context,
+)
 
 
 def _context(*names, scope="statement-a", assumptions=(), competing=False):
@@ -19,7 +22,8 @@ def _context(*names, scope="statement-a", assumptions=(), competing=False):
         declarations.append(
             SymbolDeclaration(names[-1], "variable", "source", "other-binding", "fixture", scope)
         )
-    return prepare_interpretation_context(context_profile=acquire_analysis_context_profile(),
+    return prepare_interpretation_context(
+        context_profile=acquire_analysis_context_profile(),
         macros={},
         kind="formula",
         demand="symbolic",

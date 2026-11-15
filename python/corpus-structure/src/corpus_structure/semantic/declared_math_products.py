@@ -17,12 +17,16 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, JsonValue
 
-from .math_context import AnalysisContextProfile, acquire_analysis_context_profile, prepare_interpretation_context
 from .constructions.math_scope import Binders, NativeDomainRule
 from .data_operation_model import MODEL_VERSION, ResolvedRoleBinding
 from .declared_record_sources import DeclaredNativeFrameSource
 from .declared_structural_references import DeclaredStructuralSource
 from .identity import canonical_bytes
+from .math_context import (
+    AnalysisContextProfile,
+    acquire_analysis_context_profile,
+    prepare_interpretation_context,
+)
 from .python_module_projection import admitted_operation_module_meaning
 from .structural_products import DeclaredStructuralInputPin as DeclaredMathInput
 from .types import PreparedRelease, SourceArtifact
@@ -230,9 +234,7 @@ class PreparedMathInputs:
         )
 
     def prepare_context(self, **values):
-        return prepare_interpretation_context(
-            context_profile=self.context_profile, **values
-        )
+        return prepare_interpretation_context(context_profile=self.context_profile, **values)
 
 
 def execute_occurrences(receiver, source, formal, inherited, ancestor_sources, constructions):

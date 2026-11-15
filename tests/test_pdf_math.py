@@ -8,11 +8,16 @@ import sympy
 from corpus_structure.core.vocab import ParseOutcome
 from corpus_structure.methods.math import grammar
 from corpus_structure.methods.math.pdf import FormulaOccurrence, FormulaRecognitionUnavailable
-from corpus_structure.semantic.math_context import acquire_analysis_context_profile, prepare_interpretation_context
+from corpus_structure.semantic.math_context import (
+    acquire_analysis_context_profile,
+    prepare_interpretation_context,
+)
 
 
 def context():
-    return prepare_interpretation_context(context_profile=acquire_analysis_context_profile(), macros={}, kind="formula")
+    return prepare_interpretation_context(
+        context_profile=acquire_analysis_context_profile(), macros={}, kind="formula"
+    )
 
 
 def formula(text="x+x", **changes):

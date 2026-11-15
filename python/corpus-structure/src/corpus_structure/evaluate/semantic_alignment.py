@@ -13,8 +13,8 @@ from decimal import Decimal
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from corpus_structure.semantic.math_context import AnalysisContextProfile
     from corpus_structure.semantic.analysis_policies import AlignmentPolicyDefinition
+    from corpus_structure.semantic.math_context import AnalysisContextProfile
 
 import numpy as np
 from scipy.optimize import linear_sum_assignment

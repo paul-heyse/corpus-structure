@@ -16,8 +16,11 @@ from pydantic import BaseModel, ConfigDict
 from corpus_structure.core.evidence import MacroDef, Segment
 from corpus_structure.core.method import CoverageDraft, ObservationDraft, UnitResult
 from corpus_structure.core.vocab import ObservationKind, ObservationOutcome, ParseOutcome
-from corpus_structure.semantic.math_context import acquire_analysis_context_profile, prepare_interpretation_context
 from corpus_structure.semantic.constructions.math_scope import NativeDomainRule
+from corpus_structure.semantic.math_context import (
+    acquire_analysis_context_profile,
+    prepare_interpretation_context,
+)
 
 from . import grammar
 from .native_topology import native_topology

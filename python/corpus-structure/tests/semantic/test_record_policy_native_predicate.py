@@ -120,6 +120,7 @@ def policy_visibility_connection(semantic_bare_engine):
             function = statement.stmt
             if (
                 isinstance(function, ast.CreateFunctionStmt)
+                and function.funcname
                 and function.funcname[-1].sval == "ddo_policy_authority_summary"
             ):
                 connection.exec_driver_sql(prepared.excerpt(index))
@@ -129,46 +130,78 @@ def policy_visibility_connection(semantic_bare_engine):
         connection.execute(
             table("ops.data_demand_read").insert(),
             dict(
-                id="read:one", demand_id="demand:one", read_snapshot=snapshot,
-                frontier_at=now, owner_xid=xid, trust_snapshot={}, scope={},
+                id="read:one",
+                demand_id="demand:one",
+                read_snapshot=snapshot,
+                frontier_at=now,
+                owner_xid=xid,
+                trust_snapshot={},
+                scope={},
             ),
         )
         connection.execute(
             table("ops.data_derivation").insert(),
             dict(
-                id="episode:one", request_id="request:one", generation=1,
-                intent_id="intent:one", release_id="release:one", recipe="recipe:one",
-                runtime_id="runtime:one", producer_task_id=1, producer_attempt=1,
-                outcome="success", completed_at=now - timedelta(seconds=3),
+                id="episode:one",
+                request_id="request:one",
+                generation=1,
+                intent_id="intent:one",
+                release_id="release:one",
+                recipe="recipe:one",
+                runtime_id="runtime:one",
+                producer_task_id=1,
+                producer_attempt=1,
+                outcome="success",
+                completed_at=now - timedelta(seconds=3),
             ),
         )
         marker = dict(
-            id="use:published", demand_id="demand:one", obligation_id="obligation:one",
-            fate="fulfilled", request_id="request:one", generation=1,
-            derivation_id="episode:one", selection={}, trust_snapshot={},
-            created_at=now - timedelta(seconds=2), created_xid=xid,
+            id="use:published",
+            demand_id="demand:one",
+            obligation_id="obligation:one",
+            fate="fulfilled",
+            request_id="request:one",
+            generation=1,
+            derivation_id="episode:one",
+            selection={},
+            trust_snapshot={},
+            created_at=now - timedelta(seconds=2),
+            created_xid=xid,
         )
         connection.execute(table("ops.demand_use").insert(), marker)
         connection.execute(
             table("ops.data_derivation_output").insert(),
             dict(
-                derivation_id="episode:one", role="authorization", position=0,
-                multiplicity=1, product_id="product:one", member_id=None,
+                derivation_id="episode:one",
+                role="authorization",
+                position=0,
+                multiplicity=1,
+                product_id="product:one",
+                member_id=None,
             ),
         )
         connection.execute(
             table("ops.data_publication_receipt").insert(),
             dict(
-                id="receipt:one", intent_id="intent:one", derivation_id="episode:one",
-                publishing_task_id=1, publishing_attempt=1, trust_snapshot={},
+                id="receipt:one",
+                intent_id="intent:one",
+                derivation_id="episode:one",
+                publishing_task_id=1,
+                publishing_attempt=1,
+                trust_snapshot={},
             ),
         )
         connection.execute(
             table("kb.data_product").insert(),
             dict(
-                id="product:one", kind_contract="kind:authorization", project_id="project:one",
-                subject="subject:one", subject_definition="subject-definition:one",
-                analyzed_scope={}, canonical_body={}, body_digest="a" * 64,
+                id="product:one",
+                kind_contract="kind:authorization",
+                project_id="project:one",
+                subject="subject:one",
+                subject_definition="subject-definition:one",
+                analyzed_scope={},
+                canonical_body={},
+                body_digest="a" * 64,
             ),
         )
         yield connection, marker, now
@@ -192,7 +225,9 @@ def test_authority_summary_preserves_visible_publication_and_exact_selected_use(
 
 
 @pytest.mark.db
-@pytest.mark.parametrize("outside", ["completion", "marker_time", "marker_snapshot", "unfulfilled", "selected_use"])
+@pytest.mark.parametrize(
+    "outside", ["completion", "marker_time", "marker_snapshot", "unfulfilled", "selected_use"]
+)
 def test_authority_summary_refuses_issuer_or_selected_use_outside_its_native_cut(
     policy_visibility_connection, outside
 ):

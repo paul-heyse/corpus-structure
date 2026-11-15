@@ -102,12 +102,16 @@ def test_groups_reads_complete_candidate_universe_and_exact_reading_root(
     from corpus_structure.serve import interpretations
 
     path = tmp_path / "groups.json"
-    path.write_text('{"project_id":"project:one","demand_id":"demand:one","roots":[{"product_id":"product:one","member_id":"record:one","interpretation_id":"reading:one"}]}')
+    path.write_text(
+        '{"project_id":"project:one","demand_id":"demand:one","roots":[{"product_id":"product:one","member_id":"record:one","interpretation_id":"reading:one"}]}'
+    )
     seen = []
 
     def inspect(connection, request):
         seen.append(request)
-        return interpretations.answer("grouped_source_record_interpretations", {"items": [], "knowledge": "unknown"})
+        return interpretations.answer(
+            "grouped_source_record_interpretations", {"items": [], "knowledge": "unknown"}
+        )
 
     monkeypatch.setattr(interpretations, "group_selected_interpretations", inspect)
     result = cli("interpretations", "groups", str(path), "--json")

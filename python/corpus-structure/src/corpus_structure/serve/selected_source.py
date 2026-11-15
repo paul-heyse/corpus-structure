@@ -348,8 +348,8 @@ def _captured_analysis_profile(prepared, dependencies):
     """Decode only profiles archived by the selected current operation model."""
     from pydantic import TypeAdapter
 
-    from corpus_structure.semantic.math_context import AnalysisContextProfile
     from corpus_structure.semantic.composed import read_data_operation_inputs
+    from corpus_structure.semantic.math_context import AnalysisContextProfile
 
     expected = {
         name: digest

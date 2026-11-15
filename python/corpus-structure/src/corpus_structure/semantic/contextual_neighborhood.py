@@ -12,8 +12,8 @@ from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import Integer, Text, cast, column, func, null, select, table
 from sqlalchemy.dialects.postgresql import JSONB
 
-from .contextual_operations import _PROFILE, _VECTORS, admitted_contextual_inventory
 from .contextual_numerics import default_retrieval_numerics
+from .contextual_operations import _PROFILE, _VECTORS, admitted_contextual_inventory
 from .identity import canonical_bytes
 from .types import SourceArtifact
 
@@ -39,10 +39,16 @@ class NeighborhoodNumericalPolicy(BaseModel):
         extensions = table(
             "pg_extension", column("extname", Text), column("extversion", Text), schema="pg_catalog"
         )
-        postgres = connection.scalar(select(cast(func.current_setting("server_version_num"), Integer)))
-        vector = connection.scalar(select(extensions.c.extversion).where(extensions.c.extname == "vector"))
+        postgres = connection.scalar(
+            select(cast(func.current_setting("server_version_num"), Integer))
+        )
+        vector = connection.scalar(
+            select(extensions.c.extversion).where(extensions.c.extname == "vector")
+        )
         if (postgres, vector) != (self.postgres_version_num, self.pgvector_extension_version):
-            raise ValueError("contextual neighborhood backend differs from selected numerical policy")
+            raise ValueError(
+                "contextual neighborhood backend differs from selected numerical policy"
+            )
 
 
 @cache
@@ -74,7 +80,8 @@ def neighborhood_kernel_asset():
         source.excerpt(index)
         for index, raw in enumerate(source.statements)
         if isinstance(raw.stmt, ast.CreateFunctionStmt)
-        and tuple(part.sval for part in (raw.stmt.funcname or ())) == ("ops", "contextual_mutual_neighbors")
+        and tuple(part.sval for part in (raw.stmt.funcname or ()))
+        == ("ops", "contextual_mutual_neighbors")
     ]
     if len(declarations) != 1:
         raise ValueError("contextual neighborhood requires its unique native kernel owner")
@@ -98,34 +105,49 @@ def prepare_contextual_neighborhood(inventory, vectors):
     raw_profile = source_python(vectors["profile"])
     profile = None if raw_profile is None else _PROFILE.validate_python(raw_profile)
     values = _VECTORS.validate_python(source_python(vectors["vectors"]))
-    if profile is not None and (len(values) > profile.max_items or len(selected.targets) > profile.max_items):
+    if profile is not None and (
+        len(values) > profile.max_items or len(selected.targets) > profile.max_items
+    ):
         raise ValueError("contextual neighborhood exceeds the captured encoder population bound")
     # Coverage, duplicates, dimension and normalization are interpreted by the native
     # kernel. Nonfinite values cannot cross PostgreSQL's vector boundary at all.
     if any(not isfinite(value) for vector in values for value in vector.values):
         raise ValueError("contextual neighborhood refuses nonfinite vectors")
-    return NeighborhoodInputs(selected, profile, values, inventory["inventory"], vectors["profile"], vectors["vectors"])
+    return NeighborhoodInputs(
+        selected, profile, values, inventory["inventory"], vectors["profile"], vectors["vectors"]
+    )
 
 
 def query_contextual_neighborhood(connection, inputs, *, numerical_policy=None):
     selected = default_neighborhood_numerics() if numerical_policy is None else numerical_policy
     selected.require_runtime(connection)
     inventory = asdict(inputs.inventory)
-    profile = None if inputs.profile is None else dict(asdict(inputs.profile), profile_id=inputs.profile.profile_id)
+    profile = (
+        None
+        if inputs.profile is None
+        else dict(asdict(inputs.profile), profile_id=inputs.profile.profile_id)
+    )
     vectors = [asdict(vector) for vector in inputs.vectors]
     # JSONB binds stay on this caller-owned connection. The native kernel builds
     # its transient typed vector relation and owns exact distances and ordering.
     return connection.scalar(
-        select(func.ops.contextual_mutual_neighbors(
-            cast(inventory, JSONB), cast(null(), JSONB) if profile is None else cast(profile, JSONB), cast(vectors, JSONB)
-        ))
+        select(
+            func.ops.contextual_mutual_neighbors(
+                cast(inventory, JSONB),
+                cast(null(), JSONB) if profile is None else cast(profile, JSONB),
+                cast(vectors, JSONB),
+            )
+        )
     )
 
 
 def finish_contextual_neighborhood(inputs, neighborhood):
     from .observations import source_value
 
-    if neighborhood["policy"] != "mutual-exact-cosine-top5-2" or neighborhood["inventory_id"] != inputs.inventory.inventory_id:
+    if (
+        neighborhood["policy"] != "mutual-exact-cosine-top5-2"
+        or neighborhood["inventory_id"] != inputs.inventory.inventory_id
+    ):
         raise ValueError("native neighborhood differs from its exact inventory or policy")
     return {
         "version": "declared-contextual-neighborhood-1",
@@ -138,7 +160,9 @@ def finish_contextual_neighborhood(inputs, neighborhood):
 
 def contextual_neighborhood_values(connection, inventory, vectors, *, numerical_policy=None):
     inputs = prepare_contextual_neighborhood(inventory, vectors)
-    neighborhood = query_contextual_neighborhood(connection, inputs, numerical_policy=numerical_policy)
+    neighborhood = query_contextual_neighborhood(
+        connection, inputs, numerical_policy=numerical_policy
+    )
     return finish_contextual_neighborhood(inputs, neighborhood)
 
 
@@ -159,11 +183,18 @@ class ContextualNeighborhoodPlan:
         from .data_operation_prepared_call import PreparedCallResult
 
         if binding is None or not binding.sufficient or binding.subject_context is None:
-            raise ValueError("contextual neighborhood requires its sufficient acquired source context")
+            raise ValueError(
+                "contextual neighborhood requires its sufficient acquired source context"
+            )
         check_active()
         values = {
-            name: self.prepared.validate_json(kind, json_bytes(arguments.arguments[name])).model_dump(mode="python", exclude_unset=True)
-            for name, kind in (("inventory", "DdoContextualInventory"), ("vectors", "DdoContextualVectors"))
+            name: self.prepared.validate_json(
+                kind, json_bytes(arguments.arguments[name])
+            ).model_dump(mode="python", exclude_unset=True)
+            for name, kind in (
+                ("inventory", "DdoContextualInventory"),
+                ("vectors", "DdoContextualVectors"),
+            )
         }
         inputs = prepare_contextual_neighborhood(**values)
 
@@ -171,10 +202,14 @@ class ContextualNeighborhoodPlan:
             self.port._verify()
             check_active()
             with execution_owner.engine.begin() as connection:
-                neighborhood = query_contextual_neighborhood(connection, inputs, numerical_policy=self.numerical_policy)
+                neighborhood = query_contextual_neighborhood(
+                    connection, inputs, numerical_policy=self.numerical_policy
+                )
             check_active()
             product = finish_contextual_neighborhood(inputs, neighborhood)
-            checked = self.prepared.validate_json("DdoContextualNeighborhoodProduct", json_bytes(product)).model_dump(mode="python", exclude_unset=True)
+            checked = self.prepared.validate_json(
+                "DdoContextualNeighborhoodProduct", json_bytes(product)
+            ).model_dump(mode="python", exclude_unset=True)
             self.port._verify()
             return PreparedCallResult(checked)
 
@@ -190,20 +225,37 @@ def resolve_neighborhood_port(prepared, model, operation, *, identity, authorize
     from .data_operation_prepared_call import PreparedOriginalCallPort
 
     selected = model.operation(operation)
-    if selected.semantic_id != ContextualNeighborhoodOperation.__data_operation__["id"] or selected.numerical_policy is None:
+    if (
+        selected.semantic_id != ContextualNeighborhoodOperation.__data_operation__["id"]
+        or selected.numerical_policy is None
+    ):
         raise PortRefusal("contextual neighborhood requires its own operation and numerical policy")
     policy = NeighborhoodNumericalPolicy.model_validate_json(selected.numerical_policy.body)
     receiver = ContextualNeighborhoodOperation(None)
     plan = ContextualNeighborhoodPlan(prepared, policy)
     port = PreparedOriginalCallPort(
-        identity, model, selected, sources, custody, receiver.run, plan.plan,
+        identity,
+        model,
+        selected,
+        sources,
+        custody,
+        receiver.run,
+        plan.plan,
         "corpus_structure.semantic.contextual_neighborhood.ContextualNeighborhoodPlan.plan",
         authorize,
-        (contextual_retrieval_assets(), neighborhood_numerical_asset(policy), neighborhood_kernel_asset()),
+        (
+            contextual_retrieval_assets(),
+            neighborhood_numerical_asset(policy),
+            neighborhood_kernel_asset(),
+        ),
         contextual_operation_sources(neighborhood_policy=policy),
         functions=tuple(
             ("corpus_structure.semantic.contextual_neighborhood." + function.__name__, function)
-            for function in (prepare_contextual_neighborhood, query_contextual_neighborhood, finish_contextual_neighborhood)
+            for function in (
+                prepare_contextual_neighborhood,
+                query_contextual_neighborhood,
+                finish_contextual_neighborhood,
+            )
         ),
         requires_prepared_schema=True,
     )

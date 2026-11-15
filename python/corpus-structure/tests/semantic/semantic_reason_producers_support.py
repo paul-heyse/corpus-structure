@@ -10,9 +10,9 @@ from corpus_structure.semantic import (
     SourceBundle,
     prepare_release,
 )
-from corpus_structure.semantic.math_context import acquire_analysis_context_profile
 from corpus_structure.semantic.analytical_profile import analytical_inputs
 from corpus_structure.semantic.composed import composed_dependencies
+from corpus_structure.semantic.math_context import acquire_analysis_context_profile
 from corpus_structure.semantic.proposals import proposal_inputs
 from corpus_structure.semantic.rich_knowledge_sources import rich_policy_inputs
 

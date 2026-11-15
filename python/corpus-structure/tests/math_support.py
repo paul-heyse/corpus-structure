@@ -16,8 +16,6 @@ reference with its source, rationale and affected consumers, preserving the froz
 
 from __future__ import annotations
 
-from corpus_structure.semantic.math_context import acquire_analysis_context_profile
-
 import json
 import multiprocessing
 import os
@@ -45,6 +43,7 @@ from corpus_structure.methods.math.spans import (
     extract,
     formula_values,
 )
+from corpus_structure.semantic.math_context import acquire_analysis_context_profile
 
 _ENVIRONMENT_OPENER = "\\begin"
 
@@ -91,8 +90,11 @@ def read_spans(
     (`core/tex.py` `effective_macros`), `constants` the pack's `math.constants`."""
     from corpus_structure.semantic.math_context import prepare_interpretation_context
 
-    prepared_context = prepared_context or prepare_interpretation_context(context_profile=acquire_analysis_context_profile(),
-        macros=macros, constants=constants, demand="occurrences"
+    prepared_context = prepared_context or prepare_interpretation_context(
+        context_profile=acquire_analysis_context_profile(),
+        macros=macros,
+        constants=constants,
+        demand="occurrences",
     )
     from corpus_structure.methods.math.prepared import PreparedMathInput
 

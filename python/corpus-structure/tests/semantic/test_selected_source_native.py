@@ -40,9 +40,7 @@ def test_native_selection_context_and_offline_preparation(
             source.kernel.prepared, source.kernel.preparation.dependencies
         )
         assert profile is not None
-        context = prepare_interpretation_context(
-            macros={}, kind="formula", context_profile=profile
-        )
+        context = prepare_interpretation_context(macros={}, kind="formula", context_profile=profile)
         receipt = export_selected_source(
             request, read_settings(native_settings, source.kernel.engine)
         )

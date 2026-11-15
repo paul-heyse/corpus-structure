@@ -15,11 +15,11 @@ from pydantic import BaseModel, ConfigDict
 
 from corpus_structure.core.evidence import MacroDef
 
-from .math_context import AnalysisContextProfile
 from .data_operation_identity import canonical_identity, semantic_value
 from .data_operation_model import EffectiveDataOperationModel, SubjectContext
 from .expression_context import bind_expression_context
 from .identity import canonical_bytes
+from .math_context import AnalysisContextProfile
 from .observations import source_python
 from .refusals import SemanticReason
 from .rich_graph_validation import RichWholeInput, ValidatedRichGraph, read_rich_graph

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-
 import pytest
 import sympy
 
@@ -10,11 +9,19 @@ from corpus_structure.core.vocab import ParseOutcome
 from corpus_structure.methods.math import grammar
 from corpus_structure.methods.math.prepared import PreparedMathInput
 from corpus_structure.methods.math.transform import NotRepresentable
-from corpus_structure.semantic.math_context import acquire_analysis_context_profile, prepare_interpretation_context
+from corpus_structure.semantic.math_context import (
+    acquire_analysis_context_profile,
+    prepare_interpretation_context,
+)
 
 
 def context():
-    return prepare_interpretation_context(context_profile=acquire_analysis_context_profile(), macros={}, kind="formula", demand="symbolic")
+    return prepare_interpretation_context(
+        context_profile=acquire_analysis_context_profile(),
+        macros={},
+        kind="formula",
+        demand="symbolic",
+    )
 
 
 def test_symbolic_preparation_is_lazy_and_reuses_one_value(monkeypatch):

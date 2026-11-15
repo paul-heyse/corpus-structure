@@ -1044,7 +1044,9 @@ def test_current_preview_retains_query_analysis_in_existing_model_view(
     monkeypatch.setattr(
         runtime, "open_runtime_engine", lambda *args, **kwargs: nullcontext(object())
     )
-    monkeypatch.setattr(read_snapshot, "read_snapshot", lambda *args, **kwargs: nullcontext(object()))
+    monkeypatch.setattr(
+        read_snapshot, "read_snapshot", lambda *args, **kwargs: nullcontext(object())
+    )
     monkeypatch.setattr(
         releases,
         "open_release",

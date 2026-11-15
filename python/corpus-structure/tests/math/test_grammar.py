@@ -7,8 +7,6 @@ so a SymPy bump that sends a construct down a deprecated path fails these tests.
 
 from __future__ import annotations
 
-from corpus_structure.semantic.math_context import acquire_analysis_context_profile
-
 import threading
 import time
 from collections import OrderedDict
@@ -22,6 +20,7 @@ from corpus_structure.core.evidence import MacroDef
 from corpus_structure.core.vocab import ParseOutcome
 from corpus_structure.methods.math import grammar as G
 from corpus_structure.methods.math.transform import NotRepresentable
+from corpus_structure.semantic.math_context import acquire_analysis_context_profile
 
 pytestmark = pytest.mark.filterwarnings("error::sympy.utilities.exceptions.SymPyDeprecationWarning")
 
@@ -67,7 +66,8 @@ def P(latex: str, kind: G.Kind = "any_value", **declared: set[str]) -> G.MathRes
         )
         for symbol in declared.get(field, ())
     )
-    context = prepare_interpretation_context(context_profile=acquire_analysis_context_profile(),
+    context = prepare_interpretation_context(
+        context_profile=acquire_analysis_context_profile(),
         macros=PAGE,
         declarations=declarations,
         kind=kind,
@@ -444,8 +444,11 @@ def test_the_deadline_bounds_the_whole_read_including_the_resolver(monkeypatch) 
     from corpus_structure.semantic.math_context import prepare_interpretation_context
 
     latex = "\\int_0^\\infty h(t) \\, dt = \\infty"
-    context = prepare_interpretation_context(context_profile=acquire_analysis_context_profile(),
-        macros=PAGE, kind="any_value", source_id="deadline-leaf-control"
+    context = prepare_interpretation_context(
+        context_profile=acquire_analysis_context_profile(),
+        macros=PAGE,
+        kind="any_value",
+        source_id="deadline-leaf-control",
     ).grammar_context
     assert G.syntax(latex, "any_value", PAGE).tree is not None
     memo: OrderedDict[tuple[str, str, str, str], G.MathResult] = OrderedDict()

@@ -6,11 +6,14 @@ import pytest
 import yaml
 
 from corpus_structure.semantic.analysis_contracts import bind_analysis_family
-from corpus_structure.semantic.math_context import acquire_analysis_context_profile, prepare_interpretation_context
 from corpus_structure.semantic.contracts import (
     EXECUTION_COMPILER_VERSION,
     compile_execution_model,
     trusted_execution_inputs,
+)
+from corpus_structure.semantic.math_context import (
+    acquire_analysis_context_profile,
+    prepare_interpretation_context,
 )
 from corpus_structure.semantic.prepare import prepare_release
 from corpus_structure.semantic.types import PreparationError, RegistryRow
@@ -51,7 +54,9 @@ def different_implementation():
 
 
 def context(**kwargs):
-    return prepare_interpretation_context(context_profile=acquire_analysis_context_profile(), macros={}, **kwargs)
+    return prepare_interpretation_context(
+        context_profile=acquire_analysis_context_profile(), macros={}, **kwargs
+    )
 
 
 def source_role(role, **extra):
@@ -363,7 +368,8 @@ def test_explicit_implementation_bytes_are_part_of_identity_and_runtime_support(
 
 def test_scientific_profile_and_source_sharing_are_admitted_data():
     computation = next(
-        item for item in acquire_analysis_context_profile().profile.scientific_profiles
+        item
+        for item in acquire_analysis_context_profile().profile.scientific_profiles
         if item.policy_id == "reference-evidence-2"
     )
     assert computation.minimum_valid_points == 12
@@ -378,8 +384,8 @@ def test_candidate_scientific_parameters_rebind_supplied_recipe_without_ambient_
     import json
 
     from corpus_structure.semantic import SourceArtifact, SourceBundle
-    from corpus_structure.semantic.math_context import acquire_analysis_context_profile
     from corpus_structure.semantic.identity import canonical_bytes
+    from corpus_structure.semantic.math_context import acquire_analysis_context_profile
     from corpus_structure.semantic.scientific_evidence import (
         SCIENTIFIC_POLICY_INPUT,
         SemanticComparator,
@@ -477,7 +483,10 @@ def test_captured_semantic_assets_determine_every_analysis_stage():
     first_profile = acquire_analysis_context_profile()
     changed_profile = replace(
         first_profile,
-        implementation_digests=(*first_profile.implementation_digests, ("grammar/alternate", "changed")),
+        implementation_digests=(
+            *first_profile.implementation_digests,
+            ("grammar/alternate", "changed"),
+        ),
     )
     first = prepare_interpretation_context(context_profile=first_profile, macros={})
     changed = prepare_interpretation_context(context_profile=changed_profile, macros={})

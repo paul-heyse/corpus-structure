@@ -15,10 +15,10 @@ from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.core.method import CoverageDraft, UnitRef, UnitResult
 from corpus_structure.core.vocab import ObservationOutcome, TaskUnitType
-from corpus_structure.semantic.math_context import acquire_analysis_context_profile
 from corpus_structure.semantic.analytics import compile_projection
 from corpus_structure.semantic.arrow_publication import AppendPublication, stage_arrow
 from corpus_structure.semantic.domain_operations import _cut_input, consolidate_cut
+from corpus_structure.semantic.math_context import acquire_analysis_context_profile
 from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.operations import complete_unit_result, seal_cut
 from corpus_structure.semantic.record_projection import RECORD_ROW_TYPES, reconstruct_record

@@ -438,7 +438,8 @@ def neighborhood(
     ctx: typer.Context, request: Annotated[Path, typer.Option()], json: JsonOpt = False
 ):
     from corpus_structure.serve.selected_neighborhood import (
-        DemandNeighborhoodRequest, inspect_demand_neighborhood,
+        DemandNeighborhoodRequest,
+        inspect_demand_neighborhood,
     )
 
     return _inspect(ctx, request, DemandNeighborhoodRequest, inspect_demand_neighborhood, json=json)

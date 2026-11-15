@@ -72,7 +72,11 @@ def retained_reading_groups(
             raise ValueError("one occurrence cannot have multiple released families")
         dependencies = tuple(
             sorted(
-                {dependency for row in readings for dependency in row.get("computation_dependencies", ())}
+                {
+                    dependency
+                    for row in readings
+                    for dependency in row.get("computation_dependencies", ())
+                }
             )
         )
         result.append(

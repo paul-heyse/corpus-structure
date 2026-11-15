@@ -15,7 +15,6 @@ import networkx as nx
 import pyarrow as pa
 from pydantic import BaseModel
 
-from .math_context import AnalysisContextProfile, prepare_interpretation_context
 from .analytical_kernels import (
     VIEW_ALTERNATIVES,
     VIEW_CLAIMS,
@@ -26,6 +25,7 @@ from .analytical_kernels import (
 from .data_operation_identity import canonical_identity
 from .data_operation_model import EffectiveDataOperationModel, SubjectContext
 from .identity import canonical_bytes
+from .math_context import AnalysisContextProfile, prepare_interpretation_context
 from .refusals import SemanticReason, SemanticRefusal, semantic_reason_identity
 from .rich_decisions import OccurrenceStatus, RuleOutcome, RuleSeverity
 from .rich_graph_validation import RichWholeInput, read_rich_graph

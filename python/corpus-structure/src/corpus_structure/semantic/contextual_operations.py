@@ -112,7 +112,6 @@ def contextual_numerical_asset(numerical_policy=None):
 
 def contextual_operation_declarations():
     from .contextual_neighborhood import NeighborhoodNumericalPolicy
-
     from .data_operation_model import MODEL_VERSION
     from .nominal_schema_kinds import nominal_schema_kinds
 
@@ -125,7 +124,8 @@ def contextual_operation_declarations():
                     RetrievalNumericalPolicy.model_json_schema(),
                     namespace="urn:corpus:kind:contextual-retrieval:",
                     root_name="NumericalPolicy",
-                ) + nominal_schema_kinds(
+                )
+                + nominal_schema_kinds(
                     NeighborhoodNumericalPolicy.model_json_schema(),
                     namespace="urn:corpus:kind:contextual-neighborhood:",
                     root_name="NumericalPolicy",
@@ -137,7 +137,6 @@ def contextual_operation_declarations():
 
 def contextual_operation_sources(numerical_policy=None, *, neighborhood_policy=None):
     from .contextual_neighborhood import neighborhood_kernel_asset, neighborhood_numerical_asset
-
     from .python_operation_sources import PythonSource, PythonSourceCollection
 
     return PythonSourceCollection(

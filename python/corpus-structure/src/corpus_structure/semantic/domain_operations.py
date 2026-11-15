@@ -186,9 +186,9 @@ def _candidate_reading(prepared, candidate, raw, readings):
     """Translate only owned preparation/reading inability; programming errors propagate."""
     from corpus_structure.core.evidence import MacroDef
 
+    from .grammar_profile import GRAMMAR_KINDS
     from .math_context import prepare_interpretation_context
     from .rich_policy_binding import rich_context_profile
-    from .grammar_profile import GRAMMAR_KINDS
     from .rule_views import Reading
     from .types import PreparationError
 

@@ -6,10 +6,14 @@ import pytest
 import yaml
 
 from corpus_structure.semantic.analysis_contracts import prepare_placement_policy
-from corpus_structure.semantic.math_context import AnalysisContextProfile, acquire_analysis_context_profile, prepare_interpretation_context
 from corpus_structure.semantic.analysis_policies import (
     analysis_policy_sources,
     compile_analysis_policies,
+)
+from corpus_structure.semantic.math_context import (
+    AnalysisContextProfile,
+    acquire_analysis_context_profile,
+    prepare_interpretation_context,
 )
 from corpus_structure.semantic.types import PreparationError
 

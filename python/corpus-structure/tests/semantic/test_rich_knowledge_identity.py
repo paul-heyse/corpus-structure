@@ -297,8 +297,8 @@ def test_rich_source_refuses_legacy_and_unqualified_addresses():
 def test_current_scientific_context_needs_exact_archive_but_no_legacy_execution_binding():
     from dataclasses import replace
 
-    from corpus_structure.semantic.math_context import acquire_analysis_context_profile
     from corpus_structure.semantic.identity import canonical_bytes
+    from corpus_structure.semantic.math_context import acquire_analysis_context_profile
     from corpus_structure.semantic.scientific_evidence import (
         SCIENTIFIC_POLICY_INPUT,
         SemanticComparator,

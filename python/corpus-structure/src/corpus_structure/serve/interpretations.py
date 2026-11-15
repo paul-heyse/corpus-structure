@@ -91,7 +91,9 @@ def inspect_selected_proposals(connection, request: SelectedProposalRequest):
     )
 
 
-def group_selected_interpretations(connection, request: GroupedInterpretationRequest) -> InterpretationAnswer:
+def group_selected_interpretations(
+    connection, request: GroupedInterpretationRequest
+) -> InterpretationAnswer:
     """Read complete occurrence groups from exact selected candidate universes."""
     from corpus_structure._query_custody import (
         GROUPED_INTERPRETATION_SOURCES,
@@ -101,7 +103,8 @@ def group_selected_interpretations(connection, request: GroupedInterpretationReq
 
     try:
         with installed_read_implementation(
-            type(request), sources=GROUPED_INTERPRETATION_SOURCES,
+            type(request),
+            sources=GROUPED_INTERPRETATION_SOURCES,
             profile="grouped-source-records-1",
         ) as implementation:
             return _group_selected_interpretations(connection, request, implementation)
@@ -134,13 +137,30 @@ def _group_selected_interpretations(connection, request, implementation):
             cursor = json_loads(base64.b64decode(request.cursor, altchars=b"-_", validate=True))
         except (ValueError, TypeError) as error:
             raise ValueError("invalid grouped interpretation cursor") from error
-        if (not isinstance(cursor, dict) or set(cursor) != {"version", "implementation", "selection", "read_id", "cut_id", "offset"} or cursor["version"] != "grouped-source-records-1" or cursor["implementation"] != implementation or cursor["selection"] != digest or type(cursor["offset"]) is not int or cursor["offset"] < 0):
+        if (
+            not isinstance(cursor, dict)
+            or set(cursor)
+            != {"version", "implementation", "selection", "read_id", "cut_id", "offset"}
+            or cursor["version"] != "grouped-source-records-1"
+            or cursor["implementation"] != implementation
+            or cursor["selection"] != digest
+            or type(cursor["offset"]) is not int
+            or cursor["offset"] < 0
+        ):
             raise ValueError("cursor differs from the exact grouped interpretation selection")
-    if cursor is not None and request.read_id is not None and (
-        request.read_id, request.expected_cut
-    ) != (cursor["read_id"], cursor["cut_id"]):
+    if (
+        cursor is not None
+        and request.read_id is not None
+        and (request.read_id, request.expected_cut) != (cursor["read_id"], cursor["cut_id"])
+    ):
         raise ValueError("grouped interpretation cursor differs from explicit native read")
-    acquired = request if cursor is None else request.model_copy(update={"read_id": cursor["read_id"], "expected_cut": cursor["cut_id"]})
+    acquired = (
+        request
+        if cursor is None
+        else request.model_copy(
+            update={"read_id": cursor["read_id"], "expected_cut": cursor["cut_id"]}
+        )
+    )
     roots = {}
     for root in request.roots:
         roots.setdefault(root.product_id, []).append(root)
@@ -155,10 +175,21 @@ def _group_selected_interpretations(connection, request, implementation):
             if product.reference.member_id is not None:
                 continue
             found.add(identity)
-            definition = next((value for value in selected.prepared.definitions if value.iri == product.nominal), None)
-            if definition is not None and (definition.name == "DdoFiniteInterpretationProduct" or "DdoFiniteInterpretationProduct" in definition.ancestors):
-                if any(root.member_id is not None or root.interpretation_id is not None for root in roots[identity]):
-                    raise ValueError("finite root selects its complete product; occurrence selectors belong to the candidate root")
+            definition = next(
+                (value for value in selected.prepared.definitions if value.iri == product.nominal),
+                None,
+            )
+            if definition is not None and (
+                definition.name == "DdoFiniteInterpretationProduct"
+                or "DdoFiniteInterpretationProduct" in definition.ancestors
+            ):
+                if any(
+                    root.member_id is not None or root.interpretation_id is not None
+                    for root in roots[identity]
+                ):
+                    raise ValueError(
+                        "finite root selects its complete product; occurrence selectors belong to the candidate root"
+                    )
                 finite.append(product)
                 continue
             universes[json_bytes(product.reference.model_dump(mode="python"))] = {
@@ -168,7 +199,9 @@ def _group_selected_interpretations(connection, request, implementation):
                 "inspection_outcome": product.body["inspection_outcome"],
                 "coverage": product.body["coverage"],
             }
-            for group in grouped_candidate_product(selected.prepared, selected.model, product, roots[identity]):
+            for group in grouped_candidate_product(
+                selected.prepared, selected.model, product, roots[identity]
+            ):
                 groups[group.identity] = group
         if set(roots) != found:
             raise ValueError("interpretation roots require exact selected whole candidate products")
@@ -182,20 +215,36 @@ def _group_selected_interpretations(connection, request, implementation):
             requests = selected.index.mapping("ops.data_request", ("id",))
             binding = requests[episodes[product.derivation_id]["request_id"]]["binding"]
             inputs = [value for value in binding["inputs"] if value["role"] == "candidates"]
-            if len(inputs) != 1 or inputs[0].get("member_id") is not None or inputs[0]["product_id"] not in candidate_product_ids:
+            if (
+                len(inputs) != 1
+                or inputs[0].get("member_id") is not None
+                or inputs[0]["product_id"] not in candidate_product_ids
+            ):
                 raise ValueError("finite root requires its exact selected whole candidate input")
             candidate_id = inputs[0]["product_id"]
-            references, _ = actual_graph_inputs(selected.index, product.derivation_id, cut=selected.cut, max_support_edges=request.max_support_edges)
-            if not any(reference.product_id == candidate_id and reference.member_id is None for reference in references):
+            references, _ = actual_graph_inputs(
+                selected.index,
+                product.derivation_id,
+                cut=selected.cut,
+                max_support_edges=request.max_support_edges,
+            )
+            if not any(
+                reference.product_id == candidate_id and reference.member_id is None
+                for reference in references
+            ):
                 raise ValueError("finite candidate universe lacks authentic input support")
-            grouped = attach_finite_interpretations(selected.prepared, product, grouped, candidate_product_id=candidate_id)
-            finite_universes.append({
-                "reference": product.reference.model_dump(mode="python"),
-                "context": product.context.record,
-                "candidate_product_id": candidate_id,
-                "mode": product.body["mode"],
-                "source_pin": product.body["source_pin"],
-            })
+            grouped = attach_finite_interpretations(
+                selected.prepared, product, grouped, candidate_product_id=candidate_id
+            )
+            finite_universes.append(
+                {
+                    "reference": product.reference.model_dump(mode="python"),
+                    "context": product.context.record,
+                    "candidate_product_id": candidate_id,
+                    "mode": product.body["mode"],
+                    "source_pin": product.body["source_pin"],
+                }
+            )
         items = [group.model_dump(mode="python") for group in grouped]
         cut_id, cut = selected.cut.identity, selected.cut.record
         obligations = tuple(selected.index.frontier_rows("obligations"))
@@ -206,20 +255,37 @@ def _group_selected_interpretations(connection, request, implementation):
     def report(end):
         continuation = None
         if end < len(items):
-            continuation = base64.urlsafe_b64encode(json_bytes({
-                "version": "grouped-source-records-1", "implementation": implementation, "selection": digest,
-                "read_id": cut["read_id"], "cut_id": cut_id, "offset": end,
-            })).decode()
+            continuation = base64.urlsafe_b64encode(
+                json_bytes(
+                    {
+                        "version": "grouped-source-records-1",
+                        "implementation": implementation,
+                        "selection": digest,
+                        "read_id": cut["read_id"],
+                        "cut_id": cut_id,
+                        "offset": end,
+                    }
+                )
+            ).decode()
         return {
-            "version": "grouped-source-records-1", "implementation": implementation, "cut_id": cut_id, "cut": cut,
-            "selection": selection, "candidate_universes": list(universes.values()),
+            "version": "grouped-source-records-1",
+            "implementation": implementation,
+            "cut_id": cut_id,
+            "cut": cut,
+            "selection": selection,
+            "candidate_universes": list(universes.values()),
             "finite_universes": finite_universes,
-            "items": items[offset:end], "continuation": continuation,
+            "items": items[offset:end],
+            "continuation": continuation,
             "page_complete": continuation is None,
-            "examined_groups": len(items), "obligations": obligations,
+            "examined_groups": len(items),
+            "obligations": obligations,
             "knowledge": "observed" if items[offset:end] else "unknown",
             "capability": "complete_private_source_record_groups",
-            "unavailable_capabilities": ["authored_measurement_and_terminology_judgments", "accepted_knowledge"],
+            "unavailable_capabilities": [
+                "authored_measurement_and_terminology_judgments",
+                "accepted_knowledge",
+            ],
         }
 
     end = offset
@@ -227,7 +293,10 @@ def _group_selected_interpretations(connection, request, implementation):
         trial = answer("grouped_source_record_interpretations", report(end + 1), max_bytes=67108864)
         if len(json_bytes(trial.model_dump(mode="python"))) > request.max_bytes:
             if end == offset:
-                raise ReadLimit("one complete interpretation group and its envelope exceed max_bytes", reason="oversized_item")
+                raise ReadLimit(
+                    "one complete interpretation group and its envelope exceed max_bytes",
+                    reason="oversized_item",
+                )
             break
         end += 1
     return answer("grouped_source_record_interpretations", report(end), request.max_bytes)

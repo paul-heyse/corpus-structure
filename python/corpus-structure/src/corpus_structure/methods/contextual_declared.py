@@ -409,99 +409,164 @@ class ContextualNeighborhoodOperation:
         "profile": "derivation",
         "subject": "selected-native-source",
         "subject_definition": {
-            "id": "selected-native-source", "identifier_kind": "string", "scope": "original-source",
+            "id": "selected-native-source",
+            "identifier_kind": "string",
+            "scope": "original-source",
         },
         "discovery_relation": "role-associated",
         "context": ["frozen-inventory", "exact-encoder-space", "mutual-neighborhood"],
         "entrypoints": ["run"],
         "roles": [
             {
-                "name": "inventory", "parameter": "inventory",
+                "name": "inventory",
+                "parameter": "inventory",
                 "kind": "https://corpus-structure.dev/semantic/data-operation-contextual/DdoContextualInventory",
-                "direction": "input", "minimum": 1, "maximum": 1,
-                "collection": "scalar", "presence": "required",
+                "direction": "input",
+                "minimum": 1,
+                "maximum": 1,
+                "collection": "scalar",
+                "presence": "required",
                 "support": {
-                    "provenance": "exact", "source": "explicit-inventory",
+                    "provenance": "exact",
+                    "source": "explicit-inventory",
                     "coverage": {"role": "inventory", "description": "complete-eligible-inventory"},
                     "identity_requirements": ["episode"],
                 },
             },
             {
-                "name": "vectors", "parameter": "vectors",
+                "name": "vectors",
+                "parameter": "vectors",
                 "kind": "https://corpus-structure.dev/semantic/data-operation-contextual/DdoContextualVectors",
-                "direction": "input", "minimum": 1, "maximum": 1,
-                "collection": "scalar", "presence": "required",
+                "direction": "input",
+                "minimum": 1,
+                "maximum": 1,
+                "collection": "scalar",
+                "presence": "required",
                 "support": {
-                    "provenance": "exact", "source": "selected-inventory-vector-frame",
-                    "coverage": {"role": "vectors", "description": "complete-retained-profile-and-vector-population"},
+                    "provenance": "exact",
+                    "source": "selected-inventory-vector-frame",
+                    "coverage": {
+                        "role": "vectors",
+                        "description": "complete-retained-profile-and-vector-population",
+                    },
                     "identity_requirements": ["episode"],
                 },
             },
             {
                 "name": "result",
                 "kind": "https://corpus-structure.dev/semantic/data-operation-contextual/DdoContextualNeighborhoodProduct",
-                "direction": "output", "minimum": 1, "maximum": 1,
-                "collection": "scalar", "presence": "required",
+                "direction": "output",
+                "minimum": 1,
+                "maximum": 1,
+                "collection": "scalar",
+                "presence": "required",
             },
         ],
-        "applicability": [{"kind": "documentation", "text": "explicit-inventory-and-retained-vector-frame"}],
+        "applicability": [
+            {"kind": "documentation", "text": "explicit-inventory-and-retained-vector-frame"}
+        ],
         "invariants": [
             {"kind": "documentation", "text": "first-C-ordered-semantic-group-representative"},
-            {"kind": "documentation", "text": "exact-cosine-C-tie-order-directed-top5-reciprocal-intersection"},
+            {
+                "kind": "documentation",
+                "text": "exact-cosine-C-tie-order-directed-top5-reciprocal-intersection",
+            },
             {"kind": "documentation", "text": "empty-and-unavailable-coverage-remain-distinct"},
-            {"kind": "documentation", "text": "exploratory-neighborhood-confers-no-witnessed-relationship"},
+            {
+                "kind": "documentation",
+                "text": "exploratory-neighborhood-confers-no-witnessed-relationship",
+            },
         ],
         "coverage": {
-            "binding": "self", "result_owners": [{"kind": "implementation", "reference": "self"}],
+            "binding": "self",
+            "result_owners": [{"kind": "implementation", "reference": "self"}],
             "description": "complete-frozen-semantic-group-neighborhood",
         },
         "outcomes": ["success"],
         "numerical_policy": {
-            "asset": "contextual/neighborhood-numerical-policy", "pointer": "/policy",
+            "asset": "contextual/neighborhood-numerical-policy",
+            "pointer": "/policy",
             "kind": "urn:corpus:kind:contextual-neighborhood:NumericalPolicy",
         },
         "replicate_policy": "retained-observation-single-result",
-        "dependencies": [], "effects": [],
+        "dependencies": [],
+        "effects": [],
         "capabilities": {
-            "forms": ["scalar"], "preparation": "resource", "prepared_factory": "acquire_port",
-            "cancellation": "call-boundary", "ownership": "invocation-owned-db-borrow",
+            "forms": ["scalar"],
+            "preparation": "resource",
+            "prepared_factory": "acquire_port",
+            "cancellation": "call-boundary",
+            "ownership": "invocation-owned-db-borrow",
         },
         "behavior": "exact-native-mutual-neighborhood-with-retained-frame-and-directed-ranks",
         "parameters": {},
         "binding": {"operator": "scan", "roles": ["inventory", "vectors"]},
         "output_witnesses": [
             {
-                "output_role": "result", "records": "", "input_role": "inventory",
-                "comparisons": [{
-                    "output_field": "inventory",
-                    "input": {"role": "inventory", "projection": "https://corpus-structure.dev/semantic/data-operation-contextual/DdoContextualInventory", "field": "/inventory"},
-                    "encoding": "value",
-                }],
+                "output_role": "result",
+                "records": "",
+                "input_role": "inventory",
+                "comparisons": [
+                    {
+                        "output_field": "inventory",
+                        "input": {
+                            "role": "inventory",
+                            "projection": "https://corpus-structure.dev/semantic/data-operation-contextual/DdoContextualInventory",
+                            "field": "/inventory",
+                        },
+                        "encoding": "value",
+                    }
+                ],
             },
             {
-                "output_role": "result", "records": "", "input_role": "vectors",
+                "output_role": "result",
+                "records": "",
+                "input_role": "vectors",
                 "comparisons": [
                     {
                         "output_field": "profile",
-                        "input": {"role": "vectors", "projection": "https://corpus-structure.dev/semantic/data-operation-contextual/DdoContextualVectors", "field": "/profile"},
+                        "input": {
+                            "role": "vectors",
+                            "projection": "https://corpus-structure.dev/semantic/data-operation-contextual/DdoContextualVectors",
+                            "field": "/profile",
+                        },
                         "encoding": "value",
                     },
                     {
                         "output_field": "vectors",
-                        "input": {"role": "vectors", "projection": "https://corpus-structure.dev/semantic/data-operation-contextual/DdoContextualVectors", "field": "/vectors"},
+                        "input": {
+                            "role": "vectors",
+                            "projection": "https://corpus-structure.dev/semantic/data-operation-contextual/DdoContextualVectors",
+                            "field": "/vectors",
+                        },
                         "encoding": "value",
                     },
                 ],
             },
         ],
-        "opaque": [{
-            "reference": "corpus_structure.semantic.contextual_neighborhood.execute_neighborhood_profile",
-            "contract": "contextual/retrieval-assets", "role": "native-mutual-neighborhood-kernel",
-        }],
+        "opaque": [
+            {
+                "reference": "corpus_structure.semantic.contextual_neighborhood.execute_neighborhood_profile",
+                "contract": "contextual/retrieval-assets",
+                "role": "native-mutual-neighborhood-kernel",
+            }
+        ],
         "assets": [
-            {"reference": "neighborhood-kernel", "contract": "contextual/neighborhood-native-kernel", "role": "actual-native-exact-cosine-and-reciprocal-top5-kernel"},
-            {"reference": "neighborhood-numerics", "contract": "contextual/neighborhood-numerical-policy", "role": "selected-native-neighborhood-numerics"},
-            {"reference": "neighborhood-algorithms", "contract": "contextual/retrieval-assets", "role": "actual-inventory-and-native-kernel-binding"},
+            {
+                "reference": "neighborhood-kernel",
+                "contract": "contextual/neighborhood-native-kernel",
+                "role": "actual-native-exact-cosine-and-reciprocal-top5-kernel",
+            },
+            {
+                "reference": "neighborhood-numerics",
+                "contract": "contextual/neighborhood-numerical-policy",
+                "role": "selected-native-neighborhood-numerics",
+            },
+            {
+                "reference": "neighborhood-algorithms",
+                "contract": "contextual/retrieval-assets",
+                "role": "actual-inventory-and-native-kernel-binding",
+            },
         ],
     }
 
@@ -518,5 +583,11 @@ class ContextualNeighborhoodOperation:
         from corpus_structure.semantic.contextual_neighborhood import resolve_neighborhood_port
 
         return resolve_neighborhood_port(
-            prepared, model, operation, identity=identity, authorize=authorize, custody=custody, sources=sources,
+            prepared,
+            model,
+            operation,
+            identity=identity,
+            authorize=authorize,
+            custody=custody,
+            sources=sources,
         )

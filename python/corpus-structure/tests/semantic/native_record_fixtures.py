@@ -37,7 +37,6 @@ from corpus_structure.semantic import (
     SourceBundle,
     prepare_release,
 )
-from corpus_structure.semantic.math_context import acquire_analysis_context_profile
 from corpus_structure.semantic.analytical_profile import analytical_inputs
 from corpus_structure.semantic.composed import composed_dependencies
 from corpus_structure.semantic.contextual_links import (
@@ -55,6 +54,7 @@ from corpus_structure.semantic.contextual_storage import (
     enrichment_report,
 )
 from corpus_structure.semantic.contributions import contribution_identity, occurrence_identity
+from corpus_structure.semantic.math_context import acquire_analysis_context_profile
 from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.observations import bind_result, observation_inputs
 from corpus_structure.semantic.operations import (

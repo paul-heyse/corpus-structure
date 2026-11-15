@@ -4,8 +4,8 @@ from hashlib import sha256
 
 from pydantic import TypeAdapter
 
-from .math_context import AnalysisContextProfile
 from .identity import canonical_bytes
+from .math_context import AnalysisContextProfile
 from .rich_knowledge_sources import RULE_INPUT
 from .scientific_evidence import SCIENTIFIC_POLICY_INPUT, scientific_policy_recipe
 

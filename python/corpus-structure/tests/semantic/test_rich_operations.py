@@ -1,7 +1,7 @@
 """The actual captured rich factories compile under the current DDO owner."""
 
-from corpus_structure.semantic.math_context import acquire_analysis_context_profile
 from corpus_structure.semantic.data_operation_compilation import compile_data_operations
+from corpus_structure.semantic.math_context import acquire_analysis_context_profile
 from corpus_structure.semantic.record_policy_authority import record_policy_kind_declarations
 from corpus_structure.semantic.rich_invocations import rich_knowledge_operation_sources
 from corpus_structure.semantic.rich_knowledge_sources import (

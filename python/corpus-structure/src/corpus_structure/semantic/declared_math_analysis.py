@@ -13,10 +13,10 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, JsonValue
 
-from .math_context import acquire_analysis_context_profile, prepare_interpretation_context
 from .data_operation_model import ResolvedRoleBinding, SubjectContext
 from .declared_structural_references import DeclaredStructuralSource
 from .identity import canonical_bytes
+from .math_context import acquire_analysis_context_profile, prepare_interpretation_context
 from .python_module_projection import admitted_operation_module_meaning
 from .structural_products import DeclaredStructuralInputPin
 from .types import PreparedRelease, SourceArtifact

@@ -8,7 +8,10 @@ from pathlib import Path
 
 import pytest
 
-from corpus_structure.semantic.math_context import acquire_analysis_context_profile, prepare_interpretation_context
+from corpus_structure.semantic.math_context import (
+    acquire_analysis_context_profile,
+    prepare_interpretation_context,
+)
 from corpus_structure.semantic.pdf_record_reader import PublishedPdfReader
 from corpus_structure.serve.selected_source import (
     AdditionalContextRequired,
