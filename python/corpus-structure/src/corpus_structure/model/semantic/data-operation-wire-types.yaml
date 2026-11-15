@@ -12,7 +12,7 @@ fields:
   '#/definitions/cut_selection/properties/project_id': corpus_structure.semantic.identifiers.ProjectId
   '#/definitions/cut_selection/properties/read_id': WireReadIdentity
   '#/definitions/cut_selection/properties/release_id': corpus_structure.semantic.identifiers.ReleaseId
-  '#/definitions/cut_selection/properties/runtime_id': WireRuntimeId
+  '#/definitions/cut_selection/properties/runtime_id': corpus_structure.semantic.identifiers.RuntimeId
   '#/definitions/read_selected_pdf_source_request/properties/project_id': ProjectId
   '#/definitions/read_selected_pdf_source_request/properties/demand_id': WireDemandId
   '#/definitions/read_selected_pdf_source_request/properties/read_id': WireReadIdentity
@@ -29,7 +29,7 @@ fields:
   '#/definitions/ExternalExecutionReceipt/properties/packet_id': WireExternalPacketId
   '#/definitions/ExternalExecutionReceipt/properties/receipt_id': WirePublicationReceiptId
   '#/definitions/ExternalExecutionReceipt/properties/request_id': WireRequestId
-  '#/definitions/ExternalExecutionReceipt/properties/runtime_id': WireRuntimeId
+  '#/definitions/ExternalExecutionReceipt/properties/runtime_id': corpus_structure.semantic.identifiers.RuntimeId
   '#/definitions/ExternalExecutionReceipt/properties/task_id': corpus_structure.semantic.identifiers.TaskId
   '#/definitions/ExternalSourceRef/properties/project_id': corpus_structure.semantic.identifiers.ProjectId
   '#/definitions/ExternalSourceRef/properties/release_id': corpus_structure.semantic.identifiers.ReleaseId
@@ -126,17 +126,17 @@ fields:
   '#/definitions/inspect_data_completion_request/properties/request_id': WireRequestId
   '#/definitions/inspect_data_completion_result/oneOf/2/properties/derivation_id': WireDerivationId
   '#/definitions/inspect_data_completion_result/oneOf/2/properties/receipt_id': WirePublicationReceiptId
-  '#/definitions/inspect_data_completion_result/oneOf/2/properties/runtime_id': WireRuntimeId
+  '#/definitions/inspect_data_completion_result/oneOf/2/properties/runtime_id': corpus_structure.semantic.identifiers.RuntimeId
   '#/definitions/inspect_data_execution_request/properties/operation_id': WireOperationId
   '#/definitions/inspect_data_execution_request/properties/release_id': corpus_structure.semantic.identifiers.ReleaseId
-  '#/definitions/inspect_data_execution_request/properties/runtime_id': WireRuntimeId
+  '#/definitions/inspect_data_execution_request/properties/runtime_id': corpus_structure.semantic.identifiers.RuntimeId
   '#/definitions/inspect_external_data_result_request/properties/packet_id': WireExternalPacketId
   '#/definitions/inspect_external_data_result_result/properties/intent_id': WireCompletionIntentId
   '#/definitions/inspect_external_data_result_result/properties/packet_id': WireExternalPacketId
   '#/definitions/native_execution_evidence/properties/attempt': corpus_structure.semantic.identifiers.TaskAttempt
   '#/definitions/native_execution_evidence/properties/generation': WireGeneration
   '#/definitions/native_execution_evidence/properties/request_id': WireRequestId
-  '#/definitions/native_execution_evidence/properties/runtime_id': WireRuntimeId
+  '#/definitions/native_execution_evidence/properties/runtime_id': corpus_structure.semantic.identifiers.RuntimeId
   '#/definitions/native_execution_evidence/properties/task_id': corpus_structure.semantic.identifiers.TaskId
   '#/definitions/original_source_support_member/properties/admission_id': WireAdmissionId
   '#/definitions/output_member/properties/member_id': WireMemberId
@@ -173,7 +173,7 @@ fields:
   '#/definitions/read_demand_result_result/properties/project_id': corpus_structure.semantic.identifiers.ProjectId
   '#/definitions/read_demand_result_result/properties/read_id': WireReadIdentity
   '#/definitions/read_demand_result_result/properties/release_id': corpus_structure.semantic.identifiers.ReleaseId
-  '#/definitions/read_demand_result_result/properties/runtime_id': WireRuntimeId
+  '#/definitions/read_demand_result_result/properties/runtime_id': corpus_structure.semantic.identifiers.RuntimeId
   '#/definitions/read_external_data_packet_request/properties/attempt': corpus_structure.semantic.identifiers.TaskAttempt
   '#/definitions/read_external_data_packet_request/properties/generation': WireGeneration
   '#/definitions/read_external_data_packet_request/properties/packet_id': WireExternalPacketId
@@ -188,7 +188,7 @@ fields:
   '#/definitions/record_data_fate_request/properties/request_id': WireRequestId
   '#/definitions/register_data_demand_request/properties/project_id': corpus_structure.semantic.identifiers.ProjectId
   '#/definitions/register_data_demand_request/properties/release_id': corpus_structure.semantic.identifiers.ReleaseId
-  '#/definitions/register_data_demand_request/properties/runtime_id': WireRuntimeId
+  '#/definitions/register_data_demand_request/properties/runtime_id': corpus_structure.semantic.identifiers.RuntimeId
   '#/definitions/register_data_demand_result/properties/demand_id': WireDemandId
   '#/definitions/release_data_attempt_request/properties/attempt': corpus_structure.semantic.identifiers.TaskAttempt
   '#/definitions/release_data_attempt_request/properties/generation': WireGeneration
@@ -235,13 +235,13 @@ fields:
   '#/definitions/retain_data_completion_intent_request/properties/attempt': corpus_structure.semantic.identifiers.TaskAttempt
   '#/definitions/retain_data_completion_intent_request/properties/generation': WireGeneration
   '#/definitions/retain_data_completion_intent_request/properties/request_id': WireRequestId
-  '#/definitions/retain_data_completion_intent_request/properties/runtime_id': WireRuntimeId
+  '#/definitions/retain_data_completion_intent_request/properties/runtime_id': corpus_structure.semantic.identifiers.RuntimeId
   '#/definitions/retain_data_completion_intent_request/properties/task_id': corpus_structure.semantic.identifiers.TaskId
   '#/definitions/retain_data_completion_intent_result/properties/intent_id': WireCompletionIntentId
   '#/definitions/retain_external_data_packet_request/properties/attempt': corpus_structure.semantic.identifiers.TaskAttempt
   '#/definitions/retain_external_data_packet_request/properties/generation': WireGeneration
   '#/definitions/retain_external_data_packet_request/properties/request_id': WireRequestId
-  '#/definitions/retain_external_data_packet_request/properties/runtime_id': WireRuntimeId
+  '#/definitions/retain_external_data_packet_request/properties/runtime_id': corpus_structure.semantic.identifiers.RuntimeId
   '#/definitions/retain_external_data_packet_request/properties/task_id': corpus_structure.semantic.identifiers.TaskId
   '#/definitions/retain_external_data_packet_result/properties/packet_id': WireExternalPacketId
   '#/definitions/revoke_data_support_request/properties/original_source': WireOriginalSourceId

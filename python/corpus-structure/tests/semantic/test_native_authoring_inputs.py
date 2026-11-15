@@ -89,3 +89,38 @@ def test_native_layout_uses_captured_scientific_schema(monkeypatch):
     layout = current_admission_fields(inputs)["scientific_report_layout"]
     assert layout["comparison_paths"]
     assert layout["array_rules"]
+
+
+def test_visual_native_lowering_uses_captured_sql_and_artifact_schema(monkeypatch):
+    from corpus_structure.semantic.data_operation_visual_read import ARTIFACT_SOURCE, visual_read_sources, visual_read_sql
+    from corpus_structure.semantic.data_operation_source_native import source_native_sql
+    from corpus_structure.semantic.types import SourceArtifact
+    import json
+    from pathlib import Path
+
+    inputs = capture_native_authoring_inputs()
+    selected = {source.name: source for source in visual_read_sources()}
+    schema = json.loads(selected[ARTIFACT_SOURCE].content)
+    schema["description"] = "captured visual schema marker"
+    changed = tuple(
+        SourceArtifact(source.name, json.dumps(schema).encode()) if source.name == ARTIFACT_SOURCE
+        else SourceArtifact(source.name, source.content.replace(b"ddo_visual_candidate_rows", b"captured_visual_candidate_rows"))
+        if source.name == "native/data-operation-visual-read.sql" else source
+        for source in inputs.sources
+    )
+    read_text = Path.read_text
+    def no_live_read(path, *args, **kwargs):
+        # SQL preparation records the installed parser's package version. That
+        # library metadata is independent of the captured visual/schema inputs.
+        if path.name == "METADATA" and path.parent.name.endswith(".dist-info"):
+            return read_text(path, *args, **kwargs)
+        raise AssertionError("native lowering read an uncaptured source: " + str(path))
+    monkeypatch.setattr(Path, "read_bytes", no_live_read)
+    monkeypatch.setattr(Path, "read_text", no_live_read)
+    rendered = visual_read_sql(changed)
+    assert "captured visual schema marker" in rendered
+    assert "captured_visual_candidate_rows" in rendered
+    integrated = source_native_sql(changed)
+    assert "captured visual schema marker" in integrated
+    assert "captured_visual_candidate_rows" in integrated
+    assert "ops.ddo_impl_read_selected_visual_evidence" in integrated

@@ -9,10 +9,29 @@ from sqlalchemy import Column, Named, TypedColumns
 
 from .identifiers import RealizationId as RealizationId
 from .identifiers import ReleaseId as ReleaseId
+from .identifiers import RuntimeId as RuntimeId
 from .metadata import table
 
-PHYSICAL_MODEL_ID = "physical:4c34bd6575fd5fd8d989c21e75f8d1b5a9e84cc5f34b039c3aaafe799eeffb95"
-TYPE_MODEL_ID = "64053d033098f242eab0cc10e0831df57208169f124046f3fc0687be7e5a1e36"
+PHYSICAL_MODEL_ID = "physical:ebbb8b3d0e2f890465e2bdfd19b4e524dbe68feca958cc7bdb9edc5cdc83d541"
+TYPE_MODEL_ID = "747cf4cd348bd170a201e22d07dbf3a57e1cc7ba754716e77131f349bd1867a6"
+
+
+class SemRuntimeBindingColumns(TypedColumns):
+    release_id: Named[str]
+    runtime_id: Named[RuntimeId]
+    manifest_bytes: Named[bytes]
+    archive_bytes: Named[bytes]
+
+
+class SemRuntimeBindingColumnsSet(Protocol):
+    release_id: Column[str]
+    runtime_id: Column[RuntimeId]
+    manifest_bytes: Column[bytes]
+    archive_bytes: Column[bytes]
+
+
+sem_runtime_binding = table("sem.runtime_binding").with_cols(SemRuntimeBindingColumns)
+sem_runtime_binding_columns = cast(SemRuntimeBindingColumnsSet, sem_runtime_binding.c)
 
 
 class DataOccurrenceColumns(TypedColumns):

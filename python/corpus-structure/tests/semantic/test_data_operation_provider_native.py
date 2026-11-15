@@ -164,7 +164,7 @@ def test_profiled_runtime_refuses_missing_forged_or_historical_profile_attestati
             manifest.pop("provider_profiles")
             manifest["version"] = "data-operation-runtime-binding-v1"
         content = canonical_bytes(manifest)
-        with pytest.raises(RuntimeBindingError, match=r"profile|attestation|historical"):
+        with pytest.raises(RuntimeBindingError, match=r"profile|attestation|runtime version"):
             validate_data_operation_runtime(
                 replace(
                     binding, runtime_id="runtime:" + sha256(content).hexdigest(), manifest=content

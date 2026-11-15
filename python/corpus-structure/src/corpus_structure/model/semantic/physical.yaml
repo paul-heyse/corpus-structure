@@ -56,7 +56,10 @@ classes:
     in_subset: [sem]
     attributes:
       release_id: {range: string, required: true}
-      runtime_id: {range: string, required: true}
+      runtime_id:
+        range: string
+        required: true
+        annotations: {ph:python_type: "corpus_structure.semantic.identifiers.RuntimeId"}
       manifest_bytes: {range: bytes, required: true}
       archive_bytes: {range: bytes, required: true}
     unique_keys:

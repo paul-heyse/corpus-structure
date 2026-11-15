@@ -120,6 +120,7 @@ def capture_native_authoring_inputs(*, target_metadata: MetaData | None = None) 
         *(SourceArtifact("authoring/" + name, Path(__file__).with_name(name).read_bytes()) for name in ("native_products.py", "source_view_native.py", "native_candidate.py", "data_operation_compilation.py", "data_operation_model.py", "data_operation_identity.py")),
         SourceArtifact("authoring/scientific.yaml", Path(__file__).resolve().parents[1].joinpath("model/semantic/scientific.yaml").read_bytes()),
         SourceArtifact("authoring/scientific-evidence.py", Path(__file__).with_name("scientific_evidence.py").read_bytes()),
+        SourceArtifact("authoring/runtime-bindings.sql", Path(__file__).with_name("sql").joinpath("runtime_bindings.sql").read_bytes()),
         SourceArtifact("authoring/execution-projection-check.sql", Path(__file__).with_name("sql").joinpath("execution_projection_check.sql").read_bytes()),
         SourceArtifact("authoring/admission.sql", Path(__file__).with_name("sql").joinpath("admission.sql").read_bytes()),
     )

@@ -272,13 +272,13 @@ def require_pdf_call_context(prepared, operation: str, variant: str, contract_di
         raise SemanticRefusal(f"{operation}/{variant}: incompatible PDF helper call correspondence")
 
 
-def pdf_call_bindings():
-    contract, *_ = pdf_domain_sources()
+def pdf_call_bindings(domain: PdfDomainContract | None = None):
+    content = pdf_domain_sources()[0].content if domain is None else domain.content
     from cattrs import Converter
     from .native_call_contracts import OperationCallBinding
     converter = Converter(forbid_extra_keys=True)
     return tuple((name, converter.structure(call, OperationCallBinding))
-                 for name, action in json.loads(contract.content)["actions"].items()
+                 for name, action in json.loads(content)["actions"].items()
                  for call in action["contract"]["calls"])
 
 

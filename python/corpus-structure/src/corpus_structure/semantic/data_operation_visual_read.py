@@ -13,6 +13,7 @@ from .types import SourceArtifact
 from .visual_evidence import VisualEvidencePin, VisualEvidenceRow
 
 SOURCE = "native/data-operation-visual-read.schema.json"
+ARTIFACT_SOURCE = "native/data-operation-visual-artifact.schema.json"
 _SQL = Path(__file__).with_name("sql") / "data_operation_visual_read.sql"
 
 
@@ -79,7 +80,10 @@ def visual_read_schema() -> bytes:
 
 
 def visual_read_sources() -> tuple[SourceArtifact, ...]:
+    from .visual_evidence import VisualEvidenceArtifact
+
     return (
+        SourceArtifact(ARTIFACT_SOURCE, _schema(VisualEvidenceArtifact)),
         SourceArtifact(SOURCE, visual_read_schema()),
         SourceArtifact("native/data-operation-visual-read.py", Path(__file__).read_bytes()),
         SourceArtifact("native/visual-evidence.py", Path(__file__).with_name("visual_evidence.py").read_bytes()),
@@ -87,6 +91,11 @@ def visual_read_sources() -> tuple[SourceArtifact, ...]:
     )
 
 
-def visual_read_sql() -> str:
-    from .visual_evidence import VisualEvidenceArtifact
-    return _SQL.read_text().replace("__VISUAL_ARTIFACT_SCHEMA__", _schema(VisualEvidenceArtifact).decode().replace("'", "''"))
+def visual_read_sql(sources=None) -> str:
+    captured = visual_read_sources() if sources is None else sources
+    selected = {source.name: source.content for source in captured}
+    template = selected["native/data-operation-visual-read.sql"].decode()
+    if template.count("__VISUAL_ARTIFACT_SCHEMA__") != 1:
+        raise ValueError("captured visual SQL template differs")
+    schema = selected[ARTIFACT_SOURCE].decode().replace("'", "''")
+    return template.replace("__VISUAL_ARTIFACT_SCHEMA__", schema)

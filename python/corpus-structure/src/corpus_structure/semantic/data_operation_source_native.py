@@ -33,7 +33,7 @@ def source_native_sql(sources=None) -> str:
     from .data_operation_visual_read import visual_read_sql
 
     selected = None if sources is None else {source.name: source.content for source in sources}
-    sql = (_SQL.read_text() if selected is None else selected["native/data-operation-source-admission.sql"].decode()) + "\n" + source_original_sql(sources) + "\n" + visual_read_sql()
+    sql = (_SQL.read_text() if selected is None else selected["native/data-operation-source-admission.sql"].decode()) + "\n" + source_original_sql(sources) + "\n" + visual_read_sql(sources)
     return _rename_native_entrypoints(sql, {item["name"] for item in wire_operations(sources)})
 
 

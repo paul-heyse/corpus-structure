@@ -86,13 +86,15 @@ def test_actual_static_consumer_refuses_wrong_column_and_incompatible_type(tmp_p
     source.write_text(
         "from sqlalchemy import select\n"
         "from sqlalchemy.sql.elements import ColumnElement\n"
-        "from corpus_structure.semantic._typed_columns import data_occurrence_columns\n"
-        "from corpus_structure.semantic.identifiers import ReleaseId, RealizationId\n"
+        "from corpus_structure.semantic._typed_columns import data_occurrence_columns, sem_runtime_binding_columns\n"
+        "from corpus_structure.semantic.identifiers import ReleaseId, RealizationId, RuntimeId\n"
         "def needs_release(value: ColumnElement[ReleaseId]) -> None: pass\n"
+        "def needs_runtime(value: ColumnElement[RuntimeId]) -> None: pass\n"
         "def needs_text(value: ColumnElement[str]) -> None: pass\n"
         "def needs_integer(value: ColumnElement[int]) -> None: pass\n"
         "needs_text(data_occurrence_columns.occurrence_id)\n"
         "needs_release(data_occurrence_columns.release_id)\n"
+        "needs_runtime(sem_runtime_binding_columns.runtime_id)\n"
         "select(data_occurrence_columns.occurrence_id)\n"
     )
     pyrefly = shutil.which("pyrefly")
@@ -104,12 +106,14 @@ def test_actual_static_consumer_refuses_wrong_column_and_incompatible_type(tmp_p
         stream.write("select(data_occurrence_columns.absent_modeled_column)\n")
         stream.write("needs_integer(data_occurrence_columns.occurrence_id)\n")
         stream.write("needs_release(data_occurrence_columns.realization_id)\n")
+        stream.write("needs_runtime(data_occurrence_columns.release_id)\n")
     bad = subprocess.run(command, capture_output=True, text=True, check=False)
     output = bad.stdout + bad.stderr
     assert bad.returncode != 0
     assert "absent_modeled_column" in output
     assert "needs_integer" in output
     assert "needs_release" in output
+    assert "needs_runtime" in output
 
 
 def test_two_native_invocations_reuse_preparation_and_return_independent_rows(
@@ -337,27 +341,29 @@ def test_type_correspondence_cannot_hide_behind_value_projection():
 
 
 def test_companion_generator_cannot_bypass_invalid_anchored_correspondence():
-    from corpus_structure.semantic import contracts
+    import json
+    import yaml
+
+    from corpus_structure.schema.model import ModelError
     from corpus_structure.semantic.companion_projection import render_static_columns
-    from corpus_structure.semantic.types import PreparationError
+    from corpus_structure.semantic.identity import canonical_bytes
+    from corpus_structure.semantic.pdf_domain import PREFIX, PdfDomainContract, pdf_domain_sources
+    from corpus_structure.semantic.types import SourceArtifact
 
-    def mutate(model):
-        field = model["classes"]["release"]["attributes"]["release_id"]
-        field.setdefault("annotations", {})["cp:type_source"] = (
-            "physical:data.realization.realization_id"
-        )
-
-    inputs = _changed_correspondence_inputs(mutate)
-    installed = contracts.current_implementation()
-    changed_assets = {item.name: item for item in inputs.implementations}
-    snapshot = contracts.ImplementationSnapshot(
-        inputs, tuple(changed_assets.get(item.name, item) for item in installed.analysis_inputs)
-    )
-    with (
-        contracts.implementation_override(snapshot),
-        pytest.raises(PreparationError, match="semantic identifiers differ"),
-    ):
-        render_static_columns()
+    contract, *sources = pdf_domain_sources()
+    changed = []
+    for source in sources:
+        if source.name == PREFIX + "physical/physical.yaml":
+            document = yaml.safe_load(source.content)
+            field = document["classes"]["release"]["attributes"]["release_id"]
+            field.setdefault("annotations", {})["cp:type_source"] = "physical:data.realization.realization_id"
+            source = SourceArtifact(source.name, yaml.safe_dump(document, sort_keys=False).encode())
+        changed.append(source)
+    manifest = json.loads(contract.content)
+    manifest["inputs"] = [{"name": source.name, "sha256": source.digest} for source in changed]
+    captured = PdfDomainContract(canonical_bytes(manifest), tuple(changed))
+    with pytest.raises(ModelError, match="physical nominal identifiers differ"):
+        render_static_columns(captured)
 
 
 def test_correspondence_preserves_value_projection_lineage_and_rejects_collection_mismatch():

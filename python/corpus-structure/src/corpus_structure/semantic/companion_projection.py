@@ -10,7 +10,7 @@ from dataclasses import field as dataclass_field
 from functools import cached_property, lru_cache
 from hashlib import sha256
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import pyarrow as pa
 from linkml_runtime.utils.schemaview import SchemaView
@@ -54,6 +54,9 @@ from .projection_recipe import (
     shape,
 )
 from .types import PreparationError
+
+if TYPE_CHECKING:
+    from .pdf_domain import PdfDomainContract
 
 MODEL = Path(__file__).resolve().parents[1] / "model/semantic/companion-projections.yaml"
 FAMILIES = ("input", "relation", "coverage", "mapping_report")
@@ -547,23 +550,34 @@ def projection(family: str) -> CompanionProjection:
     )
 
 
-def render_static_columns() -> str:
+def render_static_columns(domain: "PdfDomainContract | None" = None) -> str:
     from dataclasses import replace
 
     from .native_call_sources import _PRIMITIVES, source_bindings
-    from .pdf_domain import PREFIX, pdf_call_bindings, pdf_domain_sources
+    from .pdf_domain import PREFIX, PdfDomainContract, pdf_call_bindings, pdf_domain_sources
+    from corpus_structure.schema.physical import compile_physical
+    from linkml_runtime.linkml_model.meta import SchemaDefinition
+    from linkml_runtime.loaders import yaml_loader
 
-    sources = pdf_domain_sources()
+    if domain is None:
+        contract, *captured = pdf_domain_sources()
+        domain = PdfDomainContract(contract.content, tuple(captured))
+    sources = domain.sources
     logical = {source.name.removeprefix(PREFIX + "logical/"): source.content
                for source in sources if source.name.startswith(PREFIX + "logical/")}
     physical = {source.name.removeprefix(PREFIX + "physical/"): source.content
                 for source in sources if source.name.startswith(PREFIX + "physical/")}
     view, _, model_field, resolve = source_bindings(
-        pdf_call_bindings(), logical_sources=logical, physical_sources=physical,
+        pdf_call_bindings(domain), logical_sources=logical, physical_sources=physical,
     )
+    compiled_physical = compile_physical(physical, linkml_types=logical["linkml:types"])
+    declaration = yaml_loader.loads(logical["companion_projections"].decode(), SchemaDefinition)
+    if view.schema is None or not isinstance(declaration, SchemaDefinition):
+        raise ValueError("captured companion recipe requires its declared schema")
+    view.schema.annotations = declaration.annotations
     declarations, imports = [], set()
     for family in FAMILIES:
-        selected = projection(family)
+        selected = prepare_projection(view, family, projection_id=sha256(domain.content).hexdigest(), physical=compiled_physical)
         fields = {}
         slots = {str(slot.name): slot for slot in view.class_induced_slots(selected.class_name)}
         for selected_column in selected.materialized_columns:

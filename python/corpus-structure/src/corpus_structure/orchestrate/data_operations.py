@@ -7,6 +7,8 @@ transactions; provider/prepared capabilities use their separately admitted owner
 
 from __future__ import annotations
 
+from corpus_structure.semantic.identifiers import RuntimeId
+
 import json
 from collections.abc import Callable, Mapping, Sequence
 from concurrent.futures import Future, ThreadPoolExecutor
@@ -34,7 +36,6 @@ from corpus_structure.semantic._data_operation_wire import (
     WireClaimDataRequestResult,
     WireClaimDataRequestResultVariant2,
     WireCompletion,
-    WireRuntimeId,
     wire_attempt_fence,
 )
 from corpus_structure.semantic.claim_lifetime import (
@@ -749,7 +750,7 @@ class NativeDemandExecutor:
             return DataOperationStorage(connection).retain_data_completion_intent(
                 {
                     **claim.fence,
-                    "runtime_id": WireRuntimeId(self.runtime.runtime_id),
+                    "runtime_id": RuntimeId(self.runtime.runtime_id),
                     "completion": cast(WireCompletion, completion),
                 }
             )
@@ -866,7 +867,7 @@ class NativeDemandExecutor:
                     return DataOperationStorage(connection).retain_external_data_packet(
                         {
                             **claim.fence,
-                            "runtime_id": WireRuntimeId(self.runtime.runtime_id),
+                            "runtime_id": RuntimeId(self.runtime.runtime_id),
                             "max_bytes": self.policy.max_packet_bytes,
                         }
                     )

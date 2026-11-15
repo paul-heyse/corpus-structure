@@ -2,55 +2,42 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
 from sqlalchemy import Connection, select
 
+from .identifiers import RuntimeId
 from .metadata import table
 from .runtime_bindings import RuntimeBinding, RuntimeBindingError, validate_runtime_binding
 from .types import PreparedRelease, SourceArtifact
-
-if TYPE_CHECKING:
-    from ._operation_ids import RuntimeId
 
 
 def persist_runtime_binding(
     conn: Connection, prepared: PreparedRelease, binding: RuntimeBinding
 ) -> RuntimeId:
     """Validate exact bytes before the operation-owned, idempotent native registration."""
-    from ._operation_calls import ReleaseId, RuntimeId, register_runtime_binding
+    from sqlalchemy import bindparam, func
 
-    validate_runtime_binding(binding, prepared)
-    if any(a.kind == "data_operations.json" for a in prepared.artifacts):
-        from sqlalchemy import bindparam, func
+    from .data_operation_runtime import validate_data_operation_runtime
 
-        acquired = conn.scalar(
-            select(
-                func.sem.register_runtime_binding(
-                    bindparam("release"),
-                    bindparam("runtime"),
-                    bindparam("manifest"),
-                    bindparam("archive"),
-                )
-            ),
-            {
-                "release": binding.release_id,
-                "runtime": binding.runtime_id,
-                "manifest": binding.manifest,
-                "archive": binding.archive,
-            },
-        )
-        if acquired != binding.runtime_id:
-            raise RuntimeBindingError("native registration returned a different runtime identity")
-        return RuntimeId(acquired)
-    return register_runtime_binding(
-        conn,
-        release_id=ReleaseId(binding.release_id),
-        runtime_id=RuntimeId(binding.runtime_id),
-        manifest=binding.manifest,
-        archive=binding.archive,
-        projection_context=prepared,
+    validate_data_operation_runtime(binding, prepared)
+    acquired = conn.scalar(
+        select(
+            func.sem.register_runtime_binding(
+                bindparam("release"),
+                bindparam("runtime"),
+                bindparam("manifest"),
+                bindparam("archive"),
+            )
+        ),
+        {
+            "release": binding.release_id,
+            "runtime": binding.runtime_id,
+            "manifest": binding.manifest,
+            "archive": binding.archive,
+        },
     )
+    if acquired != binding.runtime_id:
+        raise RuntimeBindingError("native registration returned a different runtime identity")
+    return RuntimeId(acquired)
 
 
 def runtime_binding_for_run(
@@ -90,7 +77,9 @@ def runtime_binding_for_release(
     runtime_id: str,
 ) -> RuntimeBinding:
     """Acquire exact retained release/runtime custody without a legacy run anchor."""
-    stored = table("sem.runtime_binding")
+    from ._typed_columns import sem_runtime_binding
+
+    stored = sem_runtime_binding
     row = (
         conn.execute(
             select(stored).where(

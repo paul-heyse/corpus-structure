@@ -10,6 +10,7 @@ from corpus_structure.semantic.identifiers import (
     ProjectId,
     RealizationId,
     ReleaseId,
+    RuntimeId,
     TaskAttempt,
     TaskId,
 )
@@ -43,7 +44,6 @@ WirePublicationReceiptId = NewType("WirePublicationReceiptId", str)
 WireReadIdentity = NewType("WireReadIdentity", str)
 WireReadSnapshotIdentity = NewType("WireReadSnapshotIdentity", str)
 WireRequestId = NewType("WireRequestId", str)
-WireRuntimeId = NewType("WireRuntimeId", str)
 WireSubjectId = NewType("WireSubjectId", str)
 WireUseIdentity = NewType("WireUseIdentity", str)
 
@@ -81,7 +81,7 @@ class WireExternalExecutionReceipt(TypedDict):
     receipt_id: Required[WirePublicationReceiptId]
     request_id: Required[WireRequestId]
     result_digest: Required[str]
-    runtime_id: Required[WireRuntimeId]
+    runtime_id: Required[RuntimeId]
     task_id: Required[TaskId]
     version: Required[Literal["external-execution-receipt-v1"]]
 
@@ -182,7 +182,7 @@ class WireNativeExecutionEvidence(TypedDict):
     pdf_receipts: NotRequired[list[WirePdfExecutionReceipt]]
     provider_receipts: NotRequired[list[WireProviderExecutionReceipt]]
     request_id: Required[WireRequestId]
-    runtime_id: Required[WireRuntimeId]
+    runtime_id: Required[RuntimeId]
     task_id: Required[TaskId]
     version: Required[Literal["native-execution-evidence-v1"]]
 
@@ -661,7 +661,7 @@ class WireCutSelection(TypedDict):
     read_id: Required[WireReadIdentity]
     read_snapshot: Required[WireReadSnapshot]
     release_id: Required[ReleaseId]
-    runtime_id: Required[WireRuntimeId]
+    runtime_id: Required[RuntimeId]
     scope: Required[WireDemandReadScope]
     selection: Required[WireDemandIntent]
     trust_snapshot: Required[WireTrustSnapshot]
@@ -740,7 +740,7 @@ class WireInspectDataCompletionResultVariant3(TypedDict):
     producer_attempt: Required[WirePositiveInteger]
     producer_task_id: Required[WireTaskId]
     receipt_id: Required[WirePublicationReceiptId]
-    runtime_id: Required[WireRuntimeId]
+    runtime_id: Required[RuntimeId]
     semantic_outcome: Required[WireIdentifier]
     state: Required[Literal["committed"]]
     trust_snapshot: Required[WireTrustSnapshot]
@@ -755,7 +755,7 @@ class WireInspectDataCompletionResultVariant4(TypedDict):
 class WireInspectDataExecutionRequest(TypedDict):
     operation_id: Required[WireOperationId]
     release_id: Required[ReleaseId]
-    runtime_id: NotRequired[WireRuntimeId]
+    runtime_id: NotRequired[RuntimeId]
 
 
 class WireInspectDataExecutionResultRuntimeVariant2(TypedDict):
@@ -917,7 +917,7 @@ class WireReadDemandResultResult(TypedDict):
     read_snapshot: Required[WireReadSnapshot]
     release_id: Required[ReleaseId]
     root: Required[list[WireRootSubject]]
-    runtime_id: Required[WireRuntimeId]
+    runtime_id: Required[RuntimeId]
     scope: Required[WireDemandReadScope]
     selection: Required[WireDemandIntent]
     state: NotRequired[Literal["active", "cancelled"]]
@@ -1155,7 +1155,7 @@ class WireRegisterDataDemandRequest(TypedDict):
     project_id: Required[ProjectId]
     release_id: Required[ReleaseId]
     root: Required[list[WireRootSubject]]
-    runtime_id: Required[WireRuntimeId]
+    runtime_id: Required[RuntimeId]
     selection: Required[WireDemandIntent]
     strength: Required[Literal["value", "episode", "independent"]]
 
@@ -1230,7 +1230,7 @@ class WireRetainDataCompletionIntentRequest(TypedDict):
     generation: Required[WireGeneration]
     holder: Required[WireIdentifier]
     request_id: Required[WireRequestId]
-    runtime_id: Required[WireRuntimeId]
+    runtime_id: Required[RuntimeId]
     task_id: Required[TaskId]
 
 
@@ -1245,7 +1245,7 @@ class WireRetainExternalDataPacketRequest(TypedDict):
     holder: Required[WireIdentifier]
     max_bytes: Required[WirePositiveInteger]
     request_id: Required[WireRequestId]
-    runtime_id: Required[WireRuntimeId]
+    runtime_id: Required[RuntimeId]
     task_id: Required[TaskId]
 
 
