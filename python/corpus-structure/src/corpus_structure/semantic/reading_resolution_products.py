@@ -60,16 +60,30 @@ def reading_resolution_inputs(bundle):
 
 
 def reading_resolution_assets():
+    from .record_policy import READING_NUMERICS
+
     return SourceArtifact(
         "readings/algorithm-assets",
         canonical_bytes(
             {
                 "version": "declared-reading-resolution-1",
                 "schema": _MODEL.read_bytes().hex(),
+                "numerical_policy": READING_NUMERICS.model_dump(mode="json"),
                 "files": [(name, (admitted_operation_module_meaning((_ROOT / name).read_bytes()).hex() if name in ('methods/reading_resolution.py',) else (_ROOT / name).read_bytes().hex())) for name in _FILES],
             }
         ),
     )
+
+
+def reading_resolution_declarations():
+    from .record_policy import ReadingNumericalPolicy
+    from .data_operation_model import MODEL_VERSION
+    from .nominal_schema_kinds import nominal_schema_kinds
+
+    return SourceArtifact("reading_resolution/numerical-kinds", canonical_bytes({
+        "version": MODEL_VERSION,
+        "kinds": nominal_schema_kinds(ReadingNumericalPolicy.model_json_schema(), namespace="urn:corpus:kind:reading:", root_name="NumericalPolicy"),
+    }))
 
 
 def reading_resolution_operation_sources():

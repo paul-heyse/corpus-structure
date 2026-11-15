@@ -14,14 +14,36 @@ import math
 from collections.abc import Callable
 from dataclasses import dataclass
 from enum import StrEnum
+from importlib.metadata import version
 from threading import Event
 from time import monotonic
 from typing import Literal
 
 import numpy as np
+from pydantic import BaseModel, ConfigDict
 from scipy.special import logsumexp
 
 from .graph_runtime import nx
+
+
+class FiniteNumericalPolicy(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid", strict=True)
+    numpy_version: str
+    scipy_version: str
+    dtype: Literal["float64"] = "float64"
+    normalization: Literal["centered-logsumexp"] = "centered-logsumexp"
+    nonfinite: Literal["explicit-invalid-or-numerical-failure"] = "explicit-invalid-or-numerical-failure"
+    overflow: Literal["raise"] = "raise"
+    invalid: Literal["raise"] = "raise"
+    equality: Literal["canonical-exact"] = "canonical-exact"
+    arithmetic: Literal["selected-library-dependent-bits"] = "selected-library-dependent-bits"
+
+    def require_runtime(self):
+        if self.numpy_version != version("numpy") or self.scipy_version != version("scipy"):
+            raise ValueError("finite numerical policy differs from selected numerical libraries")
+
+
+FINITE_NUMERICS = FiniteNumericalPolicy(numpy_version=version("numpy"), scipy_version=version("scipy"))
 
 
 class CandidateKind(StrEnum):
@@ -334,6 +356,7 @@ def _interpret(
     CPU admission/supervision or a hard process-memory/time fence.
     """
 
+    FINITE_NUMERICS.require_runtime()
     started = monotonic()
     retained = examined = positive = workspace = 0
     components: tuple[tuple[str, ...], ...] = ()
@@ -587,7 +610,7 @@ def _interpret(
             potentials.append(
                 (
                     tuple(positions[k] for k in table.scope),
-                    np.asarray(table.values, dtype=np.float64).reshape(dimensions),
+                    np.asarray(table.values, dtype=np.dtype(FINITE_NUMERICS.dtype)).reshape(dimensions),
                 )
             )
         for table in request.constraints:
@@ -604,12 +627,12 @@ def _interpret(
                 )
             )
 
-        weights = np.empty(retained, dtype=np.float64)
+        weights = np.empty(retained, dtype=np.dtype(FINITE_NUMERICS.dtype))
         for start in range(0, retained, block_size):
             poll()
             stop = min(start + block_size, retained)
             assignment = np.unravel_index(np.arange(start, stop), shape)
-            block = np.zeros(stop - start, dtype=np.float64)
+            block = np.zeros(stop - start, dtype=np.dtype(FINITE_NUMERICS.dtype))
             # Establish hard zeros before arithmetic. An impossible assignment cannot fail
             # merely because its unused finite potentials would overflow when added.
             for axes, allowed in constraints:
@@ -619,7 +642,7 @@ def _interpret(
                 poll()
                 block[np.isneginf(values[tuple(assignment[axis] for axis in axes)])] = -np.inf
             active = np.isfinite(block)
-            with np.errstate(over="raise", invalid="raise"):
+            with np.errstate(over=FINITE_NUMERICS.overflow, invalid=FINITE_NUMERICS.invalid):
                 for axes, values in potentials:
                     poll()
                     block[active] += values[tuple(assignment[axis] for axis in axes)][active]
@@ -632,7 +655,7 @@ def _interpret(
         poll()
         origin = float(np.max(weights))
         # Center BEFORE logsumexp subtraction: very large common offsets must not erase log Z.
-        with np.errstate(over="raise", invalid="raise"):
+        with np.errstate(over=FINITE_NUMERICS.overflow, invalid=FINITE_NUMERICS.invalid):
             weights -= origin
         log_z = float(logsumexp(weights))
         log_partition = origin + log_z

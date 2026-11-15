@@ -61,16 +61,30 @@ def finite_interpretation_inputs(bundle):
 
 
 def finite_interpretation_assets():
+    from .record_interpretation import FINITE_NUMERICS
+
     return SourceArtifact(
         "finite/algorithm-assets",
         canonical_bytes(
             {
                 "version": "finite-interpretation-1",
                 "schema": _MODEL.read_bytes().hex(),
+                "numerical_policy": FINITE_NUMERICS.model_dump(mode="json"),
                 "files": [(name, (admitted_operation_module_meaning((_ROOT / name).read_bytes()).hex() if name in ('methods/finite_interpretation.py',) else (_ROOT / name).read_bytes().hex())) for name in _FILES],
             }
         ),
     )
+
+
+def finite_interpretation_declarations():
+    from .record_interpretation import FiniteNumericalPolicy
+    from .data_operation_model import MODEL_VERSION
+    from .nominal_schema_kinds import nominal_schema_kinds
+
+    return SourceArtifact("finite_interpretation/numerical-kinds", canonical_bytes({
+        "version": MODEL_VERSION,
+        "kinds": nominal_schema_kinds(FiniteNumericalPolicy.model_json_schema(), namespace="urn:corpus:kind:finite:", root_name="NumericalPolicy"),
+    }))
 
 
 def finite_interpretation_operation_sources():

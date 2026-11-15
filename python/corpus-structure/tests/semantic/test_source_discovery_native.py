@@ -45,6 +45,7 @@ from corpus_structure.semantic.source_discovery import (
 )
 from corpus_structure.semantic.source_profiles import (
     source_profile_inputs,
+    source_profile_declarations,
     source_profile_operation_sources,
 )
 from corpus_structure.semantic.types import PreparationProfile, ResolvedDependencies
@@ -66,7 +67,7 @@ def _source_recipe():
     native = native_protocol_sources()
     dependencies = data_operation_dependencies(
         ResolvedDependencies((*native, *capture_port_generator_sources())),
-        (native_operation_declarations(native),),
+        (native_operation_declarations(native), source_profile_declarations()),
         sources,
     )
     recipe = KernelRecipe(

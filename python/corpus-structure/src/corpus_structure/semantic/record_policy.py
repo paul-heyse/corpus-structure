@@ -10,6 +10,8 @@ from __future__ import annotations
 import math
 from collections.abc import Mapping, Sequence
 from hashlib import sha256
+from importlib.metadata import version
+from platform import python_version
 from typing import Annotated, Any, Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, FiniteFloat, StringConstraints, model_validator
@@ -29,6 +31,24 @@ class FrozenContract(BaseModel):
     @property
     def digest(self) -> str:
         return sha256(canonical_bytes(self.model_dump(mode="json"))).hexdigest()
+
+
+class ReadingNumericalPolicy(FrozenContract):
+    python_version: str
+    scipy_version: str
+    dtype: Literal["python-binary64"] = "python-binary64"
+    accumulation: Literal["math-fsum"] = "math-fsum"
+    probability_link: Literal["scipy-expit"] = "scipy-expit"
+    nonfinite: Literal["refuse"] = "refuse"
+    equality: Literal["canonical-exact"] = "canonical-exact"
+    arithmetic: Literal["selected-library-dependent-bits"] = "selected-library-dependent-bits"
+
+    def require_runtime(self):
+        if self.python_version != python_version() or self.scipy_version != version("scipy"):
+            raise ValueError("reading numerical policy differs from selected numerical libraries")
+
+
+READING_NUMERICS = ReadingNumericalPolicy(python_version=python_version(), scipy_version=version("scipy"))
 
 
 class FeatureDefinition(FrozenContract):
@@ -331,6 +351,7 @@ def derive_record_features(
 
 
 def score_record(feature: FeatureInstance, vector: RecordFeatures, *, subset: str) -> RecordScore:
+    READING_NUMERICS.require_runtime()
     applicability, parameters = feature.applicability, feature.parameters
     if (vector.release_id, vector.family, subset) != (
         applicability.release_id,
@@ -417,6 +438,7 @@ def assess_record_admission(
                     )
                 ):
                     blockers.append(f"unlocated_field_evidence:{role}")
+    READING_NUMERICS.require_runtime()
     probability = None
     calibration = instance.calibration
     if final_event_score is not None and (

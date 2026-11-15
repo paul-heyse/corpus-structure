@@ -12,6 +12,7 @@ from corpus_structure.semantic.observations import source_value
 from corpus_structure.semantic.reading_resolution_products import (
     RECIPE,
     reading_resolution_inputs,
+    reading_resolution_declarations,
     reading_resolution_operation_sources,
     resolve_reading_values,
     resolved_reading_events,
@@ -138,7 +139,7 @@ def compiled_readings():
     bundle = reading_resolution_inputs(
         SourceBundle("core", (SourceArtifact("core", (root / "core.yaml").read_bytes()),))
     )
-    model = compile_data_operations(bundle, python_sources=reading_resolution_operation_sources())
+    model = compile_data_operations(bundle, declarations=(reading_resolution_declarations(),), python_sources=reading_resolution_operation_sources())
     return model
 
 

@@ -128,7 +128,9 @@ metadata projections. Definition identity uses the semantic digest. Constructors
 docstrings, imports and reflective code remain in the module projection. Function-local variables and
 ordinary class attributes that resemble metadata names remain executable syntax. Projection requires
 a locally declared callable/class owner and a full declaration shape; unattributed, imported or
-partial metadata stays conservative source meaning rather than being erased by its spelling. Manual
+partial metadata stays conservative source meaning rather than being erased by its spelling. Direct
+metadata reads or ordinary reflection retain the declarations conservatively; the closed frontend
+consumes every local declaration rather than silently ignoring unselected metadata. Manual
 `consumer_selection` descriptor maps are retired; the declaration resolves an actual captured method.
 
 The following semantic asset owners apply that same module projection to their admitted declaration
@@ -171,6 +173,27 @@ DDO-03/04/05 must consume the generated contracts; a compiler-only pass is insuf
 
 
 ## DDO-01 — Governing model and effective semantic representation
+
+### Numerical policy owner inventory
+
+The event-score, contextual encoder, finite interpretation, reading-score and source-ratio owners now
+select typed numerical bodies through actual captured semantic assets and generated nominal schemas.
+They retain exact canonical product equality. Tolerances describe numerical acceptance where the
+actual kernel uses them; they do not introduce approximate equality between canonical products.
+
+| Owner | Actual consumed numerical basis |
+|---|---|
+| `operation_policy` | Selected NumPy/SciPy versions, float64 arithmetic, finite input/output refusal and selected arithmetic semantics; fitted parameters carry their numerical contract |
+| `contextual_embeddings` | CPU float32, normalization and vector acceptance tolerances; backend-dependent result bits require an explicit replicate selection |
+| `record_interpretation` | Selected NumPy/SciPy versions, float64 arrays, centered logsumexp and explicit overflow/invalid failure; exact enumeration remains relative to the retained finite joint and its authored limits |
+| `record_policy` | Selected Python/SciPy versions, binary64 inputs, `math.fsum` accumulation and `scipy.special.expit`; whole-reading potentials remain private and uncalibrated until their separate calibration/admission premises hold |
+| `source_profiles` | Exact integer interval-union counts and the exact scalar decimal-place/empty-fraction constants used by the captured pure kernel; Python binary64 division and `round` ties-to-even semantics |
+
+The finite and reading policies do not infer fresh-execution bit determinism from their library
+versions. Provider observations retain their checked retained-observation reuse policy; fresh samples
+need their explicit supported contract. Symbolic precision, source coordinate exactness and remaining
+family coverage labels still require their own owner accounting before retirement; this inventory
+alone is not a full I01 completion claim.
 
 ### Operation and binding definitions
 

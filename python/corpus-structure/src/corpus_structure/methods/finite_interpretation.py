@@ -67,7 +67,7 @@ class FiniteInterpretationOperation:
         ],
         "coverage": "complete-selected-candidate-and-factor-population",
         "outcomes": ["success"],
-        "precision": "private-candidate-relative-finite-model",
+        "numerical_policy": {"asset": "finite/algorithm-assets", "pointer": "/numerical_policy", "kind": "urn:corpus:kind:finite:NumericalPolicy"},
         "dependencies": [],
         "effects": [],
         "capabilities": {

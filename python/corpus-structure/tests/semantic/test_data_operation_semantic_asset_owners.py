@@ -7,6 +7,7 @@ from corpus_structure.semantic.data_operation_compilation import compile_data_op
 from corpus_structure.semantic.finite_interpretation_products import (
     finite_interpretation_assets,
     finite_interpretation_inputs,
+    finite_interpretation_declarations,
     finite_interpretation_operation_sources,
 )
 from corpus_structure.semantic.types import SourceArtifact, SourceBundle
@@ -31,7 +32,7 @@ def test_actual_finite_wrapper_prose_is_custody_but_algorithm_remains_semantic(m
     bundle = finite_interpretation_inputs(SourceBundle("core", (SourceArtifact("core", (root / "model/semantic/core.yaml").read_bytes()),)))
     before_sources = finite_interpretation_operation_sources()
     before_asset = finite_interpretation_assets()
-    before = compile_data_operations(bundle, python_sources=before_sources)
+    before = compile_data_operations(bundle, declarations=(finite_interpretation_declarations(),), python_sources=before_sources)
     wrapper = "methods/finite_interpretation.py"
     files = dict(json.loads(before_asset.content)["files"])
     assert json.loads(bytes.fromhex(files[wrapper]))["interpretation"] == "admitted-operation-module-v1"
@@ -45,7 +46,7 @@ def test_actual_finite_wrapper_prose_is_custody_but_algorithm_remains_semantic(m
     altered_wrapper.write_bytes(changed)
     monkeypatch.setattr(owner, "_ROOT", OverlayRoot(root, {wrapper: altered_wrapper}))
     after_sources = finite_interpretation_operation_sources()
-    after = compile_data_operations(bundle, python_sources=after_sources)
+    after = compile_data_operations(bundle, declarations=(finite_interpretation_declarations(),), python_sources=after_sources)
     assert finite_interpretation_assets().content == before_asset.content
     assert before_sources.sources[0].content != after_sources.sources[0].content
     assert before.content != after.content
@@ -61,14 +62,14 @@ def test_actual_finite_wrapper_prose_is_custody_but_algorithm_remains_semantic(m
         b"return execute_finite_profile(self, candidates, policy)",
         b"return execute_finite_profile(self, candidates, {**policy, 'mode': 'constraints'})",
     ))
-    executable = compile_data_operations(bundle, python_sources=finite_interpretation_operation_sources())
+    executable = compile_data_operations(bundle, declarations=(finite_interpretation_declarations(),), python_sources=finite_interpretation_operation_sources())
     assert recipe(executable) != recipe(before)
 
     # A factory can change behavior even when the operation's run slice is unchanged.
     factory = changed.replace(b"return resolve_finite_port(", b"raise ValueError('changed acquisition behavior')\n        return resolve_finite_port(")
     assert factory != changed
     altered_wrapper.write_bytes(factory)
-    factory_model = compile_data_operations(bundle, python_sources=finite_interpretation_operation_sources())
+    factory_model = compile_data_operations(bundle, declarations=(finite_interpretation_declarations(),), python_sources=finite_interpretation_operation_sources())
     assert factory_model.operations[0].capabilities.prepared_factory is not None
     assert factory_model.operations[0].capabilities.prepared_factory.semantic_digest != before.operations[0].capabilities.prepared_factory.semantic_digest
     assert recipe(factory_model) != recipe(before)
@@ -82,11 +83,11 @@ def test_actual_finite_wrapper_prose_is_custody_but_algorithm_remains_semantic(m
     algorithm = "semantic/record_interpretation.py"
     altered_algorithm = tmp_path / "record_interpretation.py"
     original_algorithm = (root / algorithm).read_bytes()
-    altered_algorithm.write_bytes(original_algorithm.replace(b"np.float64", b"np.float32"))
+    altered_algorithm.write_bytes(original_algorithm.replace(b"np.dtype(FINITE_NUMERICS.dtype)", b"np.float32"))
     assert altered_algorithm.read_bytes() != original_algorithm
     monkeypatch.setattr(owner, "_ROOT", OverlayRoot(root, {algorithm: altered_algorithm}))
     assert finite_interpretation_assets().digest != before_asset.digest
-    algorithm_model = compile_data_operations(bundle, python_sources=finite_interpretation_operation_sources())
+    algorithm_model = compile_data_operations(bundle, declarations=(finite_interpretation_declarations(),), python_sources=finite_interpretation_operation_sources())
     assert recipe(algorithm_model) != recipe(before)
 
 

@@ -68,7 +68,7 @@ class ReadingResolutionOperation:
         ],
         "coverage": "complete-selected-candidates",
         "outcomes": ["success"],
-        "precision": "private-uncalibrated-whole-reading-compatibility",
+        "numerical_policy": {"asset": "readings/algorithm-assets", "pointer": "/numerical_policy", "kind": "urn:corpus:kind:reading:NumericalPolicy"},
         "dependencies": [],
         "effects": [],
         "capabilities": {

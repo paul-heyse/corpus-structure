@@ -58,6 +58,7 @@ def recipe():
     )
     from corpus_structure.semantic.source_profiles import (
         source_profile_inputs,
+    source_profile_declarations,
         source_profile_operation_sources,
     )
 
@@ -82,6 +83,7 @@ def recipe():
         ResolvedDependencies((*native, *capture_port_generator_sources())),
         (
             native_operation_declarations(native),
+            source_profile_declarations(),
             math_operation_declarations(),
             math_analysis_declarations(),
         ),
