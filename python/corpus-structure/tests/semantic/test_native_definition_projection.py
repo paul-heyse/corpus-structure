@@ -105,3 +105,32 @@ def test_native_operation_missing_subject_is_an_invalid_current_projection():
     }])
     with pytest.raises(ValueError, match="subject_definition"):
         read_native_definition_projection(prepared, model=model)
+
+
+def test_linkml_variant_is_checked_at_its_class_owner():
+    from corpus_structure.semantic.data_operation_compilation import compile_data_operations
+    from corpus_structure.semantic.native_definition_projection import definition_variant_contract
+    from corpus_structure.semantic.types import PreparationError, SourceArtifact, SourceBundle
+
+    source = b"""id: urn:variant-test
+name: variant_test
+prefixes: {ex: 'urn:variant-test:'}
+default_prefix: ex
+types:
+ string: {base: str, uri: 'http://www.w3.org/2001/XMLSchema#string'}
+classes:
+ Location:
+  annotations: {cs:definition_variant: location}
+  attributes:
+   label: {range: string}
+"""
+
+    def compile_source(content):
+        return compile_data_operations(SourceBundle("variant_test", (SourceArtifact("variant_test", content),)))
+
+    model = compile_source(source)
+    assert definition_variant_contract(model, {"kinds": [{"kind": "urn:variant-test:Location", "kind_contract": "checked-location"}]}, "location") == "checked-location"
+    with pytest.raises(PreparationError, match="unsupported definition variant"):
+        compile_source(source.replace(b"variant: location", b"variant: arbitrary"))
+    with pytest.raises(PreparationError, match="native kind policies belong to classes"):
+        compile_source(source.replace(b"  annotations: {cs:definition_variant: location}\n", b"").replace(b"{range: string}", b"{range: string, annotations: {cs:definition_variant: location}}"))

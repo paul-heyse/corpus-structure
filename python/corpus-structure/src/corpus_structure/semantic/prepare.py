@@ -86,6 +86,7 @@ _SAFE_ANNOTATIONS = frozenset(
         "cs:reference_role",
         "cs:data_universe",
         "cs:projection_families",
+        "cs:definition_variant",
     }
 )
 _PRIMITIVES: dict[str, Any] = {
@@ -234,6 +235,7 @@ def _inspect(value: Any, location: str, profile: PreparationProfile | None = Non
                         "cs:extract",
                         "cs:data_universe",
                         "cs:projection_families",
+                        "cs:definition_variant",
                     }:
                         _fail(
                             "unsupported_annotation_placement",
@@ -242,7 +244,7 @@ def _inspect(value: Any, location: str, profile: PreparationProfile | None = Non
                             "unsupported",
                         )
                     if (
-                        annotation in {"cs:data_universe", "cs:projection_families"}
+                        annotation in {"cs:data_universe", "cs:projection_families", "cs:definition_variant"}
                         and parent != "classes"
                     ):
                         _fail(
@@ -613,6 +615,13 @@ def effective_class_definitions(
     for name in sorted(classes):
         cls = classes[name]
         class_annotations = _annotations(cls)
+        if "cs:definition_variant" in class_annotations:
+            from typing import get_args
+
+            from .native_definition_projection import DefinitionVariant
+
+            if class_annotations["cs:definition_variant"] not in get_args(DefinitionVariant):
+                _fail("definition_variant", name, "unsupported definition variant")
         if class_annotations.get("cs:scope") not in {None, "global", "local"}:
             _fail("entity_scope", name, "unsupported entity scope", "unsupported")
         if class_annotations.get("cs:case", "preserve") not in {"preserve", "casefold"}:
