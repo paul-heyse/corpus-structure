@@ -61,6 +61,16 @@ def connection_settings(settings: Settings, purpose: Purpose = "write") -> Setti
     return settings.model_copy(update={"database": database.model_copy(update={"url": url})})
 
 
+def require_runtime_principal(conn: Connection, *, purpose: Purpose) -> None:
+    """Authenticate the current purpose on the actual borrowed connection."""
+    if purpose == "maintenance":
+        return
+    if purpose == "fit":
+        conn.execute(text("SELECT ops.ddo_require_feature_fit_principal()" )).scalar_one()
+    else:
+        conn.execute(text("SELECT data.require_runtime_principal(:purpose)"), {"purpose": purpose}).scalar_one()
+
+
 @contextmanager
 def open_runtime_engine(
     settings: Settings,
@@ -79,13 +89,7 @@ def open_runtime_engine(
         try:
             if purpose != "maintenance":
                 with store.engine.connect() as conn:
-                    if purpose == "fit":
-                        conn.execute(text("SELECT ops.ddo_require_feature_fit_principal()"))
-                    else:
-                        conn.execute(
-                            text("SELECT data.require_runtime_principal(:purpose)"),
-                            {"purpose": purpose},
-                        ).scalar_one()
+                    require_runtime_principal(conn, purpose=purpose)
             yield store.engine
         except BaseException as error:
             from corpus_structure.core.db.store import operation_failure

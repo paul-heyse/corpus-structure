@@ -183,3 +183,31 @@ def test_new_purpose_passwords_are_masked():
 def test_report_preserves_explicit_socket_url_authority(url):
     settings = Settings(database={"url": url})
     assert settings_report(settings, {}).resolved["database.url"] == url
+
+
+@pytest.mark.parametrize("purpose", ["read", "write", "evaluate", "admit", "fit", "maintenance"])
+def test_current_principal_authentication_uses_one_explicit_native_purpose_route(purpose):
+    from typing import cast
+    from sqlalchemy import Connection
+    from corpus_structure.semantic.runtime import require_runtime_principal
+
+    class GuardResult:
+        def scalar_one(self):
+            return None
+
+    class ObservedConnection:
+        def __init__(self):
+            self.calls = []
+
+        def execute(self, statement, parameters=None):
+            self.calls.append((str(statement), parameters))
+            return GuardResult()
+
+    connection = ObservedConnection()
+    require_runtime_principal(cast(Connection, connection), purpose=purpose)
+    if purpose == "maintenance":
+        assert connection.calls == []
+    elif purpose == "fit":
+        assert connection.calls == [("SELECT ops.ddo_require_feature_fit_principal()", None)]
+    else:
+        assert connection.calls == [("SELECT data.require_runtime_principal(:purpose)", {"purpose": purpose})]

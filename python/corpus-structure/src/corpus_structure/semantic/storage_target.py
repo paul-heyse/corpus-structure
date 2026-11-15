@@ -2,20 +2,17 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, ConfigDict
 
-from corpus_structure.semantic._operation_ids import NativeAdmissionParametersPurpose
+from .runtime import Purpose, require_runtime_principal
 from corpus_structure.semantic.refusals import SemanticRefusal
 
 if TYPE_CHECKING:
     from sqlalchemy import Connection
 
     from corpus_structure.settings import Settings
-
-type StoragePurpose = NativeAdmissionParametersPurpose | Literal["maintenance", "fit"]
-
 
 class StorageTargetError(SemanticRefusal):
     """The current connection cannot establish or match its storage binding."""
@@ -29,7 +26,7 @@ class StorageTarget(BaseModel):
     system_identifier: str
     host: str
     port: int
-    purpose: StoragePurpose
+    purpose: Purpose
 
 
 def assert_explicit_route(settings: Settings) -> dict[str, str]:
@@ -80,21 +77,16 @@ def verify_declared_route(conn: Connection, settings: Settings) -> None:
         raise StorageTargetError("acquired PostgreSQL route differs from the configured route")
 
 
-def acquired_target(conn: Connection, *, purpose: StoragePurpose) -> StorageTarget:
+def acquired_target(conn: Connection, *, purpose: Purpose) -> StorageTarget:
     """Read libpq routing and catalog identity on the exact borrowed connection."""
     import psycopg
     from sqlalchemy.exc import DBAPIError
-
-    from corpus_structure.semantic._operation_calls import require_runtime_principal
 
     driver = conn.connection.driver_connection
     if not isinstance(driver, psycopg.Connection):
         raise StorageTargetError("storage identity requires an acquired psycopg connection")
     try:
-        if purpose == "fit":
-            conn.exec_driver_sql("SELECT eval.require_record_fitting_principal()")
-        elif purpose != "maintenance":
-            require_runtime_principal(conn, purpose=purpose)
+        require_runtime_principal(conn, purpose=purpose)
         row = conn.exec_driver_sql(
             "SELECT d.datname, d.oid, c.system_identifier "
             "FROM pg_catalog.pg_database d CROSS JOIN pg_catalog.pg_control_system() c "
@@ -116,7 +108,7 @@ def acquired_target(conn: Connection, *, purpose: StoragePurpose) -> StorageTarg
 
 
 def verify_target(
-    conn: Connection, expected: StorageTarget, *, purpose: StoragePurpose
+    conn: Connection, expected: StorageTarget, *, purpose: Purpose
 ) -> StorageTarget:
     actual = acquired_target(conn, purpose=purpose)
     if actual != expected.model_copy(update={"purpose": purpose}):
