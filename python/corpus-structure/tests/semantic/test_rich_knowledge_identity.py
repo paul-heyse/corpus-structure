@@ -16,13 +16,13 @@ from corpus_structure.semantic.rich_knowledge import (
 from semantic.identity_resolution_support import source
 
 
-@lru_cache(maxsize=2)
-def release(keyed=False):
+@lru_cache(maxsize=4)
+def release(keyed=False, local=False):
     core = Path(__file__).parents[2] / "src/corpus_structure/model/semantic/core.yaml"
     classes: dict[str, dict[str, Any]] = {}
     for name, primitive in (("Person", "string"), ("Device", "integer")):
         classes[name] = {
-            "is_a": "Entity", "annotations": {"cs:scope": "global"},
+            "is_a": "Entity", "annotations": {"cs:scope": "local" if local else "global"},
             "attributes": {"serial": {"range": primitive}},
         }
         if keyed:
@@ -37,15 +37,19 @@ def release(keyed=False):
     )))
 
 
-def selected(*, keyed=False, located=True, reference='["product:proposals",null]'):
+def source_context(*, project="project:one", document="original:one"):
+    return SubjectContext(project, "source:one", document, b"null", subject_definition="original-source-view")
+
+
+def selected(*, keyed=False, located=True, project="project:one", document="original:one", reference='["product:proposals",null]'):
     # Only source-authored semantic entity/exclusion values are reused here. There
     # is no run/task/observation or historical batch in the current kernel input.
     values = source(keyed=keyed, located=located)["payload"]
-    return RichEntitySource(reference, tuple(values["entities"]), tuple(values["identity_exclusions"]), {})
+    return RichEntitySource(reference, source_context(project=project, document=document), tuple(values["entities"]), tuple(values["identity_exclusions"]), {})
 
 
-def resolve(sources, *, keyed=False, known=None, kind="kind:person", universe="knowledge:one", project="project:one"):
-    return resolve_rich_entities(release(keyed), entity_contracts={"https://example.org/Person": kind, "https://example.org/Device": "kind:device"}, universe=SubjectContext(project, universe, None, b"null", subject_definition="knowledge-universe"), sources=sources, known=known or {})
+def resolve(sources, *, keyed=False, local=False, known=None, kind="kind:person", universe="knowledge:one", project="project:one"):
+    return resolve_rich_entities(release(keyed, local), entity_contracts={"https://example.org/Person": kind, "https://example.org/Device": "kind:device"}, universe=SubjectContext(project, universe, None, b"null", subject_definition="knowledge-universe"), sources=sources, known=known or {})
 
 
 def test_current_cannot_link_and_required_keys_keep_independent_semantics():
@@ -63,7 +67,7 @@ def test_current_cannot_link_and_required_keys_keep_independent_semantics():
 
 def test_known_anchors_and_ambiguous_labels_do_not_choose_by_order():
     original = selected()
-    entities = RichKnownEntity((RichKnownEntityIdentity("https://example.org/Person", {}, "Alice"),))
+    entities = RichKnownEntity((RichKnownEntityIdentity("https://example.org/Person", {}, None, "Alice"),))
     known = {"known:one": entities, "known:two": entities}
     left, decisions = resolve((original,), known=known)
     right, _ = resolve((original,), known=dict(reversed(tuple(known.items()))))
@@ -73,17 +77,17 @@ def test_known_anchors_and_ambiguous_labels_do_not_choose_by_order():
     assert all(row.candidate_identity_keys == () for row in decisions)
     changed = deepcopy(original.exclusions[0])
     changed["right"] = {"kind": "known", "target": "known:one"}
-    constrained = RichEntitySource(original.reference, original.entities, (changed,), {})
+    constrained = RichEntitySource(original.reference, original.context, original.entities, (changed,), {})
     mapping, _ = resolve((constrained,), known={"known:one": entities})
     assert mapping[original.reference]["a"] != "known:one"
 
 
 def test_known_multiple_class_keys_keep_their_actual_property_namespaces():
     known = {"known:hybrid": RichKnownEntity((
-        RichKnownEntityIdentity("https://example.org/Person", {"serial": "same"}),
-        RichKnownEntityIdentity("https://example.org/Device", {"serial": 7}),
+        RichKnownEntityIdentity("https://example.org/Person", {"serial": "same"}, None),
+        RichKnownEntityIdentity("https://example.org/Device", {"serial": 7}, None),
     ))}
-    proposals = RichEntitySource('["product:class-scoped",null]', (
+    proposals = RichEntitySource('["product:class-scoped",null]', source_context(), (
         {"id": "person", "class_iri": "https://example.org/Person", "attributes": [
             {"predicate": "https://example.org/serial", "value": {"kind": "text", "text": "same"}},
         ]},
@@ -100,16 +104,16 @@ def test_known_multiple_class_keys_keep_their_actual_property_namespaces():
 def test_known_labels_remain_scoped_to_their_actual_class():
     known = {
         "known:person": RichKnownEntity((
-            RichKnownEntityIdentity("https://example.org/Person", {}, "Alice"),
-            RichKnownEntityIdentity("https://example.org/Device", {}, "Meter"),
+            RichKnownEntityIdentity("https://example.org/Person", {}, None, "Alice"),
+            RichKnownEntityIdentity("https://example.org/Device", {}, None, "Meter"),
         )),
         "known:device": RichKnownEntity((
-            RichKnownEntityIdentity("https://example.org/Person", {}, "Bob"),
-            RichKnownEntityIdentity("https://example.org/Device", {}, "Alice"),
+            RichKnownEntityIdentity("https://example.org/Person", {}, None, "Bob"),
+            RichKnownEntityIdentity("https://example.org/Device", {}, None, "Alice"),
         )),
     }
     original = selected()
-    proposals = RichEntitySource(original.reference, original.entities, (), {})
+    proposals = RichEntitySource(original.reference, original.context, original.entities, (), {})
     mapping, decisions = resolve((proposals,), known=known)
     assert set(mapping[proposals.reference].values()) == {"known:person"}
     assert all(row.matched_entity_ids == ("known:person",) for row in decisions)
@@ -117,10 +121,42 @@ def test_known_labels_remain_scoped_to_their_actual_class():
 
 def test_unmatched_declared_keys_are_not_reported_as_matched_entities():
     original = selected(keyed=True)
-    proposals = RichEntitySource(original.reference, original.entities[:1], (), {})
+    proposals = RichEntitySource(original.reference, original.context, original.entities[:1], (), {})
     mapping, (decision,) = resolve((proposals,), keyed=True)
     assert decision.entity_id == mapping[proposals.reference]["a"]
     assert len(decision.candidate_identity_keys) == 1
+    assert decision.matched_entity_ids == ()
+
+
+@pytest.mark.parametrize("local", [False, True])
+def test_declared_local_keys_preserve_actual_source_context_without_rewriting_values(local):
+    first = selected(keyed=True, reference='["product:one",null]')
+    other = selected(keyed=True, reference='["product:two",null]', document="original:two")
+    one = RichEntitySource(first.reference, first.context, first.entities[:1], (), {})
+    two = RichEntitySource(other.reference, other.context, other.entities[:1], (), {})
+    mapping, _ = resolve((one, two), keyed=True, local=local)
+    assert (mapping[one.reference]["a"] != mapping[two.reference]["a"]) is local
+    # A new reading of the same actual source can reuse its declared key basis.
+    known = {"known:one": RichKnownEntity((RichKnownEntityIdentity(
+        "https://example.org/Person", {"serial": "same"}, one.context if local else None,
+    ),))}
+    another_reading = RichEntitySource('["product:another-reading",null]', one.context, one.entities, (), {})
+    mapping, decisions = resolve((one, two, another_reading), keyed=True, local=local, known=known)
+    assert mapping[one.reference]["a"] == "known:one"
+    assert mapping[another_reading.reference]["a"] == "known:one"
+    assert (mapping[two.reference]["a"] != "known:one") is local
+    assert next(row for row in decisions if row.source_reference == one.reference).matched_entity_ids == ("known:one",)
+    assert one.entities[0]["attributes"][0]["value"] == {"kind": "text", "text": "same"}
+
+
+def test_unscoped_authored_local_identity_does_not_become_a_global_key_anchor():
+    first = selected(keyed=True)
+    proposal = RichEntitySource(first.reference, first.context, first.entities[:1], (), {})
+    known = {"authored:explicit": RichKnownEntity((RichKnownEntityIdentity(
+        "https://example.org/Person", {"serial": "same"}, None,
+    ),))}
+    mapping, (decision,) = resolve((proposal,), keyed=True, local=True, known=known)
+    assert mapping[proposal.reference]["a"] != "authored:explicit"
     assert decision.matched_entity_ids == ()
 
 
@@ -133,7 +169,9 @@ def test_current_identity_is_stable_by_source_address_not_order_or_broad_release
     # Semantic kind/knowledge universe are consequential determinants.
     assert resolve((first,), kind="kind:changed")[0] != resolve((first,))[0]
     assert resolve((first,), universe="knowledge:other")[0] != resolve((first,))[0]
-    assert resolve((first,), project="project:other")[0] != resolve((first,))[0]
+    assert resolve((selected(project="project:other"),), project="project:other")[0] != resolve((first,))[0]
+    with pytest.raises(ValueError, match="knowledge project"):
+        resolve((first,), project="project:other")
     with pytest.raises(ValueError, match="unique selected"):
         resolve((first, first))
 

@@ -36,6 +36,16 @@ original identity meaning. The coordinator owns implementation and qualification
 
 ### Contract-scoped source occurrences
 
+**Accepted rich identity detail; integration/native qualification Proposed · 2026-11-15.**
+An entity retains each actual class's separate key fields and label basis. Equal property names
+across classes do not share a value namespace. Global keys use the declared knowledge context;
+local keys additionally use their genuine source context, preserving the original locator value.
+Thus the same symbol and locator in different documents do not merge, while a later reading of
+the same actual context can match its retained key. An authored local entity without documentary
+key scope retains its explicit ID and cannot become a global automatic key anchor. Candidate key
+tokens and matched entity references are distinct result fields. The DDO coordinator owns the
+producer, stored basis and consumer integration.
+
 **Accepted current occurrence identity; implementation/qualification Proposed · 2026-11-15.**
 A SourceRecord occurrence is identified by its checked effective family-field kind contract,
 family, occurrence recipe, genuine original primary source pin and sorted occurrence-defining

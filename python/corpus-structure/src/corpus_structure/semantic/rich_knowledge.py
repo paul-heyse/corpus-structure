@@ -23,6 +23,7 @@ class RichEntitySource:
     """One actually selected source proposal product, prepared inside an invocation."""
 
     reference: str
+    context: SubjectContext
     entities: tuple[dict, ...]
     exclusions: tuple[dict, ...]
     macros: Mapping[str, Any]
@@ -43,6 +44,7 @@ class RichKnownEntityIdentity:
     """One actual class's key/label basis, without merging property namespaces."""
     class_iri: str
     fields: Mapping[str, Any]
+    source_context: SubjectContext | None
     label: str | None = None
 
 
@@ -125,6 +127,8 @@ def resolve_rich_entities(prepared: PreparedRelease, *, entity_contracts: Mappin
 
     if len({source.reference for source in sources}) != len(sources):
         raise ValueError("rich identity requires an explicit universe and unique selected sources")
+    if any(source.context.project_id != universe.project_id for source in sources):
+        raise ValueError("rich source context differs from its actual knowledge project")
     universe_meaning = universe.identity_record
     by_iri = prepared.index.by_iri
     meta = {row.name: json.loads(row.body) for row in prepared.registry_rows if row.kind == "operation_class"}
@@ -152,9 +156,19 @@ def resolve_rich_entities(prepared: PreparedRelease, *, entity_contracts: Mappin
         case = CaseRule.FOLD if meta.get(definition.name, {}).get("cs:case") == "casefold" else CaseRule.PRESERVE
         return definition.iri, normalize(label, definition.iri, case)
 
-    def keys(definition, values):
+    def global_class(definition):
+        return meta.get(definition.name, {}).get("cs:scope") == "global"
+
+    def keys(definition, values, source_context):
         properties = prepared.index.properties_by_class[definition.name]
-        return tuple(_identity("entity", [universe_meaning, entity_contracts[definition.iri], [
+        scope = [universe_meaning, entity_contracts[definition.iri]]
+        if not global_class(definition):
+            if source_context is None or source_context.original_source is None:
+                raise ValueError("local rich keys require their actual source-qualified context")
+            if source_context.project_id != universe.project_id:
+                raise ValueError("local rich key context differs from its knowledge project")
+            scope.append({"source_context": source_context.identity_record})
+        return tuple(_identity("entity", [*scope, [
             [name, identity_casefold(values[name]) if properties[name].case_policy == "casefold" and isinstance(values[name], str) else values[name]]
             for name in group
         ]]) for group in groups(definition))
@@ -169,9 +183,15 @@ def resolve_rich_entities(prepared: PreparedRelease, *, entity_contracts: Mappin
     for identity, entity in known.items():
         for basis in entity.identities:
             definition = by_iri[basis.class_iri]
+            if global_class(definition) and basis.source_context is not None:
+                raise ValueError("global rich identity cannot acquire a source-local key basis")
             if groups(definition):
+                # An explicit authored local ID has no documentary key scope.
+                # Preserve that ID without treating its bare key as a global anchor.
+                if not global_class(definition) and basis.source_context is None:
+                    continue
                 if all(all(name in basis.fields for name in group) for group in groups(definition)):
-                    for key in keys(definition, basis.fields):
+                    for key in keys(definition, basis.fields, basis.source_context):
                         if key in declared_keys and declared_keys[key] != identity:
                             raise ValueError("known universe contains incompatible declared entity keys")
                         declared_keys[key] = identity
@@ -211,7 +231,7 @@ def resolve_rich_entities(prepared: PreparedRelease, *, entity_contracts: Mappin
                     decisions[source.reference, entity["id"]] = RichEntityResolution(source.reference, entity["id"], mapping[entity["id"]], basis, "ungrounded_cycle", (), (), tuple(sorted(dependencies)))
                     remaining.append((source, entity, definition))
                     continue
-                candidates = keys(definition, attrs)
+                candidates = keys(definition, attrs, source.context)
                 matches = {declared_keys[key] for key in candidates if key in declared_keys}
                 if len(matches) > 1:
                     raise ValueError("declared keys bridge incompatible known identities")
