@@ -291,6 +291,7 @@ def selected_record_index(
     max_bytes=8388608,
     page_rows=100,
     max_total_bytes=None,
+    capture_frontier=False,
 ):
     """Keep one pinned native acquisition and its complete temporary witness index."""
     from pathlib import Path
@@ -321,7 +322,8 @@ def selected_record_index(
                 cut = page.cut
                 if expected_cut is not None and cut.identity != expected_cut:
                     raise ValueError("selected resource belongs to another cut/trust assessment")
-                index.append_page(page.record)
+                if capture_frontier:
+                    index.append_page(page.record)
                 if max_total_bytes is not None and index.retained_bytes > max_total_bytes:
                     raise SelectedGraphBudgetExceeded(
                         "selected graph examined frontier exceeds byte bound", cut=cut

@@ -334,6 +334,7 @@ def selected_graph_snapshot(connection, prepared, request):
             expected_cut=request.expected_cut,
             max_bytes=min(request.max_examined_bytes, 8388608),
             max_total_bytes=request.max_examined_bytes,
+            capture_frontier=True,
         ) as (cut, index):
             if request.projection == "assessment":
                 from corpus_structure.evaluate.assessment_graph import assessment_graph_snapshot
