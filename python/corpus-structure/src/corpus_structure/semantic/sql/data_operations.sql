@@ -1,6 +1,38 @@
 -- Fixed trusted DDO kernel. JSON is a strict wire/archive envelope, not an EAV store.
 -- Admission reads one selected immutable contract/runtime, never protected tables
 -- through caller credentials and never an all-model re-admission per operation.
+CREATE OR REPLACE FUNCTION ops.inspect_data_operation_release(p_payload jsonb) RETURNS jsonb
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
+DECLARE p jsonb:=p_payload; projection jsonb; archived jsonb;
+BEGIN
+ PERFORM ops.ddo_fields(p,ARRAY['release_id']);
+ PERFORM data.require_execution_release(p->>'release_id');
+ SELECT convert_from(content,'UTF8')::jsonb INTO projection FROM sem.artifact
+ WHERE release_id=p->>'release_id' AND artifact_name='data_operation_native_definitions.json';
+ SELECT convert_from(content,'UTF8')::jsonb INTO archived FROM sem.artifact
+ WHERE release_id=p->>'release_id' AND artifact_name='data_operations.json'
+ AND encode(sha256(content),'hex')=projection->>'model_digest';
+ IF projection IS NULL OR archived IS NULL THEN
+ RAISE EXCEPTION 'read-only inspection lacks its authenticated operation archive' USING ERRCODE='23514'; END IF;
+ IF projection->>'native_digest' IS DISTINCT FROM sem.data_operation_native_descriptor()->>'source_digest' THEN
+ RAISE EXCEPTION 'read-only inspection native source correspondence differs' USING ERRCODE='23514'; END IF;
+ IF EXISTS(WITH expected AS (
+ SELECT value->>'kind_contract' AS key,value AS body FROM jsonb_array_elements(projection->'kinds')),
+ actual AS (SELECT kind.kind_contract AS key,to_jsonb(kind) AS body FROM sem.data_kind_contract kind
+ JOIN sem.data_kind_release membership ON membership.kind_contract=kind.kind_contract WHERE membership.release_id=p->>'release_id')
+ SELECT FROM expected FULL JOIN actual USING(key) WHERE expected.body IS DISTINCT FROM actual.body) THEN
+ RAISE EXCEPTION 'read-only inspection admitted kind rowset differs from archived contracts' USING ERRCODE='23514'; END IF;
+ IF EXISTS(WITH expected AS (
+ SELECT value->>'operation_id' AS key,value-ARRAY['binding','definition','eligibility']::text[] AS body
+ FROM jsonb_array_elements(projection->'operations')),
+ actual AS (SELECT definition.operation_id AS key,to_jsonb(definition)-'release_id' AS body
+ FROM sem.data_operation_definition definition WHERE definition.release_id=p->>'release_id')
+ SELECT FROM expected FULL JOIN actual USING(key) WHERE expected.body IS DISTINCT FROM actual.body) THEN
+ RAISE EXCEPTION 'read-only inspection admitted operation rowset differs from archived contracts' USING ERRCODE='23514'; END IF;
+ RETURN jsonb_build_object('payload',jsonb_build_object('release_id',p->>'release_id',
+ 'model_digest',projection->>'model_digest','native_digest',projection->>'native_digest'));
+END $$;
+
 CREATE OR REPLACE FUNCTION ops.inspect_data_execution(p_payload jsonb) RETURNS jsonb
 LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
 DECLARE p jsonb:=p_payload; definition sem.data_operation_definition; runtime sem.runtime_binding; retained jsonb;

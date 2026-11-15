@@ -10,6 +10,8 @@ import psycopg
 import pytest
 from sqlalchemy.exc import DBAPIError
 
+from semantic.data_operation_kernel_support import STORAGE
+
 
 
 def test_model_preview_delivers_preparation_error_when_report_schema_is_unavailable(
@@ -260,51 +262,39 @@ def test_schema_derive_existing_directory_refuses_before_prepare(cli, tmp_path):
     assert json.loads(result.stdout)["error"]["code"] == "SemanticRefusal"
 
 
-def test_actual_database_check_preserves_native_admission_diagnostic(
-    cli, commit_db_engine, commit_writer_engine, commit_reader_engine
-):
+@pytest.mark.parametrize("ddo_kernel", [STORAGE], indirect=True)
+def test_actual_database_check_preserves_native_admission_diagnostic(cli, ddo_kernel):
+    """Current reader checks actual admitted contracts; posture tampering still refuses."""
+    from hashlib import sha256
+    from sqlalchemy import text
     from corpus_structure.settings import Settings
-    from semantic.agent_scenarios import (
-        ResubmissionPreparationRecipe,
-        persist_resubmission_release,
-        prepare_resubmission_case,
-    )
+    from corpus_structure.semantic.native_definition_projection import read_native_definition_projection
 
-    preparation = prepare_resubmission_case(ResubmissionPreparationRecipe())
-    persisted = persist_resubmission_release(
-        commit_db_engine, commit_writer_engine, preparation, composed=True
-    )
-    prepared = persisted.prepared
-    settings = Settings(
-        database={
-            "url": commit_reader_engine.url.set(drivername="postgresql").render_as_string(
-                hide_password=False
-            )
-        }
-    )
+    kernel = ddo_kernel
+    prepared = kernel.prepared
+    settings = Settings(database={"url": kernel.engine.url.set(drivername="postgresql").render_as_string(hide_password=False)})
+    with kernel.purpose("read").begin() as connection:
+        assert connection.scalar(text("SELECT has_function_privilege(current_user,'sem.admit_data_operation_definitions(jsonb)','EXECUTE')")) is False
+        assert connection.scalar(text("SELECT has_table_privilege(current_user,'sem.data_operation_definition','SELECT')")) is False
     args = ("db", "check", "--release", prepared.release_id, "--json")
     checked = cli(*args, settings=lambda: settings)
     assert checked.exit_code == 0, checked.output
-    assert json.loads(checked.stdout)["execution_model_id"] == prepared.execution_model_id
-    # Deliberately change an actual owned clone's posture; the native diagnostic must survive
-    # the complete CLI route instead of becoming a generic SQLAlchemy or ValueError refusal.
+    report = json.loads(checked.stdout)
+    assert report["model_digest"] == sha256(kernel.model.content).hexdigest()
+    assert report["native_digest"] == read_native_definition_projection(prepared)["native_digest"]
+    assert report["physical_id"] and report["physical_id"] != report["native_digest"]
+    assert "execution_model_id" not in report
     try:
-        with commit_db_engine.begin() as conn:
-            conn.exec_driver_sql("SET LOCAL ROLE corpus_sem_publisher")
-            conn.exec_driver_sql(
-                "GRANT EXECUTE ON FUNCTION data.require_execution_release(text) TO PUBLIC"
-            )
+        with kernel.engine.begin() as connection:
+            connection.exec_driver_sql("GRANT EXECUTE ON FUNCTION ops.inspect_data_operation_release(jsonb) TO PUBLIC")
         refused = cli(*args, settings=lambda: settings)
         assert refused.exit_code == 1, refused.output
         error = json.loads(refused.stdout)["error"]
         assert error["code"] == "ExecutionAdmissionError"
         assert "native execution deployment differs" in error["message"]
     finally:
-        with commit_db_engine.begin() as conn:
-            conn.exec_driver_sql("SET LOCAL ROLE corpus_sem_publisher")
-            conn.exec_driver_sql(
-                "REVOKE EXECUTE ON FUNCTION data.require_execution_release(text) FROM PUBLIC"
-            )
+        with kernel.engine.begin() as connection:
+            connection.exec_driver_sql("REVOKE EXECUTE ON FUNCTION ops.inspect_data_operation_release(jsonb) FROM PUBLIC")
 
 
 @pytest.mark.parametrize("route", ["schema", "db_check"])

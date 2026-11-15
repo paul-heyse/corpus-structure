@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, cast
 
 from corpus_structure.semantic._data_operation_wire import (
     WireInspectDataExecutionRequest,
+    WireInspectDataOperationReleaseResult,
 )
 
 from .data_operation_model import read_effective_data_operations
@@ -98,6 +99,39 @@ def admit_data_operation_release(connection: Connection, prepared: PreparedRelea
 
     model = bound_data_operation_model(prepared)
     return admit_data_operation_definitions(connection, prepared, model)
+
+
+def inspect_data_operation_release(
+    connection: Connection, prepared: PreparedRelease
+) -> tuple[str, WireInspectDataOperationReleaseResult]:
+    """Read exact deployed correspondence without admitting definitions or widening grants."""
+    from sqlalchemy.exc import DBAPIError
+
+    from .data_operation_storage import DataOperationStorage
+    from .execution_admission import ExecutionAdmissionError, require_native_execution
+    from .native_definition_projection import read_native_definition_projection
+    from .refusals import located_failure_context
+
+    with located_failure_context(prepared, "data.inspect_data_operation_release"):
+        projection = read_native_definition_projection(prepared)
+        physical_id = require_native_execution(connection, prepared)
+        try:
+            inspected = DataOperationStorage(connection).inspect_data_operation_release(
+                {"release_id": prepared.release_id}
+            )
+        except DBAPIError as error:
+            if getattr(error.orig, "sqlstate", None) != "23514":
+                raise
+            raise ExecutionAdmissionError(
+                "native operation release correspondence differs: " + str(error.orig).splitlines()[0]
+            ) from error
+        if inspected != {
+            "release_id": prepared.release_id,
+            "model_digest": projection["model_digest"],
+            "native_digest": projection["native_digest"],
+        }:
+            raise ExecutionAdmissionError("native operation inspection attests another release or contract")
+        return physical_id, inspected
 
 
 @dataclass(frozen=True)

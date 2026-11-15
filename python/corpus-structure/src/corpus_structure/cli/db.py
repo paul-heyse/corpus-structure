@@ -233,8 +233,8 @@ def check_contract(
     from corpus_structure.cli.target import select_target
     from corpus_structure.semantic.execution_admission import (
         ExecutionAdmissionError,
-        admit_execution_release,
     )
+    from corpus_structure.semantic.data_operation_admission import inspect_data_operation_release
     from corpus_structure.semantic.query import read_snapshot
     from corpus_structure.semantic.refusals import SemanticRefusal
     from corpus_structure.semantic.releases import ReleaseConflict, open_release
@@ -247,7 +247,8 @@ def check_contract(
 
     class ContractCheck(BaseModel):
         release_id: str
-        execution_model_id: str | None
+        model_digest: str
+        native_digest: str
         physical_id: str
         target: DeploymentProfile
         acquired: StorageTarget
@@ -267,11 +268,12 @@ def check_contract(
                 if error.args != (release,):
                     raise
                 raise SemanticRefusal(f"unknown semantic release {release}") from error
-            physical_id = admit_execution_release(prepared, connection=conn)
+            physical_id, inspected = inspect_data_operation_release(conn, prepared)
         emit(
             ContractCheck(
                 release_id=prepared.release_id,
-                execution_model_id=prepared.execution_model_id,
+                model_digest=inspected["model_digest"],
+                native_digest=inspected["native_digest"],
                 physical_id=physical_id,
                 target=selected,
                 acquired=acquired,

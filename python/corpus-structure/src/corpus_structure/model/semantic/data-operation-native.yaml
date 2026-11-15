@@ -2187,6 +2187,20 @@ definitions:
       analyzed_scope: {$ref: '#/definitions/json_value'}
     required: [subject, subject_definition, original_source, analyzed_scope]
     additionalProperties: false
+  inspect_data_operation_release_request:
+    type: object
+    properties:
+      release_id: {$ref: '#/definitions/identifier'}
+    required: [release_id]
+    additionalProperties: false
+  inspect_data_operation_release_result:
+    type: object
+    properties:
+      release_id: {$ref: '#/definitions/identifier'}
+      model_digest: {type: string, pattern: '^[0-9a-f]{64}$'}
+      native_digest: {type: string, pattern: '^[0-9a-f]{64}$'}
+    required: [release_id, model_digest, native_digest]
+    additionalProperties: false
   inspect_data_execution_request:
     type: object
     properties:
@@ -2480,6 +2494,11 @@ operations:
   request: admit_authored_data_request
   result: admit_original_source_view_result
   purposes: [write, evaluate]
+- name: inspect_data_operation_release
+  profile: read
+  request: inspect_data_operation_release_request
+  result: inspect_data_operation_release_result
+  purposes: [read]
 - name: inspect_data_execution
   profile: read
   request: inspect_data_execution_request

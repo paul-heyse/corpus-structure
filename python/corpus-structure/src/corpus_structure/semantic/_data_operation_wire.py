@@ -772,6 +772,16 @@ class WireInspectDataExecutionResult(TypedDict):
     runtime: Required[WireInspectDataExecutionResultRuntimeVariant2 | None]
 
 
+class WireInspectDataOperationReleaseRequest(TypedDict):
+    release_id: Required[WireIdentifier]
+
+
+class WireInspectDataOperationReleaseResult(TypedDict):
+    model_digest: Required[str]
+    native_digest: Required[str]
+    release_id: Required[WireIdentifier]
+
+
 class WireInspectExternalDataResultRequest(TypedDict):
     packet_id: Required[WireExternalPacketId]
 
@@ -1602,6 +1612,14 @@ class DataOperationCalls:
         self, payload: WireAdmitAuthoredDataRequest
     ) -> WireAdmitOriginalSourceViewResult:
         return cast(WireAdmitOriginalSourceViewResult, self._invoke("admit_authored_data", payload))
+
+    def inspect_data_operation_release(
+        self, payload: WireInspectDataOperationReleaseRequest
+    ) -> WireInspectDataOperationReleaseResult:
+        return cast(
+            WireInspectDataOperationReleaseResult,
+            self._invoke("inspect_data_operation_release", payload),
+        )
 
     def inspect_data_execution(
         self, payload: WireInspectDataExecutionRequest

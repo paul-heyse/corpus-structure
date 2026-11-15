@@ -67,6 +67,17 @@ transport pattern (`selected-source-search-exact-json-v1`) so fractional cut sco
 retain JSON number meaning. Full SDK delivery remains byte-bounded. Entity queries retain their
 separate domain authority.
 
+**Implemented read-only release inspection, 2026-11-15; actual native qualification pending.**
+`ci db check` acquires the read purpose and uses `ops.inspect_data_operation_release` to compare
+complete release-associated kind and operation rowsets with the authenticated archived projection.
+The native operation returns only release/model/native digest attestation; it grants no direct
+protected-table reads and performs no definition admission. The CLI reports `model_digest`,
+`native_digest` and the separately verified `physical_id`, retiring the inapplicable
+`execution_model_id`. Native materialization errors retain their actual wire-kind/operation and
+located release/model context; input validation and unexpected SQL/acquisition errors retain their
+own identity. Actual read-only-role, changed privilege and missing/changed/extra row controls remain
+required after the combined native capture.
+
 Remaining domain-query integration is explicit: `cli/query.py::query/context` (`ci retained-query`)
 still calls `semantic.query_compatibility.open_query_registry` and `serve.journey.serve_query` against
 completed historical result bindings. `domains/statistics/queries.py::QUERIES` (family/construction

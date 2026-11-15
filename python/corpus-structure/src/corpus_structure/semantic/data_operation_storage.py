@@ -554,16 +554,21 @@ class DataOperationStorage(DataOperationCalls):
             ),
             {"payload": json_bytes(payload).decode()},
         )
-        if not isinstance(encoded, str):
-            raise ValueError("native data operation returned a malformed fixed envelope")
-        value = wire_json_loads(encoded)
-        if (
-            not isinstance(value, dict)
-            or set(value) != {"payload"}
-            or not isinstance(value["payload"], dict)
-        ):
-            raise ValueError("native data operation returned a malformed fixed envelope")
-        return validate_native_wire(name, "output", value["payload"])
+        from .data_operation_wire import wire_role_kind
+        from .operation_value_types import native_result_scope
+
+        result_kind = wire_role_kind(name, "output")
+        with native_result_scope("data." + name, result_kind):
+            if not isinstance(encoded, str):
+                raise ValueError("native data operation returned a malformed fixed envelope")
+            value = wire_json_loads(encoded)
+            if (
+                not isinstance(value, dict)
+                or set(value) != {"payload"}
+                or not isinstance(value["payload"], dict)
+            ):
+                raise ValueError("native data operation returned a malformed fixed envelope")
+            return validate_native_wire(name, "output", value["payload"])
 
 
 def require_data_operation_native(connection: Connection, prepared: PreparedRelease) -> str:
