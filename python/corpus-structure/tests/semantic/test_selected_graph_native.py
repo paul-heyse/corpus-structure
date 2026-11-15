@@ -73,6 +73,10 @@ def test_actual_selected_precedence_support_public_and_offline(declared_serving_
     pinned=request.model_copy(update={"read_id":manifest["cut"]["read_id"],"expected_cut":manifest["cut_id"],"cursor":None,"limit":1000})
     with clone.reader.begin() as connection:
         live=selected_graph_snapshot(connection,stage.prepared,pinned)
+        bounded=selected_graph_snapshot(connection,stage.prepared,pinned.model_copy(update={"max_examined_bytes":1024}))
+        assert bounded.standing=="partial"
+        assert json_loads(bounded.pins_json)["cut_id"]==manifest["cut_id"]
+        assert json_loads(bounded.pins_json)["read_id"]==manifest["cut"]["read_id"]
     def forbidden(*args,**kwargs):
         raise AssertionError("offline graph inspection must not prepare or parse sources")
     monkeypatch.setattr(prepare,"prepare_release",forbidden)
