@@ -254,6 +254,7 @@ class VisualEvidenceRead(_VisualModel):
     evidence: VisualEvidencePin
     raw_evidence: VisualEvidencePin
     producer: dict[str, JsonValue]
+    raw_producer: dict[str, JsonValue]
     page_no: int
     original_artifact_digest: str
     original_regions: list[dict[str, JsonValue]]

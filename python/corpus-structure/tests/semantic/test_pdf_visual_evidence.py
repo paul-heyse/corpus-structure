@@ -145,3 +145,14 @@ def test_visual_artifact_retains_inherited_and_repeated_occurrences():
     assert first.source_region == inherited and first.parent_occurrence_id == "p1"
     assert second.associated_picture_occurrence_ids == ("p1", "p2")
     assert first.text == second.text and first.occurrence_id != second.occurrence_id
+
+
+def test_manifest_continuation_retains_exact_source_and_page_scope():
+    from corpus_structure.serve.selected_pdf import SelectedPdfSourceReference
+    source=SelectedPdfSourceReference(**SOURCE)
+    native={"demand_id":"demand","view":"frontier","after":"obligation:next"}
+    cursor=dict(source=SOURCE,page_no=3,native=native)
+    assert pdf_visual_evidence._manifest_continuation(source,3,cursor)==native
+    for changed in (dict(cursor,page_no=4),dict(cursor,source=dict(SOURCE,product_id="other")),dict(cursor,extra=True)):
+        with pytest.raises(InvalidContinuation):
+            pdf_visual_evidence._manifest_continuation(source,3,changed)

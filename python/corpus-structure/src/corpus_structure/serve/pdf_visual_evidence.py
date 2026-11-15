@@ -63,18 +63,31 @@ class VisualObservationManifest(BaseModel):
     continuation: dict[str, JsonValue] | None
 
 
+def _manifest_continuation(source, page_no, continuation):
+    if continuation is None:
+        return None
+    if (set(continuation)!={"source","page_no","native"}
+        or continuation["source"]!=source.model_dump(mode="json")
+        or continuation["page_no"]!=page_no
+        or not isinstance(continuation["native"],dict)):
+        from corpus_structure.semantic.refusals import InvalidContinuation
+        raise InvalidContinuation("visual manifest continuation differs from source or page scope",reason="invalid_continuation")
+    return continuation["native"]
+
+
 def visual_observation_manifest(conn, source: SelectedPdfSourceReference, *, page_no=None,
                                 continuation=None, limit=100, max_bytes=1024*1024):
     """Discover selected metadata only; each header reacquires the same cut proof."""
     from corpus_structure.semantic.data_operation_admission import bound_data_operation_model
     from corpus_structure.semantic.demand_results import read_demand_result
     from corpus_structure.semantic.pdf_record_reader import PublishedReadBudget
+    native_continuation=_manifest_continuation(source,page_no,continuation)
     selected = acquire_selected_pdf_source(conn, source)
     model = bound_data_operation_model(selected.prepared)
     kinds = {item.key for item in model.identities if item.domain=="kind" and item.owner in {
         "https://corpus-structure.dev/semantic/data-operation-visual/DdoVisualMapping",
         "https://corpus-structure.dev/semantic/data-operation-visual/DdoChandraObservation"}}
-    request = dict(continuation or {key:value for key,value in selected.cut.record.items()
+    request = dict(native_continuation or {key:value for key,value in selected.cut.record.items()
                                   if key not in {"project_id","release_id","runtime_id"}})
     request["view"]="frontier"
     page = read_demand_result(conn, source.demand_id, project_id=source.project_id,
@@ -97,7 +110,7 @@ def visual_observation_manifest(conn, source: SelectedPdfSourceReference, *, pag
                 mapped=pin if header.mapping_availability!="not_selected" else None,producer=header.producer,
                 raw_producer=header.raw_producer,execution_outcome=str(header.observation["provider_outcome"]),
                 mapping_availability=header.mapping_availability))
-    return VisualObservationManifest(source=source,cut=selected.cut.record,observations=tuple(entries),continuation=page.continuation)
+    return VisualObservationManifest(source=source,cut=selected.cut.record,observations=tuple(entries),continuation=(dict(source=source.model_dump(mode="json"),page_no=page_no,native=page.continuation) if page.continuation is not None else None))
 
 
 def _charge_rows(budget, count):
@@ -233,7 +246,7 @@ def inspect_pdf_visual_evidence(conn: Connection, request: NativeSourceRequest, 
         health=to_jsonable_python(header.health),rows=to_jsonable_python(rows),
         next_cursor=_source_cursor(request,following) if following is not None else None,
         companion=to_jsonable_python(companion),visual_evidence=VisualEvidenceRead(evidence=evidence,raw_evidence=selected.raw,
-            producer=selected.producer,page_no=page_no,original_artifact_digest=header.artifact_digest,
+            producer=selected.producer,raw_producer=selected.raw_producer,page_no=page_no,original_artifact_digest=header.artifact_digest,
             original_regions=to_jsonable_python(original_regions),submitted_region=submitted,
-            observation_release_id=str(selected.producer["release_id"]),observation=observation,
+            observation_release_id=str(selected.raw_producer["release_id"]),observation=observation,
             observation_health=selected.mapping,mapping_availability=mapping,items=items))

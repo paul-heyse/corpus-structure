@@ -46,8 +46,9 @@ def _wire_size(response):
 def _response(request,visual):
     candidate=VisualEvidenceRead(evidence=EVIDENCE,raw_evidence=RAW,
         producer={"id":"episode:visual","request_id":"request:visual","release_id":"release:A","recipe":"recipe:map","runtime_id":"runtime:A"},
+        raw_producer={"id":"episode:raw","request_id":"request:raw","release_id":"release:raw","recipe":"recipe:recognize","runtime_id":"runtime:raw"},
         page_no=3,original_artifact_digest="c"*64,original_regions=[],submitted_region=None,
-        observation_release_id="release:A",observation={"provider_outcome":"partial"},mapping_availability="available",
+        observation_release_id="release:raw",observation={"provider_outcome":"partial"},mapping_availability="available",
         items=(VisualText(occurrence_id="o1",kind="mermaid",text=PAYLOAD),)) if visual else None
     return NativeSourceResponse(selection=request,cut=CUT,release_id="release:A",health={},
         rows=[{"text":"incumbent" if visual else PAYLOAD}],visual_evidence=candidate)
