@@ -148,6 +148,10 @@ def capture_native_authoring_inputs(
             .read_bytes(),
         ),
         SourceArtifact(
+            "authoring/math-context.py",
+            Path(__file__).with_name("math_context.py").read_bytes(),
+        ),
+        SourceArtifact(
             "authoring/scientific-evidence.py",
             Path(__file__).with_name("scientific_evidence.py").read_bytes(),
         ),

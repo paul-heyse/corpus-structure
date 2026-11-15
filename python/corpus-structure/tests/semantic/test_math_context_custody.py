@@ -1,6 +1,7 @@
 """Current mathematical acquisition and memoization use explicit semantic context."""
 
 
+import inspect
 import sys
 from collections import OrderedDict
 from dataclasses import replace
@@ -63,7 +64,7 @@ def test_preparation_requires_captured_context_and_preserves_it_without_reacquis
 
     captured = acquire_analysis_context_profile()
     with pytest.raises(TypeError, match="context_profile"):
-        prepare_interpretation_context(macros={})
+        inspect.signature(prepare_interpretation_context).bind(macros={})
     monkeypatch.setitem(sys.modules, "corpus_structure.semantic.contracts", None)
     monkeypatch.setitem(sys.modules, "corpus_structure.semantic.analysis_contracts", None)
     monkeypatch.setattr(

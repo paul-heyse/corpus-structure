@@ -1031,7 +1031,7 @@ def test_current_preview_retains_query_analysis_in_existing_model_view(
 
     from corpus_structure.cli import recipes
     from corpus_structure.schema import model_change
-    from corpus_structure.semantic import authored_sql, query, releases, runtime
+    from corpus_structure.semantic import authored_sql, read_snapshot, releases, runtime
     from corpus_structure.semantic.projection_analysis_products import (
         compare_retained_projection_analysis,
     )
@@ -1044,7 +1044,7 @@ def test_current_preview_retains_query_analysis_in_existing_model_view(
     monkeypatch.setattr(
         runtime, "open_runtime_engine", lambda *args, **kwargs: nullcontext(object())
     )
-    monkeypatch.setattr(query, "read_snapshot", lambda *args, **kwargs: nullcontext(object()))
+    monkeypatch.setattr(read_snapshot, "read_snapshot", lambda *args, **kwargs: nullcontext(object()))
     monkeypatch.setattr(
         releases,
         "open_release",

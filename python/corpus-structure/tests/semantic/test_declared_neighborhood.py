@@ -52,6 +52,7 @@ def test_neighborhood_has_distinct_kind_factory_policy_and_exact_native_asset():
     assert next(role.kind for role in operation.roles if role.direction == "output").endswith("/DdoContextualNeighborhoodProduct")
     assert operation.capabilities.prepared_factory is not None
     assert len(operation.output_witnesses) == 2
+    assert operation.numerical_policy is not None
     assert b'mutual-exact-cosine-top5-2' in operation.numerical_policy.body
     assert b'reciprocal_rank' not in operation.numerical_policy.body
     body = neighborhood_kernel_asset().content

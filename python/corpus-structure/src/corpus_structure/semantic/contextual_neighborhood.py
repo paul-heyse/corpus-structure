@@ -74,7 +74,7 @@ def neighborhood_kernel_asset():
         source.excerpt(index)
         for index, raw in enumerate(source.statements)
         if isinstance(raw.stmt, ast.CreateFunctionStmt)
-        and tuple(part.sval for part in raw.stmt.funcname) == ("ops", "contextual_mutual_neighbors")
+        and tuple(part.sval for part in (raw.stmt.funcname or ())) == ("ops", "contextual_mutual_neighbors")
     ]
     if len(declarations) != 1:
         raise ValueError("contextual neighborhood requires its unique native kernel owner")

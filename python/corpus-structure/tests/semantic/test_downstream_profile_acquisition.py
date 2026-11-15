@@ -84,6 +84,7 @@ def test_public_learned_math_downstream_profile_has_complete_captured_factories(
         "text.compose_view/full-native",
         "locate.definition_terms/declared",
         "retrieve.contextual_inventory/declared",
+        "retrieve.contextual_neighborhood/declared",
         "resolve.m1_readings/declared",
         "segment.sentences/source-native",
         "segment.sentences/canonical-projection",

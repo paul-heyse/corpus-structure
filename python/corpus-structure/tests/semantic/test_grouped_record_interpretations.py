@@ -133,19 +133,30 @@ def test_group_paging_pins_cut_and_selection_and_never_splits_readings(monkeypat
     monkeypatch.setattr(selected_contributions, "selected_contribution_scope", scope)
     request = GroupedInterpretationRequest(project_id="project:one", demand_id="demand:source", roots=(InterpretationRoot(product_id="product:one"), InterpretationRoot(product_id="product:other")), limit=1)
     page = interpretations.group_selected_interpretations(None, request)
-    assert len(page.body["items"]) == 1 and len(page.body["items"][0]["readings"]) == 2
+    items = page.body["items"]
+    assert isinstance(items, list) and len(items) == 1
+    first = items[0]
+    assert isinstance(first, dict)
+    readings = first["readings"]
+    assert isinstance(readings, list) and len(readings) == 2
     assert page.body["page_complete"] is False and page.body["examined_groups"] == 2
-    assert len(page.body["candidate_universes"]) == 2
+    universes = page.body["candidate_universes"]
+    assert isinstance(universes, list) and len(universes) == 2
     token = page.body["continuation"]
     next_page = interpretations.group_selected_interpretations(None, request.model_copy(update={"cursor": token}))
+    next_items = next_page.body["items"]
+    assert isinstance(next_items, list) and len(next_items) == 1
+    second = next_items[0]
+    assert isinstance(second, dict)
     assert next_page.body["page_complete"] is True
-    assert page.body["items"][0]["identity"] != next_page.body["items"][0]["identity"]
+    assert first["identity"] != second["identity"]
     assert observed[-1].read_id == "read:source" and observed[-1].expected_cut == cut().identity
     with pytest.raises(ValueError):
         interpretations.group_selected_interpretations(None, request.model_copy(update={"cursor": token, "demand_id": "demand:foreign"}))
     import base64
 
     from corpus_structure.semantic.data_operation_json import json_loads
+    assert isinstance(token, str)
     bad_cursor = json_loads(base64.urlsafe_b64decode(token))
     bad_cursor["implementation"] = "0" * 64
     forged = base64.urlsafe_b64encode(json_bytes(bad_cursor)).decode()

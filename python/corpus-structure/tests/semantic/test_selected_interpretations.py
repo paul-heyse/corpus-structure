@@ -187,7 +187,8 @@ def test_grouped_mcp_tool_preserves_root_pins_and_server_authority(monkeypatch):
     async def check():
         async with Client(build_server(project="project:one", demand="demand:one", read_engine=engine)) as client:
             tools = {tool.name: tool for tool in await client.list_tools()}
-            assert tools["group_source_record_interpretations"].annotations.read_only_hint is True
+            annotations = tools["group_source_record_interpretations"].annotations
+            assert annotations is not None and annotations.read_only_hint is True
             for demand in ("demand:foreign", "demand:one"):
                 result = await client.call_tool("group_source_record_interpretations", {"request": {"project_id": "project:one", "demand_id": demand, "roots": [{"product_id": "product:one", "member_id": "record:one", "interpretation_id": "reading:one"}]}}, raise_on_error=False)
                 assert result.is_error == (demand == "demand:foreign")
