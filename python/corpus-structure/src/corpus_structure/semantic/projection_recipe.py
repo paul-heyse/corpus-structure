@@ -69,6 +69,14 @@ _INTERNAL_BINDINGS = {
 }
 
 
+def internal_binding_names() -> tuple[str, ...]:
+    return tuple(_INTERNAL_BINDINGS)
+
+
+def internal_binding_type(name: str):
+    return _INTERNAL_BINDINGS[name][1]
+
+
 @dataclass(frozen=True, slots=True)
 class JsonPath:
     value: Expression

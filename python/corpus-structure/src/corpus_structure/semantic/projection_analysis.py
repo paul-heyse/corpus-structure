@@ -155,10 +155,10 @@ def recipe_expression(recipe: ir.ProjectionRecipe) -> exp.Select:
                 result.type = _dtype(parameters[name].sql_type)
                 return result
             case ir.InternalBinding(name):
-                if name not in {"published_build_id", "published_release_id"}:
+                if name not in ir.internal_binding_names():
                     raise ProjectionAnalysisUnavailable(f"unknown internal binding: {name}")
                 result = exp.Placeholder(this=name)
-                result.type = exp.DataType.build("TEXT")
+                result.type = _dtype(ir.internal_binding_type(name))
                 return result
             case ir.Field(source, name):
                 return exp.column(name, table=source)
@@ -269,7 +269,7 @@ def recipe_expression(recipe: ir.ProjectionRecipe) -> exp.Select:
         query,
         query_sources,
         physical_sources=frozenset(s.relation for s in recipe.sources if s.relation is not None),
-        parameters=frozenset(parameters) | {"published_build_id", "published_release_id"},
+        parameters=frozenset(parameters) | set(ir.internal_binding_names()),
     )
     if not isinstance(expanded, exp.Select):
         raise ProjectionAnalysisUnavailable("expanded recipe must retain its SELECT")
