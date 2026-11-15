@@ -469,19 +469,14 @@ class PreparedRelease:
         """Key canonical values using the admitted Qualification key-role/case definitions."""
         from .identity import fact_key
 
-        definition = self.qualification_definition(qualification_class)
-        props = self.index.properties_by_class[definition.name]
-        result = {}
-        for name, value in qualification.items():
-            if name not in props:
-                raise ValueError(f"undeclared qualification {name}")
-            if props[name].key_role == "provenance":
-                continue
-            if props[name].case_policy == "casefold" and isinstance(value, str):
-                from .unicode_identity import identity_casefold
+        from .qualification_meaning import qualification_identity_components
 
-                value = identity_casefold(value)
-            result[name] = value
+        result = {
+            component.property.name: component.equality_value
+            for component in qualification_identity_components(
+                self, qualification, qualification_class=qualification_class,
+            )
+        }
         return fact_key(self.release_id, realization, subject, predicate, object_, result)
 
     def property_adapter(

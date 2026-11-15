@@ -39,7 +39,7 @@ class DdoRichScalarValue(RichRecord):
     member_type: Literal["scalar-value"]
     value_id: Nonempty
     kind_contract: Nonempty
-    datatype: Literal["string", "boolean", "integer", "decimal", "float", "date", "datetime", "null"]
+    datatype: Literal["string", "boolean", "integer", "decimal", "float", "date", "datetime"]
     lexical: str
 
     @model_validator(mode="after")
@@ -53,10 +53,6 @@ class DdoRichScalarValue(RichRecord):
         if self.datatype == "boolean":
             if self.lexical not in {"true", "false"}:
                 raise ValueError("rich boolean requires its canonical literal")
-            return self
-        if self.datatype == "null":
-            if self.lexical:
-                raise ValueError("rich null cannot carry a lexical value")
             return self
         parser = {"integer": int, "decimal": Decimal, "float": float.fromhex,
                   "date": date.fromisoformat, "datetime": datetime.fromisoformat}[self.datatype]
@@ -83,9 +79,24 @@ class DdoRichRecordValue(RichRecord):
 class DdoRichCollectionValue(RichRecord):
     member_type: Literal["collection-value"]
     value_id: Nonempty
-    kind_contract: Nonempty
+    element_contract: Nonempty
     collection: Literal["sequence", "mapping"]
     entries: tuple[DdoRichValueEntry, ...]
+
+
+class DdoRichCasefoldText(RichRecord):
+    """Policy equality value; never labelled as the source enum/property value."""
+    member_type: Literal["casefold-text"]
+    value_id: Nonempty
+    property_contract: Nonempty
+    text: str
+
+
+class DdoRichQualificationMeaning(RichRecord):
+    member_type: Literal["qualification-meaning"]
+    value_id: Nonempty
+    qualification_contract: Nonempty
+    fields: tuple[DdoRichValueEntry, ...]
 
 
 class DdoRichEntity(RichRecord):
@@ -103,7 +114,7 @@ class DdoRichFact(RichRecord):
     property_contract: Nonempty
     predicate: Nonempty
     object_value: Nonempty
-    qualification_value: Nonempty
+    qualification_meaning: Nonempty
 
 
 class DdoRichOccurrence(RichRecord):
@@ -112,6 +123,7 @@ class DdoRichOccurrence(RichRecord):
     fact_id: Nonempty
     original: DdoRichSelectedMember
     statement: DdoRichSelectedMember | None
+    observed_qualification_value: Nonempty
     dependencies: tuple[Nonempty, ...]
 
 
@@ -122,7 +134,7 @@ class DdoRichSourceReadingAssertion(RichRecord):
     record_id: Nonempty
     interpretation_id: Nonempty
     original: DdoRichSelectedMember
-    assertion_fact_ids: tuple[Nonempty, ...]
+    reading_value: Nonempty
 
 
 class DdoRichAlternative(RichRecord):
@@ -155,6 +167,7 @@ class DdoRichDiagnostic(RichRecord):
 
 type DdoRichMemberBody = (
     DdoRichScalarValue | DdoRichEntityValue | DdoRichRecordValue | DdoRichCollectionValue
+    | DdoRichCasefoldText | DdoRichQualificationMeaning
     | DdoRichEntity | DdoRichFact | DdoRichOccurrence | DdoRichSourceReadingAssertion
     | DdoRichAlternative | DdoRichAssessment | DdoRichDiagnostic
 )

@@ -39,8 +39,22 @@ classes:
       labels: {multivalued: true, required: true}
       reference: {range: Entity, inlined: false, required: true}
       note: {}
+      optional_ref: {range: Entity, inlined: false}
+      optional_inline: {range: Detail, inlined: true}
+      optional_values: {multivalued: true}
+  Detail:
+    attributes:
+      label: {required: true}
+  Qualification:
+    attributes:
+      label: {required: true, annotations: {cs:case: casefold}}
+      reporter: {annotations: {cs:key_role: provenance}}
 """),))
-    return prepare_release(bundle), compile_data_operations(bundle)
+    from semantic.data_operation_declaration_support import contract, declarations
+    operation = contract(subject="knowledge-universe", subject_definition={
+        "id": "knowledge-universe", "identifier_kind": "string", "scope": "project"
+    })
+    return prepare_release(bundle), compile_data_operations(bundle, declarations=declarations(operation))
 
 
 def test_exact_rich_value_members_keep_decimal_scale_independent_meaning_and_signed_float(source):
@@ -110,6 +124,7 @@ def test_actual_rich_consolidation_contract_has_finite_closed_nominal_member_kin
         "DdoRichScalarValue", "DdoRichEntityValue", "DdoRichRecordValue", "DdoRichCollectionValue",
         "DdoRichEntity", "DdoRichFact", "DdoRichOccurrence", "DdoRichSourceReadingAssertion",
         "DdoRichAlternative", "DdoRichAssessment", "DdoRichDiagnostic",
+        "DdoRichCasefoldText", "DdoRichQualificationMeaning",
     }
     for root in ("DdoRichConsolidation", "DdoRichAdmission"):
         assert set(derive_member_kinds(model, namespace + root)) == {namespace + name for name in expected}
@@ -145,3 +160,94 @@ def test_internal_cpu_context_pin_materializes_exact_public_json_only_against_ac
 def test_rich_scalar_contract_refuses_forged_noncanonical_meaning(datatype, lexical):
     with pytest.raises(ValidationError):
         DdoRichScalarValue(member_type="scalar-value", value_id="value:untrusted", kind_contract="kind:untrusted", datatype=datatype, lexical=lexical)
+
+
+def test_actual_optional_boundaries_keep_omission_empty_and_present_values_distinct_and_refuse_null(source):
+    prepared, model = source
+    graph = RichValueGraph(prepared, model)
+    observed = {"amount": Decimal("1"), "at": datetime(2026, 11, 15, tzinfo=UTC), "signed": 0.0,
+                "labels": ("observed",), "reference": "entity:original"}
+    omitted = graph.lower_record("Measurement", observed)
+    empty = graph.lower_record("Measurement", {**observed, "optional_values": ()})
+    present = graph.lower_record("Measurement", {**observed, "note": "", "optional_ref": "entity:retained", "optional_inline": {"label": "actual"}})
+    assert len({omitted, empty, present}) == 3
+    rows = {value.value_id: value for value in graph.values}
+    props = {prop.name: prop for prop in prepared.index.definitions["Measurement"].properties}
+    empty_record = rows[empty]
+    assert isinstance(empty_record, DdoRichRecordValue)
+    empty_values = rows[next(field.value_id for field in empty_record.fields if field.name == props["optional_values"].iri)]
+    assert isinstance(empty_values, DdoRichCollectionValue)
+    assert empty_values.entries == ()
+    present_record = rows[present]
+    assert isinstance(present_record, DdoRichRecordValue)
+    fields = {field.name: rows[field.value_id] for field in present_record.fields}
+    assert isinstance(fields[props["optional_inline"].iri], DdoRichRecordValue)
+    assert isinstance(fields[props["optional_ref"].iri], DdoRichEntityValue)
+    assert isinstance(fields[props["note"].iri], DdoRichScalarValue)
+    for name in ("note", "optional_ref", "optional_inline", "optional_values"):
+        with pytest.raises(ValidationError):
+            graph.lower_record("Measurement", {**observed, name: None})
+        with pytest.raises(ValidationError):
+            graph.lower_property("Measurement", name, None)
+
+
+def test_qualification_meaning_excludes_provenance_and_uses_explicit_casefold_projection(source):
+    from corpus_structure.semantic.rich_knowledge_contracts import DdoRichCasefoldText, DdoRichQualificationMeaning
+    prepared, model = source
+    graph = RichValueGraph(prepared, model)
+    first = {"label": "Gaussian", "reporter": "source-A"}
+    second = {"label": "GAUSSIAN", "reporter": "source-B"}
+    observed_a, meaning_a = graph.lower_qualification("Qualification", first)
+    observed_b, meaning_b = graph.lower_qualification("Qualification", second)
+    assert observed_a != observed_b
+    assert meaning_a == meaning_b
+    rows = {value.value_id: value for value in graph.values}
+    meaning = rows[meaning_a]
+    assert isinstance(meaning, DdoRichQualificationMeaning)
+    assert len(meaning.fields) == 1
+    folded = rows[meaning.fields[0].value_id]
+    assert isinstance(folded, DdoRichCasefoldText)
+    assert folded.text == "gaussian"
+    assert not hasattr(folded, "kind_contract")
+    assert prepared.fact_identity("realization", "entity:subject", "urn:predicate", "object", first) == prepared.fact_identity("realization", "entity:subject", "urn:predicate", "object", second)
+    _, changed = graph.lower_qualification("Qualification", {"label": "Poisson", "reporter": "source-A"})
+    assert changed != meaning_a
+
+
+def test_current_rich_fact_identity_uses_actual_property_and_qualification_meaning(source):
+    from corpus_structure.semantic.rich_fact_graph import RichFactGraph
+    from corpus_structure.semantic.data_operation_model import SubjectContext
+    from corpus_structure.semantic.data_operation_json import json_bytes
+    prepared, model = source
+    context = SubjectContext(project_id="actual-project", subject="universe", subject_definition="knowledge-universe", original_source=None, analyzed_scope=json_bytes({"selection": "closed"}))
+    graph = RichFactGraph(prepared, model, context=context, entities={"entity:subject": frozenset({"urn:rich-values:Measurement"})}, known_fact_ids=frozenset())
+    first = graph.add_property_fact(subject_entity="entity:subject", class_name="Measurement", property_name="amount", value=Decimal("12.30"), qualification={"label": "Gaussian", "reporter": "source-A"})
+    second = graph.add_property_fact(subject_entity="entity:subject", class_name="Measurement", property_name="amount", value=Decimal("12.300"), qualification={"label": "GAUSSIAN", "reporter": "source-B"})
+    assert first.fact == second.fact
+    assert first.observed_qualification_value != second.observed_qualification_value
+    assert graph.facts == (first.fact,)
+    assert first.fact.predicate == next(prop.iri for prop in prepared.index.definitions["Measurement"].properties if prop.name == "amount")
+    changed = graph.add_property_fact(subject_entity="entity:subject", class_name="Measurement", property_name="amount", value=Decimal("12.31"), qualification={"label": "Gaussian", "reporter": "source-A"})
+    assert changed.fact.fact_id != first.fact.fact_id
+    before = graph.values
+    with pytest.raises(ValueError, match="selected entity universe"):
+        graph.add_property_fact(subject_entity="entity:subject", class_name="Measurement", property_name="reference", value="entity:outside", qualification={"label": "Gaussian"})
+    assert graph.values == before
+    assert len(graph.facts) == 2
+    with pytest.raises(ValueError, match="class membership"):
+        graph.add_property_fact(subject_entity="entity:subject", class_name="Measurement", property_name="reference", value="entity:subject", qualification={"label": "Gaussian"})
+    assert graph.values == before
+
+
+def test_rich_fact_subject_context_is_a_real_determinant_and_property_null_stays_refused(source):
+    from corpus_structure.semantic.rich_fact_graph import RichFactGraph
+    from corpus_structure.semantic.data_operation_model import SubjectContext
+    prepared, model = source
+    def graph(subject):
+        return RichFactGraph(prepared, model, context=SubjectContext(project_id="actual-project", subject=subject, subject_definition="knowledge-universe", original_source=None, analyzed_scope=b'{}'), entities={"entity:subject": frozenset({"urn:rich-values:Measurement"})}, known_fact_ids=frozenset())
+    first, second = graph("knowledge-A"), graph("knowledge-B")
+    kwargs = dict(subject_entity="entity:subject", class_name="Measurement", property_name="note", value="", qualification={"label": "Gaussian"})
+    a, b = first.add_property_fact(**kwargs), second.add_property_fact(**kwargs)
+    assert a.fact.fact_id != b.fact.fact_id
+    with pytest.raises(ValidationError):
+        first.add_property_fact(**{**kwargs, "property_name": "optional_ref", "value": None})

@@ -13,12 +13,13 @@ from .data_operation_model import EffectiveDataOperationModel
 from .rich_knowledge_contracts import (
     DdoRichCollectionValue, DdoRichEntityValue, DdoRichRecordValue,
     DdoRichScalarValue, DdoRichValueEntry,
+    DdoRichCasefoldText, DdoRichQualificationMeaning,
 )
 from .types import PreparedRelease, PropertyDefinition
 from .value_codec import value_meaning
 
 
-type RichValue = DdoRichScalarValue | DdoRichEntityValue | DdoRichRecordValue | DdoRichCollectionValue
+type RichValue = DdoRichScalarValue | DdoRichEntityValue | DdoRichRecordValue | DdoRichCollectionValue | DdoRichCasefoldText | DdoRichQualificationMeaning
 
 
 class RichValueGraph:
@@ -55,13 +56,43 @@ class RichValueGraph:
         definition = self.prepared.index.definitions[class_name]
         prop = next(prop for prop in definition.properties if prop.name == property_name)
         checked = self.prepared.property_adapter(class_name, property_name, item=item).validate_python(value, strict=True)
-        target = self._property_range(definition.iri, prop)
-        return self._collection(checked, target, prop.inlined) if prop.multivalued and not item else self._lower(checked, target, prop.inlined)
+        return self._property_value(definition.iri, prop, checked, item=item)
+
+    def _property_value(self, owner: str, prop: PropertyDefinition, value: Any, *, item: bool = False) -> str:
+        target = self._property_range(owner, prop)
+        if value is None:
+            raise ValueError("current LinkML property boundaries do not admit explicit null")
+        return self._collection(value, target, prop.inlined) if prop.multivalued and not item else self._lower(value, target, prop.inlined)
 
     def lower_record(self, class_name: str, value: Any) -> str:
         definition = self.prepared.index.definitions[class_name]
         checked = self.prepared.validate_python(class_name, value)
         return self._lower(checked, definition.iri, True)
+
+    def lower_qualification(self, class_name: str, value: Any) -> tuple[str, str]:
+        """Keep the observed typed value and its distinct declared equality meaning."""
+        from .qualification_meaning import qualification_identity_components
+
+        definition = self.prepared.qualification_definition(class_name)
+        checked = self.prepared.validate_python(class_name, value)
+        observed_id = self._lower(checked, definition.iri, True)
+        supplied = {name: getattr(checked, name) for name in checked.model_fields_set}
+        fields = []
+        for component in qualification_identity_components(self.prepared, supplied, qualification_class=class_name):
+            prop = component.property
+            target = self._property_range(definition.iri, prop)
+            if component.equality == "casefold-text":
+                property_contract = self._contract(definition.iri + "/property/" + prop.name)
+                value_id = canonical_identity("rich-value", ["casefold-text", property_contract, component.equality_value]).key
+                self._retain(DdoRichCasefoldText(member_type="casefold-text", value_id=value_id, property_contract=property_contract, text=component.equality_value))
+            else:
+                value_id = self._property_value(definition.iri, prop, component.observed)
+            fields.append(DdoRichValueEntry(name=prop.iri, position=0, value_id=value_id))
+        fields = tuple(sorted(fields, key=lambda field: field.name))
+        contract = self._contract(definition.iri)
+        identifier = canonical_identity("rich-value", ["qualification-meaning", contract, [field.model_dump(mode="python") for field in fields]]).key
+        self._retain(DdoRichQualificationMeaning(member_type="qualification-meaning", value_id=identifier, qualification_contract=contract, fields=fields))
+        return observed_id, identifier
 
     def _retain(self, value: RichValue) -> str:
         previous = self._values.get(value.value_id)
@@ -81,9 +112,11 @@ class RichValueGraph:
             raise ValueError("rich declared collection requires its actual sequence or mapping")
         contract = self._contract(kind_id)
         identifier = canonical_identity("rich-value", [collection, contract, [entry.model_dump(mode="python") for entry in entries]]).key
-        return self._retain(DdoRichCollectionValue(member_type="collection-value", value_id=identifier, kind_contract=contract, collection=collection, entries=entries))
+        return self._retain(DdoRichCollectionValue(member_type="collection-value", value_id=identifier, element_contract=contract, collection=collection, entries=entries))
 
     def _lower(self, value: Any, kind_id: str, inlined: bool) -> str:
+        if value is None:
+            raise ValueError("explicit null requires its actual validated property boundary")
         contract = self._contract(kind_id)
         kind = self.kinds[kind_id]
         if kind.category == "class" and not inlined:
@@ -101,8 +134,7 @@ class RichValueGraph:
                 if prop.name not in value.model_fields_set:
                     continue
                 child = getattr(value, prop.name)
-                target = self._property_range(definition.iri, prop)
-                child_id = self._collection(child, target, prop.inlined) if prop.multivalued else self._lower(child, target, prop.inlined)
+                child_id = self._property_value(definition.iri, prop, child)
                 fields.append(DdoRichValueEntry(name=prop.iri, position=0, value_id=child_id))
             fields = tuple(sorted(fields, key=lambda field: field.name))
             identifier = canonical_identity("rich-value", ["record", contract, [field.model_dump(mode="python") for field in fields]]).key

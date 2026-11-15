@@ -96,6 +96,7 @@ def rich_policy_inputs(
 def rich_knowledge_inputs(
     bundle: SourceBundle, dependencies: ResolvedDependencies, *,
     domain_rules: bytes, core_rules: bytes = b"", context_profile,
+    qualification_class: str, statement_class: str,
     aliases: Mapping[str, Any] | None = None,
 ) -> tuple[SourceBundle, ResolvedDependencies]:
     """Compose actual source/proposal/reading contracts and explicit rich policy.
@@ -113,7 +114,7 @@ def rich_knowledge_inputs(
     if any(artifact.name == RICH_CONTRACT_INPUT for artifact in dependencies.artifacts):
         raise ValueError("rich knowledge contracts already declared")
     bundle, dependencies = prepare_source_inputs(bundle, dependencies)
-    bundle = external_extraction_inputs(bundle, dependencies)
+    bundle = external_extraction_inputs(bundle, dependencies, qualification_class=qualification_class, statement_class=statement_class)
     bundle = source_reading_inputs(bundle)
     dependencies = rich_policy_inputs(
         dependencies, domain_rules, core_rules, context_profile=context_profile, aliases=aliases,

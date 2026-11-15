@@ -26,12 +26,30 @@ def test_actual_rich_composition_captures_schema_policy_and_nominal_members_with
         domain_rules=(root / "domains/statistics/schema/rules.yaml").read_bytes(),
         core_rules=(root / "domains/core/schema/rules.yaml").read_bytes(),
         context_profile=acquire_analysis_context_profile(),
+        qualification_class="StatisticsQualification", statement_class="SourceStatement",
     )
     assert {"data_operation_rich_proposals", "source-readings"} <= {source.name for source in bundle.sources}
     assert {RULE_INPUT, RICH_CONTRACT_INPUT, "operation/scientific-policy.json"} <= {source.name for source in deps.artifacts}
     model = compile_data_operations(bundle, declarations=rich_knowledge_declarations(deps))
-    assert len(derive_member_kinds(model, "https://corpus-structure.dev/semantic/data-operation-rich-knowledge/DdoRichConsolidation")) == 11
+    assert len(derive_member_kinds(model, "https://corpus-structure.dev/semantic/data-operation-rich-knowledge/DdoRichConsolidation")) == 13
     assert not any("execution_model" in artifact.name for artifact in deps.artifacts)
+    from corpus_structure.semantic import prepare_release
+    from corpus_structure.semantic.data_operation_model import SubjectContext
+    from corpus_structure.semantic.declared_record_sources import DeclaredRecordSource
+    from pydantic import ValidationError
+    prepared = prepare_release(bundle, deps)
+    current = DeclaredRecordSource(
+        "original:document", "a" * 64, "#/groups/3", "descendants",
+        SubjectContext("actual-project", "actual-source", "original:document", b'{"page":1}', subject_definition="original-source-view"),
+        "product:source", "member:source", "kind:source",
+    ).pin()
+    checked = prepared.validate_python("RecordSourcePin", current).model_dump(mode="python", exclude_unset=True)
+    assert checked == current
+    fields = {prop.name for prop in prepared.index.definitions["RecordSourcePin"].properties}
+    assert {"format", "source_product", "subject_definition", "document", "analyzed_scope_meaning", "kind_contract"} <= fields
+    assert not {"source_view_id", "native_product_task_id", "product_digest", "recipe_digest"} & fields
+    with pytest.raises(ValidationError):
+        prepared.validate_python("RecordSourcePin", {"source": "old-source", "native_product_task_id": 7, "source_view_id": 8, "product_key": "old", "product_digest": "a" * 64, "projection_digest": "b" * 64, "recipe_digest": "c" * 64})
 
 
 def test_policy_capture_keeps_duplicate_key_refusal_and_one_actual_archived_owner():
