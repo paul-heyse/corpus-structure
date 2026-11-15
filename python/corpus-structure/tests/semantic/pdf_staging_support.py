@@ -1,40 +1,222 @@
 """Private staged PDF build fixture shared by native consumer tests."""
 
+import json
+from dataclasses import asdict, dataclass
 from hashlib import sha256
-from types import SimpleNamespace
+from typing import Literal, cast
 
 import pyarrow as pa
 import pytest
-from pydantic import create_model
-
-from corpus_structure.semantic.operations import (
-    OperationBinding,
-    claim_tasks,
-    create_run,
-    create_task,
-    record_method,
+from corpus_structure.core.evidence import document_key
+from corpus_structure.semantic._data_operation_wire import (
+    WireAttemptFence,
+    WireCompletion,
+    WireRequestId,
+    wire_attempt_fence,
 )
-from corpus_structure.semantic.original_documents import register_original_document
+from corpus_structure.semantic.composed import read_data_operation_inputs
+from corpus_structure.semantic.data_operation_demands import DemandPlanner, OperationSelection, ReadyDataRequest, freeze_demand
+from corpus_structure.semantic.data_operation_execution_evidence import bind_execution_evidence
+from corpus_structure.semantic.data_operation_identity import semantic_value
+from corpus_structure.semantic.data_operation_outcomes import successful_return_outcome
+from corpus_structure.semantic.data_operation_storage import DataOperationStorage
+from corpus_structure.semantic.data_operation_service import execute_data_demand
+from corpus_structure.semantic.demand_queries import DemandQueryRequest, serve_demand_query
+from corpus_structure.semantic.identifiers import ProjectId, ReleaseId, RuntimeId
+from corpus_structure.semantic.identity import canonical_bytes
+from corpus_structure.semantic.original_documents import (
+    acquire_original_document_selection,
+    register_original_document,
+)
+from corpus_structure.semantic.pdf_capture import pdf_publication_value
 from corpus_structure.semantic.pdf_contracts import store_pdf_original
+from corpus_structure.semantic.pdf_publication import inspect_pdf_execution_receipt
+from corpus_structure.semantic.pdf_record_reader import PublishedPdfReader, PublishedReadBudget
 from corpus_structure.semantic.pdf_records import native_schema_bytes
 from corpus_structure.semantic.pdf_staging import (
     begin_pdf_build,
     stage_schema,
 )
-from semantic.operation_scenario_support import prepare_operation_scenario
+from corpus_structure.semantic.product_reference import ProductReference
+from semantic.current_pdf_source_support import ROOT, current_pdf_recipe
+from semantic.data_operation_kernel_support import Kernel, admit_kernel
+
+_PROJECT = "pdf-staging-controls"
+type PdfFixtureCase = Literal["default", "unknown-cell-coverage", "partial-cell-coverage", "integer-region-coordinates"]
+
+# These policies describe the controlled authored records, rather than manufacturing
+# independent work with physical task IDs or a fresh nonce. The native request owns
+# the inference policy as a genuine semantic determinant.
+_POLICIES: dict[PdfFixtureCase, str] = {
+    "default": "controlled-pdf-records-v1",
+    "unknown-cell-coverage": "controlled-pdf-unknown-cell-coverage-v1",
+    "partial-cell-coverage": "controlled-pdf-partial-cell-coverage-v1",
+    "integer-region-coordinates": "controlled-pdf-partial-cell-integer-region-coordinates-v1",
+}
+
+
+@dataclass(frozen=True)
+class _PdfRequest:
+    ready: ReadyDataRequest
+    fence: WireAttemptFence
+
+
+class _PrivatePdfBuildFactory:
+    project_id = _PROJECT
+
+    def __init__(self, kernel: Kernel, writer, original: bytes, recipe: bytes, key: str):
+        self.kernel, self.writer = kernel, writer
+        self.original, self.recipe, self.key = original, recipe, key
+        self.requests: dict[str, _PdfRequest] = {}
+
+    def __call__(self, *, case: PdfFixtureCase = "default"):
+        with self.writer.begin() as conn:
+            selected = acquire_original_document_selection(
+                conn, project_id=_PROJECT, document_key=self.key
+            )
+            planner = DemandPlanner(self.kernel.model, DataOperationStorage(conn))
+            demand = planner.register(
+                freeze_demand(
+                    self.kernel.model,
+                    roots=(selected.root,),
+                    targets=("source.pdf/capture",),
+                    original_sources=(selected.selection(),),
+                    inference=_POLICIES[case],
+                    execution_profile=self.kernel.recipe.execution_profile,
+                ),
+                project=_PROJECT,
+                release=self.kernel.prepared.release_id,
+                runtime=self.kernel.runtime,
+            )
+            (ready,) = planner.ready(planner.resume(demand["demand_id"]), authorization=b"{}")
+            claim = DataOperationStorage(conn).claim_data_request(
+                {
+                    "request_id": WireRequestId(json.loads(ready.native)["request_id"]),
+                    "holder": "stage-owner",
+                    "lease_seconds": 300,
+                }
+            )
+            assert claim["state"] == "claimed"
+            fence = wire_attempt_fence(claim)
+            store_pdf_original(
+                conn,
+                task_id=fence["task_id"],
+                attempt=fence["attempt"],
+                holder=fence["holder"],
+                original=self.original,
+                recipe_bytes=self.recipe,
+            )
+            build = begin_pdf_build(
+                conn,
+                task_id=fence["task_id"],
+                attempt=fence["attempt"],
+                holder=fence["holder"],
+                source_digest=sha256(self.original).hexdigest(),
+                recipe_digest=sha256(self.recipe).hexdigest(),
+                schema_digest=sha256(native_schema_bytes()).hexdigest(),
+                replay_key="product:native",
+            )
+        self.requests[build.build_id] = _PdfRequest(ready, fence)
+        return build
+
+    def renew(self, connection, build):
+        return DataOperationStorage(connection).renew_data_request(
+            {**self.requests[build.build_id].fence, "lease_seconds": 300}
+        )
+
+    def reclaim(self, connection, build, *, holder):
+        previous = self.requests[build.build_id]
+        claimed = DataOperationStorage(connection).claim_data_request({
+            "request_id": previous.fence["request_id"], "holder": holder, "lease_seconds": 300,
+        })
+        assert claimed["state"] == "claimed"
+        fence = wire_attempt_fence(claimed)
+        assert fence["request_id"] == previous.fence["request_id"]
+        assert fence["generation"] == previous.fence["generation"]
+        assert fence["task_id"] == build.task_id
+        assert fence["attempt"] == build.attempt + 1
+        self.requests[build.build_id] = _PdfRequest(previous.ready, fence)
+        return fence
+
+    def selected_sources(self, build, *, sections=(), membership="direct"):
+        """Consume the completed capture through its actual declared source projector."""
+        with self.writer.begin() as conn:
+            original = acquire_original_document_selection(conn, project_id=_PROJECT, document_key=self.key)
+            demand = DemandPlanner(self.kernel.model, DataOperationStorage(conn)).register(
+                freeze_demand(
+                    self.kernel.model, roots=(original.root,), targets=("source.pdf_views/discovery",),
+                    original_sources=(original.selection(),),
+                    selections=(OperationSelection("source.pdf_views/discovery", parameters=canonical_bytes({"sections": list(sections), "membership": membership})),),
+                    inference=self.requests[build.build_id].ready.resolved.inference,
+                    execution_profile=self.kernel.recipe.execution_profile,
+                ),
+                project=_PROJECT, release=self.kernel.prepared.release_id, runtime=self.kernel.runtime,
+            )
+        execute_data_demand(
+            self.writer, demand["demand_id"], source_root=ROOT, admission_engine=self.kernel.engine,
+            project_id=_PROJECT, database_capacity=6,
+        )
+        with self.writer.connect() as conn:
+            page = serve_demand_query(conn, DemandQueryRequest(
+                project_id=_PROJECT, demand_id=demand["demand_id"], view="members", limit=100,
+                max_bytes=8 * 1024 * 1024,
+            ))
+        assert page["continuation"] is None
+        kind = self.kernel.prepared.index.definitions["DdoSelectedNativeSource"].iri
+        contract = self.kernel.identities[kind, "kind"]
+        return [row for row in page["items"] if row["kind_contract"] == contract]
+
+    def complete(self, build, publication):
+        """Publish only the actual sealed staging receipt, without provider claims."""
+        request = self.requests[build.build_id]
+        operation = self.kernel.model.operation(request.ready.operation)
+        output = next(role for role in operation.roles if role.direction == "output")
+        assert operation.implementation_root is not None
+        with self.writer.begin() as conn:
+            receipt = inspect_pdf_execution_receipt(
+                conn, publication, attempt=build.attempt, holder=build.holder
+            )
+            reader = PublishedPdfReader(
+                conn,
+                ProductReference(publication.task_id, publication.product_key, publication.logical_digest),
+                projection_context=self.kernel.prepared,
+                read_budget=PublishedReadBudget(100, 8 * 1024 * 1024),
+            )
+            health = [row for row in reader.iter_companions("health") if "conversion" in row]
+            assert len(health) == 1
+            value = self.kernel.prepared.validate_python(
+                "DdoPdfCapture", pdf_publication_value(self.key, publication, health[0])
+            ).model_dump(mode="python", exclude_unset=True)
+            binding = json.loads(request.ready.binding)
+            completion = cast(WireCompletion, {
+                "outcome": successful_return_outcome(operation),
+                "inputs": binding["inputs"],
+                "support": binding["support"],
+                "implementation_revision": self.kernel.identities[operation.implementation_root, "implementation-slice"],
+                "outputs": [{
+                    "role": output.name, "position": 0, "multiplicity": 1,
+                    "product": {"kind_contract": self.kernel.identities[output.kind, "kind"], "body": semantic_value(value), "members": []},
+                }],
+                "execution_evidence": bind_execution_evidence(
+                    None, fence=dict(request.fence), runtime_id=self.kernel.runtime,
+                    pdf_content=canonical_bytes(asdict(receipt)),
+                ),
+            })
+            storage = DataOperationStorage(conn)
+            retained = storage.retain_data_completion_intent({
+                **request.fence, "runtime_id": RuntimeId(self.kernel.runtime), "completion": completion,
+            })
+            return storage.publish_data_derivation({**request.fence, "intent_id": retained["intent_id"]})
 
 
 def _private_build_factory(commit_db_engine, commit_writer_engine, tmp_path, request):
-    prepared = prepare_operation_scenario(
-        commit_db_engine,
-        composed=True,
-        observations=getattr(request, "param", None)
-        in {"renderable_pdf", "characterization_pdf", "characterization_finalizable_pdf"},
-        characterization=getattr(request, "param", None)
-        in {"characterization_pdf", "characterization_finalizable_pdf"},
-        evaluation=getattr(request, "param", None) == "characterization_finalizable_pdf",
-    )
-    recipe = b'{"recipe":"stage-test"}'
+    recipe = current_pdf_recipe(tmp_path)
+    with commit_db_engine.begin() as conn:
+        kernel = admit_kernel(conn, recipe)
+    captured = read_data_operation_inputs(kernel.preparation.dependencies)
+    assert captured is not None and captured[1] is not None
+    profile = next(asset for asset in captured[1].boundary_contracts if asset.name == "pdf-capture/profile-assets")
+    recipe_bytes = bytes.fromhex(json.loads(profile.content)["recipe"])
     path = tmp_path / "source.pdf"
     if getattr(request, "param", None) in {
         "renderable_pdf",
@@ -70,68 +252,18 @@ def _private_build_factory(commit_db_engine, commit_writer_engine, tmp_path, req
         original = b"%PDF-1.7 private staging fixture"
         path.write_bytes(original)
 
-    def create():
-        with commit_writer_engine.begin() as conn:
-            run = create_run(
-                conn,
-                project_id="p",
-                binding=OperationBinding(prepared.release_id, "z", 0, b"{}"),
-                kind="full",
-                options={},
-                code_commit="stage-test",
-            )
-            method = SimpleNamespace(
-                name="pdf.stage.fixture",
-                version="1",
-                family="ingest",
-                tier="deterministic",
-                confidence_source=None,
-                unit_type="document",
-                Config=create_model("PdfStageFixture"),
-            )
-            config = record_method(conn, method, "default", {}, "pdf-stage", prepared=prepared)
-            document = register_original_document(
-                conn,
-                prepared=prepared,
-                project_id="p",
-                source_uri="file:pdf-stage",
-                original_path=str(path),
-                original=original,
-                mime="application/pdf",
-            )
-            task = create_task(
-                conn,
-                run_id=run,
-                config_id=config,
-                stage="ingest",
-                unit_type="document",
-                unit_id=document,
-                unit_key="pdf-stage",
-                input_hash=sha256(original).hexdigest(),
-                fresh=True,
-            )
-            claim = claim_tasks(conn, run_id=run, config_id=config, holder="stage-owner")[0]
-            store_pdf_original(
-                conn,
-                task_id=task,
-                attempt=claim.attempt,
-                holder="stage-owner",
-                original=original,
-                recipe_bytes=recipe,
-            )
-            build = begin_pdf_build(
-                conn,
-                task_id=task,
-                attempt=claim.attempt,
-                holder="stage-owner",
-                source_digest=sha256(original).hexdigest(),
-                recipe_digest=sha256(recipe).hexdigest(),
-                schema_digest=sha256(native_schema_bytes()).hexdigest(),
-                replay_key="build-1",
-            )
-        return build
-
-    return create
+    with commit_writer_engine.begin() as conn:
+        DataOperationStorage(conn).initialize_source_project({
+            "project_id": ProjectId(_PROJECT), "release_id": ReleaseId(kernel.prepared.release_id),
+        })
+        register_original_document(
+            conn, prepared=kernel.prepared, project_id=_PROJECT, source_uri="file:pdf-stage",
+            original_path=str(path), original=original, mime="application/pdf",
+        )
+    return _PrivatePdfBuildFactory(
+        kernel, commit_writer_engine, original, recipe_bytes,
+        document_key(_PROJECT, "file:pdf-stage", sha256(original).hexdigest()),
+    )
 
 
 @pytest.fixture

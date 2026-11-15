@@ -11,9 +11,6 @@ from native_refusals import native_refusal
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
-from corpus_structure.semantic.operations import (
-    claim_tasks,
-)
 from corpus_structure.semantic.pdf_contracts import store_pdf_original
 from corpus_structure.semantic.pdf_staging import (
     abandon_pdf_build,
@@ -24,17 +21,21 @@ from corpus_structure.semantic.pdf_staging import (
     stage_schema,
 )
 from semantic.pdf_staging_support import native_batch
+from semantic.pdf_staging_support import create_private_build as create_private_build
 from semantic.pdf_staging_support import private_build as private_build
 
 
 def test_original_pdf_retention_replays_exact_recipe_and_refuses_changed_recipe(
-    private_build, commit_writer_engine
+    create_private_build, commit_writer_engine
 ):
     """An authenticated source build retains exactly one original/recipe pair."""
-    build = private_build
+    build = create_private_build()
     original = b"%PDF-1.7 private staging fixture"
-    recipe = b'{"recipe":"stage-test"}'
-    changed_recipe = b'{"recipe":"changed-stage-test"}'
+    recipe = create_private_build.recipe
+    from corpus_structure.ingest.pdf import PdfRecipe
+
+    configured = PdfRecipe.from_bytes(recipe)
+    changed_recipe = replace(configured, parser_threads=configured.parser_threads + 1).to_bytes()
     changed_digest = sha256(changed_recipe).hexdigest()
     params = dict(task=build.task_id)
     with commit_writer_engine.begin() as conn:
@@ -226,7 +227,7 @@ def test_wrong_schema_and_immutable_begin_replay(private_build, commit_writer_en
         source_digest=build.source_digest,
         recipe_digest=build.recipe_digest,
         schema_digest=build.schema_digest,
-        replay_key="build-1",
+        replay_key="product:native",
     )
     with commit_writer_engine.begin() as conn:
         assert begin_pdf_build(conn, **args) == build
@@ -239,17 +240,13 @@ def test_wrong_schema_and_immutable_begin_replay(private_build, commit_writer_en
 
 
 def test_reclaimed_attempt_requires_explicit_resume_and_preserves_progress(
-    private_build, commit_db_engine, commit_writer_engine
+    create_private_build, commit_db_engine, commit_writer_engine
 ):
-    build = private_build
+    build = create_private_build()
     with commit_writer_engine.begin() as conn:
         receipt = adopt_pdf_batch(conn, build, "before-expiry", {"native": [native_batch(build)]})
     with commit_db_engine.begin() as conn:
         conn.exec_driver_sql("SET LOCAL ROLE corpus_sem_publisher")
-        task = conn.execute(
-            text("SELECT run_id,method_config_id FROM ops.task WHERE id=:task"),
-            {"task": build.task_id},
-        ).one()
         conn.execute(
             text(
                 "UPDATE ops.task SET lease_until=clock_timestamp()-interval '1 second' "
@@ -260,23 +257,21 @@ def test_reclaimed_attempt_requires_explicit_resume_and_preserves_progress(
     with commit_writer_engine.begin() as conn, pytest.raises(DBAPIError, match="stale private"):
         inspect_pdf_progress(conn, build)
     with commit_writer_engine.begin() as conn:
-        claim = claim_tasks(
-            conn, run_id=task.run_id, config_id=task.method_config_id, holder="next-owner"
-        )[0]
-        assert claim.attempt == build.attempt + 1
+        claim = create_private_build.reclaim(conn, build, holder="next-owner")
+        assert claim["attempt"] == build.attempt + 1
     with commit_writer_engine.begin() as conn, pytest.raises(DBAPIError, match="explicit resume"):
         begin_pdf_build(
             conn,
             task_id=build.task_id,
-            attempt=claim.attempt,
+            attempt=claim["attempt"],
             holder="next-owner",
             source_digest=build.source_digest,
             recipe_digest=build.recipe_digest,
             schema_digest=build.schema_digest,
-            replay_key="build-1",
+            replay_key="product:native",
         )
     with commit_writer_engine.begin() as conn:
-        resumed = resume_pdf_build(conn, build, attempt=claim.attempt, holder="next-owner")
+        resumed = resume_pdf_build(conn, build, attempt=claim["attempt"], holder="next-owner")
         assert inspect_pdf_progress(conn, resumed) == (receipt,)
         assert (
             adopt_pdf_batch(conn, resumed, "before-expiry", {"native": [native_batch(resumed)]})

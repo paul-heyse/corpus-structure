@@ -1,4 +1,4 @@
-"""Native stage ownership keeps actual Run and DataRequest contexts distinct."""
+"""Native stage ownership authenticates actual declared requests and their sources."""
 
 from dataclasses import asdict
 
@@ -8,6 +8,7 @@ from sqlalchemy import text
 
 from corpus_structure.semantic.pdf_publication import PdfExecutionReceipt, PublishedPdfDocumentRef
 from semantic.pdf_staging_support import private_build as private_build
+from semantic.pdf_staging_support import create_private_build as create_private_build
 
 
 def test_pdf_sealed_publisher_receipt_retains_original_physical_custody():
@@ -33,7 +34,7 @@ def test_pdf_sealed_publisher_receipt_retains_original_physical_custody():
             PdfExecutionReceipt(publication, attempt, holder)
 
 
-def test_native_legacy_stage_context_authenticates_real_original_and_owner(
+def test_native_declared_stage_context_authenticates_real_original_and_owner(
     private_build, commit_db_engine
 ):
     with commit_db_engine.connect() as connection:
@@ -44,9 +45,15 @@ def test_native_legacy_stage_context_authenticates_real_original_and_owner(
             .mappings()
             .one()
         )
-        assert context["project_id"] == "p" and context["release_id"] == private_build.release_id
-        assert context["run_id"] > 0
-        assert context["request_id"] is None and context["generation"] is None
+        assert context["project_id"] == "pdf-staging-controls"
+        assert context["release_id"] == private_build.release_id
+        assert "run_id" not in context
+        assert context["request_id"] is not None and context["generation"] > 0
+        request = connection.execute(
+            text("SELECT operation_id,live_task_id,generation FROM ops.data_request WHERE id=:id"),
+            {"id": context["request_id"]},
+        ).one()
+        assert tuple(request) == ("source.pdf/capture", private_build.task_id, context["generation"])
         assert context["document_id"] > 0
         assert context["source_digest"] == private_build.source_digest
         assert (
@@ -80,53 +87,38 @@ def _unapproved_pdf_preparation_recipe():
     from corpus_structure.semantic.data_operation_model import MODEL_VERSION
     from semantic.data_operation_declaration_support import source_declaration
     from semantic.data_operation_kernel_support import STORAGE
-    from semantic.data_operation_original_support import OriginalSeedRecipe
-    from semantic.native_record_fixtures import RecordSourceRecipe
 
     declaration = source_declaration()
     # An otherwise valid derivation may name preparation, but preparation does
     # not authorize a native side effect or substitute for its captured factory.
     declaration["capabilities"]["preparation"] = "pdf-native"
-    return OriginalSeedRecipe(
-        RecordSourceRecipe(),
-        replace(
+    return replace(
             STORAGE,
             name="unapproved-pdf-preparation",
             declaration_content=json_bytes({"version": MODEL_VERSION, "operations": [declaration]}),
-        ),
     )
 
 
-@pytest.mark.parametrize(
-    "ddo_original_source",
-    [_unapproved_pdf_preparation_recipe()],
-    indirect=True,
-    ids=["derivation-without-pdf-effect"],
-)
-def test_native_pdf_preparation_does_not_authorize_private_original_writes(ddo_original_source):
+def test_native_pdf_preparation_does_not_authorize_private_original_writes(
+    create_private_build, commit_db_engine, commit_writer_engine
+):
     from native_refusals import native_refusal
 
     from semantic.data_operation_demand_support import attach, claim
+    from semantic.data_operation_kernel_support import admit_kernel
 
-    case = ddo_original_source
-    with case.admin.connect() as connection:
-        original = connection.execute(
-            text(
-                "SELECT d.key,a.content FROM kb.document d "
-                "JOIN kb.source_artifact a ON a.artifact_digest=d.content_hash WHERE d.id=:document"
-            ),
-            {"document": case.source.document},
-        ).one()
+    with commit_db_engine.begin() as connection:
+        kernel = admit_kernel(connection, _unapproved_pdf_preparation_recipe(), engine=commit_writer_engine)
     _, _, _, attached = attach(
-        case.kernel,
-        subject="original:" + original.key,
-        original_source=original.key,
+        kernel,
+        subject="original:" + create_private_build.key,
+        original_source=create_private_build.key,
         analyzed_scope={},
-        project_id=case.source.project_id,
+        project_id=create_private_build.project_id,
     )
-    fence = claim(case.kernel, attached)
+    fence = claim(kernel, attached)
     params = {"task": fence["task_id"], "attempt": fence["attempt"], "holder": fence["holder"]}
-    with case.admin.begin() as connection:
+    with commit_db_engine.begin() as connection:
         # Admission, demand, request and claimed task are genuine. The native
         # private boundary must independently refuse the missing effect authority.
         before = connection.execute(
@@ -136,7 +128,7 @@ def test_native_pdf_preparation_does_not_authorize_private_original_writes(ddo_o
             )
         ).one()
     with (
-        case.writer.begin() as connection,
+        commit_writer_engine.begin() as connection,
         native_refusal(
             "P0004",
             message="stale private PDF build owner/capability/support",
@@ -148,11 +140,11 @@ def test_native_pdf_preparation_does_not_authorize_private_original_writes(ddo_o
             text("SELECT ops.retain_pdf_original(:task,:attempt,:holder,:original,:recipe)"),
             {
                 **params,
-                "original": bytes(original.content),
+                "original": create_private_build.original,
                 "recipe": b'{"recipe":"forbidden"}',
             },
         )
-    with case.admin.connect() as connection:
+    with commit_db_engine.connect() as connection:
         after = connection.execute(
             text(
                 "SELECT (SELECT count(*) FROM ops.source_build),"

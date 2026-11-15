@@ -7,7 +7,6 @@ from pdf_acceptance_support import stage_complete_native
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
-from corpus_structure.semantic.operations import claim_tasks
 from corpus_structure.semantic.pdf_publication import (
     freeze_pdf_build,
     inspect_pdf_build,
@@ -21,6 +20,7 @@ from corpus_structure.semantic.pdf_staging import (
     resume_pdf_build,
 )
 from semantic.pdf_staging_support import private_build as private_build
+from semantic.pdf_staging_support import create_private_build as create_private_build
 
 
 def snapshot(engine, build):
@@ -61,19 +61,15 @@ def snapshot(engine, build):
 
 
 def test_frozen_reclaim_changes_owner_only_and_can_finish_same_snapshot(
-    private_build, commit_db_engine, commit_writer_engine, tmp_path
+    create_private_build, commit_db_engine, commit_writer_engine, tmp_path
 ):
-    build = private_build
+    build = create_private_build()
     stage_complete_native(commit_writer_engine, build, tmp_path)
     with commit_writer_engine.begin() as conn:
         frozen = freeze_pdf_build(conn, build, kind="native")
     before = snapshot(commit_db_engine, build)
     with commit_db_engine.begin() as conn:
         conn.exec_driver_sql("SET LOCAL ROLE corpus_sem_publisher")
-        task = conn.execute(
-            text("SELECT run_id,method_config_id FROM ops.task WHERE id=:task"),
-            {"task": build.task_id},
-        ).one()
         conn.execute(
             text("""
           UPDATE ops.task SET lease_until=clock_timestamp()-interval '1 second' WHERE id=:task
@@ -81,17 +77,15 @@ def test_frozen_reclaim_changes_owner_only_and_can_finish_same_snapshot(
             {"task": build.task_id},
         )
     with commit_writer_engine.begin() as conn:
-        claim = claim_tasks(
-            conn, run_id=task.run_id, config_id=task.method_config_id, holder="frozen-successor"
-        )[0]
-        assert claim.attempt == build.attempt + 1
-        resumed = resume_pdf_build(conn, build, attempt=claim.attempt, holder=claim.holder)
+        claim = create_private_build.reclaim(conn, build, holder="frozen-successor")
+        assert claim["attempt"] == build.attempt + 1
+        resumed = resume_pdf_build(conn, build, attempt=claim["attempt"], holder=claim["holder"])
         actual = inspect_pdf_build(
             conn,
             task_id=build.task_id,
-            attempt=claim.attempt,
-            holder=claim.holder,
-            replay_key="build-1",
+            attempt=claim["attempt"],
+            holder=claim["holder"],
+            replay_key="product:native",
         )
         assert actual is not None and actual.state == "frozen"
         assert actual.frozen == replace(frozen, build=resumed)
@@ -114,7 +108,7 @@ def test_frozen_reclaim_changes_owner_only_and_can_finish_same_snapshot(
         pytest.raises(DBAPIError, match="resume binding differs"),
         commit_writer_engine.begin() as conn,
     ):
-        resume_pdf_build(conn, resumed, attempt=claim.attempt, holder=claim.holder)
+        resume_pdf_build(conn, resumed, attempt=claim["attempt"], holder=claim["holder"])
 
 
 def test_resume_cannot_rebind_an_abandoned_build(private_build, commit_writer_engine):

@@ -8,15 +8,16 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
-from corpus_structure.ingest.pdf_section_views import published_section_drafts
+from corpus_structure.ingest.pdf_section_views import published_section_projections
 from corpus_structure.semantic.pdf_record_reader import published_record_reader
 from corpus_structure.semantic.product_reference import ProductReference
 from corpus_structure.semantic.releases import open_release
-from corpus_structure.semantic.source_views import load_source_view, store_source_view
+from corpus_structure.semantic.source_products import FrozenNativeSource
 from semantic.native_record_fixtures import publish_native_record_fixture
 from semantic.pdf_inline_reports_support import example as inline_report_example
 from semantic.pdf_staging_support import private_build as private_build
-from semantic.selected_source_native_support import deploy_selected, publish_selected
+from semantic.pdf_staging_support import create_private_build as create_private_build
+from semantic.selected_source_native_support import publish_selected
 
 
 def test_selected_body_closure_qualifies_actual_furniture_without_selecting_it(
@@ -35,21 +36,15 @@ def test_selected_body_closure_qualifies_actual_furniture_without_selecting_it(
         assert "#/texts/3" not in {row["pointer"] for row in rows}
         footer = reader.selected_native_items(("#/texts/3",))["#/texts/3"]
         assert footer["content_layer"] == "furniture"
-        document_id = conn.scalar(
-            text("SELECT unit_id FROM ops.task WHERE id=:task"),
-            dict(task=private_build.task_id),
-        )
-        (draft,) = published_section_drafts(
+        (draft,) = published_section_projections(
             reader,
-            document_id=document_id,
             selections=("Nested selected section",),
             membership="direct",
             scope=None,
-            consumer_release=private_build.release_id,
         )
         assert draft.text == "x=1\nx=1\ninside cell"
-        assert "#/texts/3" not in draft.items
-        assert "#/texts/3" not in draft.ancestors
+        assert "#/texts/3" not in {item["self_ref"] for item in draft.items}
+        assert "#/texts/3" not in {item["self_ref"] for item in draft.ancestors}
         assert [
             (piece["item_ref"], piece["start"], piece["end"])
             for piece in draft.pieces
@@ -57,50 +52,25 @@ def test_selected_body_closure_qualifies_actual_furniture_without_selecting_it(
         ] == [("#/texts/1", 0, 3), ("#/texts/2", 4, 7), ("#/tables/0", 8, 19)]
 
 
-def test_selected_pin_ancestry_source_view_replay_and_empty_array_scope(
-    private_build, commit_db_engine, commit_writer_engine, commit_reader_engine, tmp_path
+def test_selected_pin_ancestry_source_product_replay_and_empty_array_scope(
+    create_private_build, commit_writer_engine, commit_reader_engine, tmp_path
 ):
-    deploy_selected(commit_db_engine)
+    private_build = create_private_build()
     published = publish_selected(commit_writer_engine, private_build, tmp_path / "source")
-    with commit_writer_engine.begin() as conn:
-        task = conn.execute(
-            text("SELECT run_id,unit_id,attempt,claimed_by FROM ops.task WHERE id=:task"),
-            dict(task=private_build.task_id),
-        ).one()
-        reader = published_record_reader(
-            conn,
-            ProductReference(private_build.task_id, "selected", published.logical_digest),
-            projection_context=open_release(conn, private_build.release_id),
-        )
-        assert reader is not None
-        drafts = published_section_drafts(
-            reader,
-            document_id=task.unit_id,
-            selections=("Selected chapter",),
-            membership="direct",
-            scope=None,
-            consumer_release=private_build.release_id,
-        )
-        assert [draft.section_pointer for draft in drafts] == ["#/groups/1", "#/groups/2"]
-        for position, draft in enumerate(drafts):
-            parameters = dict(
-                run_id=task.run_id,
-                task_id=private_build.task_id,
-                attempt=task.attempt,
-                holder=task.claimed_by,
-                draft=draft,
-                position=position,
-            )
-            identity = store_source_view(conn, **parameters)
-            assert store_source_view(conn, **parameters) == identity
-            retained = load_source_view(conn, identity, analysis=False)
-            assert retained.text == draft.text
-            assert retained.ref.native_product == draft.native_product
-            placement = conn.execute(
-                text("SELECT native_build_id,native_revision_id FROM kb.source_view WHERE id=:id"),
-                dict(id=identity),
-            ).one()
-            assert tuple(placement) == (private_build.build_id, private_build.build_id)
+    create_private_build.complete(private_build, published)
+    first = create_private_build.selected_sources(private_build, sections=("Selected chapter",))
+    replayed = create_private_build.selected_sources(private_build, sections=("Selected chapter",))
+    assert [(row["product_id"], row["member_id"], row["body"]) for row in replayed] == [
+        (row["product_id"], row["member_id"], row["body"]) for row in first
+    ]
+    values = [FrozenNativeSource.acquire(create_private_build.kernel.prepared, row["body"]).value for row in first]
+    by_pointer = {value["source"]["section_pointer"]: value for value in values}
+    assert set(by_pointer) == {"#/groups/1", "#/groups/2"}
+    assert by_pointer["#/groups/2"]["text"] == "x=1\nx=1\ninside cell"
+    for row, value in zip(first, values, strict=True):
+        assert row["original_source"] == value["source"]["document"] == create_private_build.key
+        assert row["subject_definition"] == "original-source-view"
+        assert value["source"]["membership"] == "direct"
     with commit_reader_engine.connect() as conn:
         context = open_release(conn, private_build.release_id)
         reader = published_record_reader(
@@ -308,50 +278,34 @@ def test_selected_reports_use_valid_original_parent_candidate_geometry_and_prose
 
 
 def test_default_residual_body_read_publish_and_refusal_controls(
-    private_build,
-    commit_db_engine,
+    create_private_build,
     commit_writer_engine,
     commit_reader_engine,
     tmp_path,
 ):
-    from dataclasses import replace
-
-    deploy_selected(commit_db_engine)
+    private_build = create_private_build()
     published = publish_selected(commit_writer_engine, private_build, tmp_path / "root-source")
     reference = ProductReference(private_build.task_id, "selected", published.logical_digest)
-    with commit_writer_engine.begin() as conn:
-        task = conn.execute(
-            text("SELECT run_id,unit_id,attempt,claimed_by FROM ops.task WHERE id=:task"),
-            dict(task=private_build.task_id),
-        ).one()
+    with commit_reader_engine.connect() as conn:
         reader = published_record_reader(
             conn, reference, projection_context=open_release(conn, private_build.release_id)
         )
         assert reader is not None
-        drafts = published_section_drafts(
+        drafts = published_section_projections(
             reader,
-            document_id=task.unit_id,
             selections=(),
             membership="direct",
             scope=None,
-            consumer_release=private_build.release_id,
         )
         body = next(d for d in drafts if d.section_pointer == "#/body")
         assert body.text == "omitted sibling body" and body.membership == "direct"
-        assert body.items == ("#/body", "#/texts/0")
-        assert all("#/texts/0" not in d.items for d in drafts if d.section_pointer != "#/body")
-        identity = store_source_view(
-            conn,
-            run_id=task.run_id,
-            task_id=private_build.task_id,
-            attempt=task.attempt,
-            holder=task.claimed_by,
-            draft=body,
-            position=0,
-        )
-    with commit_reader_engine.connect() as conn:
-        selected = load_source_view(conn, identity)
-        assert selected.text == "omitted sibling body" and selected.ref.section_pointer == "#/body"
+        assert tuple(item["self_ref"] for item in body.items) == ("#/body", "#/texts/0")
+        assert all("#/texts/0" not in {item["self_ref"] for item in d.items} for d in drafts if d.section_pointer != "#/body")
+    create_private_build.complete(private_build, published)
+    values = create_private_build.selected_sources(private_build)
+    selected = next(row["body"] for row in values if row["body"]["source"]["section_pointer"] == "#/body")
+    assert selected["text"] == "omitted sibling body"
+    assert selected["source"]["membership"] == "direct"
     for pointer, membership in (
         ("#/body", "descendants"),
         ("#/texts/0", "direct"),
@@ -366,16 +320,10 @@ def test_default_residual_body_read_publish_and_refusal_controls(
             )
             assert reader is not None
             reader.section_nodes(pointer, membership)
-    with (
-        commit_writer_engine.begin() as conn,
-        pytest.raises(DBAPIError, match="direct residual body scope"),
-    ):
-        store_source_view(
-            conn,
-            run_id=task.run_id,
-            task_id=private_build.task_id,
-            attempt=task.attempt,
-            holder=task.claimed_by,
-            draft=replace(body, key=body.key + ":invalid-descendants", membership="descendants"),
-            position=1,
-        )
+    # The declared projector always emits the authentic direct residual scope,
+    # even when ordinary sections use descendant membership. The native reader
+    # above independently refuses a body/descendants selection.
+    descendants = create_private_build.selected_sources(private_build, membership="descendants")
+    residual = next(row["body"] for row in descendants if row["body"]["source"]["section_pointer"] == "#/body")
+    assert residual["source"]["membership"] == "direct"
+    assert residual["text"] == "omitted sibling body"

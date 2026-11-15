@@ -16,6 +16,7 @@ from corpus_structure.semantic.pdf_publication import (
 )
 from corpus_structure.semantic.pdf_record_identity import structured_payload_scalar
 from semantic.pdf_staging_support import private_build as private_build
+from semantic.pdf_staging_support import create_private_build as create_private_build
 
 
 def test_payload_forward_state_retains_previous_managed_objects():
@@ -125,7 +126,7 @@ def test_final_validation_freezes_projection_membership(
     private_build, commit_writer_engine, commit_db_engine, tmp_path
 ):
     from corpus_structure.semantic.releases import open_release
-    from corpus_structure.semantic.runtime_binding_store import runtime_binding_for_run
+    from corpus_structure.semantic.runtime_binding_store import runtime_binding_for_release
 
     build = private_build
     stage_complete_native(commit_writer_engine, build, tmp_path)
@@ -141,11 +142,12 @@ def test_final_validation_freezes_projection_membership(
         frozen=frozen.frozen_digest,
     )
     with commit_db_engine.begin() as conn:
-        run_id = conn.execute(
-            text("SELECT run_id FROM ops.task WHERE id=:task"), params
+        runtime_id = conn.execute(
+            text("SELECT r.runtime_id FROM ops.task t JOIN ops.data_request r "
+                 "ON r.id=t.data_request_id WHERE t.id=:task"), params
         ).scalar_one()
-        runtime = runtime_binding_for_run(conn, run_id, open_release(conn, build.release_id))
-        single_source = runtime.input("pdf/publication.py").content
+        runtime = runtime_binding_for_release(conn, open_release(conn, build.release_id), runtime_id)
+        single_source = runtime.input("pdf-domain/native/actions.yaml").content
         conn.exec_driver_sql("SET LOCAL ROLE corpus_sem_publisher")
         projection = conn.execute(
             text(
@@ -194,11 +196,9 @@ def test_final_validation_freezes_projection_membership(
 
 
 def test_projection_finalization_serializes_on_build_without_blocking_heartbeat(
-    private_build, commit_writer_engine, commit_db_engine, tmp_path
+    create_private_build, commit_writer_engine, commit_db_engine, tmp_path
 ):
-    from corpus_structure.semantic.operations import renew_claim
-
-    build = private_build
+    build = create_private_build()
     stage_complete_native(commit_writer_engine, build, tmp_path)
     with commit_writer_engine.begin() as conn:
         frozen = freeze_pdf_build(conn, build, kind="native")
@@ -232,6 +232,4 @@ def test_projection_finalization_serializes_on_build_without_blocking_heartbeat(
                 conn.execute(text(statement), params)
         with commit_writer_engine.begin() as heartbeat:
             heartbeat.exec_driver_sql("SET LOCAL lock_timeout='100ms'")
-            renew_claim(
-                heartbeat, task_id=build.task_id, attempt=build.attempt, holder=build.holder
-            )
+            assert create_private_build.renew(heartbeat, build)["state"] == "renewed"

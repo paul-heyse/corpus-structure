@@ -125,9 +125,6 @@ def test_compatible_predecessor_reuses_exact_access_for_changed_companion(
     create_private_build, commit_writer_engine, commit_db_engine, monkeypatch, tmp_path
 ):
     from corpus_structure.semantic import _pdf_native_calls as calls
-    from corpus_structure.semantic._operation_ids import RunId, TaskAttempt, TaskId
-    from corpus_structure.semantic.operations import complete_task, seal_cut
-    from corpus_structure.semantic.releases import load_release
 
     def publish_fixture(build, directory, cell_coverage):
         stage_complete_native(
@@ -138,29 +135,15 @@ def test_compatible_predecessor_reuses_exact_access_for_changed_companion(
             prepare_pdf_build(conn, frozen)
         outcome = validate_pdf_build(commit_writer_engine, frozen)
         with commit_writer_engine.begin() as conn:
-            seal_pdf_build(conn, frozen, "native")
-        return outcome
+            publication = seal_pdf_build(conn, frozen, "native")
+        return outcome, publication
 
-    predecessor = create_private_build()
-    before = publish_fixture(predecessor, tmp_path / "before", "unknown")
-    with commit_writer_engine.begin() as conn:
-        run = RunId(
-            conn.execute(
-                text("SELECT run_id FROM ops.task WHERE id=:task"), {"task": predecessor.task_id}
-            ).scalar_one()
-        )
-        complete_task(
-            conn,
-            task_id=TaskId(predecessor.task_id),
-            attempt=TaskAttempt(predecessor.attempt),
-            holder=predecessor.holder,
-            prepared=load_release(conn, predecessor.release_id),
-            observations=[],
-            outcome="empty",
-        )
-        seal_cut(conn, run, "validated-predecessor", final=True)
-    current = create_private_build()
-    after = publish_fixture(current, tmp_path / "after", "partial")
+    predecessor = create_private_build(case="unknown-cell-coverage")
+    before, predecessor_publication = publish_fixture(predecessor, tmp_path / "before", "unknown")
+    receipt = create_private_build.complete(predecessor, predecessor_publication)
+    assert receipt["derivation_id"] and receipt["receipt_id"]
+    current = create_private_build(case="partial-cell-coverage")
+    after, _ = publish_fixture(current, tmp_path / "after", "partial")
     assert after.logical_digest != before.logical_digest
     assert after.contract_digest == before.contract_digest
     with commit_db_engine.connect() as conn:
@@ -191,8 +174,8 @@ def test_compatible_predecessor_reuses_exact_access_for_changed_companion(
         adopt(conn, rows=rows, **scope)
 
     monkeypatch.setattr(calls, "adopt_pdf_access_batch", integer_spelling)
-    respelled = create_private_build()
-    lexical_delta = publish_fixture(respelled, tmp_path / "respelled", "partial")
+    respelled = create_private_build(case="integer-region-coordinates")
+    lexical_delta, _ = publish_fixture(respelled, tmp_path / "respelled", "partial")
     assert lexical_delta.logical_digest == after.logical_digest
     assert lexical_delta.contract_digest != after.contract_digest
     with commit_db_engine.connect() as conn:
@@ -508,10 +491,8 @@ def test_large_relation_publishes_ordered_endpoints_and_exact_evidence(
         ]
 
 
-def test_preparation_does_not_hold_task_lease_lock(private_build, commit_writer_engine, tmp_path):
-    from corpus_structure.semantic.operations import renew_claim
-
-    build = private_build
+def test_preparation_does_not_hold_task_lease_lock(create_private_build, commit_writer_engine, tmp_path):
+    build = create_private_build()
     stage_complete_native(commit_writer_engine, build, tmp_path)
     with commit_writer_engine.begin() as conn:
         frozen = freeze_pdf_build(conn, build, kind="native")
@@ -521,22 +502,18 @@ def test_preparation_does_not_hold_task_lease_lock(private_build, commit_writer_
         # must proceed on its own connection rather than wait for publication.
         with commit_writer_engine.begin() as heartbeat:
             heartbeat.exec_driver_sql("SET LOCAL lock_timeout='500ms'")
-            renew_claim(
-                heartbeat, task_id=build.task_id, attempt=build.attempt, holder=build.holder
-            )
+            assert create_private_build.renew(heartbeat, build)["state"] == "renewed"
 
 
 @pytest.mark.parametrize("concurrent_append", [False, True])
 def test_freeze_hashing_releases_task_lease_and_rechecks_append_inventory(
-    private_build, commit_writer_engine, commit_db_engine, tmp_path, concurrent_append
+    create_private_build, commit_writer_engine, commit_db_engine, tmp_path, concurrent_append
 ):
     from concurrent.futures import ThreadPoolExecutor
     from threading import Event
     from time import monotonic, sleep
 
-    from corpus_structure.semantic.operations import renew_claim
-
-    build = private_build
+    build = create_private_build()
     stage_complete_native(commit_writer_engine, build, tmp_path)
     entered = Event()
     backend = []
@@ -577,9 +554,7 @@ def test_freeze_hashing_releases_task_lease_and_rechecks_append_inventory(
                 sleep(0.01)
             with commit_writer_engine.begin() as heartbeat:
                 heartbeat.exec_driver_sql("SET LOCAL lock_timeout='500ms'")
-                renew_claim(
-                    heartbeat, task_id=build.task_id, attempt=build.attempt, holder=build.holder
-                )
+                assert create_private_build.renew(heartbeat, build)["state"] == "renewed"
             if concurrent_append:
                 with commit_writer_engine.begin() as appender:
                     adopt_pdf_companion_batch(
