@@ -16,7 +16,8 @@ from hashlib import sha256
 from types import MappingProxyType
 from typing import Any, Literal
 
-import networkx as nx
+from .graph_runtime import nx
+from .graph_topology import rooted_closure, strong_components, ordered_nodes
 
 from .data_operation_model import SubjectContext
 from .identity import canonical_bytes
@@ -234,7 +235,7 @@ class SemanticGraph:
                 raise ValueError("semantic edge multiplicity must be a positive integer")
             edges.append(edge)
         self._edges = tuple(sorted(edges, key=lambda edge: canonical_bytes(edge.record())))
-        graph = nx.DiGraph()
+        graph = nx.DiGraph(backend="networkx")
         graph.add_nodes_from(sorted(self._nodes))
         graph.add_edges_from((edge.source, edge.target) for edge in self._edges)
         self._graph = nx.freeze(graph)
@@ -257,16 +258,11 @@ class SemanticGraph:
     ) -> tuple[str, ...]:
         if direction not in {"dependencies", "dependents"}:
             raise ValueError(f"unknown graph direction {direction!r}")
-        selected: set[str] = set()
+        roots = tuple(roots)
         for root in roots:
             if root not in self._nodes:
                 raise ValueError(f"unknown semantic root {root!r}")
-            selected.add(root)
-            if direction == "dependencies":
-                selected.update(nx.descendants(self._graph, root, backend="networkx"))
-            else:
-                selected.update(nx.ancestors(self._graph, root, backend="networkx"))
-        return tuple(sorted(selected))
+        return tuple(sorted(rooted_closure(self._graph, roots, reverse=direction == "dependents")))
 
     def direct_dependencies(self, owner: str) -> tuple[str, ...]:
         if owner not in self._nodes:
@@ -276,7 +272,7 @@ class SemanticGraph:
     def _projection(self, relations: set[str] | None) -> nx.DiGraph:
         if relations is None:
             return self._graph
-        graph = nx.DiGraph()
+        graph = nx.DiGraph(backend="networkx")
         graph.add_nodes_from(self.node_ids)
         graph.add_edges_from(
             (edge.source, edge.target) for edge in self._edges if edge.relation in relations
@@ -287,9 +283,7 @@ class SemanticGraph:
         return tuple(
             sorted(
                 tuple(sorted(component))
-                for component in nx.strongly_connected_components(
-                    self._projection(relations), backend="networkx"
-                )
+                for component in strong_components(self._projection(relations))
             )
         )
 
@@ -319,11 +313,7 @@ class SemanticGraph:
     def dependency_order(self) -> tuple[str, ...]:
         """Prerequisites first; recursive reference graphs have no such order."""
         try:
-            return tuple(
-                nx.lexicographical_topological_sort(
-                    self._graph.reverse(copy=False), key=str, backend="networkx"
-                )
-            )
+            return ordered_nodes(self._graph, reverse=True, key=str)
         except nx.NetworkXUnfeasible as exc:
             raise ValueError("cyclic graph has no dependency order") from exc
 
