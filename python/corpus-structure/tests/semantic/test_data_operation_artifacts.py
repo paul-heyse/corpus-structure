@@ -10,11 +10,7 @@ from typing import Any
 
 import pytest
 
-from corpus_structure.semantic.contracts import (
-    OperationCallBinding,
-    OperationFieldBinding,
-    OperationFieldType,
-)
+from corpus_structure.semantic.native_call_contracts import OperationCallBinding, OperationFieldBinding, OperationFieldType
 from corpus_structure.semantic.data_operation_artifacts import compile_data_operation_artifacts
 from corpus_structure.semantic.data_operation_compilation import compile_data_operations
 from corpus_structure.semantic.data_operation_model import MODEL_VERSION

@@ -23,7 +23,8 @@ def generated_source() -> str:
     from dataclasses import asdict
     from hashlib import sha256
 
-    from .contracts import OperationFieldBinding, compile_execution_model, trusted_execution_inputs
+    from .native_call_contracts import OperationFieldBinding
+    from .contracts import compile_execution_model, trusted_execution_inputs
     from .identity import canonical_bytes
     from .operation_call_generation import _PRIMITIVES, source_bindings
 

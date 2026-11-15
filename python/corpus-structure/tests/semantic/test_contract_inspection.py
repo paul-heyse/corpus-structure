@@ -235,12 +235,7 @@ def test_class_valued_result_keeps_physical_kind_distinct(monkeypatch):
     from types import SimpleNamespace
 
     from corpus_structure.semantic import contracts
-    from corpus_structure.semantic.contracts import (
-        OperationCallBinding,
-        OperationFieldBinding,
-        OperationFieldType,
-        OperationRecordBinding,
-    )
+    from corpus_structure.semantic.native_call_contracts import OperationCallBinding, OperationFieldBinding, OperationFieldType, OperationRecordBinding
 
     prepared = replace(release(), execution_model_id="execution:test")
     field = OperationFieldBinding(

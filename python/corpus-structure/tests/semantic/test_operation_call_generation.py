@@ -13,11 +13,8 @@ from pydantic import ValidationError
 
 from corpus_structure.core.vocab import TaskUnitType
 from corpus_structure.semantic import _operation_calls
-from corpus_structure.semantic.contracts import (
-    OperationFieldBinding,
-    compile_execution_model,
-    trusted_execution_inputs,
-)
+from corpus_structure.semantic.native_call_contracts import OperationFieldBinding
+from corpus_structure.semantic.contracts import compile_execution_model, trusted_execution_inputs
 from corpus_structure.semantic.metadata import metadata
 from corpus_structure.semantic.operation_call_generation import (
     generated_source,

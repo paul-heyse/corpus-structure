@@ -166,7 +166,8 @@ def source_bindings(model, inputs):
     """Compile qualified fixed variants from explicit field references and closed sources."""
     from corpus_structure.schema.model import ci_annotations
 
-    from .contracts import OperationFieldBinding, OperationFieldType, _fail
+    from .native_call_contracts import OperationFieldBinding, OperationFieldType
+    from .contracts import _fail
 
     view = _source_view(inputs)
     # Reuse the identifier owned by an explicit physical correspondence, including
@@ -359,7 +360,8 @@ def validate_call_bindings(model, inputs):
     """Compile qualified fixed variants from explicit field references and closed sources."""
     from corpus_structure.schema.model import ci_annotations
 
-    from .contracts import OperationRecordBinding, _fail
+    from .native_call_contracts import OperationRecordBinding
+    from .contracts import _fail
 
     view, semantic_type, model_field, resolve = source_bindings(model, inputs)
     aliases, identifiers, result_shapes = {}, set(), {}

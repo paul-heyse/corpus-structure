@@ -11,7 +11,7 @@ from dataclasses import asdict, dataclass, replace
 from hashlib import sha256
 from pathlib import Path
 
-from .contracts import OperationCallBinding, OperationFieldBinding
+from .native_call_contracts import OperationCallBinding, OperationFieldBinding
 from .data_operation_identity import ENCODING_VERSION
 from .data_operation_model import EffectiveDataOperationModel, EffectiveOperation, OperationRole
 from .identity import canonical_bytes

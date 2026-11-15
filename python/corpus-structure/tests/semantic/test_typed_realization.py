@@ -192,11 +192,8 @@ def test_selected_columns_reuse_nominal_anchors_and_keep_unbound_values_generic(
 def test_explicit_type_correspondence_refuses_invalid_sources(target, message):
     import yaml
 
-    from corpus_structure.semantic.contracts import (
-        OperationFieldBinding,
-        compile_execution_model,
-        trusted_execution_inputs,
-    )
+    from corpus_structure.semantic.native_call_contracts import OperationFieldBinding
+    from corpus_structure.semantic.contracts import compile_execution_model, trusted_execution_inputs
     from corpus_structure.semantic.operation_call_generation import source_bindings
     from corpus_structure.semantic.types import PreparationError, SourceArtifact
 
@@ -270,11 +267,8 @@ def test_anchored_correspondence_is_validated_during_compilation(target, message
 
 
 def test_type_correspondence_keeps_local_nullable_and_constraints():
-    from corpus_structure.semantic.contracts import (
-        OperationFieldBinding,
-        compile_execution_model,
-        trusted_execution_inputs,
-    )
+    from corpus_structure.semantic.native_call_contracts import OperationFieldBinding
+    from corpus_structure.semantic.contracts import compile_execution_model, trusted_execution_inputs
     from corpus_structure.semantic.operation_call_generation import source_bindings
 
     def mutate(model):
@@ -296,11 +290,8 @@ def test_type_correspondence_keeps_local_nullable_and_constraints():
 
 
 def test_type_correspondence_rejects_conflicting_closed_members():
-    from corpus_structure.semantic.contracts import (
-        OperationFieldBinding,
-        compile_execution_model,
-        trusted_execution_inputs,
-    )
+    from corpus_structure.semantic.native_call_contracts import OperationFieldBinding
+    from corpus_structure.semantic.contracts import compile_execution_model, trusted_execution_inputs
     from corpus_structure.semantic.operation_call_generation import source_bindings
     from corpus_structure.semantic.types import PreparationError
 
@@ -326,11 +317,8 @@ def test_type_correspondence_rejects_conflicting_closed_members():
 
 
 def test_type_correspondence_cannot_hide_behind_value_projection():
-    from corpus_structure.semantic.contracts import (
-        OperationFieldBinding,
-        compile_execution_model,
-        trusted_execution_inputs,
-    )
+    from corpus_structure.semantic.native_call_contracts import OperationFieldBinding
+    from corpus_structure.semantic.contracts import compile_execution_model, trusted_execution_inputs
     from corpus_structure.semantic.operation_call_generation import source_bindings
     from corpus_structure.semantic.types import PreparationError
 
@@ -372,11 +360,8 @@ def test_generators_cannot_bypass_invalid_anchored_correspondence(consumer):
 
 
 def test_correspondence_preserves_value_projection_lineage_and_rejects_collection_mismatch():
-    from corpus_structure.semantic.contracts import (
-        OperationFieldBinding,
-        compile_execution_model,
-        trusted_execution_inputs,
-    )
+    from corpus_structure.semantic.native_call_contracts import OperationFieldBinding
+    from corpus_structure.semantic.contracts import compile_execution_model, trusted_execution_inputs
     from corpus_structure.semantic.operation_call_generation import source_bindings
     from corpus_structure.semantic.types import PreparationError
 

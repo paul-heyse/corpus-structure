@@ -22,7 +22,7 @@ from corpus_structure.semantic._data_operation_wire import (
 )
 
 from ._data_operation_wire import DataOperationCalls
-from .contracts import OperationCallBinding, OperationFieldBinding, OperationFieldType
+from .native_call_contracts import OperationCallBinding, OperationFieldBinding, OperationFieldType
 from .data_operation_json import ContextJSONB, json_bytes, json_context_value, wire_json_loads
 from .data_operation_model import MODEL_VERSION
 from .identity import canonical_bytes
@@ -115,6 +115,10 @@ def native_protocol_sources(
         ),
         SourceArtifact("native/data-operation-storage.py", Path(__file__).read_bytes()),
         SourceArtifact(
+            "native/native-call-contracts.py",
+            Path(__file__).with_name("native_call_contracts.py").read_bytes(),
+        ),
+        SourceArtifact(
             "native/data-operation-member-contracts.py",
             Path(__file__).with_name("data_operation_member_contracts.py").read_bytes(),
         ),
@@ -172,6 +176,8 @@ def _captured(sources) -> dict[str, bytes]:
         "native/data-operation-original-reference.json",
         "native/data-operation-support.py",
     }
+    if b"native_call_contracts" in result.get("native/data-operation-storage.py", b""):
+        required.add("native/native-call-contracts.py")
     if b"data_operation_kind_refinements" in result.get("native/data-operation-storage.py", b""):
         required.add("native/data-operation-kind-refinements.py")
     # Retained predecessor sources keep their original interpretation. Once the

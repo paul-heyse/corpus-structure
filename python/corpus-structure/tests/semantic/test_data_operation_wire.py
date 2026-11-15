@@ -120,11 +120,7 @@ def test_generated_boundaries_execute_the_captured_nested_wire_contract(monkeypa
 
     from pydantic import ValidationError
 
-    from corpus_structure.semantic.contracts import (
-        OperationCallBinding,
-        OperationFieldBinding,
-        OperationFieldType,
-    )
+    from corpus_structure.semantic.native_call_contracts import OperationCallBinding, OperationFieldBinding, OperationFieldType
     from corpus_structure.semantic.data_operation_artifacts import compile_data_operation_artifacts
 
     model = wire_model(captured())

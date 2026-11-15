@@ -8,6 +8,8 @@ requiring ``execution.lifecycle.v1`` does not assert that it has been deployed.
 
 from __future__ import annotations
 
+from . import native_call_contracts as native_calls
+
 import json
 from collections.abc import Generator, Mapping
 from contextlib import contextmanager
@@ -193,6 +195,7 @@ POSTGRESQL_IMPLEMENTATION_SOURCES = (
     ("capture/comparison-projection.py", "semantic/comparison_projection.py"),
     ("invocation/invariant-failures.py", "semantic/invariant_failures.py"),
     ("invocation/operation-call-generation.py", "semantic/operation_call_generation.py"),
+    ("invocation/native-call-contracts.py", "semantic/native_call_contracts.py"),
     ("invocation/operation-calls.py", "semantic/_operation_calls.py"),
     ("invocation/operation-identifiers.py", "semantic/_operation_ids.py"),
     ("capture/directions.sql", "semantic/sql/directions.sql"),
@@ -633,59 +636,6 @@ class ResultDimension:
 
 
 @dataclass(frozen=True)
-class OperationFieldType:
-    kind: str
-    nullable: bool
-    multivalued: bool
-    enum_values: tuple[str, ...] = ()
-    model_class: str | None = None
-
-
-@dataclass(frozen=True)
-class OperationFieldBinding:
-    name: str
-    source: str
-    nullable: bool
-    native_parameter: str | None = None
-    native_field: str | None = None
-    native_type: Literal["integer"] | None = None
-    multivalued: bool = False
-    semantic_type: str | None = None
-    default_json: str | None = None
-    transform: Literal["identity", "task_unit_type", "held_progress"] | None = None
-    resolved: OperationFieldType | None = None
-    # Explicit schema-backed lowering; the physical transport remains json_payload.
-    wire_schema: str | None = None
-    wire_nominals: tuple[tuple[str, str], ...] = ()
-
-
-@dataclass(frozen=True)
-class OperationRecordBinding:
-    name: str
-    fields: tuple[OperationFieldBinding, ...]
-
-
-@dataclass(frozen=True)
-class OperationCallBinding:
-    id: str
-    symbol: str
-    parameters: tuple[OperationFieldBinding, ...]
-    result_class: str | None = field(default=None, kw_only=True)
-    result_fields: tuple[OperationFieldBinding, ...]
-    cardinality: Literal["many", "one", "optional", "none"]
-    ordered: bool
-    source_digest: str | None = None
-    result_mode: Literal["table", "scalar", "void", "json"] = "table"
-    result_source: str | None = None
-    requires_context: bool = False
-    order_by: tuple[str, ...] = ()
-    records: tuple[OperationRecordBinding, ...] = ()
-    batch: bool = False
-    json_read: Literal["native", "json-text-v1"] = "native"
-    backend: Literal["native", "core"] = "native"
-
-
-@dataclass(frozen=True)
 class OperationContract:
     id: str
     inputs: tuple[str, ...]
@@ -703,10 +653,10 @@ class OperationContract:
 
     result_dimensions: tuple[ResultDimension, ...] = ()
     policy_version: str | None = None
-    calls: tuple[OperationCallBinding, ...] = ()
+    calls: tuple[native_calls.OperationCallBinding, ...] = ()
 
     @property
-    def call(self) -> OperationCallBinding | None:
+    def call(self) -> native_calls.OperationCallBinding | None:
         """Convenience for a single fixed variant; calls is the sole stored contract."""
         return self.calls[0] if len(self.calls) == 1 else None
 
