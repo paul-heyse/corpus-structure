@@ -41,7 +41,9 @@ from corpus_structure.cli.target import (
     current_selection,
     selection_summary,
 )
+from corpus_structure.schema.source_migrations import ConsumerOutcome
 from corpus_structure.semantic.migration_chain import NativeMigrationBase
+from corpus_structure.semantic.source_comparison import EffectiveChangeComparison
 from corpus_structure.semantic.storage_target import StorageTarget
 from corpus_structure.settings import DeploymentProfile
 
@@ -124,6 +126,30 @@ class PreviewDiscoveryReport(BaseModel):
     preview_id: str
     status: Literal["available", "unavailable"]
     discovery: dict[str, JsonValue] | None
+
+
+class SourceMigrationStatus(BaseModel):
+    ordinal: int
+    ready: bool
+    total_consumers: int
+
+
+class SourceConsumerReport(BaseModel):
+    migration: int
+    outcome: ConsumerOutcome
+
+
+class PreviewSourcesReport(BaseModel):
+    preview_id: str
+    migrations: tuple[SourceMigrationStatus, ...]
+    outcomes: tuple[SourceConsumerReport, ...]
+    comparison: EffectiveChangeComparison | None
+    total_outcomes: int
+    total_changes: int
+    total_breakages: int
+    total_unknowns: int
+    next_after: int | None
+    changed_paths: tuple[str, ...]
 
 
 class PatchHunk(BaseModel):
@@ -599,7 +625,7 @@ def _discovery_view(report: PreviewDiscoveryReport) -> Table:
     discovery = report.discovery
     if discovery is None:
         return report_fields(("Preview", report.preview_id), ("Discovery", report.status))
-    hits = discovery.get("ast")
+    hits = discovery.get("candidates")
     selected = []
     if isinstance(hits, list):
         selected = [
@@ -620,7 +646,8 @@ def _discovery_view(report: PreviewDiscoveryReport) -> Table:
             else "unknown",
         ),
         ("Candidate examples", "\n".join(selected) or "none displayed"),
-        ("AST-grep", discovery.get("ast_grep_status", "unknown")),
+        ("Discovery backend", discovery.get("backend", "unknown")),
+        ("Examined scope", discovery.get("coverage", "unknown")),
         (
             "Semantic coverage",
             coverage.get("status", "unknown") if isinstance(coverage, dict) else "unknown",
@@ -640,15 +667,24 @@ def inspect_preview(
     ctx: typer.Context,
     preview_id: Annotated[str, typer.Argument(metavar="PREVIEW_ID")],
     view: Annotated[
-        Literal["effects", "patch", "discovery", "sql"],
-        typer.Option(help="Select effects, patch hunks, discovery or SQL change entries."),
+        Literal["effects", "patch", "discovery", "sources", "sql"],
+        typer.Option(
+            help="Select effects, patch hunks, source migrations, discovery or SQL change entries."
+        ),
     ] = "effects",
     limit: Annotated[
         int | None,
-        typer.Option(min=1, max=20, help="Maximum patch hunks or SQL change entries; default 8."),
+        typer.Option(
+            min=1,
+            max=20,
+            help="Maximum patch hunks, source inventory rows or SQL entries; default 8.",
+        ),
     ] = None,
     after_hunk: Annotated[int, typer.Option(min=0, help="Continue after this hunk ordinal.")] = 0,
-    after: Annotated[int, typer.Option(min=0, help="Continue SQL detail after this ordinal.")] = 0,
+    after: Annotated[
+        int,
+        typer.Option(min=0, help="Continue source inventories or SQL detail after this ordinal."),
+    ] = 0,
     stdout: Annotated[
         bool, typer.Option(help="Write the exact safe patch bytes to stdout.")
     ] = False,
@@ -661,9 +697,9 @@ def inspect_preview(
 
     if stdout and (view != "patch" or json_ or limit is not None or after_hunk):
         raise typer.BadParameter("--stdout requires --view patch without JSON or hunk selection")
-    if view not in {"patch", "sql"} and (limit is not None or after_hunk):
+    if view not in {"patch", "sql", "sources"} and (limit is not None or after_hunk):
         raise typer.BadParameter("hunk selection requires --view patch")
-    if (after and view != "sql") or (after_hunk and view == "sql"):
+    if (after and view not in {"sql", "sources"}) or (after_hunk and view in {"sql", "sources"}):
         raise typer.BadParameter("SQL paging and patch-hunk paging are separate")
     with refusal(json_, expected=(ResultError, ModelError, OSError, ValueError)):
         store = result_store(ctx)
@@ -715,6 +751,52 @@ def inspect_preview(
                 ),
                 json=json_,
                 render=_patch_view,
+            )
+            return
+        if view == "sources":
+            page_size = limit or 8
+            end = after + page_size
+            outcomes = tuple(
+                SourceConsumerReport(migration=index, outcome=outcome)
+                for index, migration in enumerate(staged.source_migrations, 1)
+                for outcome in migration.outcomes
+            )
+            comparison = staged.source_comparison
+            counts = (
+                len(outcomes),
+                len(comparison.changes) if comparison else 0,
+                len(comparison.breakages) if comparison else 0,
+                len(comparison.unknowns) if comparison else 0,
+            )
+            emit(
+                PreviewSourcesReport(
+                    preview_id=preview_id,
+                    migrations=tuple(
+                        SourceMigrationStatus(
+                            ordinal=index,
+                            ready=migration.ready,
+                            total_consumers=len(migration.outcomes),
+                        )
+                        for index, migration in enumerate(staged.source_migrations, 1)
+                    ),
+                    outcomes=outcomes[after:end],
+                    comparison=comparison.model_copy(
+                        update={
+                            "changes": comparison.changes[after:end],
+                            "breakages": comparison.breakages[after:end],
+                            "unknowns": comparison.unknowns[after:end],
+                        }
+                    )
+                    if comparison
+                    else None,
+                    total_outcomes=counts[0],
+                    total_changes=counts[1],
+                    total_breakages=counts[2],
+                    total_unknowns=counts[3],
+                    next_after=end if end < max(counts) else None,
+                    changed_paths=paths,
+                ),
+                json=json_,
             )
             return
         discovery_status: Literal["available", "unavailable"] = (

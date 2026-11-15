@@ -1,7 +1,9 @@
 """Independent source expectations and existing file-publication custody."""
 
+from collections.abc import Generator
 from copy import deepcopy
 from hashlib import sha256
+from pathlib import Path
 
 import pytest
 from model_change_support import model_checkout as model_checkout
@@ -430,3 +432,200 @@ def test_call_context_refuses_owned_callable_value_escape(tmp_path):
     )
     preview = prepare_source_migration(tmp_path, request)
     assert not preview.ready
+
+
+def test_authored_body_update_compiles_drift_without_renaming(model_checkout):
+    root, _ = model_checkout
+    move = migration(root)
+    owner = move.sources[0]
+    content = (root / owner.path).read_text().replace("return x\n", "return x + 1\n")
+    update = move.model_copy(
+        update={
+            "kind": "authored_update",
+            "old_name": None,
+            "new_name": None,
+            "sources": (owner.model_copy(update={"after": content}),),
+        }
+    )
+    preview = prepare_preview(
+        root, ChangeRequest(data_operations="target.yaml", source_migrations=(update,))
+    )
+    assert preview.source_migrations[0].ready
+    assert preview.source_comparison is not None
+    assert {"implementation", "recipe"} <= {
+        item.facet for item in preview.source_comparison.changes
+    }
+    assert (root / "src/api.py").read_text() != content
+    assert all(outcome.source_digest for outcome in preview.source_migrations[0].outcomes)
+    assert preview.discovery is not None
+    assert preview.discovery["backend"] == "ast-grep-py"
+    apply_preview(root, preview)
+    assert (root / "src/api.py").read_text() == content
+
+
+def test_real_cli_authored_preview_sources_apply_and_retry(model_checkout, monkeypatch, tmp_path):
+    import json
+
+    import yaml
+    from typer.testing import CliRunner
+
+    from corpus_structure.cli import recipes
+    from corpus_structure.cli.app import app
+
+    root, _ = model_checkout
+    move = migration(root)
+    owner = move.sources[0]
+    content = (root / owner.path).read_text().replace("return x\n", "return x + 2\n")
+    update = move.model_copy(
+        update={
+            "kind": "authored_update",
+            "old_name": None,
+            "new_name": None,
+            "sources": (owner.model_copy(update={"after": content}),),
+        }
+    )
+    request = root / "change.yaml"
+    request.write_text(
+        yaml.safe_dump(
+            ChangeRequest(data_operations="target.yaml", source_migrations=(update,)).model_dump(
+                mode="json"
+            )
+        )
+    )
+    monkeypatch.setattr(recipes, "checkout", lambda ctx=None: root)
+    monkeypatch.setenv("CORPUS_CI_RESULTS", str(tmp_path / "cli-results"))
+    runner = CliRunner()
+    result = runner.invoke(app, ["model", "change", "preview", str(request), "--json"])
+    assert result.exit_code == 0, result.output
+    identifier = json.loads(result.stdout)["result_id"]
+    assert (root / owner.path).read_text() != content
+    viewed = runner.invoke(
+        app, ["model", "change", "inspect", identifier, "--view", "sources", "--json"]
+    )
+    assert viewed.exit_code == 0, viewed.output
+    report = json.loads(viewed.stdout)
+    assert report["migrations"][0]["ready"]
+    assert report["outcomes"]
+    assert "recipe" in {row["facet"] for row in report["comparison"]["changes"]}
+    for _ in range(2):
+        applied = runner.invoke(app, ["model", "change", "apply", identifier, "--json"])
+        assert applied.exit_code == 0, applied.output
+    assert (root / owner.path).read_text() == content
+
+
+@pytest.mark.parametrize(
+    "filename,classname,owner",
+    [
+        ("m1_declared.py", "M1SourceCandidatesOperation", "extract.m1_candidates"),
+        (
+            "contextual_declared.py",
+            "ContextualRetrievalOperation",
+            "retrieve.contextual_candidates/declared",
+        ),
+        (
+            "captured_document_composition.py",
+            "ComposeCapturedDocumentFamily",
+            "text.compose_view/captured-full-native",
+        ),
+    ],
+)
+def test_actual_family_source_and_caller_move_preserves_dispatch(
+    tmp_path, filename, classname, owner
+):
+    import __future__
+
+    import ast
+    from types import SimpleNamespace
+
+    directory = tmp_path / "src"
+    directory.mkdir()
+    actual = Path(__file__).parents[2] / "src/corpus_structure/methods" / filename
+    raw = actual.read_bytes()
+    (directory / filename).write_bytes(raw)
+    module = "corpus_structure.methods." + filename.removesuffix(".py")
+    renamed = "Updated" + classname
+    (directory / "consumer.py").write_text(
+        f"from {module} import {classname}\nselected = {classname}\n"
+    )
+    (directory / "independent.py").write_text("value = 17\n")
+    request = SourceMigration(
+        kind="symbol_move",
+        owner=owner,
+        old_name=module + "." + classname,
+        new_name=module + "." + renamed,
+        roots=(SourceRoot(path="src", module="corpus_structure.methods"),),
+        sources=(
+            AuthoredSourceChange(
+                path="src/" + filename,
+                module=module,
+                before=sha256(raw).hexdigest(),
+                after=raw.decode().replace(classname, renamed),
+            ),
+        ),
+    )
+    preview = prepare_source_migration(tmp_path, request)
+    assert preview.ready
+    assert (
+        preview.after["src/consumer.py"]
+        == f"from {module} import {renamed}\nselected = {renamed}\n"
+    )
+    unchanged = next(row for row in preview.outcomes if row.path == "src/independent.py")
+    assert unchanged.state == "already_satisfied"
+    assert unchanged.sites == ()
+    assert any(row.sites for row in preview.outcomes if row.path == "src/consumer.py")
+
+    # Execute the real adapter's run body with controlled delegated kernels. The
+    # test exercises source transformation and argument/order/receiver fidelity,
+    # not provider inference or publication qualification.
+    def run_body(source, name):
+        tree = ast.parse(source)
+        cls = next(
+            node for node in tree.body if isinstance(node, ast.ClassDef) and node.name == name
+        )
+        run = next(
+            node for node in cls.body if isinstance(node, ast.FunctionDef) and node.name == "run"
+        )
+        calls = []
+
+        def kernel(*args):
+            calls.append(args)
+            return {"selected": "independent"}
+
+        def streaming(*args):
+            calls.append(args)
+            yield "physical-step"
+            return {"selected": "independent"}
+
+        namespace = dict(
+            execute_declared_m1=streaming,
+            execute_retrieval_profile=kernel,
+            execute_view_profile=kernel,
+        )
+        executable = ast.Module(body=[run], type_ignores=[])
+        exec(
+            compile(executable, filename, "exec", flags=__future__.annotations.compiler_flag),
+            namespace,
+        )
+        function = namespace["run"]
+        receiver = SimpleNamespace(marker="authentic receiver")
+        if filename == "m1_declared.py":
+            args = ({"primary": 1}, {"annotations": 2}, ({"source": 3},))
+            stream = function(receiver, *args)
+            assert isinstance(stream, Generator)
+            assert next(stream) == "physical-step"
+            with pytest.raises(StopIteration) as stopped:
+                next(stream)
+            assert stopped.value.value == {"selected": "independent"}
+            assert calls == [(receiver, *args)]
+        elif filename == "contextual_declared.py":
+            args = ({"query": 1}, {"inventory": 2}, {"vectors": 3}, {"policy": 4})
+            assert function(receiver, *args) == {"selected": "independent"}
+            assert calls == [(receiver, *args)]
+        else:
+            groups = tuple(({"group": i},) for i in range(8))
+            assert function(receiver, *groups) == {"selected": "independent"}
+            expected = tuple({"group": i} for i in range(1, 8))
+            assert calls == [(receiver, groups[0], expected, expected, "full_characterization")]
+        return calls[0][1:]
+
+    assert run_body(raw, classname) == run_body(preview.after["src/" + filename], renamed)

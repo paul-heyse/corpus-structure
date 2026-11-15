@@ -31,6 +31,7 @@ from corpus_structure.schema.source_migrations import (
     prepare_source_migration,
 )
 from corpus_structure.semantic.migration_chain import NativeMigrationBase
+from corpus_structure.semantic.source_comparison import EffectiveChangeComparison
 from corpus_structure.semantic.storage_target import StorageTarget
 from corpus_structure.semantic.types import PreparedRelease
 from corpus_structure.settings import DeploymentProfile
@@ -136,6 +137,7 @@ class ChangePreview(BaseModel):
     release_artifacts_sha256: str | None = None
     discovery: dict | None = None
     source_migrations: tuple[SourceMigrationPreview, ...] = ()
+    source_comparison: EffectiveChangeComparison | None = None
 
     def verify_release(self, prepared: PreparedRelease) -> None:
         verify_release_products(
@@ -402,6 +404,8 @@ def prepare_preview(
             if _digest(content) != digest:
                 raise model.ModelError([f"source changed during preview: {path}"])
             current[path] = content
+    source_comparison = None
+    previous = None
     if migrations and request.data_operations:
         assert acquired is not None
         from corpus_structure.semantic.data_operation_preparation import (
@@ -428,6 +432,8 @@ def prepare_preview(
         previous = bound_data_operation_model(
             prepare_release(acquired.bundle, acquired.dependencies, acquired.profile)
         )
+        from corpus_structure.semantic.source_comparison import compare_data_operation_models
+
         for intent, migration in zip(request.source_migrations, migrations, strict=True):
             if intent.owner not in {op.semantic_id for op in previous.operations}:
                 raise model.ModelError(
@@ -493,6 +499,26 @@ def prepare_preview(
                         ]
                     )
 
+        for intent in request.source_migrations:
+            if intent.kind == "authored_update":
+
+                def surfaces(operation):
+                    return tuple(
+                        (surface.exposed, surface.parameters, surface.returns, surface.overloads)
+                        for surface in operation.callable_surfaces
+                    )
+
+                if surfaces(previous.operation(intent.owner)) != surfaces(
+                    effective.operation(intent.owner)
+                ):
+                    raise model.ModelError(
+                        [
+                            "authored_update preserves callable contracts; use an explicit caller migration for interface changes"
+                        ]
+                    )
+
+        source_comparison = compare_data_operation_models(previous, effective)
+
         local_release = prepared_source.release_id
         release_manifest_sha256 = sha256(prepared_source.manifest).hexdigest()
         release_artifacts_sha256 = prepared_source.artifacts_sha256
@@ -522,6 +548,21 @@ def prepare_preview(
             identifiers.update(
                 token for token in ref.replace(":", ".").split(".") if token.isidentifier()
             )
+    if migrations:
+        assert previous is not None
+        identifiers.update(
+            surface.declaration.rsplit(".", 1)[-1]
+            for intent in request.source_migrations
+            for surface in previous.operation(intent.owner).callable_surfaces
+        )
+    discovery_sources = None
+    if migrations:
+        discovery_sources = {}
+        for path in sorted({path for migration in migrations for path in migration.membership}):
+            content = current[path]
+            if content is None:
+                raise model.ModelError([f"acquired source is unavailable: {path}"])
+            discovery_sources[path] = proposed.get(path, content).encode()
     release_effect = (
         ("unchanged" if request.archive_release == local_release else "changed")
         if comparison
@@ -604,8 +645,16 @@ def prepare_preview(
         release_manifest_sha256=release_manifest_sha256,
         release_artifacts_sha256=release_artifacts_sha256,
         source_migrations=migrations,
-        discovery=locate_consumers(root, head, identifiers, comparison=comparison)
-        if identifiers or comparison
+        source_comparison=source_comparison,
+        discovery=locate_consumers(
+            root,
+            head,
+            identifiers,
+            comparison=comparison,
+            proposed=proposed,
+            sources=discovery_sources,
+        )
+        if identifiers or comparison or migrations
         else None,
     )
 

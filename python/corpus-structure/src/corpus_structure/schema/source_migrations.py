@@ -15,13 +15,16 @@ from typing import Literal
 import libcst as cst
 from libcst.codemod import (
     CodemodContext,
-    ContextAwareTransformer,
     TransformSuccess,
+    VisitorBasedCodemodCommand,
     transform_module,
 )
 from libcst.codemod.commands.rename import RenameCommand
 from libcst.codemod.visitors import ApplyTypeAnnotationsVisitor, RemoveImportsVisitor
-from libcst.helpers import get_full_name_for_node
+from libcst.helpers import (
+    get_absolute_module_from_package_for_import_or_raise,
+    get_full_name_for_node,
+)
 from libcst.metadata import (
     MetadataWrapper,
     ParentNodeProvider,
@@ -59,7 +62,7 @@ class CallContextChange(BaseModel):
 
 class SourceMigration(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
-    kind: Literal["symbol_move", "annotations", "call_context"]
+    kind: Literal["symbol_move", "annotations", "call_context", "authored_update"]
     owner: str
     new_owner: str | None = None
     sources: tuple[AuthoredSourceChange, ...]
@@ -71,6 +74,18 @@ class SourceMigration(BaseModel):
     calls: tuple[CallContextChange, ...] = ()
 
 
+class SourceSite(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    category: str
+    name: str
+    start: int
+    end: int
+    line: int
+    utf8_column: int
+    lexical_status: Literal["qualified", "ambiguous", "unresolved"]
+    qualified_names: tuple[str, ...] = ()
+
+
 class ConsumerOutcome(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
     path: str
@@ -78,6 +93,9 @@ class ConsumerOutcome(BaseModel):
         "changed", "already_satisfied", "excluded", "ambiguous", "unsupported", "unresolved"
     ]
     warnings: tuple[str, ...] = ()
+    reason: str | None = None
+    source_digest: str | None = None
+    sites: tuple[SourceSite, ...] = ()
 
 
 class SourceCallProof(BaseModel):
@@ -154,6 +172,7 @@ def preparation_identity() -> str:
     digest = sha256()
     for dependency in (
         "libcst",
+        "ast-grep-py",
         "astroid",
         "griffe",
         "linkml-runtime",
@@ -171,7 +190,12 @@ def preparation_identity() -> str:
 
 
 def implementation_identity() -> str:
-    return sha256(Path(__file__).read_bytes() + version("libcst").encode()).hexdigest()
+    return sha256(
+        Path(__file__).read_bytes()
+        + Path(__file__).with_name("model_discovery.py").read_bytes()
+        + version("libcst").encode()
+        + version("ast-grep-py").encode()
+    ).hexdigest()
 
 
 class _Eligibility(cst.CSTVisitor):
@@ -223,8 +247,7 @@ class _AbsoluteImports(cst.CSTTransformer):
     def leave_ImportFrom(self, original_node, updated_node):
         if not original_node.relative:
             return updated_node
-        name = get_full_name_for_node(original_node.module) if original_node.module else ""
-        absolute = resolve_name("." * len(original_node.relative) + (name or ""), self.package)
+        absolute = get_absolute_module_from_package_for_import_or_raise(self.package, original_node)
         if not any(
             target == absolute or target.startswith(absolute + ".") for target in self.targets
         ):
@@ -245,7 +268,7 @@ class _RestoreImports(cst.CSTTransformer):
         return updated_node
 
 
-class _CallContextCommand(ContextAwareTransformer):
+class _CallContextCommand(VisitorBasedCodemodCommand):
     METADATA_DEPENDENCIES = (QualifiedNameProvider, ScopeProvider, ParentNodeProvider)
 
     def __init__(self, context, old, changes):
@@ -335,8 +358,6 @@ def _prepare_call_context(parsed, source, name, context, request):
     result = transform_module(command, source)
     if not isinstance(result, TransformSuccess):
         raise ValueError("call-context transformation refused: " + str(result))
-    cleaned = RemoveImportsVisitor(context).transform_module(cst.parse_module(result.code))
-    result = TransformSuccess(code=cleaned.code, warning_messages=result.warning_messages)
     if command.seen != {item.before for item in changes}:
         raise ValueError("required call-context source is absent or changed")
     # Verify the declared destination resolves from the proposed consumer source.
@@ -457,6 +478,17 @@ def prepare_source_migration(root: Path, request: SourceMigration) -> SourceMigr
                 else module_name.rpartition(".")[0],
             )
             owners = []
+            if request.kind == "authored_update":
+                changed = source != utf8_source(_path(root, name).read_bytes())
+                outcomes.append(
+                    ConsumerOutcome(
+                        path=name,
+                        state="changed" if changed else "already_satisfied",
+                        reason="Explicit authored source update; semantic effects are separately compiled.",
+                        source_digest=inputs[name],
+                    )
+                )
+                continue
             if request.kind == "call_context":
                 try:
                     result = _prepare_call_context(parsed, source, name, context, request)
@@ -559,7 +591,15 @@ def prepare_source_migration(root: Path, request: SourceMigration) -> SourceMigr
             else:
                 owners = [owner for owner in request.sources if owner.module == module_name]
                 if len(owners) != 1:
-                    outcomes.append(ConsumerOutcome(path=name, state="already_satisfied"))
+                    outcomes.append(
+                        ConsumerOutcome(
+                            path=name,
+                            state="changed"
+                            if name in after
+                            and after[name] != utf8_source(_path(root, name).read_bytes())
+                            else "already_satisfied",
+                        )
+                    )
                     continue
                 # A transient stub is derived from the explicitly authored after-source.
                 ApplyTypeAnnotationsVisitor.store_stub_in_context(
@@ -579,7 +619,10 @@ def prepare_source_migration(root: Path, request: SourceMigration) -> SourceMigr
             if not isinstance(result, TransformSuccess):
                 outcomes.append(
                     ConsumerOutcome(
-                        path=name, state="unsupported", warnings=tuple(result.warning_messages)
+                        path=name,
+                        state="unsupported",
+                        reason=type(result).__name__,
+                        warnings=tuple(result.warning_messages),
                     )
                 )
                 continue
@@ -614,6 +657,36 @@ def prepare_source_migration(root: Path, request: SourceMigration) -> SourceMigr
             )
         except (SyntaxError, UnicodeError, ValueError, cst.ParserSyntaxError) as error:
             outcomes.append(ConsumerOutcome(path=name, state="unsupported", warnings=(str(error),)))
+    from .model_discovery import discover_source_consumers
+
+    tokens = {name.rsplit(".", 1)[-1] for name in (request.old_name, request.new_name) if name}
+    evidence = discover_source_consumers(
+        {name: _path(root, name).read_bytes() for name in members},
+        tokens,
+        modules=members,
+    )
+    outcomes = [
+        item.model_copy(
+            update={
+                "source_digest": inputs[item.path],
+                "sites": tuple(
+                    SourceSite(
+                        category=site["category"],
+                        name=site["name"],
+                        start=site["utf8_bytes"]["start"],
+                        end=site["utf8_bytes"]["end"],
+                        line=site["line"],
+                        utf8_column=site["utf8_column"],
+                        lexical_status=site["lexical_status"],
+                        qualified_names=tuple(row["name"] for row in site["qualified_names"]),
+                    )
+                    for site in evidence["candidates"]
+                    if site["path"] == item.path
+                ),
+            }
+        )
+        for item in outcomes
+    ]
     return SourceMigrationPreview(
         roots=request.roots,
         membership=tuple(sorted(members)),

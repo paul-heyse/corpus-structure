@@ -133,16 +133,16 @@ def test_structural_discovery_qualifies_coordinates_without_claiming_binding(mod
         "outcome": "failed",
         "line": 1,
     }
-    witness = next(hit for hit in report["ast"] if hit["line"] == 4)
+    witness = next(hit for hit in report["candidates"] if hit["line"] == 4)
     assert witness["utf8_column"] == len("    return 'é', ".encode())
     assert witness["source"] == "witness"
-    assert witness["lexical_status"] == "ambiguous"
+    assert witness["lexical_status"] == "qualified"
+    assert witness["qualified_names"] == [{"name": "test.<locals>.witness", "origin": "LOCAL"}]
     assert report["excluded_generated"] == ["python/corpus-structure/src/_model/excluded.py"]
     assert report["semantic_coverage"]["consumers"] == {"projection:witness": ["reader"]}
     assert report["semantic_coverage"]["unknowns"] == ["detached binding unassessed"]
-    if report["ast_grep_status"] == "inspected":
-        coordinate = next(hit for hit in report["ast_grep"] if hit["line"] == 4)
-        assert coordinate["utf8_column"] == witness["utf8_column"]
+    assert report["backend"] == "ast-grep-py"
+    assert report["coverage"] == "complete-syntax-examination"
 
 
 def test_deployment_preview_binds_separate_authoring_and_destination(model_checkout, monkeypatch):
@@ -227,7 +227,9 @@ def test_deployment_preview_binds_separate_authoring_and_destination(model_check
         target_metadata,
         retire,
         recreate,
+        data_steps,
     ):
+        assert data_steps == ()
         assert source.database.url == settings.database.url
         assert expected_predecessor == "before"
         assert expected_target == source_identity
