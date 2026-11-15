@@ -17,7 +17,7 @@ BEGIN
  UNION ALL SELECT e.body,e.ordinal FROM entries e JOIN subtree parent ON e.body->>'parent_occurrence_id'=parent.body->>'occurrence_id'),
  text_matches AS (
  SELECT body FROM entries WHERE body->>'kind' IN ('picture_text','picture_description','caption','caption_candidate')
- AND strpos(lower(regexp_replace(body->>'text','\s+',' ','g')),lower(regexp_replace(p->>'query','\s+',' ','g')))>0),
+ AND strpos(btrim(regexp_replace(casefold((body->>'text') COLLATE pg_catalog.pg_unicode_fast),U&'[\0009-\000D\001C-\0020\0085\00A0\1680\2000-\200A\2028\2029\202F\205F\3000]+',' ','g'),' '),btrim(regexp_replace(casefold((p->>'query') COLLATE pg_catalog.pg_unicode_fast),U&'[\0009-\000D\001C-\0020\0085\00A0\1680\2000-\200A\2028\2029\202F\205F\3000]+',' ','g'),' '))>0),
  text_ancestors AS (
  SELECT body FROM text_matches UNION ALL SELECT e.body FROM entries e JOIN text_ancestors child
  ON e.body->>'occurrence_id'=child.body->>'parent_occurrence_id'),

@@ -18,7 +18,7 @@ from corpus_structure.semantic.data_operation_wire import validate_native_wire
 def artifact():
     return VisualEvidenceArtifact(page_no=1,rows=(
         VisualPicture(occurrence_id="p",source_region=VisualSourceRegion(left=1,top=1,right=10,bottom=10)),
-        VisualCaptionCandidate(occurrence_id="caption",text="Shared Distribution",associated_picture_occurrence_ids=("p",),
+        VisualCaptionCandidate(occurrence_id="caption",text="Straße\u00a0Shared\u2003Distribution",associated_picture_occurrence_ids=("p",),
             source_region=VisualSourceRegion(left=1,top=1,right=10,bottom=10)),
         VisualTable(occurrence_id="table",num_rows=1,num_cols=1,cells=(VisualTableCell(text="x",start_row_offset_idx=0,
             end_row_offset_idx=1,start_col_offset_idx=0,end_col_offset_idx=1,content_occurrence_id="group"),)),
@@ -47,6 +47,7 @@ def test_native_candidate_identity_search_cells_and_paging(candidate_read):
     assert [row["occurrence_id"] for row in second["items"]]==["table","group","term"]
     assert second["next_after"] is None
     assert [row["occurrence_id"] for row in candidate_read(query="shared distribution",kind="picture")["items"]]==["p"]
+    assert [row["occurrence_id"] for row in candidate_read(query="STRASSE",kind="picture")["items"]]==["p"]
     cell=candidate_read(occurrence_id="table",cell_index=0)
     assert [row["occurrence_id"] for row in cell["items"]]==["group","term"]
     region=candidate_read(regions=[dict(left=0,top=0,right=2,bottom=2)])
