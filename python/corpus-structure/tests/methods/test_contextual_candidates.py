@@ -404,8 +404,8 @@ def test_retained_cross_view_heading_coverage_precedes_exploration(
             )
             if report["inventories"][0]["targets"]
             else "completed",
-            directed_ranks=[],
-            edges=[],
+            directed_ranks=(),
+            edges=(),
         ),
         source_result=lambda *_: {
             "contributions": () if expected == "empty" else (original,),

@@ -391,7 +391,7 @@ def section_citation_witnesses(
     )
     source, marker = (matching or carriers)[0]
     occurrence = source["occurrence_id"]
-    ids = tuple(heading_ids.get(marker["designator"], ())) if matching else ()
+    ids = tuple(sorted(heading_ids.get(marker["designator"], ()))) if matching else ()
     outcome = section_citation_outcome(
         marker,
         ids,

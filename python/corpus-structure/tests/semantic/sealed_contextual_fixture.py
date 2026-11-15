@@ -510,11 +510,13 @@ def contextual_fixture_result(
             else "no source-grounded relationship witness",
         )
         decisions.append(decision)
-        projected = relationship_contributions(decision, products, inventory, op)
-        result_products.extend(projected)
         phase = _phase(
             "relationship selection", occurrence, (candidates.list_id,), result=decision.decision_id
         )
+        projected = relationship_contributions(
+            decision, products, inventory, phase["operation_key"]
+        )
+        result_products.extend(projected)
         phase["emitted_count"] = len(projected)
         phase["computation_dependencies"] = tuple(
             dict.fromkeys(
