@@ -201,3 +201,155 @@ def test_native_authored_fact_has_no_computation_and_cannot_be_relabelled(ddo_ke
                     "request": json.loads(ready.native)["request_id"],
                 },
             )
+
+
+@pytest.mark.parametrize("ddo_kernel", [_recipe()], indirect=True)
+def test_native_product_scoped_authored_fact_preserves_context_and_current_trust(ddo_kernel):
+    from sqlalchemy import insert
+
+    from corpus_structure.semantic._data_operation_wire import WireRevokeDataSupportRequest
+    from corpus_structure.semantic.data_operation_demands import RootSubject, freeze_demand
+    from corpus_structure.semantic.metadata import table
+
+    kernel = ddo_kernel
+    context = SubjectContext(
+        "ddo-test",
+        "authored:subject",
+        "source:authored",
+        b'{"section":"chosen"}',
+        subject_definition="document",
+    )
+    input_role = kernel.model.operation("urn:authored:consume").roles[0]
+    authored = authored_fact_selection(
+        "scoped-policy",
+        7,
+        kind_contract=kernel.identities[input_role.kind, "kind"],
+        context=context,
+        author="scoped assertion",
+        selection_id="review:scoped-seven",
+    )
+    roots = (
+        RootSubject(context.subject, context.original_source, context.analyzed_scope),
+        RootSubject("authored:other", context.original_source, context.analyzed_scope),
+        RootSubject(context.subject, "source:other", context.analyzed_scope),
+        RootSubject(context.subject, context.original_source, b'{"section":"other"}'),
+    )
+    with kernel.engine.begin() as connection:
+        storage = DataOperationStorage(connection)
+        planner = DemandPlanner(kernel.model, storage)
+        intent = freeze_demand(
+            kernel.model,
+            roots=roots,
+            targets=("urn:authored:consume",),
+            inference="authored:scoped-original",
+            execution_profile=kernel.recipe.execution_profile,
+            original_sources=(authored,),
+        )
+        demand = planner.register(
+            intent,
+            project=context.project_id,
+            release=kernel.prepared.release_id,
+            runtime=kernel.preparation.runtime.runtime_id,
+        )
+        unscoped = storage.read_demand_result(
+            typing_cast(WireReadDemandResultRequest, {"demand_id": demand["demand_id"]})
+        )
+        assert len(unscoped["obligations"]) == 4
+        (fact,) = unscoped["original_source_admissions"]
+        request = {
+            "demand_id": demand["demand_id"],
+            "view": "support",
+            "limit": 1000,
+            "scope": {"product_ids": [fact["product_id"]]},
+        }
+        scoped = storage.read_demand_result(typing_cast(WireReadDemandResultRequest, request))
+        assert [row["admission_id"] for row in scoped["original_source_admissions"]] == [
+            fact["admission_id"]
+        ]
+        assert [
+            (row["subject"], row["original_source"], row["analyzed_scope"])
+            for row in scoped["obligations"]
+        ] == [(context.subject, context.original_source, {"section": "chosen"})]
+        assert scoped["uses"] == []
+        assert scoped["obligations"][0]["fate"] == "waiting"
+        assert scoped["obligations"][0]["historical_fate"] is None
+        assert scoped["obligations"][0]["request_id"] is None
+        assert scoped["support_page"] is not None and scoped["support_page"]["complete"]
+        records = scoped["support_page"]["records"]
+        assert [
+            row["record"]["id"]
+            for row in records
+            if row["relation"] == "ops.original_source_admission"
+        ] == [fact["admission_id"]]
+        assert [
+            row["record"]["id"] for row in records if row["relation"] == "kb.data_product"
+        ] == [fact["product_id"]]
+        assert not {"ops.demand_use", "ops.data_derivation"}.intersection(
+            row["relation"] for row in records
+        )
+        for scope in (
+            {"product_ids": ["product:absent"]},
+            {"product_ids": [fact["product_id"]], "subject": "authored:other"},
+            {"product_ids": [fact["product_id"]], "original_source": "source:other"},
+        ):
+            absent = storage.read_demand_result(
+                typing_cast(WireReadDemandResultRequest, {**request, "scope": scope})
+            )
+            assert absent["obligations"] == []
+            assert absent["original_source_admissions"] == []
+            assert absent["support_page"] is not None
+            assert absent["support_page"]["records"] == []
+        for project in (context.project_id, "ddo-other"):
+            if project != context.project_id:
+                connection.execute(insert(table("data.project")).values(project_id=project))
+            unrelated = planner.register(
+                freeze_demand(
+                    kernel.model,
+                    roots=roots,
+                    targets=("urn:authored:consume",),
+                    inference="authored:other-demand",
+                    execution_profile=kernel.recipe.execution_profile,
+                ),
+                project=project,
+                release=kernel.prepared.release_id,
+                runtime=kernel.preparation.runtime.runtime_id,
+            )
+            absent = storage.read_demand_result(
+                typing_cast(
+                    WireReadDemandResultRequest,
+                    {**request, "demand_id": unrelated["demand_id"]},
+                )
+            )
+            assert absent["obligations"] == []
+            assert absent["original_source_admissions"] == []
+            assert absent["support_page"] is not None
+            assert absent["support_page"]["records"] == []
+        storage.revoke_data_support(
+            typing_cast(
+                WireRevokeDataSupportRequest,
+                {
+                    "project_id": context.project_id,
+                    "original_source": context.original_source,
+                    "selector_kind": "original-admission",
+                    "selector": fact["admission_id"],
+                    "reason": "authored assertion withdrawn",
+                },
+            )
+        )
+        with pytest.raises(DBAPIError, match="pins or current trust differ"), connection.begin_nested():
+            storage.read_demand_result(
+                typing_cast(WireReadDemandResultRequest, {**request, "read_id": scoped["read_id"]})
+            )
+        current = storage.read_demand_result(typing_cast(WireReadDemandResultRequest, request))
+        assert current["original_source_admissions"] == []
+        assert len(current["obligations"]) == 1
+        assert current["uses"] == []
+        assert current["support_page"] is not None
+        assert [
+            row["record"]["id"]
+            for row in current["support_page"]["records"]
+            if row["relation"] == "ops.original_source_admission"
+        ] == [fact["admission_id"]]
+        assert connection.scalar(text("SELECT count(*) FROM ops.data_request")) == 0
+        assert connection.scalar(text("SELECT count(*) FROM ops.demand_use")) == 0
+        assert connection.scalar(text("SELECT count(*) FROM ops.data_derivation")) == 0

@@ -124,7 +124,7 @@ def test_freeze_prepare_validate_seal_and_replay(
 def test_compatible_predecessor_reuses_exact_access_for_changed_companion(
     create_private_build, commit_writer_engine, commit_db_engine, monkeypatch, tmp_path
 ):
-    from corpus_structure.semantic import _operation_calls as calls
+    from corpus_structure.semantic import _pdf_native_calls as calls
     from corpus_structure.semantic._operation_ids import RunId, TaskAttempt, TaskId
     from corpus_structure.semantic.operations import complete_task, seal_cut
     from corpus_structure.semantic.releases import load_release
@@ -208,7 +208,7 @@ def test_compatible_predecessor_reuses_exact_access_for_changed_companion(
 def test_missing_validation_check_refuses_publication_and_can_retry(
     private_build, commit_writer_engine, monkeypatch, tmp_path
 ):
-    from corpus_structure.semantic import _operation_calls as calls
+    from corpus_structure.semantic import _pdf_native_calls as calls
 
     build = private_build
     stage_complete_native(commit_writer_engine, build, tmp_path)
@@ -234,7 +234,7 @@ def test_validation_cancellation_settles_live_check(
     private_build, commit_writer_engine, commit_db_engine, monkeypatch, tmp_path
 ):
     from corpus_structure.core.db.lifetime import BorrowerCancellation, DatabaseOperationCancelled
-    from corpus_structure.semantic import _operation_calls as calls
+    from corpus_structure.semantic import _pdf_native_calls as calls
 
     build = private_build
     stage_complete_native(commit_writer_engine, build, tmp_path)

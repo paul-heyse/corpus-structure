@@ -1199,6 +1199,7 @@ def _scoped_read_obligations(metadata):
     obligations = metadata.tables["ops.data_obligation"]
     uses = metadata.tables["ops.demand_use"]
     outputs = metadata.tables["ops.data_derivation_output"]
+    admissions = metadata.tables["ops.original_source_admission"].alias("scope_original")
     read_scope = _requested_read_scope()
     scope_predicates = tuple(
         or_(
@@ -1241,7 +1242,25 @@ def _scoped_read_obligations(metadata):
             ),
         )
     )
-    scope_predicates += (or_(~read_scope.op("?")(literal("product_ids")), product_match),)
+    original_match = exists(
+        select(1)
+        .select_from(
+            admissions.join(selected_product, selected_product.c.value == admissions.c.product_id)
+        )
+        .where(
+            admissions.c.demand_id == _var("d.id", Text),
+            admissions.c.project_id == _var("d.project_id", Text),
+            admissions.c.subject == obligations.c.subject,
+            admissions.c.original_source.is_not_distinct_from(obligations.c.original_source),
+            admissions.c.analyzed_scope == obligations.c.analyzed_scope,
+            _visible(admissions),
+        )
+    )
+    # Scope identifies retained evidence even after its trust is withdrawn. The
+    # admission frontier checks current validity; support export retains raw custody.
+    scope_predicates += (
+        or_(~read_scope.op("?")(literal("product_ids")), product_match, original_match),
+    )
     return select(obligations).where(
         obligations.c.demand_id == _var("d.id", Text),
         *scope_predicates,
