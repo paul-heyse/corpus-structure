@@ -31,7 +31,7 @@ def test_actual_rich_composition_captures_schema_policy_and_nominal_members_with
     assert {"data_operation_rich_proposals", "source-readings", "data_operation_reading_resolution", "data_operation_candidate_inspection"} <= {source.name for source in bundle.sources}
     assert {RULE_INPUT, RICH_CONTRACT_INPUT, "operation/scientific-policy.json"} <= {source.name for source in deps.artifacts}
     model = compile_data_operations(bundle, declarations=rich_knowledge_declarations(deps))
-    assert len(derive_member_kinds(model, "https://corpus-structure.dev/semantic/data-operation-rich-knowledge/DdoRichConsolidation")) == 13
+    assert len(derive_member_kinds(model, "https://corpus-structure.dev/semantic/data-operation-rich-knowledge/DdoRichConsolidation")) == 15
     assert not any("execution_model" in artifact.name for artifact in deps.artifacts)
     from corpus_structure.semantic import prepare_release
     from corpus_structure.semantic.data_operation_model import SubjectContext

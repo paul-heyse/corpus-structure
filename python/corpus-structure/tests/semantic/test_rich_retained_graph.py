@@ -6,10 +6,10 @@ from pydantic import ValidationError
 from corpus_structure.semantic.data_operation_identity import canonical_identity
 from corpus_structure.semantic.rich_graph_validation import RichWholeInput, read_retained_rich_graph, read_rich_graph
 from corpus_structure.semantic.rich_knowledge_contracts import (
-    DdoRichAdmission, DdoRichAuthoredProposition, DdoRichAuthoredPacket, DdoRichAuthoredPropositions,
+    RichGraphAssembly, DdoRichAdmission, DdoRichAuthoredProposition, DdoRichAuthoredPacket, DdoRichAuthoredPropositions,
     DdoRichConsolidation, DdoRichEntity, DdoRichFact, DdoRichOccurrence, rich_reference_key,
 )
-from semantic.test_rich_value_graph import source as source, actual_graph
+from semantic.test_rich_value_graph import source as source, actual_graph, contract_selection
 
 PREFIX = "https://corpus-structure.dev/semantic/data-operation-rich-knowledge/"
 
@@ -27,7 +27,7 @@ def retained(source):
         elif isinstance(body, DdoRichOccurrence):
             body = body.model_copy(update={"original": old})
         packets.append(packet.model_copy(update={"body": body}))
-    root = DdoRichAdmission(version="rich-admission-1", standing="accepted", members=tuple(packets),
+    root = DdoRichAdmission(**contract_selection(tuple(packets)), version="rich-admission-1", standing="accepted", members=tuple(packets),
                             consolidation=old.model_copy(update={"member_id": None}), policy_authorizations=(), reading_decisions=())
     reference = inputs[0].model_copy(update={"product_id": "selected:accepted-knowledge", "member_id": None,
                                             "kind_contract": ids[PREFIX + "DdoRichAdmission"]})
@@ -41,7 +41,7 @@ def test_retained_whole_keeps_opaque_provenance_without_inventing_current_inputs
     inputs, wholes = (selected.reference,), (selected,)
     prior = read_retained_rich_graph(prepared, model, context=context, retained=selected, inputs=inputs, whole_inputs=wholes)
     assert prior.graph == selected.value
-    output = DdoRichConsolidation(version="rich-consolidation-1", standing="private-consolidated", members=prior.graph.members, input_population=inputs)
+    output = RichGraphAssembly(members=prior.graph.members, input_population=inputs)
     current = read_rich_graph(prepared, model, context=context, graph=output, inputs=inputs, whole_inputs=wholes, retained_graphs=wholes)
     assert current.inputs == {rich_reference_key(selected.reference)}
     assert current.retained_member_ids == {packet.member_id for packet in output.members}
@@ -79,8 +79,7 @@ def test_retained_graph_refuses_unselected_roots_local_contract_changes_and_modi
     elif defect == "changed-packet":
         occurrence = next(packet for packet in selection.value.members if isinstance(packet.body, DdoRichOccurrence))
         altered = occurrence.model_copy(update={"body": occurrence.body.model_copy(update={"original": occurrence.body.original.model_copy(update={"product_id": "unselected:new-source"})})})
-        output = DdoRichConsolidation(version="rich-consolidation-1", standing="private-consolidated",
-                                      members=tuple(altered if item.member_id == occurrence.member_id else item for item in selection.value.members), input_population=inputs)
+        output = RichGraphAssembly(members=tuple(altered if item.member_id == occurrence.member_id else item for item in selection.value.members), input_population=inputs)
         with pytest.raises(ValueError, match="actual selected input"):
             read_rich_graph(prepared, model, context=context, graph=output, inputs=inputs, whole_inputs=wholes, retained_graphs=wholes)
         return

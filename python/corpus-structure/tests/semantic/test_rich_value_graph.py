@@ -135,7 +135,7 @@ def test_actual_rich_consolidation_contract_has_finite_closed_nominal_member_kin
         "DdoRichScalarValue", "DdoRichEntityValue", "DdoRichRecordValue", "DdoRichCollectionValue",
         "DdoRichEntity", "DdoRichFact", "DdoRichOccurrence", "DdoRichSourceReadingAssertion",
         "DdoRichAlternative", "DdoRichAssessment", "DdoRichDiagnostic",
-        "DdoRichCasefoldText", "DdoRichQualificationMeaning",
+        "DdoRichCasefoldText", "DdoRichQualificationMeaning", "DdoRichIdentityResolution", "DdoRichOccurrenceDecision",
     }
     for root in ("DdoRichConsolidation", "DdoRichAdmission"):
         assert set(derive_member_kinds(model, namespace + root)) == {namespace + name for name in expected}
@@ -267,7 +267,7 @@ def test_rich_fact_subject_context_is_a_real_determinant_and_property_null_stays
 def actual_graph(source):
     from corpus_structure.semantic.rich_fact_graph import RichFactGraph
     from corpus_structure.semantic.data_operation_model import SubjectContext
-    from corpus_structure.semantic.rich_knowledge_contracts import DdoRichConsolidation, DdoRichContext, DdoRichEntity, DdoRichOccurrence, DdoRichPacket, DdoRichSelectedMember
+    from corpus_structure.semantic.rich_knowledge_contracts import RichGraphAssembly, DdoRichContext, DdoRichEntity, DdoRichOccurrence, DdoRichPacket, DdoRichSelectedMember
     prepared, model = source
     context = SubjectContext("project:actual", "knowledge:actual", None, b'{}', subject_definition="knowledge-universe")
     ids = {item.owner: item.key for item in model.identities if item.domain == "kind"}
@@ -283,7 +283,7 @@ def actual_graph(source):
     bodies = (*((value.value_id, value) for value in values.values), (entity.entity_id, entity), (result.fact.fact_id, result.fact), (occurrence.occurrence_id, occurrence))
     packets = tuple(DdoRichPacket(member_id=identifier, kind_contract=ids[prefix + type(body).__name__], context=DdoRichContext(subject=context.subject, subject_definition=context.subject_definition, original_source=None, analyzed_scope={}), body=body) for identifier, body in bodies)
     inputs = (entity_ref, claim_ref)
-    return context, DdoRichConsolidation(version="rich-consolidation-1", standing="private-consolidated", members=packets, input_population=inputs), inputs
+    return context, RichGraphAssembly(members=packets, input_population=inputs), inputs
 
 
 def test_finite_rich_graph_validator_checks_real_member_property_range_and_source_links(source):
@@ -292,9 +292,10 @@ def test_finite_rich_graph_validator_checks_real_member_property_range_and_sourc
     context, graph, inputs = actual_graph(source)
     checked = validate_rich_graph(prepared, model, context=context, graph=graph, inputs=inputs)
     assert checked == graph
-    assert checked.standing == "private-consolidated"
+    from corpus_structure.semantic.rich_knowledge_contracts import RichGraphAssembly
+    assert isinstance(checked, RichGraphAssembly)
     from corpus_structure.semantic.data_operation_ports import project_product_members
-    projected = project_product_members(model, "https://corpus-structure.dev/semantic/data-operation-rich-knowledge/DdoRichConsolidation", checked)
+    projected = project_product_members(model, "https://corpus-structure.dev/semantic/data-operation-rich-knowledge/DdoRichConsolidation", contract_consolidation(checked))
     assert len(projected) == len(checked.members)
     assert {__import__("json").loads(item)["member_id"] for item in projected} == {packet.member_id for packet in checked.members}
 
@@ -384,7 +385,7 @@ def test_whole_input_member_proof_uses_actual_nominal_members_and_same_support(s
         "original": reference("DdoRichFact")
     })}) if isinstance(packet.body, DdoRichOccurrence) else packet for packet in graph.members)
     output = graph.model_copy(update={"members": packets, "input_population": (parent,)})
-    proof = (RichWholeInput(parent, graph),)
+    proof = (RichWholeInput(parent, contract_consolidation(graph)),)
     assert validate_rich_graph(prepared, model, context=context, graph=output, inputs=(parent,), whole_inputs=proof) == output
     with pytest.raises(ValueError, match="actual selected input"):
         validate_rich_graph(prepared, model, context=context, graph=output, inputs=(parent,))
@@ -445,3 +446,23 @@ def test_entity_identity_bases_retain_actual_declared_key_values_and_refuse_othe
         invalid=actual.model_copy(update={"members":tuple(changed if packet.member_id==entity.member_id else packet for packet in actual.members)})
         with pytest.raises(ValueError):
             validate_rich_graph(prepared,model,context=context,graph=invalid,inputs=inputs)
+
+
+
+def contract_consolidation(graph):
+    """Controlled schema container; this fixture claims no computed/native eligibility."""
+    from corpus_structure.semantic.rich_knowledge_contracts import DdoRichConsolidation
+    from corpus_structure.semantic.rich_decisions import DdoRichEligibility
+    return DdoRichConsolidation(version="rich-consolidation-1",standing="private-consolidated",members=graph.members,input_population=graph.input_population,
+        eligibility=DdoRichEligibility(eligibility_policy_digest="e"*64,selected_fact_ids=(),selected_occurrence_ids=(),scientific_representatives=()))
+
+
+def contract_selection(members):
+    """Independent declared selection data for decoder tests, never native authority."""
+    from corpus_structure.semantic.rich_knowledge_contracts import DdoRichFact,DdoRichOccurrence,DdoRichSourceReadingAssertion
+    from corpus_structure.semantic.rich_decisions import DdoRichScientificRepresentative
+    facts=tuple(sorted(packet.member_id for packet in members if isinstance(packet.body,DdoRichFact)))
+    return dict(eligibility_policy_digest="e"*64,selected_fact_ids=facts,
+                selected_occurrence_ids=tuple(sorted(packet.member_id for packet in members if isinstance(packet.body,DdoRichOccurrence))),
+                selected_reading_ids=tuple(sorted(packet.member_id for packet in members if isinstance(packet.body,DdoRichSourceReadingAssertion))),
+                scientific_representatives=tuple(DdoRichScientificRepresentative(fact_id=value,representative_fact_id=value,component_id="component:"+value,policy="min-fact-id-1") for value in facts))

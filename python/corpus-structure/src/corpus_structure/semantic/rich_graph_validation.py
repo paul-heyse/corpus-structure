@@ -20,7 +20,7 @@ from .rich_knowledge_contracts import (
     DdoRichCollectionValue, DdoRichConsolidation, DdoRichDiagnostic, DdoRichEntity,
     DdoRichEntityValue, DdoRichFact, DdoRichOccurrence, DdoRichQualificationMeaning,
     DdoRichRecordValue, DdoRichScalarValue, DdoRichSelectedMember,
-    DdoRichSourceReadingAssertion,
+    DdoRichSourceReadingAssertion, DdoRichIdentityResolution, DdoRichOccurrenceDecision, RichGraphAssembly,
     rich_reference_key,
 )
 from .types import PreparedRelease
@@ -57,6 +57,10 @@ def _body_id(body) -> str:
         return body.assessment_id
     if isinstance(body, DdoRichDiagnostic):
         return body.diagnostic_id
+    if isinstance(body, DdoRichIdentityResolution):
+        return body.resolution_id
+    if isinstance(body, DdoRichOccurrenceDecision):
+        return body.decision_id
     raise ValueError("rich member has no declared current identity owner")
 
 
@@ -99,6 +103,8 @@ class ValidatedRichGraph:
         self._checking_member = None
         self._retained_provenance = {}
         self.retained_roots = tuple(item.selection for item in retained_states)
+        self.retained_admissions = tuple(item.graph for item in retained_states)
+        self._retained_sources = {}
         self.decoded = {}
         self.active = set()
         self.reached_values = set()
@@ -108,7 +114,7 @@ class ValidatedRichGraph:
         self.inputs = {rich_reference_key(item) for item in inputs}
         if len(self.inputs) != len(inputs):
             raise ValueError("rich selected input population repeats an actual address")
-        observed_inputs = {rich_reference_key(item) for item in graph.input_population} if isinstance(graph, DdoRichConsolidation) else None
+        observed_inputs = {rich_reference_key(item) for item in graph.input_population} if isinstance(graph, (DdoRichConsolidation, RichGraphAssembly)) else None
         if observed_inputs is not None and (observed_inputs != self.inputs or len(observed_inputs) != len(graph.input_population)):
             raise ValueError("rich graph input population differs from its actual selected inputs")
         self.whole_members = []
@@ -138,6 +144,12 @@ class ValidatedRichGraph:
                 original = retained.packets.get(packet.member_id)
                 if original is not None and _meaning(original) == _meaning(packet):
                     self._retained_provenance[packet.member_id] = {rich_reference_key(ref) for ref in _references(original.body)}
+                    self._retained_sources.setdefault(packet.member_id, {})[rich_reference_key(retained.selection.reference)] = retained.selection.reference
+
+    def retained_sources(self, member_id: str) -> tuple[DdoRichSelectedMember, ...]:
+        """Actual current whole roots proving this exact retained packet."""
+        sources = self._retained_sources.get(member_id, {})
+        return tuple(sources[key] for key in sorted(sources))
 
     @property
     def retained_member_ids(self) -> frozenset[str]:
@@ -418,12 +430,53 @@ class ValidatedRichGraph:
                     self.member(occurrence, DdoRichOccurrence)
                 for ref in body.evidence_members:
                     self.external(ref)
+            elif isinstance(body, DdoRichIdentityResolution):
+                self.member(body.resolved_entity_id, DdoRichEntity)
+                for entity in body.relevant_entity_ids:
+                    self.member(entity, DdoRichEntity)
+                for reference in (*body.source_members, *body.dependency_sources):
+                    self.external(reference)
+            elif isinstance(body, DdoRichOccurrenceDecision):
+                occurrence = self.member(body.occurrence_id, DdoRichOccurrence)
+                if body.fact_id != occurrence.fact_id:
+                    raise ValueError("rich rule decision refers to another actual occurrence fact")
+                for finding in body.findings:
+                    if finding.assessment_id is not None:
+                        assessment = self.member(finding.assessment_id, DdoRichAssessment)
+                        if body.occurrence_id not in assessment.occurrences or assessment.rule != finding.rule or assessment.severity != finding.severity:
+                            raise ValueError("rich rule finding differs from its actual assessment")
             elif isinstance(body, DdoRichDiagnostic):
                 for ref in body.source_members:
                     self.external(ref)
         self._checking_member = None
+        self.check_selection()
         if self.reached_values != {identifier for identifier, body in self.members.items() if isinstance(body, _VALUES)}:
             raise ValueError("rich graph retains unreferenced or unchecked value members")
+
+
+    def check_selection(self):
+        graph = self.graph
+        if isinstance(graph, DdoRichConsolidation):
+            selection = graph.eligibility
+        elif isinstance(graph, DdoRichAdmission):
+            selection = graph
+            readings = {identifier for identifier, body in self.members.items() if isinstance(body, DdoRichSourceReadingAssertion)}
+            if readings != set(graph.selected_reading_ids):
+                raise ValueError("admitted reading selection differs from its exact retained assertions")
+        else:
+            return
+        for identifier in selection.selected_fact_ids:
+            self.member(identifier, DdoRichFact)
+        for identifier in selection.selected_occurrence_ids:
+            occurrence = self.member(identifier, DdoRichOccurrence)
+            if occurrence.fact_id not in selection.selected_fact_ids:
+                raise ValueError("selected occurrence does not establish an actual selected fact")
+        representatives = {item.fact_id: item for item in selection.scientific_representatives}
+        if set(representatives) != set(selection.selected_fact_ids):
+            raise ValueError("scientific representative mapping differs from the actual selected fact set")
+        for representative in representatives.values():
+            if representative.representative_fact_id not in representatives:
+                raise ValueError("scientific representative is outside the actual selected fact set")
 
 
 class _RetainedRichGraph(ValidatedRichGraph):
@@ -470,7 +523,7 @@ def read_retained_rich_graph(prepared: PreparedRelease, model: EffectiveDataOper
 
 
 def read_rich_graph(prepared: PreparedRelease, model: EffectiveDataOperationModel, *, context: SubjectContext,
-                    graph: DdoRichConsolidation | DdoRichAdmission | DdoRichAuthoredPropositions, inputs: tuple[DdoRichSelectedMember, ...],
+                    graph: RichGraphAssembly | DdoRichConsolidation | DdoRichAdmission | DdoRichAuthoredPropositions, inputs: tuple[DdoRichSelectedMember, ...],
                     whole_inputs: tuple[RichWholeInput, ...] = (),
                     retained_graphs: tuple[RichWholeInput, ...] = ()) -> ValidatedRichGraph:
     """Validate once and expose the same finite typed decoder to current CPU consumers."""
@@ -478,13 +531,14 @@ def read_rich_graph(prepared: PreparedRelease, model: EffectiveDataOperationMode
     if model.subject_definition(context.subject_definition).scope != "project" or context.original_source is not None:
         raise ValueError("rich graph requires its actual source-free project context")
     owner = type(graph)
-    if owner not in {DdoRichAdmission, DdoRichConsolidation, DdoRichAuthoredPropositions}:
+    if owner not in {RichGraphAssembly, DdoRichAdmission, DdoRichConsolidation, DdoRichAuthoredPropositions}:
         raise ValueError("rich graph has no actual declared whole-product owner")
     checked = owner.model_validate(_untrusted_value(graph), strict=True)
-    kind = next((item for item in model.kinds if item.semantic_id == _NAMESPACE + owner.__name__), None)
-    if kind is None or not kind.complete:
-        raise ValueError("rich graph lacks its actual current-compatible root kind")
-    validate_wire_schema(json.loads(kind.facts)["json_schema"], json_loads(json_bytes(checked.model_dump(mode="python"))))
+    if owner is not RichGraphAssembly:
+        kind = next((item for item in model.kinds if item.semantic_id == _NAMESPACE + owner.__name__), None)
+        if kind is None or not kind.complete:
+            raise ValueError("rich graph lacks its actual current-compatible root kind")
+        validate_wire_schema(json.loads(kind.facts)["json_schema"], json_loads(json_bytes(checked.model_dump(mode="python"))))
     if len({rich_reference_key(item.reference) for item in retained_graphs}) != len(retained_graphs):
         raise ValueError("retained rich graph repeats an actual selected whole")
     retained_states = tuple(read_retained_rich_graph(prepared, model, context=context, retained=item,
@@ -504,7 +558,7 @@ def read_rich_graph(prepared: PreparedRelease, model: EffectiveDataOperationMode
 
 
 def validate_rich_graph(prepared: PreparedRelease, model: EffectiveDataOperationModel, *, context: SubjectContext,
-                        graph: DdoRichConsolidation | DdoRichAdmission | DdoRichAuthoredPropositions, inputs: tuple[DdoRichSelectedMember, ...],
+                        graph: RichGraphAssembly | DdoRichConsolidation | DdoRichAdmission | DdoRichAuthoredPropositions, inputs: tuple[DdoRichSelectedMember, ...],
                         whole_inputs: tuple[RichWholeInput, ...] = (),
                         retained_graphs: tuple[RichWholeInput, ...] = ()):
     """Validate finite graph meaning; selected/native publication custody stays with its owner."""

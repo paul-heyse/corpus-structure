@@ -25,7 +25,7 @@ from .refusals import SemanticReason
 from .rich_graph_validation import RichWholeInput, ValidatedRichGraph, read_rich_graph
 from .rich_knowledge_contracts import (
     DdoRichAssessment, DdoRichAuthoredPropositions, DdoRichConsolidation, DdoRichFact, DdoRichOccurrence,
-    DdoRichSelectedMember, rich_reference_key,
+    DdoRichSelectedMember, RichGraphAssembly, rich_reference_key,
 )
 from .rich_rules import RichRulePolicy
 from .scientific_evidence import (
@@ -123,7 +123,7 @@ def assess_rich_scientific(
     model: EffectiveDataOperationModel,
     *,
     context: SubjectContext,
-    graph: DdoRichConsolidation,
+    graph: RichGraphAssembly | DdoRichConsolidation,
     inputs: tuple[DdoRichSelectedMember, ...],
     policy: RichRulePolicy,
     context_profile: AnalysisContextProfile,

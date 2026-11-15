@@ -17,7 +17,7 @@ from corpus_structure.semantic.expression_context import bind_expression_context
 from corpus_structure.semantic.rich_fact_graph import RichFactGraph
 from corpus_structure.semantic.rich_graph_validation import RichWholeInput
 from corpus_structure.semantic.rich_knowledge_contracts import (
-    DdoRichConsolidation, DdoRichContext, DdoRichEntity, DdoRichOccurrence,
+    DdoRichConsolidation, RichGraphAssembly, DdoRichContext, DdoRichEntity, DdoRichOccurrence,
     DdoRichPacket, DdoRichSelectedMember,
 )
 from corpus_structure.semantic.rich_knowledge_sources import rich_knowledge_inputs, rich_knowledge_declarations
@@ -100,7 +100,7 @@ def graph_inputs(scientific, values, *, qualifications=None, macros=None, proper
     bodies[entity.entity_id] = entity
     bodies.update((value.value_id, value) for value in graph.values)
     packets = tuple(DdoRichPacket(member_id=identifier, kind_contract=ids[PREFIX + type(body).__name__], context=DdoRichContext(subject=context.subject, subject_definition=context.subject_definition, original_source=None, analyzed_scope={}), body=body) for identifier, body in sorted(bodies.items()))
-    return dict(context=context, graph=DdoRichConsolidation(version="rich-consolidation-1", standing="private-consolidated", members=packets, input_population=tuple(inputs)),
+    return dict(context=context, graph=RichGraphAssembly(members=packets, input_population=tuple(inputs)),
                 inputs=tuple(inputs), source_contexts=tuple(contexts), whole_inputs=tuple(whole_inputs))
 
 
@@ -230,12 +230,14 @@ def test_known_known_comparisons_preserve_prior_assessment_but_new_known_require
     ids = {item.owner: item.key for item in model.identities if item.domain == "kind"}
     reference = inputs["inputs"][0].model_copy(update={"product_id": "product:known-admission", "member_id": None, "kind_contract": ids[PREFIX + "DdoRichAdmission"]})
     consolidation = reference.model_copy(update={"product_id": "historical:consolidation", "kind_contract": "historical:consolidation-kind"})
-    root = DdoRichAdmission(version="rich-admission-1", standing="accepted", members=inputs["graph"].members, consolidation=consolidation, policy_authorizations=(), reading_decisions=())
+    from semantic.test_rich_value_graph import contract_selection
+    root = DdoRichAdmission(**contract_selection(inputs["graph"].members),version="rich-admission-1", standing="accepted", members=inputs["graph"].members, consolidation=consolidation, policy_authorizations=(), reading_decisions=())
     retained = RichWholeInput(reference, root)
     graph = inputs["graph"].model_copy(update={"input_population": (reference,)})
     actual = {**inputs, "graph": graph, "inputs": (reference,), "source_contexts": (), "whole_inputs": (retained,), "retained_graphs": (retained,)}
     assert assess(scientific, actual) == ()
-    prior = root.model_copy(update={"members": tuple(item for item in root.members if item.member_id != "occurrence:1")})
+    prior_members = tuple(item for item in root.members if item.member_id != "occurrence:1")
+    prior = root.model_copy(update={"members": prior_members, **contract_selection(prior_members)})
     retained = RichWholeInput(reference, prior)
     fresh = inputs["source_contexts"][1]
     selected = (reference, fresh.original, fresh.context)

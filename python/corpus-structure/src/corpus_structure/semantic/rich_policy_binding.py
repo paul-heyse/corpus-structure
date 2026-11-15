@@ -63,3 +63,9 @@ def require_rich_policy(prepared, model, value):
     if actual != rich_policy_value(prepared, model, allowed_domain_contracts=actual.allowed_domain_contracts):
         raise ValueError("rich interpretation policy differs from its actual checked captured owners")
     return actual
+
+
+def rich_eligibility_policy_digest(checked_policy) -> str:
+    """Actual checked policy meaning, including its explicit consumed kind universe."""
+    from .data_operation_identity import semantic_value
+    return sha256(canonical_bytes(semantic_value(checked_policy))).hexdigest()

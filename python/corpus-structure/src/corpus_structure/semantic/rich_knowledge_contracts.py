@@ -12,6 +12,11 @@ from .data_operation_json import DdoJsonValue
 from .data_operation_model import EffectiveDataOperationModel, SubjectContext
 from .data_operation_support import SupportReference, read_support_references, support_reference_records
 
+from .rich_decisions import (
+    DdoRichEligibility, DdoRichOccurrenceDecision, DdoRichScientificRepresentative,
+    IdentityBasis, IdentityOutcome, require_selected_sets,
+)
+
 Nonempty = Annotated[str, Field(min_length=1)]
 Digest = Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
 
@@ -130,6 +135,17 @@ class DdoRichEntity(RichRecord):
     source_members: tuple[DdoRichSelectedMember, ...]
 
 
+class DdoRichIdentityResolution(RichRecord):
+    member_type: Literal["identity-resolution"]
+    resolution_id: Nonempty
+    resolved_entity_id: Nonempty
+    source_members: Annotated[tuple[DdoRichSelectedMember, ...], Field(min_length=1)]
+    basis: IdentityBasis
+    outcome: IdentityOutcome
+    relevant_entity_ids: tuple[Nonempty, ...]
+    dependency_sources: tuple[DdoRichSelectedMember, ...]
+
+
 class DdoRichFact(RichRecord):
     """Property meaning, independent of whether a source asserts or supports it."""
     member_type: Literal["fact"]
@@ -210,6 +226,7 @@ type DdoRichMemberBody = (
     | DdoRichCasefoldText | DdoRichQualificationMeaning
     | DdoRichEntity | DdoRichFact | DdoRichOccurrence | DdoRichSourceReadingAssertion
     | DdoRichAlternative | DdoRichAssessment | DdoRichDiagnostic
+    | DdoRichIdentityResolution | DdoRichOccurrenceDecision
 )
 
 
@@ -243,9 +260,16 @@ class DdoRichComputation(RichRecord):
     input_population: tuple[DdoRichSelectedMember, ...]
 
 
+class RichGraphAssembly(RichRecord):
+    """Invocation-owned pre-evaluation graph; never a published whole-product kind."""
+    members: tuple[DdoRichPacket, ...]
+    input_population: tuple[DdoRichSelectedMember, ...]
+
+
 class DdoRichConsolidation(RichRecord):
     version: Literal["rich-consolidation-1"]
     standing: Literal["private-consolidated"]
+    eligibility: DdoRichEligibility
     members: tuple[DdoRichPacket, ...]
     input_population: tuple[DdoRichSelectedMember, ...]
 
@@ -354,11 +378,24 @@ class DdoRichReadingDecision(RichRecord):
 class DdoRichAdmission(RichRecord):
     version: Literal["rich-admission-1"]
     standing: Literal["accepted"]
+    eligibility_policy_digest: Digest
+    selected_fact_ids: tuple[Nonempty, ...]
+    selected_occurrence_ids: tuple[Nonempty, ...]
+    selected_reading_ids: tuple[Nonempty, ...]
+    scientific_representatives: tuple[DdoRichScientificRepresentative, ...]
     members: tuple[DdoRichPacket, ...]
     consolidation: DdoRichSelectedMember
     policy_authorizations: tuple[DdoRichSelectedMember, ...]
     reading_decisions: tuple[DdoRichReadingDecision, ...]
 
+
+    @model_validator(mode="after")
+    def actual_selected_id_sets(self):
+        require_selected_sets(self.selected_fact_ids, self.selected_occurrence_ids, self.selected_reading_ids)
+        facts = tuple(item.fact_id for item in self.scientific_representatives)
+        if facts != tuple(sorted(set(facts))):
+            raise ValueError("scientific representative rows must identify unique ordered actual facts")
+        return self
 
 
 def rich_support_records(references: tuple[SupportReference, ...]) -> list[dict]:
