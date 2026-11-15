@@ -1,6 +1,13 @@
 # Explicit schema source paths carry nominal identity; field spelling is never a runtime rule.
 version: data-operation-wire-types-v1
 fields:
+  '#/definitions/visual_evidence_pin/properties/use_id': WireUseIdentity
+  '#/definitions/visual_evidence_pin/properties/product_id': WireProductId
+  '#/definitions/visual_evidence_pin/properties/derivation_id': WireDerivationId
+  '#/definitions/visual_read_VisualEvidencePin/properties/use_id': WireUseIdentity
+  '#/definitions/visual_read_VisualEvidencePin/properties/product_id': WireProductId
+  '#/definitions/visual_read_VisualEvidencePin/properties/derivation_id': WireDerivationId
+  '#/definitions/read_selected_pdf_source_result/properties/original_source': WireOriginalSourceId
   '#/definitions/cut_selection/properties/demand_id': WireDemandId
   '#/definitions/cut_selection/properties/project_id': corpus_structure.semantic.identifiers.ProjectId
   '#/definitions/cut_selection/properties/read_id': WireReadIdentity

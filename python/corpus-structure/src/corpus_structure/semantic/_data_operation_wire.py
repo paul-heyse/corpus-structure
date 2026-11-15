@@ -964,14 +964,14 @@ class WireReadSelectedPdfSourceRequest(TypedDict):
 
 class WireReadSelectedPdfSourceResult(TypedDict):
     cut: Required[WireCutSelection]
-    original_source: Required[WireIdentifier]
+    original_source: Required[WireOriginalSourceId]
     receipt: Required[WirePdfExecutionReceipt]
 
 
 class WireVisualEvidencePin(TypedDict):
-    derivation_id: Required[WireIdentifier]
-    product_id: Required[WireIdentifier]
-    use_id: Required[WireIdentifier]
+    derivation_id: Required[WireDerivationId]
+    product_id: Required[WireProductId]
+    use_id: Required[WireUseIdentity]
 
 
 class WireVisualReadVisualSourceRegion(TypedDict):
@@ -1014,9 +1014,9 @@ class WireReadSelectedVisualEvidenceRequest(TypedDict):
 
 
 class WireVisualReadVisualEvidencePin(TypedDict):
-    derivation_id: Required[str]
-    product_id: Required[str]
-    use_id: Required[str]
+    derivation_id: Required[WireDerivationId]
+    product_id: Required[WireProductId]
+    use_id: Required[WireUseIdentity]
 
 
 class WireVisualReadVisualReadHeader(TypedDict):
