@@ -123,6 +123,16 @@ or instance changes do not silently rebind existing authority. Fitting and inter
 the common native publication transaction. Private source-reading assertions remain distinct from
 scientific proposals and accepted knowledge; calibrated source fidelity does not prove scientific truth.
 
+**Implemented correspondence; bounded controls Tested · 2026-11-15; complete native journey pending.**
+The common retained-intent and publication fences authenticate the actual prepared factories,
+derivation profiles, captured recipes and original CPU reply/input basis for external packet
+preparation, located extraction and private rich consolidation. Private computation remains private;
+a matching nominal kind alone supplies no computed authority. Accepted rich admission separately
+authenticates its actual preparation/placement producers, complete reading populations and issued
+policy. Later selected-support reads check the publication's current captured native kernel and
+producer headers, while ordinary support closure checks current trust. They do not rerun immutable
+graph lowering or numerical fitting. The coordinator owns complete publication/read qualification.
+
 > Decision: [ADR-0110](../adr/0110-evaluator-authorized-policy-disclosure.md)
 
 **Implemented; bounded native controls Tested (2026-11-04).** Bounded interpretation runs before

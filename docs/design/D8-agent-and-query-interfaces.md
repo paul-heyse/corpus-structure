@@ -17,10 +17,15 @@ source-interface and operation interpreters retire rather than imposing historic
 Native trust, effect fencing, source fidelity and evaluation independence remain required.
 Implementation/qualification is owned by the DDO coordinator.
 
-**Implemented retirement · 2026-11-15:** the completed-integer-run `ci promote` adapter is removed.
-Current selected-result interfaces require explicit project/demand/read/cut references. Remaining
-legacy named-query and grouped-measurement consumers retain their DDO-09/10 obligations; removing
-this adapter does not establish their migration or native qualification.
+**Implemented; scoped controls Tested · 2026-11-15; native qualification pending:** the
+completed-integer-run `ci promote`, `retained-query` and `retained-explain` adapters are removed.
+Current selected-result interfaces require explicit project/demand/read/cut references. Eleven
+rich query routes read an explicit native admitted root, retain all actual entity classes and typed
+values, and bind continuations to the selected cut, parameters and installed implementation.
+Statistics relation traversal uses the attributed NetworkX multigraph with explicit bounds; retained
+members have no automatic selected standing. Composite views, the old query compiler/serving
+implementation and grouped-measurement consumers retain their DDO-09/10 obligations. Adapter and
+pure query controls do not establish native publication/read qualification.
 
 > Decision: [ADR-0109](../adr/0109-ddo-current-domain-contracts.md)
 
