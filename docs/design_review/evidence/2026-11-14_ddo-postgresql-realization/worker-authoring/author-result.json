@@ -1,0 +1,1 @@
+{"outcome": "passed", "native_operations": 27, "ordinary_operations": 2, "products": ["native_admission.sql", "native_candidate.py", "native_operations.json"], "cleanup": "transaction rolled back by author_native_candidate"}

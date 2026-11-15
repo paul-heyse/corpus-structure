@@ -26,3 +26,11 @@ upgrade, stale before-state refusal and undeclared dependent refusal.
 `author_candidate.py` exercises full source-owned rollback-only preparation.
 Its `author-result.json` is a bounded worker-context result, not registration,
 deployment, or qualification of the coordinator's subsequently integrated source.
+
+**Tested, 2026-11-14.**
+`uv run --no-sync python docs/design_review/evidence/2026-11-14_ddo-postgresql-realization/worker-authoring/author_candidate.py`
+**passed** full worker-context preparation and independent rendered native,
+privilege and frozen-catalog admission: 27 native operations and two ordinary
+operations. `author-result.json` retains the bounded result. The owner rolled
+back its transaction. The coordinator's later renderer/read/lifecycle integration
+still requires its own final candidate authoring and registration.
