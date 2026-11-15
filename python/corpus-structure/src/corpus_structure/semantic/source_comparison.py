@@ -69,14 +69,18 @@ def _json(value):
 
 
 def _interfaces(model, supplied):
-    if supplied is not None:
-        return (
-            supplied
-            if isinstance(supplied, SourceInterfaceProjection)
-            else SourceInterfaceProjection.model_validate_json(supplied)
-        )
-    content = getattr(model, "source_interfaces", None)
-    return SourceInterfaceProjection.model_validate_json(content) if content is not None else None
+    if supplied is None:
+        supplied = getattr(model, "source_interfaces", None)
+    if supplied is None:
+        return None
+    projection = (
+        supplied
+        if isinstance(supplied, SourceInterfaceProjection)
+        else SourceInterfaceProjection.model_validate_json(supplied)
+    )
+    if projection.model_digest != sha256(model.content).hexdigest():
+        raise ValueError("source interface projection belongs to another effective model")
+    return projection
 
 
 def _callable_container(operation):
@@ -155,6 +159,7 @@ def compare_data_operation_models(
                 "profile": operation.profile,
                 "callables": [
                     dict(
+                        exposed=surface.exposed,
                         parameters=asdict(surface)["parameters"],
                         returns=surface.returns,
                         overloads=[json.loads(item) for item in surface.overloads],

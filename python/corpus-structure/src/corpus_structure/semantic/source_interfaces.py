@@ -57,6 +57,7 @@ class SourceOperationFacts(_Fact):
 
 class SourceInterfaceProjection(_Fact):
     version: Literal["data-operation-source-interfaces-v1"] = "data-operation-source-interfaces-v1"
+    model_digest: str
     interpreter: str
     interpretation: str
     libraries: dict[str, str]
@@ -105,7 +106,7 @@ def _record(value: Any) -> dict[str, JsonValue]:
     return result
 
 
-def export_source_interfaces(frontend, facts) -> SourceInterfaceProjection:
+def export_source_interfaces(frontend, facts, model) -> SourceInterfaceProjection:
     """Consume the already resolved/enriched frontend, never create another visitor."""
     modules = tuple(
         SourceModuleFacts(
@@ -163,6 +164,7 @@ def export_source_interfaces(frontend, facts) -> SourceInterfaceProjection:
             )
         )
     return SourceInterfaceProjection(
+        model_digest=sha256(model.content).hexdigest(),
         interpreter=frontend.inputs.interpreter,
         interpretation=frontend.inputs.interpretation,
         libraries={name: version(name) for name in ("griffe", "libcst", "astroid")},
@@ -179,4 +181,12 @@ def read_source_interfaces(prepared) -> SourceInterfaceProjection | None:
     ]
     if len(matches) > 1:
         raise ValueError("repeated archived source interface projection")
-    return SourceInterfaceProjection.model_validate_json(matches[0].content) if matches else None
+    if not matches:
+        return None
+    projection = SourceInterfaceProjection.model_validate_json(matches[0].content)
+    models = [
+        artifact for artifact in prepared.artifacts if artifact.kind == "data_operations.json"
+    ]
+    if len(models) != 1 or projection.model_digest != sha256(models[0].content).hexdigest():
+        raise ValueError("source interface projection belongs to another effective model")
+    return projection

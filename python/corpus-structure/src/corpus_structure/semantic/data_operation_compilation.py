@@ -1739,10 +1739,10 @@ def compile_data_operations(
 
     from .source_interfaces import export_source_interfaces
 
+    model = replace(model, identities=_compile_identities(model))
     return replace(
         model,
-        identities=_compile_identities(model),
-        source_interfaces=export_source_interfaces(frontend, python_facts).content
+        source_interfaces=export_source_interfaces(frontend, python_facts, model).content
         if frontend is not None
         else None,
     )

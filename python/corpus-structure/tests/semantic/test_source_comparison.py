@@ -60,6 +60,7 @@ def test_unrelated_and_permitted_cosmetic_changes_do_not_invalidate_semantics(ch
 def test_documentation_is_prepared_and_compared_separately_from_callable_shape():
     before = compile_source(operation_source(body='"""Before prose."""\n    return helper(x)'))
     after = compile_source(operation_source(body='"""After prose."""\n    return helper(x)'))
+    assert after.source_interfaces is not None
     projection = SourceInterfaceProjection.model_validate_json(after.source_interfaces)
     documented = projection.operations[0].callables[0]
     assert documented.documentation == "After prose."
@@ -88,15 +89,24 @@ class Child(Base):
         + f"Child.__data_operation__={metadata!r}\n"
     )
     model = compile_source(source)
+    assert model.source_interfaces is not None
     projection = SourceInterfaceProjection.model_validate_json(model.source_interfaces)
     callable = projection.operations[0].callables[0]
     assert callable.exposed == "example.Child.run"
     assert callable.declaration == "example.Base.run"
     assert callable.line == 3
-    assert callable.signature["parameters"][1]["default"] == "2"
+    parameters = callable.signature["parameters"]
+    assert isinstance(parameters, list)
+    argument = parameters[1]
+    assert isinstance(argument, dict)
+    assert argument["default"] == "2"
     parameter = next(section for section in callable.sections if section["kind"] == "parameters")
-    assert parameter["value"][0]["name"] == "x"
-    assert parameter["value"][0]["description"] == "Independent count."
+    values = parameter["value"]
+    assert isinstance(values, list)
+    first_parameter = values[0]
+    assert isinstance(first_parameter, dict)
+    assert first_parameter["name"] == "x"
+    assert first_parameter["description"] == "Independent count."
     assert projection.operations[0].metadata["coverage"] == metadata["coverage"]
     assert any(
         origin["declaration"] == "example.Base.run" for origin in projection.operations[0].origins
@@ -173,5 +183,13 @@ def test_added_operation_frames_owned_encoded_json_without_erasing_types():
     compared = compare_data_operation_models(before, after)
     added = next(item for item in compared.changes if item.operation == "urn:test:derive")
     assert added.kind == "added"
+    assert isinstance(added.after, dict)
     assert added.after["parameters"] == {"json": {}}
     assert added.before is None
+
+
+def test_mismatched_documentation_projection_cannot_be_attached_to_another_model():
+    before = compile_source(operation_source())
+    after = compile_source(operation_source(body="return helper(x) + 1"))
+    with pytest.raises(ValueError, match="another effective model"):
+        compare_data_operation_models(before, after, after_interfaces=before.source_interfaces)
