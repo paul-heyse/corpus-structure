@@ -236,57 +236,8 @@ def test_piped_review_selection_is_bounded_before_delivery(cli, monkeypatch):
     assert admitted == [(17, None, True, True)]
 
 
-def test_enriched_selection_uses_managed_export_and_retry(cli, tmp_path, monkeypatch):
-    from corpus_structure.serve import review_bundle
-    from corpus_structure.serve.characterization_replay import CharacterizationReviewSelection
-
-    selected = tmp_path / "enriched.json"
-    selection = {
-        "format": "enriched-document-review-v1",
-        "run_id": 4,
-        "task_id": 7,
-        "product_key": "characterization-view:sealed",
-        "content_digest": "a" * 64,
-    }
-    selected.write_text(json.dumps(selection))
-    seen = []
-
-    def export(request, destination, _settings, *, retain_binding, **_kwargs):
-        assert isinstance(request, CharacterizationReviewSelection)
-        retain_binding("exact-database-and-view")
-        seen.append(request.model_dump(mode="json"))
-        destination.mkdir()
-        return {"format": request.format, "selection": request.model_dump(mode="json")}
-
-    monkeypatch.setenv("CORPUS_CI_RESULTS", str(tmp_path / "managed"))
-    monkeypatch.setattr(review_bundle, "export_review_bundle", export)
-    first = cli("retained-review", "export", str(selected), "--json")
-    assert first.exit_code == 0, first.output
-    original = json.loads(first.stdout)
-    selected.unlink()
-    retry = cli("retained-review", "retry", original["invocation_id"], "--json")
-    assert retry.exit_code == 0, retry.output
-    assert len(seen) == 2 and seen[0] == seen[1]
 
 
-def test_enriched_review_human_inspection_uses_its_format(cli, tmp_path, monkeypatch):
-    from corpus_structure.serve import review_bundle
-
-    monkeypatch.setattr(
-        review_bundle,
-        "inspect_review_bundle",
-        lambda *args, **kwargs: {
-            "format": "enriched-document-review-v1",
-            "selection": {},
-            "completeness": "exact_view_closure",
-            "standing": "private_analyses",
-            "original_source_completeness": "complete_native_document_and_companions",
-            "layers": 3,
-        },
-    )
-    response = cli("retained-review", "inspect", str(tmp_path / "enriched"))
-    assert response.exit_code == 0, response.output
-    assert "private_analyses" in response.stdout and "3" in response.stdout
 
 
 def test_retained_routes_require_explicit_history_pins_before_settings(cli):
@@ -322,3 +273,15 @@ def test_current_explain_forwards_actual_selected_product_support(cli, monkeypat
     assert result.exit_code == 0, result.output
     assert calls[0][0] == ("support", "demand:A", "project:A")
     assert calls[0][1]["product"] == "product:A"
+
+
+def test_retired_enriched_selection_refuses_before_export(cli, tmp_path, monkeypatch):
+    from corpus_structure.serve import review_bundle
+    selected = tmp_path / "retired.json"
+    selected.write_text(json.dumps({"format": "enriched-document-review-v1", "run_id": 4,
+        "task_id": 7, "product_key": "view", "content_digest": "a"*64}))
+    def forbidden(*args, **kwargs):
+        raise AssertionError("retired task/layer review must not enter export")
+    monkeypatch.setattr(review_bundle, "export_review_bundle", forbidden)
+    result = cli("retained-review", "export", str(selected), "--json")
+    assert result.exit_code != 0

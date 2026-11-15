@@ -37,9 +37,31 @@ read-only and rebuildable; it cannot become a second selection authority.
 Reader, installed ci commands, actual MCP tools/resources, query12's three recipes, definition /
 assertion/contextual consumers, exports and detached replay consume the same production read owner.
 Replace current task-qualified pins everywhere, including `semantic/contribution_queries.py`,
-`serve/characterization.py`, `serve/contextual_navigation.py`, `serve/characterization_replay.py`
+`serve/characterization.py`, `serve/contextual_navigation.py`, selected detached export
 and review bundle selection/codecs. Map each current API to the generated typed replacement and
 retire old request/default/fallback branches after real callers migrate.
+
+**Implemented consumer retirement, 2026-11-15; combined native qualification remains pending.**
+Current `records list|support|export`, selected characterization/definition inspection and main MCP
+`read_result` use actual explicit demand/project selections. The old `retained-records`, task/layer
+`source enriched` and `inspect_enriched_document`, integer record presentation/support, record-specific
+physical export and `enriched-document-review-v1` envelope are deleted. Generic retained review
+exports preserve their own declared behavior; their source/schema authentication helpers now live
+with the existing `primary_characterization_replay` consumer. Current selected JSONL/Parquet
+result/support export is authoritative and retains native cut/authority-leaf limits.
+
+`interpretations review` / `inspect_private_proposals` read actual captured `DdoRichProposalValue`
+member descendants, preserving nominal kinds, original occurrence coordinates and `private_proposed`
+standing. Terminology lookup, portable schema export and explicit native authored inputs remain.
+These generic member rows do **not** implement grouped measurement interpretation. DDO-09/10 retain
+that query/grouping obligation: define the genuine selected interpretation kind and source population,
+then implement grouping against those contracts; never relabel private proposals as accepted knowledge.
+Computational provenance likewise does not establish scientific support/opposition.
+
+The lower-level historical `semantic.record_queries` / terminology selection controls remain only
+while protected `evaluate.record_references` consumes that owner; its current protected successor
+must remove that last consumer and obsolete query code together. Native tests still using old
+`register_document` fixture chains are unqualified; do not repair them with fake run/task/view aliases.
 
 Requests pin semantic selection revision, contracts, source and support/trust assessment snapshot.
 Cursors, continuation tokens, resource handles and cache keys bind those same identities for their
@@ -63,8 +85,10 @@ actual target contract requires it, with callers updated together and no compati
 
 Definition variants need an explicit released variant-to-kind association before deriving their
 lookup. Neither an IRI suffix nor a kind’s display name establishes that association. DDO-01/03
-preparation supplies the checked effective fact; missing/ambiguous associations refuse. DDO-10 then
-removes the hand map in `serve/characterization.py:642–646`, preserving exact nominal selection.
+preparation supplies the checked effective fact; missing/ambiguous associations refuse. Current
+`inspect_demand_definition` consumes that authenticated variant-to-kind association, preserving exact
+nominal selection without a hand map. Qualification must cover actual captured variants and refusal
+of wrong nominal products.
 
 One authenticated typed reader owns `data_operation_native_definitions.json` interpretation for
 admission, selected-reference evaluation, serving and export. It validates unique artifact presence,

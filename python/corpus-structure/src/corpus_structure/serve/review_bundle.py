@@ -40,7 +40,6 @@ from corpus_structure.semantic.source_views import (
     selected_source_views,
 )
 from corpus_structure.semantic.structural_products import legacy_structural_sources
-from corpus_structure.serve.characterization_replay import CharacterizationReviewSelection
 from corpus_structure.serve.companion_export import _publish_directory
 from corpus_structure.serve.contextual_navigation import (
     SourceDecisionRequest,
@@ -1656,7 +1655,7 @@ def _exact_closure(
 
 
 def export_review_bundle(
-    selection: ReviewSelection | CharacterizationReviewSelection,
+    selection: ReviewSelection,
     destination: Path,
     settings: Settings,
     *,
@@ -1666,18 +1665,6 @@ def export_review_bundle(
     exact_closure: bool = False,
     retain_binding: Callable[[str], None] | None = None,
 ) -> dict[str, Any]:
-    if isinstance(selection, CharacterizationReviewSelection):
-        if extra_relations or evaluator_capture is not None:
-            raise ValueError("enriched-document review accepts only its exact product closure")
-        from .characterization_replay import export_characterization_review
-
-        return export_characterization_review(
-            selection,
-            destination,
-            settings,
-            cancellation=cancellation,
-            retain_binding=retain_binding,
-        )
     cancellation = cancellation or OperationCancellation()
     cancellation.check_active()
     if destination.exists() or destination.is_symlink():
@@ -3273,17 +3260,6 @@ def _verified_review(root: Path | int, manifest_digest: str | None) -> _Verified
 def _verify_review_bundle(root: int, manifest_digest: str | None) -> _VerifiedReview:
     with _member(root, "manifest.json", digest=manifest_digest) as stream:
         manifest = json.load(stream)
-    from .characterization_replay import (
-        FORMAT as CHARACTERIZATION_FORMAT,
-    )
-    from .characterization_replay import (
-        verify_characterization_review,
-    )
-
-    if manifest.get("format") == CHARACTERIZATION_FORMAT:
-        return _VerifiedReview(
-            verify_characterization_review(root, manifest_digest=manifest_digest), []
-        )
     if manifest.get("format") != FORMAT:
         raise ValueError("unsupported review format")
     selection = ReviewSelection.model_validate(manifest["selection"])

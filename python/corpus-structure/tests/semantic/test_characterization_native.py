@@ -595,68 +595,6 @@ def test_document_view_combines_large_metadata_with_independent_read_budget(
             read_view(conn, pin, max_bytes=8 * 1024**2)
 
 
-@pytest.mark.parametrize("private_build", ["characterization_pdf"], indirect=True)
-def test_native_capture_detached_characterization_closure_while_run_unfinished(
-    characterization_source,
-    commit_writer_engine,
-    commit_reader_engine,
-    tmp_path,
-):
-    """Real reader snapshot capture; public detached verify/inspect dispatch, no NLP."""
-    from corpus_structure.core.db.cancellation import OperationCancellation
-    from corpus_structure.semantic.query import read_snapshot
-    from corpus_structure.serve.characterization_replay import (
-        CharacterizationReviewSelection,
-        capture_characterization_review,
-    )
-    from corpus_structure.serve.review_bundle import inspect_review_bundle, verify_review_bundle
-
-    source = characterization_source
-    with commit_writer_engine.begin() as conn:
-        task, claim, config_hash = make_task(conn, source)
-        layer = validate_layer(source.prepared, layer_payload(source, config_hash))
-        layer_pin = publish_layer(
-            conn,
-            task_id=task,
-            attempt=claim.attempt,
-            holder="characterization-fixture",
-            layer=layer,
-        )
-        view = validate_view(
-            source.prepared,
-            dict(
-                format="enriched-document-view-v1",
-                base_document=source.base.values(),
-                release_id=source.prepared.release_id,
-                source_scope=source.scope,
-                layers=[layer_pin.values()],
-                profile="selected_layers",
-                coverage=layer.payload["coverage"],
-            ),
-            {layer_pin: layer},
-        )
-        view_task, view_claim, _ = make_task(conn, source, compose=True, layers=(layer_pin,))
-        view_pin = compose_view(
-            conn,
-            task_id=view_task,
-            attempt=view_claim.attempt,
-            holder="characterization-fixture",
-            view=view,
-        )
-        assert (
-            conn.scalar(
-                text("SELECT status FROM ops.run WHERE id=:id"), {"id": source.task["run_id"]}
-            )
-            != "finished"
-        )
-    selection = CharacterizationReviewSelection(run_id=source.task["run_id"], **view_pin.values())
-    destination = tmp_path / "detached-review"
-    destination.mkdir()
-    cancellation = OperationCancellation()
-    with read_snapshot(commit_reader_engine, cancellation=cancellation.postgresql) as conn:
-        captured = capture_characterization_review(conn, selection, destination, cancellation)
-    assert verify_review_bundle(destination) == captured
-    assert inspect_review_bundle(destination)["layers"] == 1
 
 
 @pytest.mark.parametrize("private_build", ["characterization_pdf"], indirect=True)
@@ -1056,7 +994,7 @@ def test_native_new_rule_release_reuses_original_native_layer_and_detached_contr
         view_task, view_claim, _ = make_task(
             conn, duplicate_owner, compose=True, layers=(original_pin, semantic_pin)
         )
-        view_pin = compose_view(
+        compose_view(
             conn,
             task_id=view_task,
             attempt=view_claim.attempt,
@@ -1072,25 +1010,6 @@ def test_native_new_rule_release_reuses_original_native_layer_and_detached_contr
             conn.scalar(text("SELECT status FROM ops.run WHERE id=:id"), {"id": run}) != "finished"
         )
 
-    from corpus_structure.core.db.cancellation import OperationCancellation
-    from corpus_structure.semantic.query import read_snapshot
-    from corpus_structure.serve.characterization_replay import (
-        CharacterizationReviewSelection,
-        capture_characterization_review,
-    )
-    from corpus_structure.serve.review_bundle import verify_review_bundle
-
-    cancellation = OperationCancellation()
-    destination = tmp_path / "cross-release-review"
-    destination.mkdir()
-    with read_snapshot(commit_reader_engine, cancellation=cancellation.postgresql) as conn:
-        capture_characterization_review(
-            conn,
-            CharacterizationReviewSelection(run_id=run, **view_pin.values()),
-            destination,
-            cancellation,
-        )
-    verify_review_bundle(destination)
     with commit_reader_engine.connect() as conn:
         assert read_layer(conn, original_pin).content == original.content
 
@@ -1448,20 +1367,13 @@ def test_retained_characterization_does_not_require_unrelated_producer_readiness
 def test_unprojected_native_formula_publishes_and_replays_item_anchored_syntax(
     private_build, commit_db_engine, commit_writer_engine, commit_reader_engine, tmp_path
 ):
-    from corpus_structure.core.db.cancellation import OperationCancellation
     from corpus_structure.core.method import UnitRef, UnitView
     from corpus_structure.core.vocab import TaskUnitType
     from corpus_structure.orchestrate.commands import finalize_bound_run
     from corpus_structure.semantic.characterization_store import read_inventory
     from corpus_structure.semantic.operations import OperationBinding, complete_task
-    from corpus_structure.semantic.query import read_snapshot
     from corpus_structure.semantic.source_views import load_source_view
     from corpus_structure.semantic.structural_products import ExternalSourceRef
-    from corpus_structure.serve.characterization_replay import (
-        CharacterizationReviewSelection,
-        capture_characterization_review,
-    )
-    from corpus_structure.serve.review_bundle import verify_review_bundle
     from semantic.primary_native_support import publish_primary_fixture
     from semantic.retained_primary_fixture import SealedFormalFixture
     from semantic.sealed_primary_fixture import compose_view_descriptor, compose_view_result
@@ -1622,7 +1534,7 @@ def test_unprojected_native_formula_publishes_and_replays_item_anchored_syntax(
     )
     math_coverage = next(row for row in layer["coverage"] if row["family"] == "formal.math")
     assert math_coverage["outcome"] == "partial"
-    composed, view_pin = run(
+    _composed, view_pin = run(
         compose_view_descriptor(),
         dict(
             config,
@@ -1630,17 +1542,9 @@ def test_unprojected_native_formula_publishes_and_replays_item_anchored_syntax(
             characterization_profile="selected_layers",
         ),
     )
-    cancellation = OperationCancellation()
-    destination = tmp_path / "unprojected-formula-review"
-    destination.mkdir()
-    with read_snapshot(commit_reader_engine, cancellation=cancellation.postgresql) as conn:
-        captured = capture_characterization_review(
-            conn,
-            CharacterizationReviewSelection(run_id=composed.run_id, **view_pin.values()),
-            destination,
-            cancellation,
-        )
-    assert verify_review_bundle(destination) == captured
+
+    with commit_reader_engine.connect() as conn:
+        assert read_view(conn, view_pin).payload["layers"] == [layer_pin.values()]
 
 
 @pytest.mark.parametrize("private_build", ["characterization_pdf"], indirect=True)
@@ -1751,7 +1655,7 @@ def test_large_layer_full_reads_preserve_exact_bytes_and_aggregate_framing(
             {pin: report},
         )
         view_task, view_claim, _ = make_task(conn, source, compose=True, layers=(pin,))
-        view_pin = compose_view(
+        compose_view(
             conn,
             task_id=view_task,
             attempt=view_claim.attempt,
@@ -1821,26 +1725,6 @@ def test_large_layer_full_reads_preserve_exact_bytes_and_aggregate_framing(
         with pytest.raises(DBAPIError), conn.begin_nested():
             read_layer(conn, pin, max_bytes=8 * 1024**2)
 
-    from corpus_structure.core.db.cancellation import OperationCancellation
-    from corpus_structure.semantic.query import read_snapshot
-    from corpus_structure.serve.characterization_replay import (
-        CharacterizationReviewSelection,
-        capture_characterization_review,
-    )
-    from corpus_structure.serve.review_bundle import verify_review_bundle
-
-    cancellation = OperationCancellation()
-    destination = tmp_path / "large-layer-review"
-    destination.mkdir()
-    with read_snapshot(commit_reader_engine, cancellation=cancellation.postgresql) as conn:
-        captured = capture_characterization_review(
-            conn,
-            CharacterizationReviewSelection(run_id=source.task["run_id"], **view_pin.values()),
-            destination,
-            cancellation,
-        )
-    assert (destination / "layer-0.json").read_bytes() == report.content
-    assert verify_review_bundle(destination) == captured
 
 
 @pytest.mark.parametrize("private_build", ["characterization_pdf"], indirect=True)

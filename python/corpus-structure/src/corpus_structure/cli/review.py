@@ -28,7 +28,6 @@ from corpus_structure.cli.output import (
 if TYPE_CHECKING:
     from corpus_structure.cli.managed import Invocation
     from corpus_structure.core.db.cancellation import OperationCancellation
-    from corpus_structure.serve.characterization_replay import CharacterizationReviewSelection
     from corpus_structure.serve.review_bundle import ReviewSelection
 
 app = typer.Typer(help="Export pinned evidence and verify detached review bundles.")
@@ -61,19 +60,15 @@ def _selection_digest(body: bytes, *, exact_closure: bool) -> str:
     return sha256(mode + body).hexdigest()
 
 
-def _read_selection(body: bytes) -> ReviewSelection | CharacterizationReviewSelection:
-    from corpus_structure.serve.characterization_replay import CharacterizationReviewSelection
+def _read_selection(body: bytes) -> ReviewSelection:
     from corpus_structure.serve.review_bundle import ReviewSelection
 
-    value = json_module.loads(body)
-    if isinstance(value, dict) and value.get("format") == "enriched-document-review-v1":
-        return CharacterizationReviewSelection.model_validate(value)
-    return ReviewSelection.model_validate(value)
+    return ReviewSelection.model_validate(json_module.loads(body))
 
 
 def _deliver_review(
     ctx: typer.Context,
-    request: ReviewSelection | CharacterizationReviewSelection,
+    request: ReviewSelection,
     destination: Path | None,
     *,
     exact_closure: bool,
@@ -85,16 +80,14 @@ def _deliver_review(
     from corpus_structure.cli.managed import managed_operation, result_store
     from corpus_structure.core.db.cancellation import OperationCancellation
     from corpus_structure.semantic.identity import canonical_bytes
-    from corpus_structure.serve.characterization_replay import CharacterizationReviewSelection
     from corpus_structure.serve.review_bundle import export_review_bundle
 
-    if not isinstance(request, CharacterizationReviewSelection):
-        for selected in (*request.structural_selections, *request.structural_gap_selections):
-            if selected.cut_id is None:
-                raise ValueError("retained review requires its explicit sealed historical cuts")
-            binding = getattr(selected, "binding_task", None)
-            if binding is not None and binding.cut_id is None:
-                raise ValueError("retained review gap binding requires its explicit sealed cut")
+    for selected in (*request.structural_selections, *request.structural_gap_selections):
+        if selected.cut_id is None:
+            raise ValueError("retained review requires its explicit sealed historical cuts")
+        binding = getattr(selected, "binding_task", None)
+        if binding is not None and binding.cut_id is None:
+            raise ValueError("retained review gap binding requires its explicit sealed cut")
     store = result_store(ctx)
     if destination is not None and (destination.exists() or destination.is_symlink()):
         raise FileExistsError(destination)
@@ -364,22 +357,6 @@ def verify_review(
 
 def _inspection_view(report: RootModel[dict[str, JsonValue]], subject: str) -> Table:
     body = report.root
-    if body.get("format") == "enriched-document-inspection-v1":
-        return report_fields(
-            ("Verified review", subject),
-            ("Profile", body["profile"]),
-            ("Standing", body["standing"]),
-            ("Items", len(body["items"]) if isinstance(body["items"], list) else 0),
-            ("Continuation", body.get("continuation") or "complete"),
-        )
-    if body.get("format") == "enriched-document-review-v1":
-        return report_fields(
-            ("Verified review", subject),
-            ("Coverage", body["completeness"]),
-            ("Source completeness", body["original_source_completeness"]),
-            ("Layers", body["layers"]),
-            ("Standing", body["standing"]),
-        )
     fields: list[tuple[str, object]] = [
         ("Verified review", subject),
         ("Coverage", body["completeness"]),
