@@ -74,6 +74,10 @@ def register_demand_read_tools(server, *, settings, read_engine=None, project=No
 
     register_contribution_facet_tools(server, reader, project=project, demand=demand)
 
+    from .structural_read_tools import register_structural_read_tools
+
+    register_structural_read_tools(server, reader, project=project, demand=demand)
+
     def selected(request, projection=None, *, scheme="selected-result"):
         projection = serve_demand_query if projection is None else projection
         if project is not None and request.project_id != project:

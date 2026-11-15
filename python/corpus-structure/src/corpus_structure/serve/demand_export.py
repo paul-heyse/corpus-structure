@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sqlite3
+from contextlib import contextmanager
 from hashlib import file_digest, sha256
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -117,6 +118,9 @@ def export_demand_result(
     format="parquet",
     page_rows=100,
     page_bytes=8388608,
+    scope=None,
+    read_id=None,
+    expected_cut=None,
 ):
     """Acquire and stream every page before releasing native read/trust ownership.
 
@@ -151,7 +155,8 @@ def export_demand_result(
 
         for ordinal, page in enumerate(
             stream_demand_result(
-                connection, demand_id, project_id=project_id, limit=page_rows, max_bytes=page_bytes
+                connection, demand_id, project_id=project_id, limit=page_rows, max_bytes=page_bytes,
+                scope=scope, read_id=read_id, expected_cut=expected_cut,
             )
         ):
             cut = page.cut
@@ -344,8 +349,12 @@ def export_demand_result(
         return dict(manifest, manifest_digest=sha256(manifest_bytes).hexdigest())
 
 
-def verify_demand_export(root: Path, *, manifest_digest: str):
-    """Verify a detached export relative to its explicitly trusted manifest digest."""
+@contextmanager
+def verified_demand_export(root: Path, *, manifest_digest: str):
+    """Own an authenticated archive and exact witness index for detached consumers.
+
+    Verification establishes captured custody only; it acquires no current native trust.
+    """
     from corpus_structure.semantic.archive_reader import open_release_parts
     from corpus_structure.semantic.data_operation_runtime import (
         RuntimeBinding,
@@ -436,6 +445,7 @@ def verify_demand_export(root: Path, *, manifest_digest: str):
                 )
                 if page.cut.identity != manifest["cut_id"]:
                     raise ValueError("detached page belongs to another selected cut")
+                index.append_page(page.record)
                 pins = page.cut.record
                 if (pins["release_id"], pins["runtime_id"]) not in runtime_ids:
                     raise ValueError("detached selected runtime archive is missing")
@@ -448,9 +458,15 @@ def verify_demand_export(root: Path, *, manifest_digest: str):
                     raise ValueError(
                         "detached demand selection differs from captured effective model"
                     )
+            yield manifest, prepared, models, index
         finally:
             index.close()
-    return dict(
+
+
+def verify_demand_export(root: Path, *, manifest_digest: str):
+    """Verify a detached export relative to its explicitly trusted manifest digest."""
+    with verified_demand_export(root, manifest_digest=manifest_digest) as (manifest, _, _, _):
+        return dict(
         outcome="passed",
         cut_id=manifest["cut_id"],
         pages=len(manifest["pages"]),

@@ -2,11 +2,10 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel, ConfigDict, Field, JsonValue
+from pydantic import BaseModel, ConfigDict
 from sqlalchemy import and_, exists, select
 
 from corpus_structure.semantic.query import Coverage, same_scope_clause
-from corpus_structure.semantic.structural_products import StructuralProductReport
 from corpus_structure.serve.contextual_navigation import (
     SourceDecisionDiagnosisQuery,
 )
@@ -18,9 +17,6 @@ from corpus_structure.serve.results import (
     EvidenceAnswer,
     StatementAnswer,
 )
-from corpus_structure.serve.source_decision_journey import SourceDecisionJourneyQuery
-from corpus_structure.serve.structural_gaps import GapPage, GapParams, GapRequest
-from corpus_structure.serve.structural_products import DossierRepresentationPage
 
 
 class Params(BaseModel):
@@ -265,172 +261,11 @@ class Unsupported(Query):
             after = rows[-1]["coverage_id"]
 
 
-class StructuralParams(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-    include_publication: bool = False
-    include_support: bool = False
-    page_bytes: int = Field(default=1_000_000, ge=1, le=8_000_000)
-
-
-class StructuralAnswer(BaseModel):
-    """A retained report and separately admitted witnesses; graph selection grants no standing."""
-
-    product_id: str
-    structural_product: StructuralProductReport
-    public_assertions: tuple[dict[str, JsonValue], ...] = ()
-    producer_standing: str = "private_proposal"
-    assessment_scope: str = "published_admission_witnesses_only"
-
-
-class StructuralProducts(Query):
-    version = "structural-query-1"
-    params, result = StructuralParams, StructuralAnswer
-
-    def __init__(self, name, kind):
-        self.name, self.kind = name, kind
-
-    def rows(self, ctx, p, after=None):
-        from corpus_structure.serve.structural_products import (
-            StructuralRequest,
-            serve_structural_products,
-        )
-
-        self.validate_position(after)
-        position = int(after) if after is not None else 0
-        while True:
-            page = serve_structural_products(
-                ctx.conn,
-                StructuralRequest(
-                    run_id=ctx.run_id,
-                    kind=self.kind,
-                    after_task_id=position,
-                    limit=min(ctx.row_batch, 100),
-                    max_bytes=p.page_bytes,
-                    include_publication=p.include_publication,
-                    include_support=p.include_support,
-                ),
-            )
-            for task_id, report in zip(page.task_ids, page.reports, strict=True):
-                yield Positioned(
-                    StructuralAnswer(
-                        product_id=report.product_id,
-                        structural_product=report,
-                        public_assertions=tuple(
-                            row
-                            for row in page.public_assertions
-                            if row["product_id"] == report.product_id
-                        ),
-                    ),
-                    str(task_id),
-                )
-            if page.next_after_task_id is None:
-                break
-            position = page.next_after_task_id
-
-    def validate_position(self, position):
-        if position is not None and (
-            not isinstance(position, str) or not position.isascii() or not position.isdecimal()
-        ):
-            from corpus_structure.semantic.refusals import InvalidContinuation
-
-            raise InvalidContinuation("invalid structural query position")
-
-
-class DossierRepresentationParams(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-    task_id: int = Field(strict=True, gt=0)
-    member_limit: int = Field(default=20, strict=True, ge=1, le=100)
-    page_bytes: int = Field(default=1_000_000, strict=True, ge=1, le=8_000_000)
-
-
-class DossierRepresentationQuery(Query):
-    name = "dossier_representation"
-    version = "dossier-representation-query-1"
-    params = DossierRepresentationParams
-    result = DossierRepresentationPage
-
-    def rows(self, ctx, p, after=None):
-        from corpus_structure.serve.structural_products import (
-            DossierContinuation,
-            DossierRepresentationRequest,
-            serve_dossier_representation,
-        )
-
-        self.validate_position(after)
-        if after == "done":
-            return
-        cursor = DossierContinuation.model_validate_json(after) if after else None
-        while True:
-            page = serve_dossier_representation(
-                ctx.conn,
-                DossierRepresentationRequest(
-                    run_id=ctx.run_id,
-                    task_id=p.task_id,
-                    limit=p.member_limit,
-                    max_bytes=p.page_bytes,
-                    continuation=cursor,
-                ),
-            )
-            yield Positioned(
-                page, page.continuation.model_dump_json() if page.continuation else "done"
-            )
-            if page.continuation is None:
-                return
-            cursor = page.continuation
-
-    def validate_position(self, position):
-        from corpus_structure.semantic.refusals import InvalidContinuation
-        from corpus_structure.serve.structural_products import DossierContinuation
-
-        if position is None or position == "done":
-            return
-        if not isinstance(position, str):
-            raise InvalidContinuation("invalid dossier continuation")
-        try:
-            DossierContinuation.model_validate_json(position)
-        except ValueError as error:
-            raise InvalidContinuation("invalid dossier continuation") from error
-
-
-class StructuralGapQuery(Query):
-    version = "structural-gap-query-1"
-    params, result = GapParams, GapPage
-
-    def __init__(self, name):
-        self.name = name
-
-    def rows(self, ctx, p, after=None):
-        from corpus_structure.serve.structural_gaps import gap_capture, gap_page
-
-        self.validate_position(after)
-        if after == "done":
-            return
-        request = GapRequest(report=self.name, run_id=ctx.run_id, cursor=after, **p.model_dump())
-        captured = gap_capture(ctx.conn, request)
-        while True:
-            page = gap_page(request, captured)
-            yield Positioned(page, page.next_cursor or "done")
-            if page.next_cursor is None:
-                return
-            request = request.model_copy(update={"cursor": page.next_cursor})
-
-
 GENERIC = (
     Entity(),
     Claims(),
     Statement(),
     Evidence(),
     Unsupported(),
-    StructuralProducts("structural_definitions", "definition_components"),
-    StructuralProducts("structural_applicability", "definition_applicability"),
-    StructuralProducts("structural_clause_observations", "clause_classification"),
-    StructuralProducts("structural_conditions", "condition_qualification"),
-    StructuralProducts("structural_comparisons", "qualified_comparison"),
-    StructuralProducts("structural_dossiers", "dossier"),
-    DossierRepresentationQuery(),
-    StructuralGapQuery("unresolved_binding"),
-    StructuralGapQuery("unknown_applicability_premise"),
-    StructuralGapQuery("unconnected_supported_comparison"),
     SourceDecisionDiagnosisQuery(),
-    SourceDecisionJourneyQuery(),
 )

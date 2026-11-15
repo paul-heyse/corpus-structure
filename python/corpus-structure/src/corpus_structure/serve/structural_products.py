@@ -10,6 +10,148 @@ from corpus_structure.semantic.query import bind_completed_result
 from corpus_structure.semantic.refusals import SemanticRefusal
 from corpus_structure.semantic.structural_products import StructuralProductReport
 
+from .selected_structural import (
+    SelectedStructuralRoot,
+    StructuralReadRequest,
+    bounded_result,
+    producer,
+    selected_root,
+    structural_report,
+    structural_scope,
+)
+
+
+class SelectedStructuralRequest(StructuralReadRequest):
+    roots: tuple[SelectedStructuralRoot, ...] = Field(min_length=1, max_length=100)
+
+
+def inspect_selected_structures(conn, request: SelectedStructuralRequest):
+    """Inspect explicit selected reports without inferring public admission."""
+    with structural_scope(conn, request, roots=request.roots) as scope:
+        reports = []
+        for root in request.roots:
+            selected = selected_root(scope, root)
+            reports.append(
+                dict(root=root.model_dump(mode="python"), availability="outside_selection")
+                if selected is None
+                else dict(
+                    root=root.model_dump(mode="python"),
+                    availability="observed",
+                    producer=producer(selected),
+                    report=structural_report(scope, selected).model_dump(
+                        mode="python", exclude_none=True
+                    ),
+                )
+            )
+        return bounded_result(request, dict(
+            format="selected-structural-reports-v1", cut_id=scope.cut.identity,
+            cut=scope.cut.record, implementation=scope.implementation, reports=reports, standing="private_proposal",
+            source_coverage="declared_report_inputs_only", public_admission="not-established",
+        ))
+
+
+class SelectedDossierRequest(StructuralReadRequest):
+    root: SelectedStructuralRoot
+    population: Literal["membership", "display"] = "display"
+    limit: int = Field(default=20, strict=True, ge=1, le=100)
+    cursor: str | None = Field(default=None, max_length=32768)
+
+
+def dossier_member_page(report, *, population, offset, limit):
+    """The display policy chooses from immutable membership; reading changes neither."""
+    if report.dossier is None:
+        raise ValueError("selected output is not a dossier")
+    dossier = report.dossier
+    representation = dossier.representation
+    members = {member.member_id: member for member in dossier.members}
+    keys = (
+        tuple(member.member_id for member in dossier.members)
+        if population == "membership" else representation.selected
+    )
+    if offset < 0 or offset > len(keys):
+        raise ValueError("dossier continuation is outside its immutable population")
+    chosen = keys[offset:offset + limit]
+    selected = set(chosen)
+    passages = {passage.passage_id: passage for passage in report.inputs.passages}
+    sources = {source.identity: source for source in report.inputs.sources}
+    citations = []
+    for key in chosen:
+        member = members[key]
+        if member.contribution_citations:
+            cited = tuple(citation.span for citation in member.contribution_citations)
+        else:
+            cited = (member.citation,)
+        for span in cited:
+            source = sources[passages[span.passage_id].source_ref]
+            citations.append(dict(member_id=key, source=source.model_dump(mode="python"),
+                                  citation=span.model_dump(mode="python")))
+        if member.comparison_binding is not None:
+            binding = member.comparison_binding
+            citations.append(dict(
+                member_id=key, context="opposite_comparison_side",
+                source=binding.opposite_source.model_dump(mode="python"),
+                citation=binding.opposite_citation.model_dump(mode="python"),
+            ))
+    end = offset + len(chosen)
+    return dict(
+        members=[members[key].model_dump(mode="python", exclude_none=True) for key in chosen],
+        citations=citations,
+        supported_facets=[facet.model_dump(mode="python") for facet in dossier.supported_facets
+                          if facet.member_id in selected],
+        next_offset=end if end < len(keys) else None,
+        full_member_count=len(members), display_member_count=len(representation.selected),
+        omitted_member_count=len(representation.omitted),
+        missing_facet_count=len(representation.missing_facets),
+        mandatory_overflow=representation.mandatory_overflow,
+        membership_digest=representation.membership_digest,
+        facet_digest=representation.facet_digest, policy=representation.policy,
+        product_id=report.product_id,
+    )
+
+
+def inspect_selected_dossier(conn, request: SelectedDossierRequest):
+    from corpus_structure.semantic.demand_queries import _cursor
+    from .rich_queries import decode_rich_cursor
+
+    cursor = None if request.cursor is None else decode_rich_cursor(request.cursor)
+    if cursor is not None:
+        if set(cursor) != {"version", "request", "cut", "binding", "offset"} or cursor["version"] != "selected-dossier-page-v1" or type(cursor["offset"]) is not int:
+            raise ValueError("invalid selected dossier continuation")
+        expected = request.model_dump(mode="python", exclude={"cursor", "limit", "max_bytes", "read_id", "expected_cut", "implementation"})
+        if cursor["request"] != expected:
+            raise ValueError("dossier continuation differs from requested root or population")
+        pinned = cursor["cut"]
+        if request.read_id is not None and (request.read_id != pinned["read_id"] or request.expected_cut != cursor["binding"]["cut_id"]):
+            raise ValueError("dossier continuation differs from requested native read")
+        if request.implementation is not None and request.implementation != cursor["binding"]["implementation"]:
+            raise ValueError("dossier continuation differs from requested implementation")
+        request = request.model_copy(update=dict(read_id=pinned["read_id"], expected_cut=cursor["binding"]["cut_id"], implementation=cursor["binding"]["implementation"]))
+    with structural_scope(conn, request, roots=(request.root,)) as scope:
+        selected = selected_root(scope, request.root)
+        if selected is None:
+            return bounded_result(request, dict(format="selected-dossier-page-v1", availability="outside_selection", cut_id=scope.cut.identity, cut=scope.cut.record, implementation=scope.implementation))
+        report = structural_report(scope, selected)
+        if report.dossier is None:
+            raise ValueError("selected output is not a dossier")
+        representation = report.dossier.representation
+        binding = dict(cut_id=scope.cut.identity, implementation=scope.implementation, product_id=report.product_id,
+                       membership_digest=representation.membership_digest,
+                       facet_digest=representation.facet_digest, policy=representation.policy)
+        if cursor is not None and cursor["binding"] != binding:
+            raise ValueError("dossier continuation differs from exact membership/facets/policy")
+        page = dossier_member_page(report, population=request.population,
+                                   offset=0 if cursor is None else cursor["offset"], limit=request.limit)
+        offset = page.pop("next_offset")
+        next_cursor = None if offset is None else _cursor(dict(
+            version="selected-dossier-page-v1", cut=scope.cut.record, binding=binding, offset=offset,
+            request=request.model_dump(mode="python", exclude={"cursor", "limit", "max_bytes", "read_id", "expected_cut", "implementation"}),
+        ))
+        result = dict(format="selected-dossier-page-v1", availability="observed",
+                      cut_id=scope.cut.identity, cut=scope.cut.record, implementation=scope.implementation, producer=producer(selected),
+                      population=request.population, standing="private_proposal",
+                      public_admission="not-established", **page, next_cursor=next_cursor)
+        return bounded_result(request, result)
+
 
 class DossierContinuation(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)

@@ -1,154 +1,86 @@
-"""Inspect immutable cross-source structural proposals."""
+"""Inspect structural products through one explicit selected native read."""
 
-from typing import Annotated
+from pathlib import Path
 
 import typer
 
-from corpus_structure.cli.output import JsonOpt, emit, state
+from corpus_structure.cli.output import JsonOpt, read_request_bytes, state, write_report_text
+from corpus_structure.semantic.data_operation_json import json_bytes, json_loads
 
-app = typer.Typer(help="Inspect cross-source definitions, comparisons and dossiers.")
+app = typer.Typer(help="Inspect selected structural reports, dossiers, gaps and source journeys.")
+
+
+def _read(ctx, path, contract, operation, json):
+    from corpus_structure.cli.failures import failure_boundary
+    from corpus_structure.semantic.demand_results import selected_read_snapshot
+    from corpus_structure.semantic.runtime import open_runtime_engine
+
+    with failure_boundary(json, expected=(ValueError, KeyError)):
+        request = contract.model_validate(json_loads(read_request_bytes(path)))
+        with (
+            open_runtime_engine(state(ctx).settings(), "ci-selected-structure", purpose="read") as engine,
+            selected_read_snapshot(engine) as connection,
+        ):
+            result = operation(connection, request)
+        write_report_text(json_bytes(result).decode() + "\n")
 
 
 @app.command("list")
-def structures(
-    ctx: typer.Context,
-    run: Annotated[int, typer.Option()],
-    cut: Annotated[int, typer.Option(min=1, help="Exact sealed historical cut.")],
-    kind: str | None = None,
-    after_task: int = 0,
-    limit: int = 20,
-    max_bytes: int = 1_000_000,
-    include_publication: bool = False,
-    include_support: bool = False,
-    json: JsonOpt = False,
-):
-    from corpus_structure.cli.failures import failure_boundary
-    from corpus_structure.semantic.read_snapshot import read_snapshot
-    from corpus_structure.semantic.runtime import open_runtime_engine
-    from corpus_structure.serve.structural_products import (
-        StructuralRequest,
-        serve_structural_products,
-    )
-
-    with failure_boundary(json):
-        request = StructuralRequest.model_validate(
-            dict(
-                run_id=run,
-                cut_id=cut,
-                kind=kind,
-                after_task_id=after_task,
-                limit=limit,
-                max_bytes=max_bytes,
-                include_publication=include_publication,
-                include_support=include_support,
-            )
-        )
-        with (
-            open_runtime_engine(state(ctx).settings(), "ci-structure", purpose="read") as engine,
-            read_snapshot(engine) as conn,
-        ):
-            result = serve_structural_products(conn, request)
-    emit(result, json=json)
-
-
-def register(root: typer.Typer):
-    root.add_typer(app, name="retained-structure")
+def structures(ctx: typer.Context, request: Path, json: JsonOpt = False):
+    """Inspect exact product/member/use/derivation roots from request JSON."""
+    from corpus_structure.serve.structural_products import SelectedStructuralRequest, inspect_selected_structures
+    _read(ctx, request, SelectedStructuralRequest, inspect_selected_structures, json)
 
 
 @app.command("dossier-page")
-def dossier_page(
-    ctx: typer.Context,
-    run: Annotated[int, typer.Option()],
-    task: Annotated[int, typer.Option()],
-    cut: Annotated[int, typer.Option(min=1, help="Exact sealed historical cut.")],
-    limit: int = 20,
-    max_bytes: int = 1_000_000,
-    continuation: str | None = None,
-    json: JsonOpt = False,
-):
-    """Page an immutable dossier's selected representation and exact citations."""
-    import json as json_module
-
-    from corpus_structure.cli.failures import failure_boundary
-    from corpus_structure.semantic.read_snapshot import read_snapshot
-    from corpus_structure.semantic.runtime import open_runtime_engine
-    from corpus_structure.serve.structural_products import (
-        DossierRepresentationRequest,
-        serve_dossier_representation,
-    )
-
-    with failure_boundary(json):
-        request = DossierRepresentationRequest.model_validate(
-            dict(
-                run_id=run,
-                task_id=task,
-                cut_id=cut,
-                limit=limit,
-                max_bytes=max_bytes,
-                continuation=json_module.loads(continuation) if continuation else None,
-            )
-        )
-        with (
-            open_runtime_engine(state(ctx).settings(), "ci-dossier", purpose="read") as engine,
-            read_snapshot(engine) as conn,
-        ):
-            result = serve_dossier_representation(conn, request)
-    emit(result, json=json)
+def dossier_page(ctx: typer.Context, request: Path, json: JsonOpt = False):
+    """Page immutable membership or its selected display, retaining exact citations."""
+    from corpus_structure.serve.structural_products import SelectedDossierRequest, inspect_selected_dossier
+    _read(ctx, request, SelectedDossierRequest, inspect_selected_dossier, json)
 
 
 @app.command("gap")
-def structural_gap(
-    ctx: typer.Context,
-    report: str,
-    run: Annotated[int, typer.Option()],
-    task: Annotated[int, typer.Option()],
-    cut: Annotated[int, typer.Option(min=1, help="Exact sealed historical cut.")],
-    source_view: int | None = None,
-    scope: str | None = None,
-    occurrence: str | None = None,
-    operation: str | None = None,
-    binding_run: int | None = None,
-    binding_cut: int | None = None,
-    binding_task: int | None = None,
-    limit: int = 20,
-    max_bytes: int = 1_000_000,
-    cursor: str | None = None,
-    json: JsonOpt = False,
-):
-    """Inspect one selected structural gap report and its producer coverage."""
-    from corpus_structure.cli.failures import failure_boundary
-    from corpus_structure.semantic.read_snapshot import read_snapshot
-    from corpus_structure.semantic.runtime import open_runtime_engine
-    from corpus_structure.serve.structural_gaps import GapRequest, serve_structural_gap
+def structural_gap(ctx: typer.Context, request: Path, json: JsonOpt = False):
+    """Inspect recorded relationship decisions or applicability premises."""
+    from corpus_structure.serve.structural_gaps import SelectedGapRequest, inspect_selected_gap
+    _read(ctx, request, SelectedGapRequest, inspect_selected_gap, json)
 
-    with failure_boundary(json):
-        if any(value is not None for value in (binding_run, binding_cut, binding_task)) and any(
-            value is None for value in (binding_run, binding_cut, binding_task)
-        ):
-            raise ValueError("retained gap binding requires its explicit run/cut/task pins")
-        request = GapRequest.model_validate(
-            dict(
-                report=report,
-                run_id=run,
-                task_id=task,
-                cut_id=cut,
-                source_view_id=source_view,
-                scope=scope,
-                occurrence_id=occurrence,
-                operation_key=operation,
-                limit=limit,
-                max_bytes=max_bytes,
-                cursor=cursor,
-                binding_task=dict(run_id=binding_run, task_id=binding_task, cut_id=binding_cut)
-                if any(value is not None for value in (binding_run, binding_cut, binding_task))
-                else None,
-            )
-        )
+
+@app.command("journey")
+def source_journey(ctx: typer.Context, request: Path, json: JsonOpt = False):
+    """Follow an original-relative opportunity through explicit selected layer roots."""
+    from corpus_structure.serve.source_decision_journey import SelectedSourceDecisionJourneyRequest, inspect_selected_source_journey
+    _read(ctx, request, SelectedSourceDecisionJourneyRequest, inspect_selected_source_journey, json)
+
+
+@app.command("export")
+def export_review(ctx: typer.Context, request: Path, out: Path, json: JsonOpt = False):
+    """Export an exact selected structural reading with authenticated native closure."""
+    from corpus_structure.cli.failures import failure_boundary
+    from corpus_structure.semantic.demand_results import selected_read_snapshot
+    from corpus_structure.semantic.runtime import open_runtime_engine
+    from corpus_structure.serve.selected_structural_review import SelectedStructuralReviewRequest, export_selected_structural_review
+
+    with failure_boundary(json, expected=(ValueError, KeyError, OSError)):
+        selection = SelectedStructuralReviewRequest.model_validate(json_loads(read_request_bytes(request)))
         with (
-            open_runtime_engine(
-                state(ctx).settings(), "ci-structural-gap", purpose="read"
-            ) as engine,
-            read_snapshot(engine) as conn,
+            open_runtime_engine(state(ctx).settings(), "ci-structural-review", purpose="read") as engine,
+            selected_read_snapshot(engine) as connection,
         ):
-            result = serve_structural_gap(conn, request)
-    emit(result, json=json)
+            result = export_selected_structural_review(connection, selection, destination=out)
+        write_report_text(json_bytes(result).decode() + "\n")
+
+
+@app.command("verify")
+def verify_review(artifact: Path, manifest_digest: str, json: JsonOpt = False):
+    """Verify and replay a detached structural reading against a trusted digest."""
+    from corpus_structure.cli.failures import failure_boundary
+    from corpus_structure.serve.selected_structural_review import verify_selected_structural_review
+
+    with failure_boundary(json, expected=(ValueError, KeyError, OSError)):
+        result = verify_selected_structural_review(artifact, manifest_digest=manifest_digest)
+        write_report_text(json_bytes(result).decode() + "\n")
+
+
+def register(root: typer.Typer):
+    root.add_typer(app, name="structure")

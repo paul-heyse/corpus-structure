@@ -231,9 +231,16 @@ def stream_demand_result(
     limit=100,
     max_bytes=8 * 1024 * 1024,
     scope: Mapping[str, Any] | None = None,
+    read_id: str | None = None,
+    expected_cut: str | None = None,
 ) -> Iterator[DemandResult]:
     """Same-session bounded pages retain the acquisition and its transaction locks."""
-    continuation, cut = None, None
+    if (read_id is None) != (expected_cut is None):
+        raise ValueError("pinned result stream requires both read_id and expected_cut")
+    continuation = None if read_id is None else dict(
+        demand_id=demand_id, read_id=read_id, scope=dict(scope or {}), view="products"
+    )
+    cut = None
     while True:
         page = read_demand_result(
             connection,
@@ -246,6 +253,8 @@ def stream_demand_result(
             scope=scope,
         )
         cut = page.cut
+        if expected_cut is not None and cut.identity != expected_cut:
+            raise ValueError("selected stream differs from its requested cut/trust assessment")
         yield page
         continuation = page.continuation
         if continuation is None:
