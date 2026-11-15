@@ -42,7 +42,11 @@ provider/native qualification is not established. Earlier worker diagnostics are
 Selected candidate-inspection, resolved-reading and finite-interpretation facets now decode through
 actual captured nominal definitions and validate private standing, real member references, coverage,
 reading events and finite reports. Known families no longer enter the unsupported-facet branch.
-This does not implement grouped measurement interpretation or confer accepted scientific standing.
+Grouped interpretation now preserves the complete selected occurrence/family/context groups,
+alternative readings, all field states and spelling/evidence, actual reading events and finite
+reports. Group paging retains whole alternatives and exact selected root/use/derivation/cut pins.
+Authored measurement/terminology attachment remains under integration; successful inspection
+does not confer accepted scientific standing.
 
 The obsolete named-query BoundQuery/registry/token compatibility reader and run-based invocation
 are retired, including `serve/explain.py` and compatibility configuration. Pack acquisition/compiler
@@ -69,6 +73,60 @@ actual prepared CPU admission, current candidate/nonrich/composite transport and
 acquisition/delivery. This is bounded Python/physical evidence, not native/provider or whole-series
 qualification. Managed primary receipts are held. All worker edits are integrated on main and all
 auxiliary worktrees removed; no frozen migration changes entered main.
+
+### Current producer, consumer and retirement increment
+
+**Implemented; scoped Tested, 2026-11-15.** Current math preparation now consumes the explicit
+captured context profile through `semantic/math_context.py`; the old standalone model/runtime/profile
+fallbacks and redundant release/runtime fields are removed from that route. Required source and
+physical cut provenance remain. `retrieve.contextual_neighborhood/declared` has its own nominal
+product, numerical policy and prepared native port. It captures the actual existing PostgreSQL
+mutual-neighborhood function through a PreparedSQL excerpt, preserving exact cosine ranking,
+C-collation ties, representative selection, directed ranks, reciprocal intersection and coverage.
+Its selected reader requires an actual selected output, not a matching dependency body. CLI and
+MCP consume the same pinned reader.
+
+The selected structural reader now owns exact structural roots, source-decision journeys,
+comparison-to-dossier membership and bounded gap reports. CLI/MCP and detached selected review
+use the same scoped demand export, authenticated archive and replay. An unavailable independently
+admitted comparison remains explicitly unavailable; computational support is not public structural
+admission. The protected A/B/C target and its ordinary native-issued conclusion remain in progress.
+Old internal detached bundle consumers still require migration before their shells can be removed.
+
+The catalog retirement removes45 obsolete fixed-call registrations (41 duplicated PDF calls and
+four unused old companion readers), then three more unused variants and the complete uncalled
+selected-result logical registration closure. Actual source-view publication/selection and physical
+task/attempt/lease guards remain with real consumers. There are44 remaining fixed variants in this
+inspected increment; that count is evidence, not an acceptance quota. Inert native functions have not
+thereby been retired. Companion controls now exercise the actual current projection/export route.
+
+The stable integrated producer/read cohort313 **passed**, `7dae7c01c2894a44a79c5a8094c12fc3`,
+with `uv run ci test --native-host private --workers 4 --json -- …`; this includes real private
+PostgreSQL kernel/visibility checks, not full native publication or actual-provider qualification.
+Configured types/lint **passed** at that source, `1108a9ef81dc4a5fb58f3218c354e147`/
+`dadaf1fa38e24c5997f4a9f7f0e7afaa`. Later integrated call/projection controls44 **passed**,
+`08deee3d862f4af0a01148c687206a35`; selected structural/authority-boundary controls22 **passed**,
+`6e2736b613d44f63b0d5f7b1f3e3ec32`. Subsequent source changes require affected reassessment.
+The next integrated type/lint checks **failed**, `5583732c56434252b00b66a0291f9392`/
+`07175a40fede42ee8252e12e2e3da380`: remaining optional-value narrowing, stale consumer tests and
+formatting are assigned with their actual replacements. No suppression or restored compatibility
+facade is the remedy.
+
+Rollback-only native capture is still open. The
+[v8 authoring owner](../design_review/evidence/2026-11-15_ddo-v8-native/README.md) retains the exact
+request and failures. Candidates `74b98cd23af6423a8c338069273fb928` and
+`5216b548e4c940aaa5e18b01a2be6999` exposed actual visibility/name and positional-insert defects.
+Current source uses the real fulfilled-use publication marker and explicit named product/member/
+operation-definition insert columns. Candidate `9f6ac1bd358f4fdc845e19e0b6ed2c16` then passed those
+checks and refused the unapproved PDF context return-type change; the refreshed request explicitly
+recreates `ops.pdf_task_context(bigint)` without its obsolete run ID. All three failures established
+rollback cleanup; none registered a migration or changed the persistent database.
+
+Shared read integration found that product-scoped reads exclude standalone original/authored
+admissions. The common projection must include exact visible same-demand/context originals in the
+examined obligation population, preserving revoked diagnostic rows separately from valid native
+frontier admissions. Authored consumers must join that valid frontier, never infer usable standing
+from a raw support row. This is remaining I05/DDO-10 integration, not a reason for an unscoped fallback.
 
 The remaining execution order is shared admission/family integration; genuine rich/measurement/
 neighborhood/journey/dossier/public/protected consumers with old authority removal; clean supported

@@ -205,7 +205,17 @@
       "relation": null
     }
   ],
-  "recreate": [],
+  "recreate": [
+    {
+      "kind": "function",
+      "schema": "ops",
+      "name": "pdf_task_context",
+      "arguments": [
+        "bigint"
+      ],
+      "relation": null
+    }
+  ],
   "baseline": "HEAD",
   "core": null,
   "system": null,

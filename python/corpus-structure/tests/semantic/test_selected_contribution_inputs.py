@@ -15,6 +15,45 @@ def append(index, relation, key, value):
     index.append(json_bytes(dict(relation=relation, key=relation + "/" + key, record=value)))
 
 
+@pytest.mark.parametrize("disclosure", ["matching", "other-use", "other-episode", "absent"])
+def test_selected_products_respect_explicit_authority_disclosure_without_hiding_missing_episodes(
+    tmp_path, disclosure
+):
+    from types import SimpleNamespace
+    from typing import cast
+
+    from corpus_structure.serve.selected_contributions import SelectedContributionScope
+    from semantic.test_authority_leaf import disclosure as authority_disclosure
+
+    leaf, _ = authority_disclosure()
+    index = SelectedRecordIndex(tmp_path / "authority.sqlite")
+    try:
+        index.append_page(
+            {
+                **CUT,
+                "obligations": [],
+                "original_source_admissions": [],
+                "uses": [dict(use_id="use:one", derivation_id="issuer:one", fate="fulfilled")],
+            }
+        )
+        if disclosure == "other-use":
+            leaf["use_id"] = "use:other"
+        elif disclosure == "other-episode":
+            leaf["derivation_id"] = "issuer:other"
+        if disclosure != "absent":
+            append(index, "ops.data_authority_leaf", "authority", leaf)
+        # The model and body are deliberately unavailable: an authority leaf must
+        # not require or reconstruct its protected episode to skip ordinary roots.
+        controlled = cast(SelectedContributionScope, SimpleNamespace(index=index))
+        if disclosure == "matching":
+            assert list(SelectedContributionScope.products(controlled)) == []
+        else:
+            with pytest.raises(KeyError):
+                list(SelectedContributionScope.products(controlled))
+    finally:
+        index.close()
+
+
 def request(index, inputs, support):
     append(
         index,

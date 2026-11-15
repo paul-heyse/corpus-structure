@@ -72,8 +72,17 @@ class SelectedContributionScope:
         episodes = self.index.mapping("ops.data_derivation", ("id",))
         requests = self.index.mapping("ops.data_request", ("id",))
         kinds = self.index.mapping("sem.data_kind_contract", ("kind_contract",))
+        authorities = {
+            (leaf.derivation_id, leaf.use_id)
+            for row in self.index.rows("ops.data_authority_leaf")
+            for leaf in (NativeAuthorityLeaf.model_validate(row),)
+        }
         for use in self.index.frontier_rows("uses"):
             if use["fate"] != "fulfilled" or use["derivation_id"] is None:
+                continue
+            if (use["derivation_id"], use["use_id"]) in authorities:
+                # Native disclosure deliberately withholds the issuer's private
+                # episode. Its conclusion has a dedicated authority-leaf reader.
                 continue
             episode = episodes[use["derivation_id"]]
             request = requests[episode["request_id"]]

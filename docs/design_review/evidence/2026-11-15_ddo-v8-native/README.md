@@ -26,3 +26,20 @@ locals `definition`/`entry`. Current source repairs use the real completion fron
 fulfilled-use publication marker, retain selected-use/trust guards, and disambiguate names.
 Focused PostgreSQL/pure controls18 passed `9fd3b03c6b21462b9aa04fe312319743`; full authoring
 must be recaptured against integrated source. No files from this failed candidate were registered.
+
+Preview `d769be81c45e4db2be960cc6493f4e1d` and apply
+`7266fa2b06664f22bb161bd432ed3299` passed against integrated source. Candidate
+`5216b548e4c940aaa5e18b01a2be6999` failed with settled rollback on three JSONB/text insert
+mismatches. Product, member and operation-definition inserts relied on logical declaration order,
+whereas the predecessor's physical layout receives newly added fields at the end. The current
+source names every inserted column on these three paths; casting displaced text would not repair
+their meaning. Frozen files are unchanged.
+
+Preview `7cdf9247c86846e987e40a542550971d` and apply
+`86b5f881a820423290dcba359ad846fa` passed against `29fb8172c`. Candidate
+`9f6ac1bd358f4fdc845e19e0b6ed2c16` cleared the prior PL/pgSQL defects, then refused an
+unapproved result-type change in `ops.pdf_task_context(bigint)`; rollback cleanup was established.
+The frozen predecessor returns a run ID; the current native request-based PDF context omits it,
+and maintained PDF consumers use its project/request/generation/document/source custody. The
+refreshed request explicitly recreates this exact signature. No CASCADE, return-shape compatibility
+adapter or native comparison bypass is introduced. This is still an unregistered request.
