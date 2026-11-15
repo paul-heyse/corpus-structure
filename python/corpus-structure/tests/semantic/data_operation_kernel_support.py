@@ -69,7 +69,6 @@ class KernelRecipe:
     declaration_path: str = "operations.yaml"
     additional_files: tuple[tuple[str, bytes], ...] = ()
     python_sources: tuple[tuple[str, str, bytes], ...] = ()
-    source_stage: str | None = None
     captured_inputs: CapturedKernelInputs | None = None
 
     @property
@@ -563,7 +562,6 @@ classes: {Marker: {}}
         execution_profile=execution_profile,
         project_id=None,
         additional_files=(("core.yaml", core.read_bytes()),),
-        source_stage="private-source",
     )
 
 

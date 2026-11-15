@@ -53,9 +53,12 @@ assessments, coverage and proof premises. Current
 is the release-bound policy boundary; singleton candidates and storage validity are explicitly
 insufficient to authorize selection. Current
 [`ReadSession`](../../../python/corpus-structure/src/corpus_structure/semantic/query.py) and
-`SnapshotBinding` own pinned reads, evidence and coverage. Existing
-[CLI export](../../../python/corpus-structure/src/corpus_structure/cli/export.py) captures a
-completed result inside `read_snapshot`, then exports a detached packet. The finite M1 record projection,
+`SnapshotBinding` own pinned reads, evidence and coverage.
+The original CLI export (`cli/export.py`, now retired) captured a
+completed result inside `read_snapshot`, then exported a detached packet. Current DDO export uses
+[the selected-result CLI](../../../python/corpus-structure/src/corpus_structure/cli/selected_results.py)
+and [demand_export.py](../../../python/corpus-structure/src/corpus_structure/serve/demand_export.py)
+with explicit project/demand/read/cut custody; this source replacement does not establish native qualification. The finite M1 record projection,
 `record_queries.read_completed_record_projection`, `serve/record_results.py`, CLI/MCP adapters
 and `serve/record_export.py` already supply candidate family/evidence views and faithful detached
 export. Their source integration is a foundation; evaluated accepted lowering and actual all-family

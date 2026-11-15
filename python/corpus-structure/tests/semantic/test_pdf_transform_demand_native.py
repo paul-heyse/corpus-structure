@@ -149,7 +149,6 @@ def _pdf_recipe(directory):
         None,
         "",
         project_id=None,
-        source_stage="private-source",
         execution_profile="source-native",
         captured_inputs=CapturedKernelInputs(
             bundle, dependencies, PreparationProfile(version="semantic-2")
