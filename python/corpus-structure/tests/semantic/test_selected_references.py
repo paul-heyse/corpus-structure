@@ -729,3 +729,67 @@ def test_admitted_assessment_snapshot_qualifies_members_and_parallel_occurrences
             assessment_graph_snapshot(acquired, cut, with_index, members=((product, "missing"),))
     finally:
         with_index.close()
+
+
+def test_assessment_roots_share_one_container_guard_load(tmp_path, monkeypatch):
+    from collections import Counter
+    from collections.abc import Mapping
+
+    from corpus_structure.evaluate import assessment_graph as owner
+    from corpus_structure.semantic.data_operation_admission import bound_data_operation_model
+    from corpus_structure.semantic.data_operation_json import json_loads
+    from semantic.formal_products_support import released_profile
+
+    prepared = released_profile().prepared
+    model = bound_data_operation_model(prepared)
+    identities = {(identity.owner, identity.domain): identity.key for identity in model.identities}
+    kinds = {kind.name: kind.semantic_id for kind in model.kinds}
+    product_kind = identities[kinds["DdoFormalProduct"], "kind"]
+    member_kind = identities[kinds["DdoFormalTerm"], "kind"]
+    product = "product:shared-assessment-container"
+    payload = dict(source={}, selectors=[], members=[dict(member_id=row["local_id"], kind_contract=member_kind, body=dict(row, record_type="term")) for row in graph_inventory()["terms"]])
+    lookups = Counter()
+    calls = Counter()
+
+    class CountingMapping(Mapping):
+        def __init__(self, actual, relation):
+            self.actual, self.relation = actual, relation
+
+        def __getitem__(self, key):
+            lookups[self.relation, key] += 1
+            return self.actual[key]
+
+        def __iter__(self):
+            return iter(self.actual)
+
+        def __len__(self):
+            return len(self.actual)
+
+    decode, derive = owner.decode_semantic_value, owner.derive_member_kinds
+
+    def counted_decode(value):
+        calls["decode"] += 1
+        return decode(value)
+
+    def counted_derive(model, kind):
+        calls["derive"] += 1
+        return derive(model, kind)
+
+    monkeypatch.setattr(owner, "decode_semantic_value", counted_decode)
+    monkeypatch.setattr(owner, "derive_member_kinds", counted_derive)
+    index = SelectedRecordIndex(tmp_path / "shared-container.sqlite")
+    try:
+        index.append(json_bytes(dict(key="product", relation="kb.data_product", record=dict(id=product, kind_contract=product_kind, canonical_body=semantic_value(payload)))))
+        for member in ("root", "leaf"):
+            index.append(json_bytes(dict(key=member, relation="kb.data_product_member", record=dict(product_id=product, member_id=member, kind_contract=member_kind))))
+        mapping = index.mapping
+        monkeypatch.setattr(index, "mapping", lambda relation, fields: CountingMapping(mapping(relation, fields), relation))
+        native = dict(_page(), release_id=prepared.release_id)
+        snapshot = owner.assessment_graph_snapshot(prepared, CutSelection.from_native(native), index, members=((product, "root"), (product, "leaf")))
+        assert snapshot.standing == "complete"
+        assert len(snapshot.nodes) == 2 and len(snapshot.occurrences) == 2
+        assert all(json_loads(node.payload_json)["root"] for node in snapshot.nodes)
+        assert lookups == {("kb.data_product", product): 1, ("kb.data_product_member", (product, "root")): 1, ("kb.data_product_member", (product, "leaf")): 1}
+        assert calls == {"decode": 1, "derive": 1}
+    finally:
+        index.close()
