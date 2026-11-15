@@ -455,6 +455,13 @@ A failed warning is not rewritten as rejection. Missing associated judgment stay
 source-reading assertion remains evidence about source fidelity and does not establish the quoted
 proposition as scientific truth.
 
+The seven current `Declared*Report` structural nominals also expose their complete typed whole
+interpretation and captured private judgments through this service. Their exact stored nominal
+schema and existing DTO validators own shape/closure; no report-local display facet is fabricated
+as a product member. Definition applicability, comparison, artifact and dossier meanings retain
+actual source pins and private proposal standing. Complete nested facets that exceed the declared
+bound refuse. Specialized dossier display/membership paging remains separate unfinished scope.
+
 Both examined selected records/support and returned pages/nested judgments have explicit bounds.
 Exact JSON preserves numeric values through CLI, MCP and resource delivery. Ordinary authorization
 conclusions may use only their exact native-returned valid authority leaf; protected inputs and

@@ -12,6 +12,7 @@ from corpus_structure.semantic.contribution_facets import (
 from corpus_structure.semantic.data_operation_identity import semantic_value
 from corpus_structure.semantic.data_operation_json import json_bytes
 from corpus_structure.semantic.identity import canonical_bytes
+from corpus_structure.semantic.nonrich_contribution_facets import nonrich_facets, nonrich_family
 from corpus_structure.semantic.refusals import InvalidContinuation
 from corpus_structure.semantic.rich_queries import RichQueryRefused, RichQueryRow, rows_after
 
@@ -108,6 +109,19 @@ def contribution_rows(scope, request):
             rows = graph_facets(
                 selected,
                 scope.graph(selected),
+                interpretation=request.include_interpretation,
+                assessment=request.include_assessment,
+                member_id=request.member_id,
+                max_members=request.max_members,
+                max_nested_members=request.max_nested_members,
+            )
+        elif (
+            selected.reference.member_id is None
+            and nonrich_family(scope.model, selected.nominal) is not None
+        ):
+            rows = nonrich_facets(
+                selected,
+                scope.model,
                 interpretation=request.include_interpretation,
                 assessment=request.include_assessment,
                 member_id=request.member_id,
@@ -260,7 +274,7 @@ def _serve(connection, request, implementation):
                     global_completeness="unknown",
                     protected_dependencies="undisclosed-where-bounded-authority-leaves-occur",
                 ),
-                interpretation_scope="declared-located-rich-proposals-and-rich-graph-meaning",
+                interpretation_scope="declared-located-rich-graph-and-private-structural-meaning",
                 assessment_scope="captured-native-producer-judgments",
                 source_completeness="unknown",
             )
