@@ -71,7 +71,7 @@ class RichRulePolicy:
         self.qprops = qprops
         builtins = {
             "enums": Builtin(self.enums, "map[list[string]]"),
-            "is_a": Builtin(self.is_a, "function(string, string)->boolean"),
+            "is_a": Builtin(self.is_a, "function(list[string], string)->boolean"),
         }
         for name, values in self.source.get("tables", {}).items():
             if all(isinstance(v, list) for v in values.values()):
@@ -89,7 +89,7 @@ class RichRulePolicy:
         values = {
             ("Claim", "predicate"): Vocabulary("predicates", predicates),
             ("Claim", "groups"): Vocabulary("predicate subsets", groups),
-            ("Entity", "type"): Vocabulary("entity classes", classes),
+            ("Entity", "types"): Vocabulary("entity classes", classes),
             ("Claim", "establishment"): Vocabulary(
                 "Establishment", frozenset(prepared.enum_members("Establishment"))
             ),
@@ -331,18 +331,23 @@ class RichRulePolicy:
         ]
         return max(choices)[1] if choices else iri
 
-    def is_a(self, child, parent):
-        expanded = self.prepared.expand_name(child)
+    def is_a(self, children, parent):
+        if isinstance(children, str):
+            raise RichRulePolicyRefused("class membership requires its actual class collection")
         target = self.prepared.expand_name(parent)
-        definition = next((d for d in self.prepared.definitions if d.iri == expanded), None)
         ancestor = next((d.name for d in self.prepared.definitions if d.iri == target), None)
-        return definition is not None and (expanded == target or ancestor in definition.ancestors)
+        for child in children:
+            expanded = self.prepared.expand_name(child)
+            definition = next((d for d in self.prepared.definitions if d.iri == expanded), None)
+            if definition is not None and (expanded == target or ancestor in definition.ancestors):
+                return True
+        return False
 
-    def applies(self, raw, candidate):
+    def applies(self, raw, *, class_name: str, predicate: str):
         source = raw.get("applies_to", "any")
         if isinstance(source, str):
             source = [source]
-        groups = self.metadata.get((candidate.class_name, candidate.predicate), {}).get(
+        groups = self.metadata.get((class_name, predicate), {}).get(
             "groups", ()
         )
         for token in source:
@@ -351,7 +356,7 @@ class RichRulePolicy:
             if token.startswith("subset:"):
                 if token[7:] in groups:
                     return True
-            elif self.prepared.expand_name(token) == candidate.predicate:
+            elif self.prepared.expand_name(token) == predicate:
                 return True
         return False
 

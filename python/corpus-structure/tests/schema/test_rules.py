@@ -12,11 +12,8 @@ import yaml
 
 from corpus_structure.core.vocab import StatementKind
 from corpus_structure.schema.rulelang import Language, RuleError, RuleErrorCode, Vocabulary
-from corpus_structure.semantic.domain_operations import (
-    RULE_INPUT,
-    DomainOperationRefused,
-    ReleasedRulesPolicy,
-)
+from corpus_structure.semantic.rich_knowledge_sources import RULE_INPUT
+from corpus_structure.semantic.rich_rules import RichRulePolicy, RichRulePolicyRefused
 
 REPO = Path(__file__).resolve().parents[4]
 
@@ -98,7 +95,7 @@ LITERALS = {
     "binding": "$all([b.bind != 'fre' for b in claim.bindings])",
     "enum key": "'location' in $enums['stat:ParameterRol']",
     "table key": "'none' in $roles_by_kind['theorm']",
-    "function argument": "$is_a(claim.subject.type, 'stat:RandomVariabl')",
+    "function argument": "$is_a(claim.subject.types, 'stat:RandomVariabl')",
     "identity key": "(claim.subject.identity&['stat:canonical_nam'] ?? '') == 'mu'",
     "predicate": "claim.predicate == 'stat:has_distributon'",
     "undeclared pack member": "claim.statement_kind == 'min:instruction'",
@@ -119,6 +116,27 @@ def test_members_and_coalesce_defaults_compile(statistics_rules_policy):
         "'definition' in $roles_by_kind",
     ):
         statistics_rules_policy.language.compile("t.case", expression)
+
+
+def test_actual_class_sets_preserve_every_membership_and_ancestor_without_scalar_alias(statistics_rules_policy):
+    from types import SimpleNamespace
+    from corpus_structure.semantic.rule_views import EntityView
+
+    language = statistics_rules_policy.language
+    entity = EntityView('entity:actual', None, ('stat:DistributionFamily', 'stat:RandomVariable'), '', None, {})
+    view = SimpleNamespace(subject=entity)
+    for name in ('stat:DistributionFamily', 'stat:RandomVariable'):
+        assert language.compile('actual.memberships', f"$is_a(claim.subject.types, '{name}')").evaluate({'claim': view}) is True
+    assert language.compile('actual.rule', "not $is_a(claim.subject.types, 'stat:RandomVariable')").evaluate({'claim': view}) is False
+    parent = statistics_rules_policy.compact(statistics_rules_policy.prepared.index.definitions['Entity'].iri)
+    assert language.compile('actual.ancestor', f"$is_a(claim.subject.types, '{parent}')").evaluate({'claim': view}) is True
+    assert refused(language, "claim.subject.type == 'stat:RandomVariable'").codes == {RuleErrorCode.UNKNOWN_ATTRIBUTE}
+
+
+def test_policy_applies_to_actual_property_without_legacy_candidate_adapter(statistics_rules_policy):
+    predicate = statistics_rules_policy.prepared.expand_name('stat:has_distribution')
+    assert statistics_rules_policy.applies({'applies_to': 'stat:has_distribution'}, class_name='RandomVariable', predicate=predicate)
+    assert not statistics_rules_policy.applies({'applies_to': 'stat:has_parameter'}, class_name='RandomVariable', predicate=predicate)
 
 
 def test_a_policy_language_shares_literal_discipline():
@@ -148,8 +166,8 @@ def test_current_policy_refuses_duplicate_ids(statistics_pack_prepared, statisti
             for artifact in statistics_pack_prepared.artifacts
         ),
     )
-    with pytest.raises(DomainOperationRefused, match="duplicate released rule id"):
-        ReleasedRulesPolicy(changed)
+    with pytest.raises(RichRulePolicyRefused, match="duplicate released rule id"):
+        RichRulePolicy(changed)
 
 
 def _rule_cases():
@@ -167,7 +185,7 @@ def _rule_cases():
     )
 
     entity = EntityView(
-        "s", None, "stat:DistributionFamily", "normal", "X_i", {"stat:canonical_name": "location"}
+        "s", None, ("stat:DistributionFamily",), "normal", "X_i", {"stat:canonical_name": "location"}
     )
 
     def node(op, term=None):
@@ -273,7 +291,7 @@ def _rule_cases():
     yield (
         "stat.no_family_on_variable",
         dict(subject=entity),
-        dict(subject=replace(entity, type="stat:RandomVariable")),
+        dict(subject=replace(entity, types=("stat:RandomVariable",))),
     )
     yield (
         "core.value_kind_matches_slot",

@@ -36,10 +36,14 @@ def test_actual_views_preserve_null_statement_same_slot_and_explicit_alternative
         {"claim":"c","predicate":"p:value","subject":"subject:1","object":None,"statement":"statement:other"},
         {"claim":"label","predicate":"p:label","subject":"subject:1","object":"entity:label","statement":None},
     ],schema=VIEW_CLAIMS)
-    entities = pa.Table.from_pylist([{"entity":"entity:label","key":None,"type":"kind:actual","label":"Observed","symbol":None}],schema=VIEW_ENTITIES)
+    entities = pa.Table.from_pylist([
+        {"entity":"entity:label","key":None,"class_id":kind,"label":"Observed","symbol":None}
+        for kind in ("kind:actual", "kind:second")
+    ],schema=VIEW_ENTITIES)
     identity = pa.Table.from_pylist([],schema=VIEW_IDENTITY)
     alternatives = pa.Table.from_pylist([{"group":"alternative:actual","claim":"a"},{"group":"alternative:actual","claim":"c"}],schema=VIEW_ALTERNATIVES)
-    specs=(ViewSpec("labels",frozenset({"p:value"}),"p:label","subject","subject","object","label"),)
+    specs=(ViewSpec("labels",frozenset({"p:value"}),"p:label","subject","subject","object","label"),
+           ViewSpec("classes",frozenset({"p:value"}),"p:label","subject","subject","object","types"))
     with kernel() as scope:
         output=scope.views(claims=claims,entities=entities,identity=identity,alternatives=alternatives,specs=specs)
         rows={(row["claim"],row["view"]):row["facts"] for row in output.to_pylist()}
@@ -47,6 +51,7 @@ def test_actual_views_preserve_null_statement_same_slot_and_explicit_alternative
         assert rows["c","same_slot"] == []
         assert rows["a","alternative_of"] == ["c"]
         assert rows["a","labels"] == ["Observed"]
+        assert rows["a","classes"] == ["kind:actual", "kind:second"]
         with pytest.raises(ValueError,match="outside this release"):
             scope.views(claims=claims,entities=entities,identity=identity,alternatives=alternatives,specs=(ViewSpec("unowned",frozenset({"p:value"}),"p:forged","subject","subject","object","label"),))
         with pytest.raises(ValueError,match="typed schema"):

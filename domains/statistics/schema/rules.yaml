@@ -53,7 +53,7 @@ rules:
     description: >-
       The subject of has_parameter is not a random variable. Subsumed by the predicate's domain
       (Parameterized) once the side-table type check runs; kept as the check of the $is_a builtin.
-    check: "not $is_a(claim.subject.type, 'stat:RandomVariable')"
+    check: "not $is_a(claim.subject.types, 'stat:RandomVariable')"
 
 guideline:
   - id: guideline.structural_role_modality

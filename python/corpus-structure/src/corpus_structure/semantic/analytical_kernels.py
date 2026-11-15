@@ -29,7 +29,7 @@ VIEW_ENTITIES = _schema(
     "view_entities",
     pa.field("entity", pa.string(), nullable=False),
     pa.field("key", pa.string()),
-    pa.field("type", pa.string(), nullable=False),
+    pa.field("class_id", pa.string(), nullable=False),
     pa.field("label", pa.string(), nullable=False),
     pa.field("symbol", pa.string()),
 )
@@ -58,7 +58,7 @@ VIEW_SPECS = pa.schema(
 )
 VIEW_APPLIES = pa.schema([("view", pa.string()), ("predicate", pa.string())])
 SAME_SLOT, ALTERNATIVE_OF = "same_slot", "alternative_of"
-PROJECTED = ("id", "key", "type", "label", "symbol")
+PROJECTED = ("id", "key", "types", "label", "symbol")
 type Side = Literal["subject", "object"]
 
 
@@ -189,7 +189,7 @@ pairs AS (
     JOIN view_claims c ON c.predicate = a.predicate
 ), projected AS (
     SELECT s.view, CASE s.match_source WHEN 'subject' THEN d.subject ELSE d.object END AS m,
-           CASE s.attr WHEN 'id' THEN e.entity WHEN 'key' THEN e.key WHEN 'type' THEN e.type
+           CASE s.attr WHEN 'id' THEN e.entity WHEN 'key' THEN e.key WHEN 'types' THEN e.class_id
                        WHEN 'label' THEN e.label WHEN 'symbol' THEN e.symbol
                        WHEN 'identity' THEN i.value END AS v
     FROM view_specs s JOIN view_claims d ON d.predicate = s.source

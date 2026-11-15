@@ -25,7 +25,7 @@ from .refusals import SemanticOperationRefusal, SemanticReason
 from .types import PreparedRelease, PropertyDefinition
 
 RULE_VIEW_INPUT = "operation/rule-view.yaml"
-RULE_VIEW_ABI = "semantic-rule-view-2"
+RULE_VIEW_ABI = "semantic-rule-view-3"
 _BARE = re.compile(r"[A-Za-z]+(_\{?\w+\}?)?")
 MAX_SYMBOL = 64
 
@@ -105,7 +105,7 @@ def defined_symbol(latex: str | None) -> str | None:
 class EntityView:
     id: str
     key: str | None
-    type: str
+    types: tuple[str, ...]
     label: str
     symbol: str | None
     identity: Mapping[str, str]

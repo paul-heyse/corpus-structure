@@ -2818,7 +2818,7 @@ class ReleasedRulesPolicy(RichRulePolicy):
             return EntityView(
                 key,
                 key,
-                self.compact(meta.get("class_iri", "")),
+                (self.compact(meta["class_iri"]),) if meta.get("class_iri") else (),
                 meta.get("label") or "",
                 identity.get(next((k for k in identity if k.endswith(":symbol")), "")),
                 identity,
@@ -2902,7 +2902,7 @@ class ReleasedRulesPolicy(RichRulePolicy):
             applies = {
                 c.predicate
                 for c in candidates
-                if self.applies({"applies_to": decl["applies_to"]}, c)
+                if self.applies({"applies_to": decl["applies_to"]}, class_name=c.class_name, predicate=c.predicate)
             }
             normalized = {**decl, "source": self.prepared.expand_name(decl["source"])}
             specs.append(ViewSpec.from_declaration(name, normalized, applies))
@@ -2927,11 +2927,11 @@ class ReleasedRulesPolicy(RichRulePolicy):
                     {
                         "entity": e.id,
                         "key": e.key,
-                        "type": e.type,
+                        "class_id": class_id,
                         "label": e.label,
                         "symbol": e.symbol,
                     }
-                    for e in entities.values()
+                    for e in entities.values() for class_id in e.types
                 ],
                 schema=VIEW_ENTITIES,
             ),
@@ -3117,7 +3117,7 @@ class ReleasedRulesPolicy(RichRulePolicy):
                 # Unchecked projection or reading establishes neither a rule pass nor a refutation.
                 findings.append(("operation.not_checkable", "warning", unknown, unknown_reason))
             for raw, when, check in self.rules:
-                if not self.applies(raw, c):
+                if not self.applies(raw, class_name=c.class_name, predicate=c.predicate):
                     continue
                 if unknown and raw["id"].startswith("guideline."):
                     continue

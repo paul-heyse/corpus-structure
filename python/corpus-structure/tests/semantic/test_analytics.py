@@ -449,7 +449,7 @@ def test_declared_views_reuse_native_set_kernel_and_independent_expected_rows():
     )
     entities = pa.Table.from_pylist(
         [
-            {"entity": e, "key": e, "type": "Thing", "label": label}
+            {"entity": e, "key": e, "class_id": "Thing", "label": label}
             for e, label in [("e1", "A"), ("e2", "B"), ("e3", "C")]
         ],
         schema=VIEW_ENTITIES,
@@ -871,7 +871,7 @@ def _operation_view_inputs(scope, *, label="view_claims"):
             schema=VIEW_CLAIMS,
         ),
         pa.Table.from_pylist(
-            [{"entity": "e", "key": "e", "type": "Thing", "label": label}], schema=VIEW_ENTITIES
+            [{"entity": "e", "key": "e", "class_id": "Thing", "label": label}], schema=VIEW_ENTITIES
         ),
         pa.Table.from_pylist([], schema=VIEW_IDENTITY),
         pa.Table.from_pylist([], schema=VIEW_ALTERNATIVES),

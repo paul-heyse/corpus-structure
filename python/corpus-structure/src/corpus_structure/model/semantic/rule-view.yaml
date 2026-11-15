@@ -1,6 +1,6 @@
 id: https://corpus-structure.dev/semantic/rule-view
 name: semantic_rule_view
-version: semantic-rule-view-2
+version: semantic-rule-view-3
 prefixes:
   rv: https://corpus-structure.dev/semantic/rule-view/
   xsd: http://www.w3.org/2001/XMLSchema#
@@ -28,8 +28,10 @@ classes:
         range: string
         annotations:
           rv:nullable: 'true'
-      type:
+      types:
         range: string
+        description: Every actual compact class membership of the selected entity; no principal class is invented.
+        annotations: {rv:collection: array}
       label:
         range: string
       symbol:
@@ -152,9 +154,11 @@ classes:
         annotations:
           rv:nullable: 'true'
   Claim:
+    description: An actual source occurrence; relation attributes name canonical proposition facts where stated.
     attributes:
       id:
         range: string
+        description: The source occurrence identifier, distinct from a canonical fact identifier.
       key:
         range: string
         annotations:
@@ -205,10 +209,12 @@ classes:
           rv:collection: array
       claim_refs:
         range: string
+        description: Canonical fact references in the actual observed condition, never relabelled occurrence IDs.
         annotations:
           rv:collection: array
       statement_premises:
         range: string
+        description: Canonical facts supplied as premises in the actual source statement context or declared global premise context.
         annotations:
           rv:collection: array
       gives_symbols:
@@ -221,10 +227,12 @@ classes:
           rv:collection: array
       same_slot:
         range: string
+        description: Other canonical facts in the same actual subject/property/source-statement slot.
         annotations:
           rv:collection: array
       alternative_of:
         range: string
+        description: Other canonical facts in actual retained source or value-disagreement alternatives.
         annotations:
           rv:collection: array
       evidence_count:
