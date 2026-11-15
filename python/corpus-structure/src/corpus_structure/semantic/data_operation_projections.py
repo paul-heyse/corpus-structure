@@ -71,6 +71,13 @@ def _aggregate(value, *order):
     return func.coalesce(func.jsonb_agg(expression), _json([]))
 
 
+def _requested_read_scope():
+    # Optional JSON properties yield SQL NULL, rather than an empty object.
+    # Normalize that omission before predicates such as NOT(scope ? 'key');
+    # otherwise three-valued SQL logic filters the whole unscoped frontier.
+    return func.coalesce(_var("p", JSONB)["scope"], _json({}))
+
+
 def _visible(table):
     return func.ops.ddo_read_visible(
         table.c.created_at, table.c.created_xid, literal_column("boundary")
@@ -721,8 +728,8 @@ def selected_support_export(metadata, selected_uses, admissions, in_page):
         _node("use", selected_uses.c.id),
         _node("original", admissions.c.id).where(
             admissions.c.demand_id == _var("d.id", Text), in_page, _visible(admissions),
-            *(or_(_var("p", JSONB)["scope"][name].astext.is_(None), admissions.c[name] == _var("p", JSONB)["scope"][name].astext) for name in ("subject", "original_source")),
-            or_(~_var("p", JSONB)["scope"].op("?")(literal("product_ids")), exists(select(1).select_from(_items(_var("p", JSONB)["scope"]["product_ids"], "scope_original_product")).where(literal_column("scope_original_product.value", type_=JSONB).op("#>>")(literal_column("'{}'::text[]")) == admissions.c.product_id)))
+            *(or_(_requested_read_scope()[name].astext.is_(None), admissions.c[name] == _requested_read_scope()[name].astext) for name in ("subject", "original_source")),
+            or_(~_requested_read_scope().op("?")(literal("product_ids")), exists(select(1).select_from(_items(_requested_read_scope()["product_ids"], "scope_original_product")).where(literal_column("scope_original_product.value", type_=JSONB).op("#>>")(literal_column("'{}'::text[]")) == admissions.c.product_id)))
         ),
     ).cte("export_support_seed")
     nodes = _support_walk(metadata, seed)
@@ -813,7 +820,7 @@ def read_page(metadata):
     outputs = metadata.tables["ops.data_derivation_output"]
     requests = metadata.tables["ops.data_request"]
     definitions = metadata.tables["sem.data_operation_definition"]
-    read_scope = _var("p", JSONB)["scope"]
+    read_scope = _requested_read_scope()
     scope_predicates = tuple(or_(read_scope[name].astext.is_(None), obligations.c[name] == read_scope[name].astext) for name in ("operation_id", "subject", "original_source"))
     scoped_use = uses.alias("scope_use")
     later_scope_use = uses.alias("scope_later_use")
