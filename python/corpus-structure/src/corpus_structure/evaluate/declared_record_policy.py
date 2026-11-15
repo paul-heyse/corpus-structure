@@ -1332,7 +1332,7 @@ def author_record_policy_inputs(engine, prepared, *, request):
     from .record_alignment import RecordSide, align_records
     from corpus_structure.semantic.releases import open_release
 
-    if request.targets not in {("record_policy.grade",), ("record_policy.fit",)}:
+    if request.targets not in {("record_policy.grade",), ("record_policy.fit",), ("record_policy.fit", "record_policy.authorize")}:
         raise SemanticRefusal("protected record authoring requires its exact grade or fit target")
     supported = {PROTECTED_NAMESPACE + name: cls for name, cls in (
         ("DdoRecordReferencePopulationA", DdoRecordReferencePopulationA),
