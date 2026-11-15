@@ -15,6 +15,10 @@ from .graph_topology import rooted_closure, cyclic_components
 from .data_operation_model import EffectiveDataOperationModel
 
 
+class MissingNominalEndpoint(ValueError):
+    """An inheritance edge references a kind absent from the effective model."""
+
+
 def nominal_inheritance_graph(model: EffectiveDataOperationModel):
     """Authenticate one parent-to-child nominal relation projection."""
     kinds = {kind.semantic_id: kind for kind in model.kinds}
@@ -24,7 +28,7 @@ def nominal_inheritance_graph(model: EffectiveDataOperationModel):
         if edge.relation != "inherits":
             continue
         if edge.source not in kinds or edge.target not in kinds:
-            raise ValueError("nominal refinement has an unresolved inheritance endpoint")
+            raise MissingNominalEndpoint("nominal refinement has an unresolved inheritance endpoint")
         if kinds[edge.source].category != kinds[edge.target].category:
             raise ValueError("nominal refinement changes kind category")
         graph.add_edge(edge.target, edge.source)

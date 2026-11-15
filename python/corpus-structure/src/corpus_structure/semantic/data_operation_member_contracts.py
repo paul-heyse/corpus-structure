@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from typing import Never
 
-from .data_operation_kind_refinements import nominal_inheritance_graph
+from .data_operation_kind_refinements import MissingNominalEndpoint, nominal_inheritance_graph
 from .graph_topology import rooted_closure
 from .data_operation_model import EffectiveDataOperationModel, EffectiveKind
 from .types import Diagnostic, PreparationError
@@ -67,6 +67,8 @@ def derive_member_kinds(
     def concrete_family(root: EffectiveKind) -> tuple[EffectiveKind, ...]:
         try:
             graph = nominal_inheritance_graph(model)
+        except MissingNominalEndpoint as error:
+            refuse(root.semantic_id, "member projection requires a complete nominal kind: " + str(error))
         except ValueError as error:
             refuse(root.semantic_id, str(error))
         found = rooted_closure(graph, (root.semantic_id,))
