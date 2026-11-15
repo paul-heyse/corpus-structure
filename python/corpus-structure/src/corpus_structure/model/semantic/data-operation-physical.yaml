@@ -568,6 +568,7 @@ classes:
       frontier_at: {range: timestamp, required: true}
       owner_xid: {range: string, required: true}
       trust_snapshot: {range: json_payload, required: true}
+      scope: {range: json_payload, required: true, annotations: {ph:default: "'{}'::jsonb"}}
     unique_keys:
       primary_key: {unique_key_slots: [id]}
     annotations:

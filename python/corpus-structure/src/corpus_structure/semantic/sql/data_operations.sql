@@ -1403,7 +1403,7 @@ CREATE OR REPLACE FUNCTION ops.read_demand_result(p_payload jsonb) RETURNS jsonb
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
 DECLARE p jsonb:=p_payload; d ops.data_demand; snapshot jsonb:='{}'; results jsonb; obligations jsonb; lim integer; after_key text; next_key text; more boolean; selected_view text; selected_max_bytes bigint; boundary ops.data_demand_read; scope_key text; epoch bigint;
 BEGIN
- PERFORM ops.ddo_fields(p,ARRAY['demand_id'],ARRAY['selection','after','limit','trust_snapshot','read_id','read_snapshot','frontier_at','view','max_bytes']);
+ PERFORM ops.ddo_fields(p,ARRAY['demand_id'],ARRAY['selection','after','limit','trust_snapshot','read_id','read_snapshot','frontier_at','view','max_bytes','scope']);
  SELECT * INTO STRICT d FROM ops.data_demand WHERE id=p->>'demand_id';
  PERFORM ops.ddo_authorize(kind.universe) FROM jsonb_array_elements(d.selection->'operations') selected
  JOIN sem.data_operation_definition operation ON operation.release_id=d.release_id AND operation.operation_id=selected->>'operation'
@@ -1421,6 +1421,7 @@ BEGIN
  -- support must still contribute its authority scope to the read's pinned closure.
  IF p ? 'read_id' THEN
  SELECT * INTO STRICT boundary FROM ops.data_demand_read WHERE id=p->>'read_id' AND demand_id=d.id;
+ IF boundary.scope IS DISTINCT FROM coalesce(p->'scope','{}') THEN RAISE EXCEPTION 'read scope differs from its pinned acquisition'; END IF;
  ELSE
  boundary.id:='read:'||gen_random_uuid()::text; boundary.demand_id:=d.id;
  boundary.read_snapshot:=pg_current_snapshot()::text; boundary.frontier_at:=clock_timestamp();
@@ -1437,8 +1438,8 @@ BEGIN
  OR (p ? 'read_snapshot' AND p->>'read_snapshot' IS DISTINCT FROM boundary.read_snapshot)
  OR (p ? 'frontier_at' AND (p->>'frontier_at')::timestamptz IS DISTINCT FROM boundary.frontier_at) THEN RAISE EXCEPTION 'read acquisition pins or current trust differ'; END IF;
  ELSE
- INSERT INTO ops.data_demand_read(id,demand_id,read_snapshot,frontier_at,owner_xid,trust_snapshot)
- VALUES(boundary.id,d.id,boundary.read_snapshot,boundary.frontier_at,boundary.owner_xid,snapshot) RETURNING * INTO boundary;
+ INSERT INTO ops.data_demand_read(id,demand_id,read_snapshot,frontier_at,owner_xid,trust_snapshot,scope)
+ VALUES(boundary.id,d.id,boundary.read_snapshot,boundary.frontier_at,boundary.owner_xid,snapshot,coalesce(p->'scope','{}')) RETURNING * INTO boundary;
  END IF;
  IF p ? 'trust_snapshot' AND ops.ddo_trust_snapshot_meaning(p->'trust_snapshot') IS DISTINCT FROM snapshot THEN RAISE EXCEPTION 'trust snapshot changed; reacquire demand read'; END IF;
  PERFORM ops.ddo_authorize(k.universe) FROM ops.demand_use u JOIN ops.data_derivation_output outp ON outp.derivation_id=u.derivation_id JOIN kb.data_product x ON x.id=outp.product_id JOIN sem.data_kind_contract k ON k.kind_contract=x.kind_contract WHERE u.demand_id=d.id AND ops.ddo_read_visible(u.created_at,u.created_xid,boundary);

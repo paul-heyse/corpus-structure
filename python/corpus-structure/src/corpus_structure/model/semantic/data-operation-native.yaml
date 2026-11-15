@@ -1122,6 +1122,7 @@ definitions:
   continuation:
     type: object
     properties:
+      scope: {$ref: '#/definitions/demand_read_scope'}
       demand_id:
         $ref: '#/definitions/identifier'
       selection:
@@ -1928,9 +1929,17 @@ definitions:
     - scope
     - epoch
     additionalProperties: false
+  demand_read_scope:
+    type: object
+    properties:
+      operation_id: {$ref: '#/definitions/identifier'}
+      subject: {$ref: '#/definitions/identifier'}
+      original_source: {$ref: '#/definitions/identifier'}
+    additionalProperties: false
   read_demand_result_request:
     type: object
     properties:
+      scope: {$ref: '#/definitions/demand_read_scope'}
       demand_id:
         $ref: '#/definitions/identifier'
       selection:
@@ -1972,9 +1981,69 @@ definitions:
       - read_id
       frontier_at:
       - read_id
+  selected_support_closure:
+    type: object
+    properties:
+      uses:
+        type: array
+        items: {type: object, additionalProperties: {$ref: '#/definitions/json_value'}}
+      episodes:
+        type: array
+        items: {type: object, additionalProperties: {$ref: '#/definitions/json_value'}}
+      requests:
+        type: array
+        items: {type: object, additionalProperties: {$ref: '#/definitions/json_value'}}
+      original_admissions:
+        type: array
+        items: {type: object, additionalProperties: {$ref: '#/definitions/json_value'}}
+      populations:
+        type: array
+        items: {type: object, additionalProperties: {$ref: '#/definitions/json_value'}}
+      inputs:
+        type: array
+        items: {type: object, additionalProperties: {$ref: '#/definitions/json_value'}}
+      outputs:
+        type: array
+        items: {type: object, additionalProperties: {$ref: '#/definitions/json_value'}}
+      products:
+        type: array
+        items: {type: object, additionalProperties: {$ref: '#/definitions/json_value'}}
+      members:
+        type: array
+        items: {type: object, additionalProperties: {$ref: '#/definitions/json_value'}}
+      kinds:
+        type: array
+        items: {type: object, additionalProperties: {$ref: '#/definitions/json_value'}}
+      definitions:
+        type: array
+        items: {type: object, additionalProperties: {$ref: '#/definitions/json_value'}}
+      support:
+        type: array
+        items: {type: object, additionalProperties: {$ref: '#/definitions/json_value'}}
+      original_support:
+        type: array
+        items: {type: object, additionalProperties: {$ref: '#/definitions/json_value'}}
+      coordinate:
+        type: array
+        items: {type: object, additionalProperties: {$ref: '#/definitions/json_value'}}
+      role:
+        type: array
+        items: {type: object, additionalProperties: {$ref: '#/definitions/json_value'}}
+      endpoint:
+        type: array
+        items: {type: object, additionalProperties: {$ref: '#/definitions/json_value'}}
+      coverage:
+        type: array
+        items: {type: object, additionalProperties: {$ref: '#/definitions/json_value'}}
+      choice:
+        type: array
+        items: {type: object, additionalProperties: {$ref: '#/definitions/json_value'}}
+    required: [uses, episodes, requests, original_admissions, populations, inputs, outputs, products, members, kinds, definitions, support, original_support, coordinate, role, endpoint, coverage, choice]
+    additionalProperties: false
   read_demand_result_result:
     type: object
     properties:
+      scope: {$ref: '#/definitions/demand_read_scope'}
       demand_id:
         $ref: '#/definitions/identifier'
       selection:
@@ -2015,6 +2084,10 @@ definitions:
         items:
           $ref: '#/definitions/population'
         minItems: 0
+      support_closure:
+        anyOf:
+        - {$ref: '#/definitions/selected_support_closure'}
+        - {type: 'null'}
       continuation:
         anyOf:
         - $ref: '#/definitions/continuation'

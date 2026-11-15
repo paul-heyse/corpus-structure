@@ -710,6 +710,76 @@ def binding_branches(metadata):
     return computed, original
 
 
+def selected_support_export(metadata, selected_uses, admissions, in_page):
+    """Export the finite selected witness closure, including nonreturned intermediates.
+
+    Selection and current trust stay in the native acquisition owner. This is a
+    derived projection over exact retained use/episode/population/original IDs.
+    Body access checks apply to every product and member, including intermediates.
+    """
+    seed = union(
+        _node("use", selected_uses.c.id),
+        _node("original", admissions.c.id).where(
+            admissions.c.demand_id == _var("d.id", Text), in_page, _visible(admissions)
+        ),
+    ).cte("export_support_seed")
+    nodes = _support_walk(metadata, seed)
+    episodes = metadata.tables["ops.data_derivation"]
+    inputs = metadata.tables["ops.data_derivation_input"]
+    outputs = metadata.tables["ops.data_derivation_output"]
+    products = metadata.tables["kb.data_product"]
+    members = metadata.tables["kb.data_product_member"]
+    uses = metadata.tables["ops.demand_use"]
+    populations = metadata.tables["ops.data_population"]
+    requests = metadata.tables["ops.data_request"]
+    definitions = metadata.tables["sem.data_operation_definition"]
+    kinds = metadata.tables["sem.data_kind_contract"]
+
+    def reached(kind, identity):
+        return exists(select(1).select_from(nodes).where(nodes.c.kind == kind, nodes.c.id == identity))
+
+    episode_ids = select(episodes.c.id).where(reached("episode", episodes.c.id))
+    request_ids = select(episodes.c.request_id).where(episodes.c.id.in_(episode_ids))
+    product_ids = union(
+        select(inputs.c.product_id).where(inputs.c.derivation_id.in_(episode_ids)),
+        select(outputs.c.product_id).where(outputs.c.derivation_id.in_(episode_ids)),
+        select(admissions.c.product_id).where(reached("original", admissions.c.id)),
+    ).cte("export_products")
+
+    def records(relation, predicate, *order):
+        # Retain row context exactly; transaction visibility markers are not public
+        # semantic addresses and are unnecessary for detached interpretation.
+        value = func.to_jsonb(relation.table_valued())
+        for name in ("created_at", "created_xid", "live_task_id"):
+            if name in relation.c:
+                value = value.op("-")(literal(name))
+        return select(_aggregate(value, *order)).where(predicate).scalar_subquery()
+
+    fields = dict(
+        uses=records(uses, reached("use", uses.c.id), uses.c.id),
+        episodes=records(episodes, episodes.c.id.in_(episode_ids), episodes.c.id),
+        requests=records(requests, requests.c.id.in_(request_ids), requests.c.id),
+        original_admissions=records(admissions, reached("original", admissions.c.id), admissions.c.id),
+        populations=records(populations, reached("population", populations.c.id), populations.c.id),
+        inputs=records(inputs, inputs.c.derivation_id.in_(episode_ids), inputs.c.derivation_id, inputs.c.role, inputs.c.position),
+        outputs=records(outputs, outputs.c.derivation_id.in_(episode_ids), outputs.c.derivation_id, outputs.c.role, outputs.c.position),
+        products=records(products, and_(products.c.id.in_(select(product_ids.c.product_id)), func.ops.ddo_kind_access(products.c.kind_contract)), products.c.id),
+        members=records(members, and_(members.c.product_id.in_(select(product_ids.c.product_id)), func.ops.ddo_kind_access(members.c.kind_contract)), members.c.product_id, members.c.member_id),
+        kinds=records(kinds, or_(
+            kinds.c.kind_contract.in_(select(products.c.kind_contract).where(products.c.id.in_(select(product_ids.c.product_id)))),
+            kinds.c.kind_contract.in_(select(members.c.kind_contract).where(members.c.product_id.in_(select(product_ids.c.product_id)))),
+        ), kinds.c.kind_contract),
+        definitions=records(definitions, exists(select(1).select_from(episodes.join(requests, requests.c.id == episodes.c.request_id)).where(episodes.c.id.in_(episode_ids), episodes.c.release_id == definitions.c.release_id, requests.c.operation_id == definitions.c.operation_id)), definitions.c.release_id, definitions.c.operation_id),
+    )
+    for name in ("data_derivation_support", "data_derivation_original_support"):
+        relation = metadata.tables["ops." + name]
+        fields[name.removeprefix("data_derivation_")] = records(relation, relation.c.derivation_id.in_(episode_ids), *relation.primary_key.columns)
+    for name in ("coordinate", "role", "endpoint", "coverage", "choice"):
+        relation = metadata.tables["kb.data_member_" + name]
+        fields[name] = records(relation, relation.c.product_id.in_(select(product_ids.c.product_id)), *relation.primary_key.columns)
+    return _obj(**fields)
+
+
 def read_page(metadata):
     """One pure atomic page under already acquired native pins."""
     from sqlalchemy import case
@@ -724,10 +794,13 @@ def read_page(metadata):
     outputs = metadata.tables["ops.data_derivation_output"]
     requests = metadata.tables["ops.data_request"]
     definitions = metadata.tables["sem.data_operation_definition"]
+    read_scope = _var("p", JSONB)["scope"]
+    scope_predicates = tuple(or_(read_scope[name].astext.is_(None), obligations.c[name] == read_scope[name].astext) for name in ("operation_id", "subject", "original_source"))
     bounded = (
         select(obligations)
         .where(
             obligations.c.demand_id == demand,
+            *scope_predicates,
             obligations.c.id > _var("after_key", Text),
             _visible(obligations),
         )
@@ -922,6 +995,7 @@ def read_page(metadata):
             .select_from(obligations)
             .where(
                 obligations.c.demand_id == demand,
+                *scope_predicates,
                 obligations.c.id > next_key,
                 _visible(obligations),
             )
@@ -1035,6 +1109,7 @@ def read_page(metadata):
     )
     pins = dict(
         demand_id=demand,
+        scope=func.coalesce(read_scope, _json({})),
         selection=selection,
         trust_snapshot=_var("snapshot", JSONB),
         read_id=_var("boundary.id", Text),
@@ -1075,6 +1150,7 @@ def read_page(metadata):
             uses=result_uses,
             obligations=result_obligations,
             original_source_admissions=result_admissions,
+            support_closure=case((_var("selected_view", Text) == "products", selected_support_export(metadata, selected_uses, admissions, in_page)), else_=null()),
             attempt_failures=result_failures,
             populations=result_populations,
             continuation=continuation,
