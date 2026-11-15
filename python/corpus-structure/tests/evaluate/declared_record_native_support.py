@@ -5,6 +5,7 @@ used. Conversion and candidate extraction are controlled; this is native custody
 and permission evidence, never provider accuracy or population-quality evidence.
 """
 
+from contextlib import contextmanager
 from dataclasses import dataclass
 from hashlib import sha256
 from io import BytesIO
@@ -258,7 +259,7 @@ class CurrentRecordPolicyJourney:
     sources: tuple[SourceChoice, ...]
     source_cut: CutSelection
 
-    def selected_products(self, engine, demand, *, kind, scope=None):
+    def selected_products(self, engine, demand, *, kind=None, scope=None):
         from corpus_structure.evaluate.declared_record_policy import _selected_body
         from corpus_structure.semantic.demand_results import selected_record_index
 
@@ -276,7 +277,7 @@ class CurrentRecordPolicyJourney:
         ) as (cut, index):
             products = []
             for row in index.rows("kb.data_product"):
-                if row["kind_contract"] in contracts:
+                if kind is None or row["kind_contract"] in contracts:
                     _, body = _selected_body(index, row["id"])
                     products.append((row, body))
             uses = tuple(index.frontier_rows("uses"))
@@ -285,8 +286,8 @@ class CurrentRecordPolicyJourney:
             return cut, tuple(products), uses, episodes, outputs
 
 
-@pytest.fixture
-def current_record_policy(scenario_seeds, tmp_path, monkeypatch):
+@contextmanager
+def current_record_policy_journey(scenario_seeds, tmp_path, monkeypatch, *, recipe):
     import pypdfium2 as pdfium
 
     from corpus_structure.core.evidence import document_key
@@ -306,7 +307,6 @@ def current_record_policy(scenario_seeds, tmp_path, monkeypatch):
     )
 
     monkeypatch.setattr(pdf_worker.PdfWorker, "stream", controlled_table_stream)
-    recipe = policy_recipe(tmp_path)
     with scenario_seeds.commit_clone(recipe) as clone:
         kernel = Kernel(clone.admin, clone.stage.preparation, clone.stage.identities, recipe, clone)
         with kernel.purpose("write").begin() as connection:
@@ -438,6 +438,12 @@ def current_record_policy(scenario_seeds, tmp_path, monkeypatch):
             tuple(sorted(selected, key=lambda item: item.pin.original_source)),
             source_cut,
         )
+
+
+@pytest.fixture
+def current_record_policy(scenario_seeds, tmp_path, monkeypatch):
+    with current_record_policy_journey(scenario_seeds, tmp_path, monkeypatch, recipe=policy_recipe(tmp_path)) as journey:
+        yield journey
 
 
 def reference_records(journey, selected):
@@ -710,6 +716,15 @@ def retain_references(journey, selected_sources, *, partition, held_out_from=())
     return (a, b, c), originals
 
 
+@dataclass(frozen=True)
+class ReadingPopulation:
+    specification: Any
+    resolved: tuple[tuple[dict[str, Any], dict[str, Any]], ...]
+    raw: tuple[tuple[dict[str, Any], dict[str, Any]], ...]
+    cut: CutSelection
+    demand_id: str
+
+
 def run_readings(journey, selected_sources, *, policy, inference, empty_sources=()):
     from corpus_structure.evaluate.declared_record_policy import (
         DdoRecordGradeSpecification,
@@ -779,11 +794,15 @@ def run_readings(journey, selected_sources, *, policy, inference, empty_sources=
         database_capacity=6,
     )
     assert execution.receipt_count == 2 * len(selected_sources)
-    cut, products, uses, episodes, outputs = journey.selected_products(
-        journey.kernel.purpose("evaluate"),
-        retained["demand_id"],
-        kind="https://corpus-structure.dev/semantic/data-operation-reading-resolution/DdoResolvedReadingReport",
+    cut, selected_products, uses, episodes, outputs = journey.selected_products(
+        journey.kernel.purpose("evaluate"), retained["demand_id"]
     )
+    kinds = {item.owner: item.key for item in journey.kernel.model.identities if item.domain == "kind"}
+    products = tuple((row, body) for row, body in selected_products
+                     if row["kind_contract"] == kinds["https://corpus-structure.dev/semantic/data-operation-reading-resolution/DdoResolvedReadingReport"])
+    raw = tuple((row, body) for row, body in selected_products
+                if row["kind_contract"] == kinds["https://corpus-structure.dev/semantic/data-operation-candidate-inspection/DdoCandidateInspectionReport"])
+    assert len(raw) == len(selected_sources)
     assert len(products) == len(selected_sources)
     selections = []
     for selected in selected_sources:
@@ -817,9 +836,10 @@ def run_readings(journey, selected_sources, *, policy, inference, empty_sources=
                 cut_canonical_json=cut.content.decode(),
             )
         )
-    return DdoRecordGradeSpecification(
-        prediction_selections=tuple(selections), algorithm=RecordAlgorithm()
-    ), products
+    return ReadingPopulation(
+        DdoRecordGradeSpecification(prediction_selections=tuple(selections), algorithm=RecordAlgorithm()),
+        products, raw, cut, retained["demand_id"],
+    )
 
 
 @dataclass(frozen=True)
@@ -952,6 +972,8 @@ class FittedJourney:
     fitted: dict[str, Any]
     authorization: dict[str, Any]
     demand_id: str
+    feature_readings: ReadingPopulation
+    calibration_readings: ReadingPopulation
 
 
 def complete_policy_fit(journey):
@@ -973,7 +995,7 @@ def complete_policy_fit(journey):
 
     feature_sources, calibration_sources = journey.sources[:2], journey.sources[2:]
     passes, facts = retain_references(journey, feature_sources, partition="feature_fit")
-    specification, predictions = run_readings(
+    feature_readings = run_readings(
         journey, feature_sources, policy=None, inference="genuine-feature-readings"
     )
     feature = run_grade(
@@ -981,8 +1003,8 @@ def complete_policy_fit(journey):
         feature_sources,
         passes,
         facts,
-        specification,
-        predictions,
+        feature_readings.specification,
+        feature_readings.resolved,
         inference="genuine-feature-grade",
     )
     assert len(feature.grade.frame.events) == 8
@@ -1006,7 +1028,7 @@ def complete_policy_fit(journey):
     passes, facts = retain_references(
         journey, calibration_sources, partition="final_event_calibration", held_out_from=held_out
     )
-    specification, predictions = run_readings(
+    calibration_readings = run_readings(
         journey,
         calibration_sources,
         policy=preliminary["reading_policy"],
@@ -1017,8 +1039,8 @@ def complete_policy_fit(journey):
         calibration_sources,
         passes,
         facts,
-        specification,
-        predictions,
+        calibration_readings.specification,
+        calibration_readings.resolved,
         inference="genuine-held-out-grade",
     )
     assert len(calibration.grade.frame.events) == 8
@@ -1083,7 +1105,8 @@ def complete_policy_fit(journey):
     )
     assert len(fitted) == len(authorization) == 1
     return FittedJourney(
-        journey, feature, calibration, fitted[0][1], authorization[0][1], retained["demand_id"]
+        journey, feature, calibration, fitted[0][1], authorization[0][1], retained["demand_id"],
+        feature_readings, calibration_readings,
     )
 
 

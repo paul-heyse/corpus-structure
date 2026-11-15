@@ -254,7 +254,7 @@ def test_actual_grade_fit_authorization_and_restricted_fitter_custody(
     # preserving its source and product outside the scored-event denominator.
     empty_sources = journey.sources[:1]
     passes, facts = retain_references(journey, empty_sources, partition="development")
-    specification, predictions = run_readings(
+    readings = run_readings(
         journey,
         empty_sources,
         policy=None,
@@ -266,8 +266,8 @@ def test_actual_grade_fit_authorization_and_restricted_fitter_custody(
         empty_sources,
         passes,
         facts,
-        specification,
-        predictions,
+        readings.specification,
+        readings.resolved,
         inference="actual-empty-carrier-grade",
     )
     assert empty.grade.frame.events == ()
