@@ -98,6 +98,29 @@ def test_current_record_policy_journey_recipe_has_real_closed_producers(tmp_path
     candidates, actual_coordinates = candidate_values(
         preparation.prepared, body, pin, model=model, check_active=lambda: None
     )
+    measurements, measurement_coordinates = candidate_values(
+        preparation.prepared, body, pin, model=model, check_active=lambda: None,
+        family="measurement",
+    )
+    bound_measurements = bind_record_candidates(
+        preparation.prepared, model=model, source=pin["source"], records=measurements,
+        coordinate_texts=measurement_coordinates,
+    )
+    assert len(bound_measurements) == 4
+    assert len({item["record_id"] for item in measurements}) == 2
+    expected_roles = {
+        "referent", "property", "original_value", "value_role", "unit", "comparator",
+        "uncertainty", "reference_quantity", "condition", "normalized_value",
+    }
+    for item in measurements:
+        assert item["contract"] == "MeasurementRecordFields" and item["family"] == "measurement"
+        assert {field["role"] for field in item["fields"]} == expected_roles
+        fields = {field["role"]: field for field in item["fields"]}
+        assert fields["original_value"]["state"] in {"present", "unresolved"}
+        if fields["original_value"]["state"] == "present":
+            assert fields["original_value"]["value"] == {"kind": "decimal", "lexical": "12"}
+        assert all(fields[role]["state"] == "unstated" for role in expected_roles - {"original_value"})
+        assert all("value" not in fields[role] for role in expected_roles - {"original_value"})
     assert actual_coordinates == coordinates
     bind_record_candidates(
         preparation.prepared,

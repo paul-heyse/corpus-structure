@@ -16,7 +16,7 @@ ASSET = "record-policy-native-fixture/candidate-assets"
 MODULE = "evaluate.declared_record_candidate_fixture"
 
 
-def candidate_values(prepared, source, pin, *, model, check_active):
+def candidate_values(prepared, source, pin, *, model, check_active, family="table"):
     from copy import deepcopy
 
     from corpus_structure.semantic.record_contracts import (
@@ -27,6 +27,9 @@ def candidate_values(prepared, source, pin, *, model, check_active):
         record_identity,
     )
 
+    if family not in {"table", "measurement"}:
+        raise ValueError("controlled candidate family is not declared")
+    value_role = "value" if family == "table" else "original_value"
     tables = [item for item in source["items"] if item.get("label") == "table"]
     if len(tables) != 1 or len(tables[0].get("data", {}).get("table_cells", ())) != 2:
         raise ValueError("controlled source requires its actual independent two-cell native table")
@@ -38,7 +41,7 @@ def candidate_values(prepared, source, pin, *, model, check_active):
         anchors, evidence, fields = [], [], []
         for role, usage, anchor in (
             (
-                "value",
+                value_role,
                 "literal",
                 dict(
                     pin=pin,
@@ -57,30 +60,49 @@ def candidate_values(prepared, source, pin, *, model, check_active):
             ),
         ):
             anchor["anchor_id"] = anchor_identity(anchor)
+            anchors.append(anchor)
+            if family == "measurement" and role == "location":
+                continue
             support = dict(
                 role=role, ordering="ordered", usage=usage, anchors=(anchor["anchor_id"],)
             )
             support["set_id"] = evidence_set_identity(support)
             field = dict(
                 role=role,
-                kind="literal" if role == "value" else "native",
+                kind="literal" if role == value_role else "native",
                 state="present",
                 meaning_changing=True,
                 evidence_status="available",
                 evidence_sets=(support["set_id"],),
                 value=dict(kind="decimal", lexical=lexical)
-                if role == "value"
+                if role == value_role
                 else dict(kind="native_location", pointer=pointer),
             )
-            if role == "value":
+            if role == value_role:
                 field.update(original=lexical, reason="source-read")
                 coordinates.append(dict(pin=pin, space="native", pointer=pointer, text=lexical))
-            anchors.append(anchor)
             evidence.append(support)
             fields.append(field)
+        if family == "measurement":
+            for role, kind, meaning_changing in (
+                ("referent", "literal", True),
+                ("property", "literal", True),
+                ("value_role", "classified", True),
+                ("unit", "literal", True),
+                ("comparator", "literal", True),
+                ("uncertainty", "literal", True),
+                ("reference_quantity", "literal", True),
+                ("condition", "literal", True),
+                ("normalized_value", "normalized", False),
+            ):
+                fields.append(dict(
+                    role=role, kind=kind, state="unstated", meaning_changing=meaning_changing,
+                    evidence_status="unavailable", evidence_sets=(),
+                    reason="not stated in this exact native numeric cell",
+                ))
         record = dict(
-            contract="FixtureRecordFields",
-            family="table",
+            contract="FixtureRecordFields" if family == "table" else "MeasurementRecordFields",
+            family=family,
             occurrence_recipe="source-anchor-membership-1",
             pin=pin,
             occurrence_anchors=(anchors[1]["anchor_id"],),
@@ -97,7 +119,7 @@ def candidate_values(prepared, source, pin, *, model, check_active):
         record["interpretation_id"] = interpretation_identity(record)
         records.append(record)
         unresolved = deepcopy(record)
-        value = next(field for field in unresolved["fields"] if field["role"] == "value")
+        value = next(field for field in unresolved["fields"] if field["role"] == value_role)
         value.update(
             state="unresolved", reason="controlled extraction did not resolve this interpretation"
         )
@@ -126,7 +148,8 @@ def execute_kernel(
         canonical_bytes(source).decode(), canonical_bytes(pin).decode()
     )
     rows, coordinates = candidate_values(
-        prepared, source, pin, model=bound_data_operation_model(prepared), check_active=check_active
+        prepared, source, pin, model=bound_data_operation_model(prepared), check_active=check_active,
+        family=question.get("family", "table"),
     )
     actual_context = SubjectContext(
         context["project_id"],
@@ -146,7 +169,7 @@ def execute_kernel(
         inspection_outcome=outcome,
         records=rows,
         coordinate_texts=coordinates,
-        coverage=(dict(family="table", scope=pin["source"], outcome=outcome),),
+        coverage=(dict(family=question.get("family", "table"), scope=pin["source"], outcome=outcome),),
         diagnostics={"reports": [], "fixture": "controlled-native-two-cell-computation"},
     )
 

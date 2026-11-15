@@ -81,6 +81,7 @@ def policy_recipe(directory):
                         "attributes": {
                             "source_pin_json": {"range": "string", "required": True},
                             "empty": {"range": "boolean", "required": True},
+                            "family": {"range": "string", "pattern": "^(table|measurement)$"},
                         }
                     },
                     "FixtureLiteralField": {
@@ -733,7 +734,7 @@ class ReadingPopulation:
     demand_id: str
 
 
-def run_readings(journey, selected_sources, *, policy, inference, empty_sources=()):
+def run_readings(journey, selected_sources, *, policy, inference, empty_sources=(), family="table"):
     from corpus_structure.evaluate.declared_record_policy import (
         DdoRecordGradeSpecification,
         DdoRecordPredictionSelection,
@@ -765,6 +766,7 @@ def run_readings(journey, selected_sources, *, policy, inference, empty_sources=
                         selected.pin.model_dump(mode="json", exclude_none=True)
                     ).decode(),
                     "empty": selected.pin.source in empty_sources,
+                    **({"family": family} if family != "table" else {}),
                 },
                 kind="https://example.test/current-record-policy/FixtureCandidateQuestion",
                 context=selected.context,
