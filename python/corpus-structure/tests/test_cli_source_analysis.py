@@ -58,3 +58,30 @@ def test_current_source_commands_share_retained_demand_execution(cli, monkeypatc
 def test_render_does_not_accept_run_and_task_aliases(cli):
     result = cli("source", "native-render", "17", "31", "--json")
     assert result.exit_code != 0
+
+
+def test_visual_route_acquires_native_read_with_effects_and_preserves_exact_scope(cli, monkeypatch):
+    from contextlib import contextmanager
+    from decimal import Decimal
+    from sqlalchemy import create_engine
+    from corpus_structure.semantic.data_operation_json import json_loads
+    engine = create_engine("sqlite://")
+    seen = []
+    @contextmanager
+    def opened(*args, **kwargs):
+        assert kwargs["purpose"] == "read"
+        yield engine
+    def routed(connection, demand, **kwargs):
+        assert connection.in_transaction()
+        assert connection.get_execution_options().get("postgresql_readonly") is not True
+        seen.append((demand, kwargs["project_id"]))
+        return {"cut": {"analyzed_scope": {"ratio": Decimal("0.123456789012345678901")}}, "pages": []}
+    monkeypatch.setattr("corpus_structure.semantic.runtime.open_runtime_engine", opened)
+    monkeypatch.setattr("corpus_structure.semantic.visual_routing.read_demand_visual_routes", routed)
+    try:
+        result = cli("source", "visual-route", "demand:A", "--project", "project:A", "--json")
+        assert result.exit_code == 0, result.output
+        assert json_loads(result.stdout)["cut"]["analyzed_scope"]["ratio"] == Decimal("0.123456789012345678901")
+        assert seen == [("demand:A", "project:A")]
+    finally:
+        engine.dispose()

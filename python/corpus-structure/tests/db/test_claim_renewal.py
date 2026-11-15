@@ -161,7 +161,8 @@ def test_second_native_failure_keeps_both_actual_causes_and_does_not_retry_again
 
 def test_failed_initial_reservation_never_yields_foreground_owner():
     error = RuntimeError("checkout unavailable")
-    engine = SimpleNamespace(connect=MockFailingConnect(error))
+    engine = MagicMock(spec=Engine)
+    engine.connect.side_effect = MockFailingConnect(error)
     with pytest.raises(RuntimeError, match="checkout unavailable"):
         with maintained_claims(engine, [], "owner"):
             pytest.fail("foreground owner cannot run without reserved capacity")

@@ -22,18 +22,18 @@ def visual_route(
     json: JsonOpt = False,
 ) -> None:
     """Assess selected visual products under their explicit native demand cut."""
-    from corpus_structure.semantic.query import read_snapshot
     from corpus_structure.semantic.runtime import open_runtime_engine
     from corpus_structure.semantic.visual_routing import read_demand_visual_routes
 
     with (failure_boundary(json, expected=(ValueError,)),
           open_runtime_engine(state(ctx).settings(), application_name="ci-visual-route", purpose="read") as engine,
-          read_snapshot(engine) as conn):
+          engine.begin() as conn):
         from corpus_structure.semantic.data_operation_json import wire_json_loads
 
         cursor = None if continuation is None else wire_json_loads(continuation.read_bytes())
         report = read_demand_visual_routes(conn, demand, project_id=project, first=first, limit=limit, continuation=cursor)
-    emit(report, json=json)
+    from corpus_structure.cli.demands import DemandSnapshot, _emit_demand
+    _emit_demand(DemandSnapshot.model_validate(report), json=json)
 
 
 def inspect_visual_dispatch(ctx: typer.Context, manifest: Manifest) -> None:

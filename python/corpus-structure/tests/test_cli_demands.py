@@ -138,7 +138,7 @@ def test_read_routes_complete_native_continuation_without_semantic_defaults(
     result = cli("demands", "read", "demand:one", "--continuation", str(source), "--json")
     assert result.exit_code == 0, result.output
     assert opened == ["read"]
-    assert seen == [("demand:one", {"continuation": pins, "limit": None, "view": None})]
+    assert seen == [("demand:one", {"continuation": pins, "limit": None, "max_bytes": None, "view": None})]
     assert json.loads(result.stdout)["continuation"] == pins
 
 

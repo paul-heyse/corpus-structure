@@ -81,7 +81,7 @@ def _mutation(
         native_path.write_bytes(json_bytes(native))
         invocation.publish("native", native_path)
         invocation.settle("passed", demand_id=native["demand_id"])
-        return DemandActionReport(id=invocation.id, native=dict(native))
+        return DemandActionReport.model_validate({"id": invocation.id, "native": native})
 
 
 @app.command("create")
@@ -274,7 +274,7 @@ def execute_request(
                 raise
             native = retain_native_demand_result(invocation, result)
         invocation.settle("passed", demand_id=demand, receipt_count=result.receipt_count)
-        report = DemandActionReport(id=invocation.id, native=dict(native))
+        report = DemandActionReport.model_validate({"id": invocation.id, "native": native})
     if deliver:
         _emit_demand(report, json=json)
     return report
@@ -308,7 +308,7 @@ def plan(
         path.write_bytes(json_bytes(native))
         invocation.publish("native", path)
         invocation.settle("passed", demand_id=native["demand_id"])
-        report = DemandActionReport(id=invocation.id, native=dict(native))
+        report = DemandActionReport.model_validate({"id": invocation.id, "native": native})
     _emit_demand(report, json=json)
 
 
@@ -384,5 +384,5 @@ def external(
         report_path.write_bytes(json_bytes(native))
         invocation.publish("native", report_path)
         invocation.settle("passed", packet_id=native.get("packet_id"))
-        report = DemandActionReport(id=invocation.id, native=dict(native))
+        report = DemandActionReport.model_validate({"id": invocation.id, "native": native})
     _emit_demand(report, json=json)

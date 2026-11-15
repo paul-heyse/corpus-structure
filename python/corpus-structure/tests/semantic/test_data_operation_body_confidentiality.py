@@ -239,7 +239,7 @@ def test_actual_member_body_closure_guards_native_reads_and_hydration(
                 WireReadDemandResultRequest, {"demand_id": demand["demand_id"], "view": "products"}
             )
         )
-        assert bool("918273" in json.dumps(authorized)) == protected
+        assert ("918273" in json.dumps(authorized)) == protected
 
 
 @pytest.mark.parametrize("ddo_kernel", [mixed_recipe()], indirect=True)

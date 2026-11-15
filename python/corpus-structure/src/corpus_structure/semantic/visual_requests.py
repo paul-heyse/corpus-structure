@@ -357,13 +357,13 @@ def execute_chandra_packet(session, packet_id: str, *, artifacts: Path, receipts
                            datetime.fromisoformat(claim["lease_until"]))
     def renew(conn, current):
         from ._data_operation_wire import (
-            WireAttempt, WireGeneration, WireIdentifier, WireRequestId, WireTaskIdentity, WireRenewDataRequestRequest,
+            WireAttempt, WireGeneration, WireRequestId, WireTaskIdentity, WireRenewDataRequestRequest,
         )
 
         request = WireRenewDataRequestRequest(
             request_id=WireRequestId(claim["request_id"]), generation=WireGeneration(claim["generation"]),
             task_id=WireTaskIdentity(claim["task_id"]), attempt=WireAttempt(claim["attempt"]),
-            holder=WireIdentifier(claim["holder"]), lease_seconds=lease_seconds,
+            holder=claim["holder"], lease_seconds=lease_seconds,
         )
         result = DataOperationStorage(conn).renew_data_request(request)
         if result["state"] == "lost":
