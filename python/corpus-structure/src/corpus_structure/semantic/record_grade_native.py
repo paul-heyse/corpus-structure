@@ -104,75 +104,65 @@ BEGIN
  RAISE EXCEPTION 'record census trust differs from its retained cut' USING ERRCODE='23514'; END IF;
 END $grade$;
 
-CREATE OR REPLACE FUNCTION ops.ddo_record_grade_require_source(project text,cut_text text,pin jsonb)
-RETURNS void LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $grade$
-DECLARE d ops.data_demand; boundary ops.data_demand_read; p jsonb; captured jsonb:=cut_text::jsonb;
- p_use text; p_product text:=pin->>'source_product'; p_derivation text; admitted boolean;
+CREATE OR REPLACE FUNCTION ops.ddo_record_grade_acquire_census(project text,cut_text text,cut_id text)
+RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $grade$
+DECLARE d ops.data_demand; boundary ops.data_demand_read; p jsonb; captured jsonb:=cut_text::jsonb; results jsonb;
+ obligations jsonb:='{}'; uses_ jsonb:='{}'; outputs jsonb;
+ lim bigint:=1000; after_key text:=''; selected_view text:='frontier'; selected_max_bytes bigint:=67108864;
 BEGIN
+ PERFORM ops.ddo_record_grade_require_cut(project,cut_text,cut_id);
  SELECT * INTO STRICT d FROM ops.data_demand WHERE id=captured->>'demand_id' AND project_id=project;
  SELECT * INTO STRICT boundary FROM ops.data_demand_read WHERE id=captured->>'read_id' AND demand_id=d.id;
  p:=jsonb_build_object('scope',boundary.scope);
- PERFORM ops.ddo_record_grade_require_finite_census(d,boundary);
- -- The grade's declared source support alone does not prove that a source-only
- -- question was selected in this earlier cut. Authenticate that relation with the
- -- existing current selected-output projection, including transitive support.
- FOR p_derivation IN SELECT output.derivation_id FROM ops.data_derivation_output output
- WHERE output.product_id=p_product AND output.member_id IS NULL LOOP
- FOR p_use IN SELECT use_.id FROM ops.demand_use use_ WHERE use_.demand_id=d.id
- AND use_.fate='fulfilled' AND ops.ddo_read_visible(use_.created_at,use_.created_xid,boundary)
- ORDER BY (use_.derivation_id=p_derivation) DESC,use_.id LOOP
- __DDO_CORE_SELECTED_SUPPORT_OUTPUT__ INTO admitted;
- IF coalesce(admitted,false) THEN RETURN; END IF;
- END LOOP;
- END LOOP;
- RAISE EXCEPTION 'record question source is outside actual selected cut support' USING ERRCODE='23514';
-END $grade$;
-
-CREATE OR REPLACE FUNCTION ops.ddo_record_grade_census_row(project text,selection jsonb)
-RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $grade$
-DECLARE d ops.data_demand; boundary ops.data_demand_read; p jsonb; results jsonb; chosen_use jsonb; chosen_obligation jsonb;
- lim bigint:=1000; after_key text:=''; selected_view text:='frontier'; selected_max_bytes bigint:=67108864;
-BEGIN
- IF (selection->>'cut_canonical_json')::jsonb->>'demand_id' IS DISTINCT FROM selection->>'demand_id'
- OR (selection->>'cut_canonical_json')::jsonb->>'read_id' IS DISTINCT FROM selection->>'read_id'
- OR (selection->>'cut_canonical_json')::jsonb->>'project_id' IS DISTINCT FROM selection->>'project_id'
- OR selection->>'project_id' IS DISTINCT FROM project THEN
- RAISE EXCEPTION 'record census selection differs from its exact cut/project/read pins' USING ERRCODE='23514'; END IF;
- PERFORM ops.ddo_record_grade_require_cut(project,selection->>'cut_canonical_json',selection->>'expected_cut');
- SELECT * INTO STRICT d FROM ops.data_demand WHERE id=selection->>'demand_id' AND project_id=project;
- SELECT * INTO STRICT boundary FROM ops.data_demand_read WHERE id=selection->>'read_id' AND demand_id=d.id;
- p:=jsonb_build_object('scope',boundary.scope);
- -- The checked retained cut, rather than caller metadata, determines latest use,
- -- visibility and current validity. It is the same bounded read projection used
- -- by normal consumers; no public evaluator authorization is bypassed to expose bodies.
+ -- One prepared, bounded frontier per distinct actual cut. Numerical/event
+ -- comparisons below use these indexes rather than restarting the frontier.
  LOOP
  __DDO_CORE_READ_PAGE__ INTO results;
- SELECT value INTO chosen_obligation FROM jsonb_array_elements(results->'payload'->'obligations') item(value)
- WHERE value->>'obligation_id'=selection->>'obligation_id';
- IF FOUND THEN
- SELECT value INTO STRICT chosen_use FROM jsonb_array_elements(results->'payload'->'uses') item(value)
- WHERE value->>'use_id'=selection->>'use_id' AND value->>'obligation_id'=selection->>'obligation_id';
- IF chosen_use->>'request_id' IS DISTINCT FROM selection->>'request_id' THEN
- RAISE EXCEPTION 'record census differs from actual selected request/use' USING ERRCODE='23514'; END IF;
- RETURN jsonb_build_object('use',chosen_use,'obligation',chosen_obligation);
- END IF;
+ SELECT obligations||coalesce(jsonb_object_agg(value->>'obligation_id',value),'{}') INTO obligations
+ FROM jsonb_array_elements(results->'payload'->'obligations') item(value);
+ SELECT uses_||coalesce(jsonb_object_agg(value->>'use_id',value),'{}') INTO uses_
+ FROM jsonb_array_elements(results->'payload'->'uses') item(value);
  EXIT WHEN results->'payload'->'continuation' IS NULL OR results->'payload'->'continuation'='null'::jsonb;
  after_key:=results->'payload'->'continuation'->>'after';
  END LOOP;
- RAISE EXCEPTION 'record opportunity is outside actual retained census' USING ERRCODE='23514';
+ SELECT coalesce(jsonb_agg(to_jsonb(selected_output)),'[]') INTO outputs
+ FROM (__DDO_CORE_RECORD_GRADE_SELECTED_OUTPUTS__) selected_output;
+ RETURN jsonb_build_object('obligations',obligations,'uses',uses_,'outputs',outputs);
 END $grade$;
 
-CREATE OR REPLACE FUNCTION ops.ddo_record_grade_completion_scopes(r ops.data_request)
-RETURNS SETOF text LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $grade$
-DECLARE specification jsonb; references_ jsonb; cut_text text;
+CREATE OR REPLACE FUNCTION ops.ddo_record_grade_cuts(r ops.data_request)
+RETURNS TABLE(cut_text text,cut_id text) LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $grade$
+DECLARE specification jsonb; references_ jsonb; selection_ jsonb; question_ jsonb;
 BEGIN
  IF r.operation_id IS DISTINCT FROM '__GRADE_OPERATION__' THEN RETURN; END IF;
  specification:=ops.ddo_record_grade_input(r,'specification')->'body';
  references_:=ops.ddo_record_grade_input(r,'adjudication')->'body';
- FOR cut_text IN SELECT DISTINCT value FROM (
- SELECT question->'question'->>'source_cut_canonical_json' value FROM jsonb_array_elements(references_->'references') question
- UNION SELECT selection->>'cut_canonical_json' FROM jsonb_array_elements(specification->'prediction_selections') selection) cuts LOOP
- RETURN QUERY SELECT * FROM ops.ddo_record_grade_cut_scopes(r.project_id,cut_text);
+ FOR selection_ IN SELECT value FROM jsonb_array_elements(specification->'prediction_selections') item(value) LOOP
+ IF selection_->>'project_id' IS DISTINCT FROM r.project_id
+ OR (selection_->>'cut_canonical_json')::jsonb->>'project_id' IS DISTINCT FROM selection_->>'project_id'
+ OR (selection_->>'cut_canonical_json')::jsonb->>'demand_id' IS DISTINCT FROM selection_->>'demand_id'
+ OR (selection_->>'cut_canonical_json')::jsonb->>'read_id' IS DISTINCT FROM selection_->>'read_id' THEN
+ RAISE EXCEPTION 'record census selection differs from exact cut/project/read pins' USING ERRCODE='23514'; END IF;
+ END LOOP;
+ FOR question_ IN SELECT value->'question' FROM jsonb_array_elements(references_->'references') item(value) LOOP
+ IF question_->>'project_id' IS DISTINCT FROM r.project_id
+ OR (question_->>'source_cut_canonical_json')::jsonb->>'project_id' IS DISTINCT FROM r.project_id
+ OR (question_->>'source_cut_canonical_json')::jsonb->>'release_id' IS DISTINCT FROM question_->>'source_release_id' THEN
+ RAISE EXCEPTION 'record source question differs from original project/release cut' USING ERRCODE='23514'; END IF;
+ END LOOP;
+ RETURN QUERY SELECT DISTINCT question->'question'->>'source_cut_canonical_json',question->'question'->>'source_cut_id'
+ FROM jsonb_array_elements(references_->'references') question
+ UNION SELECT selection->>'cut_canonical_json',selection->>'expected_cut'
+ FROM jsonb_array_elements(specification->'prediction_selections') selection;
+END $grade$;
+
+CREATE OR REPLACE FUNCTION ops.ddo_record_grade_completion_scopes(r ops.data_request)
+RETURNS SETOF text LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $grade$
+DECLARE captured record;
+BEGIN
+ IF r.operation_id IS DISTINCT FROM '__GRADE_OPERATION__' THEN RETURN; END IF;
+ FOR captured IN SELECT * FROM ops.ddo_record_grade_cuts(r) LOOP
+ RETURN QUERY SELECT * FROM ops.ddo_record_grade_cut_scopes(r.project_id,captured.cut_text);
  END LOOP;
 END $grade$;
 
@@ -188,7 +178,8 @@ CREATE OR REPLACE FUNCTION ops.ddo_record_grade_require_frame(r ops.data_request
 RETURNS void LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $grade$
 DECLARE a jsonb:=ops.ddo_record_grade_input(r,'reference_a'); b jsonb:=ops.ddo_record_grade_input(r,'reference_b');
  c jsonb:=ops.ddo_record_grade_input(r,'adjudication'); specification jsonb:=ops.ddo_record_grade_input(r,'specification')->'body';
- frame jsonb:=grade->'frame'; question jsonb; selected jsonb; census jsonb; u jsonb; obligation jsonb;
+ frame jsonb:=grade->'frame'; question jsonb; selected jsonb; source_census jsonb; prediction_census jsonb; u jsonb; obligation jsonb;
+ cuts jsonb:='{}'; captured record;
  predicted jsonb; carrier jsonb; candidate jsonb; event jsonb; actual_event jsonb; coverage jsonb; ref jsonb; pin jsonb; bound jsonb;
  pins jsonb:='[]'; sources_ jsonb:='[]'; event_count integer:=0; selected_count integer:=0; n bigint; pass_row record;
  producer ops.data_derivation; reading sem.data_operation_definition;
@@ -201,6 +192,9 @@ BEGIN
  OR jsonb_array_length(frame->'reference_passes')<>3*jsonb_array_length(c->'body'->'references')
  OR a->>'product_id'=b->>'product_id' OR a->>'product_id'=c->>'product_id' OR b->>'product_id'=c->>'product_id' THEN
  RAISE EXCEPTION 'record grade differs from canonical frame and genuine independent pass population' USING ERRCODE='23514'; END IF;
+ FOR captured IN SELECT * FROM ops.ddo_record_grade_cuts(r) LOOP
+ cuts:=cuts||jsonb_build_object(captured.cut_id,ops.ddo_record_grade_acquire_census(r.project_id,captured.cut_text,captured.cut_id));
+ END LOOP;
  FOR ref,n IN SELECT value,ordinal FROM jsonb_array_elements(c->'body'->'references') WITH ORDINALITY items(value,ordinal) LOOP
  question:=ref->'question'; selected:=specification->'prediction_selections'->((n-1)::integer);
  sources_:=sources_||jsonb_build_array(question->'source');
@@ -215,9 +209,13 @@ BEGIN
  OR frame->>'source_cut_id' IS DISTINCT FROM question->>'source_cut_id'
  OR frame->>'prediction_cut_id' IS DISTINCT FROM selected->>'expected_cut'
  OR frame->>'prediction_release_id' IS DISTINCT FROM (selected->>'cut_canonical_json')::jsonb->>'release_id'
- OR selected->>'project_id' IS DISTINCT FROM r.project_id THEN
+ OR selected->>'project_id' IS DISTINCT FROM r.project_id
+ OR (selected->>'cut_canonical_json')::jsonb->>'project_id' IS DISTINCT FROM selected->>'project_id'
+ OR (selected->>'cut_canonical_json')::jsonb->>'demand_id' IS DISTINCT FROM selected->>'demand_id'
+ OR (selected->>'cut_canonical_json')::jsonb->>'read_id' IS DISTINCT FROM selected->>'read_id' THEN
  RAISE EXCEPTION 'record question/source/prediction census changed' USING ERRCODE='23514'; END IF;
- PERFORM ops.ddo_record_grade_require_cut(r.project_id,question->>'source_cut_canonical_json',question->>'source_cut_id');
+ source_census:=cuts->(question->>'source_cut_id');
+ prediction_census:=cuts->(selected->>'expected_cut');
  FOR pass_row IN SELECT * FROM (VALUES ('A',a),('B',b),('C',c)) passes(pass_kind,pass_value) LOOP
  bound:=pass_row.pass_value;
  IF bound->'body'->>'pass_kind' IS DISTINCT FROM pass_row.pass_kind
@@ -237,7 +235,8 @@ BEGIN
  IF NOT EXISTS(SELECT FROM jsonb_array_elements(pins) previous WHERE previous->>'source_product'=pin->>'source_product' AND previous->>'source_member' IS NOT DISTINCT FROM pin->>'source_member') THEN pins:=pins||jsonb_build_array(pin); END IF;
  SELECT value INTO STRICT bound FROM jsonb_array_elements(r.binding->'inputs') item(value)
  WHERE value->>'role'='sources' AND value->>'product_id'=pin->>'source_product' AND value->>'member_id' IS NOT DISTINCT FROM pin->>'source_member';
- PERFORM ops.ddo_record_grade_require_source(r.project_id,question->>'source_cut_canonical_json',pin);
+ IF NOT EXISTS(SELECT FROM jsonb_array_elements(source_census->'outputs') output WHERE output->>'product_id'=pin->>'source_product') THEN
+ RAISE EXCEPTION 'record question source is outside actual selected cut support' USING ERRCODE='23514'; END IF;
  predicted:=ops.ddo_record_grade_input_value(r.project_id,bound->>'product_id',bound->>'member_id');
  IF (predicted-'body'-'analyzed_scope_meaning') IS DISTINCT FROM jsonb_build_object('product_id',pin->>'source_product','member_id',pin->>'source_member','project_id',pin->>'project_id',
  'kind_contract',pin->>'kind_contract','subject',pin->>'subject','subject_definition',pin->>'subject_definition','original_source',pin->>'original_source')
@@ -248,7 +247,11 @@ BEGIN
  OR predicted->'body'->'source'->>'membership' IS DISTINCT FROM pin->>'membership' THEN
  RAISE EXCEPTION 'record source pin differs from actual declared source product/member/context' USING ERRCODE='23514'; END IF;
  END LOOP;
- census:=ops.ddo_record_grade_census_row(r.project_id,selected); u:=census->'use'; obligation:=census->'obligation';
+ u:=prediction_census->'uses'->(selected->>'use_id');
+ obligation:=prediction_census->'obligations'->(selected->>'obligation_id');
+ IF u IS NULL OR obligation IS NULL OR u->>'obligation_id' IS DISTINCT FROM selected->>'obligation_id'
+ OR u->>'request_id' IS DISTINCT FROM selected->>'request_id' THEN
+ RAISE EXCEPTION 'record opportunity is outside its exact native selected census' USING ERRCODE='23514'; END IF;
  IF obligation->>'operation_id' IS DISTINCT FROM 'resolve.m1_readings/declared'
  OR obligation->>'subject' IS DISTINCT FROM question->'source'->>'subject'
  OR obligation->>'subject_definition' IS DISTINCT FROM question->'source'->>'subject_definition'
@@ -325,7 +328,7 @@ BEGIN
  RAISE EXCEPTION 'grade does not cover exact declared source and prediction populations' USING ERRCODE='23514'; END IF;
 END $grade$;
 
-CREATE OR REPLACE FUNCTION ops.ddo_require_record_grade_completion(r ops.data_request,completion jsonb)
+CREATE OR REPLACE FUNCTION ops.ddo_record_grade_require_producer(r ops.data_request,completion jsonb)
 RETURNS void LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $grade$
 DECLARE definition sem.data_operation_definition; output jsonb;
 BEGIN
@@ -347,19 +350,34 @@ BEGIN
  OR NOT EXISTS(SELECT FROM sem.data_kind_contract kind WHERE kind.kind_contract=output->'product'->>'kind_contract'
  AND kind.kind='__GRADE_KIND__' AND kind.universe='evaluator') THEN
  RAISE EXCEPTION 'record grade output differs from protected whole scalar contract' USING ERRCODE='23514'; END IF;
- PERFORM ops.ddo_record_grade_require_frame(r,data.ddo_json(output->'product'->'body'));
+END $grade$;
+
+CREATE OR REPLACE FUNCTION ops.ddo_require_record_grade_completion(r ops.data_request,completion jsonb)
+RETURNS void LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $grade$
+BEGIN
+ IF r.operation_id IS DISTINCT FROM '__GRADE_OPERATION__' THEN RETURN; END IF;
+ PERFORM ops.ddo_record_grade_require_producer(r,completion);
+ PERFORM ops.ddo_record_grade_require_frame(r,data.ddo_json(completion->'outputs'->0->'product'->'body'));
 END $grade$;
 
 CREATE OR REPLACE FUNCTION ops.ddo_record_grade_dependencies_valid(episode text)
 RETURNS boolean LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $grade$
-DECLARE r ops.data_request; completion jsonb;
+DECLARE r ops.data_request; completion jsonb; captured record;
 BEGIN
  SELECT request.* INTO STRICT r FROM ops.data_request request JOIN ops.data_derivation producer ON producer.request_id=request.id WHERE producer.id=episode;
  IF r.operation_id IS DISTINCT FROM '__GRADE_OPERATION__' THEN RETURN true; END IF;
  SELECT intent.payload INTO STRICT completion FROM ops.data_derivation producer
  JOIN ops.data_completion_intent intent ON intent.id=producer.intent_id
  JOIN ops.data_publication_receipt receipt ON receipt.derivation_id=producer.id AND receipt.intent_id=intent.id WHERE producer.id=episode;
- PERFORM ops.ddo_require_record_grade_completion(r,completion);
+ -- The original native receipt seals the complete immutable frame checks. A
+ -- different kernel requires reassessment instead of trusting an old guard.
+ IF NOT EXISTS(SELECT FROM sem.artifact artifact WHERE artifact.release_id=r.release_id
+ AND artifact.artifact_name='data_operation_native_definitions.json'
+ AND convert_from(artifact.content,'UTF8')::jsonb->>'native_digest'='__DDO_SOURCE_DIGEST__') THEN RETURN false; END IF;
+ PERFORM ops.ddo_record_grade_require_producer(r,completion);
+ FOR captured IN SELECT * FROM ops.ddo_record_grade_cuts(r) LOOP
+ PERFORM ops.ddo_record_grade_require_cut(r.project_id,captured.cut_text,captured.cut_id);
+ END LOOP;
  RETURN true;
  EXCEPTION WHEN data_exception OR integrity_constraint_violation OR no_data_found OR too_many_rows THEN RETURN false;
 END $grade$;
@@ -371,8 +389,9 @@ END $grade$;
             ("ddo_record_grade_require_finite_census", "ops.data_demand,ops.data_demand_read"),
             ("ddo_record_grade_cut_scopes", "text,text"),
             ("ddo_record_grade_require_cut", "text,text,text"),
-            ("ddo_record_grade_census_row", "text,jsonb"),
-            ("ddo_record_grade_require_source", "text,text,jsonb"),
+            ("ddo_record_grade_acquire_census", "text,text,text"),
+            ("ddo_record_grade_cuts", "ops.data_request"),
+            ("ddo_record_grade_require_producer", "ops.data_request,jsonb"),
             ("ddo_record_grade_completion_scopes", "ops.data_request"),
             ("ddo_record_grade_dependency_scopes", "text"),
             ("ddo_record_grade_require_frame", "ops.data_request,jsonb"),

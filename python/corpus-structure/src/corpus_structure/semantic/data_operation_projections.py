@@ -1255,8 +1255,8 @@ def _latest_read_use(metadata, obligations):
     )
 
 
-def selected_support_output(metadata, *, purpose="read"):
-    """Prove one whole output in an explicit selected use's current support closure."""
+def _selected_support_output_rows(metadata, *, purpose="read", one_use=True):
+    """Whole outputs reached by exact scoped selected current support."""
     obligations = _scoped_read_obligations(metadata).cte("scoped_obligations")
     latest = _latest_read_use(metadata, obligations)
     selected = (
@@ -1266,7 +1266,7 @@ def selected_support_output(metadata, *, purpose="read"):
     seed = (
         _node("use", selected.c.id)
         .where(
-            selected.c.id == _var("p_use", Text),
+            *([selected.c.id == _var("p_use", Text)] if one_use else []),
             selected.c.fate == "fulfilled",
             func.ops.ddo_use_valid(selected.table_valued(), boundary),
         )
@@ -1297,27 +1297,28 @@ def selected_support_output(metadata, *, purpose="read"):
             nodes.c.id == episodes.c.id,
         )
     )
-    return select(
-        exists(
-            select(1)
-            .select_from(
-                episodes.join(outputs, outputs.c.derivation_id == episodes.c.id).join(
-                    products, products.c.id == outputs.c.product_id
-                )
-            )
-            .where(
-                reached,
-                episodes.c.id == _var("p_derivation", Text),
-                outputs.c.product_id == _var("p_product", Text),
-                outputs.c.member_id.is_(None),
-                products.c.project_id == _var("d.project_id", Text),
-                # Episodes and products are immutable facts reached from the visible
-                # selected use; visibility belongs to that admission, not the fact.
-                func.ops.ddo_support_valid(episodes.c.id, boundary),
-                *access,
-            )
-        )
+    return (
+        select(episodes.c.id.label("derivation_id"), outputs.c.product_id)
+        .select_from(episodes.join(outputs, outputs.c.derivation_id == episodes.c.id).join(products, products.c.id == outputs.c.product_id))
+        .where(reached, outputs.c.member_id.is_(None),
+               products.c.project_id == _var("d.project_id", Text),
+               func.ops.ddo_support_valid(episodes.c.id, boundary), *access)
+        .distinct()
     )
+
+
+def selected_support_output(metadata, *, purpose="read"):
+    """Prove one whole output in an explicit selected use's current support closure."""
+    rows = _selected_support_output_rows(metadata, purpose=purpose).cte("selected_whole_outputs")
+    return select(exists(select(1).select_from(rows).where(
+        rows.c.derivation_id == _var("p_derivation", Text),
+        rows.c.product_id == _var("p_product", Text),
+    )))
+
+
+def record_grade_selected_outputs(metadata):
+    """Batch identity-only source-cut membership after the grade's finite guard."""
+    return _selected_support_output_rows(metadata, one_use=False)
 
 
 def read_page(metadata):
@@ -1768,6 +1769,7 @@ def capture_projection_sources(*, physical_sources=None, linkml_types=None):
             support_scopes(metadata, domain_dependencies=False, include_unfulfilled=True)
         ),
         "record_grade_census_nodes": compiled(record_grade_census_nodes(metadata)),
+        "record_grade_selected_outputs": compiled(record_grade_selected_outputs(metadata)),
         "lock_support_scopes": compiled(lock_support_scopes(metadata)),
         "binding_returns": native_return_shape(),
         "binding_computed": compiled(branches[0]),

@@ -20,11 +20,11 @@ def compiled_grade_sql():
     from corpus_structure.semantic.data_operation_projections import capture_projection_sources
     sources = capture_projection_sources()
     products = json.loads(next(source.content for source in sources if source.name == 'native/data-operation-projections.json'))
-    return record_grade_native_sql().replace(
-        "__DDO_CORE_RECORD_GRADE_CENSUS_NODES__", products['record_grade_census_nodes'],
-    ).replace("__DDO_CORE_RECORD_GRADE_CENSUS_SCOPES__", products['record_grade_census_scopes']).replace(
-        "__DDO_CORE_CUT_SELECTION__", compiled(cut_selection_projection()),
-    ).replace("__DDO_CORE_READ_PAGE__", compiled(read_page(metadata))).replace("__DDO_CORE_SELECTED_SUPPORT_OUTPUT__", compiled(selected_support_output(metadata)))
+    sql = record_grade_native_sql()
+    for name, body in products.items():
+        sql = sql.replace('__DDO_CORE_' + name.upper() + '__', body)
+    return sql
+
 
 
 @pytest.fixture
@@ -64,7 +64,7 @@ def test_native_grade_function_population_has_independent_expected_signatures():
     names = {statement.stmt.funcname[-1].sval for statement in statements if isinstance(statement.stmt, ast.CreateFunctionStmt) and statement.stmt.funcname}
     assert names == {
         'ddo_record_grade_input_value', 'ddo_record_grade_input', 'ddo_record_grade_require_finite_census',
-        'ddo_record_grade_cut_scopes', 'ddo_record_grade_require_cut', 'ddo_record_grade_census_row', 'ddo_record_grade_require_source',
+        'ddo_record_grade_cut_scopes', 'ddo_record_grade_require_cut', 'ddo_record_grade_acquire_census', 'ddo_record_grade_cuts', 'ddo_record_grade_require_producer',
         'ddo_record_grade_completion_scopes', 'ddo_record_grade_dependency_scopes',
         'ddo_record_grade_require_frame', 'ddo_require_record_grade_completion', 'ddo_record_grade_dependencies_valid',
     }
