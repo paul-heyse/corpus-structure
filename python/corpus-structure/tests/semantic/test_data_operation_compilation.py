@@ -1467,3 +1467,27 @@ def test_retained_observation_binding_cannot_request_an_unqualified_fresh_sample
         project_operation_binding(model, replace(binding, replicate="independent-fresh"))
     with pytest.raises(PreparationError, match="unsupported replicate policy"):
         compile_data_operations(declarations=declarations(contract(replicate_policy="invented-policy")))
+
+
+def test_native_declaration_enforcement_uses_captured_contracts_without_python_sources():
+    asset = SourceArtifact("native/admission-policy.sql", b"SELECT enforce_actual_source_policy();")
+    metadata = contract(
+        assets=[{"reference": "native-guard", "contract": asset.name, "role": "native-admission-policy", "content_digest": asset.digest}],
+        invariants=[{"kind": "native-admission", "reference": "native-guard", "interpretation": "captured-native-admission-v1", "parameters": {}}],
+    )
+    model = compile_data_operations(declarations=declarations(metadata), captured_contracts=(asset,))
+    assert json.loads(model.operations[0].invariants[0].semantics)["content_digest"] == asset.digest
+    with pytest.raises(PreparationError, match="captured native admission enforcement"):
+        compile_data_operations(declarations=declarations(metadata))
+    with pytest.raises(PreparationError, match="captured native admission enforcement"):
+        compile_data_operations(declarations=declarations(metadata), captured_contracts=(SourceArtifact(asset.name, b"SELECT changed_policy();"),))
+
+
+def test_captured_semantic_contract_pool_merges_equal_bytes_and_refuses_conflicts():
+    asset = SourceArtifact("owned-policy", b"actual policy")
+    sources = python_inputs(operation_source(), boundaries=(asset,))
+    first = compile_data_operations(python_sources=sources)
+    same = compile_data_operations(python_sources=sources, captured_contracts=(asset,))
+    assert first.content == same.content
+    with pytest.raises(PreparationError, match="disagree on exact source bytes"):
+        compile_data_operations(python_sources=sources, captured_contracts=(SourceArtifact(asset.name, b"different policy"),))

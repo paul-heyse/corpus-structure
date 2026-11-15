@@ -297,5 +297,6 @@ def data_operations_from_dependencies(
         return None
     declarations, inputs = captured
     return prepare_data_operation_model(
-        bundle, declarations, inputs, definitions=definitions, vocabularies=tuple(vocabularies)
+        bundle, declarations, inputs, definitions=definitions, vocabularies=tuple(vocabularies),
+        captured_contracts=dependencies.artifacts
     )

@@ -64,7 +64,7 @@ def _ordinary_static_input(value: object) -> bool:
 
 
 @lru_cache(maxsize=16)
-def _prepared_python_sources(schema, declarations, sources, definitions, vocabularies, context):
+def _prepared_python_sources(schema, declarations, sources, definitions, vocabularies, context, captured_contracts=()):
     """Reuse immutable static facts, never analyzer managers or acquired authority.
 
     Every input is an exact frozen preparation value. The context names the active
@@ -77,22 +77,24 @@ def _prepared_python_sources(schema, declarations, sources, definitions, vocabul
         python_sources=sources,
         definitions=definitions,
         vocabularies=vocabularies,
+        captured_contracts=captured_contracts,
     )
 
 
 def prepare_data_operation_model(
-    schema=None, declarations=(), sources=None, *, definitions=None, vocabularies=()
+    schema=None, declarations=(), sources=None, *, definitions=None, vocabularies=(), captured_contracts=()
 ):
     """Recompile substituted interpreters and nonordinary inputs without cache lookup."""
     from .data_operation_compilation import compile_data_operations
 
-    values = (schema, declarations, sources, definitions, vocabularies)
+    values = (schema, declarations, sources, definitions, vocabularies, captured_contracts)
     if compile_data_operations is _STATIC_COMPILER and _ordinary_static_input(values):
-        return _prepared_python_sources(*values, _STATIC_COMPILER_CONTEXT)
+        return _prepared_python_sources(schema, declarations, sources, definitions, vocabularies, _STATIC_COMPILER_CONTEXT, captured_contracts)
     return compile_data_operations(
         schema,
         declarations=declarations,
         python_sources=sources,
         definitions=definitions,
         vocabularies=vocabularies,
+        captured_contracts=captured_contracts,
     )

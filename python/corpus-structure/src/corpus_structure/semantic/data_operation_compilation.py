@@ -802,6 +802,7 @@ def compile_data_operations(
     *,
     definitions: tuple[ClassDefinition, ...] | None = None,
     vocabularies: tuple[VocabularySnapshot, ...] = (),
+    captured_contracts: tuple[SourceArtifact, ...] = (),
 ) -> EffectiveDataOperationModel:
     """Compile supplied inputs without importing candidate code or ambient models.
 
@@ -811,6 +812,12 @@ def compile_data_operations(
     validators and algorithms that JSON Schema cannot express.
     """
     kinds, nodes, edges, aliases = _kind_products(schema, definitions, vocabularies)
+    supplied_contracts = {}
+    for artifact in (*captured_contracts, *(python_sources.boundary_contracts if python_sources is not None else ())):
+        previous = supplied_contracts.get(artifact.name)
+        if previous is not None and previous.content != artifact.content:
+            _fail(artifact.name, "captured semantic contracts disagree on exact source bytes")
+        supplied_contracts[artifact.name] = artifact
     frontend = ClosedPythonSources(python_sources) if python_sources is not None else None
     python_facts = frontend.operations() if frontend is not None else ()
     authored: list[tuple[dict[str, Any], tuple, tuple[FactOrigin, ...], str | None]] = []
@@ -1592,8 +1599,7 @@ def compile_data_operations(
         if raw.get("numerical_policy") is not None:
             policy_reference = _mapping(raw["numerical_policy"], semantic_id, {"asset", "pointer", "kind"})
             asset_name = _text(policy_reference.get("asset"), semantic_id)
-            supplied = {} if python_sources is None else {artifact.name: artifact for artifact in python_sources.boundary_contracts}
-            asset = supplied.get(asset_name)
+            asset = supplied_contracts.get(asset_name)
             if asset is None or not any(owner.contract == asset_name and owner.content_digest == asset.digest for owner in assets):
                 _fail(semantic_id, "numerical policy requires its actual captured operation asset")
             pointer = _text(policy_reference.get("pointer"), semantic_id)
@@ -1831,7 +1837,7 @@ def compile_data_operations(
 
     from .source_interfaces import export_source_interfaces
 
-    model = _resolve_enforcement_claims(model, {artifact.name: artifact.digest for artifact in python_sources.boundary_contracts} if python_sources is not None else {})
+    model = _resolve_enforcement_claims(model, {name: artifact.digest for name, artifact in supplied_contracts.items()})
     model = replace(model, identities=_compile_identities(model))
     return replace(
         model,
