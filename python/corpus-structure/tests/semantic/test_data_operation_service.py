@@ -2,6 +2,11 @@
 
 from __future__ import annotations
 
+from typing import cast as typing_cast
+from corpus_structure.semantic._data_operation_wire import (
+    WireCancelDataDemandRequest,
+)
+
 from typing import cast
 
 import pytest
@@ -49,6 +54,7 @@ def test_service_read_preserves_full_native_continuation(monkeypatch):
         "trust_snapshot": {"scope": 2},
         "after": "obligation:one",
         "limit": 7,
+        "max_bytes": 8388608,
         "view": "products",
     }
     reply = {
@@ -97,7 +103,7 @@ def test_native_service_creation_read_and_cancellation_preserve_original_pins(dd
         project_id="ddo-test",
         release_id=ddo_kernel["prepared"].release_id,
         runtime_id=ddo_kernel["runtime"],
-        intent=intent.record,
+        intent=cast(dict, intent.record),
     )
     with ddo_kernel["engine"].begin() as connection:
         created = service.create_data_demand(connection, request)

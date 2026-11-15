@@ -1,5 +1,10 @@
 """Actual supplied callable to native demand, intent, product and reuse."""
 
+from typing import cast as typing_cast
+from corpus_structure.semantic._data_operation_wire import (
+    WireReadDemandResultRequest,
+)
+
 import json
 
 import pytest
@@ -65,7 +70,7 @@ def test_actual_callable_publishes_and_settled_resume_does_not_recompute(executa
             runtime=runtime.runtime_id,
         )["demand_id"]
     executor = NativeDemandExecutor(
-        engine, prepared, runtime, sources, runtime_locations=locations, schema=bundle
+        engine, prepared, runtime, sources, runtime_locations=locations, schema=bundle, database_capacity=6
     )
     result = executor.advance(demand)
     assert len(result.receipts) == 1
@@ -99,10 +104,10 @@ def test_retained_demand_service_executes_archived_inputs_without_a_run_anchor(e
             runtime=runtime.runtime_id,
         )["demand_id"]
     root = next(iter(locations.values())).parent
-    result = execute_data_demand(engine, demand, source_root=root)
+    result = execute_data_demand(engine, demand, source_root=root, database_capacity=6)
     assert result.demand_id == demand
     assert result.receipt_count == 1
-    resumed = execute_data_demand(engine, demand, source_root=root)
+    resumed = execute_data_demand(engine, demand, source_root=root, database_capacity=6)
     assert resumed.receipt_count == 0
     with engine.connect() as conn:
         assert conn.scalar(text("SELECT count(*) FROM ops.data_derivation")) == 1
@@ -189,7 +194,7 @@ def test_failed_request_keeps_later_page_siblings_and_bounded_native_receipts(ex
             runtime=runtime.runtime_id,
         )["demand_id"]
     executor = NativeDemandExecutor(
-        engine, prepared, runtime, sources, runtime_locations=locations, schema=bundle
+        engine, prepared, runtime, sources, runtime_locations=locations, schema=bundle, database_capacity=6
     )
     with pytest.raises(NativeDemandExecutionError) as caught:
         executor.run(demand, limit=1)
@@ -271,7 +276,7 @@ def test_six_native_contexts_claim_only_the_bounded_window_and_preserve_settled_
     assert windows and all(1 <= count <= 2 for count in windows)
     assert executor.budget.used_bytes == 0
     with engine.begin() as connection:
-        snapshot = DataOperationStorage(connection).read_demand_result({"demand_id": demand, "view": "products"})
+        snapshot = DataOperationStorage(connection).read_demand_result(typing_cast(WireReadDemandResultRequest, {"demand_id": demand, "view": "products"}))
         assert {row["fate"] for row in snapshot["obligations"]} == {"fulfilled"}
         products = [product for use in snapshot["uses"] for product in use["products"]]
         assert len(products) == 6 and len({product["product_id"] for product in products}) == 6

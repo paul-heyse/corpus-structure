@@ -9,6 +9,16 @@ from __future__ import annotations
 from typing import cast
 from corpus_structure.semantic._data_operation_wire import (
     WireAdmitAuthoredDataRequest,
+    WireDemandIntent,
+    WireDemandId,
+    WireReadIdentity,
+    WireProjectId,
+    WireReleaseId,
+    WireRuntimeId,
+    WireProductId,
+    WireDerivationId,
+    WireOperationId,
+    WireObligationId,
     WireAdmitOriginalDocumentAssetRequest,
     WireAdmitOriginalSourceViewRequest,
     WireAttachDataRequestRequest,
@@ -26,6 +36,7 @@ from corpus_structure.semantic._data_operation_wire import (
 )
 
 import json
+from collections.abc import Mapping
 from dataclasses import asdict, dataclass
 from hashlib import sha256
 from typing import TYPE_CHECKING, Any, Literal
@@ -86,8 +97,8 @@ class DemandIntent:
     content: bytes
 
     @property
-    def record(self) -> dict[str, Any]:
-        return wire_json_loads(self.content)
+    def record(self) -> WireDemandIntent:
+        return cast(WireDemandIntent, wire_json_loads(self.content))
 
 
 def freeze_demand(
@@ -434,14 +445,14 @@ class DemandPlanner:
         record = intent.record
         if record["model"] != sha256(self.model.content).hexdigest():
             raise ValueError("demand intent belongs to a different effective model")
-        result = self.storage.register_data_demand(cast(WireRegisterDataDemandRequest, {
-                "project_id": project,
-                "release_id": release,
-                "runtime_id": runtime,
+        result = self.storage.register_data_demand({
+                "project_id": WireProjectId(project),
+                "release_id": WireReleaseId(release),
+                "runtime_id": WireRuntimeId(runtime),
                 "root": record["roots"],
                 "selection": record,
-                "strength": strength,
-            }))
+                "strength": cast(Literal["episode", "independent", "value"], strength),
+            })
         if result.get("state") == "cancelled":
             return result
         for name, source in record.get("original_sources", {}).items():
@@ -460,12 +471,12 @@ class DemandPlanner:
             for operation in record["operations"]:
                 if operation["operation"] not in record["root_operations"]:
                     continue
-                self.storage.expand_data_obligation(cast(WireExpandDataObligationRequest, {
+                self.storage.expand_data_obligation({
                         "demand_id": result["demand_id"],
-                        "operation_id": operation["operation"],
+                        "operation_id": WireOperationId(operation["operation"]),
                         **root,
                         "parameters": operation["parameters"],
-                    }))
+                    })
         return result
 
     def expand_discovery(
@@ -480,13 +491,13 @@ class DemandPlanner:
         ):
             raise ValueError("discovery population lacks one frozen source projection")
         relation = relations[0]
-        closed = self.storage.close_data_population(cast(WireCloseDataPopulationRequest, {
+        closed = self.storage.close_data_population({
                 "demand_id": snapshot["demand_id"],
                 "name": population,
-                "product_id": product,
-                "derivation_id": derivation,
+                "product_id": WireProductId(product),
+                "derivation_id": WireDerivationId(derivation),
                 "member_role": relation["output_role"],
-            }))
+            })
         selected = {item["operation"]: item for item in frozen["operations"]}
         closure, pending = set(), [item["target"] for item in relations]
         while pending:
@@ -498,21 +509,21 @@ class DemandPlanner:
         # witness can prove absence or closed fan-in on a subsequent binding.
         for member in closed["members"]:
             for operation in sorted(closure):
-                self.storage.expand_data_obligation(cast(WireExpandDataObligationRequest, {
+                self.storage.expand_data_obligation({
                         "demand_id": snapshot["demand_id"],
-                        "operation_id": operation,
+                        "operation_id": WireOperationId(operation),
                         "subject": member["subject"],
                         "original_source": member["original_source"],
                         "analyzed_scope": member["analyzed_scope"],
                         "parameters": selected[operation]["parameters"],
                         "population_id": closed["population_id"],
-                    }))
+                    })
         return closed
 
     def resume(
         self,
         demand: str,
-        selection: dict | None = None,
+        selection: Mapping[str, Any] | None = None,
         *,
         limit: int = 100,
         after: str | None = None,
@@ -521,16 +532,16 @@ class DemandPlanner:
     ) -> ResumedDataDemand:
         if type(limit) is not int or not 1 <= limit <= 1000:
             raise ValueError("demand frontier limit must be between one and 1000")
-        request: dict[str, Any] = {"demand_id": demand, "limit": limit}
+        request: WireReadDemandResultRequest = {"demand_id": WireDemandId(demand), "limit": limit}
         if selection is not None:
-            request["selection"] = selection
+            request["selection"] = cast(WireDemandIntent, selection)
         if after is not None:
-            request["after"] = after
+            request["after"] = WireObligationId(after)
         if trust_snapshot is not None:
             request["trust_snapshot"] = trust_snapshot
         if read_id is not None:
-            request["read_id"] = read_id
-        snapshot = self.storage.read_demand_result(cast(WireReadDemandResultRequest, request))
+            request["read_id"] = WireReadIdentity(read_id)
+        snapshot = self.storage.read_demand_result(request)
         frozen = snapshot["intent"]
         if frozen["model"] != sha256(self.model.content).hexdigest():
             raise ValueError("resume requires the demand's original effective model")
@@ -548,7 +559,7 @@ class DemandPlanner:
         # Returning them lets the execution owner settle uncertainty without inference.
         return {**snapshot, "completion_inspections": inspections}
 
-    def ready(self, snapshot: dict, *, authorization: bytes) -> tuple[ReadyDataRequest, ...]:
+    def ready(self, snapshot: Mapping[str, Any], *, authorization: bytes) -> tuple[ReadyDataRequest, ...]:
         self.selected_population_ids = ()
         self.fulfilled_request_ids = ()
         if snapshot.get("state") == "cancelled":

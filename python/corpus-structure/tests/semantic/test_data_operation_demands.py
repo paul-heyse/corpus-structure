@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from typing import cast
+from corpus_structure.semantic._data_operation_wire import WireRootSubject, WireReadDemandResultResult
+
 from corpus_structure.semantic._data_operation_wire import DataOperationCalls
 
 import math
@@ -49,7 +52,7 @@ def test_demand_freezes_only_selected_transitive_closure_and_source_membership()
         }
     ]
     exposed = intent.record
-    exposed["roots"].append({"subject": "later"})
+    exposed["roots"].append(cast(WireRootSubject, {"subject": "later"}))
     assert len(intent.record["roots"]) == 1
     assert intent.record["operations"][1]["definition"].startswith("definition:")
 
@@ -617,8 +620,8 @@ def test_one_frozen_discovery_population_fans_out_distinct_child_targets_once():
         def __init__(self):
             self.calls = []
 
-        def _invoke(self, name, value):
-            self.calls.append((name, value))
+        def _invoke(self, name, payload):
+            self.calls.append((name, payload))
             if name == "close_data_population":
                 return {
                     "population_id": "one-authentic-population",
@@ -637,7 +640,7 @@ def test_one_frozen_discovery_population_fans_out_distinct_child_targets_once():
 
     storage = Storage()
     DemandPlanner(compiled, cast(DataOperationStorage, storage)).expand_discovery(
-        {"demand_id": "demand", "intent": intent},
+        cast(WireReadDemandResultResult, {"demand_id": "demand", "intent": intent}),
         population="children",
         product="source-population-product",
         derivation="source-episode",

@@ -6,6 +6,16 @@ or protected-admission parity executor.
 
 from __future__ import annotations
 
+from typing import cast as typing_cast
+from corpus_structure.semantic._data_operation_wire import (
+    WireAttachDataRequestRequest,
+    WireCloseDataPopulationRequest,
+    WireExpandDataObligationRequest,
+    WireReadDemandResultRequest,
+    WireRegisterDataDemandRequest,
+    WireRetainDataCompletionIntentRequest,
+)
+
 from corpus_structure.semantic._data_operation_wire import DataOperationCalls
 
 import json
@@ -510,27 +520,27 @@ def discover(
     ).record
     with ddo_kernel["engine"].begin() as connection:
         storage = DataOperationStorage(connection)
-        demand = storage.register_data_demand({
+        demand = storage.register_data_demand(typing_cast(WireRegisterDataDemandRequest, {
                 "project_id": "ddo-test",
                 "release_id": ddo_kernel["prepared"].release_id,
                 "runtime_id": ddo_kernel["runtime"],
                 "root": [root],
                 "selection": selection,
                 "strength": "value",
-            })
-        producer = storage.expand_data_obligation({
+            }))
+        producer = storage.expand_data_obligation(typing_cast(WireExpandDataObligationRequest, {
                 "demand_id": demand["demand_id"],
                 "operation_id": "urn:discover",
                 **root,
                 "parameters": {},
-            })
-        consumer = storage.expand_data_obligation({
+            }))
+        consumer = storage.expand_data_obligation(typing_cast(WireExpandDataObligationRequest, {
                 "demand_id": demand["demand_id"],
                 "operation_id": "urn:consumer",
                 **root,
                 "parameters": {},
-            })
-        acquired = storage.read_demand_result(demand)
+            }))
+        acquired = storage.read_demand_result(typing_cast(WireReadDemandResultRequest, demand))
         request = SemanticRequestKey(
             ddo_kernel["identities"]["urn:discover", "recipe"],
             "doc",
@@ -541,7 +551,7 @@ def discover(
                 "ddo-test", "doc", root["original_source"], canonical_bytes(root["analyzed_scope"])
             ),
         )
-        attached = storage.attach_data_request({
+        attached = storage.attach_data_request(typing_cast(WireAttachDataRequestRequest, {
                 **producer,
                 "request_meaning": json.loads(request.identity.canonical_input),
                 "request_key": request.identity.key,
@@ -555,7 +565,7 @@ def discover(
                     "populations": [],
                     "read_id": acquired["read_id"],
                 },
-            })
+            }))
     sample_kind = ddo_kernel["identities"][
         next(k.semantic_id for k in ddo_kernel["model"].kinds if k.name == "Sample"), "kind"
     ]
@@ -583,7 +593,7 @@ def discover(
     ]
     fence = claim(ddo_kernel, attached)
     with ddo_kernel["engine"].begin() as connection:
-        intent = DataOperationStorage(connection).retain_data_completion_intent({
+        intent = DataOperationStorage(connection).retain_data_completion_intent(typing_cast(WireRetainDataCompletionIntentRequest, {
                 **fence,
                 "runtime_id": ddo_kernel["runtime"],
                 "completion": {
@@ -613,27 +623,27 @@ def discover(
                         }
                     ],
                 },
-            })
+            }))
     receipt = publish(ddo_kernel, fence, intent)
     with ddo_kernel["engine"].begin() as connection:
         storage = DataOperationStorage(connection)
-        products = storage.read_demand_result({"demand_id": demand["demand_id"], "view": "products"})
+        products = storage.read_demand_result(typing_cast(WireReadDemandResultRequest, {"demand_id": demand["demand_id"], "view": "products"}))
         product = next(use["products"][0] for use in products["uses"] if use["products"])
-        parent = storage.close_data_population({
+        parent = storage.close_data_population(typing_cast(WireCloseDataPopulationRequest, {
                 "demand_id": demand["demand_id"],
                 "name": "all-items",
                 "product_id": product["product_id"],
                 "derivation_id": receipt["derivation_id"],
                 "member_role": "result",
-            })
+            }))
         if ambiguous:
-            storage.close_data_population({
+            storage.close_data_population(typing_cast(WireCloseDataPopulationRequest, {
                     "demand_id": demand["demand_id"],
                     "name": "other-items",
                     "product_id": product["product_id"],
                     "derivation_id": receipt["derivation_id"],
                     "member_role": "result",
-                })
+                }))
     return demand, consumer, parent
 
 

@@ -117,7 +117,7 @@ def test_exact_pdf_materialization_bound_admits_small_source_and_refuses_before_
             kernel.purpose("write"),
             demand,
             source_root=ROOT,
-            admission_engine=kernel.purpose("admit"),
+            admission_engine=kernel.purpose("admit"), database_capacity=6,
         )
         assert executed.receipt_count == 1
         intents, requests = table("ops.data_completion_intent"), table("ops.data_request")

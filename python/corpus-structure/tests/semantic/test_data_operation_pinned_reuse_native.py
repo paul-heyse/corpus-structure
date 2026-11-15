@@ -1,5 +1,11 @@
 """Explicit retained semantic pins reuse facts, never another demand's work policy."""
 
+from typing import cast as typing_cast
+from corpus_structure.semantic._data_operation_wire import (
+    WireCancelDataDemandRequest,
+    WireRevokeDataSupportRequest,
+)
+
 import json
 from dataclasses import replace
 
@@ -110,7 +116,7 @@ def test_native_explicit_retained_pin_crosses_demands_without_hidden_production(
     context = SubjectContext("ddo-test", "source-subject:B", "source:B", b'{"page":1}')
     entry = SourceSetEntry.from_semantic_source(DataProductReference(product), context=context)
     with ddo_kernel["engine"].begin() as connection:
-        DataOperationStorage(connection).cancel_data_demand({"demand_id": source_demand["demand_id"], "reason": "finished source workflow"})
+        DataOperationStorage(connection).cancel_data_demand(typing_cast(WireCancelDataDemandRequest, {"demand_id": source_demand["demand_id"], "reason": "finished source workflow"}))
     demand = _register(ddo_kernel, entry)
     snapshot, ready = _ready(ddo_kernel, demand)
     (answer,) = ready
@@ -139,13 +145,13 @@ def test_native_explicit_retained_pin_crosses_demands_without_hidden_production(
     _, wrong = _ready(ddo_kernel, _register(ddo_kernel, wrong_entry, "wrong-context"))
     assert wrong == ()
     with ddo_kernel["engine"].begin() as connection:
-        DataOperationStorage(connection).revoke_data_support({
+        DataOperationStorage(connection).revoke_data_support(typing_cast(WireRevokeDataSupportRequest, {
                 "project_id": "ddo-test",
                 "original_source": "source:B",
                 "selector_kind": "product",
                 "selector": product,
                 "reason": "the exact retained source was withdrawn",
-            })
+            }))
     _, untrusted = _ready(ddo_kernel, _register(ddo_kernel, entry, "revoked-source"))
     assert untrusted == ()
     with (

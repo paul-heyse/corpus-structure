@@ -1,5 +1,10 @@
 """Behavioral controls for shared DDO preparation and wire-checked routing."""
 
+from typing import cast as typing_cast
+from corpus_structure.semantic._data_operation_wire import (
+    WireInspectDataCompletionRequest,
+)
+
 from dataclasses import replace
 
 import pytest
@@ -74,14 +79,14 @@ def test_implementation_override_bypasses_kernel_memo_and_restores_after_excepti
 def test_wire_checked_double_refuses_malformed_input_and_reply(payload, reply, recorded):
     storage = WireCheckedStorage({"inspect_data_completion": reply})
     with pytest.raises(ValueError):
-        storage.inspect_data_completion(payload)
+        storage.inspect_data_completion(typing_cast(WireInspectDataCompletionRequest, payload))
     assert bool(storage.calls) is recorded
 
 
 def test_wire_checked_double_refuses_unconfigured_operation():
     storage = WireCheckedStorage({})
     with pytest.raises(ValueError, match="unknown configured native"):
-        storage.inspect_data_completion({"intent_id": "intent:one", "demand_id": "demand:one"})
+        storage.inspect_data_completion(typing_cast(WireInspectDataCompletionRequest, {"intent_id": "intent:one", "demand_id": "demand:one"}))
     assert storage.calls == []
 
 

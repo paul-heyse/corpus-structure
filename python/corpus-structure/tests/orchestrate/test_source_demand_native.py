@@ -226,7 +226,7 @@ def test_two_language_regions_use_native_source_demand_and_exact_resume(
         result.demand_id,
         source_root=ROOT,
         policy=replace(methods.execution_policy, workers=1, max_regions=1),
-        admission_engine=kernel.purpose("admit"),
+        admission_engine=kernel.purpose("admit"), database_capacity=6,
     )
     assert resumed.demand_id == result.demand_id and resumed.receipt_count == 0
     assert result.receipts and all(json.loads(value)["physical"] for value in result.receipts)
@@ -259,7 +259,7 @@ def test_empty_selected_source_population_closes_without_invented_language_produ
         kernel.purpose("write"),
         snapshot["demand_id"],
         source_root=ROOT,
-        admission_engine=kernel.purpose("admit"),
+        admission_engine=kernel.purpose("admit"), database_capacity=6,
     )
     with clone.admin.begin() as connection:
         snapshot = read_data_demand(connection, result.demand_id, view="products")

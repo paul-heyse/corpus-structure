@@ -1,5 +1,10 @@
 """A captured production callable executes through native demand custody."""
 
+from typing import cast as typing_cast
+from corpus_structure.semantic._data_operation_wire import (
+    WireReadDemandResultRequest,
+)
+
 import json
 
 import pytest
@@ -85,7 +90,7 @@ def test_production_claim_source_item_publishes_then_resumes_settled(ddo_kernel)
         runtime,
         PythonSourceCollection((PythonSource(module, captured, "identity.py"),)),
         runtime_locations={module: actual},
-        schema=bundle,
+        schema=bundle, database_capacity=6,
     )
     completed = executor.advance(demand)
     assert completed.receipt_count == 1 and len(completed.receipts) == 1
@@ -95,7 +100,7 @@ def test_production_claim_source_item_publishes_then_resumes_settled(ddo_kernel)
     resumed = executor.advance(demand)
     assert resumed.receipt_count == 0 and resumed.receipts == ()
     with ddo_kernel["engine"].begin() as connection:
-        result = DataOperationStorage(connection).read_demand_result({"demand_id": demand, "view": "products"})
+        result = DataOperationStorage(connection).read_demand_result(typing_cast(WireReadDemandResultRequest, {"demand_id": demand, "view": "products"}))
         assert len(result["uses"]) == 2
         use = next(
             use

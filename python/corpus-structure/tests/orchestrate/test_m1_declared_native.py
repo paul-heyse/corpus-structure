@@ -2,6 +2,11 @@
 
 from __future__ import annotations
 
+from typing import cast as typing_cast
+from corpus_structure.semantic._data_operation_wire import (
+    WireReadDemandResultRequest,
+)
+
 import json
 import os
 from contextlib import contextmanager
@@ -192,14 +197,14 @@ def _case(scenario_seeds, *, empty):
             captured,
             runtime_locations={item.module: Path(item.filename) for item in captured.sources},
             schema=kernel.preparation.bundle,
-            admission_engine=clone.purpose("admit"),
+            admission_engine=clone.purpose("admit"), database_capacity=6,
         )
         yield kernel, source, selected, demand, executor
 
 
 def _m1_result(kernel, demand):
     with kernel.engine.begin() as connection:
-        result = DataOperationStorage(connection).read_demand_result({"demand_id": demand, "view": "products", "limit": 100, "max_bytes": 8388608})
+        result = DataOperationStorage(connection).read_demand_result(typing_cast(WireReadDemandResultRequest, {"demand_id": demand, "view": "products", "limit": 100, "max_bytes": 8388608}))
         completions = (
             connection.execute(
                 text(

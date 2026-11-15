@@ -238,3 +238,15 @@ fields:
   '#/definitions/source_set_entry/properties/subject': WireSubjectId
   "#/definitions/task_id": WireTaskIdentity
   "#/definitions/read_id": WireReadIdentity
+  "#/definitions/demand_read_scope/properties/operation_id": WireOperationId
+  "#/definitions/demand_read_scope/properties/subject": WireSubjectId
+  "#/definitions/demand_read_scope/properties/original_source": WireOriginalSourceId
+  "#/definitions/read_snapshot": WireReadSnapshotIdentity
+  "#/definitions/continuation/properties/after": WireObligationId
+  "#/definitions/read_demand_result_request/properties/after": WireObligationId
+  "#/definitions/selected_operation/properties/operation": WireOperationId
+  "#/definitions/selected_operation/properties/dependencies/items": WireOperationId
+  "#/definitions/discovery_selection/properties/producer": WireOperationId
+  "#/definitions/discovery_selection/properties/target": WireOperationId
+  "#/definitions/demand_intent/properties/targets/items": WireOperationId
+  "#/definitions/demand_intent/properties/root_operations/items": WireOperationId

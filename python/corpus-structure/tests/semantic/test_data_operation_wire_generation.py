@@ -133,7 +133,9 @@ def test_fixed_native_caller_preserves_nominal_ids_unions_and_required_keys(tmp_
         "    if result['state'] == 'claimed':\n"
         "        task: WireTaskIdentity = result['task_id']\n"
     )
-    command = [shutil.which("pyrefly"), "check", "--config", str(REPO / "pyproject.toml"), str(source)]
+    executable = shutil.which("pyrefly")
+    assert executable is not None
+    command = [executable, "check", "--config", str(REPO / "pyproject.toml"), str(source)]
     passed = subprocess.run(command, capture_output=True, text=True, check=False)
     assert passed.returncode == 0, passed.stdout + passed.stderr
     with source.open("a") as stream:
@@ -163,6 +165,26 @@ CREATE FUNCTION ops.unrelated() RETURNS text LANGUAGE sql AS $$SELECT 'unchanged
     before, after = prepare_sql(sql), prepare_sql(changed)
     assert before.excerpt(0) == after.excerpt(0)
     assert before.excerpt(2) == after.excerpt(2)
+    from pglast import ast
     function_before, function_after = before.statements[1].stmt, after.statements[1].stmt
+    assert isinstance(function_before, ast.CreateFunctionStmt)
+    assert isinstance(function_after, ast.CreateFunctionStmt)
     assert body_source(function_before) == body_source(function_after)
-    assert [part.sval for part in function_after.funcname] == ["ops", "ddo_impl_claim_data_request"]
+    assert [part.sval for part in function_after.funcname or ()] == ["ops", "ddo_impl_claim_data_request"]
+
+
+def test_database_capacity_comes_from_owned_pool_or_explicit_unmanaged_reservation():
+    from types import SimpleNamespace
+    from corpus_structure.orchestrate.data_operations import _database_capacity
+
+    engine = cast(Any, SimpleNamespace(_corpus_store=SimpleNamespace(pool=SimpleNamespace(max_size=5))))
+    assert _database_capacity(engine, None) == 5
+    assert _database_capacity(engine, 3) == 3
+    with pytest.raises(ValueError, match="exceeds"):
+        _database_capacity(engine, 6)
+    with pytest.raises(ValueError, match="explicit"):
+        _database_capacity(cast(Any, object()), None)
+    for capacity in (0, 1, 2, True):
+        with pytest.raises(ValueError, match="capacity"):
+            _database_capacity(cast(Any, object()), capacity)
+    assert _database_capacity(cast(Any, object()), 6) == 6

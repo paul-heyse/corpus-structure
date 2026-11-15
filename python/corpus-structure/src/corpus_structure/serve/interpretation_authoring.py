@@ -60,14 +60,14 @@ def author_interpretations(engine, prepared, *, request: NativeDemandRequest):
         )
         if registered.get("state") == "cancelled":
             raise ValueError("cancelled demand cannot admit new authored facts")
-        snapshot = storage.read_demand_result(cast(WireReadDemandResultRequest, {"demand_id": registered["demand_id"], "limit": 1}))
+        snapshot = storage.read_demand_result({"demand_id": registered["demand_id"], "limit": 1})
         admissions = tuple(
             value
             for value in snapshot["original_source_admissions"]
             if value["selection_name"] in names
         )
         if len(admissions) != len(names) or any(
-            value["evidence"].get("standing") != "authored" for value in admissions
+            not isinstance(value["evidence"], dict) or value["evidence"].get("standing") != "authored" for value in admissions
         ):
             raise ValueError("native demand did not retain the exact authored fact admissions")
     return {

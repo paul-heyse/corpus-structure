@@ -30,6 +30,7 @@ from types import CodeType, MappingProxyType, ModuleType
 from typing import TYPE_CHECKING, Any, ClassVar, Literal, Self, get_args, get_origin
 
 if TYPE_CHECKING:
+    from .data_operation_storage import DataOperationStorage
     from .data_operation_bindings import BindingResult
     from .data_operation_cpu import PythonCPUDescriptor
     from .types import PreparedRelease
@@ -1927,7 +1928,7 @@ class NativeCommandCompletion:
 class ResolvedPublicationPort:
     """Publication command boundary; transaction/receipt authority stays native."""
 
-    storage: Any
+    storage: DataOperationStorage
     request_kind: str
     result_kind: str
 

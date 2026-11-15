@@ -442,6 +442,23 @@ class _InvocationExecution:
             raise BaseExceptionGroup("native demand physical cleanup failed", failures)
 
 
+def _database_capacity(engine: Engine, declared: int | None) -> int:
+    """Use the owning physical pool or an explicit caller-owned reservation."""
+    store = getattr(engine, "_corpus_store", None)
+    if store is not None:
+        actual = store.pool.max_size
+        if declared is not None and (type(declared) is not int or declared > actual):
+            raise ValueError("declared database capacity exceeds the owned physical pool")
+        capacity = actual if declared is None else declared
+    else:
+        if declared is None:
+            raise ValueError("unmanaged engine requires explicit database_capacity")
+        capacity = declared
+    if type(capacity) is not int or capacity < 3:
+        raise ValueError("database capacity must cover renewal, driver and one port worker")
+    return capacity
+
+
 class NativeDemandExecutor:
     """One invocation's native claims, CPU capacity and exact settlement owner."""
 
@@ -458,6 +475,7 @@ class NativeDemandExecutor:
         admission_engine: Engine | None = None,
         schema: SourceBundle | None = None,
         nemotron_endpoint: str | None = None,
+        database_capacity: int | None = None,
     ):
         if runtime.release_id != prepared.release_id:
             raise ValueError("runtime belongs to another release")
@@ -472,6 +490,12 @@ class NativeDemandExecutor:
             if self.model.operation(operation).capabilities.preparation == "none":
                 raise PortRefusal("prepared capability supplied for an unprepared operation")
         self.policy = policy or CharacterizationExecutionPolicy()
+        self.database_capacity = _database_capacity(engine, database_capacity)
+        # Renewal is established before work starts; the driver remains able to
+        # plan/settle while bounded port workers borrow through the same owner.
+        self.port_workers = min(self.policy.max_provider_jobs, self.database_capacity - 2)
+        if self.port_workers < 1:
+            raise ValueError("native demand needs capacity for renewal, driver and one port worker")
         # Parent input + encoded child packet, retained reply + decoded output +
         # publication draft. One transferable charge covers all physical owners.
         self.reservation = 2 * self.policy.max_packet_bytes + 3 * self.policy.max_reply_bytes
@@ -1079,7 +1103,7 @@ class NativeDemandExecutor:
             with (
                 self._report_execution_failure(demand),
                 maintained_claims(self.engine, (), self.holder, renew=self._renew) as owner,
-                _OwnedPythonPool(self.policy.max_provider_jobs) as pool,
+                _OwnedPythonPool(self.port_workers) as pool,
                 _InvocationExecution(self, pool) as physical,
             ):
                 self._physical = physical

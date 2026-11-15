@@ -31,7 +31,7 @@ from corpus_structure.semantic._data_operation_wire import (
     WireReleaseExternalDataPacketResult,
 )
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from uuid import uuid4
 
@@ -50,7 +50,7 @@ from .releases import load_release_inputs
 _FENCE = ("request_id", "generation", "task_id", "attempt", "holder")
 
 
-def _fence(claim: dict) -> WireAttemptFence:
+def _fence(claim: Mapping[str, Any]) -> WireAttemptFence:
     """Copy only the native authority's actual complete returned attempt fence."""
     return wire_attempt_fence(claim)
 
@@ -174,10 +174,10 @@ class ExternalDataSession:
             payload["demand_id"] = WireDemandId(self.demand_id)
         return self._invoke(lambda storage: storage.claim_external_data_packet(payload))
 
-    def renew(self, claim: dict, *, lease_seconds: int = 300) -> WireRenewDataRequestResult:
+    def renew(self, claim: Mapping[str, Any], *, lease_seconds: int = 300) -> WireRenewDataRequestResult:
         return self._invoke(lambda storage: storage.renew_data_request({**_fence(claim), "lease_seconds": lease_seconds}))
 
-    def _read(self, packet_id: str, claim: dict) -> dict:
+    def _read(self, packet_id: str, claim: Mapping[str, Any]) -> dict:
         read = self._invoke(lambda storage: storage.read_external_data_packet({"packet_id": WireExternalPacketId(packet_id), **_fence(claim), "max_bytes": self.max_packet_bytes}))
         packet = read["packet"]
         if not isinstance(packet, dict):
@@ -186,7 +186,7 @@ class ExternalDataSession:
             raise PortRefusal("external packet belongs to another project")
         return dict(read)
 
-    def read(self, packet_id: str, claim: dict) -> dict:
+    def read(self, packet_id: str, claim: Mapping[str, Any]) -> dict:
         read = self._read(packet_id, claim)
         from .data_operation_identity import decode_semantic_value
 
@@ -210,7 +210,7 @@ class ExternalDataSession:
     def submit(
         self,
         packet_id: str,
-        claim: dict,
+        claim: Mapping[str, Any],
         result: dict,
         *,
         actor_assertion: str,
@@ -247,7 +247,7 @@ class ExternalDataSession:
             "state": "committed",
         }
 
-    def reconcile(self, packet_id: str, claim: dict) -> dict:
+    def reconcile(self, packet_id: str, claim: Mapping[str, Any]) -> dict:
         """Publish an existing exact retained intent without asking the actor again."""
         inspected = self.inspect(packet_id)
         if inspected["state"] == "committed":
@@ -324,5 +324,5 @@ class ExternalDataSession:
             "reports": reports,
         }
 
-    def release(self, packet_id: str, claim: dict, *, reason: str) -> WireReleaseExternalDataPacketResult:
+    def release(self, packet_id: str, claim: Mapping[str, Any], *, reason: str) -> WireReleaseExternalDataPacketResult:
         return self._invoke(lambda storage: storage.release_external_data_packet({"packet_id": WireExternalPacketId(packet_id), **_fence(claim), "reason": reason}), replay=True)

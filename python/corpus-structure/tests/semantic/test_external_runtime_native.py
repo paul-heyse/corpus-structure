@@ -1,5 +1,10 @@
 """Actual stdio and lazy settings custody for the ordinary native external executor."""
 
+from typing import cast as typing_cast
+from corpus_structure.semantic._data_operation_wire import (
+    WireRetainExternalDataPacketRequest,
+)
+
 import sys
 from pathlib import Path
 
@@ -33,7 +38,7 @@ def create_packet(kernel):
     demand, _, _, attached = attach(kernel)
     fence = claim(kernel, attached)
     with kernel["engine"].begin() as connection:
-        packet = DataOperationStorage(connection).retain_external_data_packet({**fence, "runtime_id": kernel["runtime"], "max_bytes": 100000})
+        packet = DataOperationStorage(connection).retain_external_data_packet(typing_cast(WireRetainExternalDataPacketRequest, {**fence, "runtime_id": kernel["runtime"], "max_bytes": 100000}))
     return demand, fence, packet
 
 

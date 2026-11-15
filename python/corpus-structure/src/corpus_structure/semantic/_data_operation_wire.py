@@ -35,6 +35,7 @@ WireProductId = NewType("WireProductId", str)
 WireProjectId = NewType("WireProjectId", str)
 WirePublicationReceiptId = NewType("WirePublicationReceiptId", str)
 WireReadIdentity = NewType("WireReadIdentity", str)
+WireReadSnapshotIdentity = NewType("WireReadSnapshotIdentity", str)
 WireReleaseId = NewType("WireReleaseId", str)
 WireRequestId = NewType("WireRequestId", str)
 WireRuntimeId = NewType("WireRuntimeId", str)
@@ -553,20 +554,26 @@ class WireCloseDataPopulationResult(TypedDict):
     semantic_key: Required[WireIdentifier]
 
 
+class WireDemandReadScope(TypedDict):
+    operation_id: NotRequired[WireOperationId]
+    original_source: NotRequired[WireOriginalSourceId]
+    subject: NotRequired[WireSubjectId]
+
+
 class WireDiscoverySelection(TypedDict):
     output_role: Required[WireIdentifier]
     population: Required[WireIdentifier]
-    producer: Required[WireIdentifier]
-    target: Required[WireIdentifier]
+    producer: Required[WireOperationId]
+    target: Required[WireOperationId]
     target_role: NotRequired[WireIdentifier]
 
 
 class WireSelectedOperation(TypedDict):
     choices: Required[WireParameterMap]
     definition: Required[WireIdentifier]
-    dependencies: Required[list[WireIdentifier]]
+    dependencies: Required[list[WireOperationId]]
     eligibility: Required[WireIdentifier]
-    operation: Required[WireIdentifier]
+    operation: Required[WireOperationId]
     parameter_meaning: Required[WireTaggedMapping]
     parameters: Required[WireParameterMap]
     recipe: Required[WireIdentifier]
@@ -606,24 +613,26 @@ class WireDemandIntent(TypedDict):
     model: Required[str]
     operations: Required[list[WireSelectedOperation]]
     original_sources: NotRequired[dict[str, WireOriginalSourceSelection]]
-    root_operations: Required[list[WireIdentifier]]
+    root_operations: Required[list[WireOperationId]]
     roots: Required[list[WireRootSubject]]
     source_sets: NotRequired[dict[str, list[WireSourceSetEntry]]]
-    targets: Required[list[WireIdentifier]]
+    targets: Required[list[WireOperationId]]
     version: Required[Literal["data-demand-intent-v1"]]
 
 
 class WireContinuation(TypedDict):
-    after: Required[WireIdentifier]
+    after: Required[WireObligationId]
     demand_id: Required[WireDemandId]
     frontier_at: Required[WireFrontierAt]
     limit: Required[int]
     max_bytes: Required[int]
     read_id: Required[WireReadIdentity]
     read_snapshot: Required[WireReadSnapshot]
+    scope: NotRequired[WireDemandReadScope]
     selection: Required[WireDemandIntent]
+    support_after: NotRequired[WireIdentifier]
     trust_snapshot: Required[WireTrustSnapshot]
-    view: Required[Literal["frontier", "products"]]
+    view: Required[Literal["frontier", "products", "support"]]
 
 
 class WireDataAttemptLostResult(TypedDict):
@@ -762,16 +771,18 @@ class WirePublishDataDerivationResult(TypedDict):
 
 
 class WireReadDemandResultRequest(TypedDict):
-    after: NotRequired[WireIdentifier]
+    after: NotRequired[WireObligationId]
     demand_id: Required[WireDemandId]
     frontier_at: NotRequired[WireFrontierAt]
     limit: NotRequired[int]
     max_bytes: NotRequired[int]
     read_id: NotRequired[WireReadIdentity]
     read_snapshot: NotRequired[WireReadSnapshot]
+    scope: NotRequired[WireDemandReadScope]
     selection: NotRequired[WireDemandIntent]
+    support_after: NotRequired[WireIdentifier]
     trust_snapshot: NotRequired[WireTrustSnapshot]
-    view: NotRequired[Literal["frontier", "products"]]
+    view: NotRequired[Literal["frontier", "products", "support"]]
 
 
 class WireResultObligation(TypedDict):
@@ -788,6 +799,18 @@ class WireResultObligation(TypedDict):
     parameters: Required[WireParameterMap]
     request_id: Required[WireRequestId | None]
     subject: Required[WireSubjectId]
+
+
+class WireSelectedSupportRow(TypedDict):
+    key: Required[WireIdentifier]
+    record: Required[dict[str, WireJsonValue]]
+    relation: Required[WireIdentifier]
+
+
+class WireSelectedSupportPage(TypedDict):
+    after: Required[WireIdentifier | None]
+    complete: Required[bool]
+    records: Required[list[WireSelectedSupportRow]]
 
 
 class WireResultProduct(TypedDict):
@@ -850,11 +873,13 @@ class WireReadDemandResultResult(TypedDict):
     release_id: Required[WireReleaseId]
     root: Required[list[WireRootSubject]]
     runtime_id: Required[WireRuntimeId]
+    scope: NotRequired[WireDemandReadScope]
     selection: Required[WireDemandIntent]
     state: NotRequired[Literal["active", "cancelled"]]
+    support_page: NotRequired[WireSelectedSupportPage | None]
     trust_snapshot: Required[WireTrustSnapshot]
     uses: Required[list[WireResultUse]]
-    view: Required[Literal["frontier", "products"]]
+    view: Required[Literal["frontier", "products", "support"]]
 
 
 class WireReadExternalDataPacketRequest(TypedDict):
@@ -1083,7 +1108,7 @@ type WireParameterMap = dict[str, WireJsonValue]
 
 type WireFrontierAt = str
 
-type WireReadSnapshot = str
+type WireReadSnapshot = WireReadSnapshotIdentity
 
 type WireOriginalSourceSelection = (
     WireOriginalNativeSelection | WireOriginalDocumentSelection | WireAuthoredFactSelection

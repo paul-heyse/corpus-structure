@@ -1,5 +1,16 @@
 """Real external packet/task/receipt/publication custody; agents are never auto-called."""
 
+from typing import cast as typing_cast
+from corpus_structure.semantic._data_operation_wire import (
+    WireAdmitExternalDataResultRequest,
+    WireCancelDataDemandRequest,
+    WireClaimDataRequestRequest,
+    WireReadDemandResultRequest,
+    WireReleaseDataAttemptRequest,
+    WireRetainExternalDataPacketRequest,
+    WireRevokeDataSupportRequest,
+)
+
 import pytest
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
@@ -17,7 +28,7 @@ def packet(kernel, *, max_bytes=100000, subject="subject:one"):
     demand, _, _, attached = attach(kernel, subject=subject)
     fence = claim(kernel, attached)
     with kernel["engine"].begin() as connection:
-        retained = DataOperationStorage(connection).retain_external_data_packet({**fence, "runtime_id": kernel["runtime"], "max_bytes": max_bytes})
+        retained = DataOperationStorage(connection).retain_external_data_packet(typing_cast(WireRetainExternalDataPacketRequest, {**fence, "runtime_id": kernel["runtime"], "max_bytes": max_bytes}))
     return demand, attached, fence, retained
 
 
@@ -28,14 +39,15 @@ def test_external_packet_waits_without_fulfillment_then_publishes_real_native_re
     assert len(headers) == 1 and headers[0]["packet_id"] == retained["packet_id"]
     with ddo_kernel["engine"].begin() as connection:
         storage = DataOperationStorage(connection)
-        snapshot = storage.read_demand_result({"demand_id": demand["demand_id"]})
+        snapshot = storage.read_demand_result(typing_cast(WireReadDemandResultRequest, {"demand_id": demand["demand_id"]}))
         assert any(use["fate"] == "awaiting-external" for use in snapshot["uses"])
         assert all(not use["products"] for use in snapshot["uses"])
         assert (
-            storage.claim_data_request({"request_id": attached["request_id"], "holder": "ordinary", "lease_seconds": 30})["state"]
+            storage.claim_data_request(typing_cast(WireClaimDataRequestRequest, {"request_id": attached["request_id"], "holder": "ordinary", "lease_seconds": 30}))["state"]
             == "no-work"
         )
     leased = session.claim(retained["packet_id"])
+    assert leased["state"] == "claimed"
     assert leased["attempt"] == producer["attempt"] + 1 and leased["action"] == "compute"
     body = session.read(retained["packet_id"], leased)
     assert body["packet_digest"] == retained["packet_digest"]
@@ -77,9 +89,11 @@ def test_external_release_takeover_fences_old_producer_and_assertions(ddo_kernel
     _, _, _, retained = packet(ddo_kernel)
     first = ExternalDataSession(ddo_kernel["engine"], "ddo-test")
     old = first.claim(retained["packet_id"])
+    assert old["state"] == "claimed"
     first.release(retained["packet_id"], old, reason="external owner relinquished")
     second = ExternalDataSession(ddo_kernel["engine"], "ddo-test")
     new = second.claim(retained["packet_id"])
+    assert new["state"] == "claimed"
     assert new["attempt"] == old["attempt"] + 1
     with pytest.raises(DBAPIError, match=r"fence|claim|attempt|lease"):
         first.read(retained["packet_id"], old)
@@ -109,13 +123,13 @@ def test_external_packet_byte_limit_and_cancellation_do_not_publish(ddo_kernel):
     demand, _, _, attached = attach(ddo_kernel)
     fence = claim(ddo_kernel, attached)
     with pytest.raises(DBAPIError, match="capacity"), ddo_kernel["engine"].begin() as connection:
-        DataOperationStorage(connection).retain_external_data_packet({**fence, "runtime_id": ddo_kernel["runtime"], "max_bytes": 1})
+        DataOperationStorage(connection).retain_external_data_packet(typing_cast(WireRetainExternalDataPacketRequest, {**fence, "runtime_id": ddo_kernel["runtime"], "max_bytes": 1}))
     with ddo_kernel["engine"].begin() as connection:
-        retained = DataOperationStorage(connection).retain_external_data_packet({**fence, "runtime_id": ddo_kernel["runtime"], "max_bytes": 100000})
+        retained = DataOperationStorage(connection).retain_external_data_packet(typing_cast(WireRetainExternalDataPacketRequest, {**fence, "runtime_id": ddo_kernel["runtime"], "max_bytes": 100000}))
     session = ExternalDataSession(ddo_kernel["engine"], "ddo-test")
     leased = session.claim(retained["packet_id"])
     with ddo_kernel["engine"].begin() as connection:
-        DataOperationStorage(connection).cancel_data_demand({"demand_id": demand["demand_id"], "reason": "cancel exact external interest"})
+        DataOperationStorage(connection).cancel_data_demand(typing_cast(WireCancelDataDemandRequest, {"demand_id": demand["demand_id"], "reason": "cancel exact external interest"}))
     with pytest.raises(DBAPIError):
         session.submit(
             retained["packet_id"],
@@ -138,7 +152,7 @@ def test_ordinary_executor_hands_off_external_command_without_python_port(ddo_ke
         ddo_kernel["prepared"],
         ddo_kernel.preparation.runtime,
         PythonSourceCollection(()),
-        schema=ddo_kernel.preparation.bundle,
+        schema=ddo_kernel.preparation.bundle, database_capacity=6,
     )
     result = executor.advance(demand["demand_id"])
     assert result.receipt_count == 0 and result.receipts == ()
@@ -156,12 +170,13 @@ def test_retained_external_result_is_adopted_without_repeating_actor_work(ddo_ke
     _, _, _, retained = packet(ddo_kernel)
     session = ExternalDataSession(ddo_kernel["engine"], "ddo-test")
     first = session.claim(retained["packet_id"], lease_seconds=30)
+    assert first["state"] == "claimed"
     actual = session.read(retained["packet_id"], first)["packet"]
     completion = ExternalResultPort(json_bytes(actual), ddo_kernel["model"], 100000).completion(
         RESULT
     )
     with ddo_kernel["engine"].begin() as connection:
-        admitted = DataOperationStorage(connection).admit_external_data_result({
+        admitted = DataOperationStorage(connection).admit_external_data_result(typing_cast(WireAdmitExternalDataResultRequest, {
                 "packet_id": retained["packet_id"],
                 **{
                     name: first[name]
@@ -170,8 +185,8 @@ def test_retained_external_result_is_adopted_without_repeating_actor_work(ddo_ke
                 "actor_assertion": "controlled-external",
                 "model_assertion": None,
                 "completion": completion,
-            })
-        released = DataOperationStorage(connection).release_data_attempt({
+            }))
+        released = DataOperationStorage(connection).release_data_attempt(typing_cast(WireReleaseDataAttemptRequest, {
                 **{
                     name: first[name]
                     for name in ("request_id", "generation", "task_id", "attempt", "holder")
@@ -181,13 +196,14 @@ def test_retained_external_result_is_adopted_without_repeating_actor_work(ddo_ke
                     "code": "controlled-actor-retired",
                     "message": "Actor work finished; publication owner retired before acknowledgement.",
                 },
-            })
+            }))
         assert (
             released["state"] == "released"
             and released["retained_intent_id"] == admitted["intent_id"]
         )
     successor = ExternalDataSession(ddo_kernel["engine"], "ddo-test")
     second = successor.claim(retained["packet_id"])
+    assert second["state"] == "claimed"
     assert second["action"] == "reconcile" and second["retained_intent_id"] == admitted["intent_id"]
     completed = successor.reconcile(retained["packet_id"], second)
     assert completed["state"] == "committed" and completed["receipt"] == admitted["receipt"]
@@ -201,9 +217,9 @@ def test_external_lost_publication_ack_is_inspected_without_reexecution(ddo_kern
     invoke = session._invoke
     publications = []
 
-    def lost_ack(operation, payload, **options):
-        actual = invoke(operation, payload, **options)
-        if operation == "publish_data_derivation":
+    def lost_ack(invoke_operation, **options):
+        actual = invoke(invoke_operation, **options)
+        if {"receipt_id", "derivation_id", "replayed"} <= actual.keys():
             publications.append(actual)
             raise DBAPIError(
                 None,
@@ -241,13 +257,13 @@ def test_external_current_runtime_distrust_refuses_new_result_but_keeps_exact_re
     _, _, _, second_packet = packet(ddo_kernel, subject="subject:two")
     second = session.claim(second_packet["packet_id"])
     with ddo_kernel["engine"].begin() as connection:
-        DataOperationStorage(connection).revoke_data_support({
+        DataOperationStorage(connection).revoke_data_support(typing_cast(WireRevokeDataSupportRequest, {
                 "project_id": "ddo-test",
                 "original_source": "source:test",
                 "selector_kind": "runtime",
                 "selector": ddo_kernel["runtime"],
                 "reason": "withdraw external runtime after independent first publication",
-            })
+            }))
     with pytest.raises(DBAPIError, match="revoked"):
         session.submit(
             second_packet["packet_id"],
@@ -282,7 +298,7 @@ def test_native_product_page_preflights_body_and_bounds_complete_envelope_withou
     )
     with ddo_kernel["engine"].begin() as connection:
         native = DataOperationStorage(connection)
-        frontier = native.read_demand_result({"demand_id": demand["demand_id"], "max_bytes": 1})
+        frontier = native.read_demand_result(typing_cast(WireReadDemandResultRequest, {"demand_id": demand["demand_id"], "max_bytes": 1}))
         assert (
             frontier["view"] == "frontier"
             and frontier["uses"][0]["products"][0]["body_state"] == "not_requested"
@@ -292,7 +308,7 @@ def test_native_product_page_preflights_body_and_bounds_complete_envelope_withou
         (64, "page envelope exceeds max_bytes"),
     ):
         with pytest.raises(DBAPIError, match=reason), ddo_kernel["engine"].begin() as connection:
-            DataOperationStorage(connection).read_demand_result({"demand_id": demand["demand_id"], "view": "products", "max_bytes": bound})
+            DataOperationStorage(connection).read_demand_result(typing_cast(WireReadDemandResultRequest, {"demand_id": demand["demand_id"], "view": "products", "max_bytes": bound}))
     with ddo_kernel["engine"].begin() as connection:
-        completed = DataOperationStorage(connection).read_demand_result({"demand_id": demand["demand_id"], "view": "products", "max_bytes": 100000})
+        completed = DataOperationStorage(connection).read_demand_result(typing_cast(WireReadDemandResultRequest, {"demand_id": demand["demand_id"], "view": "products", "max_bytes": 100000}))
     assert completed["uses"][0]["products"][0]["body"] == ["integer", "7"]

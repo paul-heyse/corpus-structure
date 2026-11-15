@@ -305,7 +305,7 @@ def test_actual_definition_demand_retains_provider_pair_and_exact_component_sour
             kernel.purpose("write"),
             result.demand_id,
             source_root=ROOT,
-            admission_engine=kernel.purpose("admit"),
+            admission_engine=kernel.purpose("admit"), database_capacity=6,
         )
         assert resumed.demand_id == result.demand_id and resumed.receipt_count == 0
         with clone.admin.connect() as connection:

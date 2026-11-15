@@ -10,6 +10,7 @@ from corpus_structure.semantic._data_operation_wire import (
     WireCancelDataDemandResult,
 )
 
+from collections.abc import Mapping
 from decimal import Decimal
 from pathlib import Path
 from typing import Any, Literal
@@ -163,6 +164,7 @@ def execute_data_demand(
     project_id: str | None = None,
     admission_engine=None,
     nemotron_endpoint: str | None = None,
+    database_capacity: int | None = None,
     limit: int = 100,
     max_rounds: int = 100,
 ):
@@ -228,6 +230,7 @@ def execute_data_demand(
         policy=policy,
         nemotron_endpoint=nemotron_endpoint,
         admission_engine=admission_engine,
+        database_capacity=database_capacity,
     )
     return executor.run(demand_id, limit=limit, max_rounds=max_rounds)
 
@@ -261,7 +264,7 @@ def read_data_demand(
     connection: Connection,
     demand_id: str,
     *,
-    continuation: dict[str, Any] | None = None,
+    continuation: Mapping[str, Any] | None = None,
     limit: int | None = None,
     max_bytes: int | None = None,
     view: Literal["frontier", "products"] | None = None,

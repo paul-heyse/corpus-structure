@@ -1,5 +1,10 @@
 """Restricted acquisition reads exact immutable facts through its owned native port."""
 
+from typing import cast as typing_cast
+from corpus_structure.semantic._data_operation_wire import (
+    WireInspectDataExecutionRequest,
+)
+
 from hashlib import sha256
 
 import pytest
@@ -20,7 +25,7 @@ def test_native_admission_read_authenticates_selected_contract_and_runtime_witho
         "runtime_id": ddo_kernel.runtime,
     }
     with ddo_kernel.purpose("admit").begin() as connection:
-        retained = DataOperationStorage(connection).inspect_data_execution(payload)
+        retained = DataOperationStorage(connection).inspect_data_execution(typing_cast(WireInspectDataExecutionRequest, payload))
         assert retained["recipe"] == ddo_kernel.identities[payload["operation_id"], "recipe"]
         assert retained["runtime"] == {
             "manifest_sha256": sha256(ddo_kernel.preparation.runtime.manifest).hexdigest(),
@@ -30,4 +35,4 @@ def test_native_admission_read_authenticates_selected_contract_and_runtime_witho
         with pytest.raises(DBAPIError, match="permission denied"), connection.begin_nested():
             connection.execute(text("SELECT * FROM sem.data_operation_definition"))
         with pytest.raises(DBAPIError, match="no rows"), connection.begin_nested():
-            DataOperationStorage(connection).inspect_data_execution({**payload, "runtime_id": "runtime:absent"})
+            DataOperationStorage(connection).inspect_data_execution(typing_cast(WireInspectDataExecutionRequest, {**payload, "runtime_id": "runtime:absent"}))

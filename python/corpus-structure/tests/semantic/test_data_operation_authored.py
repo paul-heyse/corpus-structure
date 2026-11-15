@@ -1,5 +1,11 @@
 """Authored inputs retain their own standing and never fabricate inference episodes."""
 
+from typing import cast as typing_cast
+from corpus_structure.semantic._data_operation_wire import (
+    WireAdmitAuthoredDataRequest,
+    WireReadDemandResultRequest,
+)
+
 import json
 from dataclasses import replace
 
@@ -147,9 +153,10 @@ def test_native_authored_fact_has_no_computation_and_cannot_be_relabelled(ddo_ke
     with kernel.engine.begin() as connection:
         storage = DataOperationStorage(connection)
         demand = {"demand_id": admitted["demand_id"]}
-        read = storage.read_demand_result({"demand_id": demand["demand_id"]})
+        read = storage.read_demand_result(typing_cast(WireReadDemandResultRequest, {"demand_id": demand["demand_id"]}))
         assert len(read["original_source_admissions"]) == 1
         fact = read["original_source_admissions"][0]
+        assert isinstance(fact["evidence"], dict)
         assert fact["evidence"]["standing"] == "authored"
         assert fact["evidence"]["author_assertion"] == "operator assertion"
         assert connection.scalar(text("SELECT count(*) FROM ops.data_derivation")) == 0
@@ -158,16 +165,16 @@ def test_native_authored_fact_has_no_computation_and_cannot_be_relabelled(ddo_ke
         assert member.support_episodes == ()
         assert tuple(reference.kind for reference in member.support_references) == ("authored",)
         assert json.loads(ready.binding)["support"][0]["kind"] == "authored"
-        repeated = storage.admit_authored_data({
+        repeated = storage.admit_authored_data(typing_cast(WireAdmitAuthoredDataRequest, {
                 "demand_id": demand["demand_id"],
                 "selection_name": authored.name,
                 **authored.record(),
-            })
+            }))
         assert repeated["admission_id"] == fact["admission_id"]
         changed = authored.record()
         changed["reference"]["selection_id"] = "different"
         with pytest.raises(DBAPIError, match="immutable demand"), connection.begin_nested():
-            storage.admit_authored_data({"demand_id": demand["demand_id"], "selection_name": authored.name, **changed})
+            storage.admit_authored_data(typing_cast(WireAdmitAuthoredDataRequest, {"demand_id": demand["demand_id"], "selection_name": authored.name, **changed}))
         wire = json.loads(ready.binding)
         wire["support"][0]["kind"] = "original-source"
         with pytest.raises(DBAPIError), connection.begin_nested():

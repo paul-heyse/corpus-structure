@@ -205,6 +205,6 @@ def test_actual_parser_demand_preserves_three_families_and_exact_resume(scenario
             kernel.purpose("write"),
             result.demand_id,
             source_root=ROOT,
-            admission_engine=kernel.purpose("admit"),
+            admission_engine=kernel.purpose("admit"), database_capacity=6,
         )
         assert resumed.receipt_count == 0 and resumed.demand_id == result.demand_id

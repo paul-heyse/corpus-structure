@@ -226,6 +226,19 @@ def acquire_python_execution(
     )
 
 
+def _native_role_contracts(values) -> dict[str, str]:
+    """Consume the stable role coordinates from a schema-owned open semantic body."""
+    result = {}
+    for role in values:
+        if not isinstance(role, dict) or not isinstance(role.get("name"), str) or not isinstance(role.get("kind_contract"), str):
+            raise SemanticRefusal("native admitted role lacks its nominal contract")
+        name, contract = role["name"], role["kind_contract"]
+        if name in result:
+            raise SemanticRefusal("native admitted roles contain duplicate names")
+        result[name] = contract
+    return result
+
+
 def acquire_publication_port(connection: Connection, prepared: PreparedRelease):
     """Acquire the fixed receipt-bearing native command, not Python effect callbacks."""
     from .data_operation_ports import ResolvedPublicationPort
@@ -250,9 +263,9 @@ def acquire_publication_port(connection: Connection, prepared: PreparedRelease):
     if (
         admitted["profile"] != "command"
         or admitted["recipe"] != identities[operation.semantic_id, "recipe"]
-        or {role["name"]: role["kind_contract"] for role in admitted["input_roles"]}
+        or _native_role_contracts(admitted["input_roles"])
         != {"request": contracts[roles["request"].kind]}
-        or {role["name"]: role["kind_contract"] for role in admitted["output_roles"]}
+        or _native_role_contracts(admitted["output_roles"])
         != {"result": contracts[roles["result"].kind]}
     ):
         raise SemanticRefusal("publication command differs from native admitted release")

@@ -179,7 +179,7 @@ def test_actual_math_request_retains_source_coordinates_and_resumes_without_new_
         registered["demand_id"],
         source_root=ROOT,
         policy=methods.execution_policy,
-        admission_engine=commit_admitter_engine,
+        admission_engine=commit_admitter_engine, database_capacity=6,
     )
     with commit_db_engine.begin() as connection:
         snapshot = read_data_demand(connection, result.demand_id, view="products")
@@ -205,6 +205,6 @@ def test_actual_math_request_retains_source_coordinates_and_resumes_without_new_
         result.demand_id,
         source_root=ROOT,
         policy=methods.execution_policy,
-        admission_engine=commit_admitter_engine,
+        admission_engine=commit_admitter_engine, database_capacity=6,
     )
     assert resumed.demand_id == result.demand_id and resumed.receipt_count == 0
