@@ -179,13 +179,14 @@ def test_actual_archived_kind_change_reaches_cli_mcp_with_declared_consumers(ddo
         semantic = [
             row
             for row in report["changes"]
-            if row["aspect"] == "semantic-node" and row["model_ref"] == "urn:ddo-test:Sample"
+            if row["aspect"] == "semantic-node"
+            and row["model_ref"] == "urn:ddo-test:Sample/property/value"
         ]
         assert len(semantic) == 1
         assert "urn:ddo-test:sample" in semantic[0]["consumers"]
         assert any(member["model_path"].endswith("/required") for member in semantic[0]["members"])
         assert report["before_release"] == before and report["after_release"] == after
-        assert any("unassessed" in value for value in report["unknowns"])
+        assert any("retained query analysis unavailable" in value for value in report["unknowns"])
 
         async def journey():
             server = build_retained_reader_server(read_engine=reader, project="ddo-test")
