@@ -143,15 +143,15 @@ class ClauseClassificationOperation:
             },
         ],
         "applicability": [
-            "exact-retained-native-predicate-focus-and-paired-released-model-questions"
+            {'kind': 'documentation', 'text': 'exact-retained-native-predicate-focus-and-paired-released-model-questions'}
         ],
         "invariants": [
-            "no-private-reclassification",
-            "no-focal-scope-substitution",
-            "released-vocabulary-preserved",
-            "rival-observations-retain-all-native-references",
-            "missing-function-question-is-failed-not-empty",
-            "unprojectable-predicate-focus-is-partial",
+            {'kind': 'documentation', 'text': 'no-private-reclassification'},
+            {'kind': 'documentation', 'text': 'no-focal-scope-substitution'},
+            {'kind': 'documentation', 'text': 'released-vocabulary-preserved'},
+            {'kind': 'documentation', 'text': 'rival-observations-retain-all-native-references'},
+            {'kind': 'documentation', 'text': 'missing-function-question-is-failed-not-empty'},
+            {'kind': 'documentation', 'text': 'unprojectable-predicate-focus-is-partial'},
         ],
         "coverage": "exact-inspected-native-predicate-focus-population",
         "outcomes": ["success"],

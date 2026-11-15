@@ -95,14 +95,14 @@ class ScopedRelationsOperation:
             },
         ],
         "applicability": [
-            "exact-native-source-and-separately-retained-predicate-formal-navigation-products"
+            {'kind': 'documentation', 'text': 'exact-native-source-and-separately-retained-predicate-formal-navigation-products'}
         ],
         "invariants": [
-            "no-fake-task-or-view-address",
-            "no-secondary-language-recognition",
-            "no-reparse-of-retained-formal-inputs",
-            "unknown-inspection-is-not-empty",
-            "separately-positioned-source-occurrences",
+            {'kind': 'documentation', 'text': 'no-fake-task-or-view-address'},
+            {'kind': 'documentation', 'text': 'no-secondary-language-recognition'},
+            {'kind': 'documentation', 'text': 'no-reparse-of-retained-formal-inputs'},
+            {'kind': 'documentation', 'text': 'unknown-inspection-is-not-empty'},
+            {'kind': 'documentation', 'text': 'separately-positioned-source-occurrences'},
         ],
         "coverage": "exact-selected-source-passages-and-retained-input-coverage",
         "outcomes": ["success", "failed"],

@@ -297,8 +297,8 @@ score_operation_event__data_operation__ = {
             "interpretation": "operation-event-parameters-v1",
         }
     ],
-    "applicability": ["exact-fitted-corpus-event-version-producer"],
-    "invariants": ["finite-features", "matching-feature-shape", "probability-in-unit-interval"],
+    "applicability": [{"kind": "binding", "reference": "urn:corpus:operation:score-operation-event/binding", "interpretation": "binding-expression-v1", "parameters": {}}, {'kind': 'documentation', 'text': 'exact-fitted-corpus-event-version-producer'}],
+    "invariants": [{'kind': 'documentation', 'text': 'finite-features'}, {'kind': 'documentation', 'text': 'matching-feature-shape'}, {'kind': 'documentation', 'text': 'probability-in-unit-interval'}],
     "coverage": "one-score-for-complete-feature-vector",
     "outcomes": ["scored", "invalid-applicability", "invalid-feature-shape", "numerical-failure"],
     "state_dimensions": [{"name": "completion", "values": ["pending", "success", "failed"]}],

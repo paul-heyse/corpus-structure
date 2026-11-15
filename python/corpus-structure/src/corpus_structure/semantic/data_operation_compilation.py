@@ -23,6 +23,7 @@ from .data_operation_model import (
     BindingOperand,
     ConsumerSelectionCapability,
     EffectContract,
+    EnforcementClaim,
     EffectiveDataOperationModel,
     EffectiveIdentity,
     EffectiveKind,
@@ -1720,8 +1721,8 @@ def compile_data_operations(
             subject,
             _strings(raw.get("context"), semantic_id),
             tuple(roles),
-            _strings(raw.get("applicability"), semantic_id),
-            _strings(raw.get("invariants"), semantic_id),
+            _enforcement_claims(raw.get("applicability"), semantic_id),
+            _enforcement_claims(raw.get("invariants"), semantic_id),
             _text(raw.get("coverage"), semantic_id),
             outcomes,
             _text(raw.get("precision"), semantic_id),
@@ -1804,6 +1805,7 @@ def compile_data_operations(
 
     from .source_interfaces import export_source_interfaces
 
+    model = _resolve_enforcement_claims(model, {artifact.name: artifact.digest for artifact in python_sources.boundary_contracts} if python_sources is not None else {})
     model = replace(model, identities=_compile_identities(model))
     return replace(
         model,
@@ -1811,6 +1813,71 @@ def compile_data_operations(
         if frontend is not None
         else None,
     )
+
+
+def _enforcement_claims(value, owner):
+    if not isinstance(value, list):
+        _fail(owner, "enforcement claims require explicit tagged records")
+    claims = []
+    revisions = {"binding": "binding-expression-v1", "schema": "effective-schema-v1", "implementation": "captured-python-slice-v1", "native-admission": "captured-native-admission-v1"}
+    for entry in value:
+        entry = _mapping(entry, owner)
+        if entry.get("kind") == "documentation":
+            entry = _mapping(entry, owner, {"kind", "text"})
+            claims.append(EnforcementClaim("documentation", text=_text(entry.get("text"), owner)))
+            continue
+        entry = _mapping(entry, owner, {"kind", "reference", "interpretation", "parameters"})
+        kind = entry.get("kind")
+        if kind not in revisions or entry.get("interpretation") != revisions[kind]:
+            _fail(owner, "unsupported enforcement interpretation")
+        parameters = _mapping(entry.get("parameters"), owner)
+        if parameters:
+            _fail(owner, "enforcement owner does not admit additional parameters")
+        claims.append(EnforcementClaim(kind, reference=_text(entry.get("reference"), owner), interpretation=revisions[kind], parameters=canonical_bytes(parameters)))
+    return tuple(claims)
+
+
+def _resolve_enforcement_claims(model, captured_assets):
+    from .data_operation_identity import implementation_slice_fingerprint, kind_fingerprint
+
+    try:
+        graph = model.projection_graph("semantic-reference")
+    except ValueError as error:
+        _fail("model/graph", str(error))
+    kinds = {kind.semantic_id: kind for kind in model.kinds}
+    bindings = {binding.semantic_id: binding for binding in model.bindings}
+    slices = {implementation.root: implementation for implementation in model.implementation_slices}
+
+    def resolve(claim, operation):
+        if claim.kind == "documentation":
+            return claim
+        reference = claim.reference
+        if claim.kind == "binding":
+            if reference != operation.binding or reference not in bindings:
+                _fail(operation.semantic_id, "unknown operation binding enforcement reference")
+            semantics = _binding_record(bindings[reference].expression)
+        elif claim.kind == "schema":
+            if reference not in kinds or any(not kinds[owner].complete for owner in graph.closure((reference,)) if owner in kinds):
+                _fail(operation.semantic_id, "unknown complete schema enforcement reference")
+            semantics = {"kind_contract": kind_fingerprint(graph, reference).key}
+        elif claim.kind == "implementation":
+            implementation = slices.get(operation.implementation_root)
+            if implementation is None or not implementation.complete or reference not in {node.id for node in implementation.nodes}:
+                _fail(operation.semantic_id, "unknown captured implementation enforcement reference")
+            semantics = {"implementation_slice": implementation_slice_fingerprint(implementation.semantic_records(), implementation.root).key}
+        elif claim.kind == "native-admission":
+            matches = [asset for asset in operation.assets if asset.reference == reference and asset.role == "native-admission-policy" and asset.content_digest is not None and captured_assets.get(asset.contract) == asset.content_digest]
+            if len(matches) != 1:
+                _fail(operation.semantic_id, "unknown captured native admission enforcement reference")
+            semantics = asdict(matches[0])
+        else:
+            _fail(operation.semantic_id, "unknown enforcement source")
+        return replace(claim, semantics=canonical_bytes(semantics))
+
+    operations = tuple(replace(operation, applicability=tuple(resolve(claim, operation) for claim in operation.applicability), invariants=tuple(resolve(claim, operation) for claim in operation.invariants)) for operation in model.operations)
+    definitions = {operation.semantic_id: operation.definition for operation in operations}
+    nodes = tuple(replace(node, payload=definitions[node.id]) if node.id in definitions else node for node in model.nodes)
+    return replace(model, operations=operations, nodes=nodes, graph_projections=compiled_graph_projections(nodes, model.edges, model.implementation_slices))
 
 
 def _binding_record(expression: BindingExpression, *, result_only: bool = False) -> dict | None:

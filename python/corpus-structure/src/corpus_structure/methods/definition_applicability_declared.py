@@ -84,14 +84,14 @@ class DefinitionApplicabilityOperation:
             },
         ],
         "applicability": [
-            "exact-selected-usage-edge-and-separately-bound-native-definition-component"
+            {'kind': 'documentation', 'text': 'exact-selected-usage-edge-and-separately-bound-native-definition-component'}
         ],
         "invariants": [
-            "exact-source-resolved-component-meaning",
-            "every-proof-carrier-preserved",
-            "no-target-or-usage-substitution",
-            "unknown-transfer-premises-remain-unknown",
-            "private-reading-does-not-grant-publication",
+            {'kind': 'documentation', 'text': 'exact-source-resolved-component-meaning'},
+            {'kind': 'documentation', 'text': 'every-proof-carrier-preserved'},
+            {'kind': 'documentation', 'text': 'no-target-or-usage-substitution'},
+            {'kind': 'documentation', 'text': 'unknown-transfer-premises-remain-unknown'},
+            {'kind': 'documentation', 'text': 'private-reading-does-not-grant-publication'},
         ],
         "coverage": "exact-selected-usage-and-actual-native-component",
         "outcomes": ["success"],

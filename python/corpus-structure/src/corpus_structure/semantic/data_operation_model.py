@@ -333,14 +333,49 @@ class SubjectDefinition:
 
 
 @dataclass(frozen=True)
+class EnforcementClaim:
+    """Documentation, or a checked existing semantic enforcement owner."""
+
+    kind: Literal["documentation", "binding", "schema", "implementation", "native-admission"]
+    text: str | None = None
+    reference: str | None = None
+    interpretation: str | None = None
+    parameters: bytes = b"{}"
+    semantics: bytes = b"null"
+
+    def __post_init__(self):
+        if self.kind == "documentation":
+            if not self.text or self.reference is not None or self.interpretation is not None or self.parameters != b"{}" or self.semantics != b"null":
+                raise ValueError("documentation cannot claim executable enforcement")
+        elif self.text is not None or not self.reference or not self.interpretation or json.loads(self.parameters) != {}:
+            raise ValueError("checked enforcement requires its exact owner and interpretation")
+
+    @property
+    def semantic_record(self) -> dict | None:
+        if self.kind == "documentation":
+            return None
+        return {
+            "kind": self.kind,
+            "reference": self.reference,
+            "interpretation": self.interpretation,
+            "parameters": json.loads(self.parameters),
+            "semantics": json.loads(self.semantics),
+        }
+
+
+def enforced_claims(claims: tuple[EnforcementClaim, ...]) -> list[dict]:
+    return [record for claim in claims if (record := claim.semantic_record) is not None]
+
+
+@dataclass(frozen=True)
 class EffectiveOperation:
     semantic_id: str
     profile: Literal["derivation", "discovery", "selection", "command", "read"]
     subject: str
     context: tuple[str, ...]
     roles: tuple[OperationRole, ...]
-    applicability: tuple[str, ...]
-    invariants: tuple[str, ...]
+    applicability: tuple[EnforcementClaim, ...]
+    invariants: tuple[EnforcementClaim, ...]
     coverage: str
     outcomes: tuple[str, ...]
     precision: str
@@ -382,7 +417,7 @@ class EffectiveOperation:
                 "discovery_relation": self.discovery_relation,
                 "context": self.context,
                 "roles": [operation_role_record(role, result_only=True) for role in self.roles],
-                "invariants": self.invariants,
+                "invariants": enforced_claims(self.invariants),
                 "coverage": self.coverage,
                 "outcomes": self.outcomes,
                 "precision": self.precision,
@@ -407,7 +442,7 @@ class EffectiveOperation:
         return canonical_bytes(
             {
                 "operation": self.semantic_id,
-                "applicability": self.applicability,
+                "applicability": enforced_claims(self.applicability),
                 "binding": self.binding,
                 **(
                     {
@@ -432,7 +467,7 @@ class EffectiveOperation:
             {
                 **json.loads(self.recipe),
                 "roles": [operation_role_record(role) for role in self.roles],
-                "applicability": self.applicability,
+                "applicability": enforced_claims(self.applicability),
                 **(
                     {"potential_dependencies": self.potential_dependencies}
                     if self.potential_dependencies

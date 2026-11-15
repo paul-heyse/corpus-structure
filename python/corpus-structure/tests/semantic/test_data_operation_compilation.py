@@ -1397,3 +1397,55 @@ def test_bound_subject_definition_must_match_compiled_operation():
     changed = replace(binding, subject_context=replace(binding.subject_context, subject_definition="different-subject"))
     with pytest.raises(ValueError, match="subject definition differs"):
         project_operation_binding(model, changed)
+
+
+def test_documentation_claims_are_preserved_but_do_not_salt_semantic_identity():
+    before = contract()
+    after = contract(applicability=[{"kind": "documentation", "text": "reworded applicability"}], invariants=[{"kind": "documentation", "text": "reworded invariant"}])
+    first = compile_data_operations(python_sources=python_inputs(operation_source(metadata=before)))
+    second = compile_data_operations(python_sources=python_inputs(operation_source(metadata=after)))
+    assert first.operations[0].invariants != second.operations[0].invariants
+    assert first.operations[0].definition == second.operations[0].definition
+    for domain in ("definition", "eligibility", "recipe"):
+        assert identity(first, domain=domain) == identity(second, domain=domain)
+
+
+@pytest.mark.parametrize("kind,reference,interpretation", [("binding", "missing", "binding-expression-v1"), ("schema", "missing", "effective-schema-v1"), ("implementation", "python:missing", "captured-python-slice-v1"), ("native-admission", "missing", "captured-native-admission-v1")])
+def test_unresolved_executable_enforcement_claims_fail_compilation(kind, reference, interpretation):
+    metadata = contract(invariants=[{"kind": kind, "reference": reference, "interpretation": interpretation, "parameters": {}}])
+    with pytest.raises(PreparationError, match="enforcement reference"):
+        compile_data_operations(python_sources=python_inputs(operation_source(metadata=metadata)))
+
+
+def test_untagged_enforcement_labels_are_rejected():
+    with pytest.raises(PreparationError, match="string-keyed record"):
+        compile_data_operations(declarations=declarations(contract(invariants=["not-an-enforced-predicate"])))
+
+
+def test_checked_binding_and_schema_claims_capture_the_actual_owners():
+    metadata = contract(applicability=[{"kind": "binding", "reference": "urn:test:derive/binding", "interpretation": "binding-expression-v1", "parameters": {}}], invariants=[{"kind": "schema", "reference": "primitive:integer", "interpretation": "effective-schema-v1", "parameters": {}}])
+    model = compile_data_operations(declarations=declarations(metadata))
+    operation = model.operations[0]
+    assert json.loads(operation.applicability[0].semantics)["operator"] == model.bindings[0].expression.operator
+    assert json.loads(operation.invariants[0].semantics) == {"kind_contract": identity(model, "primitive:integer", "kind")}
+
+
+def test_checked_implementation_claim_changes_with_captured_code():
+    metadata = contract(invariants=[{"kind": "implementation", "reference": "python:example.derive", "interpretation": "captured-python-slice-v1", "parameters": {}}])
+    first = compile_data_operations(python_sources=python_inputs(operation_source(metadata=metadata)))
+    second = compile_data_operations(python_sources=python_inputs(operation_source(body="return helper(x) + 1", metadata=metadata)))
+    assert first.operations[0].invariants[0].semantics != second.operations[0].invariants[0].semantics
+    assert json.loads(first.operations[0].invariants[0].semantics) == {"implementation_slice": identity(first, "python:example.derive", "implementation-slice")}
+
+
+def test_native_enforcement_requires_the_actual_captured_policy_asset():
+    asset = SourceArtifact("native/admission-policy", b'{"purpose":"ordinary-only"}')
+    metadata = contract(
+        assets=[{"reference": "guard:ordinary", "contract": asset.name, "role": "native-admission-policy"}],
+        invariants=[{"kind": "native-admission", "reference": "guard:ordinary", "interpretation": "captured-native-admission-v1", "parameters": {}}],
+    )
+    model = compile_data_operations(python_sources=python_inputs(operation_source(metadata=metadata), boundaries=(asset,)))
+    assert json.loads(model.operations[0].invariants[0].semantics)["content_digest"] == asset.digest
+    metadata["assets"][0]["content_digest"] = asset.digest
+    with pytest.raises(PreparationError, match="captured native admission enforcement"):
+        compile_data_operations(python_sources=python_inputs(operation_source(metadata=metadata)))
