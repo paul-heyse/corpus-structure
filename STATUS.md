@@ -1,35 +1,28 @@
 # Status
 
-_Updated 2026-11-15. DDO-00–11 implementation resumed; audit repairs and bounded reader retirement integrated. Enclosing plan remains in progress._
+_Updated 2026-11-15. Comprehensive remaining DDO implementation is in progress; bounded producer/consumer replacements and retirement are integrated. Native realization and enclosing acceptance remain open._
 
 ## Current owner and implementation
 
-- The [DDO coordinator](docs/plans/declared-data-operations_2026-11-12.md#integrated-execution--2026-11-15) owns execution, current CA finding disposition and remaining obligations. Supporting plans retain technical contracts; no second ledger.
-- CA-10 includes complete subject-kind contracts in definition/recipe identity, withholds incomplete closure and authenticates native subject-kind projection. Current effective interpretation is v8 only; scalar framing/source sidecar unchanged. SQL admission source requires v8; frozen revisions unchanged.
-- CA-11 preserves nullable source-free impact contexts. CA-12 refuses explicit graph/before/target read or cut conflicts before cursor pin restoration. CA-13 accounts retained preparation, atomically defers request admission and bounds batches using existing ReadyFrontier and byte leases.
-- Obsolete named-query BoundQuery/registry/token compatibility reader and run-based invocation are removed, including unused explain module and compatibility configuration. Shared session/cursor helpers and pack acquisition/preparation remain with actual consumers. Independent coverage/source-custody expectations remain.
-- Selected candidate, resolved-reading and finite facets use actual captured nominal definitions, preserve private standing and real member references, and bypass the former unsupported path. Grouped measurement interpretation remains separate.
-- Native/source correspondence, complete operation/compiler/registry/reader/writer/configuration/grant retirement, grouped measurements, mutual-neighborhood production, source-decision journeys, structural-gap/dossier integration and development adoption remain unfinished. No bounded result closes DDO-00–11 or DDO-12.
+- The [DDO coordinator](docs/plans/declared-data-operations_2026-11-12.md#integrated-execution--2026-11-15) owns current package readiness, findings and remaining obligations. Technical companions retain their contracts; no second disposition ledger.
+- CA-10–13 repairs remain integrated: complete subject-kind identities/current-only v8, nullable source-free impact, conflicting read/cut refusal and retained-preparation byte admission. Native correspondence and integrated acceptance remain open.
+- Current math context uses its explicit captured profile; standalone model/runtime/profile fallbacks are removed. Genuine native mutual-neighborhood production retains exact ranking/tie/reciprocal/coverage semantics. CLI/MCP selected reads require actual selected outputs.
+- Grouped SourceRecord interpretation preserves all alternative readings/fields/evidence and actual reading/finite events. Private authored measurement/terminology judgments carry exact candidate source cuts and an explicit independent authored-read selector. Valid native admission frontier IDs, rather than raw diagnostic rows, govern attachment. Actual native judgment journeys remain unfinished.
+- Selected structural roots, source-decision journeys, dossier membership, gap reads and authenticated detached replay have current CLI/MCP frontdoors. Protected independently adjudicated structural admission is being implemented; unavailable admission is not inferred from computational support. Old internal review-bundle consumers remain.
+- Catalog retirement removes48 fixed variants and unused completed-result/reused-view wrappers, including the selected-result logical registration closure;44 variants remain at the inspected boundary. Current source-view publication/selection and physical fencing still have consumers. Inert SQL is not thereby retired.
+- Product-scoped native reads now include visible original admissions at exact demand/project/context. Current validity remains in the native frontier; revoked raw closure remains diagnostic. New native scope regression awaits the captured successor.
 
 ## Verification · 2026-11-15
 
-- **passed:** `uv run ci test --workers 2 --json -- …` source-free impact acquisition/currentness and graph/impact continuation controls29, `a13588868d9e41f9a6afab3e473e1bdd`.
-- **failed then exact retry passed:** compiler/archive170 `3bce1c7c81f842979e765715a9411bbe` had169passed/1valid-refusal diagnostic expectation mismatch; `uv run ci test retry … --lane ordinary --json`1 passed `1a3b35fb33084681a8151472d9673ef9`. Original outcome retained.
-- **passed:** `uv run ci test --workers 3 --json -- …` byte admission/physical/batch13, `a45ba5b35d9d472cbf673488c2ce8d52`. Genuine retained preparation and spawned CPU are exercised; native I/O is controlled there.
-- **passed:** `uv run ci check --only types --json` `a8cb54d7f1b9432db279795693b5a245`, no diagnostics; `uv run ci check --only lint --json` `470b5fafeb794eb0acb042190fd50207`, no diagnostics. Original failed checks remain held; test annotations/imports were repaired without suppression.
-- **passed:** `uv run ci docs check --json` `6d2226dec7f844f0a9dd1352195cc31b`, zero publication errors; root `just turn-end` formatting completed.
-- **passed:** final formatted-source affected cohort267, `uv run ci test --workers 4 --json -- …`, `8e4b8a4529e8459084fefefbf632c7ba`; includes all current audit repairs, facets/transport and bounded query retirement. Earlier facet24 `863f3edc2dc64fafb0a594513b185198` retained22passed/2source-change custody refusals; the stable cohort passes those controls.
-- All worker commits are integrated on main; auxiliary worktrees removed. Primary managed receipts held. No frozen migration edits entered main.
-- Commands use installed `uv run --no-sync` recovery already documented for the pinned-wheel metadata timeout. No dependencies changed.
-- **not_run:** final-source integrated functional/native/provider/fault union, native capture/registration/deployment, activation, conversion and database cutover. Remaining functional integration precedes qualification.
+- **passed:** stable integrated producer/read cohort313, `uv run ci test --native-host private --workers 4 --json -- …`, `7dae7c01c2894a44a79c5a8094c12fc3`. Includes real private PostgreSQL kernel/visibility, not full publication/provider qualification. Types/lint passed at that source (`1108a9ef81dc4a5fb58f3218c354e147`, `dadaf1fa38e24c5997f4a9f7f0e7afaa`). Later changes require affected reassessment.
+- **passed:** integrated call/projection44 (`08deee3d862f4af0a01148c687206a35`) and selected structural/explicit authority-boundary22 (`6e2736b613d44f63b0d5f7b1f3e3ec32`), through focused `uv run ci test --workers 2 --json -- …` selections. Worker receipts remain in their live worktrees pending root transfer; original failures are retained.
+- **failed:** subsequent `uv run ci check --only types --json` (`5583732c56434252b00b66a0291f9392`, `5afb260369b542d8bf145d87dedebbf6`) and lint (`07175a40fede42ee8252e12e2e3da380`, `1982ca83297747798160c992bf81439d`). Authored narrowing and PDF stale imports are repaired; structural optional-value/test migration and a shadowed local remain assigned. No compatibility restoration or suppression.
+- **failed, rollback cleanup established:** native candidates `74b98cd23af6423a8c338069273fb928`, `5216b548e4c940aaa5e18b01a2be6999`, `9f6ac1bd358f4fdc845e19e0b6ed2c16`. Name/visibility and positional-insert defects repaired; latest refusal requires explicit PDF context return recreation, now requested. [Authoring evidence](docs/design_review/evidence/2026-11-15_ddo-v8-native/README.md) retains scope and original outcomes. No successor registered.
+- Shared editable installs were restored to main with locked offline sync after inner worker uv repointed them. Propagate `UV_NO_SYNC=1` in nested commands while workers borrow the root environment; no dependency pins changed. Doctor passed `6e45bc0106e544a6baeaea41eb56a24b`.
+- **not_run:** final-source whole-series functional/native/provider/fault/nonfunctional union, supported installation/cutover, activation and conversion. Full DDO-12 remains open.
 
-## Acquired development target
+## Acquired development target and next work
 
-- **passed:** read-only `uv run ci db status --maintenance --json`: `corpus_structure_dev`, PostgreSQL18.7 on dedicated5434, OID25921445/system7701811359771751232; installed `semantic_bep_located_v2`, checkout `semantic_ddo_graph_v2`.
-- No persistent database changes. Development cutover is authorized after verified recovery and target acceptance; it has not occurred. Optional imports cannot retain old application interpreters or fabricate target custody.
-
-## Next execution
-
-- Finish remaining producer/public/protected consumers with their obsolete acquisition/publication shells. Reconcile current operation disposition rather than treating historical counts as quotas.
-- Prepare clean supported physical/native installation through existing native authoring owners; capture coherent final source without bypassing correspondence guards. Verify recovery and maintained consumer acceptance before development switch.
-- Qualify applicable final-source scope and update the coordinator; keep required unavailable/unfinished obligations open and retain original failed receipts. Existing DDO-12 remains the final whole-series qualification owner.
+- Persistent `corpus_structure_dev` remains PostgreSQL18.7 on dedicated5434, OID25921445/system7701811359771751232, installed `semantic_bep_located_v2`; checkout migration head `semantic_ddo_graph_v2`. No persistent database changes. Development cutover is authorized after verified recovery and target acceptance.
+- Finish current consumer/authority integration with all obsolete callers/configuration/grants removed, recapture/register exact native source and run the new native controls. Preserve genuine original/CPU/provider/issuer provenance and independent domain expectations.
+- Complete target-only physical installation and verified development adoption, then the required final-source DDO-12 union. Preserve managed receipts before cleaning merged worktrees. Root maintenance follows final source changes.
