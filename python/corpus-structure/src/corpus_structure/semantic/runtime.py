@@ -82,14 +82,14 @@ def open_runtime_engine(
     ) as store:
         try:
             if purpose != "maintenance":
-                from ._operation_calls import require_runtime_principal
-
                 with store.engine.connect() as conn:
                     if purpose == "fit":
                         from sqlalchemy import text
 
-                        conn.execute(text("SELECT eval.require_record_fitting_principal()"))
+                        conn.execute(text("SELECT ops.ddo_require_feature_fit_principal()"))
                     else:
+                        from ._operation_calls import require_runtime_principal
+
                         require_runtime_principal(conn, purpose=purpose)
             yield store.engine
         except BaseException as error:

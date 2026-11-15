@@ -1292,6 +1292,8 @@ def data_operation_native_definitions(connection, *, target_metadata=None):
             )
         elif name == "admit_data_operation_definitions":
             roles = ("corpus_sem_admitter",)
+        elif name == "ddo_require_feature_fit_principal":
+            roles = ("corpus_sem_fitter",)
         elif name == "data_operation_native_descriptor":
             roles = (
                 "corpus_sem_reader",
