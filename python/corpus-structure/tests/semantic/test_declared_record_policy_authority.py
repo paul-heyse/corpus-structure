@@ -28,6 +28,7 @@ def application():
     )
     authorization = policy_authorization_value(
         instance, family_contract="TableReading", judgment_basis_digest="b" * 64,
+        reading_recipe="recipe:readings",
         applicability=DdoRecordPolicyApplicability(project_id=source.project_id, sources=(source,)),
     )
     # This new production reading is deliberately absent from fit/calibration samples.
@@ -41,6 +42,7 @@ def application():
     )
     arguments = dict(
         source=source, source_release_id="release:test", family="table", family_contract="TableReading",
+        reading_recipe="recipe:readings",
         record_id=features.record_id, interpretation_id=features.interpretation_id,
         features=features, events=(event,),
     )
@@ -64,6 +66,7 @@ def test_public_policy_exposes_only_permitted_parameters(application):
         policy_authorization_value(
             instance.model_copy(update={"calibration": None}), family_contract="TableReading",
             judgment_basis_digest="b" * 64, applicability=authorization.applicability,
+            reading_recipe="recipe:readings",
         )
 
 
@@ -76,6 +79,8 @@ def test_new_record_checks_actual_population_and_final_event(application):
         })
     with pytest.raises(ValueError, match="family interpretation"):
         check_record_policy_application(authorization, **{**arguments, "family_contract": "OtherReading"})
+    with pytest.raises(ValueError, match="family interpretation"):
+        check_record_policy_application(authorization, **{**arguments, "reading_recipe": "recipe:changed"})
     with pytest.raises(ValueError, match="unique sealed final event"):
         check_record_policy_application(authorization, **{**arguments, "events": arguments["events"] * 2})
 
@@ -132,3 +137,27 @@ def test_policy_issuer_has_closed_current_command_and_protected_input():
     import json
     assert json.loads(protected.facts)["universe"] == "evaluator"
     assert all(slice.complete for slice in model.implementation_slices)
+
+
+def test_compatible_release_change_preserves_original_policy_lineage(application):
+    _, authorization, arguments = application
+    features = arguments["features"].model_copy(update={"release_id": "release:compatible"})
+    assert check_record_policy_application(authorization, **{
+        **arguments, "source_release_id": "release:compatible", "features": features,
+    }) > 0.5
+    assert authorization.source_release_id == "release:test"
+
+
+def test_private_parameter_custody_preserves_exact_canonical_bytes(application):
+    from corpus_structure.semantic.record_policy_authority import DdoFittedRecordPolicy, execute_authorization_profile
+
+    instance, authorization, _ = application
+    basis = DdoFittedRecordPolicy.from_instance(
+        instance, family_contract="TableReading", reading_recipe="recipe:readings",
+        judgment_basis_digest="b" * 64, applicability=authorization.applicability,
+    )
+    assert execute_authorization_profile(None, basis.model_dump(mode="json")) == authorization.model_dump(mode="json")
+    body = basis.model_dump(mode="python")
+    body["feature_canonical_json"] += " "
+    with pytest.raises(ValueError, match="canonical bytes"):
+        DdoFittedRecordPolicy.model_validate(body)

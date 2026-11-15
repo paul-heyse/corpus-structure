@@ -125,6 +125,13 @@ assessment, where supported, has separate meaning. No implicit latest-reference 
 Native purpose/disclosure/revocation, counterfactual per-record refusal and actual current public
 consumer controls remain required; this target decision does not close their implementation.
 
+The concrete authorization owner is `semantic/record_policy_authority.py`. Its actual reading
+recipe and effective family kind-contract identity bind feature/event interpretation across releases;
+the original instance release remains authentic lineage rather than a broad equality gate. The
+application source population is explicit and independent of fitting samples. Protected canonical
+parameter JSON retains the exact Python digest bytes for native verification; PostgreSQL must not
+guess Python floating-point spelling or substitute a numerically similar serialization.
+
 The [operations companion](operations-and-adapter-cutover.md) owns the complete per-operation
 inventory. Its rich-family entries link here for meaning and cover genuine consolidation, evaluation,
 assembly, record-policy and projection-analysis responsibilities. The [interfaces companion](interfaces-and-evaluation.md)

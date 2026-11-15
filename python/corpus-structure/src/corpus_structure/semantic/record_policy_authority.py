@@ -60,6 +60,7 @@ class DdoRecordPolicyAuthorization(FrozenContract):
     parameters: LinearParameters
     family: Family
     family_contract: Nonempty
+    reading_recipe: Nonempty
     source_release_id: Nonempty
     subset: Nonempty
     event_procedure: Nonempty
@@ -84,6 +85,8 @@ class DdoRecordPolicyAuthorization(FrozenContract):
 def policy_authorization_value(
     instance: RecordAcceptanceInstance, *, family_contract: str,
     judgment_basis_digest: str, applicability: DdoRecordPolicyApplicability,
+    reading_recipe: str,
+    numerical_policy: ReadingNumericalPolicy = READING_NUMERICS,
 ) -> DdoRecordPolicyAuthorization:
     """Produce the permitted value only; an actual native issuer must authenticate it."""
     calibration = instance.calibration
@@ -94,18 +97,18 @@ def policy_authorization_value(
         policy_instance_digest=instance.digest, feature_instance_digest=feature.digest,
         calibration_digest=calibration.digest, algorithm=feature.algorithm,
         parameters=feature.parameters, family=feature.applicability.family,
-        family_contract=family_contract, source_release_id=feature.applicability.release_id,
+        family_contract=family_contract, reading_recipe=reading_recipe, source_release_id=feature.applicability.release_id,
         subset=feature.applicability.subset, event_procedure=calibration.event_procedure,
         threshold_procedure=instance.threshold_procedure, threshold=instance.threshold,
         calibration_slope=calibration.slope, calibration_intercept=calibration.intercept,
-        numerical_policy=READING_NUMERICS, judgment_basis_digest=judgment_basis_digest,
+        numerical_policy=numerical_policy, judgment_basis_digest=judgment_basis_digest,
         applicability=applicability,
     )
 
 
 def check_record_policy_application(
     authorization: DdoRecordPolicyAuthorization, *, source: DeclaredStructuralSource,
-    source_release_id: str, family: str, family_contract: str,
+    source_release_id: str, family: str, family_contract: str, reading_recipe: str,
     record_id: str, interpretation_id: str, features: RecordFeatures,
     events: tuple[dict, ...],
 ) -> float:
@@ -117,8 +120,8 @@ def check_record_policy_application(
     """
     authorization.numerical_policy.require_runtime()
     authorization.applicability.require_source(source)
-    if (source_release_id, family, family_contract) != (
-        authorization.source_release_id, authorization.family, authorization.family_contract,
+    if (family, family_contract, reading_recipe) != (
+        authorization.family, authorization.family_contract, authorization.reading_recipe,
     ):
         raise ValueError("reading family interpretation differs from authorized applicability")
     if (
@@ -179,9 +182,40 @@ class DdoFittedRecordPolicy(FrozenContract):
 
     version: Literal["fitted-record-policy-1"] = "fitted-record-policy-1"
     instance: RecordAcceptanceInstance
+    instance_canonical_json: Nonempty
+    feature_canonical_json: Nonempty
+    calibration_canonical_json: Nonempty
+    numerical_policy: ReadingNumericalPolicy
     family_contract: Nonempty
+    reading_recipe: Nonempty
     judgment_basis_digest: Digest
     applicability: DdoRecordPolicyApplicability
+
+    @model_validator(mode="after")
+    def exact_parameter_custody(self) -> Self:
+        if self.instance.calibration is None:
+            raise ValueError("fitted authorization basis requires final-event calibration")
+        for value, content in (
+            (self.instance, self.instance_canonical_json),
+            (self.instance.feature, self.feature_canonical_json),
+            (self.instance.calibration, self.calibration_canonical_json),
+        ):
+            if canonical_bytes(value.model_dump(mode="json")).decode() != content:
+                raise ValueError("fitted parameter canonical bytes differ from their typed values")
+        return self
+
+    @classmethod
+    def from_instance(cls, instance, *, family_contract, reading_recipe, judgment_basis_digest, applicability,
+                      numerical_policy=READING_NUMERICS):
+        if instance.calibration is None:
+            raise ValueError("fitted authorization basis requires final-event calibration")
+        return cls(
+            instance=instance, instance_canonical_json=canonical_bytes(instance.model_dump(mode="json")).decode(),
+            feature_canonical_json=canonical_bytes(instance.feature.model_dump(mode="json")).decode(),
+            calibration_canonical_json=canonical_bytes(instance.calibration.model_dump(mode="json")).decode(),
+            numerical_policy=numerical_policy, family_contract=family_contract, reading_recipe=reading_recipe,
+            judgment_basis_digest=judgment_basis_digest, applicability=applicability,
+        )
 
 
 def protected_record_policy_kind_declarations():
@@ -205,6 +239,8 @@ def execute_authorization_profile(receiver, basis):
     return policy_authorization_value(
         checked.instance, family_contract=checked.family_contract,
         judgment_basis_digest=checked.judgment_basis_digest, applicability=checked.applicability,
+        numerical_policy=checked.numerical_policy,
+        reading_recipe=checked.reading_recipe,
     ).model_dump(mode="json")
 
 
@@ -254,6 +290,8 @@ class AuthorizationInvocationPlan:
         value = policy_authorization_value(
             checked.instance, family_contract=checked.family_contract,
             judgment_basis_digest=checked.judgment_basis_digest, applicability=checked.applicability,
+            numerical_policy=checked.numerical_policy,
+            reading_recipe=checked.reading_recipe,
         )
         # This is bounded DTO projection. No fitting, inference or native effect
         # occurs in planning; common native completion authenticates issuance.
