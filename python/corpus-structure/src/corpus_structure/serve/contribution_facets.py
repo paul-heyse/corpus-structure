@@ -4,6 +4,10 @@ from hashlib import sha256
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from corpus_structure.semantic.candidate_contribution_facets import (
+    CandidateFacetKinds,
+    candidate_facets,
+)
 from corpus_structure.semantic.contribution_facets import (
     LOCATED_KIND,
     graph_facets,
@@ -64,6 +68,7 @@ class ContributionFacetsRequest(BaseModel):
 
 
 def contribution_rows(scope, request):
+    candidate_kinds = CandidateFacetKinds.from_model(scope.model, scope.prepared)
     if request.include_operations:
         uses = {}
         for use in scope.index.frontier_rows("uses"):
@@ -99,6 +104,16 @@ def contribution_rows(scope, request):
                 interpretation=request.include_interpretation,
                 assessment=request.include_assessment,
                 member_id=request.member_id,
+                max_nested_members=request.max_nested_members,
+            )
+        elif selected.nominal in candidate_kinds.families:
+            rows = candidate_facets(
+                selected,
+                candidate_kinds,
+                interpretation=request.include_interpretation,
+                assessment=request.include_assessment,
+                member_id=request.member_id,
+                max_members=request.max_members,
                 max_nested_members=request.max_nested_members,
             )
         elif (
@@ -274,7 +289,7 @@ def _serve(connection, request, implementation):
                     global_completeness="unknown",
                     protected_dependencies="undisclosed-where-bounded-authority-leaves-occur",
                 ),
-                interpretation_scope="declared-located-rich-graph-and-private-structural-meaning",
+                interpretation_scope="declared-rich-graph-private-candidate-finite-and-structural-meaning",
                 assessment_scope="captured-native-producer-judgments",
                 source_completeness="unknown",
             )
