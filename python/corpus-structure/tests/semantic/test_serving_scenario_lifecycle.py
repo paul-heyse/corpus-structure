@@ -9,8 +9,8 @@ from sqlalchemy import select
 from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.data_operation_demands import DemandPlanner, RootSubject, freeze_demand
 from corpus_structure.semantic.data_operation_storage import DataOperationStorage
-from semantic.serving_scenarios import declared_serving_case as serving_read_scenario
-from semantic.serving_scenarios import declared_serving_seed as serving_scenario_seed
+from semantic.serving_scenarios import declared_serving_case as declared_serving_case
+from semantic.serving_scenarios import declared_serving_seed as declared_serving_seed
 
 
 @dataclass(frozen=True)
@@ -30,8 +30,8 @@ register_scenario_builder(FailedServingRecipe, _fail_serving_build)
 
 
 @pytest.fixture
-def second_serving_clone(scenario_seeds, serving_scenario_seed):
-    with scenario_seeds.commit_clone(serving_scenario_seed.recipe) as clone:
+def second_serving_clone(scenario_seeds, declared_serving_seed):
+    with scenario_seeds.commit_clone(declared_serving_seed.recipe) as clone:
         yield clone
 
 
@@ -44,17 +44,17 @@ def failed_serving_seed(scenario_seeds, native_server):
     return created, [native_server.exists(name) for name in created]
 
 
-def test_changed_seed_recipe_is_refused(serving_scenario_seed, scenario_seeds):
-    scenario_seeds.validate(serving_scenario_seed)
-    altered = replace(serving_scenario_seed, recipe_id="0" * 64)
+def test_changed_seed_recipe_is_refused(declared_serving_seed, scenario_seeds):
+    scenario_seeds.validate(declared_serving_seed)
+    altered = replace(declared_serving_seed, recipe_id="0" * 64)
     with pytest.raises(RuntimeError, match="recipe identity changed"):
         scenario_seeds.validate(altered)
 
 
 def test_two_fresh_serving_clones_are_isolated(
-    serving_scenario_seed, serving_read_scenario, second_serving_clone
+    declared_serving_seed, declared_serving_case, second_serving_clone
 ):
-    seed, first, second = serving_scenario_seed, serving_read_scenario, second_serving_clone
+    seed, first, second = declared_serving_seed, declared_serving_case, second_serving_clone
     assert len({seed.database_oid, first.database_oid, second.database_oid}) == 3
     agent = seed.stage.agent
     frozen = freeze_demand(
