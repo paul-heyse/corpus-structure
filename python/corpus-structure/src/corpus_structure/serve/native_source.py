@@ -1025,7 +1025,7 @@ def _export_native_source(
         raise ValueError("streaming native export requires items or sections")
     response = inspect_native_source(conn, request, cancellation=cancellation)
     # Existing typed SQL projection determines Arrow types, retaining the original text.
-    from corpus_structure.schema.interchange import _sql_arrow
+    from corpus_structure.core.db.arrow_types import sql_arrow_type
     from corpus_structure.semantic.metadata import table
     from corpus_structure.semantic.releases import open_release
 
@@ -1050,7 +1050,7 @@ def _export_native_source(
     parent = _published_parent_product(published)
     schema = pa.schema(
         [
-            pa.field(c.name, _sql_arrow(c.type), nullable=bool(c.nullable))
+            pa.field(c.name, sql_arrow_type(c.type), nullable=bool(c.nullable))
             for c in relation.columns
             if c.name != "native_json"
         ]
@@ -1075,7 +1075,7 @@ def _export_native_source(
                 pa.list_(
                     pa.struct(
                         [
-                            pa.field(c.name, _sql_arrow(c.type), nullable=bool(c.nullable))
+                            pa.field(c.name, sql_arrow_type(c.type), nullable=bool(c.nullable))
                             for c in derivation.columns
                         ]
                     )

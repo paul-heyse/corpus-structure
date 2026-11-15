@@ -16,7 +16,5 @@ CONTENT_HASH: Final = "89b083ed4152d787dff496120cc722f9a42d8bb7b262db4dfd47ffcdd
 KEY_SCHEME: Final = 1
 COMPILERS: Final[Mapping[str, str]] = {
     "corpus_structure.schema.generate": "1",
-    "corpus_structure.schema.interchange": "1",
-    "corpus_structure.schema.relational": "4",
     "linkml-runtime": "1.12.1",
 }

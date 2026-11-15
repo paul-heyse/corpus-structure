@@ -29,6 +29,7 @@ QUERY_SOURCES = (
     "serve/structural_gaps.py",
     "serve/explain.py",
     "serve/native_source.py",
+    "core/db/arrow_types.py",
     "semantic/query.py",
     "semantic/consolidation.py",
     "semantic/coverage_contract.py",

@@ -1,4 +1,4 @@
-"""Independent physical relationships, exact projections and legacy compiler compatibility."""
+"""Independent physical relationships, exact projections and trusted compiler boundaries."""
 
 from __future__ import annotations
 
@@ -214,7 +214,11 @@ def test_large_scalars_do_not_require_btree_index_entries() -> None:
 def test_read_shapes_never_supply_stored_table_ddl():
     from corpus_structure.semantic.metadata import READ_MODEL
 
-    read = compile_metadata(SchemaView(str(READ_MODEL)), target="semantic-read")
+    read = compile_physical(
+        physical_source_closure(READ_MODEL.name, lambda name: READ_MODEL.with_name(name).read_bytes()),
+        root=READ_MODEL.name,
+        target="semantic-read",
+    )
     expected = {
         "ops.pdf_selected_product",
         "ops.pdf_published_item",

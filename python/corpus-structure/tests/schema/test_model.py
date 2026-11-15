@@ -300,6 +300,20 @@ def test_the_revision_hashes_the_parsed_files_and_is_logged(
     assert (current.content_hash, 1) == (revision.CONTENT_HASH, revision.KEY_SCHEME)
 
 
+def test_historical_compiler_provenance_is_preserved_when_current_generators_change(loaded):
+    from dataclasses import replace
+
+    current = model.revision(loaded)
+    log = model.read_log()
+    historical = dict(log[-1]["compilers"])
+    replacement = replace(current, compilers={"current-generator": "2"})
+    assert model.check_log(replacement, log) == []
+    assert log[-1]["compilers"] == historical
+    assert "current-generator" not in historical
+    assert model.check_log(replace(replacement, content_hash="0" * 64), log)
+    assert model.check_log(replace(replacement, key_scheme=999), log)
+
+
 def test_a_model_with_float_values_hashes_stably_and_by_content(tmp_path: Path) -> None:
     """Valid LinkML carries floats (`minimum_value: 0.5`); they hash as canonical decimals."""
 

@@ -647,13 +647,11 @@ def content_hash(core: Path = CORE, system: Path = SYSTEM) -> str:
 
 
 def compilers() -> dict[str, str]:
-    """The compiler versions a revision records: linkml-runtime and each generator's own."""
-    from corpus_structure.schema import interchange, relational  # they import this module
-
-    return {"linkml-runtime": importlib.metadata.version("linkml-runtime"),
-            GENERATOR: GENERATOR_VERSION,
-            relational.COMPILER: relational.COMPILER_VERSION,
-            interchange.COMPILER: interchange.COMPILER_VERSION}  # fmt: skip
+    """The current installed declaration generators, separate from historical provenance."""
+    return {
+        "linkml-runtime": importlib.metadata.version("linkml-runtime"),
+        GENERATOR: GENERATOR_VERSION,
+    }
 
 
 def revision(model: Model) -> Revision:
@@ -686,8 +684,13 @@ def check_log(current: Revision, log: list[dict[str, Any]]) -> list[str]:
             problems.append("the first revision has no parent and no change record")
         if i > 0 and (entry["parent"] != log[i - 1]["content_hash"] or not entry["change_record"]):
             problems.append(f"revision {i}: names its parent's content hash and a change record")
-    last = {k: log[-1].get(k) for k in ("label", "content_hash", "key_scheme", "compilers")}
-    if last != current.entry():
+    # A logged compiler map is the immutable provenance of that declaration revision.
+    # Current generator identity is emitted beside current artifacts; retiring a
+    # generator does not rewrite declarations or their original producing identity.
+    identity = ("label", "content_hash", "key_scheme")
+    last = {key: log[-1].get(key) for key in identity}
+    installed = {key: current.entry()[key] for key in identity}
+    if last != installed:
         problems.append(
             f"the model is not its logged revision: logged {last}, now {current.entry()}"
         )
