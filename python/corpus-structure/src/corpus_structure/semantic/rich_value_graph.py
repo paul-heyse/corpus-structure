@@ -113,7 +113,7 @@ class RichValueGraph:
             self.prepared, supplied, qualification_class=class_name
         ):
             prop = component.property
-            target = self._property_range(definition.iri, prop)
+            self._property_range(definition.iri, prop)
             if component.equality == "casefold-text":
                 property_contract = self._contract(definition.iri + "/property/" + prop.name)
                 value_id = canonical_identity(

@@ -11,6 +11,7 @@ from typing import Any, Literal, get_args
 
 from .identity import canonical_bytes
 from .python_module_projection import admitted_operation_module_meaning
+from .record_policy import FeatureInstance, FrozenContract, Nonempty
 from .types import SourceArtifact, SourceBundle
 
 ReadingRecipe = Literal["retained-m1-reading-resolution-2"]
@@ -145,9 +146,6 @@ def reading_diagnostics(row, details):
                 )
                 unique.setdefault(key, diagnostic)
     return list(unique.values())
-
-
-from .record_policy import FeatureInstance, FrozenContract, Nonempty
 
 
 class DeclaredReadingFeatureInstance(FrozenContract):
@@ -357,9 +355,9 @@ class ReadingInvocationPlan:
         candidates = validate_bound_candidate_report(
             self.prepared, self.model, binding, "candidates", arguments.arguments["candidates"]
         )
-        policy = self.prepared.validate_json(
+        self.prepared.validate_json(
             "DdoReadingFeaturePolicy", json_bytes(arguments.arguments["policy"])
-        ).model_dump(mode="python", exclude_unset=True)
+        )
         pin, context = candidates["source_pin"], binding.subject_context
         if (
             pin["project_id"],

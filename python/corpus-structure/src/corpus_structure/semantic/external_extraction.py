@@ -559,7 +559,7 @@ def execute_rich_kernel(
 
     if action not in {"prepare.external_extraction", "locate.external_extraction"}:
         raise ValueError("unknown captured rich extraction kernel")
-    model, basis, roles, values, policy = _rich_kernel_inputs(
+    model, _basis, roles, values, policy = _rich_kernel_inputs(
         action,
         input_basis,
         prepared=prepared,

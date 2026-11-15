@@ -80,7 +80,7 @@ def compare_declared_models(
     old_nodes, new_nodes = ({node.id: node for node in model.nodes} for model in (before, after))
     for name in sorted(old_nodes.keys() | new_nodes.keys()):
 
-        def record(nodes):
+        def record(nodes, name=name):
             node = nodes.get(name)
             return (
                 None

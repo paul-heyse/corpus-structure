@@ -1348,7 +1348,6 @@ def read_page(metadata):
     demand, selection = _var("d.id", Text), _var("d.selection", JSONB)
     boundary = literal_column("boundary")
     obligations = metadata.tables["ops.data_obligation"]
-    uses = metadata.tables["ops.demand_use"]
     episodes = metadata.tables["ops.data_derivation"]
     intents = metadata.tables["ops.data_completion_intent"]
     products = metadata.tables["kb.data_product"]

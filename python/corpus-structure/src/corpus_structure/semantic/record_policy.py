@@ -375,7 +375,7 @@ def reading_potential(parameters: LinearParameters, values: tuple[float, ...]) -
 
 def score_record(feature: FeatureInstance, vector: RecordFeatures, *, subset: str) -> RecordScore:
     READING_NUMERICS.require_runtime()
-    applicability, parameters = feature.applicability, feature.parameters
+    applicability = feature.applicability
     if (vector.release_id, vector.family, subset) != (
         applicability.release_id,
         applicability.family,

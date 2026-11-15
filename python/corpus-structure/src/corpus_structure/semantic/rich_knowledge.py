@@ -204,7 +204,7 @@ def resolve_rich_entities(
             ):
                 continue
 
-            def endpoint(value):
+            def endpoint(value, source=source):
                 return (
                     ("known", value["target"])
                     if value["kind"] == "known"
@@ -414,7 +414,7 @@ def resolve_rich_entities(
         pending = remaining
     for reference, exclusion, _, _ in exclusions:
 
-        def mapped(endpoint):
+        def mapped(endpoint, reference=reference):
             if endpoint["kind"] == "known":
                 if endpoint["target"] not in known:
                     raise ValueError("rich identity exclusion has an unbound known endpoint")

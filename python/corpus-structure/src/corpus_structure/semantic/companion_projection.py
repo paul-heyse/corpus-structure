@@ -34,6 +34,7 @@ from sqlalchemy.dialects.postgresql import JSONB
 from corpus_structure.schema.model import ci_annotations
 from corpus_structure.schema.relational import render_typed_column_class
 
+from ._data_operation_wire import WireReadSelectedPdfSourceRequest
 from .projection_recipe import (
     Field,
     HelperDefinition,
@@ -60,7 +61,6 @@ if TYPE_CHECKING:
 
 MODEL = Path(__file__).resolve().parents[1] / "model/semantic/companion-projections.yaml"
 FAMILIES = ("input", "relation", "coverage", "mapping_report")
-from ._data_operation_wire import WireReadSelectedPdfSourceRequest
 
 PIN_FIELDS = tuple(WireReadSelectedPdfSourceRequest.__annotations__)
 
@@ -97,7 +97,6 @@ class CompanionProjection:
 
     @cached_property
     def _native_relation(self):
-        columns = {item.name: item for item in self.columns}
         function = func
         for part in self.function_name.split("."):
             function = getattr(function, part)
