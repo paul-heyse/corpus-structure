@@ -8,7 +8,7 @@ native read owner retains permission/trust authority and complete support closur
 from __future__ import annotations
 
 import base64
-from collections import defaultdict, deque
+from collections import defaultdict
 from hashlib import sha256
 from typing import Any, Literal
 
@@ -67,6 +67,7 @@ class ChangeImpactItem(BaseModel):
 class _Continuation(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
     comparison: str
+    request_identity: str
     offset: int = Field(ge=0, strict=True)
     before_read: str
     before_cut: str
@@ -114,20 +115,33 @@ def changed_operations(before: EffectiveDataOperationModel, target: EffectiveDat
             or old_ids.get((name, "recipe")) != new_ids.get((name, "recipe"))
         ):
             roots.add(name)
-    consumers: dict[str, set[str]] = defaultdict(set)
-    for operation in (*before.operations, *target.operations):
-        for dependency in (*operation.dependencies, *operation.potential_dependencies):
-            consumers[dependency].add(operation.semantic_id)
+    from .data_operation_identity import SemanticGraph
+
+    names = set(old) | set(new)
+    records = {
+        "nodes": [dict(id=name, category="operation", payload={}) for name in sorted(names)],
+        "edges": [],
+    }
+    for side, model in (("before", before), ("target", target)):
+        for operation in model.operations:
+            for relation, dependencies in (
+                ("required", operation.dependencies),
+                ("possible", operation.potential_dependencies),
+            ):
+                for position, dependency in enumerate(dependencies):
+                    records["edges"].append(
+                        dict(
+                            source=operation.semantic_id,
+                            target=dependency,
+                            relation=side + "_change_" + relation,
+                            position=position,
+                        )
+                    )
+    graph = SemanticGraph(records)
     affected: dict[str, set[str]] = defaultdict(set)
     for root in sorted(roots):
-        pending, visited = deque([root]), set()
-        while pending:
-            name = pending.popleft()
-            if name in visited:
-                continue
-            visited.add(name)
+        for name in graph.closure((root,), direction="dependents"):
             affected[name].add(root)
-            pending.extend(sorted(consumers[name]))
     return roots, affected
 
 
@@ -246,7 +260,7 @@ def _acquire(connection, demand, *, project, scope, read_id, expected_cut, max_b
                 if read_id is None
                 else dict(demand_id=demand, read_id=read_id, scope=scope, view="frontier")
             )
-            cut, obligations, uses = None, {}, defaultdict(list)
+            cut, obligations, uses, populations = None, {}, defaultdict(list), {}
             while True:
                 page = read_demand_result(
                     connection,
@@ -262,6 +276,8 @@ def _acquire(connection, demand, *, project, scope, read_id, expected_cut, max_b
                 cut = page.cut
                 if expected_cut is not None and cut.identity != expected_cut:
                     raise ValueError("impact request belongs to another cut/trust assessment")
+                for row in page.record["populations"]:
+                    populations[row["population_id"]] = row
                 for row in page.record["obligations"]:
                     obligations[row["obligation_id"]] = row
                 for row in page.record["uses"]:
@@ -321,7 +337,27 @@ def _acquire(connection, demand, *, project, scope, read_id, expected_cut, max_b
                         support=tuple(sorted(support)),
                     )
                 )
-            return cut, tuple(evidence)
+            population = {row.member.key: row.member for row in evidence}
+            closed = True
+            for relation in cut.record["selection"].get("discovery", ()):
+                selected = [
+                    row for row in populations.values() if row["name"] == relation["population"]
+                ]
+                if len(selected) != 1 or selected[0]["complete"] is not True:
+                    closed = False
+                    continue
+                for member in selected[0]["members"]:
+                    child = PopulationMember(
+                        operation=relation["target"],
+                        subject=member["subject"],
+                        original_source=member["original_source"],
+                        analyzed_scope=member["analyzed_scope"],
+                    )
+                    if scope and child.key not in population:
+                        closed = False
+                    else:
+                        population[child.key] = child
+            return cut, tuple(evidence), tuple(population.values()), closed
         finally:
             index.close()
 
@@ -330,6 +366,21 @@ def inspect_change_impact(
     connection, request: ChangeImpactRequest, *, target_prepared, before_model=None
 ) -> ChangeImpactPage:
     """Same-transaction native reads; no writes beyond existing protected acquisition."""
+    request_identity = sha256(
+        json_bytes(
+            request.model_dump(
+                mode="python",
+                exclude={
+                    "cursor",
+                    "limit",
+                    "read_id",
+                    "expected_cut",
+                    "target_read_id",
+                    "expected_target_cut",
+                },
+            )
+        )
+    ).hexdigest()
     if request.cursor:
         try:
             token = _Continuation.model_validate(
@@ -337,6 +388,8 @@ def inspect_change_impact(
             ).model_dump()
         except Exception as error:
             raise ValueError("invalid impact continuation") from error
+        if token["request_identity"] != request_identity:
+            raise ValueError("impact continuation belongs to another comparison request scope")
         request = request.model_copy(
             update={
                 "read_id": token["before_read"],
@@ -347,7 +400,7 @@ def inspect_change_impact(
         )
     else:
         token = None
-    before_cut, before = _acquire(
+    before_cut, before, before_population, before_closed = _acquire(
         connection,
         request.before_demand_id,
         project=request.project_id,
@@ -368,9 +421,9 @@ def inspect_change_impact(
     if target_prepared.release_id != request.target_release_id:
         raise ValueError("target model belongs to another release")
     target_model = bound_data_operation_model(target_prepared)
-    target_cut, target = None, ()
+    target_cut, target, target_population, target_closed = None, (), (), False
     if request.target_demand_id is not None:
-        target_cut, target = _acquire(
+        target_cut, target, target_population, target_closed = _acquire(
             connection,
             request.target_demand_id,
             project=request.project_id,
@@ -401,14 +454,28 @@ def inspect_change_impact(
     comparison = "change-impact:" + sha256(json_bytes(fingerprint)).hexdigest()
     if token is not None and token["comparison"] != comparison:
         raise ValueError("impact continuation belongs to another comparison/context")
+    population_complete = before_closed and target_closed
+    unknowns = []
+    if not population_complete:
+        unknowns.append(
+            "native before/target requested and discovery populations are not both closed"
+        )
+    for supplied, native, side in (
+        (request.before_population, before_population, "before"),
+        (request.target_population, target_population, "target"),
+    ):
+        if supplied and {row.key for row in supplied} != {row.key for row in native}:
+            unknowns.append(
+                side + " supplied population differs from authenticated native requested universe"
+            )
     rows = classify_change_impact(
         before_model,
         target_model,
         before=before,
         target=target,
-        before_population=request.before_population,
-        target_population=request.target_population,
-        population_complete=request.population_complete,
+        before_population=before_population,
+        target_population=target_population,
+        population_complete=population_complete,
         target_observed=target_cut is not None,
     )
     offset = 0 if token is None else token["offset"]
@@ -430,6 +497,7 @@ def inspect_change_impact(
             json_bytes(
                 dict(
                     comparison=comparison,
+                    request_identity=request_identity,
                     offset=end,
                     before_read=before_cut.record["read_id"],
                     before_cut=before_cut.identity,
@@ -439,19 +507,20 @@ def inspect_change_impact(
             )
         ).decode()
     )
-    return ChangeImpactPage(
+    result = ChangeImpactPage(
         comparison_id=comparison,
         before_cut=before_cut.record,
         target_cut=None if target_cut is None else target_cut.record,
         target_release_id=request.target_release_id,
         items=rows[offset:end],
         complete=end == len(rows),
-        population_complete=request.population_complete,
-        unknowns=()
-        if request.population_complete
-        else ("subject/population coverage is not declared complete",),
+        population_complete=population_complete,
+        unknowns=tuple(unknowns),
         continuation=next_token,
     )
+    if len(json_bytes(result.model_dump(mode="python"))) > request.max_bytes:
+        raise ValueError("complete impact page exceeds max_bytes")
+    return result
 
 
 def resume_changed_demand(engine, demand_id, *, project_id, source_root, **execution_options):

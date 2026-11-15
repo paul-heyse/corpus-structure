@@ -145,6 +145,23 @@ def test_actual_native_currentness_pins_target_and_continuation(declared_serving
     with clone.reader.begin() as connection:
         first = inspect_change_impact(connection, request, target_prepared=stage.prepared)
         assert first.items[0].state == "substitutable"
+        assert first.population_complete
+        invented = PopulationMember(
+            operation="urn:invented", subject="not-in-demand", original_source="source:invented"
+        )
+        uncorroborated = inspect_change_impact(
+            connection,
+            request.model_copy(
+                update={
+                    "before_population": (invented,),
+                    "target_population": (),
+                    "population_complete": True,
+                }
+            ),
+            target_prepared=stage.prepared,
+        )
+        assert all(row.member.subject != "not-in-demand" for row in uncorroborated.items)
+        assert any("supplied population differs" in reason for reason in uncorroborated.unknowns)
         if first.continuation is not None:
             second = inspect_change_impact(
                 connection,
