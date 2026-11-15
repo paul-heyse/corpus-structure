@@ -339,31 +339,30 @@ def selected_fixture(tmp_path, monkeypatch, acquired):
     monkeypatch.setattr(
         "corpus_structure.evaluate.selected_references.selected_record_index", selected
     )
-    native_projection = {
-        "kinds": [
-            dict(
-                kind_contract="kind:reference",
-                kind="https://corpus-structure.dev/semantic/data-operation-assessment/DdoSelectedReferenceSnapshot",
-                universe="evaluator",
-            ),
-            dict(
-                kind_contract="kind:authored-reference",
-                kind="https://corpus-structure.dev/semantic/data-operation-assessment/DdoSelectedReference",
-                universe="evaluator",
-            ),
-        ]
+    from dataclasses import replace
+    from corpus_structure.semantic.native_definition_projection import read_native_definition_projection
+
+    native_projection = read_native_definition_projection(acquired)
+    contracts = {
+        "https://corpus-structure.dev/semantic/data-operation-assessment/DdoSelectedReferenceSnapshot": "kind:reference",
+        "https://corpus-structure.dev/semantic/data-operation-assessment/DdoSelectedReference": "kind:authored-reference",
     }
+    native_projection["kinds"] = [
+        {**kind, "kind_contract": contracts[kind["kind"]]}
+        for kind in native_projection["kinds"]
+        if kind["kind"] in contracts
+    ]
+    # Only native acquisition is substituted: archive/model binding and projection
+    # shape are supplied by the actual independently prepared release.
+    artifacts = tuple(
+        replace(artifact, content=json_bytes(native_projection))
+        if artifact.kind == "data_operation_native_definitions.json"
+        else artifact
+        for artifact in acquired.artifacts
+    )
     monkeypatch.setattr(
         "corpus_structure.semantic.releases.open_release",
-        lambda *a: SimpleNamespace(
-            validate_json=acquired.validate_json,
-            artifacts=[
-                SimpleNamespace(
-                    kind="data_operation_native_definitions.json",
-                    content=json_bytes(native_projection),
-                )
-            ],
-        ),
+        lambda *a: replace(acquired, artifacts=artifacts),
     )
     request = SelectedReferenceEvaluationRequest(
         project_id="project:A",
