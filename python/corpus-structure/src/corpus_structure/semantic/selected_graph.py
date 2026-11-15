@@ -95,13 +95,7 @@ def snapshot_from_index(prepared, cut, index, projection):
             owner = node("ddo.selected-obligation", row["obligation_id"], "obligation", row)
             for use_id, use in frontier_uses.items():
                 if use.get("obligation_id") == row["obligation_id"]:
-                    edge(
-                        owner,
-                        required("ops.demand_use", use_id, "selected obligation use"),
-                        "requires",
-                        "selected-use",
-                        witness={"obligation_id": row["obligation_id"], "use_id": use_id},
-                    )
+                    edge(owner, required("ops.demand_use", use_id, "selected obligation use"), "requires", "selected-use", witness={"obligation_id": row["obligation_id"], "use_id": use_id})
             if row.get("request_id"):
                 # Waiting/attached requests without an episode have no exported raw
                 # request row. Their exact selected frontier owns the identity.
@@ -142,10 +136,7 @@ def snapshot_from_index(prepared, cut, index, projection):
         for name, row in all_uses.items():
             owner = required("ops.demand_use", name, "use")
             if row.get("request_id") is None:
-                if row.get("fate") in {"attached", "fulfilled"} or row.get("historical_fate") in {
-                    "attached",
-                    "fulfilled",
-                }:
+                if row.get("fate") in {"attached", "fulfilled"} or row.get("historical_fate") in {"attached", "fulfilled"}:
                     raise ValueError("attached or fulfilled use lacks its semantic request")
                 continue  # Recorded availability fates do not fabricate a request/binding.
             request = required("ops.data_request", row["request_id"], "request")
@@ -225,10 +216,7 @@ def snapshot_from_index(prepared, cut, index, projection):
         for name, row in all_uses.items():
             owner = required("ops.demand_use", name, "use")
             if row.get("request_id") is None:
-                if row.get("fate") in {"attached", "fulfilled"} or row.get("historical_fate") in {
-                    "attached",
-                    "fulfilled",
-                }:
+                if row.get("fate") in {"attached", "fulfilled"} or row.get("historical_fate") in {"attached", "fulfilled"}:
                     raise ValueError("attached or fulfilled use lacks its semantic request")
                 continue
             if row.get("derivation_id"):
@@ -336,48 +324,30 @@ def snapshot_from_index(prepared, cut, index, projection):
     )
 
 
-def selected_graph_snapshot(connection, prepared, request):
-    from .data_operation_admission import bound_data_operation_model
-    from .demand_results import SelectedGraphBudgetExceeded, selected_record_index
+def selected_graph_snapshot(prepared, cut, index, request):
+    """Interpret a detached, authenticated index without a database transaction."""
+    if request.projection == "assessment":
+        from corpus_structure.evaluate.assessment_graph import assessment_graph_snapshot
 
-    model = bound_data_operation_model(prepared)
-    specification = model.projection_definition(request.projection)
-    if request.project_id is None:
-        raise ValueError("selected graph requires an explicit project")
-    pins = dict(
-        release_id=prepared.release_id, demand_id=request.demand_id, project_id=request.project_id
-    )
-    try:
-        with selected_record_index(
-            connection,
-            request.demand_id,
-            project_id=request.project_id,
-            scope=request.scope,
-            read_id=request.read_id,
-            expected_cut=request.expected_cut,
-            max_bytes=8388608,  # Native transport quantum; retained examination has its own bound.
-            max_total_bytes=request.max_examined_bytes,
-            capture_frontier=True,
-        ) as (cut, index):
-            if request.projection == "assessment":
-                from corpus_structure.evaluate.assessment_graph import assessment_graph_snapshot
-
-                addresses = tuple(
-                    (member.product_id, member.member_id) for member in request.assessed_members
-                )
-                return assessment_graph_snapshot(
-                    prepared, cut, index, members=addresses, max_bytes=request.max_examined_bytes
-                )
-            return snapshot_from_index(prepared, cut, index, request.projection)
-    except SelectedGraphBudgetExceeded as error:
-        pins.update(error.cut.record)
-        pins["cut_id"] = error.cut.identity
-        return GraphSnapshot(
-            projection=request.projection,
-            specification=specification.identity_bytes.hex(),
-            pins_json=json_bytes(pins).decode(),
-            nodes=(),
-            occurrences=(),
-            standing="partial",
-            unknowns=(str(error),),
+        addresses = tuple((member.product_id, member.member_id) for member in request.assessed_members)
+        return assessment_graph_snapshot(
+            prepared, cut, index, members=addresses, max_bytes=request.max_examined_bytes
         )
+    return snapshot_from_index(prepared, cut, index, request.projection)
+
+
+def selected_graph_budget_snapshot(prepared, request, error):
+    """Preserve an acquired native cut when examination could not retain its closure."""
+    from .data_operation_admission import bound_data_operation_model
+
+    specification = bound_data_operation_model(prepared).projection_definition(request.projection)
+    pins = {**error.cut.record, "cut_id": error.cut.identity}
+    return GraphSnapshot(
+        projection=request.projection,
+        specification=specification.identity_bytes.hex(),
+        pins_json=json_bytes(pins).decode(),
+        nodes=(),
+        occurrences=(),
+        standing="partial",
+        unknowns=(str(error),),
+    )

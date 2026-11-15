@@ -166,10 +166,9 @@ def graph(
     with (
         failure_boundary(json, expected=(ValueError, KeyError, OSError)),
         open_runtime_engine(state(ctx).settings(), "ci-graph-inspection", purpose="read") as engine,
-        engine.begin() as connection,
     ):
         from corpus_structure.semantic.data_operation_json import json_loads
 
         request = GraphInspectionRequest.model_validate(json_loads(read_request_bytes(input)))
-        result = read_graph_inspection(connection, request)
+        result = read_graph_inspection(engine.begin, request)
     emit(result, json=json)

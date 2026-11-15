@@ -206,3 +206,19 @@ def test_historical_projection_is_unavailable_without_current_execution_or_backf
     result = archived_graph_snapshot(prepared, "selected-support")
     assert result.standing == "unavailable" and not result.nodes
     assert archived_data_operation_model(prepared).content == content
+
+
+def test_assessment_roots_have_an_explicit_request_bound():
+    from corpus_structure.semantic.graph_inspection import GraphAssessedMember
+
+    members = tuple(GraphAssessedMember(product_id="product", member_id=str(i)) for i in range(1001))
+    accepted = GraphInspectionRequest(
+        release_id="release:one", projection="assessment", project_id="project", demand_id="demand",
+        assessed_members=members[:1000],
+    )
+    assert len(accepted.assessed_members) == 1000
+    with pytest.raises(ValueError, match="1000"):
+        GraphInspectionRequest(
+            release_id="release:one", projection="assessment", project_id="project", demand_id="demand",
+            assessed_members=members,
+        )

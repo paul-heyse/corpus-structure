@@ -100,8 +100,7 @@ def register_source_inspection_tools(server, reader, *, project=None, demand=Non
             raise ValueError("graph belongs to another server project")
         if demand is not None and request.demand_id is not None and request.demand_id != demand:
             raise ValueError("graph belongs to another server demand")
-        with reader() as connection:
-            result = read_graph_inspection(connection, request)
+        result = read_graph_inspection(reader, request)
         return bounded_mcp_result(result, request.max_bytes)
 
     @server.resource("corpus://declared-graph/{handle}")
@@ -113,8 +112,7 @@ def register_source_inspection_tools(server, reader, *, project=None, demand=Non
             raise ValueError("graph belongs to another server project")
         if demand is not None and request.demand_id is not None and request.demand_id != demand:
             raise ValueError("graph belongs to another server demand")
-        with reader() as connection:
-            result = read_graph_inspection(connection, request)
+        result = read_graph_inspection(reader, request)
         content = result.model_dump_json()
         if len(content.encode()) > request.max_bytes:
             raise ValueError("complete graph resource exceeds response bound")
