@@ -259,6 +259,7 @@ def classify_change_impact(
             "waiting",
             "attached",
             "awaiting-external",
+            "awaiting-population",
             "unavailable",
         }:
             state, reason = "awaiting", "target_execution_not_settled"
@@ -447,7 +448,9 @@ def _acquire(connection, demand, *, project, scope, read_id, expected_cut, max_b
                         products=tuple(sorted(edges, key=json_bytes)),
                         inputs=tuple(sorted(inputs, key=json_bytes)),
                         support=tuple(sorted(support)),
-                        invalidity_causes=_revocation_causes(index, derivations),
+                        invalidity_causes=_revocation_causes(index, derivations)
+                        if obligation["fate"] == "unavailable"
+                        else (),
                     )
                 )
             population = {row.member.key: row.member for row in evidence}
