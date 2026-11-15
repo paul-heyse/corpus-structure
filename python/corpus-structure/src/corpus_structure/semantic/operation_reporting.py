@@ -21,7 +21,7 @@ from typing import TYPE_CHECKING, Any, Literal
 from pydantic import BaseModel, ConfigDict, JsonValue
 
 from .identity import canonical_bytes
-from .refusals import DATABASE_ERRORS, SemanticRefusal
+from .refusals import DATABASE_ERRORS, SemanticRefusal, trusted_operation_model_id
 from .types import Diagnostic, PreparedRelease
 
 if TYPE_CHECKING:
@@ -91,8 +91,6 @@ if TYPE_CHECKING:
     from .types import SourceBundle
 
 
-
-
 @lru_cache(maxsize=1)
 def _report_sources() -> SourceBundle:
     """Registration and invocation share one immutable process-owned source closure."""
@@ -102,13 +100,16 @@ def _report_sources() -> SourceBundle:
     modules = ("operation-reports", "pdf-products", "observations", "characterization", "core")
     return SourceBundle(
         "report_root",
-        (*(
-            SourceArtifact(name.replace("-", "_"), root.joinpath(name + ".yaml").read_bytes())
-            for name in modules
-        ), SourceArtifact(
-            "report_root",
-            b"id: urn:corpus:report-boundary\nname: report_boundary\nimports: [operation_reports, pdf_products, observations, characterization, core]\n",
-        )),
+        (
+            *(
+                SourceArtifact(name.replace("-", "_"), root.joinpath(name + ".yaml").read_bytes())
+                for name in modules
+            ),
+            SourceArtifact(
+                "report_root",
+                b"id: urn:corpus:report-boundary\nname: report_boundary\nimports: [operation_reports, pdf_products, observations, characterization, core]\n",
+            ),
+        ),
     )
 
 
@@ -144,8 +145,6 @@ def _report(name: str, data: dict) -> BaseModel:
     )
 
 
-
-
 def explain_operation(
     prepared: PreparedRelease,
     operation: str,
@@ -167,42 +166,48 @@ def explain_operation(
     try:
         found = model.operation(operation)
     except StopIteration as exc:
-        raise SemanticRefusal("operation is not declared by this current release: " + operation) from exc
+        raise SemanticRefusal(
+            "operation is not declared by this current release: " + operation
+        ) from exc
     projection = read_native_definition_projection(prepared, model=model)
     native = next(row for row in projection["operations"] if row["operation_id"] == operation)
     selected = None
     if observation is not None:
-        if connection is None or observation.view != "operations" or observation.operation_id != operation:
-            raise ValueError("operation observation requires its exact selected native operation query")
+        if (
+            connection is None
+            or observation.view != "operations"
+            or observation.operation_id != operation
+        ):
+            raise ValueError(
+                "operation observation requires its exact selected native operation query"
+            )
         selected = serve_demand_query(connection, observation)
         if selected["cut"]["release_id"] != prepared.release_id:
             raise ValueError("operation observation belongs to another release")
-    return _report("OperationExplanation", dict(
-        release_id=prepared.release_id,
-        model_digest=projection["model_digest"],
-        operation=operation,
-        profile=found.profile,
-        subject_definition=found.subject,
-        definition=native["definition"],
-        recipe=native["recipe"],
-        eligibility=native["eligibility"],
-        implementation_revision=native["implementation_revision"],
-        declaration_json=found.definition.decode(),
-        eligibility_json=found.eligibility.decode(),
-        binding_json=canonical_bytes(native["binding"]).decode(),
-        support_json=canonical_bytes(native["support_contract"]).decode(),
-        precision_description=found.precision_description,
-        coverage_description=found.coverage.description,
-        observation_status="not_requested" if selected is None else "observed",
-        observation_json=None if selected is None else json_bytes(selected).decode(),
-        complete=selected is None or selected["page_complete"],
-        authority="declaration_and_observation_only",
-    ))
-
-
-
-
-
+    return _report(
+        "OperationExplanation",
+        dict(
+            release_id=prepared.release_id,
+            model_digest=projection["model_digest"],
+            operation=operation,
+            profile=found.profile,
+            subject_definition=found.subject,
+            definition=native["definition"],
+            recipe=native["recipe"],
+            eligibility=native["eligibility"],
+            implementation_revision=native["implementation_revision"],
+            declaration_json=found.definition.decode(),
+            eligibility_json=found.eligibility.decode(),
+            binding_json=canonical_bytes(native["binding"]).decode(),
+            support_json=canonical_bytes(native["support_contract"]).decode(),
+            precision_description=found.precision_description,
+            coverage_description=found.coverage.description,
+            observation_status="not_requested" if selected is None else "observed",
+            observation_json=None if selected is None else json_bytes(selected).decode(),
+            complete=selected is None or selected["page_complete"],
+            authority="declaration_and_observation_only",
+        ),
+    )
 
 
 def unavailable_validation_evidence(report, reason: str):
@@ -388,7 +393,7 @@ def validation_report(
     return _validation_presentation(
         dict(
             release_id=prepared.release_id if prepared else None,
-            model_id=prepared.execution_model_id if prepared else None,
+            model_id=trusted_operation_model_id(prepared) if prepared else None,
             observations=observations,
             evidence=dict(
                 kind="marker",
@@ -410,17 +415,8 @@ def validation_report(
     )
 
 
-
-
-
-
-
-
-
-
-
-
 _NO_MEMBER = object()
+
 
 def _changed_members(before: Any, after: Any, model_path: str) -> list[dict[str, Any]]:
     """Compare normalized facts; named model members retain their declared identity."""
@@ -491,10 +487,14 @@ def _changed_members(before: Any, after: Any, model_path: str) -> list[dict[str,
     return visit(before, after, model_path)
 
 
-def compare_semantic_releases(before: PreparedRelease, after: PreparedRelease, *,
-                              before_runtime: RuntimeBinding | None = None,
-                              after_runtime: RuntimeBinding | None = None,
-                              dependency_detail: bool = False) -> BaseModel:
+def compare_semantic_releases(
+    before: PreparedRelease,
+    after: PreparedRelease,
+    *,
+    before_runtime: RuntimeBinding | None = None,
+    after_runtime: RuntimeBinding | None = None,
+    dependency_detail: bool = False,
+) -> BaseModel:
     """Compare current captured meaning, keeping source, runtime and use limits explicit."""
     from .data_operation_admission import bound_data_operation_model
     from .model_comparison import compare_declared_models
@@ -504,12 +504,24 @@ def compare_semantic_releases(before: PreparedRelease, after: PreparedRelease, *
     from .vocabulary_impact import append_vocabulary_impact
 
     models = (bound_data_operation_model(before), bound_data_operation_model(after))
-    compared = compare_declared_models(*models, before_release=before.release_id, after_release=after.release_id)
-    changes: list[dict[str, Any]] = [dict(kind=change.kind, model_ref=change.model_ref, aspect=change.aspect,
-        consumers=change.consumers, reason="Captured declared model meaning differs; output change is unassessed.",
-        members=_changed_members(change.before if change.before is not None else _NO_MEMBER,
-                                 change.after if change.after is not None else _NO_MEMBER, change.model_ref))
-        for change in compared.changes]
+    compared = compare_declared_models(
+        *models, before_release=before.release_id, after_release=after.release_id
+    )
+    changes: list[dict[str, Any]] = [
+        dict(
+            kind=change.kind,
+            model_ref=change.model_ref,
+            aspect=change.aspect,
+            consumers=change.consumers,
+            reason="Captured declared model meaning differs; output change is unassessed.",
+            members=_changed_members(
+                change.before if change.before is not None else _NO_MEMBER,
+                change.after if change.after is not None else _NO_MEMBER,
+                change.model_ref,
+            ),
+        )
+        for change in compared.changes
+    ]
     unknowns = set(compared.unknowns)
     try:
         policies = (released_alias_product(before), released_alias_product(after))
@@ -526,23 +538,52 @@ def compare_semantic_releases(before: PreparedRelease, after: PreparedRelease, *
                 if group == "classes":
                     for model in models:
                         graph = model.projection_graph("semantic-reference")
-                        roots = [kind.semantic_id for kind in model.kinds if kind.semantic_id == iri]
+                        roots = [
+                            kind.semantic_id for kind in model.kinds if kind.semantic_id == iri
+                        ]
                         if roots:
                             operations = {operation.semantic_id for operation in model.operations}
-                            consumers.update(set(graph.closure(roots, direction="dependents")) & operations)
+                            consumers.update(
+                                set(graph.closure(roots, direction="dependents")) & operations
+                            )
                     unknowns.add("Dynamic alias-policy consumer closure is unassessed for " + iri)
-                changes.append(dict(kind="added" if left is _NO_MEMBER else "removed" if right is _NO_MEMBER else "changed",
-                    model_ref="alias_policy:" + iri, aspect=aspect, consumers=sorted(consumers),
-                    reason="Released normalization differs." if group == "classes" else "Alias source origin differs; normalization is separate.",
-                    members=_changed_members(left, right, "alias_policy:" + iri + "/" + group)))
+                changes.append(
+                    dict(
+                        kind="added"
+                        if left is _NO_MEMBER
+                        else "removed"
+                        if right is _NO_MEMBER
+                        else "changed",
+                        model_ref="alias_policy:" + iri,
+                        aspect=aspect,
+                        consumers=sorted(consumers),
+                        reason="Released normalization differs."
+                        if group == "classes"
+                        else "Alias source origin differs; normalization is separate.",
+                        members=_changed_members(left, right, "alias_policy:" + iri + "/" + group),
+                    )
+                )
     query_analysis = compare_retained_projection_analysis(before, after)
     unknowns.update(query_analysis.unknowns)
     for change in query_analysis.changes:
-        changes.append(dict(kind="added" if change.before is None else "removed" if change.after is None else "changed",
-            model_ref=change.model_ref, aspect="query-" + change.aspect, consumers=change.consumers,
-            reason="Captured query analysis differs; current source and retained data impact are separate.",
-            members=_changed_members(change.before if change.before is not None else _NO_MEMBER,
-                                     change.after if change.after is not None else _NO_MEMBER, change.model_ref)))
+        changes.append(
+            dict(
+                kind="added"
+                if change.before is None
+                else "removed"
+                if change.after is None
+                else "changed",
+                model_ref=change.model_ref,
+                aspect="query-" + change.aspect,
+                consumers=change.consumers,
+                reason="Captured query analysis differs; current source and retained data impact are separate.",
+                members=_changed_members(
+                    change.before if change.before is not None else _NO_MEMBER,
+                    change.after if change.after is not None else _NO_MEMBER,
+                    change.model_ref,
+                ),
+            )
+        )
     append_vocabulary_impact(before, after, changes, unknowns, _changed_members, _NO_MEMBER)
     for prepared, runtime in ((before, before_runtime), (after, after_runtime)):
         if runtime is not None:
@@ -551,14 +592,31 @@ def compare_semantic_releases(before: PreparedRelease, after: PreparedRelease, *
             validate_runtime_binding(runtime, prepared)
     if (before_runtime is None) != (after_runtime is None):
         unknowns.add("Runtime change is unassessed: supply both runtime bindings.")
-    elif before_runtime is not None and after_runtime is not None and (
-        before_runtime.implementation_digests != after_runtime.implementation_digests
-        or json.loads(before_runtime.manifest)["python_version"] != json.loads(after_runtime.manifest)["python_version"]
+    elif (
+        before_runtime is not None
+        and after_runtime is not None
+        and (
+            before_runtime.implementation_digests != after_runtime.implementation_digests
+            or json.loads(before_runtime.manifest)["python_version"]
+            != json.loads(after_runtime.manifest)["python_version"]
+        )
     ):
-        unknowns.add("Executable runtime changed independently of semantic release meaning; behavior equivalence is unassessed.")
-    return _report("SemanticImpactReport", dict(before_release=before.release_id, after_release=after.release_id,
-        changes=changes, unknowns=sorted(unknowns), complete=not unknowns,
-        projection_dependencies=_dependency_page((("before", before), ("after", after))) if dependency_detail else None))
+        unknowns.add(
+            "Executable runtime changed independently of semantic release meaning; behavior equivalence is unassessed."
+        )
+    return _report(
+        "SemanticImpactReport",
+        dict(
+            before_release=before.release_id,
+            after_release=after.release_id,
+            changes=changes,
+            unknowns=sorted(unknowns),
+            complete=not unknowns,
+            projection_dependencies=_dependency_page((("before", before), ("after", after)))
+            if dependency_detail
+            else None,
+        ),
+    )
 
 
 def _dependency_page(
@@ -641,8 +699,6 @@ def projection_dependency_detail(
         limit=limit,
         operation=operation,
     )
-
-
 
 
 def projection_validation_report(
@@ -791,14 +847,15 @@ def validation_failure_report(
         )
 
     if prepared is not None:
+        actual_model_id = trusted_operation_model_id(prepared)
         if release_id not in {None, prepared.release_id} or model_id not in {
             None,
-            prepared.execution_model_id,
+            actual_model_id,
         }:
             raise SemanticRefusal(
                 "validation report context differs from trusted release"
             ) from error
-        release_id, model_id = prepared.release_id, prepared.execution_model_id
+        release_id, model_id = prepared.release_id, actual_model_id
 
     def owner_release(observed: str | None) -> str | None:
         if observed is not None and release_id is not None and observed != release_id:
@@ -907,12 +964,12 @@ def validation_failure_report(
         ]
     elif isinstance(error, InvariantViolation):
         failure = error.failure
+        release_id = owner_release(failure.native.release_id)
         if model_id is not None and model_id != failure.model_id:
             raise SemanticRefusal(
                 "native diagnostic model differs from supplied report context"
             ) from error
         model_id = failure.model_id
-        release_id = owner_release(failure.native.release_id)
         native = failure.native.failure
         observations = [
             dict(

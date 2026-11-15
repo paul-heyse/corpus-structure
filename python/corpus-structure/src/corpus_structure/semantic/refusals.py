@@ -27,12 +27,14 @@ class SemanticRefusal(ValueError):
 class OperationConflict(ValueError):
     """Immutable input identity changed or a task/pass fence was lost."""
 
+
 class SourceReadRefused(OperationConflict):
     """An owned source-read failure with an explicit modeled outcome."""
 
     def __init__(self, outcome: str, reason: str):
         self.outcome = outcome
         super().__init__(reason)
+
 
 SemanticReasonCode = Literal[
     "missing_operands", "unsupported_interpretation", "incompatible_bindings", "preparation_failed"
@@ -94,6 +96,19 @@ def semantic_failure_fields(error: BaseException) -> dict[str, Any]:
     return fields
 
 
+def trusted_operation_model_id(prepared: PreparedRelease) -> str | None:
+    """Name the actual checked operation model in located boundary diagnostics."""
+    if prepared.execution_model_id is not None:
+        return prepared.execution_model_id
+    if any(artifact.kind == "data_operations.json" for artifact in prepared.artifacts):
+        from .data_operation_admission import bound_data_operation_model
+
+        from hashlib import sha256
+
+        return sha256(bound_data_operation_model(prepared).content).hexdigest()
+    return None
+
+
 @dataclass
 class FailureContext:
     """Invocation-local context, bound only after trusted model resolution."""
@@ -117,7 +132,7 @@ class FailureContext:
         self, prepared: PreparedRelease, operation: str | None = None, *, scope: str = "boundary"
     ) -> Self:
         self.prepared, self.operation, self.scope = prepared, operation, scope
-        self.release_id, self.model_id = prepared.release_id, prepared.execution_model_id
+        self.release_id, self.model_id = prepared.release_id, trusted_operation_model_id(prepared)
         return self
 
     def report(self, error: BaseException):

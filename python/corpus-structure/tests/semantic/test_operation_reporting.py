@@ -71,7 +71,11 @@ def test_cli_boundary_preserves_trusted_context_and_original_validation_error(ca
     value = json.loads(capsys.readouterr().out)["error"]["validation"]
     assert isinstance(original, ValidationError)
     assert value["release_id"] == prepared().release_id
-    assert "model_id" not in value
+    assert value["model_id"] == next(
+        artifact.digest
+        for artifact in prepared().artifacts
+        if artifact.kind == "data_operations.json"
+    )
     observation = value["observations"][0]
     assert observation["operation"] == "read_source_view"
     assert observation["input_path"] == "/label"
@@ -101,7 +105,11 @@ def test_mcp_boundary_preserves_invocation_context_without_leaking_between_calls
     value = json.loads(str(caught.value))["validation"]
     assert isinstance(caught.value.__cause__, ValidationError)
     assert value["release_id"] == prepared().release_id
-    assert "model_id" not in value
+    assert value["model_id"] == next(
+        artifact.digest
+        for artifact in prepared().artifacts
+        if artifact.kind == "data_operations.json"
+    )
     assert value["observations"][0]["operation"] == "read_source_view"
     with pytest.raises(ToolError) as separate:
         unbound()
@@ -168,19 +176,23 @@ def test_native_output_validation_is_not_reported_as_invalid_caller_input():
     )
 
 
-
-
-
-
-
-
 def test_declared_class_change_reports_actual_model_meaning_and_unknown_use_impact():
     before = prepared()
     bundle, dependencies, profile = report_inputs()
-    changed = replace(bundle, sources=tuple(replace(s, content=s.content.replace(b"required: true", b"required: false")) for s in bundle.sources))
+    changed = replace(
+        bundle,
+        sources=tuple(
+            replace(s, content=s.content.replace(b"required: true", b"required: false"))
+            for s in bundle.sources
+        ),
+    )
     after = prepare_release(changed, dependencies, profile)
     value = compare_semantic_releases(before, after).model_dump(mode="json")
-    assert any(row["aspect"] == "semantic-node" and row["model_ref"].startswith("https://example.org/Thing") for row in value["changes"])
+    assert any(
+        row["aspect"] == "semantic-node"
+        and row["model_ref"].startswith("https://example.org/Thing")
+        for row in value["changes"]
+    )
     assert not value["complete"] and value["unknowns"]
     assert compare_semantic_releases(before, before).model_dump(mode="json")["changes"] == []
 
@@ -262,20 +274,19 @@ def test_native_diagnostic_retains_owner_binding_without_supplied_prepared_conte
     assert report["observations"][0]["operation"] == "publish_pdf_region_artifact"
     with pytest.raises(SemanticRefusal, match="release differs"):
         validation_failure_report(error, prepared=prepared())
+    from dataclasses import replace
+
+    same_release = InvariantViolation(
+        replace(error.failure, native=replace(native, release_id=prepared().release_id))
+    )
+    with pytest.raises(SemanticRefusal, match="model differs"):
+        validation_failure_report(same_release, prepared=prepared())
     raw = psycopg.errors.ForeignKeyViolation("independent native failure")
     record_operation_failure(raw, native)
     observed = validation_failure_report(raw).model_dump(mode="json")
     assert observed["release_id"] == "release:attested"
     with pytest.raises(SemanticRefusal, match="release differs"):
         validation_failure_report(raw, prepared=prepared())
-
-
-
-
-
-
-
-
 
 
 def test_report_schema_is_the_real_model_bound_public_shape():
@@ -367,7 +378,9 @@ def test_actual_schema_check_reports_unavailable_retained_query_analysis(cli):
     assert checked.exit_code == 0, checked.output
     located = json.loads(checked.stdout)["validation"]
     assert located["release_id"] == json.loads(checked.stdout)["release_id"]
-    assert "projection_analysis.json" not in {a["kind"] for a in json.loads(checked.stdout)["artifacts"]}
+    assert "projection_analysis.json" not in {
+        a["kind"] for a in json.loads(checked.stdout)["artifacts"]
+    }
     assert not located["complete"]
     assert any(
         item["category"] == "unassessed"
@@ -491,8 +504,6 @@ def test_missing_neutral_alias_product_does_not_invent_a_normalization_change():
     assert any(c["aspect"] == "alias_origin" for c in report["changes"])
 
 
-
-
 def test_runtime_change_is_reported_separately_from_semantic_meaning():
     from semantic.operation_reporting_support import runtime
     from corpus_structure.semantic.types import SourceArtifact
@@ -501,7 +512,9 @@ def test_runtime_change_is_reported_separately_from_semantic_meaning():
     before = runtime(selected, (SourceArtifact("report-extra.py", b"VALUE = 1"),))
     after = runtime(selected, (SourceArtifact("report-extra.py", b"VALUE = 2"),))
     assert before.runtime_id != after.runtime_id
-    report = compare_semantic_releases(selected, selected, before_runtime=before, after_runtime=after).model_dump(mode="json")
+    report = compare_semantic_releases(
+        selected, selected, before_runtime=before, after_runtime=after
+    ).model_dump(mode="json")
     assert report["changes"] == []
     assert any("Executable runtime changed independently" in value for value in report["unknowns"])
 
