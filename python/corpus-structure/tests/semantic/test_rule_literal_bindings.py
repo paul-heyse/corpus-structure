@@ -6,9 +6,9 @@ import pytest
 import yaml
 
 from corpus_structure.schema.rulelang import RuleError, RuleErrorCode
+from corpus_structure.semantic.prepare import prepare_release
 from corpus_structure.semantic.rich_knowledge_sources import RULE_INPUT
 from corpus_structure.semantic.rich_rules import RichRulePolicy
-from corpus_structure.semantic.prepare import prepare_release
 from corpus_structure.semantic.types import SourceArtifact
 
 

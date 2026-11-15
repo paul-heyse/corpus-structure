@@ -69,22 +69,38 @@ def read_native_definition_projection(prepared, *, model=None) -> NativeDefiniti
     if len(set(kinds)) != len(kinds) or len(set(operations)) != len(operations):
         raise ValueError("native definition projection repeats a nominal identity")
     expected_subjects = {operation.semantic_id: operation.subject for operation in model.operations}
-    actual_subjects = {row["operation_id"]: row["subject_definition"] for row in projection["operations"]}
+    actual_subjects = {
+        row["operation_id"]: row["subject_definition"] for row in projection["operations"]
+    }
     if actual_subjects != expected_subjects:
         raise ValueError("native operation subjects differ from the checked effective model")
-    expected_policies = {operation.semantic_id: operation.replicate_policy for operation in model.operations}
-    actual_policies = {row["operation_id"]: row["support_contract"].get("replicate_policy") for row in projection["operations"]}
+    expected_policies = {
+        operation.semantic_id: operation.replicate_policy for operation in model.operations
+    }
+    actual_policies = {
+        row["operation_id"]: row["support_contract"].get("replicate_policy")
+        for row in projection["operations"]
+    }
     from typing import get_args
+
     from .data_operation_model import ReplicatePolicy
 
     if any(policy not in get_args(ReplicatePolicy) for policy in actual_policies.values()):
         raise ValueError("unsupported native operation replicate policy")
     if actual_policies != expected_policies:
-        raise ValueError("native operation replicate policies differ from the checked effective model")
+        raise ValueError(
+            "native operation replicate policies differ from the checked effective model"
+        )
     import json
 
-    expected_coverage = {operation["semantic_id"]: operation["coverage"] for operation in json.loads(model.content)["operations"]}
-    actual_coverage = {operation["operation_id"]: operation["support_contract"].get("coverage") for operation in projection["operations"]}
+    expected_coverage = {
+        operation["semantic_id"]: operation["coverage"]
+        for operation in json.loads(model.content)["operations"]
+    }
+    actual_coverage = {
+        operation["operation_id"]: operation["support_contract"].get("coverage")
+        for operation in projection["operations"]
+    }
     if actual_coverage != expected_coverage:
         raise ValueError("native operation coverage differs from the checked effective model")
     return projection

@@ -1414,7 +1414,9 @@ class ClosedPythonSources:
                 },
             }
 
-            def annotated_value(annotation, active_aliases=frozenset()) -> tuple[str, tuple[str, ...]]:
+            def annotated_value(
+                annotation, active_aliases=frozenset()
+            ) -> tuple[str, tuple[str, ...]]:
                 """Nominal data provenance, distinct from class/function objects."""
                 if annotation is None:
                     return "unknown", ()
@@ -1440,7 +1442,9 @@ class ClosedPythonSources:
                 else:
                     names = [getattr(annotation, "canonical_path", None) or str(annotation)]
                 literal_name = getattr(annotation, "canonical_path", None)
-                if literal_name == "typing.Literal" and isinstance(annotation, griffe.ExprSubscript):
+                if literal_name == "typing.Literal" and isinstance(
+                    annotation, griffe.ExprSubscript
+                ):
                     with suppress(ValueError, SyntaxError):
                         values = ast.literal_eval(str(annotation.slice))
                         values = values if isinstance(values, tuple) else (values,)
@@ -1732,7 +1736,16 @@ class ClosedPythonSources:
                             if isinstance(ancestor_for_use, cst.Subscript):
                                 type_names = module.names.get(ancestor_for_use.value, set())
                                 type_names = type_names() if callable(type_names) else type_names
-                                if any(item.name in {"typing.Literal", "typing.Annotated", "typing.Union", "typing.Optional"} for item in type_names):
+                                if any(
+                                    item.name
+                                    in {
+                                        "typing.Literal",
+                                        "typing.Annotated",
+                                        "typing.Union",
+                                        "typing.Optional",
+                                    }
+                                    for item in type_names
+                                ):
                                     allowed = True
                                     break
                             ancestor_for_use = module.parent_nodes.get(ancestor_for_use)

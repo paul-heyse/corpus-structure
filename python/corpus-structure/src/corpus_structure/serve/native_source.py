@@ -14,13 +14,14 @@ from pydantic_core import to_jsonable_python
 from sqlalchemy import Connection
 
 from corpus_structure.core.db.lifetime import BorrowerCancellation
-from corpus_structure.serve.selected_pdf import (
-    SelectedPdfSourceReference, acquire_selected_pdf_source,
-)
 from corpus_structure.semantic.visual_evidence import (
     VisualEvidenceKind,
     VisualEvidencePin,
     VisualEvidenceRead,
+)
+from corpus_structure.serve.selected_pdf import (
+    SelectedPdfSourceReference,
+    acquire_selected_pdf_source,
 )
 
 
@@ -364,9 +365,9 @@ def _inspect_native_source(
     cancellation: BorrowerCancellation,
     read_budget,
 ) -> NativeSourceResponse:
+    from corpus_structure.semantic.pdf_contracts import pdf_context_for_release
     from corpus_structure.semantic.pdf_record_reader import published_record_reader
     from corpus_structure.semantic.pdf_storage import read_native_items, read_native_regions
-    from corpus_structure.semantic.pdf_contracts import pdf_context_for_release
 
     source = acquire_selected_pdf_source(conn, request)
     projection_context = source.prepared
@@ -379,20 +380,31 @@ def _inspect_native_source(
         from corpus_structure.serve.pdf_visual_evidence import inspect_pdf_visual_evidence
 
         return inspect_pdf_visual_evidence(
-            conn, request, source=source, projection_context=projection_context,
-            cancellation=cancellation, read_budget=read_budget,
+            conn,
+            request,
+            source=source,
+            projection_context=projection_context,
+            cancellation=cancellation,
+            read_budget=read_budget,
         )
     if request.view in {"companion", "manifest", "artifact"} or (
         request.view == "trace" and request.occurrence_id is not None
     ):
         return _inspect_companion(
-            conn, request, source=source, cancellation=cancellation,
-            projection_context=projection_context, read_budget=read_budget,
+            conn,
+            request,
+            source=source,
+            cancellation=cancellation,
+            projection_context=projection_context,
+            read_budget=read_budget,
         )
     pin = source.physical.values()
     published = published_record_reader(
-        conn, source.physical, cancellation=cancellation,
-        projection_context=projection_context, read_budget=read_budget,
+        conn,
+        source.physical,
+        cancellation=cancellation,
+        projection_context=projection_context,
+        read_budget=read_budget,
     )
     if published is None:
         raise ValueError("native source requires a current published record")
@@ -625,7 +637,9 @@ def _inspect_companion(
     """Read only the publication authenticated by the pinned semantic selection."""
     from corpus_structure.semantic.pdf_record_reader import published_record_reader
     from corpus_structure.semantic.pdf_storage import (
-        read_pdf_manifest, read_pdf_product, trace_pdf_occurrence,
+        read_pdf_manifest,
+        read_pdf_product,
+        trace_pdf_occurrence,
     )
 
     pin = source.physical.values()
@@ -751,7 +765,10 @@ def _recorded_interpretations(
     if request.pointer is None:
         raise ValueError("recorded analysis requires one native formula occurrence")
     return selected_formula_interpretations(
-        conn, source, request.pointer, read_budget=read_budget,
+        conn,
+        source,
+        request.pointer,
+        read_budget=read_budget,
     )
 
 
@@ -866,6 +883,7 @@ def _export_native_source(
     # Existing typed SQL projection determines Arrow types, retaining the original text.
     from corpus_structure.semantic.arrow_types import sql_arrow_type
     from corpus_structure.semantic.metadata import table
+
     projection_context = source.prepared
     published = published_record_reader(
         conn,

@@ -10,8 +10,12 @@ class DefinitionLocationOperation:
         "id": "locate.definition_terms/declared",
         "profile": "derivation",
         "subject": "original-source-view",
-        "subject_definition": {'id': 'original-source-view', 'identifier_kind': 'string', 'scope': 'original-source'},
-        "discovery_relation": 'subject-population',
+        "subject_definition": {
+            "id": "original-source-view",
+            "identifier_kind": "string",
+            "scope": "original-source",
+        },
+        "discovery_relation": "subject-population",
         "context": ["original-source", "selected-scope", "retained-definition-components"],
         "entrypoints": ["run"],
         "roles": [
@@ -76,14 +80,29 @@ class DefinitionLocationOperation:
                 "presence": "required",
             },
         ],
-        "applicability": [{'kind': 'documentation', 'text': 'exact-retained-definition-component-or-independent-role'}],
-        "invariants": [
-            {'kind': 'documentation', 'text': 'no-new-recognition'},
-            {'kind': 'documentation', 'text': 'genuine-native-source-and-semantic-producer-address'},
-            {'kind': 'documentation', 'text': 'term-content-and-directed-attachment-identities-remain-distinct'},
-            {'kind': 'documentation', 'text': 'private-located-proposals-only'},
+        "applicability": [
+            {
+                "kind": "documentation",
+                "text": "exact-retained-definition-component-or-independent-role",
+            }
         ],
-        "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "exact-explicit-component-or-role-selection"},
+        "invariants": [
+            {"kind": "documentation", "text": "no-new-recognition"},
+            {
+                "kind": "documentation",
+                "text": "genuine-native-source-and-semantic-producer-address",
+            },
+            {
+                "kind": "documentation",
+                "text": "term-content-and-directed-attachment-identities-remain-distinct",
+            },
+            {"kind": "documentation", "text": "private-located-proposals-only"},
+        ],
+        "coverage": {
+            "binding": "self",
+            "result_owners": [{"kind": "implementation", "reference": "self"}],
+            "description": "exact-explicit-component-or-role-selection",
+        },
         "outcomes": ["success", "failed"],
         "precision_description": "original-native-half-open-extents",
         "dependencies": [],
@@ -164,11 +183,11 @@ class DefinitionLocationOperation:
                         "encoding": "value",
                     },
                     {
-                        "output_field": 'subject_definition',
+                        "output_field": "subject_definition",
                         "input": {
                             "role": "source",
                             "projection": "selected-input",
-                            "field": 'subject_definition',
+                            "field": "subject_definition",
                         },
                         "encoding": "value",
                     },
@@ -243,11 +262,11 @@ class DefinitionLocationOperation:
                         "encoding": "value",
                     },
                     {
-                        "output_field": 'subject_definition',
+                        "output_field": "subject_definition",
                         "input": {
                             "role": "components",
                             "projection": "selected-input",
-                            "field": 'subject_definition',
+                            "field": "subject_definition",
                         },
                         "encoding": "value",
                     },
@@ -322,11 +341,11 @@ class DefinitionLocationOperation:
                         "encoding": "value",
                     },
                     {
-                        "output_field": 'subject_definition',
+                        "output_field": "subject_definition",
                         "input": {
                             "role": "selection",
                             "projection": "selected-input",
-                            "field": 'subject_definition',
+                            "field": "subject_definition",
                         },
                         "encoding": "value",
                     },

@@ -25,10 +25,10 @@ from corpus_structure.semantic.data_operation_source_sets import (
     SourceSetEntry,
     source_sets_record,
 )
+from corpus_structure.semantic.data_operation_support import ComputationalSupportReference
 from corpus_structure.semantic.observations import source_value
 from corpus_structure.semantic.record_contracts import anchor_identity
 from corpus_structure.semantic.source_contexts import record_source_pin
-from corpus_structure.semantic.data_operation_support import ComputationalSupportReference
 
 
 def case(recipe):
@@ -164,7 +164,9 @@ def case(recipe):
         pin=record_source_pin(frame),
         anchors=[anchor],
     )
-    context = SubjectContext("project:A", "source:A", "document:A", b"{}", subject_definition="original-source-view")
+    context = SubjectContext(
+        "project:A", "source:A", "document:A", b"{}", subject_definition="original-source-view"
+    )
     member = BoundRoleMember(
         ref.product.product_id,
         "kind:primary",
@@ -174,7 +176,11 @@ def case(recipe):
         b"{}",
         ("episode:primary",),
         b"{}",
-     subject_definition="original-source-view", support_references=tuple(ComputationalSupportReference(derivation_id=episode) for episode in ('episode:primary',)))
+        subject_definition="original-source-view",
+        support_references=tuple(
+            ComputationalSupportReference(derivation_id=episode) for episode in ("episode:primary",)
+        ),
+    )
     sources = source_sets_record(
         (
             FrozenSourceSet(

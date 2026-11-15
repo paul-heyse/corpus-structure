@@ -15,13 +15,13 @@ from pglast import ast
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
-from .data_operation_protocol import render_data_task_guard
 from .alembic_defaults import compare_default, compare_type
 from .alembic_defaults import plugin as defaults_plugin
 from .alembic_indexes import plugin as indexes_plugin
 from .alembic_native import plugin as native_plugin
 from .alembic_privileges import PrivilegePolicy, policy_fact, table_policy
 from .companion_projection_native import companion_projection_definitions
+from .data_operation_protocol import render_data_task_guard
 from .metadata import SCHEMAS, metadata
 from .native_objects import (
     NativeAuthoringError,
@@ -868,6 +868,7 @@ def series_predecessor_definitions(connection):
 def series_native_definitions(connection, *, include_selected=True, target_metadata=None):
     from .archive_native import archive_native_definitions
     from .pdf_completion_native import pdf_completion_native_sql
+    from .pdf_domain import pdf_domain_sources
     from .pdf_integrated_native import observation_publication_sql
     from .pdf_publication_native import (
         _native_shape_guard,
@@ -878,10 +879,11 @@ def series_native_definitions(connection, *, include_selected=True, target_metad
     from .pdf_staging_native import stage_native_sql
     from .published_document import published_reader_definitions
 
-    from .pdf_domain import pdf_domain_sources
-
     selected_metadata = metadata if target_metadata is None else target_metadata
-    pdf_sources = pdf_domain_sources(physical_sources=selected_metadata.info["physical_sources"], linkml_types=selected_metadata.info["physical_linkml_types"])
+    pdf_sources = pdf_domain_sources(
+        physical_sources=selected_metadata.info["physical_sources"],
+        linkml_types=selected_metadata.info["physical_linkml_types"],
+    )
     access_sql = Path(__file__).with_name("sql") / "pdf_record_access_correspondence.sql"
     payload_sql = (
         stage_native_sql(target_metadata=selected_metadata, pdf_sources=pdf_sources)
@@ -936,7 +938,11 @@ def series_native_definitions(connection, *, include_selected=True, target_metad
         _execution_task_definitions(
             connection,
             render_data_task_guard(
-                Path(__file__).resolve().parents[1].joinpath("model/semantic/data-operation-native.yaml").read_bytes(),
+                Path(__file__)
+                .resolve()
+                .parents[1]
+                .joinpath("model/semantic/data-operation-native.yaml")
+                .read_bytes(),
                 Path(__file__).with_name("sql").joinpath("execution_guards.sql").read_text(),
             ),
             ALEMBIC_DIR.joinpath("versions/semantic_0023_execution.sql").read_text(),

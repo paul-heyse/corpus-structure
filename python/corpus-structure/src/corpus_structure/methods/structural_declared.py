@@ -15,8 +15,12 @@ class DeclaredStructuralComparison:
         "id": "structure.compare/declared",
         "profile": "derivation",
         "subject": "actual-focus-source",
-        "subject_definition": {'id': 'actual-focus-source', 'identifier_kind': 'string', 'scope': 'selected-source-set'},
-        "discovery_relation": 'role-associated',
+        "subject_definition": {
+            "id": "actual-focus-source",
+            "identifier_kind": "string",
+            "scope": "selected-source-set",
+        },
+        "discovery_relation": "role-associated",
         "context": [
             "project",
             "subject",
@@ -43,7 +47,10 @@ class DeclaredStructuralComparison:
                     "identity_requirements": ["episode"],
                     "source": "frozen-source-set",
                     "source_set": "structural-sources",
-                    "coverage": {"role": "sources", "description": "exact-selected-source-and-context"},
+                    "coverage": {
+                        "role": "sources",
+                        "description": "exact-selected-source-and-context",
+                    },
                 },
             },
             {
@@ -61,7 +68,10 @@ class DeclaredStructuralComparison:
                     "identity_requirements": ["episode"],
                     "source": "frozen-source-set",
                     "source_set": "structural-reports",
-                    "coverage": {"role": "reports", "description": "exact-selected-source-and-context"},
+                    "coverage": {
+                        "role": "reports",
+                        "description": "exact-selected-source-and-context",
+                    },
                 },
             },
             {
@@ -79,7 +89,10 @@ class DeclaredStructuralComparison:
                     "identity_requirements": ["episode"],
                     "source": "frozen-source-set",
                     "source_set": "structural-formal",
-                    "coverage": {"role": "formal", "description": "exact-selected-source-and-context"},
+                    "coverage": {
+                        "role": "formal",
+                        "description": "exact-selected-source-and-context",
+                    },
                 },
             },
             {
@@ -92,14 +105,26 @@ class DeclaredStructuralComparison:
                 "presence": "required",
             },
         ],
-        "applicability": [{'kind': 'documentation', 'text': 'exact-native-source-and-retained-complete-predicate-inspection'}],
-        "invariants": [
-            {'kind': 'documentation', 'text': 'source-pins-do-not-alias-task-or-view-ids'},
-            {'kind': 'documentation', 'text': 'authored-bounds-select-actual-source-text'},
-            {'kind': 'documentation', 'text': 'missing-inspection-is-not-empty'},
-            {'kind': 'documentation', 'text': 'private-proposal-is-not-independent-semantic-support'},
+        "applicability": [
+            {
+                "kind": "documentation",
+                "text": "exact-native-source-and-retained-complete-predicate-inspection",
+            }
         ],
-        "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "exact-selected-passages-and-retained-report-inventory"},
+        "invariants": [
+            {"kind": "documentation", "text": "source-pins-do-not-alias-task-or-view-ids"},
+            {"kind": "documentation", "text": "authored-bounds-select-actual-source-text"},
+            {"kind": "documentation", "text": "missing-inspection-is-not-empty"},
+            {
+                "kind": "documentation",
+                "text": "private-proposal-is-not-independent-semantic-support",
+            },
+        ],
+        "coverage": {
+            "binding": "self",
+            "result_owners": [{"kind": "implementation", "reference": "self"}],
+            "description": "exact-selected-passages-and-retained-report-inventory",
+        },
         "outcomes": ["success"],
         "precision_description": "original-native-half-open-extents",
         "dependencies": [],
@@ -193,11 +218,11 @@ class DeclaredStructuralComparison:
                         "encoding": "value",
                     },
                     {
-                        "output_field": 'subject_definition',
+                        "output_field": "subject_definition",
                         "input": {
                             "role": "sources",
                             "projection": "selected-input",
-                            "field": 'subject_definition',
+                            "field": "subject_definition",
                         },
                         "encoding": "value",
                     },
@@ -272,11 +297,11 @@ class DeclaredStructuralComparison:
                         "encoding": "value",
                     },
                     {
-                        "output_field": 'subject_definition',
+                        "output_field": "subject_definition",
                         "input": {
                             "role": "reports",
                             "projection": "selected-input",
-                            "field": 'subject_definition',
+                            "field": "subject_definition",
                         },
                         "encoding": "value",
                     },
@@ -351,11 +376,11 @@ class DeclaredStructuralComparison:
                         "encoding": "value",
                     },
                     {
-                        "output_field": 'subject_definition',
+                        "output_field": "subject_definition",
                         "input": {
                             "role": "sources",
                             "projection": "selected-input",
-                            "field": 'subject_definition',
+                            "field": "subject_definition",
                         },
                         "encoding": "value",
                     },
@@ -466,11 +491,11 @@ class DeclaredStructuralComparison:
                         "encoding": "value",
                     },
                     {
-                        "output_field": 'subject_definition',
+                        "output_field": "subject_definition",
                         "input": {
                             "role": "formal",
                             "projection": "selected-input",
-                            "field": 'subject_definition',
+                            "field": "subject_definition",
                         },
                         "encoding": "value",
                     },
@@ -595,8 +620,12 @@ class DeclaredConditionQualification:
         "id": "structure.condition_qualification/declared",
         "profile": "derivation",
         "subject": "actual-focus-source",
-        "subject_definition": {'id': 'actual-focus-source', 'identifier_kind': 'string', 'scope': 'selected-source-set'},
-        "discovery_relation": 'role-associated',
+        "subject_definition": {
+            "id": "actual-focus-source",
+            "identifier_kind": "string",
+            "scope": "selected-source-set",
+        },
+        "discovery_relation": "role-associated",
         "context": [
             "project",
             "subject",
@@ -623,7 +652,10 @@ class DeclaredConditionQualification:
                     "identity_requirements": ["episode"],
                     "source": "frozen-source-set",
                     "source_set": "structural-source",
-                    "coverage": {"role": "source", "description": "exact-selected-source-and-context"},
+                    "coverage": {
+                        "role": "source",
+                        "description": "exact-selected-source-and-context",
+                    },
                 },
             },
             {
@@ -641,7 +673,10 @@ class DeclaredConditionQualification:
                     "identity_requirements": ["episode"],
                     "source": "frozen-source-set",
                     "source_set": "structural-report",
-                    "coverage": {"role": "report", "description": "exact-selected-source-and-context"},
+                    "coverage": {
+                        "role": "report",
+                        "description": "exact-selected-source-and-context",
+                    },
                 },
             },
             {
@@ -654,14 +689,26 @@ class DeclaredConditionQualification:
                 "presence": "required",
             },
         ],
-        "applicability": [{'kind': 'documentation', 'text': 'exact-native-source-and-retained-complete-predicate-inspection'}],
-        "invariants": [
-            {'kind': 'documentation', 'text': 'source-pins-do-not-alias-task-or-view-ids'},
-            {'kind': 'documentation', 'text': 'authored-bounds-select-actual-source-text'},
-            {'kind': 'documentation', 'text': 'missing-inspection-is-not-empty'},
-            {'kind': 'documentation', 'text': 'private-proposal-is-not-independent-semantic-support'},
+        "applicability": [
+            {
+                "kind": "documentation",
+                "text": "exact-native-source-and-retained-complete-predicate-inspection",
+            }
         ],
-        "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "exact-selected-passages-and-retained-report-inventory"},
+        "invariants": [
+            {"kind": "documentation", "text": "source-pins-do-not-alias-task-or-view-ids"},
+            {"kind": "documentation", "text": "authored-bounds-select-actual-source-text"},
+            {"kind": "documentation", "text": "missing-inspection-is-not-empty"},
+            {
+                "kind": "documentation",
+                "text": "private-proposal-is-not-independent-semantic-support",
+            },
+        ],
+        "coverage": {
+            "binding": "self",
+            "result_owners": [{"kind": "implementation", "reference": "self"}],
+            "description": "exact-selected-passages-and-retained-report-inventory",
+        },
         "outcomes": ["success"],
         "precision_description": "original-native-half-open-extents",
         "dependencies": [],
@@ -741,11 +788,11 @@ class DeclaredConditionQualification:
                         "encoding": "value",
                     },
                     {
-                        "output_field": 'subject_definition',
+                        "output_field": "subject_definition",
                         "input": {
                             "role": "source",
                             "projection": "selected-input",
-                            "field": 'subject_definition',
+                            "field": "subject_definition",
                         },
                         "encoding": "value",
                     },
@@ -820,11 +867,11 @@ class DeclaredConditionQualification:
                         "encoding": "value",
                     },
                     {
-                        "output_field": 'subject_definition',
+                        "output_field": "subject_definition",
                         "input": {
                             "role": "report",
                             "projection": "selected-input",
-                            "field": 'subject_definition',
+                            "field": "subject_definition",
                         },
                         "encoding": "value",
                     },
@@ -899,11 +946,11 @@ class DeclaredConditionQualification:
                         "encoding": "value",
                     },
                     {
-                        "output_field": 'subject_definition',
+                        "output_field": "subject_definition",
                         "input": {
                             "role": "source",
                             "projection": "selected-input",
-                            "field": 'subject_definition',
+                            "field": "subject_definition",
                         },
                         "encoding": "value",
                     },

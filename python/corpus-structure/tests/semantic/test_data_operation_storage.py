@@ -73,7 +73,9 @@ def test_kernel_protocol_is_captured_effective_meaning_not_an_ambient_catalog():
         else source
         for source in captured
     )
-    changed = compile_data_operations(declarations=(native_operation_declarations(altered),), captured_contracts=altered)
+    changed = compile_data_operations(
+        declarations=(native_operation_declarations(altered),), captured_contracts=altered
+    )
     original = {(i.owner, i.domain): i.key for i in model.identities}
     revised = {(i.owner, i.domain): i.key for i in changed.identities}
     assert (
@@ -708,7 +710,13 @@ def _protected_binding_case(
             },
             {"parameters": {}, "replicate": None},
             "inference:test",
-            subject_context=SubjectContext("ddo-test", "subject:one", "source:test", b'{"page":1}', subject_definition="original-occurrence"),
+            subject_context=SubjectContext(
+                "ddo-test",
+                "subject:one",
+                "source:test",
+                b'{"page":1}',
+                subject_definition="original-occurrence",
+            ),
         )
         payload: dict[str, Any] = {
             "obligation_id": obligation["obligation_id"],
@@ -1068,7 +1076,13 @@ def test_actual_writer_requires_exact_authored_closed_population_binding(ddo_ker
             inputs,
             {"parameters": {}, "replicate": None},
             "inference:test",
-            subject_context=SubjectContext("ddo-test", "doc", "source:test", b'{"page":1}', subject_definition="original-occurrence"),
+            subject_context=SubjectContext(
+                "ddo-test",
+                "doc",
+                "source:test",
+                b'{"page":1}',
+                subject_definition="original-occurrence",
+            ),
         )
         return {
             "obligation_id": obligation["obligation_id"],
@@ -2096,7 +2110,8 @@ def test_distinct_root_contexts_attach_and_publish_equal_bodies(ddo_kernel, chan
                 context_row["subject"],
                 context_row["original_source"],
                 canonical_bytes(context_row["analyzed_scope"]),
-             subject_definition="original-occurrence")
+                subject_definition="original-occurrence",
+            )
             assert (
                 products[-1]
                 == contextual_product_identity(

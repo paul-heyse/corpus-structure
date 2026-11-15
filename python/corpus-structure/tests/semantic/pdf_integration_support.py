@@ -6,7 +6,6 @@ No recognizer/model is invoked. Test-specific mutations and expected outcomes st
 from base64 import b64decode
 from copy import deepcopy
 from hashlib import sha256
-from importlib.resources import files
 from types import SimpleNamespace
 from typing import Any
 

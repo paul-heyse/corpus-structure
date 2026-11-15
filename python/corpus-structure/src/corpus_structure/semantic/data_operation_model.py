@@ -24,10 +24,14 @@ from .identity import canonical_bytes
 MODEL_VERSION = "data-operation-model-v7"
 
 
-SubjectScope = Literal["original-source", "original-document", "selected-source-set", "project", "invocation"]
+SubjectScope = Literal[
+    "original-source", "original-document", "selected-source-set", "project", "invocation"
+]
 
 
-ReplicatePolicy = Literal["deterministic-single-result", "retained-observation-single-result", "explicit-replicates"]
+ReplicatePolicy = Literal[
+    "deterministic-single-result", "retained-observation-single-result", "explicit-replicates"
+]
 
 
 def validate_replicate_selection(policy, replicate, *, owner):
@@ -39,7 +43,9 @@ def validate_replicate_selection(policy, replicate, *, owner):
             raise ValueError("explicit replicate selection is required for " + owner)
     elif replicate is not None:
         if policy == "retained-observation-single-result":
-            raise ValueError("fresh independent replication is unsupported for retained observation " + owner)
+            raise ValueError(
+                "fresh independent replication is unsupported for retained observation " + owner
+            )
         raise ValueError("deterministic operation cannot select a replicate: " + owner)
 
 
@@ -377,9 +383,20 @@ class EnforcementClaim:
 
     def __post_init__(self):
         if self.kind == "documentation":
-            if not self.text or self.reference is not None or self.interpretation is not None or self.parameters != b"{}" or self.semantics != b"null":
+            if (
+                not self.text
+                or self.reference is not None
+                or self.interpretation is not None
+                or self.parameters != b"{}"
+                or self.semantics != b"null"
+            ):
                 raise ValueError("documentation cannot claim executable enforcement")
-        elif self.text is not None or not self.reference or not self.interpretation or json.loads(self.parameters) != {}:
+        elif (
+            self.text is not None
+            or not self.reference
+            or not self.interpretation
+            or json.loads(self.parameters) != {}
+        ):
             raise ValueError("checked enforcement requires its exact owner and interpretation")
 
     @property
@@ -418,7 +435,13 @@ class NumericalPolicyReference:
 
     @property
     def record(self) -> dict:
-        return {"kind": self.kind, "asset": self.asset, "content_digest": self.content_digest, "pointer": self.pointer, "body": json.loads(self.body)}
+        return {
+            "kind": self.kind,
+            "asset": self.asset,
+            "content_digest": self.content_digest,
+            "pointer": self.pointer,
+            "body": json.loads(self.body),
+        }
 
 
 @dataclass(frozen=True)
@@ -430,7 +453,12 @@ class CoverageResultOwner:
 
     @property
     def record(self):
-        return {"kind": self.kind, "reference": self.reference, "interpretation": self.interpretation, "semantics": json.loads(self.semantics)}
+        return {
+            "kind": self.kind,
+            "reference": self.reference,
+            "interpretation": self.interpretation,
+            "semantics": json.loads(self.semantics),
+        }
 
 
 @dataclass(frozen=True)
@@ -447,7 +475,18 @@ class CoverageContract:
         return {
             "binding": self.binding,
             "selection": json.loads(self.result_selection if result_only else self.selection),
-            "result_owners": [{key: value for key, value in owner.record.items() if not (definition_only and owner.kind in {"implementation", "native-admission"} and key == "semantics")} for owner in self.result_owners],
+            "result_owners": [
+                {
+                    key: value
+                    for key, value in owner.record.items()
+                    if not (
+                        definition_only
+                        and owner.kind in {"implementation", "native-admission"}
+                        and key == "semantics"
+                    )
+                }
+                for owner in self.result_owners
+            ],
         }
 
 
@@ -505,7 +544,11 @@ class EffectiveOperation:
                 "invariants": enforced_claims(self.invariants),
                 "coverage": self.coverage.record(result_only=True),
                 "outcomes": self.outcomes,
-                **({"numerical_policy": self.numerical_policy.record} if self.numerical_policy is not None else {}),
+                **(
+                    {"numerical_policy": self.numerical_policy.record}
+                    if self.numerical_policy is not None
+                    else {}
+                ),
                 "dependencies": self.dependencies,
                 **({"behavior": self.behavior} if self.implementation_root is None else {}),
                 "parameters": json.loads(self.parameters),
@@ -563,7 +606,12 @@ class EffectiveOperation:
                 "state_dimensions": [asdict(s) for s in self.state_dimensions],
                 "transitions": [asdict(s) for s in self.transitions],
                 "capabilities": {
-                    key: (self.capabilities.prepared_factory.semantic_record if key == "prepared_factory" and self.capabilities.prepared_factory is not None else value)
+                    key: (
+                        self.capabilities.prepared_factory.semantic_record
+                        if key == "prepared_factory"
+                        and self.capabilities.prepared_factory is not None
+                        else value
+                    )
                     for key, value in asdict(self.capabilities).items()
                     if value is not None
                 },
@@ -762,7 +810,16 @@ def compiled_snapshot_projections(
         ),
         native(
             "selected-support",
-            ("product", "member", "episode", "use", "population", "original", "authored", "authority"),
+            (
+                "product",
+                "member",
+                "episode",
+                "use",
+                "population",
+                "original",
+                "authored",
+                "authority",
+            ),
             ("input", "output", "support", "admission", "population"),
         ),
         native(
@@ -935,7 +992,9 @@ class EffectiveDataOperationModel:
         record = asdict(self)
         record.pop("source_interfaces")
         if self.version != MODEL_VERSION:
-            raise ValueError("unsupported data-operation model version; regenerate target-native data")
+            raise ValueError(
+                "unsupported data-operation model version; regenerate target-native data"
+            )
 
         def binding_record(node):
             for operand in node["operands"]:
@@ -1041,10 +1100,19 @@ class SubjectContext:
     def __post_init__(self):
         if type(self.subject_definition) is not str or not self.subject_definition:
             raise ValueError("subject context requires a subject definition")
-        if type(self.project_id) is not str or not self.project_id or type(self.subject) is not str or not self.subject:
+        if (
+            type(self.project_id) is not str
+            or not self.project_id
+            or type(self.subject) is not str
+            or not self.subject
+        ):
             raise ValueError("subject context requires project and subject")
-        if self.original_source is not None and (type(self.original_source) is not str or not self.original_source):
-            raise ValueError("subject context original source must be explicit null or a nonempty string")
+        if self.original_source is not None and (
+            type(self.original_source) is not str or not self.original_source
+        ):
+            raise ValueError(
+                "subject context original source must be explicit null or a nonempty string"
+            )
         object.__setattr__(self, "analyzed_scope", json_bytes(json_loads(self.analyzed_scope)))
 
     @property
@@ -1082,7 +1150,9 @@ class SubjectContext:
         }
 
 
-def validate_subject_source(model: EffectiveDataOperationModel, subject_definition: str, original_source: str | None) -> None:
+def validate_subject_source(
+    model: EffectiveDataOperationModel, subject_definition: str, original_source: str | None
+) -> None:
     """Apply the checked subject's source relation; a context shape grants no permission."""
     definition = model.subject_definition(subject_definition)
     if definition.scope not in get_args(SubjectScope):
@@ -1094,7 +1164,12 @@ def validate_subject_source(model: EffectiveDataOperationModel, subject_definiti
         raise ValueError("subject requires explicit null or a nonempty original source")
 
 
-def validate_subject_context(model: EffectiveDataOperationModel, context: SubjectContext, *, subject_definition: str | None = None) -> None:
+def validate_subject_context(
+    model: EffectiveDataOperationModel,
+    context: SubjectContext,
+    *,
+    subject_definition: str | None = None,
+) -> None:
     if subject_definition is not None and context.subject_definition != subject_definition:
         raise ValueError("subject definition differs from checked operation")
     validate_subject_source(model, context.subject_definition, context.original_source)

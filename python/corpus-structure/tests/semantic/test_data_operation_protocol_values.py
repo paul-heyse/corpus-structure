@@ -100,38 +100,68 @@ def test_unknown_typed_column_cannot_degrade_to_object(sql_type):
         render_typed_column_class("Unknown", (Column("value", sql_type),))
 
 
-@pytest.mark.parametrize("status", ["not-applicable", "awaiting-inputs", "awaiting-population", "unknown", "invalid", "unavailable"])
+@pytest.mark.parametrize(
+    "status",
+    [
+        "not-applicable",
+        "awaiting-inputs",
+        "awaiting-population",
+        "unknown",
+        "invalid",
+        "unavailable",
+    ],
+)
 def test_missing_binding_states_have_explicit_recordable_fates(status):
     from corpus_structure.semantic.data_operation_bindings import recordable_binding_fate
+
     assert recordable_binding_fate(status) == status
 
 
 def test_ready_binding_cannot_be_recorded_as_missing_work():
     from corpus_structure.semantic.data_operation_bindings import recordable_binding_fate
+
     with pytest.raises(ValueError, match="native request attachment"):
         recordable_binding_fate("ready")
 
 
 def test_task_guard_uses_captured_protocol_states_and_transitions():
-    from corpus_structure.semantic.data_operation_protocol import data_task_lifecycle, render_data_task_guard
+    from corpus_structure.semantic.data_operation_protocol import (
+        data_task_lifecycle,
+        render_data_task_guard,
+    )
+
     sources = captured()
     content = sources["data-operation-native.yaml"]
     policy = data_task_lifecycle(content)
     assert policy == {
-        "initial": "pending", "running": "running",
+        "initial": "pending",
+        "running": "running",
         "terminal": ["done", "empty", "failed", "cancelled"],
         "receipt_required": ["done", "empty", "failed"],
         "new_attempt": [["pending", "running"], ["running", "running"]],
-        "same_attempt": [["running", "pending"], ["running", "done"], ["running", "empty"], ["running", "failed"], ["running", "cancelled"]],
+        "same_attempt": [
+            ["running", "pending"],
+            ["running", "done"],
+            ["running", "empty"],
+            ["running", "failed"],
+            ["running", "cancelled"],
+        ],
     }
-    template = Path(__file__).parents[2].joinpath("src/corpus_structure/semantic/sql/execution_guards.sql").read_text()
+    template = (
+        Path(__file__)
+        .parents[2]
+        .joinpath("src/corpus_structure/semantic/sql/execution_guards.sql")
+        .read_text()
+    )
     rendered = render_data_task_guard(content, template)
     assert "__DDO_TASK_" not in rendered
     assert "NEW.attempt<>OLD.attempt+1" in rendered
     assert "NEW.claimed_by IS DISTINCT FROM OLD.claimed_by" in rendered
     assert "('running','failed')" in rendered
     changed = yaml.safe_load(content)
-    changed["definitions"]["data_task_state"]["x-ddo-lifecycle"]["same_attempt"].remove(["running", "pending"])
+    changed["definitions"]["data_task_state"]["x-ddo-lifecycle"]["same_attempt"].remove(
+        ["running", "pending"]
+    )
     modified = render_data_task_guard(yaml.safe_dump(changed).encode(), template)
     assert "('running','pending')" not in modified
     assert "('running','failed')" in modified
@@ -139,6 +169,7 @@ def test_task_guard_uses_captured_protocol_states_and_transitions():
 
 def test_task_protocol_rejects_unclassified_state():
     from corpus_structure.semantic.data_operation_protocol import data_task_lifecycle
+
     protocol = yaml.safe_load(captured()["data-operation-native.yaml"])
     protocol["definitions"]["data_task_state"]["enum"].append("forgotten")
     with pytest.raises(ValueError, match="unclassified state"):
@@ -147,12 +178,19 @@ def test_task_protocol_rejects_unclassified_state():
 
 def test_member_context_requires_explicit_subject_definition():
     from corpus_structure.semantic.data_operation_wire import schema_closure, validate_wire_schema
+
     definitions = yaml.safe_load(captured()["data-operation-native.yaml"])["definitions"]
     schema = schema_closure(definitions["member_context"], definitions)
-    context = {"subject": "same-address", "subject_definition": "original-source-view",
-               "original_source": "document", "analyzed_scope": {"page": 2}}
+    context = {
+        "subject": "same-address",
+        "subject_definition": "original-source-view",
+        "original_source": "document",
+        "analyzed_scope": {"page": 2},
+    }
     assert validate_wire_schema(schema, context) == context
-    for invalid in ({key: value for key, value in context.items() if key != "subject_definition"},
-                    {**context, "subject_definition": ""}):
+    for invalid in (
+        {key: value for key, value in context.items() if key != "subject_definition"},
+        {**context, "subject_definition": ""},
+    ):
         with pytest.raises(ValueError, match="schema"):
             validate_wire_schema(schema, invalid)

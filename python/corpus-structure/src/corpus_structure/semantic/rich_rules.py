@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 from collections.abc import Mapping
 
-from .refusals import SemanticRefusal, SemanticOperationRefusal, SemanticReason
+from .refusals import SemanticOperationRefusal, SemanticReason, SemanticRefusal
 from .rich_knowledge_sources import RULE_INPUT, VERSION, parse_policy_yaml
 from .types import PreparedRelease
 
@@ -347,9 +347,7 @@ class RichRulePolicy:
         source = raw.get("applies_to", "any")
         if isinstance(source, str):
             source = [source]
-        groups = self.metadata.get((class_name, predicate), {}).get(
-            "groups", ()
-        )
+        groups = self.metadata.get((class_name, predicate), {}).get("groups", ())
         for token in source:
             if token == "any":
                 return True
@@ -359,4 +357,3 @@ class RichRulePolicy:
             elif self.prepared.expand_name(token) == predicate:
                 return True
         return False
-

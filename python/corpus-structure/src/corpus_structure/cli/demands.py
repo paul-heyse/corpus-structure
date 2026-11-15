@@ -202,12 +202,12 @@ def execute_request(
 ) -> DemandActionReport:
     """One managed path for source creation, explicit native requests and exact resume."""
     from corpus_structure.cli.characterization_options import method_settings
-    from corpus_structure.semantic.refusals import OperationConflict
     from corpus_structure.orchestrate.data_operations import NativeDemandExecutionError
     from corpus_structure.orchestrate.source_reporting import (
         record_native_demand,
         retain_native_demand_result,
     )
+    from corpus_structure.semantic.refusals import OperationConflict
 
     if sum(value is not None for value in (demand, request, source_request)) != 1:
         raise typer.BadParameter("select one source request, native request or retained demand")
@@ -240,10 +240,18 @@ def execute_request(
 
             try:
                 result = execute_native_intent(
-                    engine, admitted, source_root=source_root, methods=methods,
-                    demand=demand, request=request, source_request=source_request,
-                    visual_actor=visual_actor, project=project, limit=limit,
-                    max_rounds=max_rounds, required_targets=required_targets,
+                    engine,
+                    admitted,
+                    source_root=source_root,
+                    methods=methods,
+                    demand=demand,
+                    request=request,
+                    source_request=source_request,
+                    visual_actor=visual_actor,
+                    project=project,
+                    limit=limit,
+                    max_rounds=max_rounds,
+                    required_targets=required_targets,
                     registered=registered,
                 )
             except NativeDemandExecutionError as error:

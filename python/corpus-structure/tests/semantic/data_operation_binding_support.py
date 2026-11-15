@@ -91,9 +91,18 @@ def build_binding_source(recipe, admin, writer, directory, *, purpose_engine=Non
                 if not isinstance(raw.stmt, ast.CreateFunctionStmt):
                     continue
                 name = (raw.stmt.funcname or ())[-1].sval
-                if (codecs and name in {"ddo_normalize", "ddo_field", "ddo_json", "ddo_require_subject_source", "ddo_scope", "ddo_digest"}) or (
-                    not codecs and name != "ddo_require_binding"
-                ):
+                if (
+                    codecs
+                    and name
+                    in {
+                        "ddo_normalize",
+                        "ddo_field",
+                        "ddo_json",
+                        "ddo_require_subject_source",
+                        "ddo_scope",
+                        "ddo_digest",
+                    }
+                ) or (not codecs and name != "ddo_require_binding"):
                     connection.exec_driver_sql(
                         prepared.excerpt(index), execution_options={"no_parameters": True}
                     )
@@ -270,7 +279,8 @@ def _authored_member(product, member, position, episode, *, source="source"):
         multiplicity=1,
         member=member,
         support_references=(ComputationalSupportReference(derivation_id=episode),),
-     subject_definition="document")
+        subject_definition="document",
+    )
 
 
 P1 = _authored_member("p1", "m1", 2, "ep1")
@@ -564,8 +574,12 @@ def discover(
             {"parameters": {}, "replicate": None},
             inference,
             subject_context=SubjectContext(
-                "ddo-test", "doc", root["original_source"], canonical_bytes(root["analyzed_scope"])
-            , subject_definition="document"),
+                "ddo-test",
+                "doc",
+                root["original_source"],
+                canonical_bytes(root["analyzed_scope"]),
+                subject_definition="document",
+            ),
         )
         attached = storage.attach_data_request(
             typing_cast(

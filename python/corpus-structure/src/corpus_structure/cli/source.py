@@ -11,9 +11,8 @@ from pydantic import BaseModel, RootModel
 
 from corpus_structure.cli.output import JsonOpt, emit, report_fields, state
 from corpus_structure.core.db.lifetime import BorrowerCancellation
+from corpus_structure.semantic.visual_evidence import VisualEvidenceKind, VisualEvidencePin
 from corpus_structure.serve.native_source import NativeExportFormat, NativeSourceRequest
-from corpus_structure.semantic.visual_evidence import VisualEvidenceKind
-from corpus_structure.semantic.visual_evidence import VisualEvidencePin
 
 app = typer.Typer(help="Inspect pinned PDF sources and integration custody.", no_args_is_help=True)
 
@@ -30,7 +29,12 @@ class SourceCoverageReport(BaseModel):
 @app.command("find")
 def find(
     ctx: typer.Context,
-    request: Annotated[str, typer.Argument(help="SourceSearchRequest JSON path or '-' with explicit project/demand/read and source publication pins.")],
+    request: Annotated[
+        str,
+        typer.Argument(
+            help="SourceSearchRequest JSON path or '-' with explicit project/demand/read and source publication pins."
+        ),
+    ],
     json: JsonOpt = False,
 ):
     """Search the explicit selected native source population and retain retrievable handles."""
@@ -44,7 +48,9 @@ def find(
     with failure_boundary(json, expected=(ValueError, OSError)):
         selected = SourceSearchRequest.model_validate(json_loads(read_request_bytes(request)))
         with (
-            open_runtime_engine(state(ctx).settings(), application_name="ci-source-find", purpose="read") as engine,
+            open_runtime_engine(
+                state(ctx).settings(), application_name="ci-source-find", purpose="read"
+            ) as engine,
             selected_read_snapshot(engine) as connection,
         ):
             response = search_source(connection, selected)
@@ -109,19 +115,21 @@ def inspect(
     cancellation = BorrowerCancellation()
     with failure_boundary(json, expected=(ValueError,)):
         evidence = None
-        if any(
-            part is not None
-            for part in (evidence_use, evidence_derivation, evidence_product)
-        ):
+        if any(part is not None for part in (evidence_use, evidence_derivation, evidence_product)):
             evidence = VisualEvidencePin.model_validate(
                 dict(
-                    use_id=evidence_use, derivation_id=evidence_derivation,
+                    use_id=evidence_use,
+                    derivation_id=evidence_derivation,
                     product_id=evidence_product,
                 )
             )
         request = NativeSourceRequest(
-            project_id=project, demand_id=demand, read_id=read,
-            use_id=use, product_id=product, derivation_id=derivation,
+            project_id=project,
+            demand_id=demand,
+            read_id=read,
+            use_id=use,
+            product_id=product,
+            derivation_id=derivation,
             view="visual_evidence" if native_view == "visual-evidence" else native_view,
             pointer=pointer,
             section_pointer=section,
@@ -215,25 +223,44 @@ def visual_observations(
     page: int | None = None,
     cursor: str | None = None,
     limit: int = 100,
-    max_bytes: int = 1024*1024,
+    max_bytes: int = 1024 * 1024,
     json: JsonOpt = False,
 ):
     """Discover visual observations in one authenticated selected demand cut."""
     import json as json_module
+
     from corpus_structure.cli.failures import failure_boundary
     from corpus_structure.semantic.demand_results import selected_read_snapshot
     from corpus_structure.semantic.runtime import open_runtime_engine
-    from corpus_structure.serve.selected_pdf import SelectedPdfSourceReference
     from corpus_structure.serve.pdf_visual_evidence import visual_observation_manifest
+    from corpus_structure.serve.selected_pdf import SelectedPdfSourceReference
+
     with (
-        failure_boundary(json,expected=(ValueError,)),
-        open_runtime_engine(state(ctx).settings(),application_name="ci-visual-observations",purpose="read") as engine,
+        failure_boundary(json, expected=(ValueError,)),
+        open_runtime_engine(
+            state(ctx).settings(), application_name="ci-visual-observations", purpose="read"
+        ) as engine,
         selected_read_snapshot(engine) as conn,
     ):
-        source=SelectedPdfSourceReference(project_id=project,demand_id=demand,read_id=read,use_id=use,
-            product_id=product,derivation_id=derivation)
-        emit(visual_observation_manifest(conn,source,page_no=page,continuation=json_module.loads(cursor) if cursor else None,
-            limit=limit,max_bytes=max_bytes),json=json)
+        source = SelectedPdfSourceReference(
+            project_id=project,
+            demand_id=demand,
+            read_id=read,
+            use_id=use,
+            product_id=product,
+            derivation_id=derivation,
+        )
+        emit(
+            visual_observation_manifest(
+                conn,
+                source,
+                page_no=page,
+                continuation=json_module.loads(cursor) if cursor else None,
+                limit=limit,
+                max_bytes=max_bytes,
+            ),
+            json=json,
+        )
 
 
 @app.command("native-export")
@@ -263,8 +290,12 @@ def native_export(
         with failure_boundary(True, expected=(ValueError, FileExistsError)):
             receipt = export_selected_native_source(
                 NativeSourceRequest(
-                    project_id=project, demand_id=demand, read_id=read,
-                    use_id=use, product_id=product, derivation_id=derivation,
+                    project_id=project,
+                    demand_id=demand,
+                    read_id=read,
+                    use_id=use,
+                    product_id=product,
+                    derivation_id=derivation,
                     section_pointer=section,
                     membership=membership,
                 ),
@@ -293,8 +324,12 @@ def native_export(
                 export_native_source(
                     conn,
                     NativeSourceRequest(
-                        project_id=project, demand_id=demand, read_id=read,
-                        use_id=use, product_id=product, derivation_id=derivation,
+                        project_id=project,
+                        demand_id=demand,
+                        read_id=read,
+                        use_id=use,
+                        product_id=product,
+                        derivation_id=derivation,
                         section_pointer=section,
                         membership=membership,
                         limit=1000,
@@ -316,13 +351,22 @@ def _source_catalog(ctx, demand, project, cursor, limit, max_bytes, view, *, jso
 
     with (
         failure_boundary(json, expected=(ValueError,)),
-        open_runtime_engine(state(ctx).settings(), application_name="ci-source-catalog", purpose="read") as engine,
+        open_runtime_engine(
+            state(ctx).settings(), application_name="ci-source-catalog", purpose="read"
+        ) as engine,
         selected_read_snapshot(engine) as connection,
     ):
-        report = read_source_catalog(connection, SourceCatalogRequest(
-            project_id=project, demand_id=demand, view=view,
-            cursor=cursor, limit=limit, max_bytes=max_bytes,
-        ))
+        report = read_source_catalog(
+            connection,
+            SourceCatalogRequest(
+                project_id=project,
+                demand_id=demand,
+                view=view,
+                cursor=cursor,
+                limit=limit,
+                max_bytes=max_bytes,
+            ),
+        )
     if json:
         write_report_text(json_bytes(report.model_dump(mode="python")).decode() + "\n")
     else:
@@ -426,14 +470,17 @@ def companion_export(
         CompanionExportRequest,
         export_companion_parquet,
     )
-
     from corpus_structure.serve.selected_pdf import SelectedPdfSourceReference
 
     with failure_boundary(json, expected=(ValueError, FileExistsError)):
         values: dict = dict(
             pin=SelectedPdfSourceReference(
-                project_id=project, demand_id=demand, read_id=read,
-                use_id=use, product_id=product, derivation_id=derivation,
+                project_id=project,
+                demand_id=demand,
+                read_id=read,
+                use_id=use,
+                product_id=product,
+                derivation_id=derivation,
             ),
             destination=output,
         )

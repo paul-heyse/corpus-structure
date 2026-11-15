@@ -366,7 +366,9 @@ def test_ready_request_retains_native_execution_disposition(native, expected):
         b"{}",
         b"{}",
         "cpu",
-        subject_context=SubjectContext("project:test", "subject:one", "source:one", b"{}", subject_definition="document"),
+        subject_context=SubjectContext(
+            "project:test", "subject:one", "source:one", b"{}", subject_definition="document"
+        ),
     )
     original = BindingResult(
         "op:result",
@@ -407,10 +409,16 @@ def test_ready_request_retains_native_execution_disposition(native, expected):
 def test_frozen_source_sets_are_explicit_selected_operation_scope():
     from dataclasses import replace
 
-    from corpus_structure.semantic.data_operation_model import InputCoverage, InputSupport, OperationRole
+    from corpus_structure.semantic.data_operation_model import (
+        InputCoverage,
+        InputSupport,
+        OperationRole,
+        SubjectContext,
+    )
     from corpus_structure.semantic.data_operation_source_sets import FrozenSourceSet, SourceSetEntry
-    from corpus_structure.semantic.data_product_reference import DataProductReference, DataProductMemberReference
-    from corpus_structure.semantic.data_operation_model import SubjectContext
+    from corpus_structure.semantic.data_product_reference import (
+        DataProductReference,
+    )
 
     compiled = model(operation("op:result"))
     op = compiled.operations[0]
@@ -433,8 +441,14 @@ def test_frozen_source_sets_are_explicit_selected_operation_scope():
     compiled = replace(compiled, operations=(replace(op, roles=(role,)),))
 
     entry = SourceSetEntry.from_semantic_source(
-        DataProductReference('product:one'),
-        context=SubjectContext('project', 'view:original', 'source:foreign', b'{"page":1}', subject_definition='document'),
+        DataProductReference("product:one"),
+        context=SubjectContext(
+            "project",
+            "view:original",
+            "source:foreign",
+            b'{"page":1}',
+            subject_definition="document",
+        ),
     )
     scope = FrozenSourceSet("inputs", (entry,))
     with pytest.raises(ValueError, match=r"lacks.*source set"):
@@ -660,4 +674,6 @@ def test_retained_observation_policy_reuses_only_the_authentic_selected_sample()
     assert frozen.record["operations"][0]["replicate"] is None
     assert freeze(compiled).content == frozen.content
     with pytest.raises(ValueError, match="fresh independent replication is unsupported"):
-        freeze(compiled, selections=(OperationSelection("op:result", replicate="fresh-other-sample"),))
+        freeze(
+            compiled, selections=(OperationSelection("op:result", replicate="fresh-other-sample"),)
+        )

@@ -180,7 +180,9 @@ class ValueComparator:
     ) -> _Reading:
         from corpus_structure.semantic.scientific_evidence import MathematicalEvidence
 
-        return MathematicalEvidence(self.macros, self.constants, context_profile=self.context_profile)._read(latex, kinds, variables)
+        return MathematicalEvidence(
+            self.macros, self.constants, context_profile=self.context_profile
+        )._read(latex, kinds, variables)
 
     def _math(
         self,
@@ -196,7 +198,10 @@ class ValueComparator:
         from corpus_structure.semantic.scientific_evidence import EvidenceTier, MathematicalEvidence
 
         evidence = MathematicalEvidence(
-            self.macros, self.constants, constraints=self._constraints, context_profile=self.context_profile,
+            self.macros,
+            self.constants,
+            constraints=self._constraints,
+            context_profile=self.context_profile,
         )._math(t, la, lb, fa, fb, conds, cform, variables)
         if evidence.tier is EvidenceTier.UNDECIDED:
             return self._undecided(t, fa, fb, evidence.detail, evidence.grammar)

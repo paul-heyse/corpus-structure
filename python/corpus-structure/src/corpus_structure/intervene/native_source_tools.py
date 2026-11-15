@@ -13,7 +13,9 @@ from corpus_structure.serve.source_search import SourceSearchRequest
 
 
 class ExactSourceCatalog(BaseModel):
-    format: Literal["selected-source-catalog-exact-json-v1"] = "selected-source-catalog-exact-json-v1"
+    format: Literal["selected-source-catalog-exact-json-v1"] = (
+        "selected-source-catalog-exact-json-v1"
+    )
     cut_id: str
     exact_json: str
 
@@ -36,8 +38,8 @@ def register_native_source_tools(server, reader, *, project=None, demand=None):
     from corpus_structure.intervene.mcp_results import bounded_mcp_result
     from corpus_structure.semantic.refusals import tool_refusals
     from corpus_structure.serve.native_source import inspect_native_source
-    from corpus_structure.serve.source_search import search_source
     from corpus_structure.serve.source_catalog import read_source_catalog
+    from corpus_structure.serve.source_search import search_source
 
     def scope(request):
         if project is not None and request.project_id != project:
@@ -73,7 +75,10 @@ def register_native_source_tools(server, reader, *, project=None, demand=None):
         scope(request)
         with reader() as connection:
             response = read_source_catalog(connection, request)
-        return bounded_mcp_result(ExactSourceCatalog(
-            cut_id="cut-selection:" + sha256(json_bytes(response.cut)).hexdigest(),
-            exact_json=json_bytes(response.model_dump(mode="python")).decode(),
-        ), request.max_bytes)
+        return bounded_mcp_result(
+            ExactSourceCatalog(
+                cut_id="cut-selection:" + sha256(json_bytes(response.cut)).hexdigest(),
+                exact_json=json_bytes(response.model_dump(mode="python")).decode(),
+            ),
+            request.max_bytes,
+        )

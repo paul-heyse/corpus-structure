@@ -80,7 +80,9 @@ def source_profile_values(source: dict) -> dict:
         "source": source["source"],
         "selectors": source["selectors"],
         "chars": chars,
-        "math_share": round(inside / chars, SOURCE_RATIO_DECIMAL_PLACES) if chars else SOURCE_RATIO_EMPTY_FRACTION,
+        "math_share": round(inside / chars, SOURCE_RATIO_DECIMAL_PLACES)
+        if chars
+        else SOURCE_RATIO_EMPTY_FRACTION,
         "inline_math": sum(label == "inline" for label in labels),
         "display_math": sum(label not in ("inline", "table") for label in labels),
     }
@@ -122,10 +124,18 @@ def source_profile_numerical_asset():
     from .source_profile_numerics import source_ratio_numerical_policy
     from .types import SourceArtifact
 
-    return SourceArtifact("source-profile/numerical-policy", canonical_bytes({
-        "numerical_policy": source_ratio_numerical_policy().model_dump(mode="json"),
-        "implementation": Path(__file__).with_name("source_profile_numerics.py").read_bytes().hex(),
-    }))
+    return SourceArtifact(
+        "source-profile/numerical-policy",
+        canonical_bytes(
+            {
+                "numerical_policy": source_ratio_numerical_policy().model_dump(mode="json"),
+                "implementation": Path(__file__)
+                .with_name("source_profile_numerics.py")
+                .read_bytes()
+                .hex(),
+            }
+        ),
+    )
 
 
 def source_profile_declarations():
@@ -135,10 +145,19 @@ def source_profile_declarations():
     from .source_profile_numerics import SourceRatioNumericalPolicy
     from .types import SourceArtifact
 
-    return SourceArtifact("source-profile/numerical-kinds", canonical_bytes({
-        "version": MODEL_VERSION,
-        "kinds": nominal_schema_kinds(SourceRatioNumericalPolicy.model_json_schema(), namespace="urn:corpus:kind:source-profile:", root_name="NumericalPolicy"),
-    }))
+    return SourceArtifact(
+        "source-profile/numerical-kinds",
+        canonical_bytes(
+            {
+                "version": MODEL_VERSION,
+                "kinds": nominal_schema_kinds(
+                    SourceRatioNumericalPolicy.model_json_schema(),
+                    namespace="urn:corpus:kind:source-profile:",
+                    root_name="NumericalPolicy",
+                ),
+            }
+        ),
+    )
 
 
 def source_profile_operation_sources():

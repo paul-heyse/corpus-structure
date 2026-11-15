@@ -342,16 +342,19 @@ def selected_fixture(tmp_path, monkeypatch, acquired):
         "corpus_structure.evaluate.selected_references.selected_record_index", selected
     )
     from dataclasses import replace
-    from corpus_structure.semantic.native_definition_projection import read_native_definition_projection
 
     from corpus_structure.semantic.data_operation_admission import bound_data_operation_model
-    from corpus_structure.semantic.data_operation_storage import data_operation_definition_projection
     from corpus_structure.semantic.data_operation_json import wire_json_loads
+    from corpus_structure.semantic.data_operation_storage import (
+        data_operation_definition_projection,
+    )
     from corpus_structure.semantic.types import PreparedArtifact
 
-    native_projection = wire_json_loads(data_operation_definition_projection(
-        acquired, bound_data_operation_model(acquired), native_digest="test-native-contract"
-    ))
+    native_projection = wire_json_loads(
+        data_operation_definition_projection(
+            acquired, bound_data_operation_model(acquired), native_digest="test-native-contract"
+        )
+    )
     contracts = {
         "https://corpus-structure.dev/semantic/data-operation-assessment/DdoSelectedReferenceSnapshot": "kind:reference",
         "https://corpus-structure.dev/semantic/data-operation-assessment/DdoSelectedReference": "kind:authored-reference",
@@ -363,9 +366,10 @@ def selected_fixture(tmp_path, monkeypatch, acquired):
     ]
     # Only native acquisition is substituted: archive/model binding and projection
     # shape are supplied by the actual independently prepared release.
-    artifacts = (*acquired.artifacts, PreparedArtifact(
-        "data_operation_native_definitions.json", json_bytes(native_projection)
-    ))
+    artifacts = (
+        *acquired.artifacts,
+        PreparedArtifact("data_operation_native_definitions.json", json_bytes(native_projection)),
+    )
     monkeypatch.setattr(
         "corpus_structure.semantic.releases.open_release",
         lambda *a: replace(acquired, artifacts=artifacts),
@@ -432,7 +436,13 @@ def test_authored_admission_reader_follows_all_obligation_pages(monkeypatch):
             "source:" + name,
             41,
             kind_contract="kind:reference",
-            context=SubjectContext("project:A", name, "document:" + name, b"{}", subject_definition="original-source-view"),
+            context=SubjectContext(
+                "project:A",
+                name,
+                "document:" + name,
+                b"{}",
+                subject_definition="original-source-view",
+            ),
             author="independent author",
             selection_id="question:" + name,
         )
@@ -596,7 +606,8 @@ def test_current_evaluator_tool_and_resource_keep_both_selection_pins(
             build_evaluator_server(project="project:A", evaluator_engine=engine)
         ) as client:
             assert {tool.name for tool in await client.list_tools()} == {
-                "compare_selected_reference", "fit_complete_record_features"
+                "compare_selected_reference",
+                "fit_complete_record_features",
             }
             result = await client.call_tool(
                 "compare_selected_reference", {"request": request.model_dump(mode="python")}

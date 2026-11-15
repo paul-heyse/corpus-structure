@@ -15,8 +15,8 @@ from dataclasses import asdict, dataclass, field
 from hashlib import sha256
 from typing import Any
 
-from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.data_operation_model import EffectiveDataOperationModel
+from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.record_contracts import (
     anchor_identity,
     bind_record_candidates,
@@ -64,14 +64,28 @@ def reference_contract(prepared: PreparedRelease) -> dict[str, Any]:
                 "schemas": schemas,
                 "definitions": definitions,
                 "vocabularies": sorted(
-                    ({key: item for key, item in asdict(value).items() if key != "definition_digest"}
-                     for value in prepared.vocabularies if value.enum in ranges),
+                    (
+                        {
+                            key: item
+                            for key, item in asdict(value).items()
+                            if key != "definition_digest"
+                        }
+                        for value in prepared.vocabularies
+                        if value.enum in ranges
+                    ),
                     key=lambda value: value["enum"],
                 ),
                 "enum_declarations": sorted(
                     (
-                        {"kind": row.kind, "name": row.name,
-                         "declaration": {key: value for key, value in json.loads(row.body).items() if key != "definition_digest"}}
+                        {
+                            "kind": row.kind,
+                            "name": row.name,
+                            "declaration": {
+                                key: value
+                                for key, value in json.loads(row.body).items()
+                                if key != "definition_digest"
+                            },
+                        }
                         for row in prepared.registry_rows
                         if row.kind == "enum" and row.name in ranges
                     ),
@@ -279,7 +293,12 @@ def _frame(prepared: PreparedRelease, frame: RecordEvaluationFrame) -> dict[str,
     ):
         raise ValueError("related evaluation source requires the same native product")
     scopes = tuple(
-        prepared.validate_python("DdoRecordAnchorScope" if pin.get("format") == "declared-native-source-v1" else "RecordReferenceAnchorScope", value).model_dump(mode="python")
+        prepared.validate_python(
+            "DdoRecordAnchorScope"
+            if pin.get("format") == "declared-native-source-v1"
+            else "RecordReferenceAnchorScope",
+            value,
+        ).model_dump(mode="python")
         for value in frame.anchor_scopes
     )
     for scope in scopes:
@@ -332,7 +351,8 @@ def _records(prepared, model, side, frame, contexts, contracts, *, reference, an
         model.model_dump(mode="python")
         for model in bind_record_candidates(
             prepared,
-            model=model, source=frame["pin"]["source"],
+            model=model,
+            source=frame["pin"]["source"],
             records=side.records,
             coordinate_texts=contexts,
         )
@@ -631,7 +651,9 @@ def whole_reading_correct(
     reference_prepared = reference_prepared or prepared
     prediction_frame = prediction_frame or frame
     options = dict(
-        model=reference_model, prediction_model=prediction_model, coordinate_texts=coordinate_texts,
+        model=reference_model,
+        prediction_model=prediction_model,
+        coordinate_texts=coordinate_texts,
         prediction_prepared=prepared,
         prediction_coordinate_texts=prediction_coordinate_texts,
         correspondence=correspondence,
@@ -661,4 +683,3 @@ def whole_reading_correct(
             for value in aligned.match_bindings
         )
     return candidate["record_id"] in aligned.matches["full"]
-

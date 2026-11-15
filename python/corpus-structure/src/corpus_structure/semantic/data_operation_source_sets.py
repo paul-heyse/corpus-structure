@@ -13,6 +13,7 @@ from dataclasses import dataclass, field
 from .data_operation_json import json_bytes, json_loads
 from .identity import canonical_bytes
 
+
 def is_semantic_source_reference(record):
     return (
         isinstance(record, dict)
@@ -49,8 +50,12 @@ class SourceSetEntry:
             or type(self.analyzed_scope) is not bytes
         ):
             raise TypeError("source-set custody and reference pins require immutable exact types")
-        if self.original_source is not None and (type(self.original_source) is not str or not self.original_source):
-            raise TypeError("source-set original source requires explicit null or a nonempty string")
+        if self.original_source is not None and (
+            type(self.original_source) is not str or not self.original_source
+        ):
+            raise TypeError(
+                "source-set original source requires explicit null or a nonempty string"
+            )
         if self.member is not None and type(self.member) is not str:
             raise TypeError("source-set member must be an original string identifier")
         raw = json.loads(self.reference)
@@ -60,13 +65,9 @@ class SourceSetEntry:
 
         product = DataProductReference(raw["product_id"])
         reference = (
-            DataProductMemberReference(product, raw["member_id"])
-            if "member_id" in raw
-            else product
+            DataProductMemberReference(product, raw["member_id"]) if "member_id" in raw else product
         )
-        member = (
-            reference.member_id if isinstance(reference, DataProductMemberReference) else None
-        )
+        member = reference.member_id if isinstance(reference, DataProductMemberReference) else None
         identity = (
             reference.identity
             if isinstance(reference, DataProductMemberReference)
@@ -77,9 +78,7 @@ class SourceSetEntry:
             or member != self.member
             or identity != self.source_reference
         ):
-            raise ValueError(
-                "source-set semantic reference differs from its exact product/member"
-            )
+            raise ValueError("source-set semantic reference differs from its exact product/member")
         canonical = canonical_bytes(reference.values())
         if not all((self.project_id, self.subject, self.subject_definition, self.product)):
             raise ValueError("source-set entries require exact qualified original custody")

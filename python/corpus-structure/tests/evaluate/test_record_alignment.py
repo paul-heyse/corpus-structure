@@ -10,7 +10,6 @@ from dataclasses import replace
 
 import pytest
 import yaml
-from evaluation_record_alignment_support import bundle, model
 from evaluation_record_alignment_support import (
     MODEL as MODEL,
 )
@@ -20,6 +19,7 @@ from evaluation_record_alignment_support import (
 from evaluation_record_alignment_support import (
     ROOT as ROOT,
 )
+from evaluation_record_alignment_support import bundle, model
 from evaluation_record_alignment_support import (
     finish as finish,
 )
@@ -42,14 +42,13 @@ from corpus_structure.evaluate.record_alignment import (
 )
 from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
 from corpus_structure.semantic.data_operation_compilation import compile_data_operations
-from corpus_structure.semantic.observations import observation_inputs
 from corpus_structure.semantic.record_contracts import (
     anchor_identity,
     bind_record_candidates,
     evidence_set_identity,
     interpretation_identity,
-    record_identity,
     record_family_contract,
+    record_identity,
 )
 
 
@@ -60,7 +59,9 @@ def score(reference, prediction, contexts, *, binding=None):
         RecordSide(binding, prediction),
         prepared(),
         coordinate_texts=contexts,
-    model = model(), prediction_model = model())
+        model=model(),
+        prediction_model=model(),
+    )
 
 
 def replace_evidence(row, name, *, pointer=None, text=None, precision=None, space=None):
@@ -108,8 +109,12 @@ def test_independent_five_family_counts_and_empty_prediction_denominator():
         assert (
             len(
                 bind_record_candidates(
-                    prepared(), source=PIN["source"], records=(row,), coordinate_texts=texts,
-                model = model())
+                    prepared(),
+                    source=PIN["source"],
+                    records=(row,),
+                    coordinate_texts=texts,
+                    model=model(),
+                )
             )
             == 1
         )
@@ -302,7 +307,9 @@ def test_mismatched_region_guideline_or_release_refuses(attribute, value):
             RecordSide(replace(bound, **{attribute: value}), (ref,)),
             prepared(),
             coordinate_texts=contexts,
-        model = model(), prediction_model = model())
+            model=model(),
+            prediction_model=model(),
+        )
 
 
 def test_out_of_cut_and_stale_coordinates_refuse_without_dropping_reference():
@@ -325,7 +332,9 @@ def test_out_of_cut_and_stale_coordinates_refuse_without_dropping_reference():
             RecordSide(replace(frame(ref), pin=changed_pin), ()),
             prepared(),
             coordinate_texts=contexts,
-        model = model(), prediction_model = model())
+            model=model(),
+            prediction_model=model(),
+        )
 
 
 def test_broken_source_anchor_and_missing_coordinate_text_refuse_whole_operation():
@@ -359,7 +368,9 @@ def test_unknown_family_shape_and_policy_versions_refuse():
             RecordSide(frame(ref), ()),
             prepared(),
             comparison_policy="unknown-2",
-        model = model(), prediction_model = model())
+            model=model(),
+            prediction_model=model(),
+        )
 
 
 def test_reference_and_prediction_acceptance_policies_are_separate_from_guideline():
@@ -474,10 +485,15 @@ def test_actual_released_role_requiredness_drives_core_scoring():
         "RequiredLiteralRecordField"
     )
     original = bundle()
-    changed_bundle = SourceBundle(original.root, tuple(
-        SourceArtifact(source.name, yaml.safe_dump(document).encode()) if source.name == "statistics_semantic" else source
-        for source in original.sources
-    ))
+    changed_bundle = SourceBundle(
+        original.root,
+        tuple(
+            SourceArtifact(source.name, yaml.safe_dump(document).encode())
+            if source.name == "statistics_semantic"
+            else source
+            for source in original.sources
+        ),
+    )
     changed = prepare_release(changed_bundle)
     changed_model = compile_data_operations(changed_bundle)
     ref, contexts = reading("measurement")
@@ -485,12 +501,19 @@ def test_actual_released_role_requiredness_drives_core_scoring():
     role(pred, "unit").update(value={"kind": "text", "text": "gallons"}, original="gallons")
     contexts.append(replace_evidence(pred, "unit", pointer="#/other/unit", text="gallons"))
     for row in (ref, pred):
-        row["record_id"] = record_identity(record_family_contract(changed_model, row["contract"]), row)
+        row["record_id"] = record_identity(
+            record_family_contract(changed_model, row["contract"]), row
+        )
         row["interpretation_id"] = interpretation_identity(row)
     bound = replace(frame(ref, pred), release_id=changed.release_id)
     got = align_records(
-        RecordSide(bound, (ref,)), RecordSide(bound, (pred,)), changed, coordinate_texts=contexts,
-    model = changed_model, prediction_model = changed_model)
+        RecordSide(bound, (ref,)),
+        RecordSide(bound, (pred,)),
+        changed,
+        coordinate_texts=contexts,
+        model=changed_model,
+        prediction_model=changed_model,
+    )
     # The same controlled error was core-correct under the original optional-unit contract.
     assert (got.counts["core"].matched, got.counts["full"].matched) == (0, 0)
 

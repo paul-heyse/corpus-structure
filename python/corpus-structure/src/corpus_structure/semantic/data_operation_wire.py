@@ -97,7 +97,9 @@ def _protocol_content(sources: tuple[SourceArtifact, ...] | None) -> bytes:
             captured = values[0]
         extension = checked_json_schema(json.loads(captured))
         definitions = dict(extension.get("definitions", {}))
-        definitions["selected_record_grade"] = {key: value for key, value in extension.items() if key not in {"definitions", "$schema"}}
+        definitions["selected_record_grade"] = {
+            key: value for key, value in extension.items() if key not in {"definitions", "$schema"}
+        }
         if definitions.keys() & document["definitions"].keys():
             raise ValueError("record grade definition collides with native protocol")
         document["definitions"].update(definitions)
@@ -480,7 +482,9 @@ def wire_nominal_correspondence(sources=None) -> tuple[tuple[str, str], ...]:
     if not isinstance(fields, dict):
         raise ValueError("wire nominal fields must be source pointer bindings")
     for pointer, nominal in fields.items():
-        if not isinstance(nominal, str) or any(not part.isidentifier() for part in nominal.split(".")):
+        if not isinstance(nominal, str) or any(
+            not part.isidentifier() for part in nominal.split(".")
+        ):
             raise ValueError("invalid nominal wire name at " + pointer)
         value = {"definitions": definitions}
         try:
@@ -666,7 +670,11 @@ def render_wire_types(definitions, nominals=()):
         "type WireExactJSONValue = dict[str, WireExactJSONValue] | list[WireExactJSONValue] | str | bool | int | float | Decimal | None",
         "",
     ]
-    out += [f"{name} = NewType({name!r}, {base})" for name, base in sorted(nominal_bases.items()) if name not in nominal_imports]
+    out += [
+        f"{name} = NewType({name!r}, {base})"
+        for name, base in sorted(nominal_bases.items())
+        if name not in nominal_imports
+    ]
     for lines in classes.values():
         out += ["", *lines]
     for name, expression in aliases.items():

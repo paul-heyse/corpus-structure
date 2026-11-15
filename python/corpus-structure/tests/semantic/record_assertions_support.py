@@ -1,6 +1,5 @@
 """Shared controlled inputs and builders for record assertions support."""
 
-from corpus_structure.semantic.source_reading_schema import source_reading_inputs
 from collections.abc import Mapping
 from copy import deepcopy
 from functools import cache
@@ -24,9 +23,10 @@ from corpus_structure.semantic.record_contracts import (
     bind_record_candidates,
     evidence_set_identity,
     interpretation_identity,
-    record_identity,
     record_family_contract,
+    record_identity,
 )
+from corpus_structure.semantic.source_reading_schema import source_reading_inputs
 
 ROOT = Path(__file__).resolve().parents[4]
 
@@ -77,6 +77,7 @@ def inputs():
 @cache
 def model():
     from corpus_structure.semantic.data_operation_compilation import compile_data_operations
+
     return compile_data_operations(inputs()[1])
 
 
@@ -150,7 +151,9 @@ def record(
     )
     seal(row)
     # The independent fixture crosses the existing private semantic binder too.
-    bind_record_candidates(prepared, source=PIN["source"], records=(row,), coordinate_texts=texts, model=model())
+    bind_record_candidates(
+        prepared, source=PIN["source"], records=(row,), coordinate_texts=texts, model=model()
+    )
     return row
 
 
@@ -175,5 +178,5 @@ def report(*records):
 
 def lower(*records):
     return lower_record_assertions(
-        inputs()[2], "realization:reading", "batch:reading", (report(*records),)
-    , model=model())
+        inputs()[2], "realization:reading", "batch:reading", (report(*records),), model=model()
+    )

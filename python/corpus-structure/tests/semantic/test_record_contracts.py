@@ -1,7 +1,5 @@
 """Independent private record expectations; no provider or publication qualification."""
 
-from semantic.record_contracts_support import model as record_model
-
 from copy import deepcopy
 
 import pytest
@@ -23,8 +21,8 @@ from corpus_structure.semantic.record_contracts import (
     bind_record_candidates,
     evidence_set_identity,
     interpretation_identity,
-    record_identity,
     record_family_contract,
+    record_identity,
 )
 from corpus_structure.semantic.releases import _products
 from semantic.record_contracts_support import (
@@ -48,6 +46,7 @@ from semantic.record_contracts_support import (
 from semantic.record_contracts_support import (
     measurement_record as measurement_record,
 )
+from semantic.record_contracts_support import model as record_model
 from semantic.record_contracts_support import (
     record_from_fields as record_from_fields,
 )
@@ -141,9 +140,15 @@ def test_binding_preserves_record_memberships_and_retry_identity():
     moved["pin"]["source_view_id"] = 81
     for row in moved["anchors"]:
         row["pin"]["source_view_id"] = 81
-    assert record_identity(record_family_contract(record_model(), moved["contract"]), moved) == record["record_id"]
+    assert (
+        record_identity(record_family_contract(record_model(), moved["contract"]), moved)
+        == record["record_id"]
+    )
     moved["pin"]["recipe_digest"] = "d" * 64
-    assert record_identity(record_family_contract(record_model(), moved["contract"]), moved) != record["record_id"]
+    assert (
+        record_identity(record_family_contract(record_model(), moved["contract"]), moved)
+        != record["record_id"]
+    )
     kwargs["result"] = UnitResult(
         ref=UnitRef(TaskUnitType.SOURCE_VIEW, 7, "view"), outcome=ObservationOutcome.EMPTY
     )
@@ -155,7 +160,10 @@ def test_equal_text_at_another_cell_is_another_record_and_dependency_change_is_n
     record, _ = table_record()
     other = deepcopy(record)
     other["occurrence_anchors"] = (anchor("#/tables/0/cells/9", precision="item")["anchor_id"],)
-    assert record_identity(record_family_contract(record_model(), other["contract"]), other) != record["record_id"]
+    assert (
+        record_identity(record_family_contract(record_model(), other["contract"]), other)
+        != record["record_id"]
+    )
     other = deepcopy(record)
     other["computation_dependencies"] = ("observation:changed-countercandidate",)
     assert interpretation_identity(other) != record["interpretation_id"]
@@ -173,7 +181,9 @@ def test_occurrence_identity_consumes_family_contract_and_keeps_reading_interpre
             if source.name == "statistics_semantic":
                 document = yaml.safe_load(source.content)
                 if family_change:
-                    document["classes"]["TableRecordFields"]["attributes"]["caption"]["required"] = False
+                    document["classes"]["TableRecordFields"]["attributes"]["caption"][
+                        "required"
+                    ] = False
                 else:
                     document["classes"]["UnrelatedObservation"] = {
                         "attributes": {"note": {"range": "string"}}
@@ -264,7 +274,9 @@ def test_synthetic_and_coarse_spans_do_not_become_exact_literals():
 def test_source_record_requires_same_producer_pin_and_model_context_is_not_evidence():
     record, contexts = table_record()
     with pytest.raises(ValueError, match="producing source"):
-        bind_record_candidates(release_inputs()[2], source="another-source", records=(record,), model=record_model())
+        bind_record_candidates(
+            release_inputs()[2], source="another-source", records=(record,), model=record_model()
+        )
     raw = record["anchors"][0]
     raw["space"] = "model_context"
     raw["anchor_id"] = anchor_identity(raw)

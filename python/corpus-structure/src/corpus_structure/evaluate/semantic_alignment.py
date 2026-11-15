@@ -10,7 +10,7 @@ import unicodedata
 from collections.abc import Mapping
 from dataclasses import dataclass, field, replace
 from decimal import Decimal
-from typing import Any, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from corpus_structure.semantic.analysis_contracts import AnalysisContextProfile
@@ -179,7 +179,9 @@ def equivalent(
     """
     from corpus_structure.semantic.scientific_evidence import ReferenceComparisonScope
 
-    science_scope = science_scope or ReferenceComparisonScope(model, context_profile=context_profile)
+    science_scope = science_scope or ReferenceComparisonScope(
+        model, context_profile=context_profile
+    )
     claim_map = {} if claim_map is None else claim_map
     if isinstance(a, Mapping) and isinstance(b, Mapping):
         definition = record_definition(model, range_name, a) if model else None
@@ -743,7 +745,12 @@ def _entity_pairs(ref, pred, prepared, out, science_scope):
 
 
 def align_semantic(
-    ref: SemanticSide, pred: SemanticSide, prepared: AlignmentModel, *, alignment_policy: AlignmentPolicyDefinition, context_profile: AnalysisContextProfile
+    ref: SemanticSide,
+    pred: SemanticSide,
+    prepared: AlignmentModel,
+    *,
+    alignment_policy: AlignmentPolicyDefinition,
+    context_profile: AnalysisContextProfile,
 ) -> SemanticAlignment:
     if ref.unit != pred.unit:
         raise ValueError("alignment sides refer to different source units")

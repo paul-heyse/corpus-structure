@@ -255,7 +255,8 @@ def project_product_members(
         context = packet["context"]
         if (
             not isinstance(context, dict)
-            or set(context) != {"subject", "subject_definition", "original_source", "analyzed_scope"}
+            or set(context)
+            != {"subject", "subject_definition", "original_source", "analyzed_scope"}
             or any(
                 type(context[name]) is not str or not context[name]
                 for name in ("subject", "subject_definition")
@@ -263,8 +264,11 @@ def project_product_members(
         ):
             raise PortRefusal("native member packet lacks its exact source/subject/scope context")
         from .data_operation_model import validate_subject_source
+
         try:
-            validate_subject_source(model, context["subject_definition"], context["original_source"])
+            validate_subject_source(
+                model, context["subject_definition"], context["original_source"]
+            )
         except ValueError as error:
             raise PortRefusal(str(error)) from error
         if any(
@@ -273,15 +277,21 @@ def project_product_members(
         ):
             raise PortRefusal("member body differs from its actual nominal discriminator")
         if "json_schema" in kind_facts[owner]:
-            from .data_operation_wire import validate_wire_schema
             from .data_operation_json import json_bytes, json_loads
+            from .data_operation_wire import validate_wire_schema
+
             try:
-                validate_wire_schema(kind_facts[owner]["json_schema"], json_loads(json_bytes(packet["body"])))
+                validate_wire_schema(
+                    kind_facts[owner]["json_schema"], json_loads(json_bytes(packet["body"]))
+                )
             except (TypeError, ValueError) as error:
-                raise PortRefusal("member body differs from its selected nominal contract: " + str(error)) from error
+                raise PortRefusal(
+                    "member body differs from its selected nominal contract: " + str(error)
+                ) from error
         # Context is exact operator JSON, including fractional scope numbers;
         # only the declared value body uses the semantic tagged representation.
         from .data_operation_json import json_bytes
+
         result.append(json_bytes({**packet, "body": semantic_value(packet["body"])}))
     return tuple(result)
 

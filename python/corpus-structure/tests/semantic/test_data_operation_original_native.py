@@ -23,7 +23,10 @@ from corpus_structure.semantic.data_operation_admission import (
 from corpus_structure.semantic.data_operation_demands import DemandPlanner, freeze_demand
 from corpus_structure.semantic.data_operation_identity import semantic_value
 from corpus_structure.semantic.data_operation_storage import DataOperationStorage
-from corpus_structure.semantic.original_documents import acquire_original_document_selection, register_original_document
+from corpus_structure.semantic.original_documents import (
+    acquire_original_document_selection,
+    register_original_document,
+)
 from semantic.data_operation_kernel_support import ORIGINAL_DOCUMENT, ORIGINAL_PDF
 
 
@@ -39,7 +42,10 @@ def test_original_fact_target_has_explicit_value_based_origin_policy(original_ta
 
 
 @pytest.mark.parametrize(
-    "ddo_kernel", [ORIGINAL_DOCUMENT], indirect=True, ids=("original-document",),
+    "ddo_kernel",
+    [ORIGINAL_DOCUMENT],
+    indirect=True,
+    ids=("original-document",),
 )
 def test_authentic_original_fact_admission_publication_and_revocation(ddo_kernel, tmp_path):
     kernel = ddo_kernel
@@ -112,7 +118,9 @@ def test_authentic_original_fact_admission_publication_and_revocation(ddo_kernel
                 "read": snapshot["read_id"],
                 "subject": acquired.root.subject,
                 "source": json.dumps(acquired.root.original_source),
-                "scope": json.dumps({"document": acquired.reference.document_key, "scope": "different"}),
+                "scope": json.dumps(
+                    {"document": acquired.reference.document_key, "scope": "different"}
+                ),
             },
         ).scalar_one()
         assert wrong_scope == 0
@@ -220,13 +228,15 @@ def test_authentic_original_fact_admission_publication_and_revocation(ddo_kernel
 
 
 @pytest.mark.parametrize(
-    "ddo_kernel", [ORIGINAL_PDF], indirect=True, ids=("original-document",),
+    "ddo_kernel",
+    [ORIGINAL_PDF],
+    indirect=True,
+    ids=("original-document",),
 )
 def test_original_pdf_fact_admission_and_runless_private_stage_use_actual_request_context(
     ddo_kernel,
     tmp_path,
 ):
-    from corpus_structure.semantic.original_documents import acquire_original_document_selection
     from corpus_structure.semantic.pdf_contracts import store_pdf_original
 
     kernel = ddo_kernel
@@ -234,8 +244,10 @@ def test_original_pdf_fact_admission_and_runless_private_stage_use_actual_reques
     with kernel.engine.begin() as connection:
         runtime = kernel.preparation.runtime
         acquired = _register_document(connection, kernel, tmp_path)
-        document = connection.execute(text("SELECT id,key,content_hash FROM kb.document WHERE key=:key"),
-            {"key": acquired.reference.document_key}).one()
+        document = connection.execute(
+            text("SELECT id,key,content_hash FROM kb.document WHERE key=:key"),
+            {"key": acquired.reference.document_key},
+        ).one()
         intent = freeze_demand(
             model,
             roots=(acquired.root,),
@@ -338,15 +350,29 @@ def _register_document(connection, kernel, tmp_path):
     from corpus_structure.semantic.identifiers import ProjectId, RealizationId, ReleaseId
 
     project = "original-factual-support"
-    DataOperationStorage(connection).initialize_source_project({"project_id": ProjectId(project),
-        "release_id": ReleaseId(kernel.prepared.release_id), "realization_id": RealizationId("original-document-test")})
+    DataOperationStorage(connection).initialize_source_project(
+        {
+            "project_id": ProjectId(project),
+            "release_id": ReleaseId(kernel.prepared.release_id),
+            "realization_id": RealizationId("original-document-test"),
+        }
+    )
     original = b"%PDF-1.7\n% retained independent original bytes\n%%EOF\n"
     path = tmp_path / "original.pdf"
     path.write_bytes(original)
-    register_original_document(connection, prepared=kernel.prepared, project_id=project,
-        source_uri="original.pdf", original_path=str(path), original=original, mime="application/pdf")
+    register_original_document(
+        connection,
+        prepared=kernel.prepared,
+        project_id=project,
+        source_uri="original.pdf",
+        original_path=str(path),
+        original=original,
+        mime="application/pdf",
+    )
     from hashlib import sha256
+
     from corpus_structure.core.evidence import document_key
+
     key = document_key(project, "original.pdf", sha256(original).hexdigest())
     path.unlink()
     return acquire_original_document_selection(connection, project_id=project, document_key=key)

@@ -34,7 +34,10 @@ def test_native_authoring_does_not_acquire_legacy_or_application_catalog(monkeyp
     assert {name for name, _ in provenance.inputs} == names
     fields = current_admission_fields(inputs)
     assert fields["data_operation_abi"] == "data-operation-model-v7"
-    assert not {"execution_abi", "supported_effects", "supported_effect_versions", "parsing_adapters"} & fields.keys()
+    assert (
+        not {"execution_abi", "supported_effects", "supported_effect_versions", "parsing_adapters"}
+        & fields.keys()
+    )
 
 
 def test_native_capture_rejects_another_physical_model():
@@ -83,8 +86,10 @@ def test_native_layout_uses_captured_scientific_schema(monkeypatch):
     from corpus_structure.semantic import scientific_evidence
 
     inputs = capture_native_authoring_inputs()
+
     def no_ambient_schema(*args):
         raise AssertionError("native layout reread an uncaptured scientific schema")
+
     monkeypatch.setattr(scientific_evidence, "files", no_ambient_schema)
     layout = current_admission_fields(inputs)["scientific_report_layout"]
     assert layout["comparison_paths"]
@@ -92,29 +97,41 @@ def test_native_layout_uses_captured_scientific_schema(monkeypatch):
 
 
 def test_visual_native_lowering_uses_captured_sql_and_artifact_schema(monkeypatch):
-    from corpus_structure.semantic.data_operation_visual_read import ARTIFACT_SOURCE, visual_read_sources, visual_read_sql
-    from corpus_structure.semantic.data_operation_source_native import source_native_sql
-    from corpus_structure.semantic.types import SourceArtifact
     import json
     from pathlib import Path
+
+    from corpus_structure.semantic.data_operation_source_native import source_native_sql
+    from corpus_structure.semantic.data_operation_visual_read import (
+        ARTIFACT_SOURCE,
+        visual_read_sources,
+        visual_read_sql,
+    )
+    from corpus_structure.semantic.types import SourceArtifact
 
     inputs = capture_native_authoring_inputs()
     selected = {source.name: source for source in visual_read_sources()}
     schema = json.loads(selected[ARTIFACT_SOURCE].content)
     schema["description"] = "captured visual schema marker"
     changed = tuple(
-        SourceArtifact(source.name, json.dumps(schema).encode()) if source.name == ARTIFACT_SOURCE
-        else SourceArtifact(source.name, source.content.replace(b"ddo_visual_candidate_rows", b"captured_visual_candidate_rows"))
-        if source.name == "native/data-operation-visual-read.sql" else source
+        SourceArtifact(source.name, json.dumps(schema).encode())
+        if source.name == ARTIFACT_SOURCE
+        else SourceArtifact(
+            source.name,
+            source.content.replace(b"ddo_visual_candidate_rows", b"captured_visual_candidate_rows"),
+        )
+        if source.name == "native/data-operation-visual-read.sql"
+        else source
         for source in inputs.sources
     )
     read_text = Path.read_text
+
     def no_live_read(path, *args, **kwargs):
         # SQL preparation records the installed parser's package version. That
         # library metadata is independent of the captured visual/schema inputs.
         if path.name == "METADATA" and path.parent.name.endswith(".dist-info"):
             return read_text(path, *args, **kwargs)
         raise AssertionError("native lowering read an uncaptured source: " + str(path))
+
     monkeypatch.setattr(Path, "read_bytes", no_live_read)
     monkeypatch.setattr(Path, "read_text", no_live_read)
     rendered = visual_read_sql(changed)

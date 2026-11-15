@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
+import json
 from dataclasses import asdict
 from hashlib import sha256
-import json
 from typing import Any, Literal
 
 import yaml
@@ -67,8 +67,7 @@ def read_projection_analysis(prepared: PreparedRelease) -> ProjectionAnalysisPro
         raise SemanticRefusal("Unsupported retained projection analysis product") from exc
     families = tuple(item.family for item in value.projections)
     if len(set(families)) != len(families) or any(
-        item.analysis.profile != "companion-query-analysis-3"
-        for item in value.projections
+        item.analysis.profile != "companion-query-analysis-3" for item in value.projections
     ):
         raise SemanticRefusal("Unsupported retained projection analysis profile")
     if any(item.analysis.detail_status != "available" for item in value.projections):
@@ -129,15 +128,31 @@ def prepare_projection_analysis(dependencies: ResolvedDependencies) -> PreparedA
     try:
         content = supplied[CONTRACT]
         names = [source["name"] for source in json.loads(content)["inputs"]]
-        domain = PdfDomainContract(content, tuple(SourceArtifact(name, supplied[name]) for name in names))
+        domain = PdfDomainContract(
+            content, tuple(SourceArtifact(name, supplied[name]) for name in names)
+        )
         captured = {source.name: source.content for source in domain.sources}
-        logical = {name.removeprefix(PREFIX + "logical/").replace("_", "-"): content
-                   for name, content in captured.items() if name.startswith(PREFIX + "logical/")}
+        logical = {
+            name.removeprefix(PREFIX + "logical/").replace("_", "-"): content
+            for name, content in captured.items()
+            if name.startswith(PREFIX + "logical/")
+        }
         linkml_types = logical["linkml:types"]
         physical = compile_physical(
-            {name.removeprefix(PREFIX + "physical/"): content for name, content in captured.items()
-             if name.startswith(PREFIX + "physical/")}, linkml_types=linkml_types)
-        bundle = SourceBundle("companion-projections", tuple(SourceArtifact(name, logical[name]) for name in ("companion-projections", "pdf-products", "pdf-records", "pdf-staging")))
+            {
+                name.removeprefix(PREFIX + "physical/"): content
+                for name, content in captured.items()
+                if name.startswith(PREFIX + "physical/")
+            },
+            linkml_types=linkml_types,
+        )
+        bundle = SourceBundle(
+            "companion-projections",
+            tuple(
+                SourceArtifact(name, logical[name])
+                for name in ("companion-projections", "pdf-products", "pdf-records", "pdf-staging")
+            ),
+        )
         view = _projection_view(bundle)
     except (KeyError, ValueError, TypeError) as error:
         return _unavailable("Unsupported retained projection closure: " + str(error))
@@ -183,7 +198,22 @@ def prepare_projection_analysis(dependencies: ResolvedDependencies) -> PreparedA
 class ProjectionAnalysisChange(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
     model_ref: str
-    aspect: Literal["presence", "source_context", "consumers", "output_origins", "output_types", "value_dependencies", "relational_sources", "relational_dependencies", "expressions", "relationships", "helpers", "logical_sources", "occurrences", "coverage"]
+    aspect: Literal[
+        "presence",
+        "source_context",
+        "consumers",
+        "output_origins",
+        "output_types",
+        "value_dependencies",
+        "relational_sources",
+        "relational_dependencies",
+        "expressions",
+        "relationships",
+        "helpers",
+        "logical_sources",
+        "occurrences",
+        "coverage",
+    ]
     before: JsonValue
     after: JsonValue
     consumers: tuple[str, ...]
@@ -201,7 +231,9 @@ class ProjectionAnalysisComparison(BaseModel):
     complete: bool
 
 
-def compare_retained_projection_analysis(before: PreparedRelease, after: PreparedRelease) -> ProjectionAnalysisComparison:
+def compare_retained_projection_analysis(
+    before: PreparedRelease, after: PreparedRelease
+) -> ProjectionAnalysisComparison:
     """Compare retained query facts, never data impact, execution or currentness."""
     products = (read_projection_analysis(before), read_projection_analysis(after))
     old, new = products
@@ -212,32 +244,99 @@ def compare_retained_projection_analysis(before: PreparedRelease, after: Prepare
             continue
         unknowns.update(side + ": " + message for message in product.unknowns)
         for entry in product.projections:
-            unknowns.update(side + ": projection:" + entry.family + ": " + message for message in entry.analysis.unknowns)
-    entries = tuple({entry.family: entry.analysis for entry in product.projections} if product else {} for product in products)
+            unknowns.update(
+                side + ": projection:" + entry.family + ": " + message
+                for message in entry.analysis.unknowns
+            )
+    entries = tuple(
+        {entry.family: entry.analysis for entry in product.projections} if product else {}
+        for product in products
+    )
     changes = []
 
     def append(reference, aspect, prior, current, consumers=()):
         if prior != current:
-            changes.append(ProjectionAnalysisChange(model_ref=reference, aspect=aspect,
-                before=json.loads(canonical_bytes(prior)), after=json.loads(canonical_bytes(current)), consumers=tuple(sorted(set(consumers)))))
+            changes.append(
+                ProjectionAnalysisChange(
+                    model_ref=reference,
+                    aspect=aspect,
+                    before=json.loads(canonical_bytes(prior)),
+                    after=json.loads(canonical_bytes(current)),
+                    consumers=tuple(sorted(set(consumers))),
+                )
+            )
 
     def context(product):
-        return None if product is None else {"physical_id": product.physical_id, "source_id": product.source_id}
+        return (
+            None
+            if product is None
+            else {"physical_id": product.physical_id, "source_id": product.source_id}
+        )
 
     append("projection:context", "source_context", context(old), context(new))
-    fields = ("consumers", "output_origins", "output_types", "value_dependencies", "relational_sources", "relational_dependencies", "expressions", "relationships", "helpers", "logical_sources", "occurrences")
+    fields = (
+        "consumers",
+        "output_origins",
+        "output_types",
+        "value_dependencies",
+        "relational_sources",
+        "relational_dependencies",
+        "expressions",
+        "relationships",
+        "helpers",
+        "logical_sources",
+        "occurrences",
+    )
     for family in sorted(entries[0].keys() | entries[1].keys()):
         prior, current = (entry.get(family) for entry in entries)
-        consumers = {consumer for entry in (prior, current) if entry for consumer in entry.consumers}
+        consumers = {
+            consumer for entry in (prior, current) if entry for consumer in entry.consumers
+        }
         if prior is None or current is None:
-            append("projection:" + family, "presence", asdict(prior) if prior else None, asdict(current) if current else None, consumers)
-            unknowns.add("projection:" + family + ": addition or removal has no pairwise query comparison")
+            append(
+                "projection:" + family,
+                "presence",
+                asdict(prior) if prior else None,
+                asdict(current) if current else None,
+                consumers,
+            )
+            unknowns.add(
+                "projection:" + family + ": addition or removal has no pairwise query comparison"
+            )
             continue
-        append("projection:" + family, "source_context", {"projection_id": prior.projection_id, "profile": prior.profile, "library_version": prior.library_version}, {"projection_id": current.projection_id, "profile": current.profile, "library_version": current.library_version}, consumers)
+        append(
+            "projection:" + family,
+            "source_context",
+            {
+                "projection_id": prior.projection_id,
+                "profile": prior.profile,
+                "library_version": prior.library_version,
+            },
+            {
+                "projection_id": current.projection_id,
+                "profile": current.profile,
+                "library_version": current.library_version,
+            },
+            consumers,
+        )
         prior_facts, current_facts = asdict(prior), asdict(current)
         for field in fields:
-            append("projection:" + family, field, prior_facts[field], current_facts[field], consumers)
-        append("projection:" + family, "coverage", {"unknowns": prior.unknowns, "detail_status": prior.detail_status}, {"unknowns": current.unknowns, "detail_status": current.detail_status}, consumers)
-    return ProjectionAnalysisComparison(before_release=before.release_id, after_release=after.release_id,
-        before_source_id=old.source_id if old else None, after_source_id=new.source_id if new else None,
-        changes=tuple(changes), unknowns=tuple(sorted(unknowns)), complete=bool(old and new and old.complete and new.complete and not unknowns))
+            append(
+                "projection:" + family, field, prior_facts[field], current_facts[field], consumers
+            )
+        append(
+            "projection:" + family,
+            "coverage",
+            {"unknowns": prior.unknowns, "detail_status": prior.detail_status},
+            {"unknowns": current.unknowns, "detail_status": current.detail_status},
+            consumers,
+        )
+    return ProjectionAnalysisComparison(
+        before_release=before.release_id,
+        after_release=after.release_id,
+        before_source_id=old.source_id if old else None,
+        after_source_id=new.source_id if new else None,
+        changes=tuple(changes),
+        unknowns=tuple(sorted(unknowns)),
+        complete=bool(old and new and old.complete and new.complete and not unknowns),
+    )

@@ -10,8 +10,12 @@ class FiniteInterpretationOperation:
         "id": "interpret.finite_candidates",
         "profile": "derivation",
         "subject": "selected-native-source",
-        "subject_definition": {'id': 'selected-native-source', 'identifier_kind': 'string', 'scope': 'original-source'},
-        "discovery_relation": 'role-associated',
+        "subject_definition": {
+            "id": "selected-native-source",
+            "identifier_kind": "string",
+            "scope": "original-source",
+        },
+        "discovery_relation": "role-associated",
         "context": ["original-source", "retained-candidates", "explicit-factor-policy"],
         "entrypoints": ["run"],
         "roles": [
@@ -27,7 +31,10 @@ class FiniteInterpretationOperation:
                 "support": {
                     "provenance": "exact",
                     "source": "same-original",
-                    "coverage": {"role": "candidates", "description": "selected-candidate-population"},
+                    "coverage": {
+                        "role": "candidates",
+                        "description": "selected-candidate-population",
+                    },
                     "identity_requirements": ["episode"],
                 },
             },
@@ -58,16 +65,26 @@ class FiniteInterpretationOperation:
                 "presence": "required",
             },
         ],
-        "applicability": [{'kind': 'documentation', 'text': 'retained-private-candidates-and-explicit-policy'}],
-        "invariants": [
-            {'kind': 'documentation', 'text': 'complete-reading-baseline'},
-            {'kind': 'documentation', 'text': 'no-confidence-as-factor'},
-            {'kind': 'documentation', 'text': 'no-knowledge-admission'},
-            {'kind': 'documentation', 'text': 'finite-factor-dependency-closure'},
+        "applicability": [
+            {"kind": "documentation", "text": "retained-private-candidates-and-explicit-policy"}
         ],
-        "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "complete-selected-candidate-and-factor-population"},
+        "invariants": [
+            {"kind": "documentation", "text": "complete-reading-baseline"},
+            {"kind": "documentation", "text": "no-confidence-as-factor"},
+            {"kind": "documentation", "text": "no-knowledge-admission"},
+            {"kind": "documentation", "text": "finite-factor-dependency-closure"},
+        ],
+        "coverage": {
+            "binding": "self",
+            "result_owners": [{"kind": "implementation", "reference": "self"}],
+            "description": "complete-selected-candidate-and-factor-population",
+        },
         "outcomes": ["success"],
-        "numerical_policy": {"asset": "finite/algorithm-assets", "pointer": "/numerical_policy", "kind": "urn:corpus:kind:finite:NumericalPolicy"},
+        "numerical_policy": {
+            "asset": "finite/algorithm-assets",
+            "pointer": "/numerical_policy",
+            "kind": "urn:corpus:kind:finite:NumericalPolicy",
+        },
         "dependencies": [],
         "effects": [],
         "capabilities": {
@@ -105,11 +122,11 @@ class FiniteInterpretationOperation:
                         "encoding": "value",
                     },
                     {
-                        "output_field": 'subject_definition',
+                        "output_field": "subject_definition",
                         "input": {
                             "role": "candidates",
                             "projection": "https://corpus-structure.dev/semantic/data-operation-candidate-inspection/DdoCandidateInspectionReport",
-                            "field": '/source_pin/subject_definition',
+                            "field": "/source_pin/subject_definition",
                         },
                         "encoding": "value",
                     },

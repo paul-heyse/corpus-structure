@@ -12,8 +12,12 @@ class NamedDefinitionComponentsOperation:
         "id": "structure.definition_named_components/declared",
         "profile": "derivation",
         "subject": "original-source-view",
-        "subject_definition": {'id': 'original-source-view', 'identifier_kind': 'string', 'scope': 'original-source'},
-        "discovery_relation": 'subject-population',
+        "subject_definition": {
+            "id": "original-source-view",
+            "identifier_kind": "string",
+            "scope": "original-source",
+        },
+        "discovery_relation": "subject-population",
         "context": ["original-source", "selected-scope", "paired-located-definition-products"],
         "entrypoints": ["run"],
         "roles": [
@@ -75,14 +79,23 @@ class NamedDefinitionComponentsOperation:
                 "presence": "required",
             },
         ],
-        "applicability": [{'kind': 'documentation', 'text': 'actual-retained-native-named-bindings-and-primary-scope'}],
-        "invariants": [
-            {'kind': 'documentation', 'text': 'no-downstream-language-recognition'},
-            {'kind': 'documentation', 'text': 'exact-native-role-bindings'},
-            {'kind': 'documentation', 'text': 'genuine-semantic-primary-witnesses'},
-            {'kind': 'documentation', 'text': 'missing-coverage-is-not-empty'},
+        "applicability": [
+            {
+                "kind": "documentation",
+                "text": "actual-retained-native-named-bindings-and-primary-scope",
+            }
         ],
-        "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "actual-inspected-original-block-windows"},
+        "invariants": [
+            {"kind": "documentation", "text": "no-downstream-language-recognition"},
+            {"kind": "documentation", "text": "exact-native-role-bindings"},
+            {"kind": "documentation", "text": "genuine-semantic-primary-witnesses"},
+            {"kind": "documentation", "text": "missing-coverage-is-not-empty"},
+        ],
+        "coverage": {
+            "binding": "self",
+            "result_owners": [{"kind": "implementation", "reference": "self"}],
+            "description": "actual-inspected-original-block-windows",
+        },
         "outcomes": ["success"],
         "precision_description": "original-native-half-open-extents",
         "dependencies": ["segment.sentences/source-native", "text.constructions/source-native"],
@@ -156,11 +169,11 @@ class NamedDefinitionComponentsOperation:
                         "encoding": "value",
                     },
                     {
-                        "output_field": 'subject_definition',
+                        "output_field": "subject_definition",
                         "input": {
                             "role": "source",
                             "projection": "selected-input",
-                            "field": 'subject_definition',
+                            "field": "subject_definition",
                         },
                         "encoding": "value",
                     },
@@ -235,11 +248,11 @@ class NamedDefinitionComponentsOperation:
                         "encoding": "value",
                     },
                     {
-                        "output_field": 'subject_definition',
+                        "output_field": "subject_definition",
                         "input": {
                             "role": "constructions",
                             "projection": "selected-input",
-                            "field": 'subject_definition',
+                            "field": "subject_definition",
                         },
                         "encoding": "value",
                     },

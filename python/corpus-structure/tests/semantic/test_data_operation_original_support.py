@@ -128,7 +128,9 @@ def test_authored_scope_preserves_exact_fraction_null_and_boolean_distinctions(s
         "fact",
         {"value": 7},
         kind_contract="kind:A",
-        context=SubjectContext("project:A", "subject:A", "source:A", json_bytes(scope), subject_definition="document"),
+        context=SubjectContext(
+            "project:A", "subject:A", "source:A", json_bytes(scope), subject_definition="document"
+        ),
         author="operator",
         selection_id="selection:A",
     )
@@ -142,17 +144,46 @@ def test_authored_scope_preserves_exact_fraction_null_and_boolean_distinctions(s
 
 def test_authored_project_source_is_required_explicit_null_and_checked_at_freeze():
     from pydantic import ValidationError
+
     from corpus_structure.semantic.data_operation_demands import RootSubject, freeze_demand
     from corpus_structure.semantic.data_operation_model import SubjectContext
-    from corpus_structure.semantic.data_operation_support import AuthoredFactRef, authored_fact_selection
+    from corpus_structure.semantic.data_operation_support import (
+        AuthoredFactRef,
+        authored_fact_selection,
+    )
 
     project = contract()
-    project.update(id="project-operation", subject="knowledge-universe", subject_definition={"id": "knowledge-universe", "identifier_kind": "string", "scope": "project"})
+    project.update(
+        id="project-operation",
+        subject="knowledge-universe",
+        subject_definition={
+            "id": "knowledge-universe",
+            "identifier_kind": "string",
+            "scope": "project",
+        },
+    )
     source = contract()
-    source.update(id="source-operation", subject="original", subject_definition={"id": "original", "identifier_kind": "string", "scope": "original-source"})
+    source.update(
+        id="source-operation",
+        subject="original",
+        subject_definition={
+            "id": "original",
+            "identifier_kind": "string",
+            "scope": "original-source",
+        },
+    )
     model = compile_data_operations(declarations=declarations(project, source))
-    context = SubjectContext("project:A", "knowledge:A", None, b"null", subject_definition="knowledge-universe")
-    selection = authored_fact_selection("known", 7, kind_contract="kind:integer", context=context, author="operator", selection_id="explicit-empty-universe")
+    context = SubjectContext(
+        "project:A", "knowledge:A", None, b"null", subject_definition="knowledge-universe"
+    )
+    selection = authored_fact_selection(
+        "known",
+        7,
+        kind_contract="kind:integer",
+        context=context,
+        author="operator",
+        selection_id="explicit-empty-universe",
+    )
     reference = selection.record()["reference"]
     assert "original_source" in reference and reference["original_source"] is None
     AuthoredFactRef.model_validate(reference)
@@ -160,8 +191,29 @@ def test_authored_project_source_is_required_explicit_null_and_checked_at_freeze
     del missing["original_source"]
     with pytest.raises(ValidationError):
         AuthoredFactRef.model_validate(missing)
-    intent = freeze_demand(model, roots=(RootSubject(context.subject, None, b"null"),), targets=("project-operation",), inference="explicit", execution_profile="test", original_sources=(selection,))
+    intent = freeze_demand(
+        model,
+        roots=(RootSubject(context.subject, None, b"null"),),
+        targets=("project-operation",),
+        inference="explicit",
+        execution_profile="test",
+        original_sources=(selection,),
+    )
     assert intent.record["original_sources"]["known"]["reference"] == reference
-    forged = authored_fact_selection("known", 7, kind_contract="kind:integer", context=replace(context, subject_definition="original"), author="operator", selection_id="source-without-source")
+    forged = authored_fact_selection(
+        "known",
+        7,
+        kind_contract="kind:integer",
+        context=replace(context, subject_definition="original"),
+        author="operator",
+        selection_id="source-without-source",
+    )
     with pytest.raises(ValueError, match="project"):
-        freeze_demand(model, roots=(RootSubject(context.subject, None, b"null"),), targets=("project-operation",), inference="explicit", execution_profile="test", original_sources=(forged,))
+        freeze_demand(
+            model,
+            roots=(RootSubject(context.subject, None, b"null"),),
+            targets=("project-operation",),
+            inference="explicit",
+            execution_profile="test",
+            original_sources=(forged,),
+        )

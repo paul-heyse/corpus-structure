@@ -9,11 +9,15 @@ from hashlib import file_digest
 from pathlib import Path
 from typing import Any, TypedDict
 
-from corpus_structure.methods.contextual_embeddings import ENCODER_NUMERICS, EncoderNumericalPolicy, EncoderProfile
+from corpus_structure.methods.contextual_embeddings import (
+    ENCODER_NUMERICS,
+    EncoderNumericalPolicy,
+    EncoderProfile,
+)
 
 from .identity import canonical_bytes
-from .types import SourceArtifact
 from .python_module_projection import admitted_operation_module_meaning
+from .types import SourceArtifact
 
 _ROOT = Path(__file__).parents[1]
 _FILES = (
@@ -67,7 +71,17 @@ def contextual_encoder_assets(selection):
                 "profile": asdict(selection.profile),
                 "artifacts": selection.artifacts,
                 "numerical_policy": ENCODER_NUMERICS.model_dump(mode="json"),
-                "files": [(name, (admitted_operation_module_meaning((_ROOT / name).read_bytes()).hex() if name in ('methods/contextual_encoding.py',) else (_ROOT / name).read_bytes().hex())) for name in _FILES],
+                "files": [
+                    (
+                        name,
+                        (
+                            admitted_operation_module_meaning((_ROOT / name).read_bytes()).hex()
+                            if name in ("methods/contextual_encoding.py",)
+                            else (_ROOT / name).read_bytes().hex()
+                        ),
+                    )
+                    for name in _FILES
+                ],
             }
         ),
     )
@@ -91,13 +105,24 @@ def contextual_encoder_declarations():
     from .data_operation_model import MODEL_VERSION
     from .nominal_schema_kinds import nominal_schema_kinds
 
-    return SourceArtifact("contextual/encoder-policy-kinds", canonical_bytes({
-        "version": MODEL_VERSION,
-        "kinds": nominal_schema_kinds(EncoderNumericalPolicy.model_json_schema(), namespace="urn:corpus:kind:contextual-encoder:", root_name="NumericalPolicy"),
-    }))
+    return SourceArtifact(
+        "contextual/encoder-policy-kinds",
+        canonical_bytes(
+            {
+                "version": MODEL_VERSION,
+                "kinds": nominal_schema_kinds(
+                    EncoderNumericalPolicy.model_json_schema(),
+                    namespace="urn:corpus:kind:contextual-encoder:",
+                    root_name="NumericalPolicy",
+                ),
+            }
+        ),
+    )
 
 
-def contextual_encoder_operation_sources(selection, *, include_dependencies=True, numerical_policy=None):
+def contextual_encoder_operation_sources(
+    selection, *, include_dependencies=True, numerical_policy=None
+):
     from .python_operation_sources import PythonSource, PythonSourceCollection
 
     own = PythonSourceCollection(
@@ -465,7 +490,8 @@ def resolve_contextual_encoder_port(
     selected = model.operation(operation)
     owners = {surface.exposed.rsplit(".", 1)[0] for surface in selected.callable_surfaces}
     classes = tuple(
-        kind for kind in (ContextualEncodingOperation, SelectedContextEncodingOperation)
+        kind
+        for kind in (ContextualEncodingOperation, SelectedContextEncodingOperation)
         if kind.__module__ + "." + kind.__qualname__ in owners
     )
     if len(classes) != 1 or not selection.artifacts:

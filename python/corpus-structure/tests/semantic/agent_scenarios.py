@@ -1,7 +1,5 @@
 """Native source/task scenarios shared by semantic acceptance cases."""
 
-from corpus_structure.semantic.analysis_contracts import acquire_analysis_context_profile
-
 import json
 from dataclasses import dataclass
 from functools import cache
@@ -27,9 +25,9 @@ from corpus_structure.semantic import (
 )
 from corpus_structure.semantic._data_operation_wire import WireDemandId, WireExternalPacketId
 from corpus_structure.semantic._operation_ids import DocumentId
+from corpus_structure.semantic.analysis_contracts import acquire_analysis_context_profile
 from corpus_structure.semantic.analytical_profile import analytical_inputs
 from corpus_structure.semantic.contracts import implementation_overridden
-from corpus_structure.semantic.rich_knowledge_sources import rich_policy_inputs
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.operation_results import MethodConfigId, RunId, TaskId
@@ -46,6 +44,7 @@ from corpus_structure.semantic.pdf_contracts import prepare_pdf_product, store_p
 from corpus_structure.semantic.product_reference import ProductReference
 from corpus_structure.semantic.proposals import proposal_inputs
 from corpus_structure.semantic.releases import activate_release, persist_release
+from corpus_structure.semantic.rich_knowledge_sources import rich_policy_inputs
 from corpus_structure.semantic.source_views import store_source_view
 from corpus_structure.semantic.types import PreparedRelease
 from semantic.historical_agent_support import (
@@ -87,7 +86,9 @@ def _assemble_resubmission_preparation(
         schema["classes"]["Person"]["annotations"] = {"cs:scope": "global"}
     if identity_keyed:
         schema["classes"]["Person"]["unique_keys"] = {"name": {"unique_key_slots": ["name"]}}
-    deps = rich_policy_inputs(ResolvedDependencies(), b"rules: []", context_profile=acquire_analysis_context_profile())
+    deps = rich_policy_inputs(
+        ResolvedDependencies(), b"rules: []", context_profile=acquire_analysis_context_profile()
+    )
     if query_inputs:
         deps = ResolvedDependencies(
             (*deps.artifacts, *query_inputs), deps.vocabularies, deps.ontology_sources
@@ -408,7 +409,9 @@ def native_build_resubmission_case(admin, writer, tmp_path, *, ancestor=False):
         default_prefix="ex",
         classes={"Person": {"is_a": "Entity", "attributes": {"name": {"range": "string"}}}},
     )
-    dependencies = rich_policy_inputs(ResolvedDependencies(), b"rules: []\n", context_profile=acquire_analysis_context_profile())
+    dependencies = rich_policy_inputs(
+        ResolvedDependencies(), b"rules: []\n", context_profile=acquire_analysis_context_profile()
+    )
     dependencies = ResolvedDependencies(
         (
             *dependencies.artifacts,

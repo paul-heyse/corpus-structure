@@ -204,12 +204,23 @@ def inspect_contract(
                 from .data_operation_admission import bound_data_operation_model
 
                 model = bound_data_operation_model(prepared)
-                related_kinds = {kind.semantic_id for kind in model.kinds if json.loads(kind.facts).get("name") == subject_id}
+                related_kinds = {
+                    kind.semantic_id
+                    for kind in model.kinds
+                    if json.loads(kind.facts).get("name") == subject_id
+                }
                 for operation in model.operations:
                     roles = [role for role in operation.roles if role.kind in related_kinds]
                     if roles:
-                        entries.append(dict(category="related_operation", name=operation.semantic_id,
-                            metadata_json=canonical_bytes([asdict(role) for role in roles]).decode()))
+                        entries.append(
+                            dict(
+                                category="related_operation",
+                                name=operation.semantic_id,
+                                metadata_json=canonical_bytes(
+                                    [asdict(role) for role in roles]
+                                ).decode(),
+                            )
+                        )
             entries.extend(_correspondences(prepared, class_name=subject_id))
             # Keep unresolved required values outside the executable payload.
             skeleton = "{}"
@@ -416,9 +427,7 @@ def _correspondences(prepared, *, class_name=None, operation_id=None) -> list[di
                         dict(
                             operation=owner,
                             call=call.id,
-                            semantic_class=field.resolved.model_class
-                            if field.resolved
-                            else None,
+                            semantic_class=field.resolved.model_class if field.resolved else None,
                             semantic_type=field.semantic_type,
                             result_class=call.result_class,
                             source_reference=field.source,

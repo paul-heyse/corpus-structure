@@ -228,9 +228,11 @@ def _recipe(view, family, cls, fields, keys, projection_id, physical):
                 not required,
             )
         )
-    if set(p.name for p in parameters) != set(PIN_FIELDS) or len(parameters) != len(PIN_FIELDS) or len(
-        {p.native_name for p in parameters}
-    ) != len(parameters):
+    if (
+        set(p.name for p in parameters) != set(PIN_FIELDS)
+        or len(parameters) != len(PIN_FIELDS)
+        or len({p.native_name for p in parameters}) != len(parameters)
+    ):
         refuse(path, "public parameter layout differs from the declared six-part pin")
     helpers = []
     for raw in _json_annotation(root, "cp:helpers", path):
@@ -550,25 +552,35 @@ def projection(family: str) -> CompanionProjection:
     )
 
 
-def render_static_columns(domain: "PdfDomainContract | None" = None) -> str:
+def render_static_columns(domain: PdfDomainContract | None = None) -> str:
     from dataclasses import replace
+
+    from linkml_runtime.linkml_model.meta import SchemaDefinition
+    from linkml_runtime.loaders import yaml_loader
+
+    from corpus_structure.schema.physical import compile_physical
 
     from .native_call_sources import _PRIMITIVES, source_bindings
     from .pdf_domain import PREFIX, PdfDomainContract, pdf_call_bindings, pdf_domain_sources
-    from corpus_structure.schema.physical import compile_physical
-    from linkml_runtime.linkml_model.meta import SchemaDefinition
-    from linkml_runtime.loaders import yaml_loader
 
     if domain is None:
         contract, *captured = pdf_domain_sources()
         domain = PdfDomainContract(contract.content, tuple(captured))
     sources = domain.sources
-    logical = {source.name.removeprefix(PREFIX + "logical/"): source.content
-               for source in sources if source.name.startswith(PREFIX + "logical/")}
-    physical = {source.name.removeprefix(PREFIX + "physical/"): source.content
-                for source in sources if source.name.startswith(PREFIX + "physical/")}
+    logical = {
+        source.name.removeprefix(PREFIX + "logical/"): source.content
+        for source in sources
+        if source.name.startswith(PREFIX + "logical/")
+    }
+    physical = {
+        source.name.removeprefix(PREFIX + "physical/"): source.content
+        for source in sources
+        if source.name.startswith(PREFIX + "physical/")
+    }
     view, _, model_field, resolve = source_bindings(
-        pdf_call_bindings(domain), logical_sources=logical, physical_sources=physical,
+        pdf_call_bindings(domain),
+        logical_sources=logical,
+        physical_sources=physical,
     )
     compiled_physical = compile_physical(physical, linkml_types=logical["linkml:types"])
     declaration = yaml_loader.loads(logical["companion_projections"].decode(), SchemaDefinition)
@@ -577,7 +589,12 @@ def render_static_columns(domain: "PdfDomainContract | None" = None) -> str:
     view.schema.annotations = declaration.annotations
     declarations, imports = [], set()
     for family in FAMILIES:
-        selected = prepare_projection(view, family, projection_id=sha256(domain.content).hexdigest(), physical=compiled_physical)
+        selected = prepare_projection(
+            view,
+            family,
+            projection_id=sha256(domain.content).hexdigest(),
+            physical=compiled_physical,
+        )
         fields = {}
         slots = {str(slot.name): slot for slot in view.class_induced_slots(selected.class_name)}
         for selected_column in selected.materialized_columns:

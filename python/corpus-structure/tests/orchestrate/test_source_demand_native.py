@@ -6,13 +6,17 @@ import json
 import os
 from dataclasses import replace
 from pathlib import Path
-from semantic.data_operation_kernel_support import CapturedKernelInputs, KernelRecipe
-
-from semantic.current_pdf_source_support import (
-    current_pdf_source_factory as current_pdf_source_factory, admit_current_target, current_consumer_request, selected_current_sources,
-)
 
 import pytest
+from semantic.current_pdf_source_support import (
+    admit_current_target,
+    current_consumer_request,
+    selected_current_sources,
+)
+from semantic.current_pdf_source_support import (
+    current_pdf_source_factory as current_pdf_source_factory,
+)
+from semantic.data_operation_kernel_support import CapturedKernelInputs, KernelRecipe
 from sqlalchemy import text
 
 from corpus_structure.core.method import MethodSettings
@@ -62,9 +66,13 @@ def _recipe(assets):
 @pytest.fixture
 def primary_source_case(current_pdf_source_factory, tmp_path):
     assets = Path(os.environ["CORPUS_PM2_NATIVE_TEST_ASSETS"])
-    with current_pdf_source_factory(tuple(("text", passage, passage, None) for passage in PASSAGES)) as source:
+    with current_pdf_source_factory(
+        tuple(("text", passage, passage, None) for passage in PASSAGES)
+    ) as source:
         kernel = admit_current_target(source, _recipe(assets), tmp_path / "consumer")
-        request = current_consumer_request(source, kernel, ("text.compose_view/full-native",), discover=True)
+        request = current_consumer_request(
+            source, kernel, ("text.compose_view/full-native",), discover=True
+        )
         yield source.kernel.clone, kernel, request, selected_current_sources(source)
 
 
@@ -95,10 +103,16 @@ def test_two_language_regions_use_native_source_demand_and_exact_resume(
         "text.contextual_evaluation/source-native",
     }
     from corpus_structure.semantic.data_operation_service import create_native_demand
+
     with kernel.purpose("write").begin() as connection:
         registered = create_native_demand(connection, request, prepared=kernel.prepared)
-    result = execute_data_demand(kernel.purpose("write"), registered["demand_id"], source_root=ROOT,
-        admission_engine=kernel.purpose("admit"), database_capacity=6)
+    result = execute_data_demand(
+        kernel.purpose("write"),
+        registered["demand_id"],
+        source_root=ROOT,
+        admission_engine=kernel.purpose("admit"),
+        database_capacity=6,
+    )
     with clone.admin.begin() as connection:
         snapshot = read_data_demand(connection, result.demand_id, view="products", limit=1)
         continuation = snapshot["continuation"]
@@ -180,29 +194,57 @@ def test_empty_selected_source_population_closes_without_invented_language_produ
     clone, kernel, request, _original_members = primary_source_case
     # A different registered original has no computational view products. Its
     # examined empty population therefore closes without an invented view/fact.
-    from corpus_structure.semantic.data_operation_service import create_native_demand, DemandRoot, DemandOriginalSelection
-    from corpus_structure.semantic.data_operation_support import OriginalDocumentRef
-    from corpus_structure.semantic.original_documents import (read_original_document_bytes, register_original_document,
-        acquire_original_document_selection)
-    from corpus_structure.core.evidence import document_key
-    from corpus_structure.semantic.data_operation_json import json_loads
     from hashlib import sha256
 
+    from corpus_structure.core.evidence import document_key
+    from corpus_structure.semantic.data_operation_json import json_loads
+    from corpus_structure.semantic.data_operation_service import (
+        DemandOriginalSelection,
+        DemandRoot,
+        create_native_demand,
+    )
+    from corpus_structure.semantic.data_operation_support import OriginalDocumentRef
+    from corpus_structure.semantic.original_documents import (
+        acquire_original_document_selection,
+        read_original_document_bytes,
+        register_original_document,
+    )
+
     with clone.admin.begin() as connection:
-        reference = OriginalDocumentRef.model_validate(request.original_sources["original"].reference)
+        reference = OriginalDocumentRef.model_validate(
+            request.original_sources["original"].reference
+        )
         original = read_original_document_bytes(connection, reference, prepared=kernel.prepared)
         path = tmp_path / "unprocessed.pdf"
         path.write_bytes(original)
-        register_original_document(connection, prepared=kernel.prepared, project_id=request.project_id,
-            source_uri="unprocessed.pdf", original_path=str(path), original=original, mime="application/pdf")
+        register_original_document(
+            connection,
+            prepared=kernel.prepared,
+            project_id=request.project_id,
+            source_uri="unprocessed.pdf",
+            original_path=str(path),
+            original=original,
+            mime="application/pdf",
+        )
         path.unlink()
         key = document_key(request.project_id, "unprocessed.pdf", sha256(original).hexdigest())
-        acquired = acquire_original_document_selection(connection, project_id=request.project_id, document_key=key)
-        empty = request.model_copy(update={
-            "roots": (DemandRoot(subject=acquired.root.subject, original_source=acquired.root.original_source,
-                analyzed_scope=json_loads(acquired.root.analyzed_scope)),),
-            "original_sources": {acquired.name: DemandOriginalSelection(**acquired.selection().record())},
-        })
+        acquired = acquire_original_document_selection(
+            connection, project_id=request.project_id, document_key=key
+        )
+        empty = request.model_copy(
+            update={
+                "roots": (
+                    DemandRoot(
+                        subject=acquired.root.subject,
+                        original_source=acquired.root.original_source,
+                        analyzed_scope=json_loads(acquired.root.analyzed_scope),
+                    ),
+                ),
+                "original_sources": {
+                    acquired.name: DemandOriginalSelection(**acquired.selection().record())
+                },
+            }
+        )
         snapshot = create_native_demand(connection, empty)
     result = execute_data_demand(
         kernel.purpose("write"),

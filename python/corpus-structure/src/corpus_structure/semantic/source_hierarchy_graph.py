@@ -32,17 +32,25 @@ def source_hierarchy_snapshot(prepared, model, cut, index):
         raise ValueError("source containment reference is not a captured native pointer")
 
     from itertools import chain
-    from .data_product_reference import DataProductReference, DataProductMemberReference
 
-    products = ((row["id"], None, row["kind_contract"], row["canonical_body"])
-        for row in index.rows("kb.data_product"))
-    members = ((row["product_id"], row["member_id"], row["kind_contract"], row["body"])
-        for row in index.rows("kb.data_product_member"))
+    from .data_product_reference import DataProductMemberReference, DataProductReference
+
+    products = (
+        (row["id"], None, row["kind_contract"], row["canonical_body"])
+        for row in index.rows("kb.data_product")
+    )
+    members = (
+        (row["product_id"], row["member_id"], row["kind_contract"], row["body"])
+        for row in index.rows("kb.data_product_member")
+    )
     for product_id, member_id, kind_contract, meaning in chain(products, members):
         if kind_contract not in contracts:
             continue
-        address = (product_id if member_id is None else
-            DataProductMemberReference(DataProductReference(product_id), member_id).identity)
+        address = (
+            product_id
+            if member_id is None
+            else DataProductMemberReference(DataProductReference(product_id), member_id).identity
+        )
         body = prepared.validate_json(
             "DdoSelectedNativeSource", json_bytes(decode_semantic_value(meaning))
         ).model_dump(mode="python", exclude_unset=True)
@@ -60,7 +68,9 @@ def source_hierarchy_snapshot(prepared, model, cut, index):
                 identity=identity,
                 kind="record",
                 payload_json=json_bytes(
-                    dict(product_id=product_id, member_id=member_id, source=body["source"], atom=atom)
+                    dict(
+                        product_id=product_id, member_id=member_id, source=body["source"], atom=atom
+                    )
                 ).decode(),
             )
             parent = reference(atom.get("parent"))

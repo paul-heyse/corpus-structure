@@ -11,8 +11,8 @@ from sqlalchemy import Connection
 from corpus_structure.core.db.lifetime import BorrowerCancellation
 
 from . import _pdf_native_calls as calls
-from .identifiers import ReleaseId, TaskAttempt, TaskId
 from .arrow_transfer import ArrowWriteProfile, copy_arrow_stream
+from .identifiers import ReleaseId, TaskAttempt, TaskId
 from .pdf_record_model import record_arrow_schema, record_write_profile
 
 STAGE_FAMILIES = {

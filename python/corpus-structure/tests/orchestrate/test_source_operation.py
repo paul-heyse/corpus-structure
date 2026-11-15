@@ -168,7 +168,14 @@ def test_source_operation_options_preserve_authoritative_encoder_replicate():
     original = request(targets=(identifier,), selections=(selection,))
     restored = SourceRunRequest.model_validate_json(original.model_dump_json())
     assert restored.selections == (selection,)
-    model = SimpleNamespace(operation=lambda _: SimpleNamespace(potential_dependencies=(), dependencies=()))
-    assert _default_profile_selections(model, restored.targets, {identifier: restored.selections[0]})[identifier].replicate == "operator-sample-2026-A"
+    model = SimpleNamespace(
+        operation=lambda _: SimpleNamespace(potential_dependencies=(), dependencies=())
+    )
+    assert (
+        _default_profile_selections(model, restored.targets, {identifier: restored.selections[0]})[
+            identifier
+        ].replicate
+        == "operator-sample-2026-A"
+    )
     with pytest.raises(ValidationError, match="replicate"):
         DemandOperationSelection(operation=identifier, replicate="")

@@ -48,7 +48,9 @@ def test_prepared_family_kernel_executes_in_shared_cpu_owner_with_verified_float
     try:
         result = drive_prepared_work(
             acquired.plan_cpu(
-                kernel, bound, sources,
+                kernel,
+                bound,
+                sources,
                 execution_owner=SimpleNamespace(cpu=cpu, reservation=None),
                 check_active=lambda: None,
             ),

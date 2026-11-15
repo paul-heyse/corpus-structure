@@ -92,8 +92,6 @@ def test_v6_specs_are_interpretations_not_selected_runtime_facts():
         compiled.projection_graph("selected-support")
 
 
-
-
 def test_captured_reference_occurrences_are_diagnostic_not_recipe_salts():
     from corpus_structure.semantic.data_operation_compilation import compile_data_operations
     from semantic.test_data_operation_compilation import operation_source, python_inputs

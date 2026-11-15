@@ -89,7 +89,9 @@ def test_empty_m1_inspection_has_successful_typed_report_and_exact_denominator()
         (),
         b"{}",
         member="member:source",
-     subject_definition="original-source-view", support_references=())
+        subject_definition="original-source-view",
+        support_references=(),
+    )
     frame = DeclaredNativeFrameSource.acquire(prepared, source.value, member, project="p")
     product = M1CandidateProduct(
         ObservationOutcome.EMPTY,
@@ -103,7 +105,13 @@ def test_empty_m1_inspection_has_successful_typed_report_and_exact_denominator()
         SimpleNamespace(kinds=(), identities=()),
         product,
         frame,
-        SubjectContext("p", member.subject, member.original_source, member.analyzed_scope, subject_definition=member.subject_definition),
+        SubjectContext(
+            "p",
+            member.subject,
+            member.original_source,
+            member.analyzed_scope,
+            subject_definition=member.subject_definition,
+        ),
     )
     assert report["inspection_outcome"] == "empty"
     assert report["members"] == ()
@@ -168,7 +176,10 @@ def test_candidate_body_is_stored_once_and_keeps_required_source_record_anchors(
 
     bundle = m1_operation_inputs(record_schemas())
     prepared = prepare_release(bundle)
-    model = compile_data_operations(bundle, python_sources=m1_operation_sources(configuration(), record_schemas=record_schemas()))
+    model = compile_data_operations(
+        bundle,
+        python_sources=m1_operation_sources(configuration(), record_schemas=record_schemas()),
+    )
     source = FrozenNativeSource.from_projection(
         prepared,
         document="original:doc",
@@ -205,7 +216,9 @@ def test_candidate_body_is_stored_once_and_keeps_required_source_record_anchors(
         (),
         b"{}",
         member="member:source",
-     subject_definition="original-source-view", support_references=())
+        subject_definition="original-source-view",
+        support_references=(),
+    )
     frame = DeclaredNativeFrameSource.acquire(prepared, source.value, member, project="p")
     context = NativeSourceContext(
         frame,
@@ -228,7 +241,8 @@ def test_candidate_body_is_stored_once_and_keeps_required_source_record_anchors(
                 (RoleInput("term", spans=(LiteralSpan(2, 7, "valve"),)),), "explicit term"
             ),
         ),
-     model=model)
+        model=model,
+    )
     records = tuple(record.model_dump(mode="python") for record in assembly.records)
     assert len(records) == 1
     product = M1CandidateProduct(ObservationOutcome.PRODUCED, records=records, contributions=())
@@ -237,7 +251,13 @@ def test_candidate_body_is_stored_once_and_keeps_required_source_record_anchors(
         model,
         product,
         frame,
-        SubjectContext("p", member.subject, member.original_source, member.analyzed_scope, subject_definition=member.subject_definition),
+        SubjectContext(
+            "p",
+            member.subject,
+            member.original_source,
+            member.analyzed_scope,
+            subject_definition=member.subject_definition,
+        ),
     )
     assert "records" not in report and "contributions" not in report
     (packet,) = report["members"]
@@ -250,7 +270,13 @@ def test_candidate_body_is_stored_once_and_keeps_required_source_record_anchors(
             ObservationOutcome.PRODUCED, records=(*records, alternative), contributions=()
         ),
         frame,
-        SubjectContext("p", member.subject, member.original_source, member.analyzed_scope, subject_definition=member.subject_definition),
+        SubjectContext(
+            "p",
+            member.subject,
+            member.original_source,
+            member.analyzed_scope,
+            subject_definition=member.subject_definition,
+        ),
     )
     assert len({row["member_id"] for row in alternatives["members"]}) == 2
     assert {row["body"]["record_id"] for row in alternatives["members"]} == {
@@ -287,7 +313,10 @@ def test_partial_produced_inspection_preserves_real_candidates_after_later_worke
 
     bundle = m1_operation_inputs(record_schemas())
     prepared = prepare_release(bundle)
-    model = compile_data_operations(bundle, python_sources=m1_operation_sources(configuration(), record_schemas=record_schemas()))
+    model = compile_data_operations(
+        bundle,
+        python_sources=m1_operation_sources(configuration(), record_schemas=record_schemas()),
+    )
     source = FrozenNativeSource.from_projection(
         prepared,
         document="original:doc",
@@ -324,7 +353,9 @@ def test_partial_produced_inspection_preserves_real_candidates_after_later_worke
         (),
         b"{}",
         member="member:source",
-     subject_definition="original-source-view", support_references=())
+        subject_definition="original-source-view",
+        support_references=(),
+    )
     frame = DeclaredNativeFrameSource.acquire(prepared, source.value, member, project="p")
     context = NativeSourceContext(
         frame,
@@ -364,8 +395,12 @@ def test_partial_produced_inspection_preserves_real_candidates_after_later_worke
         coverage=coverage,
     )
     subject_context = SubjectContext(
-        "p", member.subject, member.original_source, member.analyzed_scope
-    , subject_definition=member.subject_definition)
+        "p",
+        member.subject,
+        member.original_source,
+        member.analyzed_scope,
+        subject_definition=member.subject_definition,
+    )
     completed = complete_m1_inspection(prepared, model, product, frame, subject_context)
     assert completed.outcome is None
     assert completed.value["inspection_outcome"] == "produced"
@@ -516,7 +551,9 @@ def test_m1_scoped_source_and_direct_context_cannot_inspect_unselected_original_
             (),
             b"{}",
             member="selected:scope",
-         subject_definition="original-source-view", support_references=())
+            subject_definition="original-source-view",
+            support_references=(),
+        )
         return DeclaredNativeFrameSource.acquire(prepared, source.value, member, project="p")
 
     selected = frame(
@@ -616,7 +653,9 @@ def test_related_m1_context_consumes_only_related_members_own_selected_span():
             (),
             b"{}",
             member="source:" + str(ordinal),
-         subject_definition="original-source-view", support_references=())
+            subject_definition="original-source-view",
+            support_references=(),
+        )
         return DeclaredNativeFrameSource.acquire(prepared, value, member, project="p")
 
     primary, related = frame(primary, 0), frame(related, 1)

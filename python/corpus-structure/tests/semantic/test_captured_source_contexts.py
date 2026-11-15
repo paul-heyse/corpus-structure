@@ -1,7 +1,5 @@
 """Supplied captured coordinates: pure mapping only; native custody is rechecked separately."""
 
-from semantic.record_contracts_support import model as record_model
-
 import json
 from dataclasses import replace
 
@@ -30,6 +28,7 @@ from semantic.captured_source_contexts_support import (
 from semantic.captured_source_contexts_support import (
     prepared_context as prepared_context,
 )
+from semantic.record_contracts_support import model as record_model
 from semantic.record_contracts_support import release_inputs
 
 
@@ -146,7 +145,8 @@ def test_canonical_producer_and_assembler_explicitly_refuse_captured_variants():
             occurrence_roles=("table",),
             policy_version="unadopted",
             groups=(),
-         model=record_model())
+            model=record_model(),
+        )
     with pytest.raises(GlinerRefused, match="captured recognition"):
         native_table_groups(
             context, table_pointer="#/tables/0", cells=(), row_paths={}, header_paths={}

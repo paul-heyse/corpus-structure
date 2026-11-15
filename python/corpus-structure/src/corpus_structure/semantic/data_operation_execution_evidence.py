@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import json
-from hashlib import sha256
 from functools import cache
+from hashlib import sha256
 from typing import Annotated, Literal
 
 from jsonschema import Draft7Validator
@@ -93,8 +93,10 @@ def bind_execution_evidence(
     checked = NativeExecutionEvidence.model_validate_json(canonical_bytes(value))
     if checked.cpu_replies and (
         len(checked.cpu_replies) != len(checked.cpu_receipts)
-        or any(sha256(reply.encode("utf-8")).hexdigest() != receipt.result_digest
-               for reply, receipt in zip(checked.cpu_replies, checked.cpu_receipts, strict=True))
+        or any(
+            sha256(reply.encode("utf-8")).hexdigest() != receipt.result_digest
+            for reply, receipt in zip(checked.cpu_replies, checked.cpu_receipts, strict=True)
+        )
     ):
         raise ValueError("retained CPU reply differs from its actual execution receipt")
     claim = tuple(fence[name] for name in ("request_id", "generation", "task_id", "attempt"))

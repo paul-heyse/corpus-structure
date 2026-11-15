@@ -43,9 +43,9 @@ from corpus_structure.cli.target import (
 )
 from corpus_structure.schema.source_migrations import ConsumerOutcome
 from corpus_structure.semantic.migration_chain import NativeMigrationBase
-from corpus_structure.semantic.source_comparison import EffectiveChangeComparison
 from corpus_structure.semantic.model_comparison import DeclaredModelComparison
 from corpus_structure.semantic.projection_analysis_products import ProjectionAnalysisComparison
+from corpus_structure.semantic.source_comparison import EffectiveChangeComparison
 from corpus_structure.semantic.storage_target import StorageTarget
 from corpus_structure.settings import DeploymentProfile
 
@@ -712,7 +712,9 @@ def inspect_preview(
         raise typer.BadParameter("--stdout requires --view patch without JSON or hunk selection")
     if view not in {"patch", "sql", "sources", "model"} and (limit is not None or after_hunk):
         raise typer.BadParameter("hunk selection requires --view patch")
-    if (after and view not in {"sql", "sources", "model"}) or (after_hunk and view in {"sql", "sources", "model"}):
+    if (after and view not in {"sql", "sources", "model"}) or (
+        after_hunk and view in {"sql", "sources", "model"}
+    ):
         raise typer.BadParameter("SQL paging and patch-hunk paging are separate")
     with refusal(json_, expected=(ResultError, ModelError, OSError, ValueError)):
         store = result_store(ctx)
@@ -778,20 +780,30 @@ def inspect_preview(
             query = staged.query_analysis
             total_query_changes = len(query.changes) if query else 0
             total_query_unknowns = len(query.unknowns) if query else 0
-            population = max(total_changes, total_unknowns, total_query_changes, total_query_unknowns)
+            population = max(
+                total_changes, total_unknowns, total_query_changes, total_query_unknowns
+            )
             if after > population:
                 raise ValueError("model comparison continuation is outside its population")
             emit(
                 PreviewModelComparisonReport(
                     preview_id=preview_id,
-                    comparison=comparison.model_copy(update={
-                        "changes": comparison.changes[after:end],
-                        "unknowns": comparison.unknowns[after:end],
-                    }) if comparison else None,
-                    query_analysis=query.model_copy(update={
-                        "changes": query.changes[after:end],
-                        "unknowns": query.unknowns[after:end],
-                    }) if query else None,
+                    comparison=comparison.model_copy(
+                        update={
+                            "changes": comparison.changes[after:end],
+                            "unknowns": comparison.unknowns[after:end],
+                        }
+                    )
+                    if comparison
+                    else None,
+                    query_analysis=query.model_copy(
+                        update={
+                            "changes": query.changes[after:end],
+                            "unknowns": query.unknowns[after:end],
+                        }
+                    )
+                    if query
+                    else None,
                     total_query_changes=total_query_changes,
                     total_query_unknowns=total_query_unknowns,
                     total_changes=total_changes,
@@ -1438,29 +1450,33 @@ def preview(
                             from corpus_structure.semantic.data_operation_admission import (
                                 bound_data_operation_model,
                             )
-                            from corpus_structure.semantic.source_comparison import (
-                                compare_data_operation_models,
-                            )
-
                             from corpus_structure.semantic.model_comparison import (
                                 compare_declared_models,
                             )
-
-                            from corpus_structure.semantic.projection_analysis_products import compare_retained_projection_analysis
+                            from corpus_structure.semantic.projection_analysis_products import (
+                                compare_retained_projection_analysis,
+                            )
+                            from corpus_structure.semantic.source_comparison import (
+                                compare_data_operation_models,
+                            )
 
                             before_model = bound_data_operation_model(before)
                             after_model = bound_data_operation_model(local)
                             query_analysis = compare_retained_projection_analysis(before, local)
                             impact = compare_declared_models(
-                                before_model, after_model,
+                                before_model,
+                                after_model,
                                 before_release=before.release_id,
                                 after_release=local.release_id,
                             ).model_dump(mode="json")
                             source_impact = compare_data_operation_models(
-                                before_model, after_model,
+                                before_model,
+                                after_model,
                             )
                         else:
-                            raise ValueError("current model comparison requires declared data operations; legacy catalog preview is retired")
+                            raise ValueError(
+                                "current model comparison requires declared data operations; legacy catalog preview is retired"
+                            )
                         sql_holder[0] = sql_holder[0].model_copy(update={"impact": impact})
                 model_stage(result, "validate and stage")
                 staged = prepare_preview(

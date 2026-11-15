@@ -6,7 +6,6 @@ from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
 
-
 def test_reference_storage_is_unavailable_to_source_writer(
     commit_writer_engine, commit_evaluator_engine
 ):

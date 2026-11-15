@@ -53,9 +53,12 @@ def test_literal_change_is_not_artifact_equivalence(commit_reader_engine):
     assert a.sql == "SELECT 'one'::text"
 
 
-def test_native_binding_unknown_column_and_real_role(commit_db_engine, commit_reader_engine, monkeypatch):
-    from corpus_structure.semantic.metadata import metadata
+def test_native_binding_unknown_column_and_real_role(
+    commit_db_engine, commit_reader_engine, monkeypatch
+):
     import sys
+
+    from corpus_structure.semantic.metadata import metadata
 
     monkeypatch.setitem(sys.modules, "corpus_structure.semantic._operation_calls", None)
     with commit_reader_engine.connect() as conn:
@@ -107,12 +110,20 @@ def test_side_effecting_function_never_reaches_planner(commit_db_engine, commit_
 
 def test_authored_sql_uses_exact_current_physical_capture_and_manifest():
     from dataclasses import replace
+
     from corpus_structure.semantic.authored_sql import prepare_release_sql
     from corpus_structure.semantic.data_operation_projections import capture_projection_sources
     from corpus_structure.semantic.prepare import prepare_release
-    from corpus_structure.semantic.types import SourceArtifact, SourceBundle, ResolvedDependencies
+    from corpus_structure.semantic.types import ResolvedDependencies, SourceArtifact, SourceBundle
 
-    bundle = SourceBundle("tiny", (SourceArtifact("tiny", b"id: urn:sql-admission\nname: sql_admission\nclasses: {Thing: {}}\n"),))
+    bundle = SourceBundle(
+        "tiny",
+        (
+            SourceArtifact(
+                "tiny", b"id: urn:sql-admission\nname: sql_admission\nclasses: {Thing: {}}\n"
+            ),
+        ),
+    )
     sql = SourceArtifact("authored-sql/entities.sql", b"SELECT entity_id FROM data.entity")
     dependencies = ResolvedDependencies((*capture_projection_sources(), sql))
     prepared = prepare_release(bundle, dependencies)
@@ -121,13 +132,38 @@ def test_authored_sql_uses_exact_current_physical_capture_and_manifest():
     assert inputs.statements == ((sql.name, sql.content.decode()),)
     assert inputs.metadata.tables["data.entity"].c.entity_id is not None
     with pytest.raises(SQLAdmissionError, match="dependency bytes differ"):
-        prepare_release_sql(prepared, replace(dependencies, artifacts=tuple(SourceArtifact(s.name, s.content+b"\n") if s.name == sql.name else s for s in dependencies.artifacts)))
+        prepare_release_sql(
+            prepared,
+            replace(
+                dependencies,
+                artifacts=tuple(
+                    SourceArtifact(s.name, s.content + b"\n") if s.name == sql.name else s
+                    for s in dependencies.artifacts
+                ),
+            ),
+        )
     with pytest.raises(SQLAdmissionError, match="dependency bytes differ"):
-        prepare_release_sql(prepared, replace(dependencies, artifacts=tuple(s for s in dependencies.artifacts if s.name != "native/projection-physical/physical.yaml")))
+        prepare_release_sql(
+            prepared,
+            replace(
+                dependencies,
+                artifacts=tuple(
+                    s
+                    for s in dependencies.artifacts
+                    if s.name != "native/projection-physical/physical.yaml"
+                ),
+            ),
+        )
 
 
 def test_authored_sql_does_not_fall_back_to_legacy_execution_inputs():
     from corpus_structure.semantic.authored_sql import _prepare_sql_inputs
 
     with pytest.raises(SQLAdmissionError, match="physical closure is unavailable"):
-        _prepare_sql_inputs("release", {"authored-sql/query.sql":b"SELECT 1", "execution/implementation/pdf/record-physical.yaml":b"legacy"})
+        _prepare_sql_inputs(
+            "release",
+            {
+                "authored-sql/query.sql": b"SELECT 1",
+                "execution/implementation/pdf/record-physical.yaml": b"legacy",
+            },
+        )

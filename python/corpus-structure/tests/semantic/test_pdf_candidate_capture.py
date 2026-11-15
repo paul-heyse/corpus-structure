@@ -2,14 +2,12 @@
 
 import json
 from contextlib import contextmanager
-from dataclasses import replace
 from functools import lru_cache
 from hashlib import sha256
 from types import SimpleNamespace
 from typing import Any
 
 import pytest
-import yaml
 
 from corpus_structure.core.db.lifetime import BorrowerCancellation
 from corpus_structure.semantic.operations import BoundReader, OperationConflict
@@ -20,7 +18,6 @@ from corpus_structure.semantic.product_reference import ProductReference
 from corpus_structure.semantic.types import (
     PreparationError,
     PreparationProfile,
-    ResolvedDependencies,
     SourceArtifact,
     SourceBundle,
 )
@@ -28,10 +25,8 @@ from corpus_structure.semantic.types import (
 
 @lru_cache(maxsize=4)
 def released_context(schema_mode="installed", *, unsupported_read=False):
-    from corpus_structure.semantic.pdf_contracts import prepare_pdf_context
+    from corpus_structure.semantic.pdf_contracts import prepare_pdf_context, trusted_pdf_context
     from corpus_structure.semantic.pdf_records import native_schema_bytes
-
-    from corpus_structure.semantic.pdf_contracts import trusted_pdf_context
     from semantic.pdf_domain_support import altered_domain, dependencies
 
     domain = trusted_pdf_context().domain
@@ -42,10 +37,15 @@ def released_context(schema_mode="installed", *, unsupported_read=False):
             declaration["properties"]["name"]["type"] = "integer"
         schema = json.dumps(declaration, sort_keys=True).encode()
         assert sha256(schema).hexdigest() != sha256(native_schema_bytes()).hexdigest()
-        domain = altered_domain(domain, sources=tuple(
-            SourceArtifact(item.name, schema) if item.name == "pdf-domain/implementation/pdf/docling-validation.schema.json" else item
-            for item in domain.sources
-        ))
+        domain = altered_domain(
+            domain,
+            sources=tuple(
+                SourceArtifact(item.name, schema)
+                if item.name == "pdf-domain/implementation/pdf/docling-validation.schema.json"
+                else item
+                for item in domain.sources
+            ),
+        )
     if unsupported_read:
         domain = altered_domain(domain, read_version="not-qualified")
     bundle = SourceBundle(

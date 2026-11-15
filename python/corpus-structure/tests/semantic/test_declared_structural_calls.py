@@ -77,7 +77,8 @@ def exact_source(document, product, subject):
         project_id="p",
         original_source=document,
         analyzed_scope_meaning='["null"]',
-     subject_definition="original-source-view")
+        subject_definition="original-source-view",
+    )
 
 
 def test_original_comparison_kernel_retains_declared_sources_and_native_ref_witnesses():
@@ -107,7 +108,8 @@ def test_original_comparison_kernel_retains_declared_sources_and_native_ref_witn
             subject=source.subject,
             original_source=source.original_source,
             analyzed_scope_meaning='["null"]',
-         subject_definition="original-source-view")
+            subject_definition="original-source-view",
+        )
         for side, digit, source in zip(("left", "right"), ("b", "c"), sources, strict=True)
     )
     inputs = DeclaredStructuralInput(
@@ -176,7 +178,9 @@ def test_original_comparison_kernel_retains_declared_sources_and_native_ref_witn
             b"{}",
             (),
             b"{}",
-         subject_definition=source.subject_definition, support_references=())
+            subject_definition=source.subject_definition,
+            support_references=(),
+        )
         for source in sources
     )
     report_members = tuple(
@@ -189,7 +193,9 @@ def test_original_comparison_kernel_retains_declared_sources_and_native_ref_witn
             b"{}",
             (),
             b"{}",
-         subject_definition=source.subject_definition, support_references=())
+            subject_definition=source.subject_definition,
+            support_references=(),
+        )
         for ref, source in zip(refs, sources, strict=True)
     )
     current = DeclaredComparisonReport.model_validate(

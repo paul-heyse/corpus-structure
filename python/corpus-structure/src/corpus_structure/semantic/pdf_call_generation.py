@@ -13,7 +13,9 @@ def generated_source() -> str:
     return _format(
         "semantic/_pdf_native_calls.py",
         render_call_bindings(
-            pdf_call_bindings(), metadata, canonical_identifiers=True,
+            pdf_call_bindings(),
+            metadata,
+            canonical_identifiers=True,
             identifiers_module="._pdf_native_ids",
             context_validator=(".pdf_domain", "require_pdf_call_context"),
         ),

@@ -52,7 +52,9 @@ def compare_declared_models(
     Diagnostic origins and source documentation belong to source comparison.
     """
     graphs = tuple(model.projection_graph("semantic-reference") for model in (before, after))
-    operations = {operation.semantic_id for model in (before, after) for operation in model.operations}
+    operations = {
+        operation.semantic_id for model in (before, after) for operation in model.operations
+    }
     node_ids = tuple({node.id for node in model.nodes} for model in (before, after))
     changes = []
 
@@ -64,20 +66,27 @@ def compare_declared_models(
             selected = tuple(root for root in roots if root in known)
             if selected:
                 consumers.update(set(graph.closure(selected, direction="dependents")) & operations)
-        changes.append(DeclaredModelChange(
-            kind="added" if old is None else "removed" if new is None else "changed",
-            model_ref=reference,
-            aspect=aspect,
-            before=old,
-            after=new,
-            consumers=tuple(sorted(consumers)),
-        ))
+        changes.append(
+            DeclaredModelChange(
+                kind="added" if old is None else "removed" if new is None else "changed",
+                model_ref=reference,
+                aspect=aspect,
+                before=old,
+                after=new,
+                consumers=tuple(sorted(consumers)),
+            )
+        )
 
     old_nodes, new_nodes = ({node.id: node for node in model.nodes} for model in (before, after))
     for name in sorted(old_nodes.keys() | new_nodes.keys()):
+
         def record(nodes):
             node = nodes.get(name)
-            return None if node is None else {"category": node.category, "payload": json.loads(node.payload)}
+            return (
+                None
+                if node is None
+                else {"category": node.category, "payload": json.loads(node.payload)}
+            )
 
         append(name, "semantic-node", record(old_nodes), record(new_nodes), roots=(name,))
 
@@ -87,25 +96,49 @@ def compare_declared_models(
             result.setdefault(edge.source, []).append(asdict(edge))
         # Edge collection order is not an extra relation; each record retains
         # the declared position and multiplicity, including repeated edges.
-        return {owner: sorted(items, key=lambda item: json.dumps(item, sort_keys=True)) for owner, items in result.items()}
+        return {
+            owner: sorted(items, key=lambda item: json.dumps(item, sort_keys=True))
+            for owner, items in result.items()
+        }
 
     old_edges, new_edges = edges(before), edges(after)
     for name in sorted(old_edges.keys() | new_edges.keys()):
         append(name, "semantic-edges", old_edges.get(name), new_edges.get(name), roots=(name,))
 
-    old_ids, new_ids = ({(item.owner, item.domain): item.key for item in model.identities} for model in (before, after))
+    old_ids, new_ids = (
+        {(item.owner, item.domain): item.key for item in model.identities}
+        for model in (before, after)
+    )
     for owner, domain in sorted(old_ids.keys() | new_ids.keys()):
-        roots = (owner, *(
-            operation.semantic_id
-            for model in (before, after)
-            for operation in model.operations
-            if operation.implementation_root == owner
-        ))
-        append(owner + "/" + domain, "identity", old_ids.get((owner, domain)), new_ids.get((owner, domain)), roots=roots)
+        roots = (
+            owner,
+            *(
+                operation.semantic_id
+                for model in (before, after)
+                for operation in model.operations
+                if operation.implementation_root == owner
+            ),
+        )
+        append(
+            owner + "/" + domain,
+            "identity",
+            old_ids.get((owner, domain)),
+            new_ids.get((owner, domain)),
+            roots=roots,
+        )
 
-    old_projections, new_projections = ({item.name: json.loads(canonical_bytes(asdict(item))) for item in model.graph_projections} for model in (before, after))
+    old_projections, new_projections = (
+        {item.name: json.loads(canonical_bytes(asdict(item))) for item in model.graph_projections}
+        for model in (before, after)
+    )
     for name in sorted(old_projections.keys() | new_projections.keys()):
-        append("graph-projection:" + name, "graph-projection", old_projections.get(name), new_projections.get(name), roots=())
+        append(
+            "graph-projection:" + name,
+            "graph-projection",
+            old_projections.get(name),
+            new_projections.get(name),
+            roots=(),
+        )
 
     unknowns = []
     for side, model in (("before", before), ("after", after)):

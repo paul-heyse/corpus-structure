@@ -279,7 +279,6 @@ def _compile_physical(view: View, *, read_only: bool = False) -> MetaData:
     return md
 
 
-
 def _physical_nominals(view: View):
     """Resolve explicit scalar identities without consulting an operation catalog."""
     resolved: dict[str, dict[str, str]] = {}
@@ -301,10 +300,16 @@ def _physical_nominals(view: View):
         result: dict[str, str] = {}
         if declared := annotations.get("ph:python_type"):
             parts = declared.split(".")
-            if len(parts) < 2 or any(not part.isidentifier() or keyword.iskeyword(part) for part in parts):
+            if len(parts) < 2 or any(
+                not part.isidentifier() or keyword.iskeyword(part) for part in parts
+            ):
                 raise ModelError([f"{reference}: Python nominal requires a qualified identifier"])
             encoding = _physical_encoding(view, slot)
-            if encoding[0] not in {"string", "integer"} or slot.multivalued or view.get_enum(str(slot.range)) is not None:
+            if (
+                encoding[0] not in {"string", "integer"}
+                or slot.multivalued
+                or view.get_enum(str(slot.range)) is not None
+            ):
                 raise ModelError([f"{reference}: Python nominal requires one scalar"])
             if declared in encodings and encodings[declared] != encoding:
                 raise ModelError([f"{reference}: physical nominal encodings differ"])
@@ -314,17 +319,28 @@ def _physical_nominals(view: View):
         if parent == reference:
             # A model projection can declare the physical field as its type source.
             # Its inherited backreference does not become a reflexive physical edge.
-            ancestors = [view.get_class(ancestor) for ancestor in view.class_ancestors(cls, reflexive=True)]
+            ancestors = [
+                view.get_class(ancestor) for ancestor in view.class_ancestors(cls, reflexive=True)
+            ]
+
             def declared_edge(definition):
                 for declared in (definition.attributes.get(name), definition.slot_usage.get(name)):
-                    if declared is not None and (edge := ci_annotations(declared).get("cp:type_source")):
+                    if declared is not None and (
+                        edge := ci_annotations(declared).get("cp:type_source")
+                    ):
                         return edge
                 if name in (definition.slots or ()):
                     return ci_annotations(view.get_slot(name)).get("cp:type_source")
                 return None
-            if not any(schema in (ancestor.in_subset or ()) and declared_edge(ancestor) for ancestor in ancestors if ancestor is not None) and any(
+
+            if not any(
+                schema in (ancestor.in_subset or ()) and declared_edge(ancestor)
+                for ancestor in ancestors
+                if ancestor is not None
+            ) and any(
                 schema not in (ancestor.in_subset or ()) and declared_edge(ancestor) == reference
-                for ancestor in ancestors if ancestor is not None
+                for ancestor in ancestors
+                if ancestor is not None
             ):
                 parent = None
         if parent:
@@ -332,7 +348,9 @@ def _physical_nominals(view: View):
             if not parent.startswith("physical:") or len(parts) != 3:
                 raise ModelError([f"{reference}: physical type source must be qualified"])
             inherited = field(parts[0], parts[1], parts[2], (*trail, reference))
-            target = next((slot for slot in view.class_induced_slots(parts[1]) if slot.name == parts[2]), None)
+            target = next(
+                (slot for slot in view.class_induced_slots(parts[1]) if slot.name == parts[2]), None
+            )
             assert target is not None  # validated by recursive source resolution
             if _physical_encoding(view, slot) != _physical_encoding(view, target):
                 raise ModelError([f"{reference}: physical type correspondence encoding differs"])
@@ -352,10 +370,17 @@ def _physical_encoding(view: View, slot):
     sql = ci_annotations(declared).get("ph:sql_type")
     uri = str(declared.uri) if declared is not None else ""
     primitive = sql or {
-        "xsd:string": "string", "xsd:long": "integer", "xsd:integer": "integer",
-        "xsd:int": "integer", "xsd:boolean": "boolean",
+        "xsd:string": "string",
+        "xsd:long": "integer",
+        "xsd:integer": "integer",
+        "xsd:int": "integer",
+        "xsd:boolean": "boolean",
     }.get(uri, name)
-    members = tuple(sorted(m.text for m in expand_enum(view, name))) if view.get_enum(name) is not None else ()
+    members = (
+        tuple(sorted(m.text for m in expand_enum(view, name)))
+        if view.get_enum(name) is not None
+        else ()
+    )
     return primitive, bool(slot.multivalued), members
 
 

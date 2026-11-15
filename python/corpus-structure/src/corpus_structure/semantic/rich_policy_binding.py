@@ -5,9 +5,9 @@ from hashlib import sha256
 from pydantic import TypeAdapter
 
 from .analysis_contracts import AnalysisContextProfile
+from .identity import canonical_bytes
 from .rich_knowledge_sources import RULE_INPUT
 from .scientific_evidence import SCIENTIFIC_POLICY_INPUT, scientific_policy_recipe
-from .identity import canonical_bytes
 
 RICH_CONTEXT_INPUT = "operation/rich-analysis-context.json"
 
@@ -20,8 +20,12 @@ def _artifact(prepared, name):
 
 
 def rich_context_profile(prepared) -> AnalysisContextProfile:
-    profile = TypeAdapter(AnalysisContextProfile).validate_json(_artifact(prepared, RICH_CONTEXT_INPUT))
-    if canonical_bytes(scientific_policy_recipe(context_profile=profile)) != _artifact(prepared, SCIENTIFIC_POLICY_INPUT):
+    profile = TypeAdapter(AnalysisContextProfile).validate_json(
+        _artifact(prepared, RICH_CONTEXT_INPUT)
+    )
+    if canonical_bytes(scientific_policy_recipe(context_profile=profile)) != _artifact(
+        prepared, SCIENTIFIC_POLICY_INPUT
+    ):
         raise ValueError("rich analysis context differs from its actual captured scientific policy")
     return profile
 
@@ -39,18 +43,29 @@ def rich_policy_value(prepared, model, *, allowed_domain_contracts=None):
     statement_name = statement["class_name"]
     definition = prepared.index.definitions[statement_name]
     contracts = {item.owner: item.key for item in model.identities if item.domain == "kind"}
-    classes = {contracts[definition.iri]: definition for definition in prepared.definitions
-               if (definition.name == "Entity" or "Entity" in definition.ancestors)
-               and definition.name != "SourceReading" and "SourceReading" not in definition.ancestors
-               and definition.iri in contracts}
+    classes = {
+        contracts[definition.iri]: definition
+        for definition in prepared.definitions
+        if (definition.name == "Entity" or "Entity" in definition.ancestors)
+        and definition.name != "SourceReading"
+        and "SourceReading" not in definition.ancestors
+        and definition.iri in contracts
+    }
     if allowed_domain_contracts is None:
         allowed_domain_contracts = tuple(sorted(classes))
-    if (not allowed_domain_contracts or len(set(allowed_domain_contracts)) != len(allowed_domain_contracts)
-            or any(contract not in classes for contract in allowed_domain_contracts)):
-        raise ValueError("rich domain policy requires its actual checked Entity-class contract universe")
+    if (
+        not allowed_domain_contracts
+        or len(set(allowed_domain_contracts)) != len(allowed_domain_contracts)
+        or any(contract not in classes for contract in allowed_domain_contracts)
+    ):
+        raise ValueError(
+            "rich domain policy requires its actual checked Entity-class contract universe"
+        )
     return DdoRichConsolidationPolicy(
-        version="rich-consolidation-policy-1", qualification_contract=contracts[qualification.iri],
-        statement_contract=contracts[definition.iri], allowed_domain_contracts=tuple(sorted(allowed_domain_contracts)),
+        version="rich-consolidation-policy-1",
+        qualification_contract=contracts[qualification.iri],
+        statement_contract=contracts[definition.iri],
+        allowed_domain_contracts=tuple(sorted(allowed_domain_contracts)),
         rules_digest=sha256(_artifact(prepared, RULE_INPUT)).hexdigest(),
         scientific_digest=sha256(_artifact(prepared, SCIENTIFIC_POLICY_INPUT)).hexdigest(),
         analysis_profile_digest=rich_context_profile(prepared).model_id,
@@ -59,13 +74,21 @@ def rich_policy_value(prepared, model, *, allowed_domain_contracts=None):
 
 def require_rich_policy(prepared, model, value):
     from .rich_knowledge_contracts import DdoRichConsolidationPolicy
+
     actual = DdoRichConsolidationPolicy.model_validate(value)
-    if actual != rich_policy_value(prepared, model, allowed_domain_contracts=actual.allowed_domain_contracts):
-        raise ValueError("rich interpretation policy differs from its actual checked captured owners")
+    if actual != rich_policy_value(
+        prepared, model, allowed_domain_contracts=actual.allowed_domain_contracts
+    ):
+        raise ValueError(
+            "rich interpretation policy differs from its actual checked captured owners"
+        )
     return actual
 
 
 def rich_eligibility_policy_digest(checked_policy) -> str:
     """Actual checked policy meaning, including its explicit consumed kind universe."""
     from .data_operation_identity import semantic_value
-    return sha256(canonical_bytes(semantic_value(checked_policy.model_dump(mode="python")))).hexdigest()
+
+    return sha256(
+        canonical_bytes(semantic_value(checked_policy.model_dump(mode="python")))
+    ).hexdigest()

@@ -53,8 +53,8 @@ def pdf_views_custody():
 def pdf_views_operation_sources(
     capture_sources=None, *, mode="standard", transformation_sources=None
 ):
-    from .primary_operations import combine_primary_sources
     from .pdf_domain import pdf_helper_asset
+    from .primary_operations import combine_primary_sources
     from .python_operation_sources import PythonSource, PythonSourceCollection
 
     root = Path(__file__).parents[1]

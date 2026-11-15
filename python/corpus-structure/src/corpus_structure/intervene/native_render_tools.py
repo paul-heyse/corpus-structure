@@ -25,7 +25,9 @@ class NativeRenderRequest(BaseModel):
         if self.request is not None and (
             self.request.targets != (TARGET,) or self.request.project_id != self.project_id
         ):
-            raise ValueError("render requires its exact project and source.pdf_region/render target")
+            raise ValueError(
+                "render requires its exact project and source.pdf_region/render target"
+            )
         return self
 
 
@@ -51,15 +53,25 @@ def execute_native_render(selection: NativeRenderRequest, *, settings, project, 
         open_runtime_engine(settings, "ci-mcp-native-render-admit", purpose="admit") as admitted,
     ):
         result = execute_native_intent(
-            engine, admitted, source_root=selection.source_root, methods=method_settings(settings),
-            project=project, demand=selection.demand_id, request=selection.request,
-            limit=selection.limit, max_rounds=selection.max_rounds, required_targets=(TARGET,),
+            engine,
+            admitted,
+            source_root=selection.source_root,
+            methods=method_settings(settings),
+            project=project,
+            demand=selection.demand_id,
+            request=selection.request,
+            limit=selection.limit,
+            max_rounds=selection.max_rounds,
+            required_targets=(TARGET,),
         )
-    return NativeRenderResponse(demand_id=result.demand_id, exact_json=json_bytes(native_demand_result(result)).decode())
+    return NativeRenderResponse(
+        demand_id=result.demand_id, exact_json=json_bytes(native_demand_result(result)).decode()
+    )
 
 
 def register_native_render_tools(server, *, settings, project=None, demand=None):
     from fastmcp import Context
+
     from corpus_structure.intervene.mcp_results import bounded_mcp_result
     from corpus_structure.semantic.refusals import tool_refusals
 
@@ -71,6 +83,12 @@ def register_native_render_tools(server, *, settings, project=None, demand=None)
         The current native effect/claim/publication owners retain image custody.
         This command never chooses a latest source or accepts private task aliases.
         """
-        return bounded_mcp_result(execute_native_render(
-            request, settings=settings, project=project or settings.runtime.default_project, demand=demand,
-        ), 8 * 1024 * 1024)
+        return bounded_mcp_result(
+            execute_native_render(
+                request,
+                settings=settings,
+                project=project or settings.runtime.default_project,
+                demand=demand,
+            ),
+            8 * 1024 * 1024,
+        )

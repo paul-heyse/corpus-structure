@@ -17,7 +17,13 @@ from corpus_structure.serve import native_source
 
 def request(**changes):
     return native_source.NativeSourceRequest(
-        project_id="p", demand_id="d", read_id="r", use_id="u", product_id="product", derivation_id="episode", **changes
+        project_id="p",
+        demand_id="d",
+        read_id="r",
+        use_id="u",
+        product_id="product",
+        derivation_id="episode",
+        **changes,
     )
 
 
@@ -169,7 +175,9 @@ def test_interactive_packet_propagates_one_budget_and_refuses_whole_packet(monke
 
 
 @pytest.mark.parametrize("bytes_limit,oversized", [(1048576, False), (2048, True)])
-def test_current_search_shares_budget_across_exact_source_population_before_ranking(monkeypatch, bytes_limit, oversized):
+def test_current_search_shares_budget_across_exact_source_population_before_ranking(
+    monkeypatch, bytes_limit, oversized
+):
     from corpus_structure.ingest import pdf_section_views
     from corpus_structure.semantic import pdf_record_reader, source_products
     from corpus_structure.semantic.data_operation_json import json_bytes
@@ -180,25 +188,58 @@ def test_current_search_shares_budget_across_exact_source_population_before_rank
     pin, cut, publication = selection()
     second = pin.model_copy(update={"product_id": "product:second", "use_id": "use:second"})
     budgets = []
+
     def acquire(connection, reference):
-        return SimpleNamespace(reference=reference, cut=CutSelection(json_bytes(cut)), physical=publication,
-            prepared=object(), original_source="original:selected", receipt=SimpleNamespace(publication=publication))
+        return SimpleNamespace(
+            reference=reference,
+            cut=CutSelection(json_bytes(cut)),
+            physical=publication,
+            prepared=object(),
+            original_source="original:selected",
+            receipt=SimpleNamespace(publication=publication),
+        )
+
     def reader(connection, physical, *, projection_context, read_budget):
         budgets.append(read_budget)
         return SimpleNamespace(read_budget=read_budget)
+
     def sections(reader, *, selections, membership, scope):
         assert selections == ("#/body",) and membership == "descendants"
-        return [SimpleNamespace(section_pointer="#/body", membership=membership, text="Alice "*130,
-            pieces=(), items=(), ancestors=(), health={})]
+        return [
+            SimpleNamespace(
+                section_pointer="#/body",
+                membership=membership,
+                text="Alice " * 130,
+                pieces=(),
+                items=(),
+                ancestors=(),
+                health={},
+            )
+        ]
+
     ranked = Mock(return_value=())
     monkeypatch.setattr(source_search, "acquire_selected_pdf_source", acquire)
     monkeypatch.setattr(pdf_record_reader, "PublishedPdfReader", reader)
     monkeypatch.setattr(pdf_section_views, "published_section_projections", sections)
-    monkeypatch.setattr(source_products.FrozenNativeSource, "from_projection", lambda *args, **kwargs: SimpleNamespace(value={"source": {"projection": "projection:controlled"}}))
+    monkeypatch.setattr(
+        source_products.FrozenNativeSource,
+        "from_projection",
+        lambda *args, **kwargs: SimpleNamespace(
+            value={"source": {"projection": "projection:controlled"}}
+        ),
+    )
     monkeypatch.setattr(source_search, "_rank_sections", ranked)
-    request = source_search.SourceSearchRequest(project_id=pin.project_id, demand_id=pin.demand_id,
-        read_id=pin.read_id, sources=(pin, second), sections=("#/body",), membership="descendants",
-        text="Alice", max_rows=10, max_bytes=bytes_limit)
+    request = source_search.SourceSearchRequest(
+        project_id=pin.project_id,
+        demand_id=pin.demand_id,
+        read_id=pin.read_id,
+        sources=(pin, second),
+        sections=("#/body",),
+        membership="descendants",
+        text="Alice",
+        max_rows=10,
+        max_bytes=bytes_limit,
+    )
     if oversized:
         with pytest.raises(ReadLimit):
             source_search.search_source(Mock(), request)

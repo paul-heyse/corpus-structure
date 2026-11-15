@@ -112,7 +112,13 @@ def _ready(kernel, demand):
 def test_native_explicit_retained_pin_crosses_demands_without_hidden_production(ddo_kernel):
     source_demand, original, product = _produce(ddo_kernel, subject="source-subject:B", value=42)
     _, _sibling, sibling_product = _produce(ddo_kernel, subject="source-subject:sibling", value=99)
-    context = SubjectContext("ddo-test", "source-subject:B", "source:B", b'{"page":1}', subject_definition="original-occurrence")
+    context = SubjectContext(
+        "ddo-test",
+        "source-subject:B",
+        "source:B",
+        b'{"page":1}',
+        subject_definition="original-occurrence",
+    )
     entry = SourceSetEntry.from_semantic_source(DataProductReference(product), context=context)
     with ddo_kernel["engine"].begin() as connection:
         DataOperationStorage(connection).cancel_data_demand(

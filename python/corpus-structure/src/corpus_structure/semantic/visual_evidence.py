@@ -3,7 +3,15 @@
 from __future__ import annotations
 
 from typing import Annotated, Literal
-from pydantic import BaseModel, ConfigDict, Field, FiniteFloat, JsonValue, TypeAdapter, model_validator
+
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    FiniteFloat,
+    JsonValue,
+    model_validator,
+)
 
 MAX_VISUAL_EVIDENCE_BYTES = 8 * 1024 * 1024
 MAX_VISUAL_EVIDENCE_ROWS = 10_000
@@ -264,5 +272,3 @@ class VisualEvidenceRead(_VisualModel):
     observation_health: dict[str, JsonValue] | None = None
     mapping_availability: Literal["available", "unavailable", "not_selected"]
     items: tuple[VisualEvidenceRow, ...] = ()
-
-

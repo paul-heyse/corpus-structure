@@ -12,8 +12,12 @@ class M1SourceCandidatesOperation:
         "id": "extract.m1_candidates",
         "profile": "derivation",
         "subject": "selected-native-source",
-        "subject_definition": {'id': 'selected-native-source', 'identifier_kind': 'string', 'scope': 'original-source'},
-        "discovery_relation": 'role-associated',
+        "subject_definition": {
+            "id": "selected-native-source",
+            "identifier_kind": "string",
+            "scope": "original-source",
+        },
+        "discovery_relation": "role-associated",
         "context": [
             "project",
             "original-source",
@@ -67,7 +71,10 @@ class M1SourceCandidatesOperation:
                 "support": {
                     "provenance": "exact",
                     "source": "same-original",
-                    "coverage": {"role": "sources", "description": "complete-selected-context-population"},
+                    "coverage": {
+                        "role": "sources",
+                        "description": "complete-selected-context-population",
+                    },
                     "identity_requirements": ["episode"],
                 },
                 "subject_field": "/source/document",
@@ -83,15 +90,24 @@ class M1SourceCandidatesOperation:
                 "presence": "required",
             },
         ],
-        "applicability": [{'kind': 'documentation', 'text': 'exact-source-annotations-and-closed-bound-context-population'}],
-        "invariants": [
-            {'kind': 'documentation', 'text': 'original-relative-source-pins'},
-            {'kind': 'documentation', 'text': 'one-cpu-coroutine-and-native-request-owner'},
-            {'kind': 'documentation', 'text': 'private-candidates-only'},
-            {'kind': 'documentation', 'text': 'complete-inspection-can-have-zero-candidates'},
-            {'kind': 'documentation', 'text': 'failed-provider-is-not-successful-empty-inspection'},
+        "applicability": [
+            {
+                "kind": "documentation",
+                "text": "exact-source-annotations-and-closed-bound-context-population",
+            }
         ],
-        "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "exact-inspected-regions-with-explicit-partial-or-unavailable-coverage"},
+        "invariants": [
+            {"kind": "documentation", "text": "original-relative-source-pins"},
+            {"kind": "documentation", "text": "one-cpu-coroutine-and-native-request-owner"},
+            {"kind": "documentation", "text": "private-candidates-only"},
+            {"kind": "documentation", "text": "complete-inspection-can-have-zero-candidates"},
+            {"kind": "documentation", "text": "failed-provider-is-not-successful-empty-inspection"},
+        ],
+        "coverage": {
+            "binding": "self",
+            "result_owners": [{"kind": "implementation", "reference": "self"}],
+            "description": "exact-inspected-regions-with-explicit-partial-or-unavailable-coverage",
+        },
         "outcomes": ["success", "failed"],
         "precision_description": "original-native-half-open-extents",
         "dependencies": ["segment.sentences/source-native"],
@@ -171,11 +187,11 @@ class M1SourceCandidatesOperation:
                         "encoding": "value",
                     },
                     {
-                        "output_field": 'subject_definition',
+                        "output_field": "subject_definition",
                         "input": {
                             "role": "primary",
                             "projection": "selected-input",
-                            "field": 'subject_definition',
+                            "field": "subject_definition",
                         },
                         "encoding": "value",
                     },
@@ -295,11 +311,11 @@ class M1SourceCandidatesOperation:
                         "encoding": "value",
                     },
                     {
-                        "output_field": 'subject_definition',
+                        "output_field": "subject_definition",
                         "input": {
                             "role": "sources",
                             "projection": "selected-input",
-                            "field": 'subject_definition',
+                            "field": "subject_definition",
                         },
                         "encoding": "value",
                     },
@@ -419,11 +435,11 @@ class M1SourceCandidatesOperation:
                         "encoding": "value",
                     },
                     {
-                        "output_field": 'subject_definition',
+                        "output_field": "subject_definition",
                         "input": {
                             "role": "primary",
                             "projection": "selected-input",
-                            "field": 'subject_definition',
+                            "field": "subject_definition",
                         },
                         "encoding": "value",
                     },
@@ -543,11 +559,11 @@ class M1SourceCandidatesOperation:
                         "encoding": "value",
                     },
                     {
-                        "output_field": 'subject_definition',
+                        "output_field": "subject_definition",
                         "input": {
                             "role": "sources",
                             "projection": "selected-input",
-                            "field": 'subject_definition',
+                            "field": "subject_definition",
                         },
                         "encoding": "value",
                     },
@@ -667,11 +683,11 @@ class M1SourceCandidatesOperation:
                         "encoding": "value",
                     },
                     {
-                        "output_field": 'subject_definition',
+                        "output_field": "subject_definition",
                         "input": {
                             "role": "sources",
                             "projection": "selected-input",
-                            "field": 'subject_definition',
+                            "field": "subject_definition",
                         },
                         "encoding": "value",
                     },

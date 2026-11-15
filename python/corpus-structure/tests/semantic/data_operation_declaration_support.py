@@ -21,9 +21,9 @@ from corpus_structure.semantic.data_operation_model import (
     ResolvedRoleBinding,
     SubjectContext,
 )
+from corpus_structure.semantic.data_operation_support import ComputationalSupportReference
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.types import SourceArtifact
-from corpus_structure.semantic.data_operation_support import ComputationalSupportReference
 
 
 @dataclass(frozen=True)
@@ -47,13 +47,28 @@ def declaration(
         "id": identifier,
         "profile": "derivation",
         "subject": vocabulary.subject,
-        "subject_definition": {"id": vocabulary.subject, "identifier_kind": "string", "scope": "project"},
+        "subject_definition": {
+            "id": vocabulary.subject,
+            "identifier_kind": "string",
+            "scope": "project",
+        },
         "discovery_relation": "role-associated",
         "context": list(vocabulary.context),
         "roles": roles,
-        "applicability": [{"kind": "documentation", "text": text} for text in vocabulary.applicability],
+        "applicability": [
+            {"kind": "documentation", "text": text} for text in vocabulary.applicability
+        ],
         "invariants": [{"kind": "documentation", "text": text} for text in vocabulary.invariants],
-        "coverage": {"binding": "self", "result_owners": [{"kind": "implementation" if implementation_coverage else "declared-contract", "reference": "self"}], "description": coverage_description},
+        "coverage": {
+            "binding": "self",
+            "result_owners": [
+                {
+                    "kind": "implementation" if implementation_coverage else "declared-contract",
+                    "reference": "self",
+                }
+            ],
+            "description": coverage_description,
+        },
         "outcomes": list(vocabulary.outcomes),
         "precision_description": vocabulary.precision_description,
         "dependencies": [],
@@ -72,9 +87,16 @@ def declaration(
     nonstandard = {"produced": "success", "unknown": "failed"}
     selected = [outcome for outcome in value["outcomes"] if outcome in nonstandard]
     if selected and "transitions" not in value:
-        value["state_dimensions"] = [{"name": "completion", "values": ["pending", "success", "empty", "failed"]}]
+        value["state_dimensions"] = [
+            {"name": "completion", "values": ["pending", "success", "empty", "failed"]}
+        ]
         value["transitions"] = [
-            {"dimension": "completion", "before": "pending", "after": nonstandard[outcome], "outcome": outcome}
+            {
+                "dimension": "completion",
+                "before": "pending",
+                "after": nonstandard[outcome],
+                "outcome": outcome,
+            }
             for outcome in selected
         ]
     return value
@@ -128,7 +150,9 @@ def compiled(recipe: DeclarationRecipe):
 
 
 def subject_context(*, project, subject, source, scope):
-    return SubjectContext(project, subject, source, json_bytes(scope), subject_definition="original-occurrence")
+    return SubjectContext(
+        project, subject, source, json_bytes(scope), subject_definition="original-occurrence"
+    )
 
 
 def root_subject(*, subject, source, scope):
@@ -272,7 +296,11 @@ def resolved_binding(model, *, episodes=("episode-a",), witness=None):
         canonical_bytes({"complete": True}),
         episodes,
         canonical_bytes({"authority": "selected"}),
-     subject_definition="original-occurrence", support_references=tuple(ComputationalSupportReference(derivation_id=episode) for episode in episodes))
+        subject_definition="original-occurrence",
+        support_references=tuple(
+            ComputationalSupportReference(derivation_id=episode) for episode in episodes
+        ),
+    )
     return ResolvedOperationBinding(
         "urn:test:derive",
         "subject:one",
@@ -283,8 +311,12 @@ def resolved_binding(model, *, episodes=("episode-a",), witness=None):
         canonical_bytes({"trust": "selected"}),
         "execution:one",
         subject_context=SubjectContext(
-            "project:test", "subject:one", "original:one", b'{"start":1,"end":2}'
-        , subject_definition="original-occurrence"),
+            "project:test",
+            "subject:one",
+            "original:one",
+            b'{"start":1,"end":2}',
+            subject_definition="original-occurrence",
+        ),
     )
 
 

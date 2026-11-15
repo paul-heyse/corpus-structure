@@ -456,14 +456,23 @@ def test_asset_contract_resolution_is_explicit_and_changed_bytes_change_recipe(p
     )
 
 
-def test_target_preserves_packed_alternatives_for_current_source_projection(
-    profile, monkeypatch
-):
+def test_target_preserves_packed_alternatives_for_current_source_projection(profile, monkeypatch):
     from corpus_structure.methods.math import grammar
 
-    first = selected(profile, "f(x)",
-        items=[dict(self_ref="#/texts/0", label="formula", text="f(x)", orig="f(x)", prov=[dict(page_no=1)])],
-        recognition=[dict(pointer="#/texts/0", outcome="succeeded")])
+    first = selected(
+        profile,
+        "f(x)",
+        items=[
+            dict(
+                self_ref="#/texts/0",
+                label="formula",
+                text="f(x)",
+                orig="f(x)",
+                prov=[dict(page_no=1)],
+            )
+        ],
+        recognition=[dict(pointer="#/texts/0", outcome="succeeded")],
+    )
     monkeypatch.setattr(
         grammar, "syntax", lambda *a, **k: pytest.fail("expanded conventional trees")
     )
@@ -853,7 +862,8 @@ def _publication_context(source, *, document=False):
         value["source"]["document"] if document else source_subject(value["source"]),
         value["source"]["document"],
         canonical_bytes({"source": value["source"], "selectors": value["selectors"]}),
-     subject_definition="original-source-view")
+        subject_definition="original-source-view",
+    )
 
 
 def test_publication_identity_requires_context_and_distinguishes_authority_scope(profile):
@@ -971,7 +981,8 @@ def test_target_threshold_reader_keeps_genuine_semantic_members_and_refuses_fore
         project_id="fixture",
         original_source=coordinate["document"],
         analyzed_scope_meaning="{}",
-     subject_definition="original-source-view")
+        subject_definition="original-source-view",
+    )
     passage = StructuralPassage(
         passage_id="p",
         source_ref=address.identity,

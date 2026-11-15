@@ -75,21 +75,47 @@ def data_task_lifecycle(content: bytes) -> dict:
     expected = {"initial", "running", "terminal", "receipt_required", "new_attempt", "same_attempt"}
     if not isinstance(policy, dict) or set(policy) != expected:
         raise ValueError("data task lifecycle requires its complete closed projection")
-    if any(not isinstance(policy[key], str) or policy[key] not in states for key in ("initial", "running")) or policy["initial"] == policy["running"]:
+    if (
+        any(
+            not isinstance(policy[key], str) or policy[key] not in states
+            for key in ("initial", "running")
+        )
+        or policy["initial"] == policy["running"]
+    ):
         raise ValueError("data task lifecycle has invalid initial/running state")
     for key in ("terminal", "receipt_required"):
         values = policy[key]
-        if not isinstance(values, list) or not values or any(not isinstance(value, str) for value in values) or len(values) != len(set(values)) or not set(values) <= states:
+        if (
+            not isinstance(values, list)
+            or not values
+            or any(not isinstance(value, str) for value in values)
+            or len(values) != len(set(values))
+            or not set(values) <= states
+        ):
             raise ValueError("data task lifecycle has invalid " + key)
-    if not set(policy["receipt_required"]) <= set(policy["terminal"]) or {policy["initial"], policy["running"]} & set(policy["terminal"]):
+    if not set(policy["receipt_required"]) <= set(policy["terminal"]) or {
+        policy["initial"],
+        policy["running"],
+    } & set(policy["terminal"]):
         raise ValueError("data task terminal/receipt policy overlaps live states")
     if states != {policy["initial"], policy["running"], *policy["terminal"]}:
         raise ValueError("data task lifecycle leaves an unclassified state")
     for key in ("new_attempt", "same_attempt"):
         edges = policy[key]
-        if not isinstance(edges, list) or not edges or any(not isinstance(edge, list) or len(edge) != 2 or any(not isinstance(state, str) or state not in states for state in edge) for edge in edges):
+        if (
+            not isinstance(edges, list)
+            or not edges
+            or any(
+                not isinstance(edge, list)
+                or len(edge) != 2
+                or any(not isinstance(state, str) or state not in states for state in edge)
+                for edge in edges
+            )
+        ):
             raise ValueError("data task lifecycle has invalid " + key)
-        if len({tuple(edge) for edge in edges}) != len(edges) or any(edge[0] in policy["terminal"] for edge in edges):
+        if len({tuple(edge) for edge in edges}) != len(edges) or any(
+            edge[0] in policy["terminal"] for edge in edges
+        ):
             raise ValueError("data task lifecycle repeats transition or mutates terminal state")
     if any(after != policy["running"] for _, after in policy["new_attempt"]):
         raise ValueError("new task attempt must enter running state")
@@ -104,10 +130,13 @@ def render_data_task_guard(content: bytes, template: str) -> str:
         return "'" + value.replace("'", "''") + "'"
 
     def transitions(key):
-        return "(OLD.status,NEW.status) IN (" + ",".join(
-            "(" + quote(before) + "," + quote(after) + ")"
-            for before, after in policy[key]
-        ) + ")"
+        return (
+            "(OLD.status,NEW.status) IN ("
+            + ",".join(
+                "(" + quote(before) + "," + quote(after) + ")" for before, after in policy[key]
+            )
+            + ")"
+        )
 
     products = {
         "INITIAL": quote(policy["initial"]),

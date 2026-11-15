@@ -85,9 +85,14 @@ def test_original_direct_port_projects_actual_nominal_members_and_preserves_deci
     schema, tmp_path, monkeypatch, form
 ):
     from semantic.data_operation_declaration_support import contract
+
     metadata: dict[str, Any] = contract(
         subject="source-proposal-list",
-        subject_definition={"id": "source-proposal-list", "identifier_kind": "string", "scope": "project"},
+        subject_definition={
+            "id": "source-proposal-list",
+            "identifier_kind": "string",
+            "scope": "project",
+        },
         implementation_coverage=True,
     )
     metadata["roles"] = [
@@ -158,9 +163,15 @@ def test_original_direct_port_projects_actual_nominal_members_and_preserves_deci
 )
 def test_projection_refuses_forged_or_missing_packet_authority(schema, defect):
     from semantic.data_operation_declaration_support import contract, declarations
-    declaration = contract(subject="source-proposal-list", subject_definition={
-        "id": "source-proposal-list", "identifier_kind": "string", "scope": "project"
-    })
+
+    declaration = contract(
+        subject="source-proposal-list",
+        subject_definition={
+            "id": "source-proposal-list",
+            "identifier_kind": "string",
+            "scope": "project",
+        },
+    )
     model = compile_data_operations(schema=schema, declarations=declarations(declaration))
     value = packet_value(model)
     assert project_product_members(model, "urn:members:Container", value)

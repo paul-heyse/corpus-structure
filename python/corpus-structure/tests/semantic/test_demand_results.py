@@ -24,13 +24,19 @@ def _page(*, trust=None, member_id=None, empty=False) -> dict[str, Any]:
                     subject="one",
                     original_source="source:A",
                     analyzed_scope={"scale": Decimal("1.20")},
-                 subject_definition="document"),
+                    subject_definition="document",
+                ),
                 body={"amount": Decimal("12.340")},
             ),
             dict(
                 member_id="second",
                 kind_contract="kind:second",
-                context=dict(subject="two", original_source="source:A", analyzed_scope={}, subject_definition="document"),
+                context=dict(
+                    subject="two",
+                    original_source="source:A",
+                    analyzed_scope={},
+                    subject_definition="document",
+                ),
                 body={"target": "first", "direction": "outgoing"},
             ),
         ]
@@ -74,7 +80,8 @@ def _page(*, trust=None, member_id=None, empty=False) -> dict[str, Any]:
                         analyzed_scope={},
                         body_state="present",
                         body=semantic_value(body),
-                     subject_definition="document")
+                        subject_definition="document",
+                    )
                 ],
             )
         ],
@@ -220,8 +227,12 @@ def _detached_closure(
     from corpus_structure.semantic.data_operation_model import SubjectContext
 
     context = SubjectContext(
-        "project:A", "root", original_source, json_bytes({"scale": Decimal("1.20")})
-    , subject_definition="document")
+        "project:A",
+        "root",
+        original_source,
+        json_bytes({"scale": Decimal("1.20")}),
+        subject_definition="document",
+    )
     body = {"amount": Decimal("12.340")} if body is None else body
     body_key = body_identity(body).key
     product_id = contextual_product_identity(kind=kind_contract, context=context, body=body_key).key
@@ -241,7 +252,8 @@ def _detached_closure(
         canonical_body=semantic_value(body),
         body_digest=body_key,
         artifact_digest=None,
-     subject_definition="document")
+        subject_definition="document",
+    )
     native = _page()
     native["uses"] = [
         dict(
@@ -288,7 +300,8 @@ def _detached_closure(
                 subject="root",
                 original_source=original_source,
                 analyzed_scope={"scale": Decimal("1.20")},
-             subject_definition="document"),
+                subject_definition="document",
+            ),
         ),
         (
             "ops.data_derivation",
@@ -317,7 +330,13 @@ def _detached_closure(
         ),
         (
             "sem.data_operation_definition",
-            dict(release_id="release:A", operation_id="op:A", recipe="recipe:A", subject_definition="document", support_contract={"replicate_policy": "deterministic-single-result"}),
+            dict(
+                release_id="release:A",
+                operation_id="op:A",
+                recipe="recipe:A",
+                subject_definition="document",
+                support_contract={"replicate_policy": "deterministic-single-result"},
+            ),
         ),
         (
             "ops.data_derivation_output",
@@ -495,7 +514,12 @@ def test_detached_container_requires_members_even_when_selected_as_whole_product
     packet = dict(
         member_id="member:A",
         kind_contract="kind:item",
-        context=dict(subject="item", original_source="source:A", analyzed_scope={}, subject_definition="document"),
+        context=dict(
+            subject="item",
+            original_source="source:A",
+            analyzed_scope={},
+            subject_definition="document",
+        ),
         body={"value": 1},
     )
     native, records = _detached_closure(body={"members": [packet]}, kind_contract="kind:container")
@@ -572,7 +596,9 @@ def test_detached_retained_observation_refuses_unqualified_fresh_replication():
     from corpus_structure.semantic.demand_results import verify_detached_result
 
     native, records = _detached_closure()
-    definition = next(row["record"] for row in records if row["relation"] == "sem.data_operation_definition")
+    definition = next(
+        row["record"] for row in records if row["relation"] == "sem.data_operation_definition"
+    )
     request = next(row["record"] for row in records if row["relation"] == "ops.data_request")
     definition["support_contract"]["replicate_policy"] = "retained-observation-single-result"
     verify_detached_result(native, records=records, wire_schema={})
@@ -618,13 +644,28 @@ def test_selected_record_acquisition_enforces_whole_unique_record_budget(monkeyp
     selected = pages()
     monkeypatch.setattr(owner, "read_demand_result", lambda *args, **kwargs: next(selected))
     monkeypatch.setattr(owner, "stream_selected_support", lambda *args: iter((payload, payload)))
-    with owner.selected_record_index(None, "demand:A", project_id="project:A", scope={}, max_total_records=3, capture_frontier=True) as (cut, index):
+    with owner.selected_record_index(
+        None,
+        "demand:A",
+        project_id="project:A",
+        scope={},
+        max_total_records=3,
+        capture_frontier=True,
+    ) as (cut, index):
         assert index.retained_records == 3
         assert cut.identity == CutSelection.from_native(_page()).identity
     selected = pages()
-    with pytest.raises(owner.SelectedGraphBudgetExceeded, match="closure exceeds record bound") as captured:
-        with owner.selected_record_index(None, "demand:A", project_id="project:A", scope={}, max_total_records=2, capture_frontier=True):
-            pytest.fail("an over-budget selected graph was exposed")
+    with pytest.raises(
+        owner.SelectedGraphBudgetExceeded, match="closure exceeds record bound"
+    ) as captured, owner.selected_record_index(
+        None,
+        "demand:A",
+        project_id="project:A",
+        scope={},
+        max_total_records=2,
+        capture_frontier=True,
+    ):
+        pytest.fail("an over-budget selected graph was exposed")
     assert captured.value.cut.identity == CutSelection.from_native(_page()).identity
 
 
@@ -632,10 +673,15 @@ def test_selected_record_acquisition_enforces_whole_unique_record_budget(monkeyp
 def test_selected_record_acquisition_refuses_invalid_record_bounds_before_read(monkeypatch, bound):
     from corpus_structure.semantic import demand_results as owner
 
-    monkeypatch.setattr(owner, "read_demand_result", lambda *args, **kwargs: pytest.fail("invalid budget reached native read"))
-    with pytest.raises(ValueError, match="nonnegative integer"):
-        with owner.selected_record_index(None, "demand:A", project_id="project:A", scope={}, max_total_records=bound):
-            pytest.fail("invalid bound produced an index")
+    monkeypatch.setattr(
+        owner,
+        "read_demand_result",
+        lambda *args, **kwargs: pytest.fail("invalid budget reached native read"),
+    )
+    with pytest.raises(ValueError, match="nonnegative integer"), owner.selected_record_index(
+        None, "demand:A", project_id="project:A", scope={}, max_total_records=bound
+    ):
+        pytest.fail("invalid bound produced an index")
 
 
 def test_detached_source_free_context_requires_actual_checked_project_scope():
@@ -644,23 +690,44 @@ def test_detached_source_free_context_requires_actual_checked_project_scope():
     from semantic.data_operation_declaration_support import contract, declarations
 
     def model(scope):
-        return compile_data_operations(declarations=declarations(contract(id="op:A", subject="document", subject_definition={"id": "document", "identifier_kind": "string", "scope": scope})))
+        return compile_data_operations(
+            declarations=declarations(
+                contract(
+                    id="op:A",
+                    subject="document",
+                    subject_definition={
+                        "id": "document",
+                        "identifier_kind": "string",
+                        "scope": scope,
+                    },
+                )
+            )
+        )
 
     native, records = _detached_closure(original_source=None)
     with pytest.raises(ValueError, match="captured checked model"):
         verify_detached_result(native, records=records, wire_schema={})
-    verify_detached_result(native, records=records, wire_schema={}, models={"release:A": model("project")})
+    verify_detached_result(
+        native, records=records, wire_schema={}, models={"release:A": model("project")}
+    )
     with pytest.raises(ValueError, match="only a checked project-scoped"):
-        verify_detached_result(native, records=records, wire_schema={}, models={"release:A": model("original-document")})
+        verify_detached_result(
+            native,
+            records=records,
+            wire_schema={},
+            models={"release:A": model("original-document")},
+        )
 
 
 def test_public_query_distinguishes_explicit_null_source_and_omitted_filter(monkeypatch):
     scopes = []
+
     def read(*args, **kwargs):
         scopes.append(kwargs["scope"])
         page = _page()
         page["scope"] = kwargs["scope"]
         return DemandResult(json_bytes(page))
+
     monkeypatch.setattr("corpus_structure.semantic.demand_queries.read_demand_result", read)
     unqualified = DemandQueryRequest(demand_id="demand:A", project_id="project:A", limit=1)
     absent = unqualified.model_copy(update={"original_source": None})
@@ -677,41 +744,118 @@ def test_detached_protected_authority_has_explicit_bounded_custody():
     from copy import deepcopy
     from dataclasses import asdict
 
-    from corpus_structure.semantic.data_operation_identity import body_identity, contextual_product_identity
+    from corpus_structure.semantic.data_operation_identity import (
+        body_identity,
+        contextual_product_identity,
+    )
     from corpus_structure.semantic.data_operation_model import SubjectContext
     from corpus_structure.semantic.demand_results import verify_detached_result
-    from corpus_structure.semantic.record_policy_authority import AUTHORIZATION_EFFECT, AUTHORIZATION_FACTORY, AUTHORIZATION_KIND, DdoRecordPolicyAuthorization
+    from corpus_structure.semantic.record_policy_authority import (
+        AUTHORIZATION_EFFECT,
+        AUTHORIZATION_FACTORY,
+        AUTHORIZATION_KIND,
+        DdoRecordPolicyAuthorization,
+    )
     from semantic.test_authority_leaf import public_policy_body
 
     native, records = _detached_closure()
     policy = public_policy_body()
-    context = SubjectContext("project:A", "policy:A", "source:A", b"{}", subject_definition="document")
+    context = SubjectContext(
+        "project:A", "policy:A", "source:A", b"{}", subject_definition="document"
+    )
     body_digest = body_identity(policy).key
-    product_id = contextual_product_identity(kind="kind:policy", context=context, body=body_digest).key
-    product = dict(id=product_id, kind_contract="kind:policy", project_id="project:A", subject="policy:A",
-        subject_definition="document", original_source="source:A", analyzed_scope={}, canonical_body=semantic_value(policy), body_digest=body_digest, artifact_digest=None)
-    kind = dict(kind_contract="kind:policy", kind=AUTHORIZATION_KIND, universe="ordinary",
-        meaning_schema={"type": "array"}, body_schema=DdoRecordPolicyAuthorization.model_json_schema())
-    effect = {**asdict(AUTHORIZATION_EFFECT), "authorization": list(AUTHORIZATION_EFFECT.authorization)}
-    issuer = dict(release_id="release:issuer", operation_id="record_policy.authorize", recipe="recipe:issuer", profile="command",
-        support_contract=dict(effects=[effect], capabilities=dict(preparation="native-publication", forms=["scalar"], prepared_factory=dict(entrypoint=AUTHORIZATION_FACTORY))))
-    leaf = dict(format="ddo-native-authority-leaf-v1", derivation_id="episode:issuer", use_id="use:issuer",
-        issuer_operation="record_policy.authorize", release_id="release:issuer", runtime_id="runtime:issuer", recipe="recipe:issuer",
-        product_id=product_id, kind_contract="kind:policy", intent_id="intent:opaque", receipt_id="receipt:opaque",
-        standing="valid", protected_dependencies="undisclosed")
-    reference = dict(kind="computation", derivation_id="episode:issuer", admission_use_id="use:issuer", role="policy", position=0)
+    product_id = contextual_product_identity(
+        kind="kind:policy", context=context, body=body_digest
+    ).key
+    product = dict(
+        id=product_id,
+        kind_contract="kind:policy",
+        project_id="project:A",
+        subject="policy:A",
+        subject_definition="document",
+        original_source="source:A",
+        analyzed_scope={},
+        canonical_body=semantic_value(policy),
+        body_digest=body_digest,
+        artifact_digest=None,
+    )
+    kind = dict(
+        kind_contract="kind:policy",
+        kind=AUTHORIZATION_KIND,
+        universe="ordinary",
+        meaning_schema={"type": "array"},
+        body_schema=DdoRecordPolicyAuthorization.model_json_schema(),
+    )
+    effect = {
+        **asdict(AUTHORIZATION_EFFECT),
+        "authorization": list(AUTHORIZATION_EFFECT.authorization),
+    }
+    issuer = dict(
+        release_id="release:issuer",
+        operation_id="record_policy.authorize",
+        recipe="recipe:issuer",
+        profile="command",
+        support_contract=dict(
+            effects=[effect],
+            capabilities=dict(
+                preparation="native-publication",
+                forms=["scalar"],
+                prepared_factory=dict(entrypoint=AUTHORIZATION_FACTORY),
+            ),
+        ),
+    )
+    leaf = dict(
+        format="ddo-native-authority-leaf-v1",
+        derivation_id="episode:issuer",
+        use_id="use:issuer",
+        issuer_operation="record_policy.authorize",
+        release_id="release:issuer",
+        runtime_id="runtime:issuer",
+        recipe="recipe:issuer",
+        product_id=product_id,
+        kind_contract="kind:policy",
+        intent_id="intent:opaque",
+        receipt_id="receipt:opaque",
+        standing="valid",
+        protected_dependencies="undisclosed",
+    )
+    reference = dict(
+        kind="computation",
+        derivation_id="episode:issuer",
+        admission_use_id="use:issuer",
+        role="policy",
+        position=0,
+    )
     native["uses"][0]["selection"]["support"] = [reference]
-    next(row["record"] for row in records if row["relation"] == "ops.data_completion_intent")["payload"]["support"] = [reference]
+    next(row["record"] for row in records if row["relation"] == "ops.data_completion_intent")[
+        "payload"
+    ]["support"] = [reference]
     for relation, row in (
-        ("kb.data_product", product), ("sem.data_kind_contract", kind), ("sem.data_operation_definition", issuer),
-        ("ops.data_authority_leaf", leaf), ("ops.data_derivation_support", dict(
-            derivation_id="episode:A", support_derivation_id="episode:issuer", admission_use_id="use:issuer", occurrence=0, role="policy", position=0,
-        )),
+        ("kb.data_product", product),
+        ("sem.data_kind_contract", kind),
+        ("sem.data_operation_definition", issuer),
+        ("ops.data_authority_leaf", leaf),
+        (
+            "ops.data_derivation_support",
+            dict(
+                derivation_id="episode:A",
+                support_derivation_id="episode:issuer",
+                admission_use_id="use:issuer",
+                occurrence=0,
+                role="policy",
+                position=0,
+            ),
+        ),
     ):
         records.append(dict(relation=relation, key=relation + ":policy", record=row))
-    kinds = {row["record"]["kind_contract"]: row["record"] for row in records if row["relation"] == "sem.data_kind_contract"}
+    kinds = {
+        row["record"]["kind_contract"]: row["record"]
+        for row in records
+        if row["relation"] == "sem.data_kind_contract"
+    }
     # Supply exact native row fields for independent captured-definition comparison.
     from corpus_structure.semantic.metadata import table
+
     fields = table("sem.data_operation_definition").c.keys()
     definitions = {}
     for row in records:
@@ -723,11 +867,25 @@ def test_detached_protected_authority_has_explicit_bounded_custody():
                 if definition[field] is None:
                     definition[field] = []
             definitions[definition["release_id"], definition["operation_id"]] = definition
-    options = dict(wire_schema={}, kinds=kinds, definitions=definitions, runtimes={("release:A", "runtime:A"), ("release:issuer", "runtime:issuer")})
-    assert verify_detached_result(native, records=records, **options).cut.identity == CutSelection.from_native(native).identity
+    options = dict(
+        wire_schema={},
+        kinds=kinds,
+        definitions=definitions,
+        runtimes={("release:A", "runtime:A"), ("release:issuer", "runtime:issuer")},
+    )
+    assert (
+        verify_detached_result(native, records=records, **options).cut.identity
+        == CutSelection.from_native(native).identity
+    )
     with pytest.raises(ValueError, match="support episode|support closure"):
-        verify_detached_result(native, records=[row for row in records if row["relation"] != "ops.data_authority_leaf"], **options)
+        verify_detached_result(
+            native,
+            records=[row for row in records if row["relation"] != "ops.data_authority_leaf"],
+            **options,
+        )
     wrong = deepcopy(records)
-    next(row["record"] for row in wrong if row["relation"] == "ops.data_authority_leaf")["recipe"] = "foreign"
+    next(row["record"] for row in wrong if row["relation"] == "ops.data_authority_leaf")[
+        "recipe"
+    ] = "foreign"
     with pytest.raises(ValueError, match="command/effect/factory"):
         verify_detached_result(native, records=wrong, **options)

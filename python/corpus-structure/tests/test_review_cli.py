@@ -236,10 +236,6 @@ def test_piped_review_selection_is_bounded_before_delivery(cli, monkeypatch):
     assert admitted == [(17, None, True, True)]
 
 
-
-
-
-
 def test_retained_routes_require_explicit_history_pins_before_settings(cli):
     def refuse():
         raise AssertionError("missing explicit history pins must fail before acquisition")
@@ -277,11 +273,23 @@ def test_current_explain_forwards_actual_selected_product_support(cli, monkeypat
 
 def test_retired_enriched_selection_refuses_before_export(cli, tmp_path, monkeypatch):
     from corpus_structure.serve import review_bundle
+
     selected = tmp_path / "retired.json"
-    selected.write_text(json.dumps({"format": "enriched-document-review-v1", "run_id": 4,
-        "task_id": 7, "product_key": "view", "content_digest": "a"*64}))
+    selected.write_text(
+        json.dumps(
+            {
+                "format": "enriched-document-review-v1",
+                "run_id": 4,
+                "task_id": 7,
+                "product_key": "view",
+                "content_digest": "a" * 64,
+            }
+        )
+    )
+
     def forbidden(*args, **kwargs):
         raise AssertionError("retired task/layer review must not enter export")
+
     monkeypatch.setattr(review_bundle, "export_review_bundle", forbidden)
     result = cli("retained-review", "export", str(selected), "--json")
     assert result.exit_code != 0

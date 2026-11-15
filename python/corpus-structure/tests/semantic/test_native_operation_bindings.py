@@ -133,7 +133,9 @@ WHERE attrelid='ops.task'::regclass AND attnum>0 AND NOT attisdropped""")
         "version": "2",
         "invariant": "attempt_fence",
     }
-    failure = classify_invariant_failure(model.invariants, "claim", guarded.value, model_id=model.model_id)
+    failure = classify_invariant_failure(
+        model.invariants, "claim", guarded.value, model_id=model.model_id
+    )
     assert failure is not None
     assert (failure.code, failure.invariant, failure.operation) == (
         "execution.attempt_fence",

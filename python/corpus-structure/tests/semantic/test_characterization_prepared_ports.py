@@ -19,6 +19,7 @@ from corpus_structure.semantic.characterization_ports import (
 )
 from corpus_structure.semantic.composed import data_operation_dependencies
 from corpus_structure.semantic.construction_products import construction_product_inputs
+from corpus_structure.semantic.contextual_operations import contextual_operation_declarations
 from corpus_structure.semantic.data_operation_admission import (
     PreparedCapabilityIdentity,
     bound_data_operation_model,
@@ -31,9 +32,7 @@ from corpus_structure.semantic.formal_products import (
     prepare_formal_evidence,
 )
 from corpus_structure.semantic.identity import canonical_bytes
-from corpus_structure.semantic.python_operation_sources import PythonSourceCollection
 from corpus_structure.semantic.types import PreparationProfile, ResolvedDependencies
-from corpus_structure.semantic.contextual_operations import contextual_operation_declarations
 from semantic.formal_products_support import selected
 
 
@@ -53,7 +52,11 @@ def acquired():
     sources = combine_primary_sources(*collections)
     prepared = prepare_release(
         bundle,
-        data_operation_dependencies(ResolvedDependencies(), declarations=(contextual_operation_declarations(),), python_sources=sources),
+        data_operation_dependencies(
+            ResolvedDependencies(),
+            declarations=(contextual_operation_declarations(),),
+            python_sources=sources,
+        ),
         PreparationProfile(version="semantic-2"),
     )
     model = bound_data_operation_model(prepared)
@@ -194,7 +197,8 @@ def _publication_context(source, *, document=False):
         value["source"]["document"] if document else source_subject(value["source"]),
         value["source"]["document"],
         canonical_bytes({"source": value["source"], "selectors": value["selectors"]}),
-     subject_definition="original-source-view")
+        subject_definition="original-source-view",
+    )
 
 
 def test_retained_family_ingress_uses_selected_member_context_and_checks_native_id(acquired):

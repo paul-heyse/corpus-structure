@@ -10,8 +10,12 @@ class SourceProfileOperation:
         "id": "profile.segments/source-native",
         "profile": "derivation",
         "subject": "original-source-view",
-        "subject_definition": {'id': 'original-source-view', 'identifier_kind': 'string', 'scope': 'original-source'},
-        "discovery_relation": 'subject-population',
+        "subject_definition": {
+            "id": "original-source-view",
+            "identifier_kind": "string",
+            "scope": "original-source",
+        },
+        "discovery_relation": "subject-population",
         "context": ["original-source", "selected-scope"],
         "entrypoints": ["run"],
         "roles": [
@@ -42,12 +46,31 @@ class SourceProfileOperation:
                 "presence": "required",
             },
         ],
-        "applicability": [{'kind': 'documentation', 'text': 'retained-source-intervals-and-parent-layout'}],
-        "invariants": [{'kind': 'documentation', 'text': 'exact-selected-interval-union'}, {'kind': 'documentation', 'text': 'no-text-recognition'}],
-        "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "exact-selected-source-scope"},
+        "applicability": [
+            {"kind": "documentation", "text": "retained-source-intervals-and-parent-layout"}
+        ],
+        "invariants": [
+            {"kind": "documentation", "text": "exact-selected-interval-union"},
+            {"kind": "documentation", "text": "no-text-recognition"},
+        ],
+        "coverage": {
+            "binding": "self",
+            "result_owners": [{"kind": "implementation", "reference": "self"}],
+            "description": "exact-selected-source-scope",
+        },
         "outcomes": ["success", "failed"],
-        "numerical_policy": {"asset": "source-profile/numerical-policy", "pointer": "/numerical_policy", "kind": "urn:corpus:kind:source-profile:NumericalPolicy"},
-        "assets": [{"reference": "source-ratio-numerics", "contract": "source-profile/numerical-policy", "role": "selected-source-ratio-policy"}],
+        "numerical_policy": {
+            "asset": "source-profile/numerical-policy",
+            "pointer": "/numerical_policy",
+            "kind": "urn:corpus:kind:source-profile:NumericalPolicy",
+        },
+        "assets": [
+            {
+                "reference": "source-ratio-numerics",
+                "contract": "source-profile/numerical-policy",
+                "role": "selected-source-ratio-policy",
+            }
+        ],
         "dependencies": [],
         "effects": [],
         "parameters": {},

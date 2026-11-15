@@ -13,8 +13,12 @@ class ContextualEncodingOperation:
         "id": "retrieve.contextual_vectors/declared",
         "profile": "derivation",
         "subject": "selected-native-source",
-        "subject_definition": {'id': 'selected-native-source', 'identifier_kind': 'string', 'scope': 'original-source'},
-        "discovery_relation": 'role-associated',
+        "subject_definition": {
+            "id": "selected-native-source",
+            "identifier_kind": "string",
+            "scope": "original-source",
+        },
+        "discovery_relation": "role-associated",
         "context": [
             "original-source",
             "retained-exact-occurrence",
@@ -68,7 +72,10 @@ class ContextualEncodingOperation:
                 "support": {
                     "provenance": "value_substitution",
                     "source": "selected-inventory",
-                    "coverage": {"role": "inventory", "description": "complete-eligible-population"},
+                    "coverage": {
+                        "role": "inventory",
+                        "description": "complete-eligible-population",
+                    },
                     "identity_requirements": [],
                 },
             },
@@ -91,18 +98,31 @@ class ContextualEncodingOperation:
                 "presence": "required",
             },
         ],
-        "applicability": [{'kind': 'documentation', 'text': 'one-exact-native-query-carrier-and-complete-inventory'}],
-        "invariants": [
-            {'kind': 'documentation', 'text': 'original-relative-source-pins'},
-            {'kind': 'documentation', 'text': 'captured-cpu-float32-pooling-and-prompts'},
-            {'kind': 'documentation', 'text': 'no-inner-process-or-pool'},
-            {'kind': 'documentation', 'text': 'exact-profile-and-model-artifacts'},
-            {'kind': 'documentation', 'text': 'complete-selected-vector-population'},
+        "applicability": [
+            {
+                "kind": "documentation",
+                "text": "one-exact-native-query-carrier-and-complete-inventory",
+            }
         ],
-        "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "complete-selected-query-and-inventory"},
+        "invariants": [
+            {"kind": "documentation", "text": "original-relative-source-pins"},
+            {"kind": "documentation", "text": "captured-cpu-float32-pooling-and-prompts"},
+            {"kind": "documentation", "text": "no-inner-process-or-pool"},
+            {"kind": "documentation", "text": "exact-profile-and-model-artifacts"},
+            {"kind": "documentation", "text": "complete-selected-vector-population"},
+        ],
+        "coverage": {
+            "binding": "self",
+            "result_owners": [{"kind": "implementation", "reference": "self"}],
+            "description": "complete-selected-query-and-inventory",
+        },
         "outcomes": ["success", "failed"],
         "precision_description": None,
-        "numerical_policy": {"asset": "contextual/encoder-assets", "pointer": "/numerical_policy", "kind": "urn:corpus:kind:contextual-encoder:NumericalPolicy"},
+        "numerical_policy": {
+            "asset": "contextual/encoder-assets",
+            "pointer": "/numerical_policy",
+            "kind": "urn:corpus:kind:contextual-encoder:NumericalPolicy",
+        },
         "replicate_policy": "explicit-replicates",
         "dependencies": ["retrieve.contextual_inventory/declared"],
         "effects": [],
@@ -142,11 +162,11 @@ class ContextualEncodingOperation:
                         "encoding": "value",
                     },
                     {
-                        "output_field": 'subject_definition',
+                        "output_field": "subject_definition",
                         "input": {
                             "role": "occurrence",
                             "projection": "https://corpus-structure.dev/semantic/data-operation-candidate-inspection/DdoCandidateSourceContribution",
-                            "field": '/pin/subject_definition',
+                            "field": "/pin/subject_definition",
                         },
                         "encoding": "value",
                     },
@@ -278,8 +298,12 @@ class SelectedContextEncodingOperation:
         "id": "retrieve.contextual_vectors/selected-context",
         "profile": "derivation",
         "subject": "selected-native-source",
-        "subject_definition": {'id': 'selected-native-source', 'identifier_kind': 'string', 'scope': 'original-source'},
-        "discovery_relation": 'role-associated',
+        "subject_definition": {
+            "id": "selected-native-source",
+            "identifier_kind": "string",
+            "scope": "original-source",
+        },
+        "discovery_relation": "role-associated",
         "context": [
             "original-source",
             "retained-exact-occurrence",
@@ -335,7 +359,10 @@ class SelectedContextEncodingOperation:
                 "support": {
                     "provenance": "value_substitution",
                     "source": "selected-inventory",
-                    "coverage": {"role": "inventory", "description": "complete-eligible-population"},
+                    "coverage": {
+                        "role": "inventory",
+                        "description": "complete-eligible-population",
+                    },
                     "identity_requirements": [],
                 },
             },
@@ -352,7 +379,10 @@ class SelectedContextEncodingOperation:
                 "support": {
                     "provenance": "exact",
                     "source": "frozen-source-set",
-                    "coverage": {"role": "primary", "description": "complete-selected-context-closure"},
+                    "coverage": {
+                        "role": "primary",
+                        "description": "complete-selected-context-closure",
+                    },
                     "identity_requirements": ["episode"],
                     "source_set": "query-context-primary",
                 },
@@ -376,20 +406,33 @@ class SelectedContextEncodingOperation:
                 "presence": "required",
             },
         ],
-        "applicability": [{'kind': 'documentation', 'text': 'one-exact-native-query-carrier-and-complete-inventory'}],
-        "invariants": [
-            {'kind': 'documentation', 'text': 'original-relative-source-pins'},
-            {'kind': 'documentation', 'text': 'captured-cpu-float32-pooling-and-prompts'},
-            {'kind': 'documentation', 'text': 'no-inner-process-or-pool'},
-            {'kind': 'documentation', 'text': 'exact-profile-and-model-artifacts'},
-            {'kind': 'documentation', 'text': 'complete-selected-vector-population'},
-            {'kind': 'documentation', 'text': 'requested-context-never-falls-back-to-lexical'},
-            {'kind': 'documentation', 'text': 'missing-or-empty-context-refused-before-encoder'},
+        "applicability": [
+            {
+                "kind": "documentation",
+                "text": "one-exact-native-query-carrier-and-complete-inventory",
+            }
         ],
-        "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "complete-selected-query-and-inventory"},
+        "invariants": [
+            {"kind": "documentation", "text": "original-relative-source-pins"},
+            {"kind": "documentation", "text": "captured-cpu-float32-pooling-and-prompts"},
+            {"kind": "documentation", "text": "no-inner-process-or-pool"},
+            {"kind": "documentation", "text": "exact-profile-and-model-artifacts"},
+            {"kind": "documentation", "text": "complete-selected-vector-population"},
+            {"kind": "documentation", "text": "requested-context-never-falls-back-to-lexical"},
+            {"kind": "documentation", "text": "missing-or-empty-context-refused-before-encoder"},
+        ],
+        "coverage": {
+            "binding": "self",
+            "result_owners": [{"kind": "implementation", "reference": "self"}],
+            "description": "complete-selected-query-and-inventory",
+        },
         "outcomes": ["success", "failed"],
         "precision_description": None,
-        "numerical_policy": {"asset": "contextual/encoder-assets", "pointer": "/numerical_policy", "kind": "urn:corpus:kind:contextual-encoder:NumericalPolicy"},
+        "numerical_policy": {
+            "asset": "contextual/encoder-assets",
+            "pointer": "/numerical_policy",
+            "kind": "urn:corpus:kind:contextual-encoder:NumericalPolicy",
+        },
         "replicate_policy": "explicit-replicates",
         "dependencies": ["retrieve.contextual_inventory/declared"],
         "effects": [],
@@ -482,11 +525,11 @@ class SelectedContextEncodingOperation:
                         "encoding": "value",
                     },
                     {
-                        "output_field": 'subject_definition',
+                        "output_field": "subject_definition",
                         "input": {
                             "role": "primary",
                             "projection": "selected-input",
-                            "field": 'subject_definition',
+                            "field": "subject_definition",
                         },
                         "encoding": "value",
                     },

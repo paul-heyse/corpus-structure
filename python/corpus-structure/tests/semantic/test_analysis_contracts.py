@@ -373,31 +373,74 @@ def test_scientific_profile_and_source_sharing_are_admitted_data():
     assert context().profile.transformer_recipe == "sympy-transform-3"
 
 
-def test_candidate_scientific_parameters_rebind_supplied_recipe_without_ambient_acquisition(monkeypatch):
+def test_candidate_scientific_parameters_rebind_supplied_recipe_without_ambient_acquisition(
+    monkeypatch,
+):
     import json
+
     from corpus_structure.semantic import SourceArtifact, SourceBundle
     from corpus_structure.semantic.analysis_contracts import acquire_analysis_context_profile
     from corpus_structure.semantic.identity import canonical_bytes
-    from corpus_structure.semantic.scientific_evidence import SCIENTIFIC_POLICY_INPUT, SemanticComparator, require_scientific_policy, scientific_policy_recipe
+    from corpus_structure.semantic.scientific_evidence import (
+        SCIENTIFIC_POLICY_INPUT,
+        SemanticComparator,
+        require_scientific_policy,
+        scientific_policy_recipe,
+    )
     from corpus_structure.semantic.types import PreparedArtifact
 
     current = acquire_analysis_context_profile()
-    profile = replace(current, profile=replace(current.profile, scientific_profiles=tuple(
-        replace(item, minimum_valid_points=7) if item.policy_id == "consolidation-evidence-2" else item
-        for item in current.profile.scientific_profiles
-    )))
-    prepared = prepare_release(SourceBundle("scientific", (SourceArtifact("scientific", b"id: urn:scientific\nname: scientific\nclasses: {Thing: {}}\n"),)))
-    recipe = PreparedArtifact(SCIENTIFIC_POLICY_INPUT, canonical_bytes(scientific_policy_recipe(context_profile=profile)))
+    profile = replace(
+        current,
+        profile=replace(
+            current.profile,
+            scientific_profiles=tuple(
+                replace(item, minimum_valid_points=7)
+                if item.policy_id == "consolidation-evidence-2"
+                else item
+                for item in current.profile.scientific_profiles
+            ),
+        ),
+    )
+    prepared = prepare_release(
+        SourceBundle(
+            "scientific",
+            (
+                SourceArtifact(
+                    "scientific", b"id: urn:scientific\nname: scientific\nclasses: {Thing: {}}\n"
+                ),
+            ),
+        )
+    )
+    recipe = PreparedArtifact(
+        SCIENTIFIC_POLICY_INPUT, canonical_bytes(scientific_policy_recipe(context_profile=profile))
+    )
     prepared = replace(prepared, artifacts=(*prepared.artifacts, recipe))
     import corpus_structure.semantic.analysis_contracts as contracts
-    monkeypatch.setattr(contracts, "_legacy_profile", lambda *_: (_ for _ in ()).throw(AssertionError("legacy lookup")))
+
+    monkeypatch.setattr(
+        contracts,
+        "_legacy_profile",
+        lambda *_: (_ for _ in ()).throw(AssertionError("legacy lookup")),
+    )
     decoded = json.loads(recipe.content)
     assert decoded["consolidation"]["minimum_valid_points"] == 7
     assert decoded["computation_profiles"][0]["minimum_valid_points"] == 7
-    assert SemanticComparator({}, prepared=prepared, context_profile=profile).computation.minimum_valid_points == 7
+    assert (
+        SemanticComparator(
+            {}, prepared=prepared, context_profile=profile
+        ).computation.minimum_valid_points
+        == 7
+    )
     require_scientific_policy(prepared, context_profile=profile)
     decoded["consolidation"]["minimum_valid_points"] = 6
-    altered = replace(prepared, artifacts=tuple(replace(item, content=canonical_bytes(decoded)) if item is recipe else item for item in prepared.artifacts))
+    altered = replace(
+        prepared,
+        artifacts=tuple(
+            replace(item, content=canonical_bytes(decoded)) if item is recipe else item
+            for item in prepared.artifacts
+        ),
+    )
     with pytest.raises(ValueError, match="recipe is unsupported"):
         require_scientific_policy(altered, context_profile=profile)
 

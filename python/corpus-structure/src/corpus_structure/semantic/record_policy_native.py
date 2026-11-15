@@ -6,45 +6,78 @@ GRADE_SCHEMA_SOURCE = "native/data-operation-record-grade.schema.json"
 def record_policy_grade_schema() -> bytes:
     """Capture the actual protected DTO with collision-free local Draft7 refs."""
     from pydantic import TypeAdapter
+
     from corpus_structure.evaluate.declared_record_policy import DdoRecordGrade
+
     from .data_operation_parameters import _draft7
-    from .nominal_schema_kinds import _tuples
     from .data_operation_wire import checked_json_schema
     from .identity import canonical_bytes
+    from .nominal_schema_kinds import _tuples
 
-    schema = TypeAdapter(DdoRecordGrade).json_schema(ref_template="#/definitions/record_grade_{model}")
+    schema = TypeAdapter(DdoRecordGrade).json_schema(
+        ref_template="#/definitions/record_grade_{model}"
+    )
     definitions = schema.pop("$defs", {})
     schema["definitions"] = {"record_grade_" + name: value for name, value in definitions.items()}
     return canonical_bytes(checked_json_schema(_draft7(_tuples(schema))))
 
 
-def read_record_feature_fit_frame(connection, *, project_id, demand_id, read_id, use_id,
-                                  derivation_id, product_id, expected_cut, frame_digest,
-                                  cut, max_bytes=8388608):
+def read_record_feature_fit_frame(
+    connection,
+    *,
+    project_id,
+    demand_id,
+    read_id,
+    use_id,
+    derivation_id,
+    product_id,
+    expected_cut,
+    frame_digest,
+    cut,
+    max_bytes=8388608,
+):
     """Read one native-authenticated fit partition using an actual fitter login."""
+    import json
     from typing import cast
+
+    from corpus_structure.evaluate.declared_record_policy import DdoRecordGrade
+
     from ._data_operation_wire import WireReadRecordFeatureFitFrameRequest
+    from .data_operation_json import json_bytes
     from .data_operation_storage import DataOperationStorage
     from .data_operation_wire import validate_native_wire
     from .demand_results import CutSelection
-    from .data_operation_json import json_bytes
     from .identity import canonical_bytes
-    from corpus_structure.evaluate.declared_record_policy import DdoRecordGrade
-    import json
 
     if not isinstance(cut, CutSelection) or cut.identity != expected_cut:
         raise ValueError("feature fit requires the exact retained cut bytes")
     pins = cut.record
     if (pins["project_id"], pins["demand_id"], pins["read_id"]) != (project_id, demand_id, read_id):
         raise ValueError("feature fit cut belongs to another selection")
-    payload = dict(project_id=project_id, demand_id=demand_id, read_id=read_id, use_id=use_id,
-                   derivation_id=derivation_id, product_id=product_id, expected_cut=expected_cut,
-                   frame_digest=frame_digest, cut_canonical_json=cut.content.decode(), max_bytes=max_bytes)
-    request = cast(WireReadRecordFeatureFitFrameRequest, validate_native_wire("read_record_feature_fit_frame", "input", payload))
+    payload = dict(
+        project_id=project_id,
+        demand_id=demand_id,
+        read_id=read_id,
+        use_id=use_id,
+        derivation_id=derivation_id,
+        product_id=product_id,
+        expected_cut=expected_cut,
+        frame_digest=frame_digest,
+        cut_canonical_json=cut.content.decode(),
+        max_bytes=max_bytes,
+    )
+    request = cast(
+        WireReadRecordFeatureFitFrameRequest,
+        validate_native_wire("read_record_feature_fit_frame", "input", payload),
+    )
     result = DataOperationStorage(connection).read_record_feature_fit_frame(request)
     if CutSelection(json_bytes(result["cut"])).record != pins:
         raise ValueError("feature fit returned another retained cut")
-    if result["product_id"] != product_id or result["derivation_id"] != derivation_id or result["frame"]["frame_digest"] != frame_digest:
+    if (
+        result["product_id"] != product_id
+        or result["derivation_id"] != derivation_id
+        or result["frame"]["frame_digest"] != frame_digest
+    ):
         raise ValueError("feature fit returned another protected grade")
     # JSONB is a projection of the semantic body and can normalize signed zero.
     # The authenticated CPU grade retains its original exact frame text. Native
@@ -52,20 +85,31 @@ def read_record_feature_fit_frame(connection, *, project_id, demand_id, read_id,
     # its typed frame here preserves the actual numerical basis without guessing
     # PostgreSQL's float spelling or granting authority to caller-supplied bytes.
     grade = result["frame"]
-    restored = DdoRecordGrade.model_validate_json(canonical_bytes({
-        **grade, "frame": json.loads(grade["frame_canonical_json"]),
-    }), strict=True)
+    restored = DdoRecordGrade.model_validate_json(
+        canonical_bytes(
+            {
+                **grade,
+                "frame": json.loads(grade["frame_canonical_json"]),
+            }
+        ),
+        strict=True,
+    )
     return {**result, "frame": restored.model_dump(mode="json")}
 
 
 def record_policy_native_sql():
     import json
     from dataclasses import asdict
+
     from .record_policy_authority import (
-        AUTHORIZATION_EFFECT, AUTHORIZATION_FACTORY, AUTHORIZATION_KIND, AUTHORIZATION_OPERATION,
+        AUTHORIZATION_EFFECT,
+        AUTHORIZATION_FACTORY,
+        AUTHORIZATION_KIND,
+        AUTHORIZATION_OPERATION,
     )
 
-    return r"""
+    return (
+        r"""
 CREATE OR REPLACE FUNCTION ops.ddo_policy_command_eligible(definition sem.data_operation_definition)
 RETURNS boolean LANGUAGE sql IMMUTABLE STRICT SET search_path=pg_catalog,pg_temp AS $policy$
  SELECT definition.operation_id='__OPERATION__' AND definition.profile='command'
@@ -120,15 +164,19 @@ BEGIN
  'intent_id',d.intent_id,'receipt_id',receipt.id,'standing',standing,'protected_dependencies','undisclosed');
 END $policy$;
 REVOKE ALL ON FUNCTION ops.ddo_policy_authority_summary(text,text,text) FROM PUBLIC;
-""".replace("__OPERATION__", AUTHORIZATION_OPERATION).replace("__FACTORY__", AUTHORIZATION_FACTORY).replace(
-        "__KIND__", AUTHORIZATION_KIND
-    ).replace("__EFFECTS__", json.dumps([asdict(AUTHORIZATION_EFFECT)], separators=(",", ":"))) + _feature_fit_sql()
+""".replace("__OPERATION__", AUTHORIZATION_OPERATION)
+        .replace("__FACTORY__", AUTHORIZATION_FACTORY)
+        .replace("__KIND__", AUTHORIZATION_KIND)
+        .replace("__EFFECTS__", json.dumps([asdict(AUTHORIZATION_EFFECT)], separators=(",", ":")))
+        + _feature_fit_sql()
+    )
 
 
 def _feature_fit_sql():
     from .record_policy_authority import GRADE_FACTORY, GRADE_KIND, GRADE_OPERATION
 
-    return r"""
+    return (
+        r"""
 CREATE OR REPLACE FUNCTION ops.ddo_require_feature_fit_principal() RETURNS void
 LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $fit$
 DECLARE principal name:=session_user;
@@ -217,4 +265,7 @@ BEGIN
  RETURN result;
 END $fit$;
 REVOKE ALL ON FUNCTION ops.read_record_feature_fit_frame(jsonb) FROM PUBLIC;
-""".replace("__GRADE_KIND__", GRADE_KIND).replace("__GRADE_OPERATION__", GRADE_OPERATION).replace("__GRADE_FACTORY__", GRADE_FACTORY)
+""".replace("__GRADE_KIND__", GRADE_KIND)
+        .replace("__GRADE_OPERATION__", GRADE_OPERATION)
+        .replace("__GRADE_FACTORY__", GRADE_FACTORY)
+    )

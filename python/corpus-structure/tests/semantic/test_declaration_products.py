@@ -65,7 +65,8 @@ def case():
         source_subject(coordinate),
         "book",
         canonical_bytes({"source": coordinate, "selectors": selectors}),
-     subject_definition="original-source-view")
+        subject_definition="original-source-view",
+    )
     pin = DeclaredRecordSource(
         "book",
         coordinate["projection"],
@@ -338,7 +339,8 @@ def applicability_case():
         subject=source_ref.subject,
         original_source=source_ref.original_source,
         analyzed_scope_meaning=source_ref.analyzed_scope_meaning,
-     subject_definition="original-source-view")
+        subject_definition="original-source-view",
+    )
     inputs = DeclaredStructuralInput(
         question="Read local definition",
         scope="local",

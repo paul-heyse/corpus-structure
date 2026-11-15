@@ -10,8 +10,12 @@ class ScopedRelationsOperation:
         "id": "structure.scoped_relations/declared",
         "profile": "derivation",
         "subject": "original-source-view",
-        "subject_definition": {'id': 'original-source-view', 'identifier_kind': 'string', 'scope': 'original-source'},
-        "discovery_relation": 'subject-population',
+        "subject_definition": {
+            "id": "original-source-view",
+            "identifier_kind": "string",
+            "scope": "original-source",
+        },
+        "discovery_relation": "subject-population",
         "context": [
             "original-source",
             "selected-scope",
@@ -95,16 +99,23 @@ class ScopedRelationsOperation:
             },
         ],
         "applicability": [
-            {'kind': 'documentation', 'text': 'exact-native-source-and-separately-retained-predicate-formal-navigation-products'}
+            {
+                "kind": "documentation",
+                "text": "exact-native-source-and-separately-retained-predicate-formal-navigation-products",
+            }
         ],
         "invariants": [
-            {'kind': 'documentation', 'text': 'no-fake-task-or-view-address'},
-            {'kind': 'documentation', 'text': 'no-secondary-language-recognition'},
-            {'kind': 'documentation', 'text': 'no-reparse-of-retained-formal-inputs'},
-            {'kind': 'documentation', 'text': 'unknown-inspection-is-not-empty'},
-            {'kind': 'documentation', 'text': 'separately-positioned-source-occurrences'},
+            {"kind": "documentation", "text": "no-fake-task-or-view-address"},
+            {"kind": "documentation", "text": "no-secondary-language-recognition"},
+            {"kind": "documentation", "text": "no-reparse-of-retained-formal-inputs"},
+            {"kind": "documentation", "text": "unknown-inspection-is-not-empty"},
+            {"kind": "documentation", "text": "separately-positioned-source-occurrences"},
         ],
-        "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "exact-selected-source-passages-and-retained-input-coverage"},
+        "coverage": {
+            "binding": "self",
+            "result_owners": [{"kind": "implementation", "reference": "self"}],
+            "description": "exact-selected-source-passages-and-retained-input-coverage",
+        },
         "outcomes": ["success", "failed"],
         "precision_description": "original-native-half-open-extents",
         "dependencies": [
@@ -183,11 +194,11 @@ class ScopedRelationsOperation:
                         "encoding": "value",
                     },
                     {
-                        "output_field": 'subject_definition',
+                        "output_field": "subject_definition",
                         "input": {
                             "role": "source",
                             "projection": "selected-input",
-                            "field": 'subject_definition',
+                            "field": "subject_definition",
                         },
                         "encoding": "value",
                     },
@@ -307,11 +318,11 @@ class ScopedRelationsOperation:
                         "encoding": "value",
                     },
                     {
-                        "output_field": 'subject_definition',
+                        "output_field": "subject_definition",
                         "input": {
                             "role": "source",
                             "projection": "selected-input",
-                            "field": 'subject_definition',
+                            "field": "subject_definition",
                         },
                         "encoding": "value",
                     },
@@ -431,11 +442,11 @@ class ScopedRelationsOperation:
                         "encoding": "value",
                     },
                     {
-                        "output_field": 'subject_definition',
+                        "output_field": "subject_definition",
                         "input": {
                             "role": "source",
                             "projection": "selected-input",
-                            "field": 'subject_definition',
+                            "field": "subject_definition",
                         },
                         "encoding": "value",
                     },
@@ -555,11 +566,11 @@ class ScopedRelationsOperation:
                         "encoding": "value",
                     },
                     {
-                        "output_field": 'subject_definition',
+                        "output_field": "subject_definition",
                         "input": {
                             "role": "source",
                             "projection": "selected-input",
-                            "field": 'subject_definition',
+                            "field": "subject_definition",
                         },
                         "encoding": "value",
                     },
@@ -679,11 +690,11 @@ class ScopedRelationsOperation:
                         "encoding": "value",
                     },
                     {
-                        "output_field": 'subject_definition',
+                        "output_field": "subject_definition",
                         "input": {
                             "role": "source",
                             "projection": "selected-input",
-                            "field": 'subject_definition',
+                            "field": "subject_definition",
                         },
                         "encoding": "value",
                     },

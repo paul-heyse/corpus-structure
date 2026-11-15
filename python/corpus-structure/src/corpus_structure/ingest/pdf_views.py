@@ -12,8 +12,12 @@ class PdfSourceViewsFamily:
         "id": "source.pdf_views/discovery",
         "profile": "discovery",
         "subject": "original-document",
-        "subject_definition": {'id': 'original-document', 'identifier_kind': 'string', 'scope': 'original-document'},
-        "discovery_relation": 'role-associated',
+        "subject_definition": {
+            "id": "original-document",
+            "identifier_kind": "string",
+            "scope": "original-document",
+        },
+        "discovery_relation": "role-associated",
         "context": ["original-source", "actual-sealed-pdf", "frozen-relative-section-selection"],
         "entrypoints": ["run"],
         "roles": [
@@ -52,13 +56,19 @@ class PdfSourceViewsFamily:
         },
         "dependencies": ["source.pdf/capture"],
         "effects": [],
-        "applicability": [{'kind': 'documentation', 'text': 'selected-authenticated-native-pdf-capture'}],
-        "invariants": [
-            {'kind': 'documentation', 'text': 'exact-original-relative-coordinates'},
-            {'kind': 'documentation', 'text': 'no-ambient-publication-selection'},
-            {'kind': 'documentation', 'text': 'closed-inspected-section-selection'},
+        "applicability": [
+            {"kind": "documentation", "text": "selected-authenticated-native-pdf-capture"}
         ],
-        "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "frozen-relative-section-selection"},
+        "invariants": [
+            {"kind": "documentation", "text": "exact-original-relative-coordinates"},
+            {"kind": "documentation", "text": "no-ambient-publication-selection"},
+            {"kind": "documentation", "text": "closed-inspected-section-selection"},
+        ],
+        "coverage": {
+            "binding": "self",
+            "result_owners": [{"kind": "implementation", "reference": "self"}],
+            "description": "frozen-relative-section-selection",
+        },
         "outcomes": ["success", "failed"],
         "precision_description": "actual-published-native-atom-and-ancestor-projection",
         "capabilities": {
@@ -99,12 +109,16 @@ class PdfSourceViewsFamily:
             },
         ],
         "assets": [
-            {"reference": "pdf-domain/contract.json", "contract": "pdf-native/helper-bindings", "role": "native-pdf-helper-bindings"},
+            {
+                "reference": "pdf-domain/contract.json",
+                "contract": "pdf-native/helper-bindings",
+                "role": "native-pdf-helper-bindings",
+            },
             {
                 "reference": "published-section-projection",
                 "contract": "pdf-views/profile-assets",
                 "role": "original-native-sections-and-coordinates",
-            }
+            },
         ],
     }
 

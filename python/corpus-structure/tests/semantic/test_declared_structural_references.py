@@ -25,7 +25,9 @@ def test_qualified_product_ref_preserves_header_and_does_not_alias_domain_conten
         b"{}",
         (),
         b"{}",
-     subject_definition="document", support_references=())
+        subject_definition="document",
+        support_references=(),
+    )
     reference = DeclaredContributionRef.from_bound(
         member, project="p", contribution_id="source-contribution:" + "a" * 64
     )
@@ -112,7 +114,8 @@ def test_task_replay_source_view_preserves_original_refs_and_refuses_declared_cu
         project_id="p",
         original_source="document",
         analyzed_scope_meaning='["null"]',
-     subject_definition="original-source-view")
+        subject_definition="original-source-view",
+    )
     passage = legacy.passages[0].model_copy(update={"source_ref": target.identity})
     current = DeclaredStructuralInput(
         question=legacy.question,

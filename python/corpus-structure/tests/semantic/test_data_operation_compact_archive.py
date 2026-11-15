@@ -17,8 +17,7 @@ from corpus_structure.semantic.data_operation_model import (
 )
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.python_operation_sources import PythonSource, PythonSourceCollection
-from semantic.data_operation_declaration_support import contract, declarations
-from semantic.external_scenarios import external_declaration
+from semantic.data_operation_declaration_support import contract
 
 
 def test_compact_archive_keeps_governing_graph_and_reconstructible_identity_keys():
@@ -54,10 +53,6 @@ def test_compact_archive_keeps_governing_graph_and_reconstructible_identity_keys
         assert witness.key == expected[implementation.root, "implementation-slice"]
 
 
-
-
-
-
 @pytest.mark.parametrize("mutation", ["expanded", "missing-key", "missing-owner", "unknown-field"])
 def test_current_identity_archive_shape_refuses_expanded_or_incomplete_headers(mutation):
     record = json.loads(compile_data_operations().content)
@@ -72,8 +67,6 @@ def test_current_identity_archive_shape_refuses_expanded_or_incomplete_headers(m
         identity["witness_cache"] = {}
     with pytest.raises(ValueError, match="archived EffectiveIdentity"):
         read_effective_data_operations(canonical_bytes(record))
-
-
 
 
 @pytest.mark.parametrize("version", [f"data-operation-model-v{number}" for number in range(2, 7)])

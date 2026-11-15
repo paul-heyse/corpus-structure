@@ -10,8 +10,12 @@ class ClauseClassificationOperation:
         "id": "structure.clause_classification/declared",
         "profile": "derivation",
         "subject": "original-source-view",
-        "subject_definition": {'id': 'original-source-view', 'identifier_kind': 'string', 'scope': 'original-source'},
-        "discovery_relation": 'subject-population',
+        "subject_definition": {
+            "id": "original-source-view",
+            "identifier_kind": "string",
+            "scope": "original-source",
+        },
+        "discovery_relation": "subject-population",
         "context": [
             "original-source",
             "selected-scope",
@@ -80,7 +84,10 @@ class ClauseClassificationOperation:
                 "support": {
                     "provenance": "exact",
                     "source": "same-original",
-                    "coverage": {"role": "gliner_observations", "description": "exact-selected-source"},
+                    "coverage": {
+                        "role": "gliner_observations",
+                        "description": "exact-selected-source",
+                    },
                     "identity_requirements": ["episode"],
                 },
             },
@@ -96,7 +103,10 @@ class ClauseClassificationOperation:
                 "support": {
                     "provenance": "exact",
                     "source": "same-original",
-                    "coverage": {"role": "gliner_candidates", "description": "exact-selected-source"},
+                    "coverage": {
+                        "role": "gliner_candidates",
+                        "description": "exact-selected-source",
+                    },
                     "identity_requirements": ["episode"],
                 },
             },
@@ -143,17 +153,24 @@ class ClauseClassificationOperation:
             },
         ],
         "applicability": [
-            {'kind': 'documentation', 'text': 'exact-retained-native-predicate-focus-and-paired-released-model-questions'}
+            {
+                "kind": "documentation",
+                "text": "exact-retained-native-predicate-focus-and-paired-released-model-questions",
+            }
         ],
         "invariants": [
-            {'kind': 'documentation', 'text': 'no-private-reclassification'},
-            {'kind': 'documentation', 'text': 'no-focal-scope-substitution'},
-            {'kind': 'documentation', 'text': 'released-vocabulary-preserved'},
-            {'kind': 'documentation', 'text': 'rival-observations-retain-all-native-references'},
-            {'kind': 'documentation', 'text': 'missing-function-question-is-failed-not-empty'},
-            {'kind': 'documentation', 'text': 'unprojectable-predicate-focus-is-partial'},
+            {"kind": "documentation", "text": "no-private-reclassification"},
+            {"kind": "documentation", "text": "no-focal-scope-substitution"},
+            {"kind": "documentation", "text": "released-vocabulary-preserved"},
+            {"kind": "documentation", "text": "rival-observations-retain-all-native-references"},
+            {"kind": "documentation", "text": "missing-function-question-is-failed-not-empty"},
+            {"kind": "documentation", "text": "unprojectable-predicate-focus-is-partial"},
         ],
-        "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "exact-inspected-native-predicate-focus-population"},
+        "coverage": {
+            "binding": "self",
+            "result_owners": [{"kind": "implementation", "reference": "self"}],
+            "description": "exact-inspected-native-predicate-focus-population",
+        },
         "outcomes": ["success"],
         "precision_description": "original-native-half-open-extents",
         "dependencies": [
@@ -246,11 +263,11 @@ class ClauseClassificationOperation:
                         "encoding": "value",
                     },
                     {
-                        "output_field": 'subject_definition',
+                        "output_field": "subject_definition",
                         "input": {
                             "role": "source",
                             "projection": "selected-input",
-                            "field": 'subject_definition',
+                            "field": "subject_definition",
                         },
                         "encoding": "value",
                     },
@@ -325,11 +342,11 @@ class ClauseClassificationOperation:
                         "encoding": "value",
                     },
                     {
-                        "output_field": 'subject_definition',
+                        "output_field": "subject_definition",
                         "input": {
                             "role": "predicates",
                             "projection": "selected-input",
-                            "field": 'subject_definition',
+                            "field": "subject_definition",
                         },
                         "encoding": "value",
                     },

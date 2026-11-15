@@ -1,76 +1,171 @@
 """Discovery consumes exact computational views; raw originals retain factual custody."""
 
-import pytest
 from dataclasses import replace
+
+import pytest
 from sqlalchemy.exc import DBAPIError
 
-from corpus_structure.semantic.data_operation_demands import DemandPlanner, DiscoverySelection, OperationSelection, freeze_demand
+from corpus_structure.semantic.data_operation_demands import (
+    DemandPlanner,
+    DiscoverySelection,
+    OperationSelection,
+    freeze_demand,
+)
 from corpus_structure.semantic.data_operation_identity import decode_semantic_value
 from corpus_structure.semantic.data_operation_json import json_bytes
-from corpus_structure.semantic.data_operation_storage import DataOperationStorage
-from corpus_structure.semantic.demand_results import selected_record_index, read_demand_result
-from corpus_structure.semantic.original_documents import acquire_original_document_selection
 from corpus_structure.semantic.data_operation_service import execute_data_demand
-from semantic.current_pdf_source_support import PROJECT, ROOT, current_pdf_source as current_pdf_source
+from corpus_structure.semantic.data_operation_storage import DataOperationStorage
+from corpus_structure.semantic.demand_results import read_demand_result, selected_record_index
+from corpus_structure.semantic.original_documents import acquire_original_document_selection
+from semantic.current_pdf_source_support import (
+    PROJECT,
+    ROOT,
+)
+from semantic.current_pdf_source_support import (
+    current_pdf_source as current_pdf_source,
+)
 
 
-@pytest.mark.parametrize("complete,views", [(True, False), (False, False), (True, True)],
-    ids=["closed-empty", "partial-empty", "closed-computational-views"])
-def test_actual_source_discovery_closure_and_scoped_child_publication(current_pdf_source, complete, views):
+@pytest.mark.parametrize(
+    "complete,views",
+    [(True, False), (False, False), (True, True)],
+    ids=["closed-empty", "partial-empty", "closed-computational-views"],
+)
+def test_actual_source_discovery_closure_and_scoped_child_publication(
+    current_pdf_source, complete, views
+):
     case, kernel = current_pdf_source, current_pdf_source.kernel
     with (
         kernel.purpose("read").begin() as connection,
-        selected_record_index(connection, case.demand_id, project_id=PROJECT, scope={}, capture_frontier=True) as (_, index),
+        selected_record_index(
+            connection, case.demand_id, project_id=PROJECT, scope={}, capture_frontier=True
+        ) as (_, index),
     ):
-        kinds = {item.key for item in kernel.model.identities if item.domain == "kind"
-            and item.owner == "https://corpus-structure.dev/semantic/data-operation-source/DdoSelectedNativeSource"}
-        members = [dict(row) for row in index.rows("kb.data_product_member") if row["kind_contract"] in kinds]
+        kinds = {
+            item.key
+            for item in kernel.model.identities
+            if item.domain == "kind"
+            and item.owner
+            == "https://corpus-structure.dev/semantic/data-operation-source/DdoSelectedNativeSource"
+        }
+        members = [
+            dict(row)
+            for row in index.rows("kb.data_product_member")
+            if row["kind_contract"] in kinds
+        ]
     assert members, "actual native PDF discovery must publish genuine selected source members"
     selected = members if views else []
     with kernel.purpose("write").begin() as connection:
         document_key = case.document_key
         if not views:
-            from corpus_structure.semantic.original_documents import register_original_document
-            from corpus_structure.core.evidence import document_key as original_key
             from hashlib import sha256
+
+            from corpus_structure.core.evidence import document_key as original_key
+            from corpus_structure.semantic.original_documents import register_original_document
+
             path = kernel.preparation.directory / "uncaptured.pdf"
             path.write_bytes(case.original)
-            register_original_document(connection, prepared=kernel.prepared, project_id=PROJECT,
-                source_uri="uncaptured.pdf", original_path=str(path), original=case.original, mime="application/pdf")
+            register_original_document(
+                connection,
+                prepared=kernel.prepared,
+                project_id=PROJECT,
+                source_uri="uncaptured.pdf",
+                original_path=str(path),
+                original=case.original,
+                mime="application/pdf",
+            )
             path.unlink()
-            document_key = original_key(PROJECT, "uncaptured.pdf", sha256(case.original).hexdigest())
-        original = acquire_original_document_selection(connection, project_id=PROJECT, document_key=document_key)
-        intent = freeze_demand(kernel.model, roots=(original.root,), targets=("source.selected_views/discovery",),
-            selections=(OperationSelection("source.selected_views/discovery", parameters=json_bytes({"complete": complete})),),
-            discovery=(DiscoverySelection("source.selected_views/discovery", "result", "profile.segments/source-native",
-                "selected-source-views", target_role="source"),),
-            original_sources=(original.selection(),), inference="source-discovery-control", execution_profile=kernel.recipe.execution_profile)
+            document_key = original_key(
+                PROJECT, "uncaptured.pdf", sha256(case.original).hexdigest()
+            )
+        original = acquire_original_document_selection(
+            connection, project_id=PROJECT, document_key=document_key
+        )
+        intent = freeze_demand(
+            kernel.model,
+            roots=(original.root,),
+            targets=("source.selected_views/discovery",),
+            selections=(
+                OperationSelection(
+                    "source.selected_views/discovery", parameters=json_bytes({"complete": complete})
+                ),
+            ),
+            discovery=(
+                DiscoverySelection(
+                    "source.selected_views/discovery",
+                    "result",
+                    "profile.segments/source-native",
+                    "selected-source-views",
+                    target_role="source",
+                ),
+            ),
+            original_sources=(original.selection(),),
+            inference="source-discovery-control",
+            execution_profile=kernel.recipe.execution_profile,
+        )
         planner = DemandPlanner(kernel.model, DataOperationStorage(connection))
         invalid = intent.record
         invalid["discovery"][0]["target_role"] = "not-an-input"
         with pytest.raises(DBAPIError, match="discovery target role"), connection.begin_nested():
-            planner.register(replace(intent, content=json_bytes(invalid)), project=PROJECT,
-                release=kernel.prepared.release_id, runtime=kernel.runtime)
-        demand = planner.register(intent, project=PROJECT,
-            release=kernel.prepared.release_id, runtime=kernel.runtime)["demand_id"]
-    execute_data_demand(kernel.purpose("write"), demand, source_root=ROOT, project_id=PROJECT,
-        admission_engine=kernel.purpose("admit"), database_capacity=6)
+            planner.register(
+                replace(intent, content=json_bytes(invalid)),
+                project=PROJECT,
+                release=kernel.prepared.release_id,
+                runtime=kernel.runtime,
+            )
+        demand = planner.register(
+            intent, project=PROJECT, release=kernel.prepared.release_id, runtime=kernel.runtime
+        )["demand_id"]
+    execute_data_demand(
+        kernel.purpose("write"),
+        demand,
+        source_root=ROOT,
+        project_id=PROJECT,
+        admission_engine=kernel.purpose("admit"),
+        database_capacity=6,
+    )
     with kernel.purpose("read").begin() as connection:
         page = read_demand_result(connection, demand, project_id=PROJECT)
-        obligations = [row for row in page.record["obligations"] if row["operation_id"] == "profile.segments/source-native"]
+        obligations = [
+            row
+            for row in page.record["obligations"]
+            if row["operation_id"] == "profile.segments/source-native"
+        ]
         assert len(obligations) == len(selected)
-        with selected_record_index(connection, demand, project_id=PROJECT, scope={}, capture_frontier=True) as (_, index):
+        with selected_record_index(
+            connection, demand, project_id=PROJECT, scope={}, capture_frontier=True
+        ) as (_, index):
             populations = list(index.rows("ops.data_population"))
             assert len(populations) == 1
             population = populations[0]
             assert population["complete"] is complete
             assert len(population["members"]) == len(selected)
-            child_uses = [row for row in index.frontier_rows("uses") if row["obligation_id"] in {row["obligation_id"] for row in obligations}]
-            assert len(child_uses) == len(selected) and all(row["fate"] == "fulfilled" for row in child_uses)
-            outputs = [edge for use in child_uses for edge in index.rows_for("ops.data_derivation_output", derivation_id=use["derivation_id"])]
+            child_uses = [
+                row
+                for row in index.frontier_rows("uses")
+                if row["obligation_id"] in {row["obligation_id"] for row in obligations}
+            ]
+            assert len(child_uses) == len(selected) and all(
+                row["fate"] == "fulfilled" for row in child_uses
+            )
+            outputs = [
+                edge
+                for use in child_uses
+                for edge in index.rows_for(
+                    "ops.data_derivation_output", derivation_id=use["derivation_id"]
+                )
+            ]
             products = index.mapping("kb.data_product", ("id",))
-            bodies = [decode_semantic_value(products[row["product_id"]]["canonical_body"]) for row in outputs]
-            assert sorted(body["chars"] for body in bodies) == sorted(len(decode_semantic_value(row["body"])["text"]) for row in selected)
+            bodies = [
+                decode_semantic_value(products[row["product_id"]]["canonical_body"])
+                for row in outputs
+            ]
+            assert sorted(body["chars"] for body in bodies) == sorted(
+                len(decode_semantic_value(row["body"])["text"]) for row in selected
+            )
             # The only original facts remain actual document references. Selected views
             # have producing episodes and cannot be recast as original admissions.
-            assert all(row["reference"]["kind"] == "original-document" for row in index.rows("ops.original_source_admission"))
+            assert all(
+                row["reference"]["kind"] == "original-document"
+                for row in index.rows("ops.original_source_admission")
+            )

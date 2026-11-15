@@ -37,13 +37,23 @@ def initialization(monkeypatch, tmp_path):
     )
     conn = MagicMock()
     conn.scalar.return_value = "grinstead_snell/book.pdf"
-    initialized = MagicMock(return_value={"project_id":"grinstead","release_id":"release","realization_id":"source"})
+    initialized = MagicMock(
+        return_value={
+            "project_id": "grinstead",
+            "release_id": "release",
+            "realization_id": "source",
+        }
+    )
     registered = MagicMock()
     monkeypatch.setattr(
         releases, "load_release", lambda *args: SimpleNamespace(release_id="release")
     )
-    monkeypatch.setattr(original_document_contracts, "require_source_operation_context", lambda *args: None)
-    monkeypatch.setattr(data_operation_storage.DataOperationStorage, "initialize_source_project", initialized)
+    monkeypatch.setattr(
+        original_document_contracts, "require_source_operation_context", lambda *args: None
+    )
+    monkeypatch.setattr(
+        data_operation_storage.DataOperationStorage, "initialize_source_project", initialized
+    )
     monkeypatch.setattr(original_documents, "register_original_document", registered)
     read_original = MagicMock(return_value=raw)
     monkeypatch.setattr(original_documents, "read_original_document_bytes", read_original)
@@ -106,7 +116,9 @@ def test_unavailable_retained_bytes_refuse_before_initialization(initialization)
     from corpus_structure.semantic.original_documents import OriginalDocumentReadRefused
 
     f = initialization
-    f.read_original.side_effect = OriginalDocumentReadRefused("missing", "retained original artifact is unavailable")
+    f.read_original.side_effect = OriginalDocumentReadRefused(
+        "missing", "retained original artifact is unavailable"
+    )
     with pytest.raises(OriginalDocumentReadRefused, match="unavailable"):
         invoke(f, originals=(f.reference,))
     f.initialized.assert_not_called()

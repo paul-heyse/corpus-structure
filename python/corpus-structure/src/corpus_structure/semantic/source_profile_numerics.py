@@ -9,11 +9,12 @@ class SourceRatioNumericalPolicy(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid", strict=True)
     arithmetic: Literal["python-binary64-division"] = "python-binary64-division"
     decimal_places: Annotated[int, Field(ge=0, le=15)]
-    rounding: Literal["python-round-nearest-ties-even-binary-input"] = "python-round-nearest-ties-even-binary-input"
+    rounding: Literal["python-round-nearest-ties-even-binary-input"] = (
+        "python-round-nearest-ties-even-binary-input"
+    )
     empty_denominator: Annotated[FiniteFloat, Field(ge=0, le=0)] = 0.0
     equality: Literal["canonical-exact"] = "canonical-exact"
     counts: Literal["exact-integer-interval-union"] = "exact-integer-interval-union"
-
 
 
 def source_ratio_numerical_policy():

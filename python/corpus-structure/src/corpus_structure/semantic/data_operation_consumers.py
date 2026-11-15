@@ -129,7 +129,11 @@ def hydrate_consumer_selection(
     ):
         raise ValueError("consumer binding differs from its admitted model interpretation")
     context = binding.subject_context
-    if context is None or context.subject != binding.subject or context.subject_definition != model.operation(binding.operation).subject:
+    if (
+        context is None
+        or context.subject != binding.subject
+        or context.subject_definition != model.operation(binding.operation).subject
+    ):
         raise ValueError("native consumer hydration requires its acquired subject context")
     if type(max_bytes) is not int or max_bytes <= 0:
         raise ValueError("native hydration requires explicit positive packet capacity")

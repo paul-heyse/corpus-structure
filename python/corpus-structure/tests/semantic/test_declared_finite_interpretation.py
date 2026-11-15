@@ -11,8 +11,8 @@ from corpus_structure.methods.local_interpretation import local_constraint_id
 from corpus_structure.semantic import record_interpretation as ri
 from corpus_structure.semantic.data_operation_compilation import compile_data_operations
 from corpus_structure.semantic.finite_interpretation_products import (
-    finite_interpretation_inputs,
     finite_interpretation_declarations,
+    finite_interpretation_inputs,
     finite_interpretation_operation_sources,
     finite_interpretation_reports,
     finite_interpretation_values,
@@ -49,7 +49,9 @@ def test_finite_operation_has_captured_factory_and_source_witness():
         SourceBundle("core", (SourceArtifact("core", (root / "core.yaml").read_bytes()),))
     )
     model = compile_data_operations(
-        bundle, declarations=(finite_interpretation_declarations(),), python_sources=finite_interpretation_operation_sources()
+        bundle,
+        declarations=(finite_interpretation_declarations(),),
+        python_sources=finite_interpretation_operation_sources(),
     )
     operation = model.operation("interpret.finite_candidates")
     assert operation.capabilities.prepared_factory is not None

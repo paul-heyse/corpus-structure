@@ -33,11 +33,19 @@ def models():
 
 
 def observation(
-    model, subject="one", *, fate: VisibleFate="fulfilled", product="value:one", episode="episode:one"
+    model,
+    subject="one",
+    *,
+    fate: VisibleFate = "fulfilled",
+    product="value:one",
+    episode="episode:one",
 ):
     return SelectionEvidence(
         member=PopulationMember(
-            operation=model.operations[0].semantic_id, subject=subject, subject_definition=model.operations[0].subject, original_source="source:one"
+            operation=model.operations[0].semantic_id,
+            subject=subject,
+            subject_definition=model.operations[0].subject,
+            original_source="source:one",
         ),
         fate=fate,
         derivations=(episode,),
@@ -50,27 +58,34 @@ def impact_models():
     return models()
 
 
-@pytest.mark.parametrize(("fate", "state", "reason"), [
-    ("waiting", "awaiting", "target_execution_not_settled"),
-    ("attached", "awaiting", "target_execution_not_settled"),
-    ("awaiting-discovery", "awaiting", "target_execution_not_settled"),
-    ("awaiting-inputs", "awaiting", "target_execution_not_settled"),
-    ("awaiting-external", "awaiting", "target_execution_not_settled"),
-    ("awaiting-population", "awaiting", "target_execution_not_settled"),
-    ("unavailable", "unknown", "native_target_unavailable_cause_unestablished"),
-    ("cancelled", "inapplicable", "target_demand_cancelled"),
-    ("not-applicable", "inapplicable", "native_target_not_applicable"),
-    ("failed", "unknown", "native_target_failed"),
-    ("partial", "unknown", "native_target_partial"),
-    ("invalid", "unknown", "native_target_invalid"),
-    ("unknown", "unknown", "native_target_unknown"),
-    ("known-absent", "unknown", "native_target_known_absent"),
-    ("closed", "unknown", "native_target_closed"),
-])
-def test_nonfulfilled_target_fates_do_not_become_value_or_absence_proof(impact_models, fate, state, reason):
+@pytest.mark.parametrize(
+    ("fate", "state", "reason"),
+    [
+        ("waiting", "awaiting", "target_execution_not_settled"),
+        ("attached", "awaiting", "target_execution_not_settled"),
+        ("awaiting-discovery", "awaiting", "target_execution_not_settled"),
+        ("awaiting-inputs", "awaiting", "target_execution_not_settled"),
+        ("awaiting-external", "awaiting", "target_execution_not_settled"),
+        ("awaiting-population", "awaiting", "target_execution_not_settled"),
+        ("unavailable", "unknown", "native_target_unavailable_cause_unestablished"),
+        ("cancelled", "inapplicable", "target_demand_cancelled"),
+        ("not-applicable", "inapplicable", "native_target_not_applicable"),
+        ("failed", "unknown", "native_target_failed"),
+        ("partial", "unknown", "native_target_partial"),
+        ("invalid", "unknown", "native_target_invalid"),
+        ("unknown", "unknown", "native_target_unknown"),
+        ("known-absent", "unknown", "native_target_known_absent"),
+        ("closed", "unknown", "native_target_closed"),
+    ],
+)
+def test_nonfulfilled_target_fates_do_not_become_value_or_absence_proof(
+    impact_models, fate, state, reason
+):
     before, target = impact_models
     current = observation(target, fate=fate)
-    (row,) = classify_change_impact(before, target, before=(observation(before),), target=(current,), target_observed=True)
+    (row,) = classify_change_impact(
+        before, target, before=(observation(before),), target=(current,), target_observed=True
+    )
     assert row.state == state
     assert row.reasons == (reason,)
 
@@ -86,7 +101,16 @@ def test_unknown_protocol_fate_is_rejected_at_observation_boundary(impact_models
 def test_complete_population_absence_precedes_partial_target_fate(impact_models):
     before, target = impact_models
     old = observation(before)
-    (row,) = classify_change_impact(before, target, before=(old,), target=(observation(target, fate="partial"),), before_population=(old.member,), target_population=(), population_complete=True, target_observed=True)
+    (row,) = classify_change_impact(
+        before,
+        target,
+        before=(old,),
+        target=(observation(target, fate="partial"),),
+        before_population=(old.member,),
+        target_population=(),
+        population_complete=True,
+        target_observed=True,
+    )
     assert row.state == "inapplicable"
     assert row.reasons == ("absent_under_complete_target_population",)
 
@@ -239,7 +263,10 @@ def test_actual_native_currentness_pins_target_and_continuation(declared_serving
         assert first.items[0].state == "substitutable"
         assert first.population_complete
         invented = PopulationMember(
-            operation="urn:invented", subject="not-in-demand", subject_definition="invented-subject", original_source="source:invented"
+            operation="urn:invented",
+            subject="not-in-demand",
+            subject_definition="invented-subject",
+            original_source="source:invented",
         )
         uncorroborated = inspect_change_impact(
             connection,
@@ -281,7 +308,11 @@ def test_actual_native_currentness_pins_target_and_continuation(declared_serving
 
 def test_population_context_uses_jsonb_number_meaning_without_bool_or_string_conflation():
     base = PopulationMember(
-        operation="op", subject="one", subject_definition="declared-subject", original_source="source", analyzed_scope={"index": 1}
+        operation="op",
+        subject="one",
+        subject_definition="declared-subject",
+        original_source="source",
+        analyzed_scope={"index": 1},
     )
     assert base.key == base.model_copy(update={"analyzed_scope": {"index": Decimal("1.00")}}).key
     assert base.key != base.model_copy(update={"subject_definition": "another-subject"}).key

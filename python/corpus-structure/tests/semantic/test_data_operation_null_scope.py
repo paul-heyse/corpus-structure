@@ -37,7 +37,11 @@ def test_scope_parameter_keeps_explicit_json_null_distinct_from_unqualified_sql_
     admission = select(
         literal_column("'null'::jsonb", ContextJSONB()).label("analyzed_scope")
     ).subquery("admission")
-    parameter = _binding_context_parameter(None,name="data_binding_scope") if qualified else _binding_context_parameter(name="data_binding_scope")
+    parameter = (
+        _binding_context_parameter(None, name="data_binding_scope")
+        if qualified
+        else _binding_context_parameter(name="data_binding_scope")
+    )
     query = select(
         admission.c.analyzed_scope.is_not_distinct_from(parameter), func.jsonb_typeof(parameter)
     )

@@ -10,8 +10,12 @@ class DefinitionDeclarationOperation:
         "id": "structure.definition_declaration_components/declared",
         "profile": "derivation",
         "subject": "original-source-view",
-        "subject_definition": {'id': 'original-source-view', 'identifier_kind': 'string', 'scope': 'original-source'},
-        "discovery_relation": 'subject-population',
+        "subject_definition": {
+            "id": "original-source-view",
+            "identifier_kind": "string",
+            "scope": "original-source",
+        },
+        "discovery_relation": "subject-population",
         "context": [
             "original-source",
             "selected-scope",
@@ -78,14 +82,23 @@ class DefinitionDeclarationOperation:
                 "presence": "required",
             },
         ],
-        "applicability": [{'kind': 'documentation', 'text': 'exact-positioned-primary-declaration-syntax-and-native-HanLP-premises'}],
-        "invariants": [
-            {'kind': 'documentation', 'text': 'no-downstream-language-recognition'},
-            {'kind': 'documentation', 'text': 'semantic-product-member-references'},
-            {'kind': 'documentation', 'text': 'three-distinct-characterized-sentences'},
-            {'kind': 'documentation', 'text': 'missing-native-premise-is-not-empty'},
+        "applicability": [
+            {
+                "kind": "documentation",
+                "text": "exact-positioned-primary-declaration-syntax-and-native-HanLP-premises",
+            }
         ],
-        "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "exact-selected-local-declaration-passage"},
+        "invariants": [
+            {"kind": "documentation", "text": "no-downstream-language-recognition"},
+            {"kind": "documentation", "text": "semantic-product-member-references"},
+            {"kind": "documentation", "text": "three-distinct-characterized-sentences"},
+            {"kind": "documentation", "text": "missing-native-premise-is-not-empty"},
+        ],
+        "coverage": {
+            "binding": "self",
+            "result_owners": [{"kind": "implementation", "reference": "self"}],
+            "description": "exact-selected-local-declaration-passage",
+        },
         "outcomes": ["success"],
         "precision_description": "original-native-half-open-extents",
         "dependencies": [
@@ -169,11 +182,11 @@ class DefinitionDeclarationOperation:
                         "encoding": "value",
                     },
                     {
-                        "output_field": 'subject_definition',
+                        "output_field": "subject_definition",
                         "input": {
                             "role": "source",
                             "projection": "selected-input",
-                            "field": 'subject_definition',
+                            "field": "subject_definition",
                         },
                         "encoding": "value",
                     },
@@ -248,11 +261,11 @@ class DefinitionDeclarationOperation:
                         "encoding": "value",
                     },
                     {
-                        "output_field": 'subject_definition',
+                        "output_field": "subject_definition",
                         "input": {
                             "role": "syntax",
                             "projection": "selected-input",
-                            "field": 'subject_definition',
+                            "field": "subject_definition",
                         },
                         "encoding": "value",
                     },

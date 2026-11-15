@@ -5,8 +5,8 @@ from __future__ import annotations
 from sqlalchemy import Connection, Engine, func, select
 
 from .metadata import table
-from .refusals import OperationConflict
 from .proposals import NativeProposalFrame, ProposalPacket
+from .refusals import OperationConflict
 
 
 def capture_source_frame(conn: Connection, task_id: int, packet: ProposalPacket) -> None:

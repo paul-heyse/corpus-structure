@@ -571,6 +571,7 @@ def test_successor_trigger_declarations_use_frozen_parent_before_normalization(
     from types import SimpleNamespace
 
     from corpus_structure.semantic.alembic_native import NativeTransitionOp, compare_native
+    from corpus_structure.semantic.data_operation_protocol import render_data_task_guard
     from corpus_structure.semantic.native_candidate import (
         _execution_task_definitions,
         intermediate_native_definitions,
@@ -583,8 +584,6 @@ def test_successor_trigger_declarations_use_frozen_parent_before_normalization(
         semantic_namespace_owner,
     )
     from corpus_structure.semantic.source_view_native import _admission_descriptor
-
-    from corpus_structure.semantic.data_operation_protocol import render_data_task_guard
 
     project = Path(__file__).resolve().parents[2]
     versions = project / "semantic_alembic/versions"

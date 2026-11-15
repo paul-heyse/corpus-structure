@@ -47,7 +47,9 @@ def _source(profile, *, clipped=False):
         (),
         b"{}",
         member="source:formula",
-     subject_definition="original-source-view", support_references=())
+        subject_definition="original-source-view",
+        support_references=(),
+    )
     return source, DeclaredNativeFrameSource.acquire(
         profile.prepared, source.value, member, project="nonstatistics"
     )
@@ -65,7 +67,8 @@ def test_declared_math_uses_original_positions_semantic_source_and_retained_prim
             frame.pin.values()["subject"],
             frame.original_key,
             canonical_bytes({"selectors": source.value["selectors"]}),
-         subject_definition="original-source-view"),
+            subject_definition="original-source-view",
+        ),
     )
 
     def refuse_parse(*args, **kwargs):

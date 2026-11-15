@@ -21,8 +21,8 @@ from .data_operation_demands import DemandIntent, DemandPlanner, ResumedDataDema
 from .data_operation_json import DdoJsonValue as DdoJsonValue
 from .data_operation_json import json_bytes
 from .data_operation_storage import DataOperationStorage
-from .releases import load_release
 from .refusals import SemanticRefusal
+from .releases import load_release
 
 
 class DemandRoot(BaseModel):

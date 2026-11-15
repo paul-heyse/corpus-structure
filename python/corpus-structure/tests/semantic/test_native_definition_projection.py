@@ -11,10 +11,26 @@ from corpus_structure.semantic.native_definition_projection import read_native_d
 
 def _captured(**changes):
     operations = changes.get("operations", [])
-    coverage = {"binding": "controlled-binding", "selection": {"json": {}}, "result_selection": {"json": {}}, "result_owners": [], "description": "Controlled unused result owner"}
+    coverage = {
+        "binding": "controlled-binding",
+        "selection": {"json": {}},
+        "result_selection": {"json": {}},
+        "result_owners": [],
+        "description": "Controlled unused result owner",
+    }
     for operation in operations:
         operation["support_contract"]["coverage"] = coverage
-    model = SimpleNamespace(content=json_bytes({"operations": [{"semantic_id": operation["operation_id"], "coverage": coverage} for operation in operations]}), operations=())
+    model = SimpleNamespace(
+        content=json_bytes(
+            {
+                "operations": [
+                    {"semantic_id": operation["operation_id"], "coverage": coverage}
+                    for operation in operations
+                ]
+            }
+        ),
+        operations=(),
+    )
     record = {
         "model_digest": sha256(model.content).hexdigest(),
         "native_digest": "native-source-contract",
@@ -22,7 +38,9 @@ def _captured(**changes):
         "operations": [],
         **changes,
     }
-    artifact = SimpleNamespace(kind="data_operation_native_definitions.json", content=json_bytes(record))
+    artifact = SimpleNamespace(
+        kind="data_operation_native_definitions.json", content=json_bytes(record)
+    )
     return model, SimpleNamespace(artifacts=(artifact,))
 
 
@@ -59,9 +77,14 @@ def test_unknown_projection_fields_are_not_silently_discarded():
 def test_variant_is_explicit_kind_metadata_not_an_iri_convention():
     from corpus_structure.semantic.native_definition_projection import definition_variant_contract
 
-    model = SimpleNamespace(kinds=(SimpleNamespace(
-        semantic_id="unrelated-name", facts=json_bytes({"policies": {"cs:definition_variant": "location"}})
-    ),))
+    model = SimpleNamespace(
+        kinds=(
+            SimpleNamespace(
+                semantic_id="unrelated-name",
+                facts=json_bytes({"policies": {"cs:definition_variant": "location"}}),
+            ),
+        )
+    )
     projection = {"kinds": [{"kind": "unrelated-name", "kind_contract": "exact-kind"}]}
     assert definition_variant_contract(model, projection, "location") == "exact-kind"
     assert definition_variant_contract(model, projection, "components") is None
@@ -70,9 +93,15 @@ def test_variant_is_explicit_kind_metadata_not_an_iri_convention():
 def test_ambiguous_variant_metadata_refuses_instead_of_selecting_first():
     from corpus_structure.semantic.native_definition_projection import definition_variant_contract
 
-    model = SimpleNamespace(kinds=tuple(SimpleNamespace(
-        semantic_id=name, facts=json_bytes({"json_schema": {"x-ddo-definition-variant": "components"}})
-    ) for name in ("first", "second")))
+    model = SimpleNamespace(
+        kinds=tuple(
+            SimpleNamespace(
+                semantic_id=name,
+                facts=json_bytes({"json_schema": {"x-ddo-definition-variant": "components"}}),
+            )
+            for name in ("first", "second")
+        )
+    )
     with pytest.raises(ValueError, match="ambiguous"):
         definition_variant_contract(model, {"kinds": []}, "components")
 
@@ -80,33 +109,66 @@ def test_ambiguous_variant_metadata_refuses_instead_of_selecting_first():
 def test_actual_components_schema_owns_its_public_variant():
     from corpus_structure.semantic.structural_products import DeclaredDefinitionComponentsReport
 
-    assert DeclaredDefinitionComponentsReport.model_json_schema()["x-ddo-definition-variant"] == "components"
+    assert (
+        DeclaredDefinitionComponentsReport.model_json_schema()["x-ddo-definition-variant"]
+        == "components"
+    )
 
 
 def test_native_operation_requires_its_exact_checked_subject():
     operation = {
         "operation_id": "inspect",
         "subject_definition": "selected-source",
-        "recipe": "recipe", "profile": "derivation", "binding": {},
-        "definition": "definition", "eligibility": "eligibility",
-        "implementation_revision": "implementation", "input_roles": [],
-        "output_roles": [], "support_contract": {"replicate_policy": "deterministic-single-result"},
+        "recipe": "recipe",
+        "profile": "derivation",
+        "binding": {},
+        "definition": "definition",
+        "eligibility": "eligibility",
+        "implementation_revision": "implementation",
+        "input_roles": [],
+        "output_roles": [],
+        "support_contract": {"replicate_policy": "deterministic-single-result"},
     }
     model, prepared = _captured(operations=[operation])
-    model.operations = (SimpleNamespace(semantic_id="inspect", subject="selected-source", replicate_policy="deterministic-single-result"),)
-    assert read_native_definition_projection(prepared, model=model)["operations"][0]["subject_definition"] == "selected-source"
-    model.operations = (SimpleNamespace(semantic_id="inspect", subject="project", replicate_policy="deterministic-single-result"),)
+    model.operations = (
+        SimpleNamespace(
+            semantic_id="inspect",
+            subject="selected-source",
+            replicate_policy="deterministic-single-result",
+        ),
+    )
+    assert (
+        read_native_definition_projection(prepared, model=model)["operations"][0][
+            "subject_definition"
+        ]
+        == "selected-source"
+    )
+    model.operations = (
+        SimpleNamespace(
+            semantic_id="inspect", subject="project", replicate_policy="deterministic-single-result"
+        ),
+    )
     with pytest.raises(ValueError, match="checked effective model"):
         read_native_definition_projection(prepared, model=model)
 
 
 def test_native_operation_missing_subject_is_an_invalid_current_projection():
-    model, prepared = _captured(operations=[{
-        "operation_id": "inspect", "recipe": "recipe", "profile": "derivation",
-        "binding": {}, "definition": "definition", "eligibility": "eligibility",
-        "implementation_revision": "implementation", "input_roles": [],
-        "output_roles": [], "support_contract": {"replicate_policy": "deterministic-single-result"},
-    }])
+    model, prepared = _captured(
+        operations=[
+            {
+                "operation_id": "inspect",
+                "recipe": "recipe",
+                "profile": "derivation",
+                "binding": {},
+                "definition": "definition",
+                "eligibility": "eligibility",
+                "implementation_revision": "implementation",
+                "input_roles": [],
+                "output_roles": [],
+                "support_contract": {"replicate_policy": "deterministic-single-result"},
+            }
+        ]
+    )
     with pytest.raises(ValueError, match="subject_definition"):
         read_native_definition_projection(prepared, model=model)
 
@@ -130,29 +192,66 @@ classes:
 """
 
     def compile_source(content):
-        return compile_data_operations(SourceBundle("variant_test", (SourceArtifact("variant_test", content),)))
+        return compile_data_operations(
+            SourceBundle("variant_test", (SourceArtifact("variant_test", content),))
+        )
 
     model = compile_source(source)
-    assert definition_variant_contract(model, {"kinds": [{"kind": "urn:variant-test:Location", "kind_contract": "checked-location"}]}, "location") == "checked-location"
+    assert (
+        definition_variant_contract(
+            model,
+            {"kinds": [{"kind": "urn:variant-test:Location", "kind_contract": "checked-location"}]},
+            "location",
+        )
+        == "checked-location"
+    )
     with pytest.raises(PreparationError, match="unsupported definition variant"):
         compile_source(source.replace(b"variant: location", b"variant: arbitrary"))
     with pytest.raises(PreparationError, match="native kind policies belong to classes"):
-        compile_source(source.replace(b"  annotations: {cs:definition_variant: location}\n", b"").replace(b"{range: string}", b"{range: string, annotations: {cs:definition_variant: location}}"))
+        compile_source(
+            source.replace(b"  annotations: {cs:definition_variant: location}\n", b"").replace(
+                b"{range: string}",
+                b"{range: string, annotations: {cs:definition_variant: location}}",
+            )
+        )
 
 
 def test_native_operation_policy_must_be_closed_and_match_checked_model():
     operation = {
-        "operation_id": "inspect", "subject_definition": "selected-source",
-        "recipe": "recipe", "profile": "derivation", "binding": {},
-        "definition": "definition", "eligibility": "eligibility",
-        "implementation_revision": "implementation", "input_roles": [],
-        "output_roles": [], "support_contract": {"replicate_policy": "retained-observation-single-result"},
+        "operation_id": "inspect",
+        "subject_definition": "selected-source",
+        "recipe": "recipe",
+        "profile": "derivation",
+        "binding": {},
+        "definition": "definition",
+        "eligibility": "eligibility",
+        "implementation_revision": "implementation",
+        "input_roles": [],
+        "output_roles": [],
+        "support_contract": {"replicate_policy": "retained-observation-single-result"},
     }
     model, prepared = _captured(operations=[operation])
-    model.operations = (SimpleNamespace(semantic_id="inspect", subject="selected-source", replicate_policy="retained-observation-single-result"),)
-    assert read_native_definition_projection(prepared, model=model)["operations"][0]["support_contract"]["replicate_policy"] == "retained-observation-single-result"
+    model.operations = (
+        SimpleNamespace(
+            semantic_id="inspect",
+            subject="selected-source",
+            replicate_policy="retained-observation-single-result",
+        ),
+    )
+    assert (
+        read_native_definition_projection(prepared, model=model)["operations"][0][
+            "support_contract"
+        ]["replicate_policy"]
+        == "retained-observation-single-result"
+    )
     operation["support_contract"]["replicate_policy"] = "invented"
     model, prepared = _captured(operations=[operation])
-    model.operations = (SimpleNamespace(semantic_id="inspect", subject="selected-source", replicate_policy="retained-observation-single-result"),)
+    model.operations = (
+        SimpleNamespace(
+            semantic_id="inspect",
+            subject="selected-source",
+            replicate_policy="retained-observation-single-result",
+        ),
+    )
     with pytest.raises(ValueError, match="unsupported native operation replicate policy"):
         read_native_definition_projection(prepared, model=model)

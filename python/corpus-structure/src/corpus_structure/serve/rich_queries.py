@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 import base64
-from hashlib import sha256
+import unicodedata
 from contextlib import contextmanager
+from hashlib import sha256
 from importlib.metadata import version
 from pathlib import Path
-import unicodedata
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -16,7 +16,14 @@ from corpus_structure.semantic.data_operation_json import json_bytes, json_loads
 from corpus_structure.semantic.demand_queries import _cursor
 from corpus_structure.semantic.demand_results import CutSelection
 from corpus_structure.semantic.refusals import InvalidContinuation
-from corpus_structure.semantic.rich_queries import RichQuery, RichQueryIndex, RichQueryRefused, query_rows, rows_after
+from corpus_structure.semantic.rich_queries import (
+    RichQuery,
+    RichQueryIndex,
+    RichQueryRefused,
+    query_rows,
+    rows_after,
+)
+
 from .rich_knowledge import read_selected_rich_knowledge
 
 VERSION = "selected-rich-query-1"
@@ -26,17 +33,51 @@ VERSION = "selected-rich-query-1"
 def rich_query_implementation(query):
     """Bind actual installed helper objects and selected semantic libraries, never archived code."""
     from corpus_structure._query_custody import RICH_QUERY_SOURCES, query_sources
+
     root = Path(__file__).resolve().parents[1]
-    names = tuple(name for name in RICH_QUERY_SOURCES
-                  if query.name in {"family_profile", "construction_profile", "families_where", "parameter_mapping", "transformations_of", "relations_between"}
-                  or name != "semantic/rich_statistics_queries.py")
+    names = tuple(
+        name
+        for name in RICH_QUERY_SOURCES
+        if query.name
+        in {
+            "family_profile",
+            "construction_profile",
+            "families_where",
+            "parameter_mapping",
+            "transformations_of",
+            "relations_between",
+        }
+        or name != "semantic/rich_statistics_queries.py"
+    )
     sources = {str(root / name): sha256((root / name).read_bytes()).hexdigest() for name in names}
-    libraries = {name: version(name) for name in ("pydantic", "pydantic-core", "python-rapidjson", "regex", "PyYAML", "jsonschema", "referencing", "jsonschema-specifications")}
+    libraries = {
+        name: version(name)
+        for name in (
+            "pydantic",
+            "pydantic-core",
+            "python-rapidjson",
+            "regex",
+            "PyYAML",
+            "jsonschema",
+            "referencing",
+            "jsonschema-specifications",
+        )
+    }
     libraries["unicode"] = unicodedata.unidata_version
     if query.name == "relations_between":
         libraries["networkx"] = version("networkx")
-    identity = sha256(json_bytes(dict(version=VERSION, sources={str(Path(path).relative_to(root)): digest for path, digest in sources.items()},
-                                    query_contract=type(query).model_json_schema(), libraries=libraries))).hexdigest()
+    identity = sha256(
+        json_bytes(
+            dict(
+                version=VERSION,
+                sources={
+                    str(Path(path).relative_to(root)): digest for path, digest in sources.items()
+                },
+                query_contract=type(query).model_json_schema(),
+                libraries=libraries,
+            )
+        )
+    ).hexdigest()
     with query_sources(sources):
         yield identity
 
@@ -63,14 +104,19 @@ class RichQueryRequest(BaseModel):
         return self
 
     def selection(self):
-        return self.model_dump(mode="python", exclude={"cursor", "limit", "max_bytes", "read_id", "expected_cut", "implementation"})
+        return self.model_dump(
+            mode="python",
+            exclude={"cursor", "limit", "max_bytes", "read_id", "expected_cut", "implementation"},
+        )
 
 
 def decode_rich_cursor(value: str) -> dict:
     try:
         parsed = json_loads(base64.b64decode(value, altchars=b"-_", validate=True))
     except (ValueError, TypeError) as error:
-        raise InvalidContinuation("invalid rich query cursor", reason="invalid_continuation") from error
+        raise InvalidContinuation(
+            "invalid rich query cursor", reason="invalid_continuation"
+        ) from error
     if not isinstance(parsed, dict):
         raise InvalidContinuation("invalid rich query cursor", reason="invalid_continuation")
     return parsed
@@ -78,6 +124,7 @@ def decode_rich_cursor(value: str) -> dict:
 
 def serve_rich_query(connection, request: RichQueryRequest) -> dict:
     from corpus_structure._query_custody import SourceCustodyError
+
     try:
         with rich_query_implementation(request.query) as implementation:
             return _serve_rich_query(connection, request, implementation=implementation)
@@ -87,43 +134,104 @@ def serve_rich_query(connection, request: RichQueryRequest) -> dict:
 
 def _serve_rich_query(connection, request: RichQueryRequest, *, implementation: str) -> dict:
     if request.implementation is not None and request.implementation != implementation:
-        raise InvalidContinuation("rich resource requires its actual installed implementation", reason="invalid_continuation")
+        raise InvalidContinuation(
+            "rich resource requires its actual installed implementation",
+            reason="invalid_continuation",
+        )
     selection = sha256(json_bytes(semantic_value(request.selection()))).hexdigest()
     cursor = None if request.cursor is None else decode_rich_cursor(request.cursor)
-    if cursor is not None and (set(cursor) != {"version", "implementation", "selection", "read", "cut", "reference", "position"}
-                               or cursor["version"] != VERSION or cursor["implementation"] != implementation or cursor["selection"] != selection):
-        raise InvalidContinuation("rich cursor differs from its actual query selection", reason="invalid_continuation")
+    if cursor is not None and (
+        set(cursor)
+        != {"version", "implementation", "selection", "read", "cut", "reference", "position"}
+        or cursor["version"] != VERSION
+        or cursor["implementation"] != implementation
+        or cursor["selection"] != selection
+    ):
+        raise InvalidContinuation(
+            "rich cursor differs from its actual query selection", reason="invalid_continuation"
+        )
     continuation = None if cursor is None else cursor["read"]
     cut = None if cursor is None else CutSelection(json_bytes(cursor["cut"]))
     if request.read_id is not None:
-        if cut is not None and (cut.record["read_id"] != request.read_id or cut.identity != request.expected_cut):
-            raise InvalidContinuation("rich cursor differs from the requested native read", reason="invalid_continuation")
+        if cut is not None and (
+            cut.record["read_id"] != request.read_id or cut.identity != request.expected_cut
+        ):
+            raise InvalidContinuation(
+                "rich cursor differs from the requested native read", reason="invalid_continuation"
+            )
         if continuation is None:
-            continuation = dict(demand_id=request.demand_id, read_id=request.read_id, view="products",
-                                scope={"operation_id": "rich.admit", "product_ids": [request.product_id]})
-    selected = read_selected_rich_knowledge(connection, request.demand_id, project_id=request.project_id,
-                                           product_id=request.product_id, continuation=continuation, cut=cut, max_bytes=request.max_graph_bytes)
+            continuation = dict(
+                demand_id=request.demand_id,
+                read_id=request.read_id,
+                view="products",
+                scope={"operation_id": "rich.admit", "product_ids": [request.product_id]},
+            )
+    selected = read_selected_rich_knowledge(
+        connection,
+        request.demand_id,
+        project_id=request.project_id,
+        product_id=request.product_id,
+        continuation=continuation,
+        cut=cut,
+        max_bytes=request.max_graph_bytes,
+    )
     if request.expected_cut is not None and selected.cut.identity != request.expected_cut:
-        raise InvalidContinuation("rich query differs from its pinned cut", reason="invalid_continuation")
+        raise InvalidContinuation(
+            "rich query differs from its pinned cut", reason="invalid_continuation"
+        )
     reference = selected.reference.model_dump(mode="python")
     if cursor is not None and json_bytes(cursor["reference"]) != json_bytes(reference):
-        raise InvalidContinuation("rich query changed its actual root support", reason="invalid_continuation")
+        raise InvalidContinuation(
+            "rich query changed its actual root support", reason="invalid_continuation"
+        )
     index = RichQueryIndex(selected.state, max_members=request.max_graph_members)
-    rows = rows_after(query_rows(index, request.query), None if cursor is None else cursor["position"])
+    rows = rows_after(
+        query_rows(index, request.query), None if cursor is None else cursor["position"]
+    )
     values, last, more = [], None, False
 
     def report(*, next_position=None):
-        next_cursor = None if next_position is None else _cursor(dict(
-            version=VERSION, implementation=implementation, selection=selection, read=json_loads(selected.read_request),
-            cut=selected.cut.record, reference=reference, position=next_position,
-        ))
-        pinned = request.model_copy(update=dict(read_id=selected.cut.record["read_id"], expected_cut=selected.cut.identity, implementation=implementation))
-        return dict(format=VERSION, implementation=implementation, cut_id=selected.cut.identity, cut=selected.cut.record, root=reference,
-                    query=request.query.model_dump(mode="python"), rows=values, cursor=next_cursor,
-                    scope=dict(knowledge_subject=selected.context.subject, subject_definition=selected.context.subject_definition,
-                               population=request.query.population, examined="one-selected-whole-admission", global_completeness="unknown"),
-                    unknowns=[index.unknowns[key] for key in sorted(index.unknowns)],
-                    resource_handle=_cursor(pinned.model_dump(mode="python")))
+        next_cursor = (
+            None
+            if next_position is None
+            else _cursor(
+                dict(
+                    version=VERSION,
+                    implementation=implementation,
+                    selection=selection,
+                    read=json_loads(selected.read_request),
+                    cut=selected.cut.record,
+                    reference=reference,
+                    position=next_position,
+                )
+            )
+        )
+        pinned = request.model_copy(
+            update=dict(
+                read_id=selected.cut.record["read_id"],
+                expected_cut=selected.cut.identity,
+                implementation=implementation,
+            )
+        )
+        return dict(
+            format=VERSION,
+            implementation=implementation,
+            cut_id=selected.cut.identity,
+            cut=selected.cut.record,
+            root=reference,
+            query=request.query.model_dump(mode="python"),
+            rows=values,
+            cursor=next_cursor,
+            scope=dict(
+                knowledge_subject=selected.context.subject,
+                subject_definition=selected.context.subject_definition,
+                population=request.query.population,
+                examined="one-selected-whole-admission",
+                global_completeness="unknown",
+            ),
+            unknowns=[index.unknowns[key] for key in sorted(index.unknowns)],
+            resource_handle=_cursor(pinned.model_dump(mode="python")),
+        )
 
     for row in rows:
         if len(values) == request.limit:

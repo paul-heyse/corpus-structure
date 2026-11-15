@@ -2,9 +2,9 @@
 
 import json
 import os
-from hashlib import sha256
 from collections.abc import Callable
 from concurrent.futures import Future
+from hashlib import sha256
 from typing import cast
 
 import pytest

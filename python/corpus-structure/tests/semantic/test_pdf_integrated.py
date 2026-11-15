@@ -867,9 +867,11 @@ def test_qualified_read_abi_survives_helper_bytes_but_refuses_unknown_binding(
         context = load(conn, task)
         if unsupported:
             from semantic.pdf_domain_support import altered_domain
-            return replace(context, domain=altered_domain(context.domain, read_version="unsupported-v2"))
-        return context
 
+            return replace(
+                context, domain=altered_domain(context.domain, read_version="unsupported-v2")
+            )
+        return context
 
     monkeypatch.setattr(pdf_contracts, "pdf_context_for_task", archived_context)
     with commit_reader_engine.connect() as conn:

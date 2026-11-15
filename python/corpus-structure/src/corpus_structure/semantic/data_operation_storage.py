@@ -22,10 +22,10 @@ from corpus_structure.semantic._data_operation_wire import (
 )
 
 from ._data_operation_wire import DataOperationCalls
-from .native_call_contracts import OperationCallBinding, OperationFieldBinding, OperationFieldType
 from .data_operation_json import ContextJSONB, json_bytes, json_context_value, wire_json_loads
 from .data_operation_model import MODEL_VERSION
 from .identity import canonical_bytes
+from .native_call_contracts import OperationCallBinding, OperationFieldBinding, OperationFieldType
 from .types import SourceArtifact
 
 if TYPE_CHECKING:
@@ -42,7 +42,9 @@ _SQL = Path(__file__).with_name("sql") / "data_operations.sql"
 def native_protocol_sources(
     *, physical_sources=None, linkml_types=None
 ) -> tuple[SourceArtifact, ...]:
+    from .authority_leaf import NativeAuthorityLeaf
     from .data_operation_binding_native import binding_native_sources
+    from .data_operation_cpu_basis import cpu_input_basis_native_sql
     from .data_operation_execution_evidence import SOURCE, execution_evidence_schema
     from .data_operation_protocol import recordable_fate_sql
     from .data_operation_source_native import source_native_sources
@@ -54,12 +56,14 @@ def native_protocol_sources(
     from .data_operation_wire_native import wire_native_sources
     from .graph_runtime import nx
     from .pdf_completion_native import pdf_completion_native_sql
-    from .record_policy_native import record_policy_native_sql, record_policy_grade_schema, GRADE_SCHEMA_SOURCE
-    from .record_policy_completion_native import record_policy_completion_native_sql
     from .record_grade_native import record_grade_native_sql
-    from .data_operation_cpu_basis import cpu_input_basis_native_sql
+    from .record_policy_completion_native import record_policy_completion_native_sql
+    from .record_policy_native import (
+        GRADE_SCHEMA_SOURCE,
+        record_policy_grade_schema,
+        record_policy_native_sql,
+    )
     from .rich_admission_native import rich_admission_native_sql
-    from .authority_leaf import NativeAuthorityLeaf
 
     if physical_sources is None:
         protocol = (_ROOT / "data-operation-native.yaml").read_bytes()
@@ -92,18 +96,47 @@ def native_protocol_sources(
             "native/data-operation-pdf-effect-contract.py",
             Path(__file__).with_name("pdf_effect_contract.py").read_bytes(),
         ),
-        SourceArtifact("native/data-operation-record-grade-native.sql", record_grade_native_sql().encode()),
-        SourceArtifact("native/data-operation-cpu-basis.sql", cpu_input_basis_native_sql().encode()),
-        SourceArtifact("native/data-operation-cpu-basis.py", Path(__file__).with_name("data_operation_cpu_basis.py").read_bytes()),
-        SourceArtifact("native/data-operation-cpu-receipts.py", Path(__file__).with_name("cpu_receipts.py").read_bytes()),
-        SourceArtifact("native/data-operation-rich-admission.sql", rich_admission_native_sql().encode()),
-        SourceArtifact("native/data-operation-rich-admission.py", Path(__file__).with_name("rich_admission_native.py").read_bytes()),
-        SourceArtifact("native/data-operation-record-grade-native.py", Path(__file__).with_name("record_grade_native.py").read_bytes()),
-        SourceArtifact("native/data-operation-record-policy.sql", record_policy_native_sql().encode()),
+        SourceArtifact(
+            "native/data-operation-record-grade-native.sql", record_grade_native_sql().encode()
+        ),
+        SourceArtifact(
+            "native/data-operation-cpu-basis.sql", cpu_input_basis_native_sql().encode()
+        ),
+        SourceArtifact(
+            "native/data-operation-cpu-basis.py",
+            Path(__file__).with_name("data_operation_cpu_basis.py").read_bytes(),
+        ),
+        SourceArtifact(
+            "native/data-operation-cpu-receipts.py",
+            Path(__file__).with_name("cpu_receipts.py").read_bytes(),
+        ),
+        SourceArtifact(
+            "native/data-operation-rich-admission.sql", rich_admission_native_sql().encode()
+        ),
+        SourceArtifact(
+            "native/data-operation-rich-admission.py",
+            Path(__file__).with_name("rich_admission_native.py").read_bytes(),
+        ),
+        SourceArtifact(
+            "native/data-operation-record-grade-native.py",
+            Path(__file__).with_name("record_grade_native.py").read_bytes(),
+        ),
+        SourceArtifact(
+            "native/data-operation-record-policy.sql", record_policy_native_sql().encode()
+        ),
         SourceArtifact(GRADE_SCHEMA_SOURCE, record_policy_grade_schema()),
-        SourceArtifact("native/data-operation-record-grade.py", Path(__file__).parents[1].joinpath("evaluate/declared_record_policy.py").read_bytes()),
-        SourceArtifact("native/data-operation-record-policy-completion.sql", record_policy_completion_native_sql().encode()),
-        SourceArtifact("native/data-operation-record-policy-completion.py", Path(__file__).with_name("record_policy_completion_native.py").read_bytes()),
+        SourceArtifact(
+            "native/data-operation-record-grade.py",
+            Path(__file__).parents[1].joinpath("evaluate/declared_record_policy.py").read_bytes(),
+        ),
+        SourceArtifact(
+            "native/data-operation-record-policy-completion.sql",
+            record_policy_completion_native_sql().encode(),
+        ),
+        SourceArtifact(
+            "native/data-operation-record-policy-completion.py",
+            Path(__file__).with_name("record_policy_completion_native.py").read_bytes(),
+        ),
         SourceArtifact(
             "native/data-operation-record-policy.py",
             Path(__file__).with_name("record_policy_native.py").read_bytes(),
@@ -112,8 +145,14 @@ def native_protocol_sources(
             "native/data-operation-record-policy-authority.py",
             Path(__file__).with_name("record_policy_authority.py").read_bytes(),
         ),
-        SourceArtifact("native/data-operation-authority-leaf.json", canonical_bytes(NativeAuthorityLeaf.model_json_schema())),
-        SourceArtifact("native/data-operation-authority-leaf.py", Path(__file__).with_name("authority_leaf.py").read_bytes()),
+        SourceArtifact(
+            "native/data-operation-authority-leaf.json",
+            canonical_bytes(NativeAuthorityLeaf.model_json_schema()),
+        ),
+        SourceArtifact(
+            "native/data-operation-authority-leaf.py",
+            Path(__file__).with_name("authority_leaf.py").read_bytes(),
+        ),
         SourceArtifact(ORIGINAL_SUPPORT_REFERENCE_SCHEMA, original_support_reference_schema()),
         SourceArtifact(
             "native/data-operation-support.py",
@@ -174,7 +213,9 @@ def native_protocol_sources(
                 }
             ),
         ),
-        SourceArtifact("native/data-operation-subject-scopes.json",canonical_bytes(subject_scope_values())),
+        SourceArtifact(
+            "native/data-operation-subject-scopes.json", canonical_bytes(subject_scope_values())
+        ),
         SourceArtifact(
             "native/data-operation-subjects.py",
             Path(__file__).with_name("data_operation_subjects.py").read_bytes(),
@@ -223,8 +264,17 @@ def _captured(sources) -> dict[str, bytes]:
         "native/data-operation-authority-leaf.py",
     }
     if b"original_document_contracts" in result.get("native/data-operation-source-native.py", b""):
-        required.update({"native/source-admission-calls.json", "native/original-document-contracts.py", "native/original-documents.py", "native/source-originals.sql"})
-    if b"corpus_structure.semantic.identifiers." in result.get("native/data-operation-wire-types.yaml", b""):
+        required.update(
+            {
+                "native/source-admission-calls.json",
+                "native/original-document-contracts.py",
+                "native/original-documents.py",
+                "native/source-originals.sql",
+            }
+        )
+    if b"corpus_structure.semantic.identifiers." in result.get(
+        "native/data-operation-wire-types.yaml", b""
+    ):
         required.add("native/identifiers.py")
     if b"native_call_contracts" in result.get("native/data-operation-storage.py", b""):
         required.add("native/native-call-contracts.py")
@@ -336,19 +386,27 @@ def _rename_native_entrypoints(sql: str, names: set[str]) -> str:
 def native_sql(sources=None) -> str:
     captured = native_protocol_sources() if sources is None else tuple(sources)
     bodies = _captured(captured)
-    sql = "\n".join(bodies[name].decode() for name in (
-        "native/data-operation-cpu-basis.sql",
-        "native/data-operation-record-grade-native.sql",
-        "native/data-operation-record-policy.sql",
-        "native/data-operation-record-policy-completion.sql",
-        "native/data-operations.sql",
-        "native/data-operation-rich-admission.sql",
-    ))
+    sql = "\n".join(
+        bodies[name].decode()
+        for name in (
+            "native/data-operation-cpu-basis.sql",
+            "native/data-operation-record-grade-native.sql",
+            "native/data-operation-record-policy.sql",
+            "native/data-operation-record-policy-completion.sql",
+            "native/data-operations.sql",
+            "native/data-operation-rich-admission.sql",
+        )
+    )
     sql += "\n" + bodies.get("native/data-operation-external.sql", b"").decode()
     # Every private completion guard attests the same captured native kernel.
     sql = sql.replace("__DDO_SOURCE_DIGEST__", native_source_digest(captured))
     if "__DDO_SUBJECT_SCOPES__" in sql:
-        sql=sql.replace("__DDO_SUBJECT_SCOPES__",_captured(captured)["native/data-operation-subject-scopes.json"].decode().replace("'","''"))
+        sql = sql.replace(
+            "__DDO_SUBJECT_SCOPES__",
+            _captured(captured)["native/data-operation-subject-scopes.json"]
+            .decode()
+            .replace("'", "''"),
+        )
     if "__DDO_RECORDABLE_FATES__" in sql:
         sql = sql.replace(
             "'__DDO_RECORDABLE_FATES__'",
@@ -386,11 +444,21 @@ def native_operation_declarations(sources=None) -> SourceArtifact:
     sources = native_protocol_sources() if sources is None else tuple(sources)
     digest = native_source_digest(sources)
     from .original_document_contracts import operation_asset
+
     source_owner, source_asset = operation_asset(sources)
-    admission_sources = [source for source in sources if source.name == "native/data-operations.sql"]
+    admission_sources = [
+        source for source in sources if source.name == "native/data-operations.sql"
+    ]
     if len(admission_sources) != 1:
-        raise ValueError("native operation coverage requires its actual captured SQL admission owner")
-    admission_asset = {"reference": "native-domain-admission", "contract": admission_sources[0].name, "role": "native-admission-policy", "content_digest": admission_sources[0].digest}
+        raise ValueError(
+            "native operation coverage requires its actual captured SQL admission owner"
+        )
+    admission_asset = {
+        "reference": "native-domain-admission",
+        "contract": admission_sources[0].name,
+        "role": "native-admission-policy",
+        "content_digest": admission_sources[0].digest,
+    }
     operations = []
     for item in _protocol(sources):
         name = item["name"]
@@ -399,7 +467,11 @@ def native_operation_declarations(sources=None) -> SourceArtifact:
                 "id": "data." + name,
                 "profile": item["profile"],
                 "subject": "authenticated-native-invocation",
-                "subject_definition": {"id": "authenticated-native-invocation", "identifier_kind": "string", "scope": "invocation"},
+                "subject_definition": {
+                    "id": "authenticated-native-invocation",
+                    "identifier_kind": "string",
+                    "scope": "invocation",
+                },
                 "discovery_relation": "role-associated",
                 "context": ["release", "purpose"],
                 "roles": [
@@ -439,10 +511,26 @@ def native_operation_declarations(sources=None) -> SourceArtifact:
                         "native-source-and-kind-custody",
                     )
                 ],
-                "coverage": {"binding": "self", "result_owners": [{"kind": "native-admission", "reference": "native-domain-admission"}], "description": "one-short-native-transaction"},
+                "coverage": {
+                    "binding": "self",
+                    "result_owners": [
+                        {"kind": "native-admission", "reference": "native-domain-admission"}
+                    ],
+                    "description": "one-short-native-transaction",
+                },
                 "outcomes": ["returned"],
-                "state_dimensions": [{"name": "completion", "values": ["pending", "success", "empty", "failed"]}],
-                "transitions": [{"dimension": "completion", "before": "pending", "after": "success", "outcome": "returned", "effects": []}],
+                "state_dimensions": [
+                    {"name": "completion", "values": ["pending", "success", "empty", "failed"]}
+                ],
+                "transitions": [
+                    {
+                        "dimension": "completion",
+                        "before": "pending",
+                        "after": "success",
+                        "outcome": "returned",
+                        "effects": [],
+                    }
+                ],
                 "precision_description": "exact",
                 "dependencies": [],
                 "effects": (
@@ -465,7 +553,10 @@ def native_operation_declarations(sources=None) -> SourceArtifact:
                 },
                 "behavior": "ddo-native-v1:" + digest,
                 "parameters": {},
-                "assets": [admission_asset, *([source_asset] if "data." + name == source_owner else [])],
+                "assets": [
+                    admission_asset,
+                    *([source_asset] if "data." + name == source_owner else []),
+                ],
                 "binding": {"operator": "scan", "roles": ["request"]},
             }
         )
@@ -830,7 +921,9 @@ def data_operation_definition_projection(
 ) -> bytes:
     """Compile the fixed native projection for authenticated release archiving."""
     model_content = model.content
-    archived_operations = {record["semantic_id"]: record for record in json.loads(model_content)["operations"]}
+    archived_operations = {
+        record["semantic_id"]: record for record in json.loads(model_content)["operations"]
+    }
     ids = {(identity.owner, identity.domain): identity.key for identity in model.identities}
     kinds = []
     from .data_operation_kind_refinements import input_kind_contracts, input_kind_refinements
@@ -1077,7 +1170,11 @@ def admitted_data_read(
     from .data_operation_kind_refinements import input_kind_contracts
 
     operation = model.operation(operation_id)
-    if original_source is not _UNQUALIFIED_CONTEXT_FIELD and original_source is not None and (not isinstance(original_source,str) or not original_source):
+    if (
+        original_source is not _UNQUALIFIED_CONTEXT_FIELD
+        and original_source is not None
+        and (not isinstance(original_source, str) or not original_source)
+    ):
         raise ValueError("source filter requires a nonempty identifier or explicit None")
     # Acquire the exact demand now; execution of the TVF repeats its pin check.
     acquired = DataOperationStorage(connection).read_demand_result(
@@ -1103,8 +1200,8 @@ def admitted_data_read(
         bindparam("data_binding_trust", trust_snapshot, type_=JSONB),
         read_id,
         subject,
-        _binding_context_parameter(original_source,name="data_binding_source"),
-        _binding_context_parameter(analyzed_scope,name="data_binding_scope"),
+        _binding_context_parameter(original_source, name="data_binding_source"),
+        _binding_context_parameter(analyzed_scope, name="data_binding_scope"),
     ).table_valued(*columns)
     return AdmittedDataRead(
         relation,

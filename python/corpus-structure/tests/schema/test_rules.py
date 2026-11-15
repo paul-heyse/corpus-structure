@@ -118,25 +118,55 @@ def test_members_and_coalesce_defaults_compile(statistics_rules_policy):
         statistics_rules_policy.language.compile("t.case", expression)
 
 
-def test_actual_class_sets_preserve_every_membership_and_ancestor_without_scalar_alias(statistics_rules_policy):
+def test_actual_class_sets_preserve_every_membership_and_ancestor_without_scalar_alias(
+    statistics_rules_policy,
+):
     from types import SimpleNamespace
+
     from corpus_structure.semantic.rule_views import EntityView
 
     language = statistics_rules_policy.language
-    entity = EntityView('entity:actual', None, ('stat:DistributionFamily', 'stat:RandomVariable'), '', None, {})
+    entity = EntityView(
+        "entity:actual", None, ("stat:DistributionFamily", "stat:RandomVariable"), "", None, {}
+    )
     view = SimpleNamespace(subject=entity)
-    for name in ('stat:DistributionFamily', 'stat:RandomVariable'):
-        assert language.compile('actual.memberships', f"$is_a(claim.subject.types, '{name}')").evaluate({'claim': view}) is True
-    assert language.compile('actual.rule', "not $is_a(claim.subject.types, 'stat:RandomVariable')").evaluate({'claim': view}) is False
-    parent = statistics_rules_policy.compact(statistics_rules_policy.prepared.index.definitions['Entity'].iri)
-    assert language.compile('actual.ancestor', f"$is_a(claim.subject.types, '{parent}')").evaluate({'claim': view}) is True
-    assert refused(language, "claim.subject.type == 'stat:RandomVariable'").codes == {RuleErrorCode.UNKNOWN_ATTRIBUTE}
+    for name in ("stat:DistributionFamily", "stat:RandomVariable"):
+        assert (
+            language.compile(
+                "actual.memberships", f"$is_a(claim.subject.types, '{name}')"
+            ).evaluate({"claim": view})
+            is True
+        )
+    assert (
+        language.compile(
+            "actual.rule", "not $is_a(claim.subject.types, 'stat:RandomVariable')"
+        ).evaluate({"claim": view})
+        is False
+    )
+    parent = statistics_rules_policy.compact(
+        statistics_rules_policy.prepared.index.definitions["Entity"].iri
+    )
+    assert (
+        language.compile("actual.ancestor", f"$is_a(claim.subject.types, '{parent}')").evaluate(
+            {"claim": view}
+        )
+        is True
+    )
+    assert refused(language, "claim.subject.type == 'stat:RandomVariable'").codes == {
+        RuleErrorCode.UNKNOWN_ATTRIBUTE
+    }
 
 
-def test_policy_applies_to_actual_property_without_legacy_candidate_adapter(statistics_rules_policy):
-    predicate = statistics_rules_policy.prepared.expand_name('stat:has_distribution')
-    assert statistics_rules_policy.applies({'applies_to': 'stat:has_distribution'}, class_name='RandomVariable', predicate=predicate)
-    assert not statistics_rules_policy.applies({'applies_to': 'stat:has_parameter'}, class_name='RandomVariable', predicate=predicate)
+def test_policy_applies_to_actual_property_without_legacy_candidate_adapter(
+    statistics_rules_policy,
+):
+    predicate = statistics_rules_policy.prepared.expand_name("stat:has_distribution")
+    assert statistics_rules_policy.applies(
+        {"applies_to": "stat:has_distribution"}, class_name="RandomVariable", predicate=predicate
+    )
+    assert not statistics_rules_policy.applies(
+        {"applies_to": "stat:has_parameter"}, class_name="RandomVariable", predicate=predicate
+    )
 
 
 def test_a_policy_language_shares_literal_discipline():
@@ -185,7 +215,12 @@ def _rule_cases():
     )
 
     entity = EntityView(
-        "s", None, ("stat:DistributionFamily",), "normal", "X_i", {"stat:canonical_name": "location"}
+        "s",
+        None,
+        ("stat:DistributionFamily",),
+        "normal",
+        "X_i",
+        {"stat:canonical_name": "location"},
     )
 
     def node(op, term=None):

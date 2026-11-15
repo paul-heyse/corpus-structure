@@ -9,7 +9,7 @@ from corpus_structure.cli.failures import failure_boundary
 from corpus_structure.cli.output import JsonOpt, state
 
 if TYPE_CHECKING:
-    from corpus_structure.cli.managed import Manifest
+    pass
 
 
 def visual_route(

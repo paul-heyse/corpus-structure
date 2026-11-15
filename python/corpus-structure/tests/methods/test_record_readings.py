@@ -1,7 +1,5 @@
 """Independent reading identity/state expectations; controlled decoder, no provider claim."""
 
-from methods.record_assembly_support import model as record_model
-
 import json
 import math
 from dataclasses import replace
@@ -33,6 +31,7 @@ from corpus_structure.semantic.source_contexts import (
     SourceSlice,
 )
 from methods.record_assembly_support import context, fields, release, report, source, span
+from methods.record_assembly_support import model as record_model
 
 
 def test_auxiliary_state_is_an_independent_proposal_not_decoder_absence():
@@ -65,7 +64,8 @@ def test_auxiliary_state_is_an_independent_proposal_not_decoder_absence():
         anchor_role="original_value",
         policy_version="m1-grouped-reading-logistic-1",
         occurrence_policy=OCCURRENCE_POLICY,
-     model=record_model())
+        model=record_model(),
+    )
     (record,) = result.records
     actual = fields(record)
     assert actual["unit"]["state"] == "unstated"
@@ -91,7 +91,8 @@ def test_auxiliary_state_is_an_independent_proposal_not_decoder_absence():
         anchor_role="original_value",
         policy_version="test",
         occurrence_policy=OCCURRENCE_POLICY,
-     model=record_model())
+        model=record_model(),
+    )
     assert fields(second.records[0])["unit"]["state"] == "unresolved"
     assert fields(second.records[0])["value_role"]["state"] == "unresolved"
     assert fields(second.records[0])["value_role"]["evidence_status"] == "available"
@@ -104,7 +105,8 @@ def test_auxiliary_state_is_an_independent_proposal_not_decoder_absence():
         contract="MeasurementRecordFields",
         anchor_role="original_value",
         policy_version="test",
-     model=record_model())
+        model=record_model(),
+    )
     assert fields(third.records[0])["unit"]["state"] == "unresolved"
 
 
@@ -141,7 +143,8 @@ def assemble_conflicting(groups):
         anchor_role="original_value",
         policy_version="m1-grouped-reading-logistic-1",
         occurrence_policy=OCCURRENCE_POLICY,
-     model=record_model())
+        model=record_model(),
+    )
     return ctx, raw, result
 
 
@@ -245,7 +248,8 @@ def test_ambiguous_formula_binding_cannot_become_formula_only_after_value_repair
         anchor_role="formula",
         policy_version="test",
         occurrence_policy=OCCURRENCE_POLICY,
-     model=record_model())
+        model=record_model(),
+    )
     assert not result.records
     assert any(item.code == "unlocated_occurrence" for item in result.diagnostics)
 
@@ -272,7 +276,8 @@ def test_formula_value_proposals_and_inspection_share_actual_binding_first_use()
         anchor_role="formula",
         policy_version="test",
         occurrence_policy=OCCURRENCE_POLICY,
-     model=record_model())
+        model=record_model(),
+    )
     assert len(result.records) == 2
     rows = [record.model_dump() for record in result.records]
     assert rows[0]["record_id"] == rows[1]["record_id"]
@@ -318,7 +323,8 @@ def test_related_literal_proposal_cannot_define_primary_occurrence():
         anchor_role="original_value",
         policy_version="test",
         occurrence_policy=OCCURRENCE_POLICY,
-     model=record_model())
+        model=record_model(),
+    )
     assert not result.records
     assert any(item.code == "unlocated_occurrence" for item in result.diagnostics)
 
@@ -351,7 +357,8 @@ def test_shared_grouping_anchor_cannot_merge_compatible_readings(family, contrac
         policy_version="test",
         occurrence_policy=OCCURRENCE_POLICY,
         groups=groups,
-     model=record_model())
+        model=record_model(),
+    )
     assert len(result.records) == 2
     assert len({record.model_dump()["record_id"] for record in result.records}) == 2
     assert all(len(record.model_dump()["occurrence_anchors"]) == 3 for record in result.records)
@@ -404,7 +411,8 @@ def test_formula_bindings_use_first_actual_primary_symbol_and_keep_conflicts_alt
         policy_version="test",
         occurrence_policy=OCCURRENCE_POLICY,
         groups=tuple(groups),
-     model=record_model())
+        model=record_model(),
+    )
     assert len(result.records) == 3
     rows = [record.model_dump() for record in result.records]
     assert rows[0]["record_id"] == rows[2]["record_id"] != rows[1]["record_id"]
@@ -427,7 +435,8 @@ def test_formula_bindings_use_first_actual_primary_symbol_and_keep_conflicts_alt
         policy_version="test",
         occurrence_policy=OCCURRENCE_POLICY,
         groups=(unsupported,),
-     model=record_model())
+        model=record_model(),
+    )
     assert not limited.records and any(
         d.code == "unlocated_occurrence" for d in limited.diagnostics
     )
@@ -478,7 +487,8 @@ def test_unavailable_factor_policy_is_sealed_not_run_without_probabilities():
                 "explicit fixture reading",
             ),
         ),
-     model=record_model())
+        model=record_model(),
+    )
     records = [record.model_dump() for record in result.records]
     (row,) = interpret_candidate_readings(records)
     assert row["outcome"] == "not_run" and row["coupling_enabled"] is False

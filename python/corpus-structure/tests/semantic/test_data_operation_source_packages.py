@@ -13,7 +13,9 @@ from semantic.data_operation_declaration_support import contract
 
 @pytest.mark.parametrize("initializer", [False, True])
 def test_nested_sibling_sources_preserve_package_members_and_inherited_supplier(initializer):
-    metadata = contract(entrypoints=["run"], abstract=True, coverage_description="actual-supplying-base")
+    metadata = contract(
+        entrypoints=["run"], abstract=True, coverage_description="actual-supplying-base"
+    )
     metadata.pop("id")
     base = (
         "raise RuntimeError('capture never imports target modules')\nclass Family:\n    def run(self, x: int) -> int: return x + 1\n"

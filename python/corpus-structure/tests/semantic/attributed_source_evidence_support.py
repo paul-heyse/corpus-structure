@@ -1,8 +1,5 @@
 """Shared controlled inputs and builders for attributed source evidence support."""
 
-from semantic.record_contracts_support import model as record_model
-from corpus_structure.semantic.record_contracts import record_family_contract
-
 import json
 from copy import deepcopy
 from typing import Any
@@ -11,9 +8,11 @@ from corpus_structure.semantic.record_contracts import (
     anchor_identity,
     evidence_set_identity,
     interpretation_identity,
+    record_family_contract,
     record_identity,
 )
-from semantic.record_contracts_support import PIN, release_inputs, table_record
+from semantic.record_contracts_support import PIN, table_record
+from semantic.record_contracts_support import model as record_model
 
 BINDING = dict(version=2, relationship="selected_context", policy="attributed-selected-source-2")
 
@@ -38,7 +37,9 @@ def replace_note(record, anchor):
     record["evidence_sets"] = tuple(sets)
     for field in record["fields"]:
         field["evidence_sets"] = tuple(replacements[key] for key in field["evidence_sets"])
-    record["record_id"] = record_identity(record_family_contract(record_model(), record["contract"]), record)
+    record["record_id"] = record_identity(
+        record_family_contract(record_model(), record["contract"]), record
+    )
     record["interpretation_id"] = interpretation_identity(record)
     return record
 

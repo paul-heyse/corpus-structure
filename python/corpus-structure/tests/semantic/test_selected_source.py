@@ -8,10 +8,11 @@ from pathlib import Path
 
 import pytest
 
-from corpus_structure.semantic.analysis_contracts import prepare_interpretation_context
+from corpus_structure.semantic.analysis_contracts import (
+    acquire_analysis_context_profile,
+    prepare_interpretation_context,
+)
 from corpus_structure.semantic.pdf_record_reader import PublishedPdfReader
-from semantic.selected_source_contract_support import selection
-from corpus_structure.semantic.analysis_contracts import acquire_analysis_context_profile
 from corpus_structure.serve.selected_source import (
     AdditionalContextRequired,
     SelectedSourceExportRequest,
@@ -20,6 +21,7 @@ from corpus_structure.serve.selected_source import (
     SelectedSourceUnavailable,
     _write_selected_package,
 )
+from semantic.selected_source_contract_support import selection
 
 
 class SourceBytes(PublishedPdfReader):
@@ -171,7 +173,10 @@ def source_events(records, outcome="succeeded"):
 @pytest.fixture
 def offline_package(tmp_path):
     context = replace(
-        prepare_interpretation_context(macros={}, kind="formula", context_profile=acquire_analysis_context_profile()), release_id="retained-release"
+        prepare_interpretation_context(
+            macros={}, kind="formula", context_profile=acquire_analysis_context_profile()
+        ),
+        release_id="retained-release",
     )
     assert context.release_id is not None
     pin, _, _ = selection(release=context.release_id)
@@ -191,7 +196,8 @@ def write_package(request, context, *, records=None, outcome="succeeded"):
         request,
         request.destination,
         analysis_context_profile_id=context.model_id,
-        cut=selection(release=context.release_id)[1], publication=selection(release=context.release_id)[2],
+        cut=selection(release=context.release_id)[1],
+        publication=selection(release=context.release_id)[2],
         implementation_digests=context.implementation_digests,
     )
 
@@ -312,7 +318,8 @@ def test_early_native_source_failure_emits_no_complete_trailer_or_receipt(offlin
             request,
             request.destination,
             analysis_context_profile_id=context.model_id,
-        cut=selection(release=context.release_id)[1], publication=selection(release=context.release_id)[2],
+            cut=selection(release=context.release_id)[1],
+            publication=selection(release=context.release_id)[2],
             implementation_digests=context.implementation_digests,
         )
     assert not (request.destination / "receipt.json").exists()

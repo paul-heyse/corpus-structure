@@ -7,11 +7,11 @@ products and the request's frozen binding. This adds no execution or receipt own
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from collections.abc import Mapping
-from hashlib import sha256
 import json
 import re
+from collections.abc import Mapping
+from dataclasses import dataclass
+from hashlib import sha256
 from typing import TYPE_CHECKING, Any
 
 from .data_operation_identity import decode_semantic_value, semantic_value
@@ -42,27 +42,47 @@ def cpu_input_basis(recipe: str, context: SubjectContext, roles: tuple[CPUInputR
     """Reconstruct the exact basis with context and typed-value number semantics."""
     entries = []
     for role in roles:
-        support = {canonical_bytes(semantic_value(item)): item
-                   for item in support_reference_records(role.support)}
-        entries.append({
-            "role": role.role, "position": role.position, "multiplicity": role.multiplicity,
-            "product_id": role.product_id, "member_id": role.member_id,
-            "kind_contract": role.kind_contract, "context": role.context.identity_record,
-            "body": role.body, "support": [support[key] for key in sorted(support)],
-        })
-    entries.sort(key=lambda item: (
-        item["role"], (item["position"] is not None, item["position"]), item["product_id"],
-        (item["member_id"] is not None, item["member_id"]), item["kind_contract"],
-        canonical_bytes(semantic_value(item["support"])),
-    ))
-    return semantic_value({
-        "version": "cpu-input-basis-1", "recipe": recipe,
-        "context": context.identity_record, "roles": entries,
-    })
+        support = {
+            canonical_bytes(semantic_value(item)): item
+            for item in support_reference_records(role.support)
+        }
+        entries.append(
+            {
+                "role": role.role,
+                "position": role.position,
+                "multiplicity": role.multiplicity,
+                "product_id": role.product_id,
+                "member_id": role.member_id,
+                "kind_contract": role.kind_contract,
+                "context": role.context.identity_record,
+                "body": role.body,
+                "support": [support[key] for key in sorted(support)],
+            }
+        )
+    entries.sort(
+        key=lambda item: (
+            item["role"],
+            (item["position"] is not None, item["position"]),
+            item["product_id"],
+            (item["member_id"] is not None, item["member_id"]),
+            item["kind_contract"],
+            canonical_bytes(semantic_value(item["support"])),
+        )
+    )
+    return semantic_value(
+        {
+            "version": "cpu-input-basis-1",
+            "recipe": recipe,
+            "context": context.identity_record,
+            "roles": entries,
+        }
+    )
 
 
 def cpu_input_basis_from_binding(
-    recipe: str, binding: BindingResult, bodies_by_role: Mapping[str, tuple[Any, ...]],
+    recipe: str,
+    binding: BindingResult,
+    bodies_by_role: Mapping[str, tuple[Any, ...]],
 ) -> list:
     """Pair actual consumed values with their existing selected headers and support."""
     if not binding.sufficient or binding.subject_context is None:
@@ -76,15 +96,25 @@ def cpu_input_basis_from_binding(
         if len(bodies) != len(selected.members):
             raise ValueError("CPU authority values differ from their actual selected population")
         for member, body in zip(selected.members, bodies, strict=True):
-            roles.append(CPUInputRole(
-                selected.role, member.position, member.multiplicity,
-                member.product, member.member, member.kind_contract,
-                SubjectContext(
-                    binding.subject_context.project_id, member.subject, member.original_source,
-                    member.analyzed_scope, subject_definition=member.subject_definition,
-                ),
-                body, member.support_references,
-            ))
+            roles.append(
+                CPUInputRole(
+                    selected.role,
+                    member.position,
+                    member.multiplicity,
+                    member.product,
+                    member.member,
+                    member.kind_contract,
+                    SubjectContext(
+                        binding.subject_context.project_id,
+                        member.subject,
+                        member.original_source,
+                        member.analyzed_scope,
+                        subject_definition=member.subject_definition,
+                    ),
+                    body,
+                    member.support_references,
+                )
+            )
     return cpu_input_basis(recipe, binding.subject_context, tuple(roles))
 
 
@@ -183,4 +213,4 @@ BEGIN
  RETURN data.ddo_normalize(reply->'output');
 END $cpu$;
 REVOKE ALL ON FUNCTION ops.ddo_cpu_reply_output(ops.data_request,jsonb) FROM PUBLIC;
-""".replace('__CPU_AUTHORITY_REPLY_VERSION__', CPU_AUTHORITY_REPLY_VERSION)
+""".replace("__CPU_AUTHORITY_REPLY_VERSION__", CPU_AUTHORITY_REPLY_VERSION)

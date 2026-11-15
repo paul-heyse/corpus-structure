@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import base64
 import json
-from hashlib import sha256
 from collections.abc import Iterator
+from hashlib import sha256
 from typing import Any
 
 from sqlalchemy import select

@@ -130,7 +130,9 @@ def test_no_valid_points_remains_inconclusive(monkeypatch):
     from corpus_structure.semantic import scientific_evidence as owner
 
     monkeypatch.setattr(owner, "sample_points", lambda *args: [])
-    result = SemanticComparator({}, context_profile=analysis_context()).compare(expression(r"\sqrt{x^2}"), expression("x"))
+    result = SemanticComparator({}, context_profile=analysis_context()).compare(
+        expression(r"\sqrt{x^2}"), expression("x")
+    )
     assert not result.equal and result.tier is EvidenceTier.UNDECIDED
     assert result.evidence.numeric == "inconclusive" and result.evidence.valid_points == 0
 
@@ -501,10 +503,14 @@ def test_symbolic_conversion_timeout_remains_unavailable_and_transient(monkeypat
 def test_cancelled_denominator_holes_do_not_establish_partial_function_equality():
     from corpus_structure.semantic.scientific_evidence import reference_evidence
 
-    decision = SemanticComparator({}, context_profile=analysis_context()).compare(expression("x/x"), expression("1"))
+    decision = SemanticComparator({}, context_profile=analysis_context()).compare(
+        expression("x/x"), expression("1")
+    )
     assert decision.tier is EvidenceTier.UNDECIDED
     assert "definedness" in decision.detail
-    reference = reference_evidence(expression("x/x"), expression("1"), context_profile=analysis_context())
+    reference = reference_evidence(
+        expression("x/x"), expression("1"), context_profile=analysis_context()
+    )
     assert reference.tier is EvidenceTier.UNDECIDED
     assert "definedness" in reference.detail
 
@@ -513,10 +519,14 @@ def test_cancelled_denominator_holes_do_not_establish_partial_function_equality(
 def test_negative_power_cancellation_cannot_prove_total_function_equality(source):
     from corpus_structure.semantic.scientific_evidence import reference_evidence
 
-    decision = SemanticComparator({}, context_profile=analysis_context()).compare(expression(source), expression("1"))
+    decision = SemanticComparator({}, context_profile=analysis_context()).compare(
+        expression(source), expression("1")
+    )
     assert decision.tier is EvidenceTier.UNDECIDED
     assert "definedness" in decision.detail
-    reference = reference_evidence(expression(source), expression("1"), context_profile=analysis_context())
+    reference = reference_evidence(
+        expression(source), expression("1"), context_profile=analysis_context()
+    )
     assert reference.tier is EvidenceTier.UNDECIDED
     assert "definedness" in reference.detail
 
@@ -524,14 +534,19 @@ def test_negative_power_cancellation_cannot_prove_total_function_equality(source
 def test_unknown_power_domain_cannot_become_empty_domain_proof():
     from corpus_structure.semantic.scientific_evidence import reference_evidence
 
-    decision = SemanticComparator({}, context_profile=analysis_context()).compare(expression(r"x^{-n}x^n"), expression("1"))
+    decision = SemanticComparator({}, context_profile=analysis_context()).compare(
+        expression(r"x^{-n}x^n"), expression("1")
+    )
     assert decision.tier is EvidenceTier.UNDECIDED
     assert "definedness incomplete" in decision.detail
-    reference = reference_evidence(expression(r"x^{-n}x^n"), expression("1"), context_profile=analysis_context())
+    reference = reference_evidence(
+        expression(r"x^{-n}x^n"), expression("1"), context_profile=analysis_context()
+    )
     assert reference.tier is EvidenceTier.UNDECIDED
     assert "definedness incomplete" in reference.detail
 
 
 def analysis_context():
     from corpus_structure.semantic.analysis_contracts import acquire_analysis_context_profile
+
     return acquire_analysis_context_profile()

@@ -330,29 +330,39 @@ def test_native_covers_requires_every_requested_value(binding_native_connection)
 
 
 def test_native_source_set_authenticates_exact_original_pins(binding_native_connection):
+    from corpus_structure.semantic.data_operation_model import SubjectContext
     from corpus_structure.semantic.data_operation_source_sets import (
         FrozenSourceSet,
         SourceSetEntry,
         source_sets_record,
     )
-    from corpus_structure.semantic.data_product_reference import DataProductReference, DataProductMemberReference
-    from corpus_structure.semantic.data_operation_model import SubjectContext
-
+    from corpus_structure.semantic.data_product_reference import (
+        DataProductMemberReference,
+        DataProductReference,
+    )
 
     pin = SourceSetEntry.from_semantic_source(
-        DataProductMemberReference(DataProductReference('product:original'), 'member:original'),
-        context=SubjectContext('project', 'view:original', 'foreign-source', b'{"page":1}', subject_definition='original-occurrence'),
+        DataProductMemberReference(DataProductReference("product:original"), "member:original"),
+        context=SubjectContext(
+            "project",
+            "view:original",
+            "foreign-source",
+            b'{"page":1}',
+            subject_definition="original-occurrence",
+        ),
     )
     scopes = source_sets_record((FrozenSourceSet("inputs", (pin,)),))
     binding_native_connection.execute(
-        text("SELECT ops.ddo_validate_source_sets(CAST(:sets AS jsonb),'project',jsonb_build_object('original-occurrence','original-source'))"),
+        text(
+            "SELECT ops.ddo_validate_source_sets(CAST(:sets AS jsonb),'project',jsonb_build_object('original-occurrence','original-source'))"
+        ),
         {"sets": json.dumps(scopes)},
     )
     actual = {
         "product": pin.product,
         "member": pin.member,
         "subject": pin.subject,
-        "subject_definition":pin.subject_definition,
+        "subject_definition": pin.subject_definition,
         "original_source": pin.original_source,
         "analyzed_scope": {"page": 1},
         "meaning_body": ["mapping", []],
@@ -380,7 +390,9 @@ def test_native_source_set_authenticates_exact_original_pins(binding_native_conn
     forged["inputs"][0]["source_reference"] = "0" * 64
     with pytest.raises(DBAPIError, match="semantic reference"):
         binding_native_connection.execute(
-            text("SELECT ops.ddo_validate_source_sets(CAST(:sets AS jsonb),'project',jsonb_build_object('original-occurrence','original-source'))"),
+            text(
+                "SELECT ops.ddo_validate_source_sets(CAST(:sets AS jsonb),'project',jsonb_build_object('original-occurrence','original-source'))"
+            ),
             {"sets": json.dumps(forged)},
         )
 
@@ -430,7 +442,7 @@ def test_native_qualified_context_population_uses_whole_header_context(binding_n
         {
             "project_id": "project",
             "subject": "same-local",
-            "subject_definition":"document",
+            "subject_definition": "document",
             "original_source": "source",
             "analyzed_scope": {"page": page},
         }
@@ -567,11 +579,19 @@ def test_native_semantic_source_set_matches_exact_product_member_context(binding
     connection = binding_native_connection
     entry = SourceSetEntry.from_semantic_source(
         DataProductMemberReference(DataProductReference("product:foreign"), "member:one"),
-        context=SubjectContext("project", "subject:foreign", "source:foreign", b'{"page":2}', subject_definition="original-occurrence"),
+        context=SubjectContext(
+            "project",
+            "subject:foreign",
+            "source:foreign",
+            b'{"page":2}',
+            subject_definition="original-occurrence",
+        ),
     ).record()
     sets = {"selected": [entry]}
     connection.execute(
-        text("SELECT ops.ddo_validate_source_sets(CAST(:sets AS jsonb),'project',jsonb_build_object('original-occurrence','original-source'))"),
+        text(
+            "SELECT ops.ddo_validate_source_sets(CAST(:sets AS jsonb),'project',jsonb_build_object('original-occurrence','original-source'))"
+        ),
         {"sets": json.dumps(sets)},
     )
     role = {"subject_target": "source-set", "support": {"source_set": "selected"}}
@@ -579,7 +599,7 @@ def test_native_semantic_source_set_matches_exact_product_member_context(binding
         "product": entry["product"],
         "member": entry["member"],
         "subject": entry["subject"],
-        "subject_definition":entry["subject_definition"],
+        "subject_definition": entry["subject_definition"],
         "original_source": entry["original_source"],
         "analyzed_scope": entry["analyzed_scope"],
         "meaning_body": ["mapping", []],
@@ -654,45 +674,131 @@ def test_native_input_ledger_slots_are_dense_without_rewriting_source_positions(
     } == {2, 5}
 
 
-def test_project_source_scope_is_checked_by_definition_and_has_real_trust_scope(binding_native_connection):
+def test_project_source_scope_is_checked_by_definition_and_has_real_trust_scope(
+    binding_native_connection,
+):
     from corpus_structure.semantic.data_operation_subjects import subject_scope_values
-    connection=binding_native_connection
+
+    connection = binding_native_connection
     for mode in subject_scope_values():
-        scopes=json.dumps({"semantic:subject":mode})
-        connection.execute(text("SELECT ops.ddo_require_subject_source(CAST(:scopes AS jsonb),'semantic:subject','document:one')"),dict(scopes=scopes))
-        if mode=="project":
-            connection.execute(text("SELECT ops.ddo_require_subject_source(CAST(:scopes AS jsonb),'semantic:subject',NULL)"),dict(scopes=scopes))
+        scopes = json.dumps({"semantic:subject": mode})
+        connection.execute(
+            text(
+                "SELECT ops.ddo_require_subject_source(CAST(:scopes AS jsonb),'semantic:subject','document:one')"
+            ),
+            dict(scopes=scopes),
+        )
+        if mode == "project":
+            connection.execute(
+                text(
+                    "SELECT ops.ddo_require_subject_source(CAST(:scopes AS jsonb),'semantic:subject',NULL)"
+                ),
+                dict(scopes=scopes),
+            )
         else:
-            with pytest.raises(DBAPIError,match="checked project"),connection.begin_nested():
-                connection.execute(text("SELECT ops.ddo_require_subject_source(CAST(:scopes AS jsonb),'semantic:subject',NULL)"),dict(scopes=scopes))
-    for scopes,subject,source in [({"project":"original-source"},"project",None),({"subject":"unknown"},"subject","source"),({"subject":"project"},"missing",None),({"subject":"project"},"subject","")]:
-        with pytest.raises(DBAPIError),connection.begin_nested():
-            connection.execute(text("SELECT ops.ddo_require_subject_source(CAST(:scopes AS jsonb),:subject,:source)"),dict(scopes=json.dumps(scopes),subject=subject,source=source))
-    actual=connection.execute(text("SELECT ops.ddo_scope('project:A',NULL),ops.ddo_scope('project:B',NULL),ops.ddo_scope('project:A','document:A')")).one()
+            with pytest.raises(DBAPIError, match="checked project"), connection.begin_nested():
+                connection.execute(
+                    text(
+                        "SELECT ops.ddo_require_subject_source(CAST(:scopes AS jsonb),'semantic:subject',NULL)"
+                    ),
+                    dict(scopes=scopes),
+                )
+    for scopes, subject, source in [
+        ({"project": "original-source"}, "project", None),
+        ({"subject": "unknown"}, "subject", "source"),
+        ({"subject": "project"}, "missing", None),
+        ({"subject": "project"}, "subject", ""),
+    ]:
+        with pytest.raises(DBAPIError), connection.begin_nested():
+            connection.execute(
+                text(
+                    "SELECT ops.ddo_require_subject_source(CAST(:scopes AS jsonb),:subject,:source)"
+                ),
+                dict(scopes=json.dumps(scopes), subject=subject, source=source),
+            )
+    actual = connection.execute(
+        text(
+            "SELECT ops.ddo_scope('project:A',NULL),ops.ddo_scope('project:B',NULL),ops.ddo_scope('project:A','document:A')"
+        )
+    ).one()
     assert actual[0].startswith("project:") and actual[2].startswith("source:")
-    assert len(set(actual))==3
+    assert len(set(actual)) == 3
 
 
 def test_explicit_no_source_is_not_a_source_role_wildcard(binding_native_connection):
-    connection=binding_native_connection
-    query=text("SELECT ops.ddo_binding_source(CAST(:role AS jsonb),CAST(:row AS jsonb),NULL,CAST(:sets AS jsonb))")
-    def matches(row,role=None,sets=None):
-        return connection.scalar(query,dict(role=json.dumps(role or {"support":{}}),row=json.dumps(row),sets=json.dumps(sets or {})))
-    assert matches({"original_source":None}) is True
-    assert matches({"original_source":"document:one"}) is False
-    entry=dict(project_id="project",subject="view",subject_definition="original-occurrence",original_source="document:one",analyzed_scope={},
-        product="product:source",member=None,source_reference="product:source",reference={"product_id":"product:source"})
-    row={key:value for key,value in entry.items() if key not in {"project_id","source_reference","reference"}}
-    assert matches(row,{"support":{"source_set":"chosen"}},{"chosen":[entry]}) is True
-    assert matches(dict(row,product="other"),{"support":{"source_set":"chosen"}},{"chosen":[entry]}) is False
-
-
-def test_native_explicit_empty_source_set_is_valid_and_never_matches_a_row(binding_native_connection):
     connection = binding_native_connection
-    connection.execute(text("SELECT ops.ddo_validate_source_sets('{\"selected\":[]}'::jsonb,'project','{}'::jsonb)"))
-    assert connection.scalar(text("SELECT ops.ddo_binding_source(CAST(:role AS jsonb),CAST(:row AS jsonb),NULL,'{\"selected\":[]}'::jsonb)"), {
-        "role": json.dumps({"support": {"source_set": "selected"}}),
-        "row": json.dumps({"product": "otherwise-eligible", "member": None, "subject": "source", "subject_definition": "source-owner", "original_source": None, "analyzed_scope": {}}),
-    }) is False
+    query = text(
+        "SELECT ops.ddo_binding_source(CAST(:role AS jsonb),CAST(:row AS jsonb),NULL,CAST(:sets AS jsonb))"
+    )
+
+    def matches(row, role=None, sets=None):
+        return connection.scalar(
+            query,
+            dict(
+                role=json.dumps(role or {"support": {}}),
+                row=json.dumps(row),
+                sets=json.dumps(sets or {}),
+            ),
+        )
+
+    assert matches({"original_source": None}) is True
+    assert matches({"original_source": "document:one"}) is False
+    entry = dict(
+        project_id="project",
+        subject="view",
+        subject_definition="original-occurrence",
+        original_source="document:one",
+        analyzed_scope={},
+        product="product:source",
+        member=None,
+        source_reference="product:source",
+        reference={"product_id": "product:source"},
+    )
+    row = {
+        key: value
+        for key, value in entry.items()
+        if key not in {"project_id", "source_reference", "reference"}
+    }
+    assert matches(row, {"support": {"source_set": "chosen"}}, {"chosen": [entry]}) is True
+    assert (
+        matches(
+            dict(row, product="other"), {"support": {"source_set": "chosen"}}, {"chosen": [entry]}
+        )
+        is False
+    )
+
+
+def test_native_explicit_empty_source_set_is_valid_and_never_matches_a_row(
+    binding_native_connection,
+):
+    connection = binding_native_connection
+    connection.execute(
+        text(
+            "SELECT ops.ddo_validate_source_sets('{\"selected\":[]}'::jsonb,'project','{}'::jsonb)"
+        )
+    )
+    assert (
+        connection.scalar(
+            text(
+                "SELECT ops.ddo_binding_source(CAST(:role AS jsonb),CAST(:row AS jsonb),NULL,'{\"selected\":[]}'::jsonb)"
+            ),
+            {
+                "role": json.dumps({"support": {"source_set": "selected"}}),
+                "row": json.dumps(
+                    {
+                        "product": "otherwise-eligible",
+                        "member": None,
+                        "subject": "source",
+                        "subject_definition": "source-owner",
+                        "original_source": None,
+                        "analyzed_scope": {},
+                    }
+                ),
+            },
+        )
+        is False
+    )
     with pytest.raises(DBAPIError, match="explicit name"):
-        connection.execute(text("SELECT ops.ddo_validate_source_sets('{\"\":[]}'::jsonb,'project','{}'::jsonb)"))
+        connection.execute(
+            text("SELECT ops.ddo_validate_source_sets('{\"\":[]}'::jsonb,'project','{}'::jsonb)")
+        )

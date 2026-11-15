@@ -64,7 +64,12 @@ def native_admission_sql(
     target_metadata = metadata if target_metadata is None else target_metadata
     descriptor = _admission_descriptor(base_admission)
     descriptor.update(current_admission_fields(inputs, target_metadata=target_metadata))
-    for obsolete in ("supported_effects", "supported_effect_versions", "parsing_adapters", "execution_abi"):
+    for obsolete in (
+        "supported_effects",
+        "supported_effect_versions",
+        "parsing_adapters",
+        "execution_abi",
+    ):
         descriptor.pop(obsolete, None)
     descriptor.pop("base_derived_protocol", None)
     descriptor.pop("parsing_relationship_profiles", None)

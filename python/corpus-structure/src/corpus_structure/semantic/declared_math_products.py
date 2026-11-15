@@ -27,9 +27,9 @@ from .data_operation_model import MODEL_VERSION, ResolvedRoleBinding
 from .declared_record_sources import DeclaredNativeFrameSource
 from .declared_structural_references import DeclaredStructuralSource
 from .identity import canonical_bytes
+from .python_module_projection import admitted_operation_module_meaning
 from .structural_products import DeclaredStructuralInputPin as DeclaredMathInput
 from .types import PreparedRelease, SourceArtifact
-from .python_module_projection import admitted_operation_module_meaning
 
 NAMESPACE = "urn:corpus:math:"
 _ASSET = "math/declared-profile"
@@ -144,7 +144,11 @@ def math_profile_assets(options: DeclaredMathOptions) -> SourceArtifact:
                 "algorithms": [
                     (
                         name,
-                        (admitted_operation_module_meaning((root / name).read_bytes()).decode() if name in ('methods/math/declared.py',) else _normalized_math_source((root / name).read_bytes())),
+                        (
+                            admitted_operation_module_meaning((root / name).read_bytes()).decode()
+                            if name in ("methods/math/declared.py",)
+                            else _normalized_math_source((root / name).read_bytes())
+                        ),
                     )
                     for name in _PATHS
                 ],
@@ -516,15 +520,17 @@ class MathCallPlan:
             check_active=check_active,
         )
         captured = math_operation_sources(self.options)
-        return (yield from self.port.plan_cpu(
-            math_kernel,
-            bound,
-            captured,
-            prepared_release_id=self.prepared.release_id,
-            verify=self.verify,
-            execution_owner=execution_owner,
-            check_active=check_active,
-        ))
+        return (
+            yield from self.port.plan_cpu(
+                math_kernel,
+                bound,
+                captured,
+                prepared_release_id=self.prepared.release_id,
+                verify=self.verify,
+                execution_owner=execution_owner,
+                check_active=check_active,
+            )
+        )
 
 
 def resolve_math_port(

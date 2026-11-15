@@ -398,7 +398,9 @@ def test_frozen_head_witness_preserves_its_explicit_authoring_provenance():
 
     provenance = recorded_authoring_provenance(head.content.decode())
     assert provenance.model_id == recorded["model_id"]
-    assert [{"name": name, "sha256": digest} for name, digest in provenance.inputs] == recorded["inputs"]
+    assert [{"name": name, "sha256": digest} for name, digest in provenance.inputs] == recorded[
+        "inputs"
+    ]
 
 
 def test_current_context_source_and_identity_helper_changes_are_visible(monkeypatch):
@@ -425,8 +427,6 @@ def test_current_context_source_and_identity_helper_changes_are_visible(monkeypa
         before["ops.record_integrated_source_context"]
         != after["ops.record_integrated_source_context"]
     )
-
-
 
 
 @pytest.mark.parametrize(

@@ -166,8 +166,6 @@ def test_archived_shared_helper_occurrences_are_unioned_once(monkeypatch):
     assert single.occurrences and single.occurrences == repeated.occurrences
 
 
-
-
 def test_assessment_roots_have_an_explicit_request_bound():
     from corpus_structure.semantic.graph_inspection import GraphAssessedMember
 

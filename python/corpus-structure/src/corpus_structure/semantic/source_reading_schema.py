@@ -8,7 +8,12 @@ from linkml_runtime.dumpers import json_dumper
 from .types import PreparationProfile, SourceArtifact, SourceBundle
 
 _NAMESPACE = "https://corpus-structure.dev/semantic/source-reading/"
-from .rich_record_readings import READING_CLASSES as _FAMILIES, READING_VALUE_FIELDS as _VALUE_FIELDS
+from .rich_record_readings import (
+    READING_CLASSES as _FAMILIES,
+)
+from .rich_record_readings import (
+    READING_VALUE_FIELDS as _VALUE_FIELDS,
+)
 
 _MODULE = "source-readings"
 _ROOT = "source-reading-root"
@@ -168,4 +173,3 @@ def source_reading_inputs(bundle: SourceBundle, *, require_families: bool = True
             ),
         ),
     )
-

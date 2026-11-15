@@ -8,9 +8,9 @@ import pytest
 from pydantic import BaseModel, ConfigDict
 
 from corpus_structure.semantic.data_operation_compilation import compile_data_operations
+from corpus_structure.semantic.data_operation_json import DdoJsonValue, json_loads
 from corpus_structure.semantic.data_operation_member_contracts import derive_member_kinds
 from corpus_structure.semantic.data_operation_model import MODEL_VERSION
-from corpus_structure.semantic.data_operation_json import DdoJsonValue, json_loads
 from corpus_structure.semantic.data_operation_ports import PortRefusal, project_product_members
 from corpus_structure.semantic.data_operation_storage import data_operation_definition_projection
 from corpus_structure.semantic.identity import canonical_bytes
@@ -60,46 +60,87 @@ PREFIX = "urn:current-rich:"
 
 
 def captured_model(change=lambda records: None):
-    records = json.loads(canonical_bytes(nominal_schema_kinds(
-        Container.model_json_schema(), namespace=PREFIX, root_name="Container"
-    )))
+    records = json.loads(
+        canonical_bytes(
+            nominal_schema_kinds(
+                Container.model_json_schema(), namespace=PREFIX, root_name="Container"
+            )
+        )
+    )
     change(records)
-    operation = contract(subject="knowledge-universe", subject_definition={
-        "id": "knowledge-universe", "identifier_kind": "string", "scope": "project"
-    })
+    operation = contract(
+        subject="knowledge-universe",
+        subject_definition={
+            "id": "knowledge-universe",
+            "identifier_kind": "string",
+            "scope": "project",
+        },
+    )
     operation["roles"][1]["kind"] = PREFIX + "Container"
-    source = SourceArtifact("rich-kinds.json", canonical_bytes({"version": MODEL_VERSION, "kinds": records}))
+    source = SourceArtifact(
+        "rich-kinds.json", canonical_bytes({"version": MODEL_VERSION, "kinds": records})
+    )
     return compile_data_operations(declarations=(*declarations(operation), source))
 
 
 def kind_contract(model, name):
-    return next(item.key for item in model.identities if item.domain == "kind" and item.owner == PREFIX + name)
+    return next(
+        item.key
+        for item in model.identities
+        if item.domain == "kind" and item.owner == PREFIX + name
+    )
 
 
 def value(model):
-    return {"members": [{
-        "member_id": "fact:original", "kind_contract": kind_contract(model, "Fact"),
-        "context": {"subject": "project-universe", "subject_definition": "knowledge-universe",
-                    "original_source": None, "analyzed_scope": "selected-knowledge"},
-        "body": {"member_type": "fact", "predicate": "actual:predicate"},
-    }, {
-        "member_id": "finding:original", "kind_contract": kind_contract(model, "Finding"),
-        "context": {"subject": "project-universe", "subject_definition": "knowledge-universe",
-                    "original_source": None, "analyzed_scope": "selected-knowledge"},
-        "body": {"member_type": "finding", "reason": "scientific comparison undecided"},
-    }]}
+    return {
+        "members": [
+            {
+                "member_id": "fact:original",
+                "kind_contract": kind_contract(model, "Fact"),
+                "context": {
+                    "subject": "project-universe",
+                    "subject_definition": "knowledge-universe",
+                    "original_source": None,
+                    "analyzed_scope": "selected-knowledge",
+                },
+                "body": {"member_type": "fact", "predicate": "actual:predicate"},
+            },
+            {
+                "member_id": "finding:original",
+                "kind_contract": kind_contract(model, "Finding"),
+                "context": {
+                    "subject": "project-universe",
+                    "subject_definition": "knowledge-universe",
+                    "original_source": None,
+                    "analyzed_scope": "selected-knowledge",
+                },
+                "body": {"member_type": "finding", "reason": "scientific comparison undecided"},
+            },
+        ]
+    }
 
 
 def test_closed_nominal_union_projects_each_actual_kind_with_explicit_null_source():
     model = captured_model()
     assert derive_member_kinds(model, PREFIX + "Container") == (PREFIX + "Fact", PREFIX + "Finding")
-    projected = tuple(json.loads(item) for item in project_product_members(model, PREFIX + "Container", value(model)))
+    projected = tuple(
+        json.loads(item)
+        for item in project_product_members(model, PREFIX + "Container", value(model))
+    )
     assert [item["member_id"] for item in projected] == ["fact:original", "finding:original"]
-    assert all("original_source" in item["context"] and item["context"]["original_source"] is None for item in projected)
-    assert projected[0]["body"] == ["mapping", [["member_type", ["string", "fact"]], ["predicate", ["string", "actual:predicate"]]]]
+    assert all(
+        "original_source" in item["context"] and item["context"]["original_source"] is None
+        for item in projected
+    )
+    assert projected[0]["body"] == [
+        "mapping",
+        [["member_type", ["string", "fact"]], ["predicate", ["string", "actual:predicate"]]],
+    ]
 
 
-@pytest.mark.parametrize("defect", ["different-body", "extra-body-field", "missing-source", "unadmitted-subject"])
+@pytest.mark.parametrize(
+    "defect", ["different-body", "extra-body-field", "missing-source", "unadmitted-subject"]
+)
 def test_closed_nominal_packet_refuses_relabelled_or_unchecked_member_meaning(defect):
     model = captured_model()
     actual = value(model)
@@ -135,12 +176,15 @@ def test_member_derivation_refuses_open_ambiguous_or_generic_body_authority(defe
                     item["properties"]["body"] = {}
                 for child in item.values():
                     walk(child)
+
         walk(records)
         from corpus_structure.semantic.data_operation_wire import schema_closure
+
         for record in records:
             schema = record["json_schema"]
             definitions = schema.pop("definitions", {})
             record["json_schema"] = schema_closure(schema, definitions)
+
     model = captured_model(change)
     with pytest.raises(PreparationError, match="closed nominal|disjoint|required|generic JSON"):
         derive_member_kinds(model, PREFIX + "Container")
@@ -148,12 +192,25 @@ def test_member_derivation_refuses_open_ambiguous_or_generic_body_authority(defe
 
 def test_native_definition_projection_uses_exact_nominal_member_contracts():
     model = captured_model()
-    projection = json.loads(data_operation_definition_projection(release_inputs()[2], model, native_digest="test-native-cut"))
+    projection = json.loads(
+        data_operation_definition_projection(
+            release_inputs()[2], model, native_digest="test-native-cut"
+        )
+    )
     kinds = {item["kind"]: item for item in projection["kinds"]}
     container = kinds[PREFIX + "Container"]
-    assert container["member_contracts"] == [kind_contract(model, "Fact"), kind_contract(model, "Finding")]
+    assert container["member_contracts"] == [
+        kind_contract(model, "Fact"),
+        kind_contract(model, "Finding"),
+    ]
     from corpus_structure.semantic.data_operation_wire import validate_wire_schema
-    assert validate_wire_schema(container["member_schema"], value(model)["members"][0]["body"])["member_type"] == "fact"
+
+    assert (
+        validate_wire_schema(container["member_schema"], value(model)["members"][0]["body"])[
+            "member_type"
+        ]
+        == "fact"
+    )
     for name in ("Fact", "Finding"):
         assert kinds[PREFIX + name]["member_contracts"] == []
 

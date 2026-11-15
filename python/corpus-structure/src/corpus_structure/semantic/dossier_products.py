@@ -17,9 +17,9 @@ from .declared_structural_references import (
     DeclaredStructuralRef,
 )
 from .identity import canonical_bytes
+from .python_module_projection import admitted_operation_module_meaning
 from .structural_base import StructuralValue
 from .types import PreparedRelease, SourceArtifact
-from .python_module_projection import admitted_operation_module_meaning
 
 _ROOT = Path(__file__).parents[1]
 _PATHS = (
@@ -76,7 +76,17 @@ def dossier_profile_assets():
         canonical_bytes(
             {
                 "version": "declared-dossier-assembly-v1",
-                "files": [(name, (admitted_operation_module_meaning((_ROOT / name).read_bytes()).hex() if name in ('methods/dossier_declared.py',) else (_ROOT / name).read_bytes().hex())) for name in _PATHS],
+                "files": [
+                    (
+                        name,
+                        (
+                            admitted_operation_module_meaning((_ROOT / name).read_bytes()).hex()
+                            if name in ("methods/dossier_declared.py",)
+                            else (_ROOT / name).read_bytes().hex()
+                        ),
+                    )
+                    for name in _PATHS
+                ],
             }
         ),
     )
@@ -369,7 +379,13 @@ class PreparedDossierInputs:
             frame = frames[raw["source_pin"]["source"]]
             source_context = {
                 key: raw["source_pin"][key]
-                for key in ("project_id", "subject", "subject_definition", "original_source", "analyzed_scope_meaning")
+                for key in (
+                    "project_id",
+                    "subject",
+                    "subject_definition",
+                    "original_source",
+                    "analyzed_scope_meaning",
+                )
             }
             reference_context = DeclaredContributionRef.from_bound(
                 member, project=self.context.project_id, contribution_id=selected.contribution_id
@@ -537,15 +553,17 @@ class DossierCallPlan:
             check_active=check_active,
         )
         captured = dossier_operation_sources()
-        return (yield from self.port.plan_cpu(
-            dossier_kernel,
-            bound,
-            captured,
-            prepared_release_id=self.prepared.release_id,
-            verify=self.verify,
-            execution_owner=execution_owner,
-            check_active=check_active,
-        ))
+        return (
+            yield from self.port.plan_cpu(
+                dossier_kernel,
+                bound,
+                captured,
+                prepared_release_id=self.prepared.release_id,
+                verify=self.verify,
+                execution_owner=execution_owner,
+                check_active=check_active,
+            )
+        )
 
 
 def resolve_dossier_port(prepared, model, operation, *, identity, authorize, custody, sources):

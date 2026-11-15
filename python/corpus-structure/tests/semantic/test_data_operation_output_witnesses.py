@@ -1,6 +1,5 @@
 """Independent grouped-witness expectations, including cross-member forgery."""
 
-from dataclasses import replace
 from typing import Any
 
 import pytest
@@ -180,8 +179,6 @@ def test_compiler_refuses_untyped_or_ambiguous_witness_mapping(mutation):
         witness["comparisons"][0]["encoding"] = "json"
     with pytest.raises(PreparationError):
         compiled(witness)
-
-
 
 
 def test_missing_body_field_is_not_an_implicit_null_witness():

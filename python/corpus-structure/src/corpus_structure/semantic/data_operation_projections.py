@@ -224,12 +224,21 @@ def _scope_projection(metadata, nodes, project, direct_sources, *, domain_depend
     ordinary = select(scope.label("scope"))
     if not domain_dependencies:
         return ordinary.order_by(scope)
+
     def domain_scopes(function, alias):
-        scopes = function(episodes.c.id).table_valued(column("scope", Text())).render_derived(name=alias)
-        return (select(scopes.c.scope).select_from(
-            nodes.join(episodes, and_(nodes.c.kind == "episode", episodes.c.id == nodes.c.id))
-            .join(requests, requests.c.id == episodes.c.request_id).join(scopes, literal(True))
-        ).where(requests.c.project_id == project))
+        scopes = (
+            function(episodes.c.id).table_valued(column("scope", Text())).render_derived(name=alias)
+        )
+        return (
+            select(scopes.c.scope)
+            .select_from(
+                nodes.join(episodes, and_(nodes.c.kind == "episode", episodes.c.id == nodes.c.id))
+                .join(requests, requests.c.id == episodes.c.request_id)
+                .join(scopes, literal(True))
+            )
+            .where(requests.c.project_id == project)
+        )
+
     return union(
         ordinary,
         domain_scopes(func.ops.ddo_record_grade_dependency_scopes, "record_grade_scope"),
@@ -1296,10 +1305,18 @@ def _selected_support_output_rows(metadata, *, purpose="read", one_use=True):
     )
     return (
         select(episodes.c.id.label("derivation_id"), outputs.c.product_id)
-        .select_from(episodes.join(outputs, outputs.c.derivation_id == episodes.c.id).join(products, products.c.id == outputs.c.product_id))
-        .where(reached, outputs.c.member_id.is_(None),
-               products.c.project_id == _var("d.project_id", Text),
-               func.ops.ddo_support_valid(episodes.c.id, boundary), *access)
+        .select_from(
+            episodes.join(outputs, outputs.c.derivation_id == episodes.c.id).join(
+                products, products.c.id == outputs.c.product_id
+            )
+        )
+        .where(
+            reached,
+            outputs.c.member_id.is_(None),
+            products.c.project_id == _var("d.project_id", Text),
+            func.ops.ddo_support_valid(episodes.c.id, boundary),
+            *access,
+        )
         .distinct()
     )
 
@@ -1307,10 +1324,16 @@ def _selected_support_output_rows(metadata, *, purpose="read", one_use=True):
 def selected_support_output(metadata, *, purpose="read"):
     """Prove one whole output in an explicit selected use's current support closure."""
     rows = _selected_support_output_rows(metadata, purpose=purpose).cte("selected_whole_outputs")
-    return select(exists(select(1).select_from(rows).where(
-        rows.c.derivation_id == _var("p_derivation", Text),
-        rows.c.product_id == _var("p_product", Text),
-    )))
+    return select(
+        exists(
+            select(1)
+            .select_from(rows)
+            .where(
+                rows.c.derivation_id == _var("p_derivation", Text),
+                rows.c.product_id == _var("p_product", Text),
+            )
+        )
+    )
 
 
 def record_grade_selected_outputs(metadata):

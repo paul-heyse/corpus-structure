@@ -12,7 +12,10 @@ from corpus_structure.semantic.analysis_contracts import (
     acquire_analysis_context_profile,
     prepare_interpretation_context,
 )
-from corpus_structure.semantic.analysis_policies import analysis_policy_sources, compile_analysis_policies
+from corpus_structure.semantic.analysis_policies import (
+    analysis_policy_sources,
+    compile_analysis_policies,
+)
 
 
 def test_standalone_context_and_real_parser_do_not_import_a_legacy_catalog(monkeypatch):
@@ -31,7 +34,9 @@ def test_standalone_context_and_real_parser_do_not_import_a_legacy_catalog(monke
 def test_explicit_policy_contexts_do_not_reuse_or_displace_each_others_results(monkeypatch):
     monkeypatch.setattr(grammar, "_MEMO", OrderedDict())
     baseline = acquire_analysis_context_profile()
-    sources = tuple(source for source in analysis_policy_sources() if source.name.startswith("analysis/"))
+    sources = tuple(
+        source for source in analysis_policy_sources() if source.name.startswith("analysis/")
+    )
     changed = []
     for source in sources:
         if source.name == "analysis/policy.yaml":

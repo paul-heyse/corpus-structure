@@ -45,7 +45,10 @@ def stage_native_sql(*, target_metadata=None, pdf_sources=None) -> str:
     if target_metadata is not None and pdf_sources is None:
         from .pdf_domain import pdf_domain_sources
 
-        pdf_sources = pdf_domain_sources(physical_sources=target_metadata.info["physical_sources"], linkml_types=target_metadata.info["physical_linkml_types"])
+        pdf_sources = pdf_domain_sources(
+            physical_sources=target_metadata.info["physical_sources"],
+            linkml_types=target_metadata.info["physical_linkml_types"],
+        )
     sql = (
         pdf_domain_native_sql(sources=pdf_sources)
         + """

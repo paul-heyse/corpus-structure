@@ -13,7 +13,6 @@ from sqlalchemy.exc import DBAPIError
 from semantic.data_operation_kernel_support import STORAGE
 
 
-
 def test_model_preview_delivers_preparation_error_when_report_schema_is_unavailable(
     cli, monkeypatch, tmp_path
 ):
@@ -43,24 +42,55 @@ def test_model_preview_delivers_preparation_error_when_report_schema_is_unavaila
 
 def current_failure_command(command, directory):
     """Use current request DTOs; every taxonomy case must reach engine acquisition."""
-    from corpus_structure.evaluate.selected_references import SelectedReferenceEvaluationRequest, ReferenceApplicability
+    from corpus_structure.evaluate.selected_references import (
+        ReferenceApplicability,
+        SelectedReferenceEvaluationRequest,
+    )
     from corpus_structure.orchestrate.source_request import SourceRunRequest
-    from corpus_structure.semantic.data_operation_service import NativeDemandRequest, DemandRoot
     from corpus_structure.semantic.data_operation_json import json_bytes
+    from corpus_structure.semantic.data_operation_service import DemandRoot, NativeDemandRequest
 
     if command == "golden":
-        request = NativeDemandRequest(project_id="project:failure", release_id="release:failure", runtime_id="runtime:failure",
-            roots=(DemandRoot(subject="subject:failure", original_source="original:failure", analyzed_scope={}),),
-            targets=("reference.snapshot/declared",), execution_profile="execution:failure")
+        request = NativeDemandRequest(
+            project_id="project:failure",
+            release_id="release:failure",
+            runtime_id="runtime:failure",
+            roots=(
+                DemandRoot(
+                    subject="subject:failure", original_source="original:failure", analyzed_scope={}
+                ),
+            ),
+            targets=("reference.snapshot/declared",),
+            execution_profile="execution:failure",
+        )
         route = ("golden", "author")
     elif command == "eval":
-        request = SelectedReferenceEvaluationRequest(project_id="project:failure", reference_demand_id="demand:reference",
-            reference_product_id="product:reference", prediction_demand_id="demand:prediction", prediction_product_id="product:prediction",
-            assignments={}, applicability=ReferenceApplicability(reference_source_release_id="release:source", reference_source_cut_id="cut:source",
-                prediction_release_id="release:prediction", original_source="original:failure", projection="projection:failure", selectors=(), basis="independently selected scope"))
+        request = SelectedReferenceEvaluationRequest(
+            project_id="project:failure",
+            reference_demand_id="demand:reference",
+            reference_product_id="product:reference",
+            prediction_demand_id="demand:prediction",
+            prediction_product_id="product:prediction",
+            assignments={},
+            applicability=ReferenceApplicability(
+                reference_source_release_id="release:source",
+                reference_source_cut_id="cut:source",
+                prediction_release_id="release:prediction",
+                original_source="original:failure",
+                projection="projection:failure",
+                selectors=(),
+                basis="independently selected scope",
+            ),
+        )
         route = ("eval", "run")
     else:
-        request = SourceRunRequest(project_id="project:failure", release_id="release:failure", runtime_id="runtime:failure", domain="toy", documents=("document:failure",))
+        request = SourceRunRequest(
+            project_id="project:failure",
+            release_id="release:failure",
+            runtime_id="runtime:failure",
+            domain="toy",
+            documents=("document:failure",),
+        )
         route = ("regenerate", "--source-root", str(directory))
     path = directory / (command + ".json")
     path.write_bytes(json_bytes(request.model_dump(mode="python")))
@@ -73,9 +103,9 @@ def current_failure_command(command, directory):
 )
 def test_actual_command_failure_classification(cli, monkeypatch, tmp_path, command, kind):
     from corpus_structure.core.db.store import FENCING_CONSTRAINT
-    from corpus_structure.semantic import runtime
     from corpus_structure.evaluate.selected_references import SelectedReferenceRefusal
     from corpus_structure.orchestrate.source_request import SourceRequestError
+    from corpus_structure.semantic import runtime
 
     if kind == "refusal":
         failure = (
@@ -85,6 +115,7 @@ def test_actual_command_failure_classification(cli, monkeypatch, tmp_path, comma
         )
     elif kind == "conflict":
         from corpus_structure.semantic.refusals import OperationConflict
+
         failure = OperationConflict("native fence changed")
     elif kind == "serialization":
         failure = DBAPIError(None, None, psycopg.errors.SerializationFailure("serialization"))
@@ -105,6 +136,7 @@ def test_actual_command_failure_classification(cli, monkeypatch, tmp_path, comma
         failure = KeyboardInterrupt()
 
     acquired = []
+
     @contextmanager
     def unavailable(*args, **kwargs):
         acquired.append(kwargs["purpose"])
@@ -115,7 +147,10 @@ def test_actual_command_failure_classification(cli, monkeypatch, tmp_path, comma
     monkeypatch.setenv("CORPUS_CI_RESULTS", str(tmp_path / "managed"))
     args = current_failure_command(command, tmp_path)
     result = cli(*args)
-    assert acquired == ["write" if command == "regenerate" else "evaluate"], (result.output, result.exception)
+    assert acquired == ["write" if command == "regenerate" else "evaluate"], (
+        result.output,
+        result.exception,
+    )
     assert result.exit_code != 0
     if kind in {"bug", "key_bug", "cancel"}:
         assert "refused:" not in result.output
@@ -143,8 +178,14 @@ def test_regenerate_refuses_another_workflow_before_engine_acquisition(cli, tmp_
 
     def forbidden(*args, **kwargs):
         pytest.fail("incompatible source workflow must not acquire a database")
+
     monkeypatch.setattr(runtime, "open_runtime_engine", forbidden)
-    request = SourceRunRequest(project_id="project:failure", release_id="release:failure", runtime_id="runtime:failure", workflow="characterize")
+    request = SourceRunRequest(
+        project_id="project:failure",
+        release_id="release:failure",
+        runtime_id="runtime:failure",
+        workflow="characterize",
+    )
     path = tmp_path / "source.json"
     path.write_bytes(json_bytes(request.model_dump(mode="python")))
     result = cli("regenerate", "--source-root", str(tmp_path), "--request", str(path), "--json")
@@ -266,16 +307,40 @@ def test_schema_derive_existing_directory_refuses_before_prepare(cli, tmp_path):
 def test_actual_database_check_preserves_native_admission_diagnostic(cli, ddo_kernel):
     """Current reader checks actual admitted contracts; posture tampering still refuses."""
     from hashlib import sha256
+
     from sqlalchemy import text
+
+    from corpus_structure.semantic.native_definition_projection import (
+        read_native_definition_projection,
+    )
     from corpus_structure.settings import Settings
-    from corpus_structure.semantic.native_definition_projection import read_native_definition_projection
 
     kernel = ddo_kernel
     prepared = kernel.prepared
-    settings = Settings(database={"url": kernel.engine.url.set(drivername="postgresql").render_as_string(hide_password=False)})
+    settings = Settings(
+        database={
+            "url": kernel.engine.url.set(drivername="postgresql").render_as_string(
+                hide_password=False
+            )
+        }
+    )
     with kernel.purpose("read").begin() as connection:
-        assert connection.scalar(text("SELECT has_function_privilege(current_user,'sem.admit_data_operation_definitions(jsonb)','EXECUTE')")) is False
-        assert connection.scalar(text("SELECT has_table_privilege(current_user,'sem.data_operation_definition','SELECT')")) is False
+        assert (
+            connection.scalar(
+                text(
+                    "SELECT has_function_privilege(current_user,'sem.admit_data_operation_definitions(jsonb)','EXECUTE')"
+                )
+            )
+            is False
+        )
+        assert (
+            connection.scalar(
+                text(
+                    "SELECT has_table_privilege(current_user,'sem.data_operation_definition','SELECT')"
+                )
+            )
+            is False
+        )
     args = ("db", "check", "--release", prepared.release_id, "--json")
     checked = cli(*args, settings=lambda: settings)
     assert checked.exit_code == 0, checked.output
@@ -286,7 +351,9 @@ def test_actual_database_check_preserves_native_admission_diagnostic(cli, ddo_ke
     assert "execution_model_id" not in report
     try:
         with kernel.engine.begin() as connection:
-            connection.exec_driver_sql("GRANT EXECUTE ON FUNCTION ops.inspect_data_operation_release(jsonb) TO PUBLIC")
+            connection.exec_driver_sql(
+                "GRANT EXECUTE ON FUNCTION ops.inspect_data_operation_release(jsonb) TO PUBLIC"
+            )
         refused = cli(*args, settings=lambda: settings)
         assert refused.exit_code == 1, refused.output
         error = json.loads(refused.stdout)["error"]
@@ -294,7 +361,9 @@ def test_actual_database_check_preserves_native_admission_diagnostic(cli, ddo_ke
         assert "native execution deployment differs" in error["message"]
     finally:
         with kernel.engine.begin() as connection:
-            connection.exec_driver_sql("REVOKE EXECUTE ON FUNCTION ops.inspect_data_operation_release(jsonb) FROM PUBLIC")
+            connection.exec_driver_sql(
+                "REVOKE EXECUTE ON FUNCTION ops.inspect_data_operation_release(jsonb) FROM PUBLIC"
+            )
 
 
 @pytest.mark.parametrize("route", ["schema", "db_check"])
@@ -364,20 +433,34 @@ def test_actual_archive_query_failure_reaches_cli_unchanged(
         assert error["remediation"] == "inspect_failure"
 
 
-def test_current_reference_owner_types_explicit_refusal_without_wrapping_unknown_helper(monkeypatch):
+def test_current_reference_owner_types_explicit_refusal_without_wrapping_unknown_helper(
+    monkeypatch,
+):
     from corpus_structure.evaluate import selected_references
-    from corpus_structure.semantic.data_operation_service import NativeDemandRequest, DemandRoot
-    request = NativeDemandRequest(project_id="p", release_id="r", runtime_id="runtime",
+    from corpus_structure.semantic.data_operation_service import DemandRoot, NativeDemandRequest
+
+    request = NativeDemandRequest(
+        project_id="p",
+        release_id="r",
+        runtime_id="runtime",
         roots=(DemandRoot(subject="subject", original_source="original", analyzed_scope={}),),
-        targets=("unrelated",), execution_profile="execution")
+        targets=("unrelated",),
+        execution_profile="execution",
+    )
     with pytest.raises(selected_references.SelectedReferenceRefusal, match="dedicated snapshot"):
         selected_references.author_selected_references(object(), object(), request=request)
     failure = ValueError("unexpected implementation helper defect")
+
     def broken(prepared):
         raise failure
+
     monkeypatch.setattr(selected_references, "read_native_definition_projection", broken)
     with pytest.raises(ValueError) as caught:
-        selected_references.author_selected_references(object(), object(), request=request.model_copy(update={"targets": ("reference.snapshot/declared",)}))
+        selected_references.author_selected_references(
+            object(),
+            object(),
+            request=request.model_copy(update={"targets": ("reference.snapshot/declared",)}),
+        )
     assert caught.value is failure
 
 

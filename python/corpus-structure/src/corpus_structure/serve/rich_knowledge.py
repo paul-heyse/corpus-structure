@@ -52,13 +52,18 @@ def read_selected_rich_knowledge(
         raise ValueError("knowledge reads require an explicit selected product")
     scope = {"operation_id": "rich.admit", "product_ids": [product_id]}
     page = read_demand_result(
-        connection, demand_id, project_id=project_id, continuation=continuation,
-        cut=cut, limit=1, max_bytes=max_bytes, view="products", scope=scope,
+        connection,
+        demand_id,
+        project_id=project_id,
+        continuation=continuation,
+        cut=cut,
+        limit=1,
+        max_bytes=max_bytes,
+        view="products",
+        scope=scope,
     )
     native = page.record
-    obligations = {
-        item["obligation_id"]: item for item in native["obligations"]
-    }
+    obligations = {item["obligation_id"]: item for item in native["obligations"]}
     selected = []
     for use in native["uses"]:
         obligation = obligations[use["obligation_id"]]
@@ -75,27 +80,42 @@ def read_selected_rich_knowledge(
     if not use["derivation_id"]:
         raise ValueError("selected knowledge lacks its actual producing derivation")
     context = SubjectContext(
-        project_id, product["subject"], product["original_source"],
+        project_id,
+        product["subject"],
+        product["original_source"],
         json_bytes(product["analyzed_scope"]),
         subject_definition=product["subject_definition"],
     )
     reference = DdoRichSelectedMember(
-        product_id=product_id, member_id=None, kind_contract=product["kind_contract"],
-        support_references=(ComputationalSupportReference(
-            derivation_id=use["derivation_id"], admission_use_id=use["use_id"],
-        ),),
+        product_id=product_id,
+        member_id=None,
+        kind_contract=product["kind_contract"],
+        support_references=(
+            ComputationalSupportReference(
+                derivation_id=use["derivation_id"],
+                admission_use_id=use["use_id"],
+            ),
+        ),
     )
     prepared = load_release(connection, native["release_id"])
     model = bound_data_operation_model(prepared)
     proof = RichWholeInput(reference, decode_semantic_value(product["body"]))
     state = read_retained_rich_graph(
-        prepared, model, context=context, retained=proof,
-        inputs=(reference,), whole_inputs=(proof,),
+        prepared,
+        model,
+        context=context,
+        retained=proof,
+        inputs=(reference,),
+        whole_inputs=(proof,),
     )
     # Reacquiring this same read preserves visibility and rechecks current trust;
     # it never follows a latest result or substitutes a different admission use.
-    request = json_bytes({
-        "demand_id": demand_id, "read_id": native["read_id"],
-        "view": "products", "scope": scope,
-    })
+    request = json_bytes(
+        {
+            "demand_id": demand_id,
+            "read_id": native["read_id"],
+            "view": "products",
+            "scope": scope,
+        }
+    )
     return SelectedRichKnowledge(page.cut, request, reference, context, state)

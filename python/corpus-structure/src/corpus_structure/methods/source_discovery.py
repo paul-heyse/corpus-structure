@@ -13,9 +13,15 @@ class SelectedSourceViewsOperation:
         "id": "source.selected_views/discovery",
         "profile": "discovery",
         "subject": "original-document",
-        "subject_definition": {'id': 'original-document', 'identifier_kind': 'string', 'scope': 'original-document'},
-        "subject_definitions": [{"id": "original-source-view", "identifier_kind": "string", "scope": "original-source"}],
-        "discovery_relation": 'role-associated',
+        "subject_definition": {
+            "id": "original-document",
+            "identifier_kind": "string",
+            "scope": "original-document",
+        },
+        "subject_definitions": [
+            {"id": "original-source-view", "identifier_kind": "string", "scope": "original-source"}
+        ],
+        "discovery_relation": "role-associated",
         "context": ["original-source", "frozen-view-selection"],
         "entrypoints": ["run"],
         "roles": [
@@ -65,13 +71,19 @@ class SelectedSourceViewsOperation:
             },
         ],
         "parameters": {"complete": {"value_type": "boolean"}},
-        "applicability": [{'kind': 'documentation', 'text': 'native-admitted-original-and-exact-view-selection'}],
-        "invariants": [
-            {'kind': 'documentation', 'text': 'original-source-and-context-preserved'},
-            {'kind': 'documentation', 'text': 'no-recapture'},
-            {'kind': 'documentation', 'text': 'no-unexamined-universe-closure'},
+        "applicability": [
+            {"kind": "documentation", "text": "native-admitted-original-and-exact-view-selection"}
         ],
-        "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "frozen-selected-view-set"},
+        "invariants": [
+            {"kind": "documentation", "text": "original-source-and-context-preserved"},
+            {"kind": "documentation", "text": "no-recapture"},
+            {"kind": "documentation", "text": "no-unexamined-universe-closure"},
+        ],
+        "coverage": {
+            "binding": "self",
+            "result_owners": [{"kind": "implementation", "reference": "self"}],
+            "description": "frozen-selected-view-set",
+        },
         "outcomes": ["success", "failed"],
         "precision_description": "exact-original-source-addresses",
         "dependencies": [],

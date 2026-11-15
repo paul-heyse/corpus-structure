@@ -10,9 +10,9 @@ from typing import cast
 from corpus_structure.core.execution_policy import CharacterizationExecutionPolicy
 from corpus_structure.semantic.cpu_execution import CPUExecutionScope
 from corpus_structure.semantic.data_operation_compilation import compile_data_operations
-from semantic.data_operation_declaration_support import contract
 from corpus_structure.semantic.python_operation_sources import PythonSource, PythonSourceCollection
 from corpus_structure.semantic.types import PreparedRelease, SourceArtifact
+from semantic.data_operation_declaration_support import contract
 
 
 def kind(model, role):
@@ -28,12 +28,23 @@ def controlled_port_declaration():
         subject_definition={"id": "document", "identifier_kind": "string", "scope": "project"},
         context=["controlled-index-address"],
         behavior="controlled-original-callable-v1",
-        applicability=[], invariants=[],
+        applicability=[],
+        invariants=[],
         outcomes=["addressed", "invalid-index"],
         state_dimensions=[{"name": "completion", "values": ["pending", "success", "failed"]}],
         transitions=[
-            {"dimension": "completion", "before": "pending", "after": "success", "outcome": "addressed"},
-            {"dimension": "completion", "before": "pending", "after": "failed", "outcome": "invalid-index"},
+            {
+                "dimension": "completion",
+                "before": "pending",
+                "after": "success",
+                "outcome": "addressed",
+            },
+            {
+                "dimension": "completion",
+                "before": "pending",
+                "after": "failed",
+                "outcome": "invalid-index",
+            },
         ],
         binding={"operator": "scan", "roles": ["index"]},
     )
@@ -89,9 +100,16 @@ def captured(content: bytes | None = None):
         ORIGINAL_SUPPORT_REFERENCE_SCHEMA,
         original_support_reference_schema,
     )
-
-    from corpus_structure.semantic.data_operation_visual_read import SOURCE as VISUAL_SOURCE, visual_read_schema
-    from corpus_structure.semantic.record_policy_native import GRADE_SCHEMA_SOURCE, record_policy_grade_schema
+    from corpus_structure.semantic.data_operation_visual_read import (
+        SOURCE as VISUAL_SOURCE,
+    )
+    from corpus_structure.semantic.data_operation_visual_read import (
+        visual_read_schema,
+    )
+    from corpus_structure.semantic.record_policy_native import (
+        GRADE_SCHEMA_SOURCE,
+        record_policy_grade_schema,
+    )
 
     return (
         SourceArtifact(

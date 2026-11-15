@@ -3,11 +3,6 @@
 import os
 from hashlib import sha256
 from pathlib import Path
-from semantic.data_operation_kernel_support import CapturedKernelInputs, KernelRecipe
-
-from semantic.current_pdf_source_support import (
-    current_pdf_source_factory as current_pdf_source_factory, admit_current_target, current_consumer_request,
-)
 
 import pytest
 import yaml
@@ -30,6 +25,14 @@ from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.observations import source_python
 from corpus_structure.semantic.primary_operations import primary_operation_inputs
+from semantic.current_pdf_source_support import (
+    admit_current_target,
+    current_consumer_request,
+)
+from semantic.current_pdf_source_support import (
+    current_pdf_source_factory as current_pdf_source_factory,
+)
+from semantic.data_operation_kernel_support import CapturedKernelInputs, KernelRecipe
 
 ROOT = Path(__file__).resolve().parents[4]
 TEXT = "A dispatch token is a short identifier assigned to a submitted support request."
@@ -98,15 +101,25 @@ def test_actual_definition_demand_retains_provider_pair_and_exact_component_sour
     current_pdf_source_factory, tmp_path
 ):
     with current_pdf_source_factory((("text", TEXT, TEXT, None),)) as source:
-        kernel = admit_current_target(source, _captured_definition_recipe(Path(os.environ["CORPUS_PM2_NATIVE_TEST_ASSETS"])), tmp_path / "consumer")
+        kernel = admit_current_target(
+            source,
+            _captured_definition_recipe(Path(os.environ["CORPUS_PM2_NATIVE_TEST_ASSETS"])),
+            tmp_path / "consumer",
+        )
         clone = source.kernel.clone
         request = current_consumer_request(source, kernel, (COMPONENTS,), discover=True)
         frozen = request
         from corpus_structure.semantic.data_operation_service import create_native_demand
+
         with kernel.purpose("write").begin() as connection:
             registered = create_native_demand(connection, request, prepared=kernel.prepared)
-        result = execute_data_demand(kernel.purpose("write"), registered["demand_id"], source_root=ROOT,
-            admission_engine=kernel.purpose("admit"), database_capacity=6)
+        result = execute_data_demand(
+            kernel.purpose("write"),
+            registered["demand_id"],
+            source_root=ROOT,
+            admission_engine=kernel.purpose("admit"),
+            database_capacity=6,
+        )
         with clone.admin.begin() as connection:
             snapshot = read_data_demand(connection, result.demand_id, view="products")
             receipts_before_resume = connection.scalar(

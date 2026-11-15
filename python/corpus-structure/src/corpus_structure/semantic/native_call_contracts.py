@@ -62,5 +62,3 @@ class OperationCallBinding:
     batch: bool = False
     json_read: Literal["native", "json-text-v1"] = "native"
     backend: Literal["native", "core"] = "native"
-
-

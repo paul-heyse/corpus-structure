@@ -82,6 +82,7 @@ The [architecture map](../design/README.md) and its section owners own contracts
 | [ADR-0109](0109-ddo-current-domain-contracts.md) | Checked domain contracts and target-native adoption replace legacy compatibility | 2026-11-15 | [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed | ADR-0095 |
 | [ADR-0110](0110-evaluator-authorized-policy-disclosure.md) | Native policy authorization preserves protected support behind an explicit disclosure boundary | 2026-11-15 | [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
 | [ADR-0111](0111-contract-scoped-record-occurrences.md) | Source record occurrence identity follows its consumed family contract | 2026-11-15 | [§B1](../design/DESIGN.md#section-b1), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
+| [ADR-0112](0112-cpu-reply-correspondence.md) | CPU execution receipts bind actual reply bytes for native admission | 2026-11-15 | [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
 
 ## Superseded, still in the tree
 

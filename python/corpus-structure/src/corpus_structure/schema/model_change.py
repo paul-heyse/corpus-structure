@@ -148,7 +148,9 @@ class ChangePreview(BaseModel):
             or self.query_analysis.before_release != self.request.archive_release
             or self.query_analysis.after_release != self.local_release
         ):
-            raise ValueError("retained query analysis comparison differs from the preview release pair")
+            raise ValueError(
+                "retained query analysis comparison differs from the preview release pair"
+            )
         return self
 
     def verify_release(self, prepared: PreparedRelease) -> None:
@@ -576,7 +578,9 @@ def prepare_preview(
             from corpus_structure.semantic.model_comparison import compare_declared_models
 
             comparison = compare_declared_models(
-                previous, effective, after_release=prepared_source.release_id,
+                previous,
+                effective,
+                after_release=prepared_source.release_id,
             ).model_dump(mode="json")
         if source_comparison is None:
             source_comparison = compare_data_operation_models(previous, effective)
@@ -586,7 +590,11 @@ def prepare_preview(
         local_release = prepared_source.release_id
         release_manifest_sha256 = sha256(prepared_source.manifest).hexdigest()
         release_artifacts_sha256 = prepared_source.artifacts_sha256
-    if (source_comparison is not None or comparison is not None) and request.data_operations and not migrations:
+    if (
+        (source_comparison is not None or comparison is not None)
+        and request.data_operations
+        and not migrations
+    ):
         assert acquired is not None
         from corpus_structure.semantic.data_operation_admission import bound_data_operation_model
         from corpus_structure.semantic.prepare import prepare_release
@@ -595,7 +603,10 @@ def prepare_preview(
             prepare_release(acquired.bundle, acquired.dependencies, acquired.profile)
         )
         comparison_model = compiled
-        if source_comparison is not None and source_comparison.after_digest != sha256(compiled.content).hexdigest():
+        if (
+            source_comparison is not None
+            and source_comparison.after_digest != sha256(compiled.content).hexdigest()
+        ):
             raise model.ModelError(["source comparison differs from the proposed effective model"])
     if comparison is not None and request.data_operations:
         from corpus_structure.semantic.model_comparison import DeclaredModelComparison
@@ -603,12 +614,16 @@ def prepare_preview(
         checked_comparison = DeclaredModelComparison.model_validate(comparison)
         assert comparison_model is not None
         if checked_comparison.after_digest != sha256(comparison_model.content).hexdigest():
-            raise model.ModelError(["declared model comparison differs from the proposed effective model"])
+            raise model.ModelError(
+                ["declared model comparison differs from the proposed effective model"]
+            )
         if source_comparison is not None and (
             checked_comparison.before_digest != source_comparison.before_digest
             or checked_comparison.after_digest != source_comparison.after_digest
         ):
-            raise model.ModelError(["declared and source comparisons refer to different model pairs"])
+            raise model.ModelError(
+                ["declared and source comparisons refer to different model pairs"]
+            )
         comparison = checked_comparison.model_dump(mode="json")
     staged = {path: content for path, content in source.items() if content is not None} | generated
     if proposed.keys() & staged.keys():

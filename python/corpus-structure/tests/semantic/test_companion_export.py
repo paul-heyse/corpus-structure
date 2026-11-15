@@ -6,7 +6,6 @@ from hashlib import file_digest
 import pyarrow as pa
 import pyarrow.parquet as pq
 import pytest
-from semantic.selected_source_contract_support import selection
 
 from corpus_structure.semantic.capture_storage import LogicalRows
 from corpus_structure.semantic.refusals import SemanticRefusal
@@ -18,6 +17,7 @@ from corpus_structure.serve.companion_export import (
     compare_companion_exports,
     inventory_companion_export,
 )
+from semantic.selected_source_contract_support import selection
 
 
 def _export(
@@ -33,14 +33,21 @@ def _export(
     from corpus_structure.semantic.companion_projection import projection
 
     root.mkdir()
-    pin, cut, publication = selection(release=release, producer_release=producer_release, task=task, digest="a" * 64)
+    pin, cut, publication = selection(
+        release=release, producer_release=producer_release, task=task, digest="a" * 64
+    )
     provenance = dict(
-        **pin.model_dump(), selection_release_id=release, task_id=task,
-        product_key=publication.product_key, content_digest=publication.logical_digest,
+        **pin.model_dump(),
+        selection_release_id=release,
+        task_id=task,
+        product_key=publication.product_key,
+        content_digest=publication.logical_digest,
     )
     spec = projection("relation")
     projection_id = projection_id or spec.projection_id
-    schema = _export_schema(spec, pin, producer_release_id=producer_release, cut=cut, publication=publication)
+    schema = _export_schema(
+        spec, pin, producer_release_id=producer_release, cut=cut, publication=publication
+    )
     schema = schema.with_metadata({**schema.metadata, b"cs.projection": projection_id.encode()})
     batch = pa.RecordBatch.from_pylist(
         [
@@ -78,7 +85,13 @@ def _export(
                     input_content_digest="b" * 64,
                 ),
             ],
-            schema=_export_schema(projection("input"), pin, producer_release_id=producer_release, cut=cut, publication=publication),
+            schema=_export_schema(
+                projection("input"),
+                pin,
+                producer_release_id=producer_release,
+                cut=cut,
+                publication=publication,
+            ),
         )
     entries = {}
     for family, family_batch in batches.items():
@@ -97,7 +110,9 @@ def _export(
             schema_base64=base64.b64encode(family_batch.schema.serialize().to_pybytes()).decode(),
         )
     manifest = CompanionExportManifest(
-        pin=pin, cut=cut, publication=publication,
+        pin=pin,
+        cut=cut,
+        publication=publication,
         producer_release_id=producer_release,
         projection_id=projection_id,
         profile_id="flat-exact-companion-v3",
@@ -220,7 +235,14 @@ def test_projection_batch_refuses_missing_values_and_misbound_releases(tmp_path,
     index = batch.schema.get_field_index(field)
     batch = batch.set_column(index, batch.schema.field(index), pa.array([value], type=pa.string()))
     with pytest.raises(SemanticRefusal, match=r"null|binding differs"):
-        _admit_batch(projection("relation"), batch, manifest.pin, manifest.producer_release_id, cut=manifest.cut, publication=manifest.publication)
+        _admit_batch(
+            projection("relation"),
+            batch,
+            manifest.pin,
+            manifest.producer_release_id,
+            cut=manifest.cut,
+            publication=manifest.publication,
+        )
 
 
 @pytest.mark.parametrize("cancel,fault", [(False, False), (True, False), (False, True)])
@@ -237,12 +259,13 @@ def test_export_acquires_configured_driver_and_settles_snapshot_borrower(
     from corpus_structure.core.db.lifetime import DatabaseOperationCancelled
     from corpus_structure.semantic.companion_projection import projection
     from corpus_structure.serve import companion_export as export
-    from corpus_structure.serve import native_source
     from corpus_structure.settings import Settings
 
     events: list[dict[str, object] | str] = []
     cancellation = OperationCancellation()
-    pin, cut, publication = selection(release="r", producer_release="producer", task=2, digest="a" * 64, key="native")
+    pin, cut, publication = selection(
+        release="r", producer_release="producer", task=2, digest="a" * 64, key="native"
+    )
     spec = projection("input")
     primary, writer_failure, reader_failure, cursor_failure, rollback_failure, close_failure = (
         RuntimeError(name) for name in ("body", "writer", "reader", "cursor", "rollback", "close")
@@ -318,7 +341,9 @@ def test_export_acquires_configured_driver_and_settles_snapshot_borrower(
     monkeypatch.setattr(
         export,
         "acquire_selected_pdf_source",
-        lambda *args, **kwargs: SimpleNamespace(receipt=SimpleNamespace(publication=publication), cut=SimpleNamespace(record=cut)),
+        lambda *args, **kwargs: SimpleNamespace(
+            receipt=SimpleNamespace(publication=publication), cut=SimpleNamespace(record=cut)
+        ),
     )
     settings = Settings(
         analytics={"adbc_driver_path": Path("/selected/driver.so"), "batch_size_hint_bytes": 123456}

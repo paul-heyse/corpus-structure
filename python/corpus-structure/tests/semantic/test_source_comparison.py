@@ -2,7 +2,6 @@
 
 import json
 from dataclasses import replace
-from hashlib import sha256
 from types import SimpleNamespace
 
 import pytest
@@ -301,10 +300,16 @@ def test_griffe_entrypoints_match_exposed_identity_across_addition_and_reorder()
 
 def test_documentation_claim_edit_does_not_masquerade_as_domain_enforcement_change():
     before = compile_source(operation_source())
-    after = compile_source(operation_source(metadata=contract(
-        applicability=[{"kind": "documentation", "text": "reworded eligibility description"}],
-        invariants=[{"kind": "documentation", "text": "reworded invariant description"}],
-    )))
+    after = compile_source(
+        operation_source(
+            metadata=contract(
+                applicability=[
+                    {"kind": "documentation", "text": "reworded eligibility description"}
+                ],
+                invariants=[{"kind": "documentation", "text": "reworded invariant description"}],
+            )
+        )
+    )
     comparison = compare_data_operation_models(before, after)
     assert facets(comparison) == {"documentation"}
     assert not comparison.breakages
@@ -319,7 +324,9 @@ def test_descriptive_precision_and_coverage_are_visible_without_domain_change(de
     elif description == "coverage":
         metadata["coverage"]["description"] = "Reworded examined-population explanation."
     else:
-        metadata["roles"][0]["support"]["coverage"]["description"] = "Reworded selected-input explanation."
+        metadata["roles"][0]["support"]["coverage"]["description"] = (
+            "Reworded selected-input explanation."
+        )
     after = compile_source(operation_source(metadata=metadata))
     comparison = compare_data_operation_models(before, after)
     assert facets(comparison) == {"documentation"}

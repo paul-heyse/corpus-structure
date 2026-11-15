@@ -46,7 +46,8 @@ def test_weak_analysis_never_loads_ancestors_reparses_or_performs_symbolic_work(
         source_member.subject,
         source_member.original_source,
         source_member.analyzed_scope,
-     subject_definition=source_member.subject_definition)
+        subject_definition=source_member.subject_definition,
+    )
     result = analyze_declared_math(
         math_profile.prepared,
         (_role("source", (source_member,)), _role("formal", (formal_member,))),
@@ -75,7 +76,8 @@ def test_analysis_refuses_widening_and_unqualified_scientific_questions(math_pro
         source_member.subject,
         source_member.original_source,
         source_member.analyzed_scope,
-     subject_definition=source_member.subject_definition)
+        subject_definition=source_member.subject_definition,
+    )
     for changed in (
         {"pointer": "#/texts/foreign"},
         {"demand": "scientific"},
@@ -183,7 +185,9 @@ def test_context_reads_exact_retained_parent_function_and_variable_with_native_o
             b"{}",
             (),
             b"{}",
-         subject_definition="original-source-view", support_references=())
+            subject_definition="original-source-view",
+            support_references=(),
+        )
 
     parent_pin, child_pin = bind(parent, "parent-source"), bind(child, "child-source")
     parent_frame = DeclaredNativeFrameSource.acquire(

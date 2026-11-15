@@ -7,6 +7,7 @@ from tempfile import TemporaryDirectory
 from corpus_structure.semantic.data_operation_json import json_bytes, json_loads
 from corpus_structure.semantic.selected_graph import selected_graph_snapshot, snapshot_from_index
 
+
 def _selected_snapshot(reader, prepared, request):
     """Independent full-snapshot view of an actual native cut for export comparison."""
     from corpus_structure.semantic.demand_results import selected_record_index
@@ -61,5 +62,3 @@ def _offline_snapshot(destination, projection):
     finally:
         index.close()
         scratch.cleanup()
-
-

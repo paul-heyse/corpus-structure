@@ -2,10 +2,14 @@
 
 from corpus_structure.semantic.data_operation_json import json_loads
 from corpus_structure.semantic.graph_inspection import GraphInspectionRequest, read_graph_inspection
-from semantic.current_pdf_source_support import PROJECT, current_pdf_source as current_pdf_source
-from semantic.selected_graph_test_support import _selected_snapshot, _offline_snapshot
+from semantic.current_pdf_source_support import PROJECT
+from semantic.current_pdf_source_support import current_pdf_source as current_pdf_source
+from semantic.selected_graph_test_support import _offline_snapshot, _selected_snapshot
 
-def test_actual_computational_source_hierarchy_keeps_native_pointer_custody(current_pdf_source, tmp_path):
+
+def test_actual_computational_source_hierarchy_keeps_native_pointer_custody(
+    current_pdf_source, tmp_path
+):
     from corpus_structure.serve.demand_export import export_demand_result
 
     case, kernel = current_pdf_source, current_pdf_source.kernel
@@ -23,7 +27,10 @@ def test_actual_computational_source_hierarchy_keeps_native_pointer_custody(curr
     pointers = {json_loads(node.payload_json)["atom"]["self_ref"] for node in snapshot.nodes}
     assert all(pointer.startswith("#/") for pointer in pointers)
     assert "#/texts/0" in pointers
-    assert any(json_loads(node.payload_json)["atom"].get("text") == "Alice was running." for node in snapshot.nodes)
+    assert any(
+        json_loads(node.payload_json)["atom"].get("text") == "Alice was running."
+        for node in snapshot.nodes
+    )
     assert all(edge.relation == "contains" for edge in snapshot.occurrences)
     assert snapshot.occurrences
     inspected = read_graph_inspection(reader_engine.begin, request)
@@ -45,5 +52,3 @@ def test_actual_computational_source_hierarchy_keeps_native_pointer_custody(curr
     )
     live = _selected_snapshot(reader_engine.begin, kernel.prepared, pinned)
     assert _offline_snapshot(destination, "source-hierarchy").identity == live.identity
-
-

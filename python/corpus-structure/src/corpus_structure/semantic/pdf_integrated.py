@@ -485,7 +485,10 @@ def prepare_integrated_pdf_product(
             raise ValueError("mapped Chandra evidence bytes must be retained")
         image = observation["image"]
         if mapped is not None:
-            from corpus_structure.semantic.visual_evidence import MAX_VISUAL_EVIDENCE_BYTES, VisualEvidenceArtifact
+            from corpus_structure.semantic.visual_evidence import (
+                MAX_VISUAL_EVIDENCE_BYTES,
+                VisualEvidenceArtifact,
+            )
 
             if len(retained[mapped]) > MAX_VISUAL_EVIDENCE_BYTES:
                 raise ValueError("mapped Chandra evidence exceeds its byte bound")
@@ -596,8 +599,8 @@ def store_pdf_observation(
     if product.values()["kind"] != "recognition_observation":
         raise ValueError("observation publication refuses native or integrated document bodies")
     require_pdf_database_action(conn, archived.release_id, "publish_pdf_observation")
-    from .identifiers import TaskAttempt, TaskId
     from ._pdf_native_calls import publish_pdf_observation
+    from .identifiers import TaskAttempt, TaskId
     from .releases import open_release
 
     return publish_pdf_observation(

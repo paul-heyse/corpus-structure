@@ -1,7 +1,5 @@
 """A supported bound input referent survives the actual MCP packet and fresh evaluation."""
 
-from corpus_structure.semantic.analysis_contracts import acquire_analysis_context_profile
-
 import json
 from contextlib import contextmanager
 from dataclasses import replace
@@ -18,10 +16,10 @@ from corpus_structure.semantic import (
     SourceBundle,
     prepare_release,
 )
+from corpus_structure.semantic.analysis_contracts import acquire_analysis_context_profile
 from corpus_structure.semantic.analytical_profile import analytical_inputs
 from corpus_structure.semantic.composed import composed_dependencies
 from corpus_structure.semantic.consolidation import SourceItem, assemble
-from corpus_structure.semantic.rich_knowledge_sources import rich_policy_inputs
 from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.observations import observation_inputs
 from corpus_structure.semantic.operations import (
@@ -32,6 +30,7 @@ from corpus_structure.semantic.operations import (
 from corpus_structure.semantic.proposals import proposal_inputs
 from corpus_structure.semantic.publication import EvidenceRow, SelectionRow, publish_batch
 from corpus_structure.semantic.releases import persist_release
+from corpus_structure.semantic.rich_knowledge_sources import rich_policy_inputs
 from semantic.historical_agent_support import (
     HistoricalAgentPublication,
     create_historical_agent_task,
@@ -57,7 +56,9 @@ def test_native_known_reference_packet_mcp_and_finalizer(
             }
         },
     }
-    deps = rich_policy_inputs(ResolvedDependencies(), b"rules: []", context_profile=acquire_analysis_context_profile())
+    deps = rich_policy_inputs(
+        ResolvedDependencies(), b"rules: []", context_profile=acquire_analysis_context_profile()
+    )
     bundle = SourceBundle(
         "known",
         (

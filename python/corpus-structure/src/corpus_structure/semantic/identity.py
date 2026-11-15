@@ -44,8 +44,12 @@ claim_source_item__data_operation__ = {
     "id": "urn:corpus:operation:claim-source-item",
     "profile": "derivation",
     "subject": "source-proposal-list",
-    "subject_definition": {'id': 'source-proposal-list', 'identifier_kind': 'string', 'scope': 'project'},
-    "discovery_relation": 'role-associated',
+    "subject_definition": {
+        "id": "source-proposal-list",
+        "identifier_kind": "string",
+        "scope": "project",
+    },
+    "discovery_relation": "role-associated",
     "context": ["source-proposal-list"],
     "roles": [
         {
@@ -73,9 +77,22 @@ claim_source_item__data_operation__ = {
             "presence": "required",
         },
     ],
-    "applicability": [{'kind': 'documentation', 'text': 'selected-source-proposal-list'}],
-    "invariants": [{"kind": "implementation", "reference": "python:corpus_structure.semantic.identity.claim_source_item", "interpretation": "captured-python-slice-v1", "parameters": {}}, {'kind': 'documentation', 'text': 'nonnegative-integer-ordinal'}, {'kind': 'documentation', 'text': 'boolean-is-not-an-ordinal'}],
-    "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "one-list-relative-address"},
+    "applicability": [{"kind": "documentation", "text": "selected-source-proposal-list"}],
+    "invariants": [
+        {
+            "kind": "implementation",
+            "reference": "python:corpus_structure.semantic.identity.claim_source_item",
+            "interpretation": "captured-python-slice-v1",
+            "parameters": {},
+        },
+        {"kind": "documentation", "text": "nonnegative-integer-ordinal"},
+        {"kind": "documentation", "text": "boolean-is-not-an-ordinal"},
+    ],
+    "coverage": {
+        "binding": "self",
+        "result_owners": [{"kind": "implementation", "reference": "self"}],
+        "description": "one-list-relative-address",
+    },
     "outcomes": ["addressed", "invalid-index"],
     "state_dimensions": [{"name": "completion", "values": ["pending", "success", "failed"]}],
     "transitions": [

@@ -32,7 +32,6 @@ from ._operation_ids import (
     CutId,
     DocumentId,
     MethodConfigId,
-    ProjectId,
     RunId,
     TaskAttempt,
     TaskId,
@@ -44,16 +43,14 @@ from .operation_results import (
     CompletionResult,
     HoldDecision,
 )
-from .types import PreparedRelease
 from .refusals import OperationConflict, SourceReadRefused
+from .types import PreparedRelease
 
 if TYPE_CHECKING:
     from .contextual_storage import PreparedContextualInventory
     from .runtime_bindings import RuntimeBinding
 
 _SOURCE_RESULT_MAX_BYTES = 64 * 1024**2
-
-
 
 
 @dataclass(frozen=True)
@@ -409,7 +406,11 @@ def claim_tasks(
             from .invariant_failures import InvariantViolation, classify_invariant_failure
 
             failure = classify_invariant_failure(
-                model.invariants, "claim", exc, model_id=model.model_id, release_id=prepared.release_id
+                model.invariants,
+                "claim",
+                exc,
+                model_id=model.model_id,
+                release_id=prepared.release_id,
             )
             if failure is not None:
                 raise InvariantViolation(failure) from exc
@@ -560,7 +561,11 @@ def complete_task(
             model = bound_execution_model(prepared)
             model.require_operation("complete")
             failure = classify_invariant_failure(
-                model.invariants, "complete", exc, model_id=model.model_id, release_id=prepared.release_id
+                model.invariants,
+                "complete",
+                exc,
+                model_id=model.model_id,
+                release_id=prepared.release_id,
             )
             if failure is not None:
                 raise InvariantViolation(failure) from exc
@@ -597,8 +602,6 @@ def cut_observations(conn: Connection, cut_id: CutId) -> list[dict[str, Any]]:
             .order_by(o.c.observation_key)
         ).mappings()
     ]
-
-
 
 
 def _source_read_outcome(prepared: PreparedRelease | None, operation: str, outcome: str) -> None:
@@ -1870,8 +1873,8 @@ class BoundReader:
 
     def _native_product_input(self, reference):
         """Selected/input pins or this running task's exact published output custody."""
-        from .pdf_domain import require_pdf_prepared_action
         from .pdf_contracts import pdf_context_for_task
+        from .pdf_domain import require_pdf_prepared_action
         from .pdf_record_reader import PublishedSchemaUnavailable, published_record_reader
         from .pdf_storage import (
             NativeDocumentUnavailable,

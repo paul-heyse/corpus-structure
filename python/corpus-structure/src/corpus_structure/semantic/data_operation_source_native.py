@@ -13,9 +13,11 @@ from .types import SourceArtifact
 _SQL = Path(__file__).with_name("sql") / "data_operation_source_admission.sql"
 
 
-def source_native_sources(*, physical_sources=None, linkml_types=None) -> tuple[SourceArtifact, ...]:
-    from .original_document_contracts import source_admission_sources
+def source_native_sources(
+    *, physical_sources=None, linkml_types=None
+) -> tuple[SourceArtifact, ...]:
     from .data_operation_visual_read import visual_read_sources
+    from .original_document_contracts import source_admission_sources
 
     return (
         *source_admission_sources(physical_sources=physical_sources, linkml_types=linkml_types),
@@ -26,16 +28,24 @@ def source_native_sources(*, physical_sources=None, linkml_types=None) -> tuple[
 
 
 def source_native_sql(sources=None) -> str:
-    from .original_document_contracts import source_original_sql
     from .data_operation_storage import _rename_native_entrypoints
-    from .data_operation_wire import wire_operations
-
     from .data_operation_visual_read import visual_read_sql
+    from .data_operation_wire import wire_operations
+    from .original_document_contracts import source_original_sql
 
     selected = None if sources is None else {source.name: source.content for source in sources}
-    sql = (_SQL.read_text() if selected is None else selected["native/data-operation-source-admission.sql"].decode()) + "\n" + source_original_sql(sources) + "\n" + visual_read_sql(sources)
+    sql = (
+        (
+            _SQL.read_text()
+            if selected is None
+            else selected["native/data-operation-source-admission.sql"].decode()
+        )
+        + "\n"
+        + source_original_sql(sources)
+        + "\n"
+        + visual_read_sql(sources)
+    )
     return _rename_native_entrypoints(sql, {item["name"] for item in wire_operations(sources)})
-
 
 
 def source_native_definitions(connection, *, sources=None) -> tuple[NativeDefinition, ...]:
@@ -54,8 +64,17 @@ def source_native_definitions(connection, *, sources=None) -> tuple[NativeDefini
                 owner="corpus_sem_publisher",
                 grants=(
                     (("corpus_sem_writer", "EXECUTE", False),)
-                    if statement.funcname[-1].sval in {"ddo_pdf_capture_source", "retain_original_document"}
-                    else tuple((role, "EXECUTE", False) for role in ("corpus_sem_writer", "corpus_sem_reader", "corpus_sem_admitter", "corpus_sem_evaluator"))
+                    if statement.funcname[-1].sval
+                    in {"ddo_pdf_capture_source", "retain_original_document"}
+                    else tuple(
+                        (role, "EXECUTE", False)
+                        for role in (
+                            "corpus_sem_writer",
+                            "corpus_sem_reader",
+                            "corpus_sem_admitter",
+                            "corpus_sem_evaluator",
+                        )
+                    )
                     if statement.funcname[-1].sval == "require_source_admission"
                     else ()
                 ),

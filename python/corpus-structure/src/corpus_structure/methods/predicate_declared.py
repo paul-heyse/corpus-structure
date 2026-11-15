@@ -10,8 +10,12 @@ class PredicateEvidenceOperation:
         "id": "structure.predicate_evidence/declared",
         "profile": "derivation",
         "subject": "original-source-view",
-        "subject_definition": {'id': 'original-source-view', 'identifier_kind': 'string', 'scope': 'original-source'},
-        "discovery_relation": 'subject-population',
+        "subject_definition": {
+            "id": "original-source-view",
+            "identifier_kind": "string",
+            "scope": "original-source",
+        },
+        "discovery_relation": "subject-population",
         "context": ["original-source", "selected-scope", "retained-primary-readings"],
         "entrypoints": ["run"],
         "roles": [
@@ -89,14 +93,23 @@ class PredicateEvidenceOperation:
                 "presence": "required",
             },
         ],
-        "applicability": [{'kind': 'documentation', 'text': 'actual-native-annotations-and-retained-primary-source-readings'}],
-        "invariants": [
-            {'kind': 'documentation', 'text': 'original-relative-source-pins'},
-            {'kind': 'documentation', 'text': 'no-downstream-recognition'},
-            {'kind': 'documentation', 'text': 'private-proposals-only'},
-            {'kind': 'documentation', 'text': 'unavailable-inspection-is-not-empty'},
+        "applicability": [
+            {
+                "kind": "documentation",
+                "text": "actual-native-annotations-and-retained-primary-source-readings",
+            }
         ],
-        "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "exact-inspected-native-blocks-with-unavailable-coverage"},
+        "invariants": [
+            {"kind": "documentation", "text": "original-relative-source-pins"},
+            {"kind": "documentation", "text": "no-downstream-recognition"},
+            {"kind": "documentation", "text": "private-proposals-only"},
+            {"kind": "documentation", "text": "unavailable-inspection-is-not-empty"},
+        ],
+        "coverage": {
+            "binding": "self",
+            "result_owners": [{"kind": "implementation", "reference": "self"}],
+            "description": "exact-inspected-native-blocks-with-unavailable-coverage",
+        },
         "outcomes": ["success", "failed"],
         "precision_description": "original-native-half-open-extents",
         "dependencies": [
@@ -174,11 +187,11 @@ class PredicateEvidenceOperation:
                         "encoding": "value",
                     },
                     {
-                        "output_field": 'subject_definition',
+                        "output_field": "subject_definition",
                         "input": {
                             "role": "source",
                             "projection": "selected-input",
-                            "field": 'subject_definition',
+                            "field": "subject_definition",
                         },
                         "encoding": "value",
                     },
@@ -298,11 +311,11 @@ class PredicateEvidenceOperation:
                         "encoding": "value",
                     },
                     {
-                        "output_field": 'subject_definition',
+                        "output_field": "subject_definition",
                         "input": {
                             "role": "source",
                             "projection": "selected-input",
-                            "field": 'subject_definition',
+                            "field": "subject_definition",
                         },
                         "encoding": "value",
                     },
@@ -422,11 +435,11 @@ class PredicateEvidenceOperation:
                         "encoding": "value",
                     },
                     {
-                        "output_field": 'subject_definition',
+                        "output_field": "subject_definition",
                         "input": {
                             "role": "source",
                             "projection": "selected-input",
-                            "field": 'subject_definition',
+                            "field": "subject_definition",
                         },
                         "encoding": "value",
                     },
@@ -546,11 +559,11 @@ class PredicateEvidenceOperation:
                         "encoding": "value",
                     },
                     {
-                        "output_field": 'subject_definition',
+                        "output_field": "subject_definition",
                         "input": {
                             "role": "source",
                             "projection": "selected-input",
-                            "field": 'subject_definition',
+                            "field": "subject_definition",
                         },
                         "encoding": "value",
                     },
@@ -670,11 +683,11 @@ class PredicateEvidenceOperation:
                         "encoding": "value",
                     },
                     {
-                        "output_field": 'subject_definition',
+                        "output_field": "subject_definition",
                         "input": {
                             "role": "source",
                             "projection": "selected-input",
-                            "field": 'subject_definition',
+                            "field": "subject_definition",
                         },
                         "encoding": "value",
                     },

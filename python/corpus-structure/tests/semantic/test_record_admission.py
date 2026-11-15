@@ -88,7 +88,11 @@ def evaluated_reading():
     from corpus_structure.semantic.composed import composed_dependencies
     from corpus_structure.semantic.identity import canonical_bytes
     from corpus_structure.semantic.prepare import prepare_release
-    from corpus_structure.semantic.record_contracts import interpretation_identity, record_identity, record_family_contract
+    from corpus_structure.semantic.record_contracts import (
+        interpretation_identity,
+        record_family_contract,
+        record_identity,
+    )
     from corpus_structure.semantic.record_policy import (
         FEATURES,
         FeatureInstance,
@@ -133,6 +137,7 @@ def evaluated_reading():
     )
     raw["policy_version"] = algorithm.version
     from semantic.record_assertions_support import model
+
     raw["record_id"] = record_identity(record_family_contract(model(), raw["contract"]), raw)
     raw["interpretation_id"] = interpretation_identity(raw)
     fit = FitDiagnostics(

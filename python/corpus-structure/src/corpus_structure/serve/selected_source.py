@@ -19,14 +19,17 @@ import yaml
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from corpus_structure.core.db.lifetime import BorrowerCancellation
+from corpus_structure.semantic.demand_results import CutSelection, selected_read_snapshot
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.metadata import PHYSICAL_MODEL_ID
+from corpus_structure.semantic.pdf_publication import PublishedPdfDocumentRef
 from corpus_structure.semantic.prepare import prepare_release
 from corpus_structure.semantic.types import SourceArtifact, SourceBundle
 from corpus_structure.serve.companion_export import _publish_directory
-from corpus_structure.serve.selected_pdf import SelectedPdfSourceReference, acquire_selected_pdf_source
-from corpus_structure.semantic.pdf_publication import PublishedPdfDocumentRef
-from corpus_structure.semantic.demand_results import CutSelection, selected_read_snapshot
+from corpus_structure.serve.selected_pdf import (
+    SelectedPdfSourceReference,
+    acquire_selected_pdf_source,
+)
 
 if TYPE_CHECKING:
     from corpus_structure.methods.math.pdf import PreparedFormulaOccurrence
@@ -77,12 +80,13 @@ class SelectedSourceExportReceipt(BaseModel):
     selected_record_count: int
     membership_sha256: str
 
-
     @model_validator(mode="after")
     def consistent_selection(self):
         cut = CutSelection.from_native(self.cut)
         if (cut.record["project_id"], cut.record["demand_id"], cut.record["read_id"]) != (
-            self.pin.project_id, self.pin.demand_id, self.pin.read_id,
+            self.pin.project_id,
+            self.pin.demand_id,
+            self.pin.read_id,
         ) or self.publication.release_id != self.producer_release_id:
             raise ValueError("selected source receipt selection/cut/publication differ")
         return self
@@ -157,7 +161,8 @@ def _write_selected_package(
     temporary: Path,
     *,
     analysis_context_profile_id,
-    cut, publication,
+    cut,
+    publication,
     implementation_digests,
     cancellation: BorrowerCancellation | None = None,
 ):
@@ -172,7 +177,8 @@ def _write_selected_package(
         format=spec["format"],
         pin=request.pin.model_dump(),
         producer_release_id=reader.revision["release_id"],
-        cut=cut, publication=asdict(publication),
+        cut=cut,
+        publication=asdict(publication),
         selection=request.selection.model_dump(),
         context_policy=request.context_policy,
         schema_digest=schema,
@@ -321,7 +327,8 @@ def _write_selected_package(
     receipt = SelectedSourceExportReceipt(
         pin=request.pin,
         producer_release_id=header["producer_release_id"],
-        cut=cut, publication=publication,
+        cut=cut,
+        publication=publication,
         selection=request.selection,
         context_policy=request.context_policy,
         projection_id=header["projection_id"],
@@ -340,17 +347,27 @@ def _write_selected_package(
 def _captured_analysis_profile(prepared):
     """Decode only profiles archived by the selected current operation model."""
     from pydantic import TypeAdapter
+
     from corpus_structure.semantic.analysis_contracts import AnalysisContextProfile
     from corpus_structure.semantic.composed import read_data_operation_inputs
     from corpus_structure.semantic.types import ResolvedDependencies
 
-    inputs = read_data_operation_inputs(ResolvedDependencies(tuple(
-        SourceArtifact(artifact.kind, artifact.content)
-        for artifact in prepared.artifacts if artifact.kind.startswith("data-operations/")
-    )))
+    inputs = read_data_operation_inputs(
+        ResolvedDependencies(
+            tuple(
+                SourceArtifact(artifact.kind, artifact.content)
+                for artifact in prepared.artifacts
+                if artifact.kind.startswith("data-operations/")
+            )
+        )
+    )
     profiles = tuple(
-        TypeAdapter(AnalysisContextProfile).validate_json(canonical_bytes(json.loads(artifact.content)["profile"]))
-        for artifact in (inputs[1].boundary_contracts if inputs is not None and inputs[1] is not None else ())
+        TypeAdapter(AnalysisContextProfile).validate_json(
+            canonical_bytes(json.loads(artifact.content)["profile"])
+        )
+        for artifact in (
+            inputs[1].boundary_contracts if inputs is not None and inputs[1] is not None else ()
+        )
         if artifact.name in {"math/declared-profile", "math-analysis/profile"}
     )
     if len({profile.model_id for profile in profiles}) > 1:
@@ -388,11 +405,15 @@ def export_selected_source(
             release = selected.prepared
             profile = _captured_analysis_profile(release)
             reader = published_record_reader(
-                connection, selected.physical, cancellation=cancellation,
+                connection,
+                selected.physical,
+                cancellation=cancellation,
                 projection_context=release,
             )
             if reader is None:
-                raise SelectedSourceUnavailable("selected source requires a published record-backed product")
+                raise SelectedSourceUnavailable(
+                    "selected source requires a published record-backed product"
+                )
             from corpus_structure.semantic._pdf_native_calls import (
                 materialize_read_pdf_selected_source_events,
                 prepare_read_pdf_selected_source_events,
@@ -400,8 +421,10 @@ def export_selected_source(
             from corpus_structure.semantic.pdf_record_reader import _record_envelope
 
             statement = prepare_read_pdf_selected_source_events(
-                **request.pin.model_dump(), section=request.selection.root,
-                membership=request.selection.membership, policy=spec["context_policy"],
+                **request.pin.model_dump(),
+                section=request.selection.root,
+                membership=request.selection.membership,
+                policy=spec["context_policy"],
                 projection_context=release,
             )
             with connection.execute(
@@ -416,8 +439,11 @@ def export_selected_source(
                     request,
                     temporary,
                     analysis_context_profile_id=profile.model_id if profile is not None else None,
-                    implementation_digests=profile.implementation_digests if profile is not None else (),
-                    cut=selected.cut.record, publication=selected.receipt.publication,
+                    implementation_digests=profile.implementation_digests
+                    if profile is not None
+                    else (),
+                    cut=selected.cut.record,
+                    publication=selected.receipt.publication,
                     cancellation=cancellation,
                 )
         cancellation.check_active()
@@ -532,9 +558,12 @@ class SelectedSourceReader:
                             or self.receipt.schema_digest != header["schema_digest"]
                             or self.receipt.projection_id != header["projection_id"]
                             or header["producer_release_id"] != self.receipt.producer_release_id
-                            or CutSelection.from_native(header["cut"]).content != CutSelection.from_native(self.receipt.cut).content
-                            or PublishedPdfDocumentRef(**header["publication"]) != self.receipt.publication
-                            or SelectedPdfSourceReference.model_validate(header["pin"]) != self.receipt.pin
+                            or CutSelection.from_native(header["cut"]).content
+                            != CutSelection.from_native(self.receipt.cut).content
+                            or PublishedPdfDocumentRef(**header["publication"])
+                            != self.receipt.publication
+                            or SelectedPdfSourceReference.model_validate(header["pin"])
+                            != self.receipt.pin
                             or SelectedSourceSelection.model_validate(header["selection"])
                             != self.receipt.selection
                             or sha256(canonical_bytes(header)).hexdigest()

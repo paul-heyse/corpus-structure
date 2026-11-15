@@ -3,8 +3,8 @@
 import pytest
 
 from corpus_structure.schema.pack import DOMAINS
-from corpus_structure.semantic.rich_rules import RichRulePolicy
 from corpus_structure.semantic.regeneration import prepare_packs
+from corpus_structure.semantic.rich_rules import RichRulePolicy
 
 
 @pytest.fixture(scope="session")

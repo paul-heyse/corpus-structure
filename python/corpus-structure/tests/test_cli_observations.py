@@ -391,7 +391,9 @@ def test_inspection_bounds_joined_zero_rows_and_withholds_sole_row_cursor(tmp_pa
 
     store = ResultStore(tmp_path)
     with store.operation("bounded", observations=True) as invocation:
-        invocation.bind_observations(demand_id="actual-demand", project="nondefault project's space")
+        invocation.bind_observations(
+            demand_id="actual-demand", project="nondefault project's space"
+        )
         invocation.stage("selected", native_source_root="/actual source root")
     monkeypatch.setattr(
         "corpus_structure.cli.result_inspection.native_inspection",
@@ -417,7 +419,12 @@ def test_inspection_bounds_joined_zero_rows_and_withholds_sole_row_cursor(tmp_pa
     }
     action = next(item for item in report.next_actions if item.kind == "resume_demand")
     assert shlex.split(action.command) == [
-        "ci", "demands", "execute", "actual-demand", "--source-root", "/actual source root",
+        "ci",
+        "demands",
+        "execute",
+        "actual-demand",
+        "--source-root",
+        "/actual source root",
     ]
     monkeypatch.setattr(
         "corpus_structure.cli.result_inspection.native_inspection",
@@ -531,7 +538,9 @@ def test_watch_latest_window_counts_budget_evictions_without_rewinding_scan(cli,
 
 def test_run_only_observations_do_not_acquire_a_legacy_native_reader():
     from types import SimpleNamespace
+
     import typer
+
     from corpus_structure.cli.app import app
     from corpus_structure.cli.output import CliState
     from corpus_structure.cli.result_inspection import native_inspection

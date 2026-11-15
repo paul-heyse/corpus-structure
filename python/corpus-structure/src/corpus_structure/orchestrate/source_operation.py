@@ -151,7 +151,8 @@ def prepare_source_demand(
         "organized" if organized and request.pdf_mode == "standard" else request.pdf_mode
     )
     producer = (
-        "source.pdf_views/discovery" if selected_pdf_mode == "standard"
+        "source.pdf_views/discovery"
+        if selected_pdf_mode == "standard"
         else "source.pdf_" + selected_pdf_mode + "_views/discovery"
     )
     if request.pdf_mode != "standard":

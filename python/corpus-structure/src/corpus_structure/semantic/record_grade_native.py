@@ -10,7 +10,8 @@ failed and empty opportunities which are not fulfilled computational support.
 def record_grade_native_sql() -> str:
     from .record_policy_authority import GRADE_FACTORY, GRADE_KIND, GRADE_OPERATION
 
-    return r"""
+    return (
+        r"""
 CREATE OR REPLACE FUNCTION ops.ddo_record_grade_input_value(project text,product text,member text)
 RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $grade$
 DECLARE value jsonb;
@@ -400,21 +401,25 @@ BEGIN
  RETURN true;
  EXCEPTION WHEN data_exception OR integrity_constraint_violation OR no_data_found OR too_many_rows THEN RETURN false;
 END $grade$;
-""".replace("__GRADE_OPERATION__", GRADE_OPERATION).replace("__GRADE_FACTORY__", GRADE_FACTORY).replace("__GRADE_KIND__", GRADE_KIND) + "\n".join(
-        f"REVOKE ALL ON FUNCTION ops.{name}({arguments}) FROM PUBLIC;"
-        for name, arguments in (
-            ("ddo_record_grade_input_value", "text,text,text"),
-            ("ddo_record_grade_input", "ops.data_request,text"),
-            ("ddo_record_grade_require_finite_census", "ops.data_demand,ops.data_demand_read"),
-            ("ddo_record_grade_cut_scopes", "text,text"),
-            ("ddo_record_grade_require_cut", "text,text,text"),
-            ("ddo_record_grade_acquire_census", "text,text,text"),
-            ("ddo_record_grade_cuts", "ops.data_request"),
-            ("ddo_record_grade_require_producer", "ops.data_request,jsonb"),
-            ("ddo_record_grade_completion_scopes", "ops.data_request"),
-            ("ddo_record_grade_dependency_scopes", "text"),
-            ("ddo_record_grade_require_frame", "ops.data_request,jsonb"),
-            ("ddo_require_record_grade_completion", "ops.data_request,jsonb"),
-            ("ddo_record_grade_dependencies_valid", "text"),
+""".replace("__GRADE_OPERATION__", GRADE_OPERATION)
+        .replace("__GRADE_FACTORY__", GRADE_FACTORY)
+        .replace("__GRADE_KIND__", GRADE_KIND)
+        + "\n".join(
+            f"REVOKE ALL ON FUNCTION ops.{name}({arguments}) FROM PUBLIC;"
+            for name, arguments in (
+                ("ddo_record_grade_input_value", "text,text,text"),
+                ("ddo_record_grade_input", "ops.data_request,text"),
+                ("ddo_record_grade_require_finite_census", "ops.data_demand,ops.data_demand_read"),
+                ("ddo_record_grade_cut_scopes", "text,text"),
+                ("ddo_record_grade_require_cut", "text,text,text"),
+                ("ddo_record_grade_acquire_census", "text,text,text"),
+                ("ddo_record_grade_cuts", "ops.data_request"),
+                ("ddo_record_grade_require_producer", "ops.data_request,jsonb"),
+                ("ddo_record_grade_completion_scopes", "ops.data_request"),
+                ("ddo_record_grade_dependency_scopes", "text"),
+                ("ddo_record_grade_require_frame", "ops.data_request,jsonb"),
+                ("ddo_require_record_grade_completion", "ops.data_request,jsonb"),
+                ("ddo_record_grade_dependencies_valid", "text"),
+            )
         )
     )

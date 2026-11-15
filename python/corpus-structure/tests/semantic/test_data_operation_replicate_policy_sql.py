@@ -13,20 +13,29 @@ def test_native_policy_has_three_explicit_modes_and_refuses_unknown(semantic_bar
     source = files("corpus_structure.semantic").joinpath("sql/data_operations.sql").read_text()
     start = source.index("CREATE OR REPLACE FUNCTION ops.ddo_replicate_required(")
     end = source.index("END $$;", start) + len("END $$;")
-    helper = source[start:end].replace("ops.ddo_replicate_required", "pg_temp.ddo_replicate_required")
+    helper = source[start:end].replace(
+        "ops.ddo_replicate_required", "pg_temp.ddo_replicate_required"
+    )
     with semantic_bare_engine.connect() as connection:
         transaction = connection.begin()
         try:
             connection.exec_driver_sql(helper)
-            for policy, expected in (("deterministic-single-result", False),
-                                     ("retained-observation-single-result", False),
-                                     ("explicit-replicates", True)):
-                required = connection.scalar(text("SELECT pg_temp.ddo_replicate_required(:policy)"), {"policy": policy})
+            for policy, expected in (
+                ("deterministic-single-result", False),
+                ("retained-observation-single-result", False),
+                ("explicit-replicates", True),
+            ):
+                required = connection.scalar(
+                    text("SELECT pg_temp.ddo_replicate_required(:policy)"), {"policy": policy}
+                )
                 assert required is expected
             for policy in (None, "", "independent-fresh", "deterministic"):
                 with connection.begin_nested() as savepoint:
                     with pytest.raises(DBAPIError, match="unknown operation replicate policy"):
-                        connection.execute(text("SELECT pg_temp.ddo_replicate_required(:policy)"), {"policy": policy})
+                        connection.execute(
+                            text("SELECT pg_temp.ddo_replicate_required(:policy)"),
+                            {"policy": policy},
+                        )
                     savepoint.rollback()
         finally:
             transaction.rollback()
@@ -34,4 +43,9 @@ def test_native_policy_has_three_explicit_modes_and_refuses_unknown(semantic_bar
 
 def test_checked_python_policy_enum_matches_native_semantic_modes():
     from corpus_structure.semantic.data_operation_model import ReplicatePolicy
-    assert set(get_args(ReplicatePolicy)) == {"deterministic-single-result", "retained-observation-single-result", "explicit-replicates"}
+
+    assert set(get_args(ReplicatePolicy)) == {
+        "deterministic-single-result",
+        "retained-observation-single-result",
+        "explicit-replicates",
+    }

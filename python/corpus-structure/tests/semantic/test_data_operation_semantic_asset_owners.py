@@ -6,8 +6,8 @@ from pathlib import Path
 from corpus_structure.semantic.data_operation_compilation import compile_data_operations
 from corpus_structure.semantic.finite_interpretation_products import (
     finite_interpretation_assets,
-    finite_interpretation_inputs,
     finite_interpretation_declarations,
+    finite_interpretation_inputs,
     finite_interpretation_operation_sources,
 )
 from corpus_structure.semantic.types import SourceArtifact, SourceBundle
@@ -25,73 +25,127 @@ def recipe(model):
     return next(identity.key for identity in model.identities if identity.domain == "recipe")
 
 
-def test_actual_finite_wrapper_prose_is_custody_but_algorithm_remains_semantic(monkeypatch, tmp_path):
+def test_actual_finite_wrapper_prose_is_custody_but_algorithm_remains_semantic(
+    monkeypatch, tmp_path
+):
     from corpus_structure.semantic import finite_interpretation_products as owner
 
     root = Path(__file__).parents[2] / "src/corpus_structure"
-    bundle = finite_interpretation_inputs(SourceBundle("core", (SourceArtifact("core", (root / "model/semantic/core.yaml").read_bytes()),)))
+    bundle = finite_interpretation_inputs(
+        SourceBundle(
+            "core", (SourceArtifact("core", (root / "model/semantic/core.yaml").read_bytes()),)
+        )
+    )
     before_sources = finite_interpretation_operation_sources()
     before_asset = finite_interpretation_assets()
-    before = compile_data_operations(bundle, declarations=(finite_interpretation_declarations(),), python_sources=before_sources)
+    before = compile_data_operations(
+        bundle, declarations=(finite_interpretation_declarations(),), python_sources=before_sources
+    )
     wrapper = "methods/finite_interpretation.py"
     files = dict(json.loads(before_asset.content)["files"])
-    assert json.loads(bytes.fromhex(files[wrapper]))["interpretation"] == "admitted-operation-module-v1"
+    assert (
+        json.loads(bytes.fromhex(files[wrapper]))["interpretation"]
+        == "admitted-operation-module-v1"
+    )
     assert "semantic/record_interpretation.py" in files
     wrapper_bytes = (root / wrapper).read_bytes()
-    changed = wrapper_bytes.replace(
-        b'"behavior": "',
-        b'"precision_description": "Descriptive numerical context only", '
-        b'"behavior": "Reworded description. '
-    ).replace(b"retained-private-candidates-and-explicit-policy", b"Descriptive applicability reworded").replace(b"complete-selected-candidate-and-factor-population", b"Descriptive coverage reworded").replace(b"selected-candidate-population", b"Descriptive input scope reworded")
+    changed = (
+        wrapper_bytes.replace(
+            b'"behavior": "',
+            b'"precision_description": "Descriptive numerical context only", '
+            b'"behavior": "Reworded description. ',
+        )
+        .replace(
+            b"retained-private-candidates-and-explicit-policy",
+            b"Descriptive applicability reworded",
+        )
+        .replace(
+            b"complete-selected-candidate-and-factor-population", b"Descriptive coverage reworded"
+        )
+        .replace(b"selected-candidate-population", b"Descriptive input scope reworded")
+    )
     assert changed != wrapper_bytes
     altered_wrapper = tmp_path / "finite_interpretation.py"
     altered_wrapper.write_bytes(changed)
     monkeypatch.setattr(owner, "_ROOT", OverlayRoot(root, {wrapper: altered_wrapper}))
     after_sources = finite_interpretation_operation_sources()
-    after = compile_data_operations(bundle, declarations=(finite_interpretation_declarations(),), python_sources=after_sources)
+    after = compile_data_operations(
+        bundle, declarations=(finite_interpretation_declarations(),), python_sources=after_sources
+    )
     assert finite_interpretation_assets().content == before_asset.content
     assert before_sources.sources[0].content != after_sources.sources[0].content
     assert before.content != after.content
     assert before.operations[0].capabilities.prepared_factory is not None
     assert after.operations[0].capabilities.prepared_factory is not None
-    assert before.operations[0].capabilities.prepared_factory.source_digest != after.operations[0].capabilities.prepared_factory.source_digest
-    assert before.operations[0].capabilities.prepared_factory.semantic_digest == after.operations[0].capabilities.prepared_factory.semantic_digest
+    assert (
+        before.operations[0].capabilities.prepared_factory.source_digest
+        != after.operations[0].capabilities.prepared_factory.source_digest
+    )
+    assert (
+        before.operations[0].capabilities.prepared_factory.semantic_digest
+        == after.operations[0].capabilities.prepared_factory.semantic_digest
+    )
     assert after.operations[0].precision_description == "Descriptive numerical context only"
     assert after.operations[0].numerical_policy == before.operations[0].numerical_policy
     assert before.operations[0].definition == after.operations[0].definition
     assert recipe(before) == recipe(after)
 
     # The wrapper's executable body remains owned by its admitted slice.
-    altered_wrapper.write_bytes(changed.replace(
-        b"return execute_finite_profile(self, candidates, policy)",
-        b"return execute_finite_profile(self, candidates, {**policy, 'mode': 'constraints'})",
-    ))
-    executable = compile_data_operations(bundle, declarations=(finite_interpretation_declarations(),), python_sources=finite_interpretation_operation_sources())
+    altered_wrapper.write_bytes(
+        changed.replace(
+            b"return execute_finite_profile(self, candidates, policy)",
+            b"return execute_finite_profile(self, candidates, {**policy, 'mode': 'constraints'})",
+        )
+    )
+    executable = compile_data_operations(
+        bundle,
+        declarations=(finite_interpretation_declarations(),),
+        python_sources=finite_interpretation_operation_sources(),
+    )
     assert recipe(executable) != recipe(before)
 
     # A factory can change behavior even when the operation's run slice is unchanged.
-    factory = changed.replace(b"return resolve_finite_port(", b"raise ValueError('changed acquisition behavior')\n        return resolve_finite_port(")
+    factory = changed.replace(
+        b"return resolve_finite_port(",
+        b"raise ValueError('changed acquisition behavior')\n        return resolve_finite_port(",
+    )
     assert factory != changed
     altered_wrapper.write_bytes(factory)
-    factory_model = compile_data_operations(bundle, declarations=(finite_interpretation_declarations(),), python_sources=finite_interpretation_operation_sources())
+    factory_model = compile_data_operations(
+        bundle,
+        declarations=(finite_interpretation_declarations(),),
+        python_sources=finite_interpretation_operation_sources(),
+    )
     assert factory_model.operations[0].capabilities.prepared_factory is not None
-    assert factory_model.operations[0].capabilities.prepared_factory.semantic_digest != before.operations[0].capabilities.prepared_factory.semantic_digest
+    assert (
+        factory_model.operations[0].capabilities.prepared_factory.semantic_digest
+        != before.operations[0].capabilities.prepared_factory.semantic_digest
+    )
     assert recipe(factory_model) != recipe(before)
     # Complete supplying-module globals remain captured, including factory dependencies.
     from corpus_structure.semantic.python_module_projection import admitted_operation_module_digest
+
     first_global = b"FACTORY_POLICY = 1\n" + factory
     second_global = first_global.replace(b"FACTORY_POLICY = 1", b"FACTORY_POLICY = 2")
-    assert admitted_operation_module_digest(first_global) != admitted_operation_module_digest(second_global)
+    assert admitted_operation_module_digest(first_global) != admitted_operation_module_digest(
+        second_global
+    )
 
     # A genuinely opaque array algorithm retains exact source-byte responsibility.
     algorithm = "semantic/record_interpretation.py"
     altered_algorithm = tmp_path / "record_interpretation.py"
     original_algorithm = (root / algorithm).read_bytes()
-    altered_algorithm.write_bytes(original_algorithm.replace(b"np.dtype(FINITE_NUMERICS.dtype)", b"np.float32"))
+    altered_algorithm.write_bytes(
+        original_algorithm.replace(b"np.dtype(FINITE_NUMERICS.dtype)", b"np.float32")
+    )
     assert altered_algorithm.read_bytes() != original_algorithm
     monkeypatch.setattr(owner, "_ROOT", OverlayRoot(root, {algorithm: altered_algorithm}))
     assert finite_interpretation_assets().digest != before_asset.digest
-    algorithm_model = compile_data_operations(bundle, declarations=(finite_interpretation_declarations(),), python_sources=finite_interpretation_operation_sources())
+    algorithm_model = compile_data_operations(
+        bundle,
+        declarations=(finite_interpretation_declarations(),),
+        python_sources=finite_interpretation_operation_sources(),
+    )
     assert recipe(algorithm_model) != recipe(before)
 
 
@@ -99,20 +153,30 @@ def test_module_projection_retains_executable_locals_and_ordinary_class_attribut
     from corpus_structure.semantic.python_module_projection import admitted_operation_module_digest
 
     local = b"def run():\n    __data_operation__ = {'value': 1}\n    return __data_operation__['value']\n"
-    assert admitted_operation_module_digest(local) != admitted_operation_module_digest(local.replace(b"'value': 1", b"'value': 2"))
+    assert admitted_operation_module_digest(local) != admitted_operation_module_digest(
+        local.replace(b"'value': 1", b"'value': 2")
+    )
     attribute = b"class Data:\n    ordinary__data_operation__ = {'value': 1}\n"
-    assert admitted_operation_module_digest(attribute) != admitted_operation_module_digest(attribute.replace(b"'value': 1", b"'value': 2"))
+    assert admitted_operation_module_digest(attribute) != admitted_operation_module_digest(
+        attribute.replace(b"'value': 1", b"'value': 2")
+    )
 
 
 def test_module_projection_does_not_strip_unattributed_reflective_metadata():
     from corpus_structure.semantic.python_module_projection import admitted_operation_module_digest
 
     foreign = b"foreign = object()\nforeign.__data_operation__ = {'profile':'derivation','subject':'foreign','roles':[],'value':1}\n"
-    assert admitted_operation_module_digest(foreign) != admitted_operation_module_digest(foreign.replace(b"'value':1", b"'value':2"))
+    assert admitted_operation_module_digest(foreign) != admitted_operation_module_digest(
+        foreign.replace(b"'value':1", b"'value':2")
+    )
     suffix = b"unrelated__data_operation__ = {'profile':'derivation','subject':'foreign','roles':[],'value':1}\n"
-    assert admitted_operation_module_digest(suffix) != admitted_operation_module_digest(suffix.replace(b"'value':1", b"'value':2"))
+    assert admitted_operation_module_digest(suffix) != admitted_operation_module_digest(
+        suffix.replace(b"'value':1", b"'value':2")
+    )
     unrelated = b"class Data:\n    __data_operation__ = {'value':1}\n"
-    assert admitted_operation_module_digest(unrelated) != admitted_operation_module_digest(unrelated.replace(b"'value':1", b"'value':2"))
+    assert admitted_operation_module_digest(unrelated) != admitted_operation_module_digest(
+        unrelated.replace(b"'value':1", b"'value':2")
+    )
 
 
 def test_module_projection_retains_metadata_when_executable_code_inspects_it():
@@ -125,11 +189,15 @@ def test_module_projection_retains_metadata_when_executable_code_inspects_it():
         b"def factory():\n    return vars(Op)['__data_operation__']['behavior']\n",
     ):
         first = declaration + reflection
-        assert admitted_operation_module_digest(first) != admitted_operation_module_digest(first.replace(b"'first'", b"'second'"))
+        assert admitted_operation_module_digest(first) != admitted_operation_module_digest(
+            first.replace(b"'first'", b"'second'")
+        )
 
 
 def test_reflective_precision_description_remains_a_real_executable_determinant():
     from corpus_structure.semantic.python_module_projection import admitted_operation_module_digest
 
     source = b"class Op:\n    __data_operation__ = {'profile':'derivation','subject':'local','roles':[],'precision_description':'first'}\ndef run():\n    return Op.__data_operation__['precision_description']\n"
-    assert admitted_operation_module_digest(source) != admitted_operation_module_digest(source.replace(b"'first'", b"'second'"))
+    assert admitted_operation_module_digest(source) != admitted_operation_module_digest(
+        source.replace(b"'first'", b"'second'")
+    )

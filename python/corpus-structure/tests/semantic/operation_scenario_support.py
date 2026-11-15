@@ -1,10 +1,9 @@
 """Synthetic semantic releases for isolated operation contract tests."""
 
-from corpus_structure.semantic.analysis_contracts import acquire_analysis_context_profile
-
 from sqlalchemy import Engine, insert
 
 from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
+from corpus_structure.semantic.analysis_contracts import acquire_analysis_context_profile
 from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.types import PreparedRelease
 
@@ -106,10 +105,12 @@ classes:
     profile = PreparationProfile()
     if evaluation:
         from corpus_structure.semantic.analytical_profile import analytical_inputs
-        from corpus_structure.semantic.rich_knowledge_sources import rich_policy_inputs
         from corpus_structure.semantic.proposals import proposal_inputs
+        from corpus_structure.semantic.rich_knowledge_sources import rich_policy_inputs
 
-        dependencies = rich_policy_inputs(dependencies, b"rules: []\n", context_profile=acquire_analysis_context_profile())
+        dependencies = rich_policy_inputs(
+            dependencies, b"rules: []\n", context_profile=acquire_analysis_context_profile()
+        )
         bundle = proposal_inputs(bundle, dependencies)
         bundle, dependencies = analytical_inputs(bundle, dependencies)
     if composed or evaluation:

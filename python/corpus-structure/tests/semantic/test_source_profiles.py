@@ -18,8 +18,8 @@ from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.original_documents import original_document_subject
 from corpus_structure.semantic.source_products import FrozenNativeSource, native_projection_identity
 from corpus_structure.semantic.source_profiles import (
-    source_profile_inputs,
     source_profile_declarations,
+    source_profile_inputs,
     source_profile_operation_sources,
     source_profile_values,
 )
@@ -33,7 +33,9 @@ def acquired():
         SourceBundle("core", (SourceArtifact("core", core.read_bytes()),))
     )
     sources = source_profile_operation_sources()
-    dependencies = data_operation_dependencies(ResolvedDependencies(), (source_profile_declarations(),), python_sources=sources)
+    dependencies = data_operation_dependencies(
+        ResolvedDependencies(), (source_profile_declarations(),), python_sources=sources
+    )
     prepared = prepare_release(bundle, dependencies, PreparationProfile(version="semantic-2"))
     return bundle, sources, prepared, bound_data_operation_model(prepared)
 

@@ -1,7 +1,5 @@
 """Native frontend ABI controls; exact independent expectations, no model or database."""
 
-from methods.record_assembly_support import model as record_model
-
 import json
 from dataclasses import replace
 from pathlib import Path
@@ -30,6 +28,7 @@ from corpus_structure.semantic.source_contexts import (
 from methods.m1_source_preparation_support import source as view_source
 from methods.m1_source_profile_support import config
 from methods.record_assembly_support import context, fields, release, report, span
+from methods.record_assembly_support import model as record_model
 
 ROOT = Path(__file__).resolve().parents[4]
 
@@ -70,7 +69,8 @@ def assemble(
         }
         if anchor == "term"
         else {},
-     model=record_model())
+        model=record_model(),
+    )
 
 
 def definition_group():
@@ -346,7 +346,8 @@ def test_fragment_report_refuses_foreign_context_and_schema():
                 contract="DefinitionRecordFields",
                 anchor_role="term",
                 policy_version="test",
-             model=record_model())
+                model=record_model(),
+            )
 
 
 def test_fragment_observation_dedup_keeps_positions_but_never_invents_missing_confidence():
@@ -377,7 +378,8 @@ def test_latent_assertions_keep_existing_spo_occurrence_identity():
         anchor_role="predicate",
         policy_version="test",
         occurrence_policy=OCCURRENCE_POLICY,
-     model=record_model())
+        model=record_model(),
+    )
     assert len(result.records) == 2
     assert len({r.model_dump()["record_id"] for r in result.records}) == 2
     assert [fields(r)["predicate"]["original"] for r in result.records] == ["is", "is"]

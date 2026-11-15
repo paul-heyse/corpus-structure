@@ -3,11 +3,6 @@
 import json
 import os
 from pathlib import Path
-from semantic.data_operation_kernel_support import CapturedKernelInputs, KernelRecipe
-
-from semantic.current_pdf_source_support import (
-    current_pdf_source_factory as current_pdf_source_factory, admit_current_target, current_consumer_request,
-)
 
 import pytest
 import yaml
@@ -26,6 +21,14 @@ from corpus_structure.semantic.data_operation_service import execute_data_demand
 from corpus_structure.semantic.declared_candidate_products import candidate_member_values
 from corpus_structure.semantic.hanlp_products import prepare_hanlp_selection
 from corpus_structure.semantic.primary_operations import primary_operation_inputs
+from semantic.current_pdf_source_support import (
+    admit_current_target,
+    current_consumer_request,
+)
+from semantic.current_pdf_source_support import (
+    current_pdf_source_factory as current_pdf_source_factory,
+)
+from semantic.data_operation_kernel_support import CapturedKernelInputs, KernelRecipe
 
 ROOT = Path(__file__).resolve().parents[4]
 TARGETS = (
@@ -82,7 +85,9 @@ def _captured_parser_recipe(assets):
 @pytest.mark.gpu
 @pytest.mark.provider_evidence
 @pytest.mark.prerequisite("pm2_native_assets")
-def test_actual_parser_demand_preserves_three_families_and_exact_resume(current_pdf_source_factory, tmp_path):
+def test_actual_parser_demand_preserves_three_families_and_exact_resume(
+    current_pdf_source_factory, tmp_path
+):
     panel = json.loads(
         (
             ROOT
@@ -90,16 +95,28 @@ def test_actual_parser_demand_preserves_three_families_and_exact_resume(current_
         ).read_bytes()
     )["cases"]
     passages = tuple(panel[index]["text"] for index in (0, 2, 4))
-    with current_pdf_source_factory((("text", "\n".join(passages), "\n".join(passages), None),)) as source:
-        kernel = admit_current_target(source, _captured_parser_recipe(Path(os.environ["CORPUS_PM2_NATIVE_TEST_ASSETS"])), tmp_path / "consumer")
+    with current_pdf_source_factory(
+        (("text", "\n".join(passages), "\n".join(passages), None),)
+    ) as source:
+        kernel = admit_current_target(
+            source,
+            _captured_parser_recipe(Path(os.environ["CORPUS_PM2_NATIVE_TEST_ASSETS"])),
+            tmp_path / "consumer",
+        )
         clone = source.kernel.clone
         request = current_consumer_request(source, kernel, TARGETS, discover=True)
         frozen = request
         from corpus_structure.semantic.data_operation_service import create_native_demand
+
         with kernel.purpose("write").begin() as connection:
             registered = create_native_demand(connection, request, prepared=kernel.prepared)
-        result = execute_data_demand(kernel.purpose("write"), registered["demand_id"], source_root=ROOT,
-            admission_engine=kernel.purpose("admit"), database_capacity=6)
+        result = execute_data_demand(
+            kernel.purpose("write"),
+            registered["demand_id"],
+            source_root=ROOT,
+            admission_engine=kernel.purpose("admit"),
+            database_capacity=6,
+        )
         with clone.admin.begin() as connection:
             snapshot = read_data_demand(connection, result.demand_id, view="products")
         obligations = {value["obligation_id"]: value for value in snapshot["obligations"]}

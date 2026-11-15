@@ -84,7 +84,9 @@ class NativeAuthoringInputs:
     physical_id: str
 
 
-def capture_native_authoring_inputs(*, target_metadata: MetaData | None = None) -> NativeAuthoringInputs:
+def capture_native_authoring_inputs(
+    *, target_metadata: MetaData | None = None
+) -> NativeAuthoringInputs:
     """Acquire the native protocol, exact physical closure and real helper assets once.
 
     Application operations, providers and historical execution catalogs are not inputs
@@ -95,7 +97,11 @@ def capture_native_authoring_inputs(*, target_metadata: MetaData | None = None) 
 
     from .data_operation_artifacts import capture_port_generator_sources
     from .data_operation_compilation import compile_data_operations
-    from .data_operation_storage import native_operation_calls, native_operation_declarations, native_protocol_sources
+    from .data_operation_storage import (
+        native_operation_calls,
+        native_operation_declarations,
+        native_protocol_sources,
+    )
     from .identity import canonical_bytes
     from .pdf_domain import pdf_domain_sources
     from .types import SourceArtifact
@@ -113,15 +119,50 @@ def capture_native_authoring_inputs(*, target_metadata: MetaData | None = None) 
         declarations,
         *capture_port_generator_sources(),
         *pdf_domain_sources(physical_sources=physical, linkml_types=types),
-        *(SourceArtifact("physical/" + name, content) for name, content in sorted(physical.items())),
+        *(
+            SourceArtifact("physical/" + name, content)
+            for name, content in sorted(physical.items())
+        ),
         SourceArtifact("physical/linkml-types.yaml", types),
-        SourceArtifact("authoring/native-fixed-calls.json", canonical_bytes([(owner, asdict(call)) for owner, call in calls])),
-        *(SourceArtifact("authoring/" + name, Path(__file__).with_name(name).read_bytes()) for name in ("native_products.py", "source_view_native.py", "native_candidate.py", "data_operation_compilation.py", "data_operation_model.py", "data_operation_identity.py")),
-        SourceArtifact("authoring/scientific.yaml", Path(__file__).resolve().parents[1].joinpath("model/semantic/scientific.yaml").read_bytes()),
-        SourceArtifact("authoring/scientific-evidence.py", Path(__file__).with_name("scientific_evidence.py").read_bytes()),
-        SourceArtifact("authoring/runtime-bindings.sql", Path(__file__).with_name("sql").joinpath("runtime_bindings.sql").read_bytes()),
-        SourceArtifact("authoring/execution-projection-check.sql", Path(__file__).with_name("sql").joinpath("execution_projection_check.sql").read_bytes()),
-        SourceArtifact("authoring/admission.sql", Path(__file__).with_name("sql").joinpath("admission.sql").read_bytes()),
+        SourceArtifact(
+            "authoring/native-fixed-calls.json",
+            canonical_bytes([(owner, asdict(call)) for owner, call in calls]),
+        ),
+        *(
+            SourceArtifact("authoring/" + name, Path(__file__).with_name(name).read_bytes())
+            for name in (
+                "native_products.py",
+                "source_view_native.py",
+                "native_candidate.py",
+                "data_operation_compilation.py",
+                "data_operation_model.py",
+                "data_operation_identity.py",
+            )
+        ),
+        SourceArtifact(
+            "authoring/scientific.yaml",
+            Path(__file__)
+            .resolve()
+            .parents[1]
+            .joinpath("model/semantic/scientific.yaml")
+            .read_bytes(),
+        ),
+        SourceArtifact(
+            "authoring/scientific-evidence.py",
+            Path(__file__).with_name("scientific_evidence.py").read_bytes(),
+        ),
+        SourceArtifact(
+            "authoring/runtime-bindings.sql",
+            Path(__file__).with_name("sql").joinpath("runtime_bindings.sql").read_bytes(),
+        ),
+        SourceArtifact(
+            "authoring/execution-projection-check.sql",
+            Path(__file__).with_name("sql").joinpath("execution_projection_check.sql").read_bytes(),
+        ),
+        SourceArtifact(
+            "authoring/admission.sql",
+            Path(__file__).with_name("sql").joinpath("admission.sql").read_bytes(),
+        ),
     )
     names = [source.name for source in sources]
     if len(names) != len(set(names)):
@@ -131,7 +172,9 @@ def capture_native_authoring_inputs(*, target_metadata: MetaData | None = None) 
     return NativeAuthoringInputs(model, sources, selected.info["physical_model_id"])
 
 
-def current_authoring_provenance(inputs: NativeAuthoringInputs | None = None) -> NativeAuthoringProvenance:
+def current_authoring_provenance(
+    inputs: NativeAuthoringInputs | None = None,
+) -> NativeAuthoringProvenance:
     """Fingerprint one explicit current native capture, never an application release."""
     captured = capture_native_authoring_inputs() if inputs is None else inputs
     return NativeAuthoringProvenance(
@@ -332,13 +375,19 @@ def derived_publication_sql():
     )
 
 
-def current_admission_fields(inputs: NativeAuthoringInputs | None = None, *, target_metadata: MetaData | None = None) -> dict:
+def current_admission_fields(
+    inputs: NativeAuthoringInputs | None = None, *, target_metadata: MetaData | None = None
+) -> dict:
     """Model-owned admission fields; immutable predecessors own unchanged native programs."""
     from .data_operation_model import MODEL_VERSION
     from .identity import canonical_bytes
 
     target_metadata = metadata if target_metadata is None else target_metadata
-    captured = capture_native_authoring_inputs(target_metadata=target_metadata) if inputs is None else inputs
+    captured = (
+        capture_native_authoring_inputs(target_metadata=target_metadata)
+        if inputs is None
+        else inputs
+    )
     if captured.physical_id != target_metadata.info["physical_model_id"]:
         raise ValueError("native authoring capture belongs to another physical model")
     check_sources = [
@@ -361,7 +410,13 @@ def current_admission_fields(inputs: NativeAuthoringInputs | None = None, *, tar
     ]
     from .scientific_evidence import scientific_report_layout
 
-    layout = scientific_report_layout(next(source.content for source in captured.sources if source.name == "authoring/scientific.yaml"))
+    layout = scientific_report_layout(
+        next(
+            source.content
+            for source in captured.sources
+            if source.name == "authoring/scientific.yaml"
+        )
+    )
     if not layout["comparison_paths"] or not layout["array_rules"]:
         raise ValueError(
             "owned scientific report layout must define comparison and array consumers"

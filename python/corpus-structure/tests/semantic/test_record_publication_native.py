@@ -3,8 +3,6 @@
 Requires the coherent forward native candidate, never edits frozen100 or a live default.
 """
 
-from corpus_structure.semantic.analysis_contracts import acquire_analysis_context_profile
-
 from collections.abc import Mapping, Sequence
 from dataclasses import replace
 from typing import Any, cast
@@ -17,6 +15,7 @@ from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.core.method import CoverageDraft, UnitRef, UnitResult
 from corpus_structure.core.vocab import ObservationOutcome, TaskUnitType
+from corpus_structure.semantic.analysis_contracts import acquire_analysis_context_profile
 from corpus_structure.semantic.analytics import compile_projection
 from corpus_structure.semantic.arrow_publication import AppendPublication, stage_arrow
 from corpus_structure.semantic.domain_operations import _cut_input, consolidate_cut
@@ -522,7 +521,10 @@ def test_completed_record_journey_preserves_sealed_no_output_diagnostics(
 ):
     from corpus_structure.semantic.operations import claim_tasks, complete_task, create_task
     from corpus_structure.semantic.query import read_snapshot
-    from corpus_structure.semantic.record_queries import RecordReadSelection, read_completed_record_projection
+    from corpus_structure.semantic.record_queries import (
+        RecordReadSelection,
+        read_completed_record_projection,
+    )
 
     case = private_source
     coverage = (
@@ -595,9 +597,15 @@ def test_completed_record_journey_preserves_sealed_no_output_diagnostics(
     consolidate_cut(case.writer, cut, "public-coverage-diagnostics")
     request = RecordReadSelection(family="table", standing="accepted")
     with read_snapshot(record_source_reader) as conn:
-        page = read_completed_record_projection(conn, run_id=case.run, selection=request, include_diagnostics=True)
+        page = read_completed_record_projection(
+            conn, run_id=case.run, selection=request, include_diagnostics=True
+        )
         selected = read_completed_record_projection(
-            conn, run_id=case.run, selection=request, source_view_ids=(case.other_view,), include_diagnostics=True
+            conn,
+            run_id=case.run,
+            selection=request,
+            source_view_ids=(case.other_view,),
+            include_diagnostics=True,
         )
     assert page.rows["source_record"] == () and not page.more_records
     by_source = {report.source_view_id: report for report in page.coverage}
@@ -657,7 +665,10 @@ def test_record_continuation_keeps_completed_cut_after_project_selection_changes
     from sqlalchemy import update
 
     from corpus_structure.semantic.query import read_snapshot
-    from corpus_structure.semantic.record_queries import RecordReadSelection, read_completed_record_projection
+    from corpus_structure.semantic.record_queries import (
+        RecordReadSelection,
+        read_completed_record_projection,
+    )
 
     case = private_source
     cut = record_cut(case)
@@ -690,7 +701,9 @@ def test_record_continuation_keeps_completed_cut_after_project_selection_changes
         )
     with read_snapshot(record_source_reader) as conn:
         second = read_completed_record_projection(
-            conn, run_id=case.run, selection=RecordReadSelection(limit=1, after=(last.record_id, last.interpretation_id))
+            conn,
+            run_id=case.run,
+            selection=RecordReadSelection(limit=1, after=(last.record_id, last.interpretation_id)),
         )
     assert second.binding == first.binding and second.cut_id == first.cut_id == cut
     assert second.coverage == first.coverage
@@ -893,12 +906,12 @@ def test_completed_public_reader_refuses_archive_without_record_projection(
     )
     from corpus_structure.semantic.analytical_profile import analytical_inputs
     from corpus_structure.semantic.composed import composed_dependencies
-    from corpus_structure.semantic.rich_knowledge_sources import rich_policy_inputs
     from corpus_structure.semantic.operations import OperationBinding, create_run
     from corpus_structure.semantic.query import read_snapshot
     from corpus_structure.semantic.record_queries import read_completed_record_projection
     from corpus_structure.semantic.refusals import SemanticRefusal
     from corpus_structure.semantic.releases import persist_release
+    from corpus_structure.semantic.rich_knowledge_sources import rich_policy_inputs
 
     # This genuine immutable archive predates M1 *in declared capability*: it has no
     # SourceRecord definition/artifact. No retired compiler or modified archive is used.
@@ -924,7 +937,9 @@ classes:
             ),
         ),
     )
-    dependencies = rich_policy_inputs(ResolvedDependencies(), b"rules: []\n", context_profile=acquire_analysis_context_profile())
+    dependencies = rich_policy_inputs(
+        ResolvedDependencies(), b"rules: []\n", context_profile=acquire_analysis_context_profile()
+    )
     bundle, dependencies = analytical_inputs(bundle, dependencies)
     dependencies = composed_dependencies(dependencies)
     profile = PreparationProfile(version="semantic-2")

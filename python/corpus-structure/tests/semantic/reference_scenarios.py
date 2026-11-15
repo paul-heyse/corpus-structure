@@ -39,8 +39,8 @@ from corpus_structure.semantic.record_contracts import (
     anchor_identity,
     evidence_set_identity,
     interpretation_identity,
-    record_identity,
     record_family_contract,
+    record_identity,
 )
 from corpus_structure.semantic.releases import activate_release, persist_release
 from corpus_structure.semantic.types import PreparedRelease

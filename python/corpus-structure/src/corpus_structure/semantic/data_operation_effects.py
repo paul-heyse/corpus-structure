@@ -47,7 +47,8 @@ class PreparedNativePublicationEffect(NativePublicationEffectPort):
     def __post_init__(self):
         operation = self.wrapped.operation
         if (
-            operation.profile != "command" or not operation.effects
+            operation.profile != "command"
+            or not operation.effects
             or operation.capabilities.preparation != "native-publication"
         ):
             raise ValueError("native publication preparation requires its declared command")
@@ -72,6 +73,11 @@ class PreparedNativePublicationEffect(NativePublicationEffectPort):
         return self.wrapped.consumer_receiver
 
     def plan_python(self, values, *, binding=None, check_active=lambda: None, execution_owner):
-        return (yield from self.wrapped.plan_python(
-            values, binding=binding, check_active=check_active, execution_owner=execution_owner,
-        ))
+        return (
+            yield from self.wrapped.plan_python(
+                values,
+                binding=binding,
+                check_active=check_active,
+                execution_owner=execution_owner,
+            )
+        )

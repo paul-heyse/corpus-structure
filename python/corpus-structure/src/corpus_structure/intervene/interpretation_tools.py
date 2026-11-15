@@ -7,7 +7,11 @@ from pydantic import BaseModel
 
 from corpus_structure.semantic.data_operation_json import json_bytes
 from corpus_structure.semantic.refusals import tool_refusals
-from corpus_structure.serve.interpretations import SelectedProposalRequest, inspect_selected_proposals, term_lookup
+from corpus_structure.serve.interpretations import (
+    SelectedProposalRequest,
+    inspect_selected_proposals,
+    term_lookup,
+)
 
 
 class ExactInterpretationResult(BaseModel):
@@ -15,18 +19,39 @@ class ExactInterpretationResult(BaseModel):
     exact_json: str
 
 
-def register_interpretation_tools(server, metadata_reader, selected_reader, *, project=None, demand=None):
+def register_interpretation_tools(
+    server, metadata_reader, selected_reader, *, project=None, demand=None
+):
     from corpus_structure.intervene.mcp_results import bounded_mcp_result
 
     def present(result, max_bytes):
-        return bounded_mcp_result(ExactInterpretationResult(exact_json=json_bytes(result.model_dump(mode="python")).decode()), max_bytes)
+        return bounded_mcp_result(
+            ExactInterpretationResult(
+                exact_json=json_bytes(result.model_dump(mode="python")).decode()
+            ),
+            max_bytes,
+        )
 
     @server.tool(annotations={"readOnlyHint": True})
     @tool_refusals(ValueError, KeyError)
-    def lookup_terminology(ctx: Context, release: str, field: str, query: str | None = None, browse: bool = False, max_bytes: int = 1024**2):
+    def lookup_terminology(
+        ctx: Context,
+        release: str,
+        field: str,
+        query: str | None = None,
+        browse: bool = False,
+        max_bytes: int = 1024**2,
+    ):
         """Look up real released field vocabulary metadata."""
         with metadata_reader(ctx) as connection:
-            result = term_lookup(connection, release_id=release, field=field, query=query, browse=browse, max_bytes=max_bytes)
+            result = term_lookup(
+                connection,
+                release_id=release,
+                field=field,
+                query=query,
+                browse=browse,
+                max_bytes=max_bytes,
+            )
         return present(result, max_bytes)
 
     @server.tool(annotations={"readOnlyHint": True})

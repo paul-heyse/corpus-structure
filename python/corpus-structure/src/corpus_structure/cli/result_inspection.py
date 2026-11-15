@@ -89,10 +89,7 @@ def native_inspection(
                 ("release_id", "release_id"),
                 ("runtime_id", "runtime_id"),
             ):
-                if (
-                    bindings.get(recorded) is not None
-                    and bindings[recorded] != snapshot[native]
-                ):
+                if bindings.get(recorded) is not None and bindings[recorded] != snapshot[native]:
                     return NativeInspection(
                         reason="Recorded demand custody differs from the native demand."
                     )

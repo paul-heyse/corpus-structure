@@ -3,9 +3,12 @@
 from pathlib import Path
 
 from semantic.current_pdf_source_support import (
-    current_pdf_source_factory as current_pdf_source_factory, admit_current_target, current_consumer_request,
+    admit_current_target,
+    current_consumer_request,
 )
-
+from semantic.current_pdf_source_support import (
+    current_pdf_source_factory as current_pdf_source_factory,
+)
 from semantic.data_operation_kernel_support import CapturedKernelInputs, KernelRecipe
 
 from corpus_structure.core.method import MethodSettings
@@ -13,7 +16,11 @@ from corpus_structure.semantic import SourceArtifact, SourceBundle
 from corpus_structure.semantic.composed import data_operation_dependencies
 from corpus_structure.semantic.data_operation_artifacts import capture_port_generator_sources
 from corpus_structure.semantic.data_operation_identity import decode_semantic_value
-from corpus_structure.semantic.data_operation_service import create_native_demand, execute_data_demand, read_data_demand
+from corpus_structure.semantic.data_operation_service import (
+    create_native_demand,
+    execute_data_demand,
+    read_data_demand,
+)
 from corpus_structure.semantic.data_operation_storage import (
     native_operation_declarations,
     native_protocol_sources,
@@ -41,8 +48,8 @@ def recipe():
         source_discovery_operation_sources,
     )
     from corpus_structure.semantic.source_profiles import (
+        source_profile_declarations,
         source_profile_inputs,
-    source_profile_declarations,
         source_profile_operation_sources,
     )
 
@@ -87,7 +94,8 @@ def recipe():
 
 
 def test_actual_math_request_retains_source_coordinates_and_resumes_without_new_work(
-    current_pdf_source_factory, tmp_path,
+    current_pdf_source_factory,
+    tmp_path,
 ):
     with current_pdf_source_factory((("formula", "f(x)=x", "f(x)=x", "succeeded"),)) as source:
         kernel = admit_current_target(source, recipe(), tmp_path / "consumer")

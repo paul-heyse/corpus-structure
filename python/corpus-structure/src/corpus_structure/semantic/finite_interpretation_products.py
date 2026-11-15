@@ -10,8 +10,8 @@ from pathlib import Path
 from typing import Any
 
 from .identity import canonical_bytes
-from .types import SourceArtifact, SourceBundle
 from .python_module_projection import admitted_operation_module_meaning
+from .types import SourceArtifact, SourceBundle
 
 _ROOT = Path(__file__).parents[1]
 _MODEL = _ROOT / "model/semantic/data-operation-interpretation.yaml"
@@ -70,21 +70,40 @@ def finite_interpretation_assets():
                 "version": "finite-interpretation-1",
                 "schema": _MODEL.read_bytes().hex(),
                 "numerical_policy": FINITE_NUMERICS.model_dump(mode="json"),
-                "files": [(name, (admitted_operation_module_meaning((_ROOT / name).read_bytes()).hex() if name in ('methods/finite_interpretation.py',) else (_ROOT / name).read_bytes().hex())) for name in _FILES],
+                "files": [
+                    (
+                        name,
+                        (
+                            admitted_operation_module_meaning((_ROOT / name).read_bytes()).hex()
+                            if name in ("methods/finite_interpretation.py",)
+                            else (_ROOT / name).read_bytes().hex()
+                        ),
+                    )
+                    for name in _FILES
+                ],
             }
         ),
     )
 
 
 def finite_interpretation_declarations():
-    from .record_interpretation import FiniteNumericalPolicy
     from .data_operation_model import MODEL_VERSION
     from .nominal_schema_kinds import nominal_schema_kinds
+    from .record_interpretation import FiniteNumericalPolicy
 
-    return SourceArtifact("finite_interpretation/numerical-kinds", canonical_bytes({
-        "version": MODEL_VERSION,
-        "kinds": nominal_schema_kinds(FiniteNumericalPolicy.model_json_schema(), namespace="urn:corpus:kind:finite:", root_name="NumericalPolicy"),
-    }))
+    return SourceArtifact(
+        "finite_interpretation/numerical-kinds",
+        canonical_bytes(
+            {
+                "version": MODEL_VERSION,
+                "kinds": nominal_schema_kinds(
+                    FiniteNumericalPolicy.model_json_schema(),
+                    namespace="urn:corpus:kind:finite:",
+                    root_name="NumericalPolicy",
+                ),
+            }
+        ),
+    )
 
 
 def finite_interpretation_operation_sources():

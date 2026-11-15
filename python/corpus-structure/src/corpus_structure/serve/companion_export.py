@@ -13,7 +13,7 @@ import duckdb
 import pyarrow as pa
 import pyarrow.compute as pc
 import pyarrow.parquet as pq
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, Field, model_validator
 from sqlalchemy import String, text
 from sqlalchemy.dialects import postgresql
 
@@ -23,13 +23,16 @@ from corpus_structure.core.db.adbc_lifetime import (
     owned_adbc_read,
 )
 from corpus_structure.core.db.cancellation import OperationCancellation
+from corpus_structure.semantic.capture_storage import LogicalRows
+from corpus_structure.semantic.demand_results import CutSelection, selected_read_snapshot
 from corpus_structure.semantic.identifiers import ReleaseId
 from corpus_structure.semantic.pdf_publication import PublishedPdfDocumentRef
-from corpus_structure.serve.selected_pdf import SelectedPdfSourceReference, acquire_selected_pdf_source
-from corpus_structure.semantic.capture_storage import LogicalRows
-from corpus_structure.semantic.demand_results import selected_read_snapshot, CutSelection
 from corpus_structure.semantic.refusals import SemanticRefusal
 from corpus_structure.semantic.runtime import connection_settings, open_runtime_engine
+from corpus_structure.serve.selected_pdf import (
+    SelectedPdfSourceReference,
+    acquire_selected_pdf_source,
+)
 from corpus_structure.settings import Settings
 
 Family = Literal["input", "relation", "coverage", "mapping_report"]
@@ -70,12 +73,13 @@ class CompanionExportManifest(BaseModel):
     families: dict[str, FamilyFile]
     not_requested: tuple[str, ...]
 
-
     @model_validator(mode="after")
     def consistent_selection(self):
         cut = CutSelection.from_native(self.cut)
         if (cut.record["project_id"], cut.record["demand_id"], cut.record["read_id"]) != (
-            self.pin.project_id, self.pin.demand_id, self.pin.read_id,
+            self.pin.project_id,
+            self.pin.demand_id,
+            self.pin.read_id,
         ) or self.publication.release_id != self.producer_release_id:
             raise ValueError("companion manifest selection/cut/publication differ")
         return self
@@ -154,7 +158,11 @@ def export_companion_parquet(
                     stmt = spec.arrow_statement.params(**request.pin.model_dump())
                     cursor.execute(_literal_statement(stmt))
                     schema = _export_schema(
-                        spec, request.pin, producer_release_id=producer_release_id, cut=selected.cut.record, publication=publication
+                        spec,
+                        request.pin,
+                        producer_release_id=producer_release_id,
+                        cut=selected.cut.record,
+                        publication=publication,
                     )
                     logical = LogicalRows(schema, spec.keys)
                     path = root / (family + ".parquet")
@@ -167,7 +175,14 @@ def export_companion_parquet(
                             cancellation.check_active()
                             # Exact scalar projections refuse lossy conversion.
                             _admit_schema(family, schema, batch.schema)
-                            _admit_batch(spec, batch, request.pin, producer_release_id, cut=selected.cut.record, publication=publication)
+                            _admit_batch(
+                                spec,
+                                batch,
+                                request.pin,
+                                producer_release_id,
+                                cut=selected.cut.record,
+                                publication=publication,
+                            )
                             batch = batch.cast(schema, safe=True)
                             logical.write(batch)
                             writer.write_batch(batch)
@@ -183,7 +198,8 @@ def export_companion_parquet(
                     )
         manifest = CompanionExportManifest(
             pin=request.pin,
-            cut=selected.cut.record, publication=publication,
+            cut=selected.cut.record,
+            publication=publication,
             producer_release_id=producer_release_id,
             projection_id=projection_id,
             profile_id=PROFILE_ID,
@@ -197,7 +213,9 @@ def export_companion_parquet(
         return manifest
 
 
-def _export_schema(spec, pin: SelectedPdfSourceReference, *, producer_release_id: str, cut, publication) -> pa.Schema:
+def _export_schema(
+    spec, pin: SelectedPdfSourceReference, *, producer_release_id: str, cut, publication
+) -> pa.Schema:
     from corpus_structure.semantic.metadata import PHYSICAL_MODEL_ID
 
     return spec.arrow_schema.with_metadata(
@@ -225,7 +243,13 @@ def _admit_schema(family: str, expected: pa.Schema, actual: pa.Schema) -> None:
 
 
 def _admit_batch(
-    spec, batch: pa.RecordBatch, pin: SelectedPdfSourceReference, producer_release_id: str, *, cut, publication
+    spec,
+    batch: pa.RecordBatch,
+    pin: SelectedPdfSourceReference,
+    producer_release_id: str,
+    *,
+    cut,
+    publication,
 ) -> None:
     """Enforce declared required values and exact publication provenance per batch."""
     for field in spec.arrow_schema:
@@ -235,7 +259,8 @@ def _admit_batch(
         **pin.model_dump(),
         "producer_release_id": producer_release_id,
         "selection_release_id": cut["release_id"],
-        "task_id": publication.task_id, "product_key": publication.product_key,
+        "task_id": publication.task_id,
+        "product_key": publication.product_key,
         "content_digest": publication.logical_digest,
         "projection_id": spec.projection_id,
     }
@@ -306,7 +331,11 @@ def _verified(path: Path):
             and manifest.profile_id == PROFILE_ID
             and not expected.equals(
                 _export_schema(
-                    spec, manifest.pin, producer_release_id=manifest.producer_release_id, cut=manifest.cut, publication=manifest.publication
+                    spec,
+                    manifest.pin,
+                    producer_release_id=manifest.producer_release_id,
+                    cut=manifest.cut,
+                    publication=manifest.publication,
                 ),
                 check_metadata=True,
             )
@@ -321,7 +350,14 @@ def _verified(path: Path):
         logical = LogicalRows(expected)
         for batch in parquet.iter_batches():
             if manifest.projection_id == spec.projection_id and manifest.profile_id == PROFILE_ID:
-                _admit_batch(spec, batch, manifest.pin, manifest.producer_release_id, cut=manifest.cut, publication=manifest.publication)
+                _admit_batch(
+                    spec,
+                    batch,
+                    manifest.pin,
+                    manifest.producer_release_id,
+                    cut=manifest.cut,
+                    publication=manifest.publication,
+                )
             logical.write(batch)
         if logical.digest != entry.logical_digest:
             raise SemanticRefusal("companion logical rows differ")
@@ -400,7 +436,11 @@ def inventory_companion_export(path: Path) -> dict:
                     "SELECT CASE WHEN target_task_id=? AND target_product_key=? "
                     "AND target_content_digest=? THEN 'own_product' ELSE 'external_product' END "
                     "AS scope,count(*) FROM family GROUP BY scope ORDER BY scope",
-                    [manifest.publication.task_id, manifest.publication.product_key, manifest.publication.logical_digest],
+                    [
+                        manifest.publication.task_id,
+                        manifest.publication.product_key,
+                        manifest.publication.logical_digest,
+                    ],
                 ).fetchall()
             elif name == "coverage":
                 detail["scoped_outcomes"] = _inventory_groups(
@@ -496,7 +536,11 @@ def compare_companion_exports(left: Path, right: Path) -> dict:
             # Provenance differs by product; all projected value columns retain exact multiplicity.
             excluded = {
                 "project_id",
-                "demand_id", "read_id", "use_id", "product_id", "derivation_id",
+                "demand_id",
+                "read_id",
+                "use_id",
+                "product_id",
+                "derivation_id",
                 "selection_release_id",
                 "producer_release_id",
                 "task_id",

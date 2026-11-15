@@ -22,9 +22,21 @@ class _OperationMetadata(ast.NodeTransformer):
         # Keep direct metadata reads and ordinary reflection conservative; this is
         # deliberately not an attempt to infer arbitrary Python data flow.
         self.reflective = any(
-            (isinstance(node, ast.Attribute) and node.attr == "__data_operation__" and isinstance(node.ctx, ast.Load))
-            or (isinstance(node, ast.Name) and node.id.endswith("__data_operation__") and isinstance(node.ctx, ast.Load))
-            or (isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id in {"getattr", "vars", "globals", "locals", "eval", "exec"})
+            (
+                isinstance(node, ast.Attribute)
+                and node.attr == "__data_operation__"
+                and isinstance(node.ctx, ast.Load)
+            )
+            or (
+                isinstance(node, ast.Name)
+                and node.id.endswith("__data_operation__")
+                and isinstance(node.ctx, ast.Load)
+            )
+            or (
+                isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Name)
+                and node.func.id in {"getattr", "vars", "globals", "locals", "eval", "exec"}
+            )
             for node in ast.walk(tree)
         )
 
@@ -54,13 +66,17 @@ class _OperationMetadata(ast.NodeTransformer):
         return None
 
     def declared_metadata(self, targets, value):
-        if self.reflective or not targets or any(self.owner(target) not in self.declarations for target in targets):
+        if (
+            self.reflective
+            or not targets
+            or any(self.owner(target) not in self.declarations for target in targets)
+        ):
             return False
         if not isinstance(value, ast.Dict):
             return False
         try:
             record = ast.literal_eval(value)
-        except (ValueError, TypeError):
+        except ValueError, TypeError:
             return False
         # This identifies declaration intent, not a second admission validator.
         # The closed frontend still validates the complete operation contract.
@@ -96,10 +112,12 @@ def admitted_operation_module_meaning(content: bytes) -> bytes:
     """Retain the complete supplying module except its explicit operation metadata."""
     tree = ast.parse(content)
     tree = _OperationMetadata(tree).visit(tree)
-    return canonical_bytes({
-        "interpretation": "admitted-operation-module-v1",
-        "syntax": ast.dump(tree, include_attributes=False),
-    })
+    return canonical_bytes(
+        {
+            "interpretation": "admitted-operation-module-v1",
+            "syntax": ast.dump(tree, include_attributes=False),
+        }
+    )
 
 
 def admitted_operation_module_digest(content: bytes) -> str:

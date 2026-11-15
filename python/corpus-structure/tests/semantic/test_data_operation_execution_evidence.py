@@ -160,7 +160,9 @@ def test_captured_companion_schema_is_required_and_owns_wire_interpretation():
 def test_cpu_receipt_keeps_matched_process_facts_without_product_or_reply_copy():
     from corpus_structure.semantic.cpu_receipts import CPUExecutionReceipt
 
-    original = CPUExecutionReceipt("a" * 64, 23, True, 1, b'[{"num_threads":1,"user_api":"blas"}]', "b" * 64)
+    original = CPUExecutionReceipt(
+        "a" * 64, 23, True, 1, b'[{"num_threads":1,"user_api":"blas"}]', "b" * 64
+    )
     value = bind_execution_evidence(
         None,
         cpu_content=canonical_bytes(original.record()),

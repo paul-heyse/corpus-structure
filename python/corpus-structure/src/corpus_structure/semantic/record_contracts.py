@@ -131,8 +131,14 @@ def evidence_set_identity(evidence: Mapping[str, Any]) -> str:
 
 def record_family_contract(model, contract: str) -> str:
     """Identity of the actual effective family-field owner consumed by a reading."""
-    owners = {kind.semantic_id for kind in model.kinds if kind.name == contract and kind.category == "class" and kind.complete}
-    identities = {item.key for item in model.identities if item.domain == "kind" and item.owner in owners}
+    owners = {
+        kind.semantic_id
+        for kind in model.kinds
+        if kind.name == contract and kind.category == "class" and kind.complete
+    }
+    identities = {
+        item.key for item in model.identities if item.domain == "kind" and item.owner in owners
+    }
     if len(owners) != 1 or len(identities) != 1:
         raise ValueError("reading requires one exact effective record-family contract")
     return next(iter(identities))

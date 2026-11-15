@@ -5,15 +5,30 @@ from pydantic import ValidationError
 
 from corpus_structure.serve.native_source import NativeSourceRequest
 
-
-PIN = dict(project_id="project:selected", demand_id="demand:selected", read_id="read:selected", use_id="use:selected", product_id="product:selected", derivation_id="derivation:producer")
+PIN = dict(
+    project_id="project:selected",
+    demand_id="demand:selected",
+    read_id="read:selected",
+    use_id="use:selected",
+    product_id="product:selected",
+    derivation_id="derivation:producer",
+)
 
 
 def test_native_request_pin_and_continuation_identity():
     value = NativeSourceRequest(**PIN)
-    assert value.model_copy(update={"limit": 1, "cursor": "x"}).selection_digest() == value.selection_digest()
-    for field, changed in (("pointer", "#/texts/1"), ("read_id", "read:other"), ("derivation_id", "derivation:other")):
-        assert value.model_copy(update={field: changed}).selection_digest() != value.selection_digest()
+    assert (
+        value.model_copy(update={"limit": 1, "cursor": "x"}).selection_digest()
+        == value.selection_digest()
+    )
+    for field, changed in (
+        ("pointer", "#/texts/1"),
+        ("read_id", "read:other"),
+        ("derivation_id", "derivation:other"),
+    ):
+        assert (
+            value.model_copy(update={field: changed}).selection_digest() != value.selection_digest()
+        )
     with pytest.raises(ValidationError):
         NativeSourceRequest.model_validate({**PIN, "derivation_id": ""})
 
@@ -23,7 +38,8 @@ def test_current_request_refuses_archived_coordinates_and_old_contract_versions(
     for invalid in (
         dict(run_id=1, task_id=2, product_key="native", content_digest="a" * 64),
         *({**PIN, "version": version} for version in (2, 3, 4)),
-        {**PIN, "rendition_id": 2}, {**PIN, "task_id": 2},
+        {**PIN, "rendition_id": 2},
+        {**PIN, "task_id": 2},
         {name: value for name, value in PIN.items() if name != "read_id"},
     ):
         with pytest.raises(ValidationError):
@@ -59,7 +75,9 @@ def test_mcp_registration_exposes_versioned_native_reads_and_explicit_render():
     engine = create_engine("sqlite://")
 
     async def check():
-        async with Client(build_server(project="project:selected", demand="demand:selected", read_engine=engine)) as client:
+        async with Client(
+            build_server(project="project:selected", demand="demand:selected", read_engine=engine)
+        ) as client:
             tools = {tool.name: tool for tool in await client.list_tools()}
             assert "inspect_source" in tools and "render_source_region" in tools
             request = tools["inspect_source"].input_schema["properties"]["request"]

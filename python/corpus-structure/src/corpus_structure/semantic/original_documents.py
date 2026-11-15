@@ -2,18 +2,18 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from collections.abc import Mapping
-from typing import Any
+from dataclasses import dataclass
 from hashlib import sha256
+from typing import Any
 
 from sqlalchemy import Connection, select
 
 from .data_operation_demands import RootSubject
 from .data_operation_support import OriginalDocumentRef, OriginalSourceSelection
+from .identifiers import DocumentId
 from .identity import canonical_bytes
 from .metadata import table
-from .identifiers import DocumentId
 from .refusals import SemanticRefusal
 from .types import PreparedRelease
 
@@ -102,8 +102,11 @@ def register_original_document(
 ) -> DocumentId:
     """Register exact source metadata and retain binary bytes through the current facet."""
     from pathlib import Path
+
     from sqlalchemy.dialects.postgresql import insert
+
     from corpus_structure.core.evidence import document_key
+
     from . import _source_admission_calls as calls
     from .identifiers import ProjectId, ReleaseId
     from .original_document_contracts import require_source_database_context
@@ -112,44 +115,92 @@ def register_original_document(
         raise OriginalDocumentConflict("retained original bytes differ from registered source")
     digest = sha256(original).hexdigest()
     request = calls.prepare_source_document_registration(
-        project_id=ProjectId(project_id), key=document_key(project_id, source_uri, digest),
-        source_uri=source_uri, content_hash=digest, original_path=original_path,
-        mime=mime, title=title, meta=dict(metadata or {}), projection_context=prepared,
+        project_id=ProjectId(project_id),
+        key=document_key(project_id, source_uri, digest),
+        source_uri=source_uri,
+        content_hash=digest,
+        original_path=original_path,
+        mime=mime,
+        title=title,
+        meta=dict(metadata or {}),
+        projection_context=prepared,
     )
     require_source_database_context(connection, prepared)
     document = table("kb.document")
-    connection.execute(insert(document).values(**calls.values_source_document_registration_kb_document(request)).on_conflict_do_nothing())
-    row = calls.collect_source_document_registration(connection.execute(
-        select(*calls.projection_source_document_registration).where(document.c.project_id == request.project_id, document.c.key == request.key)
-    ))
+    connection.execute(
+        insert(document)
+        .values(**calls.values_source_document_registration_kb_document(request))
+        .on_conflict_do_nothing()
+    )
+    row = calls.collect_source_document_registration(
+        connection.execute(
+            select(*calls.projection_source_document_registration).where(
+                document.c.project_id == request.project_id, document.c.key == request.key
+            )
+        )
+    )
     actual = row.decoded_json_fields(operation="data.initialize_source_project")
-    if any(actual[name] != value for name, value in calls.expected_source_document_registration_kb_document(request).items()):
+    if any(
+        actual[name] != value
+        for name, value in calls.expected_source_document_registration_kb_document(request).items()
+    ):
         raise OriginalDocumentConflict("source identity denotes another source descriptor")
-    retained = calls.retain_original_document(connection, release_id=ReleaseId(prepared.release_id), document_id=row.id, original=original, projection_context=prepared)
+    retained = calls.retain_original_document(
+        connection,
+        release_id=ReleaseId(prepared.release_id),
+        document_id=row.id,
+        original=original,
+        projection_context=prepared,
+    )
     if retained != digest:
         raise OriginalDocumentConflict("retained original digest differs from registered bytes")
     return row.id
 
 
-def read_original_document_bytes(connection: Connection, reference: OriginalDocumentRef, *, prepared: PreparedRelease) -> bytes:
+def read_original_document_bytes(
+    connection: Connection, reference: OriginalDocumentRef, *, prepared: PreparedRelease
+) -> bytes:
     """Read one exact retained fact; unavailable custody never falls back to a local file."""
     from . import _source_admission_calls as calls
     from .identifiers import ProjectId
     from .original_document_contracts import require_source_database_context
 
-    request = calls.prepare_original_document_descriptor(project_id=ProjectId(reference.project_id), key=reference.document_key, projection_context=prepared)
+    request = calls.prepare_original_document_descriptor(
+        project_id=ProjectId(reference.project_id),
+        key=reference.document_key,
+        projection_context=prepared,
+    )
     require_source_database_context(connection, prepared)
     document = table("kb.document")
-    row = calls.collect_original_document_descriptor(connection.execute(
-        select(*calls.projection_original_document_descriptor).where(document.c.project_id == request.project_id, document.c.key == request.key)
-    ))
+    row = calls.collect_original_document_descriptor(
+        connection.execute(
+            select(*calls.projection_original_document_descriptor).where(
+                document.c.project_id == request.project_id, document.c.key == request.key
+            )
+        )
+    )
     if row is None:
         raise OriginalDocumentReadRefused("missing", "retained original document is missing")
-    if (row.project_id, row.key, row.content_hash, row.mime) != (reference.project_id, reference.document_key, reference.content_hash, reference.mime):
-        raise OriginalDocumentReadRefused("invalid", "retained original descriptor differs from the selected fact")
-    request = calls.prepare_original_document_artifact(artifact_digest=row.content_hash, projection_context=prepared)
+    if (row.project_id, row.key, row.content_hash, row.mime) != (
+        reference.project_id,
+        reference.document_key,
+        reference.content_hash,
+        reference.mime,
+    ):
+        raise OriginalDocumentReadRefused(
+            "invalid", "retained original descriptor differs from the selected fact"
+        )
+    request = calls.prepare_original_document_artifact(
+        artifact_digest=row.content_hash, projection_context=prepared
+    )
     artifact = table("kb.source_artifact")
-    content = calls.collect_original_document_artifact(connection.execute(select(*calls.projection_original_document_artifact).where(artifact.c.artifact_digest == request.artifact_digest)))
+    content = calls.collect_original_document_artifact(
+        connection.execute(
+            select(*calls.projection_original_document_artifact).where(
+                artifact.c.artifact_digest == request.artifact_digest
+            )
+        )
+    )
     if content is None:
         raise OriginalDocumentReadRefused("missing", "retained original artifact is unavailable")
     if sha256(content).hexdigest() != reference.content_hash:

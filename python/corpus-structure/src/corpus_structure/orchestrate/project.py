@@ -39,8 +39,10 @@ def init_bound_project(
     import yaml
 
     from corpus_structure.schema.pack import DOMAINS
-    from corpus_structure.semantic.original_document_contracts import require_source_operation_context
     from corpus_structure.semantic.data_operation_storage import DataOperationStorage
+    from corpus_structure.semantic.original_document_contracts import (
+        require_source_operation_context,
+    )
     from corpus_structure.semantic.original_documents import register_original_document
     from corpus_structure.semantic.releases import load_release
 
@@ -51,7 +53,10 @@ def init_bound_project(
     project_id = name or domain
     retained_bytes = {}
     if originals:
-        from corpus_structure.semantic.original_documents import acquire_original_document_selection, read_original_document_bytes
+        from corpus_structure.semantic.original_documents import (
+            acquire_original_document_selection,
+            read_original_document_bytes,
+        )
 
         if len({value.document_key for value in originals}) != len(originals):
             raise ProjectError("retained originals must be distinct exact document keys")
@@ -99,12 +104,21 @@ def init_bound_project(
         acquired.append((uri, original, raw))
     from corpus_structure.semantic.identifiers import ProjectId, RealizationId, ReleaseId
 
-    result = DataOperationStorage(conn).initialize_source_project({
-        "project_id": ProjectId(project_id), "release_id": ReleaseId(release_id),
-        "realization_id": RealizationId(realization_id),
-    })
-    if result != {"project_id": project_id, "release_id": release_id, "realization_id": realization_id}:
-        raise ProjectError("initialized project context differs from its exact requested identities")
+    result = DataOperationStorage(conn).initialize_source_project(
+        {
+            "project_id": ProjectId(project_id),
+            "release_id": ReleaseId(release_id),
+            "realization_id": RealizationId(realization_id),
+        }
+    )
+    if result != {
+        "project_id": project_id,
+        "release_id": release_id,
+        "realization_id": realization_id,
+    }:
+        raise ProjectError(
+            "initialized project context differs from its exact requested identities"
+        )
     for uri, original, raw in acquired:
         if originals:
             continue

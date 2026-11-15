@@ -42,10 +42,10 @@ def rich_policy_inputs(
     context_profile,
 ) -> ResolvedDependencies:
     """Archive existing rules as one operation dependency, never read latest files in a run."""
+    from dataclasses import asdict
+
     from .alias_policy import SOURCE_PROFILE
     from .scientific_evidence import scientific_policy_recipe
-
-    from dataclasses import asdict
 
     source = parse_policy_yaml(domain) or {}
     base = parse_policy_yaml(core) or {}
@@ -74,7 +74,9 @@ def rich_policy_inputs(
         artifacts=(
             *dependencies.artifacts,
             SourceArtifact(RULE_INPUT, yaml.safe_dump(source, sort_keys=True).encode()),
-            SourceArtifact("operation/rich-analysis-context.json", canonical_bytes(asdict(context_profile))),
+            SourceArtifact(
+                "operation/rich-analysis-context.json", canonical_bytes(asdict(context_profile))
+            ),
             SourceArtifact(
                 "operation/scientific-policy.json",
                 canonical_bytes(scientific_policy_recipe(context_profile=context_profile)),
@@ -97,9 +99,14 @@ def rich_policy_inputs(
 
 
 def rich_knowledge_inputs(
-    bundle: SourceBundle, dependencies: ResolvedDependencies, *,
-    domain_rules: bytes, core_rules: bytes = b"", context_profile,
-    qualification_class: str, statement_class: str,
+    bundle: SourceBundle,
+    dependencies: ResolvedDependencies,
+    *,
+    domain_rules: bytes,
+    core_rules: bytes = b"",
+    context_profile,
+    qualification_class: str,
+    statement_class: str,
     aliases: Mapping[str, Any] | None = None,
 ) -> tuple[SourceBundle, ResolvedDependencies]:
     """Compose actual source/proposal/reading contracts and explicit rich policy.
@@ -109,43 +116,66 @@ def rich_knowledge_inputs(
     to the same current DDO compiler via rich_knowledge_declarations().
     """
     bundle, dependencies = rich_knowledge_schema_inputs(
-        bundle, dependencies, qualification_class=qualification_class, statement_class=statement_class,
+        bundle,
+        dependencies,
+        qualification_class=qualification_class,
+        statement_class=statement_class,
     )
     return bundle, rich_policy_inputs(
-        dependencies, domain_rules, core_rules, context_profile=context_profile, aliases=aliases,
+        dependencies,
+        domain_rules,
+        core_rules,
+        context_profile=context_profile,
+        aliases=aliases,
     )
 
 
 def rich_knowledge_schema_inputs(
-    bundle: SourceBundle, dependencies: ResolvedDependencies, *,
-    qualification_class: str, statement_class: str,
+    bundle: SourceBundle,
+    dependencies: ResolvedDependencies,
+    *,
+    qualification_class: str,
+    statement_class: str,
 ) -> tuple[SourceBundle, ResolvedDependencies]:
     """Acquire the actual current rich/source schemas and nominal declarations once.
 
     Policy/terminology composition may already have occurred over captured inputs;
     this stage preserves those dependencies and does not recapture domain rules.
     """
+    from .data_operation_model import MODEL_VERSION
     from .external_extraction import external_extraction_inputs
     from .observations import prepare_source_inputs
-    from .source_reading_schema import source_reading_inputs
     from .reading_resolution_products import reading_resolution_inputs
     from .rich_knowledge_contracts import rich_kind_declarations
-    from .data_operation_model import MODEL_VERSION
+    from .source_reading_schema import source_reading_inputs
 
     if any(artifact.name == RICH_CONTRACT_INPUT for artifact in dependencies.artifacts):
         raise ValueError("rich knowledge contracts already declared")
     bundle, dependencies = prepare_source_inputs(bundle, dependencies)
-    bundle = external_extraction_inputs(bundle, dependencies, qualification_class=qualification_class, statement_class=statement_class)
+    bundle = external_extraction_inputs(
+        bundle,
+        dependencies,
+        qualification_class=qualification_class,
+        statement_class=statement_class,
+    )
     bundle = source_reading_inputs(reading_resolution_inputs(bundle), require_families=False)
-    declarations = SourceArtifact(RICH_CONTRACT_INPUT, canonical_bytes({
-        "version": MODEL_VERSION, "kinds": rich_kind_declarations(),
-    }))
+    declarations = SourceArtifact(
+        RICH_CONTRACT_INPUT,
+        canonical_bytes(
+            {
+                "version": MODEL_VERSION,
+                "kinds": rich_kind_declarations(),
+            }
+        ),
+    )
     return bundle, replace(dependencies, artifacts=(*dependencies.artifacts, declarations))
 
 
 def rich_knowledge_declarations(dependencies: ResolvedDependencies) -> tuple[SourceArtifact, ...]:
     """Select the actual captured rich declarations; never regenerate a runtime schema."""
-    selected = tuple(artifact for artifact in dependencies.artifacts if artifact.name == RICH_CONTRACT_INPUT)
+    selected = tuple(
+        artifact for artifact in dependencies.artifacts if artifact.name == RICH_CONTRACT_INPUT
+    )
     if len(selected) != 1:
         raise ValueError("rich knowledge requires its exact captured nominal declarations")
     return selected

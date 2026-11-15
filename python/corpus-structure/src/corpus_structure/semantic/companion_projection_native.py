@@ -50,7 +50,16 @@ def family_sql(family: str) -> str:
     returns = ",".join(quote(c.name) + " " + c.type.compile(dialect=pg) for c in selected.columns)
     if family == "input":
         arguments = [p.native_name for p in selected.recipe.parameters]
-        arguments.extend(("published.build_id", "published.release_id", "published.task_id", "published.product_key", "published.logical_digest", "selected_release"))
+        arguments.extend(
+            (
+                "published.build_id",
+                "published.release_id",
+                "published.task_id",
+                "published.product_key",
+                "published.logical_digest",
+                "selected_release",
+            )
+        )
         body = "SELECT * FROM " + selected.function_name + "_rows(" + ",".join(arguments) + ")"
     else:
         body = str(
@@ -97,7 +106,14 @@ def input_body_definition(connection):
             argType=ast.TypeName(names=(ast.String(sval=typ),)),
             mode=enums.FunctionParameterMode.FUNC_PARAM_IN,
         )
-        for name, typ in (("p_build", "text"), ("p_producer_release", "text"), ("p_native_task", "bigint"), ("p_native_product", "text"), ("p_native_digest", "text"), ("p_selection_release", "text"))
+        for name, typ in (
+            ("p_build", "text"),
+            ("p_producer_release", "text"),
+            ("p_native_task", "bigint"),
+            ("p_native_product", "text"),
+            ("p_native_digest", "text"),
+            ("p_selection_release", "text"),
+        )
     )
     envelope.parameters = (*inputs, *internal, *outputs)
     # This helper is not a second public authorization surface.

@@ -12,8 +12,8 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import date, datetime
 from decimal import Decimal
-from itertools import pairwise
 from enum import Enum
+from itertools import pairwise
 from typing import Any, Literal, cast
 
 from sqlalchemy import and_, false, func, literal, not_, or_, select, true
@@ -35,8 +35,8 @@ from .data_operation_model import (
     ResolvedOperationBinding,
     ResolvedRoleBinding,
     SubjectContext,
-    validate_subject_source,
     validate_subject_context,
+    validate_subject_source,
 )
 from .data_operation_projections import member_columns
 from .data_operation_source_sets import (
@@ -44,6 +44,7 @@ from .data_operation_source_sets import (
     source_sets_record,
 )
 from .identity import canonical_bytes
+
 
 class _UnqualifiedSource(Enum):
     OMITTED = "omitted"
@@ -61,6 +62,7 @@ BindingStatus = Literal[
     "invalid",
     "unavailable",
 ]
+
 
 def recordable_binding_fate(status: BindingStatus) -> RecordableFate:
     """A ready binding attaches a request; it is not a recordable missing-work fate."""
@@ -203,7 +205,7 @@ class CompiledBinding:
     population_roles: tuple[tuple[str, str], ...] = ()
     subject_columns: tuple[tuple[str, str], ...] = ()
     source_sets: bytes = b"{}"
-    original_source: str | None | _UnqualifiedSource = _UNQUALIFIED_SOURCE
+    original_source: str | _UnqualifiedSource | None = _UNQUALIFIED_SOURCE
     subject_context: SubjectContext | None = None
     population_projections: tuple[tuple[str, Literal["member", "qualified-context"]], ...] = ()
 
@@ -410,7 +412,7 @@ def compile_binding(
     choices: Mapping[str, str] | None = None,
     populations: tuple[PopulationBinding, ...] = (),
     source_sets: tuple[FrozenSourceSet, ...] = (),
-    original_source: str | None | _UnqualifiedSource = _UNQUALIFIED_SOURCE,
+    original_source: str | _UnqualifiedSource | None = _UNQUALIFIED_SOURCE,
     subject_context: SubjectContext | None = None,
     discovery_roles: tuple[tuple[str, str], ...] = (),
 ) -> CompiledBinding:
@@ -421,7 +423,10 @@ def compile_binding(
     """
     if subject_context is not None and (
         subject_context.subject != subject
-        or (original_source is not _UNQUALIFIED_SOURCE and subject_context.original_source != original_source)
+        or (
+            original_source is not _UNQUALIFIED_SOURCE
+            and subject_context.original_source != original_source
+        )
     ):
         raise ValueError("compiled binding differs from acquired subject context")
     if not subject:
@@ -429,7 +434,11 @@ def compile_binding(
     if model.version != MODEL_VERSION:
         raise ValueError("unsupported pinned binding model")
     op = model.operation(operation)
-    if op.coverage.binding != op.binding or any(role.support is None or role.support.coverage.role != role.name for role in op.roles if role.direction == "input"):
+    if op.coverage.binding != op.binding or any(
+        role.support is None or role.support.coverage.role != role.name
+        for role in op.roles
+        if role.direction == "input"
+    ):
         raise ValueError("coverage differs from the actual operation binding or input role")
     if subject_context is not None:
         validate_subject_context(model, subject_context, subject_definition=op.subject)
@@ -450,12 +459,18 @@ def compile_binding(
             for entry in source_set.entries:
                 validate_subject_source(model, entry.subject_definition, entry.original_source)
     identities = {(identity.owner, identity.domain): identity.key for identity in model.identities}
-    expression = next(item.expression for item in model.bindings if item.semantic_id == op.coverage.binding)
+    expression = next(
+        item.expression for item in model.bindings if item.semantic_id == op.coverage.binding
+    )
     params = effective_binding_parameters(op, parameters)
     choice_values = dict(choices or {})
     # Declaration defaults are typed JSON values. Missing and explicit null differ.
     definitions = json.loads(op.parameters)
-    roles = {role.support.coverage.role: role for role in op.roles if role.direction == "input" and role.support is not None}
+    roles = {
+        role.support.coverage.role: role
+        for role in op.roles
+        if role.direction == "input" and role.support is not None
+    }
     projected = {item.kind: item for item in projections}
     if len(projected) != len(projections):
         raise ValueError("duplicate admitted kind projection")
@@ -574,7 +589,11 @@ def compile_binding(
                 raise ValueError("source-set association requires an explicit exact input scope")
             target = None
         elif role.subject_target == "original-source":
-            if role.subject_field is None or type(original_source) is not str or not original_source:
+            if (
+                role.subject_field is None
+                or type(original_source) is not str
+                or not original_source
+            ):
                 raise ValueError(
                     "original-source association requires its explicit source and field"
                 )
@@ -1329,9 +1348,12 @@ def decode_binding_rows(
             )
             for row in rows.get(role.name, ())
         )
+
         def valid_member_source(member):
             try:
-                validate_subject_source(compiled.model, member.subject_definition, member.original_source)
+                validate_subject_source(
+                    compiled.model, member.subject_definition, member.original_source
+                )
             except ValueError:
                 return False
             return True

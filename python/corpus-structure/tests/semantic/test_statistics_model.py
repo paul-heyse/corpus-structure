@@ -1,13 +1,12 @@
 """The actual statistics domain must survive the release boundary, not just a toy."""
 
-from corpus_structure.semantic.analysis_contracts import acquire_analysis_context_profile
-
 from pathlib import Path
 
 import pytest
 from pydantic import ValidationError
 
 from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
+from corpus_structure.semantic.analysis_contracts import acquire_analysis_context_profile
 from corpus_structure.semantic.observations import observation_inputs
 
 
@@ -216,7 +215,8 @@ def test_required_released_rules_are_compiled_at_preparation():
   at: [finalize]
   check: claim.this_field_does_not_exist == 'accepted'
 """,
-     context_profile=acquire_analysis_context_profile())
+        context_profile=acquire_analysis_context_profile(),
+    )
     with pytest.raises(PreparationError) as failure:
         prepare_release(statistics_inputs(), dependencies)
     assert failure.value.diagnostics[0].code == "domain_rules"

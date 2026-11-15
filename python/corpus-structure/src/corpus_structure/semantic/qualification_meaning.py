@@ -18,7 +18,10 @@ class QualificationComponent:
 
 
 def qualification_identity_components(
-    prepared: PreparedRelease, qualification: Mapping[str, Any], *, qualification_class: str,
+    prepared: PreparedRelease,
+    qualification: Mapping[str, Any],
+    *,
+    qualification_class: str,
 ) -> tuple[QualificationComponent, ...]:
     """Apply the actual qualification's key-role and case policy exactly once.
 
@@ -37,8 +40,12 @@ def qualification_identity_components(
         if prop.key_role == "provenance":
             continue
         folded = prop.case_policy == "casefold" and isinstance(observed, str)
-        result.append(QualificationComponent(
-            prop, observed, identity_casefold(observed) if folded else observed,
-            "casefold-text" if folded else "exact",
-        ))
+        result.append(
+            QualificationComponent(
+                prop,
+                observed,
+                identity_casefold(observed) if folded else observed,
+                "casefold-text" if folded else "exact",
+            )
+        )
     return tuple(sorted(result, key=lambda component: component.property.name))

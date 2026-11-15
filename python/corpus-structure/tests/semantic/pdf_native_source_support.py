@@ -85,4 +85,3 @@ def make_native_source(original: bytes):
         include_application_metadata=False,
     )
     return SimpleNamespace(original=original, recipe=recipe, schema=schema, payload=payload)
-

@@ -704,7 +704,9 @@ def test_declared_preview_uses_explicit_archived_source_comparison(model_checkou
 
     declared = compare_declared_models(before, after).model_dump(mode="json")
     preview = prepare_preview(
-        root, ChangeRequest(data_operations="target.yaml"), source_comparison=comparison,
+        root,
+        ChangeRequest(data_operations="target.yaml"),
+        source_comparison=comparison,
         comparison=declared,
     )
     assert preview.source_migrations == ()
@@ -712,12 +714,14 @@ def test_declared_preview_uses_explicit_archived_source_comparison(model_checkou
     assert preview.comparison == declared
     with pytest.raises(model.ModelError, match="declared model comparison differs"):
         prepare_preview(
-            root, ChangeRequest(data_operations="target.yaml"),
+            root,
+            ChangeRequest(data_operations="target.yaml"),
             comparison={**declared, "after_digest": "0" * 64},
         )
     with pytest.raises(model.ModelError, match="different model pairs"):
         prepare_preview(
-            root, ChangeRequest(data_operations="target.yaml"),
+            root,
+            ChangeRequest(data_operations="target.yaml"),
             source_comparison=comparison,
             comparison={**declared, "before_digest": "0" * 64},
         )
@@ -797,7 +801,10 @@ def test_native_cli_compares_archived_ddo_without_source_migrations(
     assert declared["comparison"]["version"] == "declared-data-model-comparison-v1"
     assert declared["comparison"]["before_digest"] == sha256(old_model.content).hexdigest()
     assert declared["comparison"]["after_digest"] == sha256(new_model.content).hexdigest()
-    assert any(change["model_ref"] == "urn:test:source-change/recipe" for change in declared["comparison"]["changes"])
+    assert any(
+        change["model_ref"] == "urn:test:source-change/recipe"
+        for change in declared["comparison"]["changes"]
+    )
     assert declared["comparison"]["complete"]
 
     unbound = invoke(

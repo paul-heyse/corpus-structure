@@ -12,7 +12,6 @@ from pydantic import ValidationError
 
 from corpus_structure.semantic.operation_reporting import (
     compare_semantic_releases,
-    explain_operation,
     report_schema,
     validation_failure_report,
     validation_report,
@@ -151,7 +150,6 @@ def test_validator_execution_error_and_native_constraint_remain_separate():
 def test_native_output_validation_is_not_reported_as_invalid_caller_input():
     from corpus_structure.semantic.operation_value_types import (
         HeldProgress,
-        NativeResultViolation,
         native_result_scope,
     )
 
@@ -321,6 +319,7 @@ def test_registration_and_invocation_share_the_captured_schema_source(monkeypatc
 
 def test_current_report_boundary_prepares_without_legacy_operation_authority(monkeypatch):
     import sys
+
     from corpus_structure.semantic import operation_reporting as reports
 
     reports._report_sources.cache_clear()
@@ -505,8 +504,8 @@ def test_missing_neutral_alias_product_does_not_invent_a_normalization_change():
 
 
 def test_runtime_change_is_reported_separately_from_semantic_meaning():
-    from semantic.operation_reporting_support import runtime
     from corpus_structure.semantic.types import SourceArtifact
+    from semantic.operation_reporting_support import runtime
 
     selected = alias_release()
     before = runtime(selected, (SourceArtifact("report-extra.py", b"VALUE = 1"),))
@@ -536,7 +535,6 @@ def test_runtime_comparison_refuses_unauthenticated_archive():
     from corpus_structure.semantic.runtime_bindings import (
         RuntimeBindingError,
     )
-
     from semantic.operation_reporting_support import runtime as current_runtime
 
     prepared = alias_release()

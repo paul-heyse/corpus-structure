@@ -69,7 +69,13 @@ def test_native_selected_formal_members_supply_assessment_graph(ddo_kernel):
     profile = prepare_formal_evidence(kernel.prepared, kernel.model, grammar=grammar_identity())
     source = selected(profile)
     document = source.value["source"]["document"]
-    context = SubjectContext("ddo-test", "subject:formal-graph", document, b"{}", subject_definition="original-occurrence")
+    context = SubjectContext(
+        "ddo-test",
+        "subject:formal-graph",
+        document,
+        b"{}",
+        subject_definition="original-occurrence",
+    )
     formal = profile.run(source, FormalEvidenceOptions(), subject_context=context)
     payload = formal.value.model_dump(mode="python", exclude_unset=True)
     kind = kernel.identities[kernel.prepared.index.definitions["DdoFormalProduct"].iri, "kind"]

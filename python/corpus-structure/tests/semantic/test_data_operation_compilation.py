@@ -45,7 +45,10 @@ def python_inputs(code: str, module: str = "example", *, boundaries=()) -> Pytho
 
 def operation_source(body="return helper(x)", *, extra="", metadata=None) -> str:
     metadata = dict(metadata or contract())
-    metadata["coverage"] = {**metadata["coverage"], "result_owners": [{"kind": "implementation", "reference": "self"}]}
+    metadata["coverage"] = {
+        **metadata["coverage"],
+        "result_owners": [{"kind": "implementation", "reference": "self"}],
+    }
     return (
         "raise RuntimeError('target modules must never execute')\nGLOBAL = 3\n"
         "def helper(x: int) -> int:\n    return x + GLOBAL\n"
@@ -64,7 +67,10 @@ def test_declaration_and_closed_python_share_effective_domain_contract():
     declared_recipe = json.loads(left.recipe)
     assert declared_recipe.pop("behavior") == "integer-derive-v1"
     extracted_recipe = json.loads(right.recipe)
-    declared_coverage, extracted_coverage = declared_recipe.pop("coverage"), extracted_recipe.pop("coverage")
+    declared_coverage, extracted_coverage = (
+        declared_recipe.pop("coverage"),
+        extracted_recipe.pop("coverage"),
+    )
     assert declared_coverage["binding"] == extracted_coverage["binding"] == left.binding
     assert declared_coverage["selection"] == extracted_coverage["selection"]
     assert declared_coverage["result_owners"][0]["kind"] == "declared-contract"
@@ -294,8 +300,18 @@ def test_discovery_aggregate_and_effectful_profiles_are_explicit():
                 "outcome": "produced",
                 "effects": ["publish"],
             },
-            {"dimension": "completion", "before": "pending", "after": "success", "outcome": "produced"},
-            {"dimension": "completion", "before": "pending", "after": "failed", "outcome": "unknown"},
+            {
+                "dimension": "completion",
+                "before": "pending",
+                "after": "success",
+                "outcome": "produced",
+            },
+            {
+                "dimension": "completion",
+                "before": "pending",
+                "after": "failed",
+                "outcome": "unknown",
+            },
         ],
     )
     model = compile_data_operations(declarations=declarations(aggregate, command))
@@ -416,9 +432,14 @@ def test_preparation_archives_effective_products_only_when_explicitly_supplied()
 
 
 def test_real_score_operation_has_owned_facts():
-    from corpus_structure.semantic.operation_score_sources import operation_score_inputs, operation_score_sources
+    from corpus_structure.semantic.operation_score_sources import (
+        operation_score_inputs,
+        operation_score_sources,
+    )
 
-    score_model = compile_data_operations(declarations=operation_score_inputs(), python_sources=operation_score_sources())
+    score_model = compile_data_operations(
+        declarations=operation_score_inputs(), python_sources=operation_score_sources()
+    )
     operation = score_model.operations[0]
     assert operation.semantic_id == "urn:corpus:operation:score-operation-event"
     assert [p.name for p in operation.callable_surfaces[0].parameters] == [
@@ -434,7 +455,10 @@ def test_real_score_operation_has_owned_facts():
         for kind in score_model.kinds
     )
     assert score_model.implementation_slices[0].complete
-    assert any(item.owner == operation.semantic_id and item.domain == "recipe" for item in score_model.identities)
+    assert any(
+        item.owner == operation.semantic_id and item.domain == "recipe"
+        for item in score_model.identities
+    )
     with pytest.raises(PreparationError, match="unresolved role kind"):
         compile_data_operations(python_sources=operation_score_sources())
 
@@ -1192,9 +1216,7 @@ def test_source_set_policy_is_owned_typed_and_part_of_definition():
     value["roles"][0]["kind"] = "Other"
     baseline = compile_data_operations(schema_bundle(), declarations=declarations(value))
     support = value["roles"][0]["support"]
-    support.update(
-        source="frozen-source-set", source_set="inputs"
-    )
+    support.update(source="frozen-source-set", source_set="inputs")
     compiled = compile_data_operations(schema_bundle(), declarations=declarations(value))
     compiled_support = compiled.operations[0].roles[0].support
     assert compiled_support is not None
@@ -1335,22 +1357,34 @@ def test_keyword_argument_label_is_syntax_but_argument_value_remains_a_required_
 
 def test_slice_owned_descriptive_behavior_is_not_a_semantic_identity_token():
     before = compile_data_operations(python_sources=python_inputs(operation_source()))
-    after = compile_data_operations(python_sources=python_inputs(operation_source(metadata=contract(behavior="rewritten description"))))
+    after = compile_data_operations(
+        python_sources=python_inputs(
+            operation_source(metadata=contract(behavior="rewritten description"))
+        )
+    )
     assert identity(before, domain="recipe") == identity(after, domain="recipe")
     assert identity(before, domain="definition") == identity(after, domain="definition")
     authored_before = compile_data_operations(declarations=declarations(contract()))
-    authored_after = compile_data_operations(declarations=declarations(contract(behavior="real revision")))
+    authored_after = compile_data_operations(
+        declarations=declarations(contract(behavior="real revision"))
+    )
     assert identity(authored_before, domain="recipe") != identity(authored_after, domain="recipe")
 
 
 def test_completion_mappings_are_materialized_and_nonstandard_outcomes_need_explicit_mapping():
-    model = compile_data_operations(declarations=declarations(contract(outcomes=["success", "empty", "failed"], transitions=[])))
+    model = compile_data_operations(
+        declarations=declarations(contract(outcomes=["success", "empty", "failed"], transitions=[]))
+    )
     operation = model.operations[0]
     assert {(t.outcome, t.after) for t in operation.transitions} == {
-        ("success", "success"), ("empty", "empty"), ("failed", "failed")
+        ("success", "success"),
+        ("empty", "empty"),
+        ("failed", "failed"),
     }
     with pytest.raises(PreparationError, match="explicit completion"):
-        compile_data_operations(declarations=declarations(contract(outcomes=["unmapped"], transitions=[])))
+        compile_data_operations(
+            declarations=declarations(contract(outcomes=["unmapped"], transitions=[]))
+        )
 
 
 def test_subject_definitions_resolve_once_and_reject_conflicting_or_missing_meaning():
@@ -1381,14 +1415,25 @@ def test_discovery_population_relation_does_not_depend_on_subject_spelling():
     producer["roles"][1]["kind"] = "Other"
     consumer = contract(id="urn:consumer")
     consumer["discovery_relation"] = "subject-population"
-    consumer["roles"][0].update(kind="Other", subject_field="unrelated", subject_target="original-source")
-    consumer["binding"] = {"operator": "forall", "roles": ["source"], "population": "selected-source-views", "children": [{"operator": "scan", "roles": ["source"]}]}
-    baseline = compile_data_operations(schema_bundle(), declarations=declarations(producer, consumer))
+    consumer["roles"][0].update(
+        kind="Other", subject_field="unrelated", subject_target="original-source"
+    )
+    consumer["binding"] = {
+        "operator": "forall",
+        "roles": ["source"],
+        "population": "selected-source-views",
+        "children": [{"operator": "scan", "roles": ["source"]}],
+    }
+    baseline = compile_data_operations(
+        schema_bundle(), declarations=declarations(producer, consumer)
+    )
     expected = source_discovery_relations(baseline, "urn:producer", "result", "urn:consumer")
     assert expected
     consumer["subject"] = "renamed-domain-subject"
     consumer["subject_definition"]["id"] = "renamed-domain-subject"
-    renamed = compile_data_operations(schema_bundle(), declarations=declarations(producer, consumer))
+    renamed = compile_data_operations(
+        schema_bundle(), declarations=declarations(producer, consumer)
+    )
     assert source_discovery_relations(renamed, "urn:producer", "result", "urn:consumer") == expected
 
 
@@ -1397,14 +1442,20 @@ def test_bound_subject_definition_must_match_compiled_operation():
 
     model = compile_data_operations(declarations=declarations(contract()))
     binding = resolved_binding(model)
-    changed = replace(binding, subject_context=replace(binding.subject_context, subject_definition="different-subject"))
+    changed = replace(
+        binding,
+        subject_context=replace(binding.subject_context, subject_definition="different-subject"),
+    )
     with pytest.raises(ValueError, match="subject definition differs"):
         project_operation_binding(model, changed)
 
 
 def test_documentation_claims_are_preserved_but_do_not_salt_semantic_identity():
     before = contract()
-    after = contract(applicability=[{"kind": "documentation", "text": "reworded applicability"}], invariants=[{"kind": "documentation", "text": "reworded invariant"}])
+    after = contract(
+        applicability=[{"kind": "documentation", "text": "reworded applicability"}],
+        invariants=[{"kind": "documentation", "text": "reworded invariant"}],
+    )
     first = compile_data_operations(python_sources=python_inputs(operation_source(metadata=before)))
     second = compile_data_operations(python_sources=python_inputs(operation_source(metadata=after)))
     assert first.operations[0].invariants != second.operations[0].invariants
@@ -1413,48 +1464,127 @@ def test_documentation_claims_are_preserved_but_do_not_salt_semantic_identity():
         assert identity(first, domain=domain) == identity(second, domain=domain)
 
 
-@pytest.mark.parametrize("kind,reference,interpretation", [("binding", "missing", "binding-expression-v1"), ("schema", "missing", "effective-schema-v1"), ("implementation", "python:missing", "captured-python-slice-v1"), ("native-admission", "missing", "captured-native-admission-v1")])
+@pytest.mark.parametrize(
+    "kind,reference,interpretation",
+    [
+        ("binding", "missing", "binding-expression-v1"),
+        ("schema", "missing", "effective-schema-v1"),
+        ("implementation", "python:missing", "captured-python-slice-v1"),
+        ("native-admission", "missing", "captured-native-admission-v1"),
+    ],
+)
 def test_unresolved_executable_enforcement_claims_fail_compilation(kind, reference, interpretation):
-    metadata = contract(implementation_coverage=True,invariants=[{"kind": kind, "reference": reference, "interpretation": interpretation, "parameters": {}}])
+    metadata = contract(
+        implementation_coverage=True,
+        invariants=[
+            {
+                "kind": kind,
+                "reference": reference,
+                "interpretation": interpretation,
+                "parameters": {},
+            }
+        ],
+    )
     with pytest.raises(PreparationError, match="enforcement reference"):
         compile_data_operations(python_sources=python_inputs(operation_source(metadata=metadata)))
 
 
 def test_untagged_enforcement_labels_are_rejected():
     with pytest.raises(PreparationError, match="string-keyed record"):
-        compile_data_operations(declarations=declarations(contract(invariants=["not-an-enforced-predicate"])))
+        compile_data_operations(
+            declarations=declarations(contract(invariants=["not-an-enforced-predicate"]))
+        )
 
 
 def test_checked_binding_and_schema_claims_capture_the_actual_owners():
-    metadata = contract(applicability=[{"kind": "binding", "reference": "urn:test:derive/binding", "interpretation": "binding-expression-v1", "parameters": {}}], invariants=[{"kind": "schema", "reference": "primitive:integer", "interpretation": "effective-schema-v1", "parameters": {}}])
+    metadata = contract(
+        applicability=[
+            {
+                "kind": "binding",
+                "reference": "urn:test:derive/binding",
+                "interpretation": "binding-expression-v1",
+                "parameters": {},
+            }
+        ],
+        invariants=[
+            {
+                "kind": "schema",
+                "reference": "primitive:integer",
+                "interpretation": "effective-schema-v1",
+                "parameters": {},
+            }
+        ],
+    )
     model = compile_data_operations(declarations=declarations(metadata))
     operation = model.operations[0]
-    assert json.loads(operation.applicability[0].semantics)["operator"] == model.bindings[0].expression.operator
-    assert json.loads(operation.invariants[0].semantics) == {"kind_contract": identity(model, "primitive:integer", "kind")}
+    assert (
+        json.loads(operation.applicability[0].semantics)["operator"]
+        == model.bindings[0].expression.operator
+    )
+    assert json.loads(operation.invariants[0].semantics) == {
+        "kind_contract": identity(model, "primitive:integer", "kind")
+    }
 
 
 @pytest.mark.parametrize("field", ["invariants", "applicability"])
 def test_checked_implementation_claim_changes_with_captured_code(field):
-    metadata = contract(**{field: [{"kind": "implementation", "reference": "python:example.derive", "interpretation": "captured-python-slice-v1", "parameters": {}}]})
-    first = compile_data_operations(python_sources=python_inputs(operation_source(metadata=metadata)))
-    second = compile_data_operations(python_sources=python_inputs(operation_source(body="return helper(x) + 1", metadata=metadata)))
-    first_claim, second_claim = getattr(first.operations[0], field)[0], getattr(second.operations[0], field)[0]
+    metadata = contract(
+        **{
+            field: [
+                {
+                    "kind": "implementation",
+                    "reference": "python:example.derive",
+                    "interpretation": "captured-python-slice-v1",
+                    "parameters": {},
+                }
+            ]
+        }
+    )
+    first = compile_data_operations(
+        python_sources=python_inputs(operation_source(metadata=metadata))
+    )
+    second = compile_data_operations(
+        python_sources=python_inputs(
+            operation_source(body="return helper(x) + 1", metadata=metadata)
+        )
+    )
+    first_claim, second_claim = (
+        getattr(first.operations[0], field)[0],
+        getattr(second.operations[0], field)[0],
+    )
     assert first_claim.semantics != second_claim.semantics
     assert identity(first, domain="recipe") != identity(second, domain="recipe")
     assert identity(first, domain="definition") == identity(second, domain="definition")
     assert first.operations[0].definition == second.operations[0].definition
     if field == "applicability":
         assert identity(first, domain="eligibility") != identity(second, domain="eligibility")
-    assert json.loads(first_claim.semantics) == {"implementation_slice": identity(first, "python:example.derive", "implementation-slice")}
+    assert json.loads(first_claim.semantics) == {
+        "implementation_slice": identity(first, "python:example.derive", "implementation-slice")
+    }
 
 
 def test_native_enforcement_requires_the_actual_captured_policy_asset():
     asset = SourceArtifact("native/admission-policy", b'{"purpose":"ordinary-only"}')
     metadata = contract(
-        assets=[{"reference": "guard:ordinary", "contract": asset.name, "role": "native-admission-policy"}],
-        invariants=[{"kind": "native-admission", "reference": "guard:ordinary", "interpretation": "captured-native-admission-v1", "parameters": {}}],
+        assets=[
+            {
+                "reference": "guard:ordinary",
+                "contract": asset.name,
+                "role": "native-admission-policy",
+            }
+        ],
+        invariants=[
+            {
+                "kind": "native-admission",
+                "reference": "guard:ordinary",
+                "interpretation": "captured-native-admission-v1",
+                "parameters": {},
+            }
+        ],
     )
-    model = compile_data_operations(python_sources=python_inputs(operation_source(metadata=metadata), boundaries=(asset,)))
+    model = compile_data_operations(
+        python_sources=python_inputs(operation_source(metadata=metadata), boundaries=(asset,))
+    )
     assert json.loads(model.operations[0].invariants[0].semantics)["content_digest"] == asset.digest
     metadata["assets"][0]["content_digest"] = asset.digest
     with pytest.raises(PreparationError, match="captured native admission enforcement"):
@@ -1473,7 +1603,9 @@ def test_bound_members_require_explicit_support_references():
 def test_retained_observation_binding_cannot_request_an_unqualified_fresh_sample():
     from dataclasses import replace
 
-    model = compile_data_operations(declarations=declarations(contract(replicate_policy="retained-observation-single-result")))
+    model = compile_data_operations(
+        declarations=declarations(contract(replicate_policy="retained-observation-single-result"))
+    )
     binding = resolved_binding(model)
     first, _ = project_operation_binding(model, binding)
     second, _ = project_operation_binding(model, binding)
@@ -1481,21 +1613,42 @@ def test_retained_observation_binding_cannot_request_an_unqualified_fresh_sample
     with pytest.raises(PreparationError, match="fresh independent replication is unsupported"):
         project_operation_binding(model, replace(binding, replicate="independent-fresh"))
     with pytest.raises(PreparationError, match="unsupported replicate policy"):
-        compile_data_operations(declarations=declarations(contract(replicate_policy="invented-policy")))
+        compile_data_operations(
+            declarations=declarations(contract(replicate_policy="invented-policy"))
+        )
 
 
 def test_native_declaration_enforcement_uses_captured_contracts_without_python_sources():
     asset = SourceArtifact("native/admission-policy.sql", b"SELECT enforce_actual_source_policy();")
     metadata = contract(
-        assets=[{"reference": "native-guard", "contract": asset.name, "role": "native-admission-policy", "content_digest": asset.digest}],
-        invariants=[{"kind": "native-admission", "reference": "native-guard", "interpretation": "captured-native-admission-v1", "parameters": {}}],
+        assets=[
+            {
+                "reference": "native-guard",
+                "contract": asset.name,
+                "role": "native-admission-policy",
+                "content_digest": asset.digest,
+            }
+        ],
+        invariants=[
+            {
+                "kind": "native-admission",
+                "reference": "native-guard",
+                "interpretation": "captured-native-admission-v1",
+                "parameters": {},
+            }
+        ],
     )
-    model = compile_data_operations(declarations=declarations(metadata), captured_contracts=(asset,))
+    model = compile_data_operations(
+        declarations=declarations(metadata), captured_contracts=(asset,)
+    )
     assert json.loads(model.operations[0].invariants[0].semantics)["content_digest"] == asset.digest
     with pytest.raises(PreparationError, match="captured native admission enforcement"):
         compile_data_operations(declarations=declarations(metadata))
     with pytest.raises(PreparationError, match="captured native admission enforcement"):
-        compile_data_operations(declarations=declarations(metadata), captured_contracts=(SourceArtifact(asset.name, b"SELECT changed_policy();"),))
+        compile_data_operations(
+            declarations=declarations(metadata),
+            captured_contracts=(SourceArtifact(asset.name, b"SELECT changed_policy();"),),
+        )
 
 
 def test_captured_semantic_contract_pool_merges_equal_bytes_and_refuses_conflicts():
@@ -1505,20 +1658,31 @@ def test_captured_semantic_contract_pool_merges_equal_bytes_and_refuses_conflict
     same = compile_data_operations(python_sources=sources, captured_contracts=(asset,))
     assert first.content == same.content
     with pytest.raises(PreparationError, match="disagree on exact source bytes"):
-        compile_data_operations(python_sources=sources, captured_contracts=(SourceArtifact(asset.name, b"different policy"),))
+        compile_data_operations(
+            python_sources=sources,
+            captured_contracts=(SourceArtifact(asset.name, b"different policy"),),
+        )
 
 
 def test_precision_description_is_archived_documentation_without_semantic_identity():
     from corpus_structure.semantic.data_operation_model import read_effective_data_operations
 
     for source_owned in (False, True):
+
         def compile_description(description, source_owned=source_owned):
             metadata = contract(precision_description=description)
             return (
-                compile_data_operations(python_sources=python_inputs(operation_source(metadata=metadata)))
-                if source_owned else compile_data_operations(declarations=declarations(metadata))
+                compile_data_operations(
+                    python_sources=python_inputs(operation_source(metadata=metadata))
+                )
+                if source_owned
+                else compile_data_operations(declarations=declarations(metadata))
             )
-        before, after = compile_description("source coordinate description"), compile_description("reworded coordinate description")
+
+        before, after = (
+            compile_description("source coordinate description"),
+            compile_description("reworded coordinate description"),
+        )
         assert before.content != after.content
         assert after.operations[0].precision_description == "reworded coordinate description"
         assert read_effective_data_operations(after.content).content == after.content
@@ -1527,18 +1691,45 @@ def test_precision_description_is_archived_documentation_without_semantic_identi
         assert "precision_description" not in json.loads(after.operations[0].recipe)
         archived = json.loads(after.content)
         assert "precision" not in archived["operations"][0]
-        archived["operations"][0]["precision"] = archived["operations"][0].pop("precision_description")
+        archived["operations"][0]["precision"] = archived["operations"][0].pop(
+            "precision_description"
+        )
         with pytest.raises(ValueError, match="archived EffectiveOperation"):
             read_effective_data_operations(canonical_bytes(archived))
     with pytest.raises(PreparationError, match="unsupported fields: precision"):
-        compile_data_operations(declarations=declarations(contract(precision="obsolete legacy label")))
+        compile_data_operations(
+            declarations=declarations(contract(precision="obsolete legacy label"))
+        )
 
 
 def test_native_admission_policy_remains_a_definition_determinant():
     def compile_policy(content):
         asset = SourceArtifact("native/admission-policy", content)
-        metadata = contract(assets=[{"reference": "guard:ordinary", "contract": asset.name, "content_digest": asset.digest, "role": "native-admission-policy"}], invariants=[{"kind": "native-admission", "reference": "guard:ordinary", "interpretation": "captured-native-admission-v1", "parameters": {}}])
-        return compile_data_operations(declarations=declarations(metadata), captured_contracts=(asset,))
-    first, second = (compile_policy(content) for content in (b'{"purpose":"ordinary-only"}', b'{"purpose":"protected-only"}'))
+        metadata = contract(
+            assets=[
+                {
+                    "reference": "guard:ordinary",
+                    "contract": asset.name,
+                    "content_digest": asset.digest,
+                    "role": "native-admission-policy",
+                }
+            ],
+            invariants=[
+                {
+                    "kind": "native-admission",
+                    "reference": "guard:ordinary",
+                    "interpretation": "captured-native-admission-v1",
+                    "parameters": {},
+                }
+            ],
+        )
+        return compile_data_operations(
+            declarations=declarations(metadata), captured_contracts=(asset,)
+        )
+
+    first, second = (
+        compile_policy(content)
+        for content in (b'{"purpose":"ordinary-only"}', b'{"purpose":"protected-only"}')
+    )
     assert identity(first, domain="definition") != identity(second, domain="definition")
     assert identity(first, domain="recipe") != identity(second, domain="recipe")

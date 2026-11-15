@@ -23,8 +23,8 @@ from corpus_structure.semantic.record_contracts import (
     bind_record_candidates,
     evidence_set_identity,
     interpretation_identity,
-    record_identity,
     record_family_contract,
+    record_identity,
 )
 from corpus_structure.semantic.source_contexts import (
     ContextRefused,

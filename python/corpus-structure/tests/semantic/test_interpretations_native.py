@@ -343,8 +343,11 @@ def test_authored_review_completion_filter_and_selected_root_ambiguity(
 
     from corpus_structure.semantic.interpretation_queries import TerminologySelection
     from corpus_structure.semantic.metadata import table
+    from corpus_structure.semantic.record_queries import (
+        RecordReadSelection,
+        read_completed_record_projection,
+    )
     from corpus_structure.semantic.refusals import SemanticRefusal
-    from corpus_structure.semantic.record_queries import RecordReadSelection, read_completed_record_projection
     from corpus_structure.settings import Settings
 
     case = private_source
@@ -494,14 +497,20 @@ def test_authored_review_completion_filter_and_selected_root_ambiguity(
     )
     with read_snapshot(case.writer) as conn:
         second = read_completed_record_projection(
-            conn, run_id=case.run, selection=RecordReadSelection(record_id=records[1]["record_id"], terminology=selection)
+            conn,
+            run_id=case.run,
+            selection=RecordReadSelection(record_id=records[1]["record_id"], terminology=selection),
         )
         assert second.matching_records == 1 and len(second.rows["source_record"]) == 1
         assert len(second.terminology_matches) == 1
         assert second.rows["source_record"][0].record_id == records[1]["record_id"]
         with pytest.raises(SemanticRefusal, match="multiple field reviews"):
             read_completed_record_projection(
-                conn, run_id=case.run, selection=RecordReadSelection(record_id=records[0]["record_id"], terminology=selection)
+                conn,
+                run_id=case.run,
+                selection=RecordReadSelection(
+                    record_id=records[0]["record_id"], terminology=selection
+                ),
             )
     # Later record-result custody is distinct from the original coordinate authority.
     # Retain another located record through the ordinary authored-record producer,
@@ -510,8 +519,8 @@ def test_authored_review_completion_filter_and_selected_root_ambiguity(
         anchor_identity,
         evidence_set_identity,
         interpretation_identity,
+        record_family_contract,
         record_identity,
-    record_family_contract,
     )
 
     later_record = candidate(case, 1)
@@ -534,7 +543,9 @@ def test_authored_review_completion_filter_and_selected_root_ambiguity(
     later_record["occurrence_anchors"] = tuple(
         anchor_ids[a] for a in later_record["occurrence_anchors"]
     )
-    later_record["record_id"] = record_identity(record_family_contract(case.model, later_record["contract"]), later_record)
+    later_record["record_id"] = record_identity(
+        record_family_contract(case.model, later_record["contract"]), later_record
+    )
     later_record["interpretation_id"] = interpretation_identity(later_record)
     later = _publish_historical_authored_fixture(
         case,

@@ -299,29 +299,61 @@ def test_executable_use_cannot_omit_its_native_request(tmp_path, monkeypatch, fa
 def test_native_authority_is_an_explicit_unknown_boundary(tmp_path, monkeypatch, projection):
     from corpus_structure.semantic import data_operation_admission
 
-    monkeypatch.setattr(data_operation_admission, "bound_data_operation_model", lambda prepared: model(operation("operation")))
+    monkeypatch.setattr(
+        data_operation_admission,
+        "bound_data_operation_model",
+        lambda prepared: model(operation("operation")),
+    )
     index, cut = selected_index(tmp_path)
     # This is a controlled transferred graph, not native admission evidence.
-    index.connection.execute("DELETE FROM records WHERE relation='ops.demand_use' AND json_extract(payload,'$.record.id')='su'")
-    index.connection.execute("DELETE FROM records WHERE relation='ops.data_derivation' AND json_extract(payload,'$.record.id') IN ('new','old')")
-    index.connection.execute("DELETE FROM records WHERE relation='ops.data_request' AND json_extract(payload,'$.record.id')='producer'")
+    index.connection.execute(
+        "DELETE FROM records WHERE relation='ops.demand_use' AND json_extract(payload,'$.record.id')='su'"
+    )
+    index.connection.execute(
+        "DELETE FROM records WHERE relation='ops.data_derivation' AND json_extract(payload,'$.record.id') IN ('new','old')"
+    )
+    index.connection.execute(
+        "DELETE FROM records WHERE relation='ops.data_request' AND json_extract(payload,'$.record.id')='producer'"
+    )
     leaf = dict(
-        format="ddo-native-authority-leaf-v1", derivation_id="new", use_id="su",
-        issuer_operation="record_policy.authorize", release_id="issuer-release", runtime_id="issuer-runtime",
-        recipe="issuer-recipe", product_id="authorization", kind_contract="authorization-kind",
-        intent_id="opaque-intent", receipt_id="opaque-receipt", standing="valid", protected_dependencies="undisclosed",
+        format="ddo-native-authority-leaf-v1",
+        derivation_id="new",
+        use_id="su",
+        issuer_operation="record_policy.authorize",
+        release_id="issuer-release",
+        runtime_id="issuer-runtime",
+        recipe="issuer-recipe",
+        product_id="authorization",
+        kind_contract="authorization-kind",
+        intent_id="opaque-intent",
+        receipt_id="opaque-receipt",
+        standing="valid",
+        protected_dependencies="undisclosed",
     )
     for relation, row in (
-        ("ops.data_authority_leaf", leaf), ("kb.data_product", dict(id="authorization")),
+        ("ops.data_authority_leaf", leaf),
+        ("kb.data_product", dict(id="authorization")),
     ):
         index.append(json_bytes(dict(key=relation + ":controlled", relation=relation, record=row)))
     try:
-        snapshot = snapshot_from_index(SimpleNamespace(release_id="release"), cut, index, projection)
+        snapshot = snapshot_from_index(
+            SimpleNamespace(release_id="release"), cut, index, projection
+        )
         assert snapshot.standing == "partial"
-        assert any("protected dependencies" in reason and "undisclosed" in reason for reason in snapshot.unknowns)
+        assert any(
+            "protected dependencies" in reason and "undisclosed" in reason
+            for reason in snapshot.unknowns
+        )
         assert any(node.kind == "authority" for node in snapshot.nodes)
         boundary = 'ops.data_authority_leaf:["new","su"]'
-        assert any(edge.source == 'ops.demand_use:"cu"' and edge.target == boundary for edge in snapshot.occurrences)
-        assert not any(node.identity in {'ops.demand_use:"su"', 'ops.data_derivation:"new"', 'ops.data_request:"producer"'} for node in snapshot.nodes)
+        assert any(
+            edge.source == 'ops.demand_use:"cu"' and edge.target == boundary
+            for edge in snapshot.occurrences
+        )
+        assert not any(
+            node.identity
+            in {'ops.demand_use:"su"', 'ops.data_derivation:"new"', 'ops.data_request:"producer"'}
+            for node in snapshot.nodes
+        )
     finally:
         index.close()

@@ -11,7 +11,7 @@ import typer
 from pydantic import BaseModel
 from rich.table import Table
 
-from corpus_structure.cli.output import JsonOpt, emit, state, read_request_json, read_request_model
+from corpus_structure.cli.output import JsonOpt, emit, read_request_json, read_request_model, state
 from corpus_structure.semantic.refusals import SemanticRefusal
 
 project_app = typer.Typer(
@@ -117,11 +117,10 @@ def execute_source_choices(
     json=False,
 ):
     from corpus_structure.orchestrate.source_request import (
-        SourceRunRequest,
         SourceRequestError,
+        SourceRunRequest,
         source_selection,
     )
-    from corpus_structure.semantic.data_operation_json import json_loads
     from corpus_structure.semantic.data_operation_service import DemandOperationSelection
 
     from .demands import execute_request
@@ -345,6 +344,7 @@ def tasks(
 
     with _refusals(json), READ_ENGINE(state(ctx).settings()) as engine, engine.begin() as conn:
         from rapidjson import JSONDecodeError
+
         try:
             pins = None if continuation is None else wire_json_loads(continuation.read_bytes())
         except (JSONDecodeError, UnicodeDecodeError) as error:
@@ -475,7 +475,6 @@ def run_characterize_command(
 def _execute_declared_request(
     ctx, request, source_root, action, execution_policy, json, *, project=None
 ):
-    from corpus_structure.semantic.data_operation_json import json_loads
     from corpus_structure.semantic.data_operation_service import NativeDemandRequest
 
     from .demands import execute_request
@@ -723,7 +722,6 @@ def run_interpretation_command(
     json: JsonOpt = False,
 ) -> None:
     """Interpret exact original scope using a frozen question and genuine candidate policy."""
-    from corpus_structure.semantic.data_operation_json import json_loads
     from corpus_structure.semantic.data_operation_service import DemandOperationSelection
 
     operation, selections = None, ()

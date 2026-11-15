@@ -123,7 +123,11 @@ def primary_operation_inputs(
     from .pdf_domain import pdf_domain_dependencies
     from .sentence_products import sentence_operation_sources
     from .source_discovery import source_discovery_inputs, source_discovery_operation_sources
-    from .source_profiles import source_profile_declarations, source_profile_inputs, source_profile_operation_sources
+    from .source_profiles import (
+        source_profile_declarations,
+        source_profile_inputs,
+        source_profile_operation_sources,
+    )
 
     if sentence_configuration is None or hanlp_selection is None:
         raise ValueError("primary preparation requires explicitly acquired provider profiles")
@@ -266,7 +270,11 @@ def primary_operation_inputs(
             declarations = (*declarations, math_operation_declarations())
     if downstream:
         from .artifact_products import artifact_inputs, artifact_operation_sources
-        from .contextual_operations import contextual_inputs, contextual_operation_sources, contextual_operation_declarations
+        from .contextual_operations import (
+            contextual_inputs,
+            contextual_operation_declarations,
+            contextual_operation_sources,
+        )
         from .declared_structural_calls import (
             structural_inputs,
             structural_operation_declarations,
@@ -283,14 +291,14 @@ def primary_operation_inputs(
         from .definition_products import definition_inputs, definition_operation_sources
         from .dossier_products import dossier_inputs, dossier_operation_sources
         from .finite_interpretation_products import (
-            finite_interpretation_inputs,
             finite_interpretation_declarations,
+            finite_interpretation_inputs,
             finite_interpretation_operation_sources,
         )
         from .predicate_products import predicate_inputs, predicate_operation_sources
         from .reading_resolution_products import (
-            reading_resolution_inputs,
             reading_resolution_declarations,
+            reading_resolution_inputs,
             reading_resolution_operation_sources,
         )
         from .scoped_products import scoped_inputs, scoped_operation_sources
@@ -302,7 +310,11 @@ def primary_operation_inputs(
         bundle = definition_location_inputs(bundle)
         bundle = definition_component_inputs(bundle, include_learned=learned_selections is not None)
         bundle = dossier_inputs(bundle)
-        declarations = (*declarations, finite_interpretation_declarations(), reading_resolution_declarations())
+        declarations = (
+            *declarations,
+            finite_interpretation_declarations(),
+            reading_resolution_declarations(),
+        )
         bundle = finite_interpretation_inputs(bundle)
         bundle = reading_resolution_inputs(bundle)
         declarations = (*declarations, contextual_operation_declarations())
@@ -346,7 +358,10 @@ def primary_operation_inputs(
     elif record_schemas is not None:
         raise ValueError("record schemas require an explicit literal M1 configuration")
     if contextual_encoder is not None:
-        from .contextual_encoder import contextual_encoder_declarations, contextual_encoder_operation_sources
+        from .contextual_encoder import (
+            contextual_encoder_declarations,
+            contextual_encoder_operation_sources,
+        )
         from .contextual_operations import contextual_inputs, contextual_operation_declarations
 
         bundle = contextual_inputs(bundle)
@@ -356,7 +371,9 @@ def primary_operation_inputs(
         collections = (
             *collections,
             contextual_encoder_operation_sources(
-                contextual_encoder, include_dependencies=not downstream, numerical_policy=contextual_retrieval_options if not downstream else None
+                contextual_encoder,
+                include_dependencies=not downstream,
+                numerical_policy=contextual_retrieval_options if not downstream else None,
             ),
         )
     if extra_sources is not None:

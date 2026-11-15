@@ -3,7 +3,6 @@
 import copy
 import importlib
 import json
-from dataclasses import replace
 from hashlib import sha256
 from typing import Any
 
@@ -13,7 +12,6 @@ from corpus_structure.semantic.data_operation_compilation import compile_data_op
 from corpus_structure.semantic.data_operation_consumers import resolve_prepared_factory
 from corpus_structure.semantic.data_operation_model import (
     MODEL_VERSION,
-    read_effective_data_operations,
 )
 from corpus_structure.semantic.identity import claim_source_item__data_operation__
 from corpus_structure.semantic.python_operation_sources import PythonSource, PythonSourceCollection
@@ -50,8 +48,6 @@ def test_compiled_factory_is_captured_from_original_static_owner(tmp_path, monke
     )
     with pytest.raises(ValueError, match="rebound"):
         acquired()
-
-
 
 
 @pytest.mark.parametrize("count", [0, 2])
@@ -117,19 +113,24 @@ def test_owned_stream_has_only_terminal_completion_and_spawned_receipt(
 def request_invocation():
     """Real invocation resource owners; tests inject only the failing transport."""
     from types import SimpleNamespace
+
     from corpus_structure.core.execution_policy import CharacterizationExecutionPolicy
     from corpus_structure.orchestrate.data_operations import _InvocationExecution
 
     invocations = []
+
     def make(pool, budget):
         executor = SimpleNamespace(
             prepared=SimpleNamespace(release_id="test:request-transport"),
             policy=CharacterizationExecutionPolicy(workers=1, max_submissions=1),
-            budget=budget, nemotron_endpoint=None, engine=None,
+            budget=budget,
+            nemotron_endpoint=None,
+            engine=None,
         )
         invocation = _InvocationExecution(executor, pool)
         invocations.append(invocation)
         return invocation
+
     yield make
     for invocation in invocations:
         invocation.providers.close()
@@ -439,8 +440,17 @@ def test_hydrated_consumer_preserves_typed_decimal_body_independently_of_json_di
     from corpus_structure.semantic.data_operation_model import BoundRoleMember
 
     member = BoundRoleMember(
-        "product:one", "kind:decimal", "subject:one", "original:one", b"{}", b"{}", (), b"{}"
-    , subject_definition="document", support_references=())
+        "product:one",
+        "kind:decimal",
+        "subject:one",
+        "original:one",
+        b"{}",
+        b"{}",
+        (),
+        b"{}",
+        subject_definition="document",
+        support_references=(),
+    )
     value = SelectedConsumerValue(
         member, b'"0.1234567890123456789"', b'["decimal","0.1234567890123456789"]'
     )

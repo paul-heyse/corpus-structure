@@ -595,8 +595,6 @@ def test_document_view_combines_large_metadata_with_independent_read_budget(
             read_view(conn, pin, max_bytes=8 * 1024**2)
 
 
-
-
 @pytest.mark.parametrize("private_build", ["characterization_pdf"], indirect=True)
 def test_native_factorized_diamond_dag_and_real_cycle_refusal(
     characterization_source, commit_writer_engine, commit_reader_engine, commit_db_engine
@@ -1724,7 +1722,6 @@ def test_large_layer_full_reads_preserve_exact_bytes_and_aggregate_framing(
             )
         with pytest.raises(DBAPIError), conn.begin_nested():
             read_layer(conn, pin, max_bytes=8 * 1024**2)
-
 
 
 @pytest.mark.parametrize("private_build", ["characterization_pdf"], indirect=True)

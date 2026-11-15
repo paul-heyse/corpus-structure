@@ -8,8 +8,8 @@ from pathlib import Path
 from typing import Any
 
 from .identity import canonical_bytes
-from .types import SourceArtifact
 from .python_module_projection import admitted_operation_module_meaning
+from .types import SourceArtifact
 
 _ROOT = Path(__file__).parents[1]
 _FILES = (
@@ -49,7 +49,21 @@ def definition_component_assets():
         canonical_bytes(
             {
                 "version": "declared-located-definition-components-v1",
-                "files": [(name, (admitted_operation_module_meaning((_ROOT / name).read_bytes()).hex() if name in ('methods/definition_components_declared.py', 'methods/definition_named_declared.py') else (_ROOT / name).read_bytes().hex())) for name in _FILES],
+                "files": [
+                    (
+                        name,
+                        (
+                            admitted_operation_module_meaning((_ROOT / name).read_bytes()).hex()
+                            if name
+                            in (
+                                "methods/definition_components_declared.py",
+                                "methods/definition_named_declared.py",
+                            )
+                            else (_ROOT / name).read_bytes().hex()
+                        ),
+                    )
+                    for name in _FILES
+                ],
             }
         ),
     )
@@ -249,15 +263,19 @@ class DefinitionComponentsCallPlan:
             prepared=self.prepared,
             check_active=check_active,
         )
-        return (yield from self.port.plan_cpu(
-            self.kernel,
-            bound,
-            definition_component_operation_sources(include_learned=self.kernel is definition_components_kernel),
-            prepared_release_id=self.prepared.release_id,
-            verify=self.verify,
-            execution_owner=execution_owner,
-            check_active=check_active,
-        ))
+        return (
+            yield from self.port.plan_cpu(
+                self.kernel,
+                bound,
+                definition_component_operation_sources(
+                    include_learned=self.kernel is definition_components_kernel
+                ),
+                prepared_release_id=self.prepared.release_id,
+                verify=self.verify,
+                execution_owner=execution_owner,
+                check_active=check_active,
+            )
+        )
 
 
 def resolve_definition_components_port(

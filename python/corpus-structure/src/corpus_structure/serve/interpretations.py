@@ -8,7 +8,6 @@ from pydantic import BaseModel, ConfigDict
 
 from corpus_structure.semantic.data_operation_json import DdoJsonValue, json_bytes
 from corpus_structure.semantic.demand_queries import DemandQueryRequest, serve_demand_query
-
 from corpus_structure.semantic.releases import open_release
 
 
@@ -39,7 +38,6 @@ def term_lookup(conn, *, release_id, field, query=None, browse=False, max_bytes=
     )
 
 
-
 class SelectedProposalRequest(DemandQueryRequest):
     """A genuine selected private proposal member, never an integer review alias."""
 
@@ -57,9 +55,16 @@ def inspect_selected_proposals(connection, request: SelectedProposalRequest):
 
     result = serve_demand_query(connection, request)
     prepared = open_release(connection, result["cut"]["release_id"])
-    contracts = {identity.owner: identity.key for identity in bound_data_operation_model(prepared).identities if identity.domain == "kind"}
-    kinds = {contracts[definition.iri]: definition.name for definition in prepared.index.definitions.values()
-        if definition.iri in contracts and "DdoRichProposalValue" in definition.ancestors}
+    contracts = {
+        identity.owner: identity.key
+        for identity in bound_data_operation_model(prepared).identities
+        if identity.domain == "kind"
+    }
+    kinds = {
+        contracts[definition.iri]: definition.name
+        for definition in prepared.index.definitions.values()
+        if definition.iri in contracts and "DdoRichProposalValue" in definition.ancestors
+    }
     if request.kind_contract is not None and request.kind_contract not in kinds:
         raise ValueError("selected contract is not a captured private proposal member kind")
     items = []
@@ -67,11 +72,19 @@ def inspect_selected_proposals(connection, request: SelectedProposalRequest):
         nominal = kinds.get(row["kind_contract"])
         if nominal is None:
             continue
-        checked = prepared.validate_json(nominal, json_bytes(row["body"])).model_dump(mode="python", exclude_unset=True)
+        checked = prepared.validate_json(nominal, json_bytes(row["body"])).model_dump(
+            mode="python", exclude_unset=True
+        )
         if checked["standing"] != "private_proposed":
             raise ValueError("selected proposal cannot assert accepted standing")
         items.append({**row, "body": checked})
-    return answer("selected_private_proposals", {
-        **result, "items": items, "knowledge": "observed" if items else "unknown",
-        "capability": "selected_private_proposal_members" if kinds else "unavailable",
-    }, request.max_bytes)
+    return answer(
+        "selected_private_proposals",
+        {
+            **result,
+            "items": items,
+            "knowledge": "observed" if items else "unknown",
+            "capability": "selected_private_proposal_members" if kinds else "unavailable",
+        },
+        request.max_bytes,
+    )

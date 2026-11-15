@@ -6,10 +6,6 @@ its ready requests; they never supply missing semantic inputs or success fates.
 
 from __future__ import annotations
 
-from corpus_structure.semantic.identifiers import RuntimeId
-
-from corpus_structure.semantic.identifiers import ProjectId
-
 import json
 from collections.abc import Mapping
 from dataclasses import asdict, dataclass
@@ -18,7 +14,27 @@ from typing import TYPE_CHECKING, Any, Literal, cast
 
 from pydantic import TypeAdapter
 
-from corpus_structure.semantic._data_operation_wire import WireAdmitAuthoredDataRequest, WireAdmitOriginalDocumentAssetRequest, WireAttachDataRequestRequest, WireCloseDataPopulationResult, WireDemandId, WireDemandIntent, WireDerivationId, WireInspectDataCompletionRequest, WireInspectDataCompletionResult, WireObligationId, WireOperationId, WireProductId, WireReadDemandResultRequest, WireReadDemandResultResult, WireReadIdentity, WireRecordDataFateRequest, WireRegisterDataDemandResult, WireSelectDataPopulationRequest
+from corpus_structure.semantic._data_operation_wire import (
+    WireAdmitAuthoredDataRequest,
+    WireAdmitOriginalDocumentAssetRequest,
+    WireAttachDataRequestRequest,
+    WireCloseDataPopulationResult,
+    WireDemandId,
+    WireDemandIntent,
+    WireDerivationId,
+    WireInspectDataCompletionRequest,
+    WireInspectDataCompletionResult,
+    WireObligationId,
+    WireOperationId,
+    WireProductId,
+    WireReadDemandResultRequest,
+    WireReadDemandResultResult,
+    WireReadIdentity,
+    WireRecordDataFateRequest,
+    WireRegisterDataDemandResult,
+    WireSelectDataPopulationRequest,
+)
+from corpus_structure.semantic.identifiers import ProjectId, RuntimeId
 
 from .data_operation_compilation import project_operation_binding
 from .data_operation_json import json_bytes, json_loads, wire_json_loads
@@ -26,8 +42,8 @@ from .data_operation_model import (
     EffectiveDataOperationModel,
     ResolvedOperationBinding,
     SubjectContext,
-    validate_subject_source,
     json_context_meaning,
+    validate_subject_source,
 )
 from .data_operation_source_sets import FrozenSourceSet, read_source_sets, source_sets_record
 from .data_operation_support import (
@@ -112,7 +128,6 @@ def freeze_demand(
     """Freeze the selected closure, not the union of every possible producer."""
     from .data_operation_bindings import effective_binding_parameters
     from .data_operation_identity import decode_semantic_value, semantic_value
-
     from .data_operation_model import validate_replicate_selection
     from .refusals import SemanticRefusal
 
@@ -125,7 +140,15 @@ def freeze_demand(
         }
     ) != len(roots):
         raise SemanticRefusal("duplicate root context")
-    if any(type(root.subject) is not str or not root.subject or (root.original_source is not None and (type(root.original_source) is not str or not root.original_source)) for root in roots):
+    if any(
+        type(root.subject) is not str
+        or not root.subject
+        or (
+            root.original_source is not None
+            and (type(root.original_source) is not str or not root.original_source)
+        )
+        for root in roots
+    ):
         raise SemanticRefusal("root subject and nullable source must be explicit")
     frozen_source_sets = source_sets_record(source_sets)
     for original in original_sources:
@@ -193,7 +216,9 @@ def freeze_demand(
             if not set(
                 input_kind_refinements(model, (target_role.kind,))[target_role.kind]
             ).intersection(derive_member_kinds(model, output.kind)):
-                raise SemanticRefusal("discovery target role does not accept the producer member kind")
+                raise SemanticRefusal(
+                    "discovery target role does not accept the producer member kind"
+                )
             if any(
                 previous.target == relation.target and previous.target_role == relation.target_role
                 for previous in discovery[: discovery.index(relation)]
@@ -268,7 +293,9 @@ def freeze_demand(
         if role.support is not None and role.support.source_set is not None
     }
     if frozen_source_sets.keys() != declared_source_sets:
-        raise SemanticRefusal("frozen source sets must exactly match selected operation declarations")
+        raise SemanticRefusal(
+            "frozen source sets must exactly match selected operation declarations"
+        )
     return DemandIntent(
         json_bytes(
             {
@@ -369,7 +396,10 @@ def _population_context_matches(
     """Use authenticated contexts, or an explicitly frozen exact member association."""
 
     def same_context(left: dict, right: dict) -> bool:
-        return all(left.get(key) == right[key] for key in ("subject", "subject_definition", "original_source")) and (
+        return all(
+            left.get(key) == right[key]
+            for key in ("subject", "subject_definition", "original_source")
+        ) and (
             json_context_meaning(json_bytes(left.get("analyzed_scope")))
             == json_context_meaning(json_bytes(right["analyzed_scope"]))
         )
@@ -588,11 +618,11 @@ class DemandPlanner:
             return ()
 
         from .data_operation_bindings import (
-            recordable_binding_fate,
             BindingReason,
             PopulationBinding,
             compile_binding,
             execute_binding,
+            recordable_binding_fate,
         )
         from .data_operation_identity import decode_semantic_value, semantic_value
         from .data_operation_storage import admitted_data_projection
@@ -633,7 +663,8 @@ class DemandPlanner:
                     obligation["subject"],
                     obligation["original_source"],
                     json_bytes(obligation["analyzed_scope"]),
-                 subject_definition=self.model.operation(operation["operation"]).subject),
+                    subject_definition=self.model.operation(operation["operation"]).subject,
+                ),
                 subject=obligation["subject"],
                 parameters=decode_semantic_value(operation["parameter_meaning"]),
                 choices=operation["choices"],
@@ -838,7 +869,8 @@ class DemandPlanner:
                             member["subject"],
                             member["original_source"],
                             json_bytes(member["analyzed_scope"]),
-                         subject_definition=member["subject_definition"])
+                            subject_definition=member["subject_definition"],
+                        )
                         for member in row["members"]
                     ),
                 )
@@ -872,7 +904,8 @@ class DemandPlanner:
                     obligation["subject"],
                     obligation["original_source"],
                     json_bytes(obligation["analyzed_scope"]),
-                 subject_definition=self.model.operation(operation["operation"]).subject),
+                    subject_definition=self.model.operation(operation["operation"]).subject,
+                ),
                 inference=frozen["inference"],
                 authorization=authorization,
                 trust_evidence=json_bytes(

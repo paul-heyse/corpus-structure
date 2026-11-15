@@ -6,22 +6,20 @@ import json
 import math
 import re
 from collections import Counter, defaultdict
-from collections.abc import Mapping, Sequence
+from collections.abc import Sequence
 from contextlib import closing
 from dataclasses import dataclass, field
 from hashlib import sha256
 from typing import Literal
 
 from pydantic import BaseModel
-from sqlalchemy import case, func, select
+from sqlalchemy import func, select
 
 from corpus_structure.semantic.visual_evidence import VisualEvidencePin
 from corpus_structure.serve.selected_pdf import SelectedPdfSourceReference
 
 from .metadata import table
-from .pdf_payloads import _from_arrow
-from .pdf_record_reader import published_native_table, published_record_reader
-from .product_reference import ProductReference
+from .pdf_record_reader import published_native_table
 
 _LAYOUT_KINDS = {
     "Caption": "caption",
@@ -574,34 +572,66 @@ class _SelectedVisualSample:
     complete: bool
 
 
-def _selected_page_signals(samples: tuple[_SelectedVisualSample, ...], selected: list[_Region]) -> _PageSignals:
+def _selected_page_signals(
+    samples: tuple[_SelectedVisualSample, ...], selected: list[_Region]
+) -> _PageSignals:
     """Compare actual page/crop samples; a retained sample never becomes independent evidence."""
-    unique={}
+    unique = {}
     for sample in samples:
-        unique.setdefault((sample.raw_digest, json.dumps(sample.observation.image,sort_keys=True)),sample)
-    actual=tuple(unique.values())
-    whole=next((sample for sample in actual if sample.scope=="page" and sample.complete),None)
-    layout=(whole or next(iter(actual),None))
-    signals=_PageSignals(selected,[],False,layout=layout.observation if layout else None)
-    cues=[]
+        unique.setdefault(
+            (sample.raw_digest, json.dumps(sample.observation.image, sort_keys=True)), sample
+        )
+    actual = tuple(unique.values())
+    whole = next((sample for sample in actual if sample.scope == "page" and sample.complete), None)
+    layout = whole or next(iter(actual), None)
+    signals = _PageSignals(selected, [], False, layout=layout.observation if layout else None)
+    cues = []
     for sample in actual:
-        observed=sample.observation
-        crop=_scoped_attempt(observed.image,selected) if sample.scope=="crop" else None
+        observed = sample.observation
+        crop = _scoped_attempt(observed.image, selected) if sample.scope == "crop" else None
         if not sample.complete:
-            signals.requests.append(VisualRouteReason(code="incomplete_request",inputs=(observed.pin,),crop=crop))
-        if sample.scope!="crop" or whole is None or sample.raw_digest==whole.raw_digest: continue
-        differences,complete=_disagreements(whole.observation,observed,selected)
+            signals.requests.append(
+                VisualRouteReason(code="incomplete_request", inputs=(observed.pin,), crop=crop)
+            )
+        if sample.scope != "crop" or whole is None or sample.raw_digest == whole.raw_digest:
+            continue
+        differences, complete = _disagreements(whole.observation, observed, selected)
         signals.requests.extend(differences)
-        available=bool(observed.readings) and observed.availability=="available"
-        cues.append(VisualCueAssessment(cue="crop_comparison",
-            status="positive" if differences else "negative" if complete else "inconclusive" if available else "unassessed",
-            reason="located_quantity_disagreement" if differences else "no_located_quantity_disagreement" if complete else "no_exact_quantity_comparison" if available else observed.availability,
-            inputs=(whole.observation.pin,observed.pin),crop=crop,crop_bounds=_crop_bounds(observed.image)))
-    cues.append(VisualCueAssessment(cue="whole_recognition",status="unassessed",
-        reason="selected_chandra_samples_do_not_establish_independent_whole_recognition",
-        inputs=tuple(sample.observation.pin for sample in actual if sample.scope=="page")))
-    signals.cues=tuple(cues)
-    signals.requests=list({_region_address(reason):reason for reason in signals.requests}.values())
+        available = bool(observed.readings) and observed.availability == "available"
+        cues.append(
+            VisualCueAssessment(
+                cue="crop_comparison",
+                status="positive"
+                if differences
+                else "negative"
+                if complete
+                else "inconclusive"
+                if available
+                else "unassessed",
+                reason="located_quantity_disagreement"
+                if differences
+                else "no_located_quantity_disagreement"
+                if complete
+                else "no_exact_quantity_comparison"
+                if available
+                else observed.availability,
+                inputs=(whole.observation.pin, observed.pin),
+                crop=crop,
+                crop_bounds=_crop_bounds(observed.image),
+            )
+        )
+    cues.append(
+        VisualCueAssessment(
+            cue="whole_recognition",
+            status="unassessed",
+            reason="selected_chandra_samples_do_not_establish_independent_whole_recognition",
+            inputs=tuple(sample.observation.pin for sample in actual if sample.scope == "page"),
+        )
+    )
+    signals.cues = tuple(cues)
+    signals.requests = list(
+        {_region_address(reason): reason for reason in signals.requests}.values()
+    )
     return signals
 
 
@@ -649,7 +679,7 @@ def read_demand_visual_routes(
     ]
     records = tuple(stream_selected_support(conn, page)) if members else ()
     routes = []
-    grouped=defaultdict(list)
+    grouped = defaultdict(list)
     for member in members:
         value, image = member["body"], member["body"]["observation"]["image"]
         publication = _selected_pdf_publication(page, member, records, capture_kind)
@@ -682,20 +712,35 @@ def read_demand_visual_routes(
                 else None
             )
             requests.append(VisualRouteReason(code="incomplete_request", inputs=(pin,), crop=crop))
-        grouped[(image["document"],image["logical_digest"],image["page_no"])].append(
-            (_SelectedVisualSample(layout,"crop" if image["selection"].get("pointer") is not None else "page",
-                observation["response_digest"],observation["provider_outcome"]=="succeeded" and value["completion"]=="complete"),
-             publication,selected[image["page_no"]],furniture[image["page_no"]]))
-    for (_,_,page_no), group in grouped.items():
-        samples=tuple(item[0] for item in group)
-        publication=group[0][1]
-        signals=_selected_page_signals(samples,group[0][2])
-        layout=signals.layout
+        grouped[(image["document"], image["logical_digest"], image["page_no"])].append(
+            (
+                _SelectedVisualSample(
+                    layout,
+                    "crop" if image["selection"].get("pointer") is not None else "page",
+                    observation["response_digest"],
+                    observation["provider_outcome"] == "succeeded"
+                    and value["completion"] == "complete",
+                ),
+                publication,
+                selected[image["page_no"]],
+                furniture[image["page_no"]],
+            )
+        )
+    for (_, _, page_no), group in grouped.items():
+        samples = tuple(item[0] for item in group)
+        publication = group[0][1]
+        signals = _selected_page_signals(samples, group[0][2])
+        layout = signals.layout
         assert layout is not None
-        pin=layout.pin
-        image=next(item["body"]["observation"]["image"] for item in members
-                   if item["product_id"]==pin.product_id)
-        observation=next(item["body"]["observation"] for item in members if item["product_id"]==pin.product_id)
+        pin = layout.pin
+        image = next(
+            item["body"]["observation"]["image"]
+            for item in members
+            if item["product_id"] == pin.product_id
+        )
+        observation = next(
+            item["body"]["observation"] for item in members if item["product_id"] == pin.product_id
+        )
         if observation["provider_outcome"] == "succeeded" and not layout.readings:
             artifacts = table("kb.source_artifact")
             original = conn.scalar(

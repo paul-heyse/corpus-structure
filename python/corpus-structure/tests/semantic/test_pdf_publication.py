@@ -125,8 +125,7 @@ def test_compatible_predecessor_reuses_exact_access_for_changed_companion(
     create_private_build, commit_writer_engine, commit_db_engine, monkeypatch, tmp_path
 ):
     from corpus_structure.semantic import _operation_calls as calls
-    from corpus_structure.semantic._operation_ids import RunId
-    from corpus_structure.semantic._operation_ids import TaskAttempt, TaskId
+    from corpus_structure.semantic._operation_ids import RunId, TaskAttempt, TaskId
     from corpus_structure.semantic.operations import complete_task, seal_cut
     from corpus_structure.semantic.releases import load_release
 

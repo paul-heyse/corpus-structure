@@ -11,7 +11,7 @@ from pydantic import TypeAdapter
 from corpus_structure.cli.output import JsonOpt, state, write_report_text
 from corpus_structure.semantic.data_operation_json import json_bytes
 from corpus_structure.semantic.demand_queries import DemandView
-from corpus_structure.semantic.rich_queries import RichQueryName, QUERY_NAMES
+from corpus_structure.semantic.rich_queries import QUERY_NAMES, RichQueryName
 
 QueryName = Literal[DemandView, RichQueryName]
 from corpus_structure.serve.demand_journey import DemandQueryRequest, serve_demand_query
@@ -19,15 +19,15 @@ from corpus_structure.serve.demand_journey import DemandQueryRequest, serve_dema
 
 def query(
     ctx: typer.Context,
-    name: Annotated[
-        QueryName, typer.Argument()
-    ],
+    name: Annotated[QueryName, typer.Argument()],
     demand: Annotated[str, typer.Option(help="Exact target demand; no promoted/latest selection.")],
     project: Annotated[str, typer.Option(help="Required project of the selected demand.")],
     operation: str | None = None,
     subject: str | None = None,
     original_source: str | None = None,
-    without_original_source: Annotated[bool, typer.Option(help="Select results with an explicit null original source.")] = False,
+    without_original_source: Annotated[
+        bool, typer.Option(help="Select results with an explicit null original source.")
+    ] = False,
     kind_contract: str | None = None,
     product: str | None = None,
     member: str | None = None,
@@ -35,7 +35,12 @@ def query(
     limit: Annotated[int, typer.Option(min=1, max=1000)] = 100,
     max_bytes: Annotated[int, typer.Option(min=1024, max=67108864)] = 1048576,
     json: JsonOpt = False,
-    parameters: Annotated[Path | None, typer.Option(help="Rich query parameters JSON object; the positional name selects its contract.")] = None,
+    parameters: Annotated[
+        Path | None,
+        typer.Option(
+            help="Rich query parameters JSON object; the positional name selects its contract."
+        ),
+    ] = None,
     max_graph_bytes: Annotated[int, typer.Option(min=1024, max=67108864)] = 8388608,
     max_graph_members: Annotated[int, typer.Option(min=1, max=1000000)] = 100000,
 ) -> None:
@@ -55,7 +60,9 @@ def query(
 
     with failure_boundary(json, expected=(ValueError, KeyError)):
         if without_original_source and original_source is not None:
-            raise ValueError("select either an exact original source or explicit no original source")
+            raise ValueError(
+                "select either an exact original source or explicit no original source"
+            )
         if name in QUERY_NAMES:
             from corpus_structure.cli.output import read_request_bytes
             from corpus_structure.semantic.data_operation_json import json_loads
@@ -63,15 +70,36 @@ def query(
 
             if product is None:
                 raise ValueError("rich queries require the explicit accepted product")
-            if any(value is not None for value in (operation, subject, original_source, kind_contract, member)) or without_original_source:
-                raise ValueError("rich queries use their actual root and typed parameters, not native row filters")
+            if (
+                any(
+                    value is not None
+                    for value in (operation, subject, original_source, kind_contract, member)
+                )
+                or without_original_source
+            ):
+                raise ValueError(
+                    "rich queries use their actual root and typed parameters, not native row filters"
+                )
             values = {} if parameters is None else json_loads(read_request_bytes(parameters))
             if not isinstance(values, dict) or "name" in values:
                 raise ValueError("rich query parameters must be an object without a name override")
-            rich_request = RichQueryRequest(demand_id=demand, project_id=project, product_id=product,
-                                            query={"name": name, **values}, cursor=cursor, limit=limit,
-                                            max_bytes=max_bytes, max_graph_bytes=max_graph_bytes, max_graph_members=max_graph_members)
-            with open_runtime_engine(state(ctx).settings(), "ci-rich-query", purpose="read") as engine, engine.begin() as connection:
+            rich_request = RichQueryRequest(
+                demand_id=demand,
+                project_id=project,
+                product_id=product,
+                query={"name": name, **values},
+                cursor=cursor,
+                limit=limit,
+                max_bytes=max_bytes,
+                max_graph_bytes=max_graph_bytes,
+                max_graph_members=max_graph_members,
+            )
+            with (
+                open_runtime_engine(
+                    state(ctx).settings(), "ci-rich-query", purpose="read"
+                ) as engine,
+                engine.begin() as connection,
+            ):
                 result = serve_rich_query(connection, rich_request)
             write_report_text(json_bytes(result).decode() + "\n")
             return
@@ -119,7 +147,9 @@ def records(
     operation: str | None = None,
     subject: str | None = None,
     original_source: str | None = None,
-    without_original_source: Annotated[bool, typer.Option(help="Select results with an explicit null original source.")] = False,
+    without_original_source: Annotated[
+        bool, typer.Option(help="Select results with an explicit null original source.")
+    ] = False,
     kind_contract: str | None = None,
     product: str | None = None,
     member: str | None = None,

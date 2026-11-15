@@ -67,7 +67,9 @@ def prepare_pdf_context(prepared: PreparedRelease, domain: PdfDomainContract) ->
         _boundary(domain.schema),
         domain,
         domain.source("schema/pdf_products").digest,
-        SourceArtifact("pdf/staging-model.yaml", domain.source("implementation/pdf/staging-model.yaml").content),
+        SourceArtifact(
+            "pdf/staging-model.yaml", domain.source("implementation/pdf/staging-model.yaml").content
+        ),
     )
 
 
@@ -82,7 +84,9 @@ def trusted_pdf_context() -> PreparedPdfContext:
         _boundary(domain.schema),
         domain,
         domain.source("schema/pdf_products").digest,
-        SourceArtifact("pdf/staging-model.yaml", domain.source("implementation/pdf/staging-model.yaml").content),
+        SourceArtifact(
+            "pdf/staging-model.yaml", domain.source("implementation/pdf/staging-model.yaml").content
+        ),
     )
 
 

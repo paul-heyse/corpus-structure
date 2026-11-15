@@ -35,8 +35,13 @@ def build_server(
     from .native_render_tools import register_native_render_tools
 
     register_native_render_tools(
-        server, settings=settings or Settings(),
-        project=project if project is not None else session.project_id if session is not None else None,
+        server,
+        settings=settings or Settings(),
+        project=project
+        if project is not None
+        else session.project_id
+        if session is not None
+        else None,
         demand=demand if demand is not None else session.demand_id if session is not None else None,
     )
     return server

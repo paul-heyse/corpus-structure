@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import copy
 import json
 from collections.abc import Callable
 from contextlib import suppress
@@ -374,7 +373,9 @@ def test_frozen_semantic_parameters_drive_original_callable(tmp_path, monkeypatc
         authorization=b"{}",
         trust_evidence=b"{}",
         execution_profile="cpu",
-        subject_context=SubjectContext("project:test", binding.subject, "source:test", b"{}", subject_definition="document"),
+        subject_context=SubjectContext(
+            "project:test", binding.subject, "source:test", b"{}", subject_definition="document"
+        ),
     )
     ready = ReadyDataRequest(
         "obligation:one",
@@ -1271,10 +1272,14 @@ def test_builtin_mapping_subclass_cannot_hide_runtime_lookup(tmp_path, monkeypat
 def test_historical_effective_model_cannot_authorize_current_pure_port(tmp_path, monkeypatch):
     from dataclasses import replace
 
-
-
     model, inputs = fixture_source(tmp_path, monkeypatch, body='return "fixed"')
-    for version in ("data-operation-model-v2", "data-operation-model-v3", "data-operation-model-v4", "data-operation-model-v5", "data-operation-model-v6"):
+    for version in (
+        "data-operation-model-v2",
+        "data-operation-model-v3",
+        "data-operation-model-v4",
+        "data-operation-model-v5",
+        "data-operation-model-v6",
+    ):
         historical = replace(model, version=version, graph_projections=())
         with pytest.raises(PortRefusal, match="historical model"):
             resolve_python_port(

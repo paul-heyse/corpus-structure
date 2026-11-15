@@ -10,8 +10,12 @@ class DeclarationSyntaxOperation:
         "id": "text.declaration_syntax/source-native",
         "profile": "derivation",
         "subject": "original-source-view",
-        "subject_definition": {'id': 'original-source-view', 'identifier_kind': 'string', 'scope': 'original-source'},
-        "discovery_relation": 'subject-population',
+        "subject_definition": {
+            "id": "original-source-view",
+            "identifier_kind": "string",
+            "scope": "original-source",
+        },
+        "discovery_relation": "subject-population",
         "context": ["original-source", "selected-scope", "exact-canonical-and-hanlp-products"],
         "entrypoints": ["run"],
         "roles": [
@@ -76,14 +80,20 @@ class DeclarationSyntaxOperation:
                 "presence": "required",
             },
         ],
-        "applicability": [{'kind': 'documentation', 'text': 'actual-canonical-sentences-and-hanlp-native-heads'}],
-        "invariants": [
-            {'kind': 'documentation', 'text': 'no-reinference'},
-            {'kind': 'documentation', 'text': 'exact-native-source-positions'},
-            {'kind': 'documentation', 'text': 'no-private-downstream-declaration-recognizer'},
-            {'kind': 'documentation', 'text': 'missing-support-is-unknown-not-empty'},
+        "applicability": [
+            {"kind": "documentation", "text": "actual-canonical-sentences-and-hanlp-native-heads"}
         ],
-        "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "exact-selected-canonical-sentence-population"},
+        "invariants": [
+            {"kind": "documentation", "text": "no-reinference"},
+            {"kind": "documentation", "text": "exact-native-source-positions"},
+            {"kind": "documentation", "text": "no-private-downstream-declaration-recognizer"},
+            {"kind": "documentation", "text": "missing-support-is-unknown-not-empty"},
+        ],
+        "coverage": {
+            "binding": "self",
+            "result_owners": [{"kind": "implementation", "reference": "self"}],
+            "description": "exact-selected-canonical-sentence-population",
+        },
         "outcomes": ["success", "failed"],
         "precision_description": "original-native-half-open-extents",
         "dependencies": [

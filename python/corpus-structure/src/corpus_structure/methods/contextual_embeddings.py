@@ -285,7 +285,16 @@ def validate_vector(values: Sequence[float], dimension: int) -> tuple[float, ...
     if len(result) != dimension or any(not math.isfinite(value) for value in result):
         raise ValueError("vector has invalid dimension or nonfinite values")
     norm = math.sqrt(sum(value * value for value in result))
-    if norm == 0 or not math.isfinite(norm) or not math.isclose(norm, 1, abs_tol=ENCODER_NUMERICS.absolute_tolerance, rel_tol=ENCODER_NUMERICS.relative_tolerance):
+    if (
+        norm == 0
+        or not math.isfinite(norm)
+        or not math.isclose(
+            norm,
+            1,
+            abs_tol=ENCODER_NUMERICS.absolute_tolerance,
+            rel_tol=ENCODER_NUMERICS.relative_tolerance,
+        )
+    ):
         raise ValueError("vector must be nonzero and L2-normalized")
     return result
 

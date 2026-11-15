@@ -8,12 +8,12 @@ work, copies task identities or changes the producing episode of a reused value.
 from __future__ import annotations
 
 from collections.abc import Iterator, Mapping
-from contextlib import contextmanager
-from contextlib import nullcontext
+from contextlib import contextmanager, nullcontext
 from dataclasses import dataclass
 from hashlib import sha256
 from typing import TYPE_CHECKING, Any, Literal, cast
 
+from ._data_operation_wire import WireCutSelection
 from .data_operation_identity import (
     body_identity,
     contextual_product_identity,
@@ -22,7 +22,6 @@ from .data_operation_identity import (
 )
 from .data_operation_json import json_bytes, wire_json_loads
 from .data_operation_model import SubjectContext
-from ._data_operation_wire import WireCutSelection
 
 if TYPE_CHECKING:
     from ._data_operation_wire import WireReadDemandResultRequest
@@ -50,7 +49,8 @@ def selected_read_snapshot(engine, *, cancellation=None):
     """
     with (
         engine.connect().execution_options(
-            isolation_level="REPEATABLE READ", postgresql_readonly=False,
+            isolation_level="REPEATABLE READ",
+            postgresql_readonly=False,
         ) as connection,
         cancellation.borrow(connection) if cancellation is not None else nullcontext(),
         connection.begin(),
@@ -311,7 +311,9 @@ def selected_record_index(
 
     from .data_operation_read_index import SelectedRecordIndex
 
-    if max_total_records is not None and (type(max_total_records) is not int or max_total_records < 0):
+    if max_total_records is not None and (
+        type(max_total_records) is not int or max_total_records < 0
+    ):
         raise ValueError("selected record bound must be a nonnegative integer")
     continuation = (
         None
@@ -343,11 +345,15 @@ def selected_record_index(
                         "selected graph examined frontier exceeds byte bound", cut=cut
                     )
                 if max_total_records is not None and index.retained_records > max_total_records:
-                    raise SelectedGraphBudgetExceeded("selected graph examined frontier exceeds record bound", cut=cut)
+                    raise SelectedGraphBudgetExceeded(
+                        "selected graph examined frontier exceeds record bound", cut=cut
+                    )
                 for record in stream_selected_support(connection, page):
                     index.append(json_bytes(record), allow_equal=True)
                     if max_total_records is not None and index.retained_records > max_total_records:
-                        raise SelectedGraphBudgetExceeded("selected graph examined closure exceeds record bound", cut=cut)
+                        raise SelectedGraphBudgetExceeded(
+                            "selected graph examined closure exceeds record bound", cut=cut
+                        )
                     if max_total_bytes is not None and index.retained_bytes > max_total_bytes:
                         raise SelectedGraphBudgetExceeded(
                             "selected graph examined closure exceeds byte bound", cut=cut
@@ -420,6 +426,7 @@ def verify_detached_result(
     actual_kinds = row_map("sem.data_kind_contract", "kind_contract")
     if kinds is not None and any(kinds.get(key) != value for key, value in actual_kinds.items()):
         raise ValueError("detached kind differs from its captured release contract")
+
     def checked_context(context, *, release_id=None, subject_definition=None):
         from .data_operation_model import validate_subject_context
 
@@ -457,7 +464,8 @@ def verify_detached_result(
             product["subject"],
             product["original_source"],
             json_bytes(product["analyzed_scope"]),
-         subject_definition=product["subject_definition"])
+            subject_definition=product["subject_definition"],
+        )
         checked_context(context)
         if (
             body != product["body_digest"]
@@ -469,7 +477,15 @@ def verify_detached_result(
             raise ValueError("detached product differs from its semantic identity")
     for member in members.values() if validate_closure else ():
         product = products[member["product_id"]]
-        checked_context(SubjectContext(product["project_id"], member["subject"], member["original_source"], json_bytes(member["analyzed_scope"]), subject_definition=member["subject_definition"]))
+        checked_context(
+            SubjectContext(
+                product["project_id"],
+                member["subject"],
+                member["original_source"],
+                json_bytes(member["analyzed_scope"]),
+                subject_definition=member["subject_definition"],
+            )
+        )
         kind = actual_kinds[member["kind_contract"]]
         Draft7Validator(kind["meaning_schema"]).validate(member["body"])
         decoded = decode_semantic_value(member["body"])
@@ -506,8 +522,22 @@ def verify_detached_result(
 
         for request in requests.values():
             definition = actual_definitions[request["release_id"], request["operation_id"]]
-            validate_replicate_selection(definition["support_contract"]["replicate_policy"], request["replicate"], owner=request["operation_id"])
-            checked_context(SubjectContext(request["project_id"], request["subject"], request["original_source"], json_bytes(request["analyzed_scope"]), subject_definition=definition["subject_definition"]), release_id=request["release_id"], subject_definition=definition["subject_definition"])
+            validate_replicate_selection(
+                definition["support_contract"]["replicate_policy"],
+                request["replicate"],
+                owner=request["operation_id"],
+            )
+            checked_context(
+                SubjectContext(
+                    request["project_id"],
+                    request["subject"],
+                    request["original_source"],
+                    json_bytes(request["analyzed_scope"]),
+                    subject_definition=definition["subject_definition"],
+                ),
+                release_id=request["release_id"],
+                subject_definition=definition["subject_definition"],
+            )
     episodes = row_map("ops.data_derivation", "id")
     if validate_closure:
         for episode in episodes.values():
@@ -535,9 +565,16 @@ def verify_detached_result(
     authorities = {}
     for value in rows("ops.data_authority_leaf"):
         leaf = (
-            validate_authority_leaf(value, products=products, kinds=kinds, definitions=definitions,
-                                    runtimes=runtimes, schema=authority_schema)
-            if validate_closure else NativeAuthorityLeaf.model_validate(value)
+            validate_authority_leaf(
+                value,
+                products=products,
+                kinds=kinds,
+                definitions=definitions,
+                runtimes=runtimes,
+                schema=authority_schema,
+            )
+            if validate_closure
+            else NativeAuthorityLeaf.model_validate(value)
         )
         key = (leaf.derivation_id, leaf.use_id)
         if key in authorities and authorities[key] != leaf:
@@ -550,9 +587,14 @@ def verify_detached_result(
         if reference.get("kind") in {"original-source", "authored"}:
             return None
         use = reference.get("admission_use_id")
-        return next((leaf for (episode, selected), leaf in authorities.items() if (
-            episode == reference.get("derivation_id") and (use is None or use == selected)
-        )), None)
+        return next(
+            (
+                leaf
+                for (episode, selected), leaf in authorities.items()
+                if (episode == reference.get("derivation_id") and (use is None or use == selected))
+            ),
+            None,
+        )
 
     def required(mapping, key, label):
         value = mapping.get(key)
@@ -641,8 +683,13 @@ def verify_detached_result(
                     request["subject"],
                     request["original_source"],
                     json_bytes(request["analyzed_scope"]),
-                 subject_definition=definition["subject_definition"])
-                checked_context(context, release_id=episode["release_id"], subject_definition=definition["subject_definition"])
+                    subject_definition=definition["subject_definition"],
+                )
+                checked_context(
+                    context,
+                    release_id=episode["release_id"],
+                    subject_definition=definition["subject_definition"],
+                )
                 product_key = contextual_product_identity(
                     kind=produced["kind_contract"],
                     context=context,
@@ -739,7 +786,8 @@ def verify_detached_result(
                     request["subject"],
                     request["original_source"],
                     json_bytes(request["analyzed_scope"]),
-                 subject_definition=definition["subject_definition"]),
+                    subject_definition=definition["subject_definition"],
+                ),
             ).identity.key
             if expected != request["request_key"]:
                 raise ValueError("detached request differs from its exact selected meaning")
@@ -806,14 +854,19 @@ def verify_detached_result(
         ):
             raise ValueError("detached role edge has an absent endpoint")
     for edge in rows("ops.data_derivation_support") if validate_closure else ():
-        authority = authority_reference(dict(kind="computation", derivation_id=edge["support_derivation_id"],
-                                             admission_use_id=edge["admission_use_id"]))
-        if (
-            edge["derivation_id"] not in episodes
-            or (authority is None and (
+        authority = authority_reference(
+            dict(
+                kind="computation",
+                derivation_id=edge["support_derivation_id"],
+                admission_use_id=edge["admission_use_id"],
+            )
+        )
+        if edge["derivation_id"] not in episodes or (
+            authority is None
+            and (
                 edge["support_derivation_id"] not in episodes
                 or (edge["admission_use_id"] is not None and edge["admission_use_id"] not in uses)
-            ))
+            )
         ):
             raise ValueError("detached support closure is incomplete")
     for edge in rows("ops.data_derivation_original_support") if validate_closure else ():

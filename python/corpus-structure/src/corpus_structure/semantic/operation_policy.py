@@ -202,7 +202,9 @@ def operation_score_numerical_policy() -> OperationScoreNumericalPolicy:
     import numpy as np
     import scipy
 
-    return OperationScoreNumericalPolicy(numpy_version=np.__version__, scipy_version=scipy.__version__)
+    return OperationScoreNumericalPolicy(
+        numpy_version=np.__version__, scipy_version=scipy.__version__
+    )
 
 
 class OperationEventParameters(EventContract):
@@ -250,7 +252,9 @@ def score_operation_event(
 
     policy = parameters.numerical
     if policy != operation_score_numerical_policy():
-        raise ValueError("operation score numerical policy differs from the selected native libraries")
+        raise ValueError(
+            "operation score numerical policy differs from the selected native libraries"
+        )
     if (corpus_id, event, event_version, producer_version) != (
         parameters.corpus_id,
         parameters.event,
@@ -260,7 +264,9 @@ def score_operation_event(
         raise ValueError("operation score applicability differs from fitted corpus/event/producer")
     if len(features) != len(parameters.feature_names) or not np.isfinite(features).all():
         raise ValueError("operation feature shape or finite values differ")
-    with np.errstate(over=policy.overflow, invalid=policy.invalid, divide=policy.divide, under=policy.underflow):
+    with np.errstate(
+        over=policy.overflow, invalid=policy.invalid, divide=policy.divide, under=policy.underflow
+    ):
         x = (np.asarray(features, dtype=policy.dtype) - parameters.means) / parameters.scales
         linear = np.dot(x, parameters.coefficients) + parameters.intercept
         result = float(expit(linear))
@@ -275,8 +281,12 @@ score_operation_event__data_operation__ = {
     "id": "urn:corpus:operation:score-operation-event",
     "profile": "derivation",
     "subject": "fitted-operation-event",
-    "subject_definition": {'id': 'fitted-operation-event', 'identifier_kind': 'string', 'scope': 'project'},
-    "discovery_relation": 'role-associated',
+    "subject_definition": {
+        "id": "fitted-operation-event",
+        "identifier_kind": "string",
+        "scope": "project",
+    },
+    "discovery_relation": "role-associated",
     "context": ["corpus_id", "event", "event_version", "producer_version"],
     "roles": [
         {
@@ -320,21 +330,61 @@ score_operation_event__data_operation__ = {
             "presence": "required",
         },
     ],
-
-    "applicability": [{"kind": "binding", "reference": "urn:corpus:operation:score-operation-event/binding", "interpretation": "binding-expression-v1", "parameters": {}}, {'kind': 'documentation', 'text': 'exact-fitted-corpus-event-version-producer'}],
-    "invariants": [{'kind': 'documentation', 'text': 'finite-features'}, {'kind': 'documentation', 'text': 'matching-feature-shape'}, {'kind': 'documentation', 'text': 'probability-in-unit-interval'}],
-    "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "one-score-for-complete-feature-vector"},
+    "applicability": [
+        {
+            "kind": "binding",
+            "reference": "urn:corpus:operation:score-operation-event/binding",
+            "interpretation": "binding-expression-v1",
+            "parameters": {},
+        },
+        {"kind": "documentation", "text": "exact-fitted-corpus-event-version-producer"},
+    ],
+    "invariants": [
+        {"kind": "documentation", "text": "finite-features"},
+        {"kind": "documentation", "text": "matching-feature-shape"},
+        {"kind": "documentation", "text": "probability-in-unit-interval"},
+    ],
+    "coverage": {
+        "binding": "self",
+        "result_owners": [{"kind": "implementation", "reference": "self"}],
+        "description": "one-score-for-complete-feature-vector",
+    },
     "outcomes": ["scored", "invalid-applicability", "invalid-feature-shape", "numerical-failure"],
     "state_dimensions": [{"name": "completion", "values": ["pending", "success", "failed"]}],
     "transitions": [
         {"dimension": "completion", "before": "pending", "after": "success", "outcome": "scored"},
-        {"dimension": "completion", "before": "pending", "after": "failed", "outcome": "invalid-applicability"},
-        {"dimension": "completion", "before": "pending", "after": "failed", "outcome": "invalid-feature-shape"},
-        {"dimension": "completion", "before": "pending", "after": "failed", "outcome": "numerical-failure"},
+        {
+            "dimension": "completion",
+            "before": "pending",
+            "after": "failed",
+            "outcome": "invalid-applicability",
+        },
+        {
+            "dimension": "completion",
+            "before": "pending",
+            "after": "failed",
+            "outcome": "invalid-feature-shape",
+        },
+        {
+            "dimension": "completion",
+            "before": "pending",
+            "after": "failed",
+            "outcome": "numerical-failure",
+        },
     ],
     "precision_description": None,
-    "numerical_policy": {"asset": "operation-score/numerical-policy", "pointer": "/policy", "kind": "urn:corpus:kind:operation-event:OperationScoreNumericalPolicy"},
-    "assets": [{"reference": "operation-score-policy", "contract": "operation-score/numerical-policy", "role": "numerical-policy"}],
+    "numerical_policy": {
+        "asset": "operation-score/numerical-policy",
+        "pointer": "/policy",
+        "kind": "urn:corpus:kind:operation-event:OperationScoreNumericalPolicy",
+    },
+    "assets": [
+        {
+            "reference": "operation-score-policy",
+            "contract": "operation-score/numerical-policy",
+            "role": "numerical-policy",
+        }
+    ],
     "dependencies": [],
     "effects": [],
     "capabilities": {
@@ -347,7 +397,11 @@ score_operation_event__data_operation__ = {
     "parameters": {},
     "binding": {"operator": "scan", "roles": ["parameters", "features"]},
     "opaque": [
-        {"reference": "corpus_structure.semantic.operation_policy.operation_score_numerical_policy", "contract": "operation-score/numerical-policy", "role": "checked-native-arithmetic-policy"},
+        {
+            "reference": "corpus_structure.semantic.operation_policy.operation_score_numerical_policy",
+            "contract": "operation-score/numerical-policy",
+            "role": "checked-native-arithmetic-policy",
+        },
         {
             "reference": "numpy",
             "contract": "numpy-float64-array-arithmetic-v1",

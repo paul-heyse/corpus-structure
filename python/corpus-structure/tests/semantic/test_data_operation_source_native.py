@@ -86,12 +86,17 @@ def build(connection, projection, atoms, selectors):
 
 
 def test_native_source_helper_capture_and_compilation():
-    captured=source_native_sources()
-    names={source.name for source in captured}
-    assert len(names)==len(captured)
-    assert {"native/data-operation-source-admission.sql","native/data-operation-source-native.py",
-            "native/data-operation-visual-read.schema.json","native/data-operation-visual-read.sql",
-            "native/visual-evidence.py","native/data-operation-visual-read.py"} <= names
+    captured = source_native_sources()
+    names = {source.name for source in captured}
+    assert len(names) == len(captured)
+    assert {
+        "native/data-operation-source-admission.sql",
+        "native/data-operation-source-native.py",
+        "native/data-operation-visual-read.schema.json",
+        "native/data-operation-visual-read.sql",
+        "native/visual-evidence.py",
+        "native/data-operation-visual-read.py",
+    } <= names
     parsed = prepare_sql(source_native_sql(), source="source")
     names = []
     for index, raw in enumerate(parsed.statements):
@@ -101,8 +106,12 @@ def test_native_source_helper_capture_and_compilation():
         if index == 0:
             pglast.parse_plpgsql(parsed.excerpt(index))
     assert len(names) == len(set(names))
-    assert {"ddo_pdf_derivation_receipt", "ddo_pdf_capture_source", "ddo_impl_read_selected_pdf_source"} <= set(names)
-    assert {"ddo_visual_candidate_rows","ddo_impl_read_selected_visual_evidence"} <= set(names)
+    assert {
+        "ddo_pdf_derivation_receipt",
+        "ddo_pdf_capture_source",
+        "ddo_impl_read_selected_pdf_source",
+    } <= set(names)
+    assert {"ddo_visual_candidate_rows", "ddo_impl_read_selected_visual_evidence"} <= set(names)
     assert "read_selected_pdf_source" not in names
     assert "read_selected_visual_evidence" not in names
 
@@ -122,9 +131,15 @@ def test_native_source_builder_matches_source_owner_without_legacy_diagnostic_sa
         ancestors=[],
     )
     expected = FrozenNativeSource.from_projection(
-        source_prepared, document="document:semantic", section_pointer=view.ref.section_pointer,
-        membership=view.ref.membership, text=view.text, pieces=view.pieces, items=view.items,
-        ancestors=view.ancestors, recognition=view.health.get("formula_outcomes", ()),
+        source_prepared,
+        document="document:semantic",
+        section_pointer=view.ref.section_pointer,
+        membership=view.ref.membership,
+        text=view.text,
+        pieces=view.pieces,
+        items=view.items,
+        ancestors=view.ancestors,
+        recognition=view.health.get("formula_outcomes", ()),
     )
     value = expected.value
     value["selectors"] = [{**row, "projection": value["source"]["projection"]} for row in selectors]
@@ -219,9 +234,15 @@ def test_native_source_retains_ordered_ancestry_links_and_typed_table_context(
         health=projection["health"],
     )
     expected = FrozenNativeSource.from_projection(
-        source_prepared, document="document:semantic", section_pointer=view.ref.section_pointer,
-        membership=view.ref.membership, text=view.text, pieces=view.pieces, items=view.items,
-        ancestors=view.ancestors, recognition=view.health.get("formula_outcomes", ()),
+        source_prepared,
+        document="document:semantic",
+        section_pointer=view.ref.section_pointer,
+        membership=view.ref.membership,
+        text=view.text,
+        pieces=view.pieces,
+        items=view.items,
+        ancestors=view.ancestors,
+        recognition=view.health.get("formula_outcomes", ()),
     )
     value = expected.value
     value["selectors"] = [{**row, "projection": value["source"]["projection"]} for row in selectors]
@@ -240,9 +261,15 @@ def test_native_source_retains_ordered_ancestry_links_and_typed_table_context(
     assert index.matches({"native_pointer": "#/different"}, "#/texts/0") is False
     ancestor["parent"] = {"$ref": "#/unretained"}
     unresolved = FrozenNativeSource.from_projection(
-        source_prepared, document="document:semantic", section_pointer=view.ref.section_pointer,
-        membership=view.ref.membership, text=view.text, pieces=view.pieces, items=view.items,
-        ancestors=view.ancestors, recognition=view.health.get("formula_outcomes", ()),
+        source_prepared,
+        document="document:semantic",
+        section_pointer=view.ref.section_pointer,
+        membership=view.ref.membership,
+        text=view.text,
+        pieces=view.pieces,
+        items=view.items,
+        ancestors=view.ancestors,
+        recognition=view.health.get("formula_outcomes", ()),
     )
     assert (
         unresolved.selector_index().matches({"native_pointer": "#/different"}, "#/texts/0") is None

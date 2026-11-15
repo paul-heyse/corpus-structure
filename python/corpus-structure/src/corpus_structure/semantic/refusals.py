@@ -101,9 +101,9 @@ def trusted_operation_model_id(prepared: PreparedRelease) -> str | None:
     if prepared.execution_model_id is not None:
         return prepared.execution_model_id
     if any(artifact.kind == "data_operations.json" for artifact in prepared.artifacts):
-        from .data_operation_admission import bound_data_operation_model
-
         from hashlib import sha256
+
+        from .data_operation_admission import bound_data_operation_model
 
         return sha256(bound_data_operation_model(prepared).content).hexdigest()
     return None

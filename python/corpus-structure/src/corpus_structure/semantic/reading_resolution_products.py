@@ -10,8 +10,8 @@ from pathlib import Path
 from typing import Any, Literal, get_args
 
 from .identity import canonical_bytes
-from .types import SourceArtifact, SourceBundle
 from .python_module_projection import admitted_operation_module_meaning
+from .types import SourceArtifact, SourceBundle
 
 ReadingRecipe = Literal["retained-m1-reading-resolution-2"]
 RECIPE: ReadingRecipe = get_args(ReadingRecipe)[0]
@@ -35,7 +35,9 @@ def reading_resolution_inputs(bundle):
 
     bundle = candidate_inspection_inputs(bundle)
     declaration = yaml.safe_load(_MODEL.read_bytes())
-    declaration["classes"]["DdoReadingFeaturePolicy"]["attributes"]["recipe"]["equals_string"] = RECIPE
+    declaration["classes"]["DdoReadingFeaturePolicy"]["attributes"]["recipe"]["equals_string"] = (
+        RECIPE
+    )
     content = yaml.safe_dump(declaration, sort_keys=False).encode()
     name, root = "data_operation_reading_resolution", "data_operation_reading_resolution_root"
     existing = {source.name: source.content for source in bundle.sources}
@@ -75,21 +77,40 @@ def reading_resolution_assets():
                 "schema": _MODEL.read_bytes().hex(),
                 "feature_instance_schema": DeclaredReadingFeatureInstance.model_json_schema(),
                 "numerical_policy": READING_NUMERICS.model_dump(mode="json"),
-                "files": [(name, (admitted_operation_module_meaning((_ROOT / name).read_bytes()).hex() if name in ('methods/reading_resolution.py',) else (_ROOT / name).read_bytes().hex())) for name in _FILES],
+                "files": [
+                    (
+                        name,
+                        (
+                            admitted_operation_module_meaning((_ROOT / name).read_bytes()).hex()
+                            if name in ("methods/reading_resolution.py",)
+                            else (_ROOT / name).read_bytes().hex()
+                        ),
+                    )
+                    for name in _FILES
+                ],
             }
         ),
     )
 
 
 def reading_resolution_declarations():
-    from .record_policy import ReadingNumericalPolicy
     from .data_operation_model import MODEL_VERSION
     from .nominal_schema_kinds import nominal_schema_kinds
+    from .record_policy import ReadingNumericalPolicy
 
-    return SourceArtifact("reading_resolution/numerical-kinds", canonical_bytes({
-        "version": MODEL_VERSION,
-        "kinds": nominal_schema_kinds(ReadingNumericalPolicy.model_json_schema(), namespace="urn:corpus:kind:reading:", root_name="NumericalPolicy"),
-    }))
+    return SourceArtifact(
+        "reading_resolution/numerical-kinds",
+        canonical_bytes(
+            {
+                "version": MODEL_VERSION,
+                "kinds": nominal_schema_kinds(
+                    ReadingNumericalPolicy.model_json_schema(),
+                    namespace="urn:corpus:kind:reading:",
+                    root_name="NumericalPolicy",
+                ),
+            }
+        ),
+    )
 
 
 def reading_resolution_operation_sources():
@@ -111,7 +132,9 @@ def reading_resolution_operation_sources():
 def reading_diagnostics(row, details):
     """Keep one actual diagnostic per retained producer group, including repeated outputs."""
     group_ids = {
-        value for value in row.get("computation_dependencies", ()) if value.startswith("native-group:")
+        value
+        for value in row.get("computation_dependencies", ())
+        if value.startswith("native-group:")
     }
     unique = {}
     for report in details.get("reports", ()):
@@ -136,8 +159,11 @@ class DeclaredReadingFeatureInstance(FrozenContract):
 
 
 def reading_recipe_identity(model):
-    recipes = {item.key for item in model.identities if item.domain == "recipe"
-               and item.owner == "resolve.m1_readings/declared"}
+    recipes = {
+        item.key
+        for item in model.identities
+        if item.domain == "recipe" and item.owner == "resolve.m1_readings/declared"
+    }
     if len(recipes) != 1:
         raise ValueError("reading resolution requires its actual admitted recipe identity")
     return next(iter(recipes))
@@ -164,10 +190,16 @@ def resolve_reading_values(prepared, candidates, policy, *, model, check_active=
     if not isinstance(raw_instances, list):
         raise ValueError("reading feature policy requires its complete instance sequence")
     instances = tuple(
-        DeclaredReadingFeatureInstance.model_validate_json(json_bytes(value)) for value in raw_instances
+        DeclaredReadingFeatureInstance.model_validate_json(json_bytes(value))
+        for value in raw_instances
     )
     by_applicability = {
-        (item.family_contract, item.reading_recipe, item.feature.applicability.family, item.feature.applicability.subset): item.feature
+        (
+            item.family_contract,
+            item.reading_recipe,
+            item.feature.applicability.family,
+            item.feature.applicability.subset,
+        ): item.feature
         for item in instances
     }
     if len(by_applicability) != len(instances):
@@ -191,7 +223,14 @@ def resolve_reading_values(prepared, candidates, policy, *, model, check_active=
         ).model_dump(mode="python", exclude_unset=True)
         if row["standing"] != "candidate":
             raise ValueError("reading resolution requires private upstream candidates")
-        instance = by_applicability.get((record_family_contract(model, row["contract"]), recipe, row["family"], policy["subset"]))
+        instance = by_applicability.get(
+            (
+                record_family_contract(model, row["contract"]),
+                recipe,
+                row["family"],
+                policy["subset"],
+            )
+        )
         row["computation_dependencies"] = tuple(
             sorted(
                 {
@@ -277,15 +316,26 @@ def execute_reading_profile(receiver, candidates, policy):
 
 def execute_reading_kernel(input_basis: list, *, prepared, check_active) -> dict:
     from .data_operation_admission import bound_data_operation_model
-    from .data_operation_identity import decode_semantic_value
     from .data_operation_cpu_basis import cpu_authority_reply
+    from .data_operation_identity import decode_semantic_value
 
     basis = decode_semantic_value(input_basis)
     roles = basis["roles"]
-    if basis["version"] != "cpu-input-basis-1" or len(roles) != 2 or {role["role"] for role in roles} != {"candidates", "policy"} or any(role["multiplicity"] != 1 for role in roles):
+    if (
+        basis["version"] != "cpu-input-basis-1"
+        or len(roles) != 2
+        or {role["role"] for role in roles} != {"candidates", "policy"}
+        or any(role["multiplicity"] != 1 for role in roles)
+    ):
         raise ValueError("reading CPU computation requires its exact two whole inputs")
     values = {role["role"]: role["body"] for role in roles}
-    result = resolve_reading_values(prepared, values["candidates"], values["policy"], model=bound_data_operation_model(prepared), check_active=check_active)
+    result = resolve_reading_values(
+        prepared,
+        values["candidates"],
+        values["policy"],
+        model=bound_data_operation_model(prepared),
+        check_active=check_active,
+    )
     return cpu_authority_reply(input_basis, result)
 
 
@@ -324,12 +374,21 @@ class ReadingInvocationPlan:
         ):
             raise ValueError("reading candidates differ from the acquired source context")
         signature = inspect.signature(execute_reading_kernel, eval_str=True)
-        from .data_operation_cpu_basis import cpu_input_basis_from_binding, cpu_authority_value
+        from .data_operation_cpu_basis import cpu_authority_value, cpu_input_basis_from_binding
 
-        recipe = next(item.key for item in self.model.identities if item.owner == self.port.operation.semantic_id and item.domain == "recipe")
-        input_basis = cpu_input_basis_from_binding(recipe, binding, {
-            "candidates": (arguments.arguments["candidates"],), "policy": (arguments.arguments["policy"],),
-        })
+        recipe = next(
+            item.key
+            for item in self.model.identities
+            if item.owner == self.port.operation.semantic_id and item.domain == "recipe"
+        )
+        input_basis = cpu_input_basis_from_binding(
+            recipe,
+            binding,
+            {
+                "candidates": (arguments.arguments["candidates"],),
+                "policy": (arguments.arguments["policy"],),
+            },
+        )
         bound = signature.bind(
             input_basis=input_basis, prepared=self.prepared, check_active=check_active
         )

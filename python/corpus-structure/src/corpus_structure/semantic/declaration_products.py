@@ -19,8 +19,8 @@ from .construction_products import (
 )
 from .data_operation_model import ResolvedRoleBinding, SubjectContext
 from .identity import canonical_bytes
-from .types import PreparedRelease, SourceArtifact
 from .python_module_projection import admitted_operation_module_meaning
+from .types import PreparedRelease, SourceArtifact
 
 _ROOT = Path(__file__).parents[1]
 _PATHS = (
@@ -62,7 +62,17 @@ def declaration_profile_assets():
         canonical_bytes(
             {
                 "version": "declared-canonical-hanlp-syntax-v1",
-                "files": [(name, (admitted_operation_module_meaning((_ROOT / name).read_bytes()).hex() if name in ('methods/declaration_syntax.py',) else (_ROOT / name).read_bytes().hex())) for name in _PATHS],
+                "files": [
+                    (
+                        name,
+                        (
+                            admitted_operation_module_meaning((_ROOT / name).read_bytes()).hex()
+                            if name in ("methods/declaration_syntax.py",)
+                            else (_ROOT / name).read_bytes().hex()
+                        ),
+                    )
+                    for name in _PATHS
+                ],
             }
         ),
     )
@@ -146,8 +156,12 @@ class PreparedDeclarationInputs:
 
         member = self.member(name)
         context = SubjectContext(
-            self.context.project_id, member.subject, member.original_source, member.analyzed_scope
-        , subject_definition=member.subject_definition)
+            self.context.project_id,
+            member.subject,
+            member.original_source,
+            member.analyzed_scope,
+            subject_definition=member.subject_definition,
+        )
         product = RetainedCharacterizationProduct.acquire(
             self.prepared,
             model,
@@ -239,15 +253,17 @@ class DeclarationCallPlan:
             check_active=check_active,
         )
         captured = declaration_operation_sources()
-        return (yield from self.port.plan_cpu(
-            declaration_kernel,
-            bound,
-            captured,
-            prepared_release_id=self.prepared.release_id,
-            verify=self.verify,
-            execution_owner=execution_owner,
-            check_active=check_active,
-        ))
+        return (
+            yield from self.port.plan_cpu(
+                declaration_kernel,
+                bound,
+                captured,
+                prepared_release_id=self.prepared.release_id,
+                verify=self.verify,
+                execution_owner=execution_owner,
+                check_active=check_active,
+            )
+        )
 
 
 def resolve_declaration_port(prepared, model, operation, *, identity, authorize, custody, sources):

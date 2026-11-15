@@ -41,8 +41,6 @@ def test_recipe_prepares_its_captured_model_and_reuses_equal_value(recipe, opera
     assert scenario_builder(recipe) is build_kernel
 
 
-
-
 @pytest.mark.parametrize(
     ("payload", "reply", "recorded"),
     [

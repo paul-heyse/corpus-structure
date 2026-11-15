@@ -97,20 +97,27 @@ def test_unprofiled_historical_runtime_v1_is_refused():
 def test_current_runtime_persistence_has_no_legacy_facade_dependency(monkeypatch):
     import sys
     from unittest.mock import MagicMock
+
     from corpus_structure.semantic.runtime_binding_store import persist_runtime_binding
 
     release = prepared()
     binding = prepare_data_operation_runtime(
-        release, (SourceArtifact("worker.py", b"one"),),
-        execution_profile="execution:one", observed={},
+        release,
+        (SourceArtifact("worker.py", b"one"),),
+        execution_profile="execution:one",
+        observed={},
     )
     connection = MagicMock()
     connection.scalar.return_value = binding.runtime_id
     monkeypatch.setitem(sys.modules, "corpus_structure.semantic._operation_calls", None)
     assert persist_runtime_binding(connection, release, binding) == binding.runtime_id
     parameters = connection.scalar.call_args.args[1]
-    assert parameters == {"release": release.release_id, "runtime": binding.runtime_id,
-                          "manifest": binding.manifest, "archive": binding.archive}
+    assert parameters == {
+        "release": release.release_id,
+        "runtime": binding.runtime_id,
+        "manifest": binding.manifest,
+        "archive": binding.archive,
+    }
     connection.scalar.return_value = "runtime:foreign"
     with pytest.raises(RuntimeBindingError, match="different runtime identity"):
         persist_runtime_binding(connection, release, binding)
@@ -119,18 +126,23 @@ def test_current_runtime_persistence_has_no_legacy_facade_dependency(monkeypatch
 def test_current_runtime_persistence_refuses_historical_manifest_before_effects():
     from hashlib import sha256
     from unittest.mock import MagicMock
+
     from corpus_structure.semantic.runtime_binding_store import persist_runtime_binding
 
     release = prepared()
     binding = prepare_data_operation_runtime(
-        release, (SourceArtifact("worker.py", b"one"),),
-        execution_profile="execution:one", observed={},
+        release,
+        (SourceArtifact("worker.py", b"one"),),
+        execution_profile="execution:one",
+        observed={},
     )
     manifest = json.loads(binding.manifest)
     manifest["version"] = "data-operation-runtime-binding-v1"
     manifest.pop("provider_profiles")
     content = canonical_bytes(manifest)
-    historical = replace(binding, runtime_id="runtime:" + sha256(content).hexdigest(), manifest=content)
+    historical = replace(
+        binding, runtime_id="runtime:" + sha256(content).hexdigest(), manifest=content
+    )
     connection = MagicMock()
     with pytest.raises(RuntimeBindingError, match="runtime version"):
         persist_runtime_binding(connection, release, historical)
@@ -140,20 +152,33 @@ def test_current_runtime_persistence_refuses_historical_manifest_before_effects(
 @pytest.mark.parametrize("version", ["data-operation-runtime-binding-v1", "runtime-binding-1"])
 def test_native_runtime_validator_refuses_previous_versions(native_rollback, version):
     from pathlib import Path
+
     from sqlalchemy import text
     from sqlalchemy.exc import DBAPIError
+
     from corpus_structure.semantic import runtime_binding_store
     from corpus_structure.semantic.prepared_sql import prepare_sql
 
     connection = native_rollback.connection
-    source = Path(runtime_binding_store.__file__).with_name("sql").joinpath("runtime_bindings.sql").read_text()
+    source = (
+        Path(runtime_binding_store.__file__)
+        .with_name("sql")
+        .joinpath("runtime_bindings.sql")
+        .read_text()
+    )
     validator = prepare_sql(source, source="current-runtime-validator").excerpt(0)
     connection.exec_driver_sql(validator, execution_options={"no_parameters": True})
     with pytest.raises(DBAPIError, match="unsupported target runtime version") as refusal:
         with connection.begin_nested():
-            connection.execute(text("SELECT sem.validate_runtime_binding(:release,:runtime,:manifest,:archive)"), {
-                "release": "absent-release", "runtime": "runtime:untrusted",
-                "manifest": canonical_bytes({"version": version}),
-                "archive": canonical_bytes({"version": "runtime-source-archive-1", "inputs": []}),
-            })
+            connection.execute(
+                text("SELECT sem.validate_runtime_binding(:release,:runtime,:manifest,:archive)"),
+                {
+                    "release": "absent-release",
+                    "runtime": "runtime:untrusted",
+                    "manifest": canonical_bytes({"version": version}),
+                    "archive": canonical_bytes(
+                        {"version": "runtime-source-archive-1", "inputs": []}
+                    ),
+                },
+            )
     assert getattr(refusal.value.orig, "sqlstate", None) == "23514"

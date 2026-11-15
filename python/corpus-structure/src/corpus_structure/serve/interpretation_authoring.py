@@ -17,8 +17,8 @@ from corpus_structure.semantic.data_operation_support import (
     read_original_source_reference,
 )
 from corpus_structure.semantic.identity import canonical_bytes
-from corpus_structure.semantic.runtime_binding_store import runtime_binding_for_release
 from corpus_structure.semantic.refusals import SemanticRefusal
+from corpus_structure.semantic.runtime_binding_store import runtime_binding_for_release
 
 
 def author_interpretations(engine, prepared, *, request: NativeDemandRequest):
@@ -40,7 +40,9 @@ def author_interpretations(engine, prepared, *, request: NativeDemandRequest):
         )
     )
     if not names:
-        raise SemanticRefusal("authored input requires at least one explicit authored-fact selection")
+        raise SemanticRefusal(
+            "authored input requires at least one explicit authored-fact selection"
+        )
     intent = freeze_native_demand(prepared, request)
     from corpus_structure.semantic.data_operation_admission import bound_data_operation_model
 

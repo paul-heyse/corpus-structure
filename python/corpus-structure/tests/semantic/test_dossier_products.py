@@ -33,7 +33,8 @@ def _predecessor():
         source_product="source:actual",
         source_member="member:actual",
         kind_contract="kind:source",
-     subject_definition="original-source-view")
+        subject_definition="original-source-view",
+    )
     passage = StructuralPassage(
         passage_id="definition",
         source_ref=reference.identity,

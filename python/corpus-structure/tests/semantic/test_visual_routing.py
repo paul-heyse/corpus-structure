@@ -7,6 +7,7 @@ from pypdfium2 import PdfDocument, raw
 
 from corpus_structure.ingest.pdf_recognition import crop_transform, render_affine
 from corpus_structure.semantic import visual_routing
+from corpus_structure.semantic.visual_evidence import VisualEvidencePin
 from corpus_structure.semantic.visual_routing import (
     StudyRegion,
     VisualRouteCrop,
@@ -20,10 +21,9 @@ from corpus_structure.semantic.visual_routing import (
     _Region,
     _scoped_attempt,
 )
-from corpus_structure.semantic.visual_evidence import VisualEvidencePin
 
-_PIN = VisualEvidencePin(use_id="use",product_id="retained",derivation_id="episode")
-_BASE = _PIN.model_copy(update={"product_id":"structural"})
+_PIN = VisualEvidencePin(use_id="use", product_id="retained", derivation_id="episode")
+_BASE = _PIN.model_copy(update={"product_id": "structural"})
 _REGION = VisualRouteCrop(pointer="#/tables/0", region_index=0)
 _FRAME = (200, 200)
 
@@ -182,13 +182,20 @@ def test_crop_cue_preserves_unavailable_inputs_and_exact_positive_reason(
         else (),
         availability,
     )
-    samples=[visual_routing._SelectedVisualSample(whole,"page","whole",True),
-             visual_routing._SelectedVisualSample(unknown,"crop","unknown",True)]
+    samples = [
+        visual_routing._SelectedVisualSample(whole, "page", "whole", True),
+        visual_routing._SelectedVisualSample(unknown, "crop", "unknown", True),
+    ]
     if exact_disagreement:
-        independent=_Observation(_PIN.model_copy(update={"product_id":"independent"}),image,
-            _readings(b"<x_0><y_0>7 & 10<x_1><y_1><class_Table>",image))
-        samples.append(visual_routing._SelectedVisualSample(independent,"crop","independent",True))
-    signals=visual_routing._selected_page_signals(tuple(samples),[_region()])
+        independent = _Observation(
+            _PIN.model_copy(update={"product_id": "independent"}),
+            image,
+            _readings(b"<x_0><y_0>7 & 10<x_1><y_1><class_Table>", image),
+        )
+        samples.append(
+            visual_routing._SelectedVisualSample(independent, "crop", "independent", True)
+        )
+    signals = visual_routing._selected_page_signals(tuple(samples), [_region()])
     route = _decide(151, signals)
     cues = [cue for cue in route.cues if cue.cue == "crop_comparison"]
     unknown_cue = next(cue for cue in cues if _BASE in cue.inputs)
@@ -241,8 +248,16 @@ def test_dispatch_coalesces_reasons_and_respects_repair_and_blank():
     from corpus_structure.semantic.visual_routing import VisualPageRoute, VisualRouteReport
 
     report = VisualRouteReport(
-        source=__import__("corpus_structure.serve.selected_pdf",fromlist=["SelectedPdfSourceReference"]).SelectedPdfSourceReference(
-            project_id="project",demand_id="demand",read_id="read",use_id="use",product_id="source",derivation_id="source-episode"),
+        source=__import__(
+            "corpus_structure.serve.selected_pdf", fromlist=["SelectedPdfSourceReference"]
+        ).SelectedPdfSourceReference(
+            project_id="project",
+            demand_id="demand",
+            read_id="read",
+            use_id="use",
+            product_id="source",
+            derivation_id="source-episode",
+        ),
         structural_input=_BASE,
         page_count=3,
         pages=(

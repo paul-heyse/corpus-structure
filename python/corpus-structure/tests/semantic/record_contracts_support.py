@@ -15,8 +15,8 @@ from corpus_structure.semantic.record_contracts import (
     bind_record_candidates,
     evidence_set_identity,
     interpretation_identity,
-    record_identity,
     record_family_contract,
+    record_identity,
 )
 
 ROOT = Path(__file__).resolve().parents[4]
@@ -60,6 +60,7 @@ def release_inputs():
 @cache
 def model():
     from corpus_structure.semantic.data_operation_compilation import compile_data_operations
+
     return compile_data_operations(release_inputs()[0])
 
 
@@ -104,7 +105,9 @@ def field(
 
 
 def finish(record):
-    record["record_id"] = record_identity(record_family_contract(model(), record["contract"]), record)
+    record["record_id"] = record_identity(
+        record_family_contract(model(), record["contract"]), record
+    )
     record["interpretation_id"] = interpretation_identity(record)
     return record
 

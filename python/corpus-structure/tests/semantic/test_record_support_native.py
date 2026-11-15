@@ -8,7 +8,10 @@ from corpus_structure.core.method import CoverageDraft
 from corpus_structure.semantic.domain_operations import consolidate_cut
 from corpus_structure.semantic.operations import complete_unit_result, seal_cut
 from corpus_structure.semantic.query import read_snapshot
-from corpus_structure.semantic.record_queries import RecordReadLimit, read_completed_record_projection
+from corpus_structure.semantic.record_queries import (
+    RecordReadLimit,
+    read_completed_record_projection,
+)
 from semantic.native_record_fixtures import RecordSourceRecipe, candidate, unit
 from semantic.native_record_fixtures import private_source as private_source
 
@@ -47,7 +50,9 @@ def test_native_candidate_support_omits_large_diagnostics_but_retains_available_
         cut = seal_cut(conn, case.run, "candidate-support-final", final=True)
     result = consolidate_cut(case.writer, cut, "candidate-support-result")
     with read_snapshot(record_source_reader) as conn:
-        projection = read_completed_record_projection(conn, run_id=case.run, include_diagnostics=False)
+        projection = read_completed_record_projection(
+            conn, run_id=case.run, include_diagnostics=False
+        )
         with pytest.raises(RecordReadLimit):
             read_completed_record_projection(
                 conn, run_id=case.run, include_diagnostics=True, max_bytes=64 * 1024

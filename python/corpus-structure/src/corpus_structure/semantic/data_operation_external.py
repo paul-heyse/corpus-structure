@@ -6,8 +6,6 @@ manufactured from run/task aliases. PostgreSQL owns every admission and publicat
 
 from __future__ import annotations
 
-from corpus_structure.semantic.identifiers import ProjectId
-
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from typing import Any, cast
@@ -16,7 +14,23 @@ from uuid import uuid4
 from sqlalchemy import Engine
 from sqlalchemy.exc import DBAPIError
 
-from corpus_structure.semantic._data_operation_wire import WireAdoptDataCompletionIntentRequest, WireAttemptFence, WireClaimDataRequestResult, WireClaimExternalDataPacketRequest, WireCompletion, WireDemandId, WireExternalPacketId, WireInspectExternalDataResultResult, WirePublishDataDerivationRequest, WireReadExternalDataQueueRequest, WireReadExternalDataQueueResult, WireReleaseExternalDataPacketResult, WireRenewDataRequestResult, wire_attempt_fence
+from corpus_structure.semantic._data_operation_wire import (
+    WireAdoptDataCompletionIntentRequest,
+    WireAttemptFence,
+    WireClaimDataRequestResult,
+    WireClaimExternalDataPacketRequest,
+    WireCompletion,
+    WireDemandId,
+    WireExternalPacketId,
+    WireInspectExternalDataResultResult,
+    WirePublishDataDerivationRequest,
+    WireReadExternalDataQueueRequest,
+    WireReadExternalDataQueueResult,
+    WireReleaseExternalDataPacketResult,
+    WireRenewDataRequestResult,
+    wire_attempt_fence,
+)
+from corpus_structure.semantic.identifiers import ProjectId
 
 from .data_operation_admission import bound_data_operation_model
 from .data_operation_identity import semantic_value
@@ -343,6 +357,7 @@ class ExternalDataSession:
                     }
                 )
         from .demand_results import CutSelection
+
         return {
             "demand_id": demand_id,
             "cut": CutSelection.from_native(snapshot).record,

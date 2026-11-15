@@ -10,8 +10,12 @@ class ArtifactIdentityOperation:
         "id": "structure.artifact_identity/declared",
         "profile": "derivation",
         "subject": "actual-focus-source",
-        "subject_definition": {'id': 'actual-focus-source', 'identifier_kind': 'string', 'scope': 'selected-source-set'},
-        "discovery_relation": 'role-associated',
+        "subject_definition": {
+            "id": "actual-focus-source",
+            "identifier_kind": "string",
+            "scope": "selected-source-set",
+        },
+        "discovery_relation": "role-associated",
         "context": [
             "project",
             "subject",
@@ -87,15 +91,27 @@ class ArtifactIdentityOperation:
                 "presence": "required",
             },
         ],
-        "applicability": [{'kind': 'documentation', 'text': 'explicit-native-source-work-cohort-and-complete-primary-navigation'}],
-        "invariants": [
-            {'kind': 'documentation', 'text': 'semantic-member-references'},
-            {'kind': 'documentation', 'text': 'artifact-discovery-does-not-run-unrelated-scoped-joins'},
-            {'kind': 'documentation', 'text': 'unbound-source-work-is-not-absence'},
-            {'kind': 'documentation', 'text': 'exact-native-numbering-alias-and-revision-custody'},
-            {'kind': 'documentation', 'text': 'candidate-private-standing'},
+        "applicability": [
+            {
+                "kind": "documentation",
+                "text": "explicit-native-source-work-cohort-and-complete-primary-navigation",
+            }
         ],
-        "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "exact-selected-artifact-cohort-and-authored-source-passages"},
+        "invariants": [
+            {"kind": "documentation", "text": "semantic-member-references"},
+            {
+                "kind": "documentation",
+                "text": "artifact-discovery-does-not-run-unrelated-scoped-joins",
+            },
+            {"kind": "documentation", "text": "unbound-source-work-is-not-absence"},
+            {"kind": "documentation", "text": "exact-native-numbering-alias-and-revision-custody"},
+            {"kind": "documentation", "text": "candidate-private-standing"},
+        ],
+        "coverage": {
+            "binding": "self",
+            "result_owners": [{"kind": "implementation", "reference": "self"}],
+            "description": "exact-selected-artifact-cohort-and-authored-source-passages",
+        },
         "outcomes": ["success"],
         "precision_description": "original-native-half-open-extents",
         "dependencies": ["text.constructions/source-native"],
@@ -176,11 +192,11 @@ class ArtifactIdentityOperation:
                         "encoding": "value",
                     },
                     {
-                        "output_field": 'subject_definition',
+                        "output_field": "subject_definition",
                         "input": {
                             "role": "sources",
                             "projection": "selected-input",
-                            "field": 'subject_definition',
+                            "field": "subject_definition",
                         },
                         "encoding": "value",
                     },
@@ -255,11 +271,11 @@ class ArtifactIdentityOperation:
                         "encoding": "value",
                     },
                     {
-                        "output_field": 'subject_definition',
+                        "output_field": "subject_definition",
                         "input": {
                             "role": "constructions",
                             "projection": "selected-input",
-                            "field": 'subject_definition',
+                            "field": "subject_definition",
                         },
                         "encoding": "value",
                     },

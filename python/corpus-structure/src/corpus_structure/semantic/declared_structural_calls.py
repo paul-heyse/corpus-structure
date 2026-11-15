@@ -23,8 +23,8 @@ from .declared_structural_references import (
     DeclaredStructuralSource,
 )
 from .identity import canonical_bytes
-from .types import PreparedRelease, SourceArtifact
 from .python_module_projection import admitted_operation_module_meaning
+from .types import PreparedRelease, SourceArtifact
 
 NAMESPACE = "urn:corpus:structural:"
 _ASSET = "structural/call-assets"
@@ -88,7 +88,13 @@ def structural_call_assets():
                 "algorithms": [
                     (
                         name,
-                        (admitted_operation_module_meaning((root / name).read_bytes()).decode() if name in ('methods/structural_declared.py',) else ast.dump(ast.parse((root / name).read_bytes()), include_attributes=False)),
+                        (
+                            admitted_operation_module_meaning((root / name).read_bytes()).decode()
+                            if name in ("methods/structural_declared.py",)
+                            else ast.dump(
+                                ast.parse((root / name).read_bytes()), include_attributes=False
+                            )
+                        ),
                     )
                     for name in _PATHS
                 ],
@@ -338,8 +344,12 @@ def execute_comparison(receiver, sources, reports, formal, **selection):
         address, frame = matches[0]
         source = FrozenNativeSource.acquire(profile.prepared, frame.value)
         context = SubjectContext(
-            profile.project, member.subject, member.original_source, member.analyzed_scope
-        , subject_definition=member.subject_definition)
+            profile.project,
+            member.subject,
+            member.original_source,
+            member.analyzed_scope,
+            subject_definition=member.subject_definition,
+        )
         product = validate_formal_product(
             profile.prepared, raw, source, model=model, subject_context=context
         )
@@ -499,15 +509,17 @@ class StructuralCallPlan:
             check_active=check_active,
         )
         captured = structural_operation_sources()
-        return (yield from self.port.plan_cpu(
-            self.kernel,
-            bound,
-            captured,
-            prepared_release_id=self.prepared.release_id,
-            verify=self.verify,
-            execution_owner=execution_owner,
-            check_active=check_active,
-        ))
+        return (
+            yield from self.port.plan_cpu(
+                self.kernel,
+                bound,
+                captured,
+                prepared_release_id=self.prepared.release_id,
+                verify=self.verify,
+                execution_owner=execution_owner,
+                check_active=check_active,
+            )
+        )
 
 
 def resolve_structural_call(

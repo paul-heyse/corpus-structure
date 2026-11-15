@@ -426,4 +426,5 @@ def _publication_context(source):
         source_subject(value["source"]),
         value["source"]["document"],
         canonical_bytes({"source": value["source"], "selectors": value["selectors"]}),
-     subject_definition="original-source-view")
+        subject_definition="original-source-view",
+    )

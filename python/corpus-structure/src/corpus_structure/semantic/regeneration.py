@@ -12,9 +12,9 @@ from typing import Any
 
 import yaml
 
-from .rich_knowledge_sources import rich_policy_inputs
 from .prepare import prepare_release
 from .refusals import SemanticRefusal
+from .rich_knowledge_sources import rich_policy_inputs
 from .types import (
     PreparationProfile,
     PreparedRelease,
@@ -286,10 +286,15 @@ def _boundary_classes(acquired: tuple[PackInputs, ...]) -> tuple[str, str]:
     qualifications = tuple(name for inputs in acquired for name in inputs.qualifications)
     statements = tuple(name for inputs in acquired for name in inputs.statements)
     if len(statements) > 1:
-        raise PackInputError("composed packs require one explicit source-statement operation binding")
+        raise PackInputError(
+            "composed packs require one explicit source-statement operation binding"
+        )
     qualification = (
-        "ComposedQualification" if len(acquired) > 1 and qualifications
-        else qualifications[0] if qualifications else "Qualification"
+        "ComposedQualification"
+        if len(acquired) > 1 and qualifications
+        else qualifications[0]
+        if qualifications
+        else "Qualification"
     )
     return qualification, statements[0] if statements else "SourceStatement"
 
@@ -304,7 +309,8 @@ def acquire_packs(
     from .data_operation_artifacts import capture_port_generator_sources
     from .data_operation_storage import native_operation_declarations, native_protocol_sources
     from .rich_knowledge_sources import (
-        rich_knowledge_declarations, rich_knowledge_schema_inputs,
+        rich_knowledge_declarations,
+        rich_knowledge_schema_inputs,
     )
 
     packs = tuple(sorted({pack.resolve() for pack in packs}))
@@ -312,19 +318,25 @@ def acquire_packs(
     bundle, dependencies, _profile = compose_pack_inputs(acquired)
     qualification, statement = _boundary_classes(acquired)
     bundle, dependencies = rich_knowledge_schema_inputs(
-        bundle, dependencies,
-        qualification_class=qualification, statement_class=statement,
+        bundle,
+        dependencies,
+        qualification_class=qualification,
+        statement_class=statement,
     )
     native_options = {}
     if physical_sources is not None:
         from corpus_structure.schema.physical import linkml_types_source
 
-        native_options = {"physical_sources": physical_sources, "linkml_types": linkml_types_source()}
+        native_options = {
+            "physical_sources": physical_sources,
+            "linkml_types": linkml_types_source(),
+        }
     native = native_protocol_sources(**native_options)
     dependencies = data_operation_dependencies(
         ResolvedDependencies(
             (*dependencies.artifacts, *native, *capture_port_generator_sources()),
-            dependencies.vocabularies, dependencies.ontology_sources,
+            dependencies.vocabularies,
+            dependencies.ontology_sources,
         ),
         (*rich_knowledge_declarations(dependencies), native_operation_declarations(native)),
     )

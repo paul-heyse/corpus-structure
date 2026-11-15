@@ -430,6 +430,7 @@ def inspect_review(
     if (bundle is None) == (result_id is None):
         raise typer.BadParameter("supply a detached bundle path or --result, exactly one")
     with failure_boundary(json, expected=(OSError, ValueError, ResultError)):
+
         def inspect(root, digest=None):
             return inspect_review_bundle(root, manifest_digest=digest)
 

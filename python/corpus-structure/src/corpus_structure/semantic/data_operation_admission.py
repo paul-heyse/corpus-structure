@@ -64,7 +64,8 @@ def require_data_operation_call_context(
     from dataclasses import asdict
 
     calls = [
-        asdict(call) for owner, call in bound_data_operation_calls(prepared)
+        asdict(call)
+        for owner, call in bound_data_operation_calls(prepared)
         if owner == operation and call.id == variant
     ]
     if len(calls) != 1 or sha256(canonical_bytes(calls)).hexdigest() != contract_digest:
@@ -74,6 +75,7 @@ def require_data_operation_call_context(
 def bound_data_operation_calls(prepared):
     """Read captured fixed native correspondence through its actual typed owner."""
     from pydantic import TypeAdapter
+
     from .native_call_contracts import OperationCallBinding
 
     model = bound_data_operation_model(prepared)
@@ -84,7 +86,8 @@ def bound_data_operation_calls(prepared):
     if manifest["model_digest"] != sha256(model.content).hexdigest():
         raise SemanticRefusal("native-call correspondence belongs to another effective model")
     calls = TypeAdapter(tuple[tuple[str, OperationCallBinding], ...]).validate_json(
-        canonical_bytes(manifest["calls"]), strict=True,
+        canonical_bytes(manifest["calls"]),
+        strict=True,
     )
     keys = [(owner, call.id) for owner, call in calls]
     operations = {operation.semantic_id for operation in model.operations}
@@ -123,14 +126,17 @@ def inspect_data_operation_release(
             if getattr(error.orig, "sqlstate", None) != "23514":
                 raise
             raise ExecutionAdmissionError(
-                "native operation release correspondence differs: " + str(error.orig).splitlines()[0]
+                "native operation release correspondence differs: "
+                + str(error.orig).splitlines()[0]
             ) from error
         if inspected != {
             "release_id": prepared.release_id,
             "model_digest": projection["model_digest"],
             "native_digest": projection["native_digest"],
         }:
-            raise ExecutionAdmissionError("native operation inspection attests another release or contract")
+            raise ExecutionAdmissionError(
+                "native operation inspection attests another release or contract"
+            )
         return physical_id, inspected
 
 

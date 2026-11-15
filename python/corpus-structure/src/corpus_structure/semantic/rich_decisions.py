@@ -50,7 +50,9 @@ class DdoRichEligibility(RichDecisionRecord):
         require_selected_sets(self.selected_fact_ids, self.selected_occurrence_ids)
         facts = tuple(item.fact_id for item in self.scientific_representatives)
         if facts != tuple(sorted(set(facts))):
-            raise ValueError("scientific representative rows must identify unique ordered actual facts")
+            raise ValueError(
+                "scientific representative rows must identify unique ordered actual facts"
+            )
         return self
 
 

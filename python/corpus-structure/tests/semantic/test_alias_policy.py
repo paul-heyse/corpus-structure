@@ -1,7 +1,5 @@
 """Independent label expectations for released single-root alias compilation."""
 
-from corpus_structure.semantic.analysis_contracts import acquire_analysis_context_profile
-
 import json
 from dataclasses import replace
 
@@ -18,9 +16,10 @@ from corpus_structure.semantic.alias_policy import (
     label_normalizer,
     released_label_policy,
 )
-from corpus_structure.semantic.rich_knowledge_sources import rich_policy_inputs
+from corpus_structure.semantic.analysis_contracts import acquire_analysis_context_profile
 from corpus_structure.semantic.prepare import prepare_release
 from corpus_structure.semantic.regeneration import acquire_pack, compose_pack_inputs, prepare_pack
+from corpus_structure.semantic.rich_knowledge_sources import rich_policy_inputs
 from corpus_structure.semantic.types import (
     PreparedArtifact,
     ResolvedDependencies,
@@ -95,7 +94,13 @@ def test_alignment_uses_the_released_statistics_policy(statistics_alias_release)
             "claims": [],
         },
     )
-    result = align_semantic(reference, prediction, prepared, alignment_policy=current_alignment_policy(), context_profile=current_analysis_context())
+    result = align_semantic(
+        reference,
+        prediction,
+        prepared,
+        alignment_policy=current_alignment_policy(),
+        context_profile=current_analysis_context(),
+    )
     assert result.entity_pairs == [("r", "p", "alias_normalization")]
 
 
@@ -114,7 +119,12 @@ def small_inputs(seed, name, *, aliases=None, rules=b"rules: []"):
         origin=f"pack:{name}",
         name=name,
         bundle=SourceBundle(name, (core, SourceArtifact(name, yaml.safe_dump(schema).encode()))),
-        dependencies=rich_policy_inputs(ResolvedDependencies(), rules, aliases=aliases or {}, context_profile=acquire_analysis_context_profile()),
+        dependencies=rich_policy_inputs(
+            ResolvedDependencies(),
+            rules,
+            aliases=aliases or {},
+            context_profile=acquire_analysis_context_profile(),
+        ),
         qualifications=(),
         statements=(),
     )
@@ -271,9 +281,11 @@ def test_profile_identity_and_synthetic_hydration_execution_boundary(statistics_
 
 def current_alignment_policy():
     from corpus_structure.semantic.analysis_policies import acquire_analysis_policies
+
     return acquire_analysis_policies().alignment
 
 
 def current_analysis_context():
     from corpus_structure.semantic.analysis_contracts import acquire_analysis_context_profile
+
     return acquire_analysis_context_profile()

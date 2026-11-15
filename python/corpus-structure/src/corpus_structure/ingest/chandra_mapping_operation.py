@@ -11,8 +11,12 @@ class ChandraMappingFamily:
         "id": "source.visual/map",
         "profile": "derivation",
         "subject": "original-document",
-        "subject_definition": {'id': 'original-document', 'identifier_kind': 'string', 'scope': 'original-document'},
-        "discovery_relation": 'role-associated',
+        "subject_definition": {
+            "id": "original-document",
+            "identifier_kind": "string",
+            "scope": "original-document",
+        },
+        "discovery_relation": "role-associated",
         "context": ["original-source", "exact-submitted-png"],
         "entrypoints": ["run"],
         "roles": [
@@ -52,13 +56,19 @@ class ChandraMappingFamily:
             "cancellation": "cooperative",
             "ownership": "owned-visual-mapping",
         },
-        "applicability": [{'kind': 'documentation', 'text': 'actual-raw-observation-with-qualified-image'}],
-        "invariants": [
-            {'kind': 'documentation', 'text': 'raw-byte-digest'},
-            {'kind': 'documentation', 'text': 'original-coordinate-transform'},
-            {'kind': 'documentation', 'text': 'unassessed-source-fidelity'},
+        "applicability": [
+            {"kind": "documentation", "text": "actual-raw-observation-with-qualified-image"}
         ],
-        "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "exact-submitted-png"},
+        "invariants": [
+            {"kind": "documentation", "text": "raw-byte-digest"},
+            {"kind": "documentation", "text": "original-coordinate-transform"},
+            {"kind": "documentation", "text": "unassessed-source-fidelity"},
+        ],
+        "coverage": {
+            "binding": "self",
+            "result_owners": [{"kind": "implementation", "reference": "self"}],
+            "description": "exact-submitted-png",
+        },
         "outcomes": ["success", "failed"],
         "precision_description": "incumbent-chandra-html-parser-and-qualified-pdf-map",
         "behavior": "retain parser outcomes and independently mapped original coordinates without selecting source knowledge",

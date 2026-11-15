@@ -17,11 +17,11 @@ from .contextual_links import (
     RelationshipEdge,
     RelationshipWitness,
 )
+from .contextual_numerics import RetrievalNumericalPolicy, default_retrieval_numerics
 from .contextual_retrieval import FrozenInventory, SemanticTargetGroup, TargetRepresentation
 from .identity import canonical_bytes
-from .contextual_numerics import RetrievalNumericalPolicy, default_retrieval_numerics
-from .types import SourceArtifact, SourceBundle
 from .python_module_projection import admitted_operation_module_meaning
+from .types import SourceArtifact, SourceBundle
 
 _ROOT = Path(__file__).parents[1]
 _MODEL = _ROOT / "model/semantic/data-operation-contextual.yaml"
@@ -85,7 +85,17 @@ def contextual_retrieval_assets():
             {
                 "version": "declared-contextual-retrieval-1",
                 "schema": _MODEL.read_bytes().hex(),
-                "files": [(name, (admitted_operation_module_meaning((_ROOT / name).read_bytes()).hex() if name in ('methods/contextual_declared.py',) else (_ROOT / name).read_bytes().hex())) for name in _FILES],
+                "files": [
+                    (
+                        name,
+                        (
+                            admitted_operation_module_meaning((_ROOT / name).read_bytes()).hex()
+                            if name in ("methods/contextual_declared.py",)
+                            else (_ROOT / name).read_bytes().hex()
+                        ),
+                    )
+                    for name in _FILES
+                ],
             }
         ),
     )
@@ -93,17 +103,29 @@ def contextual_retrieval_assets():
 
 def contextual_numerical_asset(numerical_policy=None):
     selected = default_retrieval_numerics() if numerical_policy is None else numerical_policy
-    return SourceArtifact("contextual/retrieval-numerical-policy", canonical_bytes({"policy": selected.model_dump(mode="json")}))
+    return SourceArtifact(
+        "contextual/retrieval-numerical-policy",
+        canonical_bytes({"policy": selected.model_dump(mode="json")}),
+    )
 
 
 def contextual_operation_declarations():
     from .data_operation_model import MODEL_VERSION
     from .nominal_schema_kinds import nominal_schema_kinds
 
-    return SourceArtifact("contextual/retrieval-numerical-kinds", canonical_bytes({
-        "version": MODEL_VERSION,
-        "kinds": nominal_schema_kinds(RetrievalNumericalPolicy.model_json_schema(), namespace="urn:corpus:kind:contextual-retrieval:", root_name="NumericalPolicy"),
-    }))
+    return SourceArtifact(
+        "contextual/retrieval-numerical-kinds",
+        canonical_bytes(
+            {
+                "version": MODEL_VERSION,
+                "kinds": nominal_schema_kinds(
+                    RetrievalNumericalPolicy.model_json_schema(),
+                    namespace="urn:corpus:kind:contextual-retrieval:",
+                    root_name="NumericalPolicy",
+                ),
+            }
+        ),
+    )
 
 
 def contextual_operation_sources(numerical_policy=None):
@@ -118,7 +140,10 @@ def contextual_operation_sources(numerical_policy=None):
             )
             for name in _FILES[:2]
         ),
-        boundary_contracts=(contextual_retrieval_assets(), contextual_numerical_asset(numerical_policy)),
+        boundary_contracts=(
+            contextual_retrieval_assets(),
+            contextual_numerical_asset(numerical_policy),
+        ),
     )
 
 
@@ -274,13 +299,22 @@ def finish_contextual_retrieval(inputs, candidates, query, *, check_active=lambd
 
 
 def contextual_retrieval_values(
-    connection, query, inventory, vectors, policy, *, check_active=lambda: None, numerical_policy=None
+    connection,
+    query,
+    inventory,
+    vectors,
+    policy,
+    *,
+    check_active=lambda: None,
+    numerical_policy=None,
 ):
     """Execute under a caller-owned borrow; invocation ports release it before interpretation."""
     inputs = prepare_contextual_retrieval(
         query, inventory, vectors, policy, check_active=check_active
     )
-    candidates = query_contextual_retrieval(connection, inputs, query, policy, numerical_policy=numerical_policy)
+    candidates = query_contextual_retrieval(
+        connection, inputs, query, policy, numerical_policy=numerical_policy
+    )
     return finish_contextual_retrieval(inputs, candidates, query, check_active=check_active)
 
 
@@ -353,7 +387,11 @@ class ContextualRetrievalPlan:
             inputs = prepare_contextual_retrieval(**values, check_active=check_active)
             with execution_owner.engine.begin() as connection:
                 candidates = query_contextual_retrieval(
-                    connection, inputs, values["query"], values["policy"], numerical_policy=self.numerical_policy
+                    connection,
+                    inputs,
+                    values["query"],
+                    values["policy"],
+                    numerical_policy=self.numerical_policy,
                 )
             product = finish_contextual_retrieval(
                 inputs, candidates, values["query"], check_active=check_active

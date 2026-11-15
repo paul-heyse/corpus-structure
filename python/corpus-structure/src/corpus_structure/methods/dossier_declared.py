@@ -10,8 +10,12 @@ class DossierOperation:
         "id": "structure.dossier/declared",
         "profile": "derivation",
         "subject": "actual-focus-source",
-        "subject_definition": {'id': 'actual-focus-source', 'identifier_kind': 'string', 'scope': 'selected-source-set'},
-        "discovery_relation": 'role-associated',
+        "subject_definition": {
+            "id": "actual-focus-source",
+            "identifier_kind": "string",
+            "scope": "selected-source-set",
+        },
+        "discovery_relation": "role-associated",
         "context": [
             "project",
             "original-source",
@@ -36,7 +40,10 @@ class DossierOperation:
                     "provenance": "exact",
                     "source": "frozen-source-set",
                     "source_set": "dossier-sources",
-                    "coverage": {"role": "sources", "description": "exact-selected-source-and-context"},
+                    "coverage": {
+                        "role": "sources",
+                        "description": "exact-selected-source-and-context",
+                    },
                     "identity_requirements": ["episode"],
                 },
             },
@@ -54,7 +61,10 @@ class DossierOperation:
                     "provenance": "exact",
                     "source": "frozen-source-set",
                     "source_set": "dossier-components",
-                    "coverage": {"role": "components", "description": "exact-selected-source-and-context"},
+                    "coverage": {
+                        "role": "components",
+                        "description": "exact-selected-source-and-context",
+                    },
                     "identity_requirements": ["episode"],
                 },
             },
@@ -72,7 +82,10 @@ class DossierOperation:
                     "provenance": "exact",
                     "source": "frozen-source-set",
                     "source_set": "dossier-definitions",
-                    "coverage": {"role": "definitions", "description": "exact-selected-source-and-context"},
+                    "coverage": {
+                        "role": "definitions",
+                        "description": "exact-selected-source-and-context",
+                    },
                     "identity_requirements": ["episode"],
                 },
             },
@@ -90,7 +103,10 @@ class DossierOperation:
                     "provenance": "exact",
                     "source": "frozen-source-set",
                     "source_set": "dossier-comparisons",
-                    "coverage": {"role": "comparisons", "description": "exact-selected-source-and-context"},
+                    "coverage": {
+                        "role": "comparisons",
+                        "description": "exact-selected-source-and-context",
+                    },
                     "identity_requirements": ["episode"],
                 },
             },
@@ -108,7 +124,10 @@ class DossierOperation:
                     "provenance": "exact",
                     "source": "frozen-source-set",
                     "source_set": "dossier-candidates",
-                    "coverage": {"role": "candidates", "description": "exact-selected-source-and-context"},
+                    "coverage": {
+                        "role": "candidates",
+                        "description": "exact-selected-source-and-context",
+                    },
                     "identity_requirements": ["episode"],
                 },
             },
@@ -126,7 +145,10 @@ class DossierOperation:
                     "provenance": "exact",
                     "source": "frozen-source-set",
                     "source_set": "dossier-relationships",
-                    "coverage": {"role": "relationships", "description": "exact-selected-source-and-context"},
+                    "coverage": {
+                        "role": "relationships",
+                        "description": "exact-selected-source-and-context",
+                    },
                     "identity_requirements": ["episode"],
                 },
             },
@@ -140,15 +162,24 @@ class DossierOperation:
                 "presence": "required",
             },
         ],
-        "applicability": [{'kind': 'documentation', 'text': 'actual-retained-components-and-explicit-predecessor-closure'}],
-        "invariants": [
-            {'kind': 'documentation', 'text': 'no-task-or-view-aliases'},
-            {'kind': 'documentation', 'text': 'no-downstream-language-recognition'},
-            {'kind': 'documentation', 'text': 'all-selected-endpoint-source-evidence-preserved'},
-            {'kind': 'documentation', 'text': 'private-membership-is-not-member-truth'},
-            {'kind': 'documentation', 'text': 'missing-independent-assessment-remains-missing'},
+        "applicability": [
+            {
+                "kind": "documentation",
+                "text": "actual-retained-components-and-explicit-predecessor-closure",
+            }
         ],
-        "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "explicit-selected-predecessor-and-native-passage-closure"},
+        "invariants": [
+            {"kind": "documentation", "text": "no-task-or-view-aliases"},
+            {"kind": "documentation", "text": "no-downstream-language-recognition"},
+            {"kind": "documentation", "text": "all-selected-endpoint-source-evidence-preserved"},
+            {"kind": "documentation", "text": "private-membership-is-not-member-truth"},
+            {"kind": "documentation", "text": "missing-independent-assessment-remains-missing"},
+        ],
+        "coverage": {
+            "binding": "self",
+            "result_owners": [{"kind": "implementation", "reference": "self"}],
+            "description": "explicit-selected-predecessor-and-native-passage-closure",
+        },
         "outcomes": ["success"],
         "precision_description": "original-native-half-open-extents",
         "dependencies": [],
@@ -236,11 +267,11 @@ class DossierOperation:
                         "encoding": "value",
                     },
                     {
-                        "output_field": 'subject_definition',
+                        "output_field": "subject_definition",
                         "input": {
                             "role": "sources",
                             "projection": "selected-input",
-                            "field": 'subject_definition',
+                            "field": "subject_definition",
                         },
                         "encoding": "value",
                     },
@@ -315,11 +346,11 @@ class DossierOperation:
                         "encoding": "value",
                     },
                     {
-                        "output_field": 'subject_definition',
+                        "output_field": "subject_definition",
                         "input": {
                             "role": "components",
                             "projection": "selected-input",
-                            "field": 'subject_definition',
+                            "field": "subject_definition",
                         },
                         "encoding": "value",
                     },
@@ -394,11 +425,11 @@ class DossierOperation:
                         "encoding": "value",
                     },
                     {
-                        "output_field": 'subject_definition',
+                        "output_field": "subject_definition",
                         "input": {
                             "role": "definitions",
                             "projection": "selected-input",
-                            "field": 'subject_definition',
+                            "field": "subject_definition",
                         },
                         "encoding": "value",
                     },
@@ -473,11 +504,11 @@ class DossierOperation:
                         "encoding": "value",
                     },
                     {
-                        "output_field": 'subject_definition',
+                        "output_field": "subject_definition",
                         "input": {
                             "role": "comparisons",
                             "projection": "selected-input",
-                            "field": 'subject_definition',
+                            "field": "subject_definition",
                         },
                         "encoding": "value",
                     },
@@ -552,11 +583,11 @@ class DossierOperation:
                         "encoding": "value",
                     },
                     {
-                        "output_field": 'subject_definition',
+                        "output_field": "subject_definition",
                         "input": {
                             "role": "candidates",
                             "projection": "selected-input",
-                            "field": 'subject_definition',
+                            "field": "subject_definition",
                         },
                         "encoding": "value",
                     },
@@ -631,11 +662,11 @@ class DossierOperation:
                         "encoding": "value",
                     },
                     {
-                        "output_field": 'subject_definition',
+                        "output_field": "subject_definition",
                         "input": {
                             "role": "relationships",
                             "projection": "selected-input",
-                            "field": 'subject_definition',
+                            "field": "subject_definition",
                         },
                         "encoding": "value",
                     },

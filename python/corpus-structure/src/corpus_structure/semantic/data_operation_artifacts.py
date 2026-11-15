@@ -11,10 +11,10 @@ from dataclasses import asdict, dataclass, replace
 from hashlib import sha256
 from pathlib import Path
 
-from .native_call_contracts import OperationCallBinding, OperationFieldBinding
 from .data_operation_identity import ENCODING_VERSION
 from .data_operation_model import EffectiveDataOperationModel, EffectiveOperation, OperationRole
 from .identity import canonical_bytes
+from .native_call_contracts import OperationCallBinding, OperationFieldBinding
 from .operation_call_generation import render_call_bindings, render_call_identifiers
 from .types import SourceArtifact
 

@@ -48,7 +48,9 @@ class ReadingNumericalPolicy(FrozenContract):
             raise ValueError("reading numerical policy differs from selected numerical libraries")
 
 
-READING_NUMERICS = ReadingNumericalPolicy(python_version=python_version(), scipy_version=version("scipy"))
+READING_NUMERICS = ReadingNumericalPolicy(
+    python_version=python_version(), scipy_version=version("scipy")
+)
 
 
 class FeatureDefinition(FrozenContract):
@@ -357,12 +359,15 @@ def reading_potential(parameters: LinearParameters, values: tuple[float, ...]) -
         type(value) not in (int, float) or not math.isfinite(value) for value in values
     ):
         raise ValueError("whole-reading values require the exact finite feature order")
-    potential = math.fsum(
-        ((value - center) / scale) * coefficient
-        for value, center, scale, coefficient in zip(
-            values, parameters.center, parameters.scale, parameters.coefficients, strict=True
+    potential = (
+        math.fsum(
+            ((value - center) / scale) * coefficient
+            for value, center, scale, coefficient in zip(
+                values, parameters.center, parameters.scale, parameters.coefficients, strict=True
+            )
         )
-    ) + parameters.intercept
+        + parameters.intercept
+    )
     if not math.isfinite(potential):
         raise ArithmeticError("nonfinite whole-reading potential")
     return potential

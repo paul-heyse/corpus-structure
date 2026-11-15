@@ -20,6 +20,7 @@ from .types import PreparedRelease
 if TYPE_CHECKING:
     from sqlalchemy import Connection
 
+
 class ExecutionAdmissionError(SemanticRefusal):
     """The archived binding lacks a compatible trusted enforcing implementation."""
 
@@ -221,9 +222,8 @@ def _verify_deployment_functions(
 
 
 def require_native_execution(connection: Connection, prepared: PreparedRelease) -> str:
-    from sqlalchemy.exc import DBAPIError
-
     from sqlalchemy import text
+    from sqlalchemy.exc import DBAPIError
 
     from .data_operation_admission import bound_data_operation_model
 

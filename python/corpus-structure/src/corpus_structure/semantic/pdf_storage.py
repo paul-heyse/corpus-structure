@@ -179,9 +179,12 @@ def _record_product_identity(conn, task_id, product_key, content_digest, record_
     owner, symbol = binding["owner"], binding["symbol"]
     implementation = read_pdf_product
     from .pdf_contracts import trusted_pdf_context
+
     qualified = trusted_pdf_context().require_operation("read_pdf_product")["implementation"]
     if binding["version"] != qualified["version"]:
-        raise NativeDocumentUnavailable("PDF read ABI is unsupported by the qualified reader version")
+        raise NativeDocumentUnavailable(
+            "PDF read ABI is unsupported by the qualified reader version"
+        )
     if (owner, symbol) != (
         implementation.__module__.removeprefix("corpus_structure."),
         implementation.__qualname__,

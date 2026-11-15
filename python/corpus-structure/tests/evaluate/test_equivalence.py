@@ -37,7 +37,9 @@ def s(latex: str) -> V.SetValue:
 
 
 def cmp(a: Any, b: Any, conds: tuple[Any, ...] = ()) -> tuple[bool, Tier]:
-    out = ValueComparator(MACROS, ("e", "\\pi"), context_profile=analysis_context()).compare(a, b, conds)
+    out = ValueComparator(MACROS, ("e", "\\pi"), context_profile=analysis_context()).compare(
+        a, b, conds
+    )
     return out.equal, out.tier
 
 
@@ -94,7 +96,9 @@ def test_a_comparison_off_the_main_thread_raises() -> None:
 
     def call() -> None:
         try:
-            ValueComparator(MACROS, context_profile=analysis_context()).compare(f("a + b"), f("b + a"))
+            ValueComparator(MACROS, context_profile=analysis_context()).compare(
+                f("a + b"), f("b + a")
+            )
         except BaseException as error:
             raised.append(error)
 
@@ -144,4 +148,5 @@ def test_condition_trees_match_their_leaves_one_to_one() -> None:
 
 def analysis_context():
     from corpus_structure.semantic.analysis_contracts import acquire_analysis_context_profile
+
     return acquire_analysis_context_profile()

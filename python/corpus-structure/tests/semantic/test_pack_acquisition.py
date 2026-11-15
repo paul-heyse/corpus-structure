@@ -54,7 +54,9 @@ def test_current_pack_acquisition_has_real_source_contracts_without_old_catalog(
     assert prepared.execution_model_id is None
     assert model.operation("data.inspect_data_operation_release").profile == "read"
     assert "StatisticsQualification" in prepared.index.definitions
-    assert {"data_operation_rich_proposals", "source-readings"} <= {source.name for source in bundle.sources}
+    assert {"data_operation_rich_proposals", "source-readings"} <= {
+        source.name for source in bundle.sources
+    }
     pin_fields = {prop.name for prop in prepared.index.definitions["RecordSourcePin"].properties}
     assert {"source_product", "kind_contract", "subject_definition"} <= pin_fields
     assert not {"source_view_id", "native_product_task_id"} & pin_fields

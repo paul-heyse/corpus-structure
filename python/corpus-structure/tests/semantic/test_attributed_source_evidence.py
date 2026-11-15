@@ -1,7 +1,5 @@
 """Independent positions and custody variants for ADR-0051's private boundary."""
 
-from semantic.record_contracts_support import model as record_model
-
 import json
 from copy import deepcopy
 from dataclasses import replace
@@ -29,6 +27,7 @@ from semantic.attributed_source_evidence_support import (
     replace_note as replace_note,
 )
 from semantic.record_contracts_support import PIN, release_inputs, table_record
+from semantic.record_contracts_support import model as record_model
 from semantic.source_contexts_support import source
 
 
@@ -44,7 +43,8 @@ def test_related_selected_context_retains_own_pin_and_primary_occurrence():
         source=PIN["source"],
         records=(record,),
         coordinate_texts=(*contexts, coordinate),
-     model=record_model())[0].model_dump(mode="python")
+        model=record_model(),
+    )[0].model_dump(mode="python")
     assert bound["pin"] == PIN
     assert bound["occurrence_anchors"] == record["occurrence_anchors"]
     assert (
@@ -59,14 +59,19 @@ def test_related_selected_context_retains_own_pin_and_primary_occurrence():
             source=PIN["source"],
             records=(forged,),
             coordinate_texts=(*contexts, coordinate),
-         model=record_model())
+            model=record_model(),
+        )
 
 
 def test_captured_characters_do_not_promote_provider_geometry_or_alias_canonical_text():
     record, contexts, provider = captured_note()
     bound = bind_record_candidates(
-        release_inputs()[2], source=PIN["source"], records=(record,), coordinate_texts=contexts
-    , model=record_model())[0]
+        release_inputs()[2],
+        source=PIN["source"],
+        records=(record,),
+        coordinate_texts=contexts,
+        model=record_model(),
+    )[0]
     note = next(
         a
         for a in bound.model_dump(mode="python")["anchors"]
@@ -80,13 +85,18 @@ def test_captured_characters_do_not_promote_provider_geometry_or_alias_canonical
             source=PIN["source"],
             records=(record,),
             coordinate_texts=contexts[:-1],
-         model=record_model())
+            model=record_model(),
+        )
     note["space"] = "recognized_text"
     with pytest.raises(ValueError, match="reinterpret"):
         replace_note(record, note)
         bind_record_candidates(
-            release_inputs()[2], source=PIN["source"], records=(record,), coordinate_texts=contexts
-        , model=record_model())
+            release_inputs()[2],
+            source=PIN["source"],
+            records=(record,),
+            coordinate_texts=contexts,
+            model=record_model(),
+        )
 
 
 def prepared_context(pieces):
@@ -160,8 +170,12 @@ def test_captured_recognition_cannot_replace_the_primary_occurrence_recipe():
     )
     with pytest.raises(ValueError, match="occurrence anchors"):
         bind_record_candidates(
-            release_inputs()[2], source=PIN["source"], records=(record,), coordinate_texts=contexts
-        , model=record_model())
+            release_inputs()[2],
+            source=PIN["source"],
+            records=(record,),
+            coordinate_texts=contexts,
+            model=record_model(),
+        )
 
 
 def test_upstream_alternative_keeps_captured_literal_candidate_usage():
@@ -173,8 +187,12 @@ def test_upstream_alternative_keeps_captured_literal_candidate_usage():
     record["interpretation_id"] = interpretation_identity(record)
     coordinates = (*contexts[:-1], dict(contexts[-1], recognition=note["recognition"]))
     bound = bind_record_candidates(
-        release_inputs()[2], source=PIN["source"], records=(record,), coordinate_texts=coordinates
-    , model=record_model())[0]
+        release_inputs()[2],
+        source=PIN["source"],
+        records=(record,),
+        coordinate_texts=coordinates,
+        model=record_model(),
+    )[0]
     assert (
         next(
             a

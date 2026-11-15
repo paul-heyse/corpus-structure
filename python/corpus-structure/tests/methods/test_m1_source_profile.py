@@ -1,7 +1,5 @@
 """Independent source/profile/geometry expectations; no model or database execution."""
 
-from methods.record_assembly_support import model as record_model
-
 import json
 from dataclasses import replace
 from types import SimpleNamespace
@@ -26,6 +24,7 @@ from methods.m1_producer_support import detail_object, detail_objects
 from methods.m1_source_preparation_support import source
 from methods.m1_source_profile_support import config as config
 from methods.record_assembly_support import context, fields, release, report, span
+from methods.record_assembly_support import model as record_model
 
 
 def test_explicit_profile_budgets_and_unchanged_whitespace_identity(tmp_path):
@@ -332,7 +331,8 @@ def test_natural_formula_variants_keep_roles_and_distinct_grouping_without_false
         policy_version="test",
         occurrence_policy=OCCURRENCE_POLICY,
         supplements={0: scope, 1: scope},
-     model=record_model())
+        model=record_model(),
+    )
     assert len(result.records) == 2
     assert [fields(r)["symbol"]["original"] for r in result.records] == ["x", "y"]
     assert len({r.model_dump()["record_id"] for r in result.records}) == 2
@@ -358,7 +358,8 @@ def test_natural_formula_variants_keep_roles_and_distinct_grouping_without_false
             policy_version="test",
             occurrence_policy=OCCURRENCE_POLICY,
             supplements={0: scope},
-         model=record_model())
+            model=record_model(),
+        )
 
     assert fields(assemble(bare).records[0])["symbol"]["state"] == "unstated"
     assert not assemble(dict(formula=bare["formula"], formula__state="present")).records

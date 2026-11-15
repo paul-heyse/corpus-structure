@@ -729,8 +729,12 @@ def native_candidate_(
 )
 def explain_operation_(
     ctx: typer.Context,
-    operation: Annotated[str, typer.Argument(metavar="OPERATION", help="Declared operation identifier.")],
-    release: Annotated[str, typer.Option("--release", help="Archived current semantic release ID.")],
+    operation: Annotated[
+        str, typer.Argument(metavar="OPERATION", help="Declared operation identifier.")
+    ],
+    release: Annotated[
+        str, typer.Option("--release", help="Archived current semantic release ID.")
+    ],
     demand: str | None = None,
     project: str | None = None,
     cursor: str | None = None,
@@ -739,9 +743,9 @@ def explain_operation_(
 ):
     """Explain a current declared operation and its optional pinned native frontier."""
     from corpus_structure.cli.output import state
-    from corpus_structure.semantic.operation_reporting import explain_operation
     from corpus_structure.semantic.demand_queries import DemandQueryRequest
     from corpus_structure.semantic.demand_results import selected_read_snapshot
+    from corpus_structure.semantic.operation_reporting import explain_operation
     from corpus_structure.semantic.refusals import SemanticRefusal
     from corpus_structure.semantic.releases import open_release
     from corpus_structure.semantic.runtime import open_runtime_engine
@@ -750,14 +754,24 @@ def explain_operation_(
         if (demand is None) != (project is None) or (cursor is not None and demand is None):
             raise ValueError("selected operation observation requires explicit demand and project")
         with (
-            open_runtime_engine(state(ctx).settings(), "ci-explain-operation", purpose="read") as engine,
+            open_runtime_engine(
+                state(ctx).settings(), "ci-explain-operation", purpose="read"
+            ) as engine,
             selected_read_snapshot(engine) as conn,
         ):
             prepared = open_release(conn, release)
             failure.bind(prepared, operation)
-            request = None if demand is None or project is None else DemandQueryRequest(
-                demand_id=demand, project_id=project, view="operations", operation_id=operation,
-                cursor=cursor, limit=limit,
+            request = (
+                None
+                if demand is None or project is None
+                else DemandQueryRequest(
+                    demand_id=demand,
+                    project_id=project,
+                    view="operations",
+                    operation_id=operation,
+                    cursor=cursor,
+                    limit=limit,
+                )
             )
             report = explain_operation(prepared, operation, connection=conn, observation=request)
         emit(report, json=json_)
@@ -773,8 +787,12 @@ def explain_operation_(
 )
 def diff_(
     ctx: typer.Context,
-    before: Annotated[str, typer.Argument(metavar="BEFORE", help="Before current semantic release ID.")],
-    after: Annotated[str, typer.Argument(metavar="AFTER", help="After current semantic release ID.")],
+    before: Annotated[
+        str, typer.Argument(metavar="BEFORE", help="Before current semantic release ID.")
+    ],
+    after: Annotated[
+        str, typer.Argument(metavar="AFTER", help="After current semantic release ID.")
+    ],
     json_: JsonOpt = False,
 ):
     """Compare captured current meaning; retained-use impact is a separate query."""
@@ -787,7 +805,9 @@ def diff_(
 
     with refusal(json_, expected=(SemanticRefusal, ValueError)) as failure:
         with (
-            open_runtime_engine(state(ctx).settings(), "ci-semantic-diff", purpose="read") as engine,
+            open_runtime_engine(
+                state(ctx).settings(), "ci-semantic-diff", purpose="read"
+            ) as engine,
             read_snapshot(engine) as conn,
         ):
             old, new = open_release(conn, before), open_release(conn, after)

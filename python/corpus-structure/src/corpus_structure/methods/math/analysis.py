@@ -10,8 +10,12 @@ class WeakMathAnalysis:
         "id": "analyze.math/lexical",
         "profile": "derivation",
         "subject": "original-source-view",
-        "subject_definition": {'id': 'original-source-view', 'identifier_kind': 'string', 'scope': 'original-source'},
-        "discovery_relation": 'subject-population',
+        "subject_definition": {
+            "id": "original-source-view",
+            "identifier_kind": "string",
+            "scope": "original-source",
+        },
+        "discovery_relation": "subject-population",
         "context": ["project", "subject", "original-source", "analyzed-scope"],
         "entrypoints": ["run"],
         "roles": [
@@ -59,14 +63,26 @@ class WeakMathAnalysis:
                 "presence": "required",
             },
         ],
-        "applicability": [{'kind': 'documentation', 'text': 'retained-formal-syntax-and-explicit-mathematical-context'}],
-        "invariants": [
-            {'kind': 'documentation', 'text': 'original-source-and-native-formula-coordinate-distinction'},
-            {'kind': 'documentation', 'text': 'no-language-recognition-or-grammar-reparse'},
-            {'kind': 'documentation', 'text': 'weak-demand-never-resolves-ancestor-context'},
-            {'kind': 'documentation', 'text': 'timeout-never-publishes-success'},
+        "applicability": [
+            {
+                "kind": "documentation",
+                "text": "retained-formal-syntax-and-explicit-mathematical-context",
+            }
         ],
-        "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "selected-original-formula-atoms-with-explicit-unavailability"},
+        "invariants": [
+            {
+                "kind": "documentation",
+                "text": "original-source-and-native-formula-coordinate-distinction",
+            },
+            {"kind": "documentation", "text": "no-language-recognition-or-grammar-reparse"},
+            {"kind": "documentation", "text": "weak-demand-never-resolves-ancestor-context"},
+            {"kind": "documentation", "text": "timeout-never-publishes-success"},
+        ],
+        "coverage": {
+            "binding": "self",
+            "result_owners": [{"kind": "implementation", "reference": "self"}],
+            "description": "selected-original-formula-atoms-with-explicit-unavailability",
+        },
         "outcomes": ["success", "failed"],
         "precision_description": "exact-symbolic-with-retained-ambiguity",
         "dependencies": ["text.formal_evidence/source-native"],
@@ -160,11 +176,11 @@ class WeakMathAnalysis:
                         "encoding": "value",
                     },
                     {
-                        "output_field": 'subject_definition',
+                        "output_field": "subject_definition",
                         "input": {
                             "role": "source",
                             "projection": "selected-input",
-                            "field": 'subject_definition',
+                            "field": "subject_definition",
                         },
                         "encoding": "value",
                     },
@@ -239,11 +255,11 @@ class WeakMathAnalysis:
                         "encoding": "value",
                     },
                     {
-                        "output_field": 'subject_definition',
+                        "output_field": "subject_definition",
                         "input": {
                             "role": "formal",
                             "projection": "selected-input",
-                            "field": 'subject_definition',
+                            "field": "subject_definition",
                         },
                         "encoding": "value",
                     },
@@ -327,8 +343,12 @@ class ContextualMathAnalysis:
         "id": "analyze.math/contextual",
         "profile": "derivation",
         "subject": "original-source-view",
-        "subject_definition": {'id': 'original-source-view', 'identifier_kind': 'string', 'scope': 'original-source'},
-        "discovery_relation": 'subject-population',
+        "subject_definition": {
+            "id": "original-source-view",
+            "identifier_kind": "string",
+            "scope": "original-source",
+        },
+        "discovery_relation": "subject-population",
         "context": ["project", "subject", "original-source", "analyzed-scope"],
         "entrypoints": ["run"],
         "roles": [
@@ -380,7 +400,10 @@ class ContextualMathAnalysis:
                     "identity_requirements": [],
                     "origins": ["computation"],
                     "source": "original-source",
-                    "coverage": {"role": "constructions", "description": "exact-selected-source-scope"},
+                    "coverage": {
+                        "role": "constructions",
+                        "description": "exact-selected-source-scope",
+                    },
                 },
             },
             {
@@ -418,7 +441,10 @@ class ContextualMathAnalysis:
                     "origins": ["computation", "original-source"],
                     "source": "frozen-source-set",
                     "source_set": "math-scope-ancestor-sources",
-                    "coverage": {"role": "ancestor_sources", "description": "exact-selected-source-scope"},
+                    "coverage": {
+                        "role": "ancestor_sources",
+                        "description": "exact-selected-source-scope",
+                    },
                 },
             },
             {
@@ -431,14 +457,26 @@ class ContextualMathAnalysis:
                 "presence": "required",
             },
         ],
-        "applicability": [{'kind': 'documentation', 'text': 'retained-formal-syntax-and-explicit-mathematical-context'}],
-        "invariants": [
-            {'kind': 'documentation', 'text': 'original-source-and-native-formula-coordinate-distinction'},
-            {'kind': 'documentation', 'text': 'no-language-recognition-or-grammar-reparse'},
-            {'kind': 'documentation', 'text': 'weak-demand-never-resolves-ancestor-context'},
-            {'kind': 'documentation', 'text': 'timeout-never-publishes-success'},
+        "applicability": [
+            {
+                "kind": "documentation",
+                "text": "retained-formal-syntax-and-explicit-mathematical-context",
+            }
         ],
-        "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "selected-original-formula-atoms-with-explicit-unavailability"},
+        "invariants": [
+            {
+                "kind": "documentation",
+                "text": "original-source-and-native-formula-coordinate-distinction",
+            },
+            {"kind": "documentation", "text": "no-language-recognition-or-grammar-reparse"},
+            {"kind": "documentation", "text": "weak-demand-never-resolves-ancestor-context"},
+            {"kind": "documentation", "text": "timeout-never-publishes-success"},
+        ],
+        "coverage": {
+            "binding": "self",
+            "result_owners": [{"kind": "implementation", "reference": "self"}],
+            "description": "selected-original-formula-atoms-with-explicit-unavailability",
+        },
         "outcomes": ["success", "failed"],
         "precision_description": "exact-symbolic-with-retained-ambiguity",
         "dependencies": ["text.formal_evidence/source-native", "text.constructions/source-native"],
@@ -535,11 +573,11 @@ class ContextualMathAnalysis:
                         "encoding": "value",
                     },
                     {
-                        "output_field": 'subject_definition',
+                        "output_field": "subject_definition",
                         "input": {
                             "role": "source",
                             "projection": "selected-input",
-                            "field": 'subject_definition',
+                            "field": "subject_definition",
                         },
                         "encoding": "value",
                     },
@@ -614,11 +652,11 @@ class ContextualMathAnalysis:
                         "encoding": "value",
                     },
                     {
-                        "output_field": 'subject_definition',
+                        "output_field": "subject_definition",
                         "input": {
                             "role": "formal",
                             "projection": "selected-input",
-                            "field": 'subject_definition',
+                            "field": "subject_definition",
                         },
                         "encoding": "value",
                     },
@@ -693,11 +731,11 @@ class ContextualMathAnalysis:
                         "encoding": "value",
                     },
                     {
-                        "output_field": 'subject_definition',
+                        "output_field": "subject_definition",
                         "input": {
                             "role": "constructions",
                             "projection": "selected-input",
-                            "field": 'subject_definition',
+                            "field": "subject_definition",
                         },
                         "encoding": "value",
                     },
@@ -772,11 +810,11 @@ class ContextualMathAnalysis:
                         "encoding": "value",
                     },
                     {
-                        "output_field": 'subject_definition',
+                        "output_field": "subject_definition",
                         "input": {
                             "role": "inherited",
                             "projection": "selected-input",
-                            "field": 'subject_definition',
+                            "field": "subject_definition",
                         },
                         "encoding": "value",
                     },

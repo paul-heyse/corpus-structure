@@ -599,8 +599,7 @@ def _detach_annotation_block(
     # ProjectedPiece.to_wire omits absent optional fields, including a synthetic
     # separator's item_ref. Restore that actual absence at the typed boundary.
     pieces = tuple(
-        ProjectedPiece(**{"item_ref": None, **selected["pieces"][index]})
-        for index in block.pieces
+        ProjectedPiece(**{"item_ref": None, **selected["pieces"][index]}) for index in block.pieces
     )
     supplied = AnnotationInput(source_pin, block.block_id, kind, block.block, layout, pieces)
     (annotation,) = annotate(

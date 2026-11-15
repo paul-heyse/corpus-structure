@@ -30,20 +30,29 @@ def generated_identifiers(model=metadata) -> str:
             if qualified := column.info.get("python_type"):
                 module, name = qualified.rsplit(".", 1)
                 base = column.type.python_type
-                if module != "corpus_structure.semantic.identifiers" or base not in {str, int} or iskeyword(name):
+                if (
+                    module != "corpus_structure.semantic.identifiers"
+                    or base not in {str, int}
+                    or iskeyword(name)
+                ):
                     raise ValueError("unsupported canonical physical nominal " + qualified)
                 if name in declarations and declarations[name] != base.__name__:
                     raise ValueError("inconsistent canonical physical nominal " + qualified)
                 declarations[name] = base.__name__
     return _format(
         "semantic/identifiers.py",
-        '\n'.join([
-            '"""Current semantic identifiers generated from explicit physical declarations."""',
-            'from typing import NewType',
-            '',
-            *(f"{name} = NewType({name!r}, {base})" for name, base in sorted(declarations.items())),
-            '',
-        ]),
+        "\n".join(
+            [
+                '"""Current semantic identifiers generated from explicit physical declarations."""',
+                "from typing import NewType",
+                "",
+                *(
+                    f"{name} = NewType({name!r}, {base})"
+                    for name, base in sorted(declarations.items())
+                ),
+                "",
+            ]
+        ),
     )
 
 
@@ -72,7 +81,9 @@ def generated_source(model=metadata) -> str:
             }
     physical_id = model.info["physical_model_id"]
     identity = sha256(
-        canonical_bytes({"renderer": "semantic-typed-columns/3", "physical": physical_id, "bindings": facts})
+        canonical_bytes(
+            {"renderer": "semantic-typed-columns/3", "physical": physical_id, "bindings": facts}
+        )
     ).hexdigest()
     return _format(
         "semantic/_typed_columns.py",

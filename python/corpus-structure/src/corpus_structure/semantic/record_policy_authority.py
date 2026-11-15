@@ -17,20 +17,33 @@ from .data_operation_model import EffectContract
 from .declared_structural_references import DeclaredStructuralSource
 from .identity import canonical_bytes
 from .record_policy import (
-    Digest, Family, FrozenContract, LinearParameters, Nonempty, ReadingNumericalPolicy,
-    RecordAcceptanceInstance, RecordAlgorithm, RecordFeatures, READING_NUMERICS, reading_potential,
+    READING_NUMERICS,
+    Digest,
+    Family,
+    FrozenContract,
+    LinearParameters,
+    Nonempty,
+    ReadingNumericalPolicy,
+    RecordAcceptanceInstance,
+    RecordAlgorithm,
+    RecordFeatures,
+    reading_potential,
 )
 
 NAMESPACE = "https://corpus-structure.dev/semantic/data-operation-record-policy/"
 AUTHORIZATION_KIND = NAMESPACE + "DdoRecordPolicyAuthorization"
 AUTHORIZATION_OPERATION = "record_policy.authorize"
-AUTHORIZATION_FACTORY = "corpus_structure.methods.record_policy.RecordPolicyAuthorization.acquire_port"
+AUTHORIZATION_FACTORY = (
+    "corpus_structure.methods.record_policy.RecordPolicyAuthorization.acquire_port"
+)
 GRADE_OPERATION = "record_policy.grade"
 GRADE_FACTORY = "corpus_structure.methods.declared_record_policy.RecordPolicyGrade.acquire_port"
 GRADE_KIND = NAMESPACE + "protected/DdoRecordGrade"
 AUTHORIZATION_EFFECT = EffectContract(
-    "native-evaluator-policy-authorization", ("native-purpose:evaluator", "exact-protected-policy-basis"),
-    "request-generation/exact-instance", "native-publication-receipt",
+    "native-evaluator-policy-authorization",
+    ("native-purpose:evaluator", "exact-protected-policy-basis"),
+    "request-generation/exact-instance",
+    "native-publication-receipt",
 )
 
 
@@ -81,13 +94,18 @@ class DdoRecordPolicyAuthorization(FrozenContract):
             self.parameters.feature_signature != self.algorithm.feature_signature
             or self.parameters.names != tuple(feature.name for feature in self.algorithm.features)
         ):
-            raise ValueError("authorized parameters differ from their exact algorithm feature order")
+            raise ValueError(
+                "authorized parameters differ from their exact algorithm feature order"
+            )
         return self
 
 
 def policy_authorization_value(
-    instance: RecordAcceptanceInstance, *, family_contract: str,
-    judgment_basis_digest: str, applicability: DdoRecordPolicyApplicability,
+    instance: RecordAcceptanceInstance,
+    *,
+    family_contract: str,
+    judgment_basis_digest: str,
+    applicability: DdoRecordPolicyApplicability,
     reading_recipe: str,
     numerical_policy: ReadingNumericalPolicy = READING_NUMERICS,
 ) -> DdoRecordPolicyAuthorization:
@@ -97,22 +115,38 @@ def policy_authorization_value(
         raise ValueError("policy authorization requires fitted final-event calibration")
     feature = instance.feature
     return DdoRecordPolicyAuthorization(
-        policy_instance_digest=instance.digest, feature_instance_digest=feature.digest,
-        calibration_digest=calibration.digest, algorithm=feature.algorithm,
-        parameters=feature.parameters, family=feature.applicability.family,
-        family_contract=family_contract, reading_recipe=reading_recipe, source_release_id=feature.applicability.release_id,
-        subset=feature.applicability.subset, event_procedure=calibration.event_procedure,
-        threshold_procedure=instance.threshold_procedure, threshold=instance.threshold,
-        calibration_slope=calibration.slope, calibration_intercept=calibration.intercept,
-        numerical_policy=numerical_policy, judgment_basis_digest=judgment_basis_digest,
+        policy_instance_digest=instance.digest,
+        feature_instance_digest=feature.digest,
+        calibration_digest=calibration.digest,
+        algorithm=feature.algorithm,
+        parameters=feature.parameters,
+        family=feature.applicability.family,
+        family_contract=family_contract,
+        reading_recipe=reading_recipe,
+        source_release_id=feature.applicability.release_id,
+        subset=feature.applicability.subset,
+        event_procedure=calibration.event_procedure,
+        threshold_procedure=instance.threshold_procedure,
+        threshold=instance.threshold,
+        calibration_slope=calibration.slope,
+        calibration_intercept=calibration.intercept,
+        numerical_policy=numerical_policy,
+        judgment_basis_digest=judgment_basis_digest,
         applicability=applicability,
     )
 
 
 def record_policy_application_probability(
-    authorization: DdoRecordPolicyAuthorization, *, source: DeclaredStructuralSource,
-    source_release_id: str, family: str, family_contract: str, reading_recipe: str,
-    record_id: str, interpretation_id: str, features: RecordFeatures,
+    authorization: DdoRecordPolicyAuthorization,
+    *,
+    source: DeclaredStructuralSource,
+    source_release_id: str,
+    family: str,
+    family_contract: str,
+    reading_recipe: str,
+    record_id: str,
+    interpretation_id: str,
+    features: RecordFeatures,
     events: tuple[dict, ...],
 ) -> float:
     """Check one completed sealed event against exact public parameters.
@@ -124,7 +158,9 @@ def record_policy_application_probability(
     authorization.numerical_policy.require_runtime()
     authorization.applicability.require_source(source)
     if (family, family_contract, reading_recipe) != (
-        authorization.family, authorization.family_contract, authorization.reading_recipe,
+        authorization.family,
+        authorization.family_contract,
+        authorization.reading_recipe,
     ):
         raise ValueError("reading family interpretation differs from authorized applicability")
     if (
@@ -135,9 +171,12 @@ def record_policy_application_probability(
         or any(value is None for value in features.values)
     ):
         raise ValueError("reading features differ from exact application or ordered parameters")
-    matches = tuple(event for event in events if (
-        event.get("record_id"), event.get("interpretation_id")
-    ) == (record_id, interpretation_id))
+    matches = tuple(
+        event
+        for event in events
+        if (event.get("record_id"), event.get("interpretation_id"))
+        == (record_id, interpretation_id)
+    )
     if len(matches) != 1:
         raise ValueError("reading requires one unique sealed final event")
     event = matches[0]
@@ -149,13 +188,20 @@ def record_policy_application_probability(
     ):
         raise ValueError("sealed final event differs from exact authorized instance or input")
     score = event.get("final_event_score")
-    if not isinstance(score, (int, float)) or type(score) not in (int, float) or not math.isfinite(score):
+    if (
+        not isinstance(score, (int, float))
+        or type(score) not in (int, float)
+        or not math.isfinite(score)
+    ):
         raise ValueError("sealed final event requires a finite numeric score")
     expected_score = reading_potential(
-        authorization.parameters, tuple(value for value in features.values if value is not None),
+        authorization.parameters,
+        tuple(value for value in features.values if value is not None),
     )
     if score != expected_score:
-        raise ValueError("sealed final score differs from exact authorized predictor and reading features")
+        raise ValueError(
+            "sealed final score differs from exact authorized predictor and reading features"
+        )
     calibrated = authorization.calibration_slope * score + authorization.calibration_intercept
     if not math.isfinite(calibrated):
         raise ValueError("final-event calibration produced a nonfinite argument")
@@ -166,16 +212,30 @@ def record_policy_application_probability(
 
 
 def check_record_policy_application(
-    authorization: DdoRecordPolicyAuthorization, *, source: DeclaredStructuralSource,
-    source_release_id: str, family: str, family_contract: str, reading_recipe: str,
-    record_id: str, interpretation_id: str, features: RecordFeatures,
+    authorization: DdoRecordPolicyAuthorization,
+    *,
+    source: DeclaredStructuralSource,
+    source_release_id: str,
+    family: str,
+    family_contract: str,
+    reading_recipe: str,
+    record_id: str,
+    interpretation_id: str,
+    features: RecordFeatures,
     events: tuple[dict, ...],
 ) -> float:
     """Enforce threshold after the single exact predictor/event probability owner."""
     probability = record_policy_application_probability(
-        authorization, source=source, source_release_id=source_release_id, family=family,
-        family_contract=family_contract, reading_recipe=reading_recipe, record_id=record_id,
-        interpretation_id=interpretation_id, features=features, events=events,
+        authorization,
+        source=source,
+        source_release_id=source_release_id,
+        family=family,
+        family_contract=family_contract,
+        reading_recipe=reading_recipe,
+        record_id=record_id,
+        interpretation_id=interpretation_id,
+        features=features,
+        events=events,
     )
     if probability < authorization.threshold:
         raise ValueError("final-event probability is below its exact authorized threshold")
@@ -188,13 +248,19 @@ def record_policy_kind_declarations():
     from .nominal_schema_kinds import nominal_schema_kinds
     from .types import SourceArtifact
 
-    return SourceArtifact("record-policy/public-kinds.json", canonical_bytes({
-        "version": MODEL_VERSION,
-        "kinds": nominal_schema_kinds(
-            DdoRecordPolicyAuthorization.model_json_schema(), namespace=NAMESPACE,
-            root_name="DdoRecordPolicyAuthorization",
+    return SourceArtifact(
+        "record-policy/public-kinds.json",
+        canonical_bytes(
+            {
+                "version": MODEL_VERSION,
+                "kinds": nominal_schema_kinds(
+                    DdoRecordPolicyAuthorization.model_json_schema(),
+                    namespace=NAMESPACE,
+                    root_name="DdoRecordPolicyAuthorization",
+                ),
+            }
         ),
-    }))
+    )
 
 
 class DdoFittedRecordPolicy(FrozenContract):
@@ -225,21 +291,39 @@ class DdoFittedRecordPolicy(FrozenContract):
         return self
 
     @classmethod
-    def from_instance(cls, instance, *, family_contract, reading_recipe, judgment_basis_digest, applicability,
-                      numerical_policy=READING_NUMERICS):
+    def from_instance(
+        cls,
+        instance,
+        *,
+        family_contract,
+        reading_recipe,
+        judgment_basis_digest,
+        applicability,
+        numerical_policy=READING_NUMERICS,
+    ):
         if instance.calibration is None:
             raise ValueError("fitted authorization basis requires final-event calibration")
         return cls(
-            instance=instance, instance_canonical_json=canonical_bytes(instance.model_dump(mode="json")).decode(),
-            feature_canonical_json=canonical_bytes(instance.feature.model_dump(mode="json")).decode(),
-            calibration_canonical_json=canonical_bytes(instance.calibration.model_dump(mode="json")).decode(),
-            numerical_policy=numerical_policy, family_contract=family_contract, reading_recipe=reading_recipe,
-            judgment_basis_digest=judgment_basis_digest, applicability=applicability,
+            instance=instance,
+            instance_canonical_json=canonical_bytes(instance.model_dump(mode="json")).decode(),
+            feature_canonical_json=canonical_bytes(
+                instance.feature.model_dump(mode="json")
+            ).decode(),
+            calibration_canonical_json=canonical_bytes(
+                instance.calibration.model_dump(mode="json")
+            ).decode(),
+            numerical_policy=numerical_policy,
+            family_contract=family_contract,
+            reading_recipe=reading_recipe,
+            judgment_basis_digest=judgment_basis_digest,
+            applicability=applicability,
         )
 
 
 def protected_record_policy_kind_declarations():
-    from corpus_structure.evaluate.declared_record_policy import protected_record_policy_kind_declarations as capture
+    from corpus_structure.evaluate.declared_record_policy import (
+        protected_record_policy_kind_declarations as capture,
+    )
 
     return capture()
 
@@ -249,8 +333,10 @@ def execute_authorization_profile(receiver, basis):
     # physical plan performs preparation; direct invocation grants no effect.
     checked = DdoFittedRecordPolicy.model_validate_json(canonical_bytes(basis))
     return policy_authorization_value(
-        checked.instance, family_contract=checked.family_contract,
-        judgment_basis_digest=checked.judgment_basis_digest, applicability=checked.applicability,
+        checked.instance,
+        family_contract=checked.family_contract,
+        judgment_basis_digest=checked.judgment_basis_digest,
+        applicability=checked.applicability,
         numerical_policy=checked.numerical_policy,
         reading_recipe=checked.reading_recipe,
     ).model_dump(mode="json")
@@ -258,34 +344,56 @@ def execute_authorization_profile(receiver, basis):
 
 def record_policy_authorization_assets():
     from pathlib import Path
-    from .types import SourceArtifact
+
     from .python_module_projection import admitted_operation_module_meaning
+    from .types import SourceArtifact
 
     root = Path(__file__).parents[1]
     paths = (
-        "methods/record_policy.py", "semantic/record_policy_authority.py",
-        "semantic/record_policy.py", "semantic/declared_structural_references.py",
-        "semantic/data_operation_effects.py", "semantic/data_operation_prepared_call.py",
+        "methods/record_policy.py",
+        "semantic/record_policy_authority.py",
+        "semantic/record_policy.py",
+        "semantic/declared_structural_references.py",
+        "semantic/data_operation_effects.py",
+        "semantic/data_operation_prepared_call.py",
     )
-    return SourceArtifact("record-policy/authorization-assets", canonical_bytes({
-        "version": "record-policy-authorization-preparation-1",
-        "files": [(path, admitted_operation_module_meaning((root / path).read_bytes()).hex()) for path in paths],
-    }))
+    return SourceArtifact(
+        "record-policy/authorization-assets",
+        canonical_bytes(
+            {
+                "version": "record-policy-authorization-preparation-1",
+                "files": [
+                    (path, admitted_operation_module_meaning((root / path).read_bytes()).hex())
+                    for path in paths
+                ],
+            }
+        ),
+    )
 
 
 def record_policy_authorization_sources():
     from pathlib import Path
+
     from .python_operation_sources import PythonSource, PythonSourceCollection
 
     root = Path(__file__).parents[1]
     paths = (
-        "methods/record_policy.py", "semantic/record_policy_authority.py",
-        "semantic/data_operation_effects.py", "semantic/data_operation_prepared_call.py",
+        "methods/record_policy.py",
+        "semantic/record_policy_authority.py",
+        "semantic/data_operation_effects.py",
+        "semantic/data_operation_prepared_call.py",
     )
-    return PythonSourceCollection(tuple(PythonSource(
-        "corpus_structure." + path.removesuffix(".py").replace("/", "."),
-        (root / path).read_bytes(), str((root / path).resolve()),
-    ) for path in paths), boundary_contracts=(record_policy_authorization_assets(),))
+    return PythonSourceCollection(
+        tuple(
+            PythonSource(
+                "corpus_structure." + path.removesuffix(".py").replace("/", "."),
+                (root / path).read_bytes(),
+                str((root / path).resolve()),
+            )
+            for path in paths
+        ),
+        boundary_contracts=(record_policy_authorization_assets(),),
+    )
 
 
 class AuthorizationInvocationPlan:
@@ -296,12 +404,16 @@ class AuthorizationInvocationPlan:
         check_active()
         if binding is None or binding.subject_context is None:
             raise ValueError("policy authorization requires an exact acquired project context")
-        checked = DdoFittedRecordPolicy.model_validate_json(canonical_bytes(arguments.arguments["basis"]))
+        checked = DdoFittedRecordPolicy.model_validate_json(
+            canonical_bytes(arguments.arguments["basis"])
+        )
         if checked.applicability.project_id != binding.subject_context.project_id:
             raise ValueError("policy applicability belongs to another project")
         value = policy_authorization_value(
-            checked.instance, family_contract=checked.family_contract,
-            judgment_basis_digest=checked.judgment_basis_digest, applicability=checked.applicability,
+            checked.instance,
+            family_contract=checked.family_contract,
+            judgment_basis_digest=checked.judgment_basis_digest,
+            applicability=checked.applicability,
             numerical_policy=checked.numerical_policy,
             reading_recipe=checked.reading_recipe,
         )
@@ -310,15 +422,19 @@ class AuthorizationInvocationPlan:
         return PreparedCallResult(value.model_dump(mode="json"))
 
 
-def acquire_authorization_port(prepared, model, operation, *, identity, authorize, custody, sources):
+def acquire_authorization_port(
+    prepared, model, operation, *, identity, authorize, custody, sources
+):
     from corpus_structure.methods.record_policy import RecordPolicyAuthorization
+
     from .data_operation_effects import PreparedNativePublicationEffect
-    from .data_operation_prepared_call import PreparedOriginalCallPort
     from .data_operation_ports import PortRefusal
+    from .data_operation_prepared_call import PreparedOriginalCallPort
 
     selected = model.operation(operation)
     if (
-        selected.semantic_id != AUTHORIZATION_OPERATION or selected.effects != (AUTHORIZATION_EFFECT,)
+        selected.semantic_id != AUTHORIZATION_OPERATION
+        or selected.effects != (AUTHORIZATION_EFFECT,)
         or selected.capabilities.prepared_factory is None
         or selected.capabilities.prepared_factory.entrypoint != AUTHORIZATION_FACTORY
     ):
@@ -326,8 +442,16 @@ def acquire_authorization_port(prepared, model, operation, *, identity, authoriz
     receiver = RecordPolicyAuthorization()
     plan = AuthorizationInvocationPlan()
     wrapped = PreparedOriginalCallPort(
-        identity, model, selected, sources, custody, receiver.run, plan.plan,
+        identity,
+        model,
+        selected,
+        sources,
+        custody,
+        receiver.run,
+        plan.plan,
         "corpus_structure.semantic.record_policy_authority.AuthorizationInvocationPlan.plan",
-        authorize, (record_policy_authorization_assets(),), record_policy_authorization_sources(),
+        authorize,
+        (record_policy_authorization_assets(),),
+        record_policy_authorization_sources(),
     )
     return PreparedNativePublicationEffect(wrapped)

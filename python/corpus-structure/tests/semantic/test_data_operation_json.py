@@ -38,7 +38,13 @@ def test_scope_json_keeps_fractional_digits_through_context_and_frozen_demand():
     )
     assert PRECISE in intent.content
     assert json_bytes(intent.record["roots"][0]["analyzed_scope"]) == PRECISE
-    nearby = SubjectContext("project", "subject", "original", PRECISE.replace(b"6789,", b"6790,"), subject_definition="document")
+    nearby = SubjectContext(
+        "project",
+        "subject",
+        "original",
+        PRECISE.replace(b"6789,", b"6790,"),
+        subject_definition="document",
+    )
     assert scope != nearby
     assert SemanticRequestKey(
         "recipe", "subject", {}, {}, "exact", subject_context=scope
@@ -107,5 +113,7 @@ def test_native_jsonb_preserves_fraction_and_context_key_meaning(native_rollback
         )
         == expected
     )
-    context = SubjectContext("project", "subject", "original", json_bytes(result), subject_definition="document")
+    context = SubjectContext(
+        "project", "subject", "original", json_bytes(result), subject_definition="document"
+    )
     assert semantic_value(context.identity_record)[1][0] == ["analyzed_scope", expected]

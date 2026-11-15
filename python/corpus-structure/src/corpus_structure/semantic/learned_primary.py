@@ -13,8 +13,8 @@ from pathlib import Path
 from typing import Any
 
 from .identity import canonical_bytes
-from .types import SourceArtifact, SourceBundle
 from .python_module_projection import admitted_operation_module_meaning
+from .types import SourceArtifact, SourceBundle
 
 _ROOT = Path(__file__).parents[1]
 _MODEL = _ROOT / "model/semantic/data-operation-learned.yaml"
@@ -100,7 +100,17 @@ def learned_profile_assets(selections, *, threshold=0.5, max_context_chars=65536
                 "threshold": threshold,
                 "max_context_chars": max_context_chars,
                 "selections": {key: value.native.wire for key, value in sorted(selections.items())},
-                "files": [(name, (admitted_operation_module_meaning((_ROOT / name).read_bytes()).hex() if name in ('methods/learned_primary.py',) else (_ROOT / name).read_bytes().hex())) for name in _FILES],
+                "files": [
+                    (
+                        name,
+                        (
+                            admitted_operation_module_meaning((_ROOT / name).read_bytes()).hex()
+                            if name in ("methods/learned_primary.py",)
+                            else (_ROOT / name).read_bytes().hex()
+                        ),
+                    )
+                    for name in _FILES
+                ],
                 "questions": (_ROOT / "model/semantic/characterization-questions.yaml")
                 .read_bytes()
                 .hex(),

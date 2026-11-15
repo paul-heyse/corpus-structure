@@ -206,7 +206,9 @@ def _analysis_snapshot(
         from sqlalchemy.exc import DBAPIError
 
         try:
-            conn.execute(text("SELECT data.require_runtime_principal(:purpose)"), {"purpose": "read"})
+            conn.execute(
+                text("SELECT data.require_runtime_principal(:purpose)"), {"purpose": "read"}
+            )
         except DBAPIError as exc:
             raise SQLAdmissionError(
                 "catalog admission requires restricted read capabilities"
@@ -339,8 +341,11 @@ def _prepare_sql_inputs(
 
     from corpus_structure.schema.physical import compile_physical
 
-    physical = {name.removeprefix(_PHYSICAL_PREFIX): content
-                for name, content in dependencies.items() if name.startswith(_PHYSICAL_PREFIX)}
+    physical = {
+        name.removeprefix(_PHYSICAL_PREFIX): content
+        for name, content in dependencies.items()
+        if name.startswith(_PHYSICAL_PREFIX)
+    }
     try:
         metadata = compile_physical(physical, linkml_types=dependencies[_LINKML_TYPES])
     except (ValueError, KeyError) as exc:
@@ -358,8 +363,16 @@ def prepare_release_sql(
         return None
     manifest = dict(json.loads(prepared.manifest)["dependencies"])
     supplied = {source.name: source.content for source in dependencies.artifacts}
-    scoped = {name for name in manifest if (name.startswith((_SQL_PREFIX, _PHYSICAL_PREFIX)) or name == _LINKML_TYPES)}
-    supplied_scope = {name for name in supplied if (name.startswith((_SQL_PREFIX, _PHYSICAL_PREFIX)) or name == _LINKML_TYPES)}
+    scoped = {
+        name
+        for name in manifest
+        if (name.startswith((_SQL_PREFIX, _PHYSICAL_PREFIX)) or name == _LINKML_TYPES)
+    }
+    supplied_scope = {
+        name
+        for name in supplied
+        if (name.startswith((_SQL_PREFIX, _PHYSICAL_PREFIX)) or name == _LINKML_TYPES)
+    }
     if supplied_scope != scoped or any(
         sha256(supplied[name]).hexdigest() != manifest[name] for name in scoped
     ):
@@ -375,7 +388,9 @@ def _archive_inputs(
     inputs = table("sem.input")
     names = [inputs.c.input_name.startswith(_SQL_PREFIX)]
     if include_physical:
-        names.extend((inputs.c.input_name.startswith(_PHYSICAL_PREFIX), inputs.c.input_name == _LINKML_TYPES))
+        names.extend(
+            (inputs.c.input_name.startswith(_PHYSICAL_PREFIX), inputs.c.input_name == _LINKML_TYPES)
+        )
     rows = conn.execute(
         select(inputs.c.input_name, inputs.c.content, inputs.c.content_digest).where(
             inputs.c.release_id == release_id,
@@ -479,14 +494,24 @@ def admit_archived_sql(
             raise SQLAdmissionError("analyzed SQL binding differs")
         from sqlalchemy import LargeBinary, Text, bindparam, func
 
-        conn.execute(select(func.sem.record_sql_admission(
-            bindparam("release", type_=Text()),
-            bindparam("input_kind", type_=Text()),
-            bindparam("input_name", type_=Text()),
-            bindparam("physical", type_=Text()),
-            bindparam("content", type_=LargeBinary()),
-        )), {"release": release_id, "input_kind": "dependency", "input_name": name,
-             "physical": physical_id, "content": artifact.content})
+        conn.execute(
+            select(
+                func.sem.record_sql_admission(
+                    bindparam("release", type_=Text()),
+                    bindparam("input_kind", type_=Text()),
+                    bindparam("input_name", type_=Text()),
+                    bindparam("physical", type_=Text()),
+                    bindparam("content", type_=LargeBinary()),
+                )
+            ),
+            {
+                "release": release_id,
+                "input_kind": "dependency",
+                "input_name": name,
+                "physical": physical_id,
+                "content": artifact.content,
+            },
+        )
         prior = conn.execute(
             select(admitted.c.content).where(
                 admitted.c.release_id == release_id,

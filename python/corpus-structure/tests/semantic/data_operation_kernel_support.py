@@ -512,14 +512,24 @@ python:
 
 def _original_recipe(*, pdf_capability):
     kind = "DdoOriginalDocument"
-    execution_profile = "execution:original-pdf" if pdf_capability else "execution:original-document"
+    execution_profile = (
+        "execution:original-pdf" if pdf_capability else "execution:original-document"
+    )
     operation = source_declaration()
     operation.update(id="urn:original-fact-test:consume", behavior="source-value-consumer-v1")
     operation["roles"][0].update(maximum=1, collection="scalar")
     if pdf_capability:
         from corpus_structure.semantic.pdf_domain import CONTRACT, HELPER_CONTRACT, pdf_helper_asset
+
         operation["capabilities"]["preparation"] = "pdf-native"
-        operation["assets"] = [{"reference": CONTRACT, "contract": HELPER_CONTRACT, "role": "native-pdf-helper-bindings", "content_digest": pdf_helper_asset().digest}]
+        operation["assets"] = [
+            {
+                "reference": CONTRACT,
+                "contract": HELPER_CONTRACT,
+                "role": "native-pdf-helper-bindings",
+                "content_digest": pdf_helper_asset().digest,
+            }
+        ]
     operation["roles"].insert(
         0,
         {

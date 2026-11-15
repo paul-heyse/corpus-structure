@@ -11,12 +11,19 @@ from corpus_structure.core.evidence import MacroDef
 
 from .data_operation_json import DdoJsonValue
 from .data_operation_model import EffectiveDataOperationModel, SubjectContext
-from .data_operation_support import SupportReference, read_support_references, support_reference_records
+from .data_operation_support import (
+    SupportReference,
+    read_support_references,
+    support_reference_records,
+)
 from .declared_structural_references import DeclaredStructuralSource
-
 from .rich_decisions import (
-    DdoRichEligibility, DdoRichOccurrenceDecision, DdoRichScientificRepresentative,
-    IdentityBasis, IdentityOutcome, require_selected_sets,
+    DdoRichEligibility,
+    DdoRichOccurrenceDecision,
+    DdoRichScientificRepresentative,
+    IdentityBasis,
+    IdentityOutcome,
+    require_selected_sets,
 )
 
 Nonempty = Annotated[str, Field(min_length=1)]
@@ -36,12 +43,12 @@ class DdoRichContext(RichRecord):
 
 class DdoRichContextPin(RichRecord):
     """Internal CPU custody, using the existing exact tagged context meaning."""
+
     project_id: Nonempty
     subject: Nonempty
     subject_definition: Nonempty
     original_source: Nonempty | None
     analyzed_scope_meaning: Nonempty
-
 
 
 class DdoRichSelectedMember(RichRecord):
@@ -79,6 +86,7 @@ class DdoRichScalarValue(RichRecord):
     def actual_canonical_scalar(self):
         from datetime import date, datetime
         from decimal import Decimal
+
         from .value_codec import value_meaning
 
         if self.datatype == "string":
@@ -87,8 +95,13 @@ class DdoRichScalarValue(RichRecord):
             if self.lexical not in {"true", "false"}:
                 raise ValueError("rich boolean requires its canonical literal")
             return self
-        parser = {"integer": int, "decimal": Decimal, "float": float.fromhex,
-                  "date": date.fromisoformat, "datetime": datetime.fromisoformat}[self.datatype]
+        parser = {
+            "integer": int,
+            "decimal": Decimal,
+            "float": float.fromhex,
+            "date": date.fromisoformat,
+            "datetime": datetime.fromisoformat,
+        }[self.datatype]
         meaning = value_meaning(parser(self.lexical))
         if meaning != [self.datatype, self.lexical]:
             raise ValueError("rich scalar differs from its canonical declared meaning")
@@ -119,6 +132,7 @@ class DdoRichCollectionValue(RichRecord):
 
 class DdoRichCasefoldText(RichRecord):
     """Policy equality value; never labelled as the source enum/property value."""
+
     member_type: Literal["casefold-text"]
     value_id: Nonempty
     property_contract: Nonempty
@@ -134,6 +148,7 @@ class DdoRichQualificationMeaning(RichRecord):
 
 class DdoRichEntityIdentity(RichRecord):
     """An actual class/key/label basis, retained for a later closed-universe join."""
+
     class_contract: Nonempty
     fields: tuple[DdoRichPropertyValue, ...]
     label: str | None
@@ -165,6 +180,7 @@ class DdoRichExclusionEndpoint(RichRecord):
 
 class DdoRichLocatedEvidence(RichRecord):
     """Materialized declaration evidence, checked against captured AgentLocatedEvidence."""
+
     sentence: str
     quote: str
     role: Nonempty
@@ -204,6 +220,7 @@ class DdoRichIdentityExclusion(RichRecord):
 
 class DdoRichFact(RichRecord):
     """Property meaning, independent of whether a source asserts or supports it."""
+
     member_type: Literal["fact"]
     fact_id: Nonempty
     subject_entity: Nonempty
@@ -229,6 +246,7 @@ class DdoRichOccurrence(RichRecord):
 
 class DdoRichSourceReadingAssertion(RichRecord):
     """An assertion about a retained reading, without scientific claim standing."""
+
     member_type: Literal["source-reading-assertion"]
     reading_id: Nonempty
     record_id: Nonempty
@@ -241,9 +259,18 @@ class DdoRichSourceReadingAssertion(RichRecord):
 
     @model_validator(mode="after")
     def actual_record_selection(self):
-        if self.original.member_id is None or self.resolved.member_id is None or self.resolution.member_id is not None:
-            raise ValueError("rich source reading requires raw/resolved members and a whole resolution report")
-        if (self.resolved.product_id, self.resolved.support_references) != (self.resolution.product_id, self.resolution.support_references):
+        if (
+            self.original.member_id is None
+            or self.resolved.member_id is None
+            or self.resolution.member_id is not None
+        ):
+            raise ValueError(
+                "rich source reading requires raw/resolved members and a whole resolution report"
+            )
+        if (self.resolved.product_id, self.resolved.support_references) != (
+            self.resolution.product_id,
+            self.resolution.support_references,
+        ):
             raise ValueError("resolved reading differs from its actual whole-report support")
         return self
 
@@ -278,11 +305,22 @@ class DdoRichDiagnostic(RichRecord):
 
 
 type DdoRichMemberBody = (
-    DdoRichScalarValue | DdoRichEntityValue | DdoRichRecordValue | DdoRichCollectionValue
-    | DdoRichCasefoldText | DdoRichQualificationMeaning
-    | DdoRichEntity | DdoRichFact | DdoRichOccurrence | DdoRichSourceReadingAssertion
-    | DdoRichAlternative | DdoRichAssessment | DdoRichDiagnostic
-    | DdoRichIdentityResolution | DdoRichOccurrenceDecision | DdoRichIdentityExclusion
+    DdoRichScalarValue
+    | DdoRichEntityValue
+    | DdoRichRecordValue
+    | DdoRichCollectionValue
+    | DdoRichCasefoldText
+    | DdoRichQualificationMeaning
+    | DdoRichEntity
+    | DdoRichFact
+    | DdoRichOccurrence
+    | DdoRichSourceReadingAssertion
+    | DdoRichAlternative
+    | DdoRichAssessment
+    | DdoRichDiagnostic
+    | DdoRichIdentityResolution
+    | DdoRichOccurrenceDecision
+    | DdoRichIdentityExclusion
 )
 
 
@@ -291,8 +329,6 @@ class DdoRichPacket(RichRecord):
     kind_contract: Nonempty
     context: DdoRichContext
     body: DdoRichMemberBody
-
-
 
 
 class DdoRichComputedMember(RichRecord):
@@ -304,6 +340,7 @@ class DdoRichComputedMember(RichRecord):
 
 class DdoRichComputation(RichRecord):
     """Prepared kernel result, never a native/public product packet."""
+
     version: Literal["rich-computation-1"]
     members: tuple[DdoRichComputedMember, ...]
     input_population: tuple[DdoRichSelectedMember, ...]
@@ -311,6 +348,7 @@ class DdoRichComputation(RichRecord):
 
 class RichGraphAssembly(RichRecord):
     """Invocation-owned pre-evaluation graph; never a published whole-product kind."""
+
     members: tuple[DdoRichPacket, ...]
     input_population: tuple[DdoRichSelectedMember, ...]
 
@@ -325,6 +363,7 @@ class DdoRichConsolidation(RichRecord):
 
 class DdoRichAuthoredProposition(RichRecord):
     """An authored claim before admission supplies its actual product/member origin."""
+
     member_type: Literal["authored-proposition"]
     proposition_id: Nonempty
     fact_id: Nonempty
@@ -333,9 +372,15 @@ class DdoRichAuthoredProposition(RichRecord):
 
 
 type DdoRichAuthoredBody = (
-    DdoRichScalarValue | DdoRichEntityValue | DdoRichRecordValue | DdoRichCollectionValue
-    | DdoRichCasefoldText | DdoRichQualificationMeaning
-    | DdoRichEntity | DdoRichFact | DdoRichAuthoredProposition
+    DdoRichScalarValue
+    | DdoRichEntityValue
+    | DdoRichRecordValue
+    | DdoRichCollectionValue
+    | DdoRichCasefoldText
+    | DdoRichQualificationMeaning
+    | DdoRichEntity
+    | DdoRichFact
+    | DdoRichAuthoredProposition
 )
 
 
@@ -348,6 +393,7 @@ class DdoRichAuthoredPacket(RichRecord):
 
 class DdoRichAuthoredPropositions(RichRecord):
     """Explicit domain propositions, with no fabricated computation or source origin."""
+
     version: Literal["rich-authored-propositions-1"]
     standing: Literal["authored-propositions"]
     members: tuple[DdoRichAuthoredPacket, ...]
@@ -378,7 +424,16 @@ class DdoRichReadingDecision(RichRecord):
     event_procedure: Nonempty | None
     score_hex: Nonempty | None
     probability_hex: Nonempty | None
-    reason_code: Literal["authorized-final-event-threshold", "below-threshold", "policy-unavailable", "ambiguous-policy", "unavailable-feature-instance", "incomplete-source-reading", "invalid-final-event", "resolution-unavailable"]
+    reason_code: Literal[
+        "authorized-final-event-threshold",
+        "below-threshold",
+        "policy-unavailable",
+        "ambiguous-policy",
+        "unavailable-feature-instance",
+        "incomplete-source-reading",
+        "invalid-final-event",
+        "resolution-unavailable",
+    ]
     assertion_member_id: Nonempty | None
 
     @model_validator(mode="after")
@@ -387,36 +442,65 @@ class DdoRichReadingDecision(RichRecord):
 
         if self.original.member_id is None:
             raise ValueError("reading decision requires its actual raw member selection")
-        unresolved = self.resolution is None or self.resolved is None or self.interpretation_id is None
+        unresolved = (
+            self.resolution is None or self.resolved is None or self.interpretation_id is None
+        )
         if unresolved:
-            if any(value is not None for value in (self.resolution, self.resolved, self.interpretation_id)):
+            if any(
+                value is not None
+                for value in (self.resolution, self.resolved, self.interpretation_id)
+            ):
                 raise ValueError("missing resolution cannot retain a fabricated partial selection")
             if self.outcome != "not-checkable" or self.reason_code != "resolution-unavailable":
                 raise ValueError("missing resolution requires an explicit uncheckable decision")
-            if any(value is not None for value in (self.authorization, self.feature_input_digest,
-                   self.feature_instance_digest, self.event_procedure, self.score_hex, self.probability_hex)):
+            if any(
+                value is not None
+                for value in (
+                    self.authorization,
+                    self.feature_input_digest,
+                    self.feature_instance_digest,
+                    self.event_procedure,
+                    self.score_hex,
+                    self.probability_hex,
+                )
+            ):
                 raise ValueError("missing resolution cannot claim a policy/event basis")
         else:
             assert self.resolved is not None and self.resolution is not None
             if self.resolved.member_id is None or self.resolution.member_id is not None:
                 raise ValueError("reading decision requires actual raw/resolved member selections")
-            if (self.resolved.product_id, self.resolved.support_references) != (self.resolution.product_id, self.resolution.support_references):
+            if (self.resolved.product_id, self.resolved.support_references) != (
+                self.resolution.product_id,
+                self.resolution.support_references,
+            ):
                 raise ValueError("reading decision differs from its actual resolution report")
             if self.reason_code == "resolution-unavailable":
                 raise ValueError("an actual resolution cannot claim to be unavailable")
         for value in (self.score_hex, self.probability_hex):
-            if value is not None and (not math.isfinite(float.fromhex(value)) or float.fromhex(value).hex() != value):
+            if value is not None and (
+                not math.isfinite(float.fromhex(value)) or float.fromhex(value).hex() != value
+            ):
                 raise ValueError("reading decision requires canonical finite float meanings")
         if self.probability_hex is not None and not 0 <= float.fromhex(self.probability_hex) <= 1:
             raise ValueError("reading decision probability is outside its actual range")
-        if self.outcome in {"accepted", "below-threshold"} and any(value is None for value in (
-            self.authorization, self.feature_input_digest, self.feature_instance_digest,
-            self.event_procedure, self.score_hex, self.probability_hex,
-        )):
+        if self.outcome in {"accepted", "below-threshold"} and any(
+            value is None
+            for value in (
+                self.authorization,
+                self.feature_input_digest,
+                self.feature_instance_digest,
+                self.event_procedure,
+                self.score_hex,
+                self.probability_hex,
+            )
+        ):
             raise ValueError("scored reading decision lacks its actual policy/event basis")
         if (self.outcome == "accepted") != (self.assertion_member_id is not None):
             raise ValueError("only an accepted reading can retain its assertion member")
-        expected = {"accepted": "authorized-final-event-threshold", "below-threshold": "below-threshold"}
+        expected = {
+            "accepted": "authorized-final-event-threshold",
+            "below-threshold": "below-threshold",
+        }
         if self.outcome in expected and self.reason_code != expected[self.outcome]:
             raise ValueError("reading decision reason differs from its actual outcome")
         if self.outcome == "not-checkable" and self.reason_code in expected.values():
@@ -437,13 +521,16 @@ class DdoRichAdmission(RichRecord):
     policy_authorizations: tuple[DdoRichSelectedMember, ...]
     reading_decisions: tuple[DdoRichReadingDecision, ...]
 
-
     @model_validator(mode="after")
     def actual_selected_id_sets(self):
-        require_selected_sets(self.selected_fact_ids, self.selected_occurrence_ids, self.selected_reading_ids)
+        require_selected_sets(
+            self.selected_fact_ids, self.selected_occurrence_ids, self.selected_reading_ids
+        )
         facts = tuple(item.fact_id for item in self.scientific_representatives)
         if facts != tuple(sorted(set(facts))):
-            raise ValueError("scientific representative rows must identify unique ordered actual facts")
+            raise ValueError(
+                "scientific representative rows must identify unique ordered actual facts"
+            )
         return self
 
 
@@ -451,53 +538,76 @@ def rich_support_records(references: tuple[SupportReference, ...]) -> list[dict]
     from .data_operation_identity import semantic_value
     from .identity import canonical_bytes
 
-    unique = {canonical_bytes(semantic_value(record)): record for record in support_reference_records(references)}
+    unique = {
+        canonical_bytes(semantic_value(record)): record
+        for record in support_reference_records(references)
+    }
     return [unique[key] for key in sorted(unique)]
 
 
 def rich_reference_key(reference: DdoRichSelectedMember) -> bytes:
     from .identity import canonical_bytes
-    return canonical_bytes([reference.product_id, reference.member_id, reference.kind_contract,
-                            rich_support_records(reference.support_references)])
+
+    return canonical_bytes(
+        [
+            reference.product_id,
+            reference.member_id,
+            reference.kind_contract,
+            rich_support_records(reference.support_references),
+        ]
+    )
 
 
 def rich_selected_member(member) -> DdoRichSelectedMember:
     """Copy actual frozen binding value/support facts, without choosing a producer."""
-    return DdoRichSelectedMember.model_validate({
-        "product_id": member.product, "member_id": member.member, "kind_contract": member.kind_contract,
-        "support_references": tuple(rich_support_records(member.support_references)),
-    }, strict=True)
+    return DdoRichSelectedMember.model_validate(
+        {
+            "product_id": member.product,
+            "member_id": member.member,
+            "kind_contract": member.kind_contract,
+            "support_references": tuple(rich_support_records(member.support_references)),
+        },
+        strict=True,
+    )
 
 
 def rich_context_pin(context: SubjectContext) -> DdoRichContextPin:
     from .data_operation_model import json_context_meaning
 
     return DdoRichContextPin(
-        project_id=context.project_id, subject=context.subject,
-        subject_definition=context.subject_definition, original_source=context.original_source,
+        project_id=context.project_id,
+        subject=context.subject,
+        subject_definition=context.subject_definition,
+        original_source=context.original_source,
         analyzed_scope_meaning=json_context_meaning(context.analyzed_scope).decode(),
     )
 
 
-def materialize_rich_context(pin: DdoRichContextPin, model: EffectiveDataOperationModel, *, expected_context: SubjectContext) -> DdoRichContext:
+def materialize_rich_context(
+    pin: DdoRichContextPin, model: EffectiveDataOperationModel, *, expected_context: SubjectContext
+) -> DdoRichContext:
     """Recover actual JSON only against the invocation's selected authentic context."""
     from .data_operation_identity import decode_semantic_value
-    from .data_operation_json import json_loads, json_bytes
+    from .data_operation_json import json_bytes, json_loads
     from .data_operation_model import SubjectContext, validate_subject_context
-    from .identity import canonical_bytes
 
     scope = decode_semantic_value(json_loads(pin.analyzed_scope_meaning))
     context = SubjectContext(
-        project_id=pin.project_id, subject=pin.subject, subject_definition=pin.subject_definition,
-        original_source=pin.original_source, analyzed_scope=json_bytes(scope),
+        project_id=pin.project_id,
+        subject=pin.subject,
+        subject_definition=pin.subject_definition,
+        original_source=pin.original_source,
+        analyzed_scope=json_bytes(scope),
     )
     validate_subject_context(model, context)
     validate_subject_context(model, expected_context)
     if context != expected_context:
         raise ValueError("rich computed context differs from its actual selected invocation/source")
     return DdoRichContext(
-        subject=context.subject, subject_definition=context.subject_definition,
-        original_source=context.original_source, analyzed_scope=json_loads(context.analyzed_scope),
+        subject=context.subject,
+        subject_definition=context.subject_definition,
+        original_source=context.original_source,
+        analyzed_scope=json_loads(context.analyzed_scope),
     )
 
 
@@ -507,8 +617,15 @@ def rich_kind_declarations():
 
     namespace = "https://corpus-structure.dev/semantic/data-operation-rich-knowledge/"
     records = {}
-    for owner in (DdoRichConsolidation, DdoRichAdmission, DdoRichAuthoredPropositions, DdoRichConsolidationPolicy):
-        for record in nominal_schema_kinds(owner.model_json_schema(), namespace=namespace, root_name=owner.__name__):
+    for owner in (
+        DdoRichConsolidation,
+        DdoRichAdmission,
+        DdoRichAuthoredPropositions,
+        DdoRichConsolidationPolicy,
+    ):
+        for record in nominal_schema_kinds(
+            owner.model_json_schema(), namespace=namespace, root_name=owner.__name__
+        ):
             previous = records.get(record["id"])
             if previous is not None and previous != record:
                 raise ValueError("rich contract schemas disagree about their shared nominal owner")

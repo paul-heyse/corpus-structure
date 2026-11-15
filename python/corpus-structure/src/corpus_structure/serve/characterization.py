@@ -49,13 +49,17 @@ def inspect_demand_definition(connection, request: DemandDefinitionRequest):
     selected.update(view="members", containers_only=True)
     result = read_demand_contributions(connection, DemandQueryRequest.model_validate(selected))
     release = open_release(connection, result["cut"]["release_id"])
-    from corpus_structure.semantic.native_definition_projection import read_native_definition_projection
+    from corpus_structure.semantic.native_definition_projection import (
+        read_native_definition_projection,
+    )
 
     projection = read_native_definition_projection(release)
     from corpus_structure.semantic.data_operation_admission import bound_data_operation_model
     from corpus_structure.semantic.native_definition_projection import definition_variant_contract
 
-    contract = definition_variant_contract(bound_data_operation_model(release), projection, request.variant)
+    contract = definition_variant_contract(
+        bound_data_operation_model(release), projection, request.variant
+    )
     contracts = set() if contract is None else {contract}
     if not contracts:
         return dict(

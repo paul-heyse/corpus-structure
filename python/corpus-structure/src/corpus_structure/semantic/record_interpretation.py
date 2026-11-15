@@ -32,7 +32,9 @@ class FiniteNumericalPolicy(BaseModel):
     scipy_version: str
     dtype: Literal["float64"] = "float64"
     normalization: Literal["centered-logsumexp"] = "centered-logsumexp"
-    nonfinite: Literal["explicit-invalid-or-numerical-failure"] = "explicit-invalid-or-numerical-failure"
+    nonfinite: Literal["explicit-invalid-or-numerical-failure"] = (
+        "explicit-invalid-or-numerical-failure"
+    )
     overflow: Literal["raise"] = "raise"
     invalid: Literal["raise"] = "raise"
     equality: Literal["canonical-exact"] = "canonical-exact"
@@ -43,7 +45,9 @@ class FiniteNumericalPolicy(BaseModel):
             raise ValueError("finite numerical policy differs from selected numerical libraries")
 
 
-FINITE_NUMERICS = FiniteNumericalPolicy(numpy_version=version("numpy"), scipy_version=version("scipy"))
+FINITE_NUMERICS = FiniteNumericalPolicy(
+    numpy_version=version("numpy"), scipy_version=version("scipy")
+)
 
 
 class CandidateKind(StrEnum):
@@ -610,7 +614,9 @@ def _interpret(
             potentials.append(
                 (
                     tuple(positions[k] for k in table.scope),
-                    np.asarray(table.values, dtype=np.dtype(FINITE_NUMERICS.dtype)).reshape(dimensions),
+                    np.asarray(table.values, dtype=np.dtype(FINITE_NUMERICS.dtype)).reshape(
+                        dimensions
+                    ),
                 )
             )
         for table in request.constraints:

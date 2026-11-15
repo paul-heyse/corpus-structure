@@ -85,12 +85,24 @@ def lookup(
 
 
 @app.command("review")
-def review(ctx: typer.Context, request: Annotated[Path, typer.Argument(help="SelectedProposalRequest JSON with explicit demand/project and optional product/member pins.")], json: JsonOpt = False):
+def review(
+    ctx: typer.Context,
+    request: Annotated[
+        Path,
+        typer.Argument(
+            help="SelectedProposalRequest JSON with explicit demand/project and optional product/member pins."
+        ),
+    ],
+    json: JsonOpt = False,
+):
     """Inspect genuine selected private proposal members; no accepted standing follows."""
     from corpus_structure.cli.failures import failure_boundary
     from corpus_structure.cli.output import read_request_bytes
     from corpus_structure.semantic.data_operation_json import json_loads
-    from corpus_structure.serve.interpretations import SelectedProposalRequest, inspect_selected_proposals
+    from corpus_structure.serve.interpretations import (
+        SelectedProposalRequest,
+        inspect_selected_proposals,
+    )
 
     with failure_boundary(json, expected=(ValueError, OSError)), snapshot(ctx) as connection:
         selected = SelectedProposalRequest.model_validate(json_loads(read_request_bytes(request)))

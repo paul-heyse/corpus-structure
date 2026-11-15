@@ -18,8 +18,12 @@ class MaverickPrimaryOperation:
         "profile": "derivation",
         "replicate_policy": "retained-observation-single-result",
         "subject": "original-source-view",
-        "subject_definition": {'id': 'original-source-view', 'identifier_kind': 'string', 'scope': 'original-source'},
-        "discovery_relation": 'subject-population',
+        "subject_definition": {
+            "id": "original-source-view",
+            "identifier_kind": "string",
+            "scope": "original-source",
+        },
+        "discovery_relation": "subject-population",
         "context": ["original-source", "selected-scope"],
         "entrypoints": ["run"],
         "roles": [
@@ -79,14 +83,21 @@ class MaverickPrimaryOperation:
         "parameters": {},
         "dependencies": ["segment.sentences/source-native"],
         "effects": [],
-        "applicability": [{'kind': 'documentation', 'text': 'actual-original-source-blocks'}, {'kind': 'documentation', 'text': 'frozen-qualified-native-provider'}],
-        "invariants": [
-            {'kind': 'documentation', 'text': 'private-uncalibrated-candidates'},
-            {'kind': 'documentation', 'text': 'exact-original-source-coordinates'},
-            {'kind': 'documentation', 'text': 'no-score-authority-upgrade'},
-            {'kind': 'documentation', 'text': 'raw-native-labels-and-question-populations'},
+        "applicability": [
+            {"kind": "documentation", "text": "actual-original-source-blocks"},
+            {"kind": "documentation", "text": "frozen-qualified-native-provider"},
         ],
-        "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "complete-original-selected-blocks-with-explicit-limitations"},
+        "invariants": [
+            {"kind": "documentation", "text": "private-uncalibrated-candidates"},
+            {"kind": "documentation", "text": "exact-original-source-coordinates"},
+            {"kind": "documentation", "text": "no-score-authority-upgrade"},
+            {"kind": "documentation", "text": "raw-native-labels-and-question-populations"},
+        ],
+        "coverage": {
+            "binding": "self",
+            "result_owners": [{"kind": "implementation", "reference": "self"}],
+            "description": "complete-original-selected-blocks-with-explicit-limitations",
+        },
         "outcomes": ["success", "failed"],
         "precision_description": "unchanged-native-model-and-original-mapping-policy",
         "capabilities": {
@@ -177,11 +188,11 @@ class MaverickPrimaryOperation:
                         "encoding": "value",
                     },
                     {
-                        "output_field": 'subject_definition',
+                        "output_field": "subject_definition",
                         "input": {
                             "role": "source",
                             "projection": "selected-input",
-                            "field": 'subject_definition',
+                            "field": "subject_definition",
                         },
                         "encoding": "value",
                     },
@@ -301,11 +312,11 @@ class MaverickPrimaryOperation:
                         "encoding": "value",
                     },
                     {
-                        "output_field": 'subject_definition',
+                        "output_field": "subject_definition",
                         "input": {
                             "role": "source",
                             "projection": "selected-input",
-                            "field": 'subject_definition',
+                            "field": "subject_definition",
                         },
                         "encoding": "value",
                     },
@@ -425,11 +436,11 @@ class MaverickPrimaryOperation:
                         "encoding": "value",
                     },
                     {
-                        "output_field": 'subject_definition',
+                        "output_field": "subject_definition",
                         "input": {
                             "role": "source",
                             "projection": "selected-input",
-                            "field": 'subject_definition',
+                            "field": "subject_definition",
                         },
                         "encoding": "value",
                     },
@@ -546,8 +557,12 @@ class DipoPrimaryOperation:
         "profile": "derivation",
         "replicate_policy": "retained-observation-single-result",
         "subject": "original-source-view",
-        "subject_definition": {'id': 'original-source-view', 'identifier_kind': 'string', 'scope': 'original-source'},
-        "discovery_relation": 'subject-population',
+        "subject_definition": {
+            "id": "original-source-view",
+            "identifier_kind": "string",
+            "scope": "original-source",
+        },
+        "discovery_relation": "subject-population",
         "context": ["original-source", "selected-scope"],
         "entrypoints": ["run"],
         "roles": [
@@ -590,14 +605,21 @@ class DipoPrimaryOperation:
         "parameters": {},
         "dependencies": [],
         "effects": [],
-        "applicability": [{'kind': 'documentation', 'text': 'actual-original-source-blocks'}, {'kind': 'documentation', 'text': 'frozen-qualified-native-provider'}],
-        "invariants": [
-            {'kind': 'documentation', 'text': 'private-uncalibrated-candidates'},
-            {'kind': 'documentation', 'text': 'exact-original-source-coordinates'},
-            {'kind': 'documentation', 'text': 'no-score-authority-upgrade'},
-            {'kind': 'documentation', 'text': 'raw-native-labels-and-question-populations'},
+        "applicability": [
+            {"kind": "documentation", "text": "actual-original-source-blocks"},
+            {"kind": "documentation", "text": "frozen-qualified-native-provider"},
         ],
-        "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "complete-original-selected-blocks-with-explicit-limitations"},
+        "invariants": [
+            {"kind": "documentation", "text": "private-uncalibrated-candidates"},
+            {"kind": "documentation", "text": "exact-original-source-coordinates"},
+            {"kind": "documentation", "text": "no-score-authority-upgrade"},
+            {"kind": "documentation", "text": "raw-native-labels-and-question-populations"},
+        ],
+        "coverage": {
+            "binding": "self",
+            "result_owners": [{"kind": "implementation", "reference": "self"}],
+            "description": "complete-original-selected-blocks-with-explicit-limitations",
+        },
         "outcomes": ["success", "failed"],
         "precision_description": "unchanged-native-model-and-original-mapping-policy",
         "capabilities": {
@@ -677,11 +699,11 @@ class DipoPrimaryOperation:
                         "encoding": "value",
                     },
                     {
-                        "output_field": 'subject_definition',
+                        "output_field": "subject_definition",
                         "input": {
                             "role": "source",
                             "projection": "selected-input",
-                            "field": 'subject_definition',
+                            "field": "subject_definition",
                         },
                         "encoding": "value",
                     },
@@ -801,11 +823,11 @@ class DipoPrimaryOperation:
                         "encoding": "value",
                     },
                     {
-                        "output_field": 'subject_definition',
+                        "output_field": "subject_definition",
                         "input": {
                             "role": "source",
                             "projection": "selected-input",
-                            "field": 'subject_definition',
+                            "field": "subject_definition",
                         },
                         "encoding": "value",
                     },
@@ -925,11 +947,11 @@ class DipoPrimaryOperation:
                         "encoding": "value",
                     },
                     {
-                        "output_field": 'subject_definition',
+                        "output_field": "subject_definition",
                         "input": {
                             "role": "source",
                             "projection": "selected-input",
-                            "field": 'subject_definition',
+                            "field": "subject_definition",
                         },
                         "encoding": "value",
                     },
@@ -1044,8 +1066,12 @@ class D1SourcePrimaryOperation:
         "profile": "derivation",
         "replicate_policy": "retained-observation-single-result",
         "subject": "original-source-view",
-        "subject_definition": {'id': 'original-source-view', 'identifier_kind': 'string', 'scope': 'original-source'},
-        "discovery_relation": 'subject-population',
+        "subject_definition": {
+            "id": "original-source-view",
+            "identifier_kind": "string",
+            "scope": "original-source",
+        },
+        "discovery_relation": "subject-population",
         "context": ["original-source", "selected-scope"],
         "entrypoints": ["run"],
         "roles": [
@@ -1088,14 +1114,21 @@ class D1SourcePrimaryOperation:
         "parameters": {"focuses": {"default": []}},
         "dependencies": [],
         "effects": [],
-        "applicability": [{'kind': 'documentation', 'text': 'actual-original-source-blocks'}, {'kind': 'documentation', 'text': 'frozen-qualified-native-provider'}],
-        "invariants": [
-            {'kind': 'documentation', 'text': 'private-uncalibrated-candidates'},
-            {'kind': 'documentation', 'text': 'exact-original-source-coordinates'},
-            {'kind': 'documentation', 'text': 'no-score-authority-upgrade'},
-            {'kind': 'documentation', 'text': 'raw-native-labels-and-question-populations'},
+        "applicability": [
+            {"kind": "documentation", "text": "actual-original-source-blocks"},
+            {"kind": "documentation", "text": "frozen-qualified-native-provider"},
         ],
-        "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "complete-original-selected-blocks-with-explicit-limitations"},
+        "invariants": [
+            {"kind": "documentation", "text": "private-uncalibrated-candidates"},
+            {"kind": "documentation", "text": "exact-original-source-coordinates"},
+            {"kind": "documentation", "text": "no-score-authority-upgrade"},
+            {"kind": "documentation", "text": "raw-native-labels-and-question-populations"},
+        ],
+        "coverage": {
+            "binding": "self",
+            "result_owners": [{"kind": "implementation", "reference": "self"}],
+            "description": "complete-original-selected-blocks-with-explicit-limitations",
+        },
         "outcomes": ["success", "failed"],
         "precision_description": "unchanged-native-model-and-original-mapping-policy",
         "capabilities": {
@@ -1175,11 +1208,11 @@ class D1SourcePrimaryOperation:
                         "encoding": "value",
                     },
                     {
-                        "output_field": 'subject_definition',
+                        "output_field": "subject_definition",
                         "input": {
                             "role": "source",
                             "projection": "selected-input",
-                            "field": 'subject_definition',
+                            "field": "subject_definition",
                         },
                         "encoding": "value",
                     },
@@ -1299,11 +1332,11 @@ class D1SourcePrimaryOperation:
                         "encoding": "value",
                     },
                     {
-                        "output_field": 'subject_definition',
+                        "output_field": "subject_definition",
                         "input": {
                             "role": "source",
                             "projection": "selected-input",
-                            "field": 'subject_definition',
+                            "field": "subject_definition",
                         },
                         "encoding": "value",
                     },
@@ -1423,11 +1456,11 @@ class D1SourcePrimaryOperation:
                         "encoding": "value",
                     },
                     {
-                        "output_field": 'subject_definition',
+                        "output_field": "subject_definition",
                         "input": {
                             "role": "source",
                             "projection": "selected-input",
-                            "field": 'subject_definition',
+                            "field": "subject_definition",
                         },
                         "encoding": "value",
                     },
@@ -1542,8 +1575,12 @@ class D1CandidatesPrimaryOperation:
         "profile": "derivation",
         "replicate_policy": "retained-observation-single-result",
         "subject": "original-source-view",
-        "subject_definition": {'id': 'original-source-view', 'identifier_kind': 'string', 'scope': 'original-source'},
-        "discovery_relation": 'subject-population',
+        "subject_definition": {
+            "id": "original-source-view",
+            "identifier_kind": "string",
+            "scope": "original-source",
+        },
+        "discovery_relation": "subject-population",
         "context": ["original-source", "selected-scope"],
         "entrypoints": ["run"],
         "roles": [
@@ -1641,14 +1678,21 @@ class D1CandidatesPrimaryOperation:
             "text.contextual_native/source-native",
         ],
         "effects": [],
-        "applicability": [{'kind': 'documentation', 'text': 'actual-original-source-blocks'}, {'kind': 'documentation', 'text': 'frozen-qualified-native-provider'}],
-        "invariants": [
-            {'kind': 'documentation', 'text': 'private-uncalibrated-candidates'},
-            {'kind': 'documentation', 'text': 'exact-original-source-coordinates'},
-            {'kind': 'documentation', 'text': 'no-score-authority-upgrade'},
-            {'kind': 'documentation', 'text': 'raw-native-labels-and-question-populations'},
+        "applicability": [
+            {"kind": "documentation", "text": "actual-original-source-blocks"},
+            {"kind": "documentation", "text": "frozen-qualified-native-provider"},
         ],
-        "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "complete-original-selected-blocks-with-explicit-limitations"},
+        "invariants": [
+            {"kind": "documentation", "text": "private-uncalibrated-candidates"},
+            {"kind": "documentation", "text": "exact-original-source-coordinates"},
+            {"kind": "documentation", "text": "no-score-authority-upgrade"},
+            {"kind": "documentation", "text": "raw-native-labels-and-question-populations"},
+        ],
+        "coverage": {
+            "binding": "self",
+            "result_owners": [{"kind": "implementation", "reference": "self"}],
+            "description": "complete-original-selected-blocks-with-explicit-limitations",
+        },
         "outcomes": ["success", "failed"],
         "precision_description": "unchanged-native-model-and-original-mapping-policy",
         "capabilities": {
@@ -1751,11 +1795,11 @@ class D1CandidatesPrimaryOperation:
                         "encoding": "value",
                     },
                     {
-                        "output_field": 'subject_definition',
+                        "output_field": "subject_definition",
                         "input": {
                             "role": "source",
                             "projection": "selected-input",
-                            "field": 'subject_definition',
+                            "field": "subject_definition",
                         },
                         "encoding": "value",
                     },
@@ -1875,11 +1919,11 @@ class D1CandidatesPrimaryOperation:
                         "encoding": "value",
                     },
                     {
-                        "output_field": 'subject_definition',
+                        "output_field": "subject_definition",
                         "input": {
                             "role": "source",
                             "projection": "selected-input",
-                            "field": 'subject_definition',
+                            "field": "subject_definition",
                         },
                         "encoding": "value",
                     },
@@ -1999,11 +2043,11 @@ class D1CandidatesPrimaryOperation:
                         "encoding": "value",
                     },
                     {
-                        "output_field": 'subject_definition',
+                        "output_field": "subject_definition",
                         "input": {
                             "role": "source",
                             "projection": "selected-input",
-                            "field": 'subject_definition',
+                            "field": "subject_definition",
                         },
                         "encoding": "value",
                     },
@@ -2124,8 +2168,12 @@ class GlinerCuesPrimaryOperation:
         "profile": "derivation",
         "replicate_policy": "retained-observation-single-result",
         "subject": "original-source-view",
-        "subject_definition": {'id': 'original-source-view', 'identifier_kind': 'string', 'scope': 'original-source'},
-        "discovery_relation": 'subject-population',
+        "subject_definition": {
+            "id": "original-source-view",
+            "identifier_kind": "string",
+            "scope": "original-source",
+        },
+        "discovery_relation": "subject-population",
         "context": ["original-source", "selected-scope"],
         "entrypoints": ["run"],
         "roles": [
@@ -2168,14 +2216,21 @@ class GlinerCuesPrimaryOperation:
         "parameters": {},
         "dependencies": [],
         "effects": [],
-        "applicability": [{'kind': 'documentation', 'text': 'actual-original-source-blocks'}, {'kind': 'documentation', 'text': 'frozen-qualified-native-provider'}],
-        "invariants": [
-            {'kind': 'documentation', 'text': 'private-uncalibrated-candidates'},
-            {'kind': 'documentation', 'text': 'exact-original-source-coordinates'},
-            {'kind': 'documentation', 'text': 'no-score-authority-upgrade'},
-            {'kind': 'documentation', 'text': 'raw-native-labels-and-question-populations'},
+        "applicability": [
+            {"kind": "documentation", "text": "actual-original-source-blocks"},
+            {"kind": "documentation", "text": "frozen-qualified-native-provider"},
         ],
-        "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "complete-original-selected-blocks-with-explicit-limitations"},
+        "invariants": [
+            {"kind": "documentation", "text": "private-uncalibrated-candidates"},
+            {"kind": "documentation", "text": "exact-original-source-coordinates"},
+            {"kind": "documentation", "text": "no-score-authority-upgrade"},
+            {"kind": "documentation", "text": "raw-native-labels-and-question-populations"},
+        ],
+        "coverage": {
+            "binding": "self",
+            "result_owners": [{"kind": "implementation", "reference": "self"}],
+            "description": "complete-original-selected-blocks-with-explicit-limitations",
+        },
         "outcomes": ["success", "failed"],
         "precision_description": "unchanged-native-model-and-original-mapping-policy",
         "capabilities": {
@@ -2255,11 +2310,11 @@ class GlinerCuesPrimaryOperation:
                         "encoding": "value",
                     },
                     {
-                        "output_field": 'subject_definition',
+                        "output_field": "subject_definition",
                         "input": {
                             "role": "source",
                             "projection": "selected-input",
-                            "field": 'subject_definition',
+                            "field": "subject_definition",
                         },
                         "encoding": "value",
                     },
@@ -2379,11 +2434,11 @@ class GlinerCuesPrimaryOperation:
                         "encoding": "value",
                     },
                     {
-                        "output_field": 'subject_definition',
+                        "output_field": "subject_definition",
                         "input": {
                             "role": "source",
                             "projection": "selected-input",
-                            "field": 'subject_definition',
+                            "field": "subject_definition",
                         },
                         "encoding": "value",
                     },
@@ -2503,11 +2558,11 @@ class GlinerCuesPrimaryOperation:
                         "encoding": "value",
                     },
                     {
-                        "output_field": 'subject_definition',
+                        "output_field": "subject_definition",
                         "input": {
                             "role": "source",
                             "projection": "selected-input",
-                            "field": 'subject_definition',
+                            "field": "subject_definition",
                         },
                         "encoding": "value",
                     },
@@ -2622,8 +2677,12 @@ class GlinerFunctionPrimaryOperation:
         "profile": "derivation",
         "replicate_policy": "retained-observation-single-result",
         "subject": "original-source-view",
-        "subject_definition": {'id': 'original-source-view', 'identifier_kind': 'string', 'scope': 'original-source'},
-        "discovery_relation": 'subject-population',
+        "subject_definition": {
+            "id": "original-source-view",
+            "identifier_kind": "string",
+            "scope": "original-source",
+        },
+        "discovery_relation": "subject-population",
         "context": ["original-source", "selected-scope"],
         "entrypoints": ["run"],
         "roles": [
@@ -2666,14 +2725,21 @@ class GlinerFunctionPrimaryOperation:
         "parameters": {"focuses": {"default": []}},
         "dependencies": [],
         "effects": [],
-        "applicability": [{'kind': 'documentation', 'text': 'actual-original-source-blocks'}, {'kind': 'documentation', 'text': 'frozen-qualified-native-provider'}],
-        "invariants": [
-            {'kind': 'documentation', 'text': 'private-uncalibrated-candidates'},
-            {'kind': 'documentation', 'text': 'exact-original-source-coordinates'},
-            {'kind': 'documentation', 'text': 'no-score-authority-upgrade'},
-            {'kind': 'documentation', 'text': 'raw-native-labels-and-question-populations'},
+        "applicability": [
+            {"kind": "documentation", "text": "actual-original-source-blocks"},
+            {"kind": "documentation", "text": "frozen-qualified-native-provider"},
         ],
-        "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "complete-original-selected-blocks-with-explicit-limitations"},
+        "invariants": [
+            {"kind": "documentation", "text": "private-uncalibrated-candidates"},
+            {"kind": "documentation", "text": "exact-original-source-coordinates"},
+            {"kind": "documentation", "text": "no-score-authority-upgrade"},
+            {"kind": "documentation", "text": "raw-native-labels-and-question-populations"},
+        ],
+        "coverage": {
+            "binding": "self",
+            "result_owners": [{"kind": "implementation", "reference": "self"}],
+            "description": "complete-original-selected-blocks-with-explicit-limitations",
+        },
         "outcomes": ["success", "failed"],
         "precision_description": "unchanged-native-model-and-original-mapping-policy",
         "capabilities": {
@@ -2753,11 +2819,11 @@ class GlinerFunctionPrimaryOperation:
                         "encoding": "value",
                     },
                     {
-                        "output_field": 'subject_definition',
+                        "output_field": "subject_definition",
                         "input": {
                             "role": "source",
                             "projection": "selected-input",
-                            "field": 'subject_definition',
+                            "field": "subject_definition",
                         },
                         "encoding": "value",
                     },
@@ -2877,11 +2943,11 @@ class GlinerFunctionPrimaryOperation:
                         "encoding": "value",
                     },
                     {
-                        "output_field": 'subject_definition',
+                        "output_field": "subject_definition",
                         "input": {
                             "role": "source",
                             "projection": "selected-input",
-                            "field": 'subject_definition',
+                            "field": "subject_definition",
                         },
                         "encoding": "value",
                     },
@@ -3001,11 +3067,11 @@ class GlinerFunctionPrimaryOperation:
                         "encoding": "value",
                     },
                     {
-                        "output_field": 'subject_definition',
+                        "output_field": "subject_definition",
                         "input": {
                             "role": "source",
                             "projection": "selected-input",
-                            "field": 'subject_definition',
+                            "field": "subject_definition",
                         },
                         "encoding": "value",
                     },
@@ -3120,8 +3186,12 @@ class ContextualNativePrimaryOperation:
         "profile": "derivation",
         "replicate_policy": "retained-observation-single-result",
         "subject": "original-source-view",
-        "subject_definition": {'id': 'original-source-view', 'identifier_kind': 'string', 'scope': 'original-source'},
-        "discovery_relation": 'subject-population',
+        "subject_definition": {
+            "id": "original-source-view",
+            "identifier_kind": "string",
+            "scope": "original-source",
+        },
+        "discovery_relation": "subject-population",
         "context": ["original-source", "selected-scope"],
         "entrypoints": ["run"],
         "roles": [
@@ -3228,14 +3298,21 @@ class ContextualNativePrimaryOperation:
             "text.dipo/source-native",
         ],
         "effects": [],
-        "applicability": [{'kind': 'documentation', 'text': 'actual-original-source-blocks'}, {'kind': 'documentation', 'text': 'frozen-qualified-native-provider'}],
-        "invariants": [
-            {'kind': 'documentation', 'text': 'private-uncalibrated-candidates'},
-            {'kind': 'documentation', 'text': 'exact-original-source-coordinates'},
-            {'kind': 'documentation', 'text': 'no-score-authority-upgrade'},
-            {'kind': 'documentation', 'text': 'raw-native-labels-and-question-populations'},
+        "applicability": [
+            {"kind": "documentation", "text": "actual-original-source-blocks"},
+            {"kind": "documentation", "text": "frozen-qualified-native-provider"},
         ],
-        "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "complete-original-selected-blocks-with-explicit-limitations"},
+        "invariants": [
+            {"kind": "documentation", "text": "private-uncalibrated-candidates"},
+            {"kind": "documentation", "text": "exact-original-source-coordinates"},
+            {"kind": "documentation", "text": "no-score-authority-upgrade"},
+            {"kind": "documentation", "text": "raw-native-labels-and-question-populations"},
+        ],
+        "coverage": {
+            "binding": "self",
+            "result_owners": [{"kind": "implementation", "reference": "self"}],
+            "description": "complete-original-selected-blocks-with-explicit-limitations",
+        },
         "outcomes": ["success", "failed"],
         "precision_description": "unchanged-native-model-and-original-mapping-policy",
         "capabilities": {
@@ -3330,8 +3407,12 @@ class GlinerDefinitionPrimaryOperation:
         "profile": "derivation",
         "replicate_policy": "retained-observation-single-result",
         "subject": "original-source-view",
-        "subject_definition": {'id': 'original-source-view', 'identifier_kind': 'string', 'scope': 'original-source'},
-        "discovery_relation": 'subject-population',
+        "subject_definition": {
+            "id": "original-source-view",
+            "identifier_kind": "string",
+            "scope": "original-source",
+        },
+        "discovery_relation": "subject-population",
         "context": ["original-source", "selected-scope"],
         "entrypoints": ["run"],
         "roles": [
@@ -3380,14 +3461,21 @@ class GlinerDefinitionPrimaryOperation:
         },
         "dependencies": [],
         "effects": [],
-        "applicability": [{'kind': 'documentation', 'text': 'actual-original-source-blocks'}, {'kind': 'documentation', 'text': 'frozen-qualified-native-provider'}],
-        "invariants": [
-            {'kind': 'documentation', 'text': 'private-uncalibrated-candidates'},
-            {'kind': 'documentation', 'text': 'exact-original-source-coordinates'},
-            {'kind': 'documentation', 'text': 'no-score-authority-upgrade'},
-            {'kind': 'documentation', 'text': 'raw-native-labels-and-question-populations'},
+        "applicability": [
+            {"kind": "documentation", "text": "actual-original-source-blocks"},
+            {"kind": "documentation", "text": "frozen-qualified-native-provider"},
         ],
-        "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "complete-original-selected-blocks-with-explicit-limitations"},
+        "invariants": [
+            {"kind": "documentation", "text": "private-uncalibrated-candidates"},
+            {"kind": "documentation", "text": "exact-original-source-coordinates"},
+            {"kind": "documentation", "text": "no-score-authority-upgrade"},
+            {"kind": "documentation", "text": "raw-native-labels-and-question-populations"},
+        ],
+        "coverage": {
+            "binding": "self",
+            "result_owners": [{"kind": "implementation", "reference": "self"}],
+            "description": "complete-original-selected-blocks-with-explicit-limitations",
+        },
         "outcomes": ["success", "failed"],
         "precision_description": "unchanged-native-model-and-original-mapping-policy",
         "capabilities": {
@@ -3467,11 +3555,11 @@ class GlinerDefinitionPrimaryOperation:
                         "encoding": "value",
                     },
                     {
-                        "output_field": 'subject_definition',
+                        "output_field": "subject_definition",
                         "input": {
                             "role": "source",
                             "projection": "selected-input",
-                            "field": 'subject_definition',
+                            "field": "subject_definition",
                         },
                         "encoding": "value",
                     },
@@ -3591,11 +3679,11 @@ class GlinerDefinitionPrimaryOperation:
                         "encoding": "value",
                     },
                     {
-                        "output_field": 'subject_definition',
+                        "output_field": "subject_definition",
                         "input": {
                             "role": "source",
                             "projection": "selected-input",
-                            "field": 'subject_definition',
+                            "field": "subject_definition",
                         },
                         "encoding": "value",
                     },
@@ -3715,11 +3803,11 @@ class GlinerDefinitionPrimaryOperation:
                         "encoding": "value",
                     },
                     {
-                        "output_field": 'subject_definition',
+                        "output_field": "subject_definition",
                         "input": {
                             "role": "source",
                             "projection": "selected-input",
-                            "field": 'subject_definition',
+                            "field": "subject_definition",
                         },
                         "encoding": "value",
                     },

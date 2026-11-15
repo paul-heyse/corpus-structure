@@ -56,7 +56,11 @@ def prepared():
                         "inlined_as_list": True,
                     },
                     "entries": {"range": "Entry", "multivalued": True, "inlined": True},
-                    "tagged_entries": {"range": "TaggedEntry", "multivalued": True, "inlined": True},
+                    "tagged_entries": {
+                        "range": "TaggedEntry",
+                        "multivalued": True,
+                        "inlined": True,
+                    },
                 }
             },
         },
@@ -85,7 +89,14 @@ def test_multivalued_nested_fact_and_nonentity_class_references_keep_positions()
     assert not any(r.path == ("plain",) for r in references)
     assert {r.target for r in references if r.kind == "fact"} == {"f1", "f2", "f3", "a", "b"}
     assert {r.target for r in references if r.kind == "class"} == {"e1", "e2", "e3"}
-    rewritten = rewrite_references(release, "Root", raw, classes={"e1": "E1", "e3": "E3"}, facts={"f2": "F2", "f3": "F3"}, collision="equal")
+    rewritten = rewrite_references(
+        release,
+        "Root",
+        raw,
+        classes={"e1": "E1", "e3": "E3"},
+        facts={"f2": "F2", "f3": "F3"},
+        collision="equal",
+    )
     assert rewritten is not None
     assert rewritten["claims"] == ("F2", "f1", "F2")
     assert rewritten["entities"] == ("e2", "E1")
@@ -115,23 +126,36 @@ def test_callable_class_resolution_uses_declared_ranges_and_actual_nested_positi
         assert reference.target == "same"
         return {"Tag": "tag:actual", "Statement": "statement:actual"}[reference.range]
 
-    raw = {"plain": "same", "statement": "same", "entities": ("same", "same"),
-           "children": ({"entity": "same", "claims": ("same",)},)}
-    rewritten = rewrite_references(prepared(), "Root", raw, classes=resolve, facts={"same": "fact:actual"})
-    assert rewritten == {"plain": "same", "statement": "statement:actual",
-                         "entities": ("tag:actual", "tag:actual"),
-                         "children": ({"entity": "tag:actual", "claims": ("fact:actual",)},)}
+    raw = {
+        "plain": "same",
+        "statement": "same",
+        "entities": ("same", "same"),
+        "children": ({"entity": "same", "claims": ("same",)},),
+    }
+    rewritten = rewrite_references(
+        prepared(), "Root", raw, classes=resolve, facts={"same": "fact:actual"}
+    )
+    assert rewritten == {
+        "plain": "same",
+        "statement": "statement:actual",
+        "entities": ("tag:actual", "tag:actual"),
+        "children": ({"entity": "tag:actual", "claims": ("fact:actual",)},),
+    }
     assert {(item.range, item.path) for item in seen} == {
-        ("Statement", ("statement",)), ("Tag", ("entities", 0)),
-        ("Tag", ("entities", 1)), ("Tag", ("children", 0, "entity")),
+        ("Statement", ("statement",)),
+        ("Tag", ("entities", 0)),
+        ("Tag", ("entities", 1)),
+        ("Tag", ("children", 0, "entity")),
     }
 
 
 def test_callable_class_resolution_preserves_keyed_collision_refusals():
     raw = {"tagged_entries": {"a": {"id": "a", "text": "same"}, "b": {"id": "b", "text": "same"}}}
+
     def resolve(reference):
         assert reference.range == "Tag"
         return "tag:merged"
+
     result = rewrite_references(prepared(), "Root", raw, classes=resolve, collision="equal")
     assert result == {"tagged_entries": {"tag:merged": {"id": "tag:merged", "text": "same"}}}
     with pytest.raises(ReferencePositionError, match="collides"):
@@ -144,9 +168,9 @@ def test_callable_class_resolution_preserves_keyed_collision_refusals():
 def test_proposal_and_domain_property_reference_use_declared_nonentity_carrier():
     from pathlib import Path
 
-    from corpus_structure.semantic.rich_knowledge import rich_property_value
-    from corpus_structure.semantic.proposals import locate_proposal, proposal_inputs
     from corpus_structure.methods.llm.cascade import PlacementPolicy
+    from corpus_structure.semantic.proposals import locate_proposal, proposal_inputs
+    from corpus_structure.semantic.rich_knowledge import rich_property_value
     from semantic.proposals_support import batch, frame
 
     core = Path(__file__).parents[2] / "src/corpus_structure/model/semantic/core.yaml"
@@ -184,7 +208,10 @@ classes:
     raw["claims"][0]["predicate"] = "https://example.org/tag"
     raw["claims"][0]["object"] = {"kind": "tag_ref", "target": "known:tag"}
     result = locate_proposal(
-        release, raw, frame(), known_classes={"known:tag": ("https://example.org/Tag",)},
+        release,
+        raw,
+        frame(),
+        known_classes={"known:tag": ("https://example.org/Tag",)},
         placement_policy=PlacementPolicy(),
     )
     assert result.clean

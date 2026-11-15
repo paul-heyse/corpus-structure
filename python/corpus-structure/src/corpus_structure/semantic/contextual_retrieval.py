@@ -14,11 +14,9 @@ from typing import cast as typing_cast
 
 from pgvector.sqlalchemy import VECTOR
 from sqlalchemy import Integer, Text, any_, bindparam, cast, func, literal, select, union_all
-from sqlalchemy.dialects.postgresql import REGCONFIG, DOUBLE_PRECISION
+from sqlalchemy.dialects.postgresql import DOUBLE_PRECISION, REGCONFIG
 from sqlalchemy.engine import Connection
 from sqlalchemy.sql.selectable import FromClause
-
-from .contextual_numerics import RetrievalNumericalPolicy, default_retrieval_numerics
 
 from corpus_structure.methods.contextual_embeddings import (
     EncodedVector,
@@ -26,6 +24,8 @@ from corpus_structure.methods.contextual_embeddings import (
     numeric_identity,
     validate_vector,
 )
+
+from .contextual_numerics import RetrievalNumericalPolicy, default_retrieval_numerics
 
 
 @dataclass(frozen=True)

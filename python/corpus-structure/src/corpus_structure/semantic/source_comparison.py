@@ -14,8 +14,8 @@ from typing import Literal
 import griffe
 from pydantic import BaseModel, ConfigDict, JsonValue
 
-from .identity import canonical_bytes
 from .data_operation_model import operation_role_record
+from .identity import canonical_bytes
 from .source_interfaces import SourceInterfaceProjection
 
 
@@ -192,12 +192,22 @@ def compare_data_operation_models(
 
         def descriptive_metadata(operation):
             return {
-                "behavior": operation.behavior if operation.implementation_root is not None else None,
-                "applicability": [claim.text for claim in operation.applicability if claim.kind == "documentation"],
-                "invariants": [claim.text for claim in operation.invariants if claim.kind == "documentation"],
+                "behavior": operation.behavior
+                if operation.implementation_root is not None
+                else None,
+                "applicability": [
+                    claim.text for claim in operation.applicability if claim.kind == "documentation"
+                ],
+                "invariants": [
+                    claim.text for claim in operation.invariants if claim.kind == "documentation"
+                ],
                 "precision_description": operation.precision_description,
                 "coverage": operation.coverage.description,
-                "input_coverage": {role.name: role.support.coverage.description for role in operation.roles if role.support is not None},
+                "input_coverage": {
+                    role.name: role.support.coverage.description
+                    for role in operation.roles
+                    if role.support is not None
+                },
             }
 
         append(

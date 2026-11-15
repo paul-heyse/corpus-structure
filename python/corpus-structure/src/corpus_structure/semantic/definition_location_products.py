@@ -9,8 +9,8 @@ from typing import Any
 
 from .data_operation_model import ResolvedRoleBinding, SubjectContext
 from .identity import canonical_bytes
-from .types import PreparedRelease, SourceArtifact, SourceBundle
 from .python_module_projection import admitted_operation_module_meaning
+from .types import PreparedRelease, SourceArtifact, SourceBundle
 
 _ROOT = Path(__file__).parents[1]
 _MODEL = _ROOT / "model/semantic/data-operation-definition-location.yaml"
@@ -68,7 +68,17 @@ def definition_location_assets():
             {
                 "version": "declared-definition-location-1",
                 "schema": _MODEL.read_bytes().hex(),
-                "files": [(name, (admitted_operation_module_meaning((_ROOT / name).read_bytes()).hex() if name in ('methods/definition_location.py',) else (_ROOT / name).read_bytes().hex())) for name in _FILES],
+                "files": [
+                    (
+                        name,
+                        (
+                            admitted_operation_module_meaning((_ROOT / name).read_bytes()).hex()
+                            if name in ("methods/definition_location.py",)
+                            else (_ROOT / name).read_bytes().hex()
+                        ),
+                    )
+                    for name in _FILES
+                ],
             }
         ),
     )
@@ -333,14 +343,16 @@ class DefinitionLocationPlan:
             check_active=check_active,
         )
         captured = definition_location_operation_sources()
-        return (yield from self.port.plan_cpu(
-            definition_location_kernel,
-            bound,
-            captured,
-            prepared_release_id=self.prepared.release_id,
-            execution_owner=execution_owner,
-            check_active=check_active,
-        ))
+        return (
+            yield from self.port.plan_cpu(
+                definition_location_kernel,
+                bound,
+                captured,
+                prepared_release_id=self.prepared.release_id,
+                execution_owner=execution_owner,
+                check_active=check_active,
+            )
+        )
 
 
 def resolve_definition_location_port(

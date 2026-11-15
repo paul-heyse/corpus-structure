@@ -1,7 +1,5 @@
 """Explicit synthetic semantic scenarios used by domain operation tests."""
 
-from corpus_structure.semantic.analysis_contracts import acquire_analysis_context_profile
-
 from collections.abc import Sequence
 from dataclasses import dataclass, replace
 from functools import cache, wraps
@@ -22,9 +20,9 @@ from corpus_structure.semantic import (
     prepare_release,
 )
 from corpus_structure.semantic._operation_ids import CutId, DocumentId, RunId
+from corpus_structure.semantic.analysis_contracts import acquire_analysis_context_profile
 from corpus_structure.semantic.analytical_profile import analytical_inputs
 from corpus_structure.semantic.contracts import implementation_overridden
-from corpus_structure.semantic.rich_knowledge_sources import rich_policy_inputs
 from corpus_structure.semantic.identity import canonical_bytes, fact_key, occurrence_key
 from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.observations import observation_inputs
@@ -57,6 +55,7 @@ from corpus_structure.semantic.publication import (
     ValueRow,
 )
 from corpus_structure.semantic.releases import persist_release
+from corpus_structure.semantic.rich_knowledge_sources import rich_policy_inputs
 from corpus_structure.semantic.types import PreparedRelease
 from semantic.scenario_preparation_support import PersistedScenario, ScenarioPreparation
 
@@ -171,7 +170,9 @@ def _assemble_domain_preparation(
             "range": "NaryValue",
             "inlined": True,
         }
-    deps = rich_policy_inputs(ResolvedDependencies(), rules, context_profile=acquire_analysis_context_profile())
+    deps = rich_policy_inputs(
+        ResolvedDependencies(), rules, context_profile=acquire_analysis_context_profile()
+    )
     bundle = SourceBundle(
         "domain",
         (

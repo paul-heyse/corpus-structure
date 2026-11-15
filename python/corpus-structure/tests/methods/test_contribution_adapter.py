@@ -1,7 +1,5 @@
 """Local recovery expectations independent of whole-record acceptance and scores."""
 
-from methods.record_assembly_support import model as record_model
-
 import json
 from dataclasses import replace
 from hashlib import sha256
@@ -27,6 +25,7 @@ from corpus_structure.semantic.source_contexts import (
     SyntheticText,
 )
 from methods.record_assembly_support import context, release, report, source, span
+from methods.record_assembly_support import model as record_model
 
 
 def definition_pack():
@@ -439,7 +438,8 @@ def test_failed_whole_group_preserves_located_term_and_unlocated_alias():
         anchor_role="term",
         policy_version="test",
         occurrence_roles=("term", "alias"),
-     model=record_model())
+        model=record_model(),
+    )
     assert not assembled.records
     assert any(row.code == "unlocated_occurrence" for row in assembled.diagnostics)
     batch = adapt_report(native, ctx, pack=pack, item_key="report:0")

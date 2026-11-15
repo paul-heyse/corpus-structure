@@ -77,7 +77,8 @@ def _inputs(profile):
         source_subject(source.value["source"]),
         source.value["source"]["document"],
         canonical_bytes({"selectors": source.value["selectors"]}),
-     subject_definition="original-source-view")
+        subject_definition="original-source-view",
+    )
     formal = profile.run(source, FormalEvidenceOptions(), subject_context=context)
     source_member = BoundRoleMember(
         "product:source",
@@ -89,7 +90,9 @@ def _inputs(profile):
         (),
         b"{}",
         member="selected",
-     subject_definition="original-source-view", support_references=())
+        subject_definition="original-source-view",
+        support_references=(),
+    )
     formal_member = replace(
         source_member, product=formal.semantic_id, member=None, kind_contract="kind:formal"
     )
@@ -187,7 +190,8 @@ def test_symbol_scope_retains_unavailable_binder_coverage_and_exact_math_inputs(
         source_member.subject,
         source_member.original_source,
         source_member.analyzed_scope,
-     subject_definition=source_member.subject_definition)
+        subject_definition=source_member.subject_definition,
+    )
     model = bound_data_operation_model(math_profile.prepared)
     construction = PreparedConstructionProfile(math_profile.prepared, model).run(
         source, (formal,), ConstructionOptions(math_scope_binders=binders), subject_context=context
@@ -307,7 +311,8 @@ def test_symbol_scope_uses_retained_cues_forward_and_preserves_original_formula_
         source_subject(source.value["source"]),
         source.value["source"]["document"],
         canonical_bytes({"selectors": source.value["selectors"]}),
-     subject_definition="original-source-view")
+        subject_definition="original-source-view",
+    )
     formal = math_profile.run(source, FormalEvidenceOptions(), subject_context=context)
     pin = BoundRoleMember(
         "product:source",
@@ -319,7 +324,9 @@ def test_symbol_scope_uses_retained_cues_forward_and_preserves_original_formula_
         (),
         b"{}",
         member="selected",
-     subject_definition="original-source-view", support_references=())
+        subject_definition="original-source-view",
+        support_references=(),
+    )
     formal_pin = replace(pin, product=formal.semantic_id, member=None, kind_contract="kind:formal")
     binders = Binders(sentence_initial=("suppose",))
     profile = PreparedMathInputs(
@@ -452,12 +459,18 @@ def test_selected_math_checks_the_complete_source_address(math_profile):
     from corpus_structure.serve.selected_math import _source_for_interpretation
 
     source, _, member, _ = _inputs(math_profile)
-    pin = DeclaredStructuralSource.model_validate(DeclaredRecordSource.from_bound(
-        source, member, project="outside-statistics",
-    ).pin())
+    pin = DeclaredStructuralSource.model_validate(
+        DeclaredRecordSource.from_bound(
+            source,
+            member,
+            project="outside-statistics",
+        ).pin()
+    )
     row = dict(
-        kind_contract=member.kind_contract, subject=member.subject,
-        subject_definition=member.subject_definition, original_source=member.original_source,
+        kind_contract=member.kind_contract,
+        subject=member.subject,
+        subject_definition=member.subject_definition,
+        original_source=member.original_source,
         analyzed_scope={"selectors": source.value["selectors"]},
         body=semantic_value(source.value),
     )
@@ -468,9 +481,12 @@ def test_selected_math_checks_the_complete_source_address(math_profile):
     assert actual.value["source"]["section_pointer"] == "#/groups/0"
     # Equal projected atoms do not establish document, subject or coordinate identity.
     for changes in (
-        {"project_id": "another-project"}, {"subject": "another-subject"},
-        {"subject_definition": "another-definition"}, {"kind_contract": "another-kind"},
-        {"section_pointer": "#/groups/99"}, {"membership": "direct"},
+        {"project_id": "another-project"},
+        {"subject": "another-subject"},
+        {"subject_definition": "another-definition"},
+        {"kind_contract": "another-kind"},
+        {"section_pointer": "#/groups/99"},
+        {"membership": "direct"},
         {"analyzed_scope_meaning": "another-scope"},
         {"document": "another-document", "original_source": "another-document"},
     ):

@@ -742,7 +742,8 @@ class PreparedHanlpPort:
                 member.subject,
                 member.original_source,
                 member.analyzed_scope,
-             subject_definition=member.subject_definition)
+                subject_definition=member.subject_definition,
+            )
         canonical = CanonicalProduct(
             content,
             self.profile.prepared,

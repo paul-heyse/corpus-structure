@@ -67,7 +67,8 @@ def _entry(kernel, receipt):
             row["subject"],
             row["original_source"],
             canonical_bytes(row["analyzed_scope"]),
-         subject_definition="original-occurrence"),
+            subject_definition="original-occurrence",
+        ),
     )
 
 

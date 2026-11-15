@@ -6,14 +6,17 @@ import json
 import os
 from contextlib import contextmanager
 from pathlib import Path
-from semantic.data_operation_kernel_support import CapturedKernelInputs, KernelRecipe
-
-from semantic.current_pdf_source_support import (
-    current_pdf_source_factory as current_pdf_source_factory, admit_current_target, current_consumer_request,
-)
 from typing import cast as typing_cast
 
 import pytest
+from semantic.current_pdf_source_support import (
+    admit_current_target,
+    current_consumer_request,
+)
+from semantic.current_pdf_source_support import (
+    current_pdf_source_factory as current_pdf_source_factory,
+)
+from semantic.data_operation_kernel_support import CapturedKernelInputs, KernelRecipe
 from sqlalchemy import text
 
 from corpus_structure.orchestrate.data_operations import NativeDemandExecutor
@@ -113,10 +116,15 @@ def _case(current_pdf_source_factory, tmp_path, *, empty):
     with current_pdf_source_factory(rows) as source:
         kernel = admit_current_target(source, target, tmp_path / "consumer")
         clone = source.kernel.clone
-        request = current_consumer_request(source, kernel, ("extract.m1_candidates",), discover=True)
+        request = current_consumer_request(
+            source, kernel, ("extract.m1_candidates",), discover=True
+        )
         from corpus_structure.semantic.data_operation_service import create_native_demand
+
         with kernel.purpose("write").begin() as connection:
-            demand = create_native_demand(connection, request, prepared=kernel.prepared)["demand_id"]
+            demand = create_native_demand(connection, request, prepared=kernel.prepared)[
+                "demand_id"
+            ]
         acquired = read_data_operation_inputs(kernel.preparation.dependencies)
         assert acquired is not None and acquired[1] is not None
         captured = acquired[1]
@@ -206,8 +214,15 @@ def _m1_result(kernel, demand):
     return report, completion["execution_evidence"]
 
 
-def test_actual_m1_cpu_empty_scope_publishes_exact_empty_inspection_and_resumes(current_pdf_source_factory, tmp_path):
-    with _case(current_pdf_source_factory, tmp_path, empty=True) as (kernel, document_key, demand, executor):
+def test_actual_m1_cpu_empty_scope_publishes_exact_empty_inspection_and_resumes(
+    current_pdf_source_factory, tmp_path
+):
+    with _case(current_pdf_source_factory, tmp_path, empty=True) as (
+        kernel,
+        document_key,
+        demand,
+        executor,
+    ):
         executed = executor.run(demand)
         report, evidence = _m1_result(kernel, demand)
         assert executed.receipt_count >= 3
@@ -229,9 +244,15 @@ def test_actual_m1_cpu_empty_scope_publishes_exact_empty_inspection_and_resumes(
 @pytest.mark.provider_evidence
 @pytest.mark.prerequisite("pm2_native_assets")
 def test_actual_m1_bounded_gliner_questions_publish_candidate_inspection_with_cohort_custody(
-    current_pdf_source_factory, tmp_path,
+    current_pdf_source_factory,
+    tmp_path,
 ):
-    with _case(current_pdf_source_factory, tmp_path, empty=False) as (kernel, document_key, demand, executor):
+    with _case(current_pdf_source_factory, tmp_path, empty=False) as (
+        kernel,
+        document_key,
+        demand,
+        executor,
+    ):
         executed = executor.run(demand)
         report, evidence = _m1_result(kernel, demand)
         assert executed.receipt_count >= 3

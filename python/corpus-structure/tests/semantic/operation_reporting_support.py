@@ -3,7 +3,6 @@
 from functools import lru_cache
 
 from corpus_structure.semantic.composed import data_operation_dependencies
-from semantic.data_operation_declaration_support import contract, declarations
 from corpus_structure.semantic.prepare import prepare_release
 from corpus_structure.semantic.types import (
     PreparationProfile,
@@ -11,6 +10,7 @@ from corpus_structure.semantic.types import (
     SourceArtifact,
     SourceBundle,
 )
+from semantic.data_operation_declaration_support import contract, declarations
 
 
 @lru_cache(maxsize=1)
@@ -44,9 +44,16 @@ def prepared():
 
 def runtime(prepared, extra=()):
     import json
+
     from corpus_structure.semantic.data_operation_runtime import prepare_data_operation_runtime
 
-    required = json.loads(next(a.content for a in prepared.artifacts if a.kind == "data_operation_runtime_inputs.json"))
+    required = json.loads(
+        next(
+            a.content for a in prepared.artifacts if a.kind == "data_operation_runtime_inputs.json"
+        )
+    )
     names = {item["name"] for item in required}
     inputs = tuple(source for source in report_inputs()[1].artifacts if source.name in names)
-    return prepare_data_operation_runtime(prepared, (*inputs, *extra), execution_profile="controlled-report-runtime", observed={})
+    return prepare_data_operation_runtime(
+        prepared, (*inputs, *extra), execution_profile="controlled-report-runtime", observed={}
+    )

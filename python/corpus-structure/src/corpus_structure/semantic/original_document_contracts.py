@@ -28,35 +28,76 @@ def source_call_bindings(*, target_metadata=None):
 
     def field(name, relation, column=None, *, native=None):
         target = metadata.tables[relation].c[column or name]
-        return OperationFieldBinding(name, f"physical:{relation}.{target.name}", bool(target.nullable), native_parameter=native)
+        return OperationFieldBinding(
+            name,
+            f"physical:{relation}.{target.name}",
+            bool(target.nullable),
+            native_parameter=native,
+        )
 
-    registration = ("project_id", "key", "source_uri", "content_hash", "original_path", "mime", "title", "meta")
+    registration = (
+        "project_id",
+        "key",
+        "source_uri",
+        "content_hash",
+        "original_path",
+        "mime",
+        "title",
+        "meta",
+    )
     calls = (
         OperationCallBinding(
-            id="source_document_registration", symbol="semantic.original_documents.register_original_document",
+            id="source_document_registration",
+            symbol="semantic.original_documents.register_original_document",
             parameters=tuple(field(name, "kb.document") for name in registration),
             result_fields=tuple(field(name, "kb.document") for name in ("id", *registration)),
-            result_class="RegisteredOriginalDocument", cardinality="one", ordered=False,
-            result_mode="table", backend="core", json_read="json-text-v1", requires_context=True,
+            result_class="RegisteredOriginalDocument",
+            cardinality="one",
+            ordered=False,
+            result_mode="table",
+            backend="core",
+            json_read="json-text-v1",
+            requires_context=True,
         ),
         OperationCallBinding(
-            id="original_document_descriptor", symbol="semantic.original_documents.read_original_document_bytes",
+            id="original_document_descriptor",
+            symbol="semantic.original_documents.read_original_document_bytes",
             parameters=tuple(field(name, "kb.document") for name in ("project_id", "key")),
-            result_fields=tuple(field(name, "kb.document") for name in ("id", "project_id", "key", "content_hash", "mime")),
-            result_class="OriginalDocumentDescriptor", cardinality="optional", ordered=False,
-            result_mode="table", backend="core", requires_context=True,
+            result_fields=tuple(
+                field(name, "kb.document")
+                for name in ("id", "project_id", "key", "content_hash", "mime")
+            ),
+            result_class="OriginalDocumentDescriptor",
+            cardinality="optional",
+            ordered=False,
+            result_mode="table",
+            backend="core",
+            requires_context=True,
         ),
         OperationCallBinding(
-            id="original_document_artifact", symbol="semantic.original_documents.read_original_document_bytes",
+            id="original_document_artifact",
+            symbol="semantic.original_documents.read_original_document_bytes",
             parameters=(field("artifact_digest", "kb.source_artifact"),),
             result_fields=(field("content", "kb.source_artifact"),),
-            cardinality="optional", ordered=False, result_mode="scalar", backend="core", requires_context=True,
+            cardinality="optional",
+            ordered=False,
+            result_mode="scalar",
+            backend="core",
+            requires_context=True,
         ),
         OperationCallBinding(
-            id="retain_original_document", symbol="ops.retain_original_document",
-            parameters=(field("release_id", "sem.release", native="p_release"), field("document_id", "kb.document", "id", native="p_document"), field("original", "kb.source_artifact", "content", native="p_original")),
+            id="retain_original_document",
+            symbol="ops.retain_original_document",
+            parameters=(
+                field("release_id", "sem.release", native="p_release"),
+                field("document_id", "kb.document", "id", native="p_document"),
+                field("original", "kb.source_artifact", "content", native="p_original"),
+            ),
             result_fields=(field("digest", "kb.source_artifact", "artifact_digest"),),
-            cardinality="one", ordered=False, result_mode="scalar", requires_context=True,
+            cardinality="one",
+            ordered=False,
+            result_mode="scalar",
+            requires_context=True,
         ),
     )
     return resolve_call_bindings(
@@ -72,28 +113,49 @@ def source_admission_asset(*, target_metadata=None) -> SourceArtifact:
 
     selected = metadata if target_metadata is None else target_metadata
 
-    return SourceArtifact(ASSET, canonical_bytes({
-        "version": "source-admission-helper-bindings-v1", "operation": OPERATION,
-        "physical_model": selected.info["physical_model_id"],
-        "calls": [asdict(call) for _, call in source_call_bindings(target_metadata=selected)],
-        "sources": {
-            "original_document_contracts.py": sha256(Path(__file__).read_bytes()).hexdigest(),
-            "original_documents.py": sha256(Path(__file__).with_name("original_documents.py").read_bytes()).hexdigest(),
-            "source_originals.sql": sha256(_SQL.read_bytes()).hexdigest(),
-        },
-    }))
+    return SourceArtifact(
+        ASSET,
+        canonical_bytes(
+            {
+                "version": "source-admission-helper-bindings-v1",
+                "operation": OPERATION,
+                "physical_model": selected.info["physical_model_id"],
+                "calls": [
+                    asdict(call) for _, call in source_call_bindings(target_metadata=selected)
+                ],
+                "sources": {
+                    "original_document_contracts.py": sha256(
+                        Path(__file__).read_bytes()
+                    ).hexdigest(),
+                    "original_documents.py": sha256(
+                        Path(__file__).with_name("original_documents.py").read_bytes()
+                    ).hexdigest(),
+                    "source_originals.sql": sha256(_SQL.read_bytes()).hexdigest(),
+                },
+            }
+        ),
+    )
 
 
-def source_admission_sources(*, physical_sources=None, linkml_types=None) -> tuple[SourceArtifact, ...]:
+def source_admission_sources(
+    *, physical_sources=None, linkml_types=None
+) -> tuple[SourceArtifact, ...]:
     from corpus_structure.schema.physical import compile_physical
 
     if physical_sources is not None and not isinstance(linkml_types, bytes):
         raise ValueError("explicit source helper capture requires LinkML types")
-    selected = None if physical_sources is None else compile_physical(physical_sources, linkml_types=linkml_types)
+    selected = (
+        None
+        if physical_sources is None
+        else compile_physical(physical_sources, linkml_types=linkml_types)
+    )
     return (
         source_admission_asset(target_metadata=selected),
         SourceArtifact("native/original-document-contracts.py", Path(__file__).read_bytes()),
-        SourceArtifact("native/original-documents.py", Path(__file__).with_name("original_documents.py").read_bytes()),
+        SourceArtifact(
+            "native/original-documents.py",
+            Path(__file__).with_name("original_documents.py").read_bytes(),
+        ),
         SourceArtifact("native/source-originals.sql", _SQL.read_bytes()),
     )
 
@@ -104,9 +166,17 @@ def operation_asset(sources) -> tuple[str, dict]:
         raise ValueError("source admission requires one captured helper asset")
     source = selected[0]
     content = json.loads(source.content)
-    if content.get("version") != "source-admission-helper-bindings-v1" or content.get("operation") != OPERATION:
+    if (
+        content.get("version") != "source-admission-helper-bindings-v1"
+        or content.get("operation") != OPERATION
+    ):
         raise ValueError("unsupported source admission helper asset")
-    return content["operation"], {"reference": ASSET, "contract": CONTRACT, "role": ROLE, "content_digest": source.digest}
+    return content["operation"], {
+        "reference": ASSET,
+        "contract": CONTRACT,
+        "role": ROLE,
+        "content_digest": source.digest,
+    }
 
 
 def require_source_operation_context(prepared):
@@ -114,7 +184,13 @@ def require_source_operation_context(prepared):
 
     owner = bound_data_operation_model(prepared).operation(OPERATION)
     expected = source_admission_asset()
-    if not any(asset.reference == ASSET and asset.contract == CONTRACT and asset.role == ROLE and asset.content_digest == expected.digest for asset in owner.assets):
+    if not any(
+        asset.reference == ASSET
+        and asset.contract == CONTRACT
+        and asset.role == ROLE
+        and asset.content_digest == expected.digest
+        for asset in owner.assets
+    ):
         raise ValueError("source helper asset differs from the checked operation")
     return owner
 
@@ -131,7 +207,13 @@ def require_source_call_context(prepared, operation: str, variant: str, digest: 
 def require_source_database_context(connection, prepared) -> None:
     from sqlalchemy import Text, bindparam, func, select
 
-    connection.execute(select(func.ops.require_source_admission(bindparam("_source_release", prepared.release_id, type_=Text())))).scalar_one()
+    connection.execute(
+        select(
+            func.ops.require_source_admission(
+                bindparam("_source_release", prepared.release_id, type_=Text())
+            )
+        )
+    ).scalar_one()
 
 
 def source_original_sql(sources=None) -> str:
@@ -145,16 +227,22 @@ def source_original_sql(sources=None) -> str:
 
 def generated_source_calls() -> str:
     from corpus_structure.schema.generate import _format
+
     from .metadata import metadata
     from .operation_call_generation import render_call_bindings
 
-    return _format("semantic/_source_admission_calls.py", render_call_bindings(
-        source_call_bindings(), metadata, canonical_identifiers=True,
-        identifiers_module="._source_admission_enums",
-        context_validator=(".original_document_contracts", "require_source_call_context"),
-        value_base=(".data_operation_ports", "DataOperationWireValue"),
-        row_base=(".data_operation_ports", "DataOperationNativeRow"),
-    ))
+    return _format(
+        "semantic/_source_admission_calls.py",
+        render_call_bindings(
+            source_call_bindings(),
+            metadata,
+            canonical_identifiers=True,
+            identifiers_module="._source_admission_enums",
+            context_validator=(".original_document_contracts", "require_source_call_context"),
+            value_base=(".data_operation_ports", "DataOperationWireValue"),
+            row_base=(".data_operation_ports", "DataOperationNativeRow"),
+        ),
+    )
 
 
 if __name__ == "__main__":

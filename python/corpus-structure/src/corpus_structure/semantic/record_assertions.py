@@ -21,12 +21,16 @@ from .record_contracts import (
     anchor_identity,
     evidence_set_identity,
     interpretation_identity,
-    record_identity,
     record_family_contract,
+    record_identity,
 )
-from .types import PreparationProfile, PreparedRelease, SourceArtifact, SourceBundle
-
-from .rich_record_readings import READING_CLASSES as _FAMILIES, READING_VALUE_FIELDS as _VALUE_FIELDS
+from .rich_record_readings import (
+    READING_CLASSES as _FAMILIES,
+)
+from .rich_record_readings import (
+    READING_VALUE_FIELDS as _VALUE_FIELDS,
+)
+from .types import PreparedRelease
 
 
 @dataclass(frozen=True)
@@ -80,7 +84,8 @@ def lower_record_assertions(
     realization_id: str,
     batch_id: str,
     reports: Sequence[Mapping[str, Any]],
-    *, model,
+    *,
+    model,
 ) -> RecordAssertionLowering:
     """Lower complete candidate readings, with no selected facts or acceptance overlay.
 
@@ -126,7 +131,8 @@ def lower_record_assertions(
                 prepared.validate_python("SourceRecord", row)
                 if (
                     row["pin"]["source"] != report["source"]
-                    or record_identity(record_family_contract(model, row["contract"]), row) != key[0]
+                    or record_identity(record_family_contract(model, row["contract"]), row)
+                    != key[0]
                     or interpretation_identity(row) != key[1]
                 ):
                     raise ValueError("source-reading identity/source differs from sealed record")

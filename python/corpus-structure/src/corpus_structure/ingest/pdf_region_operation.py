@@ -11,8 +11,12 @@ class PdfRegionFamily:
         "id": "source.pdf_region/render",
         "profile": "derivation",
         "subject": "original-document",
-        "subject_definition": {'id': 'original-document', 'identifier_kind': 'string', 'scope': 'original-document'},
-        "discovery_relation": 'role-associated',
+        "subject_definition": {
+            "id": "original-document",
+            "identifier_kind": "string",
+            "scope": "original-document",
+        },
+        "discovery_relation": "role-associated",
         "context": ["original-source", "exact-selected-pdf", "native-occurrence-region"],
         "entrypoints": ["run"],
         "roles": [
@@ -59,13 +63,19 @@ class PdfRegionFamily:
             "cancellation": "cooperative",
             "ownership": "selected-original-render",
         },
-        "applicability": [{'kind': 'documentation', 'text': 'authenticated-sealed-pdf-publication'}],
-        "invariants": [
-            {'kind': 'documentation', 'text': 'exact-original-byte-digest'},
-            {'kind': 'documentation', 'text': 'native-geometry-only'},
-            {'kind': 'documentation', 'text': 'exact-publisher-support'},
+        "applicability": [
+            {"kind": "documentation", "text": "authenticated-sealed-pdf-publication"}
         ],
-        "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "native-occurrence-region"},
+        "invariants": [
+            {"kind": "documentation", "text": "exact-original-byte-digest"},
+            {"kind": "documentation", "text": "native-geometry-only"},
+            {"kind": "documentation", "text": "exact-publisher-support"},
+        ],
+        "coverage": {
+            "binding": "self",
+            "result_owners": [{"kind": "implementation", "reference": "self"}],
+            "description": "native-occurrence-region",
+        },
         "outcomes": ["success", "failed"],
         "precision_description": "png-from-native-pdf-point-region",
         "behavior": "render selected native geometry using the authenticated original PDF",

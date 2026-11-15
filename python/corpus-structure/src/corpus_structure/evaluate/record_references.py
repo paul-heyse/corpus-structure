@@ -170,7 +170,9 @@ def decode_authored(
     if actual != expected or not payload["reason"].strip():
         raise ReferenceError("independent reading differs from frozen guideline/release/frame")
     side = RecordSide(frame, payload["records"])
-    align_independent_references(side, side, prepared, model=model, coordinate_texts=coordinate_texts)
+    align_independent_references(
+        side, side, prepared, model=model, coordinate_texts=coordinate_texts
+    )
     return payload
 
 
@@ -235,7 +237,13 @@ def record_pass(
     if decode_frame(unit["context"][0]) != frame:
         raise ReferenceError("author frame differs from source-only frozen unit")
     contexts = _coordinates(conn, prepared, unit, payload["records"])
-    decode_authored(prepared, authored, frame, model=bound_data_operation_model(prepared), coordinate_texts=contexts)
+    decode_authored(
+        prepared,
+        authored,
+        frame,
+        model=bound_data_operation_model(prepared),
+        coordinate_texts=contexts,
+    )
     return _call(
         conn,
         "SELECT eval.record_source_record_reference_pass(:u,:k,:a,:b,CAST(:f AS jsonb))",
@@ -271,7 +279,13 @@ def read_pass(
         raise ReferenceError("immutable reference frame differs from selected reference unit")
     raw = prepared.validate_json("ReferenceRecordBatch", authored).model_dump(mode="python")
     contexts = _coordinates(conn, prepared, unit, raw["records"])
-    payload = decode_authored(prepared, authored, frame, model=bound_data_operation_model(prepared), coordinate_texts=contexts)
+    payload = decode_authored(
+        prepared,
+        authored,
+        frame,
+        model=bound_data_operation_model(prepared),
+        coordinate_texts=contexts,
+    )
     return StoredRecordReferencePass(
         pass_id,
         unit["id"],

@@ -16,8 +16,12 @@ class ComposeFullDocumentOperation(PreparedCompositionReceiver):
         "id": "text.compose_view/full-native",
         "profile": "derivation",
         "subject": "original-document",
-        "subject_definition": {'id': 'original-document', 'identifier_kind': 'string', 'scope': 'original-document'},
-        "discovery_relation": 'role-associated',
+        "subject_definition": {
+            "id": "original-document",
+            "identifier_kind": "string",
+            "scope": "original-document",
+        },
+        "discovery_relation": "role-associated",
         "context": ["original-source", "selected-scope"],
         "entrypoints": ["run"],
         "roles": [
@@ -191,13 +195,19 @@ class ComposeFullDocumentOperation(PreparedCompositionReceiver):
                 "presence": "optional",
             },
         ],
-        "applicability": [{'kind': 'documentation', 'text': 'qualified-full-characterization-fan-in'}],
-        "invariants": [
-            {'kind': 'documentation', 'text': 'original-source-coordinates'},
-            {'kind': 'documentation', 'text': 'governed-semantic-member-references'},
-            {'kind': 'documentation', 'text': 'explicit-coverage-and-private-standing'},
+        "applicability": [
+            {"kind": "documentation", "text": "qualified-full-characterization-fan-in"}
         ],
-        "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "complete-frozen-source-population-per-declared-family"},
+        "invariants": [
+            {"kind": "documentation", "text": "original-source-coordinates"},
+            {"kind": "documentation", "text": "governed-semantic-member-references"},
+            {"kind": "documentation", "text": "explicit-coverage-and-private-standing"},
+        ],
+        "coverage": {
+            "binding": "self",
+            "result_owners": [{"kind": "implementation", "reference": "self"}],
+            "description": "complete-frozen-source-population-per-declared-family",
+        },
         "outcomes": ["success", "empty", "failed"],
         "precision_description": "retained-positioned-characterization",
         "dependencies": ["source.selected_views/discovery"],

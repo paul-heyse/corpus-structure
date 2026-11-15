@@ -24,14 +24,24 @@ from .observations import source_python
 from .refusals import SemanticReason
 from .rich_graph_validation import RichWholeInput, ValidatedRichGraph, read_rich_graph
 from .rich_knowledge_contracts import (
-    DdoRichAssessment, DdoRichAuthoredPropositions, DdoRichConsolidation, DdoRichFact, DdoRichOccurrence,
-    DdoRichSelectedMember, RichGraphAssembly, rich_reference_key,
+    DdoRichAssessment,
+    DdoRichAuthoredPropositions,
+    DdoRichConsolidation,
+    DdoRichFact,
+    DdoRichOccurrence,
+    DdoRichSelectedMember,
+    RichGraphAssembly,
+    rich_reference_key,
 )
 from .rich_rules import RichRulePolicy
 from .scientific_evidence import (
-    CONSOLIDATION_PROFILE, SCIENTIFIC_POLICY_INPUT, EvidenceTier,
-    ScientificInterpretationUnavailable, SemanticComparator,
-    require_scientific_policy, scientific_assessment_reason,
+    CONSOLIDATION_PROFILE,
+    SCIENTIFIC_POLICY_INPUT,
+    EvidenceTier,
+    ScientificInterpretationUnavailable,
+    SemanticComparator,
+    require_scientific_policy,
+    scientific_assessment_reason,
 )
 from .types import PreparedRelease
 
@@ -42,6 +52,7 @@ _PACKET = "https://corpus-structure.dev/semantic/data-operation-external-extract
 
 class RichScientificSourceContext(BaseModel):
     """Actual proposition member and its selected interpretation owner's explicit macros."""
+
     model_config = ConfigDict(extra="forbid", frozen=True)
     original: DdoRichSelectedMember
     context: DdoRichSelectedMember
@@ -69,21 +80,32 @@ def _expression_contexts(value: Any):
             yield from _expression_contexts(item)
 
 
-def checked_rich_operand_macros(value: Any, context: RichScientificSourceContext) -> dict[str, MacroDef]:
+def checked_rich_operand_macros(
+    value: Any, context: RichScientificSourceContext
+) -> dict[str, MacroDef]:
     """Verify the fact's referenced macro meaning against its actual source packet."""
     projected = bind_expression_context(value, context.macros)
-    for actual, expected in zip(_expression_contexts(value), _expression_contexts(projected), strict=True):
+    for actual, expected in zip(
+        _expression_contexts(value), _expression_contexts(projected), strict=True
+    ):
         observed = actual.get("macro_context", {})
         required = expected.get("macro_context", {})
         if canonical_bytes(observed) != canonical_bytes(required):
             raise ValueError("rich scientific operand lacks its exact source-bound macro context")
-    names = {name for expression in _expression_contexts(projected) for name in expression.get("macro_context", {})}
+    names = {
+        name
+        for expression in _expression_contexts(projected)
+        for name in expression.get("macro_context", {})
+    }
     return {name: context.macros[name] for name in sorted(names)}
 
 
 def checked_rich_source_contexts(
-    prepared: PreparedRelease, state: ValidatedRichGraph, *,
-    source_contexts: tuple[RichScientificSourceContext, ...], whole_inputs: tuple[RichWholeInput, ...],
+    prepared: PreparedRelease,
+    state: ValidatedRichGraph,
+    *,
+    source_contexts: tuple[RichScientificSourceContext, ...],
+    whole_inputs: tuple[RichWholeInput, ...],
 ) -> dict[bytes, RichScientificSourceContext]:
     """Check actual selected packet/authored macros once for scientific and rule consumers."""
     packet_inputs = {rich_reference_key(item.reference): item.value for item in whole_inputs}
@@ -95,7 +117,9 @@ def checked_rich_source_contexts(
         state.external(source.context)
         owner = state.kind(source.context.kind_contract).semantic_id
         if source.context.member_id is not None or owner not in {_PACKET, _AUTHORED}:
-            raise ValueError("rich scientific context is not its actual selected extraction packet or authored propositions")
+            raise ValueError(
+                "rich scientific context is not its actual selected extraction packet or authored propositions"
+            )
         packet = packet_inputs.get(rich_reference_key(source.context))
         if packet is None:
             raise ValueError("rich scientific context lacks its actual selected packet body")
@@ -104,11 +128,14 @@ def checked_rich_source_contexts(
             actual_macros = source_python(_plain(checked_packet)["macros"])
         else:
             from .data_operation_ports import _untrusted_value
+
             authored = DdoRichAuthoredPropositions.model_validate(_untrusted_value(packet))
             actual_macros = _plain(authored.macros)
         if not isinstance(actual_macros, dict):
             raise ValueError("rich scientific packet macros are not an explicit source mapping")
-        parsed_macros = {name: MacroDef.model_validate(value) for name, value in actual_macros.items()}
+        parsed_macros = {
+            name: MacroDef.model_validate(value) for name, value in actual_macros.items()
+        }
         if parsed_macros != source.macros:
             raise ValueError("rich scientific macros differ from the actual selected packet")
         key = rich_reference_key(source.original)
@@ -140,8 +167,18 @@ def assess_rich_scientific(
     if policy.prepared != prepared:
         raise ValueError("rich scientific policy differs from its actual prepared interpretation")
     require_scientific_policy(prepared, context_profile=context_profile)
-    state = read_rich_graph(prepared, model, context=context, graph=graph, inputs=inputs, whole_inputs=whole_inputs, retained_graphs=retained_graphs)
-    contexts = checked_rich_source_contexts(prepared, state, source_contexts=source_contexts, whole_inputs=whole_inputs)
+    state = read_rich_graph(
+        prepared,
+        model,
+        context=context,
+        graph=graph,
+        inputs=inputs,
+        whole_inputs=whole_inputs,
+        retained_graphs=retained_graphs,
+    )
+    contexts = checked_rich_source_contexts(
+        prepared, state, source_contexts=source_contexts, whole_inputs=whole_inputs
+    )
     groups = defaultdict(list)
     for occurrence in state.members.values():
         if not isinstance(occurrence, DdoRichOccurrence):
@@ -150,32 +187,44 @@ def assess_rich_scientific(
         definition, prop, _ = state.property(fact.property_contract)
         metadata = policy.metadata.get((definition.name, prop.iri), {})
         if not (
-            prop.constraint_scope == "accepted_value" and metadata.get("cs:role") == "predicate"
+            prop.constraint_scope == "accepted_value"
+            and metadata.get("cs:role") == "predicate"
             and (not prop.multivalued or str(metadata.get("cs:functional", "")).lower() == "true")
         ):
             continue
         # Provenance is excluded by the checked qualification-meaning owner. Scope,
         # modality, conditions and time remain exact boundaries of the comparison.
-        groups[(fact.subject_entity, fact.property_contract, fact.qualification_meaning)].append(occurrence)
+        groups[(fact.subject_entity, fact.property_contract, fact.qualification_meaning)].append(
+            occurrence
+        )
     results = []
-    policy_digest = next(item.digest for item in prepared.artifacts if item.kind == SCIENTIFIC_POLICY_INPUT)
+    policy_digest = next(
+        item.digest for item in prepared.artifacts if item.kind == SCIENTIFIC_POLICY_INPUT
+    )
     comparators = {}
     for slot in sorted(groups):
         members = sorted(groups[slot], key=lambda item: item.occurrence_id)
         for left_occurrence, right_occurrence in combinations(members, 2):
             if left_occurrence.fact_id == right_occurrence.fact_id:
                 continue
-            if {left_occurrence.occurrence_id, right_occurrence.occurrence_id} <= state.retained_member_ids:
+            if {
+                left_occurrence.occurrence_id,
+                right_occurrence.occurrence_id,
+            } <= state.retained_member_ids:
                 continue
             operands, qualifiers, source_pair, macros = [], [], [], []
             for occurrence in (left_occurrence, right_occurrence):
                 source = contexts.get(rich_reference_key(occurrence.original))
                 if source is None:
-                    raise ValueError("rich scientific occurrence lacks its explicit selected source context")
+                    raise ValueError(
+                        "rich scientific occurrence lacks its explicit selected source context"
+                    )
                 source_pair.append(source)
                 fact = state.member(occurrence.fact_id, DdoRichFact)
                 definition, prop, _ = state.property(fact.property_contract)
-                value = _plain(state.property_value(fact.object_value, definition, prop, item=prop.multivalued))
+                value = _plain(
+                    state.property_value(fact.object_value, definition, prop, item=prop.multivalued)
+                )
                 if prop.range in prepared.index.definitions and not prop.inlined:
                     value = {"kind": "entity", "target": value}
                 qualification = _plain(state.value(occurrence.observed_qualification_value))
@@ -191,41 +240,85 @@ def assess_rich_scientific(
                     operative = {**macros[0], **macros[1]}
                     key = canonical_bytes(_plain(operative))
                     if key not in comparators:
-                        comparators[key] = SemanticComparator(operative, prepared=prepared, context_profile=context_profile)
+                        comparators[key] = SemanticComparator(
+                            operative, prepared=prepared, context_profile=context_profile
+                        )
                     condition = qualifiers[0].get("condition")
                     comparison = comparators[key].compare(
-                        operands[0], operands[1], (condition,) if condition is not None else (), ref_eq=lambda a, b: a == b,
+                        operands[0],
+                        operands[1],
+                        (condition,) if condition is not None else (),
+                        ref_eq=lambda a, b: a == b,
                     )
                     detail = comparison.detail
             except ScientificInterpretationUnavailable as error:
                 detail = str(error)
-            outcome = "undecided" if comparison is None or comparison.tier is EvidenceTier.UNDECIDED else "equivalent" if comparison.equal else "different"
+            outcome = (
+                "undecided"
+                if comparison is None or comparison.tier is EvidenceTier.UNDECIDED
+                else "equivalent"
+                if comparison.equal
+                else "different"
+            )
             occurrences = (left_occurrence.occurrence_id, right_occurrence.occurrence_id)
             if outcome == "undecided":
                 semantic_reason = SemanticReason(
-                    "incompatible_bindings" if incompatible else "unsupported_interpretation", "scientific_policy",
-                    None, occurrences, detail=detail or "no faithful comparison operand",
+                    "incompatible_bindings" if incompatible else "unsupported_interpretation",
+                    "scientific_policy",
+                    None,
+                    occurrences,
+                    detail=detail or "no faithful comparison operand",
                 )
             evidence = comparison.evidence if comparison is not None else None
             reason = scientific_assessment_reason(
-                evidence, detail=detail or f"{outcome} under {CONSOLIDATION_PROFILE}", semantic_reason=semantic_reason,
-                context=semantic_value({"left": operands[0], "right": operands[1], "qualification": qualifiers,
-                                        "macros": [_plain(item) for item in macros]}),
+                evidence,
+                detail=detail or f"{outcome} under {CONSOLIDATION_PROFILE}",
+                semantic_reason=semantic_reason,
+                context=semantic_value(
+                    {
+                        "left": operands[0],
+                        "right": operands[1],
+                        "qualification": qualifiers,
+                        "macros": [_plain(item) for item in macros],
+                    }
+                ),
             )
             references = {}
-            for occurrence, source in zip((left_occurrence, right_occurrence), source_pair, strict=True):
+            for occurrence, source in zip(
+                (left_occurrence, right_occurrence), source_pair, strict=True
+            ):
                 retained = state.retained_sources(occurrence.occurrence_id)
-                source_refs = (*retained, source.context) if retained else (occurrence.original, occurrence.statement, source.context)
+                source_refs = (
+                    (*retained, source.context)
+                    if retained
+                    else (occurrence.original, occurrence.statement, source.context)
+                )
                 for reference in source_refs:
                     if reference is not None:
                         references[rich_reference_key(reference)] = reference
             evidence_members = tuple(references[key] for key in sorted(references))
-            identity = canonical_identity("rich-assessment", [
-                context.identity_record, _RULE, policy_digest, occurrences, outcome, reason,
-                [item.model_dump(mode="python") for item in evidence_members],
-            ]).key
-            results.append(DdoRichAssessment(
-                severity=None, member_type="assessment", assessment_id=identity, occurrences=occurrences,
-                rule=_RULE, outcome=outcome, reason=reason, evidence_members=evidence_members,
-            ))
+            identity = canonical_identity(
+                "rich-assessment",
+                [
+                    context.identity_record,
+                    _RULE,
+                    policy_digest,
+                    occurrences,
+                    outcome,
+                    reason,
+                    [item.model_dump(mode="python") for item in evidence_members],
+                ],
+            ).key
+            results.append(
+                DdoRichAssessment(
+                    severity=None,
+                    member_type="assessment",
+                    assessment_id=identity,
+                    occurrences=occurrences,
+                    rule=_RULE,
+                    outcome=outcome,
+                    reason=reason,
+                    evidence_members=evidence_members,
+                )
+            )
     return tuple(sorted(results, key=lambda item: item.assessment_id))

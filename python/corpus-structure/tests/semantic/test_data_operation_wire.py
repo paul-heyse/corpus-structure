@@ -21,16 +21,27 @@ from corpus_structure.semantic.data_operation_wire import (
 )
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.types import SourceArtifact
-from semantic.data_operation_port_support import captured
 from semantic.data_operation_declaration_support import contract
+from semantic.data_operation_port_support import captured
 
 
 def controlled_wire_declaration():
     declaration: dict[str, Any] = contract(
-        id="data.claim_data_request", profile="command",
-        behavior="controlled-native-wire-v1", invariants=[], outcomes=["success"],
-        transitions=[], state_dimensions=[],
-        effects=[{"name": "controlled-wire-effect", "authorization": ["controlled-native-purpose"], "idempotency": "request-generation-and-holder", "fulfillment": "native-transaction"}],
+        id="data.claim_data_request",
+        profile="command",
+        behavior="controlled-native-wire-v1",
+        invariants=[],
+        outcomes=["success"],
+        transitions=[],
+        state_dimensions=[],
+        effects=[
+            {
+                "name": "controlled-wire-effect",
+                "authorization": ["controlled-native-purpose"],
+                "idempotency": "request-generation-and-holder",
+                "fulfillment": "native-transaction",
+            }
+        ],
     )
     return declaration
 
@@ -131,8 +142,12 @@ def test_generated_boundaries_execute_the_captured_nested_wire_contract(monkeypa
 
     from pydantic import ValidationError
 
-    from corpus_structure.semantic.native_call_contracts import OperationCallBinding, OperationFieldBinding, OperationFieldType
     from corpus_structure.semantic.data_operation_artifacts import compile_data_operation_artifacts
+    from corpus_structure.semantic.native_call_contracts import (
+        OperationCallBinding,
+        OperationFieldBinding,
+        OperationFieldType,
+    )
 
     model = wire_model(captured())
     scalar_json = OperationFieldType("json_payload", False, False)
@@ -220,7 +235,12 @@ def test_nested_support_and_product_member_attributes_cannot_hide_type_coercion(
         {
             "member_id": "m",
             "kind_contract": "kind:member",
-            "context": {"subject": "member:m", "original_source": "source:x", "analyzed_scope": {}, "subject_definition": "original-source-view"},
+            "context": {
+                "subject": "member:m",
+                "original_source": "source:x",
+                "analyzed_scope": {},
+                "subject_definition": "original-source-view",
+            },
             "body": ["mapping", []],
             "choices": [{"choice_group": "g", "alternative": "a", "selected": True}],
         }
@@ -426,7 +446,8 @@ def test_member_context_is_required_and_does_not_reinterpret_domain_subject():
             "subject": "occurrence:x",
             "original_source": "source:x",
             "analyzed_scope": {"page": 2},
-         "subject_definition": "original-source-view"},
+            "subject_definition": "original-source-view",
+        },
         "body": ["mapping", [["subject", ["string", "linguistic-subject"]]]],
     }
     accepted = validate_native_wire(
@@ -481,7 +502,12 @@ def test_endpoint_scope_is_explicit_and_local_never_embeds_a_self_product_key(en
     member = {
         "member_id": "member:x",
         "kind_contract": "kind:member",
-        "context": {"subject": "occurrence:x", "original_source": "source:x", "analyzed_scope": {}, "subject_definition": "original-source-view"},
+        "context": {
+            "subject": "occurrence:x",
+            "original_source": "source:x",
+            "analyzed_scope": {},
+            "subject_definition": "original-source-view",
+        },
         "body": ["mapping", [["endpoints", ["sequence", []]]]],
         "endpoints": [endpoint],
     }
@@ -524,7 +550,8 @@ def test_frontier_and_products_views_expose_explicit_body_states():
         "original_source": "source:x",
         "analyzed_scope": {},
         "body_state": "not_requested",
-     "subject_definition": "original-source-view"}
+        "subject_definition": "original-source-view",
+    }
     selection = {
         "inputs": [],
         "support": [],
@@ -601,7 +628,12 @@ def test_member_wire_carries_a_distinct_authenticated_kind_contract():
     member: dict[str, Any] = {
         "member_id": "member:x",
         "kind_contract": "kind:member",
-        "context": {"subject": "occurrence:x", "original_source": "source:x", "analyzed_scope": {}, "subject_definition": "original-source-view"},
+        "context": {
+            "subject": "occurrence:x",
+            "original_source": "source:x",
+            "analyzed_scope": {},
+            "subject_definition": "original-source-view",
+        },
         "body": ["integer", "7"],
     }
     request = member_completion(member, domain_body=7)
@@ -755,7 +787,8 @@ def test_selected_population_wire_accepts_only_authenticated_parent_and_frozen_f
         "filter": {"operator": "all", "children": []},
         "parameter_meaning": ["mapping", []],
         "choices": {},
-     "subject_definition": "original-source-view"}
+        "subject_definition": "original-source-view",
+    }
     result = {
         "population_id": "population:selected",
         "name": "selected-items",
@@ -875,7 +908,10 @@ def test_source_set_wire_uses_existing_semantic_reference_shapes(member):
     product = DataProductReference("product:one")
     reference = product if member is None else DataProductMemberReference(product, member)
     entry = SourceSetEntry.from_semantic_source(
-        reference, context=SubjectContext("project", "subject", "source", b"{}", subject_definition="document")
+        reference,
+        context=SubjectContext(
+            "project", "subject", "source", b"{}", subject_definition="document"
+        ),
     ).record()
     native = wire_contracts()["register_data_demand"]["input"]
     schema = {

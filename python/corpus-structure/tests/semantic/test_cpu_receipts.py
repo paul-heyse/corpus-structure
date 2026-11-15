@@ -12,7 +12,11 @@ from corpus_structure.semantic.identity import canonical_bytes
 
 def receipt():
     return CPUExecutionReceipt(
-        "a" * 64, 123, True, 1, canonical_bytes([{"num_threads": 1, "version": None}]),
+        "a" * 64,
+        123,
+        True,
+        1,
+        canonical_bytes([{"num_threads": 1, "version": None}]),
         sha256(b"actual reply").hexdigest(),
     )
 

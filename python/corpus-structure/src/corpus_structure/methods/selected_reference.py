@@ -8,8 +8,12 @@ class SelectedReferenceSnapshotOperation:
         "id": "reference.snapshot/declared",
         "profile": "derivation",
         "subject": "independent-reference",
-        "subject_definition": {'id': 'independent-reference', 'identifier_kind': 'string', 'scope': 'project'},
-        "discovery_relation": 'role-associated',
+        "subject_definition": {
+            "id": "independent-reference",
+            "identifier_kind": "string",
+            "scope": "project",
+        },
+        "discovery_relation": "role-associated",
         "context": ["authored-reference", "frozen-original-source", "protected-evaluator-purpose"],
         "entrypoints": ["run"],
         "roles": [
@@ -40,14 +44,20 @@ class SelectedReferenceSnapshotOperation:
                 "presence": "required",
             },
         ],
-        "applicability": [{'kind': 'documentation', 'text': 'explicit-independent-adjudicated-reference'}],
-        "invariants": [
-            {'kind': 'documentation', 'text': 'no-prediction-input'},
-            {'kind': 'documentation', 'text': 'source-release-remains-original'},
-            {'kind': 'documentation', 'text': 'questions-and-denominators-remain-frozen'},
-            {'kind': 'documentation', 'text': 'evaluator-only-kind'},
+        "applicability": [
+            {"kind": "documentation", "text": "explicit-independent-adjudicated-reference"}
         ],
-        "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "exact-frozen-reference-population"},
+        "invariants": [
+            {"kind": "documentation", "text": "no-prediction-input"},
+            {"kind": "documentation", "text": "source-release-remains-original"},
+            {"kind": "documentation", "text": "questions-and-denominators-remain-frozen"},
+            {"kind": "documentation", "text": "evaluator-only-kind"},
+        ],
+        "coverage": {
+            "binding": "self",
+            "result_owners": [{"kind": "implementation", "reference": "self"}],
+            "description": "exact-frozen-reference-population",
+        },
         "outcomes": ["success", "failed"],
         "precision_description": "exact-authored-semantic-values",
         "dependencies": [],

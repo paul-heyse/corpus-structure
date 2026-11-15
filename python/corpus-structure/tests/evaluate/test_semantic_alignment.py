@@ -21,12 +21,14 @@ from corpus_structure.semantic.types import (
 @cache
 def analysis_context():
     from corpus_structure.semantic.analysis_contracts import acquire_analysis_context_profile
+
     return acquire_analysis_context_profile()
 
 
 @cache
 def alignment_policy():
     from corpus_structure.semantic.analysis_policies import acquire_analysis_policies
+
     return acquire_analysis_policies().alignment
 
 
@@ -103,12 +105,24 @@ def side(value, **kwargs):
 
 def test_canonical_qualifications_and_evidence_have_separate_scoring_tiers():
     a, b = batch(), batch(polarity=False)
-    alignment = align_semantic(side(a), side(b), prepared().bound(), alignment_policy=alignment_policy(), context_profile=analysis_context())
+    alignment = align_semantic(
+        side(a),
+        side(b),
+        prepared().bound(),
+        alignment_policy=alignment_policy(),
+        context_profile=analysis_context(),
+    )
     assert alignment.counts["core"].matched == 1
     assert alignment.counts["full"].matched == 0
     assert alignment.counts["evidence"].matched == 0
     b = batch(evidence=False)
-    alignment = align_semantic(side(a), side(b), prepared().bound(), alignment_policy=alignment_policy(), context_profile=analysis_context())
+    alignment = align_semantic(
+        side(a),
+        side(b),
+        prepared().bound(),
+        alignment_policy=alignment_policy(),
+        context_profile=analysis_context(),
+    )
     assert alignment.counts["full"].matched == 1
     assert alignment.counts["evidence"].matched == 0
 
@@ -120,7 +134,13 @@ def test_duplicate_supports_cannot_inflate_a_fact_and_context_is_uncounted():
     duplicate["id"] = "duplicate"
     duplicate["evidence"] = [{"role": "primary", "outcome": "located", "start": 1, "end": 5}]
     b["claims"].append(duplicate)
-    got = align_semantic(side(a), side(b), prepared().bound(), alignment_policy=alignment_policy(), context_profile=analysis_context())
+    got = align_semantic(
+        side(a),
+        side(b),
+        prepared().bound(),
+        alignment_policy=alignment_policy(),
+        context_profile=analysis_context(),
+    )
     assert got.counts["full"].as_dict() == {
         "reference": 1,
         "prediction": 1,
@@ -129,21 +149,35 @@ def test_duplicate_supports_cannot_inflate_a_fact_and_context_is_uncounted():
         "recall": 1.0,
         "f1": 1.0,
     }
-    got = align_semantic(side(a, context=frozenset({"c"})), side(b), prepared().bound(), alignment_policy=alignment_policy(), context_profile=analysis_context())
+    got = align_semantic(
+        side(a, context=frozenset({"c"})),
+        side(b),
+        prepared().bound(),
+        alignment_policy=alignment_policy(),
+        context_profile=analysis_context(),
+    )
     assert got.counts["core"].reference == 0 and got.counts["core"].matched == 0
 
 
 def test_ambiguous_labels_refuse_alignment_and_known_identity_disambiguates():
     a, b = batch(), batch()
     b["entities"].append({"id": "other", "class_iri": P, "label": "Alice"})
-    ambiguous = align_semantic(side(a), side(b), prepared().bound(), alignment_policy=alignment_policy(), context_profile=analysis_context())
+    ambiguous = align_semantic(
+        side(a),
+        side(b),
+        prepared().bound(),
+        alignment_policy=alignment_policy(),
+        context_profile=analysis_context(),
+    )
     assert ambiguous.counts["core"].matched == 0
     assert ambiguous.undecided[0]["reason"] == "ambiguous label/anchor assignment"
     matched = align_semantic(
         side(a, known_ids={"p": "known:first"}),
         side(b, known_ids={"p": "known:first", "other": "known:other"}),
         prepared().bound(),
-     alignment_policy=alignment_policy(), context_profile=analysis_context())
+        alignment_policy=alignment_policy(),
+        context_profile=analysis_context(),
+    )
     assert matched.counts["core"].matched == 1
 
 
@@ -174,10 +208,25 @@ def test_alias_normalization_requires_class_compatibility():
         ),
     )
     a, b = batch("The Alice"), batch("Alice")
-    got = align_semantic(side(a), side(b), p.bound(), alignment_policy=alignment_policy(), context_profile=analysis_context())
+    got = align_semantic(
+        side(a),
+        side(b),
+        p.bound(),
+        alignment_policy=alignment_policy(),
+        context_profile=analysis_context(),
+    )
     assert got.entity_pairs == [("p", "p", "alias_normalization")]
     b["entities"][0]["class_iri"] = incompatible
-    assert align_semantic(side(a), side(b), p.bound(), alignment_policy=alignment_policy(), context_profile=analysis_context()).entity_pairs == []
+    assert (
+        align_semantic(
+            side(a),
+            side(b),
+            p.bound(),
+            alignment_policy=alignment_policy(),
+            context_profile=analysis_context(),
+        ).entity_pairs
+        == []
+    )
 
 
 def test_alternative_readings_are_one_scoring_item():
@@ -187,7 +236,13 @@ def test_alternative_readings_are_one_scoring_item():
     other["object"] = {"kind": "text", "text": "Alison"}
     a["claims"].append(other)
     a["alternatives"] = [{"id": "alternative", "members": ["c", "c2"]}]
-    result = align_semantic(side(a), side(b), prepared().bound(), alignment_policy=alignment_policy(), context_profile=analysis_context())
+    result = align_semantic(
+        side(a),
+        side(b),
+        prepared().bound(),
+        alignment_policy=alignment_policy(),
+        context_profile=analysis_context(),
+    )
     assert result.counts["core"].as_dict() == {
         "reference": 1,
         "prediction": 1,
@@ -200,13 +255,17 @@ def test_alternative_readings_are_one_scoring_item():
 
 def test_decimal_quantity_and_condition_semantics_remain_typed():
     assert equivalent(
-        {"kind": "number", "number": "1.00"}, {"kind": "number", "number": Decimal("1")}, {}
-    , context_profile=analysis_context()).equal
+        {"kind": "number", "number": "1.00"},
+        {"kind": "number", "number": Decimal("1")},
+        {},
+        context_profile=analysis_context(),
+    ).equal
     assert not equivalent(
         {"kind": "quantity", "number": "1", "unit": "m"},
         {"kind": "quantity", "number": "1", "unit": "s"},
         {},
-     context_profile=analysis_context()).equal
+        context_profile=analysis_context(),
+    ).equal
     a = {"kind": "all", "terms": [{"kind": "claim", "ref": "a"}, {"kind": "claim", "ref": "b"}]}
     b = {"kind": "all", "terms": [{"kind": "claim", "ref": "y"}, {"kind": "claim", "ref": "x"}]}
     assert equivalent(a, b, {}, {"a": "x", "b": "y"}, context_profile=analysis_context()).equal
@@ -222,7 +281,12 @@ def test_symbolic_math_and_explicit_undecided():
     b = {**a, "expression": "2 x"}
     result = equivalent(a, b, {}, context_profile=analysis_context())
     assert result.equal and result.outcome == "symbolic"
-    unknown = equivalent({**a, "language": "unimplemented"}, {**b, "language": "unimplemented"}, {}, context_profile=analysis_context())
+    unknown = equivalent(
+        {**a, "language": "unimplemented"},
+        {**b, "language": "unimplemented"},
+        {},
+        context_profile=analysis_context(),
+    )
     assert unknown.outcome == "undecided" and not unknown.equal
 
 
@@ -233,9 +297,26 @@ def test_external_known_endpoints_need_no_redeclared_entity_or_label():
     a["claims"][0]["subject"] = "known:alice"
     b["claims"][0]["subject"] = "known:alice"
     known = {"known:alice": "known:alice"}
-    result = align_semantic(side(a, known_ids=known), side(b, known_ids=known), prepared().bound(), alignment_policy=alignment_policy(), context_profile=analysis_context())
+    result = align_semantic(
+        side(a, known_ids=known),
+        side(b, known_ids=known),
+        prepared().bound(),
+        alignment_policy=alignment_policy(),
+        context_profile=analysis_context(),
+    )
     assert result.counts["full"].matched == 1
-    assert align_semantic(side(a), side(b), prepared().bound(), alignment_policy=alignment_policy(), context_profile=analysis_context()).counts["core"].matched == 0
+    assert (
+        align_semantic(
+            side(a),
+            side(b),
+            prepared().bound(),
+            alignment_policy=alignment_policy(),
+            context_profile=analysis_context(),
+        )
+        .counts["core"]
+        .matched
+        == 0
+    )
 
 
 def test_scalar_declared_identity_attributes_align_without_a_label():
@@ -253,7 +334,13 @@ def test_scalar_declared_identity_attributes_align_without_a_label():
         value["entities"][0]["attributes"] = [
             {"predicate": NAME, "value": {"kind": "text", "text": "Alice"}}
         ]
-    result = align_semantic(side(a), side(b), p.bound(), alignment_policy=alignment_policy(), context_profile=analysis_context())
+    result = align_semantic(
+        side(a),
+        side(b),
+        p.bound(),
+        alignment_policy=alignment_policy(),
+        context_profile=analysis_context(),
+    )
     assert result.entity_pairs == [("p", "p", "declared_identity_keys")]
     assert result.counts["full"].matched == 1
 
@@ -315,16 +402,49 @@ def test_release_qualification_provenance_does_not_change_meaning_and_statement_
     a, b = batch(), batch()
     a["claims"][0]["qualification"]["confidence"] = "source-A"
     b["claims"][0]["qualification"]["confidence"] = "source-B"
-    assert align_semantic(side(a), side(b), p.bound(), alignment_policy=alignment_policy(), context_profile=analysis_context()).counts["full"].matched == 1
+    assert (
+        align_semantic(
+            side(a),
+            side(b),
+            p.bound(),
+            alignment_policy=alignment_policy(),
+            context_profile=analysis_context(),
+        )
+        .counts["full"]
+        .matched
+        == 1
+    )
     a["claims"][0]["statement"] = "unmatched-reference-statement"
-    assert align_semantic(side(a), side(b), p.bound(), alignment_policy=alignment_policy(), context_profile=analysis_context()).counts["full"].matched == 0
+    assert (
+        align_semantic(
+            side(a),
+            side(b),
+            p.bound(),
+            alignment_policy=alignment_policy(),
+            context_profile=analysis_context(),
+        )
+        .counts["full"]
+        .matched
+        == 0
+    )
 
 
 def test_located_evidence_in_the_same_source_sentence_matches_without_quote_overlap():
     a, b = batch(), batch()
     a["claims"][0]["evidence"][0]["locator"] = "source#sentence"
     b["claims"][0]["evidence"][0].update(locator="source#sentence", start=8, end=10)
-    assert align_semantic(side(a), side(b), prepared().bound(), alignment_policy=alignment_policy(), context_profile=analysis_context()).counts["evidence"].matched == 1
+    assert (
+        align_semantic(
+            side(a),
+            side(b),
+            prepared().bound(),
+            alignment_policy=alignment_policy(),
+            context_profile=analysis_context(),
+        )
+        .counts["evidence"]
+        .matched
+        == 1
+    )
 
 
 def test_equal_labels_cannot_override_incompatible_declared_identity_keys():
@@ -355,7 +475,16 @@ def test_equal_labels_cannot_override_incompatible_declared_identity_keys():
     b["entities"][0]["attributes"] = [
         {"predicate": registry.iri, "value": {"kind": "text", "text": "101"}}
     ]
-    assert align_semantic(side(a), side(b), p.bound(), alignment_policy=alignment_policy(), context_profile=analysis_context()).entity_pairs == []
+    assert (
+        align_semantic(
+            side(a),
+            side(b),
+            p.bound(),
+            alignment_policy=alignment_policy(),
+            context_profile=analysis_context(),
+        ).entity_pairs
+        == []
+    )
 
 
 def test_schema_declared_nary_entity_roles_follow_alignment_without_rewriting_plain_text():
@@ -443,13 +572,35 @@ def test_schema_declared_nary_entity_roles_follow_alignment_without_rewriting_pl
         "custodian": "y",
         "note": "p",
     }
-    assert align_semantic(side(a), side(b), p.bound(), alignment_policy=alignment_policy(), context_profile=analysis_context()).counts["full"].matched == 1
+    assert (
+        align_semantic(
+            side(a),
+            side(b),
+            p.bound(),
+            alignment_policy=alignment_policy(),
+            context_profile=analysis_context(),
+        )
+        .counts["full"]
+        .matched
+        == 1
+    )
     assert (
         rewrite_references(p.bound(), "Value", a["claims"][0]["object"], {"p": "x", "q": "y"})
         == b["claims"][0]["object"]
     )
     b["claims"][0]["object"]["note"] = "x"
-    assert align_semantic(side(a), side(b), p.bound(), alignment_policy=alignment_policy(), context_profile=analysis_context()).counts["core"].matched == 0
+    assert (
+        align_semantic(
+            side(a),
+            side(b),
+            p.bound(),
+            alignment_policy=alignment_policy(),
+            context_profile=analysis_context(),
+        )
+        .counts["core"]
+        .matched
+        == 0
+    )
 
 
 def test_successful_scientific_comparison_retains_modelled_explanation():
@@ -459,7 +610,9 @@ def test_successful_scientific_comparison_retains_modelled_explanation():
         "expression": "x+x",
         "bindings": [{"kind": "free", "symbol": "x"}],
     }
-    decision = equivalent(left, {**left, "expression": "2 x"}, {}, context_profile=analysis_context())
+    decision = equivalent(
+        left, {**left, "expression": "2 x"}, {}, context_profile=analysis_context()
+    )
     assert decision.equal
     assert len(decision.comparisons) == 1
     trace = decision.comparisons[0]
@@ -488,7 +641,10 @@ def test_alignment_report_retains_numeric_evidence_in_undecided_condition():
             }
         ),
         artifacts=(
-            PreparedArtifact(SCIENTIFIC_POLICY_INPUT, canonical_bytes(scientific_policy_recipe(context_profile=analysis_context()))),
+            PreparedArtifact(
+                SCIENTIFIC_POLICY_INPUT,
+                canonical_bytes(scientific_policy_recipe(context_profile=analysis_context())),
+            ),
         ),
     )
     left, right = batch(), batch()
@@ -496,7 +652,13 @@ def test_alignment_report_retains_numeric_evidence_in_undecided_condition():
     b = {**a, "expression": "1.000000000001"}
     left["claims"][0]["qualification"]["condition"] = {"kind": "all", "terms": [a]}
     right["claims"][0]["qualification"]["condition"] = {"kind": "all", "terms": [b]}
-    report = align_semantic(side(left), side(right), model, alignment_policy=alignment_policy(), context_profile=analysis_context()).as_dict()
+    report = align_semantic(
+        side(left),
+        side(right),
+        model,
+        alignment_policy=alignment_policy(),
+        context_profile=analysis_context(),
+    ).as_dict()
     assert report["tiers"]["core"]["matched"] == 1
     assert report["tiers"]["full"]["matched"] == 0
     assert len(report["comparisons"]) == 1
@@ -616,7 +778,9 @@ def test_whole_alignment_retains_scientific_entity_comparisons_without_claims(ba
         side({"entities": [left_entity], "claims": []}),
         side({"entities": [right_entity], "claims": []}),
         model,
-     alignment_policy=alignment_policy(), context_profile=analysis_context()).as_dict()
+        alignment_policy=alignment_policy(),
+        context_profile=analysis_context(),
+    ).as_dict()
     assert report["entity_pairs"] == [("r", "p", basis)]
     assert report["tiers"]["core"]["matched"] == 0
     expected_use = {
@@ -654,7 +818,13 @@ def test_whole_alignment_retains_admitted_binding_children_and_original_position
     # Use actual admitted Entity definitions while retaining the test's ordinary name claim.
     entity = next(d for d in model.definitions if d.name == "Entity")
     left["entities"][0]["class_iri"] = right["entities"][0]["class_iri"] = entity.iri
-    report = align_semantic(side(left), side(right), model, alignment_policy=alignment_policy(), context_profile=analysis_context()).as_dict()
+    report = align_semantic(
+        side(left),
+        side(right),
+        model,
+        alignment_policy=alignment_policy(),
+        context_profile=analysis_context(),
+    ).as_dict()
     if difference is not None:
         assert report["tiers"]["core"]["matched"] == 0
         traces = report["undecided"][0]["comparisons"]
@@ -798,6 +968,8 @@ def test_undecided_comparisons_are_retried_instead_of_cached():
 
 
 def test_plain_value_equivalence_remains_independent_of_scientific_profile():
-    assert equivalent({"kind": "text", "text": "exact"}, {"kind": "text", "text": "exact"}, {}).equal
+    assert equivalent(
+        {"kind": "text", "text": "exact"}, {"kind": "text", "text": "exact"}, {}
+    ).equal
     with pytest.raises(ValueError, match="explicit captured analysis"):
         equivalent(expression("x"), expression("x+0"), {})

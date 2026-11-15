@@ -5,14 +5,25 @@ from __future__ import annotations
 from pathlib import Path
 
 from corpus_structure.semantic.data_operation_service import create_native_demand, read_data_demand
-from corpus_structure.semantic.storage_target import acquired_target
 from corpus_structure.semantic.refusals import SemanticRefusal
+from corpus_structure.semantic.storage_target import acquired_target
 
 
 def execute_native_intent(
-    engine, admission_engine, *, source_root: Path | None, methods,
-    demand=None, request=None, source_request=None, visual_actor=None,
-    project=None, limit=100, max_rounds=100, required_targets=None, registered=None,
+    engine,
+    admission_engine,
+    *,
+    source_root: Path | None,
+    methods,
+    demand=None,
+    request=None,
+    source_request=None,
+    visual_actor=None,
+    project=None,
+    limit=100,
+    max_rounds=100,
+    required_targets=None,
+    registered=None,
 ):
     """Execute only one explicit intent; optional target restriction also checks resume."""
     from corpus_structure.semantic.data_operation_service import execute_data_demand
@@ -42,7 +53,10 @@ def execute_native_intent(
             snapshot = read_data_demand(connection, demand, limit=1)
             if project is not None and snapshot["project_id"] != project:
                 raise SemanticRefusal("retained demand belongs to another project")
-        if required_targets is not None and tuple(snapshot["selection"]["targets"]) != required_targets:
+        if (
+            required_targets is not None
+            and tuple(snapshot["selection"]["targets"]) != required_targets
+        ):
             raise SemanticRefusal("retained demand differs from the required explicit targets")
     if demand is None:
         raise RuntimeError("native registration lacks its exact demand identity")
@@ -51,11 +65,18 @@ def execute_native_intent(
     execute = execute_data_demand
     if visual_actor is not None:
         from functools import partial
+
         from corpus_structure.semantic.visual_requests import execute_visual_demand
 
         execute = partial(execute_visual_demand, visual_actor=visual_actor)
     return execute(
-        engine, demand, source_root=source_root, limit=limit, max_rounds=max_rounds,
-        policy=methods.execution_policy, project_id=project,
-        nemotron_endpoint=methods.nemotron_endpoint, admission_engine=admission_engine,
+        engine,
+        demand,
+        source_root=source_root,
+        limit=limit,
+        max_rounds=max_rounds,
+        policy=methods.execution_policy,
+        project_id=project,
+        nemotron_endpoint=methods.nemotron_endpoint,
+        admission_engine=admission_engine,
     )

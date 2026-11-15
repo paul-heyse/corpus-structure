@@ -1,26 +1,39 @@
 """Explicit visual evidence has independent identity, scope and bounded delivery."""
 
-import json
-from hashlib import sha256
-from types import SimpleNamespace
-from unittest.mock import Mock
 
 import pytest
 from pydantic import ValidationError
 
-from corpus_structure.semantic.pdf_record_reader import PublishedReadBudget
-from corpus_structure.semantic.query import ReadLimit
 from corpus_structure.semantic.refusals import InvalidContinuation
+from corpus_structure.semantic.visual_evidence import (
+    VisualCaption,
+    VisualCaptionCandidate,
+    VisualCellGroup,
+    VisualEvidenceArtifact,
+    VisualEvidencePin,
+    VisualPicture,
+    VisualSourceRegion,
+    VisualTable,
+    VisualText,
+)
 from corpus_structure.serve import pdf_visual_evidence
 from corpus_structure.serve.native_source import (
     NativeSourceRequest,
     _source_cursor,
     _source_position,
 )
-from corpus_structure.semantic.visual_evidence import VisualCaption, VisualCaptionCandidate, VisualCellGroup, VisualEvidenceArtifact, VisualEvidencePin, VisualPicture, VisualSourceRegion, VisualTable, VisualText
 
-SOURCE = dict(project_id="project",demand_id="demand",read_id="read",use_id="source-use",product_id="source-product",derivation_id="source-episode")
-EVIDENCE = VisualEvidencePin(use_id="visual-use",product_id="mapped",derivation_id="visual-episode")
+SOURCE = dict(
+    project_id="project",
+    demand_id="demand",
+    read_id="read",
+    use_id="source-use",
+    product_id="source-product",
+    derivation_id="source-episode",
+)
+EVIDENCE = VisualEvidencePin(
+    use_id="visual-use", product_id="mapped", derivation_id="visual-episode"
+)
 
 
 def test_visual_request_binds_both_pins_and_scope_to_cursor():
@@ -28,9 +41,9 @@ def test_visual_request_binds_both_pins_and_scope_to_cursor():
     cursor = _source_cursor(request, 2)
     assert _source_position(request.model_copy(update={"cursor": cursor, "limit": 3})) == 2
     for changes in (
-        {"product_id":"other"},
-        {"evidence": EVIDENCE.model_copy(update={"use_id":"other-use"})},
-        {"evidence": EVIDENCE.model_copy(update={"product_id":"other"})},
+        {"product_id": "other"},
+        {"evidence": EVIDENCE.model_copy(update={"use_id": "other-use"})},
+        {"evidence": EVIDENCE.model_copy(update={"product_id": "other"})},
         {"page_no": 4},
         {"artifact_digest": "c" * 64},
         {"occurrence_id": "#/pictures/0"},
@@ -149,10 +162,15 @@ def test_visual_artifact_retains_inherited_and_repeated_occurrences():
 
 def test_manifest_continuation_retains_exact_source_and_page_scope():
     from corpus_structure.serve.selected_pdf import SelectedPdfSourceReference
-    source=SelectedPdfSourceReference(**SOURCE)
-    native={"demand_id":"demand","view":"frontier","after":"obligation:next"}
-    cursor=dict(source=SOURCE,page_no=3,native=native)
-    assert pdf_visual_evidence._manifest_continuation(source,3,cursor)==native
-    for changed in (dict(cursor,page_no=4),dict(cursor,source=dict(SOURCE,product_id="other")),dict(cursor,extra=True)):
+
+    source = SelectedPdfSourceReference(**SOURCE)
+    native = {"demand_id": "demand", "view": "frontier", "after": "obligation:next"}
+    cursor = dict(source=SOURCE, page_no=3, native=native)
+    assert pdf_visual_evidence._manifest_continuation(source, 3, cursor) == native
+    for changed in (
+        dict(cursor, page_no=4),
+        dict(cursor, source=dict(SOURCE, product_id="other")),
+        dict(cursor, extra=True),
+    ):
         with pytest.raises(InvalidContinuation):
-            pdf_visual_evidence._manifest_continuation(source,3,changed)
+            pdf_visual_evidence._manifest_continuation(source, 3, changed)

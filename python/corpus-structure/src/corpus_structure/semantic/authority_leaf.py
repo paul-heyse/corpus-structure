@@ -33,7 +33,10 @@ def validate_authority_leaf(value, *, products, kinds, definitions, runtimes, sc
     authenticity just as for other exported native rows.
     """
     from .record_policy_authority import (
-        AUTHORIZATION_EFFECT, AUTHORIZATION_FACTORY, AUTHORIZATION_KIND, AUTHORIZATION_OPERATION,
+        AUTHORIZATION_EFFECT,
+        AUTHORIZATION_FACTORY,
+        AUTHORIZATION_KIND,
+        AUTHORIZATION_OPERATION,
         DdoRecordPolicyAuthorization,
     )
 
@@ -48,17 +51,25 @@ def validate_authority_leaf(value, *, products, kinds, definitions, runtimes, sc
     product = products.get(leaf.product_id)
     kind = kinds.get(leaf.kind_contract)
     if (
-        leaf.issuer_operation != AUTHORIZATION_OPERATION or definition is None
-        or product is None or product["kind_contract"] != leaf.kind_contract
-        or kind is None or kind["kind"] != AUTHORIZATION_KIND or kind["universe"] != "ordinary"
+        leaf.issuer_operation != AUTHORIZATION_OPERATION
+        or definition is None
+        or product is None
+        or product["kind_contract"] != leaf.kind_contract
+        or kind is None
+        or kind["kind"] != AUTHORIZATION_KIND
+        or kind["universe"] != "ordinary"
         or (leaf.release_id, leaf.runtime_id) not in runtimes
     ):
         raise ValueError("bounded authority differs from its captured issuer or ordinary output")
     support = definition["support_contract"]
-    effect = {**asdict(AUTHORIZATION_EFFECT), "authorization": list(AUTHORIZATION_EFFECT.authorization)}
+    effect = {
+        **asdict(AUTHORIZATION_EFFECT),
+        "authorization": list(AUTHORIZATION_EFFECT.authorization),
+    }
     capability = support.get("capabilities", {})
     if (
-        definition["profile"] != "command" or definition["recipe"] != leaf.recipe
+        definition["profile"] != "command"
+        or definition["recipe"] != leaf.recipe
         or support.get("effects") != [effect]
         or capability.get("preparation") != "native-publication"
         or capability.get("forms") != ["scalar"]
@@ -68,5 +79,7 @@ def validate_authority_leaf(value, *, products, kinds, definitions, runtimes, sc
     from .data_operation_identity import decode_semantic_value
     from .identity import canonical_bytes
 
-    DdoRecordPolicyAuthorization.model_validate_json(canonical_bytes(decode_semantic_value(product["canonical_body"])))
+    DdoRecordPolicyAuthorization.model_validate_json(
+        canonical_bytes(decode_semantic_value(product["canonical_body"]))
+    )
     return leaf

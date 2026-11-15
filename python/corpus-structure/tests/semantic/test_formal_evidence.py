@@ -1,6 +1,5 @@
 """Independent positions and domain outcomes for retained positioned formal syntax."""
 
-
 import pytest
 from lark.exceptions import VisitError
 
@@ -267,6 +266,7 @@ def test_ordinary_retained_annotation_read_preserves_formal_fields_without_parsi
     prepared, monkeypatch
 ):
     from corpus_structure.semantic import formal_evidence
+
     layer = report(prepared, "Date: 2026-02-30")
     monkeypatch.setattr(
         formal_evidence,
@@ -277,12 +277,18 @@ def test_ordinary_retained_annotation_read_preserves_formal_fields_without_parsi
         math_grammar, "syntax", lambda *args: pytest.fail("retained read reran parsing")
     )
     retained = decode_layer(prepared, encode_layer(layer)).payload
-    row = next(annotation for annotation in retained["annotations"] if annotation["family"] == "formal.date" and annotation["kind"] == "formal.input")
+    row = next(
+        annotation
+        for annotation in retained["annotations"]
+        if annotation["family"] == "formal.date" and annotation["kind"] == "formal.input"
+    )
     field = row["formal_input"]
     assert field["text"] == "Date: 2026-02-30"
     assert field["syntax_outcome"] == "complete"
     assert field["interpretation_outcome"] == "invalid"
-    occurrence = next(value for value in retained["occurrences"] if value["local_id"] == row["occurrences"][0])
+    occurrence = next(
+        value for value in retained["occurrences"] if value["local_id"] == row["occurrences"][0]
+    )
     assert occurrence["extents"][0]["text"] == "Date: 2026-02-30"
 
 

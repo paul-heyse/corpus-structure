@@ -8,10 +8,6 @@ requiring ``execution.lifecycle.v1`` does not assert that it has been deployed.
 
 from __future__ import annotations
 
-from . import native_call_contracts as native_calls
-from . import analysis_policies
-from . import invariant_failures as native_diagnostics
-
 import json
 from collections.abc import Generator, Mapping
 from contextlib import contextmanager
@@ -35,6 +31,9 @@ from corpus_structure.schema.physical import (
     physical_source_closure,
 )
 
+from . import analysis_policies
+from . import invariant_failures as native_diagnostics
+from . import native_call_contracts as native_calls
 from .identity import canonical_bytes
 from .types import ClassDefinition, Diagnostic, PreparationError, SourceArtifact, SourceBundle
 
@@ -721,10 +720,6 @@ _APPROVED_NATIVE_GUARDS = {
 }
 
 
-
-
-
-
 @dataclass(frozen=True)
 class InputOwnershipContract:
     id: str
@@ -734,16 +729,6 @@ class InputOwnershipContract:
     dependencies: tuple[str, ...]
 
 
-
-
-
-
-
-
-
-
-
-
 @dataclass(frozen=True)
 class InvocationPolicyDefinition:
     logical_recipe: str
@@ -751,8 +736,6 @@ class InvocationPolicyDefinition:
     dependencies: tuple[str, ...]
     skipped_packet: str
     executable_packet: str
-
-
 
 
 @dataclass(frozen=True)

@@ -96,7 +96,9 @@ def derive_member_kinds(
         ):
             refuse(kind.semantic_id, "member projection requires a captured closed nominal record")
 
-    def json_family(root: EffectiveKind, active: frozenset[str] = frozenset()) -> tuple[EffectiveKind, ...]:
+    def json_family(
+        root: EffectiveKind, active: frozenset[str] = frozenset()
+    ) -> tuple[EffectiveKind, ...]:
         from .data_operation_wire import schema_closure
 
         if root.semantic_id in active:
@@ -108,9 +110,11 @@ def derive_member_kinds(
             closed_record(root)
             return (root,)
         if (
-            not isinstance(alternatives, list) or not alternatives
+            not isinstance(alternatives, list)
+            or not alternatives
             or not facts.get("nominal_namespace")
-            or set(schema) - {"$schema", "$id", "title", "description", "definitions", "anyOf", "oneOf"}
+            or set(schema)
+            - {"$schema", "$id", "title", "description", "definitions", "anyOf", "oneOf"}
             or ("oneOf" in schema and "anyOf" in schema)
         ):
             refuse(root.semantic_id, "member union requires explicit finite nominal alternatives")
@@ -122,7 +126,10 @@ def derive_member_kinds(
         variants = {}
         for alternative in alternatives:
             if not isinstance(alternative, dict) or set(alternative) != {"$ref"}:
-                refuse(root.semantic_id, "member union alternatives require captured nominal references")
+                refuse(
+                    root.semantic_id,
+                    "member union alternatives require captured nominal references",
+                )
             reference = alternative["$ref"]
             if not isinstance(reference, str) or not reference.startswith("#/definitions/"):
                 refuse(root.semantic_id, "member union reference is not a closed local definition")
@@ -135,7 +142,10 @@ def derive_member_kinds(
                 or source_owners != {origin.source for origin in target.origins}
                 or target_facts.get("json_schema") != schema_closure(definitions[name], definitions)
             ):
-                refuse(root.semantic_id, "member union reference differs from its captured nominal owner")
+                refuse(
+                    root.semantic_id,
+                    "member union reference differs from its captured nominal owner",
+                )
             for leaf in json_family(target, active | {root.semantic_id}):
                 if leaf.semantic_id in variants:
                     refuse(root.semantic_id, "member union repeats a nominal alternative")
@@ -152,13 +162,21 @@ def derive_member_kinds(
                     literals = prop.get("enum", [prop["const"]] if "const" in prop else [])
                     if not isinstance(literals, list) or not literals:
                         return False
-                    if any(value == other for previous in values for value in previous for other in literals):
+                    if any(
+                        value == other
+                        for previous in values
+                        for value in previous
+                        for other in literals
+                    ):
                         return False
                     values.append(literals)
                 return True
 
             if not any(disjoint(name) for name in required):
-                refuse(root.semantic_id, "member union requires disjoint required literal discriminators")
+                refuse(
+                    root.semantic_id,
+                    "member union requires disjoint required literal discriminators",
+                )
         return result
 
     container = owned(container_kind_id)

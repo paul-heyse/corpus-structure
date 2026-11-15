@@ -12,7 +12,6 @@ from corpus_structure.serve.native_source import (
     _published_derivations,
     _published_parent_product,
 )
-
 from semantic.pdf_native_source_support import native_source as native_source
 
 
@@ -224,7 +223,10 @@ def test_record_identity_requires_qualified_producer_archive(monkeypatch, change
     assert identity["contract_digest"] != context.contract_digest
     if change == "abi":
         from semantic.pdf_domain_support import altered_domain
-        context = replace(context, domain=altered_domain(context.domain, read_version="unsupported"))
+
+        context = replace(
+            context, domain=altered_domain(context.domain, read_version="unsupported")
+        )
     elif change == "schema":
         revision["schema_digest"] = "0" * 64
     elif change == "release":
@@ -418,12 +420,20 @@ def test_published_native_ports_qualify_retained_schema_before_legacy_gate(
     from corpus_structure.semantic.pdf_contracts import trusted_pdf_context
     from corpus_structure.semantic.types import SourceArtifact
     from semantic.pdf_domain_support import altered_domain
+
     current = trusted_pdf_context()
-    domain = altered_domain(current.domain, sources=tuple(
-        SourceArtifact(source.name, retained) if source.name == "pdf-domain/implementation/pdf/docling-validation.schema.json" else source
-        for source in current.domain.sources
-    ))
-    producer = replace(current, release_id="retained-producer", contract_digest="c" * 64, domain=domain)
+    domain = altered_domain(
+        current.domain,
+        sources=tuple(
+            SourceArtifact(source.name, retained)
+            if source.name == "pdf-domain/implementation/pdf/docling-validation.schema.json"
+            else source
+            for source in current.domain.sources
+        ),
+    )
+    producer = replace(
+        current, release_id="retained-producer", contract_digest="c" * 64, domain=domain
+    )
     consumer = SimpleNamespace(release_id="current-consumer")
     connection = MagicMock()
     selected = []
@@ -541,27 +551,56 @@ def test_published_native_ports_qualify_retained_schema_before_legacy_gate(
 def test_explicit_whole_body_materialization_keeps_json_decoding_imports(kind, monkeypatch):
     """Exercise the actual decoder branches, without claiming native custody."""
     import json
+
     from corpus_structure.semantic import pdf_record_reader, pdf_storage
 
     expected = {"opaque": 'quoted "native" \\ Ω\u0000', "empty": []}
+
     class Reader:
         def source_context(self, pointers, section, *, row_budget):
             assert pointers == [] and section == "#/body"
-            return {key: [] for key in ("occurrences", "relations", "inputs", "coverage", "mapping_reports")}
+            return {
+                key: []
+                for key in ("occurrences", "relations", "inputs", "coverage", "mapping_reports")
+            }
+
         def product_descriptor(self):
             return {"kind": kind}
+
         def native_product_values(self):
             assert kind == "native"
             return expected
+
         def write_integrated_json(self, sink):
             assert kind == "integrated"
             sink.write(json.dumps({"product": expected}, ensure_ascii=False).encode())
-    monkeypatch.setattr(pdf_record_reader, "published_record_reader", lambda *args, **kwargs: None if kind == "recognition_observation" else Reader())
-    monkeypatch.setattr(pdf_storage, "_pdf_product_identity", lambda *args, **kwargs: {"kind": kind})
-    monkeypatch.setattr(pdf_storage, "_pdf_descriptors", lambda *args, **kwargs: [{"descriptor": {"kind": kind}}])
+
+    monkeypatch.setattr(
+        pdf_record_reader,
+        "published_record_reader",
+        lambda *args, **kwargs: None if kind == "recognition_observation" else Reader(),
+    )
+    monkeypatch.setattr(
+        pdf_storage, "_pdf_product_identity", lambda *args, **kwargs: {"kind": kind}
+    )
+    monkeypatch.setattr(
+        pdf_storage, "_pdf_descriptors", lambda *args, **kwargs: [{"descriptor": {"kind": kind}}]
+    )
+
     def selected_rows(connection, query, read_budget=None):
-        return [{"payload": json.dumps(expected)}] if list(query.selected_columns.keys()) == ["payload"] else []
+        return (
+            [{"payload": json.dumps(expected)}]
+            if list(query.selected_columns.keys()) == ["payload"]
+            else []
+        )
+
     monkeypatch.setattr(pdf_storage, "_budgeted_mappings", selected_rows)
-    result = pdf_storage.read_pdf_product(None, task_id=42, product_key="controlled", content_digest="a" * 64,
-        pointers=[], include_body=True)
+    result = pdf_storage.read_pdf_product(
+        None,
+        task_id=42,
+        product_key="controlled",
+        content_digest="a" * 64,
+        pointers=[],
+        include_body=True,
+    )
     assert result["body"] == expected

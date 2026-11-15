@@ -119,15 +119,13 @@ def require_call_context(
     prepared: PreparedRelease, operation: str, variant: str, expected_digest: str
 ) -> None:
     """Check one consumer's immutable call contract without substituting installed meaning."""
-    from hashlib import sha256
     import json
+    from hashlib import sha256
 
     from .identity import canonical_bytes
     from .refusals import SemanticRefusal
 
-    artifacts = [
-        a for a in prepared.artifacts if a.kind == "operation_call_correspondences.json"
-    ]
+    artifacts = [a for a in prepared.artifacts if a.kind == "operation_call_correspondences.json"]
     if len(artifacts) != 1:
         raise SemanticRefusal("release lacks an unambiguous native call correspondence")
     calls = [

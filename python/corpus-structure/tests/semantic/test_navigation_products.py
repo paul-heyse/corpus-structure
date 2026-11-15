@@ -151,7 +151,8 @@ def artifact_case(text="Table 2.1 (aliases: none)."):
         canonical_bytes(
             {"source": selected.value["source"], "selectors": selected.value["selectors"]}
         ),
-     subject_definition="original-source-view")
+        subject_definition="original-source-view",
+    )
     pin = DeclaredRecordSource(
         "book",
         selected.value["source"]["projection"],

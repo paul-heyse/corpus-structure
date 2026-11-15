@@ -1,6 +1,5 @@
 """Independent source-reading graph and direct-custody expectations (pure scope)."""
 
-from corpus_structure.semantic.source_reading_schema import source_reading_inputs
 from copy import deepcopy
 
 import pytest
@@ -15,12 +14,15 @@ from corpus_structure.semantic.record_assertions import (
     lower_record_assertions,
     reading_identity,
 )
+from corpus_structure.semantic.source_reading_schema import source_reading_inputs
 from semantic.record_assertions_support import (
     inputs as inputs,
-    model as record_model,
 )
 from semantic.record_assertions_support import (
     lower as lower,
+)
+from semantic.record_assertions_support import (
+    model as record_model,
 )
 from semantic.record_assertions_support import (
     record as record,

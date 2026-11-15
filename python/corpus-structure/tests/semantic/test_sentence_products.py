@@ -117,12 +117,20 @@ def test_original_source_identity_excludes_legacy_task_recipe_and_diagnostic_sal
             ancestors=[],
         )
         native = FrozenNativeSource.from_projection(
-            profile.prepared, document="document:one", section_pointer=view.ref.section_pointer,
-            membership=view.ref.membership, text=view.text, pieces=view.pieces, items=view.items,
-            ancestors=view.ancestors, recognition=view.health.get("formula_outcomes", ()),
+            profile.prepared,
+            document="document:one",
+            section_pointer=view.ref.section_pointer,
+            membership=view.ref.membership,
+            text=view.text,
+            pieces=view.pieces,
+            items=view.items,
+            ancestors=view.ancestors,
+            recognition=view.health.get("formula_outcomes", ()),
         )
         value = native.value
-        value["selectors"] = [{"projection": value["source"]["projection"], "native_pointer": "#/texts/0"}]
+        value["selectors"] = [
+            {"projection": value["source"]["projection"], "native_pointer": "#/texts/0"}
+        ]
         views.append(FrozenNativeSource.acquire(profile.prepared, value))
     assert views[0].content == views[1].content
     assert b"task_id" not in views[0].content and b"recipe_digest" not in views[0].content
@@ -492,8 +500,7 @@ def test_declared_canonical_projection_has_actual_independent_member_contracts(p
     assert manifest["body"]["selectors"] == inventory["selectors"]
     assert manifest["body"]["outcome"] == "complete"
     assert {
-        (row["family"], row["availability"], row["outcome"])
-        for row in manifest["body"]["coverage"]
+        (row["family"], row["availability"], row["outcome"]) for row in manifest["body"]["coverage"]
     } == {
         ("spacy.tokens", "available", "empty"),
         ("spacy.sentences", "available", "empty"),
@@ -708,7 +715,8 @@ def _publication_context(source, *, document=False):
         value["source"]["document"] if document else source_subject(value["source"]),
         value["source"]["document"],
         canonical_bytes({"source": value["source"], "selectors": value["selectors"]}),
-     subject_definition="original-source-view")
+        subject_definition="original-source-view",
+    )
 
 
 def _controlled_source_pin(source):
@@ -729,7 +737,9 @@ def _controlled_source_pin(source):
         b"{}",
         (),
         b"{}",
-     subject_definition="original-source-view", support_references=())
+        subject_definition="original-source-view",
+        support_references=(),
+    )
     return DeclaredSourcePin(
         canonical_bytes(
             DeclaredRecordSource.from_bound(source, member, project=context.project_id).pin()

@@ -32,6 +32,7 @@ def domain():
 @pytest.fixture(scope="module")
 def model(domain):
     from semantic.pdf_domain_support import bound_model
+
     return bound_model(domain)
 
 
@@ -44,9 +45,13 @@ def test_pdf_domain_projects_real_actions_and_native_schema_without_legacy_execu
         domain.require_operation("archive")
     assert all(not source.name.startswith("execution/") for source in domain.sources)
     context = PreparedPdfContext(
-        "release:pdf", _boundary(domain.schema), domain,
+        "release:pdf",
+        _boundary(domain.schema),
+        domain,
         domain.source("schema/pdf_products").digest,
-        SourceArtifact("pdf/staging-model.yaml", domain.source("implementation/pdf/staging-model.yaml").content),
+        SourceArtifact(
+            "pdf/staging-model.yaml", domain.source("implementation/pdf/staging-model.yaml").content
+        ),
     )
     assert (
         context.native_schema_digest
@@ -104,7 +109,10 @@ def test_pdf_domain_native_checks_exact_frozen_facet_and_declared_action(domain)
 
 
 def test_pdf_domain_owns_observation_boundary_and_exact_published_read_calls(domain, model):
-    from corpus_structure.semantic._pdf_native_calls import READ_PUBLISHED_SECTION_NODES_CONTRACT_DIGEST, READ_PUBLISHED_SECTIONS_CONTRACT_DIGEST
+    from corpus_structure.semantic._pdf_native_calls import (
+        READ_PUBLISHED_SECTION_NODES_CONTRACT_DIGEST,
+        READ_PUBLISHED_SECTIONS_CONTRACT_DIGEST,
+    )
 
     boundary = _boundary(domain.schema)
     assert (
@@ -133,41 +141,72 @@ def test_pdf_domain_owns_observation_boundary_and_exact_published_read_calls(dom
 
 def test_current_pdf_diagnostics_preserve_exact_native_identity(domain):
     from types import SimpleNamespace
+
     from corpus_structure.semantic.invariant_failures import classify_invariant_failure
 
     class NativeError(Exception):
         sqlstate = "23503"
-        diag = SimpleNamespace(schema_name="kb", table_name="source_view",
-                               constraint_name="fk_source_view_native_build_id_native_revision_id_secti_79ff",
-                               message_detail=None)
+        diag = SimpleNamespace(
+            schema_name="kb",
+            table_name="source_view",
+            constraint_name="fk_source_view_native_build_id_native_revision_id_secti_79ff",
+            message_detail=None,
+        )
+
     error = NativeError("arbitrary source-view failure prose")
     identity = "pdf-domain:" + sha256(domain.content).hexdigest()
-    failure = classify_invariant_failure(domain.invariants, "publish_source_view", error, model_id=identity)
+    failure = classify_invariant_failure(
+        domain.invariants, "publish_source_view", error, model_id=identity
+    )
     assert failure is not None
     assert (failure.code, failure.invariant, failure.scope, failure.model_id) == (
-        "pdf.published_document_address", "published_document_address", "relational", identity)
-    assert classify_invariant_failure(domain.invariants, "read_source_view", error, model_id=identity) is None
+        "pdf.published_document_address",
+        "published_document_address",
+        "relational",
+        identity,
+    )
+    assert (
+        classify_invariant_failure(domain.invariants, "read_source_view", error, model_id=identity)
+        is None
+    )
     error.diag.constraint_name = "another_foreign_key"
-    assert classify_invariant_failure(domain.invariants, "publish_source_view", error, model_id=identity) is None
+    assert (
+        classify_invariant_failure(
+            domain.invariants, "publish_source_view", error, model_id=identity
+        )
+        is None
+    )
 
 
 def test_selected_pdf_receipt_read_requires_explicit_use_and_producer():
     from corpus_structure.semantic.data_operation_wire import validate_native_wire
-    request = {"project_id": "project:one", "demand_id": "demand:one", "read_id": "read:one", "use_id": "use:one",
-               "product_id": "product:one", "derivation_id": "episode:one"}
+
+    request = {
+        "project_id": "project:one",
+        "demand_id": "demand:one",
+        "read_id": "read:one",
+        "use_id": "use:one",
+        "product_id": "product:one",
+        "derivation_id": "episode:one",
+    }
     assert validate_native_wire("read_selected_pdf_source", "input", request) == request
     for missing in ("project_id", "use_id", "derivation_id"):
         with pytest.raises(ValueError, match="schema"):
-            validate_native_wire("read_selected_pdf_source", "input", {key: value for key, value in request.items() if key != missing})
+            validate_native_wire(
+                "read_selected_pdf_source",
+                "input",
+                {key: value for key, value in request.items() if key != missing},
+            )
     with pytest.raises(ValueError, match="schema"):
         validate_native_wire("read_selected_pdf_source", "input", {**request, "run_id": 7})
 
 
 def test_current_pdf_facade_has_canonical_ids_and_no_stage_run_slot():
-    from corpus_structure.semantic import _pdf_native_calls, _pdf_native_ids, identifiers
-    from corpus_structure.semantic.pdf_call_generation import generated_source, generated_enums
-    from corpus_structure.semantic.metadata import table
     from pathlib import Path
+
+    from corpus_structure.semantic import _pdf_native_calls, _pdf_native_ids, identifiers
+    from corpus_structure.semantic.metadata import table
+    from corpus_structure.semantic.pdf_call_generation import generated_enums, generated_source
 
     assert _pdf_native_calls.TaskId is identifiers.TaskId
     assert _pdf_native_calls.TaskAttempt is identifiers.TaskAttempt
@@ -181,26 +220,53 @@ def test_current_pdf_facade_has_canonical_ids_and_no_stage_run_slot():
 def test_selected_pdf_cut_reuses_exact_read_owner_field_schemas():
     from corpus_structure.semantic._data_operation_wire import WireCutSelection
     from corpus_structure.semantic.data_operation_wire import wire_contracts
+
     result = wire_contracts()["read_selected_pdf_source"]["output"]
     cut = result["definitions"]["cut_selection"]
-    page = wire_contracts()["read_demand_result"]["output"]["definitions"]["read_demand_result_result"]
-    expected = {"demand_id", "project_id", "release_id", "runtime_id", "selection", "trust_snapshot",
-                "read_id", "read_snapshot", "frontier_at", "scope"}
-    assert set(WireCutSelection.__annotations__) == set(cut["required"]) == set(cut["properties"]) == expected
+    page = wire_contracts()["read_demand_result"]["output"]["definitions"][
+        "read_demand_result_result"
+    ]
+    expected = {
+        "demand_id",
+        "project_id",
+        "release_id",
+        "runtime_id",
+        "selection",
+        "trust_snapshot",
+        "read_id",
+        "read_snapshot",
+        "frontier_at",
+        "scope",
+    }
+    assert (
+        set(WireCutSelection.__annotations__)
+        == set(cut["required"])
+        == set(cut["properties"])
+        == expected
+    )
     assert {field: page["properties"][field] for field in expected} == cut["properties"]
 
 
-@pytest.mark.parametrize("mutation", ["absent-variant", "wrong-digest", "changed-call", "missing-archive"])
-def test_current_call_context_refuses_substitution_without_legacy_catalog_fallback(domain, model, mutation):
+@pytest.mark.parametrize(
+    "mutation", ["absent-variant", "wrong-digest", "changed-call", "missing-archive"]
+)
+def test_current_call_context_refuses_substitution_without_legacy_catalog_fallback(
+    domain, model, mutation
+):
     import json
+
+    from corpus_structure.semantic._pdf_native_calls import RETAIN_PDF_ORIGINAL_CONTRACT_DIGEST
     from corpus_structure.semantic.identity import canonical_bytes
     from corpus_structure.semantic.operation_value_types import require_call_context
     from corpus_structure.semantic.refusals import SemanticRefusal
 
-    from corpus_structure.semantic._pdf_native_calls import RETAIN_PDF_ORIGINAL_CONTRACT_DIGEST
-    dependencies = ResolvedDependencies((SourceArtifact("pdf-domain/contract.json", domain.content), *domain.sources))
+    dependencies = ResolvedDependencies(
+        (SourceArtifact("pdf-domain/contract.json", domain.content), *domain.sources)
+    )
     base = prepare_release(source_bundle())
-    prepared = replace(base, artifacts=(*base.artifacts, *pdf_domain_artifacts(dependencies, model=model)))
+    prepared = replace(
+        base, artifacts=(*base.artifacts, *pdf_domain_artifacts(dependencies, model=model))
+    )
     operation = "retain_pdf_original"
     variant = "retain_pdf_original"
     digest = RETAIN_PDF_ORIGINAL_CONTRACT_DIGEST
@@ -210,12 +276,23 @@ def test_current_call_context_refuses_substitution_without_legacy_catalog_fallba
     elif mutation == "wrong-digest":
         digest = "0" * 64
     elif mutation == "changed-call":
-        artifact = next(a for a in prepared.artifacts if a.kind == "operation_call_correspondences.json")
+        artifact = next(
+            a for a in prepared.artifacts if a.kind == "operation_call_correspondences.json"
+        )
         values = json.loads(artifact.content)
-        next(call for owner, call in values if owner == operation and call["id"] == variant)["cardinality"] = "many"
+        next(call for owner, call in values if owner == operation and call["id"] == variant)[
+            "cardinality"
+        ] = "many"
         altered = replace(artifact, content=canonical_bytes(values))
-        prepared = replace(prepared, artifacts=tuple(altered if a is artifact else a for a in prepared.artifacts))
+        prepared = replace(
+            prepared, artifacts=tuple(altered if a is artifact else a for a in prepared.artifacts)
+        )
     else:
-        prepared = replace(prepared, artifacts=tuple(a for a in prepared.artifacts if a.kind != "operation_call_correspondences.json"))
+        prepared = replace(
+            prepared,
+            artifacts=tuple(
+                a for a in prepared.artifacts if a.kind != "operation_call_correspondences.json"
+            ),
+        )
     with pytest.raises(SemanticRefusal, match="correspondence"):
         require_call_context(prepared, operation, variant, digest)

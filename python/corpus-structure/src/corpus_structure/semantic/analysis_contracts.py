@@ -13,13 +13,14 @@ from hashlib import sha256
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Any, Never
 
-from .identity import canonical_bytes
 from .analysis_policies import MathInterpretationPolicy
+from .identity import canonical_bytes
 from .types import Diagnostic, PreparationError
 
 
 def _fail(code: str, location: str, message: str) -> Never:
     raise PreparationError((Diagnostic(code, location, message),))
+
 
 if TYPE_CHECKING:
     from corpus_structure.core.evidence import MacroDef
@@ -71,22 +72,54 @@ def validate_analysis_profiles(model: ExecutionModelProducts) -> None:
         ids.add(profile.id)
         validate_math_policy(profile)
         from .contracts import InvocationPolicyDefinition
+
         if profile.invocation_policy != InvocationPolicyDefinition(
-            "invocation-logical-1", "invocation-packet-1",
-            ("release", "source", "configuration", "policy", "unit"), "absent", "required",
+            "invocation-logical-1",
+            "invocation-packet-1",
+            ("release", "source", "configuration", "policy", "unit"),
+            "absent",
+            "required",
         ):
-            _fail("unsupported_invocation_policy", location, "implement changed legacy invocation policy before admission")
-        validate_preparation_policies(profile.text_policy, profile.alignment_policy, profile.placement_policy, profile.capture_policy)
+            _fail(
+                "unsupported_invocation_policy",
+                location,
+                "implement changed legacy invocation policy before admission",
+            )
+        validate_preparation_policies(
+            profile.text_policy,
+            profile.alignment_policy,
+            profile.placement_policy,
+            profile.capture_policy,
+        )
         if profile.shared_consumers != ("normalize.formula", "extract.math"):
             _fail("unsupported_analysis_recipe", location, "legacy sharing contract differs")
-        owners = {item.id:item for item in profile.ownership}
+        owners = {item.id: item for item in profile.ownership}
         if len(owners) != len(profile.ownership) or set(owners) != set(_OWNERSHIP_SUPPORT):
-            _fail("analysis_ownership", location, "declare exactly the implemented owned preparation families")
+            _fail(
+                "analysis_ownership",
+                location,
+                "declare exactly the implemented owned preparation families",
+            )
         for owner in profile.ownership:
-            if (owner.concept,owner.operation,owner.lifetime,owner.dependencies) != _OWNERSHIP_SUPPORT[owner.id]:
-                _fail("unsupported_analysis_ownership", location+"/"+owner.id, "implement changed producer/consumer ownership before admission")
-            if owner.concept not in {c.id for c in model.concepts} or owner.operation not in {o.id for o in model.operations}:
-                _fail("analysis_ownership_reference", location+"/"+owner.id, "unknown concept or operation")
+            if (
+                owner.concept,
+                owner.operation,
+                owner.lifetime,
+                owner.dependencies,
+            ) != _OWNERSHIP_SUPPORT[owner.id]:
+                _fail(
+                    "unsupported_analysis_ownership",
+                    location + "/" + owner.id,
+                    "implement changed producer/consumer ownership before admission",
+                )
+            if owner.concept not in {c.id for c in model.concepts} or owner.operation not in {
+                o.id for o in model.operations
+            }:
+                _fail(
+                    "analysis_ownership_reference",
+                    location + "/" + owner.id,
+                    "unknown concept or operation",
+                )
 
 
 def _standalone_model():
@@ -95,7 +128,9 @@ def _standalone_model():
     return compile_execution_model(current_implementation().execution_inputs)
 
 
-def _legacy_profile(prepared: PreparedRelease | None, *, require_current_implementations: bool = True):
+def _legacy_profile(
+    prepared: PreparedRelease | None, *, require_current_implementations: bool = True
+):
     import json
 
     from .contracts import (
@@ -339,10 +374,16 @@ def acquire_analysis_context_profile() -> AnalysisContextProfile:
     from .analysis_policies import analysis_policy_sources, compile_analysis_policies
 
     sources = analysis_policy_sources()
-    policies = compile_analysis_policies(tuple(source for source in sources if source.name.startswith("analysis/")))
+    policies = compile_analysis_policies(
+        tuple(source for source in sources if source.name.startswith("analysis/"))
+    )
     return AnalysisContextProfile(
         policies.mathematical,
-        tuple((source.name, source.digest) for source in sources if source.name != "analysis/policy.yaml"),
+        tuple(
+            (source.name, source.digest)
+            for source in sources
+            if source.name != "analysis/policy.yaml"
+        ),
     )
 
 
@@ -625,6 +666,7 @@ def scientific_computation_profile(policy: str, prepared: PreparedRelease | None
 def prepare_text_policy(prepared: PreparedRelease | None = None):
     if prepared is None:
         from .analysis_policies import acquire_analysis_policies
+
         return acquire_analysis_policies().text
     _, profile = _legacy_profile(prepared)
     assert profile.text_policy is not None
@@ -634,6 +676,7 @@ def prepare_text_policy(prepared: PreparedRelease | None = None):
 def prepare_alignment_policy(prepared: PreparedRelease | None = None):
     if prepared is None:
         from .analysis_policies import acquire_analysis_policies
+
         return acquire_analysis_policies().alignment
     _, profile = _legacy_profile(prepared)
     assert profile.alignment_policy is not None
@@ -645,6 +688,7 @@ def prepare_placement_policy(prepared: PreparedRelease | None = None):
 
     if prepared is None:
         from .analysis_policies import acquire_analysis_policies
+
         policy = acquire_analysis_policies().placement
     else:
         _, profile = _legacy_profile(prepared)
@@ -681,6 +725,7 @@ def _supported_capture_policy():
 def prepare_capture_policy(prepared: PreparedRelease | None = None):
     if prepared is None:
         from .analysis_policies import acquire_analysis_policies
+
         return acquire_analysis_policies().capture
     _, profile = _legacy_profile(prepared)
     assert profile.capture_policy is not None
@@ -748,7 +793,9 @@ def invocation_identity(
     }
     if packet_hash is not None:
         decision["packet"] = packet_hash
-    normalized = _legacy_invocation_boundary().validate_json("InvocationDecision", canonical_bytes(decision))
+    normalized = _legacy_invocation_boundary().validate_json(
+        "InvocationDecision", canonical_bytes(decision)
+    )
     return digest(normalized.model_dump(mode="json", exclude_none=True))
 
 

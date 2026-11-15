@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
-from typing import Annotated, Literal, Any
+from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, JsonValue, TypeAdapter
 
@@ -53,7 +52,9 @@ class VisualArtifactReply(_Record):
     next_offset: int | None
 
 
-VisualReadReply = Annotated[VisualHeaderReply | VisualRowsReply | VisualArtifactReply, Field(discriminator="kind")]
+VisualReadReply = Annotated[
+    VisualHeaderReply | VisualRowsReply | VisualArtifactReply, Field(discriminator="kind")
+]
 
 
 def _schema(value: Any) -> bytes:
@@ -63,9 +64,16 @@ def _schema(value: Any) -> bytes:
 
     def rename(value: Any) -> Any:
         if isinstance(value, dict):
-            return {key: ("#/definitions/" + prefix + child.removeprefix("#/definitions/")
-                          if key == "$ref" and isinstance(child, str) and child.startswith("#/definitions/")
-                          else rename(child)) for key, child in value.items()}
+            return {
+                key: (
+                    "#/definitions/" + prefix + child.removeprefix("#/definitions/")
+                    if key == "$ref"
+                    and isinstance(child, str)
+                    and child.startswith("#/definitions/")
+                    else rename(child)
+                )
+                for key, child in value.items()
+            }
         if isinstance(value, list):
             return [rename(child) for child in value]
         return value
@@ -86,7 +94,9 @@ def visual_read_sources() -> tuple[SourceArtifact, ...]:
         SourceArtifact(ARTIFACT_SOURCE, _schema(VisualEvidenceArtifact)),
         SourceArtifact(SOURCE, visual_read_schema()),
         SourceArtifact("native/data-operation-visual-read.py", Path(__file__).read_bytes()),
-        SourceArtifact("native/visual-evidence.py", Path(__file__).with_name("visual_evidence.py").read_bytes()),
+        SourceArtifact(
+            "native/visual-evidence.py", Path(__file__).with_name("visual_evidence.py").read_bytes()
+        ),
         SourceArtifact("native/data-operation-visual-read.sql", _SQL.read_bytes()),
     )
 

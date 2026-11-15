@@ -468,13 +468,14 @@ class PreparedRelease:
     ) -> str:
         """Key canonical values using the admitted Qualification key-role/case definitions."""
         from .identity import fact_key
-
         from .qualification_meaning import qualification_identity_components
 
         result = {
             component.property.name: component.equality_value
             for component in qualification_identity_components(
-                self, qualification, qualification_class=qualification_class,
+                self,
+                qualification,
+                qualification_class=qualification_class,
             )
         }
         return fact_key(self.release_id, realization, subject, predicate, object_, result)

@@ -35,24 +35,35 @@ def _checksum(path):
 def _relation_schema(relation, names, cut_id):
     """Physical rows and the explicit virtual authority form retain typed export columns."""
     from typing import get_args
+
     import pyarrow as pa
-    from corpus_structure.semantic.authority_leaf import NativeAuthorityLeaf
+
     from corpus_structure.semantic.arrow_types import sql_arrow_type
+    from corpus_structure.semantic.authority_leaf import NativeAuthorityLeaf
     from corpus_structure.semantic.metadata import table
 
     if relation == "ops.data_authority_leaf":
         if names != set(NativeAuthorityLeaf.model_fields):
             raise ValueError("authority export differs from its closed disclosure fields")
         columns = ()
-        fields = [pa.field(name, pa.string(), nullable=type(None) in get_args(field.annotation))
-                  for name, field in NativeAuthorityLeaf.model_fields.items()]
+        fields = [
+            pa.field(name, pa.string(), nullable=type(None) in get_args(field.annotation))
+            for name, field in NativeAuthorityLeaf.model_fields.items()
+        ]
     else:
         columns = tuple(column for column in table(relation).c if column.name in names)
-        fields = [pa.field(column.name, sql_arrow_type(column.type), nullable=column.nullable) for column in columns]
-    return pa.schema(fields, metadata={
-        b"cs.cut": cut_id.encode(), b"cs.relation": relation.encode(),
-        b"cs.json": b"exact canonical JSON; tagged semantic bodies retain their exact value kinds",
-    }), columns
+        fields = [
+            pa.field(column.name, sql_arrow_type(column.type), nullable=column.nullable)
+            for column in columns
+        ]
+    return pa.schema(
+        fields,
+        metadata={
+            b"cs.cut": cut_id.encode(),
+            b"cs.relation": relation.encode(),
+            b"cs.json": b"exact canonical JSON; tagged semantic bodies retain their exact value kinds",
+        },
+    ), columns
 
 
 def _capture_release(connection, release_id):
@@ -278,7 +289,11 @@ def export_demand_result(
                         for (payload,) in batch:
                             record = wire_json_loads(payload)["record"]
                             if authority:
-                                values.append(NativeAuthorityLeaf.model_validate(record).model_dump(mode="json"))
+                                values.append(
+                                    NativeAuthorityLeaf.model_validate(record).model_dump(
+                                        mode="json"
+                                    )
+                                )
                                 continue
                             values.append(
                                 {
@@ -298,7 +313,13 @@ def export_demand_result(
                     sha256=_checksum(root / name), bytes=(root / name).stat().st_size
                 )
                 relations[relation] = dict(file=name, rows=count)
-        support_disclosure = "bounded" if spool.execute("SELECT EXISTS(SELECT 1 FROM records WHERE relation='ops.data_authority_leaf')").fetchone()[0] else "complete"
+        support_disclosure = (
+            "bounded"
+            if spool.execute(
+                "SELECT EXISTS(SELECT 1 FROM records WHERE relation='ops.data_authority_leaf')"
+            ).fetchone()[0]
+            else "complete"
+        )
         spool.close()
         manifest = dict(
             format="demand-result-export-v2",
@@ -353,9 +374,10 @@ def verify_demand_export(root: Path, *, manifest_digest: str):
             [_unpack(row) for row in captured["artifacts"]],
         )
         prepared[release_id] = acquired
-        from corpus_structure.semantic.native_definition_projection import read_native_definition_projection
-
         from corpus_structure.semantic.data_operation_admission import bound_data_operation_model
+        from corpus_structure.semantic.native_definition_projection import (
+            read_native_definition_projection,
+        )
 
         models[release_id] = bound_data_operation_model(acquired)
         projection = read_native_definition_projection(acquired, model=models[release_id])
@@ -389,7 +411,11 @@ def verify_demand_export(root: Path, *, manifest_digest: str):
             with (root / manifest["closure"]).open("rb") as stream:
                 for line in stream:
                     index.append(line.rstrip(b"\n"))
-            actual_disclosure = "bounded" if next(index.rows("ops.data_authority_leaf"), None) is not None else "complete"
+            actual_disclosure = (
+                "bounded"
+                if next(index.rows("ops.data_authority_leaf"), None) is not None
+                else "complete"
+            )
             if manifest["support_disclosure"] != actual_disclosure:
                 raise ValueError("detached manifest misstates its protected support disclosure")
             for ordinal, name in enumerate(manifest["pages"]):
@@ -427,6 +453,8 @@ def verify_demand_export(root: Path, *, manifest_digest: str):
         pages=len(manifest["pages"]),
         current_trust="not_assessed",
         support_disclosure=manifest["support_disclosure"],
-        protected_dependencies="undisclosed" if manifest["support_disclosure"] == "bounded" else "not_encountered",
+        protected_dependencies="undisclosed"
+        if manifest["support_disclosure"] == "bounded"
+        else "not_encountered",
         inference="not_run",
     )

@@ -47,12 +47,8 @@ from corpus_structure.core.db.cancellation import OperationCancellation
 
 from ._typed_columns import data_occurrence_columns
 from .analytical_kernels import (
-    ALTERNATIVE_OF,
     DISAGREEMENTS_SQL,
     FUSE_SQL,
-    SAME_SLOT,
-    VIEW_APPLIES,
-    VIEW_SPECS,
     VIEWS_INPUTS,
     VIEWS_MACRO_NAME,
     VIEWS_MACRO_SQL,

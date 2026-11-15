@@ -25,7 +25,11 @@ def retained(operation):
         ("episode:one",),
         b"{}",
         member="view:member",
-     subject_definition="document", support_references=tuple(ComputationalSupportReference(derivation_id=episode) for episode in ('episode:one',)))
+        subject_definition="document",
+        support_references=tuple(
+            ComputationalSupportReference(derivation_id=episode) for episode in ("episode:one",)
+        ),
+    )
     return BindingResult(
         operation,
         "document:consumer",

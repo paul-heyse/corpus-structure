@@ -11,12 +11,10 @@ from collections import defaultdict
 from collections.abc import Mapping
 from dataclasses import asdict, dataclass, fields, replace
 from hashlib import sha256
-from pathlib import Path
 from types import MappingProxyType, SimpleNamespace
 from typing import Any, Protocol
 
 import pyarrow as pa
-import yaml
 from sqlalchemy import func, select
 from sqlalchemy.engine import Engine
 
@@ -28,7 +26,6 @@ from .consolidation import FactItem, FactValueLowerer, SourceItem, assemble
 from .identity import canonical_bytes, claim_source_item, occurrence_key
 from .metadata import table
 from .operations import cut_observations
-from .refusals import OperationConflict
 from .publication import (
     AlternativeGroupRow,
     AlternativeMemberRow,
@@ -47,6 +44,7 @@ from .publication import (
 from .query import SnapshotBinding
 from .record_projection import RecordAdmissionRow
 from .refusals import (
+    OperationConflict,
     SemanticOperationRefusal,
     SemanticReason,
     SemanticReasonCode,
@@ -54,10 +52,9 @@ from .refusals import (
     semantic_reason_identity,
 )
 from .releases import open_release
-from .types import PreparedRelease, ResolvedDependencies, SourceArtifact
-
-from .rich_knowledge_sources import RULE_INPUT, VERSION
+from .rich_knowledge_sources import VERSION
 from .rich_rules import RichRulePolicy
+from .types import PreparedRelease
 
 
 def _claim_reference_order(dependencies: Mapping[str, set[str]]):
@@ -112,8 +109,6 @@ def _eligible_exclusion(exclusion):
     return any(
         e.get("outcome") == "located" and e["role"] == "primary" for e in exclusion["evidence"]
     )
-
-
 
 
 @dataclass(frozen=True)
@@ -2902,7 +2897,11 @@ class ReleasedRulesPolicy(RichRulePolicy):
             applies = {
                 c.predicate
                 for c in candidates
-                if self.applies({"applies_to": decl["applies_to"]}, class_name=c.class_name, predicate=c.predicate)
+                if self.applies(
+                    {"applies_to": decl["applies_to"]},
+                    class_name=c.class_name,
+                    predicate=c.predicate,
+                )
             }
             normalized = {**decl, "source": self.prepared.expand_name(decl["source"])}
             specs.append(ViewSpec.from_declaration(name, normalized, applies))
@@ -2931,7 +2930,8 @@ class ReleasedRulesPolicy(RichRulePolicy):
                         "label": e.label,
                         "symbol": e.symbol,
                     }
-                    for e in entities.values() for class_id in e.types
+                    for e in entities.values()
+                    for class_id in e.types
                 ],
                 schema=VIEW_ENTITIES,
             ),

@@ -10,8 +10,12 @@ class ReadingResolutionOperation:
         "id": "resolve.m1_readings/declared",
         "profile": "derivation",
         "subject": "selected-native-source",
-        "subject_definition": {'id': 'selected-native-source', 'identifier_kind': 'string', 'scope': 'original-source'},
-        "discovery_relation": 'role-associated',
+        "subject_definition": {
+            "id": "selected-native-source",
+            "identifier_kind": "string",
+            "scope": "original-source",
+        },
+        "discovery_relation": "role-associated",
         "context": ["original-source", "retained-complete-readings", "actual-feature-policy"],
         "entrypoints": ["run"],
         "roles": [
@@ -27,7 +31,10 @@ class ReadingResolutionOperation:
                 "support": {
                     "provenance": "exact",
                     "source": "same-original",
-                    "coverage": {"role": "candidates", "description": "complete-retained-candidates"},
+                    "coverage": {
+                        "role": "candidates",
+                        "description": "complete-retained-candidates",
+                    },
                     "identity_requirements": ["episode"],
                 },
             },
@@ -58,17 +65,30 @@ class ReadingResolutionOperation:
                 "presence": "required",
             },
         ],
-        "applicability": [{'kind': 'documentation', 'text': 'private-retained-records-and-explicit-feature-policy'}],
-        "invariants": [
-            {'kind': 'documentation', 'text': 'no-upstream-provider-reexecution'},
-            {'kind': 'documentation', 'text': 'actual-fitted-centering-scaling-and-coefficients'},
-            {'kind': 'documentation', 'text': 'raw-confidence-never-imputed'},
-            {'kind': 'documentation', 'text': 'complete-reading-identities'},
-            {'kind': 'documentation', 'text': 'no-knowledge-admission'},
+        "applicability": [
+            {
+                "kind": "documentation",
+                "text": "private-retained-records-and-explicit-feature-policy",
+            }
         ],
-        "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "complete-selected-candidates"},
+        "invariants": [
+            {"kind": "documentation", "text": "no-upstream-provider-reexecution"},
+            {"kind": "documentation", "text": "actual-fitted-centering-scaling-and-coefficients"},
+            {"kind": "documentation", "text": "raw-confidence-never-imputed"},
+            {"kind": "documentation", "text": "complete-reading-identities"},
+            {"kind": "documentation", "text": "no-knowledge-admission"},
+        ],
+        "coverage": {
+            "binding": "self",
+            "result_owners": [{"kind": "implementation", "reference": "self"}],
+            "description": "complete-selected-candidates",
+        },
         "outcomes": ["success"],
-        "numerical_policy": {"asset": "readings/algorithm-assets", "pointer": "/numerical_policy", "kind": "urn:corpus:kind:reading:NumericalPolicy"},
+        "numerical_policy": {
+            "asset": "readings/algorithm-assets",
+            "pointer": "/numerical_policy",
+            "kind": "urn:corpus:kind:reading:NumericalPolicy",
+        },
         "dependencies": [],
         "effects": [],
         "capabilities": {
@@ -106,11 +126,11 @@ class ReadingResolutionOperation:
                         "encoding": "value",
                     },
                     {
-                        "output_field": 'subject_definition',
+                        "output_field": "subject_definition",
                         "input": {
                             "role": "candidates",
                             "projection": "https://corpus-structure.dev/semantic/data-operation-candidate-inspection/DdoCandidateInspectionReport",
-                            "field": '/source_pin/subject_definition',
+                            "field": "/source_pin/subject_definition",
                         },
                         "encoding": "value",
                     },

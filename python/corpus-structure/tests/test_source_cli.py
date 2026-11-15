@@ -15,9 +15,14 @@ from unittest.mock import MagicMock
 import pytest
 from sqlalchemy import Connection, Engine
 
-
-PIN = dict(project_id="project:selected", demand_id="demand:selected", read_id="read:selected",
-           use_id="use:selected", product_id="product:selected", derivation_id="derivation:original")
+PIN = dict(
+    project_id="project:selected",
+    demand_id="demand:selected",
+    read_id="read:selected",
+    use_id="use:selected",
+    product_id="product:selected",
+    derivation_id="derivation:original",
+)
 
 
 @dataclass
@@ -49,45 +54,89 @@ def source_runtime(monkeypatch):
 
 
 def _inspect_args(*extra):
-    return ("source", "inspect", PIN["demand_id"], "--project", PIN["project_id"],
-            "--read", PIN["read_id"], "--use", PIN["use_id"], "--product", PIN["product_id"],
-            "--derivation", PIN["derivation_id"], *extra)
+    return (
+        "source",
+        "inspect",
+        PIN["demand_id"],
+        "--project",
+        PIN["project_id"],
+        "--read",
+        PIN["read_id"],
+        "--use",
+        PIN["use_id"],
+        "--product",
+        PIN["product_id"],
+        "--derivation",
+        PIN["derivation_id"],
+        *extra,
+    )
 
 
 @pytest.mark.parametrize("command,view", [("native-products", "publications"), ("views", "views")])
 @pytest.mark.parametrize("empty", [False, True])
-def test_current_catalog_cli_retains_pinned_cut_and_partial_standing(cli, source_runtime, monkeypatch, command, view, empty):
-    from corpus_structure.serve import source_catalog
+def test_current_catalog_cli_retains_pinned_cut_and_partial_standing(
+    cli, source_runtime, monkeypatch, command, view, empty
+):
     from corpus_structure.semantic.data_operation_json import json_loads
+    from corpus_structure.serve import source_catalog
 
     seen = []
+
     def catalog(connection, request):
         assert connection is source_runtime.connection
         seen.append(request)
         return source_catalog.SourceCatalogResponse(
             selection=request,
             cut={"read_id": PIN["read_id"], "scope": {"ratio": Decimal("0.123456789012345678901")}},
-            rows=[] if empty else [{"selection": PIN, "member_id": "member:source-view" if view == "views" else None}],
-            obligations=[{"fate": "unknown"}], uses=[], populations=[],
-            next_cursor="exact-selected-continuation", page_complete=False,
+            rows=[]
+            if empty
+            else [
+                {"selection": PIN, "member_id": "member:source-view" if view == "views" else None}
+            ],
+            obligations=[{"fate": "unknown"}],
+            uses=[],
+            populations=[],
+            next_cursor="exact-selected-continuation",
+            page_complete=False,
         )
+
     monkeypatch.setattr(source_catalog, "read_source_catalog", catalog)
-    result = cli("source", command, PIN["demand_id"], "--project", PIN["project_id"],
-                 "--cursor", "prior-selected-continuation", "--limit", "7", "--json")
+    result = cli(
+        "source",
+        command,
+        PIN["demand_id"],
+        "--project",
+        PIN["project_id"],
+        "--cursor",
+        "prior-selected-continuation",
+        "--limit",
+        "7",
+        "--json",
+    )
     assert result.exit_code == 0, (result.output, result.exception)
     response = json_loads(result.stdout)
     assert response["cut"]["scope"]["ratio"] == Decimal("0.123456789012345678901")
-    assert response["rows"] == ([] if empty else [{"selection": PIN, "member_id": "member:source-view" if view == "views" else None}])
+    assert response["rows"] == (
+        []
+        if empty
+        else [{"selection": PIN, "member_id": "member:source-view" if view == "views" else None}]
+    )
     assert response["obligations"] == [{"fate": "unknown"}] and not response["page_complete"]
     assert response["next_cursor"] == "exact-selected-continuation"
-    assert seen[0].model_dump() == dict(project_id=PIN["project_id"], demand_id=PIN["demand_id"],
-        view=view, cursor="prior-selected-continuation", limit=7, max_bytes=1048576)
+    assert seen[0].model_dump() == dict(
+        project_id=PIN["project_id"],
+        demand_id=PIN["demand_id"],
+        view=view,
+        cursor="prior-selected-continuation",
+        limit=7,
+        max_bytes=1048576,
+    )
     assert source_runtime.opened == [("ci-source-catalog", "read")]
 
 
 def test_inspect_cli_delivers_exact_visual_selection(cli, source_runtime, monkeypatch):
-    from corpus_structure.serve import native_source
     from corpus_structure.semantic.visual_evidence import VisualEvidenceRead, VisualText
+    from corpus_structure.serve import native_source
 
     def inspect(connection, request, *, cancellation):
         assert connection is source_runtime.connection
@@ -96,20 +145,55 @@ def test_inspect_cli_delivers_exact_visual_selection(cli, source_runtime, monkey
         assert request.pointer == "#/pictures/2" and request.region_index == 1
         assert request.visual_kind == "mermaid" and request.occurrence_id == "o1"
         assert request.evidence is not None
-        assert request.evidence.model_dump() == dict(use_id="use:mapped", product_id="product:mapped", derivation_id="derivation:mapped")
-        return native_source.NativeSourceResponse(
-            selection=request, release_id="release:source", cut={"read_id": PIN["read_id"]}, health={}, rows=[{"text": "incumbent"}],
-            visual_evidence=VisualEvidenceRead(evidence=request.evidence, raw_evidence=request.evidence,
-                producer={"request_id": "request:mapped"}, raw_producer={"request_id": "request:raw"}, page_no=3, original_artifact_digest="c" * 64,
-                original_regions=[], submitted_region=None, observation_release_id="release:observation",
-                observation={"outcome": "partial"}, mapping_availability="available",
-                items=(VisualText(occurrence_id="o1", kind="mermaid", text="graph TD; A-->B"),)),
+        assert request.evidence.model_dump() == dict(
+            use_id="use:mapped", product_id="product:mapped", derivation_id="derivation:mapped"
         )
+        return native_source.NativeSourceResponse(
+            selection=request,
+            release_id="release:source",
+            cut={"read_id": PIN["read_id"]},
+            health={},
+            rows=[{"text": "incumbent"}],
+            visual_evidence=VisualEvidenceRead(
+                evidence=request.evidence,
+                raw_evidence=request.evidence,
+                producer={"request_id": "request:mapped"},
+                raw_producer={"request_id": "request:raw"},
+                page_no=3,
+                original_artifact_digest="c" * 64,
+                original_regions=[],
+                submitted_region=None,
+                observation_release_id="release:observation",
+                observation={"outcome": "partial"},
+                mapping_availability="available",
+                items=(VisualText(occurrence_id="o1", kind="mermaid", text="graph TD; A-->B"),),
+            ),
+        )
+
     monkeypatch.setattr(native_source, "inspect_native_source", inspect)
-    result = cli(*_inspect_args("--native-view", "visual-evidence", "--evidence-use", "use:mapped",
-        "--evidence-product", "product:mapped", "--evidence-derivation", "derivation:mapped",
-        "--page", "3", "--pointer", "#/pictures/2", "--region-index", "1",
-        "--visual-kind", "mermaid", "--occurrence", "o1", "--json"))
+    result = cli(
+        *_inspect_args(
+            "--native-view",
+            "visual-evidence",
+            "--evidence-use",
+            "use:mapped",
+            "--evidence-product",
+            "product:mapped",
+            "--evidence-derivation",
+            "derivation:mapped",
+            "--page",
+            "3",
+            "--pointer",
+            "#/pictures/2",
+            "--region-index",
+            "1",
+            "--visual-kind",
+            "mermaid",
+            "--occurrence",
+            "o1",
+            "--json",
+        )
+    )
     assert result.exit_code == 0, (result.output, result.exception)
     data = json.loads(result.stdout)
     assert data["rows"] == [{"text": "incumbent"}]
@@ -117,14 +201,24 @@ def test_inspect_cli_delivers_exact_visual_selection(cli, source_runtime, monkey
     assert source_runtime.opened == [("ci-source", "read")]
 
 
-def test_current_inspection_preserves_exact_product_and_companion_selector(cli, source_runtime, monkeypatch):
+def test_current_inspection_preserves_exact_product_and_companion_selector(
+    cli, source_runtime, monkeypatch
+):
     from corpus_structure.serve import native_source
+
     seen = []
+
     def inspect(connection, request, *, cancellation):
         assert connection is source_runtime.connection
         seen.append(request)
-        return native_source.NativeSourceResponse(selection=request, release_id="release:source",
-            cut={"read_id": PIN["read_id"]}, health={}, rows=[{"outcome": "unknown"}])
+        return native_source.NativeSourceResponse(
+            selection=request,
+            release_id="release:source",
+            cut={"read_id": PIN["read_id"]},
+            health={},
+            rows=[{"outcome": "unknown"}],
+        )
+
     monkeypatch.setattr(native_source, "inspect_native_source", inspect)
     result = cli(*_inspect_args("--native-view", "manifest", "--collection", "coverage", "--json"))
     assert result.exit_code == 0, (result.output, result.exception)
@@ -138,21 +232,39 @@ def test_current_inspection_preserves_exact_product_and_companion_selector(cli, 
     assert len(seen) == 1, "retired physical selection reached the current source reader"
 
 
-def test_source_coverage_summary_keeps_page_counts_and_continuation(cli, source_runtime, monkeypatch):
+def test_source_coverage_summary_keeps_page_counts_and_continuation(
+    cli, source_runtime, monkeypatch
+):
     from corpus_structure.serve import native_source
+
     def inspect(connection, request, *, cancellation):
         assert connection is source_runtime.connection
-        return native_source.NativeSourceResponse(selection=request, release_id="release:source",
-            cut={"read_id": PIN["read_id"]}, health={},
+        return native_source.NativeSourceResponse(
+            selection=request,
+            release_id="release:source",
+            cut={"read_id": PIN["read_id"]},
+            health={},
             rows=[{"rows": [{"outcome": "missing"}, {"outcome": "ready"}]}],
-            next_cursor="next-coverage-page", population_complete=False)
+            next_cursor="next-coverage-page",
+            population_complete=False,
+        )
+
     monkeypatch.setattr(native_source, "inspect_native_source", inspect)
     args = _inspect_args("--native-view", "manifest", "--collection", "coverage")
-    full, projected, human = cli(*args, "--json"), cli(*args, "--view", "summary", "--json"), cli(*args)
+    full, projected, human = (
+        cli(*args, "--json"),
+        cli(*args, "--view", "summary", "--json"),
+        cli(*args),
+    )
     assert full.exit_code == projected.exit_code == human.exit_code == 0
-    assert json.loads(projected.stdout) == dict(selection=json.loads(full.stdout)["selection"],
-        release_id="release:source", outcome="source_ready", page_outcomes={"missing": 1, "ready": 1},
-        page_rows=2, next_cursor="next-coverage-page")
+    assert json.loads(projected.stdout) == dict(
+        selection=json.loads(full.stdout)["selection"],
+        release_id="release:source",
+        outcome="source_ready",
+        page_outcomes={"missing": 1, "ready": 1},
+        page_rows=2,
+        next_cursor="next-coverage-page",
+    )
     assert "missing: 1, ready: 1" in human.stdout
     assert PIN["product_id"] in human.stdout
 
@@ -160,33 +272,72 @@ def test_source_coverage_summary_keeps_page_counts_and_continuation(cli, source_
 def test_retired_run_catalog_options_refuse_before_opening_runtime(cli, source_runtime):
     for command in ("native-products", "views"):
         assert cli("source", command, "17", "--json").exit_code != 0
-    assert cli("source", "native-products", PIN["demand_id"], "--project", PIN["project_id"], "--observations", "--task", "23").exit_code != 0
+    assert (
+        cli(
+            "source",
+            "native-products",
+            PIN["demand_id"],
+            "--project",
+            PIN["project_id"],
+            "--observations",
+            "--task",
+            "23",
+        ).exit_code
+        != 0
+    )
     assert not source_runtime.opened
 
 
 @pytest.mark.parametrize("empty", [False, True])
-def test_source_find_routes_exact_selected_request_and_preserves_current_handles(cli, source_runtime, tmp_path, monkeypatch, empty):
+def test_source_find_routes_exact_selected_request_and_preserves_current_handles(
+    cli, source_runtime, tmp_path, monkeypatch, empty
+):
     from corpus_structure.semantic.data_operation_json import json_loads
     from corpus_structure.serve import source_search
-    from corpus_structure.serve.selected_pdf import SelectedPdfSourceReference
     from corpus_structure.serve.native_source import NativeSourceRequest
+    from corpus_structure.serve.selected_pdf import SelectedPdfSourceReference
 
-    content = dict(project_id=PIN["project_id"], demand_id=PIN["demand_id"], read_id=PIN["read_id"],
-        sources=[PIN], sections=["#/body"], membership="descendants", text="Alice", cursor="selected:continuation",
-        limit=3, max_rows=500, max_bytes=8192)
+    content = dict(
+        project_id=PIN["project_id"],
+        demand_id=PIN["demand_id"],
+        read_id=PIN["read_id"],
+        sources=[PIN],
+        sections=["#/body"],
+        membership="descendants",
+        text="Alice",
+        cursor="selected:continuation",
+        limit=3,
+        max_rows=500,
+        max_bytes=8192,
+    )
     path = tmp_path / "search.json"
     path.write_text(json.dumps(content))
     seen = []
+
     def search(connection, request):
         assert connection is source_runtime.connection
         seen.append(request)
         return source_search.SourceSearchResponse(
             cut={"read_id": PIN["read_id"], "scope": {"ratio": Decimal("0.123456789012345678901")}},
-            rows=[] if empty else [source_search.SourceSearchHit(source=SelectedPdfSourceReference(**PIN),
-                original_source="original:selected", source_digest="a"*64, projection_digest="projection:selected",
-                selection=NativeSourceRequest(**PIN, section_pointer="#/body", membership="descendants"),
-                excerpt="<b>Alice</b> was running.", score=0.25)],
-            next_cursor="next:selected", population_complete=False)
+            rows=[]
+            if empty
+            else [
+                source_search.SourceSearchHit(
+                    source=SelectedPdfSourceReference(**PIN),
+                    original_source="original:selected",
+                    source_digest="a" * 64,
+                    projection_digest="projection:selected",
+                    selection=NativeSourceRequest(
+                        **PIN, section_pointer="#/body", membership="descendants"
+                    ),
+                    excerpt="<b>Alice</b> was running.",
+                    score=0.25,
+                )
+            ],
+            next_cursor="next:selected",
+            population_complete=False,
+        )
+
     monkeypatch.setattr(source_search, "search_source", search)
     reply = cli("source", "find", str(path), "--json")
     assert reply.exit_code == 0, (reply.output, reply.exception)
@@ -204,8 +355,13 @@ def test_source_find_routes_exact_selected_request_and_preserves_current_handles
     assert source_runtime.opened == [("ci-source-find", "read")]
 
 
-def test_source_find_refuses_unqualified_or_retired_request_before_acquisition(cli, source_runtime, tmp_path):
-    for value in ({"run_id": 17, "text": "Alice"}, {"project_id": PIN["project_id"], "demand_id": PIN["demand_id"], "text": "Alice"}):
+def test_source_find_refuses_unqualified_or_retired_request_before_acquisition(
+    cli, source_runtime, tmp_path
+):
+    for value in (
+        {"run_id": 17, "text": "Alice"},
+        {"project_id": PIN["project_id"], "demand_id": PIN["demand_id"], "text": "Alice"},
+    ):
         path = tmp_path / "bad.json"
         path.write_text(json.dumps(value))
         assert cli("source", "find", str(path), "--json").exit_code != 0

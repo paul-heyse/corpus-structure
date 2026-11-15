@@ -118,8 +118,10 @@ def test_public_learned_math_downstream_profile_has_complete_captured_factories(
     operations = {operation.semantic_id: operation for operation in model.operations}
     assert expected <= operations.keys()
     factory_operations = {
-        identity for identity, operation in operations.items()
-        if operation.implementation_root is not None and operation.capabilities.preparation != "none"
+        identity
+        for identity, operation in operations.items()
+        if operation.implementation_root is not None
+        and operation.capabilities.preparation != "none"
     }
     assert expected == factory_operations
     for identity in sorted(factory_operations):

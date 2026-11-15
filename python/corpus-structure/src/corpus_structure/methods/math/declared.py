@@ -213,8 +213,12 @@ class DeclaredMathOccurrences:
         "id": "extract.math/declared",
         "profile": "derivation",
         "subject": "original-source-view",
-        "subject_definition": {'id': 'original-source-view', 'identifier_kind': 'string', 'scope': 'original-source'},
-        "discovery_relation": 'subject-population',
+        "subject_definition": {
+            "id": "original-source-view",
+            "identifier_kind": "string",
+            "scope": "original-source",
+        },
+        "discovery_relation": "subject-population",
         "context": ["project", "subject", "original-source", "analyzed-scope"],
         "entrypoints": ["run"],
         "roles": [
@@ -287,7 +291,10 @@ class DeclaredMathOccurrences:
                     "origins": ["computation", "original-source"],
                     "source": "frozen-source-set",
                     "source_set": "math-ancestor-sources",
-                    "coverage": {"role": "ancestor_sources", "description": "exact-selected-source-scope"},
+                    "coverage": {
+                        "role": "ancestor_sources",
+                        "description": "exact-selected-source-scope",
+                    },
                 },
             },
             {
@@ -304,7 +311,10 @@ class DeclaredMathOccurrences:
                     "identity_requirements": [],
                     "origins": ["computation"],
                     "source": "original-source",
-                    "coverage": {"role": "constructions", "description": "exact-selected-source-scope"},
+                    "coverage": {
+                        "role": "constructions",
+                        "description": "exact-selected-source-scope",
+                    },
                 },
             },
             {
@@ -317,13 +327,22 @@ class DeclaredMathOccurrences:
                 "presence": "required",
             },
         ],
-        "applicability": [{'kind': 'documentation', 'text': 'retained-formal-syntax-and-explicit-mathematical-context'}],
-        "invariants": [
-            {'kind': 'documentation', 'text': 'exact-original-formula-coordinates'},
-            {'kind': 'documentation', 'text': 'no-repeated-recognition'},
-            {'kind': 'documentation', 'text': 'exact-retained-occurrence-context'},
+        "applicability": [
+            {
+                "kind": "documentation",
+                "text": "retained-formal-syntax-and-explicit-mathematical-context",
+            }
         ],
-        "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "selected-formula-atoms-with-explicit-partial-context"},
+        "invariants": [
+            {"kind": "documentation", "text": "exact-original-formula-coordinates"},
+            {"kind": "documentation", "text": "no-repeated-recognition"},
+            {"kind": "documentation", "text": "exact-retained-occurrence-context"},
+        ],
+        "coverage": {
+            "binding": "self",
+            "result_owners": [{"kind": "implementation", "reference": "self"}],
+            "description": "selected-formula-atoms-with-explicit-partial-context",
+        },
         "outcomes": ["success"],
         "precision_description": "exact-symbolic-with-retained-ambiguity",
         "dependencies": ["text.formal_evidence/source-native"],
@@ -408,11 +427,11 @@ class DeclaredMathOccurrences:
                         "encoding": "value",
                     },
                     {
-                        "output_field": 'subject_definition',
+                        "output_field": "subject_definition",
                         "input": {
                             "role": "source",
                             "projection": "selected-input",
-                            "field": 'subject_definition',
+                            "field": "subject_definition",
                         },
                         "encoding": "value",
                     },
@@ -487,11 +506,11 @@ class DeclaredMathOccurrences:
                         "encoding": "value",
                     },
                     {
-                        "output_field": 'subject_definition',
+                        "output_field": "subject_definition",
                         "input": {
                             "role": "formal",
                             "projection": "selected-input",
-                            "field": 'subject_definition',
+                            "field": "subject_definition",
                         },
                         "encoding": "value",
                     },
@@ -566,11 +585,11 @@ class DeclaredMathOccurrences:
                         "encoding": "value",
                     },
                     {
-                        "output_field": 'subject_definition',
+                        "output_field": "subject_definition",
                         "input": {
                             "role": "inherited",
                             "projection": "selected-input",
-                            "field": 'subject_definition',
+                            "field": "subject_definition",
                         },
                         "encoding": "value",
                     },
@@ -632,8 +651,12 @@ class DeclaredMathNormalization:
         "id": "normalize.formula/declared",
         "profile": "derivation",
         "subject": "original-source-view",
-        "subject_definition": {'id': 'original-source-view', 'identifier_kind': 'string', 'scope': 'original-source'},
-        "discovery_relation": 'subject-population',
+        "subject_definition": {
+            "id": "original-source-view",
+            "identifier_kind": "string",
+            "scope": "original-source",
+        },
+        "discovery_relation": "subject-population",
         "context": ["project", "subject", "original-source", "analyzed-scope"],
         "entrypoints": ["run"],
         "roles": [
@@ -681,13 +704,22 @@ class DeclaredMathNormalization:
                 "presence": "required",
             },
         ],
-        "applicability": [{'kind': 'documentation', 'text': 'retained-formal-syntax-and-explicit-mathematical-context'}],
-        "invariants": [
-            {'kind': 'documentation', 'text': 'exact-original-formula-coordinates'},
-            {'kind': 'documentation', 'text': 'no-repeated-recognition'},
-            {'kind': 'documentation', 'text': 'exact-retained-occurrence-context'},
+        "applicability": [
+            {
+                "kind": "documentation",
+                "text": "retained-formal-syntax-and-explicit-mathematical-context",
+            }
         ],
-        "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "selected-formula-atoms-with-explicit-partial-context"},
+        "invariants": [
+            {"kind": "documentation", "text": "exact-original-formula-coordinates"},
+            {"kind": "documentation", "text": "no-repeated-recognition"},
+            {"kind": "documentation", "text": "exact-retained-occurrence-context"},
+        ],
+        "coverage": {
+            "binding": "self",
+            "result_owners": [{"kind": "implementation", "reference": "self"}],
+            "description": "selected-formula-atoms-with-explicit-partial-context",
+        },
         "outcomes": ["success"],
         "precision_description": "exact-symbolic-with-retained-ambiguity",
         "dependencies": ["extract.math/declared"],
@@ -768,11 +800,11 @@ class DeclaredMathNormalization:
                         "encoding": "value",
                     },
                     {
-                        "output_field": 'subject_definition',
+                        "output_field": "subject_definition",
                         "input": {
                             "role": "source",
                             "projection": "selected-input",
-                            "field": 'subject_definition',
+                            "field": "subject_definition",
                         },
                         "encoding": "value",
                     },
@@ -847,11 +879,11 @@ class DeclaredMathNormalization:
                         "encoding": "value",
                     },
                     {
-                        "output_field": 'subject_definition',
+                        "output_field": "subject_definition",
                         "input": {
                             "role": "occurrences",
                             "projection": "selected-input",
-                            "field": 'subject_definition',
+                            "field": "subject_definition",
                         },
                         "encoding": "value",
                     },
@@ -906,8 +938,12 @@ class DeclaredMathScope:
         "id": "resolve.symbol_scope/declared",
         "profile": "derivation",
         "subject": "original-source-view",
-        "subject_definition": {'id': 'original-source-view', 'identifier_kind': 'string', 'scope': 'original-source'},
-        "discovery_relation": 'subject-population',
+        "subject_definition": {
+            "id": "original-source-view",
+            "identifier_kind": "string",
+            "scope": "original-source",
+        },
+        "discovery_relation": "subject-population",
         "context": ["project", "subject", "original-source", "analyzed-scope"],
         "entrypoints": ["run"],
         "roles": [
@@ -976,7 +1012,10 @@ class DeclaredMathScope:
                     "identity_requirements": [],
                     "origins": ["computation"],
                     "source": "original-source",
-                    "coverage": {"role": "constructions", "description": "exact-selected-source-scope"},
+                    "coverage": {
+                        "role": "constructions",
+                        "description": "exact-selected-source-scope",
+                    },
                 },
             },
             {
@@ -1014,7 +1053,10 @@ class DeclaredMathScope:
                     "origins": ["computation", "original-source"],
                     "source": "frozen-source-set",
                     "source_set": "math-scope-ancestor-sources",
-                    "coverage": {"role": "ancestor_sources", "description": "exact-selected-source-scope"},
+                    "coverage": {
+                        "role": "ancestor_sources",
+                        "description": "exact-selected-source-scope",
+                    },
                 },
             },
             {
@@ -1027,13 +1069,22 @@ class DeclaredMathScope:
                 "presence": "required",
             },
         ],
-        "applicability": [{'kind': 'documentation', 'text': 'retained-formal-syntax-and-explicit-mathematical-context'}],
-        "invariants": [
-            {'kind': 'documentation', 'text': 'exact-original-formula-coordinates'},
-            {'kind': 'documentation', 'text': 'no-repeated-recognition'},
-            {'kind': 'documentation', 'text': 'exact-retained-occurrence-context'},
+        "applicability": [
+            {
+                "kind": "documentation",
+                "text": "retained-formal-syntax-and-explicit-mathematical-context",
+            }
         ],
-        "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "selected-formula-atoms-with-explicit-partial-context"},
+        "invariants": [
+            {"kind": "documentation", "text": "exact-original-formula-coordinates"},
+            {"kind": "documentation", "text": "no-repeated-recognition"},
+            {"kind": "documentation", "text": "exact-retained-occurrence-context"},
+        ],
+        "coverage": {
+            "binding": "self",
+            "result_owners": [{"kind": "implementation", "reference": "self"}],
+            "description": "selected-formula-atoms-with-explicit-partial-context",
+        },
         "outcomes": ["success"],
         "precision_description": "exact-symbolic-with-retained-ambiguity",
         "dependencies": [
@@ -1128,11 +1179,11 @@ class DeclaredMathScope:
                         "encoding": "value",
                     },
                     {
-                        "output_field": 'subject_definition',
+                        "output_field": "subject_definition",
                         "input": {
                             "role": "source",
                             "projection": "selected-input",
-                            "field": 'subject_definition',
+                            "field": "subject_definition",
                         },
                         "encoding": "value",
                     },
@@ -1207,11 +1258,11 @@ class DeclaredMathScope:
                         "encoding": "value",
                     },
                     {
-                        "output_field": 'subject_definition',
+                        "output_field": "subject_definition",
                         "input": {
                             "role": "occurrences",
                             "projection": "selected-input",
-                            "field": 'subject_definition',
+                            "field": "subject_definition",
                         },
                         "encoding": "value",
                     },
@@ -1286,11 +1337,11 @@ class DeclaredMathScope:
                         "encoding": "value",
                     },
                     {
-                        "output_field": 'subject_definition',
+                        "output_field": "subject_definition",
                         "input": {
                             "role": "symbolic",
                             "projection": "selected-input",
-                            "field": 'subject_definition',
+                            "field": "subject_definition",
                         },
                         "encoding": "value",
                     },
@@ -1365,11 +1416,11 @@ class DeclaredMathScope:
                         "encoding": "value",
                     },
                     {
-                        "output_field": 'subject_definition',
+                        "output_field": "subject_definition",
                         "input": {
                             "role": "constructions",
                             "projection": "selected-input",
-                            "field": 'subject_definition',
+                            "field": "subject_definition",
                         },
                         "encoding": "value",
                     },
@@ -1444,11 +1495,11 @@ class DeclaredMathScope:
                         "encoding": "value",
                     },
                     {
-                        "output_field": 'subject_definition',
+                        "output_field": "subject_definition",
                         "input": {
                             "role": "inherited",
                             "projection": "selected-input",
-                            "field": 'subject_definition',
+                            "field": "subject_definition",
                         },
                         "encoding": "value",
                     },

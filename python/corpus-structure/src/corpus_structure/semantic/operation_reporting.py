@@ -9,8 +9,7 @@ from __future__ import annotations
 import json
 from collections.abc import Mapping
 from copy import deepcopy
-from dataclasses import asdict, dataclass
-from datetime import UTC, datetime
+from dataclasses import asdict
 from functools import lru_cache
 from hashlib import sha256
 from importlib.metadata import version
@@ -25,8 +24,8 @@ from .refusals import DATABASE_ERRORS, SemanticRefusal, trusted_operation_model_
 from .types import Diagnostic, PreparedRelease
 
 if TYPE_CHECKING:
-    from .runtime_bindings import RuntimeBinding
     from .demand_queries import DemandQueryRequest
+    from .runtime_bindings import RuntimeBinding
 
 _REPORT_VERSIONS = {
     "OperationExplanation": 3,
@@ -158,9 +157,9 @@ def explain_operation(
     neither reruns a competing applicability classifier nor authorizes execution.
     """
     from .data_operation_admission import bound_data_operation_model
-    from .native_definition_projection import read_native_definition_projection
-    from .demand_queries import serve_demand_query
     from .data_operation_json import json_bytes
+    from .demand_queries import serve_demand_query
+    from .native_definition_projection import read_native_definition_projection
 
     model = bound_data_operation_model(prepared)
     try:
@@ -496,9 +495,9 @@ def compare_semantic_releases(
     dependency_detail: bool = False,
 ) -> BaseModel:
     """Compare current captured meaning, keeping source, runtime and use limits explicit."""
+    from .alias_policy import released_alias_product
     from .data_operation_admission import bound_data_operation_model
     from .model_comparison import compare_declared_models
-    from .alias_policy import released_alias_product
     from .projection_analysis_products import compare_retained_projection_analysis
     from .runtime_bindings import validate_runtime_binding
     from .vocabulary_impact import append_vocabulary_impact
@@ -830,7 +829,6 @@ def validation_failure_report(
     from .ontology import GraphExecutionError, GraphShapeError
     from .operation_value_types import NativeResultViolation
     from .projection_analysis import ProjectionAnalysisUnavailable
-    from .refusals import DATABASE_ERRORS
     from .releases import ArchiveDecodeError
     from .types import PreparationError
 

@@ -244,7 +244,8 @@ def _inspect(value: Any, location: str, profile: PreparationProfile | None = Non
                             "unsupported",
                         )
                     if (
-                        annotation in {"cs:data_universe", "cs:projection_families", "cs:definition_variant"}
+                        annotation
+                        in {"cs:data_universe", "cs:projection_families", "cs:definition_variant"}
                         and parent != "classes"
                     ):
                         _fail(
@@ -1390,8 +1391,11 @@ def _prepare_release_uncached(
             RichRulePolicy(prepared)
         except (ValueError, TypeError, KeyError, AttributeError) as exc:
             _fail("domain_rules", RULE_INPUT, str(exc), "unsupported")
-    if any(artifact.kind == "operation/rich-analysis-context.json" for artifact in prepared.artifacts):
+    if any(
+        artifact.kind == "operation/rich-analysis-context.json" for artifact in prepared.artifacts
+    ):
         from .rich_policy_binding import RICH_CONTEXT_INPUT, rich_context_profile
+
         try:
             rich_context_profile(prepared)
         except (ValueError, TypeError, KeyError, AttributeError) as exc:

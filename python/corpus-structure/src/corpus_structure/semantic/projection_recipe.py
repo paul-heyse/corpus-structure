@@ -56,7 +56,14 @@ class ContextValue:
 
 @dataclass(frozen=True, slots=True)
 class InternalBinding:
-    name: Literal["published_build_id", "published_release_id", "published_task_id", "published_product_key", "published_content_digest", "selection_release_id"]
+    name: Literal[
+        "published_build_id",
+        "published_release_id",
+        "published_task_id",
+        "published_product_key",
+        "published_content_digest",
+        "selection_release_id",
+    ]
 
 
 _INTERNAL_BINDINGS = {

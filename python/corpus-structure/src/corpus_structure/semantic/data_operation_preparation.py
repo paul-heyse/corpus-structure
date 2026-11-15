@@ -200,20 +200,35 @@ def acquire_data_operation_inputs(
     declarations = artifacts(declared.declarations)
     if declared.protected_record_policy:
         from corpus_structure.evaluate.declared_record_policy import (
-            protected_record_policy_kind_declarations, record_policy_operation_sources, record_policy_inputs,
+            protected_record_policy_kind_declarations,
+            record_policy_inputs,
+            record_policy_operation_sources,
         )
+
         from .primary_operations import combine_primary_sources
         from .reading_resolution_products import (
-            reading_resolution_inputs, reading_resolution_declarations, reading_resolution_operation_sources,
+            reading_resolution_declarations,
+            reading_resolution_operation_sources,
         )
-        from .record_policy_authority import record_policy_kind_declarations, record_policy_authorization_sources
+        from .record_policy_authority import (
+            record_policy_authorization_sources,
+            record_policy_kind_declarations,
+        )
 
         bundle = record_policy_inputs(bundle)
         policy_sources = combine_primary_sources(
-            reading_resolution_operation_sources(), record_policy_operation_sources(), record_policy_authorization_sources(),
+            reading_resolution_operation_sources(),
+            record_policy_operation_sources(),
+            record_policy_authorization_sources(),
         )
-        sources = policy_sources if sources is None else combine_primary_sources(sources, policy_sources)
-        declarations = (*declarations, record_policy_kind_declarations(), protected_record_policy_kind_declarations())
+        sources = (
+            policy_sources if sources is None else combine_primary_sources(sources, policy_sources)
+        )
+        declarations = (
+            *declarations,
+            record_policy_kind_declarations(),
+            protected_record_policy_kind_declarations(),
+        )
         if declared.primary_profile is None or not declared.primary_profile.downstream:
             declarations = (*declarations, reading_resolution_declarations())
     from .data_operation_artifacts import capture_port_generator_sources
@@ -341,9 +356,14 @@ def _acquire_primary_profile(
         )
     if profile.contextual_retrieval_options is not None:
         from .contextual_numerics import RetrievalNumericalPolicy
+
         if not profile.downstream and profile.contextual_encoder is None:
-            raise ValueError("contextual retrieval options require downstream or encoder dependencies")
-        arguments["contextual_retrieval_options"] = RetrievalNumericalPolicy.model_validate(yaml.safe_load(read(profile.contextual_retrieval_options)))
+            raise ValueError(
+                "contextual retrieval options require downstream or encoder dependencies"
+            )
+        arguments["contextual_retrieval_options"] = RetrievalNumericalPolicy.model_validate(
+            yaml.safe_load(read(profile.contextual_retrieval_options))
+        )
     if profile.contextual_encoder is not None:
         from pydantic import TypeAdapter
 

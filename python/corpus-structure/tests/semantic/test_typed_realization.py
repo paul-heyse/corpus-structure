@@ -27,6 +27,7 @@ def test_generated_surface_is_current_and_attaches_existing_table():
     assert Path(_typed_columns.__file__).read_text() == generated_source()
     assert _typed_columns.data_occurrence is metadata.tables["data.occurrence"]
     from corpus_structure.semantic import identifiers
+
     assert Path(identifiers.__file__).read_text() == generated_identifiers()
 
 
@@ -200,11 +201,18 @@ def test_explicit_type_correspondence_refuses_invalid_sources(target, message):
     from corpus_structure.semantic.types import PreparationError
 
     def mutate(model):
-        model["classes"]["occurrence"]["attributes"]["realization_id"]["annotations"]["cp:type_source"] = target
+        model["classes"]["occurrence"]["attributes"]["realization_id"]["annotations"][
+            "cp:type_source"
+        ] = target
 
     _, _, _, resolve = _correspondence_bindings(_changed_physical_sources(mutate))
     with pytest.raises(PreparationError, match=message):
-        resolve(OperationFieldBinding("realization_id", "physical:data.occurrence.realization_id", False), {})
+        resolve(
+            OperationFieldBinding(
+                "realization_id", "physical:data.occurrence.realization_id", False
+            ),
+            {},
+        )
 
 
 def _changed_physical_sources(mutate):
@@ -220,7 +228,11 @@ def _changed_physical_sources(mutate):
 def _correspondence_bindings(sources):
     from corpus_structure.semantic.native_call_sources import source_bindings
 
-    return source_bindings((), logical_sources={"linkml:types": metadata.info["physical_linkml_types"]}, physical_sources=sources)
+    return source_bindings(
+        (),
+        logical_sources={"linkml:types": metadata.info["physical_linkml_types"]},
+        physical_sources=sources,
+    )
 
 
 @pytest.mark.parametrize(
@@ -233,15 +245,17 @@ def _correspondence_bindings(sources):
     ],
 )
 def test_anchored_correspondence_is_validated_during_compilation(target, message):
-    from corpus_structure.schema.physical import compile_physical
     from corpus_structure.schema.model import ModelError
+    from corpus_structure.schema.physical import compile_physical
 
     def mutate(model):
         slot = model["classes"]["release"]["attributes"]["release_id"]
         slot.setdefault("annotations", {})["cp:type_source"] = target
 
     with pytest.raises(ModelError, match=message):
-        compile_physical(_changed_physical_sources(mutate), linkml_types=metadata.info["physical_linkml_types"])
+        compile_physical(
+            _changed_physical_sources(mutate), linkml_types=metadata.info["physical_linkml_types"]
+        )
 
 
 def test_type_correspondence_keeps_local_nullable_and_constraints():
@@ -305,6 +319,7 @@ def test_type_correspondence_cannot_hide_behind_value_projection():
 
 def test_companion_generator_cannot_bypass_invalid_anchored_correspondence():
     import json
+
     import yaml
 
     from corpus_structure.schema.model import ModelError
@@ -319,7 +334,9 @@ def test_companion_generator_cannot_bypass_invalid_anchored_correspondence():
         if source.name == PREFIX + "physical/physical.yaml":
             document = yaml.safe_load(source.content)
             field = document["classes"]["release"]["attributes"]["release_id"]
-            field.setdefault("annotations", {})["cp:type_source"] = "physical:data.realization.realization_id"
+            field.setdefault("annotations", {})["cp:type_source"] = (
+                "physical:data.realization.realization_id"
+            )
             source = SourceArtifact(source.name, yaml.safe_dump(document, sort_keys=False).encode())
         changed.append(source)
     manifest = json.loads(contract.content)
@@ -358,8 +375,8 @@ def test_correspondence_preserves_value_projection_lineage_and_rejects_collectio
 
 @pytest.mark.parametrize("declaration", ["slot", "inherited_slot"])
 def test_schema_slot_cannot_hide_anchored_self_correspondence(declaration):
-    from corpus_structure.schema.physical import compile_physical
     from corpus_structure.schema.model import ModelError
+    from corpus_structure.schema.physical import compile_physical
 
     def mutate(model):
         release = model["classes"]["release"]
@@ -376,7 +393,9 @@ def test_schema_slot_cannot_hide_anchored_self_correspondence(declaration):
             release["is_a"] = "PhysicalReleaseBase"
 
     with pytest.raises(ModelError, match="cyclic"):
-        compile_physical(_changed_physical_sources(mutate), linkml_types=metadata.info["physical_linkml_types"])
+        compile_physical(
+            _changed_physical_sources(mutate), linkml_types=metadata.info["physical_linkml_types"]
+        )
 
 
 @pytest.mark.parametrize(
@@ -390,6 +409,7 @@ def test_schema_slot_cannot_hide_anchored_self_correspondence(declaration):
 )
 def test_physical_nominal_correspondences_are_checked_without_execution_catalog(target, message):
     import yaml
+
     from corpus_structure.schema.model import ModelError
     from corpus_structure.schema.physical import compile_physical
 
@@ -398,7 +418,9 @@ def test_physical_nominal_correspondences_are_checked_without_execution_catalog(
     # Preserve each independent nominal declaration while deliberately corrupting its edge.
     cls = "occurrence" if target != "physical:data.realization.realization_id" else "release"
     field = "realization_id" if cls == "occurrence" else "release_id"
-    document["classes"][cls]["attributes"][field].setdefault("annotations", {})["cp:type_source"] = target
+    document["classes"][cls]["attributes"][field].setdefault("annotations", {})[
+        "cp:type_source"
+    ] = target
     sources["physical.yaml"] = yaml.safe_dump(document).encode()
     with pytest.raises(ModelError, match=message):
         compile_physical(sources)
@@ -406,11 +428,18 @@ def test_physical_nominal_correspondences_are_checked_without_execution_catalog(
 
 def test_current_wire_and_column_nominals_share_the_canonical_owner():
     from typing import Required, get_args, get_origin, get_type_hints
+
     from corpus_structure.semantic import identifiers
     from corpus_structure.semantic._data_operation_wire import WireRegisterDataDemandRequest
 
     release_type = get_type_hints(WireRegisterDataDemandRequest, include_extras=True)["release_id"]
     assert get_origin(release_type) is Required
     assert get_args(release_type) == (identifiers.ReleaseId,)
-    assert metadata.tables["data.occurrence"].c.release_id.info["python_type"] == "corpus_structure.semantic.identifiers.ReleaseId"
-    assert metadata.tables["data.occurrence"].c.realization_id.info["python_type"] == "corpus_structure.semantic.identifiers.RealizationId"
+    assert (
+        metadata.tables["data.occurrence"].c.release_id.info["python_type"]
+        == "corpus_structure.semantic.identifiers.ReleaseId"
+    )
+    assert (
+        metadata.tables["data.occurrence"].c.realization_id.info["python_type"]
+        == "corpus_structure.semantic.identifiers.RealizationId"
+    )

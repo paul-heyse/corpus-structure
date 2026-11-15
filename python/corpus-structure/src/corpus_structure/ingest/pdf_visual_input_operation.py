@@ -11,8 +11,12 @@ class PdfVisualInputFamily:
         "id": "source.visual_input/render",
         "profile": "derivation",
         "subject": "original-document",
-        "subject_definition": {'id': 'original-document', 'identifier_kind': 'string', 'scope': 'original-document'},
-        "discovery_relation": 'role-associated',
+        "subject_definition": {
+            "id": "original-document",
+            "identifier_kind": "string",
+            "scope": "original-document",
+        },
+        "discovery_relation": "role-associated",
         "context": ["original-source", "exact-selected-pdf", "page-or-native-region"],
         "entrypoints": ["run"],
         "roles": [
@@ -59,13 +63,19 @@ class PdfVisualInputFamily:
             "cancellation": "cooperative",
             "ownership": "selected-original-render",
         },
-        "applicability": [{'kind': 'documentation', 'text': 'authenticated-sealed-pdf-publication'}],
-        "invariants": [
-            {'kind': 'documentation', 'text': 'exact-original-byte-digest'},
-            {'kind': 'documentation', 'text': 'qualified-crop-transform'},
-            {'kind': 'documentation', 'text': 'exact-publisher-support'},
+        "applicability": [
+            {"kind": "documentation", "text": "authenticated-sealed-pdf-publication"}
         ],
-        "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "page-or-native-region"},
+        "invariants": [
+            {"kind": "documentation", "text": "exact-original-byte-digest"},
+            {"kind": "documentation", "text": "qualified-crop-transform"},
+            {"kind": "documentation", "text": "exact-publisher-support"},
+        ],
+        "coverage": {
+            "binding": "self",
+            "result_owners": [{"kind": "implementation", "reference": "self"}],
+            "description": "page-or-native-region",
+        },
         "outcomes": ["success", "failed"],
         "precision_description": "qualified-png-and-native-pdf-point-transform",
         "behavior": "render the exact page or native crop with the incumbent visual geometry kernel",

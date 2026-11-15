@@ -6,7 +6,12 @@ from fastmcp import Context
 
 from corpus_structure.semantic.data_operation_json import json_bytes, json_loads
 from corpus_structure.semantic.refusals import tool_refusals
-from corpus_structure.serve.rich_queries import RichQueryRequest, decode_rich_cursor, serve_rich_query
+from corpus_structure.serve.rich_queries import (
+    RichQueryRequest,
+    decode_rich_cursor,
+    serve_rich_query,
+)
+
 from .demand_read_tools import ExactSelectedResult
 from .mcp_results import bounded_mcp_result
 
@@ -19,8 +24,11 @@ def register_rich_query_tools(server, reader, *, project=None, demand=None):
             raise ValueError("rich query belongs to another server demand")
         with reader() as connection:
             report = serve_rich_query(connection, request)
-        return ExactSelectedResult(cut_id=report["cut_id"], exact_json=json_bytes(report).decode(),
-                                   resource="corpus://rich-query/" + report["resource_handle"])
+        return ExactSelectedResult(
+            cut_id=report["cut_id"],
+            exact_json=json_bytes(report).decode(),
+            resource="corpus://rich-query/" + report["resource_handle"],
+        )
 
     @server.tool(annotations={"readOnlyHint": True})
     @tool_refusals(ValueError, KeyError)

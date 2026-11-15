@@ -39,7 +39,13 @@ def _member(**changes):
             ("episode:one",),
             b'{"use_id":"use:one"}',
             member="member:shared",
-         subject_definition="document", support_references=(ComputationalSupportReference(derivation_id="episode:one", admission_use_id="use:one"),)),
+            subject_definition="document",
+            support_references=(
+                ComputationalSupportReference(
+                    derivation_id="episode:one", admission_use_id="use:one"
+                ),
+            ),
+        ),
         **changes,
     )
 
@@ -89,7 +95,7 @@ def hydration_case(monkeypatch, native_rollback):
             subject="document",
             roles=tuple(
                 SimpleNamespace(name=name, kind="kind") for name in ("left", "right", "empty")
-            )
+            ),
         ),
     )
     statements = []
@@ -119,7 +125,9 @@ def hydration_case(monkeypatch, native_rollback):
             "definition",
             "eligibility",
             (b"admission",),
-            subject_context=SubjectContext("project", "root", "original:one", b"{}", subject_definition="document"),
+            subject_context=SubjectContext(
+                "project", "root", "original:one", b"{}", subject_definition="document"
+            ),
         )
         return hydrate_consumer_selection(
             connection,
@@ -181,7 +189,14 @@ def test_hydration_uses_one_body_query_per_bounded_values_page(hydration_case, c
         {"original_source": "other"},
         {"analyzed_scope": b"null"},
         {"support_evidence": b"{}"},
-        {"support_episodes": ("episode:other",), "support_references": (ComputationalSupportReference(derivation_id="episode:other", admission_use_id="use:one"),)},
+        {
+            "support_episodes": ("episode:other",),
+            "support_references": (
+                ComputationalSupportReference(
+                    derivation_id="episode:other", admission_use_id="use:one"
+                ),
+            ),
+        },
         {
             "support_references": (
                 ComputationalSupportReference(

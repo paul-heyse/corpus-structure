@@ -11,8 +11,12 @@ class PdfOrganizationOperation:
         "id": "source.pdf_sections/organize",
         "profile": "command",
         "subject": "original-document",
-        "subject_definition": {'id': 'original-document', 'identifier_kind': 'string', 'scope': 'original-document'},
-        "discovery_relation": 'role-associated',
+        "subject_definition": {
+            "id": "original-document",
+            "identifier_kind": "string",
+            "scope": "original-document",
+        },
+        "discovery_relation": "role-associated",
         "context": ["original-source", "whole-document"],
         "entrypoints": ["run"],
         "roles": [
@@ -60,13 +64,19 @@ class PdfOrganizationOperation:
             "cancellation": "cooperative",
             "ownership": "owned-pdf-build",
         },
-        "applicability": [{'kind': 'documentation', 'text': 'native-admitted-retained-pdf-original'}],
-        "invariants": [
-            {'kind': 'documentation', 'text': 'original-byte-custody'},
-            {'kind': 'documentation', 'text': 'actual-frozen-native-validation'},
-            {'kind': 'documentation', 'text': 'exact-publisher-and-replay-attribution'},
+        "applicability": [
+            {"kind": "documentation", "text": "native-admitted-retained-pdf-original"}
         ],
-        "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "whole-document"},
+        "invariants": [
+            {"kind": "documentation", "text": "original-byte-custody"},
+            {"kind": "documentation", "text": "actual-frozen-native-validation"},
+            {"kind": "documentation", "text": "exact-publisher-and-replay-attribution"},
+        ],
+        "coverage": {
+            "binding": "self",
+            "result_owners": [{"kind": "implementation", "reference": "self"}],
+            "description": "whole-document",
+        },
         "outcomes": ["success", "failed"],
         "precision_description": "native-pdf-records-and-original-coordinates",
         "behavior": "selected inline and cell recognition under exact native source scopes",
@@ -84,13 +94,16 @@ class PdfOrganizationOperation:
             },
         ],
         "assets": [
-            {"reference": "pdf-domain/contract.json", "contract": "pdf-native/helper-bindings",
-             "role": "native-pdf-helper-bindings"},
+            {
+                "reference": "pdf-domain/contract.json",
+                "contract": "pdf-native/helper-bindings",
+                "role": "native-pdf-helper-bindings",
+            },
             {
                 "reference": "frozen-native-pdf-recipe",
                 "contract": "pdf-organized/execution-custody",
                 "role": "native-parser-models-and-publication-projection",
-            }
+            },
         ],
     }
 

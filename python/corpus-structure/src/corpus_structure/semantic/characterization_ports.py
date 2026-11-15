@@ -563,7 +563,8 @@ class PreparedCharacterizationPort(ABC):
             member.subject,
             member.original_source,
             member.analyzed_scope,
-         subject_definition=member.subject_definition)
+            subject_definition=member.subject_definition,
+        )
         product = replace(product, subject_context=context)
         if product.semantic_id != member.product:
             raise PortRefusal("family body differs from its selected native product identity")
@@ -643,7 +644,8 @@ class PreparedCharacterizationPort(ABC):
                     member.subject,
                     member.original_source,
                     member.analyzed_scope,
-                 subject_definition=member.subject_definition)
+                    subject_definition=member.subject_definition,
+                )
                 product = replace(
                     product,
                     subject_context=context,

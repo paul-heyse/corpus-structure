@@ -635,8 +635,11 @@ def store_source_view(
         )
     except DATABASE_ERRORS as exc:
         failure = classify_invariant_failure(
-            context.domain.invariants, "publish_source_view", exc,
-            model_id="pdf-domain:" + sha256(context.domain.content).hexdigest(), release_id=context.release_id
+            context.domain.invariants,
+            "publish_source_view",
+            exc,
+            model_id="pdf-domain:" + sha256(context.domain.content).hexdigest(),
+            release_id=context.release_id,
         )
         if failure is not None:
             raise InvariantViolation(failure) from exc

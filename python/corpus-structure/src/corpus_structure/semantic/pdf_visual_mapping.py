@@ -15,7 +15,17 @@ from corpus_structure.ingest.pdf_recognition import (
     crop_transform,
     render_recognition_page,
 )
-from corpus_structure.semantic.visual_evidence import VisualCaption, VisualCaptionCandidate, VisualCellGroup, VisualEvidenceArtifact, VisualPicture, VisualSourceRegion, VisualTable, VisualTableCell, VisualText
+from corpus_structure.semantic.visual_evidence import (
+    VisualCaption,
+    VisualCaptionCandidate,
+    VisualCellGroup,
+    VisualEvidenceArtifact,
+    VisualPicture,
+    VisualSourceRegion,
+    VisualTable,
+    VisualTableCell,
+    VisualText,
+)
 
 if TYPE_CHECKING:
     from docling_core.types.doc import DoclingDocument

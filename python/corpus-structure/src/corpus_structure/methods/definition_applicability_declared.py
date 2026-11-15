@@ -12,8 +12,12 @@ class DefinitionApplicabilityOperation:
         "id": "structure.definition_applicability/declared",
         "profile": "derivation",
         "subject": "original-source-view",
-        "subject_definition": {'id': 'original-source-view', 'identifier_kind': 'string', 'scope': 'original-source'},
-        "discovery_relation": 'subject-population',
+        "subject_definition": {
+            "id": "original-source-view",
+            "identifier_kind": "string",
+            "scope": "original-source",
+        },
+        "discovery_relation": "subject-population",
         "context": [
             "original-source",
             "selected-scope",
@@ -84,16 +88,23 @@ class DefinitionApplicabilityOperation:
             },
         ],
         "applicability": [
-            {'kind': 'documentation', 'text': 'exact-selected-usage-edge-and-separately-bound-native-definition-component'}
+            {
+                "kind": "documentation",
+                "text": "exact-selected-usage-edge-and-separately-bound-native-definition-component",
+            }
         ],
         "invariants": [
-            {'kind': 'documentation', 'text': 'exact-source-resolved-component-meaning'},
-            {'kind': 'documentation', 'text': 'every-proof-carrier-preserved'},
-            {'kind': 'documentation', 'text': 'no-target-or-usage-substitution'},
-            {'kind': 'documentation', 'text': 'unknown-transfer-premises-remain-unknown'},
-            {'kind': 'documentation', 'text': 'private-reading-does-not-grant-publication'},
+            {"kind": "documentation", "text": "exact-source-resolved-component-meaning"},
+            {"kind": "documentation", "text": "every-proof-carrier-preserved"},
+            {"kind": "documentation", "text": "no-target-or-usage-substitution"},
+            {"kind": "documentation", "text": "unknown-transfer-premises-remain-unknown"},
+            {"kind": "documentation", "text": "private-reading-does-not-grant-publication"},
         ],
-        "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "exact-selected-usage-and-actual-native-component"},
+        "coverage": {
+            "binding": "self",
+            "result_owners": [{"kind": "implementation", "reference": "self"}],
+            "description": "exact-selected-usage-and-actual-native-component",
+        },
         "outcomes": ["success"],
         "precision_description": "original-native-half-open-extents",
         "dependencies": [
@@ -181,11 +192,11 @@ class DefinitionApplicabilityOperation:
                         "encoding": "value",
                     },
                     {
-                        "output_field": 'subject_definition',
+                        "output_field": "subject_definition",
                         "input": {
                             "role": "source",
                             "projection": "selected-input",
-                            "field": 'subject_definition',
+                            "field": "subject_definition",
                         },
                         "encoding": "value",
                     },
@@ -260,11 +271,11 @@ class DefinitionApplicabilityOperation:
                         "encoding": "value",
                     },
                     {
-                        "output_field": 'subject_definition',
+                        "output_field": "subject_definition",
                         "input": {
                             "role": "components",
                             "projection": "selected-input",
-                            "field": 'subject_definition',
+                            "field": "subject_definition",
                         },
                         "encoding": "value",
                     },
@@ -339,11 +350,11 @@ class DefinitionApplicabilityOperation:
                         "encoding": "value",
                     },
                     {
-                        "output_field": 'subject_definition',
+                        "output_field": "subject_definition",
                         "input": {
                             "role": "relationship",
                             "projection": "selected-input",
-                            "field": 'subject_definition',
+                            "field": "subject_definition",
                         },
                         "encoding": "value",
                     },

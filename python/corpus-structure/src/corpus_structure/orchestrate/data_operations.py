@@ -7,8 +7,6 @@ transactions; provider/prepared capabilities use their separately admitted owner
 
 from __future__ import annotations
 
-from corpus_structure.semantic.identifiers import RuntimeId
-
 import json
 from collections.abc import Callable, Mapping, Sequence
 from concurrent.futures import Future, ThreadPoolExecutor
@@ -62,6 +60,7 @@ from corpus_structure.semantic.data_operation_ports import (
 from corpus_structure.semantic.data_operation_storage import (
     DataOperationStorage,
 )
+from corpus_structure.semantic.identifiers import RuntimeId
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.python_operation_sources import PythonSourceCollection
 from corpus_structure.semantic.runtime_bindings import RuntimeBinding
@@ -543,9 +542,7 @@ class NativeDemandExecutor:
                     )
 
                     if not isinstance(port, CapturedEffectPort):
-                        raise PortRefusal(
-                            "declared effect has no captured native effect owner"
-                        )
+                        raise PortRefusal("declared effect has no captured native effect owner")
                 admission.authorize(port.identity)
                 if port.operation != selected:
                     raise PortRefusal("prepared capability differs from effective operation")

@@ -10,13 +10,19 @@ def test_operation_diagnostics_are_actual_frontier_and_do_not_expand_output_body
     native = _page(empty=True)
     native["view"] = "frontier"
     native["obligations"][0].update(fate="failed", reason="producer refused authentic source")
+
     def read(connection, demand_id, *, project_id, **kwargs):
         assert kwargs["view"] == "frontier"
         return DemandResult(json_bytes(native))
+
     monkeypatch.setattr("corpus_structure.semantic.demand_queries.read_demand_result", read)
+
     def forbidden(self):
         raise AssertionError("frontier inspection must not hydrate products")
+
     monkeypatch.setattr(DemandResult, "members", forbidden)
-    result = serve_demand_query(None, DemandQueryRequest(project_id="project:A", demand_id="demand:A", view="operations"))
+    result = serve_demand_query(
+        None, DemandQueryRequest(project_id="project:A", demand_id="demand:A", view="operations")
+    )
     assert result["items"] == [{"obligation": native["obligations"][0], "uses": []}]
     assert result["items"][0]["obligation"]["fate"] == "failed"

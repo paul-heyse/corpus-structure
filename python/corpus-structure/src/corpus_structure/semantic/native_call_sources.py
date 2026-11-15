@@ -6,12 +6,12 @@ This owner resolves transport correspondences from explicitly supplied sources.
 
 from __future__ import annotations
 
-import keyword
 import json
+import keyword
 from collections.abc import Mapping
 from dataclasses import asdict, replace
 from hashlib import sha256
-from typing import Any, cast, Never
+from typing import Any, Never, cast
 
 import yaml
 from linkml_runtime.utils.yamlutils import DupCheckYamlLoader
@@ -116,6 +116,7 @@ def _source_view(logical_sources: Mapping[str, bytes], physical_sources: Mapping
     merged.imports = []
     return SchemaView(merged)
 
+
 def _kind(view, name, trail=()):
     from corpus_structure.schema.model import ci_annotations
 
@@ -155,14 +156,18 @@ def _kind(view, name, trail=()):
         return name, ()
     _fail("operation_source", name, "unsupported value representation")
 
+
 def source_bindings(
     calls: tuple[tuple[str, OperationCallBinding], ...],
-    *, logical_sources: Mapping[str, bytes], physical_sources: Mapping[str, bytes],
+    *,
+    logical_sources: Mapping[str, bytes],
+    physical_sources: Mapping[str, bytes],
 ):
     """Compile qualified fixed variants from explicit field references and closed sources."""
     from corpus_structure.schema.model import ci_annotations
 
     from .native_call_contracts import OperationFieldBinding, OperationFieldType
+
     view = _source_view(logical_sources, physical_sources)
     # Reuse the identifier owned by an explicit physical correspondence, including
     # through model projections. Nested records must retain the same distinctions.
@@ -233,7 +238,9 @@ def source_bindings(
         anchors = {semantic_sources[reference]} if reference in semantic_sources else set()
         if canonical := annotations.get("ph:python_type"):
             parts = canonical.split(".")
-            if len(parts) < 2 or any(not part.isidentifier() or keyword.iskeyword(part) for part in parts):
+            if len(parts) < 2 or any(
+                not part.isidentifier() or keyword.iskeyword(part) for part in parts
+            ):
                 _fail("operation_source", reference, "canonical physical nominal must be qualified")
             anchors.add(parts[-1])
         # An explicit anchor names this field; it cannot waive validation of its edges.
@@ -353,15 +360,19 @@ def source_bindings(
 
     return view, semantic_type, model_field, resolve
 
+
 def resolve_call_bindings(
     calls: tuple[tuple[str, OperationCallBinding], ...],
-    *, logical_sources: Mapping[str, bytes], physical_sources: Mapping[str, bytes],
+    *,
+    logical_sources: Mapping[str, bytes],
+    physical_sources: Mapping[str, bytes],
     core_owners: Mapping[tuple[str, str], str] | None = None,
 ) -> tuple[tuple[str, OperationCallBinding], ...]:
     """Compile qualified fixed variants from explicit field references and closed sources."""
     from corpus_structure.schema.model import ci_annotations
 
     from .native_call_contracts import OperationRecordBinding
+
     view, semantic_type, model_field, resolve = source_bindings(
         calls, logical_sources=logical_sources, physical_sources=physical_sources
     )
@@ -393,7 +404,11 @@ def resolve_call_bindings(
             typ, source = resolve(field, parameters)
             if field.transform in {None, "identity"}:
                 inherited = semantic_type(field.source)
-                if field.semantic_type is not None and inherited is not None and field.semantic_type != inherited:
+                if (
+                    field.semantic_type is not None
+                    and inherited is not None
+                    and field.semantic_type != inherited
+                ):
                     _fail("operation_field", field.source, "semantic identifiers differ")
                 field = replace(field, semantic_type=field.semantic_type or inherited)
             if field.native_type is not None and (
@@ -524,9 +539,7 @@ def resolve_call_bindings(
                 )
             fields = tuple(derived)
             result_class = result_class or cls
-        results, result_sources = resolve_fields(
-            fields, parameter_map, location, parameter=False
-        )
+        results, result_sources = resolve_fields(fields, parameter_map, location, parameter=False)
         sources.update(result_sources)
         records = {}
 
@@ -580,12 +593,8 @@ def resolve_call_bindings(
             if any(
                 not f.source.startswith("parameter:") for f in results
             ) or call.cardinality not in {"one", "none"}:
-                _fail(
-                    "operation_result", location, "void result may only project a local receipt"
-                )
-            if bool(results) != bool(result_class) or (
-                not results and call.cardinality != "none"
-            ):
+                _fail("operation_result", location, "void result may only project a local receipt")
+            if bool(results) != bool(result_class) or (not results and call.cardinality != "none"):
                 _fail("operation_result", location, "void receipt shape/cardinality differs")
         if call.batch and (call.result_mode != "void" or call.cardinality != "none"):
             _fail("operation_result", location, "batch calls require a void native effect")
@@ -613,8 +622,7 @@ def resolve_call_bindings(
                 call.result_mode == "void",
                 call.json_read,
                 tuple(
-                    (f.name, f.resolved, f.nullable, f.semantic_type, f.transform)
-                    for f in results
+                    (f.name, f.resolved, f.nullable, f.semantic_type, f.transform) for f in results
                 ),
             )
             if result_class in result_shapes and result_shapes[result_class] != shape:
@@ -624,14 +632,16 @@ def resolve_call_bindings(
         if call.source_digest is not None and call.source_digest != digest:
             _fail("operation_source", location, "resolved source representation differs")
         resolved_calls.append(
-            (owner, replace(
-                call,
-                parameters=parameters,
-                result_fields=results,
-                result_class=result_class,
-                source_digest=digest,
-                records=resolved_records,
-            ))
+            (
+                owner,
+                replace(
+                    call,
+                    parameters=parameters,
+                    result_fields=results,
+                    result_class=result_class,
+                    source_digest=digest,
+                    records=resolved_records,
+                ),
+            )
         )
     return tuple(resolved_calls)
-

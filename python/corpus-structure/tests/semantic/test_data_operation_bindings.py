@@ -26,15 +26,15 @@ from corpus_structure.semantic.data_operation_model import (
     BindingField,
     BindingOperand,
     BoundRoleMember,
+    CoverageContract,
+    CoverageResultOwner,
     EffectiveDataOperationModel,
     EffectiveIdentity,
     EffectiveKind,
     EffectiveOperation,
     ImplementationCapabilities,
-    InputSupport,
     InputCoverage,
-    CoverageContract,
-    CoverageResultOwner,
+    InputSupport,
     OperationRole,
     RelationalBinding,
     ResolvedRoleBinding,
@@ -69,7 +69,12 @@ def model(
             maximum,
             collection,
             presence,
-            InputSupport("exact", "original", InputCoverage(name, "complete"), identity_requirements=("episode",)),
+            InputSupport(
+                "exact",
+                "original",
+                InputCoverage(name, "complete"),
+                identity_requirements=("episode",),
+            ),
         )
         for name in names
     )
@@ -81,7 +86,20 @@ def model(
         roles,
         (),
         (),
-        CoverageContract("urn:binding", b"{}", b"{}", (CoverageResultOwner("declared-contract", "urn:op", "authored-result-contract-v1", b'{"behavior":"revision-1"}'),), "complete"),
+        CoverageContract(
+            "urn:binding",
+            b"{}",
+            b"{}",
+            (
+                CoverageResultOwner(
+                    "declared-contract",
+                    "urn:op",
+                    "authored-result-contract-v1",
+                    b'{"behavior":"revision-1"}',
+                ),
+            ),
+            "complete",
+        ),
         ("produced",),
         "exact",
         (),
@@ -134,7 +152,13 @@ def storage(native_rollback):
         ),
         *(
             Column(name, JSONB)
-            for name in ("analyzed_scope", "coverage", "support_episodes", "support_evidence", "support_references")
+            for name in (
+                "analyzed_scope",
+                "coverage",
+                "support_episodes",
+                "support_evidence",
+                "support_references",
+            )
         ),
         Column("position", Integer),
         Column("multiplicity", Integer),
@@ -158,7 +182,9 @@ def storage(native_rollback):
                 analyzed_scope={"page": 1},
                 coverage={"complete": True},
                 support_episodes=[f"ep{value}"],
-                support_references=[{"kind": "computation", "derivation_id": f"ep{value}", "admission_use_id": None}],
+                support_references=[
+                    {"kind": "computation", "derivation_id": f"ep{value}", "admission_use_id": None}
+                ],
                 support_evidence={"trust": "pinned"},
                 position=3 - value,
                 multiplicity=1,
@@ -260,7 +286,9 @@ def test_sql_range_membership_defaults_and_exact_identity(storage):
     assert result.definition == "definition:fixed"
     assert decode_semantic_value(json.loads(result.parameters)) == {"allowed": [2, 3], "maximum": 3}
     resolved = result.resolved(
-        subject_context=SubjectContext("project:test", result.subject, "source:test", b"{}", subject_definition="document"),
+        subject_context=SubjectContext(
+            "project:test", result.subject, "source:test", b"{}", subject_definition="document"
+        ),
         inference="exact",
         authorization=b"{}",
         trust_evidence=b"{}",
@@ -284,7 +312,9 @@ def test_postgresql_full_binding_result_preserves_selected_facts(storage, facet,
     connection, relation, projection = storage
     selected = {facet: value}
     if facet == "support_episodes":
-        selected["support_references"] = [{"kind": "computation", "derivation_id": "selected-episode", "admission_use_id": None}]
+        selected["support_references"] = [
+            {"kind": "computation", "derivation_id": "selected-episode", "admission_use_id": None}
+        ]
     connection.execute(relation.update().where(relation.c.value == 2).values(selected))
     expression = BindingExpression(
         "membership", operands=(field(), BindingOperand("parameter", "integer", name="allowed"))
@@ -320,7 +350,8 @@ def test_postgresql_full_binding_result_preserves_selected_facts(storage, facet,
                 derivation_id="selected-episode" if facet == "support_episodes" else "ep2",
             ),
         ),
-     subject_definition="document")
+        subject_definition="document",
+    )
     assert actual == BindingResult(
         operation="urn:op",
         subject="doc",
@@ -476,8 +507,6 @@ def test_projection_contract_and_typed_demand_refuse_unsafe_inputs(storage):
             subject="doc",
             parameters={"lo": True, "hi": 3},
         )
-
-
 
 
 def test_potential_producer_cycles_do_not_become_mandatory_prerequisites():
@@ -818,7 +847,10 @@ def test_decoder_refuses_null_identity_and_every_required_support_dimension(stor
 
     connection, _, projection = storage
     product = model(BindingExpression("scan", roles=("items",)))
-    product = replace(product, subject_definitions=(replace(product.subject_definitions[0], scope="original-source"),))
+    product = replace(
+        product,
+        subject_definitions=(replace(product.subject_definitions[0], scope="original-source"),),
+    )
     compiled = compile_binding(product, "urn:op", (projection,), subject="doc")
     rows = {
         name: tuple(dict(row) for row in connection.execute(query).mappings())
@@ -990,7 +1022,9 @@ def test_runtime_parameter_mapping_preserves_date_decimal_and_signed_zero(storag
     assert decoded["amount"] == Decimal("1.2") and type(decoded["amount"]) is Decimal
     assert math.copysign(1, decoded["sign"]) == -1
     resolved = result.resolved(
-        subject_context=SubjectContext("project:test", result.subject, "source:test", b"{}", subject_definition="document"),
+        subject_context=SubjectContext(
+            "project:test", result.subject, "source:test", b"{}", subject_definition="document"
+        ),
         inference="exact",
         authorization=b"{}",
         trust_evidence=b"{}",
@@ -1087,9 +1121,12 @@ def test_sql_covers_requires_every_requested_typed_value(storage):
 
 
 def test_sql_source_set_selects_exact_product_without_relabelling_source(storage):
-    from corpus_structure.semantic.data_operation_source_sets import FrozenSourceSet, SourceSetEntry
-    from corpus_structure.semantic.data_product_reference import DataProductReference, DataProductMemberReference
     from corpus_structure.semantic.data_operation_model import SubjectContext
+    from corpus_structure.semantic.data_operation_source_sets import FrozenSourceSet, SourceSetEntry
+    from corpus_structure.semantic.data_product_reference import (
+        DataProductMemberReference,
+        DataProductReference,
+    )
 
     connection, table, projection = storage
 
@@ -1099,8 +1136,10 @@ def test_sql_source_set_selects_exact_product_without_relabelling_source(storage
         .values(original_source="foreign-source", base="opaque-unrelated-value")
     )
     frozen = SourceSetEntry.from_semantic_source(
-        DataProductMemberReference(DataProductReference('p2'), 'm2'),
-        context=SubjectContext('project', 'doc', 'foreign-source', b'{"page":1}', subject_definition='document'),
+        DataProductMemberReference(DataProductReference("p2"), "m2"),
+        context=SubjectContext(
+            "project", "doc", "foreign-source", b'{"page":1}', subject_definition="document"
+        ),
     )
     schema = model(BindingExpression("scan", roles=("items",)))
     operation = schema.operations[0]
@@ -1129,7 +1168,10 @@ def test_sql_source_set_selects_exact_product_without_relabelling_source(storage
         (member.product, member.member, member.original_source)
         for member in result.roles[0].members
     ] == [("p2", "m2", "foreign-source")]
-    assert json.loads(result.source_sets)["inputs"][0]["source_reference"] == DataProductMemberReference(DataProductReference("p2"), "m2").identity
+    assert (
+        json.loads(result.source_sets)["inputs"][0]["source_reference"]
+        == DataProductMemberReference(DataProductReference("p2"), "m2").identity
+    )
     with pytest.raises(ValueError, match=r"lacks.*source set"):
         compile_binding(schema, "urn:op", (projection,), subject="doc")
     wrong = replace(frozen, analyzed_scope=b'{"page":2}')
@@ -1187,7 +1229,9 @@ def test_explicit_discovery_input_filters_parent_before_scalar_cardinality(stora
     connection.execute(
         table.insert(), {**row, "member": "m2-other-scope", "analyzed_scope": {"page": 2}}
     )
-    context = SubjectContext("project", "doc", "source", b'{"page":1}', subject_definition="document")
+    context = SubjectContext(
+        "project", "doc", "source", b'{"page":1}', subject_definition="document"
+    )
     schema = model(BindingExpression("scan", roles=("items",)), collection="scalar", maximum=1)
     population = PopulationBinding(
         "discovered",
@@ -1264,7 +1308,9 @@ def test_native_membership_and_absence_cannot_use_another_containers_local_membe
 
 def test_acquired_subject_context_survives_binding_and_cannot_be_replaced(storage):
     connection, _, projection = storage
-    context = SubjectContext("project:test", "doc", "source", b'{"page":1}', subject_definition="document")
+    context = SubjectContext(
+        "project:test", "doc", "source", b'{"page":1}', subject_definition="document"
+    )
     compiled = compile_binding(
         model(BindingExpression("scan", roles=("items",))),
         "urn:op",
@@ -1285,7 +1331,9 @@ def test_acquired_subject_context_survives_binding_and_cannot_be_replaced(storag
     assert resolved.subject_context == context
     equivalent = result.resolved(
         inference="exact",
-        subject_context=SubjectContext("project:test", "doc", "source", b'{"page":1.0}', subject_definition="document"),
+        subject_context=SubjectContext(
+            "project:test", "doc", "source", b'{"page":1.0}', subject_definition="document"
+        ),
         authorization=b"{}",
         trust_evidence=b"{}",
         execution_profile="native",
@@ -1294,7 +1342,9 @@ def test_acquired_subject_context_survives_binding_and_cannot_be_replaced(storag
     with pytest.raises(ValueError, match="differs"):
         result.resolved(
             inference="exact",
-            subject_context=SubjectContext("other", "doc", "source", b'{"page":1}', subject_definition="document"),
+            subject_context=SubjectContext(
+                "other", "doc", "source", b'{"page":1}', subject_definition="document"
+            ),
             authorization=b"{}",
             trust_evidence=b"{}",
             execution_profile="native",
@@ -1513,9 +1563,14 @@ def test_sql_qualified_context_fanin_requires_all_contexts_without_parent_produc
         table.update().where(table.c.product == "p3").values(analyzed_scope={"page": 3})
     )
     schema = model(_qualified_context_expression(), minimum=0, presence="optional")
-    root = SubjectContext("project", "doc", "source", b'{"root":true}', subject_definition="document")
+    root = SubjectContext(
+        "project", "doc", "source", b'{"root":true}', subject_definition="document"
+    )
     contexts = tuple(
-        SubjectContext("project", "doc", "source", json_bytes({"page": page}), subject_definition="document") for page in (1, 2)
+        SubjectContext(
+            "project", "doc", "source", json_bytes({"page": page}), subject_definition="document"
+        )
+        for page in (1, 2)
     )
 
     def bind(required=contexts, complete=True):
@@ -1587,7 +1642,9 @@ def test_sql_subject_field_can_target_original_source_without_relabeling_context
         (projection,),
         subject="hashed:document",
         original_source="source",
-        subject_context=SubjectContext("project", "hashed:document", "source", b"{}", subject_definition="document"),
+        subject_context=SubjectContext(
+            "project", "hashed:document", "source", b"{}", subject_definition="document"
+        ),
     )
     result = execute_binding(connection, compiled)
     assert result.status == "ready"
@@ -1701,7 +1758,9 @@ def test_zero_minimum_selected_producer_preserves_other_roles_and_requires_close
                 "urn:op",
                 (projection,),
                 subject="doc",
-                subject_context=SubjectContext("project", "doc", "source", b"{}", subject_definition="document"),
+                subject_context=SubjectContext(
+                    "project", "doc", "source", b"{}", subject_definition="document"
+                ),
                 populations=(
                     PopulationBinding(
                         "right-contexts",
@@ -1744,7 +1803,13 @@ def test_semantic_source_set_pins_cross_source_context_without_legacy_reference(
             subject="foreign:subject", original_source="foreign:source", analyzed_scope={"page": 2}
         )
     )
-    context = SubjectContext("project", "foreign:subject", "foreign:source", b'{"page":2.0}', subject_definition="document")
+    context = SubjectContext(
+        "project",
+        "foreign:subject",
+        "foreign:source",
+        b'{"page":2.0}',
+        subject_definition="document",
+    )
     entry = SourceSetEntry.from_semantic_source(
         DataProductMemberReference(DataProductReference("p2"), "m2"), context=context
     )
@@ -1832,24 +1897,41 @@ def test_project_source_filters_distinguish_unqualified_null_and_actual_source(s
     connection, table, projection = storage
     product = model(BindingExpression("scan", roles=("items",)))
     connection.execute(table.update().where(table.c.product == "p1").values(original_source=None))
-    connection.execute(table.update().where(table.c.product == "p2").values(original_source="other-source"))
+    connection.execute(
+        table.update().where(table.c.product == "p2").values(original_source="other-source")
+    )
 
     def selected(**scope):
-        return execute_binding(connection, compile_binding(product, "urn:op", (projection,), subject="doc", **scope))
+        return execute_binding(
+            connection, compile_binding(product, "urn:op", (projection,), subject="doc", **scope)
+        )
 
-    unqualified, absent, exact = selected(), selected(original_source=None), selected(original_source="other-source")
+    unqualified, absent, exact = (
+        selected(),
+        selected(original_source=None),
+        selected(original_source="other-source"),
+    )
     assert {member.product for member in unqualified.roles[0].members} == {"p1", "p2", "p3"}
     assert {member.product for member in absent.roles[0].members} == {"p1"}
     assert {member.product for member in exact.roles[0].members} == {"p2"}
     context = SubjectContext("project", "doc", None, b"{}", subject_definition="document")
-    assert {member.product for member in selected(subject_context=context).roles[0].members} == {"p1"}
-    source_scoped = replace(product, subject_definitions=(replace(product.subject_definitions[0], scope="original-source"),))
+    assert {member.product for member in selected(subject_context=context).roles[0].members} == {
+        "p1"
+    }
+    source_scoped = replace(
+        product,
+        subject_definitions=(replace(product.subject_definitions[0], scope="original-source"),),
+    )
     with pytest.raises(ValueError, match="only a checked project-scoped"):
         compile_binding(source_scoped, "urn:op", (projection,), subject="doc", original_source=None)
 
 
 def test_explicit_empty_source_set_is_closed_absence_and_never_an_unbounded_scan(storage):
-    from corpus_structure.semantic.data_operation_source_sets import FrozenSourceSet, read_source_sets, source_sets_record
+    from corpus_structure.semantic.data_operation_source_sets import (
+        FrozenSourceSet,
+        read_source_sets,
+        source_sets_record,
+    )
 
     connection, _table, projection = storage
     sources = (FrozenSourceSet("selected", ()),)
@@ -1858,10 +1940,19 @@ def test_explicit_empty_source_set_is_closed_absence_and_never_an_unbounded_scan
     base = model(BindingExpression("scan", roles=("items",)), minimum=0, presence="optional")
     original = base.operations[0].roles[0]
     assert original.support is not None
-    role = replace(original, subject_target="source-set", support=replace(original.support, source="frozen-source-set", source_set="selected"))
+    role = replace(
+        original,
+        subject_target="source-set",
+        support=replace(original.support, source="frozen-source-set", source_set="selected"),
+    )
     schema = replace(base, operations=(replace(base.operations[0], roles=(role,)),))
+
     def bind(selected):
-        return execute_binding(connection, compile_binding(schema, "urn:op", (projection,), subject="doc", source_sets=selected))
+        return execute_binding(
+            connection,
+            compile_binding(schema, "urn:op", (projection,), subject="doc", source_sets=selected),
+        )
+
     result = bind(sources)
     assert result.status == "ready"
     # A collection can be present and exactly empty; unknown/missing is separate.
@@ -1869,7 +1960,14 @@ def test_explicit_empty_source_set_is_closed_absence_and_never_an_unbounded_scan
     with pytest.raises(ValueError, match="source.set"):
         bind(())
     required = replace(role, minimum=1, presence="required")
-    required_schema = replace(schema, operations=(replace(schema.operations[0], roles=(required,)),))
-    refused = execute_binding(connection, compile_binding(required_schema, "urn:op", (projection,), subject="doc", source_sets=sources))
+    required_schema = replace(
+        schema, operations=(replace(schema.operations[0], roles=(required,)),)
+    )
+    refused = execute_binding(
+        connection,
+        compile_binding(
+            required_schema, "urn:op", (projection,), subject="doc", source_sets=sources
+        ),
+    )
     assert refused.status != "ready"
     assert not refused.roles[0].members

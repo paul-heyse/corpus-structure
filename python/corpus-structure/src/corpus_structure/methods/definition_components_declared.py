@@ -10,8 +10,12 @@ class DefinitionComponentsOperation:
         "id": "structure.definition_components/declared",
         "profile": "derivation",
         "subject": "original-source-view",
-        "subject_definition": {'id': 'original-source-view', 'identifier_kind': 'string', 'scope': 'original-source'},
-        "discovery_relation": 'subject-population',
+        "subject_definition": {
+            "id": "original-source-view",
+            "identifier_kind": "string",
+            "scope": "original-source",
+        },
+        "discovery_relation": "subject-population",
         "context": ["original-source", "selected-scope", "paired-located-definition-products"],
         "entrypoints": ["run"],
         "roles": [
@@ -73,15 +77,24 @@ class DefinitionComponentsOperation:
                 "presence": "required",
             },
         ],
-        "applicability": [{'kind': 'documentation', 'text': 'actual-located-definition-GLiNER-observations-and-candidates'}],
-        "invariants": [
-            {'kind': 'documentation', 'text': 'exact-paired-native-request-reply'},
-            {'kind': 'documentation', 'text': 'independently-located-term-and-content'},
-            {'kind': 'documentation', 'text': 'directed-attachments-only'},
-            {'kind': 'documentation', 'text': 'semantic-product-member-references'},
-            {'kind': 'documentation', 'text': 'partial-coverage-is-not-absence'},
+        "applicability": [
+            {
+                "kind": "documentation",
+                "text": "actual-located-definition-GLiNER-observations-and-candidates",
+            }
         ],
-        "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "actual-inspected-original-block-windows"},
+        "invariants": [
+            {"kind": "documentation", "text": "exact-paired-native-request-reply"},
+            {"kind": "documentation", "text": "independently-located-term-and-content"},
+            {"kind": "documentation", "text": "directed-attachments-only"},
+            {"kind": "documentation", "text": "semantic-product-member-references"},
+            {"kind": "documentation", "text": "partial-coverage-is-not-absence"},
+        ],
+        "coverage": {
+            "binding": "self",
+            "result_owners": [{"kind": "implementation", "reference": "self"}],
+            "description": "actual-inspected-original-block-windows",
+        },
         "outcomes": ["success"],
         "precision_description": "original-native-half-open-extents",
         "dependencies": ["text.gliner_definitions/source-native"],
@@ -155,11 +168,11 @@ class DefinitionComponentsOperation:
                         "encoding": "value",
                     },
                     {
-                        "output_field": 'subject_definition',
+                        "output_field": "subject_definition",
                         "input": {
                             "role": "source",
                             "projection": "selected-input",
-                            "field": 'subject_definition',
+                            "field": "subject_definition",
                         },
                         "encoding": "value",
                     },
@@ -234,11 +247,11 @@ class DefinitionComponentsOperation:
                         "encoding": "value",
                     },
                     {
-                        "output_field": 'subject_definition',
+                        "output_field": "subject_definition",
                         "input": {
                             "role": "candidates",
                             "projection": "selected-input",
-                            "field": 'subject_definition',
+                            "field": "subject_definition",
                         },
                         "encoding": "value",
                     },

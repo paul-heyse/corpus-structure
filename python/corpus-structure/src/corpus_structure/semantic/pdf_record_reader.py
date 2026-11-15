@@ -136,7 +136,10 @@ def _record_envelope(row: NativeRowResult) -> dict[str, Any]:
 
 
 def _published_revision(conn: Connection, reference: ProductReference, *, read_budget=None):
-    from ._pdf_native_calls import materialize_read_pdf_published_revision, prepare_read_pdf_published_revision
+    from ._pdf_native_calls import (
+        materialize_read_pdf_published_revision,
+        prepare_read_pdf_published_revision,
+    )
     from .identifiers import TaskId
 
     statement = prepare_read_pdf_published_revision(
@@ -313,7 +316,10 @@ class PublishedPdfReader:
         batch_size: int = 100,
         _payload_reserved=False,
     ) -> Generator[dict[str, Any]]:
-        from ._pdf_native_calls import materialize_read_pdf_record_rows, prepare_read_pdf_record_rows
+        from ._pdf_native_calls import (
+            materialize_read_pdf_record_rows,
+            prepare_read_pdf_record_rows,
+        )
 
         if not 1 <= batch_size <= 1000:
             raise ValueError("published record batch size must be 1..1000")
@@ -609,7 +615,9 @@ class PublishedPdfReader:
         if not set(kinds) <= allowed:
             raise ValueError("unknown selected native diagnostic family")
         with self._projection_scope() as pin:
-            pdf_context_for_release(self.conn, pin["projection_context"]).require_operation("read_native_source")
+            pdf_context_for_release(self.conn, pin["projection_context"]).require_operation(
+                "read_native_source"
+            )
             if not pointers:
                 return []
             selected = set(pointers)
@@ -784,7 +792,10 @@ class PublishedPdfReader:
 
     def validation_receipt(self):
         """Read immutable sealed assurance, including its original contract epoch."""
-        from ._pdf_native_calls import materialize_read_pdf_published_validation, prepare_read_pdf_published_validation
+        from ._pdf_native_calls import (
+            materialize_read_pdf_published_validation,
+            prepare_read_pdf_published_validation,
+        )
 
         with (
             self._read_scope(),
@@ -1074,7 +1085,10 @@ class PublishedPdfReader:
             yield self.decode_companion_row(row)
 
     def iter_companion_export_events(self, family) -> Generator[dict[str, Any]]:
-        from ._pdf_native_calls import materialize_read_pdf_companion_export_events, prepare_read_pdf_companion_export_events
+        from ._pdf_native_calls import (
+            materialize_read_pdf_companion_export_events,
+            prepare_read_pdf_companion_export_events,
+        )
 
         with (
             self._read_scope(),
@@ -1195,7 +1209,10 @@ class PublishedPdfReader:
                 events.close()
 
     def context_rows(self, family, pointers, section_pointer):
-        from ._pdf_native_calls import materialize_read_pdf_record_context_rows, prepare_read_pdf_record_context_rows
+        from ._pdf_native_calls import (
+            materialize_read_pdf_record_context_rows,
+            prepare_read_pdf_record_context_rows,
+        )
 
         after = ""
         while True:
@@ -1227,7 +1244,10 @@ class PublishedPdfReader:
         membership: str = "direct",
     ) -> dict[str, Any]:
         """Use the same published relational context constructor as native frame guards."""
-        from ._pdf_native_calls import materialize_record_integrated_source_context, prepare_record_integrated_source_context
+        from ._pdf_native_calls import (
+            materialize_record_integrated_source_context,
+            prepare_record_integrated_source_context,
+        )
 
         statement = prepare_record_integrated_source_context(
             **_record_parameters(self.reference),
@@ -1448,7 +1468,10 @@ class PublishedPdfReader:
                     raise ValueError("unsupported published export event")
 
     def iter_native_events(self) -> Generator[dict[str, Any]]:
-        from ._pdf_native_calls import materialize_read_pdf_native_events, prepare_read_pdf_native_events
+        from ._pdf_native_calls import (
+            materialize_read_pdf_native_events,
+            prepare_read_pdf_native_events,
+        )
 
         with (
             self._read_scope(),

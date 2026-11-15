@@ -28,7 +28,6 @@ from corpus_structure.semantic.projection_recipe import (
     Field,
     InternalBinding,
     JsonPath,
-    Parameter,
     native_statement,
 )
 from corpus_structure.semantic.types import PreparationError
@@ -134,9 +133,13 @@ def test_relational_keys_roles_multiplicity_and_conditional_own_product_identity
         assert isinstance(expression.when, Equal)
         assert isinstance(expression.when.left, Field)
         assert isinstance(expression.when.right, Constant)
-        assert isinstance(expression.then, InternalBinding) and isinstance(expression.otherwise, Field)
+        assert isinstance(expression.then, InternalBinding) and isinstance(
+            expression.otherwise, Field
+        )
         assert expression.when.left.name == "target_task_id" and expression.when.right.value == 0
-        assert expression.then.name == "published_" + parameter and expression.otherwise.name == name
+        assert (
+            expression.then.name == "published_" + parameter and expression.otherwise.name == name
+        )
     mapping = projection("mapping_report").recipe
     assert mapping.joins[0].multiplicity == "many_to_one"
     assert len(mapping.joins[0].keys) == 3

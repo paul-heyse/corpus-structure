@@ -12,8 +12,8 @@ from typing import Any
 
 from .data_operation_model import ResolvedRoleBinding, SubjectContext
 from .identity import canonical_bytes
-from .types import PreparedRelease, SourceArtifact
 from .python_module_projection import admitted_operation_module_meaning
+from .types import PreparedRelease, SourceArtifact
 
 _ROOT = Path(__file__).parents[1]
 _PATHS = (
@@ -48,7 +48,17 @@ def scoped_profile_assets():
         canonical_bytes(
             {
                 "version": "declared-source-local-joins-v1",
-                "files": [(name, (admitted_operation_module_meaning((_ROOT / name).read_bytes()).hex() if name in ('methods/scoped_relations_declared.py',) else (_ROOT / name).read_bytes().hex())) for name in _PATHS],
+                "files": [
+                    (
+                        name,
+                        (
+                            admitted_operation_module_meaning((_ROOT / name).read_bytes()).hex()
+                            if name in ("methods/scoped_relations_declared.py",)
+                            else (_ROOT / name).read_bytes().hex()
+                        ),
+                    )
+                    for name in _PATHS
+                ],
             }
         ),
     )
@@ -131,7 +141,8 @@ def execute_scoped_relations(
                 member.subject,
                 member.original_source,
                 member.analyzed_scope,
-             subject_definition=member.subject_definition),
+                subject_definition=member.subject_definition,
+            ),
         )
         if product.semantic_id != member.product:
             raise ValueError("scoped construction body differs from its selected product")
@@ -148,7 +159,8 @@ def execute_scoped_relations(
                 member.subject,
                 member.original_source,
                 member.analyzed_scope,
-             subject_definition=member.subject_definition),
+                subject_definition=member.subject_definition,
+            ),
         )
         if product.semantic_id != member.product:
             raise ValueError("scoped formal body differs from its exact selected product")
@@ -281,15 +293,17 @@ class ScopedCallPlan:
             check_active=check_active,
         )
         captured = scoped_operation_sources()
-        return (yield from self.port.plan_cpu(
-            scoped_kernel,
-            bound,
-            captured,
-            prepared_release_id=self.prepared.release_id,
-            verify=self.verify,
-            execution_owner=execution_owner,
-            check_active=check_active,
-        ))
+        return (
+            yield from self.port.plan_cpu(
+                scoped_kernel,
+                bound,
+                captured,
+                prepared_release_id=self.prepared.release_id,
+                verify=self.verify,
+                execution_owner=execution_owner,
+                check_active=check_active,
+            )
+        )
 
 
 def resolve_scoped_port(prepared, model, operation, *, identity, authorize, custody, sources):

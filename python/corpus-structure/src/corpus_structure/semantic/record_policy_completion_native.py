@@ -27,16 +27,27 @@ def record_policy_completion_native_sql() -> str:
         "threshold": "basis->'instance'->'threshold'",
         "calibration_slope": "basis->'instance'->'calibration'->'slope'",
         "calibration_intercept": "basis->'instance'->'calibration'->'intercept'",
-        **{name: f"basis->'{name}'" for name in (
-            "family_contract", "reading_recipe", "numerical_policy",
-            "judgment_basis_digest", "applicability",
-        )},
+        **{
+            name: f"basis->'{name}'"
+            for name in (
+                "family_contract",
+                "reading_recipe",
+                "numerical_policy",
+                "judgment_basis_digest",
+                "applicability",
+            )
+        },
     }
     if projection.keys() != DdoRecordPolicyAuthorization.model_fields.keys():
         raise ValueError("native policy projection must cover the exact public contract")
     fields = ",\n".join(f"'{name}',{value}" for name, value in sorted(projection.items()))
+
     def exact_field(name, expression):
-        if name == "version" or name.endswith("_digest") and name in {"policy_instance_digest", "feature_instance_digest", "calibration_digest"}:
+        if (
+            name == "version"
+            or (name.endswith("_digest")
+            and name in {"policy_instance_digest", "feature_instance_digest", "calibration_digest"})
+        ):
             return f"jsonb_build_array('string',projected->>'{name}')"
         # Every other public field copies one declared private semantic subtree.
         parts = expression.split("->")
@@ -51,7 +62,8 @@ def record_policy_completion_native_sql() -> str:
         f"jsonb_build_array('{name}',{exact_field(name, value)})"
         for name, value in sorted(projection.items())
     )
-    return r"""
+    return (
+        r"""
 CREATE OR REPLACE FUNCTION ops.ddo_policy_authorization_value(basis jsonb) RETURNS jsonb
 LANGUAGE plpgsql IMMUTABLE STRICT SET search_path=pg_catalog,pg_temp AS $policy$
 DECLARE instance jsonb:=basis->'instance'; feature jsonb:=instance->'feature'; calibration jsonb:=instance->'calibration';
@@ -163,7 +175,9 @@ BEGIN
  OR data.ddo_normalize(output->'product'->'body') IS DISTINCT FROM ops.ddo_policy_authorization_meaning(basis.canonical_body) THEN
  RAISE EXCEPTION 'policy authorization public conclusion differs from exact fitted basis and current interpretation' USING ERRCODE='23514'; END IF;
 END $policy$;
-""".replace("__PUBLIC_FIELDS__", fields).replace("__PUBLIC_MEANING_FIELDS__", meaning_fields) + _fit_completion_sql()
+""".replace("__PUBLIC_FIELDS__", fields).replace("__PUBLIC_MEANING_FIELDS__", meaning_fields)
+        + _fit_completion_sql()
+    )
 
 
 def _fit_completion_sql() -> str:
@@ -430,15 +444,18 @@ BEGIN
  RETURN true;
  EXCEPTION WHEN data_exception OR integrity_constraint_violation OR no_data_found OR too_many_rows THEN RETURN false;
 END $fit$;
-""" + "\n".join(f"REVOKE ALL ON FUNCTION ops.{name}({arguments}) FROM PUBLIC;" for name,arguments in (
-        ("ddo_require_record_fit_correspondence","jsonb,jsonb,jsonb,jsonb"),
-        ("ddo_record_fit_require_finite_cut","ops.data_demand,ops.data_demand_read"),
-        ("ddo_record_fit_selections","ops.data_request"),
-        ("ddo_record_fit_cut_scopes","text,jsonb"),
-        ("ddo_record_fit_completion_scopes","ops.data_request"),
-        ("ddo_record_fit_dependency_scopes","text"),
-        ("ddo_record_fit_require_selection","ops.data_request,text,jsonb,boolean"),
-        ("ddo_record_fit_require_producer","ops.data_request,jsonb"),
-        ("ddo_require_record_fit_completion","ops.data_request,jsonb"),
-        ("ddo_record_fit_dependencies_valid","text"),
-    ))
+""" + "\n".join(
+        f"REVOKE ALL ON FUNCTION ops.{name}({arguments}) FROM PUBLIC;"
+        for name, arguments in (
+            ("ddo_require_record_fit_correspondence", "jsonb,jsonb,jsonb,jsonb"),
+            ("ddo_record_fit_require_finite_cut", "ops.data_demand,ops.data_demand_read"),
+            ("ddo_record_fit_selections", "ops.data_request"),
+            ("ddo_record_fit_cut_scopes", "text,jsonb"),
+            ("ddo_record_fit_completion_scopes", "ops.data_request"),
+            ("ddo_record_fit_dependency_scopes", "text"),
+            ("ddo_record_fit_require_selection", "ops.data_request,text,jsonb,boolean"),
+            ("ddo_record_fit_require_producer", "ops.data_request,jsonb"),
+            ("ddo_require_record_fit_completion", "ops.data_request,jsonb"),
+            ("ddo_record_fit_dependencies_valid", "text"),
+        )
+    )

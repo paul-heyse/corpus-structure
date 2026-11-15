@@ -231,10 +231,10 @@ def check_contract(
     from corpus_structure.cli.failures import failure_boundary
     from corpus_structure.cli.managed import ResultError
     from corpus_structure.cli.target import select_target
+    from corpus_structure.semantic.data_operation_admission import inspect_data_operation_release
     from corpus_structure.semantic.execution_admission import (
         ExecutionAdmissionError,
     )
-    from corpus_structure.semantic.data_operation_admission import inspect_data_operation_release
     from corpus_structure.semantic.query import read_snapshot
     from corpus_structure.semantic.refusals import SemanticRefusal
     from corpus_structure.semantic.releases import ReleaseConflict, open_release

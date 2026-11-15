@@ -71,5 +71,10 @@ classes:
         result = compile_data_operations(schema=schema, declarations=(artifact,))
         assert result.operations[0].roles[0].subject_field == "/source/document"
     else:
-        with pytest.raises(PreparationError, match="subject association" if field in {"/source", "/source/~9"} else "field projection"):
+        with pytest.raises(
+            PreparationError,
+            match="subject association"
+            if field in {"/source", "/source/~9"}
+            else "field projection",
+        ):
             compile_data_operations(schema=schema, declarations=(artifact,))

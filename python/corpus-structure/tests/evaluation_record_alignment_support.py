@@ -11,8 +11,8 @@ from corpus_structure.semantic.record_contracts import (
     anchor_identity,
     evidence_set_identity,
     interpretation_identity,
-    record_identity,
     record_family_contract,
+    record_identity,
 )
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -34,7 +34,21 @@ PIN = {
 
 @cache
 def bundle():
-    return observation_inputs(SourceBundle('statistics_semantic', (SourceArtifact('statistics_semantic', (ROOT / 'domains/statistics/semantic.yaml').read_bytes()), SourceArtifact('semantic_core', (MODEL / 'core.yaml').read_bytes()), SourceArtifact('statistics_terminology', (ROOT / 'domains/statistics/terminology.yaml').read_bytes()))))
+    return observation_inputs(
+        SourceBundle(
+            "statistics_semantic",
+            (
+                SourceArtifact(
+                    "statistics_semantic", (ROOT / "domains/statistics/semantic.yaml").read_bytes()
+                ),
+                SourceArtifact("semantic_core", (MODEL / "core.yaml").read_bytes()),
+                SourceArtifact(
+                    "statistics_terminology",
+                    (ROOT / "domains/statistics/terminology.yaml").read_bytes(),
+                ),
+            ),
+        )
+    )
 
 
 @cache
@@ -45,6 +59,7 @@ def prepared():
 @cache
 def model():
     from corpus_structure.semantic.data_operation_compilation import compile_data_operations
+
     return compile_data_operations(bundle())
 
 

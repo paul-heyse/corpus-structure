@@ -61,44 +61,84 @@ def read_source_catalog(connection, request: SourceCatalogRequest, *, cancellati
 
     # The current selected-query cursor is bound to this exact projection as well as
     # to its demand. A source-kind filter never turns an empty page into absence.
-    page = serve_demand_query(connection, DemandQueryRequest(
-        project_id=request.project_id, demand_id=request.demand_id,
-        view="members", containers_only=request.view == "publications",
-        cursor=request.cursor, limit=request.limit, max_bytes=request.max_bytes,
-    ))
+    page = serve_demand_query(
+        connection,
+        DemandQueryRequest(
+            project_id=request.project_id,
+            demand_id=request.demand_id,
+            view="members",
+            containers_only=request.view == "publications",
+            cursor=request.cursor,
+            limit=request.limit,
+            max_bytes=request.max_bytes,
+        ),
+    )
     prepared = open_release(connection, page["cut"]["release_id"])
-    kinds = _kind_contracts(prepared, "DdoPdfPublication" if request.view == "publications" else "DdoSelectedNativeSource")
+    kinds = _kind_contracts(
+        prepared,
+        "DdoPdfPublication" if request.view == "publications" else "DdoSelectedNativeSource",
+    )
     rows = []
     for row in page["items"]:
         nominal = kinds.get(row["kind_contract"])
         if nominal is None:
             continue
-        checked = prepared.validate_json(nominal, json_bytes(row["body"])).model_dump(mode="python", exclude_unset=True)
-        selection = dict(
-            project_id=request.project_id, demand_id=request.demand_id,
-            read_id=page["cut"]["read_id"], use_id=row["use_id"],
-            product_id=row["product_id"], derivation_id=row["derivation_id"],
+        checked = prepared.validate_json(nominal, json_bytes(row["body"])).model_dump(
+            mode="python", exclude_unset=True
         )
-        item = {key: row[key] for key in (
-            "member_id", "kind_contract", "subject", "subject_definition", "original_source", "analyzed_scope",
-        )}
+        selection = dict(
+            project_id=request.project_id,
+            demand_id=request.demand_id,
+            read_id=page["cut"]["read_id"],
+            use_id=row["use_id"],
+            product_id=row["product_id"],
+            derivation_id=row["derivation_id"],
+        )
+        item = {
+            key: row[key]
+            for key in (
+                "member_id",
+                "kind_contract",
+                "subject",
+                "subject_definition",
+                "original_source",
+                "analyzed_scope",
+            )
+        }
         item["selection"] = selection
         if request.view == "publications":
-            inspected = inspect_native_source(connection, NativeSourceRequest(
-                **selection, view="products", limit=1, max_bytes=request.max_bytes,
-            ), cancellation=cancellation)
+            inspected = inspect_native_source(
+                connection,
+                NativeSourceRequest(
+                    **selection,
+                    view="products",
+                    limit=1,
+                    max_bytes=request.max_bytes,
+                ),
+                cancellation=cancellation,
+            )
             if inspected.cut != page["cut"]:
                 raise ValueError("publication catalog differs from its exact selected read")
             if len(inspected.rows) != 1 or inspected.next_cursor is not None:
                 raise ValueError("publication catalog requires its one complete native header")
-            item.update(publication=checked, native=inspected.rows[0], health=inspected.health, release_id=inspected.release_id)
+            item.update(
+                publication=checked,
+                native=inspected.rows[0],
+                health=inspected.health,
+                release_id=inspected.release_id,
+            )
         else:
             item.update(source=checked["source"], selectors=checked["selectors"])
         rows.append(item)
     response = SourceCatalogResponse(
-        selection=request, cut=page["cut"], rows=rows,
-        obligations=page["obligations"], uses=page["uses"], populations=page["populations"],
-        next_cursor=page["continuation"], page_complete=page["page_complete"],
+        selection=request,
+        cut=page["cut"],
+        rows=rows,
+        obligations=page["obligations"],
+        uses=page["uses"],
+        populations=page["populations"],
+        next_cursor=page["continuation"],
+        page_complete=page["page_complete"],
     )
     if len(json_bytes(response.model_dump(mode="python"))) > request.max_bytes:
         raise ValueError("complete source catalog envelope exceeds max_bytes")

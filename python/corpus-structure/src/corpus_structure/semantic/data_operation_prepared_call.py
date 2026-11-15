@@ -62,7 +62,9 @@ class PreparedOriginalCallPort:
         if self.operation.capabilities.forms != ("scalar",) or (
             self.operation.effects and not native_publication
         ):
-            raise PortRefusal("prepared original-call adapter requires a scalar computation or native publication command")
+            raise PortRefusal(
+                "prepared original-call adapter requires a scalar computation or native publication command"
+            )
         if self.operation.capabilities.preparation == "none":
             raise PortRefusal("prepared original-call adapter requires declared preparation")
         signature = inspect.signature(self.original, eval_str=True)
@@ -155,25 +157,30 @@ class PreparedOriginalCallPort:
             prepared_parameter="prepared" if prepared_release_id is not None else None,
             prepared_release_id=prepared_release_id,
         )
-        return (yield from plan_cpu_call(
-            descriptor,
-            bound,
-            bound.signature,
-            verify=verify_call,
-            execution_owner=execution_owner,
-            check_active=check_active,
-        ))
+        return (
+            yield from plan_cpu_call(
+                descriptor,
+                bound,
+                bound.signature,
+                verify=verify_call,
+                execution_owner=execution_owner,
+                check_active=check_active,
+            )
+        )
 
     def plan_cpu(self, kernel, bound, captured, **options):
         """Complete the common JSON kernel shape with its authentic CPU receipt."""
         import json
+
         from .identity import canonical_bytes
 
         reply = yield from self.plan_cpu_reply(kernel, bound, captured, **options)
         if self.retain_cpu_reply:
             from .data_operation_cpu_basis import cpu_authority_value
 
-            value = cpu_authority_value(reply.content, expected_basis=bound.arguments["input_basis"])
+            value = cpu_authority_value(
+                reply.content, expected_basis=bound.arguments["input_basis"]
+            )
         else:
             value = json.loads(reply.content)
         return PreparedCallResult(
@@ -199,8 +206,14 @@ class PreparedOriginalCallPort:
         check_active()
         self._verify()
         if isinstance(result, PreparedCallResult):
-            if self.retain_cpu_reply and result.cpu_execution_evidence is not None and result.cpu_execution_reply is None:
-                raise PortRefusal("prepared authority boundary requires its actual retained CPU reply")
+            if (
+                self.retain_cpu_reply
+                and result.cpu_execution_evidence is not None
+                and result.cpu_execution_reply is None
+            ):
+                raise PortRefusal(
+                    "prepared authority boundary requires its actual retained CPU reply"
+                )
             if result.outcome in {"failed", "empty"}:
                 if result.outcome not in self.operation.outcomes or result.value is not None:
                     raise PortRefusal(

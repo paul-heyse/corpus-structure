@@ -22,7 +22,7 @@ from corpus_structure.methods.m1_source import (
 )
 
 from .data_operation_json import json_bytes
-from .data_operation_model import BoundRoleMember, ResolvedRoleBinding, EffectiveDataOperationModel
+from .data_operation_model import BoundRoleMember, EffectiveDataOperationModel, ResolvedRoleBinding
 from .declared_contexts import DeclaredContextPopulation
 from .declared_record_sources import DeclaredNativeFrameSource
 from .identity import canonical_bytes

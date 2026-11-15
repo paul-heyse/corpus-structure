@@ -126,15 +126,21 @@ class SelectionEvidence(BaseModel):
     read_unknowns: tuple[str, ...] = ()
 
 
-
-def _impact_fate_class(fate: VisibleFate) -> Literal[
-    "fulfilled", "awaiting", "unavailable", "cancelled", "inapplicable", "unestablished"
-]:
+def _impact_fate_class(
+    fate: VisibleFate,
+) -> Literal["fulfilled", "awaiting", "unavailable", "cancelled", "inapplicable", "unestablished"]:
     """Total protocol interpretation; observation fate alone is never value admission."""
     match fate:
         case "fulfilled":
             return "fulfilled"
-        case "waiting" | "attached" | "awaiting-discovery" | "awaiting-inputs" | "awaiting-external" | "awaiting-population":
+        case (
+            "waiting"
+            | "attached"
+            | "awaiting-discovery"
+            | "awaiting-inputs"
+            | "awaiting-external"
+            | "awaiting-population"
+        ):
             return "awaiting"
         case "unavailable":
             return "unavailable"
@@ -447,7 +453,9 @@ def _population_universe(selection, evidence, populations, *, model, scope):
         }
         if producer in selection["root_operations"]:
             for root in selection["roots"]:
-                member = PopulationMember(operation=producer, subject_definition=model.operation(producer).subject, **root)
+                member = PopulationMember(
+                    operation=producer, subject_definition=model.operation(producer).subject, **root
+                )
                 required[member.key] = member
         if not required:
             closed = False
@@ -536,16 +544,27 @@ def _acquire(connection, demand, *, project, scope, read_id, expected_cut, max_b
                     break
             from .data_operation_admission import bound_data_operation_model
             from .releases import open_release
+
             model = bound_data_operation_model(open_release(connection, cut.record["release_id"]))
-            read_unknowns = tuple(sorted({
-                "selected read has undisclosed protected dependencies at authority " + row["derivation_id"]
-                for row in index.rows("ops.data_authority_leaf")
-            }))
+            read_unknowns = tuple(
+                sorted(
+                    {
+                        "selected read has undisclosed protected dependencies at authority "
+                        + row["derivation_id"]
+                        for row in index.rows("ops.data_authority_leaf")
+                    }
+                )
+            )
             evidence = []
             for identity, obligation in obligations.items():
                 selected = uses[identity]
-                if obligation["subject_definition"] != model.operation(obligation["operation_id"]).subject:
-                    raise ValueError("impact obligation subject definition differs from checked operation")
+                if (
+                    obligation["subject_definition"]
+                    != model.operation(obligation["operation_id"]).subject
+                ):
+                    raise ValueError(
+                        "impact obligation subject definition differs from checked operation"
+                    )
                 member = PopulationMember(
                     operation=obligation["operation_id"],
                     subject=obligation["subject"],
@@ -712,7 +731,9 @@ def inspect_change_impact(
         raise ValueError("impact continuation belongs to another comparison/context")
     population_complete = before_closed and target_closed
     unknowns = []
-    unknowns.extend(sorted({reason for observed in (*before, *target) for reason in observed.read_unknowns}))
+    unknowns.extend(
+        sorted({reason for observed in (*before, *target) for reason in observed.read_unknowns})
+    )
     if not population_complete:
         unknowns.append(
             "native before/target requested and discovery populations are not both closed"

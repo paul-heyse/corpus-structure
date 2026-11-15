@@ -7,8 +7,6 @@ separate declared derivation over that admitted observation.
 
 from __future__ import annotations
 
-from corpus_structure.semantic.identifiers import TaskAttempt, TaskId
-
 import inspect
 import json
 from contextlib import ExitStack
@@ -20,6 +18,8 @@ from pathlib import Path
 from typing import Any
 
 import yaml
+
+from corpus_structure.semantic.identifiers import TaskAttempt, TaskId
 
 from .data_operation_identity import decode_semantic_value, semantic_value
 from .data_operation_json import json_bytes, wire_json_loads
@@ -55,8 +55,12 @@ def visual_external_declaration():
         "id": VISUAL_RECOGNIZE,
         "profile": "command",
         "subject": "original-document",
-        "subject_definition": {'id': 'original-document', 'identifier_kind': 'string', 'scope': 'original-document'},
-        "discovery_relation": 'role-associated',
+        "subject_definition": {
+            "id": "original-document",
+            "identifier_kind": "string",
+            "scope": "original-document",
+        },
+        "discovery_relation": "role-associated",
         "context": ["original-source", "exact-submitted-png"],
         "roles": [
             {
@@ -86,9 +90,19 @@ def visual_external_declaration():
         ],
         "dependencies": [VISUAL_INPUT],
         "parameters": {},
-        "applicability": [{'kind': 'documentation', 'text': 'actual-png-and-explicit-local-chandra-actor'}],
-        "invariants": [{'kind': 'documentation', 'text': 'same-submitted-image'}, {'kind': 'documentation', 'text': 'actual-raw-response'}, {'kind': 'documentation', 'text': 'provider-reported-runtime'}],
-        "coverage": {"binding": "self", "result_owners": [{"kind":'declared-contract',"reference":"self"}], "description": "exact-submitted-png"},
+        "applicability": [
+            {"kind": "documentation", "text": "actual-png-and-explicit-local-chandra-actor"}
+        ],
+        "invariants": [
+            {"kind": "documentation", "text": "same-submitted-image"},
+            {"kind": "documentation", "text": "actual-raw-response"},
+            {"kind": "documentation", "text": "provider-reported-runtime"},
+        ],
+        "coverage": {
+            "binding": "self",
+            "result_owners": [{"kind": "declared-contract", "reference": "self"}],
+            "description": "exact-submitted-png",
+        },
         "outcomes": ["success"],
         "precision_description": "unselected-chandra-raw-observation",
         "effects": [

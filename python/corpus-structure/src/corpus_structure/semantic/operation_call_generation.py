@@ -3,16 +3,10 @@
 from __future__ import annotations
 
 import json
-import keyword
 from dataclasses import asdict, replace
 from hashlib import sha256
-from typing import Any, cast
-
-import yaml
-from linkml_runtime.utils.yamlutils import DupCheckYamlLoader
 
 from .identity import canonical_bytes
-
 from .native_call_sources import _PRIMITIVES, _integer_bounds
 
 
@@ -43,7 +37,8 @@ def source_bindings(model, inputs):
     logical, physical = _legacy_sources(inputs)
     return native_source_bindings(
         tuple((operation.id, call) for operation in model.operations for call in operation.calls),
-        logical_sources=logical, physical_sources=physical,
+        logical_sources=logical,
+        physical_sources=physical,
     )
 
 
@@ -54,23 +49,37 @@ def validate_call_bindings(model, inputs):
 
     for operation in model.operations:
         if operation.calls and operation.implementation is None:
-            _fail("operation_call", "operations/" + operation.id, "fixed call needs its trusted implementation owner")
+            _fail(
+                "operation_call",
+                "operations/" + operation.id,
+                "fixed call needs its trusted implementation owner",
+            )
     implementations = {binding.id: binding for binding in model.implementations}
     core_owners = {
-        (operation.id, call.id): implementations[operation.implementation].owner + "." + implementations[operation.implementation].symbol
-        for operation in model.operations if operation.implementation is not None
+        (operation.id, call.id): implementations[operation.implementation].owner
+        + "."
+        + implementations[operation.implementation].symbol
+        for operation in model.operations
+        if operation.implementation is not None
         for call in operation.calls
     }
     logical, physical = _legacy_sources(inputs)
     calls = resolve_call_bindings(
         tuple((operation.id, call) for operation in model.operations for call in operation.calls),
-        logical_sources=logical, physical_sources=physical, core_owners=core_owners,
+        logical_sources=logical,
+        physical_sources=physical,
+        core_owners=core_owners,
     )
     resolved = {(owner, call.id): call for owner, call in calls}
-    return replace(model, operations=tuple(
-        replace(operation, calls=tuple(resolved[operation.id, call.id] for call in operation.calls))
-        for operation in model.operations
-    ))
+    return replace(
+        model,
+        operations=tuple(
+            replace(
+                operation, calls=tuple(resolved[operation.id, call.id] for call in operation.calls)
+            )
+            for operation in model.operations
+        ),
+    )
 
 
 def _enum_alias(field):
@@ -105,13 +114,20 @@ def render_call_identifiers(calls, *, canonical_identifiers=False):
     }
     return "\n".join(
         [
-            ('"""Generated fixed-call enumeration types; physical declarations own nominal identities."""'
-             if canonical_identifiers else '"""Generated semantic identifiers from execution correspondences; do not edit."""'),
+            (
+                '"""Generated fixed-call enumeration types; physical declarations own nominal identities."""'
+                if canonical_identifiers
+                else '"""Generated semantic identifiers from execution correspondences; do not edit."""'
+            ),
             "from datetime import datetime",
             "from decimal import Decimal",
             "from typing import Literal, NewType",
             "",
-            *(f"{name} = NewType({name!r}, {kind})" for name, kind in sorted(aliases.items()) if not canonical_identifiers),
+            *(
+                f"{name} = NewType({name!r}, {kind})"
+                for name, kind in sorted(aliases.items())
+                if not canonical_identifiers
+            ),
             *(
                 f"type {name} = Literal[{', '.join(repr(value) for value in values)}]"
                 for name, values in sorted(enums.items())
@@ -142,8 +158,11 @@ def render_call_bindings(
 ):
     """Emit already resolved immutable correspondences, irrespective of their model owner."""
     out = [
-        ('"""Generated from authenticated fixed-call assets; do not edit."""'
-         if canonical_identifiers else '"""Generated from execution call correspondences; do not edit."""'),
+        (
+            '"""Generated from authenticated fixed-call assets; do not edit."""'
+            if canonical_identifiers
+            else '"""Generated from execution call correspondences; do not edit."""'
+        ),
         "from __future__ import annotations",
         "",
         "from dataclasses import dataclass",
@@ -328,7 +347,9 @@ def render_call_bindings(
                     module, name = qualified.rsplit(".", 1)
                     declaration = (module, column.type.python_type.__name__)
                     if name in canonical and canonical[name] != declaration:
-                        raise ValueError("canonical physical identifier declarations differ: " + name)
+                        raise ValueError(
+                            "canonical physical identifier declarations differ: " + name
+                        )
                     canonical[name] = declaration
         for name, kind in sorted(aliases.items()):
             if name not in canonical or canonical[name][1] != kind:

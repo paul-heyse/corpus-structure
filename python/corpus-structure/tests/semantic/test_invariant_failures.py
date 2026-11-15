@@ -90,11 +90,27 @@ def test_observable_native_failure_preserves_owned_phase_effect_and_exact_bindin
     ],
 )
 def test_shared_sqlstate_prose_or_wrong_native_identity_stays_unmapped(detail):
-    assert classify_invariant_failure(current_model().invariants, "claim", NativeError(detail), model_id=current_model().model_id) is None
+    assert (
+        classify_invariant_failure(
+            current_model().invariants,
+            "claim",
+            NativeError(detail),
+            model_id=current_model().model_id,
+        )
+        is None
+    )
 
 
 def test_diagnostic_from_another_operation_stays_unmapped():
-    assert classify_invariant_failure(current_model().invariants, "complete", NativeError(envelope()), model_id=current_model().model_id) is None
+    assert (
+        classify_invariant_failure(
+            current_model().invariants,
+            "complete",
+            NativeError(envelope()),
+            model_id=current_model().model_id,
+        )
+        is None
+    )
 
 
 def test_constraint_identity_includes_schema_and_relation():
@@ -113,7 +129,10 @@ def test_constraint_identity_includes_schema_and_relation():
     failure = classify_invariant_failure(model.invariants, "claim", error, model_id=model.model_id)
     assert failure is not None and failure.invariant == "attempt_fence"
     error.diag.table_name = "other_task"
-    assert classify_invariant_failure(model.invariants, "claim", error, model_id=model.model_id) is None
+    assert (
+        classify_invariant_failure(model.invariants, "claim", error, model_id=model.model_id)
+        is None
+    )
 
 
 @pytest.mark.parametrize("change", ["missing", "version", "operation", "ambiguous"])
@@ -257,15 +276,27 @@ def test_published_address_constraint_is_qualified_and_operation_bound():
     error = NativeError(schema_name="kb", table_name="source_view")
     error.sqlstate = "23503"
     error.diag.constraint_name = "fk_source_view_native_build_id_native_revision_id_secti_79ff"
-    failure = classify_invariant_failure(model.invariants, "publish_source_view", error, model_id=model.model_id)
+    failure = classify_invariant_failure(
+        model.invariants, "publish_source_view", error, model_id=model.model_id
+    )
     assert failure is not None
     assert (failure.code, failure.invariant) == (
         "pdf.published_document_address",
         "published_document_address",
     )
-    assert classify_invariant_failure(model.invariants, "publish_pdf_observation", error, model_id=model.model_id) is None
+    assert (
+        classify_invariant_failure(
+            model.invariants, "publish_pdf_observation", error, model_id=model.model_id
+        )
+        is None
+    )
     error.diag.constraint_name = "fk_source_view_native_task_key_section"
-    assert classify_invariant_failure(model.invariants, "publish_source_view", error, model_id=model.model_id) is None
+    assert (
+        classify_invariant_failure(
+            model.invariants, "publish_source_view", error, model_id=model.model_id
+        )
+        is None
+    )
 
 
 def test_compiler22_native_only_product_refuses_without_current_admission(monkeypatch):

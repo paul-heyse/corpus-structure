@@ -12,7 +12,6 @@ from pydantic import BaseModel, ConfigDict, Field
 from corpus_structure.semantic.data_operation_json import json_bytes, wire_json_loads
 from corpus_structure.semantic.demand_results import read_demand_result
 
-
 DemandView = Literal["members", "operations", "sources", "support", "coverage"]
 
 

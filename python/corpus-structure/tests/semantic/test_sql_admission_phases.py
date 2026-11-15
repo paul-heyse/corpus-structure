@@ -16,6 +16,7 @@ from corpus_structure.semantic.releases import ActivationToken, activate_release
 
 def _project(connection):
     from uuid import uuid4
+
     from sqlalchemy import insert
 
     identity = str(uuid4())
@@ -24,13 +25,24 @@ def _project(connection):
 
 
 def _stage_authored_sql(connection):
-    from semantic.original_document_support import source_admission_inputs
     from corpus_structure.semantic.prepare import prepare_release
     from corpus_structure.semantic.releases import persist_release
-    from corpus_structure.semantic.types import PreparationProfile, ResolvedDependencies, SourceArtifact
+    from corpus_structure.semantic.types import (
+        PreparationProfile,
+        ResolvedDependencies,
+        SourceArtifact,
+    )
+    from semantic.original_document_support import source_admission_inputs
 
     bundle, current, _ = source_admission_inputs()
-    dependencies = ResolvedDependencies((*current.artifacts, SourceArtifact("authored-sql/entities.sql", b"SELECT entity_id FROM data.entity")), current.vocabularies, current.ontology_sources)
+    dependencies = ResolvedDependencies(
+        (
+            *current.artifacts,
+            SourceArtifact("authored-sql/entities.sql", b"SELECT entity_id FROM data.entity"),
+        ),
+        current.vocabularies,
+        current.ontology_sources,
+    )
     profile = PreparationProfile(version="semantic-2")
     prepared = prepare_release(bundle, dependencies, profile)
     persist_release(connection, bundle, dependencies, profile, prepared)

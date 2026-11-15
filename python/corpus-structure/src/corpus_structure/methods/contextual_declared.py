@@ -13,8 +13,12 @@ class ContextualRetrievalOperation:
         "id": "retrieve.contextual/declared",
         "profile": "derivation",
         "subject": "selected-native-source",
-        "subject_definition": {'id': 'selected-native-source', 'identifier_kind': 'string', 'scope': 'original-source'},
-        "discovery_relation": 'role-associated',
+        "subject_definition": {
+            "id": "selected-native-source",
+            "identifier_kind": "string",
+            "scope": "original-source",
+        },
+        "discovery_relation": "role-associated",
         "context": [
             "original-source",
             "located-occurrence",
@@ -83,7 +87,10 @@ class ContextualRetrievalOperation:
                 "support": {
                     "provenance": "exact",
                     "source": "explicit-policy",
-                    "coverage": {"role": "policy", "description": "complete-relationship-constraints"},
+                    "coverage": {
+                        "role": "policy",
+                        "description": "complete-relationship-constraints",
+                    },
                     "origins": ["authored"],
                     "identity_requirements": ["original-source"],
                 },
@@ -98,16 +105,29 @@ class ContextualRetrievalOperation:
                 "presence": "required",
             },
         ],
-        "applicability": [{'kind': 'documentation', 'text': 'complete-admitted-inventory-profile-and-vector-population'}],
-        "invariants": [
-            {'kind': 'documentation', 'text': 'exact-postgresql-ranking'},
-            {'kind': 'documentation', 'text': 'equal-labels-remain-distinct'},
-            {'kind': 'documentation', 'text': 'explicit-relationship-witnesses'},
-            {'kind': 'documentation', 'text': 'private-proposal-standing'},
+        "applicability": [
+            {
+                "kind": "documentation",
+                "text": "complete-admitted-inventory-profile-and-vector-population",
+            }
         ],
-        "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "complete-frozen-eligible-inventory"},
+        "invariants": [
+            {"kind": "documentation", "text": "exact-postgresql-ranking"},
+            {"kind": "documentation", "text": "equal-labels-remain-distinct"},
+            {"kind": "documentation", "text": "explicit-relationship-witnesses"},
+            {"kind": "documentation", "text": "private-proposal-standing"},
+        ],
+        "coverage": {
+            "binding": "self",
+            "result_owners": [{"kind": "implementation", "reference": "self"}],
+            "description": "complete-frozen-eligible-inventory",
+        },
         "outcomes": ["success"],
-        "numerical_policy": {"asset": "contextual/retrieval-numerical-policy", "pointer": "/policy", "kind": "urn:corpus:kind:contextual-retrieval:NumericalPolicy"},
+        "numerical_policy": {
+            "asset": "contextual/retrieval-numerical-policy",
+            "pointer": "/policy",
+            "kind": "urn:corpus:kind:contextual-retrieval:NumericalPolicy",
+        },
         "replicate_policy": "retained-observation-single-result",
         "dependencies": [],
         "effects": [],
@@ -146,11 +166,11 @@ class ContextualRetrievalOperation:
                         "encoding": "value",
                     },
                     {
-                        "output_field": 'subject_definition',
+                        "output_field": "subject_definition",
                         "input": {
                             "role": "query",
                             "projection": "https://corpus-structure.dev/semantic/data-operation-contextual/DdoContextualQuery",
-                            "field": '/source_pin/subject_definition',
+                            "field": "/source_pin/subject_definition",
                         },
                         "encoding": "value",
                     },
@@ -246,12 +266,16 @@ class ContextualRetrievalOperation:
             }
         ],
         "assets": [
-            {"reference": "retrieval-numerics", "contract": "contextual/retrieval-numerical-policy", "role": "selected-fts-cosine-and-rank-policy"},
+            {
+                "reference": "retrieval-numerics",
+                "contract": "contextual/retrieval-numerical-policy",
+                "role": "selected-fts-cosine-and-rank-policy",
+            },
             {
                 "reference": "retrieval-algorithms",
                 "contract": "contextual/retrieval-assets",
                 "role": "actual-retrieval-and-vector-shape-kernels",
-            }
+            },
         ],
     }
 
@@ -281,8 +305,12 @@ class ContextualInventoryOperation:
         "id": "retrieve.contextual_inventory/declared",
         "profile": "derivation",
         "subject": "selected-native-source",
-        "subject_definition": {'id': 'selected-native-source', 'identifier_kind': 'string', 'scope': 'original-source'},
-        "discovery_relation": 'role-associated',
+        "subject_definition": {
+            "id": "selected-native-source",
+            "identifier_kind": "string",
+            "scope": "original-source",
+        },
+        "discovery_relation": "role-associated",
         "context": ["exact-target-selection", "eligible-inventory"],
         "entrypoints": ["run"],
         "roles": [
@@ -313,13 +341,17 @@ class ContextualInventoryOperation:
                 "presence": "required",
             },
         ],
-        "applicability": [{'kind': 'documentation', 'text': 'retained-target-selection'}],
+        "applicability": [{"kind": "documentation", "text": "retained-target-selection"}],
         "invariants": [
-            {'kind': 'documentation', 'text': 'exact-private-target-membership'},
-            {'kind': 'documentation', 'text': 'declared-scope-and-version'},
-            {'kind': 'documentation', 'text': 'equal-labels-never-merge-targets'},
+            {"kind": "documentation", "text": "exact-private-target-membership"},
+            {"kind": "documentation", "text": "declared-scope-and-version"},
+            {"kind": "documentation", "text": "equal-labels-never-merge-targets"},
         ],
-        "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "complete-selected-eligible-inventory"},
+        "coverage": {
+            "binding": "self",
+            "result_owners": [{"kind": "implementation", "reference": "self"}],
+            "description": "complete-selected-eligible-inventory",
+        },
         "outcomes": ["success"],
         "precision_description": "exact-frozen-inventory",
         "dependencies": [],

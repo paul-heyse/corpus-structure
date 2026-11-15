@@ -13,8 +13,8 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from .data_operation_model import ResolvedRoleBinding, SubjectContext
 from .identity import canonical_bytes
-from .types import PreparedRelease, SourceArtifact
 from .python_module_projection import admitted_operation_module_meaning
+from .types import PreparedRelease, SourceArtifact
 
 _ROOT = Path(__file__).parents[1]
 _PATHS = (
@@ -78,7 +78,17 @@ def artifact_profile_assets():
         canonical_bytes(
             {
                 "version": "declared-artifact-identity-v1",
-                "files": [(name, (admitted_operation_module_meaning((_ROOT / name).read_bytes()).hex() if name in ('methods/artifact_identity_declared.py',) else (_ROOT / name).read_bytes().hex())) for name in _PATHS],
+                "files": [
+                    (
+                        name,
+                        (
+                            admitted_operation_module_meaning((_ROOT / name).read_bytes()).hex()
+                            if name in ("methods/artifact_identity_declared.py",)
+                            else (_ROOT / name).read_bytes().hex()
+                        ),
+                    )
+                    for name in _PATHS
+                ],
             }
         ),
     )
@@ -313,7 +323,12 @@ def execute_artifact_identity(
                 primary_member.subject_definition,
                 primary_member.original_source,
                 primary_member.analyzed_scope,
-            ) != (member.subject, member.subject_definition, member.original_source, member.analyzed_scope):
+            ) != (
+                member.subject,
+                member.subject_definition,
+                member.original_source,
+                member.analyzed_scope,
+            ):
                 continue
             if (
                 primary["source"] != source.value["source"]
@@ -522,15 +537,17 @@ class ArtifactCallPlan:
             check_active=check_active,
         )
         captured = artifact_operation_sources()
-        return (yield from self.port.plan_cpu(
-            artifact_kernel,
-            bound,
-            captured,
-            prepared_release_id=self.prepared.release_id,
-            verify=self.verify,
-            execution_owner=execution_owner,
-            check_active=check_active,
-        ))
+        return (
+            yield from self.port.plan_cpu(
+                artifact_kernel,
+                bound,
+                captured,
+                prepared_release_id=self.prepared.release_id,
+                verify=self.verify,
+                execution_owner=execution_owner,
+                check_active=check_active,
+            )
+        )
 
 
 def resolve_artifact_port(prepared, model, operation, *, identity, authorize, custody, sources):
