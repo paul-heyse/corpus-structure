@@ -145,6 +145,7 @@ def test_occurrence_identity_does_not_depend_on_unrelated_edge_rank():
 
 def test_archived_shared_helper_occurrences_are_unioned_once(monkeypatch):
     from dataclasses import replace
+
     from corpus_structure.semantic import data_operation_admission
     from corpus_structure.semantic.graph_inspection import archived_graph_snapshot
     from semantic.test_source_comparison import compile_source, operation_source

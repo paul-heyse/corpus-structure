@@ -2032,11 +2032,11 @@ def _order_row_type_evolution(connection, upgrade_ops, authoring):
     frozen predecessors and declared targets supply every dropped/restored body.
     Unmanaged dependents remain a RESTRICT refusal, never an implicit CASCADE.
     """
-    from .graph_runtime import nx
-    from .graph_topology import rooted_closure, ordered_nodes
     from alembic.operations import ops
 
     from .alembic_native import NativeTransitionOp
+    from .graph_runtime import nx
+    from .graph_topology import ordered_nodes, rooted_closure
     from .native_objects import native_dependency_graph
 
     relations = set()
@@ -2057,10 +2057,7 @@ def _order_row_type_evolution(connection, upgrade_ops, authoring):
     before = {item.identity: item for item in authoring.predecessor}
     identities = (*before, *sorted(relations, key=lambda identity: identity.qualified))
     graph = native_dependency_graph(connection, identities)
-    selected = (
-        (rooted_closure(graph, relations) - relations)
-        & before.keys()
-    )
+    selected = (rooted_closure(graph, relations) - relations) & before.keys()
     if not selected:
         return
     declared = {identity: position for position, identity in enumerate(graph)}

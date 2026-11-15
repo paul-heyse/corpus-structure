@@ -37,8 +37,8 @@ from .data_operation_model import (
     CallableParameter,
     CallableSurface,
     FactOrigin,
-    ImplementationSlice,
     ImplementationReferenceFact,
+    ImplementationSlice,
     OpaqueBoundary,
     SemanticEdge,
     SemanticNode,
@@ -1143,7 +1143,11 @@ class ClosedPythonSources:
                     ),
                 )
                 edges.add(SemanticEdge("python:" + path, target_id, relation, target))
-                references.add(ImplementationReferenceFact("python:" + path, target_id, relation, location, path))
+                references.add(
+                    ImplementationReferenceFact(
+                        "python:" + path, target_id, relation, location, path
+                    )
+                )
                 return
             try:
                 obj = self.resolve(target)
@@ -1156,7 +1160,11 @@ class ClosedPythonSources:
             if target in self.definitions:
                 todo.append(target)
                 edges.add(SemanticEdge("python:" + path, "python:" + target, relation))
-                references.add(ImplementationReferenceFact("python:" + path, "python:" + target, relation, location, path))
+                references.add(
+                    ImplementationReferenceFact(
+                        "python:" + path, "python:" + target, relation, location, path
+                    )
+                )
             else:
                 unknowns.add(
                     SourceUnknown(path, location, "definition has no supplied body " + target)
@@ -1673,7 +1681,11 @@ class ClosedPythonSources:
                             )
                         )
                     if module.contexts.get(node) == ExpressionContext.LOAD:
-                        references.add(ImplementationReferenceFact(node_id, node.value, "lexical_reference", location, path))
+                        references.add(
+                            ImplementationReferenceFact(
+                                node_id, node.value, "lexical_reference", location, path
+                            )
+                        )
                         kind, _ = expression_binding(node)
                         allowed = (
                             (isinstance(parent, cst.Attribute) and parent.value is node)
@@ -1745,10 +1757,7 @@ class ClosedPythonSources:
                         target = candidate.name
                         if candidate.source == QualifiedNameSource.LOCAL:
                             target = module_name + "." + target
-                        if (
-                            ".<locals>." in target
-                            or target == path
-                        ):
+                        if ".<locals>." in target or target == path:
                             continue
                         reference(path, target, relation, location)
 
@@ -1769,7 +1778,15 @@ class ClosedPythonSources:
                                 )
                             )
                     if module.contexts.get(node) == ExpressionContext.LOAD:
-                        references.add(ImplementationReferenceFact(node_id, module.wrapper.module.code_for_node(node), "lexical_reference", location, path))
+                        references.add(
+                            ImplementationReferenceFact(
+                                node_id,
+                                module.wrapper.module.code_for_node(node),
+                                "lexical_reference",
+                                location,
+                                path,
+                            )
+                        )
                         kind, targets = expression_binding(node)
                         if kind == "unknown":
                             unknowns.add(
@@ -2143,5 +2160,7 @@ class ClosedPythonSources:
             tuple(sorted(edges, key=lambda e: (e.source, e.target, e.relation, e.role))),
             tuple(sorted(used_boundaries, key=lambda b: b.reference)),
             tuple(sorted(unknowns, key=lambda u: (u.source, u.location, u.reason))),
-            references=tuple(sorted(references, key=lambda r: (r.source, r.location, r.relation, r.target))),
+            references=tuple(
+                sorted(references, key=lambda r: (r.source, r.location, r.relation, r.target))
+            ),
         )

@@ -9,10 +9,9 @@ from __future__ import annotations
 import json
 from collections.abc import Iterable
 
-from .graph_runtime import nx
-from .graph_topology import rooted_closure, cyclic_components
-
 from .data_operation_model import EffectiveDataOperationModel
+from .graph_runtime import nx
+from .graph_topology import cyclic_components, rooted_closure
 
 
 class MissingNominalEndpoint(ValueError):
@@ -28,7 +27,9 @@ def nominal_inheritance_graph(model: EffectiveDataOperationModel):
         if edge.relation != "inherits":
             continue
         if edge.source not in kinds or edge.target not in kinds:
-            raise MissingNominalEndpoint("nominal refinement has an unresolved inheritance endpoint")
+            raise MissingNominalEndpoint(
+                "nominal refinement has an unresolved inheritance endpoint"
+            )
         if kinds[edge.source].category != kinds[edge.target].category:
             raise ValueError("nominal refinement changes kind category")
         graph.add_edge(edge.target, edge.source)

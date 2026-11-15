@@ -54,7 +54,9 @@ class SelectedRecordIndex:
         self.retained_bytes = 0
         self.cut = None
         self.has_frontier = False
-        self.connection.execute("CREATE TABLE frontier(kind TEXT, identity TEXT, payload BLOB, PRIMARY KEY(kind,identity))")
+        self.connection.execute(
+            "CREATE TABLE frontier(kind TEXT, identity TEXT, payload BLOB, PRIMARY KEY(kind,identity))"
+        )
         self.connection.execute(
             "CREATE TABLE records(key TEXT PRIMARY KEY, relation TEXT NOT NULL, payload BLOB NOT NULL)"
         )
@@ -104,16 +106,24 @@ class SelectedRecordIndex:
                 # exact frontier/selection fields without copying their bodies again.
                 value = {key: value for key, value in row.items() if key != "products"}
                 identity, payload = row[identity_field], json_bytes(value)
-                previous = self.connection.execute("SELECT payload FROM frontier WHERE kind=? AND identity=?", (kind, identity)).fetchone()
+                previous = self.connection.execute(
+                    "SELECT payload FROM frontier WHERE kind=? AND identity=?", (kind, identity)
+                ).fetchone()
                 if previous is not None:
                     if previous[0] != payload:
-                        raise ValueError("selected frontier repeats an identity with different facts")
+                        raise ValueError(
+                            "selected frontier repeats an identity with different facts"
+                        )
                     continue
-                self.connection.execute("INSERT INTO frontier VALUES(?,?,?)", (kind, identity, payload))
+                self.connection.execute(
+                    "INSERT INTO frontier VALUES(?,?,?)", (kind, identity, payload)
+                )
                 self.retained_bytes += len(payload)
 
     def frontier_rows(self, kind):
-        for (payload,) in self.connection.execute("SELECT payload FROM frontier WHERE kind=? ORDER BY identity", (kind,)):
+        for (payload,) in self.connection.execute(
+            "SELECT payload FROM frontier WHERE kind=? ORDER BY identity", (kind,)
+        ):
             yield wire_json_loads(payload)
 
     def records(self):

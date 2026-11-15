@@ -22,6 +22,7 @@ def snapshot_from_index(prepared, cut, index, projection):
         raise ValueError("selected graph index belongs to another cut")
     if projection == "source-hierarchy":
         from .source_hierarchy_graph import source_hierarchy_snapshot
+
         return source_hierarchy_snapshot(prepared, model, cut, index)
     if projection not in {"bound-requests", "selected-support"}:
         raise ValueError("this projection requires its source/assessment acquisition owner")
@@ -42,9 +43,15 @@ def snapshot_from_index(prepared, cut, index, projection):
         if source not in nodes or target not in nodes:
             raise ValueError("selected graph occurrence lacks its authenticated endpoint")
         occurrence = GraphOccurrence(
-            identity="graph-occurrence:" + sha256(json_bytes([source, target, relation, role, position, witness])).hexdigest(),
-            source=source, target=target, relation=relation, role=role, position=position,
-            multiplicity=multiplicity, attributes_json=json_bytes(witness or {}).decode(),
+            identity="graph-occurrence:"
+            + sha256(json_bytes([source, target, relation, role, position, witness])).hexdigest(),
+            source=source,
+            target=target,
+            relation=relation,
+            role=role,
+            position=position,
+            multiplicity=multiplicity,
+            attributes_json=json_bytes(witness or {}).decode(),
         )
         occurrences[occurrence.identity] = occurrence
 
@@ -55,7 +62,10 @@ def snapshot_from_index(prepared, cut, index, projection):
     admissions = {row["id"]: row for row in index.rows("ops.original_source_admission")}
     frontier_uses = {row["use_id"]: row for row in index.frontier_rows("uses")}
     for name, row in frontier_uses.items():
-        if name in uses and any(uses[name].get(key) != row.get(key) for key in ("request_id", "derivation_id", "selection")):
+        if name in uses and any(
+            uses[name].get(key) != row.get(key)
+            for key in ("request_id", "derivation_id", "selection")
+        ):
             raise ValueError("selected frontier and support use custody differ")
     all_uses = uses | {name: {**row, "id": name} for name, row in frontier_uses.items()}
 
@@ -67,7 +77,9 @@ def snapshot_from_index(prepared, cut, index, projection):
 
     def reference(reference):
         if reference.get("kind") in {"original-source", "authored"}:
-            return required("ops.original_source_admission", reference["admission_id"], "original support")
+            return required(
+                "ops.original_source_admission", reference["admission_id"], "original support"
+            )
         if reference.get("admission_use_id"):
             return required("ops.demand_use", reference["admission_use_id"], "selected support use")
         return required("ops.data_derivation", reference["derivation_id"], "support episode")
@@ -85,10 +97,26 @@ def snapshot_from_index(prepared, cut, index, projection):
                 # Waiting/attached requests without an episode have no exported raw
                 # request row. Their exact selected frontier owns the identity.
                 if row["request_id"] not in requests:
-                    node("ops.data_request", row["request_id"], "request", {"id": row["request_id"], "operation_id": row["operation_id"], "frontier_only": True})
-                edge(owner, required("ops.data_request", row["request_id"], "bound request"), "requires", "request", witness={"obligation_id": row["obligation_id"]})
+                    node(
+                        "ops.data_request",
+                        row["request_id"],
+                        "request",
+                        {
+                            "id": row["request_id"],
+                            "operation_id": row["operation_id"],
+                            "frontier_only": True,
+                        },
+                    )
+                edge(
+                    owner,
+                    required("ops.data_request", row["request_id"], "bound request"),
+                    "requires",
+                    "request",
+                    witness={"obligation_id": row["obligation_id"]},
+                )
         for name, row in populations.items():
             node("ops.data_population", name, "population", row)
+
         def producer_request(ref):
             if ref.get("kind") in {"original-source", "authored"}:
                 return None
@@ -101,6 +129,7 @@ def snapshot_from_index(prepared, cut, index, projection):
             if producer is None:
                 raise ValueError("bound request lacks its producing episode")
             return producer["request_id"]
+
         for name, row in all_uses.items():
             owner = required("ops.demand_use", name, "use")
             request = required("ops.data_request", row["request_id"], "request")
@@ -108,9 +137,24 @@ def snapshot_from_index(prepared, cut, index, projection):
             for position, ref in enumerate(row.get("selection", {}).get("support", ())):
                 target = producer_request(ref)
                 if target is not None:
-                    edge(owner, required("ops.data_request", target, "producer request"), "selected-input", ref.get("role", ""), position=position, multiplicity=ref.get("multiplicity", 1), witness=ref)
+                    edge(
+                        owner,
+                        required("ops.data_request", target, "producer request"),
+                        "selected-input",
+                        ref.get("role", ""),
+                        position=position,
+                        multiplicity=ref.get("multiplicity", 1),
+                        witness=ref,
+                    )
             for position, ref in enumerate(row.get("selection", {}).get("populations", ())):
-                edge(owner, required("ops.data_population", ref["population_id"], "selected population"), "population", "selected-population", position=position, witness=ref)
+                edge(
+                    owner,
+                    required("ops.data_population", ref["population_id"], "selected population"),
+                    "population",
+                    "selected-population",
+                    position=position,
+                    witness=ref,
+                )
     else:
         for relation, rows, kind in (
             ("kb.data_product", index.rows("kb.data_product"), "product"),
@@ -122,66 +166,195 @@ def snapshot_from_index(prepared, cut, index, projection):
             for row in rows:
                 node(relation, row["id"], kind, row)
         for row in index.rows("kb.data_product_member"):
-            member = node("kb.data_product_member", [row["product_id"], row["member_id"]], "member", row)
-            edge(required("kb.data_product", row["product_id"], "member product"), member, "output", "member", witness={"member_id": row["member_id"]})
-        for table, relation in (("ops.data_derivation_input", "input"), ("ops.data_derivation_output", "output")):
+            member = node(
+                "kb.data_product_member", [row["product_id"], row["member_id"]], "member", row
+            )
+            edge(
+                required("kb.data_product", row["product_id"], "member product"),
+                member,
+                "output",
+                "member",
+                witness={"member_id": row["member_id"]},
+            )
+        for table, relation in (
+            ("ops.data_derivation_input", "input"),
+            ("ops.data_derivation_output", "output"),
+        ):
             for row in index.rows(table):
-                key = [row["product_id"], row["member_id"]] if row.get("member_id") is not None else row["product_id"]
-                target = required("kb.data_product_member" if isinstance(key, list) else "kb.data_product", key, relation)
-                edge(required("ops.data_derivation", row["derivation_id"], "producing episode"), target, relation, row["role"], position=row["position"], multiplicity=row.get("multiplicity", 1), witness=row)
+                key = (
+                    [row["product_id"], row["member_id"]]
+                    if row.get("member_id") is not None
+                    else row["product_id"]
+                )
+                target = required(
+                    "kb.data_product_member" if isinstance(key, list) else "kb.data_product",
+                    key,
+                    relation,
+                )
+                edge(
+                    required("ops.data_derivation", row["derivation_id"], "producing episode"),
+                    target,
+                    relation,
+                    row["role"],
+                    position=row["position"],
+                    multiplicity=row.get("multiplicity", 1),
+                    witness=row,
+                )
         for name, row in all_uses.items():
             owner = required("ops.demand_use", name, "use")
             if row.get("derivation_id"):
-                edge(owner, required("ops.data_derivation", row["derivation_id"], "selected producer"), "admission", "selected-producer", witness={"use_id": name})
+                edge(
+                    owner,
+                    required("ops.data_derivation", row["derivation_id"], "selected producer"),
+                    "admission",
+                    "selected-producer",
+                    witness={"use_id": name},
+                )
             for position, ref in enumerate(row.get("selection", {}).get("support", ())):
-                edge(owner, reference(ref), "support", ref.get("role", ""), position=position, multiplicity=ref.get("multiplicity", 1), witness=ref)
+                edge(
+                    owner,
+                    reference(ref),
+                    "support",
+                    ref.get("role", ""),
+                    position=position,
+                    multiplicity=ref.get("multiplicity", 1),
+                    witness=ref,
+                )
             for position, ref in enumerate(row.get("selection", {}).get("populations", ())):
-                edge(owner, required("ops.data_population", ref["population_id"], "population"), "population", "selected-population", position=position, witness=ref)
-        selected_episodes = {row["derivation_id"] for row in all_uses.values() if row.get("derivation_id")}
+                edge(
+                    owner,
+                    required("ops.data_population", ref["population_id"], "population"),
+                    "population",
+                    "selected-population",
+                    position=position,
+                    witness=ref,
+                )
+        selected_episodes = {
+            row["derivation_id"] for row in all_uses.values() if row.get("derivation_id")
+        }
         for table, target_field, target_relation in (
             ("ops.data_derivation_support", "support_derivation_id", "ops.data_derivation"),
-            ("ops.data_derivation_original_support", "admission_id", "ops.original_source_admission"),
+            (
+                "ops.data_derivation_original_support",
+                "admission_id",
+                "ops.original_source_admission",
+            ),
         ):
             for row in index.rows(table):
                 if row["derivation_id"] in selected_episodes:
                     continue  # Selected-use support supersedes the historical support list.
-                target = required("ops.demand_use", row["admission_use_id"], "historical support use") if row.get("admission_use_id") else required(target_relation, row[target_field], "producing support")
-                edge(required("ops.data_derivation", row["derivation_id"], "producing episode"), target, "support", row.get("role", ""), position=row.get("occurrence"), witness=row)
+                target = (
+                    required("ops.demand_use", row["admission_use_id"], "historical support use")
+                    if row.get("admission_use_id")
+                    else required(target_relation, row[target_field], "producing support")
+                )
+                edge(
+                    required("ops.data_derivation", row["derivation_id"], "producing episode"),
+                    target,
+                    "support",
+                    row.get("role", ""),
+                    position=row.get("occurrence"),
+                    witness=row,
+                )
         for name, row in admissions.items():
-            edge(required("ops.original_source_admission", name, "original admission"), required("kb.data_product", row["product_id"], "admitted product"), "admission", "admitted-product", witness={"admission_id": name})
+            edge(
+                required("ops.original_source_admission", name, "original admission"),
+                required("kb.data_product", row["product_id"], "admitted product"),
+                "admission",
+                "admitted-product",
+                witness={"admission_id": name},
+            )
     for name, row in populations.items():
         owner = required("ops.data_population", name, "population")
         evidence = row["evidence"]
         if evidence.get("admission_use_id"):
-            edge(owner, required("ops.demand_use", evidence["admission_use_id"], "population producing use"), "population", "producer", witness=evidence)
+            edge(
+                owner,
+                required(
+                    "ops.demand_use", evidence["admission_use_id"], "population producing use"
+                ),
+                "population",
+                "producer",
+                witness=evidence,
+            )
         elif evidence.get("derivation_id"):
             producer = episodes.get(evidence["derivation_id"])
             if producer is None:
                 raise ValueError("population lacks producing episode")
-            target = required("ops.data_request", producer["request_id"], "population request") if projection == "bound-requests" else required("ops.data_derivation", producer["id"], "population producer")
+            target = (
+                required("ops.data_request", producer["request_id"], "population request")
+                if projection == "bound-requests"
+                else required("ops.data_derivation", producer["id"], "population producer")
+            )
             edge(owner, target, "population", "producer", witness=evidence)
         parent = evidence.get("selection", {}).get("parent_population_id")
         if parent is not None:
-            edge(owner, required("ops.data_population", parent, "parent population"), "population", "parent", witness=evidence)
-    return GraphSnapshot(projection=projection, specification=specification.identity_bytes.hex(), pins_json=json_bytes({**cut.record, "cut_id": cut.identity}).decode(), nodes=tuple(nodes[key] for key in sorted(nodes)), occurrences=tuple(occurrences[key] for key in sorted(occurrences)), standing="partial" if unknowns else "complete", unknowns=tuple(unknowns))
+            edge(
+                owner,
+                required("ops.data_population", parent, "parent population"),
+                "population",
+                "parent",
+                witness=evidence,
+            )
+    return GraphSnapshot(
+        projection=projection,
+        specification=specification.identity_bytes.hex(),
+        pins_json=json_bytes({**cut.record, "cut_id": cut.identity}).decode(),
+        nodes=tuple(nodes[key] for key in sorted(nodes)),
+        occurrences=tuple(occurrences[key] for key in sorted(occurrences)),
+        standing="partial" if unknowns else "complete",
+        unknowns=tuple(unknowns),
+    )
 
 
 def selected_graph_snapshot(connection, prepared, request):
     from .data_operation_admission import bound_data_operation_model
     from .demand_results import SelectedGraphBudgetExceeded, selected_record_index
+
     model = bound_data_operation_model(prepared)
     specification = model.projection_definition(request.projection)
     if request.project_id is None:
         raise ValueError("selected graph requires an explicit project")
-    pins = dict(release_id=prepared.release_id, demand_id=request.demand_id, project_id=request.project_id)
+    pins = dict(
+        release_id=prepared.release_id, demand_id=request.demand_id, project_id=request.project_id
+    )
     try:
-        with selected_record_index(connection, request.demand_id, project_id=request.project_id, scope=request.scope, read_id=request.read_id, expected_cut=request.expected_cut, max_bytes=min(request.max_examined_bytes, 8388608), max_total_bytes=request.max_examined_bytes) as (cut, index):
+        with selected_record_index(
+            connection,
+            request.demand_id,
+            project_id=request.project_id,
+            scope=request.scope,
+            read_id=request.read_id,
+            expected_cut=request.expected_cut,
+            max_bytes=min(request.max_examined_bytes, 8388608),
+            max_total_bytes=request.max_examined_bytes,
+        ) as (cut, index):
             if request.projection == "assessment":
                 from corpus_structure.evaluate.assessment_graph import assessment_graph_snapshot
-                addresses = tuple((row["product_id"], row["member_id"]) for row in index.rows("kb.data_product_member") if (request.scope.get("product_id") is None or row["product_id"] == request.scope["product_id"]) and (request.scope.get("member_id") is None or row["member_id"] == request.scope["member_id"]))
+
+                addresses = tuple(
+                    (row["product_id"], row["member_id"])
+                    for row in index.rows("kb.data_product_member")
+                    if (
+                        request.scope.get("product_id") is None
+                        or row["product_id"] == request.scope["product_id"]
+                    )
+                    and (
+                        request.scope.get("member_id") is None
+                        or row["member_id"] == request.scope["member_id"]
+                    )
+                )
                 return assessment_graph_snapshot(prepared, cut, index, members=addresses)
             return snapshot_from_index(prepared, cut, index, request.projection)
     except SelectedGraphBudgetExceeded as error:
         pins.update(error.cut.record)
         pins["cut_id"] = error.cut.identity
-        return GraphSnapshot(projection=request.projection, specification=specification.identity_bytes.hex(), pins_json=json_bytes(pins).decode(), nodes=(), occurrences=(), standing="partial", unknowns=(str(error),))
+        return GraphSnapshot(
+            projection=request.projection,
+            specification=specification.identity_bytes.hex(),
+            pins_json=json_bytes(pins).decode(),
+            nodes=(),
+            occurrences=(),
+            standing="partial",
+            unknowns=(str(error),),
+        )

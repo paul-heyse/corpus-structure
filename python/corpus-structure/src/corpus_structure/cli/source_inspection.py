@@ -157,11 +157,11 @@ def graph(
     """Inspect an explicitly declared archived or selected graph projection."""
     from corpus_structure.cli.failures import failure_boundary
     from corpus_structure.cli.output import read_request_bytes
-    from corpus_structure.semantic.runtime import open_runtime_engine
     from corpus_structure.semantic.graph_inspection import (
         GraphInspectionRequest,
         read_graph_inspection,
     )
+    from corpus_structure.semantic.runtime import open_runtime_engine
 
     with (
         failure_boundary(json, expected=(ValueError, KeyError, OSError)),

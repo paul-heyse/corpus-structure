@@ -387,7 +387,11 @@ def witness_support(groups, required):
 
     graph = nx.DiGraph(backend="networkx")
     graph.add_nodes_from(members)
-    graph.add_edges_from((member, dependency) for member, value in members.items() for dependency in value.get("requires", ()))
+    graph.add_edges_from(
+        (member, dependency)
+        for member, value in members.items()
+        for dependency in value.get("requires", ())
+    )
     roots = set(required)
     # Missing roots/references are explicit unknown boundaries, not admitted members.
     graph.add_nodes_from(roots)
@@ -496,10 +500,14 @@ class TaskPopulation:
 
         readings = attributed_graph(
             ((identity, {}) for identity in self.nodes),
-            ((identity, children[0]["target"], {}) for identity, node in self.nodes.items()
-             if node["value"]["collection"] == "terms"
-             and len(children := [edge for edge in node["edges"] if edge["label"] == "child"]) == 1
-             and children[0].get("role") == "reading"),
+            (
+                (identity, children[0]["target"], {})
+                for identity, node in self.nodes.items()
+                if node["value"]["collection"] == "terms"
+                and len(children := [edge for edge in node["edges"] if edge["label"] == "child"])
+                == 1
+                and children[0].get("role") == "reading"
+            ),
         )
         self.claim_roots = set(rooted_closure(readings, self.roots))
         if len(self.nodes) > 20000:
@@ -1260,6 +1268,7 @@ def _task_graph(entities, assertions, groups, focus, *, expected=False):
 
     def add_edge(source, target, **attributes):
         edges.append((source, target, attributes))
+
     for entity in entities:
         add_node(
             ("entity", entity["id"]),
@@ -1300,8 +1309,12 @@ def _task_graph(entities, assertions, groups, focus, *, expected=False):
         TASK_ASSESSMENT_RELATION_KINDS,
     )
 
-    if not {identity[0] for identity, _ in nodes} <= set(TASK_ASSESSMENT_NODE_KINDS) or not {edge["label"] for _, _, edge in edges} <= set(TASK_ASSESSMENT_RELATION_KINDS):
-        raise ContractUnavailable("normalized task facts exceed the admitted task-assessment projection")
+    if not {identity[0] for identity, _ in nodes} <= set(TASK_ASSESSMENT_NODE_KINDS) or not {
+        edge["label"] for _, _, edge in edges
+    } <= set(TASK_ASSESSMENT_RELATION_KINDS):
+        raise ContractUnavailable(
+            "normalized task facts exceed the admitted task-assessment projection"
+        )
     return attributed_graph(nodes, edges)
 
 
@@ -1421,9 +1434,13 @@ def score_task(reference, family, predictions, *, output_first=False):
 
         group_dependencies = attributed_graph(
             ((group["id"], {}) for group in population.groups),
-            ((group["id"], member_groups[dependency], {})
-             for group in population.groups for member in group["members"]
-             for dependency in member.get("requires", ()) if dependency in member_groups),
+            (
+                (group["id"], member_groups[dependency], {})
+                for group in population.groups
+                for member in group["members"]
+                for dependency in member.get("requires", ())
+                if dependency in member_groups
+            ),
         )
         selected_groups = rooted_closure(group_dependencies, selected_groups)
         groups = [g for g in population.groups if g["id"] in selected_groups]
@@ -1455,7 +1472,12 @@ def score_task(reference, family, predictions, *, output_first=False):
                 groups,
                 actual_focus["id"],
             )
-            mappings = comparison_mappings(actual_graph, expected_graph, mode="exact" if ref.mode == "complete_slots" else "witness", policy="expected-fields")
+            mappings = comparison_mappings(
+                actual_graph,
+                expected_graph,
+                mode="exact" if ref.mode == "complete_slots" else "witness",
+                policy="expected-fields",
+            )
             for mapping in mappings:
                 if assessed_choice_groups:
                     matched_focus_groups = {

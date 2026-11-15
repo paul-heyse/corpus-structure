@@ -341,7 +341,15 @@ def graph_equal(actual, expected, projection=None):
             )
         from .graph_comparison import comparison_mappings, rooted_graph
 
-        return next(comparison_mappings(rooted_graph(actual), rooted_graph(expected), mode="exact", policy="exact"), None) is not None
+        return (
+            next(
+                comparison_mappings(
+                    rooted_graph(actual), rooted_graph(expected), mode="exact", policy="exact"
+                ),
+                None,
+            )
+            is not None
+        )
     except KeyError, TypeError, ValueError:
         return False
 
@@ -473,7 +481,9 @@ class LayerProjection:
                     names[q] = f"n{len(names)}"
                     queue.append((target_pin, target))
                 if label not in ASSESSMENT_RELATION_KINDS:
-                    raise ReferenceError("witness relation is outside the admitted assessment projection")
+                    raise ReferenceError(
+                        "witness relation is outside the admitted assessment projection"
+                    )
                 edges.append(dict(label=label, target=names[q], **fields))
 
             if witness_closure and collection == "choice_member":
@@ -654,7 +664,9 @@ class LayerProjection:
                     )
                 )
             if collection not in ASSESSMENT_NODE_KINDS:
-                raise ReferenceError("witness node kind is outside the admitted assessment projection")
+                raise ReferenceError(
+                    "witness node kind is outside the admitted assessment projection"
+                )
             node = dict(
                 id=names[(*key, identity)],
                 qualified_identity=qualified,
@@ -664,7 +676,9 @@ class LayerProjection:
             if remaining is not None:
                 remaining -= len(canonical_bytes(node)) + 1
                 if remaining < 0:
-                    raise WitnessGraphBudgetExceeded("operation author witness graph exceeds byte bound")
+                    raise WitnessGraphBudgetExceeded(
+                        "operation author witness graph exceeds byte bound"
+                    )
             nodes.append(node)
         return dict(
             root=names[initial],

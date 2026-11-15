@@ -311,7 +311,11 @@ def bind_record_candidates(
                 raise ValueError("evidence set differs from released role or content")
         graph = nx.DiGraph(backend="networkx")
         graph.add_nodes_from(fields)
-        graph.add_edges_from((role, premise) for role, field in fields.items() for premise in field.get("premises", ()))
+        graph.add_edges_from(
+            (role, premise)
+            for role, field in fields.items()
+            for premise in field.get("premises", ())
+        )
         if cyclic_components(graph):
             raise ValueError("derived record field premises form a cycle")
         for role, field in fields.items():

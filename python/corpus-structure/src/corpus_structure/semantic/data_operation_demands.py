@@ -14,9 +14,6 @@ from typing import TYPE_CHECKING, Any, Literal, cast
 
 from pydantic import TypeAdapter
 
-from .graph_runtime import nx
-from .graph_topology import rooted_closure
-
 from corpus_structure.semantic._data_operation_wire import (
     WireAdmitAuthoredDataRequest,
     WireAdmitOriginalDocumentAssetRequest,
@@ -56,6 +53,8 @@ from .data_operation_support import (
     original_source_selections_record,
     support_reference_records,
 )
+from .graph_runtime import nx
+from .graph_topology import rooted_closure
 from .identity import canonical_bytes
 
 if TYPE_CHECKING:
@@ -66,7 +65,11 @@ if TYPE_CHECKING:
 def _frozen_dependency_graph(selected, discovery=()):
     graph = nx.DiGraph(backend="networkx")
     graph.add_nodes_from(selected)
-    edges = [(name, dependency) for name, operation in selected.items() for dependency in operation["dependencies"]]
+    edges = [
+        (name, dependency)
+        for name, operation in selected.items()
+        for dependency in operation["dependencies"]
+    ]
     edges.extend((relation["producer"], relation["target"]) for relation in discovery)
     if any(source not in selected or target not in selected for source, target in edges):
         raise ValueError("frozen dependency has an unknown operation")
@@ -657,11 +660,17 @@ class DemandPlanner:
                 projections,
                 **binding_arguments,
             )
-            roots = (*operation["dependencies"], *(
-                relation["producer"] for relation in frozen["discovery"]
-                if relation["target"] == operation["operation"]
-            ))
-            prerequisites = rooted_closure(_frozen_dependency_graph(selected, frozen["discovery"]), roots)
+            roots = (
+                *operation["dependencies"],
+                *(
+                    relation["producer"]
+                    for relation in frozen["discovery"]
+                    if relation["target"] == operation["operation"]
+                ),
+            )
+            prerequisites = rooted_closure(
+                _frozen_dependency_graph(selected, frozen["discovery"]), roots
+            )
             operation_roles = {
                 role.name: role
                 for role in self.model.operation(operation["operation"]).roles

@@ -18,8 +18,15 @@ def test_current_model_archives_exact_interpretation_and_refuses_missing_project
         "semantic-reference",
         "potential-producers",
         "selected-dependencies",
-        "bound-requests", "selected-support", "source-hierarchy", "assessment",
-        "lexical-reference", "possible-call", "resolved-definition", "type-reference", "implementation-determinant",
+        "bound-requests",
+        "selected-support",
+        "source-hierarchy",
+        "assessment",
+        "lexical-reference",
+        "possible-call",
+        "resolved-definition",
+        "type-reference",
+        "implementation-determinant",
     ]
     restored = read_effective_data_operations(compiled.content)
     assert restored.content == compiled.content
@@ -76,15 +83,19 @@ def test_v6_specs_are_interpretations_not_selected_runtime_facts():
     assert support.identity == "qualified-native-reference"
     assert "scope-boundary" in support.analyses
     assert compiled.projection_definition("source-hierarchy").orientation == "parent-to-child"
-    assert compiled.projection_definition("assessment").selection == "protected-question-and-prediction"
+    assert (
+        compiled.projection_definition("assessment").selection
+        == "protected-question-and-prediction"
+    )
     with pytest.raises(ValueError, match="source acquisition"):
         compiled.projection_graph("selected-support")
 
 
 def test_v5_compact_archive_read_preserves_exact_bytes_and_headers():
     import json
-    from corpus_structure.semantic.identity import canonical_bytes
+
     from corpus_structure.semantic.data_operation_model import EffectiveIdentity
+    from corpus_structure.semantic.identity import canonical_bytes
 
     compiled = model(operation("op:alone"))
     record = json.loads(compiled.content)
@@ -109,9 +120,17 @@ def test_captured_reference_occurrences_are_diagnostic_not_recipe_salts():
         python_sources=python_inputs(operation_source(body="return helper(x) + helper(x)"))
     )
     implementation = compiled.implementation_slices[0]
-    assert {node.category for node in implementation.nodes} <= set(compiled.projection_definition("possible-call").node_kinds)
-    assert {edge.relation for edge in implementation.edges} == set(compiled.projection_definition("implementation-determinant").relationship_kinds)
-    calls = [fact for fact in implementation.references if fact.relation == "possible_call" and fact.target == "python:example.helper"]
+    assert {node.category for node in implementation.nodes} <= set(
+        compiled.projection_definition("possible-call").node_kinds
+    )
+    assert {edge.relation for edge in implementation.edges} == set(
+        compiled.projection_definition("implementation-determinant").relationship_kinds
+    )
+    calls = [
+        fact
+        for fact in implementation.references
+        if fact.relation == "possible_call" and fact.target == "python:example.helper"
+    ]
     assert len(calls) == 2
     assert len({fact.location for fact in calls}) == 2
     assert {fact.source for fact in calls} == {"python:example.derive"}

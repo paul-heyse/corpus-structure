@@ -6,8 +6,8 @@ import json
 from typing import Never
 
 from .data_operation_kind_refinements import MissingNominalEndpoint, nominal_inheritance_graph
-from .graph_topology import rooted_closure
 from .data_operation_model import EffectiveDataOperationModel, EffectiveKind
+from .graph_topology import rooted_closure
 from .types import Diagnostic, PreparationError
 
 
@@ -68,7 +68,10 @@ def derive_member_kinds(
         try:
             graph = nominal_inheritance_graph(model)
         except MissingNominalEndpoint as error:
-            refuse(root.semantic_id, "member projection requires a complete nominal kind: " + str(error))
+            refuse(
+                root.semantic_id,
+                "member projection requires a complete nominal kind: " + str(error),
+            )
         except ValueError as error:
             refuse(root.semantic_id, str(error))
         found = rooted_closure(graph, (root.semantic_id,))

@@ -76,7 +76,13 @@ def source_hierarchy_snapshot(prepared, model, cut, index):
                 raise ValueError("captured source repeats an original containment child")
             for child in children:
                 if child not in atoms:
-                    unknowns.append(product["id"] + ":" + pointer + ": child outside captured source scope: " + str(child))
+                    unknowns.append(
+                        product["id"]
+                        + ":"
+                        + pointer
+                        + ": child outside captured source scope: "
+                        + str(child)
+                    )
                 elif reference(atoms[child].get("parent")) != pointer:
                     raise ValueError("captured source parent and child containment disagree")
         if graph and not nx.is_forest(graph, backend="networkx"):

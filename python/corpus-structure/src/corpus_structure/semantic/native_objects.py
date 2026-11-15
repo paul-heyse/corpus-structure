@@ -617,7 +617,7 @@ def normalize_native_backfill(
     original objects, OIDs, complete ACLs and owners, including on refusal.
     """
     from .graph_runtime import nx
-    from .graph_topology import rooted_closure, ordered_nodes
+    from .graph_topology import ordered_nodes, rooted_closure
 
     _require_owned_authoring(connection, owned_authoring)
     if any(not isinstance(item, NativeObject) for item in context):
@@ -627,10 +627,7 @@ def normalize_native_backfill(
     selected = {item.identity for item in definitions}
     identities = tuple(dict.fromkeys((*frozen, *(item.identity for item in definitions))))
     graph = native_dependency_graph(connection, identities)
-    dependents = (
-        rooted_closure(graph, selected)
-        - selected
-    )
+    dependents = rooted_closure(graph, selected) - selected
     declared = {identity: position for position, identity in enumerate(graph)}
     try:
         order = ordered_nodes(graph, key=declared.__getitem__)

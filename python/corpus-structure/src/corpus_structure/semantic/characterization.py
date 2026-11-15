@@ -298,7 +298,9 @@ def _acyclic(edges: Mapping[str, Sequence[str]], label: str) -> None:
 
     graph = nx.DiGraph(backend="networkx")
     graph.add_nodes_from(edges)
-    graph.add_edges_from((source, target) for source, targets in edges.items() for target in targets)
+    graph.add_edges_from(
+        (source, target) for source, targets in edges.items() for target in targets
+    )
     if cyclic_components(graph):
         raise ValueError(f"{label} structural cycle")
 

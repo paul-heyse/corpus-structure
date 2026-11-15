@@ -323,7 +323,9 @@ def selected_record_index(
                     raise ValueError("selected resource belongs to another cut/trust assessment")
                 index.append_page(page.record)
                 if max_total_bytes is not None and index.retained_bytes > max_total_bytes:
-                    raise SelectedGraphBudgetExceeded("selected graph examined frontier exceeds byte bound", cut=cut)
+                    raise SelectedGraphBudgetExceeded(
+                        "selected graph examined frontier exceeds byte bound", cut=cut
+                    )
                 for record in stream_selected_support(connection, page):
                     index.append(json_bytes(record), allow_equal=True)
                     if max_total_bytes is not None and index.retained_bytes > max_total_bytes:

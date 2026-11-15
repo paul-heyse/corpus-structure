@@ -16,10 +16,9 @@ from hashlib import sha256
 from types import MappingProxyType
 from typing import Any, Literal
 
-from .graph_runtime import nx
-from .graph_topology import rooted_closure, strong_components, cyclic_components, ordered_nodes
-
 from .data_operation_model import SubjectContext
+from .graph_runtime import nx
+from .graph_topology import cyclic_components, ordered_nodes, rooted_closure, strong_components
 from .identity import canonical_bytes
 from .value_codec import value_meaning
 
@@ -241,7 +240,10 @@ class SemanticGraph:
         for edge in self._edges:
             pair = edge.source, edge.target
             relations_by_pair.setdefault(pair, set()).add(edge.relation)
-        graph.add_edges_from((source, target, {"relations": frozenset(relations)}) for (source, target), relations in relations_by_pair.items())
+        graph.add_edges_from(
+            (source, target, {"relations": frozenset(relations)})
+            for (source, target), relations in relations_by_pair.items()
+        )
         self._graph = nx.freeze(graph)
         self.require_acyclic({"inherits"})
         self.require_acyclic({"operation_dependency"}, iteration_components=iteration_components)
@@ -277,7 +279,12 @@ class SemanticGraph:
         if relations is None:
             return self._graph
         selected = frozenset(relations)
-        return nx.subgraph_view(self._graph, filter_edge=lambda source, target: bool(self._graph.edges[source, target]["relations"] & selected))
+        return nx.subgraph_view(
+            self._graph,
+            filter_edge=lambda source, target: bool(
+                self._graph.edges[source, target]["relations"] & selected
+            ),
+        )
 
     def components(self, relations: set[str] | None = None) -> tuple[tuple[str, ...], ...]:
         return tuple(
@@ -288,7 +295,12 @@ class SemanticGraph:
         )
 
     def cyclic_components(self, relations: set[str] | None = None) -> tuple[tuple[str, ...], ...]:
-        return tuple(sorted(tuple(sorted(component)) for component in cyclic_components(self._projection(relations))))
+        return tuple(
+            sorted(
+                tuple(sorted(component))
+                for component in cyclic_components(self._projection(relations))
+            )
+        )
 
     def require_acyclic(
         self,

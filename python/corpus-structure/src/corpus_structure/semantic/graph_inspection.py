@@ -6,9 +6,9 @@ Topology is descriptive. Native selection, trust and domain validity retain thei
 from __future__ import annotations
 
 import base64
-from hashlib import sha256
-from dataclasses import asdict
 from collections import Counter
+from dataclasses import asdict
+from hashlib import sha256
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -88,7 +88,7 @@ class GraphInspectionPage(BaseModel):
 
 def inspect_graph(snapshot: GraphSnapshot, request: GraphInspectionRequest):
     from .graph_runtime import nx
-    from .graph_topology import rooted_closure, boundary_edges
+    from .graph_topology import boundary_edges, rooted_closure
 
     if snapshot.projection != request.projection:
         raise ValueError("graph projection differs from request")

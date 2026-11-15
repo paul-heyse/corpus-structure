@@ -33,8 +33,15 @@ def rooted_graph(record):
     if record["root"] not in {node["id"] for node in record["nodes"]}:
         raise ValueError("assessment graph lacks its exact root")
     return attributed_graph(
-        ((node["id"], dict(meaning=node["value"], focus=node["id"] == record["root"])) for node in record["nodes"]),
-        ((node["id"], edge["target"], {k: v for k, v in edge.items() if k != "target"}) for node in record["nodes"] for edge in node["edges"]),
+        (
+            (node["id"], dict(meaning=node["value"], focus=node["id"] == record["root"]))
+            for node in record["nodes"]
+        ),
+        (
+            (node["id"], edge["target"], {k: v for k, v in edge.items() if k != "target"})
+            for node in record["nodes"]
+            for edge in node["edges"]
+        ),
     )
 
 

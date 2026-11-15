@@ -7,9 +7,11 @@ work, rather than changing it in request contexts or allowing ambient dispatch.
 import os
 
 for _name in tuple(os.environ):
-    if _name == "NETWORKX_BACKEND_PRIORITY" or _name.startswith(
-        "NETWORKX_BACKEND_PRIORITY_"
-    ) or _name == "NETWORKX_AUTOMATIC_BACKENDS":
+    if (
+        _name == "NETWORKX_BACKEND_PRIORITY"
+        or _name.startswith("NETWORKX_BACKEND_PRIORITY_")
+        or _name == "NETWORKX_AUTOMATIC_BACKENDS"
+    ):
         os.environ.pop(_name)
 
 import networkx as nx  # noqa: E402
