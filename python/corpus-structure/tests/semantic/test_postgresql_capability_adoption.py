@@ -250,8 +250,6 @@ def test_wrong_native_predecessor_refuses_fresh_forward_construction(semantic_ba
         )
 
 
-
-
 def test_current_head_reauthoring_is_stable_and_tracks_controlled_change(
     commit_db_engine, monkeypatch
 ):

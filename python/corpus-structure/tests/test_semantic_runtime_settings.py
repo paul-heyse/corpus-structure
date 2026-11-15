@@ -212,4 +212,6 @@ def test_current_principal_authentication_uses_one_explicit_native_purpose_route
     elif purpose == "fit":
         assert connection.calls == [("SELECT ops.ddo_require_feature_fit_principal()", None)]
     else:
-        assert connection.calls == [("SELECT data.require_runtime_principal(:purpose)", {"purpose": purpose})]
+        assert connection.calls == [
+            ("SELECT data.require_runtime_principal(:purpose)", {"purpose": purpose})
+        ]

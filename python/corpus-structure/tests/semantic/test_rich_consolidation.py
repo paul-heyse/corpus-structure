@@ -100,7 +100,11 @@ def authored_inputs(scientific, values):
             support,
         ),
     )
-    recipe = next(item.key for item in model.identities if item.domain == "recipe" and item.owner == "rich.consolidate")
+    recipe = next(
+        item.key
+        for item in model.identities
+        if item.domain == "recipe" and item.owner == "rich.consolidate"
+    )
     return prepared, model, RichKernelInputs(recipe, context, roles)
 
 

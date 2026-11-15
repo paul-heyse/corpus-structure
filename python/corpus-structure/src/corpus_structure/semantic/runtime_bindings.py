@@ -47,10 +47,6 @@ def runtime_fingerprint(
     return "runtime-code:" + artifact.digest
 
 
-
-
-
-
 def _execution(prepared: PreparedRelease):
     from .contracts import bound_execution_model, execution_payload
 

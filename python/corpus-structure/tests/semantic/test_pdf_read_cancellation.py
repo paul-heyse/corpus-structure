@@ -27,8 +27,12 @@ def borrower():
 
 def request():
     return native_source.NativeSourceRequest(
-        project_id="project:test", demand_id="demand:test", read_id="read:test",
-        use_id="use:test", product_id="product:test", derivation_id="derivation:test"
+        project_id="project:test",
+        demand_id="demand:test",
+        read_id="read:test",
+        use_id="use:test",
+        product_id="product:test",
+        derivation_id="derivation:test",
     )
 
 
@@ -230,12 +234,18 @@ def test_cli_publishes_only_after_snapshot_settlement(
     result = cli(
         "source",
         "native-export",
-        "--project", "project:test",
-        "--demand", "demand:test",
-        "--read", "read:test",
-        "--use", "use:test",
-        "--product", "product:test",
-        "--derivation", "derivation:test",
+        "--project",
+        "project:test",
+        "--demand",
+        "demand:test",
+        "--read",
+        "read:test",
+        "--use",
+        "use:test",
+        "--product",
+        "product:test",
+        "--derivation",
+        "derivation:test",
         "--output",
         str(output),
         "--format",

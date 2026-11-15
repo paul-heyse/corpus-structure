@@ -337,7 +337,7 @@ def test_public_native_writer_checks_word_custody_and_retains_partial(
         create_run,
         create_task,
         record_method,
-        )
+    )
     from corpus_structure.semantic.pdf_contracts import (
         prepare_pdf_product,
         store_pdf_original,

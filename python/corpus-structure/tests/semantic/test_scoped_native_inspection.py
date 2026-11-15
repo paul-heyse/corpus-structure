@@ -327,8 +327,12 @@ def cell_reader(native_type="table", **changes):
         occurrence_context=Mock(return_value="complete owned custody"),
     )
     request = NativeSourceRequest(
-        project_id="project:test", demand_id="demand:test", read_id="read:test",
-        use_id="use:test", product_id="product:test", derivation_id="derivation:test",
+        project_id="project:test",
+        demand_id="demand:test",
+        read_id="read:test",
+        use_id="use:test",
+        product_id="product:test",
+        derivation_id="derivation:test",
         view="cell",
         pointer=pointer,
         cell_index=3,

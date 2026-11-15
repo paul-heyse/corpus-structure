@@ -12,8 +12,12 @@ from corpus_structure.semantic.read_snapshot import read_snapshot
 
 
 @pytest.mark.parametrize("through_store", [False, True])
-def test_catalog_snapshot_is_repeatable_read_readonly_and_returns_connection_cleanly(infrastructure_engine, through_store):
-    selected = SimpleNamespace(engine=infrastructure_engine) if through_store else infrastructure_engine
+def test_catalog_snapshot_is_repeatable_read_readonly_and_returns_connection_cleanly(
+    infrastructure_engine, through_store
+):
+    selected = (
+        SimpleNamespace(engine=infrastructure_engine) if through_store else infrastructure_engine
+    )
     cancellation = BorrowerCancellation()
     with read_snapshot(selected, cancellation=cancellation) as connection:
         assert connection.get_isolation_level() == "REPEATABLE READ"

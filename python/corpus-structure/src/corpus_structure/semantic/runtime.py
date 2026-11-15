@@ -66,9 +66,11 @@ def require_runtime_principal(conn: Connection, *, purpose: Purpose) -> None:
     if purpose == "maintenance":
         return
     if purpose == "fit":
-        conn.execute(text("SELECT ops.ddo_require_feature_fit_principal()" )).scalar_one()
+        conn.execute(text("SELECT ops.ddo_require_feature_fit_principal()")).scalar_one()
     else:
-        conn.execute(text("SELECT data.require_runtime_principal(:purpose)"), {"purpose": purpose}).scalar_one()
+        conn.execute(
+            text("SELECT data.require_runtime_principal(:purpose)"), {"purpose": purpose}
+        ).scalar_one()
 
 
 @contextmanager

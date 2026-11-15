@@ -532,34 +532,6 @@ def record_source_settings(native_settings, record_source_admin):
     return settings_for_native_clone(native_settings, database)
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 @pytest.fixture
 def ddo_original_source(request, scenario_seeds):
     from semantic.data_operation_original_support import original_source_clone

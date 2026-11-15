@@ -31,4 +31,3 @@ def read_snapshot(
         yield conn
         if cancellation is not None:
             cancellation.check_active()
-

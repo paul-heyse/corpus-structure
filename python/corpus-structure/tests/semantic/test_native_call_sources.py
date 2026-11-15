@@ -110,5 +110,8 @@ def test_current_call_facade_imports_the_actual_physical_nominal_owner(monkeypat
     wrong = replace(call, parameters=(replace(call.parameters[0], semantic_type="TaskId"),))
     with pytest.raises(ValueError, match="canonical physical encoding: TaskId"):
         render_call_bindings(
-            (("release-activation-asset", wrong),), metadata, canonical_identifiers=True, identifiers_module="._unused_call_enums"
+            (("release-activation-asset", wrong),),
+            metadata,
+            canonical_identifiers=True,
+            identifiers_module="._unused_call_enums",
         )

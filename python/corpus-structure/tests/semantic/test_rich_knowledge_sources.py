@@ -218,9 +218,15 @@ def test_rich_augmentation_preserves_exact_captured_current_observations(monkeyp
     assert b"declared-native-source-v1" in captured
     # This acquisition already has its actual schema authority. Reopening an
     # installed observation default would be a second owner, not a valid merge.
-    monkeypatch.setattr(observations, "_MODEL", Path("unavailable-installed-observation-default.yaml"))
-    bundle, dependencies = rich_knowledge_schema_inputs(current, ResolvedDependencies(),
-        qualification_class="StatisticsQualification", statement_class="SourceStatement")
+    monkeypatch.setattr(
+        observations, "_MODEL", Path("unavailable-installed-observation-default.yaml")
+    )
+    bundle, dependencies = rich_knowledge_schema_inputs(
+        current,
+        ResolvedDependencies(),
+        qualification_class="StatisticsQualification",
+        statement_class="SourceStatement",
+    )
     actual = [source.content for source in bundle.sources if source.name == "observations"]
     assert actual == [captured]
     prepared = prepare_release(bundle, dependencies)

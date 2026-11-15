@@ -256,8 +256,6 @@ class InventoryPage(_Envelope):
     next_page_token: str | None = None
 
 
-
-
 class QueryResult(_Envelope):
     contract_version: Literal[2] = 2
     binding: SnapshotBinding
@@ -406,8 +404,6 @@ class Explanation(_Envelope):
     inventories: dict[str, InventoryPage]
 
 
-
-
 def _scope(binding: SnapshotBinding, relation: Any) -> ColumnElement[bool]:
     return and_(
         relation.c.release_id == binding.release_id,
@@ -425,8 +421,6 @@ def _same_scope(left: Any, right: Any) -> ColumnElement[bool]:
 # Public predicate primitives compose with explicitly scoped aliases.
 scope_clause = _scope
 same_scope_clause = _same_scope
-
-
 
 
 def _require_snapshot(conn: Connection) -> None:

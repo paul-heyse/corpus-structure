@@ -15,6 +15,7 @@ if TYPE_CHECKING:
 
     from corpus_structure.settings import Settings
 
+
 class StorageTargetError(SemanticRefusal):
     """The current connection cannot establish or match its storage binding."""
 
@@ -108,9 +109,7 @@ def acquired_target(conn: Connection, *, purpose: Purpose) -> StorageTarget:
     )
 
 
-def verify_target(
-    conn: Connection, expected: StorageTarget, *, purpose: Purpose
-) -> StorageTarget:
+def verify_target(conn: Connection, expected: StorageTarget, *, purpose: Purpose) -> StorageTarget:
     actual = acquired_target(conn, purpose=purpose)
     if actual != expected.model_copy(update={"purpose": purpose}):
         raise StorageTargetError("acquired PostgreSQL target differs from the approved target")

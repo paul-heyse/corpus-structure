@@ -77,10 +77,6 @@ def validate_call_bindings(model, inputs):
     )
 
 
-
-
-
-
 def render_operation_identifiers(model):
     """Render legacy inputs through the shared, model-independent emitter."""
     from .native_call_generation import render_call_identifiers
@@ -88,8 +84,6 @@ def render_operation_identifiers(model):
     return render_call_identifiers(
         tuple((op.id, call) for op in model.operations for call in op.calls)
     )
-
-
 
 
 def render_operation_calls(model, metadata=None):
@@ -102,8 +96,6 @@ def render_operation_calls(model, metadata=None):
         identifiers_module="._operation_ids",
         context_validator=(".operation_value_types", "require_call_context"),
     )
-
-
 
 
 def generated_source() -> str:

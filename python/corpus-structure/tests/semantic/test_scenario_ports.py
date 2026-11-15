@@ -3,10 +3,7 @@
 import subprocess
 from pathlib import Path
 
-
 REPO = Path(__file__).resolve().parents[4]
-
-
 
 
 def test_shared_scenario_imports_do_not_prepare_or_acquire_native_resources():

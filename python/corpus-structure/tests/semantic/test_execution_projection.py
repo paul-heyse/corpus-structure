@@ -274,8 +274,6 @@ def test_supported_predecessors_upgrade_to_relational_execution(semantic_databas
         )
 
 
-
-
 def test_explicit_transport_order_cannot_place_evidence_links_before_evidence():
     from corpus_structure.semantic.publication import STAGE_TYPES
     from corpus_structure.semantic.routines import _transport_sql

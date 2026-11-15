@@ -46,11 +46,11 @@ classes:
    parameters: {range: Parameter, multivalued: true, inlined: true}
 """
     return external_extraction_inputs(
-            SourceBundle(
-                "domain",
-                (SourceArtifact("core", core.read_bytes()), SourceArtifact("domain", domain)),
-            ),
-            qualification_class="ScopedQualification",
+        SourceBundle(
+            "domain",
+            (SourceArtifact("core", core.read_bytes()), SourceArtifact("domain", domain)),
+        ),
+        qualification_class="ScopedQualification",
     )
 
 
@@ -95,7 +95,8 @@ def raw_scoped_batch():
 
 
 def test_current_declared_rich_report_preserves_exact_decimal_and_nested_entity(
-    scoped_rich_release, scoped_rich_model,
+    scoped_rich_release,
+    scoped_rich_model,
 ):
     result = locate_external_extraction(
         scoped_rich_release,
@@ -105,8 +106,9 @@ def test_current_declared_rich_report_preserves_exact_decimal_and_nested_entity(
         placement_policy=PlacementPolicy(),
         check_active=lambda: None,
     )
-    claims = [member["body"] for member in result["members"]
-              if member["body"]["proposal_type"] == "claim"]
+    claims = [
+        member["body"] for member in result["members"] if member["body"]["proposal_type"] == "claim"
+    ]
     exact = "1.23456789012345678901234567890123456789"
     assert str(claims[1]["object"]["number"]) == exact
     assert str(claims[0]["qualification"]["parameters"]["scale"]["amount"]) == exact

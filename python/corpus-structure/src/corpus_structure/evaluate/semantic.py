@@ -775,10 +775,9 @@ def agreement(conn: Connection, unit_id: int) -> dict[str, Any]:
     if (a.source_view_id, a.projection_digest) != (b.source_view_id, b.projection_digest):
         raise ReferenceError("agreement requires the same SourceView projection")
     prepared = open_release(conn, unit["release_id"])
-    from corpus_structure.semantic.scientific_evidence import require_scientific_policy
-
     from corpus_structure.semantic.analysis_contracts import prepare_alignment_policy
     from corpus_structure.semantic.rich_policy_binding import rich_context_profile
+    from corpus_structure.semantic.scientific_evidence import require_scientific_policy
 
     context_profile = rich_context_profile(prepared)
     alignment_policy = prepare_alignment_policy(prepared)
@@ -825,10 +824,9 @@ def reference_evaluate(
         )
     prepared = open_release(conn, completed["release_id"])
     require_bound_operation(prepared, "reference_grade")
-    from corpus_structure.semantic.scientific_evidence import require_scientific_policy
-
     from corpus_structure.semantic.analysis_contracts import prepare_alignment_policy
     from corpus_structure.semantic.rich_policy_binding import rich_context_profile
+    from corpus_structure.semantic.scientific_evidence import require_scientific_policy
 
     context_profile = rich_context_profile(prepared)
     alignment_policy = prepare_alignment_policy(prepared)

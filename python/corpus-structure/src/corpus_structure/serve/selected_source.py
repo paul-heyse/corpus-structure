@@ -350,6 +350,7 @@ def _captured_analysis_profile(prepared, dependencies):
 
     from corpus_structure.semantic.analysis_contracts import AnalysisContextProfile
     from corpus_structure.semantic.composed import read_data_operation_inputs
+
     expected = {
         name: digest
         for name, digest in json.loads(prepared.manifest)["dependencies"]

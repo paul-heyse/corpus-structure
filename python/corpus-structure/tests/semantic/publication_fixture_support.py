@@ -9,7 +9,18 @@ from sqlalchemy import insert
 from corpus_structure.semantic.contracts import implementation_overridden
 from corpus_structure.semantic.identity import fact_key, occurrence_key
 from corpus_structure.semantic.metadata import table
-from corpus_structure.semantic.publication import (EntityRow, EvidenceRow, FactRow, MembershipRow, MembershipSupportRow, OccurrenceRow, PublicationBatch, SelectionRow, SupportRow, ValueRow)
+from corpus_structure.semantic.publication import (
+    EntityRow,
+    EvidenceRow,
+    FactRow,
+    MembershipRow,
+    MembershipSupportRow,
+    OccurrenceRow,
+    PublicationBatch,
+    SelectionRow,
+    SupportRow,
+    ValueRow,
+)
 
 Z = "realization:test"
 C = "https://example/Thing"

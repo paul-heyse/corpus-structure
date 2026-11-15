@@ -97,8 +97,14 @@ def test_transport_pages_preserve_intact_source_and_selection_in_packet_identity
 
 
 def test_current_source_request_refuses_html_and_old_request_versions():
-    pin = dict(project_id="project:test", demand_id="demand:test", read_id="read:test",
-               use_id="use:test", product_id="product:test", derivation_id="derivation:test")
+    pin = dict(
+        project_id="project:test",
+        demand_id="demand:test",
+        read_id="read:test",
+        use_id="use:test",
+        product_id="product:test",
+        derivation_id="derivation:test",
+    )
     assert NativeSourceRequest(**pin, view="manifest", collection="coverage").version == 5
     with pytest.raises(ValidationError):
         NativeSourceRequest.model_validate({**pin, "rendition_id": 1})

@@ -82,4 +82,3 @@ def test_known_unresolved_candidate_cannot_close_affected_inline_scope(membershi
         validate_pdf_inline_reports(product)
     product["recognition_coverage"][0]["section_pointer"] = "#/groups/unrelated"
     validate_pdf_inline_reports(product)
-

@@ -125,9 +125,7 @@ def compile_data_operation_artifacts(
                     )
                 )
             ).hexdigest(),
-            "renderer_digest": sha256(
-                acquired["generator/native_call_generation.py"]
-            ).hexdigest(),
+            "renderer_digest": sha256(acquired["generator/native_call_generation.py"]).hexdigest(),
             "runtime_ports_digest": sha256(
                 acquired["generator/data_operation_ports.py"]
             ).hexdigest(),

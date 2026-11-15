@@ -374,9 +374,7 @@ def render_call_bindings(
                 ") -> Select[str]:",
             ]
             if call.requires_context:
-                out += [
-                    context_check("    ", operation, name)
-                ]
+                out += [context_check("    ", operation, name)]
             else:
                 out += [
                     "    if projection_context is not None:",
@@ -742,9 +740,7 @@ def render_call_bindings(
         out += [f"        {f.name}={f.name}," for f in call.parameters]
         out += ["    )"]
         if call.requires_context:
-            out += [
-                context_check("    ", operation, name)
-            ]
+            out += [context_check("    ", operation, name)]
         else:
             out += [
                 "    if projection_context is not None:",
@@ -865,4 +861,3 @@ def render_call_bindings(
         "",
     ]
     return "\n".join(out)
-

@@ -70,8 +70,12 @@ def test_statistics_aliases_have_one_released_full_iri_meaning(statistics_alias_
     assert {
         spelling: normalize(spelling, family)
         for spelling in (
-            "the normal distribution", "normally distributed", "normal",
-            "gamma distribution", "gamma distributed", "gamma distributions",
+            "the normal distribution",
+            "normally distributed",
+            "normal",
+            "gamma distribution",
+            "gamma distributed",
+            "gamma distributions",
             "standard normal distribution",
         )
     } == {

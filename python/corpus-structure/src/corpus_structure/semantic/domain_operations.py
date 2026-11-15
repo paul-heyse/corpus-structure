@@ -2131,7 +2131,10 @@ def _project_cut(
         from .data_operation_admission import bound_data_operation_model
 
         lowered = lower_record_assertions(
-            prepared, output, batch.batch_id, record_reports,
+            prepared,
+            output,
+            batch.batch_id,
+            record_reports,
             model=bound_data_operation_model(prepared),
         )
         additions: dict[str, Any] = {}

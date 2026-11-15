@@ -92,8 +92,6 @@ def test_actual_fastmcp_dispatch_keeps_context_schema_and_database_classificatio
     anyio.run(journey)
 
 
-
-
 def test_cli_adbc_failure_reports_native_fields_and_preserves_programming_defects():
     import json
 

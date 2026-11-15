@@ -1,5 +1,6 @@
 """Source coverage is relative to its explicitly named native universe."""
 
+
 def test_source_view_health_is_relative_to_its_named_native_universe():
     from corpus_structure.semantic.source_views import source_view_health
 

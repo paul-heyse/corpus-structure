@@ -7,7 +7,9 @@ from semantic.data_operation_kernel_support import prepare_kernel
 
 
 @pytest.mark.parametrize("math_context", [False, True])
-def test_current_pdf_fixture_prepares_real_native_owners_without_legacy_seed(tmp_path, math_context):
+def test_current_pdf_fixture_prepares_real_native_owners_without_legacy_seed(
+    tmp_path, math_context
+):
     recipe = current_pdf_recipe(tmp_path, math_context=math_context)
     assert recipe.project_id is None
     prepared = prepare_kernel(recipe)

@@ -182,11 +182,18 @@ def test_actual_grade_fit_authorization_and_restricted_fitter_custody(
 
     # The actual evaluator login and a privileged login using SET ROLE are both
     # refused; a role label does not become the restricted fitting capability.
-    with journey.kernel.purpose("evaluate").begin() as connection, pytest.raises(DBAPIError, match="restricted actual fitting principal"), connection.begin_nested():
+    with (
+        journey.kernel.purpose("evaluate").begin() as connection,
+        pytest.raises(DBAPIError, match="restricted actual fitting principal"),
+        connection.begin_nested(),
+    ):
         reacquire_record_feature_grade(connection, fitted.feature.selection)
     with journey.kernel.engine.begin() as connection:
         connection.exec_driver_sql("SET LOCAL ROLE corpus_sem_fitter")
-        with pytest.raises(DBAPIError, match="restricted actual fitting principal"), connection.begin_nested():
+        with (
+            pytest.raises(DBAPIError, match="restricted actual fitting principal"),
+            connection.begin_nested(),
+        ):
             reacquire_record_feature_grade(connection, fitted.feature.selection)
     with journey.kernel.purpose("fit").begin() as connection:
         with pytest.raises(DBAPIError, match="feature fit"), connection.begin_nested():
@@ -238,7 +245,11 @@ def test_actual_grade_fit_authorization_and_restricted_fitter_custody(
     # This is an actual different captured CPU producer/common receipt, carrying
     # exactly the same protected body. It is deliberately not a grade authority.
     copied = copy_grade(journey, fitted.feature)
-    with journey.kernel.purpose("fit").begin() as connection, pytest.raises(DBAPIError, match="actual admitted protected grade implementation"), connection.begin_nested():
+    with (
+        journey.kernel.purpose("fit").begin() as connection,
+        pytest.raises(DBAPIError, match="actual admitted protected grade implementation"),
+        connection.begin_nested(),
+    ):
         reacquire_record_feature_grade(connection, copied.selection)
 
     # An actually completed empty carrier is a known no-output opportunity,
@@ -304,5 +315,8 @@ def test_actual_grade_fit_authorization_and_restricted_fitter_custody(
             connection.scalar(text("SELECT ops.ddo_support_valid(:episode)"), {"episode": issuer})
             is False
         )
-    with journey.kernel.purpose("fit").begin() as connection, pytest.raises(DBAPIError, match=r"trust|selected support"):
+    with (
+        journey.kernel.purpose("fit").begin() as connection,
+        pytest.raises(DBAPIError, match=r"trust|selected support"),
+    ):
         reacquire_record_feature_grade(connection, fitted.feature.selection)

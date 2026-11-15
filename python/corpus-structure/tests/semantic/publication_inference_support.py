@@ -46,5 +46,4 @@ def build_inference_intent(recipe, admin, writer, directory, *, purpose_engine=N
     return InferenceIntentStage(compute(writer, binding))
 
 
-
 register_scenario_builder(InferenceIntentRecipe, build_inference_intent)

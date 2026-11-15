@@ -376,9 +376,12 @@ def current_record_policy_journey(scenario_seeds, tmp_path, monkeypatch, *, reci
             == "https://corpus-structure.dev/semantic/data-operation-source/DdoSelectedNativeSource"
         }
         selected = []
-        with kernel.purpose("evaluate").begin() as connection, selected_record_index(connection, demand, project_id=PROJECT, scope={}) as (
-            source_cut,
-            index,
+        with (
+            kernel.purpose("evaluate").begin() as connection,
+            selected_record_index(connection, demand, project_id=PROJECT, scope={}) as (
+                source_cut,
+                index,
+            ),
         ):
             for row in index.rows("kb.data_product_member"):
                 if row["kind_contract"] not in contracts:
@@ -800,7 +803,9 @@ def run_readings(journey, selected_sources, *, policy, inference, empty_sources=
     )
     assert execution.receipt_count == 2 * len(selected_sources)
     cut, selected_products, uses, episodes, outputs = journey.selected_products(
-        journey.kernel.purpose("evaluate"), retained["demand_id"], kind=(
+        journey.kernel.purpose("evaluate"),
+        retained["demand_id"],
+        kind=(
             "https://corpus-structure.dev/semantic/data-operation-reading-resolution/DdoResolvedReadingReport",
             "https://corpus-structure.dev/semantic/data-operation-candidate-inspection/DdoCandidateInspectionReport",
         ),

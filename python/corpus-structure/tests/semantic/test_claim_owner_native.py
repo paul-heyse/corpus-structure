@@ -340,8 +340,6 @@ def test_uncertain_intent_cannot_be_suppressed_on_normal_owner_exit(
         owner.uncertain[(claim.task_id, claim.attempt, "owner")] = intent
 
 
-
-
 def test_uncertain_member_keeps_sibling_renewal_and_settlement(
     commit_db_engine, commit_writer_engine, monkeypatch
 ):
