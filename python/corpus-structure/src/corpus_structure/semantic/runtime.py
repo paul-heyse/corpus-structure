@@ -6,11 +6,9 @@ from collections.abc import Generator
 from contextlib import contextmanager
 from typing import Literal
 
-from sqlalchemy import Connection, Engine, select, text
+from sqlalchemy import Connection, Engine, text
 from sqlalchemy.engine import URL, make_url
 
-from corpus_structure.semantic.metadata import table
-from corpus_structure.semantic.refusals import OperationConflict
 from corpus_structure.settings import Settings
 
 type Purpose = Literal["read", "write", "evaluate", "admit", "maintenance", "fit"]
@@ -84,7 +82,10 @@ def open_runtime_engine(
                     if purpose == "fit":
                         conn.execute(text("SELECT ops.ddo_require_feature_fit_principal()"))
                     else:
-                        conn.execute(text("SELECT data.require_runtime_principal(:purpose)"), {"purpose": purpose}).scalar_one()
+                        conn.execute(
+                            text("SELECT data.require_runtime_principal(:purpose)"),
+                            {"purpose": purpose},
+                        ).scalar_one()
             yield store.engine
         except BaseException as error:
             from corpus_structure.core.db.store import operation_failure
@@ -93,53 +94,6 @@ def open_runtime_engine(
                 operation_failure(error).failure
             )
             raise
-
-
-def resolve_source_binding(
-    conn: Connection,
-    project_id: str,
-    *,
-    release_id: str | None = None,
-    realization_id: str | None = None,
-) -> tuple[str, str]:
-    """Use the project's admitted interpretation; refuse an ambiguous source realization."""
-    projects, realizations = table("data.project"), table("data.realization")
-    project = (
-        conn.execute(select(projects).where(projects.c.project_id == project_id))
-        .mappings()
-        .one_or_none()
-    )
-    if project is None:
-        raise OperationConflict(f"unknown semantic project {project_id!r}; initialize it first")
-    release_id = release_id or project["active_release_id"]
-    if release_id is None:
-        raise OperationConflict("project has no active admitted release")
-    if realization_id is None and project.get("selected_result_run_id") is not None:
-        completed = table("ops.completed_result")
-        realization_id = conn.execute(
-            select(completed.c.output_realization_id).where(
-                completed.c.run_id == project["selected_result_run_id"],
-                completed.c.release_id == release_id,
-            )
-        ).scalar_one_or_none()
-    if realization_id is None:
-        candidates = (
-            conn.execute(
-                select(realizations.c.realization_id).where(
-                    realizations.c.project_id == project_id,
-                    realizations.c.release_id == release_id,
-                    realizations.c.state == "active",
-                )
-            )
-            .scalars()
-            .all()
-        )
-        if len(candidates) != 1:
-            raise OperationConflict(
-                "select --realization explicitly: project has zero or multiple active inputs"
-            )
-        realization_id = candidates[0]
-    return release_id, realization_id
 
 
 def select_completed_result(
