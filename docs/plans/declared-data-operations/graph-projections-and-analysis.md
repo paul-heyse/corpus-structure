@@ -1,6 +1,6 @@
 # Declared graph projections and NetworkX analysis
 
-**Proposed implementation target · 2026-11-12.** Consumes the
+**Accepted contract; focused realization implemented, qualification owned by the coordinator · 2026-11-14.** Consumes the
 [NetworkX review](../../plan_improvement_reviews/declared-data-operations-networkx_2026-11-12.md)
 at `7c5368faa`. Implements its I01–I07 planning amendments within DDO-00–12; the
 [coordinator](../declared-data-operations_2026-11-12.md) alone owns progress and scheduled dispositions.
@@ -31,10 +31,12 @@ body acquisition must retain all population/relationship/intermediate facts need
 examined graph. No graph-specific database mirror, latest selection or separate cursor authority.
 
 
-**Accepted target; current completion boundary:** the pure typed graph kernels, dependency records
-and member `projection_families` policies cover useful subsets. They do not yet deliver the
-governing projection interpretation below. The coordinator's completion audit owns CA-06 and
-the remaining DDO-01/03 prerequisite; later runtime/serving consumers keep their package owners.
+**Current realization boundary:** effective-model v6 archives the interpreted static, selected-native,
+source, assessment and implementation-reference profiles. Exact v2–v5 readback remains available;
+historical graphs lacking the current interpretation report unavailable and gain no new execution
+authority. Concrete runtime nodes/occurrences live in immutable selected snapshots, not the model.
+CA-06's compiled foundation is already closed; the coordinator owns this increment's consumer and
+qualification obligations.
 
 The effective governing model, compiled from declaration-owned and admitted implementation-owned
 definitions, contains a typed GraphProjection specification, not arbitrary Python
@@ -113,11 +115,10 @@ including unknown/global dependencies and absent lookups, without licensing prod
    admit C while unrelated A at B's level remains active. Native obligations/claims/discovery decide
    readiness and exhaustion, including locked work and backpressure.
 
-**DDO-08 required repair:** `semantic/domain_operations.py:1646–1663` currently drains
-`TopologicalSorter` then marks every residual claim cyclic. Replace residual classification with
-SCC cycle membership and downstream blockage, preserving independent claims and distinct unavailable
-premises. Include self-loop, A↔B→C and unrelated D with independent expected reasons. The source
-inspection establishes the defect premise, not a passing reproduction or implemented repair.
+**Preserved DDO-08 repair:** authored claim ordering already distinguishes true SCC members,
+self-loops, cyclic blocked tails, independent publishable claims and unavailable premises through
+the shared topology owner. The coordinator retains its original dated receipts and current checks;
+this increment consolidates adjacent consumers rather than repeating that repair.
 
 ## Comparison and inspection contracts — I04/I05
 
@@ -141,7 +142,9 @@ are conditional and must not redefine evidence independence or admission.
 
 ## Execution and interchange — I06
 
-Call selected dispatchable core algorithms with explicit `backend="networkx"`, so environment
+Route selected consumers through the lazy native runtime owner; it neutralizes the full ambient
+priority family once and selects native-only nested construction. Call graph constructors and
+selected dispatchable core algorithms with explicit `backend="networkx"`, so environment
 priorities cannot silently select another engine. The
 [3.7 dispatch implementation](https://github.com/networkx/networkx/blob/networkx-3.7/networkx/utils/backends.py)
 and [configuration](https://github.com/networkx/networkx/blob/networkx-3.7/networkx/utils/configs.py)
@@ -253,3 +256,32 @@ coverage. Neither ast-grep captures nor a LibCST qualified-name membership estab
 operation binding, data/support edge or absence of other callers. Proposed-source compilation uses
 the declared projection definitions above; syntactic rewrites cannot close CA-06's missing compiled
 projection prerequisite. Do not introduce a second graph or persisted matcher registry for edits.
+
+## Focused realization and retirement boundary · 2026-11-14
+
+The shared topology owner uses one validated multi-source `bfs_layers` traversal for union closure,
+SCC/condensation, stable ordering, typed path/boundary witnesses and original occurrence records.
+Current graph profiles separate static declarations, selected request precedence, selected support,
+original containment, selected-characterization witnesses, protected task incidence and captured
+source-reference facts. Public inspection consumes the released kind/relation/analysis vocabulary.
+Protected questions and predictions retain separate owners; selected characterization is prediction-only.
+
+The actual comparison, selected-reference and author-context callers share one rooted attributed
+matcher while domain joint-choice/support checks inspect concrete mappings. Kind/member inheritance,
+characterization/record cycles, frozen discovery/dependency closure, native catalog order and retained
+alignment topology consume shared native algorithms. Their former private DFS/TopologicalSorter and
+duplicated matcher/closure machinery are removed; indexed SQL/SQLite acquisition and domain extraction
+remain intentional. Existing factor connectivity retains its domain owner.
+
+`ci model source graph`, `ci demands graph` and actual MCP tools/resources inspect immutable graph
+pages. Typed assessed-member addresses are separate from native examined `scope.product_ids`.
+Empty/unsupported assessment roots are unavailable. Requestless unsettled obligations remain visible
+without a fabricated request edge. Native pagination binds exact request/cut/trust context before
+acquisition; whole-graph retained-byte budgets are separate from native transport and response bounds.
+Partial member facts remain inspectable, while incomplete acquisition withholds exact SCC/order/negative
+path claims. Historical archive reading does not use the current-execution admission gate.
+
+Forward graph-v1 admits v6; graph-v2 additionally binds delegated graph helper bytes and NetworkX3.7
+execution profile through native capture. Neither rewrites predecessors or deploys persistently.
+The coordinator supplies final verification and preserved failed receipts; this companion owns meaning,
+not a second completion ledger.

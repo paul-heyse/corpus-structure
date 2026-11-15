@@ -129,13 +129,12 @@ and [comparison/inspection contract](graph-projections-and-analysis.md#compariso
 Include actual hierarchy, characterization closure, authored claims and structural comparison callers
 in the migration inventory; no blanket replacement of adequate factor connectivity or spatial indexes.
 
-DDO-08 repairs `semantic/domain_operations.py:1646–1663`: draining TopologicalSorter leaves both
+DDO-08 preserves the implemented authored-claim repair: the original TopologicalSorter residual contained both
 cycle members and their blocked descendants. Use
 [`strongly_connected_components`/`condensation`](https://github.com/networkx/networkx/tree/networkx-3.7/networkx/algorithms/components)
 to distinguish cycle members (including singleton self-loops) from blocked-by-cyclic-premise claims.
 Preserve unrelated publishable claims and unavailable-premise diagnostics. Independent expected
-outcomes for A↔B→C plus unrelated D and a self-loop establish the distinction. This is scheduled
-repair scope, not a claim that the old path was tested or the fix implemented.
+outcomes for A↔B→C plus unrelated D and a self-loop establish the distinction. The coordinator records the original repair and this increment’s integrated qualification.
 
 Retain [`MultiDiGraphMatcher`](https://github.com/networkx/networkx/blob/networkx-3.7/networkx/algorithms/isomorphism/vf2userfunc.py)
 for actual assessment projection migrations: typed edge counters, rooted focus, shared binders,

@@ -242,12 +242,20 @@ def test_actual_original_source_hierarchy_keeps_native_pointer_custody(
         pointers = {json_loads(node.payload_json)["atom"]["self_ref"] for node in snapshot.nodes}
         assert all(pointer.startswith("#/") for pointer in pointers)
         assert {"#/groups/0", "#/tables/0"} <= pointers
-        atoms = {json_loads(node.payload_json)["atom"]["self_ref"]:json_loads(node.payload_json)["atom"] for node in snapshot.nodes}
+        atoms = {
+            json_loads(node.payload_json)["atom"]["self_ref"]: json_loads(node.payload_json)["atom"]
+            for node in snapshot.nodes
+        }
         cells = atoms["#/tables/0"]["data"]["table_cells"]
         assert [cell["text"] for cell in cells] == ["12", "12"]
         assert [cell["start_col_offset_idx"] for cell in cells] == [0, 1]
-        assert any(edge.source.endswith(":#/groups/0") and edge.target.endswith(":#/tables/0") and edge.position == 0 for edge in snapshot.occurrences)
-        assert all(edge.relation=="contains" for edge in snapshot.occurrences)
+        assert any(
+            edge.source.endswith(":#/groups/0")
+            and edge.target.endswith(":#/tables/0")
+            and edge.position == 0
+            for edge in snapshot.occurrences
+        )
+        assert all(edge.relation == "contains" for edge in snapshot.occurrences)
         assert snapshot.occurrences
         destination = tmp_path / "source"
         manifest = export_demand_result(
@@ -267,36 +275,75 @@ def test_actual_original_source_hierarchy_keeps_native_pointer_custody(
 
 def test_native_requestless_population_fate_survives_tools_and_resources(declared_serving_case):
     from typing import cast
+
+    from corpus_structure.intervene.source_inspection_tools import register_source_inspection_tools
     from corpus_structure.semantic._data_operation_wire import WireRecordDataFateRequest
     from corpus_structure.semantic.data_operation_storage import DataOperationStorage
     from corpus_structure.semantic.demand_results import read_demand_result
-    from corpus_structure.intervene.source_inspection_tools import register_source_inspection_tools
-    clone,stage=declared_serving_case,declared_serving_case.stage.agent
+
+    clone, stage = declared_serving_case, declared_serving_case.stage.agent
     with clone.writer.begin() as connection:
-        page=read_demand_result(connection,stage.demand_id,project_id=stage.project_id)
-        obligation=page.record["obligations"][0]["obligation_id"]
-        recorded=DataOperationStorage(connection).record_data_fate(cast(WireRecordDataFateRequest,dict(obligation_id=obligation,fate="awaiting-population",selection={})))
-    request=GraphInspectionRequest(release_id=stage.prepared.release_id,demand_id=stage.demand_id,project_id=stage.project_id,projection="bound-requests",limit=1000)
+        page = read_demand_result(connection, stage.demand_id, project_id=stage.project_id)
+        obligation = page.record["obligations"][0]["obligation_id"]
+        recorded = DataOperationStorage(connection).record_data_fate(
+            cast(
+                WireRecordDataFateRequest,
+                dict(obligation_id=obligation, fate="awaiting-population", selection={}),
+            )
+        )
+    request = GraphInspectionRequest(
+        release_id=stage.prepared.release_id,
+        demand_id=stage.demand_id,
+        project_id=stage.project_id,
+        projection="bound-requests",
+        limit=1000,
+    )
     with clone.reader.begin() as connection:
-        snapshot=selected_graph_snapshot(connection,stage.prepared,request)
-    use=next(node for node in snapshot.nodes if node.kind=="use" and json_loads(node.payload_json).get("id")==recorded["use_id"])
+        snapshot = selected_graph_snapshot(connection, stage.prepared, request)
+    use = next(
+        node
+        for node in snapshot.nodes
+        if node.kind == "use" and json_loads(node.payload_json).get("id") == recorded["use_id"]
+    )
     assert json_loads(use.payload_json)["request_id"] is None
-    assert json_loads(use.payload_json)["fate"]=="awaiting-population"
-    assert any(edge.target==use.identity and edge.source=='ddo.selected-obligation:'+json_bytes(obligation).decode() for edge in snapshot.occurrences)
-    pins=json_loads(snapshot.pins_json)
-    request=request.model_copy(update={"read_id":pins["read_id"],"expected_cut":pins["cut_id"]})
+    assert json_loads(use.payload_json)["fate"] == "awaiting-population"
+    assert any(
+        edge.target == use.identity
+        and edge.source == "ddo.selected-obligation:" + json_bytes(obligation).decode()
+        for edge in snapshot.occurrences
+    )
+    pins = json_loads(snapshot.pins_json)
+    request = request.model_copy(
+        update={"read_id": pins["read_id"], "expected_cut": pins["cut_id"]}
+    )
+
     @contextmanager
     def reader():
         with clone.reader.begin() as connection:
             yield connection
-    server=FastMCP("requestless-native-graph")
-    register_source_inspection_tools(server,reader,project=stage.project_id,demand=stage.demand_id)
+
+    server = FastMCP("requestless-native-graph")
+    register_source_inspection_tools(
+        server, reader, project=stage.project_id, demand=stage.demand_id
+    )
+
     async def inspect():
         async with Client(server) as client:
-            result=await client.call_tool("inspect_declared_graph",{"request":request.model_dump(mode="json")})
+            result = await client.call_tool(
+                "inspect_declared_graph", {"request": request.model_dump(mode="json")}
+            )
             assert result.structured_content is not None
-            assert any(item.get("identity")==use.identity for item in result.structured_content["items"])
-            resource=await client.read_resource("corpus://declared-graph/"+base64.urlsafe_b64encode(json_bytes(request.model_dump())).decode())
-            assert isinstance(resource[0],TextResourceContents)
-            assert any(item.get("identity")==use.identity for item in json_loads(resource[0].text)["items"])
+            assert any(
+                item.get("identity") == use.identity for item in result.structured_content["items"]
+            )
+            resource = await client.read_resource(
+                "corpus://declared-graph/"
+                + base64.urlsafe_b64encode(json_bytes(request.model_dump())).decode()
+            )
+            assert isinstance(resource[0], TextResourceContents)
+            assert any(
+                item.get("identity") == use.identity
+                for item in json_loads(resource[0].text)["items"]
+            )
+
     anyio.run(inspect)

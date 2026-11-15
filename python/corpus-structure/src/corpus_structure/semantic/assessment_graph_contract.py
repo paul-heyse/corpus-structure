@@ -64,4 +64,6 @@ TASK_ASSESSMENT_RELATION_KINDS = ("subject", "object", "requires", "member", "ro
 
 # This captured nominal base owns characterization envelopes. Descendant and
 # member acceptance is derived from the released inheritance/property graph.
-ASSESSMENT_PRODUCT_BASE = "https://corpus-structure.dev/semantic/data-operation-source/DdoCharacterizationEnvelope"
+ASSESSMENT_PRODUCT_BASE = (
+    "https://corpus-structure.dev/semantic/data-operation-source/DdoCharacterizationEnvelope"
+)
