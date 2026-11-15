@@ -213,8 +213,6 @@ POSTGRESQL_IMPLEMENTATION_SOURCES = (
     ("invocation/interpretations.py", "semantic/interpretations.py"),
     ("invocation/interpretation-authoring.py", "serve/interpretation_authoring.py"),
     ("invocation/interpretation-queries.py", "semantic/interpretation_queries.py"),
-    ("invocation/exclusion-comparison.py", "semantic/exclusion_comparison.py"),
-    ("invocation/exclusion-comparison-types.py", "semantic/exclusion_comparison_types.py"),
     ("invocation/portable-interpretation.py", "semantic/portable_interpretation.py"),
     ("invocation/interpretation-serving.py", "serve/interpretations.py"),
     ("invocation/research-serving.py", "serve/research.py"),
