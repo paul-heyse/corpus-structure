@@ -75,8 +75,11 @@ def test_status_renders_without_json(cli, no_database) -> None:
 def test_demand_progress_uses_exact_target_and_effectful_native_read(cli, monkeypatch, command):
     from decimal import Decimal
     from types import SimpleNamespace
+
     from sqlalchemy import create_engine
+
     from corpus_structure.semantic.data_operation_json import json_loads
+
     engine = create_engine("sqlite://")
     observed = []
 
@@ -87,15 +90,21 @@ def test_demand_progress_uses_exact_target_and_effectful_native_read(cli, monkey
     def read(connection, demand, *, project_id, continuation, limit, view):
         assert connection.in_transaction()
         observed.append((demand, project_id, continuation, limit, view))
-        report = dict(obligations=[dict(obligation_id="obligation:A", fate="waiting")],
-                      state="active", complete=True, continuation=None,
-                      cut=dict(scope={"amount": Decimal("0.123456789012345678901")}))
+        report = dict(
+            obligations=[dict(obligation_id="obligation:A", fate="waiting")],
+            state="active",
+            complete=True,
+            continuation=None,
+            cut=dict(scope={"amount": Decimal("0.123456789012345678901")}),
+        )
         return SimpleNamespace(report=lambda: report, record=report)
 
     monkeypatch.setattr(orchestrate, "READ_ENGINE", acquired)
     monkeypatch.setattr("corpus_structure.semantic.demand_results.read_demand_result", read)
     try:
-        result = cli(command, "--demand", "demand:A", "--project", "project:A", "--limit", "7", "--json")
+        result = cli(
+            command, "--demand", "demand:A", "--project", "project:A", "--limit", "7", "--json"
+        )
         assert result.exit_code == 0, result.output
         body = json_loads(result.stdout)
         progress = body["progress"] if command == "status" else body

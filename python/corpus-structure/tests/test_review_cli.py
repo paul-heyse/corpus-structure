@@ -292,16 +292,33 @@ def test_enriched_review_human_inspection_uses_its_format(cli, tmp_path, monkeyp
 def test_retained_routes_require_explicit_history_pins_before_settings(cli):
     def refuse():
         raise AssertionError("missing explicit history pins must fail before acquisition")
-    for args in (("retained-explain","claim","claim:A"),("retained-explain","claim","claim:A","--run","promoted"),("retained-structure","list","--run","17")):
-        result=cli(*args,settings=refuse)
-        assert result.exit_code==2
+
+    for args in (
+        ("retained-explain", "claim", "claim:A"),
+        ("retained-explain", "claim", "claim:A", "--run", "promoted"),
+        ("retained-structure", "list", "--run", "17"),
+    ):
+        result = cli(*args, settings=refuse)
+        assert result.exit_code == 2
 
 
-def test_current_explain_forwards_actual_selected_product_support(cli,monkeypatch):
+def test_current_explain_forwards_actual_selected_product_support(cli, monkeypatch):
     from corpus_structure.cli import selected_results
-    calls=[]
-    monkeypatch.setattr(selected_results,"query",lambda *args,**kwargs:calls.append((args[1:],kwargs)))
-    result=cli("explain","--demand","demand:A","--project","project:A","--product","product:A","--json")
-    assert result.exit_code==0,result.output
-    assert calls[0][0]==("support","demand:A","project:A")
-    assert calls[0][1]["product"]=="product:A"
+
+    calls = []
+    monkeypatch.setattr(
+        selected_results, "query", lambda *args, **kwargs: calls.append((args[1:], kwargs))
+    )
+    result = cli(
+        "explain",
+        "--demand",
+        "demand:A",
+        "--project",
+        "project:A",
+        "--product",
+        "product:A",
+        "--json",
+    )
+    assert result.exit_code == 0, result.output
+    assert calls[0][0] == ("support", "demand:A", "project:A")
+    assert calls[0][1]["product"] == "product:A"

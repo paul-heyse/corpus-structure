@@ -21,7 +21,7 @@ from .product_reference import ProductReference
 from .types import PreparedArtifact, PreparedRelease, SourceArtifact, SourceBundle
 
 if TYPE_CHECKING:
-    from .data_product_reference import DataProductReference, DataProductMemberReference
+    from .data_product_reference import DataProductMemberReference, DataProductReference
     from .declared_formal_readings import DeclaredFormalInventory
 
 _MODEL = Path(__file__).resolve().parents[1] / "model/semantic/characterization.yaml"
@@ -527,9 +527,9 @@ def validate_layer_structure(
     if pins and dependencies is None:
         raise ValueError("layer requires dependency closure")
     for pin in pins:
-        dependency = _reading_dependency(dependencies,pin)
+        dependency = _reading_dependency(dependencies, pin)
         if (
-            dependency is None
+            not isinstance(dependency, LayerReport)
             or dependency.reference(pin.task_id) != pin
             or dependency.base_document != _pin(base)
         ):
@@ -865,31 +865,36 @@ def decode_view(
 
 def _reading_product(value) -> ProductReference | DataProductReference:
     from .data_product_reference import DataProductReference
+
     if set(value) == {"product_id"}:
         return DataProductReference(value["product_id"])
     return ProductReference(**value)
 
 
-def _reading_reference(report: LayerReport | DeclaredFormalInventory, requested: ProductReference | DataProductReference) -> ProductReference | DataProductReference:
+def _reading_reference(
+    report: LayerReport | DeclaredFormalInventory,
+    requested: ProductReference | DataProductReference,
+) -> ProductReference | DataProductReference:
     from .data_product_reference import DataProductReference
+
     if isinstance(requested, DataProductReference):
         if not isinstance(report.reference, DataProductReference):
             raise ValueError("declared reading cannot consume a historical layer")
         return report.reference
-    if not isinstance(report,LayerReport):
+    if not isinstance(report, LayerReport):
         raise ValueError("historical reading cannot consume a declared product")
     return report.reference(requested.task_id)
 
 
-
 def _reading_dependency(dependencies, pin) -> LayerReport | DeclaredFormalInventory:
     from .data_product_reference import DataProductReference
+
     report: LayerReport | DeclaredFormalInventory | None
-    if isinstance(pin,DataProductReference):
-        report=cast(Mapping[DataProductReference,DeclaredFormalInventory],dependencies).get(pin)
+    if isinstance(pin, DataProductReference):
+        report = cast(Mapping[DataProductReference, DeclaredFormalInventory], dependencies).get(pin)
     else:
-        report=cast(Mapping[ProductReference,LayerReport],dependencies).get(pin)
-    if report is None or _reading_reference(report,pin) != pin:
+        report = cast(Mapping[ProductReference, LayerReport], dependencies).get(pin)
+    if report is None or _reading_reference(report, pin) != pin:
         raise ValueError("reading requires its exact nominal dependency closure")
     return report
 
@@ -905,7 +910,9 @@ def project_reading(
     root: str,
     *,
     choices: Sequence[str] = (),
-    dependencies: Mapping[ProductReference, LayerReport] | Mapping[DataProductReference, DeclaredFormalInventory] | None = None,
+    dependencies: Mapping[ProductReference, LayerReport]
+    | Mapping[DataProductReference, DeclaredFormalInventory]
+    | None = None,
     external_choices: Sequence[AnnotationReference | DataProductMemberReference] = (),
 ) -> dict[str, Any]:
     """Bounded supported DAG projection; unknown compatibility never creates combinations."""
@@ -925,23 +932,25 @@ def project_reading(
         pin = pending_dependencies.pop()
         if pin in reachable:
             continue
-        report = _reading_dependency(dependencies,pin)
+        report = _reading_dependency(dependencies, pin)
         if report is None or _reading_reference(report, pin) != pin:
             raise ValueError("reading requires exact retained dependency closure")
         if _reading_source(report.payload) != _reading_source(data):
             raise ValueError("reading dependency belongs to a different source document")
         reachable.add(pin)
-        pending_dependencies.extend(_reading_product(value) for value in report.payload.get("dependencies", ()))
+        pending_dependencies.extend(
+            _reading_product(value) for value in report.payload.get("dependencies", ())
+        )
     by_layer = {}
     for pin, identity in external:
         if pin not in reachable:
             raise ValueError("qualified choice is outside the reading dependency closure")
-        dependency = _reading_dependency(dependencies,pin)
+        dependency = _reading_dependency(dependencies, pin)
         if dependency is None or _reading_reference(dependency, pin) != pin:
             raise ValueError("qualified choice requires exact retained dependency")
         by_layer.setdefault(pin, []).append(identity)
     for pin, identities in by_layer.items():
-        body = _reading_dependency(dependencies,pin).payload
+        body = _reading_dependency(dependencies, pin).payload
         validate_reading_choices(body, identities)
         for group in body["choices"]:
             for member in group["members"]:
@@ -988,7 +997,7 @@ def project_reading(
     pending_support = [
         (pin, m["root"])
         for pin, identities in by_layer.items()
-        for g in _reading_dependency(dependencies,pin).payload["choices"]
+        for g in _reading_dependency(dependencies, pin).payload["choices"]
         for m in g["members"]
         if m["local_id"] in identities
     ]
@@ -997,7 +1006,7 @@ def project_reading(
         if (pin, key) in visited:
             continue
         visited.add((pin, key))
-        body = _reading_dependency(dependencies,pin).payload
+        body = _reading_dependency(dependencies, pin).payload
         term = next((t for t in body["terms"] if t["local_id"] == key), None)
         if term is None:
             raise ValueError("selected upstream choice has no supported root")
@@ -1037,6 +1046,7 @@ def project_reading(
 
 def _require_external_selection(record, selected):
     from .data_product_reference import read_member_reference
+
     if any(
         (ref.product, ref.member_id) not in selected
         for raw in record.get("required_external_choices", ())

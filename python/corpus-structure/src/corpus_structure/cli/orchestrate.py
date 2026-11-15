@@ -9,7 +9,6 @@ from typing import Annotated, Any, Literal
 
 import typer
 from pydantic import BaseModel
-from rich.console import RenderableType
 from rich.table import Table
 
 from corpus_structure.cli.output import JsonOpt, emit, state
@@ -364,8 +363,9 @@ def tasks(
         pins = None if continuation is None else wire_json_loads(continuation.read_bytes())
         if pins is not None and not isinstance(pins, dict):
             raise ValueError("continuation must be a native cursor object")
-        page = read_demand_result(conn, demand, project_id=project, continuation=pins,
-                                  limit=limit, view="frontier")
+        page = read_demand_result(
+            conn, demand, project_id=project, continuation=pins, limit=limit, view="frontier"
+        )
     if json:
         write_report_text(json_bytes(page.report()).decode() + "\n")
     else:
@@ -373,6 +373,7 @@ def tasks(
         for obligation in page.record["obligations"]:
             table.add_row(str(obligation["obligation_id"]), str(obligation["fate"]))
         from rich.console import Console
+
         Console().print(table)
 
 

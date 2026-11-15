@@ -16,7 +16,11 @@ def wire_native_sources() -> tuple[SourceArtifact, ...]:
         ),
         SourceArtifact(
             "native/data-operation-wire-types.yaml",
-            Path(__file__).resolve().parents[1].joinpath("model/semantic/data-operation-wire-types.yaml").read_bytes(),
+            Path(__file__)
+            .resolve()
+            .parents[1]
+            .joinpath("model/semantic/data-operation-wire-types.yaml")
+            .read_bytes(),
         ),
         SourceArtifact(
             "native/data-operation-wire.sql",

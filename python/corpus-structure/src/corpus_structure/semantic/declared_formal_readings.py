@@ -2,16 +2,16 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from collections.abc import Mapping
+from dataclasses import dataclass
 from typing import Any
 
 from pydantic import BaseModel
 
-from .data_product_reference import DataProductReference, member_reference
-from .identity import canonical_bytes
 from .data_operation_identity import decode_semantic_value
 from .data_operation_json import json_bytes, json_loads
+from .data_product_reference import DataProductReference, member_reference
+from .identity import canonical_bytes
 
 
 @dataclass(frozen=True)
@@ -43,7 +43,17 @@ def declared_formal_layers(products, source):
         reference = DataProductReference(product.semantic_id)
         if reference in result:
             raise ValueError("formal input repeats a selected native product")
-        result[reference] = DeclaredFormalInventory(reference, canonical_bytes({**product.inventory(), "source": body["source"], "selectors": body["selectors"], "dependencies": body.get("dependencies", [])}))
+        result[reference] = DeclaredFormalInventory(
+            reference,
+            canonical_bytes(
+                {
+                    **product.inventory(),
+                    "source": body["source"],
+                    "selectors": body["selectors"],
+                    "dependencies": body.get("dependencies", []),
+                }
+            ),
+        )
     return result
 
 
@@ -61,6 +71,7 @@ def formal_member_reference(product, identifier):
 
 class SelectedCharacterizationInventories(Mapping):
     """Lazy pinned native product inventories; disk owns the full required closure."""
+
     def __init__(self, products):
         self.products = products
 
@@ -71,13 +82,24 @@ class SelectedCharacterizationInventories(Mapping):
         body = decode_semantic_value(record["canonical_body"])
         if not isinstance(body, dict) or not {"source", "selectors", "members"} <= body.keys():
             raise ValueError("selected primary dependency is not a declared characterization")
-        names = dict(occurrence="occurrences", annotation="annotations", membership="memberships", role="roles", term="terms", choice="choices")
+        names = dict(
+            occurrence="occurrences",
+            annotation="annotations",
+            membership="memberships",
+            role="roles",
+            term="terms",
+            choice="choices",
+        )
         inventory = {name: [] for name in names.values()}
         for packet in body["members"]:
             member = packet["body"]
             if member.get("record_type") in names:
                 inventory[names[member["record_type"]]].append(member)
-        inventory.update(source=body["source"], selectors=body["selectors"], dependencies=body.get("dependencies", []))
+        inventory.update(
+            source=body["source"],
+            selectors=body["selectors"],
+            dependencies=body.get("dependencies", []),
+        )
         return DeclaredFormalInventory(reference, json_bytes(inventory))
 
     def __iter__(self):

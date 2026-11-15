@@ -14,10 +14,11 @@ from sqlalchemy import JSON, Text, cast
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.types import TypeDecorator
 
-
 # Operator JSON includes exact fractional scope values; semantic tagged values
 # and native admission retain their own interpretation/authorization contracts.
-type DdoJsonValue = bool | int | float | Decimal | str | list[DdoJsonValue] | dict[str, DdoJsonValue] | None
+type DdoJsonValue = (
+    bool | int | float | Decimal | str | list[DdoJsonValue] | dict[str, DdoJsonValue] | None
+)
 
 
 def json_loads(content: str | bytes) -> Any:

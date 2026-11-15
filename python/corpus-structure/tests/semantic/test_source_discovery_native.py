@@ -1,15 +1,10 @@
 """Actual selected-source producer publication, governed closure and native children."""
 
-from typing import cast as typing_cast
-from corpus_structure.semantic._data_operation_wire import (
-    WireAttachDataRequestRequest,
-    WireReadDemandResultRequest,
-)
-
 import json
 from dataclasses import replace
 from functools import cache
 from pathlib import Path
+from typing import cast as typing_cast
 
 import pytest
 from sqlalchemy import text
@@ -17,6 +12,10 @@ from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.orchestrate.data_operations import NativeDemandExecutor
 from corpus_structure.semantic import SourceArtifact, SourceBundle
+from corpus_structure.semantic._data_operation_wire import (
+    WireAttachDataRequestRequest,
+    WireReadDemandResultRequest,
+)
 from corpus_structure.semantic.composed import data_operation_dependencies
 from corpus_structure.semantic.data_operation_artifacts import capture_port_generator_sources
 from corpus_structure.semantic.data_operation_demands import (
@@ -173,13 +172,16 @@ def test_actual_source_discovery_closure_and_scoped_child_publication(
         kernel.preparation.runtime,
         _source_recipe()[1],
         schema=kernel.preparation.bundle,
-        admission_engine=kernel.purpose("admit"), database_capacity=6,
+        admission_engine=kernel.purpose("admit"),
+        database_capacity=6,
     )
     executor.run(demand)
     assert executor.budget.used_bytes == 0
     with case.admin.begin() as connection:
         storage = DataOperationStorage(connection)
-        snapshot = storage.read_demand_result(typing_cast(WireReadDemandResultRequest, {"demand_id": demand, "view": "products"}))
+        snapshot = storage.read_demand_result(
+            typing_cast(WireReadDemandResultRequest, {"demand_id": demand, "view": "products"})
+        )
         obligations = [
             row
             for row in snapshot["obligations"]
@@ -309,10 +311,15 @@ def _refuse_same_context_original(connection, storage, snapshot, use, population
         ),
         connection.begin_nested(),
     ):
-        storage.attach_data_request(typing_cast(WireAttachDataRequestRequest, {
-                "obligation_id": use["obligation_id"],
-                "request_meaning": json.loads(key.identity.canonical_input),
-                "request_key": key.identity.key,
-                "binding": binding,
-                "replicate": request["replicate"],
-            }))
+        storage.attach_data_request(
+            typing_cast(
+                WireAttachDataRequestRequest,
+                {
+                    "obligation_id": use["obligation_id"],
+                    "request_meaning": json.loads(key.identity.canonical_input),
+                    "request_key": key.identity.key,
+                    "binding": binding,
+                    "replicate": request["replicate"],
+                },
+            )
+        )

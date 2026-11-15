@@ -790,8 +790,8 @@ def test_data_stream_close_and_cancel_never_mark_prefix_complete(tmp_path, monke
 def test_publication_port_requires_the_native_effect_receipt_and_preserves_replay():
     from unittest.mock import MagicMock
 
-    from corpus_structure.semantic.data_operation_storage import DataOperationStorage
     from corpus_structure.semantic.data_operation_ports import ResolvedPublicationPort
+    from corpus_structure.semantic.data_operation_storage import DataOperationStorage
 
     seen = []
     result = {

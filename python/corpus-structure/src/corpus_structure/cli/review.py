@@ -85,14 +85,14 @@ def _deliver_review(
     from corpus_structure.cli.managed import managed_operation, result_store
     from corpus_structure.core.db.cancellation import OperationCancellation
     from corpus_structure.semantic.identity import canonical_bytes
+    from corpus_structure.serve.characterization_replay import CharacterizationReviewSelection
     from corpus_structure.serve.review_bundle import export_review_bundle
 
-    from corpus_structure.serve.characterization_replay import CharacterizationReviewSelection
-    if not isinstance(request,CharacterizationReviewSelection):
-        for selected in (*request.structural_selections,*request.structural_gap_selections):
+    if not isinstance(request, CharacterizationReviewSelection):
+        for selected in (*request.structural_selections, *request.structural_gap_selections):
             if selected.cut_id is None:
                 raise ValueError("retained review requires its explicit sealed historical cuts")
-            binding=getattr(selected,"binding_task",None)
+            binding = getattr(selected, "binding_task", None)
             if binding is not None and binding.cut_id is None:
                 raise ValueError("retained review gap binding requires its explicit sealed cut")
     store = result_store(ctx)

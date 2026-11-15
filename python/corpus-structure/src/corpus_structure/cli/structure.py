@@ -13,7 +13,7 @@ app = typer.Typer(help="Inspect cross-source definitions, comparisons and dossie
 def structures(
     ctx: typer.Context,
     run: Annotated[int, typer.Option()],
-    cut: Annotated[int,typer.Option(min=1,help="Exact sealed historical cut.")],
+    cut: Annotated[int, typer.Option(min=1, help="Exact sealed historical cut.")],
     kind: str | None = None,
     after_task: int = 0,
     limit: int = 20,
@@ -60,7 +60,7 @@ def dossier_page(
     ctx: typer.Context,
     run: Annotated[int, typer.Option()],
     task: Annotated[int, typer.Option()],
-    cut: Annotated[int,typer.Option(min=1,help="Exact sealed historical cut.")],
+    cut: Annotated[int, typer.Option(min=1, help="Exact sealed historical cut.")],
     limit: int = 20,
     max_bytes: int = 1_000_000,
     continuation: str | None = None,
@@ -102,7 +102,7 @@ def structural_gap(
     report: str,
     run: Annotated[int, typer.Option()],
     task: Annotated[int, typer.Option()],
-    cut: Annotated[int,typer.Option(min=1,help="Exact sealed historical cut.")],
+    cut: Annotated[int, typer.Option(min=1, help="Exact sealed historical cut.")],
     source_view: int | None = None,
     scope: str | None = None,
     occurrence: str | None = None,
@@ -122,7 +122,9 @@ def structural_gap(
     from corpus_structure.serve.structural_gaps import GapRequest, serve_structural_gap
 
     with failure_boundary(json):
-        if any(value is not None for value in (binding_run,binding_cut,binding_task)) and any(value is None for value in (binding_run,binding_cut,binding_task)):
+        if any(value is not None for value in (binding_run, binding_cut, binding_task)) and any(
+            value is None for value in (binding_run, binding_cut, binding_task)
+        ):
             raise ValueError("retained gap binding requires its explicit run/cut/task pins")
         request = GapRequest.model_validate(
             dict(
@@ -137,9 +139,7 @@ def structural_gap(
                 limit=limit,
                 max_bytes=max_bytes,
                 cursor=cursor,
-                binding_task=dict(
-                    run_id=binding_run, task_id=binding_task, cut_id=binding_cut
-                )
+                binding_task=dict(run_id=binding_run, task_id=binding_task, cut_id=binding_cut)
                 if any(value is not None for value in (binding_run, binding_cut, binding_task))
                 else None,
             )

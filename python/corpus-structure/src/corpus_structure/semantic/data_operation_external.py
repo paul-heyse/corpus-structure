@@ -6,37 +6,31 @@ manufactured from run/task aliases. PostgreSQL owns every admission and publicat
 
 from __future__ import annotations
 
-from typing import Any, cast
-from corpus_structure.semantic._data_operation_wire import (
-    WireAdmitExternalDataResultRequest,
-    WireAttemptFence,
-    wire_attempt_fence,
-    WireProjectId,
-    WireDemandId,
-    WireExternalPacketId,
-    WireCompletion,
-    WireAdoptDataCompletionIntentRequest,
-    WireClaimExternalDataPacketRequest,
-    WireInspectExternalDataResultRequest,
-    WirePublishDataDerivationRequest,
-    WireReadExternalDataPacketRequest,
-    WireReadExternalDataQueueRequest,
-    WireReleaseExternalDataPacketRequest,
-    WireRenewDataRequestRequest,
-    WireRenewDataRequestResult,
-    WireClaimDataRequestResult,
-    WireReadExternalDataQueueResult,
-    WireReadExternalDataPacketResult,
-    WireInspectExternalDataResultResult,
-    WireReleaseExternalDataPacketResult,
-)
-
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
+from typing import Any, cast
 from uuid import uuid4
 
 from sqlalchemy import Engine
 from sqlalchemy.exc import DBAPIError
+
+from corpus_structure.semantic._data_operation_wire import (
+    WireAdoptDataCompletionIntentRequest,
+    WireAttemptFence,
+    WireClaimDataRequestResult,
+    WireClaimExternalDataPacketRequest,
+    WireCompletion,
+    WireDemandId,
+    WireExternalPacketId,
+    WireInspectExternalDataResultResult,
+    WireProjectId,
+    WirePublishDataDerivationRequest,
+    WireReadExternalDataQueueRequest,
+    WireReadExternalDataQueueResult,
+    WireReleaseExternalDataPacketResult,
+    WireRenewDataRequestResult,
+    wire_attempt_fence,
+)
 
 from .data_operation_admission import bound_data_operation_model
 from .data_operation_identity import semantic_value
@@ -158,7 +152,10 @@ class ExternalDataSession:
                 return invoke(DataOperationStorage(connection))
 
     def queue(self, *, limit: int = 1) -> WireReadExternalDataQueueResult:
-        payload: WireReadExternalDataQueueRequest = {"project_id": WireProjectId(self.project_id), "limit": limit}
+        payload: WireReadExternalDataQueueRequest = {
+            "project_id": WireProjectId(self.project_id),
+            "limit": limit,
+        }
         if self.demand_id:
             payload["demand_id"] = WireDemandId(self.demand_id)
         return self._invoke(lambda storage: storage.read_external_data_queue(payload))
@@ -167,18 +164,34 @@ class ExternalDataSession:
         # Resolve the exact queue head in this session's scope; no caller task alias.
         # Explicit packet claim still authenticates current trust and task under lock.
         payload: WireClaimExternalDataPacketRequest = {
-            "packet_id": WireExternalPacketId(packet_id), "project_id": WireProjectId(self.project_id),
-            "holder": self.holder, "lease_seconds": lease_seconds,
+            "packet_id": WireExternalPacketId(packet_id),
+            "project_id": WireProjectId(self.project_id),
+            "holder": self.holder,
+            "lease_seconds": lease_seconds,
         }
         if self.demand_id:
             payload["demand_id"] = WireDemandId(self.demand_id)
         return self._invoke(lambda storage: storage.claim_external_data_packet(payload))
 
-    def renew(self, claim: Mapping[str, Any], *, lease_seconds: int = 300) -> WireRenewDataRequestResult:
-        return self._invoke(lambda storage: storage.renew_data_request({**_fence(claim), "lease_seconds": lease_seconds}))
+    def renew(
+        self, claim: Mapping[str, Any], *, lease_seconds: int = 300
+    ) -> WireRenewDataRequestResult:
+        return self._invoke(
+            lambda storage: storage.renew_data_request(
+                {**_fence(claim), "lease_seconds": lease_seconds}
+            )
+        )
 
     def _read(self, packet_id: str, claim: Mapping[str, Any]) -> dict:
-        read = self._invoke(lambda storage: storage.read_external_data_packet({"packet_id": WireExternalPacketId(packet_id), **_fence(claim), "max_bytes": self.max_packet_bytes}))
+        read = self._invoke(
+            lambda storage: storage.read_external_data_packet(
+                {
+                    "packet_id": WireExternalPacketId(packet_id),
+                    **_fence(claim),
+                    "max_bytes": self.max_packet_bytes,
+                }
+            )
+        )
         packet = read["packet"]
         if not isinstance(packet, dict):
             raise PortRefusal("external packet must be an object")
@@ -225,15 +238,25 @@ class ExternalDataSession:
             model = bound_data_operation_model(prepared)
         port = ExternalResultPort(json_bytes(packet), model, self.max_reply_bytes)
         completion = port.completion(result)
-        retained = self._invoke(lambda storage: storage.admit_external_data_result({
-                "packet_id": WireExternalPacketId(packet_id),
-                **_fence(claim),
-                "actor_assertion": actor_assertion,
-                "model_assertion": model_assertion,
-                "completion": cast(WireCompletion, completion),
-            }), replay=True)
+        retained = self._invoke(
+            lambda storage: storage.admit_external_data_result(
+                {
+                    "packet_id": WireExternalPacketId(packet_id),
+                    **_fence(claim),
+                    "actor_assertion": actor_assertion,
+                    "model_assertion": model_assertion,
+                    "completion": cast(WireCompletion, completion),
+                }
+            ),
+            replay=True,
+        )
         try:
-            publication = self._invoke(lambda storage: storage.publish_data_derivation({**_fence(claim), "intent_id": retained["intent_id"]}), replay=True)
+            publication = self._invoke(
+                lambda storage: storage.publish_data_derivation(
+                    {**_fence(claim), "intent_id": retained["intent_id"]}
+                ),
+                replay=True,
+            )
         except DBAPIError:
             inspected = self.inspect(packet_id)
             if inspected["state"] != "committed":
@@ -262,12 +285,26 @@ class ExternalDataSession:
                 "reconciliation requires this packet's retained native result and task"
             )
         payload = {**_fence(claim), "intent_id": inspected["intent_id"]}
-        self._invoke(lambda storage: storage.adopt_data_completion_intent(cast(WireAdoptDataCompletionIntentRequest, payload)), replay=True)
-        self._invoke(lambda storage: storage.publish_data_derivation(cast(WirePublishDataDerivationRequest, payload)), replay=True)
+        self._invoke(
+            lambda storage: storage.adopt_data_completion_intent(
+                cast(WireAdoptDataCompletionIntentRequest, payload)
+            ),
+            replay=True,
+        )
+        self._invoke(
+            lambda storage: storage.publish_data_derivation(
+                cast(WirePublishDataDerivationRequest, payload)
+            ),
+            replay=True,
+        )
         return dict(self.inspect(packet_id))
 
     def inspect(self, packet_id: str) -> WireInspectExternalDataResultResult:
-        return self._invoke(lambda storage: storage.inspect_external_data_result({"packet_id": WireExternalPacketId(packet_id)}))
+        return self._invoke(
+            lambda storage: storage.inspect_external_data_result(
+                {"packet_id": WireExternalPacketId(packet_id)}
+            )
+        )
 
     def located(
         self, demand_id: str, *, limit: int = 100, continuation: dict | None = None
@@ -324,5 +361,12 @@ class ExternalDataSession:
             "reports": reports,
         }
 
-    def release(self, packet_id: str, claim: Mapping[str, Any], *, reason: str) -> WireReleaseExternalDataPacketResult:
-        return self._invoke(lambda storage: storage.release_external_data_packet({"packet_id": WireExternalPacketId(packet_id), **_fence(claim), "reason": reason}), replay=True)
+    def release(
+        self, packet_id: str, claim: Mapping[str, Any], *, reason: str
+    ) -> WireReleaseExternalDataPacketResult:
+        return self._invoke(
+            lambda storage: storage.release_external_data_packet(
+                {"packet_id": WireExternalPacketId(packet_id), **_fence(claim), "reason": reason}
+            ),
+            replay=True,
+        )

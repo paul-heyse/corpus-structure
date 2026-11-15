@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import re
 from collections.abc import Iterable, Mapping
 from typing import Any
 
@@ -40,7 +39,6 @@ from sqlalchemy.dialects.postgresql import (
     JSONB,
     NUMRANGE,
     REAL,
-    REGCONFIG,
     TIMESTAMP,
 )
 from sqlalchemy.sql.sqltypes import ARRAY as BaseARRAY

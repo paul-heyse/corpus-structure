@@ -399,8 +399,15 @@ def native_products(
 @app.command("native-render")
 def native_render(
     ctx: typer.Context,
-    request: Annotated[Path | None, typer.Option(help="NativeDemandRequest JSON for source.pdf_region/render; '-' reads stdin.")] = None,
-    demand: Annotated[str | None, typer.Option(help="Resume an exact retained rendering demand.")] = None,
+    request: Annotated[
+        Path | None,
+        typer.Option(
+            help="NativeDemandRequest JSON for source.pdf_region/render; '-' reads stdin."
+        ),
+    ] = None,
+    demand: Annotated[
+        str | None, typer.Option(help="Resume an exact retained rendering demand.")
+    ] = None,
     source_root: Path | None = None,
     project: str | None = None,
     execution_policy: Path | None = None,
@@ -417,12 +424,25 @@ def native_render(
     if (request is None) == (demand is None):
         raise typer.BadParameter("select exactly one --request or --demand")
     with failure_boundary(json, expected=(ValueError, OSError)):
-        parsed = None if request is None else NativeDemandRequest.model_validate(json_loads(read_request_bytes(request)))
+        parsed = (
+            None
+            if request is None
+            else NativeDemandRequest.model_validate(json_loads(read_request_bytes(request)))
+        )
         if parsed is not None and parsed.targets != (TARGET,):
             raise ValueError("native-render requires the explicit source.pdf_region/render target")
-        execute_request(ctx, request=parsed, demand=demand, source_root=source_root,
-                        project=project, execution_policy=execution_policy, limit=100,
-                        max_rounds=100, action="source.native-render", json=json)
+        execute_request(
+            ctx,
+            request=parsed,
+            demand=demand,
+            source_root=source_root,
+            project=project,
+            execution_policy=execution_policy,
+            limit=100,
+            max_rounds=100,
+            action="source.native-render",
+            json=json,
+        )
 
 
 @app.command("views")

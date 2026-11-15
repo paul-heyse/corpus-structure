@@ -38,6 +38,7 @@ _Box = tuple[float, float, float, float]
 
 class DemandVisualEvidencePin(BaseModel):
     """Actual selected product/member and cut; physical publisher pins stay separate."""
+
     version: Literal["demand-visual-evidence-v1"] = "demand-visual-evidence-v1"
     project_id: str
     demand_id: str
@@ -539,8 +540,12 @@ def _region_address(reason: VisualRouteReason) -> tuple:
     return (
         reason.code,
         reason.kind,
-        tuple((0, pin.task_id, pin.product_key, pin.content_digest) if isinstance(pin, VisualEvidencePin)
-              else (1, pin.product_id, pin.member_id, pin.derivation_id, pin.read_id) for pin in reason.inputs),
+        tuple(
+            (0, pin.task_id, pin.product_key, pin.content_digest)
+            if isinstance(pin, VisualEvidencePin)
+            else (1, pin.product_id, pin.member_id, pin.derivation_id, pin.read_id)
+            for pin in reason.inputs
+        ),
         (crop.pointer, crop.region_index) if crop else None,
         reason.artifact_digest,
     )
@@ -909,8 +914,11 @@ def _selected_pdf_publication(page, member, records, capture_kind):
         if current in ancestors:
             continue
         ancestors.add(current)
-        pending.extend(row["support_derivation_id"] for row in relations["ops.data_derivation_support"]
-                       if row["derivation_id"] == current)
+        pending.extend(
+            row["support_derivation_id"]
+            for row in relations["ops.data_derivation_support"]
+            if row["derivation_id"] == current
+        )
     image = member["body"]["observation"]["image"]
     if member["original_source"] != image["document"]:
         raise ValueError("visual result differs from its actual original source")
@@ -919,14 +927,19 @@ def _selected_pdf_publication(page, member, records, capture_kind):
         if product["kind_contract"] != capture_kind:
             continue
         body = decode_semantic_value(product["canonical_body"])
-        if (product["project_id"] == page.cut.record["project_id"]
+        if (
+            product["project_id"] == page.cut.record["project_id"]
             and product["original_source"] == member["original_source"]
             and body["document"] == image["document"]
             and body["source_digest"] == image["source_digest"]
-            and body["logical_digest"] == image["logical_digest"]):
+            and body["logical_digest"] == image["logical_digest"]
+        ):
             products[product["id"]] = body
-    episodes = {row["derivation_id"] for row in relations["ops.data_derivation_output"]
-                if row["product_id"] in products and row["derivation_id"] in ancestors}
+    episodes = {
+        row["derivation_id"]
+        for row in relations["ops.data_derivation_output"]
+        if row["product_id"] in products and row["derivation_id"] in ancestors
+    }
     intents = {row["id"]: row for row in relations["ops.data_completion_intent"]}
     actual = []
     for published in relations["ops.data_publication_receipt"]:
@@ -938,15 +951,21 @@ def _selected_pdf_publication(page, member, records, capture_kind):
         for value in intent["payload"].get("execution_evidence", {}).get("pdf_receipts", []):
             receipt = TypeAdapter(PdfExecutionReceipt).validate_json(json_bytes(value), strict=True)
             publication = receipt.publication
-            if (publication.logical_digest == image["logical_digest"]
-                and publication.source_digest == image["source_digest"]):
+            if (
+                publication.logical_digest == image["logical_digest"]
+                and publication.source_digest == image["source_digest"]
+            ):
                 actual.append(publication)
     if len(actual) != 1:
-        raise ValueError("selected visual result requires one unambiguous actual PDF publication receipt")
+        raise ValueError(
+            "selected visual result requires one unambiguous actual PDF publication receipt"
+        )
     return actual[0]
 
 
-def read_demand_visual_routes(conn, demand_id, *, project_id, first=1, limit=32, max_bytes=8 * 1024 * 1024, continuation=None):
+def read_demand_visual_routes(
+    conn, demand_id, *, project_id, first=1, limit=32, max_bytes=8 * 1024 * 1024, continuation=None
+):
     """Route current selected visual results against their actual native source inventory."""
     from pypdfium2 import PdfDocument
 
@@ -958,16 +977,34 @@ def read_demand_visual_routes(conn, demand_id, *, project_id, first=1, limit=32,
 
     if first < 1 or not 1 <= limit <= 64:
         raise ValueError("visual routing requires a positive page and a limit of 1 to 64")
-    page = read_demand_result(conn, demand_id, project_id=project_id, limit=limit, max_bytes=max_bytes, continuation=continuation)
+    page = read_demand_result(
+        conn,
+        demand_id,
+        project_id=project_id,
+        limit=limit,
+        max_bytes=max_bytes,
+        continuation=continuation,
+    )
     prepared = load_release(conn, page.cut.record["release_id"])
     model = bound_data_operation_model(prepared)
     contracts = {(item.owner, item.domain): item.key for item in model.identities}
-    mapping_kind = contracts.get(("https://corpus-structure.dev/semantic/data-operation-visual/DdoVisualMapping", "kind"))
-    capture_kind = contracts.get(("https://corpus-structure.dev/semantic/data-operation-pdf-capture/DdoPdfPublication", "kind"))
+    mapping_kind = contracts.get(
+        ("https://corpus-structure.dev/semantic/data-operation-visual/DdoVisualMapping", "kind")
+    )
+    capture_kind = contracts.get(
+        (
+            "https://corpus-structure.dev/semantic/data-operation-pdf-capture/DdoPdfPublication",
+            "kind",
+        )
+    )
     if mapping_kind is None or capture_kind is None:
         raise ValueError("selected release lacks its declared visual/PDF contracts")
-    members = [item for item in page.members() if item["kind_contract"] == mapping_kind
-               and first <= item["body"]["observation"]["image"]["page_no"] < first + limit]
+    members = [
+        item
+        for item in page.members()
+        if item["kind_contract"] == mapping_kind
+        and first <= item["body"]["observation"]["image"]["page_no"] < first + limit
+    ]
     records = tuple(stream_selected_support(conn, page)) if members else ()
     routes = []
     for member in members:
@@ -976,30 +1013,75 @@ def read_demand_visual_routes(conn, demand_id, *, project_id, first=1, limit=32,
         # This is the actual publisher's physical reference from retained native
         # evidence, rather than a run/task alias manufactured from the demand.
         selected, furniture = _page_items(conn, publication, image["page_no"], image["page_no"])
-        pin = DemandVisualEvidencePin(project_id=project_id, demand_id=demand_id,
-            read_id=page.cut.record["read_id"], product_id=member["product_id"],
-            member_id=member["member_id"], derivation_id=member["derivation_id"])
+        pin = DemandVisualEvidencePin(
+            project_id=project_id,
+            demand_id=demand_id,
+            read_id=page.cut.record["read_id"],
+            product_id=member["product_id"],
+            member_id=member["member_id"],
+            derivation_id=member["derivation_id"],
+        )
         observation = value["observation"]
-        frame = {"width": image["width"], "height": image["height"], "transform": json.loads(image["transform_json"])}
+        frame = {
+            "width": image["width"],
+            "height": image["height"],
+            "transform": json.loads(image["transform_json"]),
+        }
         layout = _Observation(pin, frame, _readings(observation["raw_response"].encode(), frame))
         requests = []
         if observation["provider_outcome"] != "succeeded" or value["completion"] != "complete":
             selection = image["selection"]
-            crop = VisualRouteCrop(pointer=selection["pointer"], region_index=selection["region_index"]) if "pointer" in selection else None
+            crop = (
+                VisualRouteCrop(
+                    pointer=selection["pointer"], region_index=selection["region_index"]
+                )
+                if "pointer" in selection
+                else None
+            )
             requests.append(VisualRouteReason(code="incomplete_request", inputs=(pin,), crop=crop))
-        signals = _PageSignals(selected[image["page_no"]], [], False, layout=layout, requests=requests,
-            cues=(VisualCueAssessment(cue="whole_recognition", status="unassessed",
-                reason="single_chandra_observation_does_not_establish_independent_whole_recognition", inputs=(pin,)),))
+        signals = _PageSignals(
+            selected[image["page_no"]],
+            [],
+            False,
+            layout=layout,
+            requests=requests,
+            cues=(
+                VisualCueAssessment(
+                    cue="whole_recognition",
+                    status="unassessed",
+                    reason="single_chandra_observation_does_not_establish_independent_whole_recognition",
+                    inputs=(pin,),
+                ),
+            ),
+        )
         if observation["provider_outcome"] == "succeeded" and not layout.readings:
             artifacts = table("kb.source_artifact")
-            original = conn.scalar(select(artifacts.c.content).where(
-                artifacts.c.artifact_digest == publication.source_digest,
-                func.octet_length(artifacts.c.content) <= max_bytes))
+            original = conn.scalar(
+                select(artifacts.c.content).where(
+                    artifacts.c.artifact_digest == publication.source_digest,
+                    func.octet_length(artifacts.c.content) <= max_bytes,
+                )
+            )
             if original is None or sha256(original).hexdigest() != publication.source_digest:
-                raise ValueError("visual blank-body assessment lacks bounded authentic original bytes")
-            with _PDFIUM_LOCK, PdfDocument(bytes(original)) as document:
-                with closing(document[image["page_no"] - 1]) as physical:
-                    signals.blank = _original_blank_body(physical, layout, furniture[image["page_no"]])
-        routes.append({"source": pin.model_dump(mode="json"), "route": _decide(image["page_no"], signals).model_dump(mode="json")})
-    return {"demand_id": demand_id, "cut": page.cut.record, "continuation": page.continuation,
-            "policy": "chandra-dry-routing-v4", "routes": routes}
+                raise ValueError(
+                    "visual blank-body assessment lacks bounded authentic original bytes"
+                )
+            with (
+                _PDFIUM_LOCK,
+                PdfDocument(bytes(original)) as document,
+                closing(document[image["page_no"] - 1]) as physical,
+            ):
+                signals.blank = _original_blank_body(physical, layout, furniture[image["page_no"]])
+        routes.append(
+            {
+                "source": pin.model_dump(mode="json"),
+                "route": _decide(image["page_no"], signals).model_dump(mode="json"),
+            }
+        )
+    return {
+        "demand_id": demand_id,
+        "cut": page.cut.record,
+        "continuation": page.continuation,
+        "policy": "chandra-dry-routing-v4",
+        "routes": routes,
+    }

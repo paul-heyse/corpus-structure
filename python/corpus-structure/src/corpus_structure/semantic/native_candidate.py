@@ -2044,7 +2044,9 @@ def _order_row_type_evolution(connection, upgrade_ops, authoring):
         if isinstance(operation, (ops.AddColumnOp, ops.DropColumnOp)) or (
             isinstance(operation, ops.AlterColumnOp) and operation.modify_type is not None
         ):
-            relations.add(NativeIdentity("table", operation.schema or "public", operation.table_name))
+            relations.add(
+                NativeIdentity("table", operation.schema or "public", operation.table_name)
+            )
         for child in getattr(operation, "ops", ()):
             visit(child)
 
@@ -2054,20 +2056,47 @@ def _order_row_type_evolution(connection, upgrade_ops, authoring):
     before = {item.identity: item for item in authoring.predecessor}
     identities = (*before, *sorted(relations, key=lambda identity: identity.qualified))
     graph = native_dependency_graph(connection, identities)
-    selected = set().union(*(nx.descendants(graph, identity, backend="networkx") for identity in relations)) & before.keys()
+    selected = (
+        set().union(
+            *(nx.descendants(graph, identity, backend="networkx") for identity in relations)
+        )
+        & before.keys()
+    )
     if not selected:
         return
     declared = {identity: position for position, identity in enumerate(graph)}
     try:
-        order = tuple(nx.lexicographical_topological_sort(graph, key=declared.__getitem__, backend="networkx"))
+        order = tuple(
+            nx.lexicographical_topological_sort(graph, key=declared.__getitem__, backend="networkx")
+        )
     except nx.NetworkXUnfeasible as error:
         raise NativeAuthoringError("physical/native row-type dependency scope is cyclic") from error
-    native = [operation for operation in upgrade_ops.ops if isinstance(operation, NativeTransitionOp)]
-    physical = [operation for operation in upgrade_ops.ops if not isinstance(operation, (NativeTransitionOp, ops.DropTableOp))]
-    dropped_tables = [operation for operation in upgrade_ops.ops if isinstance(operation, ops.DropTableOp)]
-    retiring = [operation for operation in native if operation.after is None and operation.identity not in selected]
-    installing = {operation.identity: operation for operation in native if operation.after is not None and operation.identity not in selected}
-    early = [NativeTransitionOp(before[identity], None) for identity in reversed(order) if identity in selected]
+    native = [
+        operation for operation in upgrade_ops.ops if isinstance(operation, NativeTransitionOp)
+    ]
+    physical = [
+        operation
+        for operation in upgrade_ops.ops
+        if not isinstance(operation, (NativeTransitionOp, ops.DropTableOp))
+    ]
+    dropped_tables = [
+        operation for operation in upgrade_ops.ops if isinstance(operation, ops.DropTableOp)
+    ]
+    retiring = [
+        operation
+        for operation in native
+        if operation.after is None and operation.identity not in selected
+    ]
+    installing = {
+        operation.identity: operation
+        for operation in native
+        if operation.after is not None and operation.identity not in selected
+    }
+    early = [
+        NativeTransitionOp(before[identity], None)
+        for identity in reversed(order)
+        if identity in selected
+    ]
     late = [
         NativeTransitionOp(None, item) if item.identity in selected else installing[item.identity]
         for item in authoring.desired

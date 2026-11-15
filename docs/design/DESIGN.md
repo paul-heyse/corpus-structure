@@ -450,6 +450,15 @@ legacy wait barrier rather than implying that every old option is supported.
 
 ### §B4 PostgreSQL 18 is the transactional authority for instances; the model is the authority for their structure
 
+**Accepted realization; implementation/qualification tracked by DDO (2026-11-14).** Purpose-owned
+Psycopg pools lend sessions through SQLAlchemy NullPool. Demand execution reserves one writer
+checkout for renewal before bounded foreground admission; notice registration and physical
+invalidation retain their native library lifecycle. Native row-type evolution retires and restores
+only exact declared dependencies around physical changes. [D3's realization](D3-database.md#unified-operation-realization)
+owns the concrete boundary; PostgreSQL transactional authority is unchanged.
+
+> Decision: [ADR-0106](../adr/0106-postgresql-current-realization.md)
+
 **Implemented; scoped native Tested · 2026-11-14.** Explicit discovery target input roles
 select their authenticated parent product/member. Native registration/admission independently check
 that association, context, producer and valid support; an equal body or broad origin acceptance
@@ -687,6 +696,14 @@ and later consumer adoption. SP-01 deploys no database or engine change.
 <a id="section-b5"></a>
 
 ### §B5 One LinkML semantic release governs interpretation and generated representations
+
+**Accepted realization; implementation/qualification tracked by DDO (2026-11-14).** Captured native
+schemas and explicit field correspondence derive structural Python wire types and fixed methods.
+Draft7 and exact JSON transport retain runtime enforcement; static types do not confer native
+authorization. Current compiler identities describe current generated artifacts, while historical
+declaration logs retain their producing compiler maps unchanged.
+
+> Decision: [ADR-0106](../adr/0106-postgresql-current-realization.md)
 
 **Implemented; rollback authoring scoped Tested · 2026-11-14.** Compared frozen table/schema
 policies own complete grants, column ACLs, effective purpose CREATE denial and declared ownership.

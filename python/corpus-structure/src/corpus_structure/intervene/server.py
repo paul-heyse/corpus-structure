@@ -24,7 +24,14 @@ def build_server(
 
     server = build_external_server(session, project=project, demand=demand, settings=settings)
     from .demand_read_tools import register_demand_read_tools
-    register_demand_read_tools(server, settings=settings or Settings(), read_engine=read_engine, project=project, demand=demand)
+
+    register_demand_read_tools(
+        server,
+        settings=settings or Settings(),
+        read_engine=read_engine,
+        project=project,
+        demand=demand,
+    )
     return server
 
 

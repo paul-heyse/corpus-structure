@@ -8,7 +8,6 @@ from dataclasses import asdict, dataclass
 from functools import cached_property
 from typing import TYPE_CHECKING, Any
 
-from pydantic import JsonValue
 from sqlalchemy import Connection, Text, and_, func, select, text
 from sqlalchemy.dialects.postgresql import aggregate_order_by, array
 

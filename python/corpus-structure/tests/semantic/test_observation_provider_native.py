@@ -1,11 +1,7 @@
 """Current MCP requests preserve exact task fences without fabricated provider success."""
 
-from typing import cast as typing_cast
-from corpus_structure.semantic._data_operation_wire import (
-    WireRetainExternalDataPacketRequest,
-)
-
 from contextlib import contextmanager
+from typing import cast as typing_cast
 
 import anyio
 import pytest
@@ -15,6 +11,9 @@ from sqlalchemy import text
 from corpus_structure.cli.managed import ResultStore
 from corpus_structure.cli.observation_logging import INVOCATION_ENV
 from corpus_structure.intervene.server import build_server
+from corpus_structure.semantic._data_operation_wire import (
+    WireRetainExternalDataPacketRequest,
+)
 from corpus_structure.semantic.data_operation_external import ExternalDataSession
 from corpus_structure.semantic.data_operation_storage import DataOperationStorage
 from semantic.data_operation_demand_support import attach, claim
@@ -28,7 +27,12 @@ def test_external_mcp_disconnect_preserves_native_attempt_and_scoped_observation
     demand, _, _, attached = attach(ddo_kernel)
     fence = claim(ddo_kernel, attached)
     with ddo_kernel["engine"].begin() as connection:
-        packet = DataOperationStorage(connection).retain_external_data_packet(typing_cast(WireRetainExternalDataPacketRequest, {**fence, "runtime_id": ddo_kernel["runtime"], "max_bytes": 100000}))
+        packet = DataOperationStorage(connection).retain_external_data_packet(
+            typing_cast(
+                WireRetainExternalDataPacketRequest,
+                {**fence, "runtime_id": ddo_kernel["runtime"], "max_bytes": 100000},
+            )
+        )
     session = ExternalDataSession(ddo_kernel["engine"], "ddo-test", demand_id=demand["demand_id"])
     store = ResultStore(tmp_path / "results")
     with store.operation("demands.external.transport", observations=True) as invocation:

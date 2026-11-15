@@ -58,9 +58,7 @@ def compile_nominal_parameters(parameters, *, schema, definitions, vocabularies,
     from .boundary import build_boundary_adapters
     from .data_operation_storage import kind_meaning_schema
     from .prepare import _primitive, _view
-    from .types import ClassDefinition, PropertyDefinition
-
-    from .types import PreparationProfile
+    from .types import ClassDefinition, PreparationProfile, PropertyDefinition
 
     view = _view(schema, PreparationProfile(version="semantic-2"))
     class_names = {definition.name for definition in definitions}

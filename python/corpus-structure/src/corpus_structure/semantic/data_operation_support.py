@@ -8,8 +8,8 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, JsonValue, TypeAdapter, model_validator
 
-from .identity import canonical_bytes
 from .data_operation_json import DdoJsonValue, json_bytes, json_loads, wire_json_loads
+from .identity import canonical_bytes
 
 Nonempty = Annotated[str, Field(min_length=1)]
 
@@ -113,7 +113,11 @@ class OriginalSourceSelection:
         ):
             raise TypeError("original source selections require immutable named canonical bytes")
         reference = read_original_source_reference(self.reference)
-        frozen = json_bytes(reference.model_dump(mode="python")) if isinstance(reference, AuthoredFactRef) else canonical_bytes(reference.model_dump(mode="json", exclude_none=True))
+        frozen = (
+            json_bytes(reference.model_dump(mode="python"))
+            if isinstance(reference, AuthoredFactRef)
+            else canonical_bytes(reference.model_dump(mode="json", exclude_none=True))
+        )
         if frozen != self.reference:
             raise ValueError("original source reference must preserve its exact canonical pins")
         selectors = json.loads(self.selectors)
@@ -131,7 +135,10 @@ class OriginalSourceSelection:
             raise ValueError("authored admission requires its explicit authored-fact scope")
 
     def record(self) -> dict:
-        return {"reference": wire_json_loads(self.reference), "selectors": json.loads(self.selectors)}
+        return {
+            "reference": wire_json_loads(self.reference),
+            "selectors": json.loads(self.selectors),
+        }
 
 
 def original_source_selections_record(selections: tuple[OriginalSourceSelection, ...]) -> dict:

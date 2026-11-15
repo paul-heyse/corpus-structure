@@ -218,10 +218,14 @@ def _validate_native_role(
     resolved = field.resolved
     if field.wire_schema is not None:
         from .data_operation_wire import render_wire_types, schema_closure
+
         structural = json.loads(field.wire_schema)
         reference = structural.get("$ref", "").removeprefix("#/definitions/")
         definitions = structural.get("definitions", {})
-        if reference not in definitions or schema_closure(definitions[reference], definitions) != schema:
+        if (
+            reference not in definitions
+            or schema_closure(definitions[reference], definitions) != schema
+        ):
             raise ValueError("structural native lowering differs from captured semantic schema")
         render_wire_types(definitions, field.wire_nominals)
     elif field.wire_nominals:

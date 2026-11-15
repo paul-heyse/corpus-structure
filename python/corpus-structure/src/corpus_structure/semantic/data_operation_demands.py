@@ -6,42 +6,38 @@ its ready requests; they never supply missing semantic inputs or success fates.
 
 from __future__ import annotations
 
-from typing import cast
-from corpus_structure.semantic._data_operation_wire import (
-    WireAdmitAuthoredDataRequest,
-    WireDemandIntent,
-    WireDemandId,
-    WireReadIdentity,
-    WireProjectId,
-    WireReleaseId,
-    WireRuntimeId,
-    WireProductId,
-    WireDerivationId,
-    WireOperationId,
-    WireObligationId,
-    WireAdmitOriginalDocumentAssetRequest,
-    WireAdmitOriginalSourceViewRequest,
-    WireAttachDataRequestRequest,
-    WireCloseDataPopulationRequest,
-    WireExpandDataObligationRequest,
-    WireInspectDataCompletionRequest,
-    WireReadDemandResultRequest,
-    WireRecordDataFateRequest,
-    WireRegisterDataDemandRequest,
-    WireRegisterDataDemandResult,
-    WireCloseDataPopulationResult,
-    WireReadDemandResultResult,
-    WireInspectDataCompletionResult,
-    WireSelectDataPopulationRequest,
-)
-
 import json
 from collections.abc import Mapping
 from dataclasses import asdict, dataclass
 from hashlib import sha256
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Any, Literal, cast
 
 from pydantic import TypeAdapter
+
+from corpus_structure.semantic._data_operation_wire import (
+    WireAdmitAuthoredDataRequest,
+    WireAdmitOriginalDocumentAssetRequest,
+    WireAdmitOriginalSourceViewRequest,
+    WireAttachDataRequestRequest,
+    WireCloseDataPopulationResult,
+    WireDemandId,
+    WireDemandIntent,
+    WireDerivationId,
+    WireInspectDataCompletionRequest,
+    WireInspectDataCompletionResult,
+    WireObligationId,
+    WireOperationId,
+    WireProductId,
+    WireProjectId,
+    WireReadDemandResultRequest,
+    WireReadDemandResultResult,
+    WireReadIdentity,
+    WireRecordDataFateRequest,
+    WireRegisterDataDemandResult,
+    WireReleaseId,
+    WireRuntimeId,
+    WireSelectDataPopulationRequest,
+)
 
 from .data_operation_compilation import project_operation_binding
 from .data_operation_json import json_bytes, json_loads, wire_json_loads
@@ -445,14 +441,16 @@ class DemandPlanner:
         record = intent.record
         if record["model"] != sha256(self.model.content).hexdigest():
             raise ValueError("demand intent belongs to a different effective model")
-        result = self.storage.register_data_demand({
+        result = self.storage.register_data_demand(
+            {
                 "project_id": WireProjectId(project),
                 "release_id": WireReleaseId(release),
                 "runtime_id": WireRuntimeId(runtime),
                 "root": record["roots"],
                 "selection": record,
                 "strength": cast(Literal["episode", "independent", "value"], strength),
-            })
+            }
+        )
         if result.get("state") == "cancelled":
             return result
         for name, source in record.get("original_sources", {}).items():
@@ -464,23 +462,34 @@ class DemandPlanner:
             if source["reference"].get("kind") == "authored-fact":
                 self.storage.admit_authored_data(cast(WireAdmitAuthoredDataRequest, payload))
             elif source["reference"].get("kind") == "original-document":
-                self.storage.admit_original_document_asset(cast(WireAdmitOriginalDocumentAssetRequest, payload))
+                self.storage.admit_original_document_asset(
+                    cast(WireAdmitOriginalDocumentAssetRequest, payload)
+                )
             else:
-                self.storage.admit_original_source_view(cast(WireAdmitOriginalSourceViewRequest, payload))
+                self.storage.admit_original_source_view(
+                    cast(WireAdmitOriginalSourceViewRequest, payload)
+                )
         for root in record["roots"]:
             for operation in record["operations"]:
                 if operation["operation"] not in record["root_operations"]:
                     continue
-                self.storage.expand_data_obligation({
+                self.storage.expand_data_obligation(
+                    {
                         "demand_id": result["demand_id"],
                         "operation_id": WireOperationId(operation["operation"]),
                         **root,
                         "parameters": operation["parameters"],
-                    })
+                    }
+                )
         return result
 
     def expand_discovery(
-        self, snapshot: WireReadDemandResultResult, *, population: str, product: str, derivation: str
+        self,
+        snapshot: WireReadDemandResultResult,
+        *,
+        population: str,
+        product: str,
+        derivation: str,
     ) -> WireCloseDataPopulationResult:
         """Expand only native-authenticated members of a declared discovery output."""
         frozen = snapshot["intent"]
@@ -491,13 +500,15 @@ class DemandPlanner:
         ):
             raise ValueError("discovery population lacks one frozen source projection")
         relation = relations[0]
-        closed = self.storage.close_data_population({
+        closed = self.storage.close_data_population(
+            {
                 "demand_id": snapshot["demand_id"],
                 "name": population,
                 "product_id": WireProductId(product),
                 "derivation_id": WireDerivationId(derivation),
                 "member_role": relation["output_role"],
-            })
+            }
+        )
         selected = {item["operation"]: item for item in frozen["operations"]}
         closure, pending = set(), [item["target"] for item in relations]
         while pending:
@@ -509,7 +520,8 @@ class DemandPlanner:
         # witness can prove absence or closed fan-in on a subsequent binding.
         for member in closed["members"]:
             for operation in sorted(closure):
-                self.storage.expand_data_obligation({
+                self.storage.expand_data_obligation(
+                    {
                         "demand_id": snapshot["demand_id"],
                         "operation_id": WireOperationId(operation),
                         "subject": member["subject"],
@@ -517,7 +529,8 @@ class DemandPlanner:
                         "analyzed_scope": member["analyzed_scope"],
                         "parameters": selected[operation]["parameters"],
                         "population_id": closed["population_id"],
-                    })
+                    }
+                )
         return closed
 
     def resume(
@@ -549,17 +562,24 @@ class DemandPlanner:
         inspections: dict[str, WireInspectDataCompletionResult] = {}
         for obligation in snapshot["obligations"]:
             if obligation.get("intent_id") is not None:
-                inspections[obligation["intent_id"]] = self.storage.inspect_data_completion(cast(WireInspectDataCompletionRequest, {
-                        "intent_id": obligation["intent_id"],
-                        "demand_id": demand,
-                        "request_id": obligation["request_id"],
-                        "generation": obligation["generation"],
-                    }))
+                inspections[obligation["intent_id"]] = self.storage.inspect_data_completion(
+                    cast(
+                        WireInspectDataCompletionRequest,
+                        {
+                            "intent_id": obligation["intent_id"],
+                            "demand_id": demand,
+                            "request_id": obligation["request_id"],
+                            "generation": obligation["generation"],
+                        },
+                    )
+                )
         # These are current receipt observations, distinct from the pinned frontier.
         # Returning them lets the execution owner settle uncertainty without inference.
         return {**snapshot, "completion_inspections": inspections}
 
-    def ready(self, snapshot: Mapping[str, Any], *, authorization: bytes) -> tuple[ReadyDataRequest, ...]:
+    def ready(
+        self, snapshot: Mapping[str, Any], *, authorization: bytes
+    ) -> tuple[ReadyDataRequest, ...]:
         self.selected_population_ids = ()
         self.fulfilled_request_ids = ()
         if snapshot.get("state") == "cancelled":
@@ -753,34 +773,44 @@ class DemandPlanner:
                 if len(parents) > 1:
                     ambiguities.append(role_name)
                 elif parents:
-                    receipt = self.storage.select_data_population(cast(WireSelectDataPopulationRequest, {
-                            "obligation_id": obligation["obligation_id"],
-                            "population_name": population_name,
-                            "parent_population_id": parents[0]["population_id"],
-                            "read_id": snapshot["read_id"],
-                        }))
+                    receipt = self.storage.select_data_population(
+                        cast(
+                            WireSelectDataPopulationRequest,
+                            {
+                                "obligation_id": obligation["obligation_id"],
+                                "population_name": population_name,
+                                "parent_population_id": parents[0]["population_id"],
+                                "read_id": snapshot["read_id"],
+                            },
+                        )
+                    )
                     self.selected_population_ids += (receipt["population_id"],)
                     derived = True
             if ambiguities:
-                self.storage.record_data_fate(cast(WireRecordDataFateRequest, {
-                        "obligation_id": obligation["obligation_id"],
-                        "fate": "awaiting-population",
-                        "selection": {
-                            "reasons": [
-                                asdict(
-                                    BindingReason(
-                                        "ambiguous-population",
-                                        operation["operation"] + "/" + role_name,
-                                        (
-                                            "more than one authenticated population "
-                                            "fits the declared role"
-                                        ),
+                self.storage.record_data_fate(
+                    cast(
+                        WireRecordDataFateRequest,
+                        {
+                            "obligation_id": obligation["obligation_id"],
+                            "fate": "awaiting-population",
+                            "selection": {
+                                "reasons": [
+                                    asdict(
+                                        BindingReason(
+                                            "ambiguous-population",
+                                            operation["operation"] + "/" + role_name,
+                                            (
+                                                "more than one authenticated population "
+                                                "fits the declared role"
+                                            ),
+                                        )
                                     )
-                                )
-                                for role_name in ambiguities
-                            ]
+                                    for role_name in ambiguities
+                                ]
+                            },
                         },
-                    }))
+                    )
+                )
                 continue
             if derived:
                 # Receipt writes belong to a new read boundary. The execution
@@ -825,11 +855,18 @@ class DemandPlanner:
             )
             binding = execute_binding(self.storage.connection, compiled)
             if not binding.sufficient:
-                self.storage.record_data_fate(cast(WireRecordDataFateRequest, {
-                        "obligation_id": obligation["obligation_id"],
-                        "fate": binding.status,
-                        "selection": {"reasons": [asdict(reason) for reason in binding.reasons]},
-                    }))
+                self.storage.record_data_fate(
+                    cast(
+                        WireRecordDataFateRequest,
+                        {
+                            "obligation_id": obligation["obligation_id"],
+                            "fate": binding.status,
+                            "selection": {
+                                "reasons": [asdict(reason) for reason in binding.reasons]
+                            },
+                        },
+                    )
+                )
                 continue
             resolved = binding.resolved(
                 subject_context=SubjectContext(
@@ -917,14 +954,19 @@ class DemandPlanner:
                 ),
                 None,
             )
-            native = self.storage.attach_data_request(cast(WireAttachDataRequestRequest, {
-                    **({"rebind_derivation": rebind} if rebind is not None else {}),
-                    "obligation_id": obligation["obligation_id"],
-                    "request_meaning": json.loads(request.identity.canonical_input),
-                    "request_key": request.identity.key,
-                    "binding": wire_binding,
-                    "replicate": operation["replicate"],
-                }))
+            native = self.storage.attach_data_request(
+                cast(
+                    WireAttachDataRequestRequest,
+                    {
+                        **({"rebind_derivation": rebind} if rebind is not None else {}),
+                        "obligation_id": obligation["obligation_id"],
+                        "request_meaning": json.loads(request.identity.canonical_input),
+                        "request_key": request.identity.key,
+                        "binding": wire_binding,
+                        "replicate": operation["replicate"],
+                    },
+                )
+            )
             if native["fate"] == "fulfilled":
                 self.fulfilled_request_ids += (native["request_id"],)
                 continue

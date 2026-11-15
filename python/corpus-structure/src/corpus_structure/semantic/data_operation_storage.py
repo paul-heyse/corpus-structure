@@ -6,13 +6,6 @@ call bindings are derived together; candidate operations cannot choose SQL symbo
 
 from __future__ import annotations
 
-from typing import cast as typing_cast
-from corpus_structure.semantic._data_operation_wire import (
-    WireReadDemandResultRequest,
-    WireDemandId,
-    WireReadIdentity,
-)
-
 import json
 from collections.abc import Mapping
 from dataclasses import asdict, dataclass
@@ -22,6 +15,11 @@ from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import Text, bindparam, cast, func, select, text
 from sqlalchemy.dialects.postgresql import JSONB
+
+from corpus_structure.semantic._data_operation_wire import (
+    WireDemandId,
+    WireReadIdentity,
+)
 
 from ._data_operation_wire import DataOperationCalls
 from .contracts import OperationCallBinding, OperationFieldBinding, OperationFieldType
@@ -236,7 +234,7 @@ def _rename_native_entrypoints(sql: str, names: set[str]) -> str:
             raise ValueError("native declaration rename did not preserve exact function body")
         replacements.append((prepared.slices[index], rendered))
     for span, rendered in reversed(replacements):
-        sql = sql[:span.start] + rendered + sql[span.stop:]
+        sql = sql[: span.start] + rendered + sql[span.stop :]
     return sql
 
 
@@ -959,12 +957,14 @@ def admitted_data_read(
 
     operation = model.operation(operation_id)
     # Acquire the exact demand now; execution of the TVF repeats its pin check.
-    acquired = DataOperationStorage(connection).read_demand_result({
+    acquired = DataOperationStorage(connection).read_demand_result(
+        {
             "demand_id": WireDemandId(demand_id),
             "trust_snapshot": trust_snapshot,
             "read_id": WireReadIdentity(read_id),
             "limit": 1,
-        })
+        }
+    )
     # The native reader validates epoch meaning against this exact read_id.
     # Keep its canonical pins: a lazily materialized zero is not revocation.
     trust_snapshot = acquired["trust_snapshot"]

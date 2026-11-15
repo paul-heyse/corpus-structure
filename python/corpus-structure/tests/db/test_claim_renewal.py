@@ -48,7 +48,10 @@ def fake_engine(conn):
 
 def claim():
     return SimpleNamespace(
-        task_id=1, attempt=1, holder="owner", release_id="release:test",
+        task_id=1,
+        attempt=1,
+        holder="owner",
+        release_id="release:test",
         deadline=datetime.now(UTC) + timedelta(minutes=5),
     )
 
@@ -118,21 +121,25 @@ def test_uncertain_or_uncovered_renewal_never_retries(failure_kind):
         if failure_kind != "commit":
             raise original
 
-    with pytest.raises(Exception):
-        with maintained_claims(engine, [claim()], "owner", interval=0.001, renew=renew) as owner:
-            error = await_failure(owner)
-            if failure_kind == "rollback":
-                assert error is original
-                assert str(error.__cause__) == "rollback failed"
-                assert error.__dict__["database_cleanup_unresolved"] is True
+    with (
+        pytest.raises(DBAPIError),
+        maintained_claims(engine, [claim()], "owner", interval=0.001, renew=renew) as owner,
+    ):
+        error = await_failure(owner)
+        if failure_kind == "rollback":
+            assert error is original
+            assert str(error.__cause__) == "rollback failed"
+            assert error.__dict__["database_cleanup_unresolved"] is True
     assert calls == [1]
 
 
 def test_client_requested_cancellation_is_never_retryable():
     error = DBAPIError("renew", {}, psycopg.errors.QueryCanceled("native cause"))
     failure = classify_error(
-        error, phase=DatabasePhase.EXECUTING,
-        effects=EffectKnowledge.ROLLED_BACK, cancellation_requested=True,
+        error,
+        phase=DatabasePhase.EXECUTING,
+        effects=EffectKnowledge.ROLLED_BACK,
+        cancellation_requested=True,
     )
     assert not _retryable_renewal_failure(error, failure)
 
@@ -151,9 +158,11 @@ def test_second_native_failure_keeps_both_actual_causes_and_does_not_retry_again
         calls.append(index)
         raise errors[index]
 
-    with pytest.raises(DBAPIError) as caught:
-        with maintained_claims(engine, [claim()], "owner", interval=0.001, renew=renew) as owner:
-            assert await_failure(owner) is errors[1]
+    with (
+        pytest.raises(DBAPIError) as caught,
+        maintained_claims(engine, [claim()], "owner", interval=0.001, renew=renew) as owner,
+    ):
+        assert await_failure(owner) is errors[1]
     assert caught.value is errors[1]
     assert caught.value.__cause__ is errors[0]
     assert calls == [0, 1]
@@ -163,9 +172,11 @@ def test_failed_initial_reservation_never_yields_foreground_owner():
     error = RuntimeError("checkout unavailable")
     engine = MagicMock(spec=Engine)
     engine.connect.side_effect = MockFailingConnect(error)
-    with pytest.raises(RuntimeError, match="checkout unavailable"):
-        with maintained_claims(engine, [], "owner"):
-            pytest.fail("foreground owner cannot run without reserved capacity")
+    with (
+        pytest.raises(RuntimeError, match="checkout unavailable"),
+        maintained_claims(engine, [], "owner"),
+    ):
+        pytest.fail("foreground owner cannot run without reserved capacity")
 
 
 class MockFailingConnect:

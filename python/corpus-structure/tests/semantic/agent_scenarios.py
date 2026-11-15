@@ -23,8 +23,8 @@ from corpus_structure.semantic import (
     SourceBundle,
     prepare_release,
 )
-from corpus_structure.semantic._operation_ids import DocumentId
 from corpus_structure.semantic._data_operation_wire import WireDemandId, WireExternalPacketId
+from corpus_structure.semantic._operation_ids import DocumentId
 from corpus_structure.semantic.analytical_profile import analytical_inputs
 from corpus_structure.semantic.contracts import implementation_overridden
 from corpus_structure.semantic.domain_operations import domain_rule_inputs
@@ -52,7 +52,6 @@ from semantic.historical_agent_support import (
 )
 from semantic.native_record_fixtures import publish_native_record_fixture, qualified_view_draft
 from semantic.scenario_preparation_support import PersistedScenario, ScenarioPreparation
-
 
 if TYPE_CHECKING:
     from semantic.data_operation_kernel_support import KernelSeedStage
@@ -909,7 +908,7 @@ class DeclaredAgentRecipe:
 
 @dataclass(frozen=True)
 class DeclaredAgentStage:
-    kernel: "KernelSeedStage"
+    kernel: KernelSeedStage
     demand_id: WireDemandId
     packet_id: WireExternalPacketId
     source_receipt: bytes
@@ -943,13 +942,22 @@ class DeclaredAgentStage:
 
 
 def build_declared_agent_recipe(
-    recipe: DeclaredAgentRecipe, admin: Engine, writer: Engine, directory: Path, *, purpose_engine=None
+    recipe: DeclaredAgentRecipe,
+    admin: Engine,
+    writer: Engine,
+    directory: Path,
+    *,
+    purpose_engine=None,
 ) -> DeclaredAgentStage:
     """Publish exact source values and hand off an admitted external request."""
     from typing import cast
 
     from corpus_structure.semantic._data_operation_wire import WireRetainExternalDataPacketRequest
-    from corpus_structure.semantic.data_operation_demands import DemandPlanner, RootSubject, freeze_demand
+    from corpus_structure.semantic.data_operation_demands import (
+        DemandPlanner,
+        RootSubject,
+        freeze_demand,
+    )
     from corpus_structure.semantic.data_operation_storage import DataOperationStorage
     from semantic.data_operation_demand_support import claim, publish, retain
     from semantic.data_operation_kernel_support import Kernel, build_kernel
@@ -966,19 +974,33 @@ def build_declared_agent_recipe(
     )
     with writer.begin() as connection:
         planner = DemandPlanner(kernel.model, DataOperationStorage(connection))
-        demand = planner.register(frozen, project="ddo-test", release=kernel.prepared.release_id, runtime=kernel.runtime)["demand_id"]
+        demand = planner.register(
+            frozen, project="ddo-test", release=kernel.prepared.release_id, runtime=kernel.runtime
+        )["demand_id"]
         (producer,) = planner.ready(planner.resume(demand), authorization=b"{}")
     source_claim = claim(kernel, json.loads(producer.native))
-    source_receipt = publish(kernel, source_claim, retain(kernel, source_claim, outputs=recipe.source_values))
+    source_receipt = publish(
+        kernel, source_claim, retain(kernel, source_claim, outputs=recipe.source_values)
+    )
     with writer.begin() as connection:
         planner = DemandPlanner(kernel.model, DataOperationStorage(connection))
         (external,) = planner.ready(planner.resume(demand), authorization=b"{}")
     external_claim = claim(kernel, json.loads(external.native))
     with writer.begin() as connection:
         packet = DataOperationStorage(connection).retain_external_data_packet(
-            cast(WireRetainExternalDataPacketRequest, {**external_claim, "runtime_id": kernel.runtime, "max_bytes": 100000})
+            cast(
+                WireRetainExternalDataPacketRequest,
+                {**external_claim, "runtime_id": kernel.runtime, "max_bytes": 100000},
+            )
         )
-    return DeclaredAgentStage(stage, demand, packet["packet_id"], canonical_bytes(source_receipt), recipe.subject, recipe.original_source)
+    return DeclaredAgentStage(
+        stage,
+        demand,
+        packet["packet_id"],
+        canonical_bytes(source_receipt),
+        recipe.subject,
+        recipe.original_source,
+    )
 
 
 register_scenario_builder(DeclaredAgentRecipe, build_declared_agent_recipe)

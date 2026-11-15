@@ -1,14 +1,13 @@
 """Native packets preserve actual repeated exact input pins and independent provenance."""
 
-from typing import cast as typing_cast
-from corpus_structure.semantic._data_operation_wire import (
-    WireRetainExternalDataPacketRequest,
-)
-
 import json
+from typing import cast as typing_cast
 
 import pytest
 
+from corpus_structure.semantic._data_operation_wire import (
+    WireRetainExternalDataPacketRequest,
+)
 from corpus_structure.semantic.data_operation_demands import (
     DemandPlanner,
     RootSubject,
@@ -48,7 +47,12 @@ def test_native_external_packet_preserves_repeated_pins_order_context_and_proven
         assert ready.operation == "urn:ddo-test:source"
     source_fence = claim(ddo_kernel, json.loads(ready.native))
     with ddo_kernel["engine"].begin() as connection:
-        packet = DataOperationStorage(connection).retain_external_data_packet(typing_cast(WireRetainExternalDataPacketRequest, {**source_fence, "runtime_id": ddo_kernel["runtime"], "max_bytes": 100000}))
+        packet = DataOperationStorage(connection).retain_external_data_packet(
+            typing_cast(
+                WireRetainExternalDataPacketRequest,
+                {**source_fence, "runtime_id": ddo_kernel["runtime"], "max_bytes": 100000},
+            )
+        )
         assert packet["state"] == "claimed"
     session = ExternalDataSession(ddo_kernel["engine"], "ddo-test")
     leased = session.claim(packet["packet_id"])

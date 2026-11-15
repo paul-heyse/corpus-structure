@@ -6,11 +6,6 @@ constructs a private registry, source run, consolidation cut or active selection
 
 from __future__ import annotations
 
-from typing import cast
-from corpus_structure.semantic._data_operation_wire import (
-    WireReadDemandResultRequest,
-)
-
 from corpus_structure.semantic.data_operation_demands import DemandPlanner
 from corpus_structure.semantic.data_operation_service import (
     NativeDemandRequest,
@@ -61,14 +56,22 @@ def author_interpretations(engine, prepared, *, request: NativeDemandRequest):
         if registered.get("state") == "cancelled":
             raise ValueError("cancelled demand cannot admit new authored facts")
         from corpus_structure.semantic.demand_results import read_demand_result
+
         continuation, cut, found = None, None, {}
         while True:
-            page = read_demand_result(connection,registered["demand_id"],project_id=request.project_id,
-                continuation=continuation,cut=cut,limit=1000,view="frontier")
+            page = read_demand_result(
+                connection,
+                registered["demand_id"],
+                project_id=request.project_id,
+                continuation=continuation,
+                cut=cut,
+                limit=1000,
+                view="frontier",
+            )
             cut = page.cut
             for value in page.record["original_source_admissions"]:
                 if value["selection_name"] in names:
-                    previous = found.setdefault(value["admission_id"],value)
+                    previous = found.setdefault(value["admission_id"], value)
                     if previous != value:
                         raise ValueError("authored admission changed across its pinned read")
             continuation = page.continuation
@@ -76,7 +79,9 @@ def author_interpretations(engine, prepared, *, request: NativeDemandRequest):
                 break
         admissions = tuple(found[key] for key in sorted(found))
         if len(admissions) != len(names) or any(
-            not isinstance(value["evidence"], dict) or value["evidence"].get("standing") != "authored" for value in admissions
+            not isinstance(value["evidence"], dict)
+            or value["evidence"].get("standing") != "authored"
+            for value in admissions
         ):
             raise ValueError("native demand did not retain the exact authored fact admissions")
     return {

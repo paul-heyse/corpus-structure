@@ -306,7 +306,10 @@ def test_reserved_renewal_runs_while_all_port_capacity_is_borrowed(infrastructur
     renewed = Event()
     observed = []
     claim = SimpleNamespace(
-        task_id=1, attempt=1, holder="owner", release_id="release:test",
+        task_id=1,
+        attempt=1,
+        holder="owner",
+        release_id="release:test",
         deadline=datetime.now(UTC) + timedelta(minutes=5),
     )
 
@@ -317,13 +320,15 @@ def test_reserved_renewal_runs_while_all_port_capacity_is_borrowed(infrastructur
     with open_store(
         settings_for(infrastructure_engine), "pg-renewal-reserved", min_size=1, max_size=2
     ) as store:
-        with claim_lifetime.maintained_claims(
-            store.engine, [claim], "owner", interval=0.01, renew=renew
+        with (
+            claim_lifetime.maintained_claims(
+                store.engine, [claim], "owner", interval=0.01, renew=renew
+            ),
+            store.engine.begin() as foreground,
         ):
-            with store.engine.begin() as foreground:
-                foreground_pid = foreground.scalar(text("SELECT pg_backend_pid()"))
-                renewed.clear()
-                assert renewed.wait(3)
-                assert observed[-1] != foreground_pid
+            foreground_pid = foreground.scalar(text("SELECT pg_backend_pid()"))
+            renewed.clear()
+            assert renewed.wait(3)
+            assert observed[-1] != foreground_pid
         with store.engine.begin() as conn:
             assert conn.scalar(text("SELECT 19")) == 19

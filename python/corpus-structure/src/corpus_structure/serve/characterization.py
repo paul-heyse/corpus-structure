@@ -14,6 +14,7 @@ from corpus_structure.semantic.characterization import AnnotationReference
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.product_reference import ProductReference
 from corpus_structure.semantic.refusals import SemanticRefusal
+from corpus_structure.serve.demand_journey import DemandQueryRequest
 
 
 class CharacterizationRequest(BaseModel):
@@ -587,23 +588,32 @@ def add_source_context(response, request, fetch):
 
 
 # Current target requests are independent of the sealed task/layer archive ABI above.
-from corpus_structure.serve.demand_journey import DemandQueryRequest
 
 
 class DemandCharacterizationRequest(DemandQueryRequest):
-    inventory: Literal["summary", "occurrences", "annotations", "terms", "memberships", "choices", "coverage"] = "summary"
+    inventory: Literal[
+        "summary", "occurrences", "annotations", "terms", "memberships", "choices", "coverage"
+    ] = "summary"
 
 
 def inspect_demand_characterization(connection, request: DemandCharacterizationRequest):
     """Read actual nominal primary members and explicit population/coverage standing."""
     from corpus_structure.semantic.contribution_queries import read_demand_contributions
+
     selected = request.model_dump(mode="python", exclude={"inventory"})
     selected["view"] = "coverage" if request.inventory == "coverage" else "members"
     selected["containers_only"] = request.inventory == "summary"
-    selected["record_type"] = None if request.inventory in {"summary", "coverage"} else {
-        "occurrences": "occurrence", "annotations": "annotation", "terms": "term",
-        "memberships": "membership", "choices": "choice",
-    }[request.inventory]
+    selected["record_type"] = (
+        None
+        if request.inventory in {"summary", "coverage"}
+        else {
+            "occurrences": "occurrence",
+            "annotations": "annotation",
+            "terms": "term",
+            "memberships": "membership",
+            "choices": "choice",
+        }[request.inventory]
+    )
     return read_demand_contributions(connection, DemandQueryRequest.model_validate(selected))
 
 
@@ -616,11 +626,18 @@ def inspect_demand_definition(connection, request: DemandDefinitionRequest):
     """Inspect genuine selected definition products; no knowledge admission follows."""
     from corpus_structure.semantic.contribution_queries import read_demand_contributions
     from corpus_structure.semantic.releases import open_release
+
     selected = request.model_dump(mode="python", exclude={"variant"})
     selected.update(view="members", containers_only=True)
     result = read_demand_contributions(connection, DemandQueryRequest.model_validate(selected))
     release = open_release(connection, result["cut"]["release_id"])
-    projection = json.loads(next(artifact.content for artifact in release.artifacts if artifact.kind == "data_operation_native_definitions.json"))
+    projection = json.loads(
+        next(
+            artifact.content
+            for artifact in release.artifacts
+            if artifact.kind == "data_operation_native_definitions.json"
+        )
+    )
     kind = {
         "components": "urn:corpus:structural:DeclaredDefinitionComponentsReport",
         "applicability": "urn:corpus:structural:DeclaredDefinitionApplicabilityReport",
@@ -628,7 +645,12 @@ def inspect_demand_definition(connection, request: DemandDefinitionRequest):
     }[request.variant]
     contracts = {row["kind_contract"] for row in projection["kinds"] if row["kind"] == kind}
     if not contracts:
-        return dict(result, availability="unavailable", reason="selected release does not declare this definition product", items=[])
+        return dict(
+            result,
+            availability="unavailable",
+            reason="selected release does not declare this definition product",
+            items=[],
+        )
     if any(row["kind_contract"] not in contracts for row in result["items"]):
         raise ValueError("selected definition product has another nominal kind")
     return dict(result, standing="private_selected_definition_product", variant=request.variant)

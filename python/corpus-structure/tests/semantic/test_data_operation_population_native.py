@@ -2,21 +2,19 @@
 
 from __future__ import annotations
 
-from typing import cast
-
-from typing import cast as typing_cast
-from corpus_structure.semantic._data_operation_wire import (
-    WireReadDemandResultRequest,
-    WireRetainDataCompletionIntentRequest,
-    WireSelectDataPopulationRequest,
-)
-
 import json
+from typing import cast
+from typing import cast as typing_cast
 
 import pytest
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
+from corpus_structure.semantic._data_operation_wire import (
+    WireReadDemandResultRequest,
+    WireRetainDataCompletionIntentRequest,
+    WireSelectDataPopulationRequest,
+)
 from corpus_structure.semantic.data_operation_identity import semantic_value
 from corpus_structure.semantic.data_operation_storage import DataOperationStorage
 from semantic.data_operation_binding_support import discover
@@ -41,13 +39,18 @@ def test_native_selected_population_has_authentic_parent_and_frozen_filter(
             "parent_population_id": parent["population_id"],
             "read_id": acquired["read_id"],
         }
-        selected = storage.select_data_population(typing_cast(WireSelectDataPopulationRequest, request))
+        selected = storage.select_data_population(
+            typing_cast(WireSelectDataPopulationRequest, request)
+        )
         assert [member["member_id"] for member in selected["members"]] == ["m15"]
         assert selected["complete"] is complete
         assert selected["evidence"]["derivation_id"] == parent["evidence"]["derivation_id"]
         assert selected["evidence"]["selection"]["obligation_id"] == consumer["obligation_id"]
         assert selected["evidence"]["producer_context"]["subject"] == "doc"
-        assert storage.select_data_population(typing_cast(WireSelectDataPopulationRequest, request)) == selected
+        assert (
+            storage.select_data_population(typing_cast(WireSelectDataPopulationRequest, request))
+            == selected
+        )
         current = storage.read_demand_result(typing_cast(WireReadDemandResultRequest, demand))
         visible = [
             population
@@ -58,20 +61,25 @@ def test_native_selected_population_has_authentic_parent_and_frozen_filter(
         assert "selected_obligation_id" not in visible[0]
         # Paging the unrelated producer cannot disclose the consumer's selected receipt.
         for page in current["obligations"]:
-            single = storage.read_demand_result(typing_cast(WireReadDemandResultRequest, {
-                    "demand_id": demand["demand_id"],
-                    "limit": 1,
-                    **(
-                        {
-                            "after": page["obligation_id"],
-                            "selection": current["selection"],
-                            "trust_snapshot": current["trust_snapshot"],
-                            "read_id": current["read_id"],
-                        }
-                        if page["obligation_id"] != ""
-                        else {}
-                    ),
-                }))
+            single = storage.read_demand_result(
+                typing_cast(
+                    WireReadDemandResultRequest,
+                    {
+                        "demand_id": demand["demand_id"],
+                        "limit": 1,
+                        **(
+                            {
+                                "after": page["obligation_id"],
+                                "selection": current["selection"],
+                                "trust_snapshot": current["trust_snapshot"],
+                                "read_id": current["read_id"],
+                            }
+                            if page["obligation_id"] != ""
+                            else {}
+                        ),
+                    },
+                )
+            )
             exposed = {item["obligation_id"] for item in single["obligations"]}
             assert all(
                 population["evidence"]["selection"]["obligation_id"] in exposed
@@ -133,28 +141,33 @@ def _complete_ready(ddo_kernel, ready, value=1):
     )
     kind_contract = ddo_kernel["identities"][kind, "kind"]
     with ddo_kernel["engine"].begin() as connection:
-        intent = DataOperationStorage(connection).retain_data_completion_intent(typing_cast(WireRetainDataCompletionIntentRequest, {
-                **claim_fence,
-                "runtime_id": ddo_kernel["runtime"],
-                "completion": {
-                    "outcome": "success",
-                    "implementation_revision": "native-test-source-v1",
-                    "inputs": binding["inputs"],
-                    "support": binding["support"],
-                    "outputs": [
-                        {
-                            "role": "result",
-                            "position": 0,
-                            "multiplicity": 1,
-                            "product": {
-                                "kind_contract": kind_contract,
-                                "body": semantic_value(value),
-                                "members": [],
-                            },
-                        }
-                    ],
+        intent = DataOperationStorage(connection).retain_data_completion_intent(
+            typing_cast(
+                WireRetainDataCompletionIntentRequest,
+                {
+                    **claim_fence,
+                    "runtime_id": ddo_kernel["runtime"],
+                    "completion": {
+                        "outcome": "success",
+                        "implementation_revision": "native-test-source-v1",
+                        "inputs": binding["inputs"],
+                        "support": binding["support"],
+                        "outputs": [
+                            {
+                                "role": "result",
+                                "position": 0,
+                                "multiplicity": 1,
+                                "product": {
+                                    "kind_contract": kind_contract,
+                                    "body": semantic_value(value),
+                                    "members": [],
+                                },
+                            }
+                        ],
+                    },
                 },
-            }))
+            )
+        )
     return publish(ddo_kernel, claim_fence, intent)
 
 
@@ -288,7 +301,9 @@ def test_discovery_same_local_subject_distinct_contexts_reach_child_publication(
     receipts = [_complete_ready(ddo_kernel, child) for child in children]
     assert len({receipt["derivation_id"] for receipt in receipts}) == 2
     with ddo_kernel["engine"].connect() as connection:
-        uses = DataOperationStorage(connection).read_demand_result(typing_cast(WireReadDemandResultRequest, demand))["uses"]
+        uses = DataOperationStorage(connection).read_demand_result(
+            typing_cast(WireReadDemandResultRequest, demand)
+        )["uses"]
     child_obligations = {child.obligation for child in children}
     fulfilled = [use for use in uses if use["obligation_id"] in child_obligations]
     assert len(fulfilled) == 2 and all(use["fate"] == "fulfilled" for use in fulfilled)

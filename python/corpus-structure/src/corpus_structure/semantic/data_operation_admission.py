@@ -2,15 +2,14 @@
 
 from __future__ import annotations
 
-from typing import cast
-from corpus_structure.semantic._data_operation_wire import (
-    WireInspectDataExecutionRequest,
-)
-
 import json
 from dataclasses import dataclass
 from hashlib import sha256
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
+
+from corpus_structure.semantic._data_operation_wire import (
+    WireInspectDataExecutionRequest,
+)
 
 from .data_operation_model import MODEL_VERSION, read_effective_data_operations
 from .data_operation_ports import PythonPortIdentity
@@ -190,11 +189,16 @@ def acquire_python_execution(
         ) != [tuple(item) for item in manifest["sources"]]:
             raise SemanticRefusal("callable schema differs from captured release inputs")
     identity = python_port_identity(model, sources, operation, schema=schema, prepared=prepared)
-    retained = DataOperationStorage(connection).inspect_data_execution(cast(WireInspectDataExecutionRequest, {
-            "release_id": prepared.release_id,
-            "operation_id": operation,
-            "runtime_id": runtime.runtime_id,
-        }))
+    retained = DataOperationStorage(connection).inspect_data_execution(
+        cast(
+            WireInspectDataExecutionRequest,
+            {
+                "release_id": prepared.release_id,
+                "operation_id": operation,
+                "runtime_id": runtime.runtime_id,
+            },
+        )
+    )
     if (
         retained["recipe"] != identity.recipe
         or retained["implementation_revision"] != identity.implementation
@@ -230,7 +234,11 @@ def _native_role_contracts(values) -> dict[str, str]:
     """Consume the stable role coordinates from a schema-owned open semantic body."""
     result = {}
     for role in values:
-        if not isinstance(role, dict) or not isinstance(role.get("name"), str) or not isinstance(role.get("kind_contract"), str):
+        if (
+            not isinstance(role, dict)
+            or not isinstance(role.get("name"), str)
+            or not isinstance(role.get("kind_contract"), str)
+        ):
             raise SemanticRefusal("native admitted role lacks its nominal contract")
         name, contract = role["name"], role["kind_contract"]
         if name in result:
@@ -255,10 +263,15 @@ def acquire_publication_port(connection: Connection, prepared: PreparedRelease):
         identity.owner: identity.key for identity in model.identities if identity.domain == "kind"
     }
     require_data_operation_native(connection, prepared)
-    admitted = DataOperationStorage(connection).inspect_data_execution(cast(WireInspectDataExecutionRequest, {
-            "release_id": prepared.release_id,
-            "operation_id": operation.semantic_id,
-        }))
+    admitted = DataOperationStorage(connection).inspect_data_execution(
+        cast(
+            WireInspectDataExecutionRequest,
+            {
+                "release_id": prepared.release_id,
+                "operation_id": operation.semantic_id,
+            },
+        )
+    )
     identities = {(value.owner, value.domain): value.key for value in model.identities}
     if (
         admitted["profile"] != "command"

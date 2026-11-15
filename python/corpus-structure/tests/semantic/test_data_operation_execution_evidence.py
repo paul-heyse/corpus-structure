@@ -1,19 +1,18 @@
 """Original transport receipts remain typed, closed and outside product meaning."""
 
-from typing import cast as typing_cast
-from corpus_structure.semantic._data_operation_wire import (
-    WireRetainDataCompletionIntentRequest,
-)
-
 import copy
 import json
 from dataclasses import asdict
 from typing import Any
+from typing import cast as typing_cast
 
 import pytest
 from jsonschema import ValidationError
 
 from corpus_structure.methods.native_host import NativeExecutionReceipt
+from corpus_structure.semantic._data_operation_wire import (
+    WireRetainDataCompletionIntentRequest,
+)
 from corpus_structure.semantic.data_operation_execution_evidence import (
     SOURCE,
     bind_execution_evidence,
@@ -282,11 +281,16 @@ def test_native_retention_refuses_foreign_provider_logical_fence(ddo_kernel, for
         pytest.raises(DBAPIError, match="provider logical receipt differs"),
         connection.begin_nested(),
     ):
-        DataOperationStorage(connection).retain_data_completion_intent(typing_cast(WireRetainDataCompletionIntentRequest, {
-                **fence,
-                "runtime_id": ddo_kernel["runtime"],
-                "completion": completion,
-            }))
+        DataOperationStorage(connection).retain_data_completion_intent(
+            typing_cast(
+                WireRetainDataCompletionIntentRequest,
+                {
+                    **fence,
+                    "runtime_id": ddo_kernel["runtime"],
+                    "completion": completion,
+                },
+            )
+        )
     with ddo_kernel["engine"].connect() as connection:
         assert (
             connection.scalar(

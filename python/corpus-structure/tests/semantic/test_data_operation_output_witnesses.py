@@ -198,7 +198,12 @@ def test_missing_body_field_is_not_an_implicit_null_witness():
 
 
 def test_numeric_boolean_value_witnesses_are_typed_without_becoming_subject_identifiers():
-    bundle = SourceBundle("model", (SourceArtifact("model", b"""id: urn:scalar-witness:model
+    bundle = SourceBundle(
+        "model",
+        (
+            SourceArtifact(
+                "model",
+                b"""id: urn:scalar-witness:model
 name: model
 prefixes:
   w: 'urn:scalar-witness:'
@@ -212,12 +217,28 @@ classes:
     attributes:
       count: {range: integer, required: true}
       flag: {range: boolean, required: true}
-"""),))
+""",
+            ),
+        ),
+    )
     value = contract()
     for role in value["roles"]:
         role["kind"] = "Record"
-    value["output_witnesses"] = [{"output_role": "result", "records": "", "input_role": "source",
-        "comparisons": [{"output_field": field, "input": {"role": "source", "projection": "Record", "field": field}, "encoding": "value"} for field in ("count", "flag")]}]
+    value["output_witnesses"] = [
+        {
+            "output_role": "result",
+            "records": "",
+            "input_role": "source",
+            "comparisons": [
+                {
+                    "output_field": field,
+                    "input": {"role": "source", "projection": "Record", "field": field},
+                    "encoding": "value",
+                }
+                for field in ("count", "flag")
+            ],
+        }
+    ]
     operation = compile_data_operations(bundle, declarations=declarations(value)).operations[0]
     rows = {"source": [{"body": {"count": 3, "flag": False}}]}
     validate_output_witnesses(operation, {"result": [{"count": 3, "flag": False}]}, rows)
@@ -229,7 +250,12 @@ classes:
 
 
 def test_nested_value_witness_preserves_optional_absence_and_subjects_stay_scalar():
-    bundle = SourceBundle("model", (SourceArtifact("model", b"""id: urn:record-witness:model
+    bundle = SourceBundle(
+        "model",
+        (
+            SourceArtifact(
+                "model",
+                b"""id: urn:record-witness:model
 name: model
 prefixes:
   w: 'urn:record-witness:'
@@ -247,17 +273,34 @@ classes:
   Record:
     attributes:
       selection: {range: Selection, inlined: true, required: true}
-"""),))
+""",
+            ),
+        ),
+    )
     value = contract()
     for role in value["roles"]:
         role["kind"] = "Record"
-    value["output_witnesses"] = [{"output_role": "result", "records": "", "input_role": "source",
-        "comparisons": [{"output_field": "selection", "input": {"role": "source", "projection": "Record", "field": "selection"}, "encoding": "value"}]}]
+    value["output_witnesses"] = [
+        {
+            "output_role": "result",
+            "records": "",
+            "input_role": "source",
+            "comparisons": [
+                {
+                    "output_field": "selection",
+                    "input": {"role": "source", "projection": "Record", "field": "selection"},
+                    "encoding": "value",
+                }
+            ],
+        }
+    ]
     operation = compile_data_operations(bundle, declarations=declarations(value)).operations[0]
     selected = {"source": [{"body": {"selection": {"page": 1}}}]}
     validate_output_witnesses(operation, {"result": [{"selection": {"page": 1}}]}, selected)
     with pytest.raises(ValueError, match="no complete selected input"):
-        validate_output_witnesses(operation, {"result": [{"selection": {"page": 1, "pointer": None}}]}, selected)
+        validate_output_witnesses(
+            operation, {"result": [{"selection": {"page": 1, "pointer": None}}]}, selected
+        )
     value["roles"][0]["subject_field"] = "selection"
     with pytest.raises(PreparationError, match="scalar subject identifier"):
         compile_data_operations(bundle, declarations=declarations(value))

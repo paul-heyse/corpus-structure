@@ -1,23 +1,30 @@
 """Exact same-session selected result export with disk-backed witness deduplication."""
+
 from __future__ import annotations
 
+import sqlite3
 from hashlib import file_digest, sha256
 from pathlib import Path
 from tempfile import TemporaryDirectory
-import sqlite3
 
 from corpus_structure.semantic.data_operation_json import json_bytes, wire_json_loads
-from corpus_structure.semantic.demand_results import stream_demand_result, stream_selected_support
 from corpus_structure.semantic.data_operation_read_index import SelectedRecordIndex
+from corpus_structure.semantic.demand_results import stream_demand_result, stream_selected_support
 
 
 def _pack(row):
     binary = [key for key, value in row.items() if isinstance(value, (bytes, memoryview))]
-    return dict(binary=binary, values={key: bytes(value).hex() if key in binary else value for key, value in row.items()})
+    return dict(
+        binary=binary,
+        values={key: bytes(value).hex() if key in binary else value for key, value in row.items()},
+    )
 
 
 def _unpack(row):
-    return {key: bytes.fromhex(value) if key in row["binary"] else value for key, value in row["values"].items()}
+    return {
+        key: bytes.fromhex(value) if key in row["binary"] else value
+        for key, value in row["values"].items()
+    }
 
 
 def _checksum(path):
@@ -27,18 +34,56 @@ def _checksum(path):
 
 def _capture_release(connection, release_id):
     from sqlalchemy import select
+
     from corpus_structure.semantic.archive_reader import open_release_parts
     from corpus_structure.semantic.metadata import table
-    release, inputs, artifacts = (table(name) for name in ("sem.release", "sem.input", "sem.artifact"))
-    row = dict(connection.execute(select(release.c.release_id, release.c.profile, release.c.content_digest, release.c.prepared_bytes, release.c.manifest_bytes).where(release.c.release_id == release_id)).mappings().one())
-    input_rows = [dict(item) for item in connection.execute(select(inputs).where(inputs.c.release_id == release_id)).mappings()]
-    artifact_rows = [dict(item) for item in connection.execute(select(artifacts).where(artifacts.c.release_id == release_id)).mappings()]
+
+    release, inputs, artifacts = (
+        table(name) for name in ("sem.release", "sem.input", "sem.artifact")
+    )
+    row = dict(
+        connection.execute(
+            select(
+                release.c.release_id,
+                release.c.profile,
+                release.c.content_digest,
+                release.c.prepared_bytes,
+                release.c.manifest_bytes,
+            ).where(release.c.release_id == release_id)
+        )
+        .mappings()
+        .one()
+    )
+    input_rows = [
+        dict(item)
+        for item in connection.execute(
+            select(inputs).where(inputs.c.release_id == release_id)
+        ).mappings()
+    ]
+    artifact_rows = [
+        dict(item)
+        for item in connection.execute(
+            select(artifacts).where(artifacts.c.release_id == release_id)
+        ).mappings()
+    ]
     prepared = open_release_parts(release_id, row, input_rows, artifact_rows)
-    return prepared, dict(row=_pack(row), inputs=[_pack(item) for item in input_rows], artifacts=[_pack(item) for item in artifact_rows])
+    return prepared, dict(
+        row=_pack(row),
+        inputs=[_pack(item) for item in input_rows],
+        artifacts=[_pack(item) for item in artifact_rows],
+    )
 
 
-def export_demand_result(connection, demand_id, *, project_id, destination: Path,
-                         format="parquet", page_rows=100, page_bytes=8388608):
+def export_demand_result(
+    connection,
+    demand_id,
+    *,
+    project_id,
+    destination: Path,
+    format="parquet",
+    page_rows=100,
+    page_bytes=8388608,
+):
     """Acquire and stream every page before releasing native read/trust ownership.
 
     Parquet conversion consumes the same-session native rows already read under
@@ -47,6 +92,7 @@ def export_demand_result(connection, demand_id, *, project_id, destination: Path
     from corpus_structure.semantic.data_operation_storage import native_protocol_sources
     from corpus_structure.semantic.data_operation_wire import wire_contracts
     from corpus_structure.semantic.runtime_binding_store import runtime_binding_for_release
+
     if format not in {"jsonl", "parquet"}:
         raise ValueError("selected export encoding must be jsonl or parquet")
     if destination.exists():
@@ -56,16 +102,24 @@ def export_demand_result(connection, demand_id, *, project_id, destination: Path
         root = Path(scratch) / "export"
         root.mkdir()
         spool = sqlite3.connect(Path(scratch) / "closure.sqlite")
-        spool.execute("CREATE TABLE records (key TEXT PRIMARY KEY, relation TEXT NOT NULL, payload BLOB NOT NULL)")
+        spool.execute(
+            "CREATE TABLE records (key TEXT PRIMARY KEY, relation TEXT NOT NULL, payload BLOB NOT NULL)"
+        )
         files, pages, releases, runtimes = {}, [], set(), set()
         source_digests = set()
         cut = None
+
         def write(name, content):
             path = root / name
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_bytes(content)
             files[name] = dict(sha256=sha256(content).hexdigest(), bytes=len(content))
-        for ordinal, page in enumerate(stream_demand_result(connection, demand_id, project_id=project_id, limit=page_rows, max_bytes=page_bytes)):
+
+        for ordinal, page in enumerate(
+            stream_demand_result(
+                connection, demand_id, project_id=project_id, limit=page_rows, max_bytes=page_bytes
+            )
+        ):
             cut = page.cut
             release = cut.record["release_id"]
             releases.add(release)
@@ -75,15 +129,23 @@ def export_demand_result(connection, demand_id, *, project_id, destination: Path
             pages.append(name)
             for record in stream_selected_support(connection, page):
                 payload = json_bytes(record)
-                previous = spool.execute("SELECT payload FROM records WHERE key=?", (record["key"],)).fetchone()
+                previous = spool.execute(
+                    "SELECT payload FROM records WHERE key=?", (record["key"],)
+                ).fetchone()
                 if previous is not None and previous[0] != payload:
                     raise ValueError("same selected witness key acquired different exact bytes")
-                spool.execute("INSERT OR IGNORE INTO records VALUES (?,?,?)", (record["key"], record["relation"], payload))
+                spool.execute(
+                    "INSERT OR IGNORE INTO records VALUES (?,?,?)",
+                    (record["key"], record["relation"], payload),
+                )
                 if record["relation"] == "ops.original_source_admission":
                     reference = record["record"]["reference"]
                     if reference.get("kind") == "original-document":
                         source_digests.add(reference["content_hash"])
-                if record["relation"] == "kb.data_product" and record["record"]["artifact_digest"] is not None:
+                if (
+                    record["relation"] == "kb.data_product"
+                    and record["record"]["artifact_digest"] is not None
+                ):
                     source_digests.add(record["record"]["artifact_digest"])
                 if record["relation"] == "ops.data_derivation":
                     producing = record["record"]
@@ -93,18 +155,30 @@ def export_demand_result(connection, demand_id, *, project_id, destination: Path
             raise ValueError("native result did not produce its empty frontier page")
         source_files = {}
         from sqlalchemy import func, select
+
         from corpus_structure.semantic.metadata import table
+
         artifacts = table("kb.source_artifact")
         for digest in sorted(source_digests):
             name = "source-artifacts/" + digest + ".bin"
             path = root / name
             path.parent.mkdir(exist_ok=True)
-            size = connection.scalar(select(func.octet_length(artifacts.c.content)).where(artifacts.c.artifact_digest == digest))
+            size = connection.scalar(
+                select(func.octet_length(artifacts.c.content)).where(
+                    artifacts.c.artifact_digest == digest
+                )
+            )
             if type(size) is not int:
                 raise ValueError("selected original source artifact is unavailable")
             with path.open("wb") as stream:
                 for start in range(0, size, 1024 * 1024):
-                    chunk = connection.scalar(select(func.substring(artifacts.c.content, start + 1, min(size - start, 1024 * 1024))).where(artifacts.c.artifact_digest == digest))
+                    chunk = connection.scalar(
+                        select(
+                            func.substring(
+                                artifacts.c.content, start + 1, min(size - start, 1024 * 1024)
+                            )
+                        ).where(artifacts.c.artifact_digest == digest)
+                    )
                     if not isinstance(chunk, bytes):
                         raise ValueError("selected source artifact chunk is unavailable")
                     stream.write(chunk)
@@ -123,51 +197,108 @@ def export_demand_result(connection, demand_id, *, project_id, destination: Path
         for ordinal, (release, runtime) in enumerate(sorted(runtimes)):
             acquired = runtime_binding_for_release(connection, prepared[release], runtime)
             name = f"runtimes/{ordinal:08}.json"
-            write(name, json_bytes(dict(release_id=release, runtime_id=runtime, manifest=acquired.manifest.hex(), archive=acquired.archive.hex())))
+            write(
+                name,
+                json_bytes(
+                    dict(
+                        release_id=release,
+                        runtime_id=runtime,
+                        manifest=acquired.manifest.hex(),
+                        archive=acquired.archive.hex(),
+                    )
+                ),
+            )
             runtime_files.append(name)
         # The read protocol belongs to the acquiring reader, independently of each
         # historical producer's release and exact archived body/kind contracts.
-        write("reader-contract.json", json_bytes(wire_contracts(native_protocol_sources())["read_demand_result"]["output"]))
+        write(
+            "reader-contract.json",
+            json_bytes(wire_contracts(native_protocol_sources())["read_demand_result"]["output"]),
+        )
         closure_path = root / "closure.jsonl"
         with closure_path.open("wb") as output:
             for (payload,) in spool.execute("SELECT payload FROM records ORDER BY key"):
                 output.write(payload + b"\n")
-        files[closure_path.name] = dict(sha256=_checksum(closure_path), bytes=closure_path.stat().st_size)
+        files[closure_path.name] = dict(
+            sha256=_checksum(closure_path), bytes=closure_path.stat().st_size
+        )
         relations = {}
         if format == "parquet":
-            import pyarrow as pa
-            import pyarrow.parquet as pq
-            from corpus_structure.semantic.arrow_types import sql_arrow_type
-            from corpus_structure.semantic.metadata import table
-            from sqlalchemy.dialects.postgresql import JSONB
-            from sqlalchemy import DateTime
             from datetime import datetime
             from itertools import batched
-            for (relation,) in spool.execute("SELECT DISTINCT relation FROM records ORDER BY relation"):
+
+            import pyarrow as pa
+            import pyarrow.parquet as pq
+            from sqlalchemy import DateTime
+            from sqlalchemy.dialects.postgresql import JSONB
+
+            from corpus_structure.semantic.arrow_types import sql_arrow_type
+            from corpus_structure.semantic.metadata import table
+
+            for (relation,) in spool.execute(
+                "SELECT DISTINCT relation FROM records ORDER BY relation"
+            ):
                 native = table(relation)
-                first = spool.execute("SELECT payload FROM records WHERE relation=? ORDER BY key LIMIT 1", (relation,)).fetchone()
+                first = spool.execute(
+                    "SELECT payload FROM records WHERE relation=? ORDER BY key LIMIT 1", (relation,)
+                ).fetchone()
                 names = set(wire_json_loads(first[0])["record"])
                 columns = tuple(column for column in native.c if column.name in names)
-                schema = pa.schema([pa.field(column.name, sql_arrow_type(column.type), nullable=column.nullable) for column in columns], metadata={b"cs.cut": cut.identity.encode(), b"cs.relation": relation.encode(), b"cs.json": b"exact canonical JSON; tagged semantic bodies retain their exact value kinds"})
+                schema = pa.schema(
+                    [
+                        pa.field(column.name, sql_arrow_type(column.type), nullable=column.nullable)
+                        for column in columns
+                    ],
+                    metadata={
+                        b"cs.cut": cut.identity.encode(),
+                        b"cs.relation": relation.encode(),
+                        b"cs.json": b"exact canonical JSON; tagged semantic bodies retain their exact value kinds",
+                    },
+                )
                 name = relation.replace(".", "_") + ".parquet"
                 count = 0
                 with pq.ParquetWriter(root / name, schema) as writer:
-                    rows = spool.execute("SELECT payload FROM records WHERE relation=? ORDER BY key", (relation,))
-                    for batch in batched(rows, 64):
+                    rows = spool.execute(
+                        "SELECT payload FROM records WHERE relation=? ORDER BY key", (relation,)
+                    )
+                    for batch in batched(rows, 64, strict=False):
                         values = []
                         for (payload,) in batch:
                             record = wire_json_loads(payload)["record"]
-                            values.append({column.name: json_bytes(record[column.name]).decode() if isinstance(column.type, JSONB) and record[column.name] is not None else datetime.fromisoformat(record[column.name]) if isinstance(column.type, DateTime) and record[column.name] is not None else record[column.name] for column in columns})
+                            values.append(
+                                {
+                                    column.name: json_bytes(record[column.name]).decode()
+                                    if isinstance(column.type, JSONB)
+                                    and record[column.name] is not None
+                                    else datetime.fromisoformat(record[column.name])
+                                    if isinstance(column.type, DateTime)
+                                    and record[column.name] is not None
+                                    else record[column.name]
+                                    for column in columns
+                                }
+                            )
                         writer.write_batch(pa.RecordBatch.from_pylist(values, schema=schema))
                         count += len(values)
-                files[name] = dict(sha256=_checksum(root / name), bytes=(root / name).stat().st_size)
+                files[name] = dict(
+                    sha256=_checksum(root / name), bytes=(root / name).stat().st_size
+                )
                 relations[relation] = dict(file=name, rows=count)
         spool.close()
-        manifest = dict(format="demand-result-export-v1", encoding=format, cut_id=cut.identity,
-                        cut=cut.record, pages=pages, closure="closure.jsonl",
-                        reader_contract="reader-contract.json", releases=release_files,
-                        runtimes=runtime_files, source_artifacts=source_files, relations=relations, files=files,
-                        trust="selected historical acquisition; current trust requires native reassessment")
+        manifest = dict(
+            format="demand-result-export-v1",
+            encoding=format,
+            cut_id=cut.identity,
+            cut=cut.record,
+            pages=pages,
+            closure="closure.jsonl",
+            reader_contract="reader-contract.json",
+            releases=release_files,
+            runtimes=runtime_files,
+            source_artifacts=source_files,
+            relations=relations,
+            files=files,
+            trust="selected historical acquisition; current trust requires native reassessment",
+        )
         manifest_bytes = json_bytes(manifest)
         (root / "manifest.json").write_bytes(manifest_bytes)
         root.rename(destination)
@@ -177,8 +308,9 @@ def export_demand_result(connection, demand_id, *, project_id, destination: Path
 def verify_demand_export(root: Path, *, manifest_digest: str):
     """Verify a detached export relative to its explicitly trusted manifest digest."""
     from corpus_structure.semantic.archive_reader import open_release_parts
-    from corpus_structure.semantic.runtime_bindings import RuntimeBinding, validate_runtime_binding
     from corpus_structure.semantic.demand_results import verify_detached_result
+    from corpus_structure.semantic.runtime_bindings import RuntimeBinding, validate_runtime_binding
+
     manifest_bytes = (root / "manifest.json").read_bytes()
     if sha256(manifest_bytes).hexdigest() != manifest_digest:
         raise ValueError("export manifest differs from the explicit trusted digest")
@@ -187,16 +319,33 @@ def verify_demand_export(root: Path, *, manifest_digest: str):
         raise ValueError("unsupported selected result export")
     for name, descriptor in manifest["files"].items():
         path = root / name
-        if not path.resolve().is_relative_to(root.resolve()) or path.stat().st_size != descriptor["bytes"] or _checksum(path) != descriptor["sha256"]:
+        if (
+            not path.resolve().is_relative_to(root.resolve())
+            or path.stat().st_size != descriptor["bytes"]
+            or _checksum(path) != descriptor["sha256"]
+        ):
             raise ValueError("detached file differs from its pinned manifest: " + name)
     prepared, kinds, definitions = {}, {}, {}
     for release_id, name in manifest["releases"].items():
         captured = wire_json_loads((root / name).read_bytes())
-        acquired = open_release_parts(release_id, _unpack(captured["row"]), [_unpack(row) for row in captured["inputs"]], [_unpack(row) for row in captured["artifacts"]])
+        acquired = open_release_parts(
+            release_id,
+            _unpack(captured["row"]),
+            [_unpack(row) for row in captured["inputs"]],
+            [_unpack(row) for row in captured["artifacts"]],
+        )
         prepared[release_id] = acquired
-        projection = wire_json_loads(next(item for item in acquired.artifacts if item.kind == "data_operation_native_definitions.json").content)
+        projection = wire_json_loads(
+            next(
+                item
+                for item in acquired.artifacts
+                if item.kind == "data_operation_native_definitions.json"
+            ).content
+        )
         for operation in projection["operations"]:
-            definitions[release_id, operation["operation_id"]] = dict(operation, release_id=release_id)
+            definitions[release_id, operation["operation_id"]] = dict(
+                operation, release_id=release_id
+            )
         for kind in projection["kinds"]:
             if kind["kind_contract"] in kinds and kinds[kind["kind_contract"]] != kind:
                 raise ValueError("captured releases disagree on nominal kind meaning")
@@ -207,7 +356,12 @@ def verify_demand_export(root: Path, *, manifest_digest: str):
             raise ValueError("detached original source bytes differ from their content identity")
     for name in manifest["runtimes"]:
         captured = wire_json_loads((root / name).read_bytes())
-        binding = RuntimeBinding(captured["release_id"], captured["runtime_id"], bytes.fromhex(captured["manifest"]), bytes.fromhex(captured["archive"]))
+        binding = RuntimeBinding(
+            captured["release_id"],
+            captured["runtime_id"],
+            bytes.fromhex(captured["manifest"]),
+            bytes.fromhex(captured["archive"]),
+        )
         validate_runtime_binding(binding, prepared[binding.release_id])
         runtime_ids.add((binding.release_id, binding.runtime_id))
     wire_schema = wire_json_loads((root / manifest["reader_contract"]).read_bytes())
@@ -218,15 +372,36 @@ def verify_demand_export(root: Path, *, manifest_digest: str):
                 for line in stream:
                     index.append(line.rstrip(b"\n"))
             for ordinal, name in enumerate(manifest["pages"]):
-                page = verify_detached_result(wire_json_loads((root / name).read_bytes()), index=index, wire_schema=wire_schema, kinds=kinds, definitions=definitions, runtimes=runtime_ids, source_artifacts=manifest["source_artifacts"], validate_closure=ordinal == 0)
+                page = verify_detached_result(
+                    wire_json_loads((root / name).read_bytes()),
+                    index=index,
+                    wire_schema=wire_schema,
+                    kinds=kinds,
+                    definitions=definitions,
+                    runtimes=runtime_ids,
+                    source_artifacts=manifest["source_artifacts"],
+                    validate_closure=ordinal == 0,
+                )
                 if page.cut.identity != manifest["cut_id"]:
                     raise ValueError("detached page belongs to another selected cut")
                 pins = page.cut.record
                 if (pins["release_id"], pins["runtime_id"]) not in runtime_ids:
                     raise ValueError("detached selected runtime archive is missing")
-                effective = next(item for item in prepared[pins["release_id"]].artifacts if item.kind == "data_operations.json")
+                effective = next(
+                    item
+                    for item in prepared[pins["release_id"]].artifacts
+                    if item.kind == "data_operations.json"
+                )
                 if pins["selection"]["model"] != effective.digest:
-                    raise ValueError("detached demand selection differs from captured effective model")
+                    raise ValueError(
+                        "detached demand selection differs from captured effective model"
+                    )
         finally:
             index.close()
-    return dict(outcome="passed", cut_id=manifest["cut_id"], pages=len(manifest["pages"]), current_trust="not_assessed", inference="not_run")
+    return dict(
+        outcome="passed",
+        cut_id=manifest["cut_id"],
+        pages=len(manifest["pages"]),
+        current_trust="not_assessed",
+        inference="not_run",
+    )

@@ -1,15 +1,14 @@
 """Behavioral controls for shared DDO preparation and wire-checked routing."""
 
-from typing import cast as typing_cast
-from corpus_structure.semantic._data_operation_wire import (
-    WireInspectDataCompletionRequest,
-)
-
 from dataclasses import replace
+from typing import cast as typing_cast
 
 import pytest
 from scenario_recipes import scenario_builder
 
+from corpus_structure.semantic._data_operation_wire import (
+    WireInspectDataCompletionRequest,
+)
 from corpus_structure.semantic.contracts import (
     IMPLEMENTATION_UNAVAILABLE,
     implementation_override,
@@ -86,7 +85,12 @@ def test_wire_checked_double_refuses_malformed_input_and_reply(payload, reply, r
 def test_wire_checked_double_refuses_unconfigured_operation():
     storage = WireCheckedStorage({})
     with pytest.raises(ValueError, match="unknown configured native"):
-        storage.inspect_data_completion(typing_cast(WireInspectDataCompletionRequest, {"intent_id": "intent:one", "demand_id": "demand:one"}))
+        storage.inspect_data_completion(
+            typing_cast(
+                WireInspectDataCompletionRequest,
+                {"intent_id": "intent:one", "demand_id": "demand:one"},
+            )
+        )
     assert storage.calls == []
 
 

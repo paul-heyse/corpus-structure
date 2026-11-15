@@ -391,4 +391,5 @@ def read_demand_contributions(connection, request):
     member addresses retain actual producing episodes and required source context.
     """
     from .demand_queries import serve_demand_query
+
     return serve_demand_query(connection, request)

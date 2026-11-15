@@ -151,8 +151,9 @@ def primary_operation_inputs(
         full_document_view_operation_sources(include_dependencies=False),
     )
     if capture_sources is not None:
-        from .pdf_views import pdf_views_operation_sources
         from .native_requests import pdf_region_operation_sources
+        from .pdf_views import pdf_views_operation_sources
+
         collections = (
             *collections,
             pdf_views_operation_sources(capture_sources),

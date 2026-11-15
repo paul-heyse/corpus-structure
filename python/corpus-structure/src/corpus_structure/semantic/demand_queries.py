@@ -1,9 +1,9 @@
 """Selected member/operation query projections over one explicit native CutSelection."""
+
 from __future__ import annotations
 
-from collections.abc import Mapping
-
 import base64
+from collections.abc import Mapping
 from hashlib import sha256
 from typing import Any, Literal
 
@@ -58,18 +58,42 @@ def serve_demand_query(connection, request: DemandQueryRequest) -> dict:
     selection = request.selection()
     digest = sha256(json_bytes(selection)).hexdigest()
     cursor = None if request.cursor is None else _decode(request.cursor)
-    if cursor is not None and (cursor.get("selection") != digest or set(cursor) != {"selection", "request", "cut", "offset"}):
+    if cursor is not None and (
+        cursor.get("selection") != digest
+        or set(cursor) != {"selection", "request", "cut", "offset"}
+    ):
         raise ValueError("cursor differs from the exact public selection")
-    scope: dict[str, Any] = {key: value for key, value in dict(operation_id=request.operation_id, subject=request.subject, original_source=request.original_source).items() if value is not None}
+    scope: dict[str, Any] = {
+        key: value
+        for key, value in dict(
+            operation_id=request.operation_id,
+            subject=request.subject,
+            original_source=request.original_source,
+        ).items()
+        if value is not None
+    }
     if request.product_id is not None:
         scope["product_ids"] = [request.product_id]
     native_request = None if cursor is None else cursor["request"]
     # One operation per native page allows a member cursor to retain a whole group
     # without silently skipping a large or zero-output operation.
-    native_view = "frontier" if request.view == "operations" else "support" if request.view in {"sources", "support"} else "products"
-    page = read_demand_result(connection, request.demand_id, project_id=request.project_id,
-                              continuation=native_request, limit=1, max_bytes=request.max_bytes,
-                              scope=scope, view=native_view)
+    native_view = (
+        "frontier"
+        if request.view == "operations"
+        else "support"
+        if request.view in {"sources", "support"}
+        else "products"
+    )
+    page = read_demand_result(
+        connection,
+        request.demand_id,
+        project_id=request.project_id,
+        continuation=native_request,
+        limit=1,
+        max_bytes=request.max_bytes,
+        scope=scope,
+        view=native_view,
+    )
     if cursor is not None and cursor["cut"] != page.cut.identity:
         raise ValueError("cursor belongs to another cut/trust assessment")
     native = page.record
@@ -77,32 +101,85 @@ def serve_demand_query(connection, request: DemandQueryRequest) -> dict:
     if type(offset) is not int or offset < 0:
         raise ValueError("invalid selected member cursor position")
     if request.view == "operations":
-        rows = tuple(dict(obligation=obligation, uses=[use for use in native["uses"] if use["obligation_id"] == obligation["obligation_id"]]) for obligation in native["obligations"])
+        rows = tuple(
+            dict(
+                obligation=obligation,
+                uses=[
+                    use
+                    for use in native["uses"]
+                    if use["obligation_id"] == obligation["obligation_id"]
+                ],
+            )
+            for obligation in native["obligations"]
+        )
     elif request.view in {"sources", "support"}:
-        rows = tuple(row for row in native["support_page"]["records"] if request.view == "support" or row["relation"] == "ops.original_source_admission")
+        rows = tuple(
+            row
+            for row in native["support_page"]["records"]
+            if request.view == "support" or row["relation"] == "ops.original_source_admission"
+        )
     elif request.view == "coverage":
-        rows = tuple(dict(product_id=row["product_id"], use_id=row["use_id"], derivation_id=row["derivation_id"], source=row["body"]["source"], coverage=coverage) for row in page.members() if row["member_id"] is None and isinstance(row["body"], dict) and "source" in row["body"] for coverage in row["body"].get("coverage", ()))
+        rows = tuple(
+            dict(
+                product_id=row["product_id"],
+                use_id=row["use_id"],
+                derivation_id=row["derivation_id"],
+                source=row["body"]["source"],
+                coverage=coverage,
+            )
+            for row in page.members()
+            if row["member_id"] is None
+            and isinstance(row["body"], dict)
+            and "source" in row["body"]
+            for coverage in row["body"].get("coverage", ())
+        )
     else:
         rows = page.members()
-    def body_field(row,name):
-        body=row.get("body",row.get("coverage"))
-        return body.get(name) if isinstance(body,Mapping) else None
-    member_filters=dict(kind_contract=request.kind_contract,member_id=request.member_id)
-    if request.view in {"members","coverage"}:
-        member_filters["product_id"]=request.product_id
-    filtered = tuple(row for row in rows if (not request.containers_only or row.get("member_id") is None) and (request.record_type is None or body_field(row,"record_type") == request.record_type) and (request.family is None or body_field(row,"family") == request.family) and all(value is None or row.get(key) == value for key,value in member_filters.items()))
+
+    def body_field(row, name):
+        body = row.get("body", row.get("coverage"))
+        return body.get(name) if isinstance(body, Mapping) else None
+
+    member_filters = dict(kind_contract=request.kind_contract, member_id=request.member_id)
+    if request.view in {"members", "coverage"}:
+        member_filters["product_id"] = request.product_id
+    filtered = tuple(
+        row
+        for row in rows
+        if (not request.containers_only or row.get("member_id") is None)
+        and (request.record_type is None or body_field(row, "record_type") == request.record_type)
+        and (request.family is None or body_field(row, "family") == request.family)
+        and all(value is None or row.get(key) == value for key, value in member_filters.items())
+    )
     if offset > len(filtered):
         raise ValueError("cursor is outside the pinned member population")
-    uses = [{**use, "products": [{key: value for key, value in product.items() if key != "body"} for product in use["products"]]} for use in native["uses"]]
+    uses = [
+        {
+            **use,
+            "products": [
+                {key: value for key, value in product.items() if key != "body"}
+                for product in use["products"]
+            ],
+        }
+        for use in native["uses"]
+    ]
     output = []
     position = offset
     while position < len(filtered) and len(output) < request.limit:
         row = filtered[position]
         # Body values stay tagged in the native packet; json_bytes preserves exact
         # Decimal in the public decoded view rather than widening it to float.
-        candidate = dict(version="demand-query-v1", cut_id=page.cut.identity, cut=page.cut.record,
-                         selection=selection, items=[*output, row], obligations=native["obligations"],
-                         uses=uses, populations=native["populations"], continuation=None)
+        candidate = dict(
+            version="demand-query-v1",
+            cut_id=page.cut.identity,
+            cut=page.cut.record,
+            selection=selection,
+            items=[*output, row],
+            obligations=native["obligations"],
+            uses=uses,
+            populations=native["populations"],
+            continuation=None,
+        )
         if len(json_bytes(candidate)) > request.max_bytes - min(4096, request.max_bytes // 4):
             if not output:
                 raise ValueError("one complete selected member and its envelope exceed max_bytes")
@@ -125,19 +202,41 @@ def serve_demand_query(connection, request: DemandQueryRequest) -> dict:
     if next_request is not None:
         # Immutable demand + exact acquired read pin replace repeated frozen model
         # bytes in a resource handle. Native rechecks stored scope and trust.
-        next_request = {key: value for key, value in next_request.items() if key not in {"selection", "trust_snapshot", "limit", "max_bytes"}}
+        next_request = {
+            key: value
+            for key, value in next_request.items()
+            if key not in {"selection", "trust_snapshot", "limit", "max_bytes"}
+        }
         next_request.update(view=native_view, read_id=native["read_id"], scope=scope)
-        token = _cursor(dict(selection=digest, request=next_request, cut=page.cut.identity, offset=next_offset))
-    report = dict(version="demand-query-v1", cut_id=page.cut.identity, cut=page.cut.record,
-                  selection=selection, items=output, obligations=native["obligations"],
-                  uses=uses, populations=native["populations"],
-                  knowledge="observed" if output else "unknown", continuation=token,
-                  page_complete=token is None)
+        token = _cursor(
+            dict(selection=digest, request=next_request, cut=page.cut.identity, offset=next_offset)
+        )
+    report = dict(
+        version="demand-query-v1",
+        cut_id=page.cut.identity,
+        cut=page.cut.record,
+        selection=selection,
+        items=output,
+        obligations=native["obligations"],
+        uses=uses,
+        populations=native["populations"],
+        knowledge="observed" if output else "unknown",
+        continuation=token,
+        page_complete=token is None,
+    )
     resource_request = wire_json_loads(page.request)
-    resource_request = {key: value for key, value in resource_request.items() if key not in {"selection", "trust_snapshot", "limit", "max_bytes"}}
+    resource_request = {
+        key: value
+        for key, value in resource_request.items()
+        if key not in {"selection", "trust_snapshot", "limit", "max_bytes"}
+    }
     resource_request.update(view=native_view, read_id=native["read_id"], scope=scope)
-    resource_cursor = _cursor(dict(selection=digest, request=resource_request, cut=page.cut.identity, offset=offset))
-    report["resource_handle"] = _cursor(dict(request.model_dump(mode="python"), cursor=resource_cursor))
+    resource_cursor = _cursor(
+        dict(selection=digest, request=resource_request, cut=page.cut.identity, offset=offset)
+    )
+    report["resource_handle"] = _cursor(
+        dict(request.model_dump(mode="python"), cursor=resource_cursor)
+    )
     if len(json_bytes(report)) > request.max_bytes:
         raise ValueError("complete selected result envelope exceeds max_bytes")
     return report

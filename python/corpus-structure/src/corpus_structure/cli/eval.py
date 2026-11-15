@@ -10,9 +10,6 @@ from corpus_structure.cli.golden import output, reference_session
 from corpus_structure.cli.output import JsonOpt
 
 
-
-
-
 def record_gaps(
     ctx: typer.Context,
     evaluation: Annotated[int, typer.Option()],
@@ -25,6 +22,7 @@ def record_gaps(
     with reference_session(ctx, project, json=json) as (conn, pid):
         result = inspect_gaps(read_evaluation(conn, project_id=pid, evaluation_id=evaluation))
     output(result, json)
+
 
 def compare_record_evaluations(
     ctx: typer.Context,
@@ -43,6 +41,7 @@ def compare_record_evaluations(
         )
     output(result, json)
 
+
 def register(app):
     # Original immutable grades and their explicit comparisons retain their own
     # read route. No old run/frame dispatch performs current authoring or regrading.
@@ -54,6 +53,7 @@ def register(app):
     retained.command("operation-inspect")(inspect_operation_evaluation)
     retained.command("operation-event-read")(operation_event_read)
     app.add_typer(retained, name="retained-eval")
+
 
 def compare_operation_evaluations(
     ctx: typer.Context,
@@ -72,6 +72,7 @@ def compare_operation_evaluations(
         )
     output(result, json)
 
+
 def export_operation_review(
     ctx: typer.Context,
     set_id: Annotated[int, typer.Option()],
@@ -84,9 +85,6 @@ def export_operation_review(
     with reference_session(ctx, project, json=json) as (conn, pid):
         result = review_export(conn, project_id=pid, set_id=set_id)
     output(result, json)
-
-
-
 
 
 def operation_event_read(
@@ -115,6 +113,7 @@ def operation_event_read(
     ):
         result = read_native_fit(conn, project_id=project, fit_id=fit, protected=diagnostics)
     output(result, json)
+
 
 def inspect_operation_evaluation(
     ctx: typer.Context,

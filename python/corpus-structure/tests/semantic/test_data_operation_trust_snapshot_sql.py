@@ -1,17 +1,16 @@
 """Epoch-zero materialization preserves pins; positive revocation remains fenced."""
 
-from typing import cast as typing_cast
-from corpus_structure.semantic._data_operation_wire import (
-    WireRevokeDataSupportRequest,
-)
-
 import json
 from importlib.resources import files
+from typing import cast as typing_cast
 
 import pytest
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
+from corpus_structure.semantic._data_operation_wire import (
+    WireRevokeDataSupportRequest,
+)
 from semantic.data_operation_kernel_support import STORAGE
 
 
@@ -195,13 +194,18 @@ def test_native_multi_root_attachment_keeps_one_read_when_zero_epoch_rows_materi
     # Concrete support epochs remain in authentic publication attribution.
     assert list(receipt["trust_snapshot"].values()) == [0]
     with ddo_kernel["engine"].begin() as connection:
-        DataOperationStorage(connection).revoke_data_support(typing_cast(WireRevokeDataSupportRequest, {
-                "project_id": "ddo-test",
-                "original_source": "source:one",
-                "selector_kind": "derivation",
-                "selector": receipt["derivation_id"],
-                "reason": "positive epoch",
-            }))
+        DataOperationStorage(connection).revoke_data_support(
+            typing_cast(
+                WireRevokeDataSupportRequest,
+                {
+                    "project_id": "ddo-test",
+                    "original_source": "source:one",
+                    "selector_kind": "derivation",
+                    "selector": receipt["derivation_id"],
+                    "reason": "positive epoch",
+                },
+            )
+        )
     with (
         ddo_kernel["engine"].begin() as connection,
         pytest.raises(DBAPIError, match="pins or current trust differ"),

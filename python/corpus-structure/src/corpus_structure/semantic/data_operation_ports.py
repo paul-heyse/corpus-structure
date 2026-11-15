@@ -7,11 +7,6 @@ native publication authority; effects require a separately admitted implementati
 
 from __future__ import annotations
 
-from typing import cast
-from corpus_structure.semantic._data_operation_wire import (
-    WirePublishDataDerivationRequest,
-)
-
 import ast
 import builtins
 import copy
@@ -27,12 +22,16 @@ from dataclasses import dataclass
 from hashlib import sha256
 from pathlib import Path
 from types import CodeType, MappingProxyType, ModuleType
-from typing import TYPE_CHECKING, Any, ClassVar, Literal, Self, get_args, get_origin
+from typing import TYPE_CHECKING, Any, ClassVar, Literal, Self, cast, get_args, get_origin
+
+from corpus_structure.semantic._data_operation_wire import (
+    WirePublishDataDerivationRequest,
+)
 
 if TYPE_CHECKING:
-    from .data_operation_storage import DataOperationStorage
     from .data_operation_bindings import BindingResult
     from .data_operation_cpu import PythonCPUDescriptor
+    from .data_operation_storage import DataOperationStorage
     from .types import PreparedRelease
 
 from pydantic import BaseModel, ConfigDict, TypeAdapter, model_validator
@@ -1935,7 +1934,9 @@ class ResolvedPublicationPort:
     def invoke_json(self, value: RoleValue) -> NativeCommandCompletion:
         if value.role != "request" or value.kind_contract != self.request_kind:
             raise PortRefusal("publication command requires its captured nominal request")
-        result = self.storage.publish_data_derivation(cast(WirePublishDataDerivationRequest, value.value()))
+        result = self.storage.publish_data_derivation(
+            cast(WirePublishDataDerivationRequest, value.value())
+        )
         if (
             type(result.get("receipt_id")) is not str
             or not result["receipt_id"]

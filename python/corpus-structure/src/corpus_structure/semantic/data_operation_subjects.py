@@ -24,7 +24,12 @@ def _field_range(kinds, owner: str, field: str):
         facts = json.loads(prop.facts)
         target = kinds.get(facts.get("range"))
         if index < len(path) - 1:
-            if facts.get("multivalued") or target is None or target.category != "class" or not facts.get("inlined"):
+            if (
+                facts.get("multivalued")
+                or target is None
+                or target.category != "class"
+                or not facts.get("inlined")
+            ):
                 raise ValueError("field projection traverses only scalar inline nominal records")
             owner = target.semantic_id
         else:
@@ -44,8 +49,13 @@ def subject_field_kind(kinds, owner: str, field: str):
     facts, target = _field_range(kinds, owner, field)
     target_facts = json.loads(target.facts)
     primitive = target_facts.get("primitive", target_facts.get("effective_primitive"))
-    if facts.get("multivalued") or (target.category == "class" and facts.get("inlined")) or (
-        primitive not in {"str", "string", "uri", "uriorcurie"} and target.category not in {"class", "enum"}
+    if (
+        facts.get("multivalued")
+        or (target.category == "class" and facts.get("inlined"))
+        or (
+            primitive not in {"str", "string", "uri", "uriorcurie"}
+            and target.category not in {"class", "enum"}
+        )
     ):
         raise ValueError("subject association requires a scalar subject identifier")
     return target

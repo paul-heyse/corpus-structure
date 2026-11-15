@@ -21,6 +21,7 @@ from __future__ import annotations
 import json
 import logging
 from collections.abc import Callable
+from contextlib import suppress
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from enum import StrEnum
@@ -54,10 +55,8 @@ class PooledConnection(psycopg.Connection[Any]):
     def add_notice_handler(self, callback: Callable[[psycopg.errors.Diagnostic], None]) -> None:
         # Public Psycopg APIs keep registration idempotent without suppressing dialect
         # initialization (adapters, isolation state and extension setup still run).
-        try:
+        with suppress(ValueError):
             self.remove_notice_handler(callback)
-        except ValueError:
-            pass
         super().add_notice_handler(callback)
 
 
@@ -170,7 +169,9 @@ def open_store(
         raise
     engine = create_engine("postgresql+psycopg://", creator=pool.getconn, poolclass=NullPool)
 
-    def discard_invalidated(conn: PooledConnection, record: Any, error: BaseException | None) -> None:
+    def discard_invalidated(
+        conn: PooledConnection, record: Any, error: BaseException | None
+    ) -> None:
         # SQLAlchemy invalidation means physical retirement. Normal close() returns
         # the borrowed session because close_returns=True, so explicitly finish the
         # public libpq handle and return the dead session for pool replacement.

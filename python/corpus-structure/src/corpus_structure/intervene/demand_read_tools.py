@@ -1,4 +1,5 @@
 """Actual current MCP tools/resources over the shared selected result owner."""
+
 from __future__ import annotations
 
 from contextlib import contextmanager
@@ -8,13 +9,14 @@ from fastmcp import Context
 from pydantic import BaseModel
 
 from corpus_structure.semantic.data_operation_json import json_bytes
-from corpus_structure.serve.demand_journey import DemandQueryRequest, _decode, serve_demand_query
-
 from corpus_structure.serve.characterization import (
-    DemandCharacterizationRequest, DemandDefinitionRequest,
-    inspect_demand_characterization, inspect_demand_definition,
+    DemandCharacterizationRequest,
+    DemandDefinitionRequest,
+    inspect_demand_characterization,
+    inspect_demand_definition,
 )
 from corpus_structure.serve.demand_context import DemandContextRequest, inspect_demand_context
+from corpus_structure.serve.demand_journey import DemandQueryRequest, _decode, serve_demand_query
 
 
 class ExactSelectedResult(BaseModel):
@@ -35,7 +37,13 @@ def register_demand_read_tools(server, *, settings, read_engine=None, project=No
                 yield connection
         else:
             from corpus_structure.semantic.runtime import open_runtime_engine
-            with open_runtime_engine(settings, "ci-mcp-selected-read", purpose="read", max_size=1) as engine, engine.begin() as connection:
+
+            with (
+                open_runtime_engine(
+                    settings, "ci-mcp-selected-read", purpose="read", max_size=1
+                ) as engine,
+                engine.begin() as connection,
+            ):
                 yield connection
 
     def selected(request, projection=None, *, scheme="selected-result"):
@@ -46,7 +54,13 @@ def register_demand_read_tools(server, *, settings, read_engine=None, project=No
             raise ValueError("selected result belongs to another server demand")
         with reader() as connection:
             report = projection(connection, request)
-        return ExactSelectedResult(cut_id=report["cut_id"], exact_json=json_bytes(report).decode(), resource="corpus://" + scheme + "/" + report["resource_handle"] if report.get("resource_handle") is not None else None)
+        return ExactSelectedResult(
+            cut_id=report["cut_id"],
+            exact_json=json_bytes(report).decode(),
+            resource="corpus://" + scheme + "/" + report["resource_handle"]
+            if report.get("resource_handle") is not None
+            else None,
+        )
 
     @server.tool(annotations={"readOnlyHint": True})
     @tool_refusals(ValueError, KeyError)
@@ -69,12 +83,13 @@ def register_demand_read_tools(server, *, settings, read_engine=None, project=No
             raise ValueError("complete selected resource exceeds max_bytes")
         return content
 
-
     @server.tool(annotations={"readOnlyHint": True})
     @tool_refusals(ValueError, KeyError)
     def inspect_characterization(ctx: Context, request: DemandCharacterizationRequest):
         """Inspect selected nominal annotations/terms/choices and explicit source coverage."""
-        return bounded_mcp_result(selected(request, inspect_demand_characterization), request.max_bytes)
+        return bounded_mcp_result(
+            selected(request, inspect_demand_characterization), request.max_bytes
+        )
 
     @server.tool(annotations={"readOnlyHint": True})
     @tool_refusals(ValueError, KeyError)
@@ -86,12 +101,16 @@ def register_demand_read_tools(server, *, settings, read_engine=None, project=No
     @tool_refusals(ValueError, KeyError)
     def inspect_query_context(ctx: Context, request: DemandContextRequest):
         """Project one exact frame/referent/discourse recipe; no recognition or inference."""
-        return bounded_mcp_result(selected(request, inspect_demand_context, scheme="selected-context"), request.max_bytes)
+        return bounded_mcp_result(
+            selected(request, inspect_demand_context, scheme="selected-context"), request.max_bytes
+        )
 
     @server.resource("corpus://selected-context/{handle}")
     def selected_context(handle: str) -> str:
         request = DemandContextRequest.model_validate(_decode(handle))
-        content = selected(request, inspect_demand_context, scheme="selected-context").model_dump_json()
+        content = selected(
+            request, inspect_demand_context, scheme="selected-context"
+        ).model_dump_json()
         if len(content.encode()) > request.max_bytes:
             raise ValueError("complete selected query context resource exceeds max_bytes")
         return content

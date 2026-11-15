@@ -22,7 +22,7 @@ from corpus_structure.semantic.types import PreparedRelease
 from native_scenario_seeds import ScenarioSeed, SeedClone
 from semantic.historical_agent_support import HistoricalAgentPublication
 
-from .agent_scenarios import build_resubmission_case, DeclaredAgentStage
+from .agent_scenarios import DeclaredAgentStage, build_resubmission_case
 
 
 def build_completed_serving_case(
@@ -306,7 +306,9 @@ class DeclaredServingStage:
 
         expected = json.loads(self.publication)["publication"]["derivation_id"]
         with admin.begin() as connection:
-            selected = read_demand_result(connection, self.demand_id, project_id=self.agent.project_id)
+            selected = read_demand_result(
+                connection, self.demand_id, project_id=self.agent.project_id
+            )
         if not any(member["derivation_id"] == expected for member in selected.members()):
             raise ValueError("serving seed lacks its actual selected producing episode")
 
@@ -316,12 +318,24 @@ def build_declared_serving_recipe(recipe, admin, writer, directory, *, purpose_e
     from corpus_structure.semantic.identity import canonical_bytes
     from semantic.agent_scenarios import DeclaredAgentRecipe, build_declared_agent_recipe
 
-    agent = build_declared_agent_recipe(DeclaredAgentRecipe(recipe.source_values), admin, writer, directory, purpose_engine=purpose_engine)
+    agent = build_declared_agent_recipe(
+        DeclaredAgentRecipe(recipe.source_values),
+        admin,
+        writer,
+        directory,
+        purpose_engine=purpose_engine,
+    )
     session = ExternalDataSession(writer, agent.project_id, demand_id=agent.demand_id)
     claim = session.claim(agent.packet_id)
     if claim["state"] != "claimed":
         raise ValueError("declared serving fixture failed to acquire its packet")
-    publication = session.submit(agent.packet_id, claim, {"outcome":"success", "outputs":[{"role":"result", "body":recipe.result}]}, actor_assertion="controlled-external", model_assertion=None)
+    publication = session.submit(
+        agent.packet_id,
+        claim,
+        {"outcome": "success", "outputs": [{"role": "result", "body": recipe.result}]},
+        actor_assertion="controlled-external",
+        model_assertion=None,
+    )
     return DeclaredServingStage(agent, canonical_bytes(publication))
 
 

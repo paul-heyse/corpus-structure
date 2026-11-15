@@ -20,8 +20,8 @@ from corpus_structure.core.db.store import (
     DatabasePhase,
     EffectKnowledge,
     classify_error,
-    record_operation_failure,
     record_cleanup_failure,
+    record_operation_failure,
 )
 from corpus_structure.settings import DatabaseSettings
 
@@ -415,7 +415,9 @@ def maintained_claims(
             record_operation_failure(
                 error,
                 DatabaseOperationFailure(
-                    classify_error(error, phase=phase, cancellation_requested=cancellation.requested),
+                    classify_error(
+                        error, phase=phase, cancellation_requested=cancellation.requested
+                    ),
                     remediation="stop_claimed_work",
                 ),
             )

@@ -35,48 +35,116 @@ _MAX_REPLAY_BYTES = 8 * 1024 * 1024
 
 def visual_external_declaration():
     """The existing Chandra actor uses native external packet/receipt authority."""
-    from corpus_structure.ingest.pdf_chandra import CHANDRA_REPOSITORY, CHANDRA_REVISION, chandra_recognition_identity
+    from corpus_structure.ingest.pdf_chandra import (
+        CHANDRA_REPOSITORY,
+        CHANDRA_REVISION,
+        chandra_recognition_identity,
+    )
 
     from .data_operation_model import MODEL_VERSION
 
     root = Path(__file__).parents[1] / "model/semantic"
-    image_fields = tuple(yaml.safe_load((root / "data-operation-visual.yaml").read_bytes())["classes"]["DdoVisualInput"]["attributes"])
+    image_fields = tuple(
+        yaml.safe_load((root / "data-operation-visual.yaml").read_bytes())["classes"][
+            "DdoVisualInput"
+        ]["attributes"]
+    )
     operation = {
-        "id": VISUAL_RECOGNIZE, "profile": "command", "subject": "original-document",
+        "id": VISUAL_RECOGNIZE,
+        "profile": "command",
+        "subject": "original-document",
         "context": ["original-source", "exact-submitted-png"],
         "roles": [
-            {"name": "image", "kind": _NAMESPACE + "DdoVisualInput", "direction": "input",
-             "minimum": 1, "maximum": 1, "collection": "scalar", "presence": "required",
-             "support": {"provenance": "exact", "source": "same-original",
-                         "coverage": "page-or-native-region", "identity_requirements": ["episode"]}},
-            {"name": "observation", "kind": _NAMESPACE + "DdoChandraObservation", "direction": "output",
-             "minimum": 1, "maximum": 1, "collection": "scalar", "presence": "required"},
+            {
+                "name": "image",
+                "kind": _NAMESPACE + "DdoVisualInput",
+                "direction": "input",
+                "minimum": 1,
+                "maximum": 1,
+                "collection": "scalar",
+                "presence": "required",
+                "support": {
+                    "provenance": "exact",
+                    "source": "same-original",
+                    "coverage": "page-or-native-region",
+                    "identity_requirements": ["episode"],
+                },
+            },
+            {
+                "name": "observation",
+                "kind": _NAMESPACE + "DdoChandraObservation",
+                "direction": "output",
+                "minimum": 1,
+                "maximum": 1,
+                "collection": "scalar",
+                "presence": "required",
+            },
         ],
-        "dependencies": [VISUAL_INPUT], "parameters": {},
+        "dependencies": [VISUAL_INPUT],
+        "parameters": {},
         "applicability": ["actual-png-and-explicit-local-chandra-actor"],
         "invariants": ["same-submitted-image", "actual-raw-response", "provider-reported-runtime"],
-        "coverage": "exact-submitted-png", "outcomes": ["success"],
+        "coverage": "exact-submitted-png",
+        "outcomes": ["success"],
         "precision": "unselected-chandra-raw-observation",
-        "effects": [{"name": "external-chandra-observation", "authorization": ["native-purpose:write"],
-                     "idempotency": "external-packet", "fulfillment": "native-publication-receipt"}],
-        "capabilities": {"forms": ["scalar"], "preparation": "external",
-                         "cancellation": "lease-fence", "ownership": "native-task-packet"},
-        "external": {"version": "external-executor-v1", "instructions": canonical_bytes({
-            "version": "chandra-native-png-v1", "policy": chandra_recognition_identity(),
-            "instructions": "Recognize exactly the submitted PNG. Return its unchanged image, actual response and provider-reported runtime; source fidelity remains unassessed.",
-            }).decode(),
-            "requested_actor": _PROVIDER, "requested_model": CHANDRA_REPOSITORY + "@" + CHANDRA_REVISION,
-            "reference_scope": "declared-inputs-only"},
+        "effects": [
+            {
+                "name": "external-chandra-observation",
+                "authorization": ["native-purpose:write"],
+                "idempotency": "external-packet",
+                "fulfillment": "native-publication-receipt",
+            }
+        ],
+        "capabilities": {
+            "forms": ["scalar"],
+            "preparation": "external",
+            "cancellation": "lease-fence",
+            "ownership": "native-task-packet",
+        },
+        "external": {
+            "version": "external-executor-v1",
+            "instructions": canonical_bytes(
+                {
+                    "version": "chandra-native-png-v1",
+                    "policy": chandra_recognition_identity(),
+                    "instructions": "Recognize exactly the submitted PNG. Return its unchanged image, actual response and provider-reported runtime; source fidelity remains unassessed.",
+                }
+            ).decode(),
+            "requested_actor": _PROVIDER,
+            "requested_model": CHANDRA_REPOSITORY + "@" + CHANDRA_REVISION,
+            "reference_scope": "declared-inputs-only",
+        },
         "behavior": "actual local Chandra work admitted through native external receipt custody",
         "binding": {"operator": "scan", "roles": ["image"]},
-        "output_witnesses": [{"output_role": "observation", "records": "", "input_role": "image",
-            "comparisons": [{"output_field": "/image/" + field,
-                "input": {"role": "image", "projection": _NAMESPACE + "DdoVisualInput", "field": "/" + field},
-                "encoding": "value"} for field in image_fields]}],
+        "output_witnesses": [
+            {
+                "output_role": "observation",
+                "records": "",
+                "input_role": "image",
+                "comparisons": [
+                    {
+                        "output_field": "/image/" + field,
+                        "input": {
+                            "role": "image",
+                            "projection": _NAMESPACE + "DdoVisualInput",
+                            "field": "/" + field,
+                        },
+                        "encoding": "value",
+                    }
+                    for field in image_fields
+                ],
+            }
+        ],
     }
-    return SourceArtifact("visual/recognition-protocol.json", canonical_bytes({
-        "version": MODEL_VERSION, "operations": [operation],
-    }))
+    return SourceArtifact(
+        "visual/recognition-protocol.json",
+        canonical_bytes(
+            {
+                "version": MODEL_VERSION,
+                "operations": [operation],
+            }
+        ),
+    )
 
 
 def visual_mapping_profile():
@@ -84,26 +152,44 @@ def visual_mapping_profile():
     from corpus_structure.serve.pdf_visual_evidence import VisualEvidenceArtifact
 
     root = Path(__file__).parents[1]
-    return SourceArtifact("visual-mapping/profile", canonical_bytes({
-        "version": "chandra-mechanical-mapping-v1", "parser": chandra_parser_identity(),
-        "mapping": inspect.getsource(map_chandra_observation),
-        "mapped_schema": VisualEvidenceArtifact.model_json_schema(),
-        "files": [(name, (root / name).read_bytes().hex()) for name in (
-            "ingest/pdf_chandra.py", "semantic/pdf_visual_mapping.py",
-            "model/semantic/data-operation-visual.yaml",
-        )],
-    }))
+    return SourceArtifact(
+        "visual-mapping/profile",
+        canonical_bytes(
+            {
+                "version": "chandra-mechanical-mapping-v1",
+                "parser": chandra_parser_identity(),
+                "mapping": inspect.getsource(map_chandra_observation),
+                "mapped_schema": VisualEvidenceArtifact.model_json_schema(),
+                "files": [
+                    (name, (root / name).read_bytes().hex())
+                    for name in (
+                        "ingest/pdf_chandra.py",
+                        "semantic/pdf_visual_mapping.py",
+                        "model/semantic/data-operation-visual.yaml",
+                    )
+                ],
+            }
+        ),
+    )
 
 
 def visual_operation_sources():
     from .python_operation_sources import PythonSource, PythonSourceCollection
 
     root = Path(__file__).parents[1]
-    return PythonSourceCollection(tuple(PythonSource(module, path.read_bytes(), str(path))
-        for module, path in (
-            ("corpus_structure.semantic.visual_requests", Path(__file__)),
-            ("corpus_structure.ingest.chandra_mapping_operation", root / "ingest/chandra_mapping_operation.py"),
-        )), boundary_contracts=(visual_mapping_profile(),))
+    return PythonSourceCollection(
+        tuple(
+            PythonSource(module, path.read_bytes(), str(path))
+            for module, path in (
+                ("corpus_structure.semantic.visual_requests", Path(__file__)),
+                (
+                    "corpus_structure.ingest.chandra_mapping_operation",
+                    root / "ingest/chandra_mapping_operation.py",
+                ),
+            )
+        ),
+        boundary_contracts=(visual_mapping_profile(),),
+    )
 
 
 def map_chandra_observation(observation: dict) -> dict:
@@ -116,22 +202,42 @@ def map_chandra_observation(observation: dict) -> dict:
 
     image = observation["image"]
     pixels, raw = bytes.fromhex(image["content_hex"]), observation["raw_response"].encode()
-    if sha256(pixels).hexdigest() != image["content_digest"] or sha256(raw).hexdigest() != observation["response_digest"]:
+    if (
+        sha256(pixels).hexdigest() != image["content_digest"]
+        or sha256(raw).hexdigest() != observation["response_digest"]
+    ):
         raise PortRefusal("visual mapping differs from actual submitted/response bytes")
     if len(raw) > _MAX_REPLAY_BYTES:
         raise PortRefusal("Chandra response exceeds the parser byte limit")
     with Image.open(BytesIO(pixels)) as picture:
         if picture.format != "PNG" or picture.size != (image["width"], image["height"]):
             raise PortRefusal("visual dimensions differ from the submitted PNG")
-    parsed = parse_chandra_response(observation["raw_response"], image_size=(image["width"], image["height"]),
-                                   page_no=image["page_no"], stop_reason=observation["finish_reason"] or None)
-    mapped = None if parsed.document is None else map_visual_result(parsed.document,
-        page_no=image["page_no"], transform=json.loads(image["transform_json"]),
-        image_size=(image["width"], image["height"])).artifact_bytes()
-    return dict(observation=observation, parse_status=parsed.status.value, completion=parsed.completion.value,
-                issues=[issue.value for issue in parsed.issues], mapped_hex="" if mapped is None else mapped.hex(),
-                mapping_outcome="unknown" if mapped is None else "partial" if parsed.issues else "coarse",
-                source_fidelity="unassessed", diagnostic=parsed.error or "")
+    parsed = parse_chandra_response(
+        observation["raw_response"],
+        image_size=(image["width"], image["height"]),
+        page_no=image["page_no"],
+        stop_reason=observation["finish_reason"] or None,
+    )
+    mapped = (
+        None
+        if parsed.document is None
+        else map_visual_result(
+            parsed.document,
+            page_no=image["page_no"],
+            transform=json.loads(image["transform_json"]),
+            image_size=(image["width"], image["height"]),
+        ).artifact_bytes()
+    )
+    return dict(
+        observation=observation,
+        parse_status=parsed.status.value,
+        completion=parsed.completion.value,
+        issues=[issue.value for issue in parsed.issues],
+        mapped_hex="" if mapped is None else mapped.hex(),
+        mapping_outcome="unknown" if mapped is None else "partial" if parsed.issues else "coarse",
+        source_fidelity="unassessed",
+        diagnostic=parsed.error or "",
+    )
 
 
 @dataclass(frozen=True)
@@ -159,11 +265,23 @@ class PreparedVisualMappingPort:
 
         if self.operation.semantic_id != VISUAL_MAP or self.operation.effects:
             raise PortRefusal("mapping requires its exact declared pure computation")
-        verify_prepared_product(self.identity, self.model, self.operation, self.sources, self.custody,
-            assets=(visual_mapping_profile(),), functions=(
+        verify_prepared_product(
+            self.identity,
+            self.model,
+            self.operation,
+            self.sources,
+            self.custody,
+            assets=(visual_mapping_profile(),),
+            functions=(
                 (self.operation.callable_surfaces[0].declaration, ChandraMappingOperation.run),
-                ("corpus_structure.semantic.visual_requests.map_chandra_observation", map_chandra_observation),
-            ), authorize=self.authorize, required_sources=self.sources)
+                (
+                    "corpus_structure.semantic.visual_requests.map_chandra_observation",
+                    map_chandra_observation,
+                ),
+            ),
+            authorize=self.authorize,
+            required_sources=self.sources,
+        )
 
     def plan_python(self, values, *, binding=None, check_active=lambda: None, execution_owner):
         from corpus_structure.core.method import PreparedWork
@@ -174,21 +292,38 @@ class PreparedVisualMappingPort:
             raise PortRefusal("mapping requires its actual sufficient binding")
         ids = {(item.owner, item.domain): item.key for item in self.model.identities}
         incoming = next(role for role in self.operation.roles if role.direction == "input")
-        if len(values) != 1 or values[0].role != "observation" or values[0].kind_contract != ids[incoming.kind, "kind"]:
+        if (
+            len(values) != 1
+            or values[0].role != "observation"
+            or values[0].kind_contract != ids[incoming.kind, "kind"]
+        ):
             raise PortRefusal("mapping requires its exact nominal observation")
-        observation = self.prepared.validate_json("DdoChandraObservation",
-            json_bytes(_untrusted_value(values[0].value))).model_dump(mode="json")
+        observation = self.prepared.validate_json(
+            "DdoChandraObservation", json_bytes(_untrusted_value(values[0].value))
+        ).model_dump(mode="json")
         if decode_semantic_value(json.loads(binding.parameters)) != {}:
             raise PortRefusal("visual mapping has no caller-authored interpretation settings")
 
         def compute():
             check_active()
             self.verify()
-            body = self.prepared.validate_python("DdoVisualMapping", ChandraMappingOperation().run(observation)).model_dump(mode="python", exclude_unset=True)
+            body = self.prepared.validate_python(
+                "DdoVisualMapping", ChandraMappingOperation().run(observation)
+            ).model_dump(mode="python", exclude_unset=True)
             self.verify()
             output = next(role for role in self.operation.roles if role.direction == "output")
-            return PortCompletion(VISUAL_MAP, (RoleValue(output.name, ids[output.kind, "kind"],
-                json_bytes(body), canonical_bytes(semantic_value(body))),), outcome="success")
+            return PortCompletion(
+                VISUAL_MAP,
+                (
+                    RoleValue(
+                        output.name,
+                        ids[output.kind, "kind"],
+                        json_bytes(body),
+                        canonical_bytes(semantic_value(body)),
+                    ),
+                ),
+                outcome="success",
+            )
 
         (completion,) = yield (PreparedWork(lambda: execution_owner.submit_python(compute)),)
         check_active()
@@ -238,10 +373,17 @@ def _observation(prediction, image, runtime):
         outcome = "unknown"
     else:
         outcome = "partial"
-    return dict(image=image, raw_response=raw, response_digest=sha256(raw.encode()).hexdigest(),
-                finish_reason=stop.value if stop is not None else "",
-                runtime_identity_json=json.dumps(runtime.identity(), separators=(",", ":"), allow_nan=False),
-                provider_outcome=outcome, diagnostic=prediction.error_message or "")
+    return dict(
+        image=image,
+        raw_response=raw,
+        response_digest=sha256(raw.encode()).hexdigest(),
+        finish_reason=stop.value if stop is not None else "",
+        runtime_identity_json=json.dumps(
+            runtime.identity(), separators=(",", ":"), allow_nan=False
+        ),
+        provider_outcome=outcome,
+        diagnostic=prediction.error_message or "",
+    )
 
 
 def _retain_visual_result(root, packet, claim, result, *, packet_digest):
@@ -249,12 +391,25 @@ def _retain_visual_result(root, packet, claim, result, *, packet_digest):
 
     # Each path names an actual native attempt. A new attempt never adopts local
     # output as fresh inference; only native retained-intent reconciliation can do so.
-    directory = Path(root) / "chandra-native" / sha256(packet["packet_id"].encode()).hexdigest() / str(claim["attempt"])
+    directory = (
+        Path(root)
+        / "chandra-native"
+        / sha256(packet["packet_id"].encode()).hexdigest()
+        / str(claim["attempt"])
+    )
     directory.mkdir(mode=0o700, parents=True, exist_ok=True)
-    record = dict(version="chandra-native-attempt-v1", packet_id=packet["packet_id"],
-                  packet_digest=packet_digest, packet_bytes_digest=sha256(json_bytes(packet)).hexdigest(),
-                  fence={name: claim[name] for name in ("request_id", "generation", "task_id", "attempt", "holder")},
-                  runtime_id=packet["runtime_id"], result=result)
+    record = dict(
+        version="chandra-native-attempt-v1",
+        packet_id=packet["packet_id"],
+        packet_digest=packet_digest,
+        packet_bytes_digest=sha256(json_bytes(packet)).hexdigest(),
+        fence={
+            name: claim[name]
+            for name in ("request_id", "generation", "task_id", "attempt", "holder")
+        },
+        runtime_id=packet["runtime_id"],
+        result=result,
+    )
     path = directory / "result.json"
     content = json_bytes(record)
     if path.exists() and path.read_bytes() != content:
@@ -263,27 +418,35 @@ def _retain_visual_result(root, packet, claim, result, *, packet_digest):
     return path
 
 
-
 def _read_retained_visual_result(root, packet, claim, *, packet_digest):
     directory = Path(root) / "chandra-native" / sha256(packet["packet_id"].encode()).hexdigest()
     expected = directory / str(claim["attempt"]) / "result.json"
     if not expected.exists():
         previous = tuple(directory.glob("*/result.json"))
         if previous:
-            raise PortRefusal("prior Chandra raw output lacks native admission; inspect its original attempt before repeating inference")
+            raise PortRefusal(
+                "prior Chandra raw output lacks native admission; inspect its original attempt before repeating inference"
+            )
         return None
     record = wire_json_loads(expected.read_bytes())
-    fence = {name: claim[name] for name in ("request_id", "generation", "task_id", "attempt", "holder")}
-    if (record.get("version") != "chandra-native-attempt-v1" or record.get("packet_id") != packet["packet_id"]
+    fence = {
+        name: claim[name] for name in ("request_id", "generation", "task_id", "attempt", "holder")
+    }
+    if (
+        record.get("version") != "chandra-native-attempt-v1"
+        or record.get("packet_id") != packet["packet_id"]
         or record.get("packet_digest") != packet_digest
         or record.get("packet_bytes_digest") != sha256(json_bytes(packet)).hexdigest()
-        or record.get("fence") != fence or record.get("runtime_id") != packet["runtime_id"]):
+        or record.get("fence") != fence
+        or record.get("runtime_id") != packet["runtime_id"]
+    ):
         raise PortRefusal("retained Chandra result differs from its actual packet/attempt")
     return record["result"], expected
 
 
 class _LocalChandraGroup:
     """Reuse the incumbent supervised child while serial native packet claims own work."""
+
     def __init__(self, artifacts, endpoint, lifetime):
         self.artifacts, self.endpoint, self.lifetime = artifacts, endpoint, lifetime
         self._runtime = None
@@ -304,11 +467,15 @@ class _LocalChandraGroup:
         from corpus_structure.ingest.pdf_chandra import ChandraWorkerLost, supervised_chandra
 
         if self._retirement_failure is not None:
-            raise PortRefusal("prior Chandra child retirement is unresolved") from self._retirement_failure
+            raise PortRefusal(
+                "prior Chandra child retirement is unresolved"
+            ) from self._retirement_failure
         runtime = self.runtime()
         if self._child is None:
             self.lifetime.enter_context(pdf_gpu_slot(check_active=check_active))
-            self.lifetime.enter_context(suspend_resident_nemotron(self.endpoint, check_active=check_active))
+            self.lifetime.enter_context(
+                suspend_resident_nemotron(self.endpoint, check_active=check_active)
+            )
             self._child = self.lifetime.enter_context(ExitStack())
         if self._recognize is None:
             self._recognize = self._child.enter_context(supervised_chandra(runtime))
@@ -326,8 +493,18 @@ class _LocalChandraGroup:
                 raise error from cleanup
             raise
 
-def execute_chandra_packet(session, packet_id: str, *, artifacts: Path, receipts: Path,
-                           nemotron_endpoint=None, lease_seconds=300, interval=30, group=None):
+
+def execute_chandra_packet(
+    session,
+    packet_id: str,
+    *,
+    artifacts: Path,
+    receipts: Path,
+    nemotron_endpoint=None,
+    lease_seconds=300,
+    interval=30,
+    group=None,
+):
     """Fulfill one actual external packet using the incumbent supervised local actor."""
     from corpus_structure.ingest.pdf_capacity import pdf_gpu_slot, suspend_resident_nemotron
     from corpus_structure.ingest.pdf_chandra import ChandraRuntime, recognize_supervised
@@ -353,17 +530,30 @@ def execute_chandra_packet(session, packet_id: str, *, artifacts: Path, receipts
     model_assertion = CHANDRA_REPOSITORY + "@" + CHANDRA_REVISION
     if protocol["requested_actor"] != _PROVIDER or protocol["requested_model"] != model_assertion:
         raise PortRefusal("packet does not request the acquired local Chandra actor/model")
-    owned = _ExternalClaim(claim["task_id"], claim["attempt"], claim["holder"], packet["release_id"],
-                           datetime.fromisoformat(claim["lease_until"]))
+    owned = _ExternalClaim(
+        claim["task_id"],
+        claim["attempt"],
+        claim["holder"],
+        packet["release_id"],
+        datetime.fromisoformat(claim["lease_until"]),
+    )
+
     def renew(conn, current):
         from ._data_operation_wire import (
-            WireAttempt, WireGeneration, WireRequestId, WireTaskIdentity, WireRenewDataRequestRequest,
+            WireAttempt,
+            WireGeneration,
+            WireRenewDataRequestRequest,
+            WireRequestId,
+            WireTaskIdentity,
         )
 
         request = WireRenewDataRequestRequest(
-            request_id=WireRequestId(claim["request_id"]), generation=WireGeneration(claim["generation"]),
-            task_id=WireTaskIdentity(claim["task_id"]), attempt=WireAttempt(claim["attempt"]),
-            holder=claim["holder"], lease_seconds=lease_seconds,
+            request_id=WireRequestId(claim["request_id"]),
+            generation=WireGeneration(claim["generation"]),
+            task_id=WireTaskIdentity(claim["task_id"]),
+            attempt=WireAttempt(claim["attempt"]),
+            holder=claim["holder"],
+            lease_seconds=lease_seconds,
         )
         result = DataOperationStorage(conn).renew_data_request(request)
         if result["state"] == "lost":
@@ -371,7 +561,10 @@ def execute_chandra_packet(session, packet_id: str, *, artifacts: Path, receipts
 
     marker, runtime, failure = None, None, None
     try:
-        with maintained_claims(session.engine, [owned], owned.holder, interval=interval, renew=renew) as owner:
+        with maintained_claims(
+            session.engine, [owned], owned.holder, interval=interval, renew=renew
+        ) as owner:
+
             def active():
                 owner.check_claim(owned)
 
@@ -380,26 +573,51 @@ def execute_chandra_packet(session, packet_id: str, *, artifacts: Path, receipts
                 instructions = wire_json_loads(protocol["instructions"])
             except (ValueError, TypeError, KeyError) as error:
                 raise PortRefusal("Chandra packet lacks its captured inference policy") from error
-            if (not isinstance(instructions, dict) or instructions.get("version") != "chandra-native-png-v1"
-                or instructions.get("policy") != runtime.identity()):
-                raise PortRefusal("local Chandra runtime differs from the packet's frozen inference policy")
+            if (
+                not isinstance(instructions, dict)
+                or instructions.get("version") != "chandra-native-png-v1"
+                or instructions.get("policy") != runtime.identity()
+            ):
+                raise PortRefusal(
+                    "local Chandra runtime differs from the packet's frozen inference policy"
+                )
             active()
-            retained = _read_retained_visual_result(receipts, packet, claim, packet_digest=read["packet_digest"])
+            retained = _read_retained_visual_result(
+                receipts, packet, claim, packet_digest=read["packet_digest"]
+            )
             if retained is None:
                 if group is None:
-                    with pdf_gpu_slot(check_active=active), suspend_resident_nemotron(nemotron_endpoint, check_active=active):
-                        prediction = recognize_supervised(runtime, pixels, check_active=active, before_submit=active)
+                    with (
+                        pdf_gpu_slot(check_active=active),
+                        suspend_resident_nemotron(nemotron_endpoint, check_active=active),
+                    ):
+                        prediction = recognize_supervised(
+                            runtime, pixels, check_active=active, before_submit=active
+                        )
                 else:
                     prediction = group.recognize(pixels, check_active=active, before_submit=active)
                 # Retain the producing attempt's real bytes even if its publication
                 # fence was lost while inference was returning.
-                result = {"outcome": "success", "outputs": [{"role": "observation", "body": _observation(prediction, image, runtime)}]}
-                marker = _retain_visual_result(receipts, packet, claim, result, packet_digest=read["packet_digest"])
+                result = {
+                    "outcome": "success",
+                    "outputs": [
+                        {"role": "observation", "body": _observation(prediction, image, runtime)}
+                    ],
+                }
+                marker = _retain_visual_result(
+                    receipts, packet, claim, result, packet_digest=read["packet_digest"]
+                )
             else:
                 result, marker = retained
             with owner.lock:
                 owner.check_claim(owned)
-                submitted = session.submit(packet_id, claim, result, actor_assertion=_PROVIDER, model_assertion=model_assertion)
+                submitted = session.submit(
+                    packet_id,
+                    claim,
+                    result,
+                    actor_assertion=_PROVIDER,
+                    model_assertion=model_assertion,
+                )
                 if submitted["state"] != "committed":
                     raise PortRefusal("Chandra result has no committed native publication receipt")
                 del owner.active[owned.task_id, owned.attempt, owned.holder]
@@ -431,7 +649,10 @@ class ChandraActorInputs:
 
 def execute_visual_demand(engine, demand_id, *, visual_actor: ChandraActorInputs, **execution):
     """Advance one retained demand, fulfilling only its actual Chandra packet frontier."""
-    from corpus_structure.orchestrate.data_operations import DemandAdvance, NativeDemandExecutionError
+    from corpus_structure.orchestrate.data_operations import (
+        DemandAdvance,
+        NativeDemandExecutionError,
+    )
 
     from .data_operation_external import ExternalDataSession
     from .data_operation_service import execute_data_demand, read_data_demand
@@ -449,8 +670,10 @@ def execute_visual_demand(engine, demand_id, *, visual_actor: ChandraActorInputs
         nonlocal count, latest
         latest = result
         count += result.receipt_count
-        receipts.extend(result.receipts[:max(0, limit - len(receipts))])
-        return DemandAdvance(demand_id, result.snapshot, tuple(receipts), count, result.snapshot_standing)
+        receipts.extend(result.receipts[: max(0, limit - len(receipts))])
+        return DemandAdvance(
+            demand_id, result.snapshot, tuple(receipts), count, result.snapshot_standing
+        )
 
     def advance():
         try:
@@ -461,17 +684,28 @@ def execute_visual_demand(engine, demand_id, *, visual_actor: ChandraActorInputs
     try:
         for _ in range(execution.get("max_rounds", 100)):
             result = advance()
-            packets = [item for item in session.queue(limit=4)["packets"] if item["operation_id"] == VISUAL_RECOGNIZE]
+            packets = [
+                item
+                for item in session.queue(limit=4)["packets"]
+                if item["operation_id"] == VISUAL_RECOGNIZE
+            ]
             if not packets:
                 return result
             failures = []
             with ExitStack() as lifetime:
-                group = _LocalChandraGroup(visual_actor.artifacts, visual_actor.nemotron_endpoint, lifetime)
+                group = _LocalChandraGroup(
+                    visual_actor.artifacts, visual_actor.nemotron_endpoint, lifetime
+                )
                 for packet in packets:
                     try:
-                        submitted = execute_chandra_packet(session, packet["packet_id"],
-                            artifacts=visual_actor.artifacts, receipts=visual_actor.receipts,
-                            nemotron_endpoint=visual_actor.nemotron_endpoint, group=group)
+                        submitted = execute_chandra_packet(
+                            session,
+                            packet["packet_id"],
+                            artifacts=visual_actor.artifacts,
+                            receipts=visual_actor.receipts,
+                            nemotron_endpoint=visual_actor.nemotron_endpoint,
+                            group=group,
+                        )
                     except Exception as error:
                         failures.append(error)
                     else:
@@ -482,7 +716,9 @@ def execute_visual_demand(engine, demand_id, *, visual_actor: ChandraActorInputs
                 with engine.begin() as conn:
                     current = read_data_demand(conn, demand_id, limit=limit)
                 raise NativeDemandExecutionError(
-                    DemandAdvance(demand_id, json_bytes(current), tuple(receipts), count), tuple(failures))
+                    DemandAdvance(demand_id, json_bytes(current), tuple(receipts), count),
+                    tuple(failures),
+                )
         # Obtain the current native frontier after the last external completion.
         with engine.begin() as conn:
             current = read_data_demand(conn, demand_id, limit=limit)

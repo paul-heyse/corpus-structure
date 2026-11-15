@@ -2,7 +2,13 @@
 
 from __future__ import annotations
 
+import json
 from typing import cast as typing_cast
+
+import pytest
+from sqlalchemy import text
+from sqlalchemy.exc import DBAPIError
+
 from corpus_structure.semantic._data_operation_wire import (
     WireAdmitOriginalSourceViewRequest,
     WireClaimDataRequestRequest,
@@ -11,13 +17,6 @@ from corpus_structure.semantic._data_operation_wire import (
     WireRetainDataCompletionIntentRequest,
     WireRevokeDataSupportRequest,
 )
-
-import json
-
-import pytest
-from sqlalchemy import text
-from sqlalchemy.exc import DBAPIError
-
 from corpus_structure.semantic.data_operation_admission import (
     bound_data_operation_model,
 )
@@ -85,11 +84,16 @@ def test_authentic_original_fact_admission_publication_and_revocation(ddo_origin
         assert connection.scalar(text("SELECT count(*) FROM ops.data_derivation")) == 0
         assert connection.scalar(text("SELECT count(*) FROM ops.data_request")) == 0
         # Repeated authenticated admission neither invents an episode nor a new value.
-        repeated = storage.admit_original_source_view(typing_cast(WireAdmitOriginalSourceViewRequest, {
-                "demand_id": demand["demand_id"],
-                "selection_name": acquired.name,
-                **acquired.selection().record(),
-            }))
+        repeated = storage.admit_original_source_view(
+            typing_cast(
+                WireAdmitOriginalSourceViewRequest,
+                {
+                    "demand_id": demand["demand_id"],
+                    "selection_name": acquired.name,
+                    **acquired.selection().record(),
+                },
+            )
+        )
         assert repeated["admission_id"] == admission["admission_id"]
         assert repeated["product_id"] == admission["product_id"]
         selected = DemandPlanner(model, storage).ready(snapshot, authorization=b"{}")
@@ -125,11 +129,16 @@ def test_authentic_original_fact_admission_publication_and_revocation(ddo_origin
         ).scalar_one()
         assert wrong_scope == 0
         native = json.loads(ready.native)
-        claimed = storage.claim_data_request(typing_cast(WireClaimDataRequestRequest, {
-                "request_id": native["request_id"],
-                "holder": "original-test",
-                "lease_seconds": 30,
-            }))
+        claimed = storage.claim_data_request(
+            typing_cast(
+                WireClaimDataRequestRequest,
+                {
+                    "request_id": native["request_id"],
+                    "holder": "original-test",
+                    "lease_seconds": 30,
+                },
+            )
+        )
         assert claimed["state"] == "claimed"
         fence = {
             key: claimed[key]
@@ -147,45 +156,60 @@ def test_authentic_original_fact_admission_publication_and_revocation(ddo_origin
             for item in model.identities
             if item.owner == output_kind and item.domain == "kind"
         )
-        retained = storage.retain_data_completion_intent(typing_cast(WireRetainDataCompletionIntentRequest, {
-                **fence,
-                "runtime_id": runtime.runtime_id,
-                "completion": {
-                    "outcome": "success",
-                    "inputs": binding["inputs"],
-                    "support": binding["support"],
-                    "implementation_revision": "source-value-consumer-v1",
-                    "outputs": [
-                        {
-                            "role": "result",
-                            "position": 0,
-                            "multiplicity": 1,
-                            "product": {
-                                "kind_contract": kind,
-                                "body": semantic_value(7),
-                                "members": [],
-                            },
-                        }
-                    ],
+        retained = storage.retain_data_completion_intent(
+            typing_cast(
+                WireRetainDataCompletionIntentRequest,
+                {
+                    **fence,
+                    "runtime_id": runtime.runtime_id,
+                    "completion": {
+                        "outcome": "success",
+                        "inputs": binding["inputs"],
+                        "support": binding["support"],
+                        "implementation_revision": "source-value-consumer-v1",
+                        "outputs": [
+                            {
+                                "role": "result",
+                                "position": 0,
+                                "multiplicity": 1,
+                                "product": {
+                                    "kind_contract": kind,
+                                    "body": semantic_value(7),
+                                    "members": [],
+                                },
+                            }
+                        ],
+                    },
                 },
-            }))
-        published = storage.publish_data_derivation(typing_cast(WirePublishDataDerivationRequest, {
-                **fence,
-                "intent_id": retained["intent_id"],
-            }))
+            )
+        )
+        published = storage.publish_data_derivation(
+            typing_cast(
+                WirePublishDataDerivationRequest,
+                {
+                    **fence,
+                    "intent_id": retained["intent_id"],
+                },
+            )
+        )
         assert published["derivation_id"]
         assert connection.scalar(text("SELECT count(*) FROM ops.data_derivation_support")) == 0
         assert (
             connection.scalar(text("SELECT count(*) FROM ops.data_derivation_original_support"))
             == 1
         )
-        storage.revoke_data_support(typing_cast(WireRevokeDataSupportRequest, {
-                "project_id": source.project_id,
-                "original_source": acquired.root.original_source,
-                "selector_kind": "original-admission",
-                "selector": admission["admission_id"],
-                "reason": "original source trust withdrawn",
-            }))
+        storage.revoke_data_support(
+            typing_cast(
+                WireRevokeDataSupportRequest,
+                {
+                    "project_id": source.project_id,
+                    "original_source": acquired.root.original_source,
+                    "selector_kind": "original-admission",
+                    "selector": admission["admission_id"],
+                    "reason": "original source trust withdrawn",
+                },
+            )
+        )
         current = storage.read_demand_result(typing_cast(WireReadDemandResultRequest, demand))
         assert current["original_source_admissions"] == []
         assert current["uses"][0]["fate"] == "unavailable"
@@ -194,11 +218,16 @@ def test_authentic_original_fact_admission_publication_and_revocation(ddo_origin
         assert connection.scalar(text("SELECT count(*) FROM ops.original_source_admission")) == 1
         with connection.begin_nested() as savepoint:
             with pytest.raises(DBAPIError, match="revoked"):
-                storage.admit_original_source_view(typing_cast(WireAdmitOriginalSourceViewRequest, {
-                        "demand_id": demand["demand_id"],
-                        "selection_name": acquired.name,
-                        **acquired.selection().record(),
-                    }))
+                storage.admit_original_source_view(
+                    typing_cast(
+                        WireAdmitOriginalSourceViewRequest,
+                        {
+                            "demand_id": demand["demand_id"],
+                            "selection_name": acquired.name,
+                            **acquired.selection().record(),
+                        },
+                    )
+                )
             savepoint.rollback()
 
 
@@ -255,11 +284,16 @@ def test_original_pdf_fact_admission_and_runless_private_stage_use_actual_reques
         assert len(snapshot["original_source_admissions"]) == 1
         assert connection.scalar(text("SELECT count(*) FROM ops.data_derivation")) == 0
         (ready,) = planner.ready(snapshot, authorization=b"{}")
-        claim = storage.claim_data_request(typing_cast(WireClaimDataRequestRequest, {
-                "request_id": json.loads(ready.native)["request_id"],
-                "holder": "raw-pdf-owner",
-                "lease_seconds": 30,
-            }))
+        claim = storage.claim_data_request(
+            typing_cast(
+                WireClaimDataRequestRequest,
+                {
+                    "request_id": json.loads(ready.native)["request_id"],
+                    "holder": "raw-pdf-owner",
+                    "lease_seconds": 30,
+                },
+            )
+        )
         assert claim["state"] == "claimed"
         original = connection.scalar(
             text("SELECT content FROM kb.source_artifact WHERE artifact_digest=:digest"),

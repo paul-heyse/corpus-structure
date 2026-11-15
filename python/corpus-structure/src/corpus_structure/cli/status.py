@@ -11,7 +11,14 @@ from rich.console import Group, RenderableType
 from rich.table import Table
 from rich.text import Text
 
-from corpus_structure.cli.output import JsonOpt, cli_settings_report, emit, safe_text, state, write_report_text
+from corpus_structure.cli.output import (
+    JsonOpt,
+    cli_settings_report,
+    emit,
+    safe_text,
+    state,
+    write_report_text,
+)
 from corpus_structure.settings import SettingsReport
 
 
@@ -59,7 +66,9 @@ def _render_status(result: BaseModel) -> RenderableType:
 
 def status(
     ctx: typer.Context,
-    demand: Annotated[str | None, typer.Option(help="Exact native demand; no latest-run lookup.")] = None,
+    demand: Annotated[
+        str | None, typer.Option(help="Exact native demand; no latest-run lookup.")
+    ] = None,
     project: Annotated[str | None, typer.Option(help="Exact demand project.")] = None,
     continuation: Annotated[Path | None, typer.Option(exists=True, dir_okay=False)] = None,
     limit: Annotated[int, typer.Option(min=1, max=1000)] = 100,
@@ -86,8 +95,14 @@ def status(
                 raise ValueError("continuation must be a native cursor object")
             try:
                 with orchestrate.READ_ENGINE(settings) as engine, engine.begin() as connection:
-                    page = read_demand_result(connection, demand, project_id=project,
-                                              continuation=pins, limit=limit, view="frontier")
+                    page = read_demand_result(
+                        connection,
+                        demand,
+                        project_id=project,
+                        continuation=pins,
+                        limit=limit,
+                        view="frontier",
+                    )
                     result.progress = page.report()
             except (PoolTimeout, OperationalError) as error:
                 result.database_error = f"{type(error).__name__}: {safe_text(str(error))}"

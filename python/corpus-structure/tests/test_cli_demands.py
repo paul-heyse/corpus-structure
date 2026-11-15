@@ -138,7 +138,9 @@ def test_read_routes_complete_native_continuation_without_semantic_defaults(
     result = cli("demands", "read", "demand:one", "--continuation", str(source), "--json")
     assert result.exit_code == 0, result.output
     assert opened == ["read"]
-    assert seen == [("demand:one", {"continuation": pins, "limit": None, "max_bytes": None, "view": None})]
+    assert seen == [
+        ("demand:one", {"continuation": pins, "limit": None, "max_bytes": None, "view": None})
+    ]
     assert json.loads(result.stdout)["continuation"] == pins
 
 
@@ -306,17 +308,31 @@ def test_run_demand_refuses_incomplete_or_changed_intent_before_acquisition(cli,
         assert "retained demand owns its original source and workflow choices" in result.output
 
 
-def test_visual_request_uses_managed_demand_owner_and_explicit_local_actor(cli, tmp_path, monkeypatch, routing):
+def test_visual_request_uses_managed_demand_owner_and_explicit_local_actor(
+    cli, tmp_path, monkeypatch, routing
+):
     from corpus_structure.orchestrate.data_operations import DemandAdvance
     from corpus_structure.semantic import visual_requests
 
     seen = []
+
     def execute(engine, demand, *, visual_actor, **execution):
         seen.append((demand, visual_actor, execution))
         return DemandAdvance(demand, b'{"state":"awaiting-external"}', (), 0)
+
     monkeypatch.setattr(visual_requests, "execute_visual_demand", execute)
-    result = cli("source", "visual-request", "--demand", "demand:one", "--artifacts", str(tmp_path / "weights"),
-                 "--source-root", str(tmp_path), "--json", env={"CORPUS_CI_RESULTS": str(tmp_path / "results")})
+    result = cli(
+        "source",
+        "visual-request",
+        "--demand",
+        "demand:one",
+        "--artifacts",
+        str(tmp_path / "weights"),
+        "--source-root",
+        str(tmp_path),
+        "--json",
+        env={"CORPUS_CI_RESULTS": str(tmp_path / "results")},
+    )
     assert result.exit_code == 0, result.output
     assert routing[0] == ["write", "admit"]
     assert len(seen) == 1 and seen[0][0] == "demand:one"
@@ -327,19 +343,33 @@ def test_visual_request_uses_managed_demand_owner_and_explicit_local_actor(cli, 
     assert native["receipt_count"] == 0
 
 
-def test_visual_group_keeps_each_actual_demand_and_managed_receipt_without_run_group(cli, tmp_path, monkeypatch, routing):
+def test_visual_group_keeps_each_actual_demand_and_managed_receipt_without_run_group(
+    cli, tmp_path, monkeypatch, routing
+):
     from corpus_structure.orchestrate.data_operations import DemandAdvance
     from corpus_structure.semantic import visual_requests
 
     seen = []
+
     def execute(engine, demand, **execution):
         seen.append(demand)
-        return DemandAdvance(demand, json.dumps({"demand_id": demand, "state": "awaiting-external"}).encode(), (), 0)
+        return DemandAdvance(
+            demand, json.dumps({"demand_id": demand, "state": "awaiting-external"}).encode(), (), 0
+        )
+
     monkeypatch.setattr(visual_requests, "execute_visual_demand", execute)
     path = tmp_path / "demands.json"
     path.write_text('["demand:first","demand:second"]')
-    result = cli("source", "visual-group", "--demands", str(path), "--artifacts", str(tmp_path / "weights"),
-                 "--json", env={"CORPUS_CI_RESULTS": str(tmp_path / "results")})
+    result = cli(
+        "source",
+        "visual-group",
+        "--demands",
+        str(path),
+        "--artifacts",
+        str(tmp_path / "weights"),
+        "--json",
+        env={"CORPUS_CI_RESULTS": str(tmp_path / "results")},
+    )
     assert result.exit_code == 0, result.output
     assert seen == ["demand:first", "demand:second"]
     reports = json.loads(result.stdout)

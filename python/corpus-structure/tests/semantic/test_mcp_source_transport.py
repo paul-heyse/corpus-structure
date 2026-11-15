@@ -123,9 +123,7 @@ def test_registered_source_tools_bound_whole_wire_and_preserve_payload(monkeypat
         return _native_request(max_bytes=budget)
 
     async def journey():
-        async with Client(
-            build_retained_reader_server(RetainedReaderBinding(engine, 1))
-        ) as client:
+        async with Client(build_retained_reader_server(RetainedReaderBinding(engine, 1))) as client:
             tools = {tool.name: tool for tool in await client.list_tools()}
             schema = tools[name].output_schema
             assert schema is not None and schema["type"] == "object"
@@ -183,9 +181,7 @@ def test_tiny_source_transport_budget_is_control_error(monkeypatch):
     )
 
     async def journey():
-        async with Client(
-            build_retained_reader_server(RetainedReaderBinding(engine, 1))
-        ) as client:
+        async with Client(build_retained_reader_server(RetainedReaderBinding(engine, 1))) as client:
             result = await client.call_tool(
                 "inspect_source",
                 {"request": _native_request(max_bytes=1).model_dump(mode="json")},
@@ -199,4 +195,3 @@ def test_tiny_source_transport_budget_is_control_error(monkeypatch):
         anyio.run(journey)
     finally:
         engine.dispose()
-

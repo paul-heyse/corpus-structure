@@ -2,21 +2,19 @@
 
 from __future__ import annotations
 
-from typing import cast
-from corpus_structure.semantic._data_operation_wire import (
-    WireCancelDataDemandRequest,
-    WireReadDemandResultRequest,
-    WireReadDemandResultResult,
-    WireCancelDataDemandResult,
-)
-
 from collections.abc import Mapping
-from decimal import Decimal
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import Connection
+
+from corpus_structure.semantic._data_operation_wire import (
+    WireCancelDataDemandRequest,
+    WireCancelDataDemandResult,
+    WireReadDemandResultRequest,
+    WireReadDemandResultResult,
+)
 
 from .data_operation_admission import bound_data_operation_model
 from .data_operation_demands import DemandIntent, DemandPlanner, ResumedDataDemand
@@ -24,6 +22,7 @@ from .data_operation_json import DdoJsonValue as DdoJsonValue
 from .data_operation_json import json_bytes
 from .data_operation_storage import DataOperationStorage
 from .releases import load_release
+
 
 class DemandRoot(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
@@ -83,7 +82,6 @@ class NativeDemandRequest(BaseModel):
 def freeze_native_demand(prepared, request: NativeDemandRequest) -> DemandIntent:
     """Freeze exact choices using the compiled declarations and existing validators."""
     from .data_operation_demands import (
-    ResumedDataDemand,
         DiscoverySelection,
         OperationSelection,
         RootSubject,
@@ -278,12 +276,21 @@ def read_data_demand(
         if continuation is not None and payload.get("view", view) != view:
             raise ValueError("continuation view differs from the explicit requested view")
         payload["view"] = view
-    return DataOperationStorage(connection).read_demand_result(cast(WireReadDemandResultRequest, payload))
+    return DataOperationStorage(connection).read_demand_result(
+        cast(WireReadDemandResultRequest, payload)
+    )
 
 
-def cancel_data_demand(connection: Connection, demand_id: str, *, reason: str) -> WireCancelDataDemandResult:
+def cancel_data_demand(
+    connection: Connection, demand_id: str, *, reason: str
+) -> WireCancelDataDemandResult:
     """Native cancellation retains shared producers and never asserts physical retirement."""
-    return DataOperationStorage(connection).cancel_data_demand(cast(WireCancelDataDemandRequest, {
-            "demand_id": demand_id,
-            "reason": reason,
-        }))
+    return DataOperationStorage(connection).cancel_data_demand(
+        cast(
+            WireCancelDataDemandRequest,
+            {
+                "demand_id": demand_id,
+                "reason": reason,
+            },
+        )
+    )

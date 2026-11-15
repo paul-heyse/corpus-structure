@@ -6,9 +6,13 @@ import pytest
 from scenario_recipes import register_scenario_builder
 from sqlalchemy import select
 
-from corpus_structure.semantic.metadata import table
-from corpus_structure.semantic.data_operation_demands import DemandPlanner, RootSubject, freeze_demand
+from corpus_structure.semantic.data_operation_demands import (
+    DemandPlanner,
+    RootSubject,
+    freeze_demand,
+)
 from corpus_structure.semantic.data_operation_storage import DataOperationStorage
+from corpus_structure.semantic.metadata import table
 from semantic.serving_scenarios import declared_serving_case as declared_serving_case
 from semantic.serving_scenarios import declared_serving_seed as declared_serving_seed
 
@@ -59,14 +63,19 @@ def test_two_fresh_serving_clones_are_isolated(
     agent = seed.stage.agent
     frozen = freeze_demand(
         agent.kernel.preparation.model,
-        roots=(RootSubject("isolated", agent.original_source, b'{}'),),
+        roots=(RootSubject("isolated", agent.original_source, b"{}"),),
         targets=("urn:ddo-test:source",),
         inference="scenario-isolation-test",
         execution_profile="execution:test",
     )
     with second.writer.begin() as connection:
-        demand = DemandPlanner(agent.kernel.preparation.model, DataOperationStorage(connection)).register(
-            frozen, project=agent.project_id, release=agent.prepared.release_id, runtime=agent.runtime
+        demand = DemandPlanner(
+            agent.kernel.preparation.model, DataOperationStorage(connection)
+        ).register(
+            frozen,
+            project=agent.project_id,
+            release=agent.prepared.release_id,
+            runtime=agent.runtime,
         )["demand_id"]
     demands = table("ops.data_demand")
     with second.admin.connect() as connection:

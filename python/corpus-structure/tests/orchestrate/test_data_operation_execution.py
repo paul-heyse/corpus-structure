@@ -1,11 +1,7 @@
 """Actual supplied callable to native demand, intent, product and reuse."""
 
-from typing import cast as typing_cast
-from corpus_structure.semantic._data_operation_wire import (
-    WireReadDemandResultRequest,
-)
-
 import json
+from typing import cast as typing_cast
 
 import pytest
 from semantic.data_operation_kernel_support import EXECUTION
@@ -14,6 +10,9 @@ from sqlalchemy import text
 from corpus_structure.orchestrate.data_operations import (
     NativeDemandExecutionError,
     NativeDemandExecutor,
+)
+from corpus_structure.semantic._data_operation_wire import (
+    WireReadDemandResultRequest,
 )
 from corpus_structure.semantic.data_operation_admission import (
     bound_data_operation_model,
@@ -70,7 +69,13 @@ def test_actual_callable_publishes_and_settled_resume_does_not_recompute(executa
             runtime=runtime.runtime_id,
         )["demand_id"]
     executor = NativeDemandExecutor(
-        engine, prepared, runtime, sources, runtime_locations=locations, schema=bundle, database_capacity=6
+        engine,
+        prepared,
+        runtime,
+        sources,
+        runtime_locations=locations,
+        schema=bundle,
+        database_capacity=6,
     )
     result = executor.advance(demand)
     assert len(result.receipts) == 1
@@ -194,7 +199,13 @@ def test_failed_request_keeps_later_page_siblings_and_bounded_native_receipts(ex
             runtime=runtime.runtime_id,
         )["demand_id"]
     executor = NativeDemandExecutor(
-        engine, prepared, runtime, sources, runtime_locations=locations, schema=bundle, database_capacity=6
+        engine,
+        prepared,
+        runtime,
+        sources,
+        runtime_locations=locations,
+        schema=bundle,
+        database_capacity=6,
     )
     with pytest.raises(NativeDemandExecutionError) as caught:
         executor.run(demand, limit=1)
@@ -276,7 +287,9 @@ def test_six_native_contexts_claim_only_the_bounded_window_and_preserve_settled_
     assert windows and all(1 <= count <= 2 for count in windows)
     assert executor.budget.used_bytes == 0
     with engine.begin() as connection:
-        snapshot = DataOperationStorage(connection).read_demand_result(typing_cast(WireReadDemandResultRequest, {"demand_id": demand, "view": "products"}))
+        snapshot = DataOperationStorage(connection).read_demand_result(
+            typing_cast(WireReadDemandResultRequest, {"demand_id": demand, "view": "products"})
+        )
         assert {row["fate"] for row in snapshot["obligations"]} == {"fulfilled"}
         products = [product for use in snapshot["uses"] for product in use["products"]]
         assert len(products) == 6 and len({product["product_id"] for product in products}) == 6

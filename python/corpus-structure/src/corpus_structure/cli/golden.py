@@ -44,6 +44,7 @@ def reference_session(ctx, project=None, *, json=False):
                 raise references.ReferenceError("unknown semantic project")
             yield conn, project
 
+
 def output(result, json):
     if hasattr(result, "model_dump"):
         result = result.model_dump(mode="json")
@@ -59,6 +60,7 @@ def output(result, json):
         from corpus_structure.cli.output import stdout_console
 
         stdout_console().print(Pretty(result))
+
 
 def reference_protocol(conn, set_id, project_id):
     """Route only from a stored, project-bound reference-set declaration."""
@@ -79,12 +81,6 @@ def reference_protocol(conn, set_id, project_id):
     if protocol not in (None, record_references.PROTOCOL, operation_assessment.PROTOCOL):
         raise semantic.ReferenceError("unsupported stored reference protocol")
     return protocol
-
-
-
-
-
-
 
 
 def record_packet_command(
@@ -119,8 +115,6 @@ def record_packet_command(
     output(result, json)
 
 
-
-
 def operation_packet_command(
     ctx: typer.Context,
     unit: Annotated[int, typer.Option()],
@@ -145,7 +139,6 @@ def operation_packet_command(
         else:
             raise references.ReferenceError("operation packet --pass must be A, B or C")
     output(result, json)
-
 
 
 def status_command(
@@ -177,7 +170,6 @@ def status_command(
         if label is not None and not result:
             raise references.ReferenceError(f"no reference set {label!r}")
     output(result, json)
-
 
 
 def register(app):

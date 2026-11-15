@@ -742,13 +742,19 @@ def render_call_bindings(
         out += [f"from {module} import {symbol} as require_call_context"]
     from .data_operation_wire import render_wire_types, wire_type_name
 
-    structural = [call for _, call in calls if any(f.wire_schema is not None for f in (*call.parameters, *call.result_fields))]
+    structural = [
+        call
+        for _, call in calls
+        if any(f.wire_schema is not None for f in (*call.parameters, *call.result_fields))
+    ]
     definitions, nominals = {}, {}
     if structural:
         for call in structural:
             for field in (*call.parameters, *call.result_fields):
                 if field.wire_schema is None:
-                    raise ValueError("mixed native structural lowering requires an explicit boundary")
+                    raise ValueError(
+                        "mixed native structural lowering requires an explicit boundary"
+                    )
                 schema = json.loads(field.wire_schema)
                 for key, value in schema.get("definitions", {}).items():
                     if key in definitions and definitions[key] != value:
@@ -758,7 +764,12 @@ def render_call_bindings(
                     if path in nominals and nominals[path] != name:
                         raise ValueError("structural native nominal collision at " + path)
                     nominals[path] = name
-        out += ["from .data_operation_wire import validate_wire_schema", "from .data_operation_json import json_bytes, wire_json_loads", "", render_wire_types(definitions, tuple(nominals.items()))]
+        out += [
+            "from .data_operation_wire import validate_wire_schema",
+            "from .data_operation_json import json_bytes, wire_json_loads",
+            "",
+            render_wire_types(definitions, tuple(nominals.items())),
+        ]
     aliases, emitted = {}, set()
     enum_aliases = {
         field.source: _enum_alias(field)
@@ -898,21 +909,96 @@ def render_call_bindings(
             else f"_{name}Request"
         )
         if call in structural:
-            if len(call.parameters) != 1 or len(call.result_fields) != 1 or call.result_mode != "json":
+            if (
+                len(call.parameters) != 1
+                or len(call.result_fields) != 1
+                or call.result_mode != "json"
+            ):
                 raise ValueError("structural native call requires the fixed JSON envelope")
             parameter, result = call.parameters[0], call.result_fields[0]
-            request_schema, result_schema = (json.loads(field.wire_schema) for field in (parameter, result))
-            request_annotation = wire_type_name(request_schema["$ref"].removeprefix("#/definitions/"))
+            request_schema, result_schema = (
+                json.loads(field.wire_schema) for field in (parameter, result)
+            )
+            request_annotation = wire_type_name(
+                request_schema["$ref"].removeprefix("#/definitions/")
+            )
             result_type = wire_type_name(result_schema["$ref"].removeprefix("#/definitions/"))
             digest = sha256(canonical_bytes([asdict(call)])).hexdigest()
-            boundary_input = wire_schemas[call.id]["input"] if wire_schemas else canonical_bytes({"type": "object", "properties": {parameter.name: {"$ref": request_schema["$ref"]}}, "required": [parameter.name], "additionalProperties": False, "definitions": definitions})
-            boundary_output = wire_schemas[call.id]["output"] if wire_schemas else canonical_bytes({"type": "object", "properties": {result.name: {"$ref": result_schema["$ref"]}}, "required": [result.name], "additionalProperties": False, "definitions": definitions})
-            out += ["", f"{name.upper()}_CONTRACT_DIGEST = {digest!r}", "", f"class {request_class}(TypedDict):", f"    {parameter.name}: {request_annotation}", "", f"class {call.result_class}(TypedDict):", f"    {result.name}: {result_type}", "", f"_{name}_input_schema = {boundary_input!r}", f"_{name}_output_schema = {boundary_output!r}", "", f"_{name}_statement = select(func.{call.symbol}(", f"    bindparam({parameter.name!r}, type_=Text()).cast(JSONB()),", ").cast(Text()))", "", f"def prepare_{name}(*,", f"    {parameter.name}: {request_annotation},", "    projection_context: PreparedRelease," if call.requires_context else "    projection_context: PreparedRelease | None = None,", ") -> Select[str]:"]
+            boundary_input = (
+                wire_schemas[call.id]["input"]
+                if wire_schemas
+                else canonical_bytes(
+                    {
+                        "type": "object",
+                        "properties": {parameter.name: {"$ref": request_schema["$ref"]}},
+                        "required": [parameter.name],
+                        "additionalProperties": False,
+                        "definitions": definitions,
+                    }
+                )
+            )
+            boundary_output = (
+                wire_schemas[call.id]["output"]
+                if wire_schemas
+                else canonical_bytes(
+                    {
+                        "type": "object",
+                        "properties": {result.name: {"$ref": result_schema["$ref"]}},
+                        "required": [result.name],
+                        "additionalProperties": False,
+                        "definitions": definitions,
+                    }
+                )
+            )
+            out += [
+                "",
+                f"{name.upper()}_CONTRACT_DIGEST = {digest!r}",
+                "",
+                f"class {request_class}(TypedDict):",
+                f"    {parameter.name}: {request_annotation}",
+                "",
+                f"class {call.result_class}(TypedDict):",
+                f"    {result.name}: {result_type}",
+                "",
+                f"_{name}_input_schema = {boundary_input!r}",
+                f"_{name}_output_schema = {boundary_output!r}",
+                "",
+                f"_{name}_statement = select(func.{call.symbol}(",
+                f"    bindparam({parameter.name!r}, type_=Text()).cast(JSONB()),",
+                ").cast(Text()))",
+                "",
+                f"def prepare_{name}(*,",
+                f"    {parameter.name}: {request_annotation},",
+                "    projection_context: PreparedRelease,"
+                if call.requires_context
+                else "    projection_context: PreparedRelease | None = None,",
+                ") -> Select[str]:",
+            ]
             if call.requires_context:
-                out += [f"    require_call_context(projection_context, {operation!r}, {name!r}, {name.upper()}_CONTRACT_DIGEST)"]
+                out += [
+                    f"    require_call_context(projection_context, {operation!r}, {name!r}, {name.upper()}_CONTRACT_DIGEST)"
+                ]
             else:
-                out += ["    if projection_context is not None:", f"        require_call_context(projection_context, {operation!r}, {name!r}, {name.upper()}_CONTRACT_DIGEST)"]
-            out += [f"    checked = validate_wire_schema(_{name}_input_schema, {{{parameter.name!r}: {parameter.name}}})", f"    return _{name}_statement.params({parameter.name}=json_bytes(checked[{parameter.name!r}]).decode())", "", f"def {name}(conn: Connection, *,", f"    {parameter.name}: {request_annotation},", "    projection_context: PreparedRelease," if call.requires_context else "    projection_context: PreparedRelease | None = None,", f") -> {call.result_class}:", f"    statement = prepare_{name}({parameter.name}={parameter.name}, projection_context=projection_context)", f"    with native_result_scope({operation!r}, {call.result_class!r}):", "        encoded = conn.scalar(statement)", "        value = wire_json_loads(encoded)", f"        return cast({call.result_class}, validate_wire_schema(_{name}_output_schema, value))"]
+                out += [
+                    "    if projection_context is not None:",
+                    f"        require_call_context(projection_context, {operation!r}, {name!r}, {name.upper()}_CONTRACT_DIGEST)",
+                ]
+            out += [
+                f"    checked = validate_wire_schema(_{name}_input_schema, {{{parameter.name!r}: {parameter.name}}})",
+                f"    return _{name}_statement.params({parameter.name}=json_bytes(checked[{parameter.name!r}]).decode())",
+                "",
+                f"def {name}(conn: Connection, *,",
+                f"    {parameter.name}: {request_annotation},",
+                "    projection_context: PreparedRelease,"
+                if call.requires_context
+                else "    projection_context: PreparedRelease | None = None,",
+                f") -> {call.result_class}:",
+                f"    statement = prepare_{name}({parameter.name}={parameter.name}, projection_context=projection_context)",
+                f"    with native_result_scope({operation!r}, {call.result_class!r}):",
+                "        encoded = conn.scalar(statement)",
+                "        value = wire_json_loads(encoded)",
+                f"        return cast({call.result_class}, validate_wire_schema(_{name}_output_schema, value))",
+            ]
             continue
         out += [
             "",

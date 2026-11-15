@@ -434,7 +434,8 @@ def test_native_organization_enrichment_and_integration_keep_real_receipts_and_e
             kernel.purpose("write"),
             result.demand_id,
             source_root=ROOT,
-            admission_engine=kernel.purpose("admit"), database_capacity=6,
+            admission_engine=kernel.purpose("admit"),
+            database_capacity=6,
         )
         assert resumed.demand_id == result.demand_id and resumed.receipt_count == 0
         assert tuple(calls) == before

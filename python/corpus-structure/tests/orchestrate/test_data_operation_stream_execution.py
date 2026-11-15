@@ -1,13 +1,7 @@
 """Native stream publication is atomic at terminal evidence, including empty output."""
 
-from typing import cast as typing_cast
-from corpus_structure.semantic._data_operation_wire import (
-    WireCancelDataDemandRequest,
-    WirePublishDataDerivationRequest,
-    WireReadDemandResultRequest,
-)
-
 from dataclasses import replace
+from typing import cast as typing_cast
 
 import pytest
 from semantic.data_operation_declaration_support import source_declaration
@@ -17,6 +11,11 @@ from sqlalchemy import text
 from corpus_structure.orchestrate.data_operations import (
     NativeDemandExecutionError,
     NativeDemandExecutor,
+)
+from corpus_structure.semantic._data_operation_wire import (
+    WireCancelDataDemandRequest,
+    WirePublishDataDerivationRequest,
+    WireReadDemandResultRequest,
 )
 from corpus_structure.semantic.data_operation_demands import (
     DemandPlanner,
@@ -95,7 +94,8 @@ def stream_execution(ddo_kernel, monkeypatch):
         preparation.runtime,
         sources,
         runtime_locations=locations,
-        schema=preparation.bundle, database_capacity=6,
+        schema=preparation.bundle,
+        database_capacity=6,
     )
     return ddo_kernel, executor
 
@@ -122,7 +122,9 @@ def test_native_stream_terminal_publishes_exact_order_and_settled_resume(stream_
     result = executor.run(demand)
     assert result.receipt_count == 1
     with kernel.engine.begin() as connection:
-        snapshot = DataOperationStorage(connection).read_demand_result(typing_cast(WireReadDemandResultRequest, {"demand_id": demand, "view": "products"}))
+        snapshot = DataOperationStorage(connection).read_demand_result(
+            typing_cast(WireReadDemandResultRequest, {"demand_id": demand, "view": "products"})
+        )
         assert snapshot["uses"][0]["fate"] == "fulfilled"
         assert [product["body"] for product in snapshot["uses"][0]["products"]] == [
             ["integer", str(index + 10)] for index in range(count)
@@ -146,7 +148,9 @@ def test_native_stream_terminal_publishes_exact_order_and_settled_resume(stream_
             .mappings()
             .one()
         )
-        replayed = DataOperationStorage(connection).publish_data_derivation(typing_cast(WirePublishDataDerivationRequest, retained))
+        replayed = DataOperationStorage(connection).publish_data_derivation(
+            typing_cast(WirePublishDataDerivationRequest, retained)
+        )
         import json
 
         original = json.loads(result.receipts[0])
@@ -178,7 +182,9 @@ def test_native_invalid_stream_prefix_has_no_product_intent_or_fulfillment(strea
                 "SELECT count(*) FROM kb.data_product UNION ALL SELECT count(*) FROM ops.data_derivation UNION ALL SELECT count(*) FROM ops.data_completion_intent UNION ALL SELECT count(*) FROM ops.data_publication_receipt"
             )
         ).scalars().all() == [0, 0, 0, 0]
-        snapshot = DataOperationStorage(connection).read_demand_result(typing_cast(WireReadDemandResultRequest, {"demand_id": demand, "view": "products"}))
+        snapshot = DataOperationStorage(connection).read_demand_result(
+            typing_cast(WireReadDemandResultRequest, {"demand_id": demand, "view": "products"})
+        )
         assert not any(use["fate"] == "fulfilled" for use in snapshot["uses"])
     assert executor.budget.used_bytes == 0
 
@@ -211,7 +217,12 @@ def test_cancelled_demand_preserves_live_cross_demand_stream_and_original_episod
         if stream.ordinal == 1 and not cancellations:
             with kernel.engine.begin() as connection:
                 cancellations.append(
-                    DataOperationStorage(connection).cancel_data_demand(typing_cast(WireCancelDataDemandRequest, {"demand_id": first, "reason": "selected-cancellation"}))
+                    DataOperationStorage(connection).cancel_data_demand(
+                        typing_cast(
+                            WireCancelDataDemandRequest,
+                            {"demand_id": first, "reason": "selected-cancellation"},
+                        )
+                    )
                 )
         return original_pull(stream)
 
@@ -221,8 +232,15 @@ def test_cancelled_demand_preserves_live_cross_demand_stream_and_original_episod
     assert cancellations and cancellations[0]["requests"][0]["interest"] == "shared"
     with kernel.engine.begin() as connection:
         storage = DataOperationStorage(connection)
-        assert storage.read_demand_result(typing_cast(WireReadDemandResultRequest, {"demand_id": first}))["state"] == "cancelled"
-        surviving = storage.read_demand_result(typing_cast(WireReadDemandResultRequest, {"demand_id": second, "view": "products"}))
+        assert (
+            storage.read_demand_result(
+                typing_cast(WireReadDemandResultRequest, {"demand_id": first})
+            )["state"]
+            == "cancelled"
+        )
+        surviving = storage.read_demand_result(
+            typing_cast(WireReadDemandResultRequest, {"demand_id": second, "view": "products"})
+        )
         use = next(
             use
             for use in surviving["uses"]

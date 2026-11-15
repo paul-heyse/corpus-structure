@@ -16,11 +16,9 @@ from fastmcp import __version__ as FASTMCP_VERSION
 from fastmcp.server.lifespan import lifespan
 from fastmcp.tools import ToolResult
 from fastmcp.utilities.json_schema import compress_schema
-from mcp.types import CallToolResult
 from pydantic import Field
-from sqlalchemy import Connection, Engine, func, select
+from sqlalchemy import Connection, Engine, select
 
-from corpus_structure.intervene import service
 from corpus_structure.semantic.operations import OperationConflict
 from corpus_structure.semantic.proposals import ProposalRefused
 from corpus_structure.semantic.refusals import located_failure_context, tool_refusals
@@ -30,7 +28,6 @@ from corpus_structure.serve.source_search import SourceSearchRequest, SourceSear
 from corpus_structure.settings import Settings
 
 from .mcp_observations import ObservationMiddleware
-from .mcp_results import _stamp_mcp_result
 from .mcp_results import bounded_mcp_result as _bounded_mcp_result
 
 MCP_SERVER_NAME = "corpus-structure"

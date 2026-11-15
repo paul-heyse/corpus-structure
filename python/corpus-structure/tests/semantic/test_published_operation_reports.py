@@ -89,6 +89,7 @@ def test_cli_mcp_published_pin_and_preparation_are_separate_read_only_observatio
     assert checks["published_document"]["status"] == "applicable"
     assert checks["selected_source_views"]["status"] == "applicable"
     assert after["observed_revision"] == published.logical_digest
+
     async def journey():
         server = build_retained_reader_server(read_engine=commit_reader_engine, project="published")
         async with Client(server) as client:

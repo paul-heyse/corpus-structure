@@ -15,6 +15,7 @@ from typing import Any, cast
 import pytest
 import yaml
 
+from corpus_structure.schema.generate import _format
 from corpus_structure.semantic import _data_operation_wire
 from corpus_structure.semantic._data_operation_wire import WireClaimDataRequestRequest
 from corpus_structure.semantic.data_operation_artifacts import compile_data_operation_artifacts
@@ -31,7 +32,6 @@ from corpus_structure.semantic.data_operation_storage import (
 from corpus_structure.semantic.data_operation_wire import generated_wire_source, render_wire_types
 from corpus_structure.semantic.native_sql_body import body_source
 from corpus_structure.semantic.prepared_sql import prepare_sql
-from corpus_structure.schema.generate import _format
 
 REPO = Path(__file__).resolve().parents[4]
 
@@ -46,7 +46,9 @@ def test_checkout_wire_facade_is_generated_from_current_protocol_and_corresponde
 def test_fixed_call_preserves_omission_and_rejects_wrong_union_result():
     class Connection:
         result = '{"payload":{"state":"no-work"}}'
-        calls = []
+
+        def __init__(self):
+            self.calls = []
 
         def scalar(self, statement, parameters):
             self.calls.append((statement, parameters))
@@ -65,7 +67,9 @@ def test_fixed_call_preserves_omission_and_rejects_wrong_union_result():
         storage.claim_data_request(cast(WireClaimDataRequestRequest, original))
     before = len(connection.calls)
     with pytest.raises(ValueError, match="schema"):
-        storage.claim_data_request(cast(WireClaimDataRequestRequest, {**original, "lease_seconds": "3"}))
+        storage.claim_data_request(
+            cast(WireClaimDataRequestRequest, {**original, "lease_seconds": "3"})
+        )
     assert len(connection.calls) == before
 
 
@@ -79,10 +83,21 @@ def test_captured_structural_calls_keep_decimal_and_changed_protocol_fields(monk
     output = document["definitions"]["expand_data_obligation_result"]
     output["properties"]["analyzed_scope"] = {"$ref": "#/definitions/json_value"}
     output["required"].append("analyzed_scope")
-    sources = tuple(replace(item, content=yaml.safe_dump(document).encode()) if item.name in {protocol.name, "native/projection-physical/data-operation-native.yaml"} else item for item in sources)
+    sources = tuple(
+        replace(item, content=yaml.safe_dump(document).encode())
+        if item.name in {protocol.name, "native/projection-physical/data-operation-native.yaml"}
+        else item
+        for item in sources
+    )
     model = compile_data_operations(declarations=(native_operation_declarations(sources),))
-    calls = tuple(item for item in native_operation_calls(model, sources=sources) if item[0] == "data.expand_data_obligation")
-    artifact = compile_data_operation_artifacts(model, calls, native_source_digest=native_source_digest(sources))
+    calls = tuple(
+        item
+        for item in native_operation_calls(model, sources=sources)
+        if item[0] == "data.expand_data_obligation"
+    )
+    artifact = compile_data_operation_artifacts(
+        model, calls, native_source_digest=native_source_digest(sources)
+    )
     assert b"source_revision: Required[Literal['reviewed']]" in artifact.calls
     assert b"class WireExpandDataObligationRequest(TypedDict)" in artifact.calls
     module = ModuleType("corpus_structure.semantic._wire_generation_control")
@@ -92,29 +107,54 @@ def test_captured_structural_calls_keep_decimal_and_changed_protocol_fields(monk
     context_checks = []
     module.__dict__["require_call_context"] = lambda *args: context_checks.append(args)
     payload = {
-        "demand_id": "demand:x", "operation_id": "operation:x", "subject": "subject:x",
-        "original_source": "source:x", "analyzed_scope": {"coordinate": Decimal("0.12345678901234567890123456789")},
-        "parameters": {}, "source_revision": "reviewed",
+        "demand_id": "demand:x",
+        "operation_id": "operation:x",
+        "subject": "subject:x",
+        "original_source": "source:x",
+        "analyzed_scope": {"coordinate": Decimal("0.12345678901234567890123456789")},
+        "parameters": {},
+        "source_revision": "reviewed",
     }
     prepare = module.__dict__["prepare_expand_data_obligation"]
     with pytest.raises(TypeError):
         prepare(payload=payload)
     statement = prepare(payload=payload, projection_context=object())
     encoded = statement.compile().params["payload"]
-    assert wire_json_loads(encoded)["analyzed_scope"]["coordinate"] == payload["analyzed_scope"]["coordinate"]
+    assert (
+        wire_json_loads(encoded)["analyzed_scope"]["coordinate"]
+        == payload["analyzed_scope"]["coordinate"]
+    )
     assert context_checks[0][1] == "data.expand_data_obligation"
     with pytest.raises(ValueError, match="source_revision"):
-        prepare(payload={key: value for key, value in payload.items() if key != "source_revision"}, projection_context=object())
+        prepare(
+            payload={key: value for key, value in payload.items() if key != "source_revision"},
+            projection_context=object(),
+        )
+
     # Exercise the emitted result function itself, including its exact decoder.
     class Connection:
         def scalar(self, statement):
-            return json_bytes({"payload": {"obligation_id": "obligation:x", "analyzed_scope": payload["analyzed_scope"]}}).decode()
+            return json_bytes(
+                {
+                    "payload": {
+                        "obligation_id": "obligation:x",
+                        "analyzed_scope": payload["analyzed_scope"],
+                    }
+                }
+            ).decode()
 
-    result = module.__dict__["expand_data_obligation"](Connection(), payload=payload, projection_context=object())
+    result = module.__dict__["expand_data_obligation"](
+        Connection(), payload=payload, projection_context=object()
+    )
     assert result["payload"]["analyzed_scope"] == payload["analyzed_scope"]
     assert isinstance(result["payload"]["analyzed_scope"]["coordinate"], Decimal)
     # Embedded captured schema is not affected by ambient checkout protocol edits.
-    assert json.loads(json.loads(artifact.manifest)["calls"][0][1]["parameters"][0]["wire_schema"])["definitions"]["expand_data_obligation_request"]["required"][-1] == "source_revision"
+    assert (
+        json.loads(json.loads(artifact.manifest)["calls"][0][1]["parameters"][0]["wire_schema"])[
+            "definitions"
+        ]["expand_data_obligation_request"]["required"][-1]
+        == "source_revision"
+    )
 
 
 def test_structural_generation_refuses_unsupported_construct_at_its_source():
@@ -148,11 +188,15 @@ def test_fixed_native_caller_preserves_nominal_ids_unions_and_required_keys(tmp_
     failed = subprocess.run(command, capture_output=True, text=True, check=False)
     assert failed.returncode != 0
     diagnostics = failed.stdout + failed.stderr
-    assert "WireDemandId" in diagnostics and "lease_seconds" in diagnostics and "task_id" in diagnostics
+    assert (
+        "WireDemandId" in diagnostics
+        and "lease_seconds" in diagnostics
+        and "task_id" in diagnostics
+    )
 
 
 def test_native_header_rename_changes_only_selected_declaration_and_preserves_body():
-    sql = '''-- misleading CREATE OR REPLACE FUNCTION ops.claim_data_request(
+    sql = """-- misleading CREATE OR REPLACE FUNCTION ops.claim_data_request(
 SELECT 'CREATE OR REPLACE FUNCTION ops.claim_data_request(';  -- untouched literal
 CREATE OR REPLACE FUNCTION "ops"."claim_data_request"(p_payload jsonb) RETURNS jsonb
 LANGUAGE plpgsql AS $body$ BEGIN
@@ -160,24 +204,31 @@ LANGUAGE plpgsql AS $body$ BEGIN
  RETURN jsonb_build_object('header','CREATE OR REPLACE FUNCTION ops.claim_data_request(');
 END $body$;
 CREATE FUNCTION ops.unrelated() RETURNS text LANGUAGE sql AS $$SELECT 'unchanged'$$;
-'''
+"""
     changed = _rename_native_entrypoints(sql, {"claim_data_request"})
     before, after = prepare_sql(sql), prepare_sql(changed)
     assert before.excerpt(0) == after.excerpt(0)
     assert before.excerpt(2) == after.excerpt(2)
     from pglast import ast
+
     function_before, function_after = before.statements[1].stmt, after.statements[1].stmt
     assert isinstance(function_before, ast.CreateFunctionStmt)
     assert isinstance(function_after, ast.CreateFunctionStmt)
     assert body_source(function_before) == body_source(function_after)
-    assert [part.sval for part in function_after.funcname or ()] == ["ops", "ddo_impl_claim_data_request"]
+    assert [part.sval for part in function_after.funcname or ()] == [
+        "ops",
+        "ddo_impl_claim_data_request",
+    ]
 
 
 def test_database_capacity_comes_from_owned_pool_or_explicit_unmanaged_reservation():
     from types import SimpleNamespace
+
     from corpus_structure.orchestrate.data_operations import _database_capacity
 
-    engine = cast(Any, SimpleNamespace(_corpus_store=SimpleNamespace(pool=SimpleNamespace(max_size=5))))
+    engine = cast(
+        Any, SimpleNamespace(_corpus_store=SimpleNamespace(pool=SimpleNamespace(max_size=5)))
+    )
     assert _database_capacity(engine, None) == 5
     assert _database_capacity(engine, 3) == 3
     with pytest.raises(ValueError, match="exceeds"):

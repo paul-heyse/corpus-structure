@@ -516,17 +516,49 @@ def binding_branches(metadata):
         .where(
             definitions.c.release_id == release,
             definitions.c.operation_id == operation_id,
-            case((and_(
-                roles.c.value["accepted_kind_contracts"].op("?")(projected.c.projected_kind),
-                func.coalesce(roles.c.value["support"]["origins"], _json(["computation"])).op("?")(literal("computation")),
-                or_(roles.c.value["subject_field"].astext.is_not(None), roles.c.value["subject_target"].astext == "source-set", projected.c.projected_scope.is_not_distinct_from(scope)),
-            ), case((and_(
-                func.ops.ddo_kind_access(admitted.c.parent_kind),
-                func.ops.ddo_body_access(projected.c.projected_kind, projected.c.projected_body),
-            ), and_(
-                or_(subject.is_(None), func.ops.ddo_binding_subject(roles.c.value, header, subject, source)),
-                func.ops.ddo_binding_source(roles.c.value, full_header, source, func.coalesce(selection["source_sets"], _json({}))),
-            )), else_=literal(False))), else_=literal(False)),
+            case(
+                (
+                    and_(
+                        roles.c.value["accepted_kind_contracts"].op("?")(
+                            projected.c.projected_kind
+                        ),
+                        func.coalesce(
+                            roles.c.value["support"]["origins"], _json(["computation"])
+                        ).op("?")(literal("computation")),
+                        or_(
+                            roles.c.value["subject_field"].astext.is_not(None),
+                            roles.c.value["subject_target"].astext == "source-set",
+                            projected.c.projected_scope.is_not_distinct_from(scope),
+                        ),
+                    ),
+                    case(
+                        (
+                            and_(
+                                func.ops.ddo_kind_access(admitted.c.parent_kind),
+                                func.ops.ddo_body_access(
+                                    projected.c.projected_kind, projected.c.projected_body
+                                ),
+                            ),
+                            and_(
+                                or_(
+                                    subject.is_(None),
+                                    func.ops.ddo_binding_subject(
+                                        roles.c.value, header, subject, source
+                                    ),
+                                ),
+                                func.ops.ddo_binding_source(
+                                    roles.c.value,
+                                    full_header,
+                                    source,
+                                    func.coalesce(selection["source_sets"], _json({})),
+                                ),
+                            ),
+                        ),
+                        else_=literal(False),
+                    ),
+                ),
+                else_=literal(False),
+            ),
         )
     )
     candidates = (
@@ -623,14 +655,36 @@ def binding_branches(metadata):
         .where(
             definitions.c.release_id == release,
             definitions.c.operation_id == operation_id,
-            case((and_(
-                roles.c.value["accepted_kind_contracts"].op("?")(products.c.kind_contract),
-                func.coalesce(roles.c.value["support"]["origins"], _json(["computation"])).op("?")(fact_origin),
-                or_(roles.c.value["subject_field"].astext.is_not(None), admissions.c.analyzed_scope.is_not_distinct_from(scope)),
-                or_(source.is_(None), admissions.c.original_source == source),
-            ), case((func.ops.ddo_body_access(products.c.kind_contract, products.c.canonical_body),
-                     or_(subject.is_(None), func.ops.ddo_binding_subject(roles.c.value, factual_header, subject, source))),
-                    else_=literal(False))), else_=literal(False)),
+            case(
+                (
+                    and_(
+                        roles.c.value["accepted_kind_contracts"].op("?")(products.c.kind_contract),
+                        func.coalesce(
+                            roles.c.value["support"]["origins"], _json(["computation"])
+                        ).op("?")(fact_origin),
+                        or_(
+                            roles.c.value["subject_field"].astext.is_not(None),
+                            admissions.c.analyzed_scope.is_not_distinct_from(scope),
+                        ),
+                        or_(source.is_(None), admissions.c.original_source == source),
+                    ),
+                    case(
+                        (
+                            func.ops.ddo_body_access(
+                                products.c.kind_contract, products.c.canonical_body
+                            ),
+                            or_(
+                                subject.is_(None),
+                                func.ops.ddo_binding_subject(
+                                    roles.c.value, factual_header, subject, source
+                                ),
+                            ),
+                        ),
+                        else_=literal(False),
+                    ),
+                ),
+                else_=literal(False),
+            ),
         )
     )
     fact = (
@@ -714,9 +768,31 @@ def selected_support_export(metadata, selected_uses, admissions, in_page):
     seed = union(
         _node("use", selected_uses.c.id),
         _node("original", admissions.c.id).where(
-            admissions.c.demand_id == _var("d.id", Text), in_page, _visible(admissions),
-            *(or_(_requested_read_scope()[name].astext.is_(None), admissions.c[name] == _requested_read_scope()[name].astext) for name in ("subject", "original_source")),
-            or_(~_requested_read_scope().op("?")(literal("product_ids")), exists(select(1).select_from(_items(_requested_read_scope()["product_ids"], "scope_original_product")).where(literal_column("scope_original_product.value", type_=JSONB).op("#>>")(literal_column("'{}'::text[]")) == admissions.c.product_id)))
+            admissions.c.demand_id == _var("d.id", Text),
+            in_page,
+            _visible(admissions),
+            *(
+                or_(
+                    _requested_read_scope()[name].astext.is_(None),
+                    admissions.c[name] == _requested_read_scope()[name].astext,
+                )
+                for name in ("subject", "original_source")
+            ),
+            or_(
+                ~_requested_read_scope().op("?")(literal("product_ids")),
+                exists(
+                    select(1)
+                    .select_from(
+                        _items(_requested_read_scope()["product_ids"], "scope_original_product")
+                    )
+                    .where(
+                        literal_column("scope_original_product.value", type_=JSONB).op("#>>")(
+                            literal_column("'{}'::text[]")
+                        )
+                        == admissions.c.product_id
+                    )
+                ),
+            ),
         ),
     ).cte("export_support_seed")
     nodes = _support_walk(metadata, seed)
@@ -732,7 +808,9 @@ def selected_support_export(metadata, selected_uses, admissions, in_page):
     kinds = metadata.tables["sem.data_kind_contract"]
 
     def reached(kind, identity):
-        return exists(select(1).select_from(nodes).where(nodes.c.kind == kind, nodes.c.id == identity))
+        return exists(
+            select(1).select_from(nodes).where(nodes.c.kind == kind, nodes.c.id == identity)
+        )
 
     episode_ids = select(episodes.c.id).where(reached("episode", episodes.c.id))
     request_ids = select(episodes.c.request_id).where(episodes.c.id.in_(episode_ids))
@@ -754,48 +832,160 @@ def selected_support_export(metadata, selected_uses, admissions, in_page):
             omitted.update({"generation", "live_task_id", "binding", "release_id", "runtime_id"})
         for name in sorted(omitted & set(relation.c.keys())):
             value = value.op("-")(literal(name))
-        key = func.jsonb_build_array(*(relation.c[col.name] for col in relation.primary_key.columns)).cast(Text)
-        return select((literal(relation.fullname + ":") + key).label("key"), literal(relation.fullname).label("relation"), value.label("record")).where(predicate)
+        key = func.jsonb_build_array(
+            *(relation.c[col.name] for col in relation.primary_key.columns)
+        ).cast(Text)
+        return select(
+            (literal(relation.fullname + ":") + key).label("key"),
+            literal(relation.fullname).label("relation"),
+            value.label("record"),
+        ).where(predicate)
 
     fields = dict(
         uses=records(uses, reached("use", uses.c.id), uses.c.id),
         episodes=records(episodes, episodes.c.id.in_(episode_ids), episodes.c.id),
         requests=records(requests, requests.c.id.in_(request_ids), requests.c.id),
-        original_admissions=records(admissions, reached("original", admissions.c.id), admissions.c.id),
+        original_admissions=records(
+            admissions, reached("original", admissions.c.id), admissions.c.id
+        ),
         populations=records(populations, reached("population", populations.c.id), populations.c.id),
-        inputs=records(inputs, inputs.c.derivation_id.in_(episode_ids), inputs.c.derivation_id, inputs.c.role, inputs.c.position),
-        outputs=records(outputs, outputs.c.derivation_id.in_(episode_ids), outputs.c.derivation_id, outputs.c.role, outputs.c.position),
-        products=records(products, and_(products.c.id.in_(select(product_ids.c.product_id)), func.ops.ddo_kind_access(products.c.kind_contract)), products.c.id),
-        members=records(members, and_(members.c.product_id.in_(select(product_ids.c.product_id)), func.ops.ddo_kind_access(members.c.kind_contract)), members.c.product_id, members.c.member_id),
-        kinds=records(kinds, or_(
-            kinds.c.kind_contract.in_(select(products.c.kind_contract).where(products.c.id.in_(select(product_ids.c.product_id)))),
-            kinds.c.kind_contract.in_(select(members.c.kind_contract).where(members.c.product_id.in_(select(product_ids.c.product_id)))),
-        ), kinds.c.kind_contract),
-        definitions=records(definitions, exists(select(1).select_from(episodes.join(requests, requests.c.id == episodes.c.request_id)).where(episodes.c.id.in_(episode_ids), episodes.c.release_id == definitions.c.release_id, requests.c.operation_id == definitions.c.operation_id)), definitions.c.release_id, definitions.c.operation_id),
+        inputs=records(
+            inputs,
+            inputs.c.derivation_id.in_(episode_ids),
+            inputs.c.derivation_id,
+            inputs.c.role,
+            inputs.c.position,
+        ),
+        outputs=records(
+            outputs,
+            outputs.c.derivation_id.in_(episode_ids),
+            outputs.c.derivation_id,
+            outputs.c.role,
+            outputs.c.position,
+        ),
+        products=records(
+            products,
+            and_(
+                products.c.id.in_(select(product_ids.c.product_id)),
+                func.ops.ddo_kind_access(products.c.kind_contract),
+            ),
+            products.c.id,
+        ),
+        members=records(
+            members,
+            and_(
+                members.c.product_id.in_(select(product_ids.c.product_id)),
+                func.ops.ddo_kind_access(members.c.kind_contract),
+            ),
+            members.c.product_id,
+            members.c.member_id,
+        ),
+        kinds=records(
+            kinds,
+            or_(
+                kinds.c.kind_contract.in_(
+                    select(products.c.kind_contract).where(
+                        products.c.id.in_(select(product_ids.c.product_id))
+                    )
+                ),
+                kinds.c.kind_contract.in_(
+                    select(members.c.kind_contract).where(
+                        members.c.product_id.in_(select(product_ids.c.product_id))
+                    )
+                ),
+            ),
+            kinds.c.kind_contract,
+        ),
+        definitions=records(
+            definitions,
+            exists(
+                select(1)
+                .select_from(episodes.join(requests, requests.c.id == episodes.c.request_id))
+                .where(
+                    episodes.c.id.in_(episode_ids),
+                    episodes.c.release_id == definitions.c.release_id,
+                    requests.c.operation_id == definitions.c.operation_id,
+                )
+            ),
+            definitions.c.release_id,
+            definitions.c.operation_id,
+        ),
     )
     intents = metadata.tables["ops.data_completion_intent"]
     receipts = metadata.tables["ops.data_publication_receipt"]
-    fields["completion_intents"] = records(intents, intents.c.id.in_(select(episodes.c.intent_id).where(episodes.c.id.in_(episode_ids))), intents.c.id)
-    fields["publication_receipts"] = records(receipts, receipts.c.derivation_id.in_(episode_ids), receipts.c.id)
+    fields["completion_intents"] = records(
+        intents,
+        intents.c.id.in_(select(episodes.c.intent_id).where(episodes.c.id.in_(episode_ids))),
+        intents.c.id,
+    )
+    fields["publication_receipts"] = records(
+        receipts, receipts.c.derivation_id.in_(episode_ids), receipts.c.id
+    )
     for name in ("data_derivation_support", "data_derivation_original_support"):
         relation = metadata.tables["ops." + name]
-        fields[name.removeprefix("data_derivation_")] = records(relation, relation.c.derivation_id.in_(episode_ids), *relation.primary_key.columns)
+        fields[name.removeprefix("data_derivation_")] = records(
+            relation, relation.c.derivation_id.in_(episode_ids), *relation.primary_key.columns
+        )
     for name in ("coordinate", "role", "endpoint", "coverage", "choice"):
         relation = metadata.tables["kb.data_member_" + name]
-        fields[name] = records(relation, relation.c.product_id.in_(select(product_ids.c.product_id)), *relation.primary_key.columns)
+        fields[name] = records(
+            relation,
+            relation.c.product_id.in_(select(product_ids.c.product_id)),
+            *relation.primary_key.columns,
+        )
     rows = union_all(*fields.values()).cte("support_export_rows")
-    bounded_rows = (select(rows).where(rows.c.key > func.coalesce(_var("p", JSONB)["support_after"].astext, literal(""))).order_by(rows.c.key).limit(_var("lim", BigInteger) + 1).cte("support_export_bounded").prefix_with("MATERIALIZED"))
-    page = select(bounded_rows).order_by(bounded_rows.c.key).limit(_var("lim", BigInteger)).cte("support_export_page")
+    bounded_rows = (
+        select(rows)
+        .where(rows.c.key > func.coalesce(_var("p", JSONB)["support_after"].astext, literal("")))
+        .order_by(rows.c.key)
+        .limit(_var("lim", BigInteger) + 1)
+        .cte("support_export_bounded")
+        .prefix_with("MATERIALIZED")
+    )
+    page = (
+        select(bounded_rows)
+        .order_by(bounded_rows.c.key)
+        .limit(_var("lim", BigInteger))
+        .cte("support_export_page")
+    )
     last = select(func.max(page.c.key)).scalar_subquery()
-    more = select(func.count()).select_from(bounded_rows).scalar_subquery() > _var("lim", BigInteger)
-    payload = _obj(records=select(_aggregate(_obj(key=page.c.key, relation=page.c.relation, record=page.c.record), page.c.key)).scalar_subquery(), after=case((more, last), else_=null()), complete=~more)
-    body_bytes = select(func.coalesce(func.sum(func.octet_length(page.c.record.cast(Text))), 0)).scalar_subquery()
+    more = select(func.count()).select_from(bounded_rows).scalar_subquery() > _var(
+        "lim", BigInteger
+    )
+    payload = _obj(
+        records=select(
+            _aggregate(
+                _obj(key=page.c.key, relation=page.c.relation, record=page.c.record), page.c.key
+            )
+        ).scalar_subquery(),
+        after=case((more, last), else_=null()),
+        complete=~more,
+    )
+    body_bytes = select(
+        func.coalesce(func.sum(func.octet_length(page.c.record.cast(Text))), 0)
+    ).scalar_subquery()
     body_access = (
-        select(func.coalesce(func.bool_and(func.ops.ddo_body_access(products.c.kind_contract, products.c.canonical_body)), literal(True)))
+        select(
+            func.coalesce(
+                func.bool_and(
+                    func.ops.ddo_body_access(products.c.kind_contract, products.c.canonical_body)
+                ),
+                literal(True),
+            )
+        )
         .where(products.c.id.in_(select(product_ids.c.product_id)))
         .scalar_subquery()
     )
-    return case((body_access, case((body_bytes <= _var("selected_max_bytes", BigInteger), payload), else_=func.ops.ddo_result_bytes_refusal())), else_=func.ops.ddo_result_bytes_refusal())
+    return case(
+        (
+            body_access,
+            case(
+                (body_bytes <= _var("selected_max_bytes", BigInteger), payload),
+                else_=func.ops.ddo_result_bytes_refusal(),
+            ),
+        ),
+        else_=func.ops.ddo_result_bytes_refusal(),
+    )
 
 
 def read_page(metadata):
@@ -813,13 +1003,44 @@ def read_page(metadata):
     requests = metadata.tables["ops.data_request"]
     definitions = metadata.tables["sem.data_operation_definition"]
     read_scope = _requested_read_scope()
-    scope_predicates = tuple(or_(read_scope[name].astext.is_(None), obligations.c[name] == read_scope[name].astext) for name in ("operation_id", "subject", "original_source"))
+    scope_predicates = tuple(
+        or_(read_scope[name].astext.is_(None), obligations.c[name] == read_scope[name].astext)
+        for name in ("operation_id", "subject", "original_source")
+    )
     scoped_use = uses.alias("scope_use")
     later_scope_use = uses.alias("scope_later_use")
-    selected_product = func.jsonb_array_elements_text(read_scope["product_ids"]).table_valued(column("value", Text())).render_derived(name="scope_product")
-    product_match = exists(select(1).select_from(scoped_use.join(outputs, outputs.c.derivation_id == scoped_use.c.derivation_id).join(selected_product, selected_product.c.value == outputs.c.product_id)).where(
-        scoped_use.c.obligation_id == obligations.c.id, _visible(scoped_use),
-        ~exists(select(1).select_from(later_scope_use).where(later_scope_use.c.obligation_id == scoped_use.c.obligation_id, _visible(later_scope_use), or_(later_scope_use.c.created_at > scoped_use.c.created_at, and_(later_scope_use.c.created_at == scoped_use.c.created_at, later_scope_use.c.id > scoped_use.c.id))))))
+    selected_product = (
+        func.jsonb_array_elements_text(read_scope["product_ids"])
+        .table_valued(column("value", Text()))
+        .render_derived(name="scope_product")
+    )
+    product_match = exists(
+        select(1)
+        .select_from(
+            scoped_use.join(outputs, outputs.c.derivation_id == scoped_use.c.derivation_id).join(
+                selected_product, selected_product.c.value == outputs.c.product_id
+            )
+        )
+        .where(
+            scoped_use.c.obligation_id == obligations.c.id,
+            _visible(scoped_use),
+            ~exists(
+                select(1)
+                .select_from(later_scope_use)
+                .where(
+                    later_scope_use.c.obligation_id == scoped_use.c.obligation_id,
+                    _visible(later_scope_use),
+                    or_(
+                        later_scope_use.c.created_at > scoped_use.c.created_at,
+                        and_(
+                            later_scope_use.c.created_at == scoped_use.c.created_at,
+                            later_scope_use.c.id > scoped_use.c.id,
+                        ),
+                    ),
+                )
+            ),
+        )
+    )
     scope_predicates += (or_(~read_scope.op("?")(literal("product_ids")), product_match),)
     bounded = (
         select(obligations)
@@ -875,7 +1096,11 @@ def read_page(metadata):
             ),
         )
     )
-    body_ids = func.jsonb_array_elements_text(read_scope["product_ids"]).table_valued(column("value", Text())).render_derived(name="selected_body_product")
+    body_ids = (
+        func.jsonb_array_elements_text(read_scope["product_ids"])
+        .table_valued(column("value", Text()))
+        .render_derived(name="selected_body_product")
+    )
     product_body_selected = or_(
         ~read_scope.op("?")(literal("product_ids")),
         exists(select(1).select_from(body_ids).where(body_ids.c.value == products.c.id)),
@@ -906,8 +1131,18 @@ def read_page(metadata):
         .where(
             outputs.c.derivation_id == selected_uses.c.derivation_id,
             case(
-                (_var("selected_view", Text) == "products",
-                 case((product_body_selected, func.ops.ddo_body_access(products.c.kind_contract, products.c.canonical_body)), else_=literal(False))),
+                (
+                    _var("selected_view", Text) == "products",
+                    case(
+                        (
+                            product_body_selected,
+                            func.ops.ddo_body_access(
+                                products.c.kind_contract, products.c.canonical_body
+                            ),
+                        ),
+                        else_=literal(False),
+                    ),
+                ),
                 else_=literal(True),
             ),
         )
@@ -1188,7 +1423,18 @@ def read_page(metadata):
             uses=result_uses,
             obligations=result_obligations,
             original_source_admissions=result_admissions,
-            support_page=case((_var("selected_view", Text) == "support", selected_support_export(metadata, selected_uses, admissions, or_(in_page, ~exists(select(1).select_from(bounded))))), else_=null()),
+            support_page=case(
+                (
+                    _var("selected_view", Text) == "support",
+                    selected_support_export(
+                        metadata,
+                        selected_uses,
+                        admissions,
+                        or_(in_page, ~exists(select(1).select_from(bounded))),
+                    ),
+                ),
+                else_=null(),
+            ),
             attempt_failures=result_failures,
             populations=result_populations,
             continuation=continuation,

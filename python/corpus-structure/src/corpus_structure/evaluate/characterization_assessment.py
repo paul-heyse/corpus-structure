@@ -24,6 +24,7 @@ def pin_key(value):
     try:
         if set(value) == {"product_id"}:
             from corpus_structure.semantic.data_product_reference import DataProductReference
+
             reference = DataProductReference(value["product_id"])
             return ("semantic-product", reference.product_id)
         if set(value) != {"task_id", "product_key", "content_digest"}:
@@ -36,8 +37,14 @@ def pin_key(value):
 
 def output_key(value):
     if isinstance(value, Mapping) and set(value) == {"product_id", "member_id", "collection"}:
-        from corpus_structure.semantic.data_product_reference import DataProductMemberReference, DataProductReference
-        reference = DataProductMemberReference(DataProductReference(value["product_id"]), value["member_id"])
+        from corpus_structure.semantic.data_product_reference import (
+            DataProductMemberReference,
+            DataProductReference,
+        )
+
+        reference = DataProductMemberReference(
+            DataProductReference(value["product_id"]), value["member_id"]
+        )
         if value["collection"] not in COLLECTIONS:
             raise ReferenceError("assessment output requires an actual declared collection")
         return (*pin_key(reference.product.values()), value["collection"], reference.member_id)
@@ -372,6 +379,7 @@ def _matches(actual, expected, graph_projection=None):
 
 def _graph_member(value):
     from corpus_structure.semantic.data_product_reference import read_member_reference
+
     reference = read_member_reference(value)
     return reference.product.values(), reference.member_id
 
@@ -656,7 +664,15 @@ class LayerProjection:
                 )
             )
             if set(current_pin) == {"product_id"}:
-                qualified = dict(product_id=current_pin["product_id"], member_id=identity) if isinstance(identity, str) else dict(product_id=current_pin["product_id"], member_id=identity[1], path=["named_match", "bindings", identity[2]])
+                qualified = (
+                    dict(product_id=current_pin["product_id"], member_id=identity)
+                    if isinstance(identity, str)
+                    else dict(
+                        product_id=current_pin["product_id"],
+                        member_id=identity[1],
+                        path=["named_match", "bindings", identity[2]],
+                    )
+                )
             node = dict(
                 id=names[(*key, identity)],
                 qualified_identity=qualified,

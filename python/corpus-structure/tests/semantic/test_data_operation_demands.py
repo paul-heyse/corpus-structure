@@ -2,11 +2,6 @@
 
 from __future__ import annotations
 
-from typing import cast
-from corpus_structure.semantic._data_operation_wire import WireRootSubject, WireReadDemandResultResult
-
-from corpus_structure.semantic._data_operation_wire import DataOperationCalls
-
 import math
 from datetime import date
 from decimal import Decimal
@@ -14,6 +9,11 @@ from typing import cast
 
 import pytest
 
+from corpus_structure.semantic._data_operation_wire import (
+    DataOperationCalls,
+    WireReadDemandResultResult,
+    WireRootSubject,
+)
 from corpus_structure.semantic.data_operation_demands import (
     DiscoverySelection,
     OperationSelection,

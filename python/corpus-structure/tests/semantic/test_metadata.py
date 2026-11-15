@@ -215,7 +215,9 @@ def test_read_shapes_never_supply_stored_table_ddl():
     from corpus_structure.semantic.metadata import READ_MODEL
 
     read = compile_physical(
-        physical_source_closure(READ_MODEL.name, lambda name: READ_MODEL.with_name(name).read_bytes()),
+        physical_source_closure(
+            READ_MODEL.name, lambda name: READ_MODEL.with_name(name).read_bytes()
+        ),
         root=READ_MODEL.name,
         target="semantic-read",
     )

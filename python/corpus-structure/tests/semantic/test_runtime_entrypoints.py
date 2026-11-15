@@ -117,6 +117,7 @@ def test_supervisor_handoff_distinguishes_waiting_from_lost_active_session(
             supervisor.invalidate()
         status("orphaned")
         from corpus_structure.semantic.operations import end_source_run
+
         with engine.begin() as connection:
             end_source_run(connection, run)
         status("terminal")

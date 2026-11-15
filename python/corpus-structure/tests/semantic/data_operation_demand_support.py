@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import json
 from typing import cast as typing_cast
+
 from corpus_structure.semantic._data_operation_wire import (
     WireAttachDataRequestRequest,
     WireCancelDataDemandRequest,
@@ -13,9 +15,6 @@ from corpus_structure.semantic._data_operation_wire import (
     WireRegisterDataDemandRequest,
     WireRetainDataCompletionIntentRequest,
 )
-
-import json
-
 from corpus_structure.semantic.data_operation_identity import SemanticRequestKey, semantic_value
 from corpus_structure.semantic.data_operation_storage import DataOperationStorage
 from semantic.data_operation_declaration_support import root_subject, subject_context
@@ -51,21 +50,33 @@ def attach(
     ).record
     with (engine or kernel["engine"]).begin() as connection:
         storage = DataOperationStorage(connection)
-        demand = storage.register_data_demand(typing_cast(WireRegisterDataDemandRequest, {
-                "project_id": project_id,
-                "release_id": kernel["prepared"].release_id,
-                "runtime_id": kernel["runtime"],
-                "root": [root],
-                "selection": selected,
-                "strength": "value",
-            }))
-        obligation = storage.expand_data_obligation(typing_cast(WireExpandDataObligationRequest, {
-                "demand_id": demand["demand_id"],
-                "operation_id": operation,
-                **root,
-                "parameters": {},
-            }))
-        acquired = storage.read_demand_result(typing_cast(WireReadDemandResultRequest, {"demand_id": demand["demand_id"]}))
+        demand = storage.register_data_demand(
+            typing_cast(
+                WireRegisterDataDemandRequest,
+                {
+                    "project_id": project_id,
+                    "release_id": kernel["prepared"].release_id,
+                    "runtime_id": kernel["runtime"],
+                    "root": [root],
+                    "selection": selected,
+                    "strength": "value",
+                },
+            )
+        )
+        obligation = storage.expand_data_obligation(
+            typing_cast(
+                WireExpandDataObligationRequest,
+                {
+                    "demand_id": demand["demand_id"],
+                    "operation_id": operation,
+                    **root,
+                    "parameters": {},
+                },
+            )
+        )
+        acquired = storage.read_demand_result(
+            typing_cast(WireReadDemandResultRequest, {"demand_id": demand["demand_id"]})
+        )
         request = SemanticRequestKey(
             kernel["identities"][operation, "recipe"],
             subject,
@@ -100,11 +111,16 @@ def attach(
 
 def claim(kernel, attached, holder="producer", seconds=30):
     with kernel["engine"].begin() as connection:
-        result = DataOperationStorage(connection).claim_data_request(typing_cast(WireClaimDataRequestRequest, {
-                "request_id": attached["request_id"],
-                "holder": holder,
-                "lease_seconds": seconds,
-            }))
+        result = DataOperationStorage(connection).claim_data_request(
+            typing_cast(
+                WireClaimDataRequestRequest,
+                {
+                    "request_id": attached["request_id"],
+                    "holder": holder,
+                    "lease_seconds": seconds,
+                },
+            )
+        )
         assert result["state"] == "claimed"
     return {
         name: result[name] for name in ("request_id", "generation", "task_id", "attempt", "holder")
@@ -134,25 +150,39 @@ def retain(kernel, fence, *, outputs=(1,), outcome="success", mutate=None):
     if mutate:
         mutate(completion)
     with kernel["engine"].begin() as connection:
-        intent = DataOperationStorage(connection).retain_data_completion_intent(typing_cast(WireRetainDataCompletionIntentRequest, {
-                **fence,
-                "runtime_id": kernel["runtime"],
-                "completion": completion,
-            }))
+        intent = DataOperationStorage(connection).retain_data_completion_intent(
+            typing_cast(
+                WireRetainDataCompletionIntentRequest,
+                {
+                    **fence,
+                    "runtime_id": kernel["runtime"],
+                    "completion": completion,
+                },
+            )
+        )
     return intent
 
 
 def publish(kernel, fence, intent):
     with kernel["engine"].begin() as connection:
-        return DataOperationStorage(connection).publish_data_derivation(typing_cast(WirePublishDataDerivationRequest, {
-                **fence,
-                "intent_id": intent["intent_id"],
-            }))
+        return DataOperationStorage(connection).publish_data_derivation(
+            typing_cast(
+                WirePublishDataDerivationRequest,
+                {
+                    **fence,
+                    "intent_id": intent["intent_id"],
+                },
+            )
+        )
 
 
 def cancel_demand(kernel, demand, reason="operator stopped this demand"):
     with kernel["engine"].begin() as connection:
-        return DataOperationStorage(connection).cancel_data_demand(typing_cast(WireCancelDataDemandRequest, {"demand_id": demand["demand_id"], "reason": reason}))
+        return DataOperationStorage(connection).cancel_data_demand(
+            typing_cast(
+                WireCancelDataDemandRequest, {"demand_id": demand["demand_id"], "reason": reason}
+            )
+        )
 
 
 def expire_lease(kernel, fence):

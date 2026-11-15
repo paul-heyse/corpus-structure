@@ -8,7 +8,6 @@ the execution lifecycle contracts cannot activate until their SP-C03 guards exis
 from __future__ import annotations
 
 import ast
-import json
 from dataclasses import dataclass
 from functools import lru_cache
 from hashlib import sha256

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Annotated,Literal
+from typing import Annotated, Literal
 
 import typer
 
@@ -115,7 +115,7 @@ def _explain(
 def claim(
     ctx: typer.Context,
     key: str,
-    run: Annotated[int,typer.Option(min=1,help="Exact sealed historical result run.")],
+    run: Annotated[int, typer.Option(min=1, help="Exact sealed historical result run.")],
     project: str | None = None,
     json: JsonOpt = False,
     query_token: str | None = None,
@@ -127,7 +127,7 @@ def claim(
 def unit(
     ctx: typer.Context,
     key: str,
-    run: Annotated[int,typer.Option(min=1,help="Exact sealed historical result run.")],
+    run: Annotated[int, typer.Option(min=1, help="Exact sealed historical result run.")],
     project: str | None = None,
     json: JsonOpt = False,
     query_token: str | None = None,
@@ -143,7 +143,7 @@ def inventory(
     ctx: typer.Context,
     key: str,
     collection: str,
-    run: Annotated[int,typer.Option(min=1,help="Exact sealed historical result run.")],
+    run: Annotated[int, typer.Option(min=1, help="Exact sealed historical result run.")],
     project: str | None = None,
     json: JsonOpt = False,
     query_token: str | None = None,
@@ -163,7 +163,7 @@ def report(
     kind: Literal["claim", "unit"],
     key: str,
     identifier: str,
-    run: Annotated[int,typer.Option(min=1,help="Exact sealed historical result run.")],
+    run: Annotated[int, typer.Option(min=1, help="Exact sealed historical result run.")],
     collection: str = "observation",
     project: str | None = None,
     json: JsonOpt = False,

@@ -233,6 +233,7 @@ def test_cancelled_pm2_scope_does_not_gain_an_operation_result(parser_source):
             input_hash=digest,
         )
     from corpus_structure.semantic.operations import end_source_run
+
     with case.writer.begin() as connection:
         assert end_source_run(connection, run) == 1
     with read_snapshot(case.writer) as conn:

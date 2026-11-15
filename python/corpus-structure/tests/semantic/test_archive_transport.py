@@ -102,8 +102,11 @@ def test_archive_chunks_share_schema_and_preserve_rows_without_eager_consumption
         for index in range(5):
             consumed.append(index)
             yield {
-                "release_id": "release:chunks", "input_kind": "source",
-                "input_name": str(index), "content": bytes([index]), "content_digest": "digest",
+                "release_id": "release:chunks",
+                "input_kind": "source",
+                "input_name": str(index),
+                "content": bytes([index]),
+                "content_digest": "digest",
             }
 
     batches = archive_batches(relation, profile, rows(), batch_size=2)

@@ -16,7 +16,7 @@ from .data_operation_model import (
     OutputWitnessGroup,
     json_context_meaning,
 )
-from .data_operation_subjects import value_field_kind, subject_field_path
+from .data_operation_subjects import subject_field_path, value_field_kind
 
 _HEADERS = {
     "product",
