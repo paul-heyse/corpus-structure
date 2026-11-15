@@ -224,21 +224,17 @@ def _scope_projection(metadata, nodes, project, direct_sources, *, domain_depend
     ordinary = select(scope.label("scope"))
     if not domain_dependencies:
         return ordinary.order_by(scope)
-    grade_scopes = (
-        func.ops.ddo_record_grade_dependency_scopes(episodes.c.id)
-        .table_valued(column("scope", Text()))
-        .render_derived(name="record_grade_scope")
-    )
-    extra = (
-        select(grade_scopes.c.scope)
-        .select_from(
+    def domain_scopes(function, alias):
+        scopes = function(episodes.c.id).table_valued(column("scope", Text())).render_derived(name=alias)
+        return (select(scopes.c.scope).select_from(
             nodes.join(episodes, and_(nodes.c.kind == "episode", episodes.c.id == nodes.c.id))
-            .join(requests, requests.c.id == episodes.c.request_id)
-            .join(grade_scopes, literal(True))
-        )
-        .where(requests.c.project_id == project)
-    )
-    return union(ordinary, extra).order_by("scope")
+            .join(requests, requests.c.id == episodes.c.request_id).join(scopes, literal(True))
+        ).where(requests.c.project_id == project))
+    return union(
+        ordinary,
+        domain_scopes(func.ops.ddo_record_grade_dependency_scopes, "record_grade_scope"),
+        domain_scopes(func.ops.ddo_record_fit_dependency_scopes, "record_fit_scope"),
+    ).order_by("scope")
 
 
 def _demand_support_scope_inputs(metadata, *, include_unfulfilled=False):

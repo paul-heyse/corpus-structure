@@ -570,10 +570,12 @@ def fit_declared_record_policy(
         threshold_procedure=specification.threshold_procedure,
         conditioning_assumptions=specification.assumptions,
     )
-    basis = sha256(canonical_bytes([
+    from corpus_structure.semantic.data_operation_identity import semantic_value
+
+    basis = sha256(canonical_bytes(semantic_value([
         feature_grade.frame_digest, calibration_grade.frame_digest,
         specification.model_dump(mode="json"),
-    ])).hexdigest()
+    ]))).hexdigest()
     return DeclaredRecordPolicyFitOutcome(diagnostics, DdoFittedRecordPolicy.from_instance(
         instance, family_contract=specification.family_contract,
         reading_recipe=specification.reading_recipe, judgment_basis_digest=basis,

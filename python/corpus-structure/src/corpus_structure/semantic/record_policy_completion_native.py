@@ -88,7 +88,7 @@ CREATE OR REPLACE FUNCTION ops.ddo_require_policy_authorization_completion(r ops
 RETURNS void LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $policy$
 DECLARE definition sem.data_operation_definition; selected jsonb; output jsonb;
  basis kb.data_product; basis_kind sem.data_kind_contract; producing ops.data_derivation;
- fit_definition sem.data_operation_definition; fit_intent ops.data_completion_intent; expected jsonb;
+ fit_definition sem.data_operation_definition; fit_intent ops.data_completion_intent; fit_request ops.data_request; expected jsonb;
 BEGIN
  SELECT * INTO STRICT definition FROM sem.data_operation_definition
  WHERE release_id=r.release_id AND operation_id=r.operation_id;
@@ -145,6 +145,13 @@ BEGIN
  OR jsonb_array_length(coalesce(fit_intent.payload->'execution_evidence'->'cpu_receipts','[]'))<>1
  OR producing.recipe IS DISTINCT FROM fit_definition.recipe THEN
  RAISE EXCEPTION 'policy basis is not the actual admitted protected CPU fit implementation' USING ERRCODE='23514'; END IF;
+ SELECT * INTO STRICT fit_request FROM ops.data_request WHERE id=producing.request_id AND project_id=r.project_id;
+ -- Issuance rechecks the actual original fit inputs, even for a receipt sealed
+ -- before this guard existed. A same-kind/self-consistent body cannot substitute
+ -- another legitimate request's grades or typed fitting specification.
+ PERFORM ops.ddo_require_record_fit_completion(fit_request,fit_intent.payload);
+ IF data.ddo_normalize(fit_intent.payload->'outputs'->0->'product'->'body') IS DISTINCT FROM basis.canonical_body THEN
+ RAISE EXCEPTION 'policy basis differs from actual original fitted completion body' USING ERRCODE='23514'; END IF;
  expected:=ops.ddo_policy_authorization_value(data.ddo_json(basis.canonical_body));
  IF expected->'applicability'->>'project_id' IS DISTINCT FROM r.project_id
  OR NOT EXISTS(SELECT FROM sem.data_kind_contract family JOIN sem.data_kind_release admitted ON admitted.kind_contract=family.kind_contract
@@ -156,4 +163,276 @@ BEGIN
  OR data.ddo_normalize(output->'product'->'body') IS DISTINCT FROM ops.ddo_policy_authorization_meaning(basis.canonical_body) THEN
  RAISE EXCEPTION 'policy authorization public conclusion differs from exact fitted basis and current interpretation' USING ERRCODE='23514'; END IF;
 END $policy$;
-""".replace("__PUBLIC_FIELDS__", fields).replace("__PUBLIC_MEANING_FIELDS__", meaning_fields)
+""".replace("__PUBLIC_FIELDS__", fields).replace("__PUBLIC_MEANING_FIELDS__", meaning_fields) + _fit_completion_sql()
+
+
+def _fit_completion_sql() -> str:
+    """Actual selected grade/specification correspondence, with CPU-owned numerics."""
+    return r"""
+CREATE OR REPLACE FUNCTION ops.ddo_require_record_fit_correspondence(feature_meaning jsonb,calibration_meaning jsonb,specification_meaning jsonb,basis_meaning jsonb)
+RETURNS void LANGUAGE plpgsql IMMUTABLE STRICT SET search_path=pg_catalog,pg_temp AS $fit$
+DECLARE feature_grade jsonb:=data.ddo_json(feature_meaning); calibration_grade jsonb:=data.ddo_json(calibration_meaning);
+ specification jsonb:=data.ddo_json(specification_meaning); basis jsonb:=data.ddo_json(basis_meaning);
+ first_ jsonb:=feature_grade->'frame'; second_ jsonb:=calibration_grade->'frame';
+ instance_meaning jsonb:=data.ddo_field(basis_meaning,'instance'); instance jsonb:=basis->'instance';
+ feature jsonb:=instance->'feature'; calibration jsonb:=instance->'calibration';
+ feature_coverage text; calibration_coverage text; judgment_basis text;
+ first_positive bigint; first_negative bigint; first_groups bigint; second_positive bigint; second_negative bigint; second_groups bigint; wrong_final boolean;
+BEGIN
+ feature_coverage:=ops.ddo_digest(first_->'coverage'); calibration_coverage:=ops.ddo_digest(second_->'coverage');
+ judgment_basis:=ops.ddo_digest(data.ddo_normalize(jsonb_build_array('sequence',jsonb_build_array(
+ jsonb_build_array('string',feature_grade->>'frame_digest'),jsonb_build_array('string',calibration_grade->>'frame_digest'),specification_meaning))));
+ IF data.ddo_field(instance_meaning,'feature') IS DISTINCT FROM data.ddo_field(specification_meaning,'frozen_feature')
+ OR data.ddo_field(instance_meaning,'threshold') IS DISTINCT FROM data.ddo_field(specification_meaning,'threshold')
+ OR data.ddo_field(instance_meaning,'threshold_procedure') IS DISTINCT FROM data.ddo_field(specification_meaning,'threshold_procedure')
+ OR data.ddo_field(instance_meaning,'conditioning_assumptions') IS DISTINCT FROM data.ddo_field(specification_meaning,'assumptions')
+ OR data.ddo_field(basis_meaning,'applicability') IS DISTINCT FROM data.ddo_field(specification_meaning,'applicability')
+ OR data.ddo_field(basis_meaning,'family_contract') IS DISTINCT FROM data.ddo_field(specification_meaning,'family_contract')
+ OR data.ddo_field(basis_meaning,'reading_recipe') IS DISTINCT FROM data.ddo_field(specification_meaning,'reading_recipe')
+ OR basis->>'judgment_basis_digest' IS DISTINCT FROM judgment_basis THEN
+ RAISE EXCEPTION 'fitted policy differs from actual frozen feature, typed specification or judgment basis' USING ERRCODE='23514'; END IF;
+ IF (first_->>'partition',second_->>'partition') IS DISTINCT FROM ('feature_fit','final_event_calibration')
+ OR specification->'feature_selection'->>'frame_digest' IS DISTINCT FROM feature_grade->>'frame_digest'
+ OR specification->'calibration_selection'->>'frame_digest' IS DISTINCT FROM calibration_grade->>'frame_digest'
+ OR feature_grade->>'frame_digest' IS NOT DISTINCT FROM calibration_grade->>'frame_digest'
+ OR first_->>'reference_digest' IS NOT DISTINCT FROM second_->>'reference_digest'
+ OR NOT coalesce(second_->'held_out_from' ? (feature_grade->>'frame_digest'),false)
+ OR (first_->>'project_id',first_->>'family_contract',first_->>'reading_recipe') IS DISTINCT FROM
+ (specification->'applicability'->>'project_id',specification->>'family_contract',specification->>'reading_recipe')
+ OR (second_->>'project_id',second_->>'family_contract',second_->>'reading_recipe') IS DISTINCT FROM
+ (first_->>'project_id',first_->>'family_contract',first_->>'reading_recipe')
+ OR (first_->>'family',first_->>'subset',first_->>'rubric_digest') IS DISTINCT FROM
+ (second_->>'family',second_->>'subset',second_->>'rubric_digest') THEN
+ RAISE EXCEPTION 'fit inputs differ from actual separate declared grade frames and interpretation' USING ERRCODE='23514'; END IF;
+ IF (feature->'fit'->>'frame_digest',feature->'fit'->>'reference_digest',feature->'fit'->>'coverage_digest') IS DISTINCT FROM
+ (feature_grade->>'frame_digest',first_->>'reference_digest',feature_coverage)
+ OR (calibration->'fit'->>'frame_digest',calibration->'fit'->>'reference_digest',calibration->'fit'->>'coverage_digest') IS DISTINCT FROM
+ (calibration_grade->>'frame_digest',second_->>'reference_digest',calibration_coverage)
+ OR feature->'fit'->>'provenance' IS DISTINCT FROM 'declared-selected-complete-record-grade-1'
+ OR calibration->'fit'->>'provenance' IS DISTINCT FROM 'declared-selected-complete-record-grade-1'
+ OR feature->'fit'->>'conditioning_assumptions' IS DISTINCT FROM specification->>'assumptions'
+ OR calibration->'fit'->>'conditioning_assumptions' IS DISTINCT FROM specification->>'assumptions'
+ OR (feature->'applicability'->>'release_id',feature->'applicability'->>'family',feature->'applicability'->>'subset',feature->'applicability'->>'assumptions') IS DISTINCT FROM
+ (first_->>'prediction_release_id',first_->>'family',first_->>'subset',specification->>'assumptions')
+ OR calibration->>'coverage_digest' IS DISTINCT FROM calibration_coverage
+ OR calibration->>'event_procedure' IS DISTINCT FROM specification->>'event_procedure'
+ OR calibration->>'assumptions' IS DISTINCT FROM specification->>'assumptions'
+ OR calibration->>'feature_instance_digest' IS DISTINCT FROM encode(sha256(convert_to(basis->>'feature_canonical_json','UTF8')),'hex') THEN
+ RAISE EXCEPTION 'fitted feature/calibration provenance differs from actual input frames and procedure' USING ERRCODE='23514'; END IF;
+ -- Population facts are conclusions about the exact retained grade, not free
+ -- diagnostic labels. The numerical coefficients/convergence remain CPU-owned.
+ SELECT count(*) FILTER(WHERE event->>'correct'='true'),count(*) FILTER(WHERE event->>'correct'='false'),count(DISTINCT event->>'origin_group')
+ INTO first_positive,first_negative,first_groups FROM jsonb_array_elements(first_->'events') event;
+ SELECT count(*) FILTER(WHERE event->>'correct'='true'),count(*) FILTER(WHERE event->>'correct'='false'),count(DISTINCT event->>'origin_group'),
+ bool_or(event->'final_event'->>'feature_instance_digest' IS DISTINCT FROM calibration->>'feature_instance_digest'
+ OR event->'final_event'->>'event_procedure' IS DISTINCT FROM specification->>'event_procedure')
+ INTO second_positive,second_negative,second_groups,wrong_final FROM jsonb_array_elements(second_->'events') event;
+ IF (feature->'fit'->>'positive_count')::bigint IS DISTINCT FROM first_positive
+ OR (feature->'fit'->>'negative_count')::bigint IS DISTINCT FROM first_negative
+ OR (calibration->'fit'->>'positive_count')::bigint IS DISTINCT FROM second_positive
+ OR (calibration->'fit'->>'negative_count')::bigint IS DISTINCT FROM second_negative
+ OR (feature->'fit'->>'declared_origin_group_count')::bigint IS DISTINCT FROM first_groups
+ OR (calibration->'fit'->>'declared_origin_group_count')::bigint IS DISTINCT FROM second_groups
+ OR coalesce(wrong_final,false) THEN
+ RAISE EXCEPTION 'fitted diagnostics or final events differ from complete actual grade populations' USING ERRCODE='23514'; END IF;
+ IF EXISTS(SELECT FROM jsonb_array_elements(first_->'origin_groups') a CROSS JOIN jsonb_array_elements(second_->'origin_groups') b
+ WHERE a->>'origin_group'=b->>'origin_group')
+ OR EXISTS(WITH a AS (SELECT value->'source'->>'original_source' id FROM jsonb_array_elements(first_->'origin_groups')
+ UNION SELECT copy->>'original_source' FROM jsonb_array_elements(first_->'origin_groups') origin_ CROSS JOIN LATERAL jsonb_array_elements(origin_->'copied_from') copy),
+ b AS (SELECT value->'source'->>'original_source' id FROM jsonb_array_elements(second_->'origin_groups')
+ UNION SELECT copy->>'original_source' FROM jsonb_array_elements(second_->'origin_groups') origin_ CROSS JOIN LATERAL jsonb_array_elements(origin_->'copied_from') copy)
+ SELECT FROM a JOIN b USING(id)) THEN
+ RAISE EXCEPTION 'fit and calibration share an original, known copied source or origin group' USING ERRCODE='23514'; END IF;
+END $fit$;
+
+CREATE OR REPLACE FUNCTION ops.ddo_record_fit_require_finite_cut(d ops.data_demand,boundary ops.data_demand_read)
+RETURNS void LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $fit$
+DECLARE p jsonb:=jsonb_build_object('scope',boundary.scope); node record;
+BEGIN
+ IF EXISTS(SELECT FROM jsonb_array_elements(d.selection->'operations') selected
+ WHERE selected->>'operation' IN ('record_policy.fit','record_policy.authorize')) THEN
+ RAISE EXCEPTION 'fit grade selection cannot select a fit or authorization census' USING ERRCODE='23514'; END IF;
+ FOR node IN __DDO_CORE_RECORD_GRADE_CENSUS_NODES__ LOOP
+ IF node.kind='episode' AND EXISTS(SELECT FROM ops.data_derivation producer JOIN ops.data_request request ON request.id=producer.request_id
+ WHERE producer.id=node.id AND (request.operation_id IN ('record_policy.fit','record_policy.authorize')
+ OR EXISTS(SELECT FROM ops.data_derivation_output output JOIN kb.data_product product ON product.id=output.product_id
+ JOIN sem.data_kind_contract kind ON kind.kind_contract=product.kind_contract WHERE output.derivation_id=producer.id
+ AND kind.kind IN ('https://corpus-structure.dev/semantic/data-operation-record-policy/protected/DdoFittedRecordPolicy','https://corpus-structure.dev/semantic/data-operation-record-policy/DdoRecordPolicyAuthorization')))) THEN
+ RAISE EXCEPTION 'fit grade selection support reaches fitted policy authority' USING ERRCODE='23514'; END IF;
+ END LOOP;
+END $fit$;
+
+CREATE OR REPLACE FUNCTION ops.ddo_record_fit_selections(r ops.data_request)
+RETURNS TABLE(role_name text,selection jsonb) LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $fit$
+DECLARE specification jsonb:=ops.ddo_record_grade_input(r,'specification')->'body'; selected jsonb; name_ text;
+BEGIN
+ FOR name_,selected IN SELECT 'feature_grade',specification->'feature_selection' UNION ALL SELECT 'calibration_grade',specification->'calibration_selection' LOOP
+ IF selected->>'project_id' IS DISTINCT FROM r.project_id
+ OR (selected->>'cut_canonical_json')::jsonb->>'project_id' IS DISTINCT FROM r.project_id
+ OR (selected->>'cut_canonical_json')::jsonb->>'demand_id' IS DISTINCT FROM selected->>'demand_id'
+ OR (selected->>'cut_canonical_json')::jsonb->>'read_id' IS DISTINCT FROM selected->>'read_id'
+ OR selected->>'expected_cut' IS DISTINCT FROM 'cut-selection:'||encode(sha256(convert_to(selected->>'cut_canonical_json','UTF8')),'hex') THEN
+ RAISE EXCEPTION 'fit selection differs from its actual original project/cut/read pins' USING ERRCODE='23514'; END IF;
+ role_name:=name_; selection:=selected; RETURN NEXT;
+ END LOOP;
+END $fit$;
+
+CREATE OR REPLACE FUNCTION ops.ddo_record_fit_cut_scopes(project text,selection jsonb)
+RETURNS SETOF text LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $fit$
+DECLARE d ops.data_demand; boundary ops.data_demand_read; p jsonb; actual jsonb;
+BEGIN
+ SELECT * INTO STRICT d FROM ops.data_demand WHERE id=selection->>'demand_id' AND project_id=project;
+ SELECT * INTO STRICT boundary FROM ops.data_demand_read WHERE id=selection->>'read_id' AND demand_id=d.id;
+ p:=jsonb_build_object('scope',boundary.scope);
+ PERFORM ops.ddo_record_fit_require_finite_cut(d,boundary);
+ __DDO_CORE_CUT_SELECTION__ INTO actual;
+ IF actual IS DISTINCT FROM (selection->>'cut_canonical_json')::jsonb THEN
+ RAISE EXCEPTION 'fit grade cut differs from exact native retained selection' USING ERRCODE='23514'; END IF;
+ RETURN QUERY __DDO_CORE_SUPPORT_SCOPES__;
+END $fit$;
+
+CREATE OR REPLACE FUNCTION ops.ddo_record_fit_completion_scopes(r ops.data_request)
+RETURNS SETOF text LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $fit$
+DECLARE selected record;
+BEGIN
+ IF r.operation_id IS DISTINCT FROM 'record_policy.fit' THEN RETURN; END IF;
+ FOR selected IN SELECT DISTINCT selection FROM ops.ddo_record_fit_selections(r) LOOP
+ RETURN QUERY SELECT * FROM ops.ddo_record_fit_cut_scopes(r.project_id,selected.selection);
+ END LOOP;
+END $fit$;
+
+CREATE OR REPLACE FUNCTION ops.ddo_record_fit_dependency_scopes(episode text)
+RETURNS SETOF text LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $fit$
+DECLARE r ops.data_request;
+BEGIN
+ SELECT request.* INTO STRICT r FROM ops.data_request request JOIN ops.data_derivation producer ON producer.request_id=request.id WHERE producer.id=episode;
+ RETURN QUERY SELECT * FROM ops.ddo_record_fit_completion_scopes(r);
+END $fit$;
+
+CREATE OR REPLACE FUNCTION ops.ddo_record_fit_require_selection(r ops.data_request,role_name text,selection jsonb,authenticate_output boolean)
+RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $fit$
+DECLARE d ops.data_demand; boundary ops.data_demand_read; p jsonb; actual jsonb; scope_key text; current_trust jsonb:='{}'; epoch bigint;
+ p_use text:=selection->>'use_id'; p_product text:=selection->>'product_id'; p_derivation text:=selection->>'derivation_id'; admitted boolean;
+ chosen jsonb; grade jsonb; producer ops.data_derivation; definition sem.data_operation_definition; intent ops.data_completion_intent;
+BEGIN
+ -- scopes() authenticates the exact project/cut and refuses recursive fit graphs
+ -- before invoking ordinary read validity. The enclosing owner locks this same
+ -- scope union once in canonical order before request/task fences.
+ FOR scope_key IN SELECT * FROM ops.ddo_record_fit_cut_scopes(r.project_id,selection) LOOP
+ SELECT coalesce((SELECT scope.epoch FROM ops.data_trust_scope scope WHERE scope.scope=scope_key AND scope.project_id=r.project_id),0) INTO epoch;
+ current_trust:=current_trust||jsonb_build_object(scope_key,epoch);
+ END LOOP;
+ SELECT * INTO STRICT boundary FROM ops.data_demand_read WHERE id=selection->>'read_id' AND demand_id=selection->>'demand_id';
+ IF ops.ddo_trust_snapshot_meaning(current_trust) IS DISTINCT FROM ops.ddo_trust_snapshot_meaning(boundary.trust_snapshot) THEN
+ RAISE EXCEPTION 'fit grade current trust differs from original retained cut' USING ERRCODE='23514'; END IF;
+ IF NOT authenticate_output THEN RETURN NULL; END IF;
+ SELECT * INTO STRICT d FROM ops.data_demand WHERE id=boundary.demand_id AND project_id=r.project_id;
+ p:=jsonb_build_object('scope',boundary.scope);
+ __DDO_CORE_SELECTED_SUPPORT_OUTPUT__ INTO admitted;
+ IF NOT coalesce(admitted,false) THEN RAISE EXCEPTION 'fit grade is outside exact current native selected support' USING ERRCODE='23514'; END IF;
+ SELECT value INTO STRICT chosen FROM jsonb_array_elements(r.binding->'inputs') item(value)
+ WHERE value->>'role'=role_name AND value->>'product_id'=p_product AND value->>'member_id' IS NULL
+ AND (value->>'multiplicity')::integer=1;
+ IF NOT EXISTS(SELECT FROM jsonb_array_elements(r.binding->'support') support WHERE support->>'derivation_id'=p_derivation AND support->>'role'=role_name)
+ OR (chosen->>'support_derivation_id' IS NOT NULL AND chosen->>'support_derivation_id' IS DISTINCT FROM p_derivation) THEN
+ RAISE EXCEPTION 'fit grade selection differs from actual bound input product and producing episode' USING ERRCODE='23514'; END IF;
+ SELECT * INTO STRICT producer FROM ops.data_derivation WHERE id=p_derivation AND outcome='success';
+ SELECT operation.* INTO STRICT definition FROM sem.data_operation_definition operation JOIN ops.data_request request ON request.release_id=operation.release_id AND request.operation_id=operation.operation_id
+ WHERE request.id=producer.request_id AND request.project_id=r.project_id;
+ SELECT * INTO STRICT intent FROM ops.data_completion_intent WHERE id=producer.intent_id;
+ IF definition.operation_id IS DISTINCT FROM 'record_policy.grade' OR definition.profile IS DISTINCT FROM 'derivation'
+ OR definition.support_contract->'effects' IS DISTINCT FROM '[]'::jsonb
+ OR definition.support_contract->'capabilities'->'prepared_factory'->>'entrypoint' IS DISTINCT FROM 'corpus_structure.methods.declared_record_policy.RecordPolicyGrade.acquire_port'
+ OR intent.payload->>'implementation_revision' IS DISTINCT FROM definition.implementation_revision
+ OR producer.recipe IS DISTINCT FROM definition.recipe
+ OR jsonb_array_length(coalesce(intent.payload->'execution_evidence'->'cpu_receipts','[]'))<>1
+ OR NOT EXISTS(SELECT FROM ops.data_publication_receipt receipt JOIN ops.data_derivation_output output ON output.derivation_id=receipt.derivation_id
+ JOIN kb.data_product product ON product.id=output.product_id JOIN sem.data_kind_contract kind ON kind.kind_contract=product.kind_contract
+ WHERE receipt.derivation_id=producer.id AND receipt.intent_id=intent.id AND output.product_id=p_product AND output.member_id IS NULL
+ AND output.role='grade' AND output.position=0 AND output.multiplicity=1 AND kind.kind='https://corpus-structure.dev/semantic/data-operation-record-policy/protected/DdoRecordGrade' AND kind.universe='evaluator') THEN
+ RAISE EXCEPTION 'fit grade lacks actual protected grade CPU/common producer custody' USING ERRCODE='23514'; END IF;
+ SELECT canonical_body INTO STRICT grade FROM kb.data_product WHERE id=p_product AND project_id=r.project_id;
+ IF data.ddo_json(grade)->>'frame_digest' IS DISTINCT FROM selection->>'frame_digest'
+ OR data.ddo_json(grade)->'frame'->>'partition' IS DISTINCT FROM (CASE WHEN role_name='feature_grade' THEN 'feature_fit' ELSE 'final_event_calibration' END) THEN
+ RAISE EXCEPTION 'fit grade frame or partition differs from its actual selected input' USING ERRCODE='23514'; END IF;
+ RETURN grade;
+END $fit$;
+
+CREATE OR REPLACE FUNCTION ops.ddo_record_fit_require_producer(r ops.data_request,completion jsonb)
+RETURNS void LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $fit$
+DECLARE definition sem.data_operation_definition; output jsonb;
+BEGIN
+ IF r.operation_id IS DISTINCT FROM 'record_policy.fit' THEN RETURN; END IF;
+ SELECT * INTO STRICT definition FROM sem.data_operation_definition WHERE release_id=r.release_id AND operation_id=r.operation_id;
+ IF definition.profile IS DISTINCT FROM 'derivation' OR definition.support_contract->'effects' IS DISTINCT FROM '[]'::jsonb
+ OR definition.support_contract->'capabilities'->'prepared_factory'->>'entrypoint' IS DISTINCT FROM 'corpus_structure.methods.declared_record_policy.RecordPolicyFit.acquire_port'
+ OR (definition.support_contract->'capabilities'->'prepared_factory'->>'source_digest' ~ '^[0-9a-f]{64}$') IS NOT TRUE
+ OR (definition.implementation_revision LIKE 'implementation-slice:%') IS NOT TRUE
+ OR completion->>'implementation_revision' IS DISTINCT FROM definition.implementation_revision
+ OR r.recipe IS DISTINCT FROM definition.recipe
+ OR completion->'inputs' IS DISTINCT FROM r.binding->'inputs'
+ OR completion->'support' IS DISTINCT FROM r.binding->'support'
+ OR jsonb_array_length(coalesce(completion->'execution_evidence'->'cpu_receipts','[]'))<>1 THEN
+ RAISE EXCEPTION 'fit completion requires actual protected fit factory/CPU and exact declared inputs' USING ERRCODE='23514'; END IF;
+ IF completion->>'outcome'='empty' AND completion->'outputs'='[]'::jsonb THEN RETURN; END IF;
+ IF completion->>'outcome' IS DISTINCT FROM 'success' OR jsonb_array_length(completion->'outputs')<>1 THEN
+ RAISE EXCEPTION 'fit completion requires one fitted scalar or a non-authoritative empty result' USING ERRCODE='23514'; END IF;
+ output:=completion->'outputs'->0;
+ IF output->>'role' IS DISTINCT FROM 'fitted' OR output->>'member_id' IS NOT NULL
+ OR (output->>'position')::integer IS DISTINCT FROM 0 OR (output->>'multiplicity')::integer IS DISTINCT FROM 1
+ OR output->'product'->'members' IS DISTINCT FROM '[]'::jsonb
+ OR NOT EXISTS(SELECT FROM sem.data_kind_contract kind WHERE kind.kind_contract=output->'product'->>'kind_contract'
+ AND kind.kind='https://corpus-structure.dev/semantic/data-operation-record-policy/protected/DdoFittedRecordPolicy' AND kind.universe='evaluator') THEN
+ RAISE EXCEPTION 'fit output differs from exact protected fitted scalar contract' USING ERRCODE='23514'; END IF;
+END $fit$;
+
+CREATE OR REPLACE FUNCTION ops.ddo_require_record_fit_completion(r ops.data_request,completion jsonb)
+RETURNS void LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $fit$
+DECLARE selected record; feature jsonb; calibration jsonb; output jsonb; specification jsonb;
+BEGIN
+ IF r.operation_id IS DISTINCT FROM 'record_policy.fit' THEN RETURN; END IF;
+ PERFORM ops.ddo_record_fit_require_producer(r,completion);
+ FOR selected IN SELECT * FROM ops.ddo_record_fit_selections(r) LOOP
+ IF selected.role_name='feature_grade' THEN feature:=ops.ddo_record_fit_require_selection(r,selected.role_name,selected.selection,true);
+ ELSE calibration:=ops.ddo_record_fit_require_selection(r,selected.role_name,selected.selection,true); END IF;
+ END LOOP;
+ IF completion->>'outcome'='empty' THEN RETURN; END IF;
+ output:=completion->'outputs'->0;
+ SELECT product.canonical_body INTO STRICT specification FROM jsonb_array_elements(r.binding->'inputs') chosen
+ JOIN kb.data_product product ON product.id=chosen->>'product_id' AND product.project_id=r.project_id
+ WHERE chosen->>'role'='specification' AND chosen->>'member_id' IS NULL AND (chosen->>'multiplicity')::integer=1;
+ PERFORM ops.ddo_require_record_fit_correspondence(feature,calibration,specification,data.ddo_normalize(output->'product'->'body'));
+ -- Existing projection authenticates the three retained canonical instance texts.
+ PERFORM ops.ddo_policy_authorization_value(data.ddo_json(output->'product'->'body'));
+END $fit$;
+
+CREATE OR REPLACE FUNCTION ops.ddo_record_fit_dependencies_valid(episode text)
+RETURNS boolean LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $fit$
+DECLARE r ops.data_request; selected record; completion jsonb;
+BEGIN
+ SELECT request.* INTO STRICT r FROM ops.data_request request JOIN ops.data_derivation producer ON producer.request_id=request.id WHERE producer.id=episode;
+ IF r.operation_id IS DISTINCT FROM 'record_policy.fit' THEN RETURN true; END IF;
+ IF NOT EXISTS(SELECT FROM ops.data_derivation producer JOIN ops.data_publication_receipt receipt ON receipt.derivation_id=producer.id AND receipt.intent_id=producer.intent_id
+ JOIN sem.artifact artifact ON artifact.release_id=producer.release_id AND artifact.artifact_name='data_operation_native_definitions.json'
+ WHERE producer.id=episode AND convert_from(artifact.content,'UTF8')::jsonb->>'native_digest'='__DDO_SOURCE_DIGEST__') THEN RETURN false; END IF;
+ SELECT intent.payload INTO STRICT completion FROM ops.data_derivation producer
+ JOIN ops.data_completion_intent intent ON intent.id=producer.intent_id WHERE producer.id=episode;
+ PERFORM ops.ddo_record_fit_require_producer(r,completion);
+ FOR selected IN SELECT * FROM ops.ddo_record_fit_selections(r) LOOP
+ PERFORM ops.ddo_record_fit_require_selection(r,selected.role_name,selected.selection,false);
+ END LOOP;
+ RETURN true;
+ EXCEPTION WHEN data_exception OR integrity_constraint_violation OR no_data_found OR too_many_rows THEN RETURN false;
+END $fit$;
+""" + "\n".join(f"REVOKE ALL ON FUNCTION ops.{name}({arguments}) FROM PUBLIC;" for name,arguments in (
+        ("ddo_require_record_fit_correspondence","jsonb,jsonb,jsonb,jsonb"),
+        ("ddo_record_fit_require_finite_cut","ops.data_demand,ops.data_demand_read"),
+        ("ddo_record_fit_selections","ops.data_request"),
+        ("ddo_record_fit_cut_scopes","text,jsonb"),
+        ("ddo_record_fit_completion_scopes","ops.data_request"),
+        ("ddo_record_fit_dependency_scopes","text"),
+        ("ddo_record_fit_require_selection","ops.data_request,text,jsonb,boolean"),
+        ("ddo_record_fit_require_producer","ops.data_request,jsonb"),
+        ("ddo_require_record_fit_completion","ops.data_request,jsonb"),
+        ("ddo_record_fit_dependencies_valid","text"),
+    ))

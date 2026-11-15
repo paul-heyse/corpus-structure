@@ -181,6 +181,7 @@ BEGIN
  FOR scope_key IN
  SELECT scope FROM (__DDO_CORE_LOCK_SUPPORT_SCOPES__) ordinary_scopes
  UNION SELECT scope FROM ops.ddo_record_grade_completion_scopes(r) extra(scope)
+ UNION SELECT scope FROM ops.ddo_record_fit_completion_scopes(r) fit_extra(scope)
  ORDER BY scope
  LOOP
  INSERT INTO ops.data_trust_scope(scope,project_id,epoch) VALUES(scope_key,project,0) ON CONFLICT DO NOTHING;
@@ -220,7 +221,8 @@ END $$;
 CREATE OR REPLACE FUNCTION ops.ddo_direct_support_valid(episode text) RETURNS boolean
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
  SELECT EXISTS(SELECT FROM ops.data_derivation WHERE id=episode AND outcome IN ('success','empty'))
- AND ops.ddo_record_grade_dependencies_valid(episode) AND NOT EXISTS(
+ AND ops.ddo_record_grade_dependencies_valid(episode)
+ AND ops.ddo_record_fit_dependencies_valid(episode) AND NOT EXISTS(
  SELECT FROM ops.data_derivation d JOIN ops.data_request r ON r.id=d.request_id
  JOIN ops.data_revocation v ON v.scope=ops.ddo_scope(r.project_id,r.original_source)
  WHERE d.id=episode AND ((v.selector_kind='derivation' AND v.selector=d.id) OR (v.selector_kind='recipe' AND v.selector=d.recipe)
@@ -1158,6 +1160,7 @@ BEGIN
  PERFORM ops.ddo_require_pdf_completion(p->'completion',t.id,t.attempt,t.claimed_by,r.release_id,r.operation_id);
  PERFORM ops.ddo_require_external_completion(p->'completion',r,t.id,t.attempt,t.claimed_by);
  PERFORM ops.ddo_require_record_grade_completion(r,p->'completion');
+ PERFORM ops.ddo_require_record_fit_completion(r,p->'completion');
  PERFORM ops.ddo_require_policy_authorization_completion(r,p->'completion');
  PERFORM ops.ddo_assert_output_witnesses(r,p->'completion');
  key:='intent:'||ops.ddo_digest(jsonb_build_array(r.id,r.generation,t.id,t.attempt,t.claimed_by,p->>'runtime_id',p->'completion'));
@@ -1394,6 +1397,7 @@ BEGIN
  PERFORM ops.ddo_require_pdf_completion(i.payload,i.producer_task_id,i.producer_attempt,i.producer_holder,r.release_id,r.operation_id);
  PERFORM ops.ddo_require_external_completion(i.payload,r,i.producer_task_id,i.producer_attempt,i.producer_holder);
  PERFORM ops.ddo_require_record_grade_completion(r,i.payload);
+ PERFORM ops.ddo_require_record_fit_completion(r,i.payload);
  PERFORM ops.ddo_require_policy_authorization_completion(r,i.payload);
  PERFORM ops.ddo_assert_output_witnesses(r,i.payload);
  episode:='derivation:'||ops.ddo_digest(jsonb_build_array(i.id,i.payload_digest));
