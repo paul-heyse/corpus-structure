@@ -239,6 +239,7 @@ def test_authentic_original_fact_admission_publication_and_revocation(ddo_origin
 )
 def test_original_pdf_fact_admission_and_runless_private_stage_use_actual_request_context(
     ddo_original_source,
+    tmp_path,
 ):
     from hashlib import sha256
 
@@ -283,6 +284,32 @@ def test_original_pdf_fact_admission_and_runless_private_stage_use_actual_reques
         snapshot = storage.read_demand_result(typing_cast(WireReadDemandResultRequest, demand))
         assert len(snapshot["original_source_admissions"]) == 1
         assert connection.scalar(text("SELECT count(*) FROM ops.data_derivation")) == 0
+        # Source-only selections must retain authentic bytes even before any inference
+        # episode exists. Export and verification use the same admitted native cut.
+        from corpus_structure.serve.demand_export import export_demand_result, verify_demand_export
+
+        destination = tmp_path / "original-only-export"
+        manifest = export_demand_result(
+            connection,
+            demand["demand_id"],
+            project_id=source.project_id,
+            destination=destination,
+            page_rows=1,
+        )
+        stored_original = connection.scalar(
+            text("SELECT content FROM kb.source_artifact WHERE artifact_digest=:digest"),
+            {"digest": document.content_hash},
+        )
+        assert (
+            destination / manifest["source_artifacts"][document.content_hash]
+        ).read_bytes() == stored_original
+        assert (
+            verify_demand_export(
+                destination,
+                manifest_digest=manifest["manifest_digest"],
+            )["cut_id"]
+            == manifest["cut_id"]
+        )
         (ready,) = planner.ready(snapshot, authorization=b"{}")
         claim = storage.claim_data_request(
             typing_cast(

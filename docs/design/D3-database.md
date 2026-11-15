@@ -317,6 +317,12 @@ admission accounts for the remaining driver/worker inventory. Purpose-specific e
 Store-owned Psycopg connections make notice registration idempotent without bypassing dialect setup.
 The SQLAlchemy invalidate event physically finishes and returns the dead handle for replacement;
 normal close-returns keeps ordinary pool reuse.
+Current protected DDO reads authorize the actual nested nominal member body closure before
+body-dependent predicates, binding/output-witness comparisons or paged support payloads. A parent
+kind's ordinary universe never grants access to evaluator members embedded in its body; unused
+possible evaluator alternatives do not restrict an ordinary actual value. Authored evaluator facts
+use the explicit evaluator purpose and retain the source-kind refusal. Selected/export consumers
+retain the native acquisition's authorization, scope and trust pins through complete support replay.
 Historical compiler maps retain producing provenance while current generated artifacts carry current
 compiler identity. Legacy table/interchange compilation retires after its live Arrow helper consumers
 move. Public selected-read/reuse and sealed-history removal remain the DDO packages' actual obligations.
