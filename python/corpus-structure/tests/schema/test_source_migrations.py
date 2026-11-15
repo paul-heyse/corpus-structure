@@ -524,7 +524,7 @@ def test_real_cli_authored_preview_sources_apply_and_retry(model_checkout, monke
         ),
         (
             "captured_document_composition.py",
-            "ComposeCapturedDocumentFamily",
+            "ComposeCapturedDocumentOperation",
             "text.compose_view/captured-full-native",
         ),
     ],
@@ -582,9 +582,24 @@ def test_actual_family_source_and_caller_move_preserves_dispatch(
         cls = next(
             node for node in tree.body if isinstance(node, ast.ClassDef) and node.name == name
         )
-        run = next(
+        methods = [
             node for node in cls.body if isinstance(node, ast.FunctionDef) and node.name == "run"
-        )
+        ]
+        if not methods:
+            # Current captured document operations genuinely inherit this method.
+            assert len(cls.bases) == 1 and isinstance(cls.bases[0], ast.Name)
+            supplier = next(
+                node
+                for node in tree.body
+                if isinstance(node, ast.ClassDef) and node.name == cls.bases[0].id
+            )
+            methods = [
+                node
+                for node in supplier.body
+                if isinstance(node, ast.FunctionDef) and node.name == "run"
+            ]
+        assert len(methods) == 1
+        run = methods[0]
         calls = []
 
         def kernel(*args):
@@ -629,3 +644,71 @@ def test_actual_family_source_and_caller_move_preserves_dispatch(
         return calls[0][1:]
 
     assert run_body(raw, classname) == run_body(preview.after["src/" + filename], renamed)
+
+
+@pytest.mark.parametrize("inherited", [False, True])
+def test_owned_class_move_compiles_complete_interface_and_existing_apply(model_checkout, inherited):
+    root, _ = model_checkout
+    move = migration(root, consumer="from api import OldOperation\nselected = OldOperation\n")
+    metadata = deepcopy(claim_source_item__data_operation__)
+    metadata.update(id="urn:test:source-change", entrypoints=["run"])
+    metadata["roles"][0]["parameter"] = "x"
+    metadata["roles"][1]["kind"] = "integer"
+    before = (
+        "class OldOperation:\n    __data_operation__ = "
+        + repr(metadata)
+        + "\n    def run(self, x: int) -> int:\n        return x\n"
+    ).encode()
+    if inherited:
+        base_metadata = {**metadata, "abstract": True}
+        before = (
+            "class BaseOperation:\n    __data_operation__ = "
+            + repr(base_metadata)
+            + "\n    def run(self, x: int) -> int:\n        return x\nclass OldOperation(BaseOperation):\n    __data_operation__ = {'abstract': False}\n"
+        ).encode()
+    (root / "src/api.py").write_bytes(before)
+    owner = move.sources[0].model_copy(
+        update={
+            "before": sha256(before).hexdigest(),
+            "after": before.decode().replace("OldOperation", "NewOperation"),
+        }
+    )
+    request = move.model_copy(
+        update={"old_name": "api.OldOperation", "new_name": "api.NewOperation", "sources": (owner,)}
+    )
+    preview = prepare_preview(
+        root, ChangeRequest(data_operations="target.yaml", source_migrations=(request,))
+    )
+    assert preview.source_migrations[0].ready
+    assert preview.source_comparison is not None
+    apply_preview(root, preview)
+    assert (
+        root / "src/consumer.py"
+    ).read_text() == "from api import NewOperation\nselected = NewOperation\n"
+    assert "class NewOperation" in (root / "src/api.py").read_text()
+
+
+def test_declared_preview_uses_explicit_archived_source_comparison(model_checkout):
+    from corpus_structure.semantic.data_operation_admission import bound_data_operation_model
+    from corpus_structure.semantic.data_operation_preparation import prepare_data_operation_inputs
+    from corpus_structure.semantic.source_comparison import compare_data_operation_models
+
+    root, _ = model_checkout
+    migration(root)
+    before = bound_data_operation_model(prepare_data_operation_inputs(root, "target.yaml")[3])
+    path = root / "src/api.py"
+    path.write_text(path.read_text().replace("return x\n", "return x + 9\n"))
+    after = bound_data_operation_model(prepare_data_operation_inputs(root, "target.yaml")[3])
+    comparison = compare_data_operation_models(before, after)
+    preview = prepare_preview(
+        root, ChangeRequest(data_operations="target.yaml"), source_comparison=comparison
+    )
+    assert preview.source_migrations == ()
+    assert preview.source_comparison == comparison
+    assert "recipe" in {row.facet for row in comparison.changes}
+    with pytest.raises(model.ModelError, match="source comparison differs"):
+        prepare_preview(
+            root,
+            ChangeRequest(data_operations="target.yaml"),
+            source_comparison=comparison.model_copy(update={"after_digest": "0" * 64}),
+        )

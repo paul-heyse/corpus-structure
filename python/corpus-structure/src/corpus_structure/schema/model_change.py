@@ -267,6 +267,7 @@ def prepare_preview(
     native_base: NativeMigrationBase | None = None,
     deployment_base: NativeMigrationBase | None = None,
     comparison: dict | None = None,
+    source_comparison: EffectiveChangeComparison | None = None,
     local_release: str | None = None,
     release_manifest_sha256: str | None = None,
     release_artifacts_sha256: str | None = None,
@@ -404,7 +405,6 @@ def prepare_preview(
             if _digest(content) != digest:
                 raise model.ModelError([f"source changed during preview: {path}"])
             current[path] = content
-    source_comparison = None
     previous = None
     if migrations and request.data_operations:
         assert acquired is not None
@@ -454,6 +454,46 @@ def prepare_preview(
                 selection = getattr(after_operation, "consumer_selection", None)
                 if selection is not None:
                     after_names.add(selection.entrypoint)
+                assert intent.old_name is not None and intent.new_name is not None
+                before_operation = previous.operation(intent.owner)
+                class_move = (
+                    intent.kind == "symbol_move"
+                    and before_operation.implementation_root == "python:" + intent.old_name
+                    and after_operation.implementation_root == "python:" + intent.new_name
+                    and bool(before_operation.callable_surfaces)
+                    and all(
+                        surface.exposed.startswith(intent.old_name + ".")
+                        for surface in before_operation.callable_surfaces
+                    )
+                    and all(
+                        surface.exposed.startswith(intent.new_name + ".")
+                        for surface in after_operation.callable_surfaces
+                    )
+                )
+                if class_move:
+
+                    def class_contract(operation, prefix):
+                        return {
+                            surface.exposed.removeprefix(prefix + "."): (
+                                surface.declaration.removeprefix(prefix + ".")
+                                if surface.declaration.startswith(prefix + ".")
+                                else surface.declaration,
+                                surface.parameters,
+                                surface.returns,
+                                surface.overloads,
+                            )
+                            for surface in operation.callable_surfaces
+                        }
+
+                    if class_contract(before_operation, intent.old_name) != class_contract(
+                        after_operation, intent.new_name
+                    ):
+                        raise model.ModelError(
+                            [
+                                "symbol_move cannot change the callable contract of its operation class"
+                            ]
+                        )
+                    continue
                 proof = next(
                     (
                         item
@@ -517,11 +557,24 @@ def prepare_preview(
                         ]
                     )
 
-        source_comparison = compare_data_operation_models(previous, effective)
+        if source_comparison is None:
+            source_comparison = compare_data_operation_models(previous, effective)
+        elif source_comparison.after_digest != sha256(effective.content).hexdigest():
+            raise model.ModelError(["source comparison differs from the proposed effective model"])
 
         local_release = prepared_source.release_id
         release_manifest_sha256 = sha256(prepared_source.manifest).hexdigest()
         release_artifacts_sha256 = prepared_source.artifacts_sha256
+    if source_comparison is not None and request.data_operations and not migrations:
+        assert acquired is not None
+        from corpus_structure.semantic.data_operation_admission import bound_data_operation_model
+        from corpus_structure.semantic.prepare import prepare_release
+
+        compiled = bound_data_operation_model(
+            prepare_release(acquired.bundle, acquired.dependencies, acquired.profile)
+        )
+        if source_comparison.after_digest != sha256(compiled.content).hexdigest():
+            raise model.ModelError(["source comparison differs from the proposed effective model"])
     staged = {path: content for path, content in source.items() if content is not None} | generated
     if proposed.keys() & staged.keys():
         raise model.ModelError(["source migration overlaps a generated or canonical effect"])

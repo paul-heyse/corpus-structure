@@ -1326,6 +1326,7 @@ def preview(
                     }
                 )
                 impact = None
+                source_impact = None
                 local = None
                 dependencies = None
                 release = None
@@ -1389,9 +1390,22 @@ def preview(
                                 connection, bound.archive_release, include_physical=False
                             ),
                         )
-                        impact = compare_semantic_releases(
-                            before, local, dependency_detail=True
-                        ).model_dump(mode="json")
+                        if bound.data_operations is not None:
+                            from corpus_structure.semantic.data_operation_admission import (
+                                bound_data_operation_model,
+                            )
+                            from corpus_structure.semantic.source_comparison import (
+                                compare_data_operation_models,
+                            )
+
+                            source_impact = compare_data_operation_models(
+                                bound_data_operation_model(before),
+                                bound_data_operation_model(local),
+                            )
+                        else:
+                            impact = compare_semantic_releases(
+                                before, local, dependency_detail=True
+                            ).model_dump(mode="json")
                         sql_holder[0] = sql_holder[0].model_copy(update={"impact": impact})
                 model_stage(result, "validate and stage")
                 staged = prepare_preview(
@@ -1405,6 +1419,7 @@ def preview(
                     native_base=native_base,
                     deployment_base=deployment_base,
                     comparison=impact,
+                    source_comparison=source_impact,
                     local_release=release,
                     expected_physical=physical_id,
                     release_manifest_sha256=sha256(local.manifest).hexdigest()
