@@ -39,10 +39,16 @@ class RichEntitySource:
 
 
 @dataclass(frozen=True)
-class RichKnownEntity:
-    class_iris: tuple[str, ...]
+class RichKnownEntityIdentity:
+    """One actual class's key/label basis, without merging property namespaces."""
+    class_iri: str
     fields: Mapping[str, Any]
     label: str | None = None
+
+
+@dataclass(frozen=True)
+class RichKnownEntity:
+    identities: tuple[RichKnownEntityIdentity, ...]
 
 
 @dataclass(frozen=True)
@@ -52,7 +58,8 @@ class RichEntityResolution:
     entity_id: str
     basis: Literal["declared_key", "global_label", "source_local"]
     outcome: Literal["resolved", "incomplete_key", "ambiguous_anchor", "ungrounded_cycle"]
-    relevant: tuple[str, ...]
+    candidate_identity_keys: tuple[str, ...]
+    matched_entity_ids: tuple[str, ...]
     dependencies: tuple[str, ...]
 
 
@@ -160,17 +167,17 @@ def resolve_rich_entities(prepared: PreparedRelease, *, entity_contracts: Mappin
             soft_ids[node] = mappings[source.reference][entity["id"]]
     declared_keys = {}
     for identity, entity in known.items():
-        for iri in entity.class_iris:
-            definition = by_iri[iri]
+        for basis in entity.identities:
+            definition = by_iri[basis.class_iri]
             if groups(definition):
-                if all(all(name in entity.fields for name in group) for group in groups(definition)):
-                    for key in keys(definition, entity.fields):
+                if all(all(name in basis.fields for name in group) for group in groups(definition)):
+                    for key in keys(definition, basis.fields):
                         if key in declared_keys and declared_keys[key] != identity:
                             raise ValueError("known universe contains incompatible declared entity keys")
                         declared_keys[key] = identity
-            elif meta.get(definition.name, {}).get("cs:scope") == "global" and entity.label:
+            elif meta.get(definition.name, {}).get("cs:scope") == "global" and basis.label:
                 node = "known", identity
-                soft_groups.setdefault(label_key(definition, entity.label), set()).add(node)
+                soft_groups.setdefault(label_key(definition, basis.label), set()).add(node)
                 soft_ids[node] = identity
     for (iri, label), members in soft_groups.items():
         anchors = {node for node in members if node[0] == "known"}
@@ -198,10 +205,10 @@ def resolve_rich_entities(prepared: PreparedRelease, *, entity_contracts: Mappin
             if entity.get("scope") is not None and "scope_locator" in prepared.index.properties_by_class[definition.name]:
                 attrs.setdefault("scope_locator", entity["scope"]["locator"])
             basis = "declared_key" if groups(definition) else "global_label" if meta.get(definition.name, {}).get("cs:scope") == "global" else "source_local"
-            outcome, relevant = "resolved", ()
+            outcome, candidate_keys, matched_entities = "resolved", (), ()
             if groups(definition) and all(all(name in attrs for name in group) for group in groups(definition)):
                 if any((source.reference, dependency) not in resolved for dependency in dependencies):
-                    decisions[source.reference, entity["id"]] = RichEntityResolution(source.reference, entity["id"], mapping[entity["id"]], basis, "ungrounded_cycle", (), tuple(sorted(dependencies)))
+                    decisions[source.reference, entity["id"]] = RichEntityResolution(source.reference, entity["id"], mapping[entity["id"]], basis, "ungrounded_cycle", (), (), tuple(sorted(dependencies)))
                     remaining.append((source, entity, definition))
                     continue
                 candidates = keys(definition, attrs)
@@ -209,17 +216,17 @@ def resolve_rich_entities(prepared: PreparedRelease, *, entity_contracts: Mappin
                 if len(matches) > 1:
                     raise ValueError("declared keys bridge incompatible known identities")
                 canonical = next(iter(matches)) if matches else min(candidates)
-                relevant = tuple(sorted(matches or set(candidates)))
+                candidate_keys, matched_entities = tuple(sorted(set(candidates))), tuple(sorted(matches))
                 declared_keys.update((key, canonical) for key in candidates)
                 mapping[entity["id"]] = canonical
             elif not groups(definition) and basis == "global_label" and entity.get("label"):
                 mapping[entity["id"]] = soft_resolved[source.reference, entity["id"]]
-                relevant = tuple(sorted(soft_ids[node] for node in soft_groups[label_key(definition, entity["label"])] if node[0] == "known"))
-                if len(relevant) > 1:
+                matched_entities = tuple(sorted(soft_ids[node] for node in soft_groups[label_key(definition, entity["label"])] if node[0] == "known"))
+                if len(matched_entities) > 1:
                     outcome = "ambiguous_anchor"
             elif groups(definition) or basis == "global_label":
                 outcome = "incomplete_key"
-            decisions[source.reference, entity["id"]] = RichEntityResolution(source.reference, entity["id"], mapping[entity["id"]], basis, outcome, relevant, tuple(sorted(dependencies)))
+            decisions[source.reference, entity["id"]] = RichEntityResolution(source.reference, entity["id"], mapping[entity["id"]], basis, outcome, candidate_keys, matched_entities, tuple(sorted(dependencies)))
             resolved.add((source.reference, entity["id"]))
             progress = True
         if not progress:
