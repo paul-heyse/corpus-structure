@@ -7,11 +7,6 @@ import pytest
 import yaml
 
 from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
-from corpus_structure.semantic.domain_operations import (
-    _claim_references,
-    _entity_references,
-    _reference,
-)
 from corpus_structure.semantic.reference_positions import (
     ReferencePositionError,
     collect_references,
@@ -88,9 +83,9 @@ def test_multivalued_nested_fact_and_nonentity_class_references_keep_positions()
     assert {r.target for r in references if r.kind == "class"} == {"e1", "e2", "e3"}
     assert any(r.target == "f3" and r.path == ("children", 0, "claims", 0) for r in references)
     assert not any(r.path == ("plain",) for r in references)
-    assert _claim_references(release, "Root", raw) == {"f1", "f2", "f3", "a", "b"}
-    assert _entity_references(release, "Root", raw) == {"e1", "e2", "e3"}
-    rewritten = _reference(release, "Root", raw, {"e1": "E1", "e3": "E3"}, {"f2": "F2", "f3": "F3"})
+    assert {r.target for r in references if r.kind == "fact"} == {"f1", "f2", "f3", "a", "b"}
+    assert {r.target for r in references if r.kind == "class"} == {"e1", "e2", "e3"}
+    rewritten = rewrite_references(release, "Root", raw, classes={"e1": "E1", "e3": "E3"}, facts={"f2": "F2", "f3": "F3"}, collision="equal")
     assert rewritten is not None
     assert rewritten["claims"] == ("F2", "f1", "F2")
     assert rewritten["entities"] == ("e2", "E1")
@@ -149,10 +144,9 @@ def test_callable_class_resolution_preserves_keyed_collision_refusals():
 def test_proposal_and_domain_property_reference_use_declared_nonentity_carrier():
     from pathlib import Path
 
-    from corpus_structure.semantic.composed import composed_dependencies
-    from corpus_structure.semantic.domain_operations import _property_value
+    from corpus_structure.semantic.rich_knowledge import rich_property_value
     from corpus_structure.semantic.proposals import locate_proposal, proposal_inputs
-    from corpus_structure.semantic.types import PreparationProfile, ResolvedDependencies
+    from corpus_structure.methods.llm.cascade import PlacementPolicy
     from semantic.proposals_support import batch, frame
 
     core = Path(__file__).parents[2] / "src/corpus_structure/model/semantic/core.yaml"
@@ -185,20 +179,19 @@ classes:
                 ),
             )
         ),
-        composed_dependencies(ResolvedDependencies()),
-        PreparationProfile(version="semantic-2"),
     )
     raw = batch()
     raw["claims"][0]["predicate"] = "https://example.org/tag"
     raw["claims"][0]["object"] = {"kind": "tag_ref", "target": "known:tag"}
     result = locate_proposal(
-        release, raw, frame(), known_classes={"known:tag": ("https://example.org/Tag",)}
+        release, raw, frame(), known_classes={"known:tag": ("https://example.org/Tag",)},
+        placement_policy=PlacementPolicy(),
     )
     assert result.clean
     person = next(d for d in release.definitions if d.name == "Person")
     prop = next(p for p in person.properties if p.name == "tag")
     assert (
-        _property_value(
+        rich_property_value(
             release, person, prop, raw["claims"][0]["object"], {"known:tag": "admitted:tag"}
         )
         == "admitted:tag"
