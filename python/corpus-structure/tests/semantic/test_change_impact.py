@@ -5,6 +5,7 @@ from decimal import Decimal
 
 import pytest
 
+from corpus_structure.semantic._data_operation_fates import VisibleFate
 from corpus_structure.semantic.change_impact import (
     ChangeImpactRequest,
     PopulationMember,
@@ -32,7 +33,7 @@ def models():
 
 
 def observation(
-    model, subject="one", *, fate="fulfilled", product="value:one", episode="episode:one"
+    model, subject="one", *, fate: VisibleFate="fulfilled", product="value:one", episode="episode:one"
 ):
     return SelectionEvidence(
         member=PopulationMember(
@@ -76,8 +77,10 @@ def test_nonfulfilled_target_fates_do_not_become_value_or_absence_proof(impact_m
 
 def test_unknown_protocol_fate_is_rejected_at_observation_boundary(impact_models):
     before, _ = impact_models
+    invalid = observation(before).model_dump()
+    invalid["fate"] = "unrecognized"
     with pytest.raises(ValueError, match="Input should be"):
-        observation(before, fate="unrecognized")
+        SelectionEvidence.model_validate(invalid)
 
 
 def test_complete_population_absence_precedes_partial_target_fate(impact_models):
