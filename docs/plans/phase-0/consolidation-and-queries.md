@@ -686,7 +686,7 @@ check, coordinator §11: "D8 joins with inspected plans").
   unresolved `ExternalReference`, is marked conditional (INV-09);
 - **an unresolved reference is served, never omitted** (DA-007; R04): where a returned claim's
   subject, object, premise or binding target is an unresolved `ExternalReference`, the row carries
-  it as "an unresolved reference: <descriptor>" with its citing locator, and a resolved one is
+  it as `an unresolved reference: <descriptor>` with its citing locator, and a resolved one is
   rendered as the statement it resolved to (`resolved_to_id`).
 
 **Run selector and journeys** (D8 §5, as amended):
