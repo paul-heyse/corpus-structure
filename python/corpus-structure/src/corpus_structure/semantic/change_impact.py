@@ -71,6 +71,7 @@ class ChangeImpactItem(BaseModel):
     reasons: tuple[str, ...]
     changed_roots: tuple[str, ...] = ()
     witnesses: tuple[str, ...] = ()
+    invalidity_causes: tuple[RevocationCause, ...] = ()
 
 
 class _Continuation(BaseModel):
@@ -105,6 +106,7 @@ class RevocationCause(BaseModel):
     selector_kind: str
     selector: str
     derivation_id: str | None = None
+    support_path: tuple[str, ...] = ()
 
 
 class SelectionEvidence(BaseModel):
@@ -290,27 +292,72 @@ def classify_change_impact(
                 reasons=reason_codes,
                 changed_roots=roots,
                 witnesses=witnesses,
+                invalidity_causes=causes,
             )
         )
     return tuple(rows)
 
 
-def _revocation_causes(index, roots):
+def _revocation_causes(index, roots, selected_uses=()):
     """Attribute only native-exported selector/epoch witnesses to reached support."""
     episodes = index.mapping("ops.data_derivation", ("id",))
     requests = index.mapping("ops.data_request", ("id",))
     admissions = index.mapping("ops.original_source_admission", ("id",))
     revocations = tuple(index.rows("ops.data_revocation"))
-    pending, visited, causes = [("episode", root) for root in roots], set(), {}
+    uses = index.mapping("ops.demand_use", ("id",))
+    populations = index.mapping("ops.data_population", ("id",))
+    pending: list[tuple[str, str, tuple[str, ...]]] = [("use", use, ()) for use in selected_uses]
+    if not pending:
+        pending = [("episode", root, ()) for root in roots]
+    visited, causes = set(), {}
+
+    def reference_node(reference) -> tuple[str, str]:
+        if reference.get("kind") in {"original-source", "authored"}:
+            return "original", reference["admission_id"]
+        if reference.get("admission_use_id"):
+            return "use", reference["admission_use_id"]
+        return "episode", reference["derivation_id"]
+
     while pending:
-        kind, identity = pending.pop()
+        kind, identity, path = pending.pop()
+        path = (*path, kind + ":" + identity)
         if (kind, identity) in visited:
             continue
         visited.add((kind, identity))
-        row = episodes.get(identity) if kind == "episode" else admissions.get(identity)
+        if kind == "use":
+            use = uses.get(identity)
+            if use is None:
+                continue
+            # The exact use selects replacement support. Its producer episode is
+            # inspected directly, without following the episode's obsolete inputs.
+            if use.get("derivation_id"):
+                pending.append(("selected-episode", use["derivation_id"], path))
+            selection = use["selection"]
+            pending.extend(
+                (*reference_node(reference), path) for reference in selection.get("support", ())
+            )
+            pending.extend(
+                ("population", reference["population_id"], path)
+                for reference in selection.get("populations", ())
+            )
+            continue
+        if kind == "population":
+            population = populations.get(identity)
+            if population is not None:
+                evidence = population["evidence"]
+                if evidence.get("admission_use_id"):
+                    pending.append(("use", evidence["admission_use_id"], path))
+                elif evidence.get("derivation_id"):
+                    pending.append(("episode", evidence["derivation_id"], path))
+                parent = evidence.get("selection", {}).get("parent_population_id")
+                if parent:
+                    pending.append(("population", parent, path))
+            continue
+        episode_node = kind in {"episode", "selected-episode"}
+        row = episodes.get(identity) if episode_node else admissions.get(identity)
         if row is None:
             continue
-        if kind == "episode":
+        if episode_node:
             request = requests[row["request_id"]]
             project, source = request["project_id"], request["original_source"]
             products = {
@@ -322,16 +369,22 @@ def _revocation_causes(index, roots):
                 ("recipe", row["recipe"]),
                 ("runtime", row["runtime_id"]),
             } | {("product", product) for product in products}
-            pending.extend(
-                ("episode", r["support_derivation_id"])
-                for r in index.rows_for("ops.data_derivation_support", derivation_id=identity)
-            )
-            pending.extend(
-                ("original", r["admission_id"])
-                for r in index.rows_for(
-                    "ops.data_derivation_original_support", derivation_id=identity
+            if kind == "episode":
+                for support in index.rows_for(
+                    "ops.data_derivation_support", derivation_id=identity
+                ):
+                    node: tuple[str, str] = (
+                        ("use", support["admission_use_id"])
+                        if support.get("admission_use_id")
+                        else ("episode", support["support_derivation_id"])
+                    )
+                    pending.append((*node, path))
+                pending.extend(
+                    ("original", r["admission_id"], path)
+                    for r in index.rows_for(
+                        "ops.data_derivation_original_support", derivation_id=identity
+                    )
                 )
-            )
         else:
             project, source = row["project_id"], row["original_source"]
             selectors = {
@@ -347,13 +400,69 @@ def _revocation_causes(index, roots):
                 and (revoked["selector_kind"], revoked["selector"]) in selectors
             ):
                 causes[revoked["id"], identity] = RevocationCause(
-                    kind="direct" if kind == "episode" and identity in roots else "upstream",
+                    kind="direct" if episode_node and identity in roots else "upstream",
                     reference=revoked["id"],
-                    derivation_id=identity if kind == "episode" else None,
+                    derivation_id=identity if episode_node else None,
+                    support_path=path,
                     selector_kind=revoked["selector_kind"],
                     selector=revoked["selector"],
                 )
     return tuple(causes[key] for key in sorted(causes))
+
+
+def _population_universe(selection, evidence, populations, *, scope):
+    """Require an authentic complete receipt for each frozen producer context."""
+    population = {row.member.key: row.member for row in evidence}
+    closed = True
+    rows = tuple(populations)
+    for relation in selection.get("discovery", ()):
+        producer = relation["producer"]
+        required = {
+            row.member.key: row.member for row in evidence if row.member.operation == producer
+        }
+        if producer in selection["root_operations"]:
+            for root in selection["roots"]:
+                member = PopulationMember(operation=producer, **root)
+                required[member.key] = member
+        if not required:
+            closed = False
+        for context in required.values():
+            matching = []
+            for row in rows:
+                fact = row["evidence"]
+                owner = fact.get("producer_context")
+                if (
+                    row["name"] != relation["population"]
+                    or owner is None
+                    or "selection" in fact
+                    or fact.get("member_role") != relation["output_role"]
+                ):
+                    continue
+                if (
+                    PopulationMember(
+                        operation=owner["operation_id"],
+                        subject=owner["subject"],
+                        original_source=owner["original_source"],
+                        analyzed_scope=owner["analyzed_scope"],
+                    ).key
+                    == context.key
+                ):
+                    matching.append(row)
+            if len(matching) != 1 or matching[0]["complete"] is not True:
+                closed = False
+                continue
+            for member in matching[0]["members"]:
+                child = PopulationMember(
+                    operation=relation["target"],
+                    subject=member["subject"],
+                    original_source=member["original_source"],
+                    analyzed_scope=member["analyzed_scope"],
+                )
+                if scope and child.key not in population:
+                    closed = False
+                else:
+                    population[child.key] = child
+    return population, closed
 
 
 def _acquire(connection, demand, *, project, scope, read_id, expected_cut, max_bytes):
@@ -424,10 +533,18 @@ def _acquire(connection, demand, *, project, scope, read_id, expected_cut, max_b
                                     row["multiplicity"],
                                 )
                             )
-                        for row in index.rows_for(
-                            "ops.data_derivation_support", derivation_id=episode
-                        ):
-                            support.add(row["support_derivation_id"])
+                        selection = use["selection"]
+                        if "support" in selection:
+                            support.update(
+                                row["derivation_id"]
+                                for row in selection["support"]
+                                if row.get("derivation_id")
+                            )
+                        else:
+                            for row in index.rows_for(
+                                "ops.data_derivation_support", derivation_id=episode
+                            ):
+                                support.add(row["support_derivation_id"])
                     for product in use["products"]:
                         edges.append(
                             (
@@ -448,31 +565,16 @@ def _acquire(connection, demand, *, project, scope, read_id, expected_cut, max_b
                         products=tuple(sorted(edges, key=json_bytes)),
                         inputs=tuple(sorted(inputs, key=json_bytes)),
                         support=tuple(sorted(support)),
-                        invalidity_causes=_revocation_causes(index, derivations)
+                        invalidity_causes=_revocation_causes(
+                            index, derivations, tuple(use["use_id"] for use in selected)
+                        )
                         if obligation["fate"] == "unavailable"
                         else (),
                     )
                 )
-            population = {row.member.key: row.member for row in evidence}
-            closed = True
-            for relation in cut.record["selection"].get("discovery", ()):
-                selected = [
-                    row for row in populations.values() if row["name"] == relation["population"]
-                ]
-                if len(selected) != 1 or selected[0]["complete"] is not True:
-                    closed = False
-                    continue
-                for member in selected[0]["members"]:
-                    child = PopulationMember(
-                        operation=relation["target"],
-                        subject=member["subject"],
-                        original_source=member["original_source"],
-                        analyzed_scope=member["analyzed_scope"],
-                    )
-                    if scope and child.key not in population:
-                        closed = False
-                    else:
-                        population[child.key] = child
+            population, closed = _population_universe(
+                cut.record["selection"], evidence, populations.values(), scope=scope
+            )
             return cut, tuple(evidence), tuple(population.values()), closed
         finally:
             index.close()

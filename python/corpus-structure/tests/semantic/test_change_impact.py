@@ -15,6 +15,7 @@ from corpus_structure.semantic.change_impact import (
     inspect_change_impact,
 )
 from corpus_structure.semantic.data_operation_compilation import compile_data_operations
+from semantic.data_operation_kernel_support import POPULATION, STORAGE
 from semantic.serving_scenarios import declared_serving_case as declared_serving_case
 from semantic.serving_scenarios import declared_serving_seed as declared_serving_seed
 from semantic.test_data_operation_compilation import operation_source, python_inputs
@@ -361,7 +362,7 @@ def _executed_change_recipe():
 
 @pytest.mark.parametrize("ddo_kernel", [_executed_change_recipe()], indirect=True)
 def test_changed_python_helper_executes_new_recipe_and_equal_output_cuts_off_consumer(
-    ddo_kernel, tmp_path
+    ddo_kernel, tmp_path, monkeypatch
 ):
     from corpus_structure.semantic.change_impact import resume_changed_demand
     from corpus_structure.semantic.data_operation_demands import (
@@ -404,6 +405,7 @@ def test_changed_python_helper_executes_new_recipe_and_equal_output_cuts_off_con
                 runtime=kernel.runtime,
             )["demand_id"]
 
+    monkeypatch.syspath_prepend(str(old.preparation.directory))
     original_demand = register(old)
     first = resume_changed_demand(
         old.engine,
@@ -424,6 +426,10 @@ def test_changed_python_helper_executes_new_recipe_and_equal_output_cuts_off_con
         waiting = inspect_change_impact(connection, request, target_prepared=target.prepared)
     assert any(row.state == "awaiting" for row in waiting.items)
     assert changed_operations(old.model, target.model)[0] == {"urn:change:producer"}
+    import sys
+
+    monkeypatch.syspath_prepend(str(target_directory))
+    monkeypatch.delitem(sys.modules, module)
     changed = resume_changed_demand(
         old.engine,
         target_demand,
@@ -455,3 +461,177 @@ def test_real_changed_helper_recipe_preserves_downstream_recipe():
     )
     before, after = prepare_kernel(recipe), prepare_kernel(target)
     assert changed_operations(before.model, after.model)[0] == {"urn:change:producer"}
+
+
+@pytest.mark.parametrize("ddo_kernel", [POPULATION], indirect=True, ids=["population"])
+def test_native_population_closure_requires_each_frozen_producer_context(ddo_kernel):
+    import json
+    from typing import cast
+
+    from corpus_structure.semantic._data_operation_wire import (
+        WireCloseDataPopulationRequest,
+        WireExpandDataObligationRequest,
+    )
+    from corpus_structure.semantic.change_impact import _acquire
+    from corpus_structure.semantic.data_operation_demands import DemandPlanner, RootSubject
+    from corpus_structure.semantic.data_operation_identity import semantic_value
+    from corpus_structure.semantic.data_operation_storage import DataOperationStorage
+    from semantic.data_operation_binding_support import discover
+    from semantic.data_operation_demand_support import claim, publish, retain
+
+    demand, _, _ = discover(
+        ddo_kernel,
+        values=(),
+        additional_roots=(RootSubject("doc:two", "source:test", b'{"page":2}'),),
+    )
+
+    def acquire():
+        with ddo_kernel["engine"].begin() as connection:
+            return _acquire(
+                connection,
+                demand["demand_id"],
+                project="ddo-test",
+                scope={},
+                read_id=None,
+                expected_cut=None,
+                max_bytes=8388608,
+            )
+
+    assert acquire()[3] is False
+    with ddo_kernel["engine"].begin() as connection:
+        planner = DemandPlanner(ddo_kernel["model"], DataOperationStorage(connection))
+        planner.storage.expand_data_obligation(
+            cast(
+                WireExpandDataObligationRequest,
+                dict(
+                    demand_id=demand["demand_id"],
+                    operation_id="urn:discover",
+                    subject="doc:two",
+                    original_source="source:test",
+                    analyzed_scope={"page": 2},
+                    parameters={},
+                ),
+            )
+        )
+        ready = planner.ready(planner.resume(demand["demand_id"]), authorization=b"{}")
+        second = next(
+            row for row in ready if row.operation == "urn:discover" and row.subject == "doc:two"
+        )
+    fence = claim(ddo_kernel, json.loads(second.native))
+    kind = ddo_kernel["identities"][
+        next(k.semantic_id for k in ddo_kernel["model"].kinds if k.name == "Population"), "kind"
+    ]
+
+    def output(completion):
+        completion["outputs"][0]["product"].update(
+            kind_contract=kind, body=semantic_value({"complete": True, "members": []}), members=[]
+        )
+
+    receipt = publish(ddo_kernel, fence, retain(ddo_kernel, fence, mutate=output))
+    with ddo_kernel["engine"].begin() as connection:
+        storage = DataOperationStorage(connection)
+        snapshot = planner.__class__(ddo_kernel["model"], storage).resume(demand["demand_id"])
+        use = next(
+            row for row in snapshot["uses"] if row["derivation_id"] == receipt["derivation_id"]
+        )
+        storage.close_data_population(
+            cast(
+                WireCloseDataPopulationRequest,
+                dict(
+                    demand_id=demand["demand_id"],
+                    name="all-items",
+                    product_id=use["products"][0]["product_id"],
+                    derivation_id=receipt["derivation_id"],
+                    member_role="result",
+                ),
+            )
+        )
+    assert acquire()[3] is True
+
+
+@pytest.mark.parametrize("ddo_kernel", [STORAGE], indirect=True, ids=["storage"])
+def test_native_rebound_selected_support_attributes_new_upstream_revocation(ddo_kernel):
+    from typing import cast
+
+    from sqlalchemy import text
+
+    from corpus_structure.semantic._data_operation_wire import WireRevokeDataSupportRequest
+    from corpus_structure.semantic.change_impact import _acquire
+    from corpus_structure.semantic.data_operation_demands import DemandPlanner
+    from corpus_structure.semantic.data_operation_storage import DataOperationStorage
+    from semantic.test_data_operation_storage import (
+        test_native_planner_rebinds_equal_support_or_replaces_invalid_retained_generation,
+    )
+
+    test_native_planner_rebinds_equal_support_or_replaces_invalid_retained_generation(
+        ddo_kernel, False
+    )
+    with ddo_kernel["engine"].begin() as connection:
+        demand = connection.scalar(
+            text("SELECT id FROM ops.data_demand ORDER BY created_at LIMIT 1")
+        )
+        planner = DemandPlanner(ddo_kernel["model"], DataOperationStorage(connection))
+        snapshot = planner.resume(demand)
+        consumer = next(
+            row
+            for row in snapshot["obligations"]
+            if row["operation_id"] == "urn:ddo-test:value-consumer"
+        )
+        selected = next(
+            row for row in snapshot["uses"] if row["obligation_id"] == consumer["obligation_id"]
+        )
+        support = cast(dict, selected["selection"])["support"]
+        replacement = next(row["derivation_id"] for row in support if row.get("derivation_id"))
+        episode = selected["derivation_id"]
+        first = _acquire(
+            connection,
+            demand,
+            project="ddo-test",
+            scope={},
+            read_id=None,
+            expected_cut=None,
+            max_bytes=8388608,
+        )
+        observed = next(
+            row for row in first[1] if row.member.operation == "urn:ddo-test:value-consumer"
+        )
+        assert observed.fate == "fulfilled" and observed.derivations == (episode,)
+        assert observed.invalidity_causes == ()
+        result = classify_change_impact(
+            ddo_kernel["model"],
+            ddo_kernel["model"],
+            before=(observed,),
+            target=(observed,),
+            target_observed=True,
+        )
+        assert result[0].state == "substitutable"
+        revoked = planner.storage.revoke_data_support(
+            cast(
+                WireRevokeDataSupportRequest,
+                dict(
+                    project_id="ddo-test",
+                    original_source="source:test",
+                    selector_kind="derivation",
+                    selector=replacement,
+                    reason="rebound current support withdrawn",
+                ),
+            )
+        )
+    with ddo_kernel["engine"].begin() as connection:
+        after = _acquire(
+            connection,
+            demand,
+            project="ddo-test",
+            scope={},
+            read_id=None,
+            expected_cut=None,
+            max_bytes=8388608,
+        )
+    current = next(row for row in after[1] if row.member.operation == "urn:ddo-test:value-consumer")
+    assert current.fate == "unavailable"
+    assert {(row.kind, row.selector, row.reference) for row in current.invalidity_causes} == {
+        ("upstream", replacement, revoked["revocation_id"])
+    }
+    assert all(
+        row.support_path[0] == "use:" + selected["use_id"] for row in current.invalidity_causes
+    )

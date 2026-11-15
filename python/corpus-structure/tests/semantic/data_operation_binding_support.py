@@ -485,6 +485,7 @@ def discover(
     member_contexts=None,
     member_body_contexts=None,
     additional_discovery_targets=(),
+    additional_roots=(),
 ):
     from corpus_structure.semantic.data_operation_demands import (
         DiscoverySelection,
@@ -501,7 +502,7 @@ def discover(
     root = {"subject": "doc", "original_source": "source:test", "analyzed_scope": scope}
     selection = freeze_demand(
         ddo_kernel["model"],
-        roots=(RootSubject("doc", "source:test", canonical_bytes(scope)),),
+        roots=(RootSubject("doc", "source:test", canonical_bytes(scope)), *additional_roots),
         targets=("urn:consumer",),
         inference=inference,
         execution_profile="execution:test",
@@ -525,7 +526,7 @@ def discover(
                     "project_id": "ddo-test",
                     "release_id": ddo_kernel["prepared"].release_id,
                     "runtime_id": ddo_kernel["runtime"],
-                    "root": [root],
+                    "root": selection["roots"],
                     "selection": selection,
                     "strength": "value",
                 },
