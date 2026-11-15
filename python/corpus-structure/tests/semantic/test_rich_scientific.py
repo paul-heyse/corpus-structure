@@ -246,3 +246,24 @@ def test_known_known_comparisons_preserve_prior_assessment_but_new_known_require
               "whole_inputs": (retained, inputs["whole_inputs"][1]), "retained_graphs": (retained,)}
     with pytest.raises(ValueError, match="explicit selected source context"):
         assess(scientific, actual)
+    # A genuine new-versus-known comparison consumes the selected known whole
+    # as evidence; its unchanged historical original is attribution, not a fresh
+    # direct input. Both explicit interpretation packets remain actual inputs.
+    old = inputs["source_contexts"][0]
+    selected = (*selected, old.context)
+    graph = graph.model_copy(update={"input_population": selected})
+    actual = {**actual, "graph": graph, "inputs": selected, "source_contexts": (old, fresh),
+              "whole_inputs": (retained, *inputs["whole_inputs"])}
+    result = assess(scientific, actual)
+    assert len(result) == 1 and result[0].outcome == "different"
+    assert {item.product_id for item in result[0].evidence_members} == {
+        reference.product_id, old.context.product_id, fresh.context.product_id, fresh.original.product_id,
+    }
+    assert old.original not in result[0].evidence_members
+    from corpus_structure.semantic.rich_graph_validation import read_rich_graph
+    prepared = scientific[0]
+    assessment = result[0]
+    packet_value = DdoRichPacket(member_id=assessment.assessment_id, kind_contract=ids[PREFIX + "DdoRichAssessment"],
+                                context=graph.members[0].context, body=assessment)
+    read_rich_graph(prepared, model, context=inputs["context"], graph=graph.model_copy(update={"members": (*graph.members, packet_value)}),
+                    inputs=selected, whole_inputs=actual["whole_inputs"], retained_graphs=(retained,))

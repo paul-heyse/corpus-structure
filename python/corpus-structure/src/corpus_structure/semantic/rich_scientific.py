@@ -214,7 +214,9 @@ def assess_rich_scientific(
             )
             references = {}
             for occurrence, source in zip((left_occurrence, right_occurrence), source_pair, strict=True):
-                for reference in (occurrence.original, occurrence.statement, source.context):
+                retained = state.retained_sources(occurrence.occurrence_id)
+                source_refs = (*retained, source.context) if retained else (occurrence.original, occurrence.statement, source.context)
+                for reference in source_refs:
                     if reference is not None:
                         references[rich_reference_key(reference)] = reference
             evidence_members = tuple(references[key] for key in sorted(references))
