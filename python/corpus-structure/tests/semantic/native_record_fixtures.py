@@ -231,12 +231,11 @@ class RecordSourceRecipe:
             "characterization",
             "source-reading",
             "reference",
-            "policy-authority",
             "characterization-reference",
             "reference-characterization",
         }:
             raise ValueError(f"unknown record composition: {self.composition}")
-        if self.record_method not in {"records", "policy-candidates"}:
+        if self.record_method != "records":
             raise ValueError(f"unknown record method: {self.record_method}")
         for name in (
             "additional_methods",
@@ -307,10 +306,6 @@ def _record_composition(name):
         return lambda bundle: characterization_inputs(reference_inputs(bundle)), None
     if name == "reference-characterization":
         return lambda bundle: reference_inputs(characterization_inputs(bundle)), None
-    if name == "policy-authority":
-        from evaluation_record_policy_authority_native_support import policy_inputs
-
-        return policy_inputs, None
     raise ValueError(f"unknown record composition: {name}")
 
 
@@ -324,16 +319,6 @@ def record_method_spec(name):
             confidence_source=None,
             unit_type=TaskUnitType.SOURCE_VIEW,
             Config=create_model("PrivateRecordConfig"),
-        )
-    if name == "policy-candidates":
-        return SimpleNamespace(
-            name="extract.m1_candidates",
-            version="3",
-            family="extract",
-            tier="encoder",
-            confidence_source=None,
-            unit_type=TaskUnitType.SOURCE_VIEW,
-            Config=create_model("PrivatePolicyConfig"),
         )
     raise ValueError(f"unknown record method: {name}")
 

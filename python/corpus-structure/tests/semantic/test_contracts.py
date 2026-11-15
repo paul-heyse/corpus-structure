@@ -137,7 +137,7 @@ def test_run_states_require_atomic_completed_output_and_never_reopen(products):
         run.state(run_state("running", "present"))
     with pytest.raises(PreparationError, match="unsupported edge"):
         products.validate_edge(
-            "run_start_source",
+            "run_final_cut",
             run_state("finished", "present", "present", "present"),
             run_state("running"),
         )
@@ -245,19 +245,19 @@ def test_outcome_translation_preserves_unknown_and_unsupported(products):
         ),
         (
             "transitions",
-            "run_start_source",
+            "run_final_cut",
             "operation",
             "missing",
             "unresolved_contract_reference",
-            "run_start_source",
+            "run_final_cut",
         ),
         (
             "transitions",
-            "run_start_source",
+            "run_final_cut",
             "from_states",
             ["finished"],
             "terminal_transition",
-            "run_start_source",
+            "run_final_cut",
         ),
         (
             "operations",
@@ -397,7 +397,7 @@ def test_endpoint_cardinality_reference_and_state_links_are_checked(inputs):
     data["lifecycles"][0]["states"][0]["values"][0]["value"] = "invented"
     cases.append((data, "state_value"))
     data = body(inputs)
-    data["lifecycles"][0]["transitions"].remove("run_start_source")
+    data["lifecycles"][0]["transitions"].remove("run_final_cut")
     cases.append((data, "unlinked_transition"))
     data = body(inputs)
     data["concepts"][0]["attributes"][0]["range"] = "Missing"

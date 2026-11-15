@@ -10592,31 +10592,6 @@ operations:
   implementation: reference_operation_fit
   transitions: []
   projections: []
-- id: reference_record_calibrate
-  inputs:
-  - EvaluationResult
-  - ReferenceSet
-  results:
-  - ReferenceEvaluation
-  applicability:
-  - reference_binding
-  universe: Frozen independent source-origin partition, completed cut, guideline, primary and related frames; no production acceptance authority
-  effects:
-  - protected_independent_reference_operation
-  outcomes:
-  - applied
-  - replay
-  - conflict
-  outcome_domain: transaction
-  dependencies:
-  - semantic_release
-  - execution_model
-  - input_binding
-  - implementation_version
-  precision: Complete sealed candidate event frame and protected adjudicated source-only references; finite fitted parameters grant no general quality claim
-  implementation: reference_record_calibrate
-  transitions: []
-  projections: []
 - id: reference_record_partition
   inputs:
   - ReferenceOriginGroup
@@ -12281,23 +12256,6 @@ implementations:
   - ReferenceSet
   result_concepts:
   - OperationEventFit
-  features:
-  - typed_bound_inputs
-  - explicit_outcomes
-  effects:
-  - protected_independent_reference_operation
-  required_capabilities:
-  - execution.reference_evaluation.v1
-- id: reference_record_calibrate
-  owner: evaluate.record_policy
-  symbol: fit_record_policy
-  version: '1'
-  placement: python
-  input_concepts:
-  - EvaluationResult
-  - ReferenceSet
-  result_concepts:
-  - ReferenceEvaluation
   features:
   - typed_bound_inputs
   - explicit_outcomes

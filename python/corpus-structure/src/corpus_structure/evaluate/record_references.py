@@ -15,6 +15,8 @@ from typing import Any
 from sqlalchemy import Connection, select
 
 from corpus_structure.semantic.contracts import require_bound_operation
+from corpus_structure.semantic.data_operation_admission import bound_data_operation_model
+from corpus_structure.semantic.data_operation_model import EffectiveDataOperationModel
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.releases import open_release
@@ -43,10 +45,6 @@ def reference_inputs(bundle: SourceBundle, *, model_content: bytes | None = None
     Call after observation_inputs; no reference answers are read or packaged. The abstract
     source-product ancestor fences these types from knowledge graph realization.
     """
-    if not any(source.name == "record_policy" for source in bundle.sources):
-        from corpus_structure.semantic.record_policy_products import record_policy_inputs
-
-        bundle = record_policy_inputs(bundle)
     content = (
         (Path(__file__).resolve().parents[1] / "model/semantic/record-references.yaml").read_bytes()
         if model_content is None
@@ -115,6 +113,7 @@ def align_independent_references(
     b: RecordSide,
     prepared: PreparedRelease,
     *,
+    model: EffectiveDataOperationModel,
     coordinate_texts: Sequence[Mapping[str, Any]] = (),
 ):
     """Compare two independent readings under reference acceptance, retaining source identity.
@@ -132,6 +131,8 @@ def align_independent_references(
         RecordSide(comparison, b.records),
         prepared,
         coordinate_texts=coordinate_texts,
+        model=model,
+        prediction_model=model,
     )
 
 
@@ -140,6 +141,7 @@ def decode_authored(
     authored: bytes,
     frame: RecordEvaluationFrame,
     *,
+    model: EffectiveDataOperationModel,
     coordinate_texts: Sequence[Mapping[str, Any]],
 ) -> dict[str, Any]:
     """Validate exact independent bytes, without manufacturing producer acceptance."""
@@ -168,7 +170,7 @@ def decode_authored(
     if actual != expected or not payload["reason"].strip():
         raise ReferenceError("independent reading differs from frozen guideline/release/frame")
     side = RecordSide(frame, payload["records"])
-    align_independent_references(side, side, prepared, coordinate_texts=coordinate_texts)
+    align_independent_references(side, side, prepared, model=model, coordinate_texts=coordinate_texts)
     return payload
 
 
@@ -233,7 +235,7 @@ def record_pass(
     if decode_frame(unit["context"][0]) != frame:
         raise ReferenceError("author frame differs from source-only frozen unit")
     contexts = _coordinates(conn, prepared, unit, payload["records"])
-    decode_authored(prepared, authored, frame, coordinate_texts=contexts)
+    decode_authored(prepared, authored, frame, model=bound_data_operation_model(prepared), coordinate_texts=contexts)
     return _call(
         conn,
         "SELECT eval.record_source_record_reference_pass(:u,:k,:a,:b,CAST(:f AS jsonb))",
@@ -269,7 +271,7 @@ def read_pass(
         raise ReferenceError("immutable reference frame differs from selected reference unit")
     raw = prepared.validate_json("ReferenceRecordBatch", authored).model_dump(mode="python")
     contexts = _coordinates(conn, prepared, unit, raw["records"])
-    payload = decode_authored(prepared, authored, frame, coordinate_texts=contexts)
+    payload = decode_authored(prepared, authored, frame, model=bound_data_operation_model(prepared), coordinate_texts=contexts)
     return StoredRecordReferencePass(
         pass_id,
         unit["id"],
@@ -305,12 +307,14 @@ def agreement(conn: Connection, unit_id: int) -> dict[str, Any]:
             RecordSide(a.frame, a.records),
             RecordSide(b.frame, b.records),
             prepared,
+            model=bound_data_operation_model(prepared),
             coordinate_texts=contexts,
         ).as_dict(),
         b_to_a=align_independent_references(
             RecordSide(b.frame, b.records),
             RecordSide(a.frame, a.records),
             prepared,
+            model=bound_data_operation_model(prepared),
             coordinate_texts=contexts,
         ).as_dict(),
     )
@@ -416,7 +420,6 @@ def reference_evaluate(
     project_id: str,
     run_id: int,
     set_id: int,
-    policy_fit: Mapping[str, Any] | None = None,
 ) -> ReferenceReport:
     completed = _completed(conn, run_id, project_id)
     sets, units = table("eval.reference_set"), table("eval.reference_unit")
@@ -499,6 +502,8 @@ def reference_evaluate(
             RecordSide(reference.frame, reference.records),
             RecordSide(prediction_frame, prediction),
             reference_prepared,
+            model=bound_data_operation_model(reference_prepared),
+            prediction_model=bound_data_operation_model(prepared),
             coordinate_texts=contexts,
             prediction_prepared=prepared,
             prediction_coordinate_texts=prediction_contexts,
@@ -559,9 +564,6 @@ def reference_evaluate(
         ).scalar_one(),
         quality_claim="not_established",
     )
-    if policy_fit is not None:
-        require_bound_operation(prepared, "reference_record_calibrate")
-        result["policy_fit"] = dict(policy_fit)
     result = report_payload(result)
     prepared.validate_json("ReferenceRecordEvaluationReport", _json(result))
     identity = _call(

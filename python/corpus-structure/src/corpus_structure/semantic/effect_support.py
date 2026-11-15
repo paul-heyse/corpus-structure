@@ -84,12 +84,6 @@ SUPPORTED_EFFECTS = {
         "transitions": {},
         "version": "1",
     },
-    "reference_record_calibrate": {
-        "effects": ("protected_independent_reference_operation",),
-        "implementation": "reference_record_calibrate",
-        "transitions": {},
-        "version": "1",
-    },
     "reference_record_fit": {
         "effects": (),
         "implementation": "reference_record_fit",

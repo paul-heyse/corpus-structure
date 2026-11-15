@@ -287,7 +287,6 @@ POSTGRESQL_IMPLEMENTATION_SOURCES = (
     ("records/policy.py", "semantic/record_policy.py"),
     ("records/assertions.py", "semantic/record_assertions.py"),
     ("records/fitting.py", "evaluate/record_fitting.py"),
-    ("records/policy-evaluation.py", "evaluate/record_policy.py"),
     ("records/policy.sql", "semantic/sql/record_policy.sql"),
     ("invocation/task-dependency.sql", "semantic/sql/task_dependency_scope.sql"),
     ("records/references.sql", "semantic/sql/record_references.sql"),
@@ -331,7 +330,6 @@ def approved_implementations() -> Mapping[str, Any]:
     from corpus_structure.evaluate import (
         operation_assessment,
         operation_fitting,
-        record_policy,
         record_references,
     )
     from corpus_structure.evaluate import semantic as references
@@ -471,7 +469,6 @@ def approved_implementations() -> Mapping[str, Any]:
             "reference_record_grade": record_references.reference_evaluate,
             "reference_record_partition": record_references.assign_origin,
             "reference_record_fit": record_references.read_fitting_references,
-            "reference_record_calibrate": record_policy.fit_record_policy,
             "read_source_records": record_queries.read_completed_record_projection,
             "select_result": runtime.select_completed_result,
         }

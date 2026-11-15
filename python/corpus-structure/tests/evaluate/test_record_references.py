@@ -9,6 +9,7 @@ import pytest
 from evaluation_record_alignment_support import PIN, role
 from evaluation_record_references_support import fixture as fixture
 from evaluation_record_references_support import prepared as prepared
+from evaluation_record_references_support import model as model
 
 from corpus_structure.evaluate.record_alignment import RecordSide, align_records
 from corpus_structure.evaluate.record_references import (
@@ -51,7 +52,8 @@ def authored(row, binding, **extra):
 def test_independent_record_payload_is_distinct_and_empty_prediction_keeps_denominator(family):
     row, contexts, binding = fixture(family)
     payload = decode_authored(
-        prepared(), authored(row, binding), binding, coordinate_texts=contexts
+        prepared(), authored(row, binding), binding, coordinate_texts=contexts,
+        model=model(),
     )
     assert payload["protocol"] == PROTOCOL
     assert "claims" not in payload
@@ -60,6 +62,8 @@ def test_independent_record_payload_is_distinct_and_empty_prediction_keeps_denom
         RecordSide(binding, ()),
         prepared(),
         coordinate_texts=contexts,
+        model=model(),
+        prediction_model=model(),
     )
     assert (result.counts["full"].reference, result.counts["full"].prediction) == (1, 0)
     assert decode_frame(encode_frame(binding)) == binding
@@ -71,17 +75,17 @@ def test_wrong_payload_binding_refuses_instead_of_scoring_empty(change):
     raw = dict(__import__("json").loads(authored(row, binding)))
     raw[change] = "wrong"
     with pytest.raises(ValueError):
-        decode_authored(prepared(), canonical_bytes(raw), binding, coordinate_texts=contexts)
+        decode_authored(prepared(), canonical_bytes(raw), binding, coordinate_texts=contexts, model=model())
 
 
 def test_authored_reference_bytes_and_broken_anchor_are_not_repaired():
     row, contexts, binding = fixture()
     invalid_authored: Any = authored(row, binding).decode()
     with pytest.raises(TypeError, match="bytes"):
-        decode_authored(prepared(), invalid_authored, binding, coordinate_texts=contexts)
+        decode_authored(prepared(), invalid_authored, binding, coordinate_texts=contexts, model=model())
     row["occurrence_anchors"] = ("not-an-authored-anchor",)
     with pytest.raises(ValueError):
-        decode_authored(prepared(), authored(row, binding), binding, coordinate_texts=contexts)
+        decode_authored(prepared(), authored(row, binding), binding, coordinate_texts=contexts, model=model())
 
 
 def test_related_attributed_header_preserves_separate_pin_and_requires_explicit_closure():
@@ -118,7 +122,7 @@ def test_related_attributed_header_preserves_separate_pin_and_requires_explicit_
         anchor_ids=frozenset(value["anchor_id"] for value in row["anchors"]),
         related_pins=(related_pin,),
     )
-    assert decode_authored(prepared(), authored(row, binding), binding, coordinate_texts=contexts)[
+    assert decode_authored(prepared(), authored(row, binding), binding, coordinate_texts=contexts, model=model())[
         "records"
     ]
     with pytest.raises(ValueError, match="source pin"):
@@ -127,10 +131,11 @@ def test_related_attributed_header_preserves_separate_pin_and_requires_explicit_
             authored(row, binding),
             replace(binding, related_pins=()),
             coordinate_texts=contexts,
+            model=model(),
         )
     stale = replace(binding, related_pins=(dict(related_pin, product_digest="e" * 64),))
     with pytest.raises(ValueError, match="same native product"):
-        decode_authored(prepared(), authored(row, binding), stale, coordinate_texts=contexts)
+        decode_authored(prepared(), authored(row, binding), stale, coordinate_texts=contexts, model=model())
 
 
 def projection(rows, *, release_id="release", realization_id="completed"):
@@ -204,6 +209,8 @@ def test_source_derived_range_scope_accepts_later_span_without_prediction_anchor
         RecordSide(scoped, (deepcopy(row),)),
         prepared(),
         coordinate_texts=contexts,
+        model=model(),
+        prediction_model=model(),
     )
     assert got.counts["full"].matched == 1
     outside = deepcopy(scopes)
@@ -214,6 +221,8 @@ def test_source_derived_range_scope_accepts_later_span_without_prediction_anchor
             RecordSide(replace(scoped, anchor_scopes=outside), ()),
             prepared(),
             coordinate_texts=contexts,
+            model=model(),
+            prediction_model=model(),
         )
 
 
@@ -222,20 +231,22 @@ def test_empty_authored_unit_is_explicit_and_keeps_zero_record_reference_populat
     payload = dict(__import__("json").loads(authored(fixture()[0], binding)))
     payload["records"] = []
     assert (
-        decode_authored(prepared(), canonical_bytes(payload), binding, coordinate_texts=())[
+        decode_authored(prepared(), canonical_bytes(payload), binding, coordinate_texts=(), model=model())[
             "records"
         ]
         == ()
     )
     payload.pop("records")
     with pytest.raises(ValueError):
-        decode_authored(prepared(), canonical_bytes(payload), binding, coordinate_texts=())
+        decode_authored(prepared(), canonical_bytes(payload), binding, coordinate_texts=(), model=model())
 
 
 def test_released_record_grade_protocol_is_distinct_from_reference_and_typed():
     row, contexts, binding = fixture()
     result = align_records(
-        RecordSide(binding, (row,)), RecordSide(binding, ()), prepared(), coordinate_texts=contexts
+        RecordSide(binding, (row,)), RecordSide(binding, ()), prepared(), coordinate_texts=contexts,
+        model=model(),
+        prediction_model=model(),
     ).as_dict()
     result.update(
         origin_group="one-original-book",
@@ -391,13 +402,15 @@ def test_reference_author_validation_and_agreement_keep_production_policy_distin
     binding = replace(binding, prediction_policy_version="independent-production-policy-2")
     original = deepcopy(row)
     payload = decode_authored(
-        prepared(), authored(row, binding), binding, coordinate_texts=contexts
+        prepared(), authored(row, binding), binding, coordinate_texts=contexts,
+        model=model(),
     )
     got = align_independent_references(
         RecordSide(binding, payload["records"]),
         RecordSide(binding, (row,)),
         prepared(),
         coordinate_texts=contexts,
+        model=model(),
     )
     assert got.counts["full"].matched == 1
     assert got.prediction_policy_version == binding.reference_policy_version
@@ -408,7 +421,7 @@ def test_reference_author_validation_and_agreement_keep_production_policy_distin
     wrong["policy_version"] = binding.prediction_policy_version
     wrong["interpretation_id"] = interpretation_identity(wrong)
     with pytest.raises(ValueError, match="acceptance policy"):
-        decode_authored(prepared(), authored(wrong, binding), binding, coordinate_texts=contexts)
+        decode_authored(prepared(), authored(wrong, binding), binding, coordinate_texts=contexts, model=model())
 
 
 def test_document_producer_absence_report_is_not_a_source_view_prediction():
