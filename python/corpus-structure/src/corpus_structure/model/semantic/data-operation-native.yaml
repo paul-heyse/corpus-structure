@@ -2364,6 +2364,31 @@ definitions:
       holder: {$ref: '#/definitions/identifier'}
       lease_seconds: {type: integer, minimum: 1, maximum: 86400}
 
+  read_record_feature_fit_frame_request:
+    type: object
+    properties:
+      project_id: {$ref: '#/definitions/identifier'}
+      demand_id: {$ref: '#/definitions/identifier'}
+      read_id: {$ref: '#/definitions/read_id'}
+      use_id: {$ref: '#/definitions/identifier'}
+      product_id: {$ref: '#/definitions/identifier'}
+      derivation_id: {$ref: '#/definitions/identifier'}
+      expected_cut: {type: string, pattern: '^cut-selection:[0-9a-f]{64}$'}
+      cut_canonical_json: {type: string, minLength: 1}
+      frame_digest: {type: string, pattern: '^[0-9a-f]{64}$'}
+      max_bytes: {type: integer, minimum: 1024, maximum: 67108864}
+    required: [project_id, demand_id, read_id, use_id, product_id, derivation_id, expected_cut, cut_canonical_json, frame_digest]
+    additionalProperties: false
+  read_record_feature_fit_frame_result:
+    type: object
+    properties:
+      cut: {$ref: '#/definitions/cut_selection'}
+      product_id: {$ref: '#/definitions/identifier'}
+      derivation_id: {$ref: '#/definitions/identifier'}
+      receipt_id: {$ref: '#/definitions/identifier'}
+      frame: {$ref: '#/definitions/selected_record_grade'}
+    required: [cut, product_id, derivation_id, receipt_id, frame]
+    additionalProperties: false
   read_selected_pdf_source_request:
     type: object
     properties:
@@ -2445,6 +2470,11 @@ definitions:
     - realization_id
     additionalProperties: false
 operations:
+- name: read_record_feature_fit_frame
+  profile: read
+  request: read_record_feature_fit_frame_request
+  result: read_record_feature_fit_frame_result
+  purposes: [fit]
 - name: admit_authored_data
   profile: command
   request: admit_authored_data_request

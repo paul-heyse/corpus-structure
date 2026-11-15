@@ -25,6 +25,9 @@ NAMESPACE = "https://corpus-structure.dev/semantic/data-operation-record-policy/
 AUTHORIZATION_KIND = NAMESPACE + "DdoRecordPolicyAuthorization"
 AUTHORIZATION_OPERATION = "record_policy.authorize"
 AUTHORIZATION_FACTORY = "corpus_structure.methods.record_policy.RecordPolicyAuthorization.acquire_port"
+GRADE_OPERATION = "record_policy.grade"
+GRADE_FACTORY = "corpus_structure.methods.declared_record_policy.RecordPolicyGrade.acquire_port"
+GRADE_KIND = NAMESPACE + "protected/DdoRecordGrade"
 AUTHORIZATION_EFFECT = EffectContract(
     "native-evaluator-policy-authorization", ("native-purpose:evaluator", "exact-protected-policy-basis"),
     "request-generation/exact-instance", "native-publication-receipt",
@@ -219,17 +222,9 @@ class DdoFittedRecordPolicy(FrozenContract):
 
 
 def protected_record_policy_kind_declarations():
-    from .data_operation_model import MODEL_VERSION
-    from .nominal_schema_kinds import nominal_schema_kinds
-    from .types import SourceArtifact
+    from corpus_structure.evaluate.declared_record_policy import protected_record_policy_kind_declarations as capture
 
-    return SourceArtifact("record-policy/protected-kinds.json", canonical_bytes({
-        "version": MODEL_VERSION,
-        "kinds": [dict(row, universe="evaluator") for row in nominal_schema_kinds(
-            DdoFittedRecordPolicy.model_json_schema(), namespace=NAMESPACE + "protected/",
-            root_name="DdoFittedRecordPolicy",
-        )],
-    }))
+    return capture()
 
 
 def execute_authorization_profile(receiver, basis):

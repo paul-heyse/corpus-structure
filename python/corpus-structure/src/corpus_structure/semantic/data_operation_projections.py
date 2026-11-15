@@ -1172,7 +1172,7 @@ def _latest_read_use(metadata, obligations):
     )
 
 
-def selected_support_output(metadata):
+def selected_support_output(metadata, *, purpose="read"):
     """Prove one whole output in an explicit selected use's current support closure."""
     obligations = _scoped_read_obligations(metadata).cte("scoped_obligations")
     latest = _latest_read_use(metadata, obligations)
@@ -1191,6 +1191,13 @@ def selected_support_output(metadata):
     outputs = metadata.tables["ops.data_derivation_output"]
     episodes = metadata.tables["ops.data_derivation"]
     products = metadata.tables["kb.data_product"]
+    if purpose == "read":
+        access = (func.ops.ddo_kind_access(products.c.kind_contract),
+                  func.ops.ddo_body_access(products.c.kind_contract, products.c.canonical_body))
+    elif purpose == "feature-fit":
+        access = (func.ops.ddo_feature_fit_body_access(products.c.kind_contract, products.c.canonical_body),)
+    else:
+        raise ValueError("unknown selected output purpose")
     reached = exists(select(1).select_from(nodes).where(
         nodes.c.kind == "episode", nodes.c.id == episodes.c.id,
     ))
@@ -1206,8 +1213,7 @@ def selected_support_output(metadata):
             # Episodes and products are immutable facts reached from the visible
             # selected use; visibility belongs to that admission, not the fact.
             func.ops.ddo_support_valid(episodes.c.id, boundary),
-            func.ops.ddo_kind_access(products.c.kind_contract),
-            func.ops.ddo_body_access(products.c.kind_contract, products.c.canonical_body),
+            *access,
         )
     ))
 
@@ -1651,6 +1657,7 @@ def capture_projection_sources(*, physical_sources=None, linkml_types=None):
         "binding_original": compiled(branches[1]),
         "read_page": compiled(read_page(metadata)),
         "selected_support_output": compiled(selected_support_output(metadata)),
+        "selected_feature_fit_output": compiled(selected_support_output(metadata, purpose="feature-fit")),
         "cut_selection": compiled(cut_selection_projection()),
     }
     return (

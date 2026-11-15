@@ -54,7 +54,7 @@ class WireAuthoredFactRef(TypedDict):
     kind: Required[Literal["authored-fact"]]
     kind_contract: Required[WireKindContract]
     meaning_body: Required[WireJsonValue]
-    original_source: Required[WireOriginalSourceId]
+    original_source: Required[WireOriginalSourceId | None]
     project_id: Required[ProjectId]
     selection_id: Required[str]
     subject: Required[WireSubjectId]
@@ -953,6 +953,146 @@ class WireReadExternalDataQueueResult(TypedDict):
     packets: Required[list[WireExternalPacketHead]]
 
 
+class WireReadRecordFeatureFitFrameRequest(TypedDict):
+    cut_canonical_json: Required[str]
+    demand_id: Required[WireIdentifier]
+    derivation_id: Required[WireIdentifier]
+    expected_cut: Required[str]
+    frame_digest: Required[str]
+    max_bytes: NotRequired[int]
+    product_id: Required[WireIdentifier]
+    project_id: Required[WireIdentifier]
+    read_id: Required[WireReadId]
+    use_id: Required[WireIdentifier]
+
+
+class WireRecordGradeDeclaredProductRef(TypedDict):
+    analyzed_scope_meaning: Required[str]
+    kind_contract: Required[str]
+    member_id: NotRequired[str | None]
+    original_source: Required[str | None]
+    product_id: Required[str]
+    project_id: Required[str]
+    subject: Required[str]
+    subject_definition: Required[str]
+
+
+class WireRecordGradeDeclaredStructuralSource(TypedDict):
+    analyzed_scope_meaning: Required[str]
+    document: Required[str]
+    format: NotRequired[Literal["declared-native-source-v1"]]
+    kind_contract: Required[str]
+    membership: Required[Literal["direct", "descendants"]]
+    original_source: Required[str]
+    project_id: Required[str]
+    projection_digest: Required[str]
+    section_pointer: Required[str]
+    source: Required[str]
+    source_member: NotRequired[str | None]
+    source_product: Required[str]
+    subject: Required[str]
+    subject_definition: Required[str]
+
+
+class WireRecordGradeDdoRecordCoverage(TypedDict):
+    event_ids: Required[list[str]]
+    outcome: Required[Literal["completed", "no_output", "failed"]]
+    outputs: Required[list[WireRecordGradeDeclaredProductRef]]
+    source: Required[WireRecordGradeDeclaredStructuralSource]
+
+
+class WireRecordGradeRecordFeatures(TypedDict):
+    family: Required[Literal["definition", "assertion", "measurement", "table", "formula_context"]]
+    feature_signature: Required[str]
+    input_digest: Required[str]
+    interpretation_id: Required[str]
+    names: Required[list[str]]
+    record_id: Required[str]
+    release_id: Required[str]
+    unavailable: NotRequired[list[str]]
+    values: Required[list[int | float | Decimal | None]]
+
+
+class WireRecordGradeDdoRecordFinalEvent(TypedDict):
+    event_procedure: Required[str]
+    feature_input_digest: Required[str]
+    feature_instance_digest: Required[str]
+    final_event_score: Required[int | float | Decimal]
+    outcome: NotRequired[Literal["completed"]]
+
+
+class WireRecordGradeDdoRecordGradeEvent(TypedDict):
+    correct: Required[bool]
+    derivation_id: Required[str]
+    features: Required[WireRecordGradeRecordFeatures]
+    final_event: NotRequired[WireRecordGradeDdoRecordFinalEvent | None]
+    interpretation_id: Required[str]
+    origin_group: Required[str]
+    reading: Required[WireRecordGradeDeclaredProductRef]
+    reading_recipe: Required[str]
+    record_id: Required[str]
+    sample_weight: NotRequired[int | float | Decimal]
+    source: Required[WireRecordGradeDeclaredStructuralSource]
+    source_release_id: Required[str]
+
+
+class WireRecordGradeDdoRecordOrigin(TypedDict):
+    copied_from: NotRequired[list[WireRecordGradeDeclaredStructuralSource]]
+    origin_group: Required[str]
+    source: Required[WireRecordGradeDeclaredStructuralSource]
+
+
+class WireRecordGradeDdoRecordReferencePass(TypedDict):
+    adjudicates: NotRequired[list[str]]
+    author: Required[str]
+    content_digest: Required[str]
+    exposed_outputs: NotRequired[list[WireRecordGradeDeclaredProductRef]]
+    pass_kind: Required[Literal["A", "B", "C"]]
+    question_digest: Required[str]
+    reference: Required[WireRecordGradeDeclaredProductRef]
+    rubric_digest: Required[str]
+    source_cut_id: Required[str]
+
+
+class WireRecordGradeDdoRecordGradeFrame(TypedDict):
+    coverage: Required[list[WireRecordGradeDdoRecordCoverage]]
+    events: Required[list[WireRecordGradeDdoRecordGradeEvent]]
+    family: Required[Literal["definition", "assertion", "measurement", "table", "formula_context"]]
+    family_contract: Required[str]
+    held_out_from: NotRequired[list[str]]
+    origin_groups: Required[list[WireRecordGradeDdoRecordOrigin]]
+    partition: Required[
+        Literal["development", "feature_fit", "final_event_calibration", "final_assessment"]
+    ]
+    prediction_cut_id: Required[str]
+    prediction_release_id: Required[str]
+    project_id: Required[str]
+    question_digest: Required[str]
+    reading_recipe: Required[str]
+    reference_digest: Required[str]
+    reference_passes: Required[list[WireRecordGradeDdoRecordReferencePass]]
+    rubric_digest: Required[str]
+    source_cut_id: Required[str]
+    source_release_id: Required[str]
+    sources: Required[list[WireRecordGradeDeclaredStructuralSource]]
+    subset: Required[str]
+
+
+class WireSelectedRecordGrade(TypedDict):
+    frame: Required[WireRecordGradeDdoRecordGradeFrame]
+    frame_canonical_json: Required[str]
+    frame_digest: Required[str]
+    version: NotRequired[Literal["record-grade-1"]]
+
+
+class WireReadRecordFeatureFitFrameResult(TypedDict):
+    cut: Required[WireCutSelection]
+    derivation_id: Required[WireIdentifier]
+    frame: Required[WireSelectedRecordGrade]
+    product_id: Required[WireIdentifier]
+    receipt_id: Required[WireIdentifier]
+
+
 class WireReadSelectedPdfSourceRequest(TypedDict):
     demand_id: Required[WireDemandId]
     derivation_id: Required[WireDerivationId]
@@ -1446,6 +1586,14 @@ def wire_attempt_fence(value: Mapping[str, Any]) -> WireAttemptFence:
 class DataOperationCalls:
     def _invoke(self, name: str, payload: Any) -> Any:
         raise NotImplementedError
+
+    def read_record_feature_fit_frame(
+        self, payload: WireReadRecordFeatureFitFrameRequest
+    ) -> WireReadRecordFeatureFitFrameResult:
+        return cast(
+            WireReadRecordFeatureFitFrameResult,
+            self._invoke("read_record_feature_fit_frame", payload),
+        )
 
     def admit_authored_data(
         self, payload: WireAdmitAuthoredDataRequest

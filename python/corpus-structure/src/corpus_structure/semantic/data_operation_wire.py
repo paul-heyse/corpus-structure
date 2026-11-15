@@ -85,6 +85,23 @@ def _protocol_content(sources: tuple[SourceArtifact, ...] | None) -> bytes:
             raise ValueError("visual read definition collides with protocol")
         document["definitions"].update(definitions)
         content = canonical_bytes(document)
+    if "read_record_feature_fit_frame_result" in document.get("definitions", {}):
+        from .record_policy_native import GRADE_SCHEMA_SOURCE, record_policy_grade_schema
+
+        if sources is None:
+            captured = record_policy_grade_schema()
+        else:
+            values = [source.content for source in sources if source.name == GRADE_SCHEMA_SOURCE]
+            if len(values) != 1:
+                raise ValueError("record feature fitting requires its captured grade schema")
+            captured = values[0]
+        extension = checked_json_schema(json.loads(captured))
+        definitions = dict(extension.get("definitions", {}))
+        definitions["selected_record_grade"] = {key: value for key, value in extension.items() if key not in {"definitions", "$schema"}}
+        if definitions.keys() & document["definitions"].keys():
+            raise ValueError("record grade definition collides with native protocol")
+        document["definitions"].update(definitions)
+        content = canonical_bytes(document)
     intent_properties = (
         document.get("definitions", {}).get("demand_intent", {}).get("properties", {})
     )
@@ -166,7 +183,7 @@ def _checked_protocol(content: bytes) -> bytes:
             not isinstance(purposes, list)
             or not purposes
             or any(
-                not isinstance(p, str) or p not in {"read", "write", "evaluate", "admit"}
+                not isinstance(p, str) or p not in {"read", "write", "evaluate", "admit", "fit"}
                 for p in purposes
             )
             or len(purposes) != len(set(purposes))

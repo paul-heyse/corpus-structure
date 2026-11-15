@@ -93,6 +93,7 @@ def captured(content: bytes | None = None):
     )
 
     from corpus_structure.semantic.data_operation_visual_read import SOURCE as VISUAL_SOURCE, visual_read_schema
+    from corpus_structure.semantic.record_policy_native import GRADE_SCHEMA_SOURCE, record_policy_grade_schema
 
     return (
         SourceArtifact(
@@ -103,4 +104,5 @@ def captured(content: bytes | None = None):
         SourceArtifact(ORIGINAL_REFERENCE_SCHEMA, original_source_reference_schema()),
         SourceArtifact(ORIGINAL_SUPPORT_REFERENCE_SCHEMA, original_support_reference_schema()),
         SourceArtifact(VISUAL_SOURCE, visual_read_schema()),
+        SourceArtifact(GRADE_SCHEMA_SOURCE, record_policy_grade_schema()),
     )
