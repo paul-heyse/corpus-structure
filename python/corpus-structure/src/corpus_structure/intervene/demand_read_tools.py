@@ -46,6 +46,10 @@ def register_demand_read_tools(server, *, settings, read_engine=None, project=No
             ):
                 yield connection
 
+    from .source_inspection_tools import register_source_inspection_tools
+
+    register_source_inspection_tools(server, reader, project=project, demand=demand)
+
     def selected(request, projection=None, *, scheme="selected-result"):
         projection = serve_demand_query if projection is None else projection
         if project is not None and request.project_id != project:

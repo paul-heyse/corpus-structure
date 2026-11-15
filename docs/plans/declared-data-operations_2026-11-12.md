@@ -190,6 +190,34 @@ The complete capability catalogue keeps triggers and limits rather than scheduli
 No rule impact is presently selected; a real authority/publication change follows the existing
 confirmation/decision route. This is plan adoption, not implementation or renewed qualification.
 
+## Focused Python source execution · accepted 2026-11-14
+
+**In progress; no enclosing completion.** The operator authorized the coordinated source-analysis,
+editing/codemod, semantic-change and inspection increment after the PostgreSQL increment. Required
+planned consumers are implemented with their prerequisites; baseline absence does not defer them.
+This account owns current Python I01–I07/Ast-grep I01–I06 disposition for the increment, alongside
+the earlier source-qualified findings. Rich accepted-knowledge conversion retains its separate
+boundary above; source/product currentness is included now.
+
+Selected mechanisms: ast-grep-py0.51.2 over acquired/proposed snapshots, LibCST1.9 native command
+and import lifecycle, Griffe/griffelib2.4.1 prepared interface/docs and asymmetric compatibility,
+Astroid4.3.4 isolated structural binding, and explicit public ty0.0.102 navigation. Pyrefly stays
+checker; raw Tree-sitter is unselected. [ADR-0107](../adr/0107-ddo-source-change-inspection.md)
+and D2/D8 own the decision, not qualification.
+
+| Responsibility | Current implementation / remaining acceptance |
+|---|---|
+| Snapshot discovery and editing | Exact binding installed; embedded candidate path, authored_update, typed sites, native import cleanup and CLI source view integrating. Required unknowns block apply; current writer, proposed compilation and exact retry retained. |
+| Source facts and comprehensive drift | Prepared versioned sidecar and typed effective comparison integrated. Sidecar is outside implementation/recipe identity, archives with release products and preserves old absence; final-signature documentation/owners and unknowns remain explicit. Functional/type endpoint in progress. |
+| Change/currentness | Native selected-cut acquisition and pure classification integrated; explicit target execution/admission required for substitution. Population and cursor premise hardening plus real demanded equal-value cutoff acceptance in progress. No code graph becomes semantic readiness. |
+| Public inspection/navigation | CLI model source and actual MCP routes integrating; live ty core requests already exercised. Archive-source authentication, coordinate/hierarchy and public delivery qualification remain required. |
+| Actual families/retirement | Reacquire actual current M1/contextual/structural/captured composition consumers; existing deleted selectors are not recreated. Remove superseded scanner/shape/compatibility paths with real replacements. Named rich/retained consumers keep only their specific outstanding obligations. |
+
+Source apply does not execute corpus work. Native/ci/MCP reports preserve exact source/release/cut,
+project, population and trust context. Missing optional impact context yields unknown; missing source
+or transformation premises blocks edits. No persistent deployment, historical conversion, provider
+campaign, new workflow/index service or blanket modernization is included.
+
 ## Reading and work-package ownership
 
 | Supporting plan | Owns design detail |

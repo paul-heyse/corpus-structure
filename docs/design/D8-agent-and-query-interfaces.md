@@ -20,6 +20,11 @@ readiness; exact source sets, interpretation inputs and transformation/library i
 in staleness. Existing per-file retryable publication remains the sole writer. Ongoing domain-specific
 caller migrations and pinned demand read/export adoption retain their existing package owners.
 
+
+**Accepted source-change integration; implementation/qualification tracked by the DDO coordinator · 2026-11-14.** Captured and proposed sources feed embedded ast-grep structural discovery, LibCST eligibility/codemods, Griffe effective interfaces/documentation and bounded Astroid refinement. The existing source writer preserves exact publication custody. Comprehensive drift and pinned selected-product impact/currentness retain separate semantic and source readiness; explicit source apply performs no corpus execution. Prepared documentation is archived separately from recipe determinants. Explicit ty navigation uses an invocation-owned, capability-negotiated public LSP session over captured sources; tooling observations remain separate from semantic authority and pyrefly checking.
+
+> Decision: [ADR-0107](../adr/0107-ddo-source-change-inspection.md)
+
 ## Shared policy settings, status and characterization resume
 
 **Application implementation/scoped controls present · 2026-11-12; native/assembled qualification pending.** SourceRunRequest

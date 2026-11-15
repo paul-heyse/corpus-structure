@@ -1,0 +1,59 @@
+"""Public ty requests against exact sources, with independent location expectations."""
+
+import pytest
+
+from corpus_structure.semantic.source_navigation import (
+    NavigationRequest,
+    NavigationSnapshot,
+    SourceDocument,
+    inspect_source_navigation,
+    lsp_position,
+)
+
+
+def test_utf8_utf16_coordinate_fidelity():
+    text = 'first\r\n"é😀"; result\n'
+    offset = len('first\r\n"é😀"; '.encode())
+    assert lsp_position(text, offset) == {"line": 1, "character": 7}
+    with pytest.raises(UnicodeDecodeError):
+        lsp_position("é", 1)
+
+
+@pytest.mark.parametrize("path", ["../escape.py", "/absolute.py", "a/./b.py", "ty.toml"])
+def test_source_snapshot_refuses_unsafe_or_ambiguous_paths(path):
+    with pytest.raises(ValueError):
+        SourceDocument(path=path, content="")
+
+
+@pytest.mark.parametrize(
+    "operation", ["definition", "declaration", "implementation", "references", "signature"]
+)
+def test_actual_ty_navigation_does_not_import_target(operation):
+    source = 'raise RuntimeError("must never execute")\ndef twice(x: int) -> int:\n    return x * 2\n\nresult = twice(3)\n'
+    snapshot = NavigationSnapshot(documents=(SourceDocument(path="example.py", content=source),))
+    request = NavigationRequest(
+        snapshot_id=snapshot.identity,
+        path="example.py",
+        byte_offset=source.encode().index(b"twice(3)") + (6 if operation == "signature" else 0),
+        operation=operation,
+    )
+    result = inspect_source_navigation(snapshot, request)
+    assert result.standing == "complete", result
+    assert result.tool == "ty 0.0.102"
+    if operation == "definition":
+        assert result.items[0]["path"] == "example.py"
+        assert result.items[0]["utf8_bytes"] == {
+            "start": source.encode().index(b"twice(x"),
+            "end": source.encode().index(b"twice(x") + 5,
+        }
+    if operation == "references":
+        assert len(result.items) == 2
+
+
+def test_wrong_snapshot_refused_before_starting_tool():
+    snapshot = NavigationSnapshot(documents=())
+    request = NavigationRequest(
+        snapshot_id="wrong", path="example.py", byte_offset=0, operation="definition"
+    )
+    with pytest.raises(ValueError, match="another captured snapshot"):
+        inspect_source_navigation(snapshot, request)

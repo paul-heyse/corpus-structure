@@ -1034,6 +1034,10 @@ Separate held-out/calibration populations are later generalization work, not rea
 
 > Decision: [ADR-0070](../adr/0070-full-book-method-development.md)
 
+Captured-source discovery, source editing, semantic drift and explicit navigation preserve the single effective-model authority and existing publication owner. Prepared documentation and navigation observations do not independently become recipe determinants.
+
+> Decision: [ADR-0107](../adr/0107-ddo-source-change-inspection.md)
+
 ### §B6 Escalation is routed by versioned policies over measurements
 
 **Accepted target, Proposed until implemented (2026-11-03).** M1 selects a separate CPU extraction allowlist and run-owned resident admission policy,
