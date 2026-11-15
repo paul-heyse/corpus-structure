@@ -9,6 +9,7 @@ requiring ``execution.lifecycle.v1`` does not assert that it has been deployed.
 from __future__ import annotations
 
 from . import native_call_contracts as native_calls
+from . import analysis_policies
 
 import json
 from collections.abc import Generator, Mapping
@@ -737,17 +738,8 @@ _APPROVED_NATIVE_GUARDS = {
 }
 
 
-@dataclass(frozen=True)
-class AnalysisDemand:
-    id: str
-    prerequisites: tuple[str, ...]
-    dependencies: tuple[str, ...]
 
 
-@dataclass(frozen=True)
-class BindingRoleRule:
-    kind: str
-    role: str
 
 
 @dataclass(frozen=True)
@@ -759,61 +751,14 @@ class InputOwnershipContract:
     dependencies: tuple[str, ...]
 
 
-@dataclass(frozen=True)
-class ScientificComputationProfile:
-    policy_id: str
-    symbolic_method: str
-    numeric_method: str
-    backend: str
-    simplify_seconds: str
-    points: int
-    max_draws: int
-    minimum_valid_points: int
-    relative_tolerance: str
-    absolute_tolerance: str
-    seed: str
-    numeric_requires: str
 
 
-@dataclass(frozen=True)
-class TextPreparationPolicy:
-    recipe: str
-    offsets: str
-    atoms: str
-    segmentation: str
 
 
-@dataclass(frozen=True)
-class AlignmentPolicyDefinition:
-    recipe: str
-    max_iterations: int
-    solver: str
-    topology: str
-    ambiguity: str
 
 
-@dataclass(frozen=True)
-class PlacementPolicyDefinition:
-    recipe: str
-    candidate_limit: int = field(default=5, kw_only=True)
-    token_cutoff: int
-    token_pad: int
-    char_cutoff: int
-    char_pad: str
-    char_errors: str
-    pick_cutoff: int
-    regex_timeout: str
-    refine_timeout: str
 
 
-@dataclass(frozen=True)
-class CapturePolicyDefinition:
-    modes: tuple[str, ...]
-    manifest: str
-    digest: str
-    ordering: str
-    completeness: str
-    storage: str
 
 
 @dataclass(frozen=True)
@@ -825,32 +770,27 @@ class InvocationPolicyDefinition:
     executable_packet: str
 
 
-@dataclass(frozen=True)
-class ScientificQuestionRule:
-    question: str
-    prerequisites: tuple[str, ...]
-    result_basis: tuple[str, ...]
 
 
 @dataclass(frozen=True)
 class AnalysisProfile:
     id: str
     version: str
-    demands: tuple[AnalysisDemand, ...]
-    binding_roles: tuple[BindingRoleRule, ...]
+    demands: tuple[analysis_policies.AnalysisDemand, ...]
+    binding_roles: tuple[analysis_policies.BindingRoleRule, ...]
     builtin_functions: tuple[str, ...]
     local_declaration_rules: tuple[str, ...]
     ownership: tuple[InputOwnershipContract, ...]
     grammar_recipe: str = ""
     transformer_recipe: str = ""
     shared_consumers: tuple[str, ...] = ()
-    scientific_profiles: tuple[ScientificComputationProfile, ...] = ()
-    scientific_questions: tuple[ScientificQuestionRule, ...] = ()
+    scientific_profiles: tuple[analysis_policies.ScientificComputationProfile, ...] = ()
+    scientific_questions: tuple[analysis_policies.ScientificQuestionRule, ...] = ()
     mathematical_conventions: tuple[str, ...] = ()
-    text_policy: TextPreparationPolicy | None = None
-    alignment_policy: AlignmentPolicyDefinition | None = None
-    placement_policy: PlacementPolicyDefinition | None = None
-    capture_policy: CapturePolicyDefinition | None = None
+    text_policy: analysis_policies.TextPreparationPolicy | None = None
+    alignment_policy: analysis_policies.AlignmentPolicyDefinition | None = None
+    placement_policy: analysis_policies.PlacementPolicyDefinition | None = None
+    capture_policy: analysis_policies.CapturePolicyDefinition | None = None
     invocation_policy: InvocationPolicyDefinition | None = None
 
 

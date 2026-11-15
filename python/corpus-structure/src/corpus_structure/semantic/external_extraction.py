@@ -23,6 +23,7 @@ _FILES = (
     "methods/llm/cascade.py",
     "semantic/sentence_products.py",
     "semantic/analysis_contracts.py",
+    "semantic/analysis_policies.py",
     "semantic/declared_math_products.py",
     "semantic/declared_structural_references.py",
     "semantic/structural_base.py",
@@ -91,9 +92,10 @@ def external_extraction_inputs(
 
 
 def external_extraction_assets():
-    from .analysis_contracts import acquire_analysis_context_profile, prepare_placement_policy
+    from .analysis_contracts import prepare_placement_policy
+    from .analysis_policies import analysis_policy_sources
 
-    policy = prepare_placement_policy(context_profile=acquire_analysis_context_profile())
+    policy = prepare_placement_policy()
     return SourceArtifact(
         "external-extraction/algorithm-assets",
         canonical_bytes(
@@ -101,6 +103,7 @@ def external_extraction_assets():
                 "version": "rich-external-placement-1",
                 "schema": _MODEL.read_bytes().hex(),
                 "placement_policy": asdict(policy),
+                "policy_sources": [(source.name, source.content.hex()) for source in analysis_policy_sources() if source.name.startswith("analysis/")],
                 "files": [(name, (_ROOT / name).read_bytes().hex()) for name in _FILES],
             }
         ),

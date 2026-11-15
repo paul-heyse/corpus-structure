@@ -1,0 +1,461 @@
+id: https://corpus-structure.dev/semantic/analysis-policies
+name: analysis_policies
+description: Current mathematical and supporting preparation policies; operation admission
+  belongs to effective DDO contracts.
+prefixes:
+  analysis: https://corpus-structure.dev/analysis/
+  xsd: http://www.w3.org/2001/XMLSchema#
+default_prefix: analysis
+default_range: string
+types:
+  string:
+    base: str
+    uri: xsd:string
+  integer:
+    base: int
+    uri: xsd:integer
+  boolean:
+    base: bool
+    uri: xsd:boolean
+classes:
+  AnalysisDemand:
+    attributes:
+      id:
+        range: string
+        required: true
+        slot_uri: analysis:AnalysisDemand_id
+      prerequisites:
+        range: string
+        multivalued: true
+        slot_uri: analysis:AnalysisDemand_prerequisites
+      dependencies:
+        range: string
+        required: true
+        multivalued: true
+        minimum_cardinality: 1
+        slot_uri: analysis:AnalysisDemand_dependencies
+  BindingRoleRule:
+    attributes:
+      kind:
+        range: string
+        required: true
+        slot_uri: analysis:BindingRoleRule_kind
+      role:
+        range: AnalysisSymbolRole
+        required: true
+        slot_uri: analysis:BindingRoleRule_role
+  ScientificComputationProfile:
+    attributes:
+      policy_id:
+        range: string
+        required: true
+        slot_uri: analysis:ScientificComputationProfile_policy_id
+      symbolic_method:
+        range: string
+        required: true
+        slot_uri: analysis:ScientificComputationProfile_symbolic_method
+      numeric_method:
+        range: string
+        required: true
+        slot_uri: analysis:ScientificComputationProfile_numeric_method
+      backend:
+        range: string
+        required: true
+        slot_uri: analysis:ScientificComputationProfile_backend
+      simplify_seconds:
+        range: string
+        required: true
+        slot_uri: analysis:ScientificComputationProfile_simplify_seconds
+      points:
+        range: integer
+        required: true
+        slot_uri: analysis:ScientificComputationProfile_points
+      max_draws:
+        range: integer
+        required: true
+        slot_uri: analysis:ScientificComputationProfile_max_draws
+      minimum_valid_points:
+        range: integer
+        required: true
+        slot_uri: analysis:ScientificComputationProfile_minimum_valid_points
+      relative_tolerance:
+        range: string
+        required: true
+        slot_uri: analysis:ScientificComputationProfile_relative_tolerance
+      absolute_tolerance:
+        range: string
+        required: true
+        slot_uri: analysis:ScientificComputationProfile_absolute_tolerance
+      seed:
+        range: string
+        required: true
+        slot_uri: analysis:ScientificComputationProfile_seed
+      numeric_requires:
+        range: string
+        required: true
+        slot_uri: analysis:ScientificComputationProfile_numeric_requires
+  TextPreparationPolicy:
+    attributes:
+      recipe:
+        range: string
+        required: true
+        slot_uri: analysis:TextPreparationPolicy_recipe
+      offsets:
+        range: string
+        required: true
+        slot_uri: analysis:TextPreparationPolicy_offsets
+      atoms:
+        range: string
+        required: true
+        slot_uri: analysis:TextPreparationPolicy_atoms
+      segmentation:
+        range: string
+        required: true
+        slot_uri: analysis:TextPreparationPolicy_segmentation
+  AlignmentPolicyDefinition:
+    attributes:
+      recipe:
+        range: string
+        required: true
+        slot_uri: analysis:AlignmentPolicyDefinition_recipe
+      max_iterations:
+        range: integer
+        required: true
+        slot_uri: analysis:AlignmentPolicyDefinition_max_iterations
+      solver:
+        range: string
+        required: true
+        slot_uri: analysis:AlignmentPolicyDefinition_solver
+      topology:
+        range: string
+        required: true
+        slot_uri: analysis:AlignmentPolicyDefinition_topology
+      ambiguity:
+        range: string
+        required: true
+        slot_uri: analysis:AlignmentPolicyDefinition_ambiguity
+  PlacementPolicyDefinition:
+    attributes:
+      candidate_limit:
+        range: integer
+        required: true
+        minimum_value: 1
+        slot_uri: analysis:PlacementPolicyDefinition_candidate_limit
+      recipe:
+        range: string
+        required: true
+        slot_uri: analysis:PlacementPolicyDefinition_recipe
+      token_cutoff:
+        range: integer
+        required: true
+        slot_uri: analysis:PlacementPolicyDefinition_token_cutoff
+      token_pad:
+        range: integer
+        required: true
+        slot_uri: analysis:PlacementPolicyDefinition_token_pad
+      char_cutoff:
+        range: integer
+        required: true
+        slot_uri: analysis:PlacementPolicyDefinition_char_cutoff
+      char_pad:
+        range: string
+        required: true
+        slot_uri: analysis:PlacementPolicyDefinition_char_pad
+      char_errors:
+        range: string
+        required: true
+        slot_uri: analysis:PlacementPolicyDefinition_char_errors
+      pick_cutoff:
+        range: integer
+        required: true
+        slot_uri: analysis:PlacementPolicyDefinition_pick_cutoff
+      regex_timeout:
+        range: string
+        required: true
+        slot_uri: analysis:PlacementPolicyDefinition_regex_timeout
+      refine_timeout:
+        range: string
+        required: true
+        slot_uri: analysis:PlacementPolicyDefinition_refine_timeout
+  CapturePolicyDefinition:
+    attributes:
+      modes:
+        range: string
+        required: true
+        multivalued: true
+        minimum_cardinality: 1
+        slot_uri: analysis:CapturePolicyDefinition_modes
+      manifest:
+        range: string
+        required: true
+        slot_uri: analysis:CapturePolicyDefinition_manifest
+      digest:
+        range: string
+        required: true
+        slot_uri: analysis:CapturePolicyDefinition_digest
+      ordering:
+        range: string
+        required: true
+        slot_uri: analysis:CapturePolicyDefinition_ordering
+      completeness:
+        range: string
+        required: true
+        slot_uri: analysis:CapturePolicyDefinition_completeness
+      storage:
+        range: string
+        required: true
+        slot_uri: analysis:CapturePolicyDefinition_storage
+  CaptureSnapshotBinding:
+    attributes:
+      release_id:
+        range: string
+        required: true
+        slot_uri: analysis:CaptureSnapshotBinding_release_id
+      realization_id:
+        range: string
+        required: true
+        slot_uri: analysis:CaptureSnapshotBinding_realization_id
+      data_revision:
+        range: integer
+        required: true
+        minimum_value: 0
+        slot_uri: analysis:CaptureSnapshotBinding_data_revision
+      capture_id:
+        range: string
+        required: true
+        slot_uri: analysis:CaptureSnapshotBinding_capture_id
+  CaptureRelationManifest:
+    attributes:
+      name:
+        range: string
+        identifier: true
+        slot_uri: analysis:CaptureRelationManifest_name
+      rows:
+        range: integer
+        required: true
+        minimum_value: 0
+        slot_uri: analysis:CaptureRelationManifest_rows
+      logical_digest:
+        range: string
+        required: true
+        slot_uri: analysis:CaptureRelationManifest_logical_digest
+      arrow_schema:
+        range: string
+        required: true
+        slot_uri: analysis:CaptureRelationManifest_arrow_schema
+      file:
+        range: string
+        slot_uri: analysis:CaptureRelationManifest_file
+      sha256:
+        range: string
+        slot_uri: analysis:CaptureRelationManifest_sha256
+  CaptureManifest:
+    attributes:
+      format:
+        range: string
+        required: true
+        slot_uri: analysis:CaptureManifest_format
+      digest_recipe:
+        range: string
+        required: true
+        slot_uri: analysis:CaptureManifest_digest_recipe
+      complete:
+        range: boolean
+        required: true
+        slot_uri: analysis:CaptureManifest_complete
+      binding:
+        range: CaptureSnapshotBinding
+        required: true
+        inlined: true
+        slot_uri: analysis:CaptureManifest_binding
+      projection_id:
+        range: string
+        required: true
+        slot_uri: analysis:CaptureManifest_projection_id
+      profile_digest:
+        range: string
+        required: true
+        slot_uri: analysis:CaptureManifest_profile_digest
+      logical_digest:
+        range: string
+        required: true
+        slot_uri: analysis:CaptureManifest_logical_digest
+      relations:
+        range: CaptureRelationManifest
+        required: true
+        multivalued: true
+        minimum_cardinality: 1
+        inlined: true
+        inlined_as_list: false
+        slot_uri: analysis:CaptureManifest_relations
+  AnalysisSymbolDeclaration:
+    description: Source-local syntactic authority; entity attachment remains a separate
+      binding.
+    attributes:
+      symbol:
+        range: string
+        required: true
+        slot_uri: analysis:AnalysisSymbolDeclaration_symbol
+      role:
+        range: AnalysisSymbolRole
+        required: true
+        slot_uri: analysis:AnalysisSymbolDeclaration_role
+      authority:
+        range: AnalysisDeclarationAuthority
+        required: true
+        slot_uri: analysis:AnalysisSymbolDeclaration_authority
+      evidence:
+        range: string
+        required: true
+        slot_uri: analysis:AnalysisSymbolDeclaration_evidence
+      source_id:
+        range: string
+        slot_uri: analysis:AnalysisSymbolDeclaration_source_id
+      scope:
+        range: string
+        slot_uri: analysis:AnalysisSymbolDeclaration_scope
+      start:
+        range: integer
+        minimum_value: 0
+        slot_uri: analysis:AnalysisSymbolDeclaration_start
+      end:
+        range: integer
+        minimum_value: 0
+        slot_uri: analysis:AnalysisSymbolDeclaration_end
+  AnalysisComputationResult:
+    attributes:
+      demand:
+        range: string
+        required: true
+        slot_uri: analysis:AnalysisComputationResult_demand
+      produced:
+        range: string
+        multivalued: true
+        slot_uri: analysis:AnalysisComputationResult_produced
+      completeness:
+        range: AnalysisComputationCompleteness
+        required: true
+        slot_uri: analysis:AnalysisComputationResult_completeness
+      interpretation:
+        range: string
+        required: true
+        slot_uri: analysis:AnalysisComputationResult_interpretation
+  ScientificQuestionRule:
+    attributes:
+      question:
+        range: string
+        required: true
+        slot_uri: analysis:ScientificQuestionRule_question
+      prerequisites:
+        range: string
+        required: true
+        multivalued: true
+        minimum_cardinality: 1
+        slot_uri: analysis:ScientificQuestionRule_prerequisites
+      result_basis:
+        range: string
+        required: true
+        multivalued: true
+        minimum_cardinality: 1
+        slot_uri: analysis:ScientificQuestionRule_result_basis
+  MathInterpretationPolicy:
+    attributes:
+      scientific_questions:
+        range: ScientificQuestionRule
+        multivalued: true
+        inlined: true
+        inlined_as_list: true
+        slot_uri: analysis:AnalysisProfile_scientific_questions
+      mathematical_conventions:
+        range: string
+        multivalued: true
+        slot_uri: analysis:MathInterpretationPolicy_mathematical_conventions
+      grammar_recipe:
+        range: string
+        slot_uri: analysis:AnalysisProfile_grammar_recipe
+      transformer_recipe:
+        range: string
+        slot_uri: analysis:AnalysisProfile_transformer_recipe
+      scientific_profiles:
+        range: ScientificComputationProfile
+        multivalued: true
+        inlined: true
+        inlined_as_list: true
+        slot_uri: analysis:AnalysisProfile_scientific_profiles
+      id:
+        range: string
+        required: true
+        slot_uri: analysis:AnalysisProfile_id
+      version:
+        range: string
+        required: true
+        slot_uri: analysis:AnalysisProfile_version
+      demands:
+        range: AnalysisDemand
+        required: true
+        multivalued: true
+        minimum_cardinality: 1
+        inlined: true
+        inlined_as_list: true
+        slot_uri: analysis:AnalysisProfile_demands
+      binding_roles:
+        range: BindingRoleRule
+        required: true
+        multivalued: true
+        inlined: true
+        inlined_as_list: true
+        slot_uri: analysis:AnalysisProfile_binding_roles
+      builtin_functions:
+        range: string
+        multivalued: true
+        slot_uri: analysis:AnalysisProfile_builtin_functions
+      local_declaration_rules:
+        range: string
+        multivalued: true
+        slot_uri: analysis:AnalysisProfile_local_declaration_rules
+  AnalysisPolicies:
+    attributes:
+      mathematical:
+        range: MathInterpretationPolicy
+        required: true
+        inlined: true
+        slot_uri: analysis:AnalysisPolicies_mathematical
+      text:
+        range: TextPreparationPolicy
+        required: true
+        inlined: true
+        slot_uri: analysis:AnalysisPolicies_text
+      alignment:
+        range: AlignmentPolicyDefinition
+        required: true
+        inlined: true
+        slot_uri: analysis:AnalysisPolicies_alignment
+      placement:
+        range: PlacementPolicyDefinition
+        required: true
+        inlined: true
+        slot_uri: analysis:AnalysisPolicies_placement
+      capture:
+        range: CapturePolicyDefinition
+        required: true
+        inlined: true
+        slot_uri: analysis:AnalysisPolicies_capture
+enums:
+  AnalysisSymbolRole:
+    permissible_values:
+      function: {}
+      variable: {}
+      constant: {}
+  AnalysisDeclarationAuthority:
+    permissible_values:
+      profile: {}
+      source: {}
+      expression_local: {}
+      binding: {}
+  AnalysisComputationCompleteness:
+    permissible_values:
+      complete: {}
+      partial: {}
+      unsupported: {}
+      failed: {}
+      unanalysed: {}

@@ -42,6 +42,7 @@ _PATHS = (
     "methods/math/grammar.py",
     "methods/math/transform.py",
     "semantic/analysis_contracts.py",
+    "semantic/analysis_policies.py",
     "semantic/declared_math_products.py",
     "semantic/declared_math_scope.py",
     "methods/math/spans.py",

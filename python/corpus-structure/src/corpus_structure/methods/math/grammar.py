@@ -976,10 +976,6 @@ _STANDALONE_CONTEXTS: OrderedDict[tuple[str, str], MathContext] = OrderedDict()
 
 
 def _standalone_context(table: Mapping[str, MacroDef], kind: Kind) -> MathContext:
-    from corpus_structure.semantic.contracts import implementation_overridden
-
-    if implementation_overridden():
-        return _prepare_standalone_context(table, kind)
     key = (_table_key(table), kind)
     hit = _STANDALONE_CONTEXTS.get(key)
     if hit is not None:

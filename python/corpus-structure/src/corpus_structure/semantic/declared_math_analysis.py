@@ -30,6 +30,7 @@ _FILES = (
     "methods/math/configuration.py",
     "semantic/formal_forest.py",
     "semantic/analysis_contracts.py",
+    "semantic/analysis_policies.py",
     "semantic/declared_math_products.py",
     "semantic/constructions/math_scope.py",
 )

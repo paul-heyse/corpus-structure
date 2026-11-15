@@ -1,0 +1,185 @@
+mathematical:
+  id: mathematical-interpretation
+  version: '6'
+  mathematical_conventions:
+  - naturals-zero-1
+  - set-builder-real-domain-1
+  grammar_recipe: extended-lark-3
+  transformer_recipe: sympy-transform-3
+  scientific_questions:
+  - question: definedness
+    prerequisites:
+    - interpretation
+    result_basis:
+    - definedness
+  - question: predicate
+    prerequisites:
+    - symbolic
+    result_basis:
+    - definedness
+    - symbolic
+  - question: refine
+    prerequisites:
+    - symbolic
+    result_basis:
+    - definedness
+    - symbolic
+  - question: free_symbols
+    prerequisites:
+    - symbolic
+    result_basis:
+    - definedness
+    - symbolic
+  - question: calculate
+    prerequisites:
+    - symbolic
+    result_basis:
+    - definedness
+    - symbolic
+  scientific_profiles:
+  - policy_id: consolidation-evidence-2
+    symbolic_method: domain-targeted-then-simplify-2
+    numeric_method: xreplace-evalf
+    backend: direct
+    simplify_seconds: '5.0'
+    points: 12
+    max_draws: 4000
+    minimum_valid_points: 6
+    relative_tolerance: 1e-9
+    absolute_tolerance: 1e-12
+    seed: canonical-restrictions
+    numeric_requires: interpreted-conditions
+  - policy_id: reference-evidence-2
+    symbolic_method: domain-targeted-then-simplify-2
+    numeric_method: evalf-subs
+    backend: direct
+    simplify_seconds: '5.0'
+    points: 12
+    max_draws: 12
+    minimum_valid_points: 12
+    relative_tolerance: 1e-9
+    absolute_tolerance: '0'
+    seed: raw-operands
+    numeric_requires: no-restrictions
+  demands:
+  - id: lexical
+    prerequisites: []
+    dependencies:
+    - grammar
+    - profile
+    - kind
+    - macros
+  - id: structure
+    prerequisites:
+    - lexical
+    dependencies:
+    - grammar
+    - profile
+    - kind
+    - macros
+  - id: syntax
+    prerequisites:
+    - lexical
+    dependencies:
+    - grammar
+    - profile
+    - kind
+    - macros
+  - id: occurrences
+    prerequisites:
+    - syntax
+    dependencies:
+    - grammar
+    - profile
+    - kind
+    - macros
+    - declarations
+    - scope
+    - missing_declarations
+  - id: interpretation
+    prerequisites:
+    - occurrences
+    dependencies:
+    - grammar
+    - transformer
+    - profile
+    - kind
+    - macros
+    - declarations
+    - scope
+    - assumptions
+    - missing_declarations
+  - id: symbolic
+    prerequisites:
+    - interpretation
+    dependencies:
+    - grammar
+    - transformer
+    - profile
+    - kind
+    - macros
+    - declarations
+    - scope
+    - assumptions
+    - missing_declarations
+  - id: scientific
+    prerequisites:
+    - symbolic
+    dependencies:
+    - grammar
+    - transformer
+    - profile
+    - kind
+    - macros
+    - declarations
+    - scope
+    - assumptions
+    - missing_declarations
+    - conditions
+    - precision
+    - sampling
+    - decision_policy
+  binding_roles:
+  - kind: variable
+    role: variable
+  - kind: family_param
+    role: variable
+  - kind: free
+    role: variable
+  - kind: constant
+    role: constant
+  builtin_functions:
+  - Gamma
+  local_declaration_rules:
+  - function-definition-1
+text:
+  recipe: canonical-token-layout-1
+  offsets: codepoints
+  atoms: math-reference
+  segmentation: configured-spacy
+alignment:
+  recipe: semantic-alignment-1
+  max_iterations: 8
+  solver: scipy-dense
+  topology: networkx
+  ambiguity: refuse-equal-best
+placement:
+  recipe: citation-cascade-2
+  candidate_limit: 5
+  token_cutoff: 80
+  token_pad: 3
+  char_cutoff: 85
+  char_pad: '0.30'
+  char_errors: '0.15'
+  pick_cutoff: 80
+  regex_timeout: '1.0'
+  refine_timeout: '0.2'
+capture:
+  modes:
+  - resident
+  - spooled
+  manifest: semantic-capture-1
+  digest: canonical-rows-1
+  ordering: primary-key-c
+  completeness: full-spine
+  storage: parquet

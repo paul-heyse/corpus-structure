@@ -369,7 +369,8 @@ def test_scientific_profile_and_source_sharing_are_admitted_data():
     computation = scientific_computation_profile("reference-evidence-2")
     assert computation.minimum_valid_points == 12
     assert computation.numeric_requires == "no-restrictions"
-    assert context().profile.shared_consumers == ("normalize.formula", "extract.math")
+    assert context().profile.grammar_recipe == "extended-lark-3"
+    assert context().profile.transformer_recipe == "sympy-transform-3"
 
 
 def test_candidate_scientific_parameters_rebind_supplied_recipe_without_ambient_acquisition():

@@ -107,7 +107,7 @@ def _source_view(logical_sources: Mapping[str, bytes], physical_sources: Mapping
         entry = json_dumper.to_dict(schema)
         if not isinstance(entry, dict):
             _fail("operation_source", name, "serialized schema must be a mapping")
-        importmap[str(name)] = dict(entry)
+        importmap[name] = dict(entry)
     view = SchemaView(root, importmap=importmap)
     view.merge_imports()
     merged = view.schema

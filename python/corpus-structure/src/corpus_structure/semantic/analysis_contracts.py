@@ -11,9 +11,15 @@ from dataclasses import dataclass
 from functools import cached_property, lru_cache
 from hashlib import sha256
 from types import MappingProxyType
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Never
 
 from .identity import canonical_bytes
+from .analysis_policies import MathInterpretationPolicy
+from .types import Diagnostic, PreparationError
+
+
+def _fail(code: str, location: str, message: str) -> Never:
+    raise PreparationError((Diagnostic(code, location, message),))
 
 if TYPE_CHECKING:
     from corpus_structure.core.evidence import MacroDef
@@ -21,60 +27,6 @@ if TYPE_CHECKING:
 
     from .contracts import AnalysisProfile, ExecutionModelProducts, InputOwnershipContract
     from .types import PreparedRelease
-
-_DEMAND_COMPONENTS = {
-    "grammar",
-    "transformer",
-    "profile",
-    "kind",
-    "macros",
-    "declarations",
-    "scope",
-    "assumptions",
-    "missing_declarations",
-    "conditions",
-    "precision",
-    "sampling",
-    "decision_policy",
-}
-_REQUIRED_COMPONENTS = {
-    "lexical": {"grammar", "profile", "kind", "macros"},
-    "structure": {"grammar", "profile", "kind", "macros"},
-    "syntax": {"grammar", "profile", "kind", "macros"},
-    "occurrences": {
-        "grammar",
-        "profile",
-        "kind",
-        "macros",
-        "declarations",
-        "scope",
-        "missing_declarations",
-    },
-    "interpretation": {
-        "grammar",
-        "transformer",
-        "profile",
-        "kind",
-        "macros",
-        "declarations",
-        "scope",
-        "assumptions",
-        "missing_declarations",
-    },
-    "symbolic": {
-        "grammar",
-        "transformer",
-        "profile",
-        "kind",
-        "macros",
-        "declarations",
-        "scope",
-        "assumptions",
-        "missing_declarations",
-    },
-    "scientific": _DEMAND_COMPONENTS,
-}
-
 
 # Independent implementation support: declarations cannot change resource semantics
 # without changing the producer/consumer that implements this bounded profile.
@@ -108,298 +60,33 @@ _OWNERSHIP_SUPPORT = {
 
 
 def validate_analysis_profiles(model: ExecutionModelProducts) -> None:
-    """Check finite implementation support after the authored LinkML boundary."""
-    from .contracts import _fail
+    """Validate computational policy and the retiring catalog's own legacy references."""
+    from .analysis_policies import validate_math_policy, validate_preparation_policies
 
-    ids: set[str] = set()
+    ids = set()
     for profile in model.analysis_profiles:
         location = "analysis_profiles/" + profile.id
-        if (
-            profile.id in ids
-            or profile.id != "mathematical-interpretation"
-            or profile.version not in {"1", "2", "3", "4", "5", "6"}
-        ):
-            _fail(
-                "unsupported_analysis_profile",
-                location,
-                "supported profiles are mathematical-interpretation/1 and /2",
-            )
+        if profile.id in ids:
+            _fail("unsupported_analysis_profile", location, "analysis profile ids must be distinct")
         ids.add(profile.id)
-        if profile.version in {"2", "3", "4", "5", "6"}:
-            if (profile.grammar_recipe, profile.transformer_recipe, profile.shared_consumers) != (
-                "extended-lark-3" if profile.version == "6" else "extended-lark-2",
-                "sympy-transform-3" if profile.version == "6" else "sympy-transform-2",
-                ("normalize.formula", "extract.math"),
-            ):
-                _fail(
-                    "unsupported_analysis_recipe",
-                    location,
-                    "implement the declared grammar/transformer/sharing profile before admission",
-                )
-            if len(profile.scientific_profiles) != 2 or {
-                p.policy_id for p in profile.scientific_profiles
-            } != {"consolidation-evidence-2", "reference-evidence-2"}:
-                _fail(
-                    "unsupported_scientific_profile",
-                    location,
-                    "declare both admitted computation profiles",
-                )
-            for computation in profile.scientific_profiles:
-                reference = computation.policy_id == "reference-evidence-2"
-                expected = (
-                    "domain-targeted-then-simplify-2",
-                    "evalf-subs" if reference else "xreplace-evalf",
-                    "direct",
-                    "raw-operands" if reference else "canonical-restrictions",
-                    "no-restrictions" if reference else "interpreted-conditions",
-                )
-                actual = (
-                    computation.symbolic_method,
-                    computation.numeric_method,
-                    computation.backend,
-                    computation.seed,
-                    computation.numeric_requires,
-                )
-                from decimal import Decimal, InvalidOperation
-
-                try:
-                    seconds = Decimal(computation.simplify_seconds)
-                    relative = Decimal(computation.relative_tolerance)
-                    absolute = Decimal(computation.absolute_tolerance)
-                except InvalidOperation:
-                    _fail(
-                        "unsupported_scientific_profile",
-                        computation.policy_id,
-                        "scientific numerical parameters must be finite decimal strings",
-                    )
-                if (
-                    actual != expected
-                    or not all(
-                        value.is_finite() and Decimal(str(float(value))) == value
-                        for value in (seconds, relative, absolute)
-                    )
-                    or seconds <= 0
-                    or relative < 0
-                    or absolute < 0
-                    or not 0
-                    < computation.minimum_valid_points
-                    <= computation.points
-                    <= computation.max_draws
-                    or (reference and computation.minimum_valid_points != computation.points)
-                ):
-                    _fail(
-                        "unsupported_scientific_profile",
-                        computation.policy_id,
-                        "implement the method and supply valid precision/sampling parameters "
-                        "before admission",
-                    )
-        if profile.version in {"3", "4", "5", "6"}:
-            from .contracts import AlignmentPolicyDefinition, TextPreparationPolicy
-
-            if profile.text_policy != TextPreparationPolicy(
-                "canonical-token-layout-1", "codepoints", "math-reference", "configured-spacy"
-            ) or profile.alignment_policy != AlignmentPolicyDefinition(
-                "semantic-alignment-1", 8, "scipy-dense", "networkx", "refuse-equal-best"
-            ):
-                _fail(
-                    "unsupported_preparation_policy",
-                    location,
-                    "implement text/alignment recipes before admitting changed policy",
-                )
-            policy = profile.placement_policy
-            if policy is None or policy.recipe != (
-                "citation-cascade-2" if profile.version == "6" else "citation-cascade-1"
-            ):
-                _fail("unsupported_placement_policy", location, "declare citation-cascade-1")
-            from decimal import Decimal, InvalidOperation
-
-            try:
-                values = tuple(
-                    Decimal(v)
-                    for v in (
-                        policy.char_pad,
-                        policy.char_errors,
-                        policy.regex_timeout,
-                        policy.refine_timeout,
-                    )
-                )
-            except InvalidOperation:
-                _fail("unsupported_placement_policy", location, "supply finite decimal parameters")
-            if (
-                not all(v.is_finite() for v in values)
-                or not all(
-                    0 <= v <= 100
-                    for v in (policy.token_cutoff, policy.char_cutoff, policy.pick_cutoff)
-                )
-                or (profile.version == "6" and not 1 <= policy.candidate_limit <= 10000)
-                or policy.token_pad < 0
-                or values[0] < 0
-                or not 0 <= values[1] <= 1
-                or values[2] <= 0
-                or values[3] <= 0
-            ):
-                _fail("unsupported_placement_policy", location, "invalid cutoff/window/timeout")
-        if (
-            profile.version in {"4", "5", "6"}
-            and profile.capture_policy != _supported_capture_policy()
+        validate_math_policy(profile)
+        from .contracts import InvocationPolicyDefinition
+        if profile.invocation_policy != InvocationPolicyDefinition(
+            "invocation-logical-1", "invocation-packet-1",
+            ("release", "source", "configuration", "policy", "unit"), "absent", "required",
         ):
-            _fail(
-                "unsupported_capture_policy",
-                location,
-                "implement capture representation/hash/lifetime support before admission",
-            )
-        if profile.version == "6" and profile.mathematical_conventions != (
-            "naturals-zero-1",
-            "set-builder-real-domain-1",
-        ):
-            _fail(
-                "unsupported_mathematical_convention",
-                location,
-                "qualify native convention construction before changing its admitted meaning",
-            )
-        demands = {d.id: d for d in profile.demands}
-        if len(demands) != len(profile.demands) or set(demands) != (
-            set(_REQUIRED_COMPONENTS)
-            if profile.version == "6"
-            else set(_REQUIRED_COMPONENTS) - {"structure", "syntax"}
-        ):
-            _fail(
-                "analysis_demands",
-                location,
-                "declare lexical, occurrences, interpretation, symbolic and scientific demands",
-            )
-        for demand in profile.demands:
-            if (
-                not _REQUIRED_COMPONENTS[demand.id]
-                <= set(demand.dependencies)
-                <= _DEMAND_COMPONENTS
-            ):
-                _fail(
-                    "analysis_dependency",
-                    location + "/" + demand.id,
-                    "declare all supported consequential dependencies",
-                )
-            required_prior = {
-                "lexical": set(),
-                "structure": {"lexical"},
-                "syntax": {"lexical"},
-                "occurrences": {"syntax"} if profile.version == "6" else {"lexical"},
-                "interpretation": {"occurrences"},
-                "symbolic": {"interpretation"},
-                "scientific": {"symbolic"},
-            }
-            if not required_prior[demand.id] <= set(demand.prerequisites) or any(
-                name not in demands or name == demand.id for name in demand.prerequisites
-            ):
-                _fail(
-                    "analysis_prerequisite",
-                    location + "/" + demand.id,
-                    "unknown or reflexive prerequisite",
-                )
-
-        if profile.version in {"5", "6"}:
-            from .contracts import InvocationPolicyDefinition
-
-            if profile.invocation_policy != InvocationPolicyDefinition(
-                "invocation-logical-1",
-                "invocation-packet-1",
-                ("release", "source", "configuration", "policy", "unit"),
-                "absent",
-                "required",
-            ):
-                _fail(
-                    "unsupported_invocation_policy",
-                    location,
-                    "implement the declared invocation policy before admission",
-                )
-
-        def visit(name: str, path: frozenset[str], declared: dict, at: str) -> None:
-            if name in path:
-                _fail("analysis_prerequisite", at, "cyclic demand prerequisites")
-            for dependency in declared[name].prerequisites:
-                visit(dependency, path | {name}, declared, at)
-
-        for name in demands:
-            visit(name, frozenset(), demands, location)
-        kinds: set[str] = set()
-        if profile.scientific_questions:
-            questions = {row.question: row for row in profile.scientific_questions}
-            expected = {
-                "definedness": (("interpretation",), ("definedness",)),
-                **{
-                    name: (("symbolic",), ("definedness", "symbolic"))
-                    for name in ("predicate", "refine", "free_symbols", "calculate")
-                },
-            }
-            if (
-                len(questions) != len(profile.scientific_questions)
-                or set(questions) != set(expected)
-                or any(
-                    (rule.prerequisites, rule.result_basis) != expected[name]
-                    for name, rule in questions.items()
-                )
-            ):
-                _fail(
-                    "scientific_question",
-                    location,
-                    "question prerequisites/basis differ from the admitted native capabilities",
-                )
-        for role in profile.binding_roles:
-            if role.kind in kinds or role.kind not in {
-                "variable",
-                "family_param",
-                "free",
-                "constant",
-            }:
-                _fail("analysis_binding_role", location, "unsupported or repeated binding kind")
-            kinds.add(role.kind)
-        if set(profile.builtin_functions) - {"Gamma"}:
-            _fail(
-                "analysis_builtin",
-                location,
-                "implement and admit the mathematical function before authorizing its role",
-            )
-        if set(profile.local_declaration_rules) - {"function-definition-1"}:
-            _fail(
-                "analysis_declaration_rule",
-                location,
-                "unsupported expression-local declaration rule",
-            )
-        owners = {item.id: item for item in profile.ownership}
+            _fail("unsupported_invocation_policy", location, "implement changed legacy invocation policy before admission")
+        validate_preparation_policies(profile.text_policy, profile.alignment_policy, profile.placement_policy, profile.capture_policy)
+        if profile.shared_consumers != ("normalize.formula", "extract.math"):
+            _fail("unsupported_analysis_recipe", location, "legacy sharing contract differs")
+        owners = {item.id:item for item in profile.ownership}
         if len(owners) != len(profile.ownership) or set(owners) != set(_OWNERSHIP_SUPPORT):
-            _fail(
-                "analysis_ownership",
-                location,
-                "declare exactly the implemented owned preparation families",
-            )
+            _fail("analysis_ownership", location, "declare exactly the implemented owned preparation families")
         for owner in profile.ownership:
-            if (
-                owner.concept,
-                owner.operation,
-                owner.lifetime,
-                owner.dependencies,
-            ) != _OWNERSHIP_SUPPORT[owner.id]:
-                _fail(
-                    "unsupported_analysis_ownership",
-                    location + "/" + owner.id,
-                    "implement the changed producer/consumer ownership profile before admitting it",
-                )
-            if owner.concept not in {c.id for c in model.concepts} or owner.operation not in {
-                o.id for o in model.operations
-            }:
-                _fail(
-                    "analysis_ownership_reference",
-                    location + "/" + owner.id,
-                    "unknown concept or operation",
-                )
-            if owner.lifetime not in {"batch", "scope", "operation", "detached"} or len(
-                set(owner.dependencies)
-            ) != len(owner.dependencies):
-                _fail(
-                    "analysis_ownership",
-                    location + "/" + owner.id,
-                    "unsupported lifetime or duplicate dependency",
-                )
+            if (owner.concept,owner.operation,owner.lifetime,owner.dependencies) != _OWNERSHIP_SUPPORT[owner.id]:
+                _fail("unsupported_analysis_ownership", location+"/"+owner.id, "implement changed producer/consumer ownership before admission")
+            if owner.concept not in {c.id for c in model.concepts} or owner.operation not in {o.id for o in model.operations}:
+                _fail("analysis_ownership_reference", location+"/"+owner.id, "unknown concept or operation")
 
 
 def _standalone_model():
@@ -408,12 +95,11 @@ def _standalone_model():
     return compile_execution_model(current_implementation().execution_inputs)
 
 
-def _profile(prepared: PreparedRelease | None, *, require_current_implementations: bool = True):
+def _legacy_profile(prepared: PreparedRelease | None, *, require_current_implementations: bool = True):
     import json
 
     from .contracts import (
         EXECUTION_COMPILER_VERSION,
-        _fail,
         bound_execution_model,
         execution_payload,
     )
@@ -459,6 +145,13 @@ def _profile(prepared: PreparedRelease | None, *, require_current_implementation
     return model, model.analysis_profiles[0]
 
 
+def _profile(prepared: PreparedRelease | None):
+    if prepared is None:
+        current = acquire_analysis_context_profile()
+        return current, current.profile
+    return _legacy_profile(prepared)
+
+
 def _semantic_implementation_digests():
     from .contracts import current_implementation
 
@@ -466,35 +159,21 @@ def _semantic_implementation_digests():
 
 
 def _analysis_runtime(prepared: PreparedRelease | None):
+    if prepared is None:
+        return acquire_analysis_context_profile().implementation_digests, None
     from .contracts import current_implementation
     from .runtime_bindings import installed_runtime_id
 
     implementation = current_implementation()
-    if prepared is None:
-        return implementation.runtime_digests, implementation.standalone_runtime_fingerprint
     return implementation.runtime_digests, installed_runtime_id(
         prepared, implementation.analysis_inputs
     )
 
 
 def _boundary():
-    from .contracts import implementation_overridden
+    from .analysis_policies import analysis_boundary
 
-    return _prepare_boundary() if implementation_overridden() else _boundary_cached()
-
-
-@lru_cache(maxsize=1)
-def _boundary_cached():
-    return _prepare_boundary()
-
-
-def _prepare_boundary():
-    # The exact trusted companion supplies these code-owned runtime shapes. The catalog
-    # supplies behavior; archived products never acquire current behavioral defaults.
-    from .contracts import trusted_execution_inputs
-    from .prepare import prepare_release
-
-    return prepare_release(trusted_execution_inputs().schema)
+    return analysis_boundary()
 
 
 @dataclass(frozen=True)
@@ -511,7 +190,7 @@ class SymbolDeclaration:
 
 @dataclass(frozen=True)
 class PreparedInterpretationContext:
-    profile: AnalysisProfile
+    profile: MathInterpretationPolicy | AnalysisProfile
     model_id: str
     release_id: str | None
     macros: Mapping[str, MacroDef]
@@ -607,8 +286,6 @@ class PreparedInterpretationContext:
         }
 
     def stage_key(self, demand: str, **decision_dependencies: Any) -> str:
-        from .contracts import _fail
-
         recipe = next((d for d in self.profile.demands if d.id == demand), None)
         if recipe is None:
             _fail("unsupported_analysis_demand", demand, "choose an admitted demand")
@@ -645,7 +322,7 @@ class AnalysisContextProfile:
     as recipe assets. Runtime identity belongs to authentic execution evidence.
     """
 
-    profile: AnalysisProfile
+    profile: MathInterpretationPolicy
     implementation_digests: tuple[tuple[str, str], ...]
 
     @property
@@ -659,10 +336,14 @@ class AnalysisContextProfile:
 
 def acquire_analysis_context_profile() -> AnalysisContextProfile:
     """Acquire trusted current analysis semantics once before operation admission."""
-    model = _standalone_model()
-    if len(model.analysis_profiles) != 1 or model.analysis_profiles[0].version != "6":
-        raise ValueError("mathematical acquisition requires the supported analysis profile")
-    return AnalysisContextProfile(model.analysis_profiles[0], model.implementation_digests)
+    from .analysis_policies import analysis_policy_sources, compile_analysis_policies
+
+    sources = analysis_policy_sources()
+    policies = compile_analysis_policies(tuple(source for source in sources if source.name.startswith("analysis/")))
+    return AnalysisContextProfile(
+        policies.mathematical,
+        tuple((source.name, source.digest) for source in sources if source.name != "analysis/policy.yaml"),
+    )
 
 
 def prepare_interpretation_context(
@@ -683,8 +364,6 @@ def prepare_interpretation_context(
 ) -> PreparedInterpretationContext:
     """Prepare once per scope, never resolve current declarations from a historical release."""
     from corpus_structure.core import tex
-
-    from .contracts import _fail
 
     if context_profile is None:
         model, profile = _profile(prepared)
@@ -835,8 +514,6 @@ def validate_analysis_result(
 ) -> None:
     from corpus_structure.core.vocab import ParseOutcome
 
-    from .contracts import _fail
-
     actual = frozenset(produced)
     if interpretation not in (
         {value.value for value in ParseOutcome} | {"unanalysed", "unsupported"}
@@ -889,8 +566,6 @@ class BoundAnalysisFamily:
     contract: InputOwnershipContract
 
     def prepare(self, **dependencies: Any) -> OwnedAnalysisInput:
-        from .contracts import _fail
-
         if set(dependencies) != set(self.contract.dependencies) or any(
             v is None for v in dependencies.values()
         ):
@@ -913,12 +588,10 @@ class BoundAnalysisFamily:
 
 
 def bind_analysis_family(prepared: PreparedRelease, family: str) -> BoundAnalysisFamily:
-    from .contracts import _fail
-
     # Snapshot reads interpret the archived release's own declarations. A new
     # grammar/report schema must not disable an unchanged read contract. Actual
     # numerical/preparation consumers still require current semantic assets.
-    model, profile = _profile(prepared, require_current_implementations=family != "read")
+    model, profile = _legacy_profile(prepared, require_current_implementations=family != "read")
     contract = next((item for item in profile.ownership if item.id == family), None)
     if contract is None:
         _fail("analysis_input_family", family, "use an admitted preparation family")
@@ -937,13 +610,11 @@ def bind_analysis_family(prepared: PreparedRelease, family: str) -> BoundAnalysi
 def supports_shared_math(prepared: PreparedRelease) -> bool:
     if prepared.execution_model_id is None:
         return False
-    _, profile = _profile(prepared)
+    _, profile = _legacy_profile(prepared)
     return profile.shared_consumers == ("normalize.formula", "extract.math")
 
 
 def scientific_computation_profile(policy: str, prepared: PreparedRelease | None = None):
-    from .contracts import _fail
-
     _, profile = _profile(prepared)
     for computation in profile.scientific_profiles:
         if computation.policy_id == policy:
@@ -952,29 +623,32 @@ def scientific_computation_profile(policy: str, prepared: PreparedRelease | None
 
 
 def prepare_text_policy(prepared: PreparedRelease | None = None):
-    _, profile = _profile(prepared)
+    if prepared is None:
+        from .analysis_policies import acquire_analysis_policies
+        return acquire_analysis_policies().text
+    _, profile = _legacy_profile(prepared)
     assert profile.text_policy is not None
     return profile.text_policy
 
 
 def prepare_alignment_policy(prepared: PreparedRelease | None = None):
-    _, profile = _profile(prepared)
+    if prepared is None:
+        from .analysis_policies import acquire_analysis_policies
+        return acquire_analysis_policies().alignment
+    _, profile = _legacy_profile(prepared)
     assert profile.alignment_policy is not None
     return profile.alignment_policy
 
 
-def prepare_placement_policy(
-    prepared: PreparedRelease | None = None,
-    *,
-    context_profile: AnalysisContextProfile | None = None,
-):
+def prepare_placement_policy(prepared: PreparedRelease | None = None):
     from corpus_structure.methods.llm.cascade import PlacementPolicy
 
-    if context_profile is None:
-        _, profile = _profile(prepared)
+    if prepared is None:
+        from .analysis_policies import acquire_analysis_policies
+        policy = acquire_analysis_policies().placement
     else:
-        profile = context_profile.profile
-    policy = profile.placement_policy
+        _, profile = _legacy_profile(prepared)
+        policy = profile.placement_policy
     assert policy is not None
     return PlacementPolicy(
         recipe=policy.recipe,
@@ -992,7 +666,7 @@ def prepare_placement_policy(
 
 def _supported_capture_policy():
     """Finite reader support is independent of current release compilation/admission."""
-    from .contracts import CapturePolicyDefinition
+    from .analysis_policies import CapturePolicyDefinition
 
     return CapturePolicyDefinition(
         ("resident", "spooled"),
@@ -1005,7 +679,10 @@ def _supported_capture_policy():
 
 
 def prepare_capture_policy(prepared: PreparedRelease | None = None):
-    _, profile = _profile(prepared)
+    if prepared is None:
+        from .analysis_policies import acquire_analysis_policies
+        return acquire_analysis_policies().capture
+    _, profile = _legacy_profile(prepared)
     assert profile.capture_policy is not None
     return profile.capture_policy
 
@@ -1027,6 +704,16 @@ def validate_capture_manifest(manifest):
     return normalized
 
 
+@lru_cache(maxsize=1)
+def _legacy_invocation_boundary():
+    # This retiring lifecycle caller retains its own boundary; current mathematical
+    # and data-preparation paths never acquire these execution-catalog declarations.
+    from .contracts import trusted_execution_schema
+    from .prepare import prepare_release
+
+    return prepare_release(trusted_execution_schema())
+
+
 def invocation_identity(
     prepared: PreparedRelease | None,
     *,
@@ -1039,7 +726,7 @@ def invocation_identity(
     packet_hash: str | None,
 ) -> str:
     """One admitted policy governs disjoint logical skips and executable packet identity."""
-    _, profile = _profile(prepared)
+    _, profile = _legacy_profile(prepared)
     if prepared is not None and release != prepared.release_id:
         raise ValueError("invocation belongs to another release")
     recipe = profile.invocation_policy
@@ -1061,10 +748,10 @@ def invocation_identity(
     }
     if packet_hash is not None:
         decision["packet"] = packet_hash
-    normalized = _boundary().validate_json("InvocationDecision", canonical_bytes(decision))
+    normalized = _legacy_invocation_boundary().validate_json("InvocationDecision", canonical_bytes(decision))
     return digest(normalized.model_dump(mode="json", exclude_none=True))
 
 
-def scientific_question_rule(profile: AnalysisProfile, question: str):
+def scientific_question_rule(profile: MathInterpretationPolicy | AnalysisProfile, question: str):
     """Resolve archived question-specific work; absence is unsupported, never a current default."""
     return next((rule for rule in profile.scientific_questions if rule.question == question), None)
