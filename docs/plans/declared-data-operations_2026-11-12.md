@@ -1,6 +1,6 @@
 # Declared data operations — total governing model
 
-**Status · 2026-11-15: bounded foundations/source/NetworkX increments implemented; domain-model I01–I09 accepted for planning, implementation open. DDO-06–12 and assembled qualification remain open. No deployment or data conversion by this revision.**
+**Status · 2026-11-15: domain-model execution in progress. DDO-00 successor accepted; current-only v7, shared prepared CPU execution and generated lifecycle corrections integrated with bounded tests. Subject identity/native propagation, enforcement/numerical contracts, full caller migration and legacy retirement remain in progress. No persistent deployment or data conversion. DDO-12 assembled qualification remains open.**
 
 This coordinator is the sole owner of package readiness, source-qualified recommendation disposition,
 F/CA findings and preparation questions. Technical companions own contracts; dated sections below
@@ -14,8 +14,8 @@ Core3.3/heuristics/code-intelligence1.4/test-assessment1.2/binding apply. No bro
 
 | Package | Implemented / evidence boundary | Remaining accepted work and prerequisites |
 |---|---|---|
-| DDO-00 | Dated metadata inventory and decisions; preparation only | Record identity/preservation successor decisions before dependent implementation; update owning architecture. Prior census is evidence, not mandatory historical recovery scope. |
-| DDO-01/02 | Bounded compiler/identity foundations, source slices and v6 projections; source/NetworkX receipts below | I01 checked subjects/enforcement/numerical meaning and new identity projections; I02 one operation authority; I09 obsolete encoding retirement. No closed CA finding is automatically reopened. |
+| DDO-00 | ADR-0109 accepted; DESIGN B4/B5 and affected owners reconciled | Complete operation-by-operation disposition with migrated callers; previous census is evidence, not mandatory historical recovery scope. |
+| DDO-01/02 | Current-only v7 codec; checked subject definitions/discovery relations; descriptive slice prose excluded from recipe determinants. Targeted controls below | Mandatory subject-definition reference in all semantic/native identities in progress; checked enforcement/coverage/numerical contracts and one operation authority remain. No closed CA finding is automatically reopened. |
 | DDO-03/04 | Typed native/binding/support/replay foundation and CA-08/09 scoped native repairs Tested2026-11-14 | I03 generated fate/transition consumption and explicit terminal mappings; I04 shared prepared capability integration; new contracts reach native/generated callers. |
 | DDO-05/06 | Frozen demands/discovery/claims and bounded native execution; family/provider qualification incomplete | I01 subject relation discovery; I03 typed status conversion, preserve physical attempt/lease/recovery. No name-dependent fan-in or unmapped outcome fallback. |
 | DDO-07/08 | Source/primary/downstream increments and real port adoption; enclosing packages open | I02 all remaining legacy operations and consumers; I04 capability-based shared execution; I08 acquisition-test consolidation; rich producer integration with I05. |
@@ -28,9 +28,17 @@ First settle decision records and shared I01/I03 contracts; operation classifica
 preparation can proceed independently of rich implementation. Rich design consumes checked subject/
 enforcement contracts, while public requirements inform producers early. Migrate actual consumers with
 each replacement and remove obsolete paths in that slice. Final physical adoption waits for its own
-schema/native readiness, not every optional old-data conversion. One writer serializes native/shared
-schema changes. Implementation/tests remain outside this plan-writing increment; old cancelled
-campaigns stay cancelled. Existing TS-05/06/17, TS-21/22 dependencies retain their actual scope below.
+schema/native readiness, not every optional old-data conversion. The root serializes native capture/registration; workers coordinate shared contracts in isolated worktrees. The operator authorized execution of DDO-00–08 plus bounded DDO-09/10 successor contracts and actual callers needed for retirement. Persistent adoption and historical conversion remain separate; old cancelled campaigns stay cancelled. Existing TS-05/06/17, TS-21/22 dependencies retain their actual scope below.
+
+### Domain-model implementation boundary · 2026-11-15
+
+**Implemented; bounded Tested, not assembled qualification.** ADR-0109 replaces the historical-reader obligation while preserving native trust/fence/evaluation guarantees. Current-only v7 rejects old effective-model/source-interface encodings. Actual captured slice-owned descriptive-prose edits preserve recipe identities; checked subject definitions and explicit discovery relations replace unchecked labels. Generated task-state/fate projections and compiled terminal mappings reach current consumers; change impact deliberately distinguishes unavailable/revoked/unknown/partial/cancelled states. Shared prepared CPU execution now serves sixteen scalar families, preserving custom preparation/provider ownership. Neutral native-call records and one typed native-definition artifact reader replace imports from legacy authority at their migrated callers. Definition variants are explicitly kind-owned rather than inferred from names.
+
+Relevant commands/outcomes: `uv run ci test --workers 4 --json --` targeted compiler/identity controls **passed**148 (`b1467de804f54e328e6e61343a9408e2`), normalized subjects **passed**139 (`11c8f0cc7420457badf01f8a66d4e9d3`); CPU/capability/activity controls **passed**29 (`b691b97cf8f14e9ab16c4c550845a64e`), actual spawned execution **passed**2 (`7fdb2f1df0234924b0a25140631cfa59`), neutral native-call controls **passed**116 (`749dd5d7d76f4368b81b46c3cdbe4335`) and36 (`4b50796df00941b69af96523e90e25ea`). Root selected-reference controls **passed**9 (`e800ffaa2c2c4c76a424ef256c28a9e0`), graph/artifact controls **passed**14 (`c64b8cb1bee840f1b4445ca842409b77`), definition-variant controls **passed**8 (`b64805a8c0c343379fa2b999737e4508`). `uv run ci check --only types --json` **passed** (`9469dcf2c62945f5a30b0ebb8722fa95`). These receipts cover their selected source/context only; subsequent integration requires affected reassessment.
+
+Original failed diagnostics remain retained. Root native-export cohort `667a65b1fb59446b99d51d70ed238e72` **failed**, including expected native source-correspondence refusals while changed native code awaits final capture, and selected-reference fixture defects; corrected selected-reference replacement is the nine-case receipt above. Whole native/public/provider/fault union **not_run** pending complete source and newly captured native realization. Checkout remains graph_v2; persistent database remains located_v2. Native capture/rollback candidate/checkout registration will follow coherent source completion, without bypassing correspondence guards or changing the persistent database.
+
+**Remaining execution:** carry mandatory checked subject identity through Python/native references and storage; implement meaningful enforcement/coverage/numerical contracts; replace every remaining old operation/compiler/registry/facade caller; supply genuine rich cut/evidence/policy/standing and public/protected consumer prerequisites; retire superseded code/configuration/grants/tests. Original source-resume/definition failures `91dfed0d05a54a85ad1b50a6e09b904d` and PDF journey `af5adbc76fdd4ba6b313157b976cfbf6` remain open until new native replacements exercise those exact journeys. No enclosing package or source/provider campaign is closed by these bounded controls.
 
 ### Target coverage by domain dimension
 
@@ -50,8 +58,7 @@ campaigns stay cancelled. Existing TS-05/06/17, TS-21/22 dependencies retain the
 ## Operator-confirmed domain-model rule changes · 2026-11-15
 
 The operator explicitly accepted I01 identity-policy correction during preparation and I09 freedom
-from legacy code, with faithful data migration preferred. Do not request confirmation again. Implementation
-is Proposed. DDO-00 first records a successor to ADR-0095 and targeted reconciliation of affected
+from legacy code, with faithful data migration preferred. Do not request confirmation again. ADR-0109 now records the current-domain successor decision; implementation remains partial. It reconciles affected
 ADR-0092/0098/0105/0107/0108 clauses and DESIGN/D2/D3/D5/D7/D8 owners; accepted bodies are immutable.
 Preserve unrelated trust, canonical value, graph, provider and concurrency decisions.
 

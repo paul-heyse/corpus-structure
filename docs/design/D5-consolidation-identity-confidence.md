@@ -19,7 +19,6 @@ Implementation/qualification is owned by the DDO coordinator.
 
 > Decision: [ADR-0109](../adr/0109-ddo-current-domain-contracts.md)
 
-> Decision: [ADR-0095](../adr/0109-ddo-current-domain-contracts.md)
 
 ## Witnessed component target
 
