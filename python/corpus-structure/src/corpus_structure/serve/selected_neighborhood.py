@@ -5,10 +5,8 @@ from dataclasses import asdict
 from pydantic import BaseModel, ConfigDict, Field
 
 from corpus_structure.semantic.contextual_operations import admitted_contextual_inventory
-from corpus_structure.semantic.data_operation_identity import decode_semantic_value
 from corpus_structure.semantic.data_operation_json import json_bytes
 from corpus_structure.semantic.demand_queries import _cursor
-from corpus_structure.semantic.demand_results import selected_record_index
 from corpus_structure.semantic.observations import source_python
 
 
@@ -55,36 +53,71 @@ def neighborhood_projection(product, target_id):
 
 
 def inspect_demand_neighborhood(connection, request: DemandNeighborhoodRequest):
-    from corpus_structure.semantic.data_operation_admission import bound_data_operation_model
-    from corpus_structure.semantic.releases import open_release
+    from .contribution_facets import ContributionFacetsRequest
+    from .selected_contributions import selected_contribution_scope
 
-    with selected_record_index(
-        connection, request.demand_id, project_id=request.project_id,
-        scope={"product_ids": [request.product_id]},
-        read_id=request.read_id, expected_cut=request.expected_cut,
-        max_bytes=request.max_bytes, max_total_bytes=request.max_bytes,
-    ) as (cut, index):
-        product = index.mapping("kb.data_product", ("id",)).get(request.product_id)
-        if product is None:
-            return dict(
+    acquired = ContributionFacetsRequest(
+        demand_id=request.demand_id,
+        project_id=request.project_id,
+        product_id=request.product_id,
+        read_id=request.read_id,
+        expected_cut=request.expected_cut,
+        max_bytes=request.max_bytes,
+        max_graph_bytes=request.max_bytes,
+    )
+    with selected_contribution_scope(connection, acquired) as scope:
+        cut = scope.cut
+        selected = tuple(
+            output
+            for output in scope.products(product_id=request.product_id)
+            if output.reference.member_id is None
+        )
+        if not selected:
+            result = dict(
                 format="selected-contextual-neighborhood-v1", availability="unavailable",
-                reason="requested neighborhood product is outside the selected cut closure",
+                reason="requested neighborhood whole is not an output of a selected fulfillment",
                 cut_id=cut.identity, cut=cut.record, inference="not_run",
             )
-        release = open_release(connection, cut.record["release_id"])
-        model = bound_data_operation_model(release)
-        kind = "https://corpus-structure.dev/semantic/data-operation-contextual/DdoContextualNeighborhoodProduct"
-        contracts = {identity.key for identity in model.identities if identity.domain == "kind" and identity.owner == kind}
-        if product["kind_contract"] not in contracts:
-            raise ValueError("selected product is not a declared mutual-neighborhood product")
-        body = release.validate_json("DdoContextualNeighborhoodProduct", json_bytes(decode_semantic_value(product["canonical_body"]))).model_dump(mode="python", exclude_unset=True)
-        projection = neighborhood_projection(body, request.target_id)
-        pinned = request.model_copy(update=dict(read_id=cut.record["read_id"], expected_cut=cut.identity))
-        result = dict(
-            format="selected-contextual-neighborhood-v1", availability="available",
-            cut_id=cut.identity, cut=cut.record, product_id=request.product_id,
-            **projection, resource_handle=_cursor(pinned.model_dump(mode="python")),
-        )
+        else:
+            nominal = "https://corpus-structure.dev/semantic/data-operation-contextual/DdoContextualNeighborhoodProduct"
+            contracts = {
+                identity.key
+                for identity in scope.model.identities
+                if identity.domain == "kind" and identity.owner == nominal
+            }
+            if any(
+                output.nominal != nominal or output.reference.kind_contract not in contracts
+                for output in selected
+            ):
+                raise ValueError("selected product is not a declared mutual-neighborhood product")
+            definition = next(
+                (definition for definition in scope.prepared.definitions if definition.iri == nominal),
+                None,
+            )
+            if definition is None:
+                raise ValueError("selected neighborhood has no authenticated nominal definition")
+            body = scope.prepared.validate_json(
+                definition.name, json_bytes(selected[0].body)
+            ).model_dump(mode="python", exclude_unset=True)
+            projection = neighborhood_projection(body, request.target_id)
+            pinned = request.model_copy(
+                update=dict(read_id=cut.record["read_id"], expected_cut=cut.identity)
+            )
+            result = dict(
+                format="selected-contextual-neighborhood-v1", availability="available",
+                cut_id=cut.identity, cut=cut.record, product_id=request.product_id,
+                selected_outputs=[
+                    dict(
+                        reference=output.reference.model_dump(mode="python"),
+                        operation_id=output.operation_id,
+                        use_id=output.use_id,
+                        derivation_id=output.derivation_id,
+                        output=output.output,
+                    )
+                    for output in selected
+                ],
+                **projection, resource_handle=_cursor(pinned.model_dump(mode="python")),
+            )
         if len(json_bytes(result)) > request.max_bytes:
             raise ValueError("selected neighborhood response exceeds max_bytes")
         return result

@@ -17,6 +17,10 @@ from corpus_structure.serve.characterization import (
 )
 from corpus_structure.serve.demand_context import DemandContextRequest, inspect_demand_context
 from corpus_structure.serve.demand_journey import DemandQueryRequest, _decode, serve_demand_query
+from corpus_structure.serve.selected_neighborhood import (
+    DemandNeighborhoodRequest,
+    inspect_demand_neighborhood,
+)
 
 
 class ExactSelectedResult(BaseModel):
@@ -137,4 +141,27 @@ def register_demand_read_tools(server, *, settings, read_engine=None, project=No
         ).model_dump_json()
         if len(content.encode()) > request.max_bytes:
             raise ValueError("complete selected query context resource exceeds max_bytes")
+        return content
+
+    @server.tool(annotations={"readOnlyHint": True})
+    @tool_refusals(ValueError, KeyError)
+    def inspect_neighborhood(ctx: Context, request: DemandNeighborhoodRequest):
+        """Read actual selected mutual neighbors and their producing use/derivation references.
+
+        Exact JSON retains native distance values. Reading performs no encoding,
+        ranking or relationship inference.
+        """
+        return bounded_mcp_result(
+            selected(request, inspect_demand_neighborhood, scheme="selected-neighborhood"),
+            request.max_bytes,
+        )
+
+    @server.resource("corpus://selected-neighborhood/{handle}")
+    def selected_neighborhood(handle: str) -> str:
+        request = DemandNeighborhoodRequest.model_validate(_decode(handle))
+        content = selected(
+            request, inspect_demand_neighborhood, scheme="selected-neighborhood"
+        ).model_dump_json()
+        if len(content.encode()) > request.max_bytes:
+            raise ValueError("complete selected neighborhood resource exceeds max_bytes")
         return content
