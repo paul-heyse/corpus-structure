@@ -37,6 +37,7 @@ class SelectedPdfSource:
     cut: CutSelection
     receipt: PdfExecutionReceipt
     prepared: PreparedRelease
+    original_source: str
 
     @property
     def physical(self) -> ProductReference:
@@ -67,4 +68,5 @@ def acquire_selected_pdf_source(connection, reference: SelectedPdfSourceReferenc
     receipt = TypeAdapter(PdfExecutionReceipt).validate_json(json_bytes(result["receipt"]), strict=True)
     return SelectedPdfSource(
         reference, cut, receipt, open_release(connection, pins["release_id"]),
+        result["original_source"],
     )

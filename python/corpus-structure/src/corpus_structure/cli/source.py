@@ -278,10 +278,8 @@ def native_export(
                 export_native_source(
                     conn,
                     NativeSourceRequest(
-                        run_id=run,
-                        task_id=producing_task,
-                        product_key=product,
-                        content_digest=digest,
+                        project_id=project, demand_id=demand, read_id=read,
+                        use_id=use, product_id=product, derivation_id=derivation,
                         section_pointer=section,
                         membership=membership,
                         limit=1000,
