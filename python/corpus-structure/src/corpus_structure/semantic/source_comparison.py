@@ -217,6 +217,12 @@ def compare_data_operation_models(
                 )
         except (ValueError, KeyError, TypeError, griffe.AliasResolutionError) as error:
             unknowns.append(owner + ": Griffe compatibility unavailable: " + str(error))
+    for label, model in (("before", before), ("after", after)):
+        for implementation in model.implementation_slices:
+            for unknown in implementation.unknowns:
+                unknowns.append(
+                    f"{label}:{implementation.root}:{unknown.location}: {unknown.reason}"
+                )
     old_kinds, new_kinds = (
         {kind.semantic_id: kind for kind in model.kinds} for model in (before, after)
     )

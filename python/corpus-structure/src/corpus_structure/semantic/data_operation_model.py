@@ -289,8 +289,6 @@ class ImplementationSlice:
     def complete(self) -> bool:
         return not any(item.required for item in self.unknowns)
 
-    source_interfaces: bytes | None = field(default=None, repr=False, compare=False)
-
     def semantic_records(self) -> dict:
         return {
             "nodes": tuple(node.record() for node in self.nodes),
