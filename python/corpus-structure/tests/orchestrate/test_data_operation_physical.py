@@ -9,7 +9,7 @@ import pytest
 from corpus_structure.core.work import PhysicalRetirementUncertain
 from corpus_structure.methods.native_host import NativeHostResidency, NativeRetirementUncertain
 from corpus_structure.orchestrate.data_operations import _InvocationExecution, _PythonWork
-from corpus_structure.semantic.cpu_execution import OwnedByteBudget
+from corpus_structure.semantic.cpu_execution import CPUExecutionScope, OwnedByteBudget
 
 
 @pytest.mark.parametrize("native", [False, True])
@@ -45,7 +45,12 @@ def test_provider_residents_follow_frozen_demand_not_all_available_factories():
     scope.executor = SimpleNamespace(
         capability_factories={"selected-provider": object(), "unrequested-provider": object()},
         _port=acquire,
+        model=SimpleNamespace(
+            operation=lambda _: SimpleNamespace(capabilities=SimpleNamespace(prepared_factory=None))
+        ),
+        capacity=1,
     )
+    scope.cpu = cast(CPUExecutionScope, SimpleNamespace(prepare=lambda: None, preparation_bytes=0))
     scope.native_hosts = cast(NativeHostResidency, SimpleNamespace(declare=declared.append))
     scope._selected_operations = None
     scope.select_operations(("pure-cpu", "selected-provider"))

@@ -47,6 +47,20 @@ class OwnedByteBudget:
         """One charged reservation, shareable until every physical owner retires."""
         return OwnedByteReservation(self, size)
 
+    def try_admit(self, size: int) -> OwnedByteReservation | None:
+        """Reserve atomically, deferring when other owners still hold capacity."""
+        if type(size) is not int or size < 0:
+            raise ValueError("owned byte reservation must be nonnegative")
+        if size > self.limit:
+            raise CapacityExceeded("complete request exceeds owned byte capacity")
+        with self._lock:
+            if size > self.limit - self.used_bytes:
+                return None
+            self.used_bytes += size
+            return OwnedByteReservation(
+                self, size, state={"leases": 1, "lock": threading.Lock()}
+            )
+
     def release(self, size: int) -> None:
         with self._lock:
             if type(size) is not int or not 0 <= size <= self.used_bytes:
@@ -603,6 +617,11 @@ class CPUExecutionScope:
     def prepare(self) -> None:
         """Retain the one schema capsule before request credits consume capacity."""
         self._executor()
+
+    @property
+    def preparation_bytes(self) -> int:
+        """The invocation's fixed retained capsule charge, excluding request leases."""
+        return self._capsule_bytes
 
     def reservation_retired(self, reservation: OwnedByteReservation) -> bool:
         """Submission errors do not prove that an accepted CPU request retired."""

@@ -25,7 +25,7 @@ from corpus_structure.core.execution_policy import CharacterizationExecutionPoli
 from corpus_structure.core.work import (
     PhysicalRetirementUncertain,
     PreparedWork,
-    ReadyGroup,
+    ReadyFrontier,
     drive_prepared_work,
 )
 from corpus_structure.methods.native_host import NativeHostResidency, NativeRetirementUncertain
@@ -42,7 +42,11 @@ from corpus_structure.semantic.claim_lifetime import (
     OwnedClaim,
     maintained_claims,
 )
-from corpus_structure.semantic.cpu_execution import CPUExecutionScope, OwnedByteBudget
+from corpus_structure.semantic.cpu_execution import (
+    CapacityExceeded,
+    CPUExecutionScope,
+    OwnedByteBudget,
+)
 from corpus_structure.semantic.data_operation_admission import (
     acquire_prepared_execution,
     acquire_python_execution,
@@ -341,6 +345,7 @@ class _InvocationExecution:
         self._selected_operations = None
 
     def __enter__(self):
+        self.executor._preparation_bytes = 0
         return self
 
     def select_operations(self, operations):
@@ -363,6 +368,9 @@ class _InvocationExecution:
         # Capture one schema capsule only for the frozen closure's actual
         # prepared kernels, before request credits consume retained capacity.
         self.cpu.prepare()
+        self.executor._preparation_bytes = self.cpu.preparation_bytes
+        if self.executor.capacity < 1:
+            raise CapacityExceeded("native preparation and one complete request exceed owned capacity")
         self._selected_operations = selected
 
     def __exit__(self, *error):
@@ -495,6 +503,7 @@ class NativeDemandExecutor:
         if self.reservation > self.policy.max_owned_bytes:
             raise ValueError("native input, reply and publication draft exceed owned capacity")
         self.budget = OwnedByteBudget(self.policy.max_owned_bytes)
+        self._preparation_bytes = 0
         self._invocation = Lock()
         self._quarantined = False
         self.ports = {}
@@ -847,8 +856,7 @@ class NativeDemandExecutor:
                 "computation and exact attempt release failed", [error, cleanup]
             ) from cleanup
 
-    def _execute(self, ready, owner):
-        reservation = self.budget.admit(self.reservation)
+    def _execute(self, ready, owner, reservation):
         physical = _RequestExecution(self._physical, reservation)
         claim, phase = None, "claim"
         try:
@@ -909,8 +917,7 @@ class NativeDemandExecutor:
         finally:
             reservation.release()
 
-    def _execute_batch(self, ready, owner):
-        reservation = self.budget.admit(len(ready) * self.reservation)
+    def _execute_batch(self, ready, owner, reservation):
         physical = _RequestExecution(self._physical, reservation)
         pending, receipts, failures = [], [], []
         try:
@@ -1043,24 +1050,68 @@ class NativeDemandExecutor:
 
         def plan():
             groups = {}
-            plans: list[Any] = []
+            pending: list[tuple[bool, tuple[ReadyDataRequest, ...]]] = []
             for item in ready:
                 if self.model.operation(item.operation).capabilities.forms == ("batch",):
                     groups.setdefault(item.operation, []).append(item)
                 else:
-                    plans.append(self._execute(item, owner))
-            plans.extend(self._execute_batch(tuple(items), owner) for items in groups.values())
-            results = yield ReadyGroup(tuple(plans), max_active=self.capacity)
-            for result in results:
-                receipts.extend(result.receipts)
-                failures.extend(result.failures)
+                    pending.append((False, (item,)))
+            pending.extend((True, tuple(items)) for items in groups.values())
+            reservations = []
+            active_requests = 0
+
+            def execute(batch, items, reservation):
+                nonlocal active_requests
+                try:
+                    result = yield from (
+                        self._execute_batch(items, owner, reservation)
+                        if batch
+                        else self._execute(items[0], owner, reservation)
+                    )
+                    receipts.extend(result.receipts)
+                    failures.extend(result.failures)
+                finally:
+                    active_requests -= len(items)
+
+            def admit():
+                nonlocal active_requests
+                if not pending:
+                    return None
+                batch, items = pending[0]
+                # A batch is a physical grouping, not an exemption from the
+                # same request-count and retained-byte admission bounds.
+                count = min(len(items), self.capacity - active_requests)
+                while count:
+                    reservation = self.budget.try_admit(count * self.reservation)
+                    if reservation is not None:
+                        reservations.append(reservation)
+                        active_requests += count
+                        if count == len(items):
+                            pending.pop(0)
+                        else:
+                            pending[0] = (batch, items[count:])
+                        return execute(batch, items[:count], reservation)
+                    count -= 1
+                return None
+
+            try:
+                yield ReadyFrontier(admit, lambda: not pending, max_active=self.capacity)
+            finally:
+                # Cancellation can close an admitted generator before its
+                # first tick. Its byte lease still belongs to this page.
+                # Submitted physical borrowers retain their own shared leases.
+                for reservation in reservations:
+                    reservation.release()
 
         drive_prepared_work(plan(), owner)
         return tuple(receipts), selected, fulfilled, tuple(failures)
 
     @property
     def capacity(self):
-        return min(self.policy.max_claims, self.policy.max_owned_bytes // self.reservation)
+        return min(
+            self.policy.max_claims,
+            (self.policy.max_owned_bytes - self._preparation_bytes) // self.reservation,
+        )
 
     def advance(self, demand: str, *, authorization: bytes = b"{}", limit: int = 100):
         """Advance one complete bounded-page sweep, including later independent work."""
