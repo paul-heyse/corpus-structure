@@ -29,7 +29,7 @@ from corpus_structure.semantic.publication import (
     publish_batch,
     publish_on_connection,
 )
-from semantic.domain_scenarios import batch, fixture_model, seed
+from semantic.publication_fixture_support import batch, fixture_model, seed
 
 Z = "realization:test"
 C = "https://example/Thing"

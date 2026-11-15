@@ -13,8 +13,8 @@ from corpus_structure.semantic.data_operation_json import json_bytes, json_loads
 from corpus_structure.semantic.graph_inspection import GraphInspectionRequest, read_graph_inspection
 from corpus_structure.settings import Settings
 from semantic.selected_graph_test_support import _offline_snapshot, _selected_snapshot
-from semantic.serving_scenarios import declared_serving_case as declared_serving_case
-from semantic.serving_scenarios import declared_serving_seed as declared_serving_seed
+from semantic.declared_scenarios import declared_serving_case as declared_serving_case
+from semantic.declared_scenarios import declared_serving_seed as declared_serving_seed
 
 
 @pytest.mark.parametrize("encoding", ["jsonl", "parquet"])

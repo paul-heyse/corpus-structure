@@ -445,7 +445,8 @@ def core_statement(recipe: ProjectionRecipe, metadata):
                 literal(recipe.projection_id) if node.name == "projection_id" else recipe.families
             )
         if isinstance(node, InternalBinding):
-            return bindparam("_" + node.name, type_=_INTERNAL_BINDINGS[node.name][1])
+            binding_type: TypeEngine[Any] = _INTERNAL_BINDINGS[node.name][1]
+            return bindparam("_" + node.name, type_=binding_type)
         if isinstance(node, JsonPath):
             value = lower(node.value, aliases)
             result = value[node.path[0] if len(node.path) == 1 else node.path]

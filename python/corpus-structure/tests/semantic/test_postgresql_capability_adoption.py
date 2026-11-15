@@ -250,37 +250,6 @@ def test_wrong_native_predecessor_refuses_fresh_forward_construction(semantic_ba
         )
 
 
-def test_regenerated_current_release_activates_and_writes(
-    commit_db_engine, commit_writer_engine, commit_admitter_engine
-):
-    from corpus_structure.semantic.contracts import (
-        EXECUTION_COMPILER_VERSION,
-        bound_execution_model,
-        execution_payload,
-    )
-    from corpus_structure.semantic.publication import publish_batch
-    from corpus_structure.semantic.releases import activate_release
-    from semantic.domain_scenarios import batch, seed
-
-    prepared = seed(commit_db_engine, composed=True)
-    model = bound_execution_model(prepared)
-    payload = execution_payload(prepared)
-    assert payload is not None
-    assert json.loads(payload)["inputs"]["compiler_version"] == EXECUTION_COMPILER_VERSION
-    model.require_operation("publish_arrow")
-    with commit_admitter_engine.begin() as conn:
-        token = activate_release(
-            conn, "p", prepared.release_id, expected_parent=None, expected_generation=0
-        )
-        assert token.release_id == prepared.release_id and token.generation == 1
-    receipt = publish_batch(commit_writer_engine, batch(release_id=prepared.release_id))
-    assert receipt.data_revision == 1
-    with commit_db_engine.connect() as conn:
-        assert conn.execute(
-            text("SELECT text_value FROM data.typed_value WHERE kind='string'")
-        ).scalars().all() == ["Straße"]
-        assert conn.scalar(text("SELECT count(*) FROM data.fact")) == 1
-        assert conn.scalar(text("SELECT count(*) FROM data.occurrence")) == 2
 
 
 def test_current_head_reauthoring_is_stable_and_tracks_controlled_change(

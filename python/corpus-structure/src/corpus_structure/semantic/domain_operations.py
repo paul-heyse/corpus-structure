@@ -2128,7 +2128,12 @@ def _project_cut(
         )
 
         projection = project_record_reports(prepared, record_reports)
-        lowered = lower_record_assertions(prepared, output, batch.batch_id, record_reports)
+        from .data_operation_admission import bound_data_operation_model
+
+        lowered = lower_record_assertions(
+            prepared, output, batch.batch_id, record_reports,
+            model=bound_data_operation_model(prepared),
+        )
         additions: dict[str, Any] = {}
         for field in fields(PublicationBatch):
             left, right = getattr(batch, field.name), getattr(lowered.batch, field.name)
@@ -2585,6 +2590,8 @@ class ReleasedRulesPolicy(RichRulePolicy):
                                 ]
                             )
                             if macro_key not in comparators:
+                                from .rich_policy_binding import rich_context_profile
+
                                 comparators[macro_key] = SemanticComparator(
                                     {
                                         name: MacroDef.model_validate(value)
@@ -2592,6 +2599,7 @@ class ReleasedRulesPolicy(RichRulePolicy):
                                     },
                                     a.constants,
                                     prepared=self.prepared,
+                                    context_profile=rich_context_profile(self.prepared),
                                 )
                             comparator = comparators[macro_key]
                             condition = a.qualification.get("condition")

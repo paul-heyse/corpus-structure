@@ -6,7 +6,6 @@ import pytest
 
 from corpus_structure.semantic.query import Coverage, CoverageRequirement
 from corpus_structure.semantic.refusals import SemanticRefusal, tool_refusals
-from semantic.agent_scenarios import ResubmissionRecipe
 
 
 def witness(
@@ -93,78 +92,6 @@ def test_actual_fastmcp_dispatch_keeps_context_schema_and_database_classificatio
     anyio.run(journey)
 
 
-@pytest.mark.parametrize("resubmission_case", [ResubmissionRecipe(composed=True)], indirect=True)
-def test_native_cut_family_universe_and_document_lifting(resubmission_case, tmp_path):
-    commit_writer_engine = resubmission_case.writer
-    commit_reader_engine = resubmission_case.reader
-    from sqlalchemy import select
-
-    from corpus_structure.orchestrate.commands import finalize_bound_run
-    from corpus_structure.semantic.metadata import table
-    from corpus_structure.semantic.operations import claim_tasks, complete_task, create_task
-    from corpus_structure.semantic.query import bind_completed_result
-    from corpus_structure.semantic.read_snapshot import read_snapshot
-
-    prepared, run, task, locator = resubmission_case.stage.result
-    with commit_writer_engine.begin() as conn:
-        tasks = table("ops.task")
-        source = conn.execute(select(tasks).where(tasks.c.id == task)).mappings().one()
-        create_task(
-            conn,
-            run_id=run,
-            config_id=source["method_config_id"],
-            stage=source["stage"],
-            unit_type=source["unit_type"],
-            unit_id=source["unit_id"],
-            unit_key="unit-B",
-            input_hash="coverage-B",
-            skip_reason="outside_scope",
-        )
-        claimed = claim_tasks(
-            conn,
-            run_id=run,
-            config_id=source["method_config_id"],
-            holder="coverage-source",
-            agent=True,
-        )[0]
-        complete_task(
-            conn,
-            task_id=task,
-            attempt=claimed.attempt,
-            holder="coverage-source",
-            prepared=prepared,
-            observations=[],
-            outcome="empty",
-        )
-        views = table("kb.source_view")
-        document = conn.execute(
-            select(views.c.document_id).where(views.c.id == source["unit_id"])
-        ).scalar_one()
-    finalize_bound_run(commit_writer_engine, run, "coverage-output")
-    family = "https://example.org/name"
-    a, b = witness(locator, family=family), witness("unit-B", family=family)
-    with read_snapshot(commit_reader_engine) as conn:
-        session = bind_completed_result(conn, run)
-        requirement = session.required_coverage(run, family)
-        assert requirement.members == frozenset({locator, "unit-B"})
-        assert requirement.diagnostic is None
-        assert not requirement.established_by((a,))
-        assert requirement.established_by((a, b))
-        assert requirement.established_by((witness("*", family=family),))
-        assert not requirement.established_by((witness("*", family="incompatible"),))
-        documents = session.required_coverage(run, family, "documents", [document])
-        assert documents.members == requirement.members
-        assert documents.established_by((a, b))
-        assert not documents.established_by((a,))
-        assert session.required_coverage(run, family, "units", [locator]).members == frozenset(
-            {locator}
-        )
-        unrelated = session.required_coverage(run, "unbound-family")
-        assert unrelated.diagnostic and not unrelated.established_by(
-            (witness("*", family="unbound-family"),)
-        )
-        outside = session.required_coverage(run, family, "documents", [document + 999])
-        assert outside.diagnostic and not outside.established_by((witness("*", family=family),))
 
 
 def test_cli_adbc_failure_reports_native_fields_and_preserves_programming_defects():

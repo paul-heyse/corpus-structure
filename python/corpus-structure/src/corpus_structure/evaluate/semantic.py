@@ -777,7 +777,12 @@ def agreement(conn: Connection, unit_id: int) -> dict[str, Any]:
     prepared = open_release(conn, unit["release_id"])
     from corpus_structure.semantic.scientific_evidence import require_scientific_policy
 
-    require_scientific_policy(prepared)
+    from corpus_structure.semantic.analysis_contracts import prepare_alignment_policy
+    from corpus_structure.semantic.rich_policy_binding import rich_context_profile
+
+    context_profile = rich_context_profile(prepared)
+    alignment_policy = prepare_alignment_policy(prepared)
+    require_scientific_policy(prepared, context_profile=context_profile)
     return {
         "unit_id": unit_id,
         "pass_a": a.id,
@@ -786,11 +791,15 @@ def agreement(conn: Connection, unit_id: int) -> dict[str, Any]:
             _reference_side(conn, unit, a, prepared),
             _reference_side(conn, unit, b, prepared),
             prepared,
+            context_profile=context_profile,
+            alignment_policy=alignment_policy,
         ).as_dict(),
         "b_to_a": align_semantic(
             _reference_side(conn, unit, b, prepared),
             _reference_side(conn, unit, a, prepared),
             prepared,
+            context_profile=context_profile,
+            alignment_policy=alignment_policy,
         ).as_dict(),
     }
 
@@ -818,7 +827,12 @@ def reference_evaluate(
     require_bound_operation(prepared, "reference_grade")
     from corpus_structure.semantic.scientific_evidence import require_scientific_policy
 
-    require_scientific_policy(prepared)
+    from corpus_structure.semantic.analysis_contracts import prepare_alignment_policy
+    from corpus_structure.semantic.rich_policy_binding import rich_context_profile
+
+    context_profile = rich_context_profile(prepared)
+    alignment_policy = prepare_alignment_policy(prepared)
+    require_scientific_policy(prepared, context_profile=context_profile)
     units = (
         conn.execute(
             select(table("eval.reference_unit"))
@@ -863,6 +877,8 @@ def reference_evaluate(
                 _reference_side(conn, unit, reference, prepared),
                 _prediction(conn, completed, bound_unit, prepared),
                 prepared,
+                context_profile=context_profile,
+                alignment_policy=alignment_policy,
             ).as_dict()
         )
     tiers = {

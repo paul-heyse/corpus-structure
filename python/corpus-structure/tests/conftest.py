@@ -532,151 +532,32 @@ def record_source_settings(native_settings, record_source_admin):
     return settings_for_native_clone(native_settings, database)
 
 
-@pytest.fixture
-def domain_default_case(scenario_seeds):
-    from semantic.domain_scenarios import DomainCaseRecipe
-
-    with scenario_seeds.commit_clone(DomainCaseRecipe()) as clone:
-        yield clone
 
 
-@pytest.fixture
-def domain_formula_source(scenario_seeds, request):
-    from semantic.domain_scenarios import DomainPreparationRecipe, DomainSourceRecipe
-
-    recipe = getattr(
-        request, "param", DomainSourceRecipe(DomainPreparationRecipe(formula_values=True))
-    )
-    if not isinstance(recipe, DomainSourceRecipe) or not recipe.preparation.formula_values:
-        raise TypeError("formula source requires a frozen formula-capable prefix recipe")
-    with scenario_seeds.commit_clone(recipe) as clone:
-        yield clone
 
 
-@pytest.fixture
-def resubmission_case(scenario_seeds, request):
-    from semantic.agent_scenarios import ResubmissionRecipe
-
-    recipe = getattr(request, "param", ResubmissionRecipe())
-    if not isinstance(recipe, ResubmissionRecipe):
-        raise TypeError("resubmission case requires a frozen recipe")
-    with scenario_seeds.commit_clone(recipe) as clone:
-        yield clone
 
 
-@pytest.fixture
-def resubmission_application_settings(native_settings, resubmission_case):
-    database = resubmission_case.admin.url.database
-    assert database is not None
-    return settings_for_native_clone(native_settings, database)
 
 
-@pytest.fixture
-def exclusion_case(scenario_seeds, request):
-    from semantic.agent_scenarios import ExclusionRecipe
-
-    recipe = getattr(request, "param", ExclusionRecipe(finalize=True))
-    if not isinstance(recipe, ExclusionRecipe):
-        raise TypeError("exclusion case requires a frozen recipe")
-    with scenario_seeds.commit_clone(recipe) as clone:
-        yield clone
 
 
-@pytest.fixture
-def exclusion_read_case(scenario_seeds, attribute_assertions):
-    from semantic.agent_scenarios import ExclusionRecipe
-
-    recipe = ExclusionRecipe(finalize=True, attribute_assertions=attribute_assertions)
-    with scenario_seeds.rollback_family(recipe) as case:
-        yield case
 
 
-@pytest.fixture
-def exclusion_literal_case(scenario_seeds, local_ids):
-    from semantic.agent_scenarios import ExclusionRecipe
-
-    recipe = ExclusionRecipe(finalize=True, attribute_assertions=True, local_ids=local_ids)
-    with scenario_seeds.commit_clone(recipe) as clone:
-        yield clone
 
 
-@pytest.fixture
-def exclusion_refusal_family(scenario_seeds, attack):
-    from semantic.agent_scenarios import ExclusionRecipe
-
-    recipe = ExclusionRecipe(
-        citations=2, local_ids=("p_", "q"), attribute_assertions=attack.startswith("attribute_")
-    )
-    with scenario_seeds.rollback_family(recipe) as case:
-        yield case
 
 
-@pytest.fixture
-def occurrence_case(scenario_seeds, request):
-    from semantic.domain_scenarios import DomainCaseRecipe
-
-    recipe = getattr(request, "param", DomainCaseRecipe(duplicate=True, occurrence_context=True))
-    with scenario_seeds.commit_clone(recipe) as clone:
-        yield clone
 
 
-@pytest.fixture
-def occurrence_refusal_family(scenario_seeds):
-    from semantic.domain_scenarios import DomainCaseRecipe
-
-    with scenario_seeds.rollback_family(
-        DomainCaseRecipe(duplicate=True, occurrence_context=True)
-    ) as case:
-        yield case
 
 
-@pytest.fixture
-def imported_declaration_case(scenario_seeds):
-    from semantic.membership_scenarios import ImportedDeclarationRecipe
-
-    with scenario_seeds.commit_clone(ImportedDeclarationRecipe()) as clone:
-        yield clone
 
 
-@pytest.fixture
-def imported_membership_case(scenario_seeds, forgery):
-    from semantic.membership_scenarios import ImportedDeclarationRecipe
-
-    recipe = ImportedDeclarationRecipe()
-    lifetime = (
-        scenario_seeds.commit_clone(recipe)
-        if forgery == "valid"
-        else scenario_seeds.rollback_family(recipe)
-    )
-    with lifetime as case:
-        yield case
 
 
-@pytest.fixture
-def declared_membership_case(scenario_seeds, forgery):
-    from semantic.domain_scenarios import domain_case_recipe
-
-    recipe = domain_case_recipe(
-        graph=True, membership_subtype=True, unselected_report=forgery == "source_cut"
-    )
-    lifetime = (
-        scenario_seeds.commit_clone(recipe)
-        if forgery == "valid"
-        else scenario_seeds.rollback_family(recipe)
-    )
-    with lifetime as case:
-        yield case
 
 
-@pytest.fixture
-def resubmission_historical_source(scenario_seeds, request):
-    from semantic.agent_scenarios import ResubmissionRecipe, ResubmissionSourceRecipe
-
-    recipe = getattr(request, "param", ResubmissionRecipe())
-    if not isinstance(recipe, ResubmissionRecipe):
-        raise TypeError("historical source requires a frozen resubmission recipe")
-    with scenario_seeds.commit_clone(ResubmissionSourceRecipe(recipe)) as clone:
-        yield clone
 
 
 @pytest.fixture

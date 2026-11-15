@@ -10,8 +10,8 @@ from sqlalchemy.exc import DBAPIError
 from corpus_structure.semantic._data_operation_wire import WireRevokeDataSupportRequest
 from corpus_structure.semantic.data_operation_storage import DataOperationStorage
 from corpus_structure.semantic.demand_results import read_demand_result
-from semantic.serving_scenarios import declared_serving_case as declared_serving_case
-from semantic.serving_scenarios import declared_serving_seed as declared_serving_seed
+from semantic.declared_scenarios import declared_serving_case as declared_serving_case
+from semantic.declared_scenarios import declared_serving_seed as declared_serving_seed
 
 _PROOF = text("SELECT ops.ddo_require_selected_output(:demand,:read,:use,:product,:derivation)")
 

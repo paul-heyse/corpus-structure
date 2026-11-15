@@ -66,6 +66,23 @@ def test_statistics_aliases_have_one_released_full_iri_meaning(statistics_alias_
     prepared = statistics_alias_release[-1]
     normalize = label_normalizer(prepared)
     family = "https://corpus-structure.dev/domains/statistics/DistributionFamily"
+    # Independent source spellings retained from the former native counterpart.
+    assert {
+        spelling: normalize(spelling, family)
+        for spelling in (
+            "the normal distribution", "normally distributed", "normal",
+            "gamma distribution", "gamma distributed", "gamma distributions",
+            "standard normal distribution",
+        )
+    } == {
+        "the normal distribution": "normal",
+        "normally distributed": "normal",
+        "normal": "normal",
+        "gamma distribution": "gamma",
+        "gamma distributed": "gamma",
+        "gamma distributions": "gamma",
+        "standard normal distribution": "standard normal",
+    }
     assert normalize("the Normal distributions", family) == "normal"
     assert normalize("normally distributed", family) == "normal"
     assert normalize("gamma distributed", family) == "gamma"

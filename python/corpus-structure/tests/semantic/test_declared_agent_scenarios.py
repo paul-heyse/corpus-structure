@@ -7,7 +7,7 @@ from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.semantic.data_operation_external import ExternalDataSession
 from corpus_structure.semantic.demand_results import read_demand_result
-from semantic.agent_scenarios import DeclaredAgentRecipe
+from semantic.declared_scenarios import DeclaredAgentRecipe
 
 RESULT = {"outcome": "success", "outputs": [{"role": "result", "body": 7}]}
 

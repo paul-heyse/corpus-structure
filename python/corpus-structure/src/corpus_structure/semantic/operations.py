@@ -94,9 +94,9 @@ def create_run(
 ) -> RunId:
     from typing import cast
 
-    from ._operation_calls import ProjectId, RealizationId, ReleaseId
+    from ._operation_calls import ProjectId, RealizationId, ReleaseId, RuntimeId
     from ._operation_calls import create_run as invoke
-    from .data_operation_runtime import require_installed_runtime
+    from .runtime_bindings import require_installed_runtime
     from .releases import open_release
     from .runtime_binding_store import persist_runtime_binding
 
@@ -111,7 +111,7 @@ def create_run(
             conn,
             project_id=ProjectId(project_id),
             release_id=ReleaseId(binding.release_id),
-            runtime_id=runtime_id,
+            runtime_id=RuntimeId(runtime_id),
             realization_id=RealizationId(binding.input_realization_id),
             revision=binding.input_revision,
             dependencies=binding.dependencies,
@@ -132,7 +132,8 @@ def _require_run_runtime(
     conn: Connection, run_id: RunId, prepared: PreparedRelease | None = None
 ) -> PreparedRelease:
     """Authenticate one execution/claim boundary, independently of historical read access."""
-    from .data_operation_runtime import RuntimeBindingError, installed_runtime_id
+    from .data_operation_runtime import RuntimeBindingError
+    from .runtime_bindings import installed_runtime_id
     from .releases import open_release
 
     run = table("ops.run")

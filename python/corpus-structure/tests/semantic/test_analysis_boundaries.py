@@ -15,7 +15,7 @@ from corpus_structure.semantic.publication import EntityRow, PublicationBatch, _
 from corpus_structure.semantic.query import ReadSession, SnapshotBinding, WrongRelease
 from corpus_structure.semantic.types import PreparationError, PreparationProfile
 from semantic.archive_reader_support import archived
-from semantic.domain_scenarios import fixture_model
+from semantic.publication_fixture_support import fixture_model
 
 
 @pytest.fixture(scope="module")

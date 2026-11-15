@@ -71,16 +71,3 @@ def fixture_execution_inputs(*methods: str, inputs=None):
             inputs.catalog.name, yaml.safe_dump(catalog, sort_keys=False).encode()
         ),
     )
-
-
-def prepare_fixture_pack(pack, *methods):
-    """Keep acquired pack bytes and declared test producers together."""
-    from corpus_structure.semantic import prepare_release
-    from corpus_structure.semantic.regeneration import acquire_pack, compose_pack_inputs
-
-    acquired = acquire_pack(pack)
-    acquired = replace(
-        acquired, execution=fixture_execution_inputs(*methods, inputs=acquired.execution)
-    )
-    bundle, deps, profile = compose_pack_inputs((acquired,))
-    return bundle, deps, profile, prepare_release(bundle, deps, profile)

@@ -14,8 +14,8 @@ from corpus_structure.semantic.source_interfaces import (
 )
 from corpus_structure.serve.demand_export import export_demand_result, verify_demand_export
 from semantic.data_operation_kernel_support import EXECUTION
-from semantic.serving_scenarios import declared_serving_case as declared_serving_case
-from semantic.serving_scenarios import declared_serving_seed as declared_serving_seed
+from semantic.declared_scenarios import declared_serving_case as declared_serving_case
+from semantic.declared_scenarios import declared_serving_seed as declared_serving_seed
 
 
 @pytest.mark.parametrize("encoding", ["jsonl", "parquet"])

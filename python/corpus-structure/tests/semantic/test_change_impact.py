@@ -17,8 +17,8 @@ from corpus_structure.semantic.change_impact import (
 )
 from corpus_structure.semantic.data_operation_compilation import compile_data_operations
 from semantic.data_operation_kernel_support import POPULATION, STORAGE
-from semantic.serving_scenarios import declared_serving_case as declared_serving_case
-from semantic.serving_scenarios import declared_serving_seed as declared_serving_seed
+from semantic.declared_scenarios import declared_serving_case as declared_serving_case
+from semantic.declared_scenarios import declared_serving_seed as declared_serving_seed
 from semantic.test_data_operation_compilation import operation_source, python_inputs
 
 

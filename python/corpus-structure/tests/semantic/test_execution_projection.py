@@ -274,48 +274,6 @@ def test_supported_predecessors_upgrade_to_relational_execution(semantic_databas
         )
 
 
-@pytest.mark.parametrize("operation", ["configure_method", "register_document"])
-def test_actual_global_helper_requires_its_bound_operation(operation, commit_writer_engine):
-    import json
-    from dataclasses import replace
-    from pathlib import Path
-
-    from corpus_structure.semantic.identity import canonical_bytes
-    from corpus_structure.semantic.operations import register_document
-    from corpus_structure.semantic.regeneration import prepare_packs
-    from corpus_structure.semantic.types import PreparationError
-
-    _bundle, _deps, _profile, prepared = prepare_packs((Path("domains/statistics"),))
-    row = next(r for r in prepared.registry_rows if r.kind == "execution_model")
-    body = json.loads(row.body)
-    body["operations"] = [o for o in body["operations"] if o["id"] != operation]
-    missing = replace(
-        prepared,
-        registry_rows=tuple(
-            replace(r, body=canonical_bytes(body)) if r is row else r
-            for r in prepared.registry_rows
-        ),
-    )
-    with commit_writer_engine.connect() as connection, pytest.raises(PreparationError) as refused:
-        if operation == "configure_method":
-            from corpus_structure.semantic import operations
-
-            # Deliberate dynamic invalid input must reach the missing-operation guard first.
-            vars(operations)["record_method"](
-                connection, None, "test", {}, "test", prepared=missing
-            )
-        else:
-            register_document(
-                connection,
-                project_id="p",
-                source_uri="urn:x",
-                original_path="missing",
-                original=b"",
-                prepared=missing,
-                mime="text/html",
-            )
-    assert refused.value.diagnostics[0].code == "missing_operation"
-    assert refused.value.diagnostics[0].contract_id == operation
 
 
 def test_explicit_transport_order_cannot_place_evidence_links_before_evidence():

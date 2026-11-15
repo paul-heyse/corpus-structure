@@ -36,9 +36,9 @@ from corpus_structure.semantic.publication import (
     SupportRow,
     ValueRow,
 )
-from semantic.domain_scenarios import fixture_model
-from semantic.domain_scenarios import seed as seed_publication
-from semantic.native_admission_scenarios import InferenceIntentRecipe
+from semantic.publication_fixture_support import fixture_model
+from semantic.publication_fixture_support import seed as seed_publication
+from semantic.publication_inference_support import InferenceIntentRecipe
 
 Z = "realization:test"
 C = "https://example/Thing"
