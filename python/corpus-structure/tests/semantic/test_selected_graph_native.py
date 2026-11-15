@@ -275,7 +275,7 @@ def test_native_requestless_population_fate_survives_tools_and_resources(declare
     with clone.writer.begin() as connection:
         page=read_demand_result(connection,stage.demand_id,project_id=stage.project_id)
         obligation=page.record["obligations"][0]["obligation_id"]
-        recorded=DataOperationStorage(connection).record_data_fate(cast(WireRecordDataFateRequest,dict(obligation_id=obligation,fate="awaiting-population",selection={"reason":"population is not closed"})))
+        recorded=DataOperationStorage(connection).record_data_fate(cast(WireRecordDataFateRequest,dict(obligation_id=obligation,fate="awaiting-population",selection={})))
     request=GraphInspectionRequest(release_id=stage.prepared.release_id,demand_id=stage.demand_id,project_id=stage.project_id,projection="bound-requests",limit=1000)
     with clone.reader.begin() as connection:
         snapshot=selected_graph_snapshot(connection,stage.prepared,request)

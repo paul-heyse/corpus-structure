@@ -343,7 +343,7 @@ def selected_graph_snapshot(connection, prepared, request):
             scope=request.scope,
             read_id=request.read_id,
             expected_cut=request.expected_cut,
-            max_bytes=min(request.max_examined_bytes, 8388608),
+            max_bytes=8388608,  # Native transport quantum; retained examination has its own bound.
             max_total_bytes=request.max_examined_bytes,
             capture_frontier=True,
         ) as (cut, index):
@@ -351,7 +351,7 @@ def selected_graph_snapshot(connection, prepared, request):
                 from corpus_structure.evaluate.assessment_graph import assessment_graph_snapshot
 
                 addresses = tuple((member.product_id, member.member_id) for member in request.assessed_members)
-                return assessment_graph_snapshot(prepared, cut, index, members=addresses)
+                return assessment_graph_snapshot(prepared, cut, index, members=addresses, max_bytes=request.max_examined_bytes)
             return snapshot_from_index(prepared, cut, index, request.projection)
     except SelectedGraphBudgetExceeded as error:
         pins.update(error.cut.record)
