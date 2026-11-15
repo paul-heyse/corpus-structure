@@ -81,8 +81,9 @@ missing observations do not establish absent live work. No new progress store or
 
 **Proposed accepted target · 2026-11-11.** Parent coordination owns durable stage/task/claim
 registration and exact attempt settlement. Dependent inputs name actual settled predecessors;
-no placeholder product or general cross-run DAG is introduced. One foreground DB operation is
-admitted alongside independently owned renewal and bounded dedicated supervisors. CPU/provider
+no placeholder product or general cross-run DAG is introduced. One driving operation and bounded
+foreground port workers share the writer inventory alongside an independently owned reserved
+renewal checkout and bounded dedicated supervisors (ADR-0106). CPU/provider
 work holds no reader/connection. Reply credit remains through parent reduction; output draft
 credit transfers to the claim/region until native settlement or retirement, while terminal
 physical slots can serve subsequent work. A stale batch member cannot publish, but useful siblings
@@ -306,6 +307,21 @@ No operational database is deployed by this target acceptance.
 > Decision: [ADR-0049](../adr/0049-m1-qualified-source-records.md)
 
 ## Unified operation realization
+
+**Selected PostgreSQL realization; implementation/qualification bounded by the DDO coordinator · 2026-11-14.**
+Captured native schemas derive structural TypedDict views, explicit nominal field correspondence and
+fixed call methods; Draft7 and exact JSON codecs retain runtime semantic enforcement. SQLAlchemy
+Core owns typed relational projections. The writer pool reserves one renewal-thread checkout with
+no transaction between cycles; foreground ports retain no checkout through inference waits and
+admission accounts for the remaining driver/worker inventory. Purpose-specific engines stay distinct.
+Store-owned Psycopg connections make notice registration idempotent without bypassing dialect setup.
+The SQLAlchemy invalidate event physically finishes and returns the dead handle for replacement;
+normal close-returns keeps ordinary pool reuse.
+Historical compiler maps retain producing provenance while current generated artifacts carry current
+compiler identity. Legacy table/interchange compilation retires after its live Arrow helper consumers
+move. Public selected-read/reuse and sealed-history removal remain the DDO packages' actual obligations.
+
+> Decision: [ADR-0106](../adr/0106-postgresql-current-realization.md)
 
 **Accepted target, Proposed until implemented (2026-11-02).** SQLAlchemy Core is the primary relational authoring/execution representation. Model-bound expressions and pglast declarations generate eligible native products under versioned custody/catalog/admission profiles and the existing Alembic lifecycle. Restricted PostgreSQL enforcement remains authoritative. Structured SQL bodies require actual profile qualification; retained specialized kernels are explicitly bound. Published-address consumer constraints and read selection share one model-owned binding.
 
@@ -804,7 +820,7 @@ owns native/consumer receipts and support limits; SP-08–SP-10 retain later ado
 | Originals | Content-addressed files under `data/originals/<sha256>`; the corpus stays where it is and is referenced by path and hash | Keeps large binaries out of the database |
 | Access from Python | SQLAlchemy Core 2.1 `MetaData` generated from the model (`core/db/_tables.py`) plus the physical overlay (`core/db/overlay.py`: indexes and partial predicates, BM25 and HNSW, views, the extension assertion; bound by name, failing at import on a missing table or column) + psycopg 3 (COPY for bulk writes) | Same stack as before, without ORM. `gen-sqltables` is not used: native enums, no CHECKs, no JSONB |
 | Migrations | Alembic; 0001 generated once from the generated `MetaData` plus overlay, then frozen (it never imports `core/db`); every revision linked to the model revision it realizes (D2 §8) | `alembic check` compares an index's uniqueness and columns only (no `USING`, `WITH`, operator classes or partial `WHERE`, CHECKs by name), so a test compares the catalog after `upgrade head` with `create_all` ([store note](../design_review/evidence/2026-10-28_library-store/README.md) §1) |
-| Connections | one psycopg-pool `ConnectionPool` per process; SQLAlchemy borrows through `creator=pool.getconn` with `NullPool` | One owner of connections; `SET LOCAL`, never session `SET`; the JSON serializer set in the pool's `configure` callback, which `create_engine(json_serializer=)` does not reach (store note §3, §5) |
+| Connections | one owned psycopg-pool `ConnectionPool` per opened purpose; reserved renewal and bounded foreground borrowers share the writer inventory; SQLAlchemy borrows through `creator=pool.getconn` with `NullPool` | One owner of connections; `SET LOCAL`, never session `SET`; the JSON serializer set in the pool's `configure` callback, which `create_engine(json_serializer=)` does not reach (store note §3, §5) |
 
 Identifiers are `bigint GENERATED ALWAYS AS IDENTITY`. Deterministic keys from D1 §10 are
 `text` columns with unique constraints where identity must hold. **Closed value sets have two

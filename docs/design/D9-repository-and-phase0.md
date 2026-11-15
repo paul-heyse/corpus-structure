@@ -113,14 +113,14 @@ foundations package); GPU and phase 1–2 libraries arrive with their phases.
 | Package | Version | Used by |
 |---|---|---|
 | pydantic, pydantic-settings | 2.14.1, 2.16.1 | core types, method configs, settings |
-| sqlalchemy, psycopg[binary], psycopg-pool, alembic | 2.1.5, 3.3.6, 3.3.3, 1.20.0 | core.db (generated `MetaData`, overlay), migrations, bulk COPY; one psycopg-pool `ConnectionPool` per process (D3 §1) |
-| pgvector (Python) | 0.5.1 (server extension 0.8.7; [overview](../libraries/postgresql/pgvector.md)) | `halfvec` column type (phase 1, with `kb.embedding`) |
+| sqlalchemy, psycopg[binary], psycopg-pool, alembic | 2.1.6, 3.3.6, 3.3.3, 1.20.1 (manifest, 2026-11-14) | Core/native projections, migrations and same-session COPY; purpose-owned psycopg-pool inventory with reserved writer renewal and bounded foreground admission ([ADR-0106](../adr/0106-postgresql-current-realization.md)) |
+| pgvector (Python) | 0.5.1 (server extension 0.8.7; [overview](../libraries/postgresql/pgvector.md)) | Typed `VECTOR(d)` selected-member relations and exact ranking; frozen migrations retain historical Vector imports. Retired HalfVec compilation is removed. |
 | pg_textsearch (server extension) | 1.5.1 (Debian package `postgresql-18-pg-textsearch`; [overview](../libraries/postgresql/postgresql-18-pg-textsearch.md)) | BM25 lexical search for `find` (D3 §5, D8 §5.1). A phase 0 server prerequisite: in `shared_preload_libraries`, and created once by the operator in the template database, so the cloned test databases (§4) carry it |
 | linkml-runtime; linkml (dev) | 1.12.1, 1.12.1 (as probed, schema-rules note) | `schema` loads the model and packs with `linkml-runtime`'s `SchemaView` and generates every projection from it (ADR-0020; added by P0-M-1); `linkml` (the linter, the `PydanticGenerator` Stage B may subclass) is a dev dependency, used in generation, tests and pack checks only |
-| pglast (dev) | 8.7 ([overview](../libraries/postgresql/pglast.md)) | the port check of the generated DDL against S6's and the query check of D3 §9 (P0-M-2) |
+| pglast | 8.7 ([overview](../libraries/postgresql/pglast.md)) | Native declarations, prepared private AST transforms, literal descriptor decoding and frozen native authoring |
 | pyarrow | 26.0.0 ([overview](../libraries/analytical_infrastructure/pyarrow.md)) | Arrow schemas generated from the model; the pool relations; exports (P0-M-3, pool and interchange) |
-| adbc-driver-postgresql | 1.13.0 ([overview](../libraries/postgresql/adbc-driver-postgresql.md)) | the pool loader, if probe Q-5 chooses it over psycopg |
-| pgpq | 0.12.0 ([overview](../libraries/postgresql/pgpq.md)) | only if probe Q-5 shows absent versus null, JSONB, numeric and `timestamptz` survive: Arrow-native bulk writes |
+| adbc-driver-postgresql | 1.13.0 ([overview](../libraries/postgresql/adbc-driver-postgresql.md)) | Existing separate-session analytical reads; new selected DDO Arrow access remains conditional on its pinned-snapshot/owner-XID visibility contract |
+| pgpq | 0.12.0 ([overview](../libraries/postgresql/pgpq.md)) | Model-typed Arrow binary COPY for source staging and bounded archive batches on the caller-owned Psycopg transaction; fresh encoder per stream |
 | rule-engine | 5.1.0 | M19, policies |
 | gliner2 | 2.1.0 | M05–M07 (phase 1; the product environment carries no gliner2 or torch in phase 0) |
 | spacy, en_core_web_sm | 3.8.18, 3.8.0 | M03, M08, M13, M22 |
@@ -172,8 +172,10 @@ leases, holds, and one-day success or one-week failed/interrupted retention.
   point (`cli`, the MCP server's lifespan) and passed down; `extra="forbid"` does not catch a
   mistyped variable, so `ci status` prints the settings it resolved ([interfaces note](../design_review/evidence/2026-10-28_library-interfaces-eval/README.md) §4).
   No configuration in code paths.
-- **Connections.** One psycopg-pool per process; SQLAlchemy borrows from it (D3 §1). The MCP
-  server's lifespan, which runs once per stdio process, holds its pool; tools are synchronous and
+- **Connections.** Each opened purpose owns one psycopg-pool; SQLAlchemy borrows through NullPool
+  (D3 §1, ADR-0106). A demand invocation reserves renewal before foreground admission and bounds
+  driver/port borrowers to the remaining writer capacity. The MCP server's lifespan holds its
+  purpose pools; tools are synchronous and
   run on FastMCP's worker threads, so they call the same application functions as the CLI, and
   never the math grammar or SymPy, whose timeout needs a main thread (D2 §7.4). The grammar's API
   raises when it is called off a process's main thread, so a violation fails loudly instead of

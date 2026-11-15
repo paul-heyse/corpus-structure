@@ -1,4 +1,4 @@
-"""Connections (foundations §3.8; D3 §1; store note §5): one pool per process, lent to SQLAlchemy.
+"""Connections (foundations §3.8; D3 §1; store note §5): one pool per opened purpose, lent to SQLAlchemy.
 
 `open_store(settings, application_name, min_size, max_size)` opens one psycopg-pool
 `ConnectionPool` with `close_returns=True` and `check=ConnectionPool.check_connection`. Its
@@ -30,7 +30,7 @@ import adbc_driver_manager as adbc
 import psycopg
 from psycopg.types.json import set_json_dumps, set_json_loads
 from psycopg_pool import ConnectionPool, PoolClosed, PoolTimeout, TooManyRequests
-from sqlalchemy import Engine, create_engine
+from sqlalchemy import Engine, create_engine, event
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.pool import NullPool
 
@@ -169,6 +169,16 @@ def open_store(
             record_cleanup_failure(error, cleanup)
         raise
     engine = create_engine("postgresql+psycopg://", creator=pool.getconn, poolclass=NullPool)
+
+    def discard_invalidated(conn: PooledConnection, record: Any, error: BaseException | None) -> None:
+        # SQLAlchemy invalidation means physical retirement. Normal close() returns
+        # the borrowed session because close_returns=True, so explicitly finish the
+        # public libpq handle and return the dead session for pool replacement.
+        # SQLAlchemy's subsequent close() is then harmless on the closed handle.
+        conn.pgconn.finish()
+        pool.putconn(conn)
+
+    event.listen(engine, "invalidate", discard_invalidated)
     store = Store(pool, engine, application_name)
     engine.__dict__["_corpus_store"] = store
     engine.__dict__["_corpus_database_settings"] = settings.database
