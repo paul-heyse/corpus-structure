@@ -48,7 +48,7 @@ performs no review and changes no implementation plan.
   corrects the private-standing diagnosis and identity/exhaustiveness assumptions. I09 integrates the
   operator’s legacy-free target: faithful target-native data migration where useful, regeneration or
   reassessment where the basis changed, with no permanent compatibility architecture. Proposals only;
-  accepted DDO plans and decisions remain unchanged.
+  the recommendations are now scheduled in the [DDO plan](../plans/declared-data-operations_2026-11-12.md#current-state-and-execution-order). Production implementation and decision successors remain open.
 
 - [PostgreSQL domain alignment across DDO](declared-data-operations-postgresql-domain-alignment_2026-11-14.md):
   whole Python PostgreSQL responsibility and consumer review; derived typed native surfaces,

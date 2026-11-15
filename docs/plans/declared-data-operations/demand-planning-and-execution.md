@@ -104,6 +104,23 @@ source editing cannot infer or fabricate them. A source-preview consumer univers
 scope, distinct from the modeled domain discovery population. Applying a source update neither
 creates a corpus demand nor bypasses native readiness/admission or CA-05's complete-context repair.
 
+## Typed subject and lifecycle consumption · Domain-model I01/I03
+
+Consume checked subject/population relations from DDO-01 rather than comparing `operation.subject`
+to `original-source-view`. Preserve child-local association versus document-wide fan-in denominators.
+Generic discovery must accept a new subject type with the same declared relations without a name branch,
+and refuse unresolved relations rather than silently select another discovery policy. DDO-01/03/05
+complete this change together, including native population witnesses and independently expected members.
+
+Use generated recordable/historical/visible fate types at actual planner, resume and read boundaries.
+BindingStatus, role state, logical outcome and physical attempt remain separate contracts; conversion
+is typed and deliberate. Missing fate classification cannot fall through silently. Keep physical
+attempt/lease/cancellation/uncertain-commit protection even as the old operation model disappears.
+Inspect actual writes and synthesized read states before deciding conversion domains; this bounds
+fate-type changes, not unrelated execution work. Test failed/partial/invalid/awaiting outcomes plus
+closed versus incomplete populations through planner and native consumers.
+
+
 ## DDO-05 — demand, discovery and eligibility
 
 ### Selected relational semantics

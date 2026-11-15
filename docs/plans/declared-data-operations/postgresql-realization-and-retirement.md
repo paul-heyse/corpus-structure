@@ -34,7 +34,7 @@ contracts. One semantic operation need not create another task, transaction or s
 
 Retain PostgreSQL transactional authority, purpose-restricted native effects, exact semantic identity
 and authentic producing episodes. Raw SQL, JSON and physical task fences are not removal targets
-by category. DDO-11's final physical retirement follows actual preserved closure; current caller
+by category. DDO-11's final physical retirement follows the selected target-native transition; current caller
 migration and safe dead-code removal need not wait for deployment.
 
 <a id="typed-native"></a>
@@ -223,29 +223,33 @@ relabelled accepted rich knowledge or attached to synthetic legacy task/run/fact
 Preserve independent expectations when removing mechanism tests. Partial transfer does not close
 the enclosing coordinator finding.
 
-| Current responsibility / entrypoints | Target and whole removal boundary | Package / preservation prerequisite |
+| Current responsibility / entrypoints | Target and whole removal boundary | Package / target-native prerequisite |
 |---|---|---|
 | `operations.create_task`, task_dependency_scope, reused_task_id and execution guards | Declared semantic request/value/support reuse and reverse lineage; remove twin lookup, copied reuse, broad runtime/freshness salts and their current readers | DDO-09 with 06–08/10; keep original producing episode and independent nonreuse controls |
-| Run preparation/finalization and consolidation | Native demand settlement plus exact cut bindings/currentness; remove current run-group semantic scheduler and competing stale-cut classifier | DDO-06/09; preserve accepted per-run published knowledge and genuine algorithms |
+| Run preparation/finalization and consolidation | Native demand settlement plus exact cut bindings/currentness; remove current run-group semantic scheduler and competing stale-cut classifier | DDO-06/09; preserve required knowledge semantics and genuine algorithms in target-native form |
 | `complete_task` envelopes and family publishers | Declared publication/receipts, exact source/support and uncertain replay; retire obsolete payload builders, native APIs/grants and configurations with each migrated family | DDO-07/08; physical task/attempt/holder fences remain real custody |
-| `orchestrate.commands`, liveness, source_progress; status/result/task-list CLI | Native demand reporting/cancellation/resume; sealed historical inspection where still required; remove session/run supervision only when no current obligation remains | DDO-06/10; retain authentic physical status and advisory ownership still consumed |
+| `orchestrate.commands`, liveness, source_progress; status/result/task-list CLI | Native demand reporting/cancellation/resume; target-native inspection without obsolete-reader compatibility; remove session/run supervision only when no current obligation remains | DDO-06/10; retain authentic physical status and advisory ownership still consumed |
 | Visual/external request and result paths | Declared external/effect operations and receipt reconciliation; remove bypass writers and old request routing | DDO-08/10; no packet delivery relabelled fulfillment |
 | Legacy vector write/search and JSON cast readers | Selected typed vector-member retrieval; remove task-vector native/storage branches and current cached-vector codecs | DDO-08/10/11; preserve historical selected evidence and numerical contracts |
 | `serve/journey`, contribution_queries, characterization/contextual and definition/assertion consumers | Pinned shared selected read owner across every recipe; remove current run/task-origin and latest/default joins | DDO-09/10; keep examined evidence closure and partial/zero-output standing |
 | CLI records/export, MCP resources/cursors, selected_source and review bundles | Same pinned production owner and exact exported source/support/contract closure | DDO-10; cursor interpretation survives new release/defaults |
-| Characterization/model observation replay and detached verification | Target semantic references, exact runtime/source pins; remove current dual-address/fabricated-task fallbacks | DDO-10/11; preserve required sealed original interpretation |
-| `runtime_binding_store` missing-runtime run fallback and archive dispatch | Explicit pinned current exports; retain only identified sealed interpretation and recovery | DDO-10/11; classify genuine runtime-less historical data before destructive removal |
-| Evaluation, golden/reference authoring, legacy pair/singleton/frame adapters and original-grade comparison | Explicit source/prediction applicability and reviewed address correspondence; remove superseded current adapters | DDO-10/11; protected answers and genuine original-grade comparison remain unchanged |
+| Characterization/model observation replay and detached verification | Target semantic references, exact runtime/source pins; remove current dual-address/fabricated-task fallbacks | DDO-10/11; retain truthful target-native source/provenance without old decoders |
+| `runtime_binding_store` missing-runtime run fallback and archive dispatch | Explicit pinned current exports; migrate useful data or regenerate, then remove obsolete interpretation and recovery paths | DDO-10/11; classify genuine runtime-less historical data before destructive removal |
+| Evaluation, golden/reference authoring, legacy pair/singleton/frame adapters and original-grade comparison | Explicit source/prediction applicability and reviewed address correspondence; remove superseded current adapters | DDO-10/11; protected access and independent expectations remain; changed-basis grades require reassessment |
 | Legacy `_Compiler`, `compile_metadata(target='legacy')`, `compile_interchange`, `installed()` | Retain semantic/read physical compiler; extract live `_sql_arrow` and used record helpers, then remove obsolete projection/default/installed routes | DDO-01/10; current native_source Arrow consumer, generators and schema tests migrated |
 | HalfVec/type maps and model compiler revision markers | Remove only retired current mappings/identity contributions; keep used Vector and semantic generated DTO/vocabulary | DDO-01/10; inspect frozen migration imports and actual format readers |
-| Earlier `alembic/versions` versus active `semantic_alembic` | No new legacy upgrade adapter; choose retained archival/import support or removal of unsupported executable route | DDO-11 after PG-Q4; never rewrite frozen active history or assume file retention preserves instances |
+| Earlier `alembic/versions` versus active `semantic_alembic` | No new legacy upgrade adapter; use finite target-native import if useful and remove the unsupported executable route | DDO-11 after PG-Q4; never rewrite frozen active history or assume file retention preserves instances |
 
-**PG-Q4:** resolve bounded residual consumer/custody questions before compiler/import/old-frame
-retirement: live payload encoders, `_sql_arrow` type coverage, compiler markers, HalfVec imports,
-old Alembic restore paths and reference-frame applicability. Use existing census classifications,
-source and named reader/recovery consumers; no speculative live scan or protected-answer read.
-Missing actual custody keeps only the affected destructive step open. Do not delete mixed-use
-modules wholesale or retain a whole old platform solely for a synthetic test.
+**PG-Q4, revised by Domain-model I09:** the compiler/native owner identifies genuine current Arrow,
+payload/type and generated DTO users before removing mixed-use helpers. Historical callers no longer
+block target retirement: classify useful imports/regeneration and remove their reader/restore/runtime
+fallbacks. Inspect both Alembic trees and frozen imports to choose a supported current baseline or a
+bounded forward path with no legacy dependency. Record exact required schema/native/privilege inputs,
+implementation owner and target-install acceptance before physical adoption. This is a bounded adoption
+investigation; unknown conversion feasibility does not block independent compiler/helper reduction.
+Do not rewrite frozen files in place or claim retention of migration files preserves a database.
+A clean supported baseline is preferred if the old upgrade chain would otherwise keep legacy code.
+No current plan-authoring action executes that baseline, resets data or reads protected answers.
 
 <a id="work-and-evidence"></a>
 ## Work slices, prerequisites and evidence
@@ -259,7 +263,7 @@ modules wholesale or retain a whole old platform solely for a synthetic test.
 | DDO-09/10 shared cut/read contract | Define selected contract early alongside DDO-04; integrate full reuse/currentness/consolidation and public/reference journeys as prerequisites become usable |
 | DDO-01/10 compiler reduction | PG-Q4 finite consumer findings + extracted live helpers → one current physical/interchange route; independent of unrelated provider completion |
 | DDO-04 native cleanup | Next actual affected authoring change → pglast edits/shared descriptor decoder under one successor chain owner |
-| DDO-11/12 adoption and qualification | Actual current consumer replacement + preserved closure → coordinated physical retirement and complete applicable final-source union |
+| DDO-11/12 adoption and qualification | Actual maintained consumer replacement + target-native transition → coordinated physical retirement and complete applicable final-source union |
 
 Questions' current disposition is solely in the coordinator. These slices are not new stages,
 mandatory agent assignments or whole-document synchronization barriers. Shared generators, native
@@ -271,7 +275,7 @@ IDs at real callers; absent/null/exact Decimal and recursive values; wrong same-
 closed/partial/empty populations; actual borrower saturation and reconnect/notice behavior;
 rollback-confirmed cancellation versus unknown commit; support revocation and exact receipt replay;
 all public pagination/export/replay memberships and protected references; and compiler/helper
-retirement while a genuine historical reader still works. Source/body-only generator agreement is
+retirement with maintained target-native consumers and no obsolete historical imports. Source/body-only generator agreement is
 not a native or semantic oracle. No benchmark is required for expected qualitative reductions.
 
 Implementation checks remain targeted; full `uv run ci test`/`uv run ci check` and native/provider

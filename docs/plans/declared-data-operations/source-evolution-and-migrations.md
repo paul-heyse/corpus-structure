@@ -13,6 +13,17 @@ Consumes [ast-grep review I01–I06](../../plan_improvement_reviews/declared-dat
 at `2e88d02db`. The operator selected full integration on 2026-11-13, preserving conditional
 capabilities as conditional. The coordinator owns the resumed DDO-00–05 execution and its scoped acceptance.
 
+## Target-native source retirement · Domain-model I02/I09
+
+Current callable/schema/consumer migration includes removal of obsolete archive readers and old
+source-interface codecs with their callers. Existing preview/apply retains captured source, complete
+consumer coverage and publication/retry guarantees; it is not a data converter or database deployment.
+Faithful one-time data conversion belongs to adoption and is removed afterward. Keep the concrete
+LibCST/ast-grep/Griffe/Astroid/ty responsibilities and selected library references; no historical data
+consumer forces a permanent alternate source frontend or interpreter. Authoring/inspection metadata
+must not silently restore descriptive prose as a result determinant after I01's projection correction.
+
+
 ## Purpose, foundations and authority
 
 Deliver two related capabilities: finite source migrations that complete the DDO replacement,
@@ -285,7 +296,8 @@ Integrate these into the existing closed ChangeRequest and preview/staleness pro
 source-migration intent, without a second request or effect authority. Named data steps resolve only
 repository-owned builders at authoring and capture their relevant implementation identity; frozen
 upgrades execute compiled SQL. The combined operation payload and explanation must represent new
-privilege operations as well as NativeTransitionOp, preserving supported frozen predecessor reading.
+privilege operations as well as NativeTransitionOp, preserving required target-native authoring semantics. Domain-model I09 removes any requirement
+for permanent obsolete predecessor decoders; finite import tooling is distinct from this source editor.
 This is planned integration, not implemented behavior or authorization to apply source/native effects.
 
 ## Focused integrated source increment · 2026-11-14

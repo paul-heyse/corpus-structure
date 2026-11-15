@@ -12,8 +12,7 @@ below. Explicit retained-demand frontdoors are distinct from default source/book
 adoption. Current formal syntax and named construction facts belong to the shared formal and
 construction operations, not obsolete M1 mode flags. Keep literal M1/GLiNER candidates where
 PM2 actually consumes them and retain distinct finite interpretation; migrate current consumers
-to the newer capability owners and remove superseded adapters. Historical
-replay may retain genuine legacy references during this unfinished transition, but target products
+to the newer capability owners and remove superseded adapters. Historical replay is not a target compatibility exception; migrate faithful data or regenerate. Target products
 must never be relabelled with invented legacy task/view identifiers. Shared static-extraction reuse
 belongs to the coordinator's efficiency follow-up before wider qualification resumes.
 
@@ -34,6 +33,34 @@ never establish a cross-producer sequence, and broad envelope matching must not 
 explicit inputs. Learned/downstream acquisition freezes the release-owned model-observation policy
 before execution; installed policy still must match its exact authenticated digest. Current M1 score
 diagnostics retain genuine semantic source keys without manufacturing historical view identifiers.
+
+## One operation authority and prepared execution · Domain-model I02/I04/I08
+
+DDO-07/08 own the complete operation-by-operation retirement inventory, with current disposition in
+the coordinator. Re-enumerate `execution-model.yaml` (98 operations at review baseline), actual callers,
+imports, effects, generated calls, native symbols/grants, configuration and tests. For each operation
+name the surviving capability/consumer and one end state: remove capability, realize it through DDO,
+or admit genuine native protocol through the same effective model. Do not classify all task operations
+as disposable: current claim/renewal/attempt fences remain required. Completion removes the old catalog,
+OperationContract compiler, effect/import registry and generated facade, not merely their entries.
+Historical data can migrate or regenerate; it does not justify permanent legacy call/read paths.
+
+Extend/extract existing PreparedOriginalCallPort physical execution instead of building a second
+adapter authority. Inventory all 18 proposed common-shape families, comparing clause/definition CPU
+bind-submit-wrap with structural single-selection/project binding and contextual native/model custody.
+Share only common physical execution. Keep captured family preparation and custom plans where genuine
+resource/binding requirements differ; no binder DSL, new dispatch registry or implicit import discovery.
+Role support/projection defaults expand into inspectable effective declarations before identity and
+native generation. Source universes stay explicit. Actual factory/slice changes may change identities.
+
+The port owner settles which plans share capabilities before extraction; adding a simple CPU operation
+then requires its declaration, genuinely new kernel and independent controls. Test structural refusal,
+definition multi-kernel routing, contextual resource custody and cancellation/result evidence alongside
+a common case. Reuse the broader `test_downstream_profile_acquisition` model-wide acquisition control,
+with independent expected population membership across all factory-requiring profiles. Remove only
+redundant callable-presence checks; retain family semantics, source mismatch and custody refusals.
+Rich producers and record-policy/projection-analysis use [their target owner](rich-domain-integration.md).
+
 
 ## DDO-07 — Source and primary operations
 
@@ -109,7 +136,7 @@ no invented legacy task/view address may bridge a missing target consumer.
 
 DDO-09 supplies shared reuse/trust/change decisions; DDO-10 supplies public and protected read
 projections. Their interface design proceeds alongside these families, not after publication is
-finalized. DDO-11 coordinates final direct cutover once all active callers are ready. Old machinery
+finalized. DDO-11 coordinates direct target-native cutover once maintained callers are ready; old-data conversion is not a delivery barrier. Old machinery
 may remain temporarily while implementing an unused target foundation; it is not a supported
 parallel authority after adoption.
 

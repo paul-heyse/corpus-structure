@@ -43,6 +43,24 @@ and endpoint constraints remain. Exact blobs/archive envelopes may share storage
 different semantic contexts. Choose composite unique/FK constraints for qualified references; a digest
 alone never authenticates source custody or permits cross-project access.
 
+## Complete lifecycle realization · Domain-model I03
+
+The captured protocol owns recordable, historical and visible fate vocabularies, with distinct meanings.
+Production records use the generated Literal types; bind-status conversion is an explicit typed mapping,
+not a cast or duplicated spelling. Generate the data-task trigger's state/transition literals from the
+same admitted protocol while preserving guards, holder/generation fences and transactional authority.
+Every supported operation outcome has an explicit terminal mapping or a deliberate refusal. Remove
+`ddo_completion_state`'s unmapped-outcome fallback with generated definitions and actual consumers;
+previously admitted definitions are conversion/regeneration inputs, not a compatibility exception.
+
+The protocol/compiler owner settles the outcome/state correspondence from actual definitions and the
+native guard before changing generation. DDO-03/04 generate and consume it; DDO-05/06 use typed facts;
+DDO-09 owns their impact interpretation. Verify protocol-only changes reach Python, SQL CHECK/trigger
+and real claim/publication/read callers, with independently expected invalid transition/outcome cases.
+A Literal-keyed dictionary alone does not prove totality. Use an exhaustive discriminator or exact-key
+conformance against the authoritative vocabulary, retaining independently specified semantic expectations.
+
+
 ## DDO-04 implementation
 
 First implement the fixed relational declarations, generated typed native calls and protected
@@ -105,7 +123,7 @@ commit-ack loss replays one receipt; known rollback remains retryable. Deliberat
 must reach native enforcement. Generated types alone are not an oracle.
 
 Retire old task-dependent product publication, copied reused-task fulfillment and task_dependency
-semantics only with their DDO-07/08/10 callers moved. DDO-11 preservation is a prerequisite for any
+semantics only with their DDO-07/08/10 callers moved. DDO-11 target-native adoption and writer fencing are prerequisites for any
 destructive instance operation. DDO-04 finishes when native interfaces and permissions work, not
 when a table/type draft compiles. It does not claim the complete series qualified.
 

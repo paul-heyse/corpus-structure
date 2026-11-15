@@ -1,97 +1,83 @@
-# Preservation, adoption and qualification
+# Target-native adoption and qualification
 
-**DDO-00 metadata preparation implemented; DDO-11/12 Proposed ·2026-11-12.** Develops DDO-00 preservation preparation, DDO-11 cutover and
-DDO-12 assembled qualification. The [coordinator](../declared-data-operations_2026-11-12.md)
-owns decisions and current state. It also records the operator-accepted test-system dependencies,
-including TS-21 retirement transfer and TS-22 evidence mapping at DDO-12. Older product-plan
-campaigns supply no inherited qualification credit.
+**Accepted target amendment · 2026-11-15; implementation Proposed.** DDO-00 preparation receipts
+remain dated evidence; DDO-11 owns adoption/retirement and DDO-12 assembled qualification.
+The coordinator owns state and source-qualified Domain-model I09 disposition. This file retains its
+path; it no longer requires preserving obsolete readers or completing all historical conversion.
 
-## Actual preservation basis
+<a id="actual-preservation-basis"></a>
+## Actual census and changed adoption basis
 
 The [planning census](../../design_review/evidence/2026-11-12_declared-data-operations-planning/README.md)
-read corpus_structure_dev under a repeatable read-only transaction. Its12 exact table counts and
-329FK definitions establish concrete relationships, not an exhaustive selection of preserved objects.
-The snapshot contains565runs,256completed results,7480source artifacts,784source views,
-42reference sets and107reference units. Counts are not maximum IDs or source coverage claims.
-No protected answers or source bodies were read. Source64dc6c3e6 remains unchanged by the census.
+and [metadata classification](../../design_review/evidence/2026-11-12_ddo-preservation-closure/README.md)
+remain evidence for their acquired database and declared local/outbound universe. The census recorded
+565 runs,256 completed results,7480 source artifacts,784 views,42 reference sets and107 units; the
+later classification covered417 pending manifests and73 identifier occurrences. These are neither
+current counts nor migration completeness requirements. Do not alter finalized records to reflect the
+new policy. Original source and protected answer bodies were not read for that census.
 
-DDO-00 completed the [metadata-only root selection and classification](../../design_review/evidence/2026-11-12_ddo-preservation-closure/README.md)
-within the acquired database and declared local/outbound owner universe: original artifacts/native capture/source-view custody; protected reference sets/units;
-required completed snapshots/receipts; retained managed/evidence/export references; and incomplete
-workspaces with an actual recovery consumer. The census follows exact FK and artifact references,
-including external retained bundles that SQL FKs cannot describe. It records root IDs/digests, original
-contract/revision, preservation action and dependent reader/custody, not copied source or gold bodies.
+The operator now requires complete freedom from legacy code and prefers faithful target-native data
+migration where practical. Preserve useful data through import when actual evidence suffices;
+regenerate/reassess when it does not. Inert old bytes can remain without supported readers. Disposal
+is permitted but not mandatory. Unknown historical custody or unconvertible records do not justify a
+permanent compatibility path or delay independent target implementation. Current native provenance,
+permissions, lease fences and uncertain-effect handling remain required guarantees.
 
-Classify each selected closure as preserve in its own sealed interpretation, explicit reviewed
-correspondence, or disposable regeneration. Preserving migration files does not preserve instances.
-Default: preserve originals, protected references and retained evidence; regenerate only classified
-disposable derivations. No plan authoring command authorizes a reset, migration or activation.
+<a id="ddo-11--one-coordinated-forward-adoption"></a>
+## DDO-11 — Target-native transition and complete code retirement
 
-The original partial census remains unchanged. New `ddo.preservation-classification` dispositions
-settle all 417 pending manifests and 73 historical identifier occurrences, with conservative sealed
-preservation and named readers/custodians; no required missing root was found in that scope.
-Existence/classification is distinct from byte integrity or successful historical execution.
-DDO-11 must reacquire/freeze the actual target and verify required recovery/read/correspondence
-before adoption. Unsettled work remains protected, not presumed recoverable or disposable.
+Before dependent implementation, DDO-00 records the successor to ADR-0095 and reconciles affected
+clauses of ADR-0092/0098/0105/0107/0108 and owning D-documents, preserving unrelated decisions.
+Accepted ADR bodies remain immutable. The following work is scheduled, not performed by plan revision.
 
-## DDO-11 — One coordinated forward adoption
+1. **Settle the physical target.** The compiler/native owner inspects current schema builders, both
+   migration trees, frozen imports and actual required grants/native functions. Select a supported
+   clean baseline if the old chain retains legacy dependencies; otherwise use a bounded forward route.
+   Name exact target inputs and installation/candidate verification. Do not force-stamp or edit frozen
+   active revisions in place. Only physical adoption waits for this decision, not semantic work.
+2. **Classify useful data in the actual adoption scope.** For each selected population, choose faithful
+   target-native import, regeneration/reassessment, or inert retention/disposal. Follow source/evidence,
+   bindings, policy, alternatives and interpretation far enough to establish meaning. This finite
+   transition account is not a permanent registry or requirement to preserve every old root.
+3. **Implement finite import only where useful.** A converter produces ordinary target-native records
+   through explicit import/admission contracts, keeps authentic original attribution, and refuses
+   missing meaning. It cannot fabricate execution receipts, request/support custody, task/view aliases
+   or accepted standing. It is absent from normal production imports/readers and has an explicit final
+   removal point; Git can retain its source after removal.
+4. **Reassess changed-basis judgments.** Structural payload conversion is not semantic equivalence.
+   If question, inputs, outputs, policy or context changed, produce a new assessment under the target
+   recipe. An attributed old observation can be retained as such only when a target consumer needs it;
+   it is never relabelled a current accepted answer. Keep protected answers out of production inputs.
+5. **Adopt maintained callers coherently.** Fence/drain old writers; keep failed/interrupted managed
+   records and honest unresolved effects. Install the selected target, verify native/public/evaluation
+   consumers and switch entrypoints. Do not require all optional conversion to finish before target
+   delivery. Pre-switch failure leaves selected state intact or explicitly unavailable; recovery after
+   switch restores/resumes a supported target-native state, not a permanent old application service.
+6. **Finish retirement.** Remove old operation catalogs/compiler/facades, version decoders (including
+   v2–v5 model and obsolete source-interface readers), runtime/task/view fallbacks, old publishers,
+   native APIs/grants/configuration and mechanism-only tests with migrated maintained consumers.
+   Remove one-time converter tooling after its selected use. Retain useful scientific kernels,
+   physical custody, independent expectations and supported new-basis release/product histories.
 
-**Domain PG I03/I06/I07 adoption detail · accepted 2026-11-14.** Reconcile
-[the PostgreSQL retirement boundaries](postgresql-realization-and-retirement.md#retirement) with
-actual selected roots/readers before destructive steps. PG-Q4 covers live Arrow helpers/payload
-encoders/compiler identity, HalfVec/frozen imports, the older Alembic tree and protected old-frame
-applicability. Preserving source migration files alone does not establish instance recovery. Missing
-required custody constrains the affected deletion; it does not require preserving unrelated dead
-runtime paths or creating a legacy upgrade adapter.
+No data migration, reset, activation or provider run is authorized by this documentation work.
+No preserved-file rule requires runnable legacy architecture. Plans/evidence and failed receipts
+remain retained under repository policy; historical implementation claims keep their original bounds.
 
-Current consumers migrate before physical retirement. Remove obsolete native APIs/grants,
-run-based semantic reuse/fallbacks, compiler target and mechanism-only tests with their replacements;
-retain physical attempt/lease fences, real sealed interpretation, source/reference bytes and
-independent expectations. Do not rewrite frozen active migrations, historical results or golds.
+## Source migration boundary
 
+The source-evolution workflow prepares current callable/schema/consumer edits and checks complete
+required caller coverage. It is distinct from data conversion and native deployment. Remove duplicate
+selectors, codecs and definitions with their real replacements; a synthetic historical fixture is not
+a reason to retain a decoder. Data conversion must not create a second supported source frontend.
 
-Prepare target declarations/storage/native operations and migrate callers in code before choosing
-active entry points. Target foundations may exist unused while work proceeds; do not offer two
-independent production authorities or compatibility fallback after adoption.
+## Adoption acceptance scenarios
 
-1. Freeze the actual target/source snapshot and preservation root inventory. Fence/drain old writers
-   and prove owned work settled or explicitly unresolved. Preserve failed/interrupted records.
-2. Prepare and verify original/archive/evidence recovery material and the exact predecessor. Missing
-   required roots block destructive steps; no guessed correspondence or automatic gold rewrite.
-3. Install the generated forward native revision and release through existing candidate/register /
-   deployment owners. Use existing migration fence and predecessor checks. No wholesale dependency
-   upgrades, unrelated database mutation or forced revision stamping.
-4. Map preserved original source bindings into the new semantic product system through a named
-   source-custody import operation retaining original provenance. Retained protected frames use
-   explicit reviewed correspondence where addresses change. Keep original answers/questions intact.
-5. Regenerate disposable products with the target demand engine. Validate target readers and complete
-   native/source/support closure before selecting the new application entry points.
-6. Switch entry points together, then retire old routing, freshness/run identity salts, copied reused
-   tasks, private selector/digest logic, old product-key fallback codecs and mechanism-only tests.
-   Preserve independent semantic expectations and the sealed historical artifacts they assess.
-
-A failed pre-switch stage leaves the old selected state intact or its unavailability explicit;
-never serve half-migrated references. A post-switch recovery restores the preserved compatible
-snapshot or resumes target exact intents under fenced ownership. Do not pretend arbitrary schema
-rollback is safe. Exact effect authority, source freeze and target checks precede actual adoption.
-The series owns this execution; no other plan's final campaign is a prerequisite.
-
-### Source migration and historical custody — Ast-grep I01/I02/I04/I05
-
-Consume the [finite source-evolution workflow](source-evolution-and-migrations.md) when preparing
-current callers and references for adoption. Source preview/apply prepares checkout changes; it
-does not deploy native candidates, grant publication authority or rewrite frozen migrations,
-archives, protected answers or retained evidence. Use immutable forward successors through the
-existing native authoring/registration route. Preserve exact historical interpretation even when
-current code no longer needs the old implementation.
-
-Retire legacy selectors, codecs, compatibility dispatch and duplicate definitions with their actual
-migrated consumers. Do not retain a decoder merely because a synthetic legacy test exercises it;
-identify a real retained reader/recovery obligation or remove it while preserving useful independent
-expectations. Reacquire current work before editing: TS-19 already removed the pure identity helpers
-at `e1f62fa72`; the coordinator owns remaining CA-07 obligations. Keep TS-21 test transfer and TS-22
-evidence mapping at their existing owners. The migration's required consumer set must cover the
-actual public readers/references, not just a generated declaration or successful local rename.
+Verify fresh current-source installation without legacy imports, one faithful imported population
+consumed by normal target readers, a missing-evidence import refusal, regeneration with honest
+coverage, and a changed-input-basis judgment reassessed rather than relabelled. Check writer fencing,
+known rollback versus uncertain effect, protected-source/prediction separation, current CLI/MCP/export
+and detached target-native replay. Legacy formats explicitly refuse with no fallback. These are
+planned cases; none is run during authoring. Do not infer data meaning from a successful roundtrip.
 
 ## DDO-12 — Series-owned required qualification
 
@@ -111,7 +97,7 @@ No test count or earlier successful campaign substitutes for the declared union.
 | Reuse/change | New executable with unchanged recipe, semantic/model change, equal-content cutoff, changed support, membership addition/deletion/optional presence, newly applicable subjects and explicit replicates |
 | Serving/evaluation | Actual native/ci/MCP/resources, definition/assertion/all3contextual recipes, exact export/verify/detached replay; source and prediction releases separate; protected labels excluded from production |
 | Source evolution | Adopted finite transformations and ongoing `ci model change` preview/apply: independently expected source and domain meaning, actual migrated callers, complete required population, proposed-source compilation, staleness and concurrent/partial-apply recovery; former route removed |
-| Retained whole document | One frozen original316-view/518-page source demand, complete demanded-family fate/coverage account, controlled interruption/resume and exact completed-product preservation; no repeated PDF recognition merely to change identity |
+| Retained whole document | One frozen original316-view/518-page source demand, complete demanded-family fate/coverage account and controlled interruption/resume; reuse faithful target-native completed products where available, otherwise permit regeneration/reassessment without retaining old readers |
 | PostgreSQL realization | Protocol-only structural/nominal changes at real callers; exact recursive/Decimal/absent/null fidelity; selected versus necessary population verification; actual renewal/port acquisition and once-only physical initialization; honest rollback versus uncertain-effect recovery; complete public/reference migration and live Arrow/helper/historical-import retirement. Conditional Arrow/SQL cross-check cases join only when triggered and selected. |
 | Generality | Independently specified non-statistics context involving attributed/quoted material and meaningful relationships; no page/corpus-specific planner logic |
 
@@ -123,7 +109,7 @@ and work-reduction benefits remain qualitative; investigate serious material reg
 only where it can change acceptance. Retain readily available execution/lineage observations.
 
 Completion requires one coherent target, affected consumers migrated, obsolete authority retired,
-preservation verified, applicable required union covered and enduring contracts recorded in owning
+selected target-native transition verified and legacy code retired, applicable required union covered and enduring contracts recorded in owning
 architecture/ADRs. Independent implementation/design review uses existing cadence at meaningful
 boundaries, not a new recurring slice gate. Package completion is not assembled qualification.
 
@@ -147,7 +133,7 @@ or migration execution is implied by authoring.
 DDO-11 preserves authenticated selected source/schema/support closure when topology bookkeeping moves
 to [`BFS/DFS/edge traversal`](https://github.com/networkx/networkx/tree/networkx-3.7/networkx/algorithms/traversal).
 A traversal tree is insufficient to retain all non-tree/parallel relationships. Original acquisition,
-row/byte budgets, sealed interpretation and external-reference custody survive; retain indexed SQLite
+row/byte budgets, supported target interpretation and authentic source/reference custody survive; retain indexed SQLite
 or native SQL where they already supply the better bounded route. No arbitrary JSON-reference crawl,
 NetworkX file-format replacement or automatic protected-reference rewrite is permitted.
 
@@ -171,11 +157,11 @@ campaign or new graph-specific gate follows. These future checks are not_run at 
 
 Consumes the [shared implementation contract and acceptance route](implementation-contracts-and-fingerprints.md#I07).
 DDO-00 recorded operator-accepted introspection RC01–03 (2026-11-12), updated D1–D8 targets
-and established scoped target successors ADR-0092–0095. The predecessor records retain their
-selected legacy/archived consumers until coordinated DDO-11 reference retirement. Original
+and established scoped target successors ADR-0092–0095. The predecessor records describe the baseline until decision successors and current caller retirement. Original
 RC01–09 remain distinct; no repeated confirmation or migration follows from authoring.
-DDO-11 preserves archived source/normalization/effective-model/runtime interpretations and actual
-original custody before retiring duplicate registries, dependency lists or generated wrappers.
+DDO-11 preserves meaningful target-native source/model/runtime attribution through faithful import
+or regeneration, then retires duplicate registries, lists/wrappers and obsolete interpreters. Old-format
+readability is not a prerequisite to code retirement.
 
 DDO-12 incorporates independent source-change/identity matrices, metadata export, imported aliases,
 inherited methods/constants, callbacks/defaults/decorators/globals/assets, permitted cosmetic edits,
@@ -205,6 +191,6 @@ Current graph materialization consumes immutable released facts or pinned native
 JSONL/Parquet controls reconstruct the exact selected support/source graph from captured releases,
 frontier and witness records with current-source preparation/parsing forbidden. Original parent,
 order, pointer, parallel relationship and table-cell multiplicity expectations remain independent.
-This completes the bounded graph-preservation contribution without performing DDO-11 historical
+This records the bounded graph-fidelity contribution without performing DDO-11 target-native
 adoption, persistent deployment or reference regrading. The coordinator owns the actual required
 functional/native/public union and retained failed originals; whole-series DDO-12 remains separate.

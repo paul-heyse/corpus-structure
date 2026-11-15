@@ -217,6 +217,25 @@ authenticate the actual builtin bindings consumed by each captured function; ass
 process's standard builtin module is insufficient. CA-07 owns avoidable authoring/identity
 compatibility retirement, distinct from a concrete retained historical interpretation.
 
+## Numerical boundaries and semantic metadata · Domain-model I01
+
+**Planned DDO-01/02 work; not implemented by this amendment.** The compiler companion owns checked
+subjects/enforcement and identity projection. This owner supplies the slice/opaque-boundary realization.
+`python_operation_sources.py` already captures reference, contract, semantic role and immutable digest;
+missing revisions become unknown. A profile source digest does not automatically capture every external
+numerical dependency. For each numerical operation, inspect its boundary, selected execution profile and
+actual NumPy/SciPy/provider inputs. Decide whether qualified behavior is sufficient or a particular
+external implementation/configuration must be a semantic determinant. No blanket distribution-version salt.
+
+The extraction owner records the selected boundary and why it covers result meaning before deleting
+coverage/precision labels. Descriptive metadata can leave identity only when it is truly nonsemantic
+under the admitted profile; reflected annotations/docstrings and source-sensitive observations remain
+captured. Distinguish source artifact hashes from normalized semantic projections so raw capture does not
+silently reintroduce removed prose as a result determinant. Test both an unrelated runtime move and a
+real numerical policy/boundary change; unknown required semantics refuse reusable identity. Preserve
+existing Griffe/LibCST/Astroid mechanisms and exact source custody, not obsolete version decoders.
+
+
 ## Implementation slice and identity policy — I03
 
 DDO-01/02 compile a finite dependency graph rooted at the actual operation's semantic entry points.
@@ -255,13 +274,13 @@ Archive normalization specification, meaning-bearing analysis assumptions and ef
 run/version provenance alone is not a new recipe salt: an extractor change affects recipes through
 changed effective determinants or an explicitly changed interpretation rule. Bootstrap compiler /
 extractor behavior through an explicit interpretation contract; do not recursively introspect its
-currently running implementation to a self-referential hash. Archived interpretations stay readable.
+currently running implementation to a self-referential hash. Supported current-basis releases retain exact interpretation; obsolete decoders retire under Domain-model I09.
 
 DDO-09 distinguishes changed implementation revision from proven changed outputs. Recompute only
 requested affected operations under native demand; stop downstream propagation at equal admissible
-value/support. Historical products and producing episodes stay intact. Conservative recomputation
-on some harmless refactors is acceptable; missing a relevant change is not. No destructive reset,
-whole-package code equality or claim of universal semantic equivalence follows.
+value/support. Supported target-basis products and producing episodes remain truthful and immutable; old-schema data follows the adoption policy. Conservative recomputation
+on some harmless refactors is acceptable; missing a relevant change is not. Data migration/regeneration is an explicit adoption action, not a consequence of comparing source.
+No whole-package code equality or universal semantic equivalence is claimed.
 
 <a id="I04"></a>
 ## Ports, documentation and drift — I04
@@ -370,7 +389,7 @@ and qualifies normalization/identity; DDO-03 consumes actual working facts/ident
 generated correspondence. Design can overlap; runtime integration requires working native DDO-04
 contracts. DDO-05/06 consume admitted determinant manifests and capability profiles, never infer
 sufficiency from call connectivity. DDO-07/08 deliver replacements and consumers; DDO-09/10 integrate
-change/inspection; DDO-11 preserves old immutable interpretations and retires duplicate authority.
+change/inspection; DDO-11 imports faithful target-native data or regenerates it and retires duplicate authority.
 
 During implementation, use focused compiler/boundary/native controls with independently authored
 expected facts, graph memberships, bytes and refusals. Griffe roundtrip, regeneration agreement or

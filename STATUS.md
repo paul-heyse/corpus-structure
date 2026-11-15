@@ -1,10 +1,10 @@
 # Status
 
-_Updated 2026-11-15. Focused DDO NetworkX increment implemented on main with bounded qualification. No persistent deployment, historical conversion, activation or provider campaign._
+_Updated 2026-11-15. DDO domain-model plan revision authored; prior NetworkX increment retains bounded qualification. No persistent deployment, historical conversion, activation or provider campaign._
 
 ## Current owner and implementation
 
-- **Review-only update · 2026-11-15:** [domain-model recommendation audit](docs/design_review/reviews/audits/declared-data-operations-domain-model_2026-11-15_audit.md) revised the [principal review](docs/plan_improvement_reviews/declared-data-operations-domain-model_2026-11-15.md), preserving I01–I08 and adding I09. Operator direction: migrate useful data faithfully where practical, but remove legacy code without permanent historical compatibility; changed-basis judgments need reassessment. Recommendations remain Proposed; plans/ADRs/product state unchanged. Next: incorporate the audited amendment through plan revision and reconcile preservation decisions.
+- **Plan revision · 2026-11-15:** the [DDO coordinator](docs/plans/declared-data-operations_2026-11-12.md#current-state-and-execution-order) now schedules audited Domain-model I01–I09 from `4f32589d0`, with one current package/finding account and target-dimension coverage. All eleven companions are reconciled; new [rich integration owner](docs/plans/declared-data-operations/rich-domain-integration.md) specifies evidence/policy/cut/standing and consumer retirement. Operator accepted identity corrections and legacy-free target; faithful migration preferred, changed-basis judgments reassessed. Implementation and decision successors remain open; no product/database/provider changes.
 
 - The [DDO coordinator](docs/plans/declared-data-operations_2026-11-12.md#focused-networkx-execution--accepted-2026-11-14) owns NetworkX I01–I07 implementation/qualification/retirement. [Graph companion](docs/plans/declared-data-operations/graph-projections-and-analysis.md) retains concrete mechanisms and conditional capabilities. Wider DDO-06–12/rich-domain conversion remain with their packages.
 - Effective-model v6 archives 13 static/runtime/source/assessment/task/implementation specifications; exact v2–v5 reads preserve original identities, without backfill/current historical execution. Captured per-site implementation facts retain provenance outside recipe determinants.
@@ -15,6 +15,8 @@ _Updated 2026-11-15. Focused DDO NetworkX increment implemented on main with bou
 - [ADR-0108](docs/adr/0108-declared-graph-realization.md), D2/D8 and DESIGN B5 own graph boundaries. Prior [ADR-0107](docs/adr/0107-ddo-source-change-inspection.md)/[ADR-0106](docs/adr/0106-postgresql-current-realization.md) source/PostgreSQL implementation remains current. Benefits Proposed, qualitative/unmeasured.
 
 ## Last verified · 2026-11-15
+
+- **Plan documentation passed:** `uv run ci docs check --json`, `40e4fcfd2c08476581d84777b17dc47b`,1287 pages/zero link errors after integrated corrections; earlier pass `53f157da8b904b34a4291e6e4187f151` retained. Later edit records this receipt only. `just turn-end` passed. Product tests/providers/database work **not_run** for plan authoring.
 
 - **Review documentation passed:** `uv run ci docs check --json`, `188da80e0be84827a75a576df8d8a53e`,1286 canonical pages/zero link errors; `just turn-end` passed. Product tests/providers/database work **not_run** for this audit. Later edit records this receipt only.
 

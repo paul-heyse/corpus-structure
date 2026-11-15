@@ -33,9 +33,9 @@ examined graph. No graph-specific database mirror, latest selection or separate 
 
 
 **Current realization boundary:** effective-model v6 archives the interpreted static, selected-native,
-source, assessment and implementation-reference profiles. Exact v2–v5 readback remains available;
-historical graphs lacking the current interpretation report unavailable and gain no new execution
-authority. Concrete runtime nodes/occurrences live in immutable selected snapshots, not the model.
+source, assessment and implementation-reference profiles. The implemented baseline has exact v2–v5 readback with no current execution authority;
+Domain-model I09 schedules its removal. The target supports one current encoding family; useful
+old data imports into that basis or regenerates. Concrete runtime nodes/occurrences live in immutable selected snapshots, not the model.
 CA-06's compiled foundation is already closed; the coordinator owns this increment's consumer and
 qualification obligations.
 
@@ -217,7 +217,7 @@ Deliver shared projection/identity kernels during DDO-01–03. Runtime acquisiti
 DDO-04 native availability; demand, authored claims, impact, inspection and custody migrate with their
 own packages. Do not add DDO-13 or a graph-wide stage barrier. Remove private topology machinery only
 when its replacement and consumers preserve required behavior. DDO-11 carries exact source/contract /
-support closure through adoption, including sealed historical artifacts. DDO-12 incorporates this
+support closure through adoption, without requiring obsolete historical interpreters. DDO-12 incorporates this
 scope into its existing final union; optional capabilities above are not blocked required work.
 
 Use independently authored expected sets, bytes, role records and failure reasons for isolates,
@@ -280,7 +280,8 @@ Empty/unsupported assessment roots are unavailable. Requestless unsettled obliga
 without a fabricated request edge. Native pagination binds exact request/cut/trust context before
 acquisition; whole-graph retained-byte budgets are separate from native transport and response bounds.
 Partial member facts remain inspectable, while incomplete acquisition withholds exact SCC/order/negative
-path claims. Historical archive reading does not use the current-execution admission gate.
+path claims. The implemented separate historical reader is a retirement obligation under Domain-model I09,
+not a target feature. Supported target-native histories retain exact model/cut/trust meaning.
 
 Forward graph-v1 admits v6; graph-v2 additionally binds delegated graph helper bytes and NetworkX3.7
 execution profile through native capture. Neither rewrites predecessors or deploys persistently.

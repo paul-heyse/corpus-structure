@@ -1,6 +1,6 @@
 # Reuse, change determination and consolidation
 
-**Proposed ·2026-11-12.** Develops DDO-09 under the
+**Accepted planning amendments ·2026-11-15; remaining integration Proposed.** Develops DDO-09 under the
 [coordinator](../declared-data-operations_2026-11-12.md). Consumes DDO-01–04 semantic identity,
 binding/support and native admission; integrates with DDO-05–08 demands and producers.
 
@@ -24,8 +24,9 @@ and evaluation. Define the early selected contract alongside DDO-04/10; do not w
 before specifying it. [PostgreSQL consumer boundaries](postgresql-realization-and-retirement.md#retirement)
 require actual cut and public readers to stop dereferencing copied task origins before retiring
 twin lookup/task_dependency_scope/reused_task_id semantic equality and competing stale-cut logic.
-Preserve per-run published knowledge where required, authentic producer episodes, current support
-admission and independent nonreuse cases. Completing a new reuse helper while current consolidation
+Preserve target-native knowledge meaning, authentic producer episodes, current support admission
+and independent nonreuse cases. Old per-run organization and historical readers are not target
+requirements; faithful migration or regeneration follows the adoption contract. Completing a new reuse helper while current consolidation
 or export retains the old classifier cannot close this obligation.
 
 
@@ -70,10 +71,33 @@ admission also checks original source/context/custody, outcome strength, selecte
 purpose permissions and trust. Meaning-changing translation is a named admitted operation.
 
 Revocation appends a scoped reason/selector under DDO-04's trust epoch protocol. It invalidates
-required support paths, not raw shared content. Historical selections stay immutable. Another
+required support paths, not raw shared content. Supported target-basis selections stay immutable; this does not require an interpreter for obsolete encodings. Another
 support path is usable only when explicitly admitted by the consumer contract; recomputation after
 revocation appends a new derivation generation. Retry, revocation and requested replicate remain
 different operations. Serving an old snapshot is distinct from assessing its current trust.
+
+## Deliberate fate classification — Domain-model I03
+
+The audited [domain-model review](../../plan_improvement_reviews/declared-data-operations-domain-model_2026-11-15.md#I03)
+at `4f32589d0` requires typed lifecycle consumption and deliberate coverage of every visible fate.
+`semantic/change_impact.py:115–123,169–298` currently accepts a string fate and uses an ordered chain;
+failed/partial/invalid and several waiting/absence cases do not yet have deliberate interpretations.
+The native protocol owns RecordableFate/HistoricalFate/VisibleFate; import the generated vocabulary
+appropriate to each boundary rather than respell it or merge it with operation outcomes.
+
+Before adding consumers, define the exact fate-to-impact disposition and reason table from actual
+native meanings. Distinguish settled fulfilled, settled without production, not settled, unavailable,
+cancelled and invalid/partial/failed outcomes. Retain population removal, native revocation and target
+admission precedence in the ordered classifier. A failed target is not proof that its previous value
+is stale; partial products are not complete admissible output. Explain what evidence allows each
+state and retain unknown when the native read cannot establish the needed premise.
+
+Use an exhaustive typed discriminator with an unreachable remainder or an exact-key conformance check
+against VisibleFate. A dictionary annotated with literal keys constrains keys but does not prove all
+keys are present. Independently expected failed, partial, invalid, empty/known-absent and unsettled
+cases establish semantics; generated coverage alone does not. The change owner settles this table
+with DDO-04/06 protocol owners before DDO-10 explanatory consumers rely on it. The coordinator owns
+its current question disposition; this amendment is not a passing implementation claim.
 
 ## Proposed-source changes use the same change semantics — Ast-grep I01/I04/I06
 
@@ -88,20 +112,23 @@ An operator may inspect and apply an eligible source update without executing a 
 Later requested execution follows normal admission, affected-subject determination and equal-value/
 support cutoff. Independently distinguish a signature/domain change, a relevant helper/body change,
 an unrelated edit, eligibility widening and a conservative recipe change whose output stays equal.
-Keep old products and interpretation intact. Migration preview staleness belongs to the source-effect
+Do not reinterpret a supported result in place. Obsolete data may be faithfully migrated or
+regenerated without retaining its old interpreter. Migration preview staleness belongs to the source-effect
 owner, while semantic currentness and reuse remain here; do not build a second invalidation engine.
 
 ## Consolidation is inside the total model
 
-Declare consolidation/materialization as an operation over a cut selection: exact semantic products,
-roles, support and coverage, selected alternatives, consolidation/admission policy and subject
-universe. Retain per-run published knowledge, observations-versus-admitted-knowledge separation and
-coherent visibility. Physical recomputation of a cut does not excuse undeclared inputs.
+The [rich-domain companion](rich-domain-integration.md) owns concrete rich subjects,
+Entity/Claim/Statement/Fact distinctions, evidence/alternatives, policy/knowledge universe and standing
+admission. This owner supplies the common currentness contract it consumes; it does not duplicate
+that family’s schemas or define another admission policy.
 
-Store consumed binding identities in the cut result. A staleness request names its comparison target
-release/demand/policy/trust snapshot; there is no implicit current/latest derivation. Reuse the same
-change classification and reverse lineage, not a second consolidation-specific invalidation engine.
-Future consumers can explain why one selected reading remains valid while another needs replacement.
+Rich materialization records exact consumed product/member bindings, selected alternatives,
+coverage/population, policy values and support. Native CutSelection pins alone do not establish
+that semantic universe. A currentness request names its comparison release/demand/policy/trust
+snapshot; no implicit latest selection or per-run stale flag survives. Use the same reverse lineage,
+substitution and equal-value/support cutoff as ordinary operations. Readable private products remain
+distinct from admitted knowledge, with coherent native publication supplied by its declared effect.
 
 ## APIs, retirement and checks
 

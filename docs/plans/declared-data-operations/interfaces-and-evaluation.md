@@ -1,6 +1,6 @@
 # Pinned interfaces and protected evaluation
 
-**Proposed ·2026-11-12.** Develops DDO-10. The
+**Accepted planning amendments ·2026-11-15; remaining integration Proposed.** Develops DDO-10. The
 [coordinator](../declared-data-operations_2026-11-12.md) owns completion/disposition.
 Consumes product/member/support references, native DemandUse and change classifications; its
 contract design participates in producer/native publication packages rather than waiting for cleanup.
@@ -17,8 +17,9 @@ selected-source/review bundles, detached verification/replay, and evaluation/ref
 Internal demand inspection does not replace any of these supported journeys.
 
 Current exports require explicit source/runtime/support pins before missing-runtime or dual-address
-fallback removal. Retained old frame/pair/singleton applicability and original-grade comparison need
-reviewed correspondence, not automatic regrading. Coordinate live SQL-to-Arrow helper extraction
+fallback removal. Useful old frames/pairs/singletons may migrate by faithful reviewed correspondence;
+otherwise regenerate/reassess or retain inertly without a permanent old reader. An old grade is not
+a target grade when the question/input/output basis changed. Coordinate live SQL-to-Arrow helper extraction
 with DDO-01 before deleting legacy interchange; preserve current record export type fidelity.
 
 New DDO Arrow transport stays conditional on an actual tabular consumer. PG-Q5 then resolves the
@@ -42,7 +43,8 @@ retire old request/default/fallback branches after real callers migrate.
 
 Requests pin semantic selection revision, contracts, source and support/trust assessment snapshot.
 Cursors, continuation tokens, resource handles and cache keys bind those same identities for their
-whole consumer lifetime. A new release cannot reinterpret an earlier token. Bounded reads declare
+whole supported consumer lifetime. A new release cannot reinterpret an earlier token. Tokens for
+retired encodings explicitly refuse; their existence does not require a historical compatibility route. Bounded reads declare
 examined scope, output limits and truncation/unavailability separately. A graph/relationship query
 retains necessary intermediate members even when returning a filtered subset.
 
@@ -50,6 +52,41 @@ Inspection, sufficiency and update-need reports read declared facts and current 
 they do not perform hidden NLP, recompute derivations or select newest products. Read-time permission,
 authentication and current-trust checks retain their necessary boundary protection. Immutable product
 validity need not be reconstructed at every internal hop.
+
+## Owned read types and authenticated interpretation — Domain-model I06
+
+Consume the [audited review](../../plan_improvement_reviews/declared-data-operations-domain-model_2026-11-15.md#I06)
+at `4f32589d0`. `DemandQueryRequest.view` and `ContextRecipe` own their existing literal vocabularies;
+CLI/serve request types import those meanings instead of maintaining parallel sets. Do not introduce
+another model registry for resolver dispatch. Public argument names/values change only where the
+actual target contract requires it, with callers updated together and no compatibility facade.
+
+Definition variants need an explicit released variant-to-kind association before deriving their
+lookup. Neither an IRI suffix nor a kind’s display name establishes that association. DDO-01/03
+preparation supplies the checked effective fact; missing/ambiguous associations refuse. DDO-10 then
+removes the hand map in `serve/characterization.py:642–646`, preserving exact nominal selection.
+
+One authenticated typed reader owns `data_operation_native_definitions.json` interpretation for
+admission, selected-reference evaluation, serving and export. It validates unique artifact presence,
+structure and binding to the prepared model/manifest; a shared parser grants no acquired native
+permission or selected-cut authority. Retain those checks at their actual consumers. Cover duplicate
+artifacts, wrong model binding, unknown variant and wrong nominal product as independent failures.
+A new valid variant with its declared association should not require another central surface map.
+
+## Rich consumers and distinct comparisons — Domain-model I05
+
+The [rich-domain companion](rich-domain-integration.md) owns rich product/evidence/policy/standing
+meaning. Migrate named rich queries, ReferenceRecord grading, actual CLI/MCP resources and current
+agent/serving/reference scenarios to those contracts. A private candidate envelope is already
+standing-checked; do not infer accepted rich knowledge from similar fields or successful publication.
+
+`compare_semantic_releases` still opens the legacy execution model (`operation_reporting.py:784–807`)
+and has actual CLI model/schema and semantic-server callers. Map each to target-native structural
+model differences or deliberately retire the capability. Structural model difference, captured-source
+drift and subject-relative native currentness are separate questions with their own evidence; do not
+merge them into one classifier or retain the old execution compiler for an explanatory endpoint.
+The operations inventory owns complete caller disposition; this owner supplies actual public shapes,
+meaning, partial/unknown standing and continuation contracts.
 
 ## Core realization and authoring dependencies — SQLA/Alembic I02/I04/I05 · 2026-11-14
 
@@ -104,10 +141,13 @@ Preserve independently authored source-first and exposed output-first scope and 
 coverage denominators. Authenticated execution, retention and linguistic accuracy are separate claims.
 
 Protected definitions/labels and A/B/C custody do not enter ordinary discovery, input resolution,
-provider prompts or runtime configuration. Plan an explicit reviewed correspondence for retained
-reference frames whose addresses change; store both identities and the meaning-preservation basis.
-Do not silently rewrite their questions or answers to fit new outputs. Actual protected answer
-contents are unnecessary for the structural preservation census.
+provider prompts or runtime configuration. Faithful reference migration records source/target
+identity and the actual meaning-preservation basis. If the question, context, source/prediction
+population or input/output basis changed, author/reassess a target reference instead of copying its
+grade or silently rewriting questions/answers. Conversion can preserve an old judgment as an attributed
+observation only where the target has that meaning; it cannot certify current correctness. This
+planning amendment performs no answer read, regrading or standing change. Source/prediction access
+boundaries and independently specified expectations survive legacy-reader retirement.
 
 ## Acceptance
 
@@ -120,8 +160,8 @@ Exercise source-only, partial and full views; failed/empty operations; cross-pag
 queries requiring intermediate evidence; wrong project, contract, trust and cursor snapshots; and
 reference-source versus prediction-release mismatch. Validate actual definition/assertion and all
 three contextual recipes against the same primary bindings, not just an enriched-document viewer.
-Current `reference_evaluate` source/prediction separation and zero-output contribution reads provide
-preservation constraints, not proof that replacement paths already work.
+Current `reference_evaluate` source/prediction separation and zero-output contribution reads supply
+required behavioral guarantees, not old-address/readability obligations or proof that replacements work.
 
 The series' final qualification owns fresh evidence. Existing historical results may inform input
 selection but cannot establish current-source passage or impose another plan's requirements.
@@ -211,5 +251,6 @@ member-kind policy, not similar JSON fields. One invocation prepares each produc
 and kind closure once while authenticating every distinct member. Selected-characterization
 witnesses and protected reified task incidence have separate admitted interpretations. The one
 rooted attributed matcher retains exact/asymmetric policies and every mapping required by joint
-choices or feasible prerequisite checks. Exact historical archives remain readable with unavailable
-new graph interpretations; they are not promoted to current execution.
+choices or feasible prerequisite checks. That increment implemented exact historical archive reads;
+the target now retires obsolete encodings rather than retaining unavailable-view compatibility.
+Current-basis snapshots keep exact released interpretation and native authority.

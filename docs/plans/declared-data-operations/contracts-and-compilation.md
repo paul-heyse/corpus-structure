@@ -43,12 +43,13 @@ contract or the existing narrow typed-port/source-migration controls. See the
 
 ## Responsibility and delivered contracts
 
-**Archive contract · 2026-11-14:** current effective model v5 archives the complete governing
+**Archive contract · 2026-11-14:** implemented effective model v6 archives the complete governing
 graph, kinds, operations, bindings, projections and admitted implementation slices. Effective
 identity records retain owner/domain/key, with canonical witnesses computed transiently by the
 existing fingerprint algorithms. Generic canonical identities still expose their witnesses.
-Historical v2/v3/v4 decoding preserves exact witness-bearing bytes and version-specific features,
-but cannot authorize current admission, projection or execution. This is the
+The implemented v2–v5 readers preserve old meaning but cannot authorize current execution.
+Their retirement is required by Domain-model I09; target adoption imports useful data or regenerates
+it instead of maintaining old interpreters. This is the
 [ADR-0105](../../adr/0105-compact-effective-identity-archives.md) representation boundary, not
 permission to trim governing semantics or replace typed binary archive staging.
 
@@ -91,6 +92,42 @@ and [relational compiler](../../../python/corpus-structure/src/corpus_structure/
 already distinguish application-owned fixed tables from candidate release rows (`metadata.py:1–48`,
 `relational.py:595–625`). Keep that distinction: release variation is rows and compiled query
 plans over admitted projections, not arbitrary schema creation or a generic object store.
+
+## Checked subjects, enforcement and identity · Domain-model I01/I03
+
+**Accepted target · 2026-11-15; implementation Proposed.** Consumes the audited domain-model
+review at `4f32589d0`; source-qualified disposition belongs to the coordinator. The operator accepted
+the I01 identity-policy changes. Implement these in DDO-01/02 before dependent discovery/rich callers.
+
+Replace free subject labels with checked references to subject definitions: identifying kind/reference,
+occurrence identity and declared relationships to original source and selected populations. Derive fan-in
+from role/subject/population relations where sufficient. A per-source/per-document switch is not a
+universal model for entities/statements. Preserve SubjectContext as the concrete occurrence; new subject
+forms must not inherit source-view behavior merely through spelling. Compilation rejects unknown refs.
+
+Classify every applicability/invariant entry as documentation or a checked reference to an actual binding
+predicate, schema constraint, native admission contract or captured operation-owned invariant. The
+reference includes parameters and interpretation revision sufficient for identity. No second editable
+invariant registry or arbitrary callback predicate belongs in the binding IR. Scientific invariants
+remain with scientific owners. Eligibility/result impact follows enforced meaning, not a descriptive label.
+
+For admitted slice-owned operations, descriptive prose is outside semantic definition/recipe projections.
+Behavior remains a real revision for nonslice/native/external operations. Coverage/precision facts move
+into typed contracts before labels retire; numerical policies explicitly identify relevant model/assets,
+preprocessing, dtype/device/backend and tolerance/nondeterminism meaning. Retain complete governing facts,
+compact identity headers and exact artifact custody; do not add full-runtime/library inventories as salts.
+Changes to captured factory code or admitted slices may legitimately change identities. A new current
+encoding and synchronized generated/native consumers are required where representation changes; no old
+encoding reader is a target obligation. Schedule decision successors before these changes.
+
+**Preparation and acceptance:** the compiler/identity owner inventories existing labels by operation and
+records each semantic home, enforcement owner and identity projection. Resolve subject relation shape
+using actual source-view/document plus rich entity/statement cases before replacing discovery. An
+unrepresented meaningful fact blocks only its label removal. Independently test same fan-in under two
+subject types, unknown subject/enforcement refs, documentation-only edits, numerical policy changes,
+reflected metadata that remains meaningful, eligibility-only widening and Python/native canonical agreement.
+DDO-03/04/05 must consume the generated contracts; a compiler-only pass is insufficient.
+
 
 ## DDO-01 — Governing model and effective semantic representation
 
@@ -301,8 +338,8 @@ or new editable DTO catalog is promised. Generated types confer no native author
 Migrate planner/service, claim/publication/recovery, admission/external and new public read callers
 with the generated interface. A protocol-only change must reach actual consumed fields and archived
 products, while explicit nominal correspondence distinguishes otherwise identical identifier strings.
-Keep exact value/wire identity and historical interpretation unchanged unless a separately identified
-semantic change requires versioning. DDO-01/10 also reduce the legacy relational target only after
+Keep exact value/wire semantics for supported target contracts; deliberate semantic changes receive
+new identities. Old-encoding compatibility is not required by Domain-model I09. DDO-01/10 also reduce the legacy relational target only after
 [its live type/helper consumers](postgresql-realization-and-retirement.md#retirement) are separated;
 DDO-02's earlier identity evidence remains bounded evidence, not coverage of this new extension.
 
