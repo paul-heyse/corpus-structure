@@ -42,13 +42,13 @@ performs no review and changes no implementation plan.
 ## Published reviews
 
 - [DDO domain model against its own target](declared-data-operations-domain-model_2026-11-15.md):
-  outcome-led review of the whole series by the ten dimensions of its stated target. Declared
-  subject types and enforced applicability, a per-operation end state for the older execution
-  model, generated fate types at the sites that branch on fate, one generic port for the
-  eighteen shared-shape families, rich-family framing, single owners for read-surface literals
-  and a current-state coordinator. One observed defect (subject compared by spelling). Five
-  recommendations were narrowed and one part withdrawn after independent challenge. Proposals
-  only; the DDO plans are unchanged.
+  audited outcome-led review of the whole series: checked subject/enforcement contracts, complete
+  legacy-operation retirement, generated lifecycle types, shared prepared execution, rich-domain
+  integration and public read ownership. The [recommendation audit](../design_review/reviews/audits/declared-data-operations-domain-model_2026-11-15_audit.md)
+  corrects the private-standing diagnosis and identity/exhaustiveness assumptions. I09 integrates the
+  operator’s legacy-free target: faithful target-native data migration where useful, regeneration or
+  reassessment where the basis changed, with no permanent compatibility architecture. Proposals only;
+  accepted DDO plans and decisions remain unchanged.
 
 - [PostgreSQL domain alignment across DDO](declared-data-operations-postgresql-domain-alignment_2026-11-14.md):
   whole Python PostgreSQL responsibility and consumer review; derived typed native surfaces,

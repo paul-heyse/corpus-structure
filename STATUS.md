@@ -4,6 +4,8 @@ _Updated 2026-11-15. Focused DDO NetworkX increment implemented on main with bou
 
 ## Current owner and implementation
 
+- **Review-only update · 2026-11-15:** [domain-model recommendation audit](docs/design_review/reviews/audits/declared-data-operations-domain-model_2026-11-15_audit.md) revised the [principal review](docs/plan_improvement_reviews/declared-data-operations-domain-model_2026-11-15.md), preserving I01–I08 and adding I09. Operator direction: migrate useful data faithfully where practical, but remove legacy code without permanent historical compatibility; changed-basis judgments need reassessment. Recommendations remain Proposed; plans/ADRs/product state unchanged. Next: incorporate the audited amendment through plan revision and reconcile preservation decisions.
+
 - The [DDO coordinator](docs/plans/declared-data-operations_2026-11-12.md#focused-networkx-execution--accepted-2026-11-14) owns NetworkX I01–I07 implementation/qualification/retirement. [Graph companion](docs/plans/declared-data-operations/graph-projections-and-analysis.md) retains concrete mechanisms and conditional capabilities. Wider DDO-06–12/rich-domain conversion remain with their packages.
 - Effective-model v6 archives 13 static/runtime/source/assessment/task/implementation specifications; exact v2–v5 reads preserve original identities, without backfill/current historical execution. Captured per-site implementation facts retain provenance outside recipe determinants.
 - Shared native-only lazy runtime supplies validated multi-source closure, SCC/condensation, order/path/boundary; migrated kind/member/characterization/record/demand/discovery/native-order/alignment/ACL/factor consumers. Private DFS/TopologicalSorter/duplicate matcher/closure paths removed with callers.
@@ -13,6 +15,8 @@ _Updated 2026-11-15. Focused DDO NetworkX increment implemented on main with bou
 - [ADR-0108](docs/adr/0108-declared-graph-realization.md), D2/D8 and DESIGN B5 own graph boundaries. Prior [ADR-0107](docs/adr/0107-ddo-source-change-inspection.md)/[ADR-0106](docs/adr/0106-postgresql-current-realization.md) source/PostgreSQL implementation remains current. Benefits Proposed, qualitative/unmeasured.
 
 ## Last verified · 2026-11-15
+
+- **Review documentation passed:** `uv run ci docs check --json`, `188da80e0be84827a75a576df8d8a53e`,1286 canonical pages/zero link errors; `just turn-end` passed. Product tests/providers/database work **not_run** for this audit. Later edit records this receipt only.
 
 - **passed:** `uv run ci test --workers 4 --json --`28 affected semantic/evaluate files, `873f904c33084cc7801833dfef7ef7df`,685/685; coverage685 required/covered,0 unresolved, complete native observations. Includes archives/canonical identities, topology/comparison/domain consumers, actual native/public/MCP and detached custody. Exact selection/source applicability is in the coordinator.
 - **failed original / passed replacement:** final six-file affected cohort `d5796e9353be497eacf4f23df04e2048`,35/36; corrected source partial-scope expectation exact retry `92e8fc777b8442b09902e7b04a634d24`,1/1. `uv run ci test coverage` reports36/36 covered,0 unresolved; original outcome/aggregate remain failed. Subsequent production changes only reader lifetime/assessment preparation; this cohort covers them, with source/scheduling differences accounted for in the coordinator.

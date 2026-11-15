@@ -1,6 +1,6 @@
 # Declared data operations — the domain model against its own target
 
-**Plan-improvement review · 2026-11-15 · proposals only.** Reviews the
+**Audited plan-improvement review · 2026-11-15 · proposals only.** Reviews the
 [DDO coordinator](../plans/declared-data-operations_2026-11-12.md) and its eleven
 [companions](../plans/declared-data-operations/) against the outcome the coordinator states for
 itself:
@@ -9,30 +9,50 @@ itself:
 > bindings, applicability, lifecycle/effects/outcomes, demand fulfillment, provenance, reuse and
 > change.
 
+**Revision attribution.** The coordinating auditor independently revised the review at
+`51cd9774d` on 2026-11-15, incorporating a fresh read-only reviewer’s contributions and the
+operator’s subsequent migration/retirement direction. The original is recoverable from that commit.
+The [audit companion](../design_review/reviews/audits/declared-data-operations-domain-model_2026-11-15_audit.md)
+owns recommendation dispositions and changes in judgment; this document presents the integrated
+recommendations. The original reviewer is not represented as endorsing the revision.
+
 The six earlier improvement reviews of this series each started from a library. This one starts
 from that sentence and asks, for each of its ten dimensions, how **total**, **explicit** and
 **singly owned** the model is in the code now, and what the remaining packages would leave
 unchanged. The operator confirmed that executed scope (DDO-00–08) is open to revision.
 
-Nothing here amends the plans, STATUS, ADRs or code, and nothing here lifts the operator's
-implementation and test stop or the rich boundary's limits on standing changes and provider runs.
-Recommendation IDs `I01`–`I08` are local to this review; cite them as
-`declared-data-operations-domain-model_2026-11-15.md#I0n`. They are distinct from the I-numbers
-of the earlier reviews.
+Nothing here amends the plans, STATUS execution claims, ADRs or code. No tests, provider runs,
+data conversion, standing changes or destructive operations are authorized. Recommendation IDs
+`I01`–`I09` are local to this review; earlier source finding IDs and their plan owners remain intact.
 
 ## Baseline, method and limits
 
 | | |
 |---|---|
-| Source and plan baseline | `fcc1d6cbe` (main, 2026-11-15), re-checked at `1d551f0ca`, which changes only `semantic/graph_inspection.py`. |
-| Relevant uncommitted work | A concurrent agent's NetworkX increment: `evaluate/assessment_graph.py`, `semantic/assessment_graph_contract.py`, `semantic/selected_graph.py`, four test files, two plan companions and an untracked evidence folder. Read as in progress, not as accepted. |
-| Standard | Core principles 3.3 with the efficient-architecture heuristics, code-intelligence profile 1.4, test-assessment 1.2 and the repository binding. Used for judgment within the footprint; this is not a diagnostic audit and does not replace a formal design review. |
-| Method | Four read-only code maps (model authority and compilation; native realization, demand and lifecycle; provenance, reuse, change and public surfaces; operation families, legacy and tests), each returning `file:line` evidence. The decisive claims behind every recommendation were re-read in source by the reviewer. A fresh-context design reviewer then challenged the draft; five of the eight recommendations were narrowed and one part was withdrawn. See [Challenge](#challenge). |
-| Not done | No tests, providers, database work or probes. The PL/pgSQL bodies were read in excerpts. Test structure is known from file-level search and a few files, not from reading every test. Counts come from search and are approximate unless a file and line are given. Absence claims are searches of `python/corpus-structure/src` and would miss dynamic access. |
+| Original review | Exact input `51cd9774d`; originally inspected product `fcc1d6cbe`/`1d551f0ca`. |
+| Audit source and plan baseline | `51cd9774d`, including completed NetworkX integration through `6b017902f` and reader-lifetime/cache corrections. The earlier description of that work as unaccepted/concurrent is superseded. |
+| Concurrent work | Untracked nx-cugraph-cu13 overview is unrelated and unmodified. No product edits during this audit. |
+| Standard | Core3.3, efficient-architecture heuristics1.0, code-intelligence1.4, test-assessment1.2 and repository binding. Judgment within this footprint, not a broad diagnostic or completion audit. |
+| Method | Independent source inspection of model/compiler/identity, source discovery, opaque dependencies, lifecycle/change classification and public readers; fresh read-only reviewer investigates legacy operations, shared ports, rich contracts and tests. Decisive evidence is reconciled by the coordinator. |
+| Limits | No tests, providers, database queries or probes. No exhaustive data-migration feasibility claim. Historical counts are orientation, not current completion quotas. Negative search results do not prove absence of dynamic consumers. |
 
-All paths below are under `python/corpus-structure/src/corpus_structure/` unless they begin with
-`docs/` or `tests/`. Every statement about the design is **Interface-checked by source inspection,
-2026-11-15**; every recommendation and benefit is **Proposed** and unmeasured.
+Current-source observations are **Interface-checked by source inspection · 2026-11-15**.
+Recommendations and benefits are **Proposed**, qualitative and unmeasured. Earlier test receipts
+keep their original dates and scope and establish no implementation of these recommendations.
+
+## Operator direction and adoption premise
+
+The operator explicitly requires freedom from legacy code, while preferring useful data migration
+when it can produce faithful target-native records. Historical readability/editability, old identifiers
+and previously implemented compatibility are not target constraints. This applies to old execution
+protocols and also to the recently implemented v2–v5 readers. It does not require deleting old data.
+
+Migration may preserve meaning that the available evidence actually establishes. Where changed
+inputs, outputs, context or question basis invalidate a recorded model response, regenerate or
+reassess it; do not turn transport success into semantic equivalence. Migration work must not require
+permanent old readers, old writers or an ongoing dual-model service, or hold the target architecture
+hostage. I09 specifies the amendment and decision routes. Current provenance, trust, concurrency and
+independent evaluation guarantees still apply to newly produced results.
 
 ## Combined judgment
 
@@ -60,14 +80,16 @@ exactly as written, would not correct:
 3. **Lifecycle vocabularies are declared once and then respelled.** The generated fate types have
    no production importer, and the change classifier reads fate as a bare string ([I03](#I03)).
 
-Smaller, well-bounded improvements follow from the same reading: one generic port for the
-eighteen families that share a shape ([I04](#I04)), single owners for the read-surface literals
+Smaller, well-bounded improvements follow from the same reading: shared prepared-kernel execution where
+capabilities genuinely match ([I04](#I04)), single owners for the read-surface literals
 ([I06](#I06)), and model-level test assertions made once ([I08](#I08)). Two recommendations
-concern delivery: the rich family should be designed as the first instance of the corrected
+concern delivery: the rich family should complete the corrected
 model ([I05](#I05)), and the coordinator has stopped being usable as a statement of current state
 ([I07](#I07)).
 
-The set does not change what the series is and adds no package.
+The set keeps the DDO functional target and package structure. I09 materially replaces the
+preservation-led adoption premise; it is not merely a cleanup or an assertion that existing data can
+be converted without loss.
 
 ### The ten dimensions
 
@@ -135,13 +157,17 @@ discovery relations.
 
 **Proposed.**
 
-1. **Subject types become a small declared vocabulary** in the model, each carrying the facts
-   consumers branch on: the kind or reference that identifies it, and whether it is a per-source
-   or per-document subject, which is the fact `source_discovery` recovers from the spelling.
-   Operations reference a declared type; an unknown one is a compilation error.
-2. **Applicability and invariant entries resolve or are rejected.** Each names a binding
-   predicate (already tagged `impact: eligibility` or `result`) or a declared invariant with an
-   enforcement point. Eligibility identity then follows what is enforced, through `binding`.
+1. **Declare subject identity and scope relations** consumed by discovery and binding. Operations
+   reference checked subject definitions; unknown references fail compilation. Derive fan-in from
+   declared role/subject/population relations where sufficient; add only the missing domain fact.
+   Per-source/per-document flags alone are not a general subject model for rich entities/statements.
+   Preserve the distinct typed `SubjectContext` occurrence and original-source association.
+2. **Applicability and invariant entries resolve or become explicit documentation.** References
+   name an existing binding predicate, schema constraint, native admission policy or operation-owned
+   invariant with a captured enforcement owner. Unresolved executable claims fail compilation.
+   Do not create a second invariant registry, force scientific/kernel invariants into relational
+   predicates, or call prose enforced. Identity must include the actual enforcement semantics and
+   relevant parameters, not just the binding reference string.
 3. **Prose leaves the recipe only for slice-owned operations.** Keep `behavior` as the revision
    wherever it is one today (no implementation slice, external executors, generated native
    operations). For operations with an admitted slice, move the descriptive sentence out of
@@ -163,8 +189,9 @@ to make checkable.
 **Rule impact (proposal).** ADR-0092 builds identities from "complete effective semantic
 records" with colocated facts supplying "numerical meaning". Changing which fields enter the
 recipe is a change to that decision. It needs operator confirmation and a successor or amending
-record through the ADR route, with the model version step (v6 to v7) and exact reading of
-archived versions that the series already uses. Items 1 and 2 do not need it; items 3 and 4 do.
+record through the ADR route, with a new current model encoding where required. I09 removes any obligation to retain old
+encoding readers. Typed subject/enforcement changes also require checking ADR-0092’s identity
+and authority implications; they are not pre-exempted from the decision route.
 
 **Principles.** §1 semantic-model-first; DP-02 (roles and scopes are types or checked
 references); DP-03 ("schema metadata is not enforcement"); DP-04 and DP-09 (identity and reuse
@@ -186,8 +213,9 @@ applicability or invariant entry that resolves to nothing; for a slice-owned ope
 to descriptive prose leaves recipe and eligibility unchanged; a typed numerical-policy change
 reaches the recipe.
 
-**Uncertainty.** How many of the 72 declarations carry a real, otherwise unrepresented fact in
-`precision` or `coverage` was not counted.
+**Uncertainty.** Exact coverage/precision and numerical-boundary adequacy remain a per-operation
+preparation task. Current evidence supports the correction, not a complete inventory of missing
+numerical determinants. No label is removed before its meaningful replacement is accounted for.
 
 <a id="I02"></a>
 ### I02 — State the end of the second operation model, operation by operation
@@ -221,7 +249,8 @@ DDO declaration removed its entries from `execution-model.yaml`, `effect_support
 **Proposed.** Add to the coordinator one disposition per remaining execution-model operation,
 with its owning package, in three classes:
 
-- **Retire with its mechanism** — run, task and method protocol.
+- **Retire with its mechanism** — obsolete run/method scheduling and publication semantics;
+  distinguish physical attempt/lease/fencing behavior that remains required by current DDO.
 - **Move into the DDO model** — operations whose meaning survives: PDF staging and build,
   reference authoring and evaluation, `capture_cut` with consolidation.
 - **Remain as native protocol**, if any do — entering the effective model the way the generated
@@ -240,7 +269,8 @@ catalog with live members. The work now is classification; the moves are existin
 is), DP-16 (a replaced path does not survive).
 
 **Preserved.** ADR-0092's transitional guard for live legacy consumers; frozen migrations;
-sealed archive reading; the legacy lifecycle tables until their operations end.
+target-required physical attempt/fencing behavior. Legacy lifecycle tables and sealed readers
+are not protected merely by historical consumers; I09 permits migration or regeneration instead.
 
 **Alternative: leave it to DDO-11.** This repeats what the completion audit corrected once
 already (CA-07, a retirement row citing code that no longer existed).
@@ -278,16 +308,21 @@ criteria name the retired modules; the compiler no longer needs the guard.
    (recordable, historical, visible) at each site, and type the binding-status-to-fate step.
 2. Partition the visible fates explicitly in the classifier: a table from fate to its class
    (settled-fulfilled, settled-not-produced, not-settled, unavailable, cancelled) that the
-   ordered chain consults, so the type checker reports a fate with no class. The chain itself
-   stays ordered; it also tests population and roots.
+   ordered chain consults. A `dict[VisibleFate, Class]` constrains keys but does not establish
+   totality. Use an exhaustive typed discriminator with an unreachable remainder, or an exact-key
+   conformance check against the authoritative vocabulary. Keep independent expected classifications;
+   generated cases alone do not establish their meaning. The chain stays ordered because it also
+   tests population, roots and native evidence.
 3. Decide deliberately what a failed, partial or invalid target means for impact, and record
    the table in the change companion.
 4. Generate the data-task state literals in the trigger from the protocol, as the fate CHECK
    already is. No runtime table read is needed.
 5. For newly admitted definitions, compile each outcome's terminal state into the definition so
-   the native `ops.ddo_completion_state` fallback for unmapped outcomes is not consulted. The
-   fallback stays for definitions already admitted, which cannot change under their release,
-   unless the operator chooses to regenerate them. This item is optional.
+   the native `ops.ddo_completion_state` fallback for unmapped outcomes is not consulted. Fallback
+   removal is part of the target: supported outcomes have explicit terminal mappings or a deliberate
+   refusal. Already admitted old definitions are migration/regeneration inputs under I09, not a
+   permanent reason for fallback. Releasing changed definitions is distinct from mutating an old
+   result in place.
 
 **Why here.** DDO-09 and DDO-10 add consumers of exactly these vocabularies: currentness
 explanations, public reads and exports.
@@ -299,8 +334,8 @@ failed distinguishable), CI-04 (unknown is not absent).
 binding status, role state and operation-specific outcomes recorded in the contracts companion.
 This relates them and does not merge them.
 
-**Closure evidence.** Production code imports the generated types; adding a fate to the
-protocol fails type checking until it has a class; independent cases cover a failed and a
+**Closure evidence.** Production code imports the generated types; a missing fate class is detected by the
+chosen exhaustive discriminator or exact-key check; independent cases cover a failed and a
 partial target.
 
 <a id="I04"></a>
@@ -335,6 +370,14 @@ completion defect".
 
 **Proposed.**
 
+Extend/extract the existing `PreparedOriginalCallPort` responsibility rather than create another
+port authority. It already owns signature checks, verification, ingress, CPU evidence and completion
+(`data_operation_prepared_call.py:28–166`). Clause/definition plans repeat physical bind/submit/wrap
+work; structural acquisition requires exactly one governing selection and binds project instead of
+context (`declared_structural_calls.py:482–510`). Contextual encoding authenticates native frames and
+model custody (`contextual_encoder.py:364–432`). Share physical execution while family-owned captured
+preparation retains those differences. No arbitrary binder DSL, implicit imports or dispatch registry.
+
 - One generic CPU-kernel port and plan, configured from the declaration with the kernel or
   kernels, an argument binder (default: declared roles to kernel parameters, which the compiler
   already cross-checks) and any extra assets. A family keeps a custom plan where it does
@@ -354,21 +397,24 @@ new implementation), A3.
 **Preserved.** Kernels, role and kind lists, context policies and product schemas. Closed-source
 acquisition, CPU ownership, cancellation and receipts.
 
-**Intentional change.** Declarations get shorter. Compiled definitions for existing operations
-must be unchanged, which is checkable by comparing them before and after.
+**Intentional change.** Declarations get shorter. Role, subject, binding, outcome and numerical meaning must retain independently checked
+behavior where the refactor claims equivalence. Captured prepared-factory source and implementation
+slice changes can legitimately change definition/recipe identities. Compare effective projections
+and explain identity changes; do not preserve wrappers to manufacture digest equality.
 
 **Alternative: leave it.** Each family works. The cost is paid on each new operation of this
 shape and on each change to the port contract.
 
 **Closure evidence.** A new CPU-kernel operation is a declaration, a kernel and its tests;
-existing compiled definitions are unchanged; the replaced factories go with their mechanism
+semantic projections retain required behavior and identity changes are accounted for; the replaced factories go with their mechanism
 tests ([I08](#I08)).
 
-**Uncertainty.** Three of the eighteen were read closely. If most need a custom binder, the
+**Coverage limit.** Common clause/definition and distinct structural/contextual preparations were
+read closely; not all eighteen plans were read end to end. If most need a custom binder, the
 benefit is the shared port and the role templates only.
 
 <a id="I05"></a>
-### I05 — Design the rich family as the first instance of the corrected model
+### I05 — Complete the rich family against the corrected model
 
 *Scope and framing recommendation. DDO-09.*
 
@@ -381,11 +427,13 @@ sealed `ops.input_cut`; `CutSelection` (`semantic/demand_results.py:54-85`) and 
 unrelated in code. The queue already puts this first: DDO-10 depends on DDO-09's products, and
 STATUS lists the rich contracts as the next owning scope.
 
-Three things are not in that scope as written:
+Three boundaries need explicit integration:
 
-- **Standing is a docstring.** `DdoCandidateInspectionReport` "explicitly has private,
-  uncalibrated standing" in prose. The distinction between private, proposed and accepted
-  knowledge is the one DDO-09 most needs to be checkable.
+- **Existing private standing is enforced.** `model/semantic/data-operation-candidate-inspection.yaml:48`
+  requires `private_uncalibrated_candidates`; `declared_candidate_products.py:135–144` constructs
+  and validates it, and `reading_resolution_products.py:114` checks it before use. Preserve this
+  working boundary. The remaining question is the rich Entity/Claim/Statement/Fact contracts and
+  their explicit standing/admission transitions, not adding a second standing system.
 - **Two families have no disposition.** `record_policy` and `projection_analysis` have no DDO
   declaration and are not in the cutover companion's family table.
 - **A third comparison vocabulary is unaddressed.** `compare_semantic_releases`
@@ -396,12 +444,18 @@ Three things are not in that scope as written:
 
 - Write the rich family's design against [I01](#I01): a declared subject type in place of
   `"entity or statement"`, and standing as a declared distinction on the product kinds involved.
-- Use one small cut as the design acceptance scenario: a declared consolidation operation over a
+- Start with one small cut as a discriminating design scenario: a declared consolidation operation over a
   `CutSelection` at **private** standing. Producing accepted standing, running providers or
-  converting data stays behind the operator decisions the boundary already requires.
+  converting data remains outside this audit. Also specify an accepted-standing admission case and
+  refusal with missing/ambiguous evidence: the private case alone cannot establish complete rich
+  contracts. `CutSelection` supplies native read/trust pins, not all rich policy, alternatives,
+  known-fact and population meaning; substituting its ID for `ops.input_cut` is insufficient.
 - Give `record_policy` and `projection_analysis` a disposition in the family inventory.
-- Decide whether `compare_semantic_releases` retires into the change classification or stays as
-  a distinct declared projection.
+- Replace or retire the actual callers of `compare_semantic_releases`: it opens both sides with
+  `bound_execution_model` (`operation_reporting.py:784–807`) and has CLI model/schema and MCP callers.
+  Migrate useful structural model-difference explanations into the target model. Keep that question
+  distinct from subject-relative native currentness and source-code drift; one catch-all classifier
+  would lose meaning. Its old implementation retires with the execution model.
 
 **Why here.** The plan already owns all of this. The addition is that the rich family is the
 scenario that exercises every dimension at once — a subject that is not a source view, authored
@@ -411,9 +465,9 @@ a product — so it is where label fields would do the most damage.
 **Principles.** FP-04, DP-02, DP-05 (observations and admitted knowledge separate), §E (do not
 reduce the product to convenient fixtures).
 
-**Preserved.** Everything the boundary section preserves: no fabricated task or view aliases,
+**Preserved.** Required domain guarantees: no fabricated task or view aliases,
 the consolidation and scientific kernels, independent exclusion and coverage expectations,
-sealed historical reads.
+target-native provenance. Historical read obligations are reconsidered under I09.
 
 **Uncertainty.** The reviewer did not read `domain_operations.py` in full. The claim is about
 representation, not about how the conversion should be decomposed.
@@ -438,8 +492,11 @@ Four modules also read the `data_operation_native_definitions.json` release arti
 `serve/demand_export.py:342`, `semantic/data_operation_storage.py:918`).
 
 **Proposed.** As DDO-10 migrates these call sites: import the owning `Literal` in the CLI and
-serve request types; derive the definition-variant map from kind facts in the effective model;
-give the native-definitions artifact one typed reader.
+serve request types; derive the definition-variant map only after the effective model owns an explicit variant-to-kind
+association, with missing/ambiguous associations rejected. A kind name or IRI suffix is not that
+association. Give the native-definitions artifact one authenticated typed reader that checks artifact
+uniqueness and its model binding, reused by admission, serving, evaluation and export. Preserve each
+consumer’s actual acquired cut, permission and nominal-kind checks.
 
 **Not proposed.** Declaring read views or context recipes in the model. The model already has
 graph projections and `read-projections.yaml`, and the recipes are resolver dispatch; a third
@@ -450,9 +507,9 @@ declaration would duplicate them.
 <a id="I07"></a>
 ### I07 — Restore the coordinator as a statement of current state
 
-*Execution improvement. The form is an operator decision; do it at a quiet boundary.*
+*Execution improvement. Proposed amendment; no coordinator restructuring in this review.*
 
-**Current.** The coordinator is 2,380 lines. Its status line is a paragraph. At least five
+**Current.** The coordinator is 2,435 lines. Its status line is a paragraph. At least five
 sections say they hold the current account ("This section owns current execution disposition",
 "This is the one current account for the selected increment", "This table owns current
 disposition", the execution queue, the completion-and-next-action section), and later sections
@@ -468,15 +525,16 @@ its own target, which is why the gaps in I01–I03 are not visible in it.
 
 - One current-state table at the top: per package, what is implemented, what is open, the
   owning findings, and where the receipts are. One short status line.
-- Move dated receipts and failure narratives to a receipts page beside the plan that cites the
-  managed `ci` result identifiers, which already hold the results. Evidence records stay for
-  investigations. Nothing is deleted: the plan file stays, Git keeps the earlier text.
+- Consolidate dated receipts into clearly secondary sections of the existing coordinator, citing
+  managed result IDs and retaining exact source/context limits and unresolved failures. Do not add
+  a receipts page without a concrete retrieval need. Remove superseded current-state claims rather
+  than leave several sections announcing authority. Git preserves earlier wording; plans/evidence
+  remain under the repository retention rule.
 - A second small table by target dimension: what is modeled, what is still label or literal,
   and which package closes it. This review's dimension table is a starting point.
 
 **Constraints.** The operator's rule is that plans are never deleted; this keeps the file and
-changes its shape, and the operator should confirm the shape. The companions are being edited
-by a concurrent increment now, so restructure only when that has landed. Each summary row must
+changes its shape, and the operator should confirm the shape. The NetworkX increment has now landed; reacquire current authorship before restructuring. Each summary row must
 keep the words "scoped" and "bounded" where they apply and cite the receipt that carries the
 exact source and context limits.
 
@@ -495,29 +553,98 @@ profile, preparation, entrypoint and effects in the PDF capture test.
 `tests/semantic/test_primary_operations.py:58-66` already resolves every factory in the primary
 profile.
 
-**Proposed.** Extend that existing model-wide test to every operation whose profile requires a
-factory, and drop the bare per-family line with the factories I04 replaces. Family-specific
-expectations stay where they are.
+**Proposed.** Reuse/consolidate the existing model-wide acquisition checks: the broader
+`tests/semantic/test_downstream_profile_acquisition.py:77–112` already resolves actual factories
+against an independently expected operation population. Extend its responsibility to all factory-
+requiring profiles rather than automatically widening a second primary-only loop. Preserve an
+independently specified population expectation; merely iterating whatever the compiler emits cannot
+find missing operations. Remove only redundant callable-presence assertions with the replaced
+factories. Keep source-mismatch, resource-custody, binding-refusal and domain expectations such as
+`test_predicate_products.py:54–73`. No test deletion follows just because it mentions a factory.
 
 **Principles.** Test-assessment §2 (consolidation that preserves meaning); DP-16
 (mechanism-specific tests leave with the mechanism).
+
+<a id="I09"></a>
+### I09 — Remove preservation as a reason for permanent legacy architecture
+
+*Operator-directed change of premise, with concrete integration obligations. DDO-00–12; especially
+DDO-09–11. Proposed implementation, not authorization to mutate data.*
+
+**Current.** The preservation companion defaults to sealed retention of originals, references,
+completed results and unsettled work, then requires exact old-reader/recovery closure before
+retirement. ADR-0095 explicitly rejected reset/regeneration because of those consumers.
+`data_operation_model.py:24–28,808–870,1027–1100` and
+`data_operation_admission.py:37–64` implement exact v2–v5 interpretation alongside current v6;
+`graph_inspection.py:356–374,475–538` branches for historical-unavailable views. Those are sound
+implementations of the prior commitment, not defects in that increment. The operator has now
+changed the commitment: freeing the target from legacy code is more valuable than guaranteed access
+to all generated historical state, while faithful migration remains desirable.
+
+**Proposed target.** One supported operation model, encoding family and set of target-native
+read/write/evaluation interfaces. Multiple releases/results within that supported basis can retain
+normal provenance and currentness; eliminating obsolete schema interpreters does not eliminate
+history as a domain concept. No permanent execution-model compiler, version decoder, task/view alias,
+legacy source-interface fallback, historical writer or migration-only import survives solely for
+old data. Trace actual CLI/MCP/export/reference/fixture callers and frozen-schema imports, not just
+the obvious version constants.
+
+**Data transition.** For each affected population, choose the least machinery that preserves useful
+meaning: direct target-native import when source/evidence/bindings are sufficient; regeneration when
+they are not; or inert retention/disposal when no useful target consumer remains. This is a finite
+adoption decision, not a new permanent registry. A converter is one-time tooling with an explicit
+removal point, outside normal serving/execution. Test its intended correspondence and reject missing
+facts rather than fabricate task/run IDs or accepted standing. Legacy-produced judgments whose
+question/context/input-output basis changed must be reassessed, even if their payload converts.
+Preserving a claim as an attributed old observation never certifies it as a new target answer.
+
+**Adoption.** Finish target contracts and migrate maintained callers first; fence old writers at the
+actual switch. Do not turn data-conversion completion into an architectural dependency. Use a clean
+supported database baseline if retaining the old upgrade chain would retain legacy dependencies;
+otherwise use a bounded forward change. Decide that physical route from the actual required schema
+and imported populations during plan revision. This review does not prescribe rewriting frozen
+migrations in place or operating against a live database. Preserve native authorization, leases,
+uncertain-commit handling and source fidelity for new work; their continuing value is independent
+of historical compatibility.
+
+**Alternatives.** Permanent sealed readers retain the architecture the operator rejects. Mandatory
+deletion wastes useful convertible data. Migrating everything before target delivery makes old
+representations govern the redesign. Prefer faithful selective import plus regeneration, with a
+complete code-retirement endpoint and no historical-data completeness requirement.
+
+**Decision impacts.** Revise the adoption/preservation commitment through a successor to ADR-0095;
+reconcile affected clauses of ADR-0092, compact/archive ADR-0098/0105 and source/graph ADR-0107/0108,
+plus DESIGN B5 and affected D-doc owners. Do not supersede unrelated identity/trust/graph decisions
+wholesale. Accepted records remain immutable; current plans remain authority until revised. Operator
+intent is explicit here; this audit adds no repeated approval request for that direction.
+
+**Closure evidence for later execution.** Current-source installation and native/public/evaluation
+flows work with no legacy imports; old encodings are explicitly unsupported without a fallback;
+selected migrated records are admitted and consumed under target contracts; changed-basis judgments
+are new assessments; regenerated populations have honest coverage; obsolete code/config/grants/tests
+and any one-time converter are retired. Existing independent domain expectations remain useful.
+Git, retained plans/evidence and original failed receipts do not require runnable old application code.
+
+**Principles.** FP-01/04/07, DP-16, CI-02/06/12 and heuristics H1/H24/H25/H28: preserve needed meaning
+and assurance, remove compatibility work that no longer purchases a required capability.
 
 ## How the recommendations fit together
 
 | | Depends on | Enables | Size and disruption |
 |---|---|---|---|
-| I01 | Operator and ADR route for items 3–4 | I05 | Items 1–2 moderate and local. Items 3–4 are a model-version step that changes identities once. |
+| I01 | Subject/enforcement and determinant contracts; ADR reconciliation | I05 | Scope depends on actual representation gaps; identity changes must be explained, not suppressed. |
 | I02 | — | DDO-11 completion | Small now (classification); the moves are existing scope. |
-| I03 | — | DDO-09/10 consumers | Small; mostly typing and one table. |
-| I04 | — | I02's moves, I08 | Moderate and mechanical for eighteen families. |
+| I03 | Native protocol/outcome owners | DDO-09/10 consumers | Typing plus deliberate classification and generated native transitions; exact effort not established. |
+| I04 | Verified shared capabilities | I02's moves, I08 | Avoid assuming all eighteen are mechanically identical. |
 | I05 | I01 items 1–2 | DDO-09 | Framing of existing scope. |
 | I06 | — | DDO-10 | Small, inside DDO-10's own migration. |
-| I07 | Operator decision on form | every later amendment | Editorial. |
-| I08 | I04 | — | Small. |
+| I07 | Current ownership reconciliation | every later amendment | Simplify the existing coordinator; no automatic new receipts document. |
+| I08 | I04 | — | Bounded test consolidation; semantic expectations stay independent. |
+| I09 | Operator direction; successor decision/target contracts | Complete code retirement | Selective migration/regeneration, without permanent historical support or a migration-wide blocker. |
 
 By consequence, I01 and I02 matter most: they are the difference between a model that is total
-and explicit and one that is described as such. By order, I02 and I03 are cheap and independent
-and can come first; I01 items 1–2 should precede the rich family's design; I04 can travel with
+and explicit and one that is described as such. By order, I02 and I03 can be prepared together without waiting for rich-family implementation; I09 changes adoption assumptions before detailed migration design;
+I01 subject/enforcement work should precede rich-family integration; I04 can travel with
 the first execution-model move.
 
 ## Judged sound and left alone
@@ -530,36 +657,27 @@ the first execution-model move.
   a trust boundary.
 - **The Python and native completion functions.** They answer different questions: which outcome
   a normal return reports, and which terminal state a reported outcome maps to.
-- **The support-graph readers.** Change impact and the selected graph already read the one
-  protected export through the selected record index; the remaining path walk is scheduled in
-  the graph companion.
+- **The support-graph readers.** Change impact and selected graphs share the protected selected
+  record index. The completed NetworkX increment now owns the shared topology realization; no
+  repeat migration is scheduled by this review.
 - **`effect_support.py`.** It checks the older execution model and leaves with it operation by
   operation; it is not a second opinion to preserve.
-- **Legacy twin reuse, `reused_task_id`, run finalization, retained readers.** Correctly
-  scheduled for retirement with their consumers.
+- **Legacy twin reuse, `reused_task_id`, run finalization.** Retire with maintained callers. Old
+  data does not require replacement historical readers; apply I09.
 
 <a id="separate"></a>
 ## Separate from this plan
 
-- A typed-payload pass over open `SourceValue` ranges, the hand-coded packet and context shapes
-  and `analyzed_scope` bytes. A schema undertaking of its own.
+- A universal typed-payload rewrite remains separate. However, typed subject scope, rich evidence,
+  standing, policy/cut and consumer variant associations required by I01/I05/I06 belong in this
+  amendment. Canonical bytes or dictionary shapes cannot substitute for those missing contracts.
 - Splitting `data_operation_compilation.py` (one function of about 960 lines) and
   `data_operation_ports.py` along the model's concepts. Sensible when I01 opens the compiler; its
   value does not depend on this plan.
 
-<a id="challenge"></a>
-## Challenge
+## Evidence limits and next decision
 
-A fresh-context design reviewer re-checked every claim at `1d551f0ca` and tried to break each
-recommendation. Its findings were re-verified in source before being applied.
-
-| | Outcome | What changed |
-|---|---|---|
-| I01 | Narrowed | The draft called `behavior` a label and said the contracts companion ruled it out. It is the implementation revision for operations without a slice and is re-checked natively; the companion requires it. Prose now leaves the recipe only for slice-owned operations, coverage and precision stay until typed, the ADR-0092 route is named, and the third-party determinant question is added. Subject types and resolving applicability stand. |
-| I02 | Stands, corrected | The draft's counts and class sketch were wrong (27 PDF and 15 reference operations, one DDO counterpart), and two absence claims were overstated: the coordinator does state how `approved_implementations` ends, and DDO-00 dispositions exist at population level. The effect table is not an independent check. |
-| I03 | Stands, corrected | An exhaustive match does not fit an ordered chain; replaced with a typed partition. Task transitions are generated literals, not a table read. The completion-mapping item is reduced to optional and limited to new definitions. |
-| I04 | Narrowed | From "one port for all families" to the eighteen that share `PreparedOriginalCallPort`. Proposals to derive source lists and replace `primary_operations` were dropped; both already do what ADR-0092 requires. |
-| I05 | Narrowed | The draft said the rich family was ordered after DDO-10; the queue has the reverse. A proposed vertical that produced accepted knowledge conflicted with the rich boundary; recast as a design scenario at private standing. |
-| I06 | Narrowed; one part withdrawn | Declaring read views in the model would duplicate existing projection vocabularies; reduced to single owners for three literals and one typed reader. The proposal to share one support projection was withdrawn: the readers already share the export index. |
-| I07 | Stands, corrected | Receipts go to a page citing managed result identifiers, not to evidence records; timing and the operator's stop are stated. |
-| I08 | Narrowed | The per-family lines sit beside family-specific expectations; only the bare wiring line moves, into an existing test. |
+This audit changes recommendations only. The coordinator still owns F01–F14/C1–C7 and CA dispositions;
+no recommendation disposition closes a product finding. The companion records the original eight
+recommendations and audit changes. Plan revision should incorporate I01–I09 together, reconcile the
+preservation decisions, and specify target-native consumer/retirement acceptance before execution.
