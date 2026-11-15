@@ -32,7 +32,7 @@ class ScopedRelationsOperation:
                 "support": {
                     "provenance": "exact",
                     "source": "same-original",
-                    "coverage": "exact-selected-source",
+                    "coverage": {"role": "source", "description": "exact-selected-source"},
                     "identity_requirements": ["episode"],
                 },
             },
@@ -48,7 +48,7 @@ class ScopedRelationsOperation:
                 "support": {
                     "provenance": "exact",
                     "source": "same-original",
-                    "coverage": "exact-selected-source",
+                    "coverage": {"role": "constructions", "description": "exact-selected-source"},
                     "identity_requirements": ["episode"],
                 },
             },
@@ -64,7 +64,7 @@ class ScopedRelationsOperation:
                 "support": {
                     "provenance": "exact",
                     "source": "same-original",
-                    "coverage": "exact-selected-source",
+                    "coverage": {"role": "formal", "description": "exact-selected-source"},
                     "identity_requirements": ["episode"],
                 },
             },
@@ -80,7 +80,7 @@ class ScopedRelationsOperation:
                 "support": {
                     "provenance": "exact",
                     "source": "same-original",
-                    "coverage": "exact-selected-source",
+                    "coverage": {"role": "predicates", "description": "exact-selected-source"},
                     "identity_requirements": ["episode"],
                 },
             },
@@ -104,7 +104,7 @@ class ScopedRelationsOperation:
             {'kind': 'documentation', 'text': 'unknown-inspection-is-not-empty'},
             {'kind': 'documentation', 'text': 'separately-positioned-source-occurrences'},
         ],
-        "coverage": "exact-selected-source-passages-and-retained-input-coverage",
+        "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "exact-selected-source-passages-and-retained-input-coverage"},
         "outcomes": ["success", "failed"],
         "precision": "original-native-half-open-extents",
         "dependencies": [

@@ -29,7 +29,7 @@ class SourceProfileOperation:
                     "provenance": "value_substitution",
                     "identity_requirements": [],
                     "source": "original-source",
-                    "coverage": "selected-scope",
+                    "coverage": {"role": "source", "description": "selected-scope"},
                 },
             },
             {
@@ -44,7 +44,7 @@ class SourceProfileOperation:
         ],
         "applicability": [{'kind': 'documentation', 'text': 'retained-source-intervals-and-parent-layout'}],
         "invariants": [{'kind': 'documentation', 'text': 'exact-selected-interval-union'}, {'kind': 'documentation', 'text': 'no-text-recognition'}],
-        "coverage": "exact-selected-source-scope",
+        "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "exact-selected-source-scope"},
         "outcomes": ["success", "failed"],
         "numerical_policy": {"asset": "source-profile/numerical-policy", "pointer": "/numerical_policy", "kind": "urn:corpus:kind:source-profile:NumericalPolicy"},
         "assets": [{"reference": "source-ratio-numerics", "contract": "source-profile/numerical-policy", "role": "selected-source-ratio-policy"}],

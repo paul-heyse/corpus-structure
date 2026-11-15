@@ -27,7 +27,7 @@ class FiniteInterpretationOperation:
                 "support": {
                     "provenance": "exact",
                     "source": "same-original",
-                    "coverage": "selected-candidate-population",
+                    "coverage": {"role": "candidates", "description": "selected-candidate-population"},
                     "identity_requirements": ["episode"],
                 },
             },
@@ -43,7 +43,7 @@ class FiniteInterpretationOperation:
                 "support": {
                     "provenance": "exact",
                     "source": "explicit-policy",
-                    "coverage": "complete-factor-inputs",
+                    "coverage": {"role": "policy", "description": "complete-factor-inputs"},
                     "origins": ["authored"],
                     "identity_requirements": ["original-source"],
                 },
@@ -65,7 +65,7 @@ class FiniteInterpretationOperation:
             {'kind': 'documentation', 'text': 'no-knowledge-admission'},
             {'kind': 'documentation', 'text': 'finite-factor-dependency-closure'},
         ],
-        "coverage": "complete-selected-candidate-and-factor-population",
+        "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "complete-selected-candidate-and-factor-population"},
         "outcomes": ["success"],
         "numerical_policy": {"asset": "finite/algorithm-assets", "pointer": "/numerical_policy", "kind": "urn:corpus:kind:finite:NumericalPolicy"},
         "dependencies": [],

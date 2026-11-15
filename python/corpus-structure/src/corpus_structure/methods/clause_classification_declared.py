@@ -32,7 +32,7 @@ class ClauseClassificationOperation:
                 "support": {
                     "provenance": "exact",
                     "source": "same-original",
-                    "coverage": "exact-selected-source",
+                    "coverage": {"role": "source", "description": "exact-selected-source"},
                     "identity_requirements": ["episode"],
                 },
             },
@@ -48,7 +48,7 @@ class ClauseClassificationOperation:
                 "support": {
                     "provenance": "exact",
                     "source": "same-original",
-                    "coverage": "exact-selected-source",
+                    "coverage": {"role": "predicates", "description": "exact-selected-source"},
                     "identity_requirements": ["episode"],
                 },
             },
@@ -64,7 +64,7 @@ class ClauseClassificationOperation:
                 "support": {
                     "provenance": "exact",
                     "source": "same-original",
-                    "coverage": "exact-selected-source",
+                    "coverage": {"role": "canonical", "description": "exact-selected-source"},
                     "identity_requirements": ["episode"],
                 },
             },
@@ -80,7 +80,7 @@ class ClauseClassificationOperation:
                 "support": {
                     "provenance": "exact",
                     "source": "same-original",
-                    "coverage": "exact-selected-source",
+                    "coverage": {"role": "gliner_observations", "description": "exact-selected-source"},
                     "identity_requirements": ["episode"],
                 },
             },
@@ -96,7 +96,7 @@ class ClauseClassificationOperation:
                 "support": {
                     "provenance": "exact",
                     "source": "same-original",
-                    "coverage": "exact-selected-source",
+                    "coverage": {"role": "gliner_candidates", "description": "exact-selected-source"},
                     "identity_requirements": ["episode"],
                 },
             },
@@ -112,7 +112,7 @@ class ClauseClassificationOperation:
                 "support": {
                     "provenance": "exact",
                     "source": "same-original",
-                    "coverage": "exact-selected-source",
+                    "coverage": {"role": "d1_observations", "description": "exact-selected-source"},
                     "identity_requirements": ["episode"],
                 },
             },
@@ -128,7 +128,7 @@ class ClauseClassificationOperation:
                 "support": {
                     "provenance": "exact",
                     "source": "same-original",
-                    "coverage": "exact-selected-source",
+                    "coverage": {"role": "d1_candidates", "description": "exact-selected-source"},
                     "identity_requirements": ["episode"],
                 },
             },
@@ -153,7 +153,7 @@ class ClauseClassificationOperation:
             {'kind': 'documentation', 'text': 'missing-function-question-is-failed-not-empty'},
             {'kind': 'documentation', 'text': 'unprojectable-predicate-focus-is-partial'},
         ],
-        "coverage": "exact-inspected-native-predicate-focus-population",
+        "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "exact-inspected-native-predicate-focus-population"},
         "outcomes": ["success"],
         "precision": "original-native-half-open-extents",
         "dependencies": [

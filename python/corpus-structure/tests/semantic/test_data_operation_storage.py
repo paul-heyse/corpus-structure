@@ -59,7 +59,7 @@ from semantic.data_operation_kernel_support import POPULATION, STORAGE
 def test_kernel_protocol_is_captured_effective_meaning_not_an_ambient_catalog():
     captured = native_protocol_sources()
     declaration = native_operation_declarations(captured)
-    model = compile_data_operations(declarations=(declaration,))
+    model = compile_data_operations(declarations=(declaration,), captured_contracts=captured)
     calls = native_operation_calls(model, sources=captured)
     assert {owner for owner, _ in calls} == {
         operation.semantic_id for operation in model.operations
@@ -73,7 +73,7 @@ def test_kernel_protocol_is_captured_effective_meaning_not_an_ambient_catalog():
         else source
         for source in captured
     )
-    changed = compile_data_operations(declarations=(native_operation_declarations(altered),))
+    changed = compile_data_operations(declarations=(native_operation_declarations(altered),), captured_contracts=altered)
     original = {(i.owner, i.domain): i.key for i in model.identities}
     revised = {(i.owner, i.domain): i.key for i in changed.identities}
     assert (

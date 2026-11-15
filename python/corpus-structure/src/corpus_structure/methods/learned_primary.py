@@ -37,7 +37,7 @@ class MaverickPrimaryOperation:
                     "identity_requirements": ["episode"],
                     "origins": ["computation"],
                     "source": "original-source",
-                    "coverage": "selected-scope",
+                    "coverage": {"role": "source", "description": "selected-scope"},
                 },
             },
             {
@@ -52,7 +52,7 @@ class MaverickPrimaryOperation:
                 "support": {
                     "provenance": "exact",
                     "source": "original-source",
-                    "coverage": "selected-scope",
+                    "coverage": {"role": "annotations", "description": "selected-scope"},
                     "origins": ["computation"],
                     "identity_requirements": ["episode"],
                 },
@@ -86,7 +86,7 @@ class MaverickPrimaryOperation:
             {'kind': 'documentation', 'text': 'no-score-authority-upgrade'},
             {'kind': 'documentation', 'text': 'raw-native-labels-and-question-populations'},
         ],
-        "coverage": "complete-original-selected-blocks-with-explicit-limitations",
+        "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "complete-original-selected-blocks-with-explicit-limitations"},
         "outcomes": ["success", "failed"],
         "precision": "unchanged-native-model-and-original-mapping-policy",
         "capabilities": {
@@ -565,7 +565,7 @@ class DipoPrimaryOperation:
                     "identity_requirements": ["episode"],
                     "origins": ["computation"],
                     "source": "original-source",
-                    "coverage": "selected-scope",
+                    "coverage": {"role": "source", "description": "selected-scope"},
                 },
             },
             {
@@ -597,7 +597,7 @@ class DipoPrimaryOperation:
             {'kind': 'documentation', 'text': 'no-score-authority-upgrade'},
             {'kind': 'documentation', 'text': 'raw-native-labels-and-question-populations'},
         ],
-        "coverage": "complete-original-selected-blocks-with-explicit-limitations",
+        "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "complete-original-selected-blocks-with-explicit-limitations"},
         "outcomes": ["success", "failed"],
         "precision": "unchanged-native-model-and-original-mapping-policy",
         "capabilities": {
@@ -1063,7 +1063,7 @@ class D1SourcePrimaryOperation:
                     "identity_requirements": ["episode"],
                     "origins": ["computation"],
                     "source": "original-source",
-                    "coverage": "selected-scope",
+                    "coverage": {"role": "source", "description": "selected-scope"},
                 },
             },
             {
@@ -1095,7 +1095,7 @@ class D1SourcePrimaryOperation:
             {'kind': 'documentation', 'text': 'no-score-authority-upgrade'},
             {'kind': 'documentation', 'text': 'raw-native-labels-and-question-populations'},
         ],
-        "coverage": "complete-original-selected-blocks-with-explicit-limitations",
+        "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "complete-original-selected-blocks-with-explicit-limitations"},
         "outcomes": ["success", "failed"],
         "precision": "unchanged-native-model-and-original-mapping-policy",
         "capabilities": {
@@ -1561,7 +1561,7 @@ class D1CandidatesPrimaryOperation:
                     "identity_requirements": ["episode"],
                     "origins": ["computation"],
                     "source": "original-source",
-                    "coverage": "selected-scope",
+                    "coverage": {"role": "source", "description": "selected-scope"},
                 },
             },
             {
@@ -1576,7 +1576,7 @@ class D1CandidatesPrimaryOperation:
                 "support": {
                     "provenance": "exact",
                     "source": "original-source",
-                    "coverage": "selected-scope",
+                    "coverage": {"role": "formal", "description": "selected-scope"},
                     "origins": ["computation"],
                     "identity_requirements": ["episode"],
                 },
@@ -1593,7 +1593,7 @@ class D1CandidatesPrimaryOperation:
                 "support": {
                     "provenance": "exact",
                     "source": "original-source",
-                    "coverage": "selected-scope",
+                    "coverage": {"role": "constructions", "description": "selected-scope"},
                     "origins": ["computation"],
                     "identity_requirements": ["episode"],
                 },
@@ -1610,7 +1610,7 @@ class D1CandidatesPrimaryOperation:
                 "support": {
                     "provenance": "exact",
                     "source": "original-source",
-                    "coverage": "selected-scope",
+                    "coverage": {"role": "contextual", "description": "selected-scope"},
                     "origins": ["computation"],
                     "identity_requirements": ["episode"],
                 },
@@ -1648,7 +1648,7 @@ class D1CandidatesPrimaryOperation:
             {'kind': 'documentation', 'text': 'no-score-authority-upgrade'},
             {'kind': 'documentation', 'text': 'raw-native-labels-and-question-populations'},
         ],
-        "coverage": "complete-original-selected-blocks-with-explicit-limitations",
+        "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "complete-original-selected-blocks-with-explicit-limitations"},
         "outcomes": ["success", "failed"],
         "precision": "unchanged-native-model-and-original-mapping-policy",
         "capabilities": {
@@ -2143,7 +2143,7 @@ class GlinerCuesPrimaryOperation:
                     "identity_requirements": ["episode"],
                     "origins": ["computation"],
                     "source": "original-source",
-                    "coverage": "selected-scope",
+                    "coverage": {"role": "source", "description": "selected-scope"},
                 },
             },
             {
@@ -2175,7 +2175,7 @@ class GlinerCuesPrimaryOperation:
             {'kind': 'documentation', 'text': 'no-score-authority-upgrade'},
             {'kind': 'documentation', 'text': 'raw-native-labels-and-question-populations'},
         ],
-        "coverage": "complete-original-selected-blocks-with-explicit-limitations",
+        "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "complete-original-selected-blocks-with-explicit-limitations"},
         "outcomes": ["success", "failed"],
         "precision": "unchanged-native-model-and-original-mapping-policy",
         "capabilities": {
@@ -2641,7 +2641,7 @@ class GlinerFunctionPrimaryOperation:
                     "identity_requirements": ["episode"],
                     "origins": ["computation"],
                     "source": "original-source",
-                    "coverage": "selected-scope",
+                    "coverage": {"role": "source", "description": "selected-scope"},
                 },
             },
             {
@@ -2673,7 +2673,7 @@ class GlinerFunctionPrimaryOperation:
             {'kind': 'documentation', 'text': 'no-score-authority-upgrade'},
             {'kind': 'documentation', 'text': 'raw-native-labels-and-question-populations'},
         ],
-        "coverage": "complete-original-selected-blocks-with-explicit-limitations",
+        "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "complete-original-selected-blocks-with-explicit-limitations"},
         "outcomes": ["success", "failed"],
         "precision": "unchanged-native-model-and-original-mapping-policy",
         "capabilities": {
@@ -3139,7 +3139,7 @@ class ContextualNativePrimaryOperation:
                     "identity_requirements": ["episode"],
                     "origins": ["computation"],
                     "source": "original-source",
-                    "coverage": "selected-scope",
+                    "coverage": {"role": "source", "description": "selected-scope"},
                 },
             },
             {
@@ -3154,7 +3154,7 @@ class ContextualNativePrimaryOperation:
                 "support": {
                     "provenance": "exact",
                     "source": "original-source",
-                    "coverage": "selected-scope",
+                    "coverage": {"role": "formal", "description": "selected-scope"},
                     "origins": ["computation"],
                     "identity_requirements": ["episode"],
                 },
@@ -3171,7 +3171,7 @@ class ContextualNativePrimaryOperation:
                 "support": {
                     "provenance": "exact",
                     "source": "original-source",
-                    "coverage": "selected-scope",
+                    "coverage": {"role": "constructions", "description": "selected-scope"},
                     "origins": ["computation"],
                     "identity_requirements": ["episode"],
                 },
@@ -3188,7 +3188,7 @@ class ContextualNativePrimaryOperation:
                 "support": {
                     "provenance": "exact",
                     "source": "original-source",
-                    "coverage": "selected-scope",
+                    "coverage": {"role": "maverick", "description": "selected-scope"},
                     "origins": ["computation"],
                     "identity_requirements": ["episode"],
                 },
@@ -3205,7 +3205,7 @@ class ContextualNativePrimaryOperation:
                 "support": {
                     "provenance": "exact",
                     "source": "original-source",
-                    "coverage": "selected-scope",
+                    "coverage": {"role": "dipo", "description": "selected-scope"},
                     "origins": ["computation"],
                     "identity_requirements": ["episode"],
                 },
@@ -3235,7 +3235,7 @@ class ContextualNativePrimaryOperation:
             {'kind': 'documentation', 'text': 'no-score-authority-upgrade'},
             {'kind': 'documentation', 'text': 'raw-native-labels-and-question-populations'},
         ],
-        "coverage": "complete-original-selected-blocks-with-explicit-limitations",
+        "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "complete-original-selected-blocks-with-explicit-limitations"},
         "outcomes": ["success", "failed"],
         "precision": "unchanged-native-model-and-original-mapping-policy",
         "capabilities": {
@@ -3349,7 +3349,7 @@ class GlinerDefinitionPrimaryOperation:
                     "identity_requirements": ["episode"],
                     "origins": ["computation"],
                     "source": "original-source",
-                    "coverage": "selected-scope",
+                    "coverage": {"role": "source", "description": "selected-scope"},
                 },
             },
             {
@@ -3387,7 +3387,7 @@ class GlinerDefinitionPrimaryOperation:
             {'kind': 'documentation', 'text': 'no-score-authority-upgrade'},
             {'kind': 'documentation', 'text': 'raw-native-labels-and-question-populations'},
         ],
-        "coverage": "complete-original-selected-blocks-with-explicit-limitations",
+        "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "complete-original-selected-blocks-with-explicit-limitations"},
         "outcomes": ["success", "failed"],
         "precision": "unchanged-native-model-and-original-mapping-policy",
         "capabilities": {

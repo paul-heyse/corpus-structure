@@ -29,7 +29,7 @@ class WeakMathAnalysis:
                     "identity_requirements": [],
                     "origins": ["computation", "original-source"],
                     "source": "original-source",
-                    "coverage": "exact-selected-scope",
+                    "coverage": {"role": "source", "description": "exact-selected-scope"},
                 },
             },
             {
@@ -46,7 +46,7 @@ class WeakMathAnalysis:
                     "identity_requirements": [],
                     "origins": ["computation"],
                     "source": "original-source",
-                    "coverage": "exact-selected-scope",
+                    "coverage": {"role": "formal", "description": "exact-selected-scope"},
                 },
             },
             {
@@ -66,7 +66,7 @@ class WeakMathAnalysis:
             {'kind': 'documentation', 'text': 'weak-demand-never-resolves-ancestor-context'},
             {'kind': 'documentation', 'text': 'timeout-never-publishes-success'},
         ],
-        "coverage": "selected-original-formula-atoms-with-explicit-unavailability",
+        "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "selected-original-formula-atoms-with-explicit-unavailability"},
         "outcomes": ["success", "failed"],
         "precision": "exact-symbolic-with-retained-ambiguity",
         "dependencies": ["text.formal_evidence/source-native"],
@@ -346,7 +346,7 @@ class ContextualMathAnalysis:
                     "identity_requirements": [],
                     "origins": ["computation", "original-source"],
                     "source": "original-source",
-                    "coverage": "exact-selected-scope",
+                    "coverage": {"role": "source", "description": "exact-selected-scope"},
                 },
             },
             {
@@ -363,7 +363,7 @@ class ContextualMathAnalysis:
                     "identity_requirements": [],
                     "origins": ["computation"],
                     "source": "original-source",
-                    "coverage": "exact-selected-scope",
+                    "coverage": {"role": "formal", "description": "exact-selected-scope"},
                 },
             },
             {
@@ -380,7 +380,7 @@ class ContextualMathAnalysis:
                     "identity_requirements": [],
                     "origins": ["computation"],
                     "source": "original-source",
-                    "coverage": "exact-selected-source-scope",
+                    "coverage": {"role": "constructions", "description": "exact-selected-source-scope"},
                 },
             },
             {
@@ -399,7 +399,7 @@ class ContextualMathAnalysis:
                     "origins": ["computation"],
                     "source": "frozen-source-set",
                     "source_set": "math-scope-ancestors",
-                    "coverage": "exact-selected-scope",
+                    "coverage": {"role": "inherited", "description": "exact-selected-scope"},
                 },
             },
             {
@@ -418,7 +418,7 @@ class ContextualMathAnalysis:
                     "origins": ["computation", "original-source"],
                     "source": "frozen-source-set",
                     "source_set": "math-scope-ancestor-sources",
-                    "coverage": "exact-selected-source-scope",
+                    "coverage": {"role": "ancestor_sources", "description": "exact-selected-source-scope"},
                 },
             },
             {
@@ -438,7 +438,7 @@ class ContextualMathAnalysis:
             {'kind': 'documentation', 'text': 'weak-demand-never-resolves-ancestor-context'},
             {'kind': 'documentation', 'text': 'timeout-never-publishes-success'},
         ],
-        "coverage": "selected-original-formula-atoms-with-explicit-unavailability",
+        "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "selected-original-formula-atoms-with-explicit-unavailability"},
         "outcomes": ["success", "failed"],
         "precision": "exact-symbolic-with-retained-ambiguity",
         "dependencies": ["text.formal_evidence/source-native", "text.constructions/source-native"],

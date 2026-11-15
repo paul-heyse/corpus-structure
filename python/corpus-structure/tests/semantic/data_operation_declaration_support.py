@@ -41,8 +41,9 @@ class DeclarationVocabulary:
 
 
 def declaration(
-    identifier, *, vocabulary, roles, behavior, parameters, **changes
+    identifier, *, vocabulary, roles, behavior, parameters, implementation_coverage=False, **changes
 ) -> dict[str, Any]:
+    coverage_description = changes.pop("coverage_description", vocabulary.coverage)
     value = {
         "id": identifier,
         "profile": "derivation",
@@ -53,7 +54,7 @@ def declaration(
         "roles": roles,
         "applicability": [{"kind": "documentation", "text": text} for text in vocabulary.applicability],
         "invariants": [{"kind": "documentation", "text": text} for text in vocabulary.invariants],
-        "coverage": vocabulary.coverage,
+        "coverage": {"binding": "self", "result_owners": [{"kind": "implementation" if implementation_coverage else "declared-contract", "reference": "self"}], "description": coverage_description},
         "outcomes": list(vocabulary.outcomes),
         "precision": vocabulary.precision,
         "dependencies": [],
@@ -209,9 +210,12 @@ PARAMETER = DeclarationVocabulary(
 
 
 def contract(**changes: Any) -> dict[str, Any]:
+    implementation_coverage = changes.pop("implementation_coverage", "entrypoints" in changes)
+    coverage_description = changes.pop("coverage_description", None)
     value = declaration(
         "urn:test:derive",
         vocabulary=COMPILATION,
+        implementation_coverage=implementation_coverage,
         roles=[
             {
                 "name": "source",
@@ -226,7 +230,7 @@ def contract(**changes: Any) -> dict[str, Any]:
                     "provenance": "exact",
                     "identity_requirements": ["episode"],
                     "source": "same-original",
-                    "coverage": "selected-scope",
+                    "coverage": {"role": "source", "description": "selected-scope"},
                 },
             },
             {
@@ -244,6 +248,8 @@ def contract(**changes: Any) -> dict[str, Any]:
         binding={"operator": "scan", "roles": ["source"]},
     )
     value.update(changes)
+    if coverage_description is not None:
+        value["coverage"]["description"] = coverage_description
     return value
 
 
@@ -336,7 +342,7 @@ def binding_declaration(identifier="urn:op", **changes) -> dict[str, Any]:
                 "support": {
                     "provenance": "exact",
                     "source": "original",
-                    "coverage": "complete",
+                    "coverage": {"role": "items", "description": "complete"},
                     "identity_requirements": ["episode"],
                 },
             },
@@ -419,7 +425,7 @@ def _consumer_declaration() -> dict[str, Any]:
             "support": {
                 "provenance": "exact",
                 "source": "same-original",
-                "coverage": "selected-scope",
+                "coverage": {"role": "source", "description": "selected-scope"},
                 "identity_requirements": ["episode"],
             },
         },

@@ -33,7 +33,7 @@ class CanonicalSentenceProjection:
                     "provenance": "value_substitution",
                     "identity_requirements": [],
                     "source": "original-source",
-                    "coverage": "selected-scope",
+                    "coverage": {"role": "inventory", "description": "selected-scope"},
                 },
             },
             {
@@ -48,7 +48,7 @@ class CanonicalSentenceProjection:
         ],
         "applicability": [{'kind': 'documentation', 'text': 'captured-native-inventory'}],
         "invariants": [{'kind': 'documentation', 'text': 'original-source-coordinates'}, {'kind': 'documentation', 'text': 'closed-token-sentence-membership'}],
-        "coverage": "exact-selected-original-blocks",
+        "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "exact-selected-original-blocks"},
         "outcomes": ["success", "failed"],
         "precision": "exact-original-projection-offsets",
         "dependencies": ["segment.sentences/source-native"],

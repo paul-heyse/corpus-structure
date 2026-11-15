@@ -420,6 +420,8 @@ def compile_binding(
     if model.version != MODEL_VERSION:
         raise ValueError("unsupported pinned binding model")
     op = model.operation(operation)
+    if op.coverage.binding != op.binding or any(role.support is None or role.support.coverage.role != role.name for role in op.roles if role.direction == "input"):
+        raise ValueError("coverage differs from the actual operation binding or input role")
     if subject_context is not None and subject_context.subject_definition != op.subject:
         raise ValueError("compiled binding subject definition differs from operation")
     available_source_sets = source_sets_record(source_sets)
@@ -432,12 +434,12 @@ def compile_binding(
         raise ValueError("binding lacks a declared frozen source set")
     selected_source_sets = {name: available_source_sets[name] for name in sorted(named_source_sets)}
     identities = {(identity.owner, identity.domain): identity.key for identity in model.identities}
-    expression = next(item.expression for item in model.bindings if item.semantic_id == op.binding)
+    expression = next(item.expression for item in model.bindings if item.semantic_id == op.coverage.binding)
     params = effective_binding_parameters(op, parameters)
     choice_values = dict(choices or {})
     # Declaration defaults are typed JSON values. Missing and explicit null differ.
     definitions = json.loads(op.parameters)
-    roles = {role.name: role for role in op.roles if role.direction == "input"}
+    roles = {role.support.coverage.role: role for role in op.roles if role.direction == "input" and role.support is not None}
     projected = {item.kind: item for item in projections}
     if len(projected) != len(projections):
         raise ValueError("duplicate admitted kind projection")

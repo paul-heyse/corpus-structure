@@ -24,6 +24,9 @@ from .identity import canonical_bytes
 MODEL_VERSION = "data-operation-model-v7"
 
 
+SubjectScope = Literal["original-source", "original-document", "selected-source-set", "project", "invocation"]
+
+
 ReplicatePolicy = Literal["deterministic-single-result", "retained-observation-single-result", "explicit-replicates"]
 
 
@@ -82,10 +85,18 @@ class EffectiveKind:
 
 
 @dataclass(frozen=True)
+class InputCoverage:
+    """Checked role reference; the relational binding owns selected input coverage."""
+
+    role: str
+    description: str
+
+
+@dataclass(frozen=True)
 class InputSupport:
     provenance: Literal["exact", "value_substitution"]
     source: str
-    coverage: str
+    coverage: InputCoverage
     authorization: tuple[str, ...] = ()
     closure: tuple[str, ...] = ()
     identity_requirements: tuple[
@@ -122,6 +133,7 @@ def operation_role_record(role: OperationRole, *, result_only: bool = False) -> 
         record.pop("subject_field")
     if role.support is not None:
         support = asdict(role.support)
+        support["coverage"] = {"role": role.support.coverage.role}
         for name in ("source_set", "source_reference_field"):
             if support[name] is None:
                 support.pop(name)
@@ -350,7 +362,7 @@ class SubjectDefinition:
 
     semantic_id: str
     identifier_kind: str
-    scope: Literal["original-source", "original-document", "selected-source-set", "project", "invocation"]
+    scope: SubjectScope
 
 
 @dataclass(frozen=True)
@@ -404,6 +416,36 @@ class NumericalPolicyReference:
 
 
 @dataclass(frozen=True)
+class CoverageResultOwner:
+    kind: Literal["implementation", "native-admission", "declared-contract", "schema"]
+    reference: str
+    interpretation: str
+    semantics: bytes
+
+    @property
+    def record(self):
+        return {"kind": self.kind, "reference": self.reference, "interpretation": self.interpretation, "semantics": json.loads(self.semantics)}
+
+
+@dataclass(frozen=True)
+class CoverageContract:
+    """Actual selection and result owners, with descriptive claims kept separate."""
+
+    binding: str
+    selection: bytes
+    result_selection: bytes
+    result_owners: tuple[CoverageResultOwner, ...]
+    description: str
+
+    def record(self, *, result_only=False, definition_only=False):
+        return {
+            "binding": self.binding,
+            "selection": json.loads(self.result_selection if result_only else self.selection),
+            "result_owners": [{key: value for key, value in owner.record.items() if not (definition_only and owner.kind in {"implementation", "native-admission"} and key == "semantics")} for owner in self.result_owners],
+        }
+
+
+@dataclass(frozen=True)
 class EffectiveOperation:
     semantic_id: str
     profile: Literal["derivation", "discovery", "selection", "command", "read"]
@@ -412,7 +454,7 @@ class EffectiveOperation:
     roles: tuple[OperationRole, ...]
     applicability: tuple[EnforcementClaim, ...]
     invariants: tuple[EnforcementClaim, ...]
-    coverage: str
+    coverage: CoverageContract
     outcomes: tuple[str, ...]
     precision: str | None
     dependencies: tuple[str, ...]
@@ -455,7 +497,7 @@ class EffectiveOperation:
                 "context": self.context,
                 "roles": [operation_role_record(role, result_only=True) for role in self.roles],
                 "invariants": enforced_claims(self.invariants),
-                "coverage": self.coverage,
+                "coverage": self.coverage.record(result_only=True),
                 "outcomes": self.outcomes,
                 **({"precision": self.precision} if self.precision is not None else {}),
                 **({"numerical_policy": self.numerical_policy.record} if self.numerical_policy is not None else {}),
@@ -505,6 +547,7 @@ class EffectiveOperation:
             {
                 **json.loads(self.recipe),
                 "roles": [operation_role_record(role) for role in self.roles],
+                "coverage": self.coverage.record(definition_only=True),
                 "applicability": enforced_claims(self.applicability),
                 **(
                     {"potential_dependencies": self.potential_dependencies}

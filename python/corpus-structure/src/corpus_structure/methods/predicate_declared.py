@@ -27,7 +27,7 @@ class PredicateEvidenceOperation:
                 "support": {
                     "provenance": "exact",
                     "source": "same-original",
-                    "coverage": "exact-selected-source",
+                    "coverage": {"role": "source", "description": "exact-selected-source"},
                     "identity_requirements": ["episode"],
                 },
             },
@@ -43,7 +43,7 @@ class PredicateEvidenceOperation:
                 "support": {
                     "provenance": "exact",
                     "source": "same-original",
-                    "coverage": "exact-selected-source",
+                    "coverage": {"role": "annotations", "description": "exact-selected-source"},
                     "identity_requirements": ["episode"],
                 },
             },
@@ -59,7 +59,7 @@ class PredicateEvidenceOperation:
                 "support": {
                     "provenance": "exact",
                     "source": "same-original",
-                    "coverage": "exact-selected-source",
+                    "coverage": {"role": "constructions", "description": "exact-selected-source"},
                     "identity_requirements": ["episode"],
                 },
             },
@@ -75,7 +75,7 @@ class PredicateEvidenceOperation:
                 "support": {
                     "provenance": "exact",
                     "source": "same-original",
-                    "coverage": "exact-selected-source",
+                    "coverage": {"role": "formal", "description": "exact-selected-source"},
                     "identity_requirements": ["episode"],
                 },
             },
@@ -96,7 +96,7 @@ class PredicateEvidenceOperation:
             {'kind': 'documentation', 'text': 'private-proposals-only'},
             {'kind': 'documentation', 'text': 'unavailable-inspection-is-not-empty'},
         ],
-        "coverage": "exact-inspected-native-blocks-with-unavailable-coverage",
+        "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "exact-inspected-native-blocks-with-unavailable-coverage"},
         "outcomes": ["success", "failed"],
         "precision": "original-native-half-open-extents",
         "dependencies": [

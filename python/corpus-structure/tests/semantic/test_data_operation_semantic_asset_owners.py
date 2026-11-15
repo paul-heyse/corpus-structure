@@ -40,7 +40,7 @@ def test_actual_finite_wrapper_prose_is_custody_but_algorithm_remains_semantic(m
     wrapper_bytes = (root / wrapper).read_bytes()
     changed = wrapper_bytes.replace(
         b'"behavior": "', b'"behavior": "Reworded description. '
-    ).replace(b"retained-private-candidates-and-explicit-policy", b"Descriptive applicability reworded")
+    ).replace(b"retained-private-candidates-and-explicit-policy", b"Descriptive applicability reworded").replace(b"complete-selected-candidate-and-factor-population", b"Descriptive coverage reworded").replace(b"selected-candidate-population", b"Descriptive input scope reworded")
     assert changed != wrapper_bytes
     altered_wrapper = tmp_path / "finite_interpretation.py"
     altered_wrapper.write_bytes(changed)

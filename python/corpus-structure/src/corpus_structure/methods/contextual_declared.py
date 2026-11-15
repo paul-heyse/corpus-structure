@@ -35,7 +35,7 @@ class ContextualRetrievalOperation:
                 "support": {
                     "provenance": "exact",
                     "source": "same-original",
-                    "coverage": "located-occurrence",
+                    "coverage": {"role": "query", "description": "located-occurrence"},
                     "identity_requirements": ["episode"],
                 },
             },
@@ -51,7 +51,7 @@ class ContextualRetrievalOperation:
                 "support": {
                     "provenance": "value_substitution",
                     "source": "explicit-inventory",
-                    "coverage": "complete-eligible-inventory",
+                    "coverage": {"role": "inventory", "description": "complete-eligible-inventory"},
                     "identity_requirements": [],
                 },
             },
@@ -67,7 +67,7 @@ class ContextualRetrievalOperation:
                 "support": {
                     "provenance": "exact",
                     "source": "selected-inventory-and-query",
-                    "coverage": "complete-selected-inputs",
+                    "coverage": {"role": "vectors", "description": "complete-selected-inputs"},
                     "identity_requirements": ["episode"],
                 },
             },
@@ -83,7 +83,7 @@ class ContextualRetrievalOperation:
                 "support": {
                     "provenance": "exact",
                     "source": "explicit-policy",
-                    "coverage": "complete-relationship-constraints",
+                    "coverage": {"role": "policy", "description": "complete-relationship-constraints"},
                     "origins": ["authored"],
                     "identity_requirements": ["original-source"],
                 },
@@ -105,7 +105,7 @@ class ContextualRetrievalOperation:
             {'kind': 'documentation', 'text': 'explicit-relationship-witnesses'},
             {'kind': 'documentation', 'text': 'private-proposal-standing'},
         ],
-        "coverage": "complete-frozen-eligible-inventory",
+        "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "complete-frozen-eligible-inventory"},
         "outcomes": ["success"],
         "precision": "exact-pgvector-cosine-and-lexical-ranking",
         "dependencies": [],
@@ -296,7 +296,7 @@ class ContextualInventoryOperation:
                 "support": {
                     "provenance": "exact",
                     "source": "explicit-target-facts",
-                    "coverage": "complete-authored-selection",
+                    "coverage": {"role": "selection", "description": "complete-authored-selection"},
                     "origins": ["authored"],
                     "identity_requirements": ["original-source"],
                 },
@@ -317,7 +317,7 @@ class ContextualInventoryOperation:
             {'kind': 'documentation', 'text': 'declared-scope-and-version'},
             {'kind': 'documentation', 'text': 'equal-labels-never-merge-targets'},
         ],
-        "coverage": "complete-selected-eligible-inventory",
+        "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "complete-selected-eligible-inventory"},
         "outcomes": ["success"],
         "precision": "exact-frozen-inventory",
         "dependencies": [],

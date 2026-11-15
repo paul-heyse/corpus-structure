@@ -232,7 +232,7 @@ class DeclaredMathOccurrences:
                     "identity_requirements": [],
                     "origins": ["computation", "original-source"],
                     "source": "original-source",
-                    "coverage": "exact-selected-scope",
+                    "coverage": {"role": "source", "description": "exact-selected-scope"},
                 },
             },
             {
@@ -249,7 +249,7 @@ class DeclaredMathOccurrences:
                     "identity_requirements": [],
                     "origins": ["computation"],
                     "source": "original-source",
-                    "coverage": "exact-selected-scope",
+                    "coverage": {"role": "formal", "description": "exact-selected-scope"},
                 },
             },
             {
@@ -268,7 +268,7 @@ class DeclaredMathOccurrences:
                     "origins": ["computation"],
                     "source": "frozen-source-set",
                     "source_set": "math-ancestors",
-                    "coverage": "exact-selected-scope",
+                    "coverage": {"role": "inherited", "description": "exact-selected-scope"},
                 },
             },
             {
@@ -287,7 +287,7 @@ class DeclaredMathOccurrences:
                     "origins": ["computation", "original-source"],
                     "source": "frozen-source-set",
                     "source_set": "math-ancestor-sources",
-                    "coverage": "exact-selected-source-scope",
+                    "coverage": {"role": "ancestor_sources", "description": "exact-selected-source-scope"},
                 },
             },
             {
@@ -304,7 +304,7 @@ class DeclaredMathOccurrences:
                     "identity_requirements": [],
                     "origins": ["computation"],
                     "source": "original-source",
-                    "coverage": "exact-selected-source-scope",
+                    "coverage": {"role": "constructions", "description": "exact-selected-source-scope"},
                 },
             },
             {
@@ -323,7 +323,7 @@ class DeclaredMathOccurrences:
             {'kind': 'documentation', 'text': 'no-repeated-recognition'},
             {'kind': 'documentation', 'text': 'exact-retained-occurrence-context'},
         ],
-        "coverage": "selected-formula-atoms-with-explicit-partial-context",
+        "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "selected-formula-atoms-with-explicit-partial-context"},
         "outcomes": ["success"],
         "precision": "exact-symbolic-with-retained-ambiguity",
         "dependencies": ["text.formal_evidence/source-native"],
@@ -651,7 +651,7 @@ class DeclaredMathNormalization:
                     "identity_requirements": [],
                     "origins": ["computation", "original-source"],
                     "source": "original-source",
-                    "coverage": "exact-selected-scope",
+                    "coverage": {"role": "source", "description": "exact-selected-scope"},
                 },
             },
             {
@@ -668,7 +668,7 @@ class DeclaredMathNormalization:
                     "identity_requirements": [],
                     "origins": ["computation"],
                     "source": "original-source",
-                    "coverage": "exact-selected-scope",
+                    "coverage": {"role": "occurrences", "description": "exact-selected-scope"},
                 },
             },
             {
@@ -687,7 +687,7 @@ class DeclaredMathNormalization:
             {'kind': 'documentation', 'text': 'no-repeated-recognition'},
             {'kind': 'documentation', 'text': 'exact-retained-occurrence-context'},
         ],
-        "coverage": "selected-formula-atoms-with-explicit-partial-context",
+        "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "selected-formula-atoms-with-explicit-partial-context"},
         "outcomes": ["success"],
         "precision": "exact-symbolic-with-retained-ambiguity",
         "dependencies": ["extract.math/declared"],
@@ -925,7 +925,7 @@ class DeclaredMathScope:
                     "identity_requirements": [],
                     "origins": ["computation", "original-source"],
                     "source": "original-source",
-                    "coverage": "exact-selected-scope",
+                    "coverage": {"role": "source", "description": "exact-selected-scope"},
                 },
             },
             {
@@ -942,7 +942,7 @@ class DeclaredMathScope:
                     "identity_requirements": [],
                     "origins": ["computation"],
                     "source": "original-source",
-                    "coverage": "exact-selected-scope",
+                    "coverage": {"role": "occurrences", "description": "exact-selected-scope"},
                 },
             },
             {
@@ -959,7 +959,7 @@ class DeclaredMathScope:
                     "identity_requirements": [],
                     "origins": ["computation"],
                     "source": "original-source",
-                    "coverage": "exact-selected-scope",
+                    "coverage": {"role": "symbolic", "description": "exact-selected-scope"},
                 },
             },
             {
@@ -976,7 +976,7 @@ class DeclaredMathScope:
                     "identity_requirements": [],
                     "origins": ["computation"],
                     "source": "original-source",
-                    "coverage": "exact-selected-source-scope",
+                    "coverage": {"role": "constructions", "description": "exact-selected-source-scope"},
                 },
             },
             {
@@ -995,7 +995,7 @@ class DeclaredMathScope:
                     "origins": ["computation"],
                     "source": "frozen-source-set",
                     "source_set": "math-scope-ancestors",
-                    "coverage": "exact-selected-scope",
+                    "coverage": {"role": "inherited", "description": "exact-selected-scope"},
                 },
             },
             {
@@ -1014,7 +1014,7 @@ class DeclaredMathScope:
                     "origins": ["computation", "original-source"],
                     "source": "frozen-source-set",
                     "source_set": "math-scope-ancestor-sources",
-                    "coverage": "exact-selected-source-scope",
+                    "coverage": {"role": "ancestor_sources", "description": "exact-selected-source-scope"},
                 },
             },
             {
@@ -1033,7 +1033,7 @@ class DeclaredMathScope:
             {'kind': 'documentation', 'text': 'no-repeated-recognition'},
             {'kind': 'documentation', 'text': 'exact-retained-occurrence-context'},
         ],
-        "coverage": "selected-formula-atoms-with-explicit-partial-context",
+        "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "selected-formula-atoms-with-explicit-partial-context"},
         "outcomes": ["success"],
         "precision": "exact-symbolic-with-retained-ambiguity",
         "dependencies": [

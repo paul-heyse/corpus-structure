@@ -32,7 +32,7 @@ class PdfRegionFamily:
                     "origins": ["computation"],
                     "identity_requirements": ["episode", "alternative"],
                     "source": "same-original",
-                    "coverage": "whole-document",
+                    "coverage": {"role": "capture", "description": "whole-document"},
                 },
             },
             {
@@ -65,7 +65,7 @@ class PdfRegionFamily:
             {'kind': 'documentation', 'text': 'native-geometry-only'},
             {'kind': 'documentation', 'text': 'exact-publisher-support'},
         ],
-        "coverage": "native-occurrence-region",
+        "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "native-occurrence-region"},
         "outcomes": ["success", "failed"],
         "precision": "png-from-native-pdf-point-region",
         "behavior": "render selected native geometry using the authenticated original PDF",

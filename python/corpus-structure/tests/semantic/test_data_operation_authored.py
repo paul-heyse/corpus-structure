@@ -99,7 +99,7 @@ def _recipe():
                 "identity_requirements": [],
                 "origins": ["authored"],
                 "source": "same-original",
-                "coverage": "selected-scope",
+                "coverage": {"role": "authored", "description": "selected-scope"},
             },
         },
     )

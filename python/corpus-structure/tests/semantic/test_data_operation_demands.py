@@ -153,7 +153,7 @@ def test_explicit_discovery_role_refuses_missing_origin_or_member_contract(
             "support": {
                 "provenance": "value_substitution",
                 "source": "same-original",
-                "coverage": "exact",
+                "coverage": {"role": "source", "description": "exact"},
                 "origins": origins,
                 "identity_requirements": [],
             },
@@ -274,6 +274,7 @@ def test_resume_preserves_exact_completion_observation_separate_from_frontier(st
         "read_id": "read:one",
         "read_snapshot": "1:2:",
         "frontier_at": "2026-11-13T00:00:00Z",
+        "scope": {},
         "view": "frontier",
         "obligations": [
             {
@@ -406,7 +407,7 @@ def test_ready_request_retains_native_execution_disposition(native, expected):
 def test_frozen_source_sets_are_explicit_selected_operation_scope():
     from dataclasses import replace
 
-    from corpus_structure.semantic.data_operation_model import InputSupport, OperationRole
+    from corpus_structure.semantic.data_operation_model import InputCoverage, InputSupport, OperationRole
     from corpus_structure.semantic.data_operation_source_sets import FrozenSourceSet, SourceSetEntry
     from corpus_structure.semantic.structural_products import ExternalSourceRef
 
@@ -423,7 +424,7 @@ def test_frozen_source_sets_are_explicit_selected_operation_scope():
         InputSupport(
             "exact",
             "frozen-source-set",
-            "whole",
+            InputCoverage("source", "whole"),
             identity_requirements=("episode",),
             source_set="inputs",
             source_reference_field="source_ref",

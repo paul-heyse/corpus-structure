@@ -44,6 +44,8 @@ def python_inputs(code: str, module: str = "example", *, boundaries=()) -> Pytho
 
 
 def operation_source(body="return helper(x)", *, extra="", metadata=None) -> str:
+    metadata = dict(metadata or contract())
+    metadata["coverage"] = {**metadata["coverage"], "result_owners": [{"kind": "implementation", "reference": "self"}]}
     return (
         "raise RuntimeError('target modules must never execute')\nGLOBAL = 3\n"
         "def helper(x: int) -> int:\n    return x + GLOBAL\n"
@@ -61,7 +63,14 @@ def test_declaration_and_closed_python_share_effective_domain_contract():
     # bodies instead use their admitted implementation slice.
     declared_recipe = json.loads(left.recipe)
     assert declared_recipe.pop("behavior") == "integer-derive-v1"
-    assert declared_recipe == json.loads(right.recipe)
+    extracted_recipe = json.loads(right.recipe)
+    declared_coverage, extracted_coverage = declared_recipe.pop("coverage"), extracted_recipe.pop("coverage")
+    assert declared_coverage["binding"] == extracted_coverage["binding"] == left.binding
+    assert declared_coverage["selection"] == extracted_coverage["selection"]
+    assert declared_coverage["result_owners"][0]["kind"] == "declared-contract"
+    assert extracted_coverage["result_owners"][0]["kind"] == "implementation"
+    assert declared_coverage["result_owners"][1:] == extracted_coverage["result_owners"][1:]
+    assert declared_recipe == extracted_recipe
     assert right.callable_surfaces[0].parameters[0].default == "2"
     assert right.callable_surfaces[0].parameters[0].annotation == "int"
     assert {node.id for node in extracted.implementation_slices[0].nodes} == {
@@ -433,7 +442,7 @@ def test_real_score_operation_has_owned_facts():
 
 
 def test_inherited_family_preserves_supplying_metadata_and_exposed_callable():
-    metadata = contract(entrypoints=["run"], coverage="shared-family-coverage")
+    metadata = contract(entrypoints=["run"], coverage_description="shared-family-coverage")
     metadata.pop("id")
     metadata["abstract"] = True
     code = (
@@ -447,7 +456,7 @@ def test_inherited_family_preserves_supplying_metadata_and_exposed_callable():
         "urn:fixture:inherited-family"
     }
     operation = family.operations[0]
-    assert operation.coverage == "shared-family-coverage"
+    assert operation.coverage.description == "shared-family-coverage"
     surface = operation.callable_surfaces[0]
     assert surface.declaration == "inherited_fixture.Family.run"
     assert surface.exposed == "inherited_fixture.Concrete.run"
@@ -1309,7 +1318,7 @@ def test_keyword_argument_label_is_syntax_but_argument_value_remains_a_required_
     code = (
         "def helper(value: int) -> int: return value + 1\n"
         "def derive(x: int) -> int: return helper(value=x)\n"
-        f"derive__data_operation__ = {contract()!r}\n"
+        f"derive__data_operation__ = {contract(implementation_coverage=True)!r}\n"
     )
     model = compile_data_operations(python_sources=python_inputs(code))
     assert model.implementation_slices[0].complete
@@ -1407,7 +1416,7 @@ def test_documentation_claims_are_preserved_but_do_not_salt_semantic_identity():
 
 @pytest.mark.parametrize("kind,reference,interpretation", [("binding", "missing", "binding-expression-v1"), ("schema", "missing", "effective-schema-v1"), ("implementation", "python:missing", "captured-python-slice-v1"), ("native-admission", "missing", "captured-native-admission-v1")])
 def test_unresolved_executable_enforcement_claims_fail_compilation(kind, reference, interpretation):
-    metadata = contract(invariants=[{"kind": kind, "reference": reference, "interpretation": interpretation, "parameters": {}}])
+    metadata = contract(implementation_coverage=True,invariants=[{"kind": kind, "reference": reference, "interpretation": interpretation, "parameters": {}}])
     with pytest.raises(PreparationError, match="enforcement reference"):
         compile_data_operations(python_sources=python_inputs(operation_source(metadata=metadata)))
 

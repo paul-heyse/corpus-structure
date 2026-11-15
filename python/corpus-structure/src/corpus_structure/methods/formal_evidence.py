@@ -37,7 +37,7 @@ class FormalEvidenceOperation:
                     "identity_requirements": [],
                     "origins": ["computation", "original-source"],
                     "source": "original-source",
-                    "coverage": "selected-scope",
+                    "coverage": {"role": "source", "description": "selected-scope"},
                 },
             },
             {
@@ -56,7 +56,7 @@ class FormalEvidenceOperation:
             {'kind': 'documentation', 'text': 'positioned-syntax'},
             {'kind': 'documentation', 'text': 'packed-witness-closure'},
         ],
-        "coverage": "exact-selected-source-scope",
+        "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "exact-selected-source-scope"},
         "outcomes": ["success", "failed"],
         "precision": "positioned-source-evidence",
         "dependencies": [],

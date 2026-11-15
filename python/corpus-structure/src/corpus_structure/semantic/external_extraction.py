@@ -153,7 +153,7 @@ def rich_external_declarations(protocol):
                 "support": {
                     "provenance": "exact",
                     "source": "same-original",
-                    "coverage": "complete-prepared-packet",
+                    "coverage": {"role": "packet", "description": "complete-prepared-packet"},
                     "identity_requirements": ["episode"],
                 },
             },
@@ -175,7 +175,7 @@ def rich_external_declarations(protocol):
             {'kind': 'documentation', 'text': 'no-knowledge-admission'},
             {'kind': 'documentation', 'text': 'no-protected-evaluator-inputs'},
         ],
-        "coverage": "complete-selected-packet",
+        "coverage": {"binding": "self", "result_owners": [{"kind":'declared-contract',"reference":"self"}], "description": "complete-selected-packet"},
         "outcomes": ["success"],
         "precision": "authored_source_report",
         "effects": [

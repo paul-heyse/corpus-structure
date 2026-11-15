@@ -42,6 +42,7 @@ def wire_model(sources=None, binding=None):
         parameter="payload",
         kind=wire_role_kind("claim_data_request", "input", sources),
     )
+    declaration["roles"][0]["support"]["coverage"]["role"] = "request"
     declaration["roles"][1].update(
         name="result",
         parameter="payload",

@@ -53,7 +53,7 @@ def _recipe():
                 "provenance": "exact",
                 "source": "frozen-source-set",
                 "source_set": "selected",
-                "coverage": "exact-retained-product",
+                "coverage": {"role": "items", "description": "exact-retained-product"},
                 "identity_requirements": ["episode"],
             },
         },

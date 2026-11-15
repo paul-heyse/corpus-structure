@@ -372,7 +372,7 @@ def _population_recipe():
             "support": {
                 "provenance": "exact",
                 "source": "same-original",
-                "coverage": "selected-scope",
+                "coverage": {"role": "items", "description": "selected-scope"},
                 "identity_requirements": ["episode"],
             },
         },
@@ -444,6 +444,7 @@ def _execution_recipe():
     name = "ddo_execution_fixture"
     metadata = source_declaration()
     metadata["id"] = "urn:ddo-execution:answer"
+    metadata["coverage"]["result_owners"] = [{"kind": "implementation", "reference": "self"}]
     metadata["roles"][0].update(collection="scalar", maximum=1, kind="primitive:integer")
     metadata["parameters"] = {"value": {"value_type": "integer", "default": 7}}
     metadata["capabilities"]["cancellation"] = "call-boundary"
@@ -517,7 +518,9 @@ def _original_recipe(kind, execution_profile):
     operation.update(id="urn:original-fact-test:consume", behavior="source-value-consumer-v1")
     operation["roles"][0].update(maximum=1, collection="scalar")
     if kind == "DdoOriginalDocument":
+        from corpus_structure.semantic.pdf_domain import CONTRACT, HELPER_CONTRACT, pdf_helper_asset
         operation["capabilities"]["preparation"] = "pdf-native"
+        operation["assets"] = [{"reference": CONTRACT, "contract": HELPER_CONTRACT, "role": "native-pdf-helper-bindings", "content_digest": pdf_helper_asset().digest}]
     operation["roles"].insert(
         0,
         {
@@ -531,7 +534,7 @@ def _original_recipe(kind, execution_profile):
             "support": {
                 "provenance": "value_substitution",
                 "source": "same-original",
-                "coverage": "selected-scope",
+                "coverage": {"role": "source", "description": "selected-scope"},
                 "identity_requirements": [],
                 "origins": ["original-source"],
             },

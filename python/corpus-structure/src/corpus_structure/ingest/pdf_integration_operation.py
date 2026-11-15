@@ -33,7 +33,7 @@ class PdfIntegrationOperation:
                     "origins": ["computation"],
                     "identity_requirements": ["episode", "alternative"],
                     "source": "same-original",
-                    "coverage": "whole-document",
+                    "coverage": {"role": "capture", "description": "whole-document"},
                 },
             },
             {
@@ -69,7 +69,7 @@ class PdfIntegrationOperation:
             {'kind': 'documentation', 'text': 'actual-frozen-native-validation'},
             {'kind': 'documentation', 'text': 'exact-publisher-and-replay-attribution'},
         ],
-        "coverage": "whole-document",
+        "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "whole-document"},
         "outcomes": ["success", "failed"],
         "precision": "native-pdf-records-and-original-coordinates",
         "behavior": "immutable per-page recognition receipts and explicit retained reconciliation",

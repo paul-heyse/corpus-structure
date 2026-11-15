@@ -29,7 +29,7 @@ class PdfCaptureOperation:
                     "origins": ["original-source"],
                     "identity_requirements": ["original-source"],
                     "source": "same-original",
-                    "coverage": "whole-document",
+                    "coverage": {"role": "original", "description": "whole-document"},
                 },
             },
             {
@@ -65,7 +65,7 @@ class PdfCaptureOperation:
             {'kind': 'documentation', 'text': 'actual-frozen-native-validation'},
             {'kind': 'documentation', 'text': 'exact-publisher-and-replay-attribution'},
         ],
-        "coverage": "whole-document",
+        "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "whole-document"},
         "outcomes": ["success", "failed"],
         "precision": "native-pdf-records-and-original-coordinates",
         "behavior": "existing owned finite native PDF capture and sealed publication",

@@ -28,7 +28,7 @@ class ChandraMappingFamily:
                 "support": {
                     "provenance": "exact",
                     "source": "same-original",
-                    "coverage": "exact-submitted-png",
+                    "coverage": {"role": "observation", "description": "exact-submitted-png"},
                     "identity_requirements": ["episode"],
                 },
             },
@@ -58,7 +58,7 @@ class ChandraMappingFamily:
             {'kind': 'documentation', 'text': 'original-coordinate-transform'},
             {'kind': 'documentation', 'text': 'unassessed-source-fidelity'},
         ],
-        "coverage": "exact-submitted-png",
+        "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "exact-submitted-png"},
         "outcomes": ["success", "failed"],
         "precision": "incumbent-chandra-html-parser-and-qualified-pdf-map",
         "behavior": "retain parser outcomes and independently mapped original coordinates without selecting source knowledge",

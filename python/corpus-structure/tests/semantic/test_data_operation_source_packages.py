@@ -13,7 +13,7 @@ from semantic.data_operation_declaration_support import contract
 
 @pytest.mark.parametrize("initializer", [False, True])
 def test_nested_sibling_sources_preserve_package_members_and_inherited_supplier(initializer):
-    metadata = contract(entrypoints=["run"], abstract=True, coverage="actual-supplying-base")
+    metadata = contract(entrypoints=["run"], abstract=True, coverage_description="actual-supplying-base")
     metadata.pop("id")
     base = (
         "raise RuntimeError('capture never imports target modules')\nclass Family:\n    def run(self, x: int) -> int: return x + 1\n"
@@ -36,7 +36,7 @@ def test_nested_sibling_sources_preserve_package_members_and_inherited_supplier(
     model = compile_data_operations(python_sources=inputs)
     (operation,) = model.operations
     assert operation.semantic_id == "urn:fixture:nested-inheritance"
-    assert operation.coverage == "actual-supplying-base"
+    assert operation.coverage.description == "actual-supplying-base"
     (surface,) = operation.callable_surfaces
     assert surface.declaration == "fixture.deep.alpha.Family.run"
     assert surface.exposed == "fixture.deep.beta.Concrete.run"

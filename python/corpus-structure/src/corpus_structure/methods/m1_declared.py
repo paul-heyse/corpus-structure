@@ -35,7 +35,7 @@ class M1SourceCandidatesOperation:
                 "support": {
                     "provenance": "exact",
                     "source": "same-original",
-                    "coverage": "exact-selected-source",
+                    "coverage": {"role": "primary", "description": "exact-selected-source"},
                     "identity_requirements": ["episode"],
                 },
             },
@@ -51,7 +51,7 @@ class M1SourceCandidatesOperation:
                 "support": {
                     "provenance": "exact",
                     "source": "same-original",
-                    "coverage": "exact-selected-source",
+                    "coverage": {"role": "annotations", "description": "exact-selected-source"},
                     "identity_requirements": ["episode"],
                 },
             },
@@ -67,7 +67,7 @@ class M1SourceCandidatesOperation:
                 "support": {
                     "provenance": "exact",
                     "source": "same-original",
-                    "coverage": "complete-selected-context-population",
+                    "coverage": {"role": "sources", "description": "complete-selected-context-population"},
                     "identity_requirements": ["episode"],
                 },
                 "subject_field": "/source/document",
@@ -91,7 +91,7 @@ class M1SourceCandidatesOperation:
             {'kind': 'documentation', 'text': 'complete-inspection-can-have-zero-candidates'},
             {'kind': 'documentation', 'text': 'failed-provider-is-not-successful-empty-inspection'},
         ],
-        "coverage": "exact-inspected-regions-with-explicit-partial-or-unavailable-coverage",
+        "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "exact-inspected-regions-with-explicit-partial-or-unavailable-coverage"},
         "outcomes": ["success", "failed"],
         "precision": "original-native-half-open-extents",
         "dependencies": ["segment.sentences/source-native"],

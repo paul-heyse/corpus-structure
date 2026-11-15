@@ -33,7 +33,7 @@ class SentenceEvidenceOperation:
                     "identity_requirements": ["episode"],
                     "origins": ["computation"],
                     "source": "original-source",
-                    "coverage": "selected-scope",
+                    "coverage": {"role": "source", "description": "selected-scope"},
                 },
             },
             {
@@ -52,7 +52,7 @@ class SentenceEvidenceOperation:
             {'kind': 'documentation', 'text': 'atom-preserving-layout'},
             {'kind': 'documentation', 'text': 'closed-token-sentence-membership'},
         ],
-        "coverage": "exact-selected-original-blocks",
+        "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "exact-selected-original-blocks"},
         "outcomes": ["success", "failed"],
         "precision": "exact-original-projection-offsets",
         "dependencies": [],

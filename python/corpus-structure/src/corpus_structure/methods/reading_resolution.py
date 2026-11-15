@@ -27,7 +27,7 @@ class ReadingResolutionOperation:
                 "support": {
                     "provenance": "exact",
                     "source": "same-original",
-                    "coverage": "complete-retained-candidates",
+                    "coverage": {"role": "candidates", "description": "complete-retained-candidates"},
                     "identity_requirements": ["episode"],
                 },
             },
@@ -43,7 +43,7 @@ class ReadingResolutionOperation:
                 "support": {
                     "provenance": "exact",
                     "source": "explicit-feature-policy",
-                    "coverage": "complete-fitted-parameters",
+                    "coverage": {"role": "policy", "description": "complete-fitted-parameters"},
                     "origins": ["authored"],
                     "identity_requirements": ["original-source"],
                 },
@@ -66,7 +66,7 @@ class ReadingResolutionOperation:
             {'kind': 'documentation', 'text': 'complete-reading-identities'},
             {'kind': 'documentation', 'text': 'no-knowledge-admission'},
         ],
-        "coverage": "complete-selected-candidates",
+        "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "complete-selected-candidates"},
         "outcomes": ["success"],
         "numerical_policy": {"asset": "readings/algorithm-assets", "pointer": "/numerical_policy", "kind": "urn:corpus:kind:reading:NumericalPolicy"},
         "dependencies": [],

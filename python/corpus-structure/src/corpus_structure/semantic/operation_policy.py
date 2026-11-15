@@ -292,7 +292,7 @@ score_operation_event__data_operation__ = {
                 "provenance": "exact",
                 "identity_requirements": ["episode"],
                 "source": "fitted-corpus-event-producer",
-                "coverage": "ordered-feature-schema",
+                "coverage": {"role": "parameters", "description": "ordered-feature-schema"},
             },
         },
         {
@@ -307,7 +307,7 @@ score_operation_event__data_operation__ = {
             "support": {
                 "provenance": "value_substitution",
                 "source": "same-event-subject",
-                "coverage": "all-fitted-features",
+                "coverage": {"role": "features", "description": "all-fitted-features"},
             },
         },
         {
@@ -323,7 +323,7 @@ score_operation_event__data_operation__ = {
 
     "applicability": [{"kind": "binding", "reference": "urn:corpus:operation:score-operation-event/binding", "interpretation": "binding-expression-v1", "parameters": {}}, {'kind': 'documentation', 'text': 'exact-fitted-corpus-event-version-producer'}],
     "invariants": [{'kind': 'documentation', 'text': 'finite-features'}, {'kind': 'documentation', 'text': 'matching-feature-shape'}, {'kind': 'documentation', 'text': 'probability-in-unit-interval'}],
-    "coverage": "one-score-for-complete-feature-vector",
+    "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "one-score-for-complete-feature-vector"},
     "outcomes": ["scored", "invalid-applicability", "invalid-feature-shape", "numerical-failure"],
     "state_dimensions": [{"name": "completion", "values": ["pending", "success", "failed"]}],
     "transitions": [

@@ -27,7 +27,7 @@ class DefinitionComponentsOperation:
                 "support": {
                     "provenance": "exact",
                     "source": "same-original",
-                    "coverage": "exact-selected-source",
+                    "coverage": {"role": "source", "description": "exact-selected-source"},
                     "identity_requirements": ["episode"],
                 },
             },
@@ -43,7 +43,7 @@ class DefinitionComponentsOperation:
                 "support": {
                     "provenance": "exact",
                     "source": "same-original",
-                    "coverage": "exact-selected-source",
+                    "coverage": {"role": "observation", "description": "exact-selected-source"},
                     "identity_requirements": ["episode"],
                 },
             },
@@ -59,7 +59,7 @@ class DefinitionComponentsOperation:
                 "support": {
                     "provenance": "exact",
                     "source": "same-original",
-                    "coverage": "exact-selected-source",
+                    "coverage": {"role": "candidates", "description": "exact-selected-source"},
                     "identity_requirements": ["episode"],
                 },
             },
@@ -81,7 +81,7 @@ class DefinitionComponentsOperation:
             {'kind': 'documentation', 'text': 'semantic-product-member-references'},
             {'kind': 'documentation', 'text': 'partial-coverage-is-not-absence'},
         ],
-        "coverage": "actual-inspected-original-block-windows",
+        "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "actual-inspected-original-block-windows"},
         "outcomes": ["success"],
         "precision": "original-native-half-open-extents",
         "dependencies": ["text.gliner_definitions/source-native"],

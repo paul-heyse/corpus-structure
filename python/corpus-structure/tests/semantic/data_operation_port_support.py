@@ -22,6 +22,7 @@ def kind(model, role):
 
 def controlled_port_declaration():
     value = contract(
+        implementation_coverage=True,
         id="urn:controlled:port-index-address",
         subject="document",
         subject_definition={"id": "document", "identifier_kind": "string", "scope": "project"},
@@ -37,6 +38,7 @@ def controlled_port_declaration():
         binding={"operator": "scan", "roles": ["index"]},
     )
     value["roles"][0].update(name="index", parameter="index")
+    value["roles"][0]["support"]["coverage"]["role"] = "index"
     value["roles"][1].update(name="address", kind="string")
     return value
 

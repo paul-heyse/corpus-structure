@@ -174,6 +174,38 @@ DDO-03/04/05 must consume the generated contracts; a compiler-only pass is insuf
 
 ## DDO-01 — Governing model and effective semantic representation
 
+### Coverage owner inventory
+
+**Implemented; targeted controls Tested (2026-11-15).** `CoverageContract` resolves its own
+`RelationalBinding`, exact checked subject definition/context, all input role cardinality/support/scope
+facts, and actual result owners. `InputCoverage` names its containing input role explicitly. The binding
+lowerer consumes those checked references; a wrong or missing owner refuses, rather than inferring
+meaning from a label. An incomplete captured implementation remains explicitly incomplete and gains
+no reusable recipe.
+
+Implementation-owned coverage resolves the actual admitted slice. Native coverage resolves the
+captured SQL admission owner from the already captured dependency assets; a declared digest without
+those bytes does not suffice. Output schema owners derive from the actual output roles and complement
+the implementation/native owner. A schema alone is not a completeness claim. Nonslice authored or
+external result contracts use the explicit `declared-contract` case: it records the real authored
+behavior/outcome/effect contract without pretending to establish executable completeness.
+
+| Family responsibility | Governing coverage/precision home |
+|---|---|
+| Original/source scope and located scientific reports | Checked subject/context and source-pin schemas, exact output witnesses, and actual source/algorithm owner; examined/eligible/unexamined and unavailable/partial standing stay with their typed report |
+| Selected inventories and aggregate composition | Relational binding, closed population evidence and cardinality/`covers` predicates; the actual composition owner governs the report rather than a collection-size label |
+| Finite and reading interpretation | Actual candidate/policy input roles, typed factor/feature policy and captured scientific kernels; selected finite-joint completeness stays distinct from completeness about the world |
+| Native requests/publication/reads | Captured SQL admission owner, actual wire schemas and exact native support contract; governed reads retain their own authorization/support premises |
+| Authored external reports | Exact submitted/returned schema and explicit declared external contract; mechanically checked structure does not certify the reported scientific claim |
+
+Descriptive coverage wording remains in the archive separately from semantic identity. The recipe
+includes resolved result-owner semantics; definition coverage retains checked references, schemas and
+selection while the implementation body remains the recipe's responsibility. Eligibility-only binding
+terms stay outside the result selection. The current native projection exports the exact archived
+coverage object, and its authenticated reader/native admission compare that object to the checked
+current model. No old string decoder, second predicate language or mutable completeness registry is
+introduced.
+
 ### Numerical policy owner inventory
 
 The event-score, contextual encoder, finite interpretation, reading-score and source-ratio owners now

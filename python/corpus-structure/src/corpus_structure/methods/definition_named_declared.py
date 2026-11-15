@@ -29,7 +29,7 @@ class NamedDefinitionComponentsOperation:
                 "support": {
                     "provenance": "exact",
                     "source": "same-original",
-                    "coverage": "exact-selected-source",
+                    "coverage": {"role": "source", "description": "exact-selected-source"},
                     "identity_requirements": ["episode"],
                 },
             },
@@ -45,7 +45,7 @@ class NamedDefinitionComponentsOperation:
                 "support": {
                     "provenance": "exact",
                     "source": "same-original",
-                    "coverage": "exact-selected-source",
+                    "coverage": {"role": "annotations", "description": "exact-selected-source"},
                     "identity_requirements": ["episode"],
                 },
             },
@@ -61,7 +61,7 @@ class NamedDefinitionComponentsOperation:
                 "support": {
                     "provenance": "exact",
                     "source": "same-original",
-                    "coverage": "exact-selected-source",
+                    "coverage": {"role": "constructions", "description": "exact-selected-source"},
                     "identity_requirements": ["episode"],
                 },
             },
@@ -82,7 +82,7 @@ class NamedDefinitionComponentsOperation:
             {'kind': 'documentation', 'text': 'genuine-semantic-primary-witnesses'},
             {'kind': 'documentation', 'text': 'missing-coverage-is-not-empty'},
         ],
-        "coverage": "actual-inspected-original-block-windows",
+        "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "actual-inspected-original-block-windows"},
         "outcomes": ["success"],
         "precision": "original-native-half-open-extents",
         "dependencies": ["segment.sentences/source-native", "text.constructions/source-native"],

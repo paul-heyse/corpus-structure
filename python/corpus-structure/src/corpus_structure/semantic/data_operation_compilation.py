@@ -31,7 +31,11 @@ from .data_operation_model import (
     ExternalExecutorContract,
     FactOrigin,
     ImplementationCapabilities,
+    operation_role_record,
     InputSupport,
+    InputCoverage,
+    CoverageContract,
+    CoverageResultOwner,
     OpaqueBoundary,
     NumericalPolicyReference,
     OperationRole,
@@ -45,6 +49,7 @@ from .data_operation_model import (
     StateTransition,
     StreamSettlement,
     SubjectDefinition,
+    SubjectScope,
     compiled_graph_projections,
 )
 from .data_operation_wire import checked_json_schema, json_schema_category
@@ -1209,7 +1214,7 @@ def compile_data_operations(
                 support = InputSupport(
                     data["provenance"],
                     _text(data.get("source"), semantic_id),
-                    _text(data.get("coverage"), semantic_id),
+                    _input_coverage(data.get("coverage"), name, semantic_id),
                     _strings(data.get("authorization", []), semantic_id),
                     _strings(data.get("closure", []), semantic_id),
                     cast(Any, identity_requirements),
@@ -1726,7 +1731,7 @@ def compile_data_operations(
             if identifier_kind not in kinds:
                 _fail(semantic_id, "subject definition requires a resolved identifier kind")
             subject_scope = declared_subject.get("scope")
-            if subject_scope not in {"original-source", "original-document", "selected-source-set", "project", "invocation"}:
+            if subject_scope not in get_args(SubjectScope):
                 _fail(semantic_id, "unsupported subject scope relation")
             subject_definition = SubjectDefinition(subject_id, identifier_kind, subject_scope)
             if subject_id in subject_definitions and subject_definitions[subject_id] != subject_definition:
@@ -1754,7 +1759,7 @@ def compile_data_operations(
             tuple(roles),
             _enforcement_claims(raw.get("applicability"), semantic_id),
             _enforcement_claims(raw.get("invariants"), semantic_id),
-            _text(raw.get("coverage"), semantic_id),
+            _coverage_contract(raw.get("coverage"), binding_id, semantic_id),
             outcomes,
             None if numerical_policy is not None else _text(raw.get("precision"), semantic_id),
             _strings(raw.get("dependencies"), semantic_id),
@@ -1847,6 +1852,31 @@ def compile_data_operations(
     )
 
 
+def _input_coverage(value, role, owner):
+    value = _mapping(value, owner, {"role", "description"})
+    if value.get("role") != role:
+        _fail(owner, "input coverage must reference its actual bound role")
+    return InputCoverage(role, _text(value.get("description"), owner))
+
+
+def _coverage_contract(value, binding, owner):
+    value = _mapping(value, owner, {"binding", "result_owners", "description"})
+    if value.get("binding") != "self":
+        _fail(owner, "coverage must resolve its own actual relational binding")
+    entries = value.get("result_owners")
+    if not isinstance(entries, list) or not entries:
+        _fail(owner, "coverage requires an explicit actual result owner")
+    result_owners = []
+    interpretations = {"implementation": "captured-python-slice-v1", "native-admission": "captured-native-admission-v1", "declared-contract": "authored-result-contract-v1"}
+    for entry in entries:
+        entry = _mapping(entry, owner, {"kind", "reference"})
+        kind = entry.get("kind")
+        if kind not in interpretations:
+            _fail(owner, "coverage requires an implementation, native admission or declared result owner")
+        result_owners.append(CoverageResultOwner(kind, _text(entry.get("reference"), owner), interpretations[kind], b"{}"))
+    return CoverageContract(binding, b"{}", b"{}", tuple(result_owners), _text(value.get("description"), owner))
+
+
 def _enforcement_claims(value, owner):
     if not isinstance(value, list):
         _fail(owner, "enforcement claims require explicit tagged records")
@@ -1906,7 +1936,43 @@ def _resolve_enforcement_claims(model, captured_assets):
             _fail(operation.semantic_id, "unknown enforcement source")
         return replace(claim, semantics=canonical_bytes(semantics))
 
-    operations = tuple(replace(operation, applicability=tuple(resolve(claim, operation) for claim in operation.applicability), invariants=tuple(resolve(claim, operation) for claim in operation.invariants)) for operation in model.operations)
+    def coverage(operation):
+        contract = operation.coverage
+        if contract.binding != operation.binding or contract.binding not in bindings:
+            _fail(operation.semantic_id, "coverage has no checked operation binding")
+        binding = bindings[contract.binding]
+        subject = next(subject for subject in model.subject_definitions if subject.semantic_id == operation.subject)
+        def selection(result_only):
+            return canonical_bytes({
+                "subject_definition": asdict(subject),
+                "context": operation.context,
+                "input_roles": [operation_role_record(role, result_only=result_only) for role in operation.roles if role.direction == "input"],
+                "binding": _binding_record(binding.expression, result_only=result_only),
+            })
+        owners = []
+        for owner in contract.result_owners:
+            if owner.kind == "implementation":
+                implementation = slices.get(operation.implementation_root)
+                if owner.reference != "self" or implementation is None:
+                    _fail(operation.semantic_id, "coverage lacks its actual captured implementation owner")
+                reference = implementation.root
+                semantics = {"implementation_slice": implementation_slice_fingerprint(implementation.semantic_records(), implementation.root).key if implementation.complete else None, "complete": implementation.complete, **({"unknowns": [asdict(unknown) for unknown in implementation.unknowns]} if not implementation.complete else {})}
+            elif owner.kind == "native-admission":
+                claim = resolve(EnforcementClaim("native-admission", reference=owner.reference, interpretation=owner.interpretation, parameters=b"{}"), operation)
+                reference, semantics = owner.reference, json.loads(claim.semantics)
+            elif owner.kind == "declared-contract":
+                if owner.reference != "self" or operation.implementation_root is not None:
+                    _fail(operation.semantic_id, "declared result coverage belongs only to a nonslice contract")
+                reference = operation.semantic_id
+                semantics = {"behavior": operation.behavior, "outcomes": operation.outcomes, "effects": [asdict(effect) for effect in operation.effects]}
+            else:
+                _fail(operation.semantic_id, "unsupported authored result coverage owner")
+            owners.append(replace(owner, reference=reference, semantics=canonical_bytes(semantics)))
+        for kind in sorted({role.kind for role in operation.roles if role.direction == "output"}):
+            owners.append(CoverageResultOwner("schema", kind, "effective-schema-v1", canonical_bytes({"kind_contract": kind_fingerprint(graph, kind).key, "complete": kinds[kind].complete})))
+        return replace(contract, selection=selection(False), result_selection=selection(True), result_owners=tuple(owners))
+
+    operations = tuple(replace(operation, applicability=tuple(resolve(claim, operation) for claim in operation.applicability), invariants=tuple(resolve(claim, operation) for claim in operation.invariants), coverage=coverage(operation)) for operation in model.operations)
     definitions = {operation.semantic_id: operation.definition for operation in operations}
     nodes = tuple(replace(node, payload=definitions[node.id]) if node.id in definitions else node for node in model.nodes)
     return replace(model, operations=operations, nodes=nodes, graph_projections=compiled_graph_projections(nodes, model.edges, model.implementation_slices))

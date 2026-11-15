@@ -35,7 +35,7 @@ class ContextualEncodingOperation:
                 "support": {
                     "provenance": "exact",
                     "source": "same-original",
-                    "coverage": "exact-native-source",
+                    "coverage": {"role": "source", "description": "exact-native-source"},
                     "origins": ["computation", "original-source"],
                     "identity_requirements": ["episode", "original-source"],
                 },
@@ -52,7 +52,7 @@ class ContextualEncodingOperation:
                 "support": {
                     "provenance": "exact",
                     "source": "same-original",
-                    "coverage": "exact-retained-occurrence",
+                    "coverage": {"role": "occurrence", "description": "exact-retained-occurrence"},
                     "identity_requirements": ["episode"],
                 },
             },
@@ -68,7 +68,7 @@ class ContextualEncodingOperation:
                 "support": {
                     "provenance": "value_substitution",
                     "source": "selected-inventory",
-                    "coverage": "complete-eligible-population",
+                    "coverage": {"role": "inventory", "description": "complete-eligible-population"},
                     "identity_requirements": [],
                 },
             },
@@ -99,7 +99,7 @@ class ContextualEncodingOperation:
             {'kind': 'documentation', 'text': 'exact-profile-and-model-artifacts'},
             {'kind': 'documentation', 'text': 'complete-selected-vector-population'},
         ],
-        "coverage": "complete-selected-query-and-inventory",
+        "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "complete-selected-query-and-inventory"},
         "outcomes": ["success", "failed"],
         "precision": None,
         "numerical_policy": {"asset": "contextual/encoder-assets", "pointer": "/numerical_policy", "kind": "urn:corpus:kind:contextual-encoder:NumericalPolicy"},
@@ -302,7 +302,7 @@ class SelectedContextEncodingOperation:
                 "support": {
                     "provenance": "exact",
                     "source": "same-original",
-                    "coverage": "exact-native-source",
+                    "coverage": {"role": "source", "description": "exact-native-source"},
                     "origins": ["computation", "original-source"],
                     "identity_requirements": ["episode", "original-source"],
                 },
@@ -319,7 +319,7 @@ class SelectedContextEncodingOperation:
                 "support": {
                     "provenance": "exact",
                     "source": "same-original",
-                    "coverage": "exact-retained-occurrence",
+                    "coverage": {"role": "occurrence", "description": "exact-retained-occurrence"},
                     "identity_requirements": ["episode"],
                 },
             },
@@ -335,7 +335,7 @@ class SelectedContextEncodingOperation:
                 "support": {
                     "provenance": "value_substitution",
                     "source": "selected-inventory",
-                    "coverage": "complete-eligible-population",
+                    "coverage": {"role": "inventory", "description": "complete-eligible-population"},
                     "identity_requirements": [],
                 },
             },
@@ -352,7 +352,7 @@ class SelectedContextEncodingOperation:
                 "support": {
                     "provenance": "exact",
                     "source": "frozen-source-set",
-                    "coverage": "complete-selected-context-closure",
+                    "coverage": {"role": "primary", "description": "complete-selected-context-closure"},
                     "identity_requirements": ["episode"],
                     "source_set": "query-context-primary",
                 },
@@ -386,7 +386,7 @@ class SelectedContextEncodingOperation:
             {'kind': 'documentation', 'text': 'requested-context-never-falls-back-to-lexical'},
             {'kind': 'documentation', 'text': 'missing-or-empty-context-refused-before-encoder'},
         ],
-        "coverage": "complete-selected-query-and-inventory",
+        "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "complete-selected-query-and-inventory"},
         "outcomes": ["success", "failed"],
         "precision": None,
         "numerical_policy": {"asset": "contextual/encoder-assets", "pointer": "/numerical_policy", "kind": "urn:corpus:kind:contextual-encoder:NumericalPolicy"},

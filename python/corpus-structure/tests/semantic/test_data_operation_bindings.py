@@ -32,6 +32,9 @@ from corpus_structure.semantic.data_operation_model import (
     EffectiveOperation,
     ImplementationCapabilities,
     InputSupport,
+    InputCoverage,
+    CoverageContract,
+    CoverageResultOwner,
     OperationRole,
     RelationalBinding,
     ResolvedRoleBinding,
@@ -66,7 +69,7 @@ def model(
             maximum,
             collection,
             presence,
-            InputSupport("exact", "original", "complete", identity_requirements=("episode",)),
+            InputSupport("exact", "original", InputCoverage(name, "complete"), identity_requirements=("episode",)),
         )
         for name in names
     )
@@ -78,7 +81,7 @@ def model(
         roles,
         (),
         (),
-        "complete",
+        CoverageContract("urn:binding", b"{}", b"{}", (CoverageResultOwner("declared-contract", "urn:op", "authored-result-contract-v1", b'{"behavior":"revision-1"}'),), "complete"),
         ("produced",),
         "exact",
         (),
@@ -500,6 +503,7 @@ def test_python_field_facts_share_schema_property_shape_and_typed_binding():
     )
 
     raw = declaration()
+    raw["coverage"]["result_owners"] = [{"kind": "implementation", "reference": "self"}]
     raw["roles"][0]["kind"] = "urn:item"
     raw["kinds"] = [{"id": "urn:item", "python": "fixture.Item"}]
     raw["binding"] = {

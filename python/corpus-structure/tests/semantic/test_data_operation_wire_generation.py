@@ -89,7 +89,7 @@ def test_captured_structural_calls_keep_decimal_and_changed_protocol_fields(monk
         else item
         for item in sources
     )
-    model = compile_data_operations(declarations=(native_operation_declarations(sources),))
+    model = compile_data_operations(declarations=(native_operation_declarations(sources),), captured_contracts=sources)
     calls = tuple(
         item
         for item in native_operation_calls(model, sources=sources)

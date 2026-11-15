@@ -35,7 +35,7 @@ class ArtifactIdentityOperation:
                 "support": {
                     "provenance": "exact",
                     "source": "frozen-source-set",
-                    "coverage": "exact-selected-source",
+                    "coverage": {"role": "sources", "description": "exact-selected-source"},
                     "identity_requirements": ["episode"],
                     "source_set": "artifact-sources",
                 },
@@ -53,7 +53,7 @@ class ArtifactIdentityOperation:
                 "support": {
                     "provenance": "exact",
                     "source": "frozen-source-set",
-                    "coverage": "exact-selected-source",
+                    "coverage": {"role": "constructions", "description": "exact-selected-source"},
                     "identity_requirements": ["episode"],
                     "source_set": "artifact-constructions",
                 },
@@ -71,7 +71,7 @@ class ArtifactIdentityOperation:
                 "support": {
                     "provenance": "exact",
                     "source": "frozen-source-set",
-                    "coverage": "exact-selected-source",
+                    "coverage": {"role": "nominations", "description": "exact-selected-source"},
                     "identity_requirements": ["episode"],
                     "source_set": "artifact-nominations",
                 },
@@ -95,7 +95,7 @@ class ArtifactIdentityOperation:
             {'kind': 'documentation', 'text': 'exact-native-numbering-alias-and-revision-custody'},
             {'kind': 'documentation', 'text': 'candidate-private-standing'},
         ],
-        "coverage": "exact-selected-artifact-cohort-and-authored-source-passages",
+        "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "exact-selected-artifact-cohort-and-authored-source-passages"},
         "outcomes": ["success"],
         "precision": "original-native-half-open-extents",
         "dependencies": ["text.constructions/source-native"],

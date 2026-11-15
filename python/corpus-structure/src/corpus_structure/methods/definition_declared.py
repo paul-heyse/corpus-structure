@@ -32,7 +32,7 @@ class DefinitionDeclarationOperation:
                 "support": {
                     "provenance": "exact",
                     "source": "same-original",
-                    "coverage": "exact-selected-source",
+                    "coverage": {"role": "source", "description": "exact-selected-source"},
                     "identity_requirements": ["episode"],
                 },
             },
@@ -48,7 +48,7 @@ class DefinitionDeclarationOperation:
                 "support": {
                     "provenance": "exact",
                     "source": "same-original",
-                    "coverage": "exact-selected-source",
+                    "coverage": {"role": "syntax", "description": "exact-selected-source"},
                     "identity_requirements": ["episode"],
                 },
             },
@@ -64,7 +64,7 @@ class DefinitionDeclarationOperation:
                 "support": {
                     "provenance": "exact",
                     "source": "same-original",
-                    "coverage": "exact-selected-source",
+                    "coverage": {"role": "hanlp", "description": "exact-selected-source"},
                     "identity_requirements": ["episode"],
                 },
             },
@@ -85,7 +85,7 @@ class DefinitionDeclarationOperation:
             {'kind': 'documentation', 'text': 'three-distinct-characterized-sentences'},
             {'kind': 'documentation', 'text': 'missing-native-premise-is-not-empty'},
         ],
-        "coverage": "exact-selected-local-declaration-passage",
+        "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "exact-selected-local-declaration-passage"},
         "outcomes": ["success"],
         "precision": "original-native-half-open-extents",
         "dependencies": [

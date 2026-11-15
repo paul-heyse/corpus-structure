@@ -43,7 +43,7 @@ class DeclaredStructuralComparison:
                     "identity_requirements": ["episode"],
                     "source": "frozen-source-set",
                     "source_set": "structural-sources",
-                    "coverage": "exact-selected-source-and-context",
+                    "coverage": {"role": "sources", "description": "exact-selected-source-and-context"},
                 },
             },
             {
@@ -61,7 +61,7 @@ class DeclaredStructuralComparison:
                     "identity_requirements": ["episode"],
                     "source": "frozen-source-set",
                     "source_set": "structural-reports",
-                    "coverage": "exact-selected-source-and-context",
+                    "coverage": {"role": "reports", "description": "exact-selected-source-and-context"},
                 },
             },
             {
@@ -79,7 +79,7 @@ class DeclaredStructuralComparison:
                     "identity_requirements": ["episode"],
                     "source": "frozen-source-set",
                     "source_set": "structural-formal",
-                    "coverage": "exact-selected-source-and-context",
+                    "coverage": {"role": "formal", "description": "exact-selected-source-and-context"},
                 },
             },
             {
@@ -99,7 +99,7 @@ class DeclaredStructuralComparison:
             {'kind': 'documentation', 'text': 'missing-inspection-is-not-empty'},
             {'kind': 'documentation', 'text': 'private-proposal-is-not-independent-semantic-support'},
         ],
-        "coverage": "exact-selected-passages-and-retained-report-inventory",
+        "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "exact-selected-passages-and-retained-report-inventory"},
         "outcomes": ["success"],
         "precision": "original-native-half-open-extents",
         "dependencies": [],
@@ -623,7 +623,7 @@ class DeclaredConditionQualification:
                     "identity_requirements": ["episode"],
                     "source": "frozen-source-set",
                     "source_set": "structural-source",
-                    "coverage": "exact-selected-source-and-context",
+                    "coverage": {"role": "source", "description": "exact-selected-source-and-context"},
                 },
             },
             {
@@ -641,7 +641,7 @@ class DeclaredConditionQualification:
                     "identity_requirements": ["episode"],
                     "source": "frozen-source-set",
                     "source_set": "structural-report",
-                    "coverage": "exact-selected-source-and-context",
+                    "coverage": {"role": "report", "description": "exact-selected-source-and-context"},
                 },
             },
             {
@@ -661,7 +661,7 @@ class DeclaredConditionQualification:
             {'kind': 'documentation', 'text': 'missing-inspection-is-not-empty'},
             {'kind': 'documentation', 'text': 'private-proposal-is-not-independent-semantic-support'},
         ],
-        "coverage": "exact-selected-passages-and-retained-report-inventory",
+        "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "exact-selected-passages-and-retained-report-inventory"},
         "outcomes": ["success"],
         "precision": "original-native-half-open-extents",
         "dependencies": [],

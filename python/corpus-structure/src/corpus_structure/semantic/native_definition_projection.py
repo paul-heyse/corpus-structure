@@ -81,6 +81,12 @@ def read_native_definition_projection(prepared, *, model=None) -> NativeDefiniti
         raise ValueError("unsupported native operation replicate policy")
     if actual_policies != expected_policies:
         raise ValueError("native operation replicate policies differ from the checked effective model")
+    import json
+
+    expected_coverage = {operation["semantic_id"]: operation["coverage"] for operation in json.loads(model.content)["operations"]}
+    actual_coverage = {operation["operation_id"]: operation["support_contract"].get("coverage") for operation in projection["operations"]}
+    if actual_coverage != expected_coverage:
+        raise ValueError("native operation coverage differs from the checked effective model")
     return projection
 
 

@@ -60,7 +60,7 @@ claim_source_item__data_operation__ = {
             "support": {
                 "provenance": "value_substitution",
                 "source": "selected-proposal-list",
-                "coverage": "one-original-ordinal",
+                "coverage": {"role": "index", "description": "one-original-ordinal"},
             },
         },
         {
@@ -75,7 +75,7 @@ claim_source_item__data_operation__ = {
     ],
     "applicability": [{'kind': 'documentation', 'text': 'selected-source-proposal-list'}],
     "invariants": [{"kind": "implementation", "reference": "python:corpus_structure.semantic.identity.claim_source_item", "interpretation": "captured-python-slice-v1", "parameters": {}}, {'kind': 'documentation', 'text': 'nonnegative-integer-ordinal'}, {'kind': 'documentation', 'text': 'boolean-is-not-an-ordinal'}],
-    "coverage": "one-list-relative-address",
+    "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "one-list-relative-address"},
     "outcomes": ["addressed", "invalid-index"],
     "state_dimensions": [{"name": "completion", "values": ["pending", "success", "failed"]}],
     "transitions": [

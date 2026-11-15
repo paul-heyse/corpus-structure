@@ -27,7 +27,7 @@ class SelectedReferenceSnapshotOperation:
                     "provenance": "exact",
                     "identity_requirements": ["original-source"],
                     "source": "same-original",
-                    "coverage": "exact-independent-reference",
+                    "coverage": {"role": "reference", "description": "exact-independent-reference"},
                 },
             },
             {
@@ -47,7 +47,7 @@ class SelectedReferenceSnapshotOperation:
             {'kind': 'documentation', 'text': 'questions-and-denominators-remain-frozen'},
             {'kind': 'documentation', 'text': 'evaluator-only-kind'},
         ],
-        "coverage": "exact-frozen-reference-population",
+        "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "exact-frozen-reference-population"},
         "outcomes": ["success", "failed"],
         "precision": "exact-authored-semantic-values",
         "dependencies": [],

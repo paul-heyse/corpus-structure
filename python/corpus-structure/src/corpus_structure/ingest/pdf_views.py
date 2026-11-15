@@ -31,7 +31,7 @@ class PdfSourceViewsFamily:
                 "support": {
                     "provenance": "exact",
                     "source": "same-original",
-                    "coverage": "whole-document",
+                    "coverage": {"role": "capture", "description": "whole-document"},
                     "origins": ["computation"],
                     "identity_requirements": ["episode", "alternative"],
                 },
@@ -58,7 +58,7 @@ class PdfSourceViewsFamily:
             {'kind': 'documentation', 'text': 'no-ambient-publication-selection'},
             {'kind': 'documentation', 'text': 'closed-inspected-section-selection'},
         ],
-        "coverage": "frozen-relative-section-selection",
+        "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "frozen-relative-section-selection"},
         "outcomes": ["success", "failed"],
         "precision": "actual-published-native-atom-and-ancestor-projection",
         "capabilities": {

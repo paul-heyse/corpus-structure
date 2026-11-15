@@ -40,7 +40,7 @@ def mixed_recipe():
                 support=dict(
                     provenance="exact",
                     source="same-original",
-                    coverage="selected-scope",
+                    coverage={"role": "selected", "description": "selected-scope"},
                     identity_requirements=["episode"],
                 ),
             ),

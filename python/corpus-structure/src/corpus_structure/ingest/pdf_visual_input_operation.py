@@ -32,7 +32,7 @@ class PdfVisualInputFamily:
                     "origins": ["computation"],
                     "identity_requirements": ["episode", "alternative"],
                     "source": "same-original",
-                    "coverage": "whole-document",
+                    "coverage": {"role": "capture", "description": "whole-document"},
                 },
             },
             {
@@ -65,7 +65,7 @@ class PdfVisualInputFamily:
             {'kind': 'documentation', 'text': 'qualified-crop-transform'},
             {'kind': 'documentation', 'text': 'exact-publisher-support'},
         ],
-        "coverage": "page-or-native-region",
+        "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "page-or-native-region"},
         "outcomes": ["success", "failed"],
         "precision": "qualified-png-and-native-pdf-point-transform",
         "behavior": "render the exact page or native crop with the incumbent visual geometry kernel",

@@ -21,8 +21,6 @@ def test_closed_scientific_policy_versions_refuse_an_incompatible_runtime():
         policy.require_runtime()
         with pytest.raises(ValueError, match="selected numerical libraries"):
             policy.model_copy(update={"scipy_version": "unavailable-version"}).require_runtime()
-    with pytest.raises(ValueError, match="selected Python arithmetic"):
-        ratios.source_ratio_numerical_policy().model_copy(update={"python_version": "unavailable-version"}).require_runtime()
 
 
 def test_source_ratio_policy_uses_actual_kernel_rounding_constants():

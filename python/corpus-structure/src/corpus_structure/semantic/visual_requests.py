@@ -70,7 +70,7 @@ def visual_external_declaration():
                 "support": {
                     "provenance": "exact",
                     "source": "same-original",
-                    "coverage": "page-or-native-region",
+                    "coverage": {"role": "image", "description": "page-or-native-region"},
                     "identity_requirements": ["episode"],
                 },
             },
@@ -88,7 +88,7 @@ def visual_external_declaration():
         "parameters": {},
         "applicability": [{'kind': 'documentation', 'text': 'actual-png-and-explicit-local-chandra-actor'}],
         "invariants": [{'kind': 'documentation', 'text': 'same-submitted-image'}, {'kind': 'documentation', 'text': 'actual-raw-response'}, {'kind': 'documentation', 'text': 'provider-reported-runtime'}],
-        "coverage": "exact-submitted-png",
+        "coverage": {"binding": "self", "result_owners": [{"kind":'declared-contract',"reference":"self"}], "description": "exact-submitted-png"},
         "outcomes": ["success"],
         "precision": "unselected-chandra-raw-observation",
         "effects": [

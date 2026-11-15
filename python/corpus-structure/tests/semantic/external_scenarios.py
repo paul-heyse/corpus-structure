@@ -59,7 +59,7 @@ def _input_recipe():
                 "provenance": "exact",
                 "identity_requirements": ["episode"],
                 "source": "same-original",
-                "coverage": "declared-scope",
+                "coverage": {"role": "selected", "description": "declared-scope"},
             },
         },
     )

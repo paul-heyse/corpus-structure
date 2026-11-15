@@ -337,6 +337,10 @@ def native_operation_declarations(sources=None) -> SourceArtifact:
     digest = native_source_digest(sources)
     from .original_document_contracts import operation_asset
     source_owner, source_asset = operation_asset(sources)
+    admission_sources = [source for source in sources if source.name == "native/data-operations.sql"]
+    if len(admission_sources) != 1:
+        raise ValueError("native operation coverage requires its actual captured SQL admission owner")
+    admission_asset = {"reference": "native-domain-admission", "contract": admission_sources[0].name, "role": "native-admission-policy", "content_digest": admission_sources[0].digest}
     operations = []
     for item in _protocol(sources):
         name = item["name"]
@@ -361,7 +365,7 @@ def native_operation_declarations(sources=None) -> SourceArtifact:
                         "support": {
                             "provenance": "exact",
                             "source": "authenticated-native-invocation",
-                            "coverage": "whole-wire",
+                            "coverage": {"role": "request", "description": "whole-wire"},
                             "identity_requirements": ["episode"],
                         },
                     },
@@ -385,7 +389,7 @@ def native_operation_declarations(sources=None) -> SourceArtifact:
                         "native-source-and-kind-custody",
                     )
                 ],
-                "coverage": "one-short-native-transaction",
+                "coverage": {"binding": "self", "result_owners": [{"kind": "native-admission", "reference": "native-domain-admission"}], "description": "one-short-native-transaction"},
                 "outcomes": ["returned"],
                 "state_dimensions": [{"name": "completion", "values": ["pending", "success", "empty", "failed"]}],
                 "transitions": [{"dimension": "completion", "before": "pending", "after": "success", "outcome": "returned", "effects": []}],
@@ -411,7 +415,7 @@ def native_operation_declarations(sources=None) -> SourceArtifact:
                 },
                 "behavior": "ddo-native-v1:" + digest,
                 "parameters": {},
-                "assets": [source_asset] if "data." + name == source_owner else [],
+                "assets": [admission_asset, *([source_asset] if "data." + name == source_owner else [])],
                 "binding": {"operator": "scan", "roles": ["request"]},
             }
         )
@@ -770,6 +774,8 @@ def data_operation_definition_projection(
     captured_contracts=(),
 ) -> bytes:
     """Compile the fixed native projection for authenticated release archiving."""
+    model_content = model.content
+    archived_operations = {record["semantic_id"]: record for record in json.loads(model_content)["operations"]}
     ids = {(identity.owner, identity.domain): identity.key for identity in model.identities}
     kinds = []
     from .data_operation_kind_refinements import input_kind_contracts, input_kind_refinements
@@ -887,6 +893,7 @@ def data_operation_definition_projection(
                 "input_roles": [role for role in roles if role["direction"] == "input"],
                 "output_roles": [role for role in roles if role["direction"] == "output"],
                 "support_contract": {
+                    "coverage": archived_operations[operation.semantic_id]["coverage"],
                     **(
                         {"external": asdict(operation.external)}
                         if operation.external is not None
@@ -926,7 +933,7 @@ def data_operation_definition_projection(
         )
     return canonical_bytes(
         {
-            "model_digest": sha256(model.content).hexdigest(),
+            "model_digest": sha256(model_content).hexdigest(),
             "native_digest": native_digest,
             "kinds": kinds,
             "operations": operations,

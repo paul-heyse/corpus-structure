@@ -73,7 +73,7 @@ def test_original_defaults_positional_only_and_keyword_only_are_authoritative(
             "support": {
                 "provenance": "value_substitution",
                 "source": "prefix",
-                "coverage": "one-value",
+                "coverage": {"role": "prefix", "description": "one-value"},
             },
         },
     )

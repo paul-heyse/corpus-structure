@@ -34,7 +34,7 @@ class HanlpEvidenceOperation:
                     "identity_requirements": [],
                     "origins": ["computation", "original-source"],
                     "source": "original-source",
-                    "coverage": "selected-scope",
+                    "coverage": {"role": "source", "description": "selected-scope"},
                 },
             },
             {
@@ -50,7 +50,7 @@ class HanlpEvidenceOperation:
                     "provenance": "value_substitution",
                     "identity_requirements": [],
                     "source": "original-source",
-                    "coverage": "selected-scope",
+                    "coverage": {"role": "canonical", "description": "selected-scope"},
                 },
             },
             {
@@ -69,7 +69,7 @@ class HanlpEvidenceOperation:
             {'kind': 'documentation', 'text': 'no-retokenization'},
             {'kind': 'documentation', 'text': 'independent-native-head-standings'},
         ],
-        "coverage": "exact-selected-canonical-sentences",
+        "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "exact-selected-canonical-sentences"},
         "outcomes": ["success", "failed"],
         "precision": "native-one-based-heads-and-half-open-word-spans",
         "dependencies": ["segment.sentences/canonical-projection"],

@@ -27,7 +27,7 @@ class DefinitionLocationOperation:
                 "support": {
                     "provenance": "exact",
                     "source": "same-original",
-                    "coverage": "exact-selected-source",
+                    "coverage": {"role": "source", "description": "exact-selected-source"},
                     "origins": ["computation", "original-source"],
                     "identity_requirements": ["episode", "original-source"],
                 },
@@ -44,7 +44,7 @@ class DefinitionLocationOperation:
                 "support": {
                     "provenance": "exact",
                     "source": "same-original",
-                    "coverage": "exact-selected-source",
+                    "coverage": {"role": "components", "description": "exact-selected-source"},
                     "origins": ["computation"],
                     "identity_requirements": ["episode"],
                 },
@@ -61,7 +61,7 @@ class DefinitionLocationOperation:
                 "support": {
                     "provenance": "exact",
                     "source": "same-original",
-                    "coverage": "exact-selected-source",
+                    "coverage": {"role": "selection", "description": "exact-selected-source"},
                     "origins": ["authored"],
                     "identity_requirements": ["original-source"],
                 },
@@ -83,7 +83,7 @@ class DefinitionLocationOperation:
             {'kind': 'documentation', 'text': 'term-content-and-directed-attachment-identities-remain-distinct'},
             {'kind': 'documentation', 'text': 'private-located-proposals-only'},
         ],
-        "coverage": "exact-explicit-component-or-role-selection",
+        "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "exact-explicit-component-or-role-selection"},
         "outcomes": ["success", "failed"],
         "precision": "original-native-half-open-extents",
         "dependencies": [],

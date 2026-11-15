@@ -10,7 +10,11 @@ from corpus_structure.semantic.native_definition_projection import read_native_d
 
 
 def _captured(**changes):
-    model = SimpleNamespace(content=b"independently supplied model bytes", operations=())
+    operations = changes.get("operations", [])
+    coverage = {"binding": "controlled-binding", "selection": {"json": {}}, "result_selection": {"json": {}}, "result_owners": [], "description": "Controlled unused result owner"}
+    for operation in operations:
+        operation["support_contract"]["coverage"] = coverage
+    model = SimpleNamespace(content=json_bytes({"operations": [{"semantic_id": operation["operation_id"], "coverage": coverage} for operation in operations]}), operations=())
     record = {
         "model_digest": sha256(model.content).hexdigest(),
         "native_digest": "native-source-contract",

@@ -31,7 +31,7 @@ class SelectedSourceViewsOperation:
                 "support": {
                     "provenance": "exact",
                     "source": "same-original",
-                    "coverage": "whole-document",
+                    "coverage": {"role": "original", "description": "whole-document"},
                     "origins": ["original-source"],
                     "identity_requirements": ["original-source"],
                 },
@@ -49,7 +49,7 @@ class SelectedSourceViewsOperation:
                 "support": {
                     "provenance": "exact",
                     "source": "same-original",
-                    "coverage": "frozen-selected-view-set",
+                    "coverage": {"role": "views", "description": "frozen-selected-view-set"},
                     "origins": ["original-source", "computation"],
                     "identity_requirements": ["original-source", "episode"],
                 },
@@ -71,7 +71,7 @@ class SelectedSourceViewsOperation:
             {'kind': 'documentation', 'text': 'no-recapture'},
             {'kind': 'documentation', 'text': 'no-unexamined-universe-closure'},
         ],
-        "coverage": "frozen-selected-view-set",
+        "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "frozen-selected-view-set"},
         "outcomes": ["success", "failed"],
         "precision": "exact-original-source-addresses",
         "dependencies": [],

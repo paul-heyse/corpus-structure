@@ -35,7 +35,7 @@ class DefinitionApplicabilityOperation:
                 "support": {
                     "provenance": "exact",
                     "source": "same-original",
-                    "coverage": "exact-selected-source",
+                    "coverage": {"role": "source", "description": "exact-selected-source"},
                     "identity_requirements": ["episode"],
                 },
             },
@@ -51,7 +51,7 @@ class DefinitionApplicabilityOperation:
                 "support": {
                     "provenance": "exact",
                     "source": "frozen-source-set",
-                    "coverage": "exact-selected-source",
+                    "coverage": {"role": "components", "description": "exact-selected-source"},
                     "identity_requirements": ["episode"],
                     "source_set": "definition-components",
                 },
@@ -69,7 +69,7 @@ class DefinitionApplicabilityOperation:
                 "support": {
                     "provenance": "exact",
                     "source": "same-original",
-                    "coverage": "exact-selected-source",
+                    "coverage": {"role": "relationship", "description": "exact-selected-source"},
                     "identity_requirements": ["episode"],
                 },
             },
@@ -93,7 +93,7 @@ class DefinitionApplicabilityOperation:
             {'kind': 'documentation', 'text': 'unknown-transfer-premises-remain-unknown'},
             {'kind': 'documentation', 'text': 'private-reading-does-not-grant-publication'},
         ],
-        "coverage": "exact-selected-usage-and-actual-native-component",
+        "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "exact-selected-usage-and-actual-native-component"},
         "outcomes": ["success"],
         "precision": "original-native-half-open-extents",
         "dependencies": [

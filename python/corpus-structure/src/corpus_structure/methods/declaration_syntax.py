@@ -27,7 +27,7 @@ class DeclarationSyntaxOperation:
                 "support": {
                     "provenance": "exact",
                     "source": "original-source",
-                    "coverage": "selected-scope",
+                    "coverage": {"role": "source", "description": "selected-scope"},
                     "identity_requirements": ["episode"],
                     "origins": ["computation"],
                 },
@@ -44,7 +44,7 @@ class DeclarationSyntaxOperation:
                 "support": {
                     "provenance": "exact",
                     "source": "original-source",
-                    "coverage": "selected-scope",
+                    "coverage": {"role": "canonical", "description": "selected-scope"},
                     "identity_requirements": ["episode"],
                     "origins": ["computation"],
                 },
@@ -61,7 +61,7 @@ class DeclarationSyntaxOperation:
                 "support": {
                     "provenance": "exact",
                     "source": "original-source",
-                    "coverage": "selected-scope",
+                    "coverage": {"role": "hanlp", "description": "selected-scope"},
                     "identity_requirements": ["episode"],
                     "origins": ["computation"],
                 },
@@ -83,7 +83,7 @@ class DeclarationSyntaxOperation:
             {'kind': 'documentation', 'text': 'no-private-downstream-declaration-recognizer'},
             {'kind': 'documentation', 'text': 'missing-support-is-unknown-not-empty'},
         ],
-        "coverage": "exact-selected-canonical-sentence-population",
+        "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "exact-selected-canonical-sentence-population"},
         "outcomes": ["success", "failed"],
         "precision": "original-native-half-open-extents",
         "dependencies": [

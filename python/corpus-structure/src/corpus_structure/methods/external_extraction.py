@@ -27,7 +27,7 @@ class RichExtractionInputOperation:
                 "support": {
                     "provenance": "exact",
                     "source": "same-original",
-                    "coverage": "explicit-selected-rich-context",
+                    "coverage": {"role": "source", "description": "explicit-selected-rich-context"},
                     "origins": ["computation"],
                     "identity_requirements": ["episode"],
                 },
@@ -44,7 +44,7 @@ class RichExtractionInputOperation:
                 "support": {
                     "provenance": "exact",
                     "source": "same-original",
-                    "coverage": "explicit-selected-rich-context",
+                    "coverage": {"role": "annotations", "description": "explicit-selected-rich-context"},
                     "origins": ["computation"],
                     "identity_requirements": ["episode"],
                 },
@@ -61,7 +61,7 @@ class RichExtractionInputOperation:
                 "support": {
                     "provenance": "exact",
                     "source": "same-original",
-                    "coverage": "explicit-selected-rich-context",
+                    "coverage": {"role": "policy", "description": "explicit-selected-rich-context"},
                     "origins": ["authored"],
                     "identity_requirements": ["original-source"],
                 },
@@ -78,7 +78,7 @@ class RichExtractionInputOperation:
                 "support": {
                     "provenance": "exact",
                     "source": "same-original",
-                    "coverage": "explicit-selected-rich-context",
+                    "coverage": {"role": "context_sources", "description": "explicit-selected-rich-context"},
                     "origins": ["computation"],
                     "identity_requirements": ["episode"],
                 },
@@ -97,7 +97,7 @@ class RichExtractionInputOperation:
                 "support": {
                     "provenance": "exact",
                     "source": "same-original",
-                    "coverage": "explicit-selected-rich-context",
+                    "coverage": {"role": "context_annotations", "description": "explicit-selected-rich-context"},
                     "origins": ["computation"],
                     "identity_requirements": ["episode"],
                 },
@@ -116,7 +116,7 @@ class RichExtractionInputOperation:
                 "support": {
                     "provenance": "exact",
                     "source": "same-original",
-                    "coverage": "explicit-selected-rich-context",
+                    "coverage": {"role": "scopes", "description": "explicit-selected-rich-context"},
                     "origins": ["computation"],
                     "identity_requirements": ["episode"],
                 },
@@ -139,7 +139,7 @@ class RichExtractionInputOperation:
             {'kind': 'documentation', 'text': 'retain-rich-fields-and-source-placement'},
             {'kind': 'documentation', 'text': 'no-knowledge-admission'},
         ],
-        "coverage": "complete-selected-input",
+        "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "complete-selected-input"},
         "outcomes": ["success"],
         "precision": "mechanically-checked-source-report",
         "dependencies": [],
@@ -367,7 +367,7 @@ class RichExtractionPlacementOperation:
                 "support": {
                     "provenance": "exact",
                     "source": "same-original",
-                    "coverage": "explicit-selected-rich-context",
+                    "coverage": {"role": "packet", "description": "explicit-selected-rich-context"},
                     "origins": ["computation"],
                     "identity_requirements": ["episode"],
                 },
@@ -385,7 +385,7 @@ class RichExtractionPlacementOperation:
                 "support": {
                     "provenance": "exact",
                     "source": "same-original",
-                    "coverage": "explicit-selected-rich-context",
+                    "coverage": {"role": "authored", "description": "explicit-selected-rich-context"},
                     "origins": ["computation"],
                     "identity_requirements": ["episode"],
                 },
@@ -406,7 +406,7 @@ class RichExtractionPlacementOperation:
             {'kind': 'documentation', 'text': 'retain-rich-fields-and-source-placement'},
             {'kind': 'documentation', 'text': 'no-knowledge-admission'},
         ],
-        "coverage": "complete-selected-input",
+        "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "complete-selected-input"},
         "outcomes": ["success"],
         "precision": "mechanically-checked-source-report",
         "dependencies": ["extract.rich_external"],

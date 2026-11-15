@@ -35,7 +35,7 @@ class ConstructionOperation:
                     "identity_requirements": [],
                     "origins": ["computation", "original-source"],
                     "source": "original-source",
-                    "coverage": "selected-scope",
+                    "coverage": {"role": "source", "description": "selected-scope"},
                 },
             },
             {
@@ -52,7 +52,7 @@ class ConstructionOperation:
                     "identity_requirements": [],
                     "origins": ["computation"],
                     "source": "original-source",
-                    "coverage": "selected-scope",
+                    "coverage": {"role": "formal", "description": "selected-scope"},
                 },
             },
             {
@@ -69,7 +69,7 @@ class ConstructionOperation:
                     "identity_requirements": [],
                     "origins": ["computation"],
                     "source": "original-source",
-                    "coverage": "selected-scope",
+                    "coverage": {"role": "sentences", "description": "selected-scope"},
                 },
             },
             {
@@ -88,7 +88,7 @@ class ConstructionOperation:
             {'kind': 'documentation', 'text': 'governed-semantic-member-references'},
             {'kind': 'documentation', 'text': 'explicit-coverage-and-private-standing'},
         ],
-        "coverage": "exact-selected-source-scope",
+        "coverage": {"binding": "self", "result_owners": [{"kind":'implementation',"reference":"self"}], "description": "exact-selected-source-scope"},
         "outcomes": ["success", "failed"],
         "precision": "retained-positioned-characterization",
         "dependencies": ["text.formal_evidence/source-native"],
