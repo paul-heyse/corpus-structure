@@ -50,7 +50,7 @@ def assessment_recipe():
 def test_native_selected_formal_members_supply_assessment_graph(ddo_kernel):
     kernel = ddo_kernel
     profile = prepare_formal_evidence(kernel.prepared, kernel.model, grammar=grammar_identity())
-    source = selected(profile, "x = 2")
+    source = selected(profile)
     document = source.value["source"]["document"]
     context = SubjectContext("ddo-test", "subject:formal-graph", document, b"{}")
     formal = profile.run(source, FormalEvidenceOptions(), subject_context=context)
@@ -79,6 +79,52 @@ def test_native_selected_formal_members_supply_assessment_graph(ddo_kernel):
             assert any(edge.relation == "occurrences" for edge in graph.occurrences)
             assert all('"product_id":"' + product + '"' in node.payload_json for node in graph.nodes)
 
+    import base64
+    from contextlib import contextmanager
+
+    import anyio
+    from fastmcp import Client, FastMCP
+    from mcp.types import TextResourceContents
+
+    from corpus_structure.intervene.source_inspection_tools import register_source_inspection_tools
+    from corpus_structure.semantic.graph_inspection import (
+        GraphInspectionRequest,
+        read_graph_inspection,
+    )
+
+    request = GraphInspectionRequest.model_validate(dict(release_id=kernel.prepared.release_id, demand_id=demand["demand_id"], project_id="ddo-test", projection="assessment", scope={"product_ids": [product]}, assessed_members=[dict(product_id=product, member_id=term_ids[0])], limit=1000))
+    reader_engine = kernel.purpose("read")
+    try:
+        with reader_engine.begin() as connection:
+            inspected = read_graph_inspection(connection, request)
+            assert inspected.standing == "complete" and inspected.examined_occurrences > 0
+            assert read_graph_inspection(connection, request.model_copy(update={"assessed_members": ()})).standing == "unavailable"
+        pins = wire_json_loads(inspected.pins_json)
+        request = request.model_copy(update={"read_id": pins["read_id"], "expected_cut": pins["cut_id"]})
+
+        @contextmanager
+        def reader():
+            with reader_engine.begin() as connection:
+                yield connection
+
+        server = FastMCP("actual-formal-assessment-graph")
+        register_source_inspection_tools(server, reader, project="ddo-test", demand=demand["demand_id"])
+
+        async def inspect():
+            async with Client(server) as client:
+                response = await client.call_tool("inspect_declared_graph", {"request": request.model_dump(mode="json")})
+                assert response.structured_content is not None
+                assert response.structured_content["standing"] == "complete"
+                assert response.structured_content["snapshot_id"] == inspected.snapshot_id
+                resource = await client.read_resource("corpus://declared-graph/" + base64.urlsafe_b64encode(json_bytes(request.model_dump())).decode())
+                contents = resource[0]
+                assert isinstance(contents, TextResourceContents)
+                assert wire_json_loads(contents.text)["snapshot_id"] == inspected.snapshot_id
+
+        anyio.run(inspect)
+    finally:
+        reader_engine.dispose()
+
 
 def test_formal_fixture_members_match_native_wire_before_publication():
     from pydantic import TypeAdapter
@@ -87,7 +133,7 @@ def test_formal_fixture_members_match_native_wire_before_publication():
     from semantic.formal_products_support import released_profile
 
     profile = released_profile()
-    source = selected(profile, "x = 2")
+    source = selected(profile)
     formal = profile.run(source, FormalEvidenceOptions())
     packets = formal.value.model_dump(mode="python", exclude_unset=True)["members"]
     assert packets
