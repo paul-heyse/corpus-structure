@@ -342,3 +342,15 @@ cancelled. Pivotal APIs, source references and alternatives are in
 [review I02](../../plan_improvement_reviews/declared-data-operations-sqlalchemy-alembic_2026-11-14.md#I02),
 [I04](../../plan_improvement_reviews/declared-data-operations-sqlalchemy-alembic_2026-11-14.md#I04) and
 [I05](../../plan_improvement_reviews/declared-data-operations-sqlalchemy-alembic_2026-11-14.md#I05).
+
+## Realized bounded graph acquisition · 2026-11-15
+
+The graph reader now owns acquisition separately from pure analysis. It retains one bounded temporary
+SQLite witness index after the reader transaction closes; snapshot construction, source/assessment
+projection and NetworkX analysis run without publication/trust locks. Budget refusals retain the
+authentic committed native read/cut/trust pins. No persistent mirror or connection compatibility
+wrapper remains. Ordinary selected queries do not capture the extra graph frontier.
+
+Native implementation capture includes the actual delegated graph helpers and NetworkX execution
+profile; archived nominal source without those imports retains its original requirements. The DDO
+coordinator and native evidence own qualification, not this contract description.

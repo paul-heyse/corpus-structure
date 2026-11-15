@@ -1,0 +1,74 @@
+{
+  "schema_version": 1,
+  "id": "ddo.networkx-native-realization",
+  "title": "Forward v6 projection interpretation and complete native graph helper capture",
+  "group": "Declared data operations",
+  "package": "DDO-03–10",
+  "finalized": "2026-11-14",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can current graph interpretation and actual delegated native nominal validation code be frozen forward without rewriting historical sources or deploying persistently?",
+  "answers": [],
+  "method": "Rollback-only authoring, independent typed operation/owner/ACL inspection and exact frozen file registration.",
+  "commands": [
+    "uv run ci model change preview docs/design_review/evidence/2026-11-14_ddo-networkx-realization/change-v2.yaml --json",
+    "uv run ci model change candidate e8a72ede38f64c8b817b82c8158daef8 --json",
+    "uv run ci model change inspect-candidate 191be16eb18b48e4992be9a6f55498d0 --view operations --limit 20 --json",
+    "uv run ci model change register 191be16eb18b48e4992be9a6f55498d0 --json"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "change.yaml",
+      "role": "native authoring request",
+      "sha256": "5c1984a2fd20f23368a455cdd6ad40fa88150f778dbf23e06840f8cf482cba4b"
+    },
+    {
+      "path": "change-v2.yaml",
+      "role": "native authoring request",
+      "sha256": "c14f474592e82689bb17d8949cc8cf9768b98f03cdb875774bd00d20dc698861"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "results/graph-v1-candidate.json",
+      "role": "typed native custody, operation facts and exact registered hashes",
+      "sha256": "58d5e67c0504b8d3e776e2e46a8bf1348ce85d5a59b3bc5cb02f61c6c5f7b5ec"
+    },
+    {
+      "path": "results/graph-v1-operations.json",
+      "role": "typed native custody, operation facts and exact registered hashes",
+      "sha256": "961e92c90663d01dcc77367cbcbcabc6289d670ac63dcaca66c81fb2f1122956"
+    },
+    {
+      "path": "results/graph-v2-candidate.json",
+      "role": "typed native custody, operation facts and exact registered hashes",
+      "sha256": "fc2eb53f9047cd3929b2c8eab84f782111dc8d8c74fb382df8283983b8aaaa54"
+    },
+    {
+      "path": "results/graph-v2-operations.json",
+      "role": "typed native custody, operation facts and exact registered hashes",
+      "sha256": "3c8cb7166d047e98077eb6d3374669d084198ce56a759a98b1f7ff1946ca9bd1"
+    },
+    {
+      "path": "results/registered-files.json",
+      "role": "typed native custody, operation facts and exact registered hashes",
+      "sha256": "9991138085390ce24e614acb16b9ee10c9e91ca41d45b823ffcf18f3d6c4a1d6"
+    }
+  ],
+  "depends_on": [
+    "2026-11-14_ddo-source-change-inspection/ddo.source-change-native"
+  ],
+  "results": [],
+  "outcome": "passed",
+  "conclusion": "Forward graph_v1 candidate03865244a72143fe84071d15f8e60680 and graph_v2 candidate191be16eb18b48e4992be9a6f55498d0 passed rollback authoring with cleanup established. Registrations26e595d79151439f86887b64395804ae andde14b23c7c974cf6859943c68dea4a7c verified exact files. V1 changes3native function bodies for v6 admission; v2 changes2descriptor bodies to bind new graph_topology.py/graph_runtime.py delegated helper bytes and NetworkX3.7/native execution profile. Both have0ordinary/0privilege changes, unchanged owners/ACLs. Persistent corpus_structure_dev remains semantic_bep_located_v2, OID25921445/system7701811359771751232 on5434. Authoring/registration only: functional qualifications are separately scoped by the coordinator. No persistent deployment, activation or historical rewrite.",
+  "consumed_by": [
+    "DDO-03",
+    "DDO-04",
+    "DDO-05",
+    "DDO-09",
+    "DDO-10",
+    "ADR-0108"
+  ]
+}

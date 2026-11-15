@@ -198,3 +198,13 @@ proof, architectural lint or four-engine voting campaign is introduced. Extracti
 avoid self-referential identity and archived products must not reopen current code. Targeted checks
 accompany implementation; final broad union waits for complete functional replacement/retirement.
 All implementation checks here remain not_run at authoring.
+
+## Graph realization preservation boundary · 2026-11-15
+
+Current graph materialization consumes immutable released facts or pinned native reads. Detached
+JSONL/Parquet controls reconstruct the exact selected support/source graph from captured releases,
+frontier and witness records with current-source preparation/parsing forbidden. Original parent,
+order, pointer, parallel relationship and table-cell multiplicity expectations remain independent.
+This completes the bounded graph-preservation contribution without performing DDO-11 historical
+adoption, persistent deployment or reference regrading. The coordinator owns the actual required
+functional/native/public union and retained failed originals; whole-series DDO-12 remains separate.

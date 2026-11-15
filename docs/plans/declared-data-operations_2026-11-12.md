@@ -282,25 +282,80 @@ increment**. Bounded receipt unions do not establish full DDO acceptance.
 
 ## Focused NetworkX execution · accepted 2026-11-14
 
-**In progress; no enclosing completion.** Operator selected all remaining NetworkX I01–I07,
-including actual graph consumers, bounded prerequisites and retirement; wholesale rich-domain/data
-migration remains separate. This section owns current execution disposition. The graph companion
-owns technical contracts. ADR-0108/D2/D8 govern v6 archived interpretation and native-only realization.
+**Implemented; bounded functional qualification Tested · 2026-11-15. No enclosing DDO completion.**
+Operator selected all remaining NetworkX I01–I07, including actual graph consumers, bounded
+prerequisites and retirement; wholesale rich-domain/data migration remains separate. This section
+owns execution disposition. The graph companion owns technical contracts. ADR-0108/D2/D8 govern
+v6 archived interpretation and native-only realization.
 
-| Responsibility | Current boundary / required acceptance |
+| Responsibility | Realized boundary |
 |---|---|
-| Admitted projections | v6 static/runtime/source/assessment/implementation specifications integrated; exact v2–v5 readers preserved without backfill. Diagnostic per-site source reference facts remain outside recipe determinants. Final integrated archive tests required. |
-| Shared topology/retirement | Native-only lazy runtime, multi-source closure, SCC/order/path/boundary and kind/member/characterization/record/demand/native-order consumer folds integrated. Pure151/152 plus exact1 retry and native catalog/demand30 passed in worker context; complete integrated acceptance pending. |
-| Protected comparison | One rooted attributed matcher supplies exact and non-induced modes; retained consumers keep their domain-specific mapping/choice/support checks. Comparison/task/characterization105 passed. Actual native assessment graph adapter integrating. |
-| Selected/source/inspection | Whole-examination budgets and immutable graph/CLI/MCP snapshot routes integrating. Native selected-use versus historical support, bound-request precedence, authentic source hierarchy, continuation and detached replay remain required. |
-| Native adoption | v6 archive guard requires a forward successor from semantic_ddo_source_v2. Rollback-only authoring/registration planned; no persistent deployment or activation. |
+| Admitted projections · I01 | Effective-model v6 archives all 13 static/selected/source/assessment/task/implementation specifications; exact v2–v5 readers preserve original bytes/identities without backfill or current execution. Per-site source facts retain relationship, position, supplying owner and provenance outside recipe determinants. Implementation vocabularies derive from actual admitted slices. |
+| Shared topology/retirement · I02/I03/I06 | One lazy native-only runtime and validated multi-source root-inclusive closure, SCC/condensation, stable order, path/boundary kernels. Kind/member inheritance, characterization/record cycles, frozen demand/discovery, native object/backfill/row ordering, retained alignment invalidation, ACL order and factor connectivity use native algorithms. Private DFS/TopologicalSorter/duplicate topology machinery removed with callers. |
+| Protected comparison · I04 | One rooted attributed MultiDiGraphMatcher supplies exact isomorphism and non-induced witness matching, exact/asymmetric payload policy and parallel-edge counters. Task, characterization and selected-reference consumers preserve every mapping needed for joint-choice/prerequisite checks. The actual selected-characterization adapter authenticates nominal envelope/member kinds and uses invocation-local product/member preparation; protected task incidence is a separate specification. |
+| Selected/source/public graphs · I05 | Separate actual bound-request precedence and selected-support lineage, including native population/positions, current replacement versus historical support and pending requestless fates. Original source hierarchy keeps pointers, parent/child order and table-cell multiplicity; outside capture is explicit partial. CLI model-source/demands graph and actual MCP tools/resources share immutable pinned pages, exact continuation preflight, whole-examination/native-transport/response bounds, and detached JSONL/Parquet replay. |
+| Lifetime · I06 | One temporary SQLite witness index survives reader-factory transaction exit; graph construction, analysis and rendering hold no native trust/publication locks. Budget-limited acquisition retains the genuine committed cut. Ordinary selected queries opt out of graph-frontier capture. No connection compatibility wrapper or persistent graph mirror remains. |
+| Native adoption · I06/I07 | Checkout successors semantic_ddo_graph_v1/v2 registered after rollback-only candidates: v6 guard plus actual delegated helper bytes and NetworkX3.7 execution profile. V1 has 3 native body changes, v2 has 2; both 0 ordinary/0 privilege changes. Owners/ACLs exact, frozen predecessors untouched; persistent database remains semantic_bep_located_v2. [Native custody](../design_review/evidence/2026-11-14_ddo-networkx-realization/README.md). |
+
+### Required union and acceptance · 2026-11-15
+
+The increment's required functional union is the affected graph/model/archive/topology/comparison,
+selected native support/source/assessment, source public/MCP, impact/export and native authoring
+controls. It does not include unrelated providers, historical data adoption or the whole-DDO campaign.
+
+- **passed:** `uv run ci test --workers 4 --json --` the 28 affected semantic/evaluate files,
+  `873f904c33084cc7801833dfef7ef7df`,685/685. Includes exact archive/model/canonical identities,
+  independent topology/role/isolate/multiplicity controls, retained comparison/task/record/alignment,
+  actual selected/native graph paths and detached custody. `ci test coverage` reports685 required /
+  685 covered, complete native observations and no unresolved identities for that selection.
+- **Final-source applicability:** subsequent functional changes are limited to reader-factory lifetime
+  and assessment invocation-local preparation/member-root bound. The final affected six-file cohort
+  `d5796e9353be497eacf4f23df04e2048` covers graph inspection, selected/source native, actual assessment
+  native/MCP, selected-reference and source-public consumers:35/36 passed. Its sole failure expected
+  complete source scope despite genuine outside-capture containment pointers. The corrected assertion
+  retains explicit partial standing and identical unknowns; exact retry
+  `92e8fc777b8442b09902e7b04a634d24` **passed**,1/1. Composite coverage reports36 required /
+  36 covered,0 unresolved and two complete native observations; its aggregate status remains failed
+  because the original attempt failed. The source difference is that assertion and formatting; retry
+  workers1 versus original4 changes scheduling, not native scope or semantic premises. Other 685
+  obligations retain their source/context applicability; shared runtime, native captures, archive,
+  comparison and export semantics did not change after that pass. Safe formatting changed layout only.
+- **passed:** assessment-cache native/MCP/nominal two-root controls,
+  `03b02deb1d9440fab1415f849a850836`,4/4. Reader-factory worker cohort
+  `27179bbe0f9b4e1490cb441155716abb`,26/26; expanded 27-case attempt
+  `b3543ba4ce98480397f8114e35a6d7c2`26 passed/1 same incorrect source expectation, corrected exact
+  retry `85fe1c35511342b0b01a9b62061f13ee`1/1. Complete native observations; independent static
+  recheck of both lifetime/cache boundaries found no material issue on 2026-11-15.
+- **passed:** `uv run ci check --json`, `21ce099cc764402bb84e8bfb14de53b1`: agents/ADR/rules,
+  Ruff, whole pyrefly, docs, dependency pins and Clippy. Rust1.102.0-nightly
+  (5f4effd57 2026-11-13). `just turn-end` passed. Documentation/checkpoint-only final changes receive
+  their publication check below; no dependency/toolchain change.
+- **passed:** `uv run ci docs check --json`, `742a6ad80f884dd899cdd8b2f192dcb4`,1284 canonical
+  pages/zero link errors after integrated plans/checkpoint/evidence updates; the later edit records
+  only this receipt. `uv run ci evidence index --json`, `981492d508904af68d127b5d99bde905`, passed.
+- **passed:** both native rollback candidates/registrations and native record finalization
+  `a03dd71c151649ada1c64803ebf7397b`; exact IDs/files/operations remain in the native evidence owner.
+- **failed:** `uv run ci evidence check --json`, `2c4b8e12f0454dcc8c930b1041d9854e`, the four unchanged
+  older-DDO errors: changed consumer-reconciliation output hash and three unresolved unqualified
+  authored-demand/external-custody/PDF-modes references. New graph record passes; old hashes unchanged.
+  Prior `ci doctor` missing pg_virtualenv remains a prerequisite limit; dedicated shared native tests pass.
+- **not_run:** persistent deployment/activation, historical conversion, full provider/fault/DDO campaign,
+  benchmarks and optional advanced graph products. Required full-DDO qualification remains DDO-12.
+
+Original failed/interrupted attempts retain their outcomes; corrected scoped replacements establish
+only their named obligations. Worker original result directories were moved inode-preserving into root
+custody, held and verified through the root CLI before worktree removal. Earlier PostgreSQL 14 lost
+wire-worker originals remain raw-only diagnostics; this increment does not repair that historical loss.
 
 Prior authored-claim SCC repair is preserved, not reclassified as new work. Selective PostgreSQL and
-SQLite acquisition, source/schema authentication, native sufficiency/trust, and protected answer
-ownership remain distinct from topology. Every replaced topology/matcher path retires with callers;
-meaningful retained archive readers and domain extraction are not compatibility fallbacks.
+SQLite acquisition, source/schema authentication, native sufficiency/trust, protected answer ownership
+and domain extraction remain distinct from topology. Meaningful retained archive readers and these
+policy owners are not compatibility fallbacks. Source_dependencies/approved_implementations and rich
+legacy APIs retain their genuine M1/PDF/native/rich consumers until their separately scheduled replacements;
+this increment removes no required durable-data or domain policy obligation. DDO-11/12 own adoption
+and enclosing qualification; optional graph candidates retain the companion's explicit triggers.
 
-Benefits are Proposed, qualitative and unmeasured. No new graph service/mirror, alternate backend,
+Benefits are Proposed, qualitative and unmeasured. No graph service/mirror, alternate backend,
 optional ranking/community/GED/WL/LCA/visualization product or provider campaign is introduced.
 
 ## Reading and work-package ownership

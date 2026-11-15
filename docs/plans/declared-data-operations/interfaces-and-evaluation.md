@@ -195,3 +195,21 @@ or timeout. Definition/declaration/implementation/references/signatures and call
 are tooling observations, never canonical DDO contracts, currentness evidence or a checker replacement.
 Detached demand export carries release-side interface artifacts through existing capture and
 manifest authentication; it introduces no second export authority.
+
+## Realized graph inspection and assessment · 2026-11-15
+
+`ci model source graph`, `ci demands graph` and actual MCP tools/resources share the reader-factory
+service. Request identity is checked before acquisition; native scope/read/trust and projection/model
+pins survive every page and resource. Acquisition closes its transaction before graph construction,
+SCC/path/boundary/order analysis, and response assembly. Results describe the captured cut; live
+effects still require native re-admission. Whole-examination, native transport and response bounds
+are independent, and partial facts do not become exact negative claims.
+
+Assessment requests select explicit nominal product/member addresses separately from native
+`scope.product_ids`. Eligibility is the captured DdoCharacterizationEnvelope inheritance and declared
+member-kind policy, not similar JSON fields. One invocation prepares each product body/member index
+and kind closure once while authenticating every distinct member. Selected-characterization
+witnesses and protected reified task incidence have separate admitted interpretations. The one
+rooted attributed matcher retains exact/asymmetric policies and every mapping required by joint
+choices or feasible prerequisite checks. Exact historical archives remain readable with unavailable
+new graph interpretations; they are not promoted to current execution.

@@ -1,13 +1,14 @@
 # Declared graph projections and NetworkX analysis
 
-**Accepted contract; focused realization implemented, qualification owned by the coordinator · 2026-11-14.** Consumes the
+**Accepted contract; focused realization implemented and bounded qualification owned by the coordinator · 2026-11-15.** Consumes the
 [NetworkX review](../../plan_improvement_reviews/declared-data-operations-networkx_2026-11-12.md)
 at `7c5368faa`. Implements its I01–I07 planning amendments within DDO-00–12; the
 [coordinator](../declared-data-operations_2026-11-12.md) alone owns progress and scheduled dispositions.
 The operator selected explicit conditional triggers rather than mandatory candidate investigations.
 The coordinator's DDO-00–02 receipt records implemented pure typed graph/closure/identity kernels
-and their bounded checks. Candidate native snapshots and bounded readiness now have integrated foundations. Real-consumer
-integration, public graph explanations and assembled qualification remain open; this companion is not a second progress ledger.
+and their bounded checks. Candidate native snapshots, bounded readiness, actual graph consumers and public explanations now use
+the realized foundations. Wider domain conversion and whole-DDO qualification remain with their packages;
+this companion is not a second progress ledger.
 
 This companion owns shared projection/algorithm contracts. Contracts and compilation owns their
 integration into effective definitions and identities; products/support owns native acquisition and
@@ -254,8 +255,8 @@ For [source-migration discovery and eligibility](source-evolution-and-migrations
 keep structural candidates separate from resolved semantic correspondences and complete consumer
 coverage. Neither ast-grep captures nor a LibCST qualified-name membership establishes a unique
 operation binding, data/support edge or absence of other callers. Proposed-source compilation uses
-the declared projection definitions above; syntactic rewrites cannot close CA-06's missing compiled
-projection prerequisite. Do not introduce a second graph or persisted matcher registry for edits.
+the declared projection definitions above; syntactic rewrites cannot substitute for admitted compiled
+projection semantics (CA-06's foundation is already closed). Do not introduce a second graph or persisted matcher registry for edits.
 
 ## Focused realization and retirement boundary · 2026-11-14
 
@@ -285,3 +286,9 @@ Forward graph-v1 admits v6; graph-v2 additionally binds delegated graph helper b
 execution profile through native capture. Neither rewrites predecessors or deploys persistently.
 The coordinator supplies final verification and preserved failed receipts; this companion owns meaning,
 not a second completion ledger.
+
+Reader-factory acquisition retains the temporary index after the native transaction closes, so graph
+construction and analysis hold no shared trust/publication locks. Assessment root count is bounded;
+nominal admission and per-container/member preparation are reused within the invocation, avoiding
+whole-container duplication per requested member. This is invocation-local preparation, not another
+cache authority. Final integrated qualification is recorded in the coordinator on 2026-11-15.

@@ -197,3 +197,13 @@ recipe; its historical request release ID does not invalidate genuine cross-rele
 episodes retain their immutable release. Forward `semantic_ddo_source_v1/v2` capture these native
 changes, with rollback-only authoring/registration and unchanged owners/ACLs; persistent deployment
 and historical conversion are outside this increment.
+
+## Graph realization currentness boundary · 2026-11-15
+
+Selected request precedence and support are separate declared graphs. Current selected-use
+replacement support is not conflated with historical production support; source/authored admissions,
+roles, native positions, population evidence and pending requestless fates retain their meanings.
+Root-inclusive declaration closure remains potential impact only. Native target admission and the
+existing equal-value/support cutoff remain the substitution owner. Typed graph paths/components/
+boundaries are explanations relative to their pinned examined universe, never proof of readiness,
+trust, global exhaustion or evidence independence.
