@@ -932,17 +932,23 @@ def classify_receipt(directory: Path) -> dict[str, Any]:
         ):
             errors.append("private host cohort exited unsuccessfully")
     statuses = [value["status"] for value in nodes.values()]
+    session_failures = [
+        event
+        for event in companion
+        if event.get("event") == "session_finish" and event.get("exitstatus") not in (0, 5)
+    ]
     empty_selection = (
         not nodes
         and not errors
         and not worker_loss
         and not collection_errors
+        and not session_failures
         and process.get("returncode") in (0, 5)
     )
     process_failed = (
         process.get("returncode") not in (None, 0) or cohort.get("returncode") not in (None, 0)
     ) and not empty_selection
-    if collection_errors or "failed" in statuses:
+    if collection_errors or session_failures or "failed" in statuses:
         status = "failed"
     elif errors or worker_loss:
         status = "incomplete"
@@ -984,6 +990,7 @@ def classify_receipt(directory: Path) -> dict[str, Any]:
         },
         "deselected": sorted(deselected),
         "collection_errors": collection_errors,
+        "session_failures": session_failures,
         "stream_errors": errors,
         "selection_refusals": selection_refusals,
         "active_phases": list(active.values()),
@@ -1679,6 +1686,18 @@ def _native_traceback(report: dict[str, Any]) -> dict[str, Any]:
 
 
 def _failure_events(receipt: dict[str, Any]) -> Generator[tuple[dict[str, Any], dict[str, Any]]]:
+    if not receipt["collection_errors"] and not receipt["nodes"]:
+        for event in receipt.get("session_failures", []):
+            yield (
+                {
+                    "nodeid": "",
+                    "phase": "collection",
+                    "outcome": "failed",
+                    "reason": "session_failure",
+                    "diagnostic": f"pytest session {event.get('worker', 'unknown')} exited with status {event['exitstatus']}",
+                },
+                {},
+            )
     for report in sorted(receipt["collection_errors"], key=lambda report: report.get("nodeid", "")):
         yield (
             {
@@ -2293,7 +2312,7 @@ def main(argv: list[str] | None = None) -> int:
                 {
                     "status": result["status"],
                     "custody_unsettled": result["custody_unsettled"],
-                    "empty": not receipt["selected"] and receipt["reporting_complete"],
+                    "empty": receipt["empty_selection"],
                     "retryable": _retryable(result),
                     "workers": receipt["invocation"]["workers"],
                     "evidence_selection": receipt["evidence_selection"],

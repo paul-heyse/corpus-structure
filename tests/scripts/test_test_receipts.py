@@ -437,6 +437,19 @@ def test_real_collection_failure(tmp_path: Path) -> None:
     assert result["collection_errors"]
 
 
+def test_xdist_missing_selector_is_failed_even_when_controller_reports_empty(tmp_path):
+    output = child(
+        tmp_path,
+        "def test_case():\n    pass\n",
+        timeout=30,
+        args=("-n", "2", str(tmp_path / "missing_test.py")),
+    )
+    result = classify_receipt(output)
+    assert result["status"] == "failed"
+    assert not result["empty_selection"]
+    assert any(event["exitstatus"] == 4 for event in result["session_failures"])
+
+
 @pytest.mark.parametrize("phase", ["setup", "call", "teardown"])
 def test_real_hang_retains_active_phase(tmp_path: Path, phase: str) -> None:
     source = "import pytest, time\n"
