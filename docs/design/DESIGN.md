@@ -203,12 +203,14 @@ it. Changing one needs an ADR and a design/target review.
 policy with one effective model, mixed declaration/Python ownership and selective implementation
 recipe determinants. Native products/support, demands/requests and exact recovery preserve the
 existing source, authorization, numerical and protected-reference guarantees. DDO-00–02 foundation
-work does not switch selected production protocols. Current effective-model v5 archives complete
+work does not switch selected production protocols. The target current effective model archives complete
 governing facts once and stores derived identity headers without duplicate canonical witnesses;
-historical v2/v3/v4 reading retains its exact custody. The DDO coordinator owns implementation and
+obsolete historical readers retire through faithful target-native import or regeneration. Checked
+subjects/enforcement/numerical contracts replace meaningful labels; descriptive slice-owned prose
+is outside semantic identity. ADR-0109 owns this accepted target; implementation remains open. The DDO coordinator owns implementation and
 scope; D1–D8 label the accepted target separately from older implemented mechanisms.
 
-> Decision: [ADR-0092](../adr/0092-ddo-operation-authority.md), [ADR-0093](../adr/0093-ddo-products-and-support.md), [ADR-0094](../adr/0094-ddo-demand-and-recovery.md), [ADR-0095](../adr/0095-ddo-preservation-and-currentness.md), [ADR-0096](../adr/0096-original-source-admission.md), [ADR-0097](../adr/0097-ddo-native-composition.md), [ADR-0098](../adr/0098-typed-release-archive.md), [ADR-0099](../adr/0099-runless-pdf-source-ownership.md), [ADR-0105](../adr/0105-compact-effective-identity-archives.md)
+> Decision: [ADR-0092](../adr/0092-ddo-operation-authority.md), [ADR-0093](../adr/0093-ddo-products-and-support.md), [ADR-0094](../adr/0094-ddo-demand-and-recovery.md), [ADR-0095](../adr/0109-ddo-current-domain-contracts.md), [ADR-0096](../adr/0096-original-source-admission.md), [ADR-0097](../adr/0097-ddo-native-composition.md), [ADR-0098](../adr/0098-typed-release-archive.md), [ADR-0099](../adr/0099-runless-pdf-source-ownership.md), [ADR-0105](../adr/0105-compact-effective-identity-archives.md)
 
 ### Audit-closure contract qualification
 

@@ -39,6 +39,15 @@ Independent native replay, principal, support/recovery and scoped discovery cont
 in the coordinator. The successor has not been deployed to the working database; production
 adoption and broader physical/schema retirement remain DDO-11.
 
+**Accepted target clarification · 2026-11-15:** checked subject/enforcement and meaningful numerical
+contracts govern current operation identity. Descriptive slice-owned prose is not a result determinant.
+Useful data may migrate faithfully; changed-basis judgments require reassessment. Obsolete model,
+source-interface and operation interpreters retire rather than imposing historical compatibility.
+Native trust, effect fencing, source fidelity and evaluation independence remain required.
+Implementation/qualification is owned by the DDO coordinator.
+
+> Decision: [ADR-0109](../adr/0109-ddo-current-domain-contracts.md)
+
 > Decision: [ADR-0100](../adr/0100-ddo-contextual-identities.md), [ADR-0093](../adr/0093-ddo-products-and-support.md), [ADR-0098](../adr/0098-typed-release-archive.md), [ADR-0099](../adr/0099-runless-pdf-source-ownership.md), [ADR-0105](../adr/0105-compact-effective-identity-archives.md)
 
 ## Coherent characterization bounds and native demand anchors

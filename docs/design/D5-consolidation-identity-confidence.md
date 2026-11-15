@@ -10,7 +10,16 @@ provenance. Preparation/identity foundations do not activate the replacement nat
 legacy readers. The [DDO coordinator](../plans/declared-data-operations_2026-11-12.md) owns current
 scope and evidence; all older implemented sections retain their stated selected/archived boundary.
 
-> Decision: [ADR-0095](../adr/0095-ddo-preservation-and-currentness.md)
+**Accepted target clarification · 2026-11-15:** checked subject/enforcement and meaningful numerical
+contracts govern current operation identity. Descriptive slice-owned prose is not a result determinant.
+Useful data may migrate faithfully; changed-basis judgments require reassessment. Obsolete model,
+source-interface and operation interpreters retire rather than imposing historical compatibility.
+Native trust, effect fencing, source fidelity and evaluation independence remain required.
+Implementation/qualification is owned by the DDO coordinator.
+
+> Decision: [ADR-0109](../adr/0109-ddo-current-domain-contracts.md)
+
+> Decision: [ADR-0095](../adr/0109-ddo-current-domain-contracts.md)
 
 ## Witnessed component target
 

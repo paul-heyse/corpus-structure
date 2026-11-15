@@ -10,7 +10,7 @@ provenance. Preparation/identity foundations do not activate the replacement nat
 legacy readers. The [DDO coordinator](../plans/declared-data-operations_2026-11-12.md) owns current
 scope and evidence; all older implemented sections retain their stated selected/archived boundary.
 
-> Decision: [ADR-0095](../adr/0095-ddo-preservation-and-currentness.md)
+> Decision: [ADR-0095](../adr/0109-ddo-current-domain-contracts.md)
 
 ## Shared-corpus method development
 
