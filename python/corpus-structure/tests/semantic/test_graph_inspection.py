@@ -1,0 +1,107 @@
+"""Independent graph witnesses, rooted closure and bounded public observations."""
+
+import pytest
+
+from corpus_structure.semantic.graph_inspection import (
+    GraphInspectionRequest,
+    GraphNode,
+    GraphOccurrence,
+    GraphSnapshot,
+    inspect_graph,
+)
+
+
+def snapshot():
+    return GraphSnapshot(
+        projection="selected-support",
+        specification="test",
+        pins_json='{"release_id":"release:one"}',
+        nodes=tuple(GraphNode(identity=n, kind="node") for n in "ABCDI"),
+        occurrences=tuple(
+            GraphOccurrence(identity=str(i), source=a, target=b, relation=role)
+            for i, (a, b, role) in enumerate(
+                [
+                    ("A", "B", "input"),
+                    ("A", "B", "support"),
+                    ("B", "C", "input"),
+                    ("A", "C", "direct"),
+                    ("C", "B", "cycle"),
+                    ("D", "A", "input"),
+                ]
+            )
+        ),
+    )
+
+
+def request(**kwargs):
+    return GraphInspectionRequest(release_id="release:one", projection="selected-support", **kwargs)
+
+
+def test_components_include_isolates_parallel_edges_and_real_cycle():
+    result = inspect_graph(snapshot(), request(view="components"))
+    assert result.items == (
+        {"members": ["A"], "cyclic": False},
+        {"members": ["B", "C"], "cyclic": True},
+        {"members": ["D"], "cyclic": False},
+        {"members": ["I"], "cyclic": False},
+    )
+    assert result.examined_occurrences == 6
+
+
+def test_path_preserves_parallel_occurrences_and_boundary_direction():
+    page = inspect_graph(snapshot(), request(view="path", roots=("A",), target="B"))
+    assert {edge["relation"] for edge in page.items[0]["occurrences"]} == {"input", "support"}
+    outgoing = inspect_graph(snapshot(), request(view="boundary", roots=("A",)))
+    assert {edge["identity"] for edge in outgoing.items} == {"0", "1", "3"}
+    incoming = inspect_graph(
+        snapshot(), request(view="boundary", roots=("A",), direction="dependents")
+    )
+    assert {edge["identity"] for edge in incoming.items} == {"5"}
+
+
+def test_cursor_binds_complete_examined_snapshot_and_analysis():
+    first = inspect_graph(snapshot(), request(limit=1))
+    assert first.continuation
+    second = inspect_graph(snapshot(), request(limit=1, cursor=first.continuation))
+    assert second.items[0]["identity"] == "B"
+    with pytest.raises(ValueError, match="continuation"):
+        inspect_graph(
+            snapshot(), request(limit=1, cursor=first.continuation, direction="dependents")
+        )
+
+
+def test_unknown_endpoints_and_partial_do_not_claim_exact_absence():
+    with pytest.raises(ValueError, match="unknown"):
+        inspect_graph(snapshot(), request(roots=("missing",)))
+    partial = snapshot().model_copy(
+        update={"standing": "partial", "unknowns": ("omitted intermediate",)}
+    )
+    result = inspect_graph(partial, request(view="path", roots=("A",), target="I"))
+    assert result.standing == "partial" and result.items == () and result.unknowns
+    with pytest.raises(ValueError, match="endpoint"):
+        inspect_graph(
+            snapshot().model_copy(
+                update={
+                    "nodes": snapshot().nodes[:-1],
+                    "occurrences": (
+                        *snapshot().occurrences,
+                        GraphOccurrence(identity="bad", source="I", target="A", relation="bad"),
+                    ),
+                }
+            ),
+            request(),
+        )
+
+
+def test_examined_budget_is_separate_from_presentation_page():
+    large = snapshot().model_copy(
+        update={
+            "nodes": tuple(
+                node.model_copy(update={"payload_json": "x" * 2000}) for node in snapshot().nodes
+            )
+        }
+    )
+    result = inspect_graph(large, request(view="components", max_examined_bytes=1024))
+    assert result.standing == "partial" and result.items == ()
+    cyclic = inspect_graph(snapshot(), request(view="order"))
+    assert cyclic.standing == "unavailable" and "cyclic" in cyclic.unknowns[0]

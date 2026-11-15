@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import base64
 from hashlib import sha256
+from dataclasses import asdict
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -82,7 +83,7 @@ class GraphInspectionPage(BaseModel):
 
 def inspect_graph(snapshot: GraphSnapshot, request: GraphInspectionRequest):
     from .graph_runtime import nx
-    from .graph_topology import rooted_closure
+    from .graph_topology import rooted_closure, boundary_edges
 
     if snapshot.projection != request.projection:
         raise ValueError("graph projection differs from request")
@@ -179,16 +180,16 @@ def inspect_graph(snapshot: GraphSnapshot, request: GraphInspectionRequest):
                 raise ValueError("boundary requires an explicit selected node set")
             keys = {
                 key
-                for _, _, key in nx.edge_boundary(
-                    viewed, request.roots, keys=True, backend="networkx"
-                )
+                for _, _, key, _ in boundary_edges(viewed, request.roots)
             }
             items = [edge.model_dump() for edge in snapshot.occurrences if edge.identity in keys]
     binding = sha256(
         json_bytes(
             dict(
                 snapshot=snapshot.identity,
-                request=request.model_dump(exclude={"cursor", "limit", "max_bytes"}),
+                request=request.model_dump(
+                    exclude={"cursor", "limit", "max_bytes", "read_id", "expected_cut"}
+                ),
             )
         )
     ).hexdigest()
@@ -216,7 +217,14 @@ def inspect_graph(snapshot: GraphSnapshot, request: GraphInspectionRequest):
             items=tuple(items[offset:following]),
             unknowns=tuple(unknowns),
             continuation=base64.urlsafe_b64encode(
-                json_bytes(dict(binding=binding, offset=following))
+                json_bytes(
+                    dict(
+                        binding=binding,
+                        offset=following,
+                        read_id=pins.get("read_id"),
+                        cut=pins.get("cut_id"),
+                    )
+                )
             ).decode()
             if following < len(items)
             else None,
@@ -258,6 +266,14 @@ def snapshot_from_records(projection, specification, pins, records, *, unknowns=
                 role=row.get("role", ""),
                 position=row.get("position"),
                 multiplicity=row.get("multiplicity", 1),
+                attributes_json=json_bytes(
+                    {
+                        key: value
+                        for key, value in row.items()
+                        if key
+                        not in {"source", "target", "relation", "role", "position", "multiplicity"}
+                    }
+                ).decode(),
             )
         )
     return GraphSnapshot(
@@ -306,11 +322,35 @@ def archived_graph_snapshot(prepared, projection):
             if node.id in nodes and nodes[node.id] != node.record():
                 raise ValueError("implementation projections disagree on shared node meaning")
             nodes[node.id] = node.record()
-        edges.extend(
-            edge.record()
-            for edge in implementation.edges
-            if relations[projection] is None or edge.relation in relations[projection]
-        )
+        if projection == "implementation-determinant":
+            edges.extend(asdict(edge) for edge in implementation.edges)
+        else:
+            for fact in implementation.references:
+                if fact.relation not in relations[projection]:
+                    continue
+                target = fact.target
+                if target not in nodes:
+                    target = (
+                        "source-reference:"
+                        + sha256(json_bytes([fact.supplying_owner, fact.target])).hexdigest()
+                    )
+                    nodes[target] = dict(
+                        id=target,
+                        category="lexical-reference"
+                        if fact.relation == "lexical_reference"
+                        else "unresolved-reference",
+                        payload=dict(spelling=fact.target, provenance=fact.provenance),
+                    )
+                edges.append(
+                    dict(
+                        source=fact.source,
+                        target=target,
+                        relation=fact.relation,
+                        role=fact.supplying_owner,
+                        location=fact.location,
+                        provenance=fact.provenance,
+                    )
+                )
         unknowns.extend(f"{u.source}:{u.location}: {u.reason}" for u in implementation.unknowns)
     return snapshot_from_records(
         projection,
@@ -324,6 +364,16 @@ def archived_graph_snapshot(prepared, projection):
 def read_graph_inspection(connection, request: GraphInspectionRequest):
     from .releases import open_release
 
+    if request.cursor and request.demand_id:
+        try:
+            cursor = json_loads(base64.urlsafe_b64decode(request.cursor))
+            if not cursor.get("read_id") or not cursor.get("cut"):
+                raise ValueError("selected graph cursor lacks native read pins")
+            request = request.model_copy(
+                update={"read_id": cursor["read_id"], "expected_cut": cursor["cut"]}
+            )
+        except (KeyError, TypeError, ValueError) as error:
+            raise ValueError("invalid selected graph continuation") from error
     prepared = open_release(connection, request.release_id)
     if request.demand_id:
         from .selected_graph import selected_graph_snapshot

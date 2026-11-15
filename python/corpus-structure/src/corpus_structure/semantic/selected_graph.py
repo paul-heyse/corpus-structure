@@ -24,7 +24,12 @@ def selected_graph_snapshot(connection, prepared, request):
 
     model = bound_data_operation_model(prepared)
     specification = model.projection_definition(request.projection)
-    if request.projection not in {"bound-requests", "selected-support"}:
+    if request.projection not in {
+        "bound-requests",
+        "selected-support",
+        "source-hierarchy",
+        "assessment",
+    }:
         raise ValueError("this projection requires its source/assessment acquisition owner")
     if request.project_id is None:
         raise ValueError("selected graph requires an explicit project")
@@ -46,6 +51,26 @@ def selected_graph_snapshot(connection, prepared, request):
                 raise ValueError("selected graph release differs from native cut")
             pins.update(cut.record)
             pins["cut_id"] = cut.identity
+            if request.projection == "source-hierarchy":
+                from .source_hierarchy_graph import source_hierarchy_snapshot
+
+                return source_hierarchy_snapshot(prepared, model, cut, index)
+            if request.projection == "assessment":
+                from corpus_structure.evaluate.assessment_graph import assessment_graph_snapshot
+
+                addresses = tuple(
+                    (row["product_id"], row["member_id"])
+                    for row in index.rows("kb.data_product_member")
+                    if (
+                        request.scope.get("product_id") is None
+                        or row["product_id"] == request.scope["product_id"]
+                    )
+                    and (
+                        request.scope.get("member_id") is None
+                        or row["member_id"] == request.scope["member_id"]
+                    )
+                )
+                return assessment_graph_snapshot(prepared, cut, index, members=addresses)
             records = tuple(index.records())
     except SelectedGraphBudgetExceeded as error:
         return GraphSnapshot(
