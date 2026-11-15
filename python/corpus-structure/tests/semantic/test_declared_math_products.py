@@ -443,3 +443,39 @@ def test_symbol_scope_uses_retained_cues_forward_and_preserves_original_formula_
         assert row["binding_source"]["source_product"] == "product:source"
     assert actual["outcome"] == "partial"
     assert "task_id" not in canonical_bytes(actual).decode()
+
+
+def test_selected_math_checks_the_complete_source_address(math_profile):
+    from corpus_structure.semantic.data_operation_identity import semantic_value
+    from corpus_structure.semantic.declared_record_sources import DeclaredRecordSource
+    from corpus_structure.semantic.declared_structural_references import DeclaredStructuralSource
+    from corpus_structure.serve.selected_math import _source_for_interpretation
+
+    source, _, member, _ = _inputs(math_profile)
+    pin = DeclaredStructuralSource.model_validate(DeclaredRecordSource.from_bound(
+        source, member, project="outside-statistics",
+    ).pin())
+    row = dict(
+        kind_contract=member.kind_contract, subject=member.subject,
+        subject_definition=member.subject_definition, original_source=member.original_source,
+        analyzed_scope={"selectors": source.value["selectors"]},
+        body=semantic_value(source.value),
+    )
+    products = {member.product: {"project_id": "outside-statistics"}}
+    members = {(member.product, member.member): row}
+    actual = _source_for_interpretation(math_profile.prepared, pin, products, members)
+    assert actual.value["source"]["document"] == "document:original-content"
+    assert actual.value["source"]["section_pointer"] == "#/groups/0"
+    # Equal projected atoms do not establish document, subject or coordinate identity.
+    for changes in (
+        {"project_id": "another-project"}, {"subject": "another-subject"},
+        {"subject_definition": "another-definition"}, {"kind_contract": "another-kind"},
+        {"section_pointer": "#/groups/99"}, {"membership": "direct"},
+        {"analyzed_scope_meaning": "another-scope"},
+        {"document": "another-document", "original_source": "another-document"},
+    ):
+        changed = pin.model_copy(update=changes)
+        with pytest.raises(ValueError, match="admitted context or coordinate"):
+            _source_for_interpretation(math_profile.prepared, changed, products, members)
+    with pytest.raises(ValueError, match="outside its admitted closure"):
+        _source_for_interpretation(math_profile.prepared, pin, products, {})

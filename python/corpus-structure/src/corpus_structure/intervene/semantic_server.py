@@ -355,7 +355,7 @@ def build_retained_reader_server(
         """Find selected PDF source sections, with exact retrievable source handles."""
         from corpus_structure.serve.source_search import search_source
 
-        with source_snapshot(ctx, request.run_id) as conn:
+        with selected_source_snapshot(ctx, request.project_id) as conn:
             response = search_source(conn, request)
         return _bounded_mcp_result(response, request.max_bytes)
 

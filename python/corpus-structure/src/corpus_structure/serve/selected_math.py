@@ -6,6 +6,41 @@ from corpus_structure.semantic.data_operation_identity import decode_semantic_va
 from corpus_structure.semantic.demand_results import selected_record_index
 
 
+def _source_for_interpretation(prepared, reference, products, members):
+    """Check the complete admitted address, then its original-relative coordinate."""
+    from corpus_structure.semantic.data_operation_json import json_bytes
+    from corpus_structure.semantic.data_operation_model import SubjectContext
+    from corpus_structure.semantic.declared_record_sources import DeclaredRecordSource
+    from corpus_structure.semantic.declared_structural_references import DeclaredStructuralSource
+    from corpus_structure.semantic.source_products import FrozenNativeSource
+
+    row = (
+        products.get(reference.source_product)
+        if reference.source_member is None
+        else members.get((reference.source_product, reference.source_member))
+    )
+    if row is None:
+        raise ValueError("selected mathematical source is outside its admitted closure")
+    parent = products.get(reference.source_product)
+    if parent is None:
+        raise ValueError("selected mathematical source has no admitted container")
+    original = decode_semantic_value(row["canonical_body"] if reference.source_member is None else row["body"])
+    frozen = FrozenNativeSource.acquire(prepared, original)
+    coordinate = frozen.value["source"]
+    context = SubjectContext(
+        parent["project_id"], row["subject"], row["original_source"],
+        json_bytes(row["analyzed_scope"]), subject_definition=row["subject_definition"],
+    )
+    actual = DeclaredStructuralSource.model_validate(DeclaredRecordSource(
+        coordinate["document"], coordinate["projection"], coordinate["section_pointer"],
+        coordinate["membership"], context, reference.source_product,
+        reference.source_member, row["kind_contract"],
+    ).pin())
+    if actual != reference or coordinate["document"] != row["original_source"]:
+        raise ValueError("selected mathematical source differs from its admitted context or coordinate")
+    return frozen
+
+
 def selected_formula_interpretations(connection, source, pointer, *, read_budget):
     """Read current selected outputs; matching source meaning grants no new admission."""
     from corpus_structure.ingest.pdf_section_views import published_section_projections
@@ -15,6 +50,9 @@ def selected_formula_interpretations(connection, source, pointer, *, read_budget
         DeclaredMathScopeProduct,
         DeclaredMathSymbolicProduct,
     )
+    from corpus_structure.semantic.declared_math_analysis import (
+        DeclaredMathAnalysis, DeclaredWeakMathAnalysis, DeclaredContextualMathAnalysis,
+    )
     from corpus_structure.semantic.pdf_record_reader import PublishedPdfReader
     from corpus_structure.semantic.source_products import FrozenNativeSource
 
@@ -22,6 +60,8 @@ def selected_formula_interpretations(connection, source, pointer, *, read_budget
         "urn:corpus:math:DeclaredMathOccurrenceProduct": DeclaredMathOccurrenceProduct,
         "urn:corpus:math:DeclaredMathSymbolicProduct": DeclaredMathSymbolicProduct,
         "urn:corpus:math:DeclaredMathScopeProduct": DeclaredMathScopeProduct,
+        "urn:corpus:math-analysis:DeclaredWeakMathAnalysis": DeclaredWeakMathAnalysis,
+        "urn:corpus:math-analysis:DeclaredContextualMathAnalysis": DeclaredContextualMathAnalysis,
     }
     model = bound_data_operation_model(source.prepared)
     contracts = {
@@ -39,6 +79,7 @@ def selected_formula_interpretations(connection, source, pointer, *, read_budget
         read_id=pins["read_id"], scope=pins["scope"], expected_cut=source.cut.identity,
         capture_frontier=True, max_bytes=read_budget.max_bytes,
         max_total_bytes=read_budget.max_bytes,
+        max_total_records=read_budget.max_rows,
     ) as (_, index):
         products = index.mapping("kb.data_product", ("id",))
         members = index.mapping("kb.data_product_member", ("product_id", "member_id"))
@@ -80,15 +121,7 @@ def selected_formula_interpretations(connection, source, pointer, *, read_budget
                     ).value["source"]["projection"]
                 if projections[key] != reference.projection_digest:
                     continue  # A different retained source meaning is not this PDF projection.
-                source_row = (
-                    products[reference.source_product]
-                    if reference.source_member is None
-                    else members[reference.source_product, reference.source_member]
-                )
-                original = decode_semantic_value(source_row["canonical_body"] if reference.source_member is None else source_row["body"])
-                frozen = FrozenNativeSource.acquire(source.prepared, original)
-                if frozen.value["source"]["projection"] != reference.projection_digest:
-                    raise ValueError("selected mathematical source reference differs from its admitted body")
+                frozen = _source_for_interpretation(source.prepared, reference, products, members)
                 if pointer not in {item["self_ref"] for item in frozen.value["items"]}:
                     raise ValueError("selected mathematical occurrence is outside its admitted source")
                 record = dict(
@@ -96,7 +129,8 @@ def selected_formula_interpretations(connection, source, pointer, *, read_budget
                     product_id=output["product_id"], member_id=output["member_id"],
                     kind_contract=contract, role=output["role"], position=output["position"],
                     multiplicity=output["multiplicity"], source=reference.model_dump(mode="json"),
-                    phase=value.phase, outcome=value.outcome, issues=value.issues, items=selected_items,
+                    **({"demand": value.demand} if isinstance(value, DeclaredMathAnalysis) else {"phase": value.phase}),
+                    outcome=value.outcome, issues=value.issues, items=selected_items,
                 )
                 read_budget.value(record)
                 results.append(record)

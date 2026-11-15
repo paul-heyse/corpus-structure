@@ -72,3 +72,55 @@ def test_native_search_retains_english_stemming_rank_and_total_tie_order(semanti
             "run", position=(first[0]["score"], first[0]["key"]), limit=2,
         )
         assert [row["key"] for row in remaining] == ["z"]
+
+
+def test_current_find_mcp_preserves_selected_handles_and_unicode_payload(monkeypatch):
+    from contextlib import nullcontext
+
+    import anyio
+    from fastmcp import Client
+    from sqlalchemy import create_engine
+
+    from corpus_structure.intervene.semantic_server import build_retained_reader_server
+    from corpus_structure.serve.native_source import NativeSourceRequest
+    from corpus_structure.serve.source_search import SourceSearchHit, SourceSearchResponse
+
+    pin, cut, publication = selection()
+    payload = 'Unicode α "quoted" \\ slash\n' * 40
+    monkeypatch.setattr(
+        "corpus_structure.semantic.demand_results.selected_read_snapshot",
+        lambda selected: nullcontext(None),
+    )
+
+    def search(connection, selected):
+        assert selected.sources == (pin,)
+        assert (selected.project_id, selected.demand_id, selected.read_id) == (
+            pin.project_id, pin.demand_id, pin.read_id,
+        )
+        return SourceSearchResponse(
+            cut=cut, population_complete=True, rows=[SourceSearchHit(
+                source=pin, original_source="original.pdf", source_digest=publication.source_digest,
+                projection_digest="b" * 64,
+                selection=NativeSourceRequest(**pin.model_dump(), section_pointer="#/groups/8", membership="descendants"),
+                excerpt=payload, score=0.5,
+            )],
+        )
+
+    monkeypatch.setattr("corpus_structure.serve.source_search.search_source", search)
+    engine = create_engine("sqlite://")
+
+    async def journey():
+        async with Client(build_retained_reader_server(project="p", read_engine=engine)) as client:
+            result = await client.call_tool("find", {"request": request().model_dump(mode="json")})
+            assert not result.is_error
+            assert result.structured_content is not None
+            row = result.structured_content["rows"][0]
+            assert row["excerpt"] == payload
+            assert row["source"] == pin.model_dump()
+            assert row["selection"]["product_id"] == pin.product_id
+            assert result.structured_content["cut"] == cut
+
+    try:
+        anyio.run(journey)
+    finally:
+        engine.dispose()

@@ -20,7 +20,6 @@ from typing import TYPE_CHECKING, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, JsonValue
 
-from .contracts import bound_execution_model
 from .identity import canonical_bytes
 from .refusals import DATABASE_ERRORS, SemanticRefusal
 from .types import Diagnostic, PreparedRelease
@@ -107,9 +106,20 @@ class PublishedDocumentSubject:
 @lru_cache(maxsize=1)
 def _report_sources() -> SourceBundle:
     """Registration and invocation share one immutable process-owned source closure."""
-    from .contracts import trusted_execution_schema
+    from .types import SourceArtifact, SourceBundle
 
-    return trusted_execution_schema()
+    root = files("corpus_structure").joinpath("model", "semantic")
+    modules = ("operation-reports", "pdf-products", "observations", "characterization", "core")
+    return SourceBundle(
+        "report_root",
+        (*(
+            SourceArtifact(name.replace("-", "_"), root.joinpath(name + ".yaml").read_bytes())
+            for name in modules
+        ), SourceArtifact(
+            "report_root",
+            b"id: urn:corpus:report-boundary\nname: report_boundary\nimports: [operation_reports, pdf_products, observations, characterization, core]\n",
+        )),
+    )
 
 
 @lru_cache(maxsize=1)
@@ -172,6 +182,7 @@ def explain_operation(
     dependency_after: int = 0,
     dependency_limit: int = 100,
 ) -> BaseModel:
+    from .contracts import bound_execution_model
     from .product_reference import ProductReference
     from .query import SnapshotBinding
 
@@ -357,6 +368,7 @@ def parse_operation_subject(
     prepared: PreparedRelease, operation: str, raw: bytes, *, connection: Connection
 ) -> PublishedDocumentSubject | SnapshotBinding:
     """Use the exact retained execution boundary for this finite supported subject family."""
+    from .contracts import bound_execution_model
     from .pdf_contracts import pdf_context_for_release
     from .product_reference import ProductReference
     from .query import SnapshotBinding
@@ -781,6 +793,7 @@ def compare_semantic_releases(
     dependency_limit: int = 100,
 ) -> BaseModel:
     """Compare declared meaning, with optional separately identified runtime provenance."""
+    from .contracts import bound_execution_model
     old_model, new_model = bound_execution_model(before), bound_execution_model(after)
     changes = []
     unknowns = set()
@@ -1087,6 +1100,7 @@ def compare_semantic_releases(
 
 
 def _alias_impact(before: PreparedRelease, after: PreparedRelease, changes, unknowns) -> None:
+    from .contracts import bound_execution_model
     from .alias_policy import released_alias_product
 
     try:

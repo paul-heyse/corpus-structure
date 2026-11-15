@@ -458,7 +458,7 @@ def test_relationship_lifecycle_and_removed_dependency_edges_reach_declared_cons
         ),
     )
     monkeypatch.setattr(
-        reports, "bound_execution_model", lambda release: old if release is before else new
+        "corpus_structure.semantic.contracts.bound_execution_model", lambda release: old if release is before else new
     )
     value = reports.compare_semantic_releases(before, after).model_dump(mode="json")
     changes = {item["model_ref"]: item for item in value["changes"]}
@@ -490,7 +490,6 @@ def test_report_schema_is_the_real_model_bound_public_shape():
 
 
 def test_registration_and_invocation_share_the_captured_schema_source(monkeypatch):
-    from corpus_structure.semantic import contracts
     from corpus_structure.semantic import operation_reporting as reports
 
     registered = reports.report_schema("OperationExplanation")
@@ -499,11 +498,23 @@ def test_registration_and_invocation_share_the_captured_schema_source(monkeypatc
     def refuse_reacquisition():
         raise AssertionError("invocation must not silently adopt changed installed schema")
 
-    monkeypatch.setattr(contracts, "trusted_execution_schema", refuse_reacquisition)
+    monkeypatch.setattr(reports, "files", lambda *args: refuse_reacquisition())
     reports._report_model.cache_clear()
     boundary, _digest = reports._report_model()
     assert reports._report_sources() is sources
     assert boundary.json_schema("OperationExplanation", mode="serialization") == registered
+
+
+def test_current_report_boundary_prepares_without_legacy_operation_authority(monkeypatch):
+    import sys
+    from corpus_structure.semantic import operation_reporting as reports
+
+    reports._report_sources.cache_clear()
+    reports._report_model.cache_clear()
+    monkeypatch.setitem(sys.modules, "corpus_structure.semantic.contracts", None)
+    boundary, _digest = reports._report_model()
+    assert boundary.execution_model_id is None
+    assert "checks" in boundary.json_schema("OperationExplanation")["properties"]
 
 
 def test_graph_shape_execution_and_located_nonconformance_stay_distinct():
