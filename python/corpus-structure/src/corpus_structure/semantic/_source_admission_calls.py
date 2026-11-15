@@ -3,13 +3,12 @@
 from __future__ import annotations
 
 from typing import (
-    Annotated,
     Protocol,
     TypedDict,
     cast,
 )
 
-from pydantic import Field, JsonValue, TypeAdapter
+from pydantic import JsonValue, TypeAdapter
 from sqlalchemy import (
     BigInteger,
     Column,
@@ -20,10 +19,11 @@ from sqlalchemy import (
     Text,
     TypedColumns,
     bindparam,
+    column,
     func,
     select,
 )
-from sqlalchemy.dialects.postgresql import BYTEA
+from sqlalchemy.dialects.postgresql import BYTEA, JSONB
 from sqlalchemy.sql import ColumnElement
 
 from corpus_structure.semantic.identifiers import DocumentId as DocumentId
@@ -48,7 +48,7 @@ def _required[T](value: T | None, field: str, result_class: str, operation: str)
 
 
 SOURCE_DOCUMENT_REGISTRATION_CONTRACT_DIGEST = (
-    "f45913b4d4faa8e662365758418ece1b435f1bacc7c5d938a0834f08c1bb9eda"
+    "b18f03302bd742b68f717ed306136138a1ad2056238ed455b709f727bd6e2f74"
 )
 
 
@@ -66,112 +66,41 @@ class RegisteredOriginalDocument(NativeRowResult):
 
 
 class _source_document_registrationRequest(OperationResult):
+    release_id: ReleaseId
     project_id: ProjectId
-    key: str
     source_uri: str
     content_hash: str
     original_path: str
     mime: str
     title: str | None
     meta: JsonValue
+    original: bytes
 
 
-def prepare_source_document_registration(
-    *,
-    project_id: ProjectId,
-    key: str,
-    source_uri: str,
-    content_hash: str,
-    original_path: str,
-    mime: str,
-    title: str | None,
-    meta: JsonValue,
-    projection_context: PreparedRelease,
-) -> _source_document_registrationRequest:
-    _request = _source_document_registrationRequest(
-        project_id=project_id,
-        key=key,
-        source_uri=source_uri,
-        content_hash=content_hash,
-        original_path=original_path,
-        mime=mime,
-        title=title,
-        meta=meta,
-    )
-    require_call_context(
-        projection_context,
-        "data.initialize_source_project",
-        "source_document_registration",
-        SOURCE_DOCUMENT_REGISTRATION_CONTRACT_DIGEST,
-    )
-    return _request
+_source_document_registration_function = func.ops.register_original_document(
+    bindparam("release_id", type_=Text()),
+    bindparam("project_id", type_=Text()),
+    bindparam("source_uri", type_=Text()),
+    bindparam("content_hash", type_=Text()),
+    bindparam("original_path", type_=Text()),
+    bindparam("mime", type_=Text()),
+    bindparam("title", type_=Text()),
+    bindparam("meta", type_=JSONB()),
+    bindparam("original", type_=BYTEA()),
+).table_valued(
+    column("id", BigInteger()),
+    column("project_id", Text()),
+    column("key", Text()),
+    column("source_uri", Text()),
+    column("content_hash", Text()),
+    column("original_path", Text()),
+    column("mime", Text()),
+    column("title", Text()),
+    column("meta", JSONB()),
+)
 
 
-class SourceDocumentRegistrationKbDocumentValues(TypedDict):
-    project_id: ProjectId
-    key: str
-    source_uri: str
-    content_hash: str
-    original_path: str
-    mime: str
-    title: str | None
-    meta: JsonValue
-
-
-def values_source_document_registration_kb_document(
-    request: _source_document_registrationRequest,
-) -> SourceDocumentRegistrationKbDocumentValues:
-    return {
-        "project_id": request.project_id,
-        "key": request.key,
-        "source_uri": request.source_uri,
-        "content_hash": request.content_hash,
-        "original_path": request.original_path,
-        "mime": request.mime,
-        "title": request.title,
-        "meta": request.meta,
-    }
-
-
-class SourceDocumentRegistrationKbDocumentValuesExpected(TypedDict):
-    project_id: ProjectId
-    key: str
-    source_uri: str
-    content_hash: str
-    original_path: str
-    mime: str
-    title: str | None
-    meta: JsonValue
-
-
-def expected_source_document_registration_kb_document(
-    request: _source_document_registrationRequest,
-) -> SourceDocumentRegistrationKbDocumentValuesExpected:
-    return {
-        "project_id": request.project_id,
-        "key": request.key,
-        "source_uri": request.source_uri,
-        "content_hash": request.content_hash,
-        "original_path": request.original_path,
-        "mime": request.mime,
-        "title": request.title,
-        "meta": request.meta,
-    }
-
-
-class _source_document_registration_kb_documentColumns(TypedColumns):
-    id: Named[DocumentId]
-    project_id: Named[ProjectId]
-    key: Named[str]
-    source_uri: Named[str]
-    content_hash: Named[str]
-    original_path: Named[str]
-    mime: Named[str]
-    title: Named[str | None]
-    meta: Named[JsonValue]
-
-
-class _source_document_registration_kb_documentColumnsProtocol(Protocol):
+class _source_document_registrationColumns(Protocol):
     id: Column[DocumentId]
     project_id: Column[ProjectId]
     key: Column[str]
@@ -183,38 +112,23 @@ class _source_document_registration_kb_documentColumnsProtocol(Protocol):
     meta: Column[JsonValue]
 
 
-_source_document_registration_kb_document = _core_table("kb.document").with_cols(
-    _source_document_registration_kb_documentColumns
+_source_document_registration_columns = cast(
+    _source_document_registrationColumns, _source_document_registration_function.c
 )
-_source_document_registration_kb_document_columns = cast(
-    _source_document_registration_kb_documentColumnsProtocol,
-    _source_document_registration_kb_document.c,
-)
-
-projection_source_document_registration: tuple[
-    ColumnElement[DocumentId],
-    ColumnElement[ProjectId],
-    ColumnElement[str],
-    ColumnElement[str],
-    ColumnElement[str],
-    ColumnElement[str],
-    ColumnElement[str],
-    ColumnElement[str | None],
-    ColumnElement[str],
-] = (
-    _source_document_registration_kb_document_columns.id.label("id"),
-    _source_document_registration_kb_document_columns.project_id.label("project_id"),
-    _source_document_registration_kb_document_columns.key.label("key"),
-    _source_document_registration_kb_document_columns.source_uri.label("source_uri"),
-    _source_document_registration_kb_document_columns.content_hash.label("content_hash"),
-    _source_document_registration_kb_document_columns.original_path.label("original_path"),
-    _source_document_registration_kb_document_columns.mime.label("mime"),
-    _source_document_registration_kb_document_columns.title.label("title"),
-    _source_document_registration_kb_document_columns.meta.cast(Text()).label("meta"),
+_source_document_registration_statement = select(
+    _source_document_registration_columns.id,
+    _source_document_registration_columns.project_id,
+    _source_document_registration_columns.key,
+    _source_document_registration_columns.source_uri,
+    _source_document_registration_columns.content_hash,
+    _source_document_registration_columns.original_path,
+    _source_document_registration_columns.mime,
+    _source_document_registration_columns.title,
+    _source_document_registration_columns.meta.cast(Text()).label("meta"),
 )
 
 
-def materialize_source_document_registration(
+def _source_document_registration_result(
     row: tuple[int, str, str, str, str, str, str, str | None, str],
 ) -> RegisteredOriginalDocument:
     with native_result_scope("data.initialize_source_project", "RegisteredOriginalDocument"):
@@ -231,11 +145,83 @@ def materialize_source_document_registration(
         )
 
 
-def collect_source_document_registration(
-    result: Result[DocumentId, ProjectId, str, str, str, str, str, str | None, str],
+def prepare_source_document_registration(
+    *,
+    release_id: ReleaseId,
+    project_id: ProjectId,
+    source_uri: str,
+    content_hash: str,
+    original_path: str,
+    mime: str,
+    title: str | None,
+    meta: JsonValue,
+    original: bytes,
+    projection_context: PreparedRelease,
+) -> Select[DocumentId, ProjectId, str, str, str, str, str, str | None, str]:
+    _request = _source_document_registrationRequest(
+        release_id=release_id,
+        project_id=project_id,
+        source_uri=source_uri,
+        content_hash=content_hash,
+        original_path=original_path,
+        mime=mime,
+        title=title,
+        meta=meta,
+        original=original,
+    )
+    require_call_context(
+        projection_context,
+        "data.initialize_source_project",
+        "source_document_registration",
+        SOURCE_DOCUMENT_REGISTRATION_CONTRACT_DIGEST,
+    )
+    return _source_document_registration_statement.params(
+        **{
+            "release_id": _request.release_id,
+            "project_id": _request.project_id,
+            "source_uri": _request.source_uri,
+            "content_hash": _request.content_hash,
+            "original_path": _request.original_path,
+            "mime": _request.mime,
+            "title": _request.title,
+            "meta": _request.meta,
+            "original": _request.original,
+        }
+    )
+
+
+materialize_source_document_registration = _source_document_registration_result
+
+
+def source_document_registration(
+    conn: Connection,
+    *,
+    release_id: ReleaseId,
+    project_id: ProjectId,
+    source_uri: str,
+    content_hash: str,
+    original_path: str,
+    mime: str,
+    title: str | None,
+    meta: JsonValue,
+    original: bytes,
+    projection_context: PreparedRelease,
 ) -> RegisteredOriginalDocument:
+    _statement = prepare_source_document_registration(
+        release_id=release_id,
+        project_id=project_id,
+        source_uri=source_uri,
+        content_hash=content_hash,
+        original_path=original_path,
+        mime=mime,
+        title=title,
+        meta=meta,
+        original=original,
+        projection_context=projection_context,
+    )
+    _native_result = conn.execute(_statement)
     with native_result_scope("data.initialize_source_project", "RegisteredOriginalDocument"):
-        return materialize_source_document_registration(result.one())
+        return _source_document_registration_result(_native_result.one())
 
 
 ORIGINAL_DOCUMENT_DESCRIPTOR_CONTRACT_DIGEST = (
@@ -447,84 +433,4 @@ def collect_original_document_artifact(result: Result[bytes]) -> bytes | None:
         return None if row is None else materialize_original_document_artifact(row)
 
 
-RETAIN_ORIGINAL_DOCUMENT_CONTRACT_DIGEST = (
-    "5489f5a1920ab662abf628b9f251bb0e17296c64b09e19985f3ddd547bb7e9db"
-)
-
-
-class _retain_original_documentRequest(OperationResult):
-    release_id: ReleaseId
-    document_id: Annotated[
-        DocumentId, Field(ge=DocumentId(-9223372036854775808), le=DocumentId(9223372036854775807))
-    ]
-    original: bytes
-
-
-_retain_original_document_function = func.ops.retain_original_document(
-    bindparam("release_id", type_=Text()),
-    bindparam("document_id", type_=BigInteger()),
-    bindparam("original", type_=BYTEA()),
-    type_=Text(),
-)
-_retain_original_document_statement = select(_retain_original_document_function)
-
-
-def prepare_retain_original_document(
-    *,
-    release_id: ReleaseId,
-    document_id: DocumentId,
-    original: bytes,
-    projection_context: PreparedRelease,
-) -> Select[str]:
-    _request = _retain_original_documentRequest(
-        release_id=release_id,
-        document_id=document_id,
-        original=original,
-    )
-    require_call_context(
-        projection_context,
-        "data.initialize_source_project",
-        "retain_original_document",
-        RETAIN_ORIGINAL_DOCUMENT_CONTRACT_DIGEST,
-    )
-    return _retain_original_document_statement.params(
-        **{
-            "release_id": _request.release_id,
-            "document_id": _request.document_id,
-            "original": _request.original,
-        }
-    )
-
-
-_retain_original_document_adapter = TypeAdapter(str)
-
-
-def materialize_retain_original_document(row: tuple[str]) -> str:
-    with native_result_scope(
-        "data.initialize_source_project", "retain_original_document", "digest"
-    ):
-        checked = _retain_original_document_adapter.validate_python(row[0], strict=True)
-        return checked
-
-
-def retain_original_document(
-    conn: Connection,
-    *,
-    release_id: ReleaseId,
-    document_id: DocumentId,
-    original: bytes,
-    projection_context: PreparedRelease,
-) -> str:
-    _statement = prepare_retain_original_document(
-        release_id=release_id,
-        document_id=document_id,
-        original=original,
-        projection_context=projection_context,
-    )
-    _native_result = conn.execute(_statement)
-    with native_result_scope("data.initialize_source_project", "retain_original_document"):
-        row = _native_result.one()
-        return materialize_retain_original_document(row)
-
-
-CALL_CONTRACT_DIGEST = "89037656e1b852d322c095c184e2acf1d33091bc6967401d3a5648f12b5888a2"
+CALL_CONTRACT_DIGEST = "79d1bdfb3f1028740b0a1e07053b8a070d4ed75db11c052f63141b7a18ef6505"

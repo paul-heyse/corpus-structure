@@ -29,15 +29,29 @@ BEGIN
  RETURN jsonb_build_object('payload',jsonb_build_object('project_id',p->>'project_id','release_id',p->>'release_id'));
 END $$;
 
-CREATE OR REPLACE FUNCTION ops.retain_original_document(p_release text,p_document bigint,p_original bytea) RETURNS text
+CREATE OR REPLACE FUNCTION ops.register_original_document(
+ p_release text,p_project_id text,p_source_uri text,p_content_hash text,p_original_path text,
+ p_mime text,p_title text,p_meta jsonb,p_original bytea) RETURNS SETOF kb.document
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
-DECLARE digest text:=encode(sha256(p_original),'hex');
+DECLARE digest text:=encode(sha256(p_original),'hex'); document_key text; retained kb.document;
 BEGIN
  PERFORM ops.require_source_admission(p_release);
- IF NOT EXISTS(SELECT FROM kb.document WHERE id=p_document AND content_hash=digest) THEN
+ IF NOT pg_has_role(coalesce(nullif(current_setting('role'),'none'),session_user),'corpus_sem_writer','MEMBER') THEN
+ RAISE EXCEPTION 'source registration requires native write purpose' USING ERRCODE='42501'; END IF;
+ IF p_original IS NULL OR p_content_hash IS DISTINCT FROM digest THEN
  RAISE EXCEPTION 'original artifact differs from registered document' USING ERRCODE='23514'; END IF;
+ -- core.evidence.document_key uses NFC strings and the same canonical JSON identity.
+ document_key:='doc:'||left(ops.ddo_digest(jsonb_build_object(
+ 'project',normalize(p_project_id),'source_uri',normalize(p_source_uri),'content_hash',digest)),32);
+ INSERT INTO kb.document(project_id,key,source_uri,content_hash,original_path,mime,title,meta)
+ VALUES(p_project_id,document_key,p_source_uri,digest,p_original_path,p_mime,p_title,p_meta)
+ ON CONFLICT(project_id,key) DO NOTHING;
+ SELECT * INTO STRICT retained FROM kb.document WHERE project_id=p_project_id AND key=document_key FOR SHARE;
+ IF (retained.project_id,retained.key,retained.source_uri,retained.content_hash,retained.original_path,retained.mime,retained.title,retained.meta)
+ IS DISTINCT FROM (p_project_id,document_key,p_source_uri,digest,p_original_path,p_mime,p_title,p_meta) THEN
+ RAISE EXCEPTION 'source identity denotes another source descriptor' USING ERRCODE='23505',CONSTRAINT='original_document_descriptor_identity'; END IF;
  INSERT INTO kb.source_artifact(artifact_digest,content) VALUES(digest,p_original) ON CONFLICT DO NOTHING;
  IF NOT EXISTS(SELECT FROM kb.source_artifact WHERE artifact_digest=digest AND content=p_original) THEN
  RAISE EXCEPTION 'original artifact identity differs' USING ERRCODE='23505'; END IF;
- RETURN digest;
+ RETURN NEXT retained;
 END $$;

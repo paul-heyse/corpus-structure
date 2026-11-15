@@ -48,14 +48,20 @@ def source_call_bindings(*, target_metadata=None):
     calls = (
         OperationCallBinding(
             id="source_document_registration",
-            symbol="semantic.original_documents.register_original_document",
-            parameters=tuple(field(name, "kb.document") for name in registration),
+            symbol="ops.register_original_document",
+            parameters=(
+                field("release_id", "sem.release", native="p_release"),
+                *(
+                    field(name, "kb.document", native="p_" + name)
+                    for name in registration if name != "key"
+                ),
+                field("original", "kb.source_artifact", "content", native="p_original"),
+            ),
             result_fields=tuple(field(name, "kb.document") for name in ("id", *registration)),
             result_class="RegisteredOriginalDocument",
             cardinality="one",
             ordered=False,
             result_mode="table",
-            backend="core",
             json_read="json-text-v1",
             requires_context=True,
         ),
@@ -83,20 +89,6 @@ def source_call_bindings(*, target_metadata=None):
             ordered=False,
             result_mode="scalar",
             backend="core",
-            requires_context=True,
-        ),
-        OperationCallBinding(
-            id="retain_original_document",
-            symbol="ops.retain_original_document",
-            parameters=(
-                field("release_id", "sem.release", native="p_release"),
-                field("document_id", "kb.document", "id", native="p_document"),
-                field("original", "kb.source_artifact", "content", native="p_original"),
-            ),
-            result_fields=(field("digest", "kb.source_artifact", "artifact_digest"),),
-            cardinality="one",
-            ordered=False,
-            result_mode="scalar",
             requires_context=True,
         ),
     )

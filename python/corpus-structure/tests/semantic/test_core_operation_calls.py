@@ -1,9 +1,9 @@
-"""Current Core source boundaries preserve physical meaning and actual algorithm ownership."""
+"""Admitted source registration and Core readers preserve physical transport meaning."""
 
 from dataclasses import replace
 
 import pytest
-from pydantic import ValidationError
+from pydantic import JsonValue, ValidationError
 from sqlalchemy import select
 from sqlalchemy.dialects import postgresql
 
@@ -16,22 +16,27 @@ from corpus_structure.semantic.types import PreparationError
 from semantic.original_document_support import prepared_source_admission
 
 
-def test_core_registration_request_and_selected_result_are_independently_typed():
+def test_native_registration_request_and_selected_result_are_independently_typed():
     prepared = prepared_source_admission()
-    request = calls.prepare_source_document_registration(
+    meta: JsonValue = {"omitted-is-different": None, "empty": []}
+    values = dict(
+        release_id=calls.ReleaseId(prepared.release_id),
         project_id=calls.ProjectId("project"),
-        key="document",
         source_uri="uri",
         content_hash="hash",
         original_path="/retained",
         mime="text/plain",
         title=None,
-        meta={"omitted-is-different": None, "empty": []},
-        projection_context=prepared,
+        meta=meta,
+        original=b"independent original bytes",
     )
-    values = calls.values_source_document_registration_kb_document(request)
-    assert values["title"] is None
-    assert values["meta"] == {"omitted-is-different": None, "empty": []}
+    statement = calls.prepare_source_document_registration(
+        **values, projection_context=prepared
+    )
+    assert statement.compile().params == values
+    sql = str(statement.compile(dialect=postgresql.dialect()))
+    assert "ops.register_original_document(" in sql
+    assert "CAST(anon_1.meta AS TEXT) AS meta" in sql
     result = calls.materialize_source_document_registration(
         (
             17,
@@ -51,6 +56,10 @@ def test_core_registration_request_and_selected_result_are_independently_typed()
         vars(calls)["prepare_source_document_registration"](
             **{**values, "title": 17}, projection_context=prepared
         )
+    with pytest.raises(ValidationError):
+        vars(calls)["prepare_source_document_registration"](
+            **{**values, "original": "not binary bytes"}, projection_context=prepared
+        )
     with pytest.raises(NativeResultViolation):
         vars(calls)["materialize_source_document_registration"](
             (None, "project", "document", "uri", "hash", "/retained", "text/plain", None, "{}")
@@ -58,10 +67,9 @@ def test_core_registration_request_and_selected_result_are_independently_typed()
 
 
 def test_core_projections_resolve_actual_physical_columns_without_native_dispatch():
-    statement = select(*calls.projection_source_document_registration)
+    statement = select(*calls.projection_original_document_descriptor)
     assert statement.get_final_froms() == [metadata.tables["kb.document"]]
     sql = str(statement.compile(dialect=postgresql.dialect()))
-    assert "CAST(kb.document.meta AS TEXT) AS meta" in sql
     assert "kb.document.project_id" in sql
     assert "ops." not in sql
 
@@ -69,11 +77,11 @@ def test_core_projections_resolve_actual_physical_columns_without_native_dispatc
 @pytest.mark.parametrize("mutation", ["wrong_owner", "native_parameter", "batch"])
 def test_core_boundaries_refuse_native_identity_or_unowned_executor(mutation):
     original = next(
-        call for _, call in source_call_bindings() if call.id == "source_document_registration"
+        call for _, call in source_call_bindings() if call.id == "original_document_descriptor"
     )
     if mutation == "wrong_owner":
         changed = replace(
-            original, symbol="semantic.original_documents.read_original_document_bytes"
+            original, symbol="semantic.original_documents.register_original_document"
         )
     elif mutation == "native_parameter":
         changed = replace(

@@ -103,19 +103,18 @@ def register_original_document(
     """Register exact source metadata and retain binary bytes through the current facet."""
     from pathlib import Path
 
-    from sqlalchemy.dialects.postgresql import insert
+    from sqlalchemy.exc import DBAPIError
 
     from corpus_structure.core.evidence import document_key
 
     from . import _source_admission_calls as calls
     from .identifiers import ProjectId, ReleaseId
-    from .original_document_contracts import require_source_database_context
 
     if Path(original_path).read_bytes() != original:
         raise OriginalDocumentConflict("retained original bytes differ from registered source")
     digest = sha256(original).hexdigest()
-    request = calls.prepare_source_document_registration(
-        project_id=ProjectId(project_id),
+    expected = dict(
+        project_id=project_id,
         key=document_key(project_id, source_uri, digest),
         source_uri=source_uri,
         content_hash=digest,
@@ -123,37 +122,31 @@ def register_original_document(
         mime=mime,
         title=title,
         meta=dict(metadata or {}),
-        projection_context=prepared,
     )
-    require_source_database_context(connection, prepared)
-    document = table("kb.document")
-    connection.execute(
-        insert(document)
-        .values(**calls.values_source_document_registration_kb_document(request))
-        .on_conflict_do_nothing()
-    )
-    row = calls.collect_source_document_registration(
-        connection.execute(
-            select(*calls.projection_source_document_registration).where(
-                document.c.project_id == request.project_id, document.c.key == request.key
-            )
+    try:
+        row = calls.source_document_registration(
+            connection,
+            release_id=ReleaseId(prepared.release_id),
+            project_id=ProjectId(project_id),
+            source_uri=source_uri,
+            content_hash=digest,
+            original_path=original_path,
+            mime=mime,
+            title=title,
+            meta=expected["meta"],
+            original=original,
+            projection_context=prepared,
         )
-    )
+    except DBAPIError as error:
+        if getattr(getattr(error.orig, "diag", None), "constraint_name", None) == "original_document_descriptor_identity":
+            raise OriginalDocumentConflict("source identity denotes another source descriptor") from error
+        raise
     actual = row.decoded_json_fields(operation="data.initialize_source_project")
     if any(
         actual[name] != value
-        for name, value in calls.expected_source_document_registration_kb_document(request).items()
+        for name, value in expected.items()
     ):
         raise OriginalDocumentConflict("source identity denotes another source descriptor")
-    retained = calls.retain_original_document(
-        connection,
-        release_id=ReleaseId(prepared.release_id),
-        document_id=row.id,
-        original=original,
-        projection_context=prepared,
-    )
-    if retained != digest:
-        raise OriginalDocumentConflict("retained original digest differs from registered bytes")
     return row.id
 
 

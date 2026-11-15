@@ -65,7 +65,7 @@ def source_native_definitions(connection, *, sources=None) -> tuple[NativeDefini
                 grants=(
                     (("corpus_sem_writer", "EXECUTE", False),)
                     if statement.funcname[-1].sval
-                    in {"ddo_pdf_capture_source", "retain_original_document"}
+                    in {"ddo_pdf_capture_source", "register_original_document"}
                     else tuple(
                         (role, "EXECUTE", False)
                         for role in (

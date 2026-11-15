@@ -28,6 +28,9 @@ class Result:
     def scalar_one(self):
         return None
 
+    def one(self):
+        return self.row
+
 
 def test_registration_refuses_file_bytes_that_differ_before_database_effects(tmp_path):
     original = tmp_path / "book.pdf"
@@ -44,6 +47,44 @@ def test_registration_refuses_file_bytes_that_differ_before_database_effects(tmp
             mime="application/pdf",
         )
     connection.execute.assert_not_called()
+
+
+def test_registration_dispatches_descriptor_and_binary_in_one_admitted_native_call(tmp_path):
+    from corpus_structure.core.evidence import document_key
+
+    original = b"%PDF-independent\x00binary original"
+    path = tmp_path / "book.pdf"
+    path.write_bytes(original)
+    prepared = prepared_source_admission()
+    digest = sha256(original).hexdigest()
+    key = document_key("project", "book.pdf", digest)
+    connection = MagicMock()
+    connection.execute.return_value = Result(
+        (17, "project", key, "book.pdf", digest, str(path), "application/pdf", None, '{"x":null}')
+    )
+    assert register_original_document(
+        connection,
+        prepared=prepared,
+        project_id="project",
+        source_uri="book.pdf",
+        original_path=str(path),
+        original=original,
+        mime="application/pdf",
+        metadata={"x": None},
+    ) == 17
+    connection.execute.assert_called_once()
+    statement = connection.execute.call_args.args[0]
+    assert statement.compile().params == {
+        "release_id": prepared.release_id,
+        "project_id": "project",
+        "source_uri": "book.pdf",
+        "content_hash": digest,
+        "original_path": str(path),
+        "mime": "application/pdf",
+        "title": None,
+        "meta": {"x": None},
+        "original": original,
+    }
 
 
 @pytest.mark.parametrize("body, outcome", [(None, "missing"), (b"corrupt", "invalid")])
