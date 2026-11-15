@@ -48,7 +48,7 @@ def source_hierarchy_snapshot(prepared, model, cut, index):
             identity = product["id"] + ":" + pointer
             nodes[identity] = GraphNode(
                 identity=identity,
-                kind="source-atom",
+                kind="record",
                 payload_json=json_bytes(
                     dict(product_id=product["id"], source=body["source"], atom=atom)
                 ).decode(),
@@ -64,12 +64,21 @@ def source_hierarchy_snapshot(prepared, model, cut, index):
                         + sha256(json_bytes([product["id"], parent, pointer])).hexdigest(),
                         source=product["id"] + ":" + parent,
                         target=identity,
-                        relation="original-containment",
+                        relation="contains",
                         position=position,
                     )
                 )
             elif parent is not None:
                 unknowns.append(identity + ": parent outside captured source scope: " + parent)
+        for pointer, atom in atoms.items():
+            children = tuple(reference(child) for child in atom.get("children", ()))
+            if len(set(children)) != len(children):
+                raise ValueError("captured source repeats an original containment child")
+            for child in children:
+                if child not in atoms:
+                    unknowns.append(product["id"] + ":" + pointer + ": child outside captured source scope: " + str(child))
+                elif reference(atoms[child].get("parent")) != pointer:
+                    raise ValueError("captured source parent and child containment disagree")
         if graph and not nx.is_forest(graph, backend="networkx"):
             raise ValueError("captured single-parent containment is cyclic")
         for component in nx.weakly_connected_components(graph, backend="networkx"):

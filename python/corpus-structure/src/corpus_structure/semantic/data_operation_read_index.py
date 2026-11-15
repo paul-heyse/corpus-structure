@@ -7,7 +7,7 @@ admitted rows and supports bounded lookups; it grants no persistent authority.
 import sqlite3
 from collections.abc import Mapping
 
-from .data_operation_json import wire_json_loads
+from .data_operation_json import json_bytes, wire_json_loads
 
 
 class _RecordMapping(Mapping):
@@ -52,6 +52,9 @@ class SelectedRecordIndex:
     def __init__(self, path):
         self.connection = sqlite3.connect(path)
         self.retained_bytes = 0
+        self.cut = None
+        self.has_frontier = False
+        self.connection.execute("CREATE TABLE frontier(kind TEXT, identity TEXT, payload BLOB, PRIMARY KEY(kind,identity))")
         self.connection.execute(
             "CREATE TABLE records(key TEXT PRIMARY KEY, relation TEXT NOT NULL, payload BLOB NOT NULL)"
         )
@@ -86,6 +89,32 @@ class SelectedRecordIndex:
             "INSERT INTO records VALUES(?,?,?)", (row["key"], row["relation"], payload)
         )
         self.retained_bytes += len(payload)
+
+    def append_page(self, page):
+        """Retain exact pinned frontier projections separately from raw support rows."""
+        from .demand_results import CutSelection
+
+        cut = CutSelection.from_native(page)
+        if self.cut is not None and self.cut.content != cut.content:
+            raise ValueError("selected frontier pages belong to different native cuts")
+        self.cut, self.has_frontier = cut, True
+        for kind, identity_field in (("obligations", "obligation_id"), ("uses", "use_id")):
+            for row in page[kind]:
+                # Body-bearing products already have native record custody. Keep the
+                # exact frontier/selection fields without copying their bodies again.
+                value = {key: value for key, value in row.items() if key != "products"}
+                identity, payload = row[identity_field], json_bytes(value)
+                previous = self.connection.execute("SELECT payload FROM frontier WHERE kind=? AND identity=?", (kind, identity)).fetchone()
+                if previous is not None:
+                    if previous[0] != payload:
+                        raise ValueError("selected frontier repeats an identity with different facts")
+                    continue
+                self.connection.execute("INSERT INTO frontier VALUES(?,?,?)", (kind, identity, payload))
+                self.retained_bytes += len(payload)
+
+    def frontier_rows(self, kind):
+        for (payload,) in self.connection.execute("SELECT payload FROM frontier WHERE kind=? ORDER BY identity", (kind,)):
+            yield wire_json_loads(payload)
 
     def records(self):
         for (payload,) in self.connection.execute("SELECT payload FROM records ORDER BY key"):
