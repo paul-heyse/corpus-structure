@@ -5,8 +5,10 @@ import json
 import sys
 from dataclasses import replace
 from pathlib import Path
+from unittest.mock import Mock
 
 import pytest
+from sqlalchemy import Connection
 
 from corpus_structure.semantic import ResolvedDependencies, prepare_release
 from corpus_structure.semantic.query_compatibility import (
@@ -16,6 +18,7 @@ from corpus_structure.semantic.query_compatibility import (
     installed_query_inputs,
     prepare_query_bindings,
 )
+from corpus_structure.serve.protocol import QueryContext
 from semantic.releases_support import source_bundle
 
 PLUGIN = """from pydantic import BaseModel
@@ -99,7 +102,10 @@ def test_exact_bundle_derived_product_and_independent_rows(tmp_path, monkeypatch
     assert any(row.name == "statistics/probe" for row in rows)
     monkeypatch.undo()
     query = _registry(installed_query_inputs(pack))["probe"]
-    assert [v.row.model_dump()["value"] for v in query.rows(None, query.params(minimum=2))] == [2, 3]
+    assert [
+        v.row.model_dump()["value"]
+        for v in query.rows(QueryContext(1, Mock(spec=Connection)), query.params(minimum=2))
+    ] == [2, 3]
 
 
 def test_qualified_import_failure_remains_programming_failure(tmp_path):

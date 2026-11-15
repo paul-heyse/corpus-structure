@@ -67,6 +67,7 @@ def test_all_batch_claims_lost_during_owned_cpu_work_retire_process(tmp_path, mo
         PythonRoleValue,
         resolve_python_port,
     )
+
     metadata = controlled_port_declaration()
     metadata["capabilities"]["forms"] = ["batch"]
     model, sources = fixture_source(

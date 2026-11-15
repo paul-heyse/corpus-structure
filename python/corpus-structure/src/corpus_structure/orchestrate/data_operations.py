@@ -370,7 +370,9 @@ class _InvocationExecution:
         self.cpu.prepare()
         self.executor._preparation_bytes = self.cpu.preparation_bytes
         if self.executor.capacity < 1:
-            raise CapacityExceeded("native preparation and one complete request exceed owned capacity")
+            raise CapacityExceeded(
+                "native preparation and one complete request exceed owned capacity"
+            )
         self._selected_operations = selected
 
     def __exit__(self, *error):

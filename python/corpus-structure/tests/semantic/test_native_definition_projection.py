@@ -72,9 +72,7 @@ def _captured(**changes):
             }
         ),
         operations=(),
-        identities=(
-            SimpleNamespace(owner="primitive:string", domain="kind", key="kind:string"),
-        ),
+        identities=(SimpleNamespace(owner="primitive:string", domain="kind", key="kind:string"),),
         subject_definition=lambda _: SimpleNamespace(identifier_kind="primitive:string"),
     )
     record = {
@@ -91,7 +89,9 @@ def _captured(**changes):
                 "families": [],
                 "universe": "ordinary",
             }
-        ] if operations else [],
+        ]
+        if operations
+        else [],
         "operations": [],
         **changes,
     }

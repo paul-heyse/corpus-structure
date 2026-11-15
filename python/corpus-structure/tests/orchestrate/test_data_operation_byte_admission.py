@@ -185,9 +185,7 @@ def derive(value: int, fail_first: bool, prepared: PreparedRelease) -> int:
         )
         return json.loads(reply.content)
 
-    port = SimpleNamespace(
-        requires_prepared_schema=True, native_selections=(), plan_python=plan
-    )
+    port = SimpleNamespace(requires_prepared_schema=True, native_selections=(), plan_python=plan)
     policy = policy_for(prepared)
     executor, observed = controlled_executor(
         monkeypatch, prepared, policy, ("prepared",) * 3, {"prepared": port}
@@ -307,9 +305,11 @@ def test_frontier_defers_until_logically_complete_borrower_physically_retires(
 
         (result,) = yield (
             data_operations.PreparedWork(
-                lambda: RetiringWork(execution_owner.reservation)
-                if value == 0
-                else execution_owner.submit_python(compute)
+                lambda: (
+                    RetiringWork(execution_owner.reservation)
+                    if value == 0
+                    else execution_owner.submit_python(compute)
+                )
             ),
         )
         return result

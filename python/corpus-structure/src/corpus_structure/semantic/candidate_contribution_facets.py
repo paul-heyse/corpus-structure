@@ -15,12 +15,8 @@ from .rich_queries import RichQueryRefused, RichQueryRow
 from .types import PreparedRelease
 
 CANDIDATE_NAMESPACE = "https://corpus-structure.dev/semantic/data-operation-candidate-inspection/"
-READING_KIND = (
-    "https://corpus-structure.dev/semantic/data-operation-reading-resolution/DdoResolvedReadingReport"
-)
-FINITE_KIND = (
-    "https://corpus-structure.dev/semantic/data-operation-interpretation/DdoFiniteInterpretationProduct"
-)
+READING_KIND = "https://corpus-structure.dev/semantic/data-operation-reading-resolution/DdoResolvedReadingReport"
+FINITE_KIND = "https://corpus-structure.dev/semantic/data-operation-interpretation/DdoFiniteInterpretationProduct"
 _ROOTS = {
     CANDIDATE_NAMESPACE + "DdoCandidateInspectionReport": "candidates",
     CANDIDATE_NAMESPACE + "DdoCandidateSourceRecord": "record",
@@ -43,9 +39,7 @@ class CandidateFacetKinds:
         kinds = {kind.semantic_id: kind for kind in model.kinds}
         roots = tuple(root for root in _ROOTS if root in kinds)
         refinements = input_kind_refinements(model, roots) if roots else {}
-        families = {
-            nominal: _ROOTS[root] for root in roots for nominal in refinements[root]
-        }
+        families = {nominal: _ROOTS[root] for root in roots for nominal in refinements[root]}
         definitions = {}
         for item in prepared.definitions:
             definitions.setdefault(item.iri, []).append(item)
@@ -156,8 +150,12 @@ def candidate_facets(
             return
         _bounded(body, max_nested_members)
         yield from _member_rows(
-            selected, _base(selected, selected.nominal, body), body,
-            interpretation=interpretation, assessment=assessment, events=None,
+            selected,
+            _base(selected, selected.nominal, body),
+            body,
+            interpretation=interpretation,
+            assessment=assessment,
+            events=None,
         )
         return
     if selected.reference.member_id is not None:
@@ -174,27 +172,42 @@ def candidate_facets(
         yield _row(selected, "contribution", "whole", **base)
         if interpretation:
             yield _row(
-                selected, "interpretation", "whole", **base, availability="observed",
+                selected,
+                "interpretation",
+                "whole",
+                **base,
+                availability="observed",
                 scope="captured-private-finite-report-population",
-                meaning={
-                    key: value for key, value in body.items() if key != "reports"
-                }, report_count=len(reports),
+                meaning={key: value for key, value in body.items() if key != "reports"},
+                report_count=len(reports),
             )
         for position, report in enumerate(reports):
             _bounded(report, max_nested_members)
             fields = dict(
-                base, source_pin=body["source_pin"], mode=body["mode"], report_position=position,
-                availability="observed", public_admission="not-established",
+                base,
+                source_pin=body["source_pin"],
+                mode=body["mode"],
+                report_position=position,
+                availability="observed",
+                public_admission="not-established",
             )
             if interpretation:
                 yield _row(
-                    selected, "interpretation", position, **fields,
-                    scope="typed-private-candidate-relative-finite-report", meaning=report,
+                    selected,
+                    "interpretation",
+                    position,
+                    **fields,
+                    scope="typed-private-candidate-relative-finite-report",
+                    meaning=report,
                 )
             if assessment:
                 yield _row(
-                    selected, "assessment", position, **fields,
-                    scope="captured-private-finite-producer-judgments", judgments=report,
+                    selected,
+                    "assessment",
+                    position,
+                    **fields,
+                    scope="captured-private-finite-producer-judgments",
+                    judgments=report,
                 )
         return
 
@@ -223,33 +236,51 @@ def candidate_facets(
     if member_id is None:
         base = _base(selected, selected.nominal, body)
         yield _row(selected, "contribution", "whole", **base)
-        metadata = {key: value for key, value in body.items() if key not in {"members", "reading_events"}}
+        metadata = {
+            key: value for key, value in body.items() if key not in {"members", "reading_events"}
+        }
         if events is not None:
             metadata["reading_events"] = events
         _bounded(metadata, max_nested_members)
         if interpretation:
             yield _row(
-                selected, "interpretation", "whole", **base, availability="observed",
-                scope="captured-private-candidate-inspection", meaning=metadata,
+                selected,
+                "interpretation",
+                "whole",
+                **base,
+                availability="observed",
+                scope="captured-private-candidate-inspection",
+                meaning=metadata,
             )
         if assessment:
             yield _row(
-                selected, "assessment", "whole", **base,
+                selected,
+                "assessment",
+                "whole",
+                **base,
                 availability="observed" if events else "unknown",
-                scope="captured-private-reading-events", reading_events=events or [],
+                scope="captured-private-reading-events",
+                reading_events=events or [],
                 reading_policy_digest=body.get("reading_policy_digest"),
                 public_admission="not-established",
                 reason=None if events else "no-associated-reading-event-in-this-selected-output",
             )
         for position, coverage in enumerate(body["coverage"]):
             yield _row(
-                selected, "coverage", position, **base, source_pin=body["source_pin"],
-                coverage=coverage, source_scope="captured-inspection-scope",
+                selected,
+                "coverage",
+                position,
+                **base,
+                source_pin=body["source_pin"],
+                coverage=coverage,
+                source_scope="captured-inspection-scope",
                 original_source_completeness="unknown",
             )
     by_reading = {}
     for event in events or ():
-        by_reading.setdefault((event.get("record_id"), event.get("interpretation_id")), []).append(event)
+        by_reading.setdefault((event.get("record_id"), event.get("interpretation_id")), []).append(
+            event
+        )
     for identifier, (nominal, packet) in sorted(members.items()):
         if member_id is not None and member_id != identifier:
             continue
@@ -257,12 +288,16 @@ def candidate_facets(
         _bounded(value, max_nested_members)
         matched = (
             by_reading.get((value["record_id"], value["interpretation_id"]), [])
-            if value["candidate_type"] == "record" else []
+            if value["candidate_type"] == "record"
+            else []
         )
         _bounded(matched, max_nested_members)
         yield from _member_rows(
-            selected, _base(selected, nominal, value, packet=packet), value,
-            interpretation=interpretation, assessment=assessment,
+            selected,
+            _base(selected, nominal, value, packet=packet),
+            value,
+            interpretation=interpretation,
+            assessment=assessment,
             events=matched if events is not None else None,
             reading_policy_digest=body.get("reading_policy_digest"),
         )
@@ -275,14 +310,25 @@ def _member_rows(
     yield _row(selected, "contribution", identifier, **base)
     if interpretation:
         yield _row(
-            selected, "interpretation", identifier, **base, availability="observed",
-            source_pin=body["pin"], meaning=body, scope="typed-private-source-candidate",
+            selected,
+            "interpretation",
+            identifier,
+            **base,
+            availability="observed",
+            source_pin=body["pin"],
+            meaning=body,
+            scope="typed-private-source-candidate",
         )
     if assessment:
         yield _row(
-            selected, "assessment", identifier, **base,
+            selected,
+            "assessment",
+            identifier,
+            **base,
             availability="observed" if events else "unknown",
-            scope="captured-private-reading-events", reading_events=events or [],
-            reading_policy_digest=reading_policy_digest, public_admission="not-established",
+            scope="captured-private-reading-events",
+            reading_events=events or [],
+            reading_policy_digest=reading_policy_digest,
+            public_admission="not-established",
             reason=None if events else "no-associated-reading-event-in-this-selected-output",
         )

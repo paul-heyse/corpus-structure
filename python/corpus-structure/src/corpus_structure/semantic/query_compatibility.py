@@ -6,7 +6,6 @@ Python is evidence, never an executable fallback for an unsupported named query.
 
 from __future__ import annotations
 
-import json
 import platform
 from dataclasses import dataclass
 from hashlib import sha256

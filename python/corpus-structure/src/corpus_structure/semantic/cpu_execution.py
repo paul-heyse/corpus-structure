@@ -57,9 +57,7 @@ class OwnedByteBudget:
             if size > self.limit - self.used_bytes:
                 return None
             self.used_bytes += size
-            return OwnedByteReservation(
-                self, size, state={"leases": 1, "lock": threading.Lock()}
-            )
+            return OwnedByteReservation(self, size, state={"leases": 1, "lock": threading.Lock()})
 
     def release(self, size: int) -> None:
         with self._lock:

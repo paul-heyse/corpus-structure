@@ -114,9 +114,7 @@ def report(conn, member, outcome="complete"):
     )
 
 
-def test_general_only_units_are_required_and_complete_reports_establish_coverage(
-    coverage_database
-):
+def test_general_only_units_are_required_and_complete_reports_establish_coverage(coverage_database):
     conn = coverage_database
     session = populate(conn, [("agent.general", "general-A"), ("agent.general", "general-B")])
     required = session.required_coverage(1, FAMILY)

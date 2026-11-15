@@ -41,20 +41,18 @@ must cover relevant transitive support scopes. This corrects implementation stat
 contract or the existing narrow typed-port/source-migration controls. See the
 [current audit](../declared-data-operations_2026-11-12.md#completion-audit--2026-11-14).
 
-**Completion audit qualification · 2026-11-15.** The checked-subject and kind-closure foundations
-are implemented but current completion is limited by DDO-CA-10 in the coordinator: a subject's
-identifier kind must contribute its complete contract fingerprint, not only its semantic name, to
-operation definition/recipe identity. An incomplete identifier-kind closure must withhold reusable
-identity even when the kind is not independently selected by an input/output/parameter. Changed,
-incomplete and unrelated identifier-kind controls and native correspondence reconciliation remain
-required. This is a missing accepted determinant, not a requirement for a broad runtime salt.
+**Audit repair boundary · 2026-11-15.** Subject identifier kinds now contribute complete
+contract fingerprints to definition/recipe identity, including transitive dependencies. Incomplete
+closure withholds reusable identity. The native projection includes subject-only kinds and the typed
+reader authenticates their contracts. The coordinator owns CA-10 controls and remaining native
+capture/qualification; no broad runtime salt is introduced.
 
 ## Responsibility and delivered contracts
 
-**Archive contract · 2026-11-15:** current effective model v7 archives the complete governing
+**Archive contract · 2026-11-15:** current effective model v8 archives the complete governing
 graph, normalized subject definitions, checked operations/bindings/projections and admitted
 implementation slices. Effective identities retain owner/domain/key; canonical witnesses remain
-transient. The sole current reader refuses v2–v6 and obsolete expanded identity records, requiring
+transient. The sole current reader refuses v2–v7 and obsolete expanded identity records, requiring
 regeneration or a separate finite data import. No old interpreter authorizes execution. ADR-0109
 owns the hard current-contract adoption; the compact archive boundary continues ADR-0105.
 One composed released model governs every supported domain operation: source capture and

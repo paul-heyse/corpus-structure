@@ -2,6 +2,7 @@
 
 import json
 from types import SimpleNamespace
+from typing import Any, cast
 
 import pytest
 
@@ -9,6 +10,7 @@ from corpus_structure.semantic.data_operation_compilation import compile_data_op
 from corpus_structure.semantic.data_operation_storage import data_operation_definition_projection
 from corpus_structure.semantic.native_definition_projection import read_native_definition_projection
 from corpus_structure.semantic.python_operation_sources import PythonSource, PythonSourceCollection
+from corpus_structure.semantic.types import PreparedRelease
 from semantic.data_operation_declaration_support import contract, declarations, identity
 
 SUBJECT_KIND = "urn:test:identifier"
@@ -17,10 +19,10 @@ UNRELATED_KIND = "urn:test:unrelated"
 
 
 def native_projection(model):
-    prepared = SimpleNamespace(
-        index=SimpleNamespace(definitions=()), enum_members=lambda _: ()
+    prepared = SimpleNamespace(index=SimpleNamespace(definitions=()), enum_members=lambda _: ())
+    return data_operation_definition_projection(
+        cast(PreparedRelease, prepared), model, native_digest="controlled"
     )
-    return data_operation_definition_projection(prepared, model, native_digest="controlled")
 
 
 def subject_model(*, changed=None):
@@ -29,9 +31,7 @@ def subject_model(*, changed=None):
     kinds = [
         {
             "id": name,
-            "json_schema": {
-                "type": "string", "pattern": "^changed" if name == changed else "^id"
-            },
+            "json_schema": {"type": "string", "pattern": "^changed" if name == changed else "^id"},
             **({"references": [COMPONENT_KIND]} if name == SUBJECT_KIND else {}),
         }
         for name in (SUBJECT_KIND, COMPONENT_KIND, UNRELATED_KIND)
@@ -57,14 +57,16 @@ def test_unrelated_kind_changes_preserve_subject_operation_identity():
 
 
 @pytest.mark.parametrize("transitive", [False, True])
-def test_incomplete_subject_kind_closure_withholds_operation_identity_and_native_admission(transitive):
+def test_incomplete_subject_kind_closure_withholds_operation_identity_and_native_admission(
+    transitive,
+):
     operation = contract()
     operation["subject_definition"]["identifier_kind"] = SUBJECT_KIND
     incomplete = {
         "id": COMPONENT_KIND if transitive else SUBJECT_KIND,
         "python": "example.Identifier",
     }
-    kinds = [incomplete]
+    kinds: list[dict[str, Any]] = [incomplete]
     if transitive:
         kinds.append({"id": SUBJECT_KIND, "primitive": "string", "references": [COMPONENT_KIND]})
     model = compile_data_operations(
@@ -80,9 +82,13 @@ def test_incomplete_subject_kind_closure_withholds_operation_identity_and_native
         ),
     )
     assert identity(model, "primitive:integer", "kind")
-    assert not any(item.owner == SUBJECT_KIND and item.domain == "kind" for item in model.identities)
+    assert not any(
+        item.owner == SUBJECT_KIND and item.domain == "kind" for item in model.identities
+    )
     assert not any(item.owner == operation["id"] for item in model.identities)
-    with pytest.raises(ValueError, match="incomplete effective kind|requires a complete nominal kind"):
+    with pytest.raises(
+        ValueError, match=r"incomplete effective kind|requires a complete nominal kind"
+    ):
         native_projection(model)
 
 

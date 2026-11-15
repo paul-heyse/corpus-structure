@@ -1,6 +1,6 @@
 # Declared data operations — total governing model
 
-**Status · 2026-11-15: completion audit finds four open implementation gaps (DDO-CA-10–13); domain-model execution remains in progress. DDO-00 successor accepted; current-only v7, shared prepared CPU execution and generated lifecycle corrections integrated with bounded tests. Mandatory subject propagation, checked enforcement, typed scoring/encoder policies, current PDF/source facets and selected-source exports are integrated with bounded evidence. Coverage/remaining numerics, complete caller migration/native authoring and legacy retirement remain in progress. No persistent deployment or data conversion. DDO-12 assembled qualification remains open.**
+**Status · 2026-11-15: DDO-00–11 execution in progress. CA-10–13 repairs integrated with scoped Python/physical controls; native capture and acceptance remain open. Current effective interpretation is v8. Complete producer/consumer migration, legacy retirement and supported development adoption remain incomplete. No persistent deployment or conversion. DDO-12 assembled qualification remains open.**
 
 This coordinator is the sole owner of package readiness, source-qualified recommendation disposition,
 F/CA findings and preparation questions. Technical companions own contracts; dated sections below
@@ -10,17 +10,82 @@ at `4f32589d0`. All actionable I01–I09 scope is scheduled below, with explicit
 conditional choices retained. Existing F01–F14/C1–C7/CA identities and scoped closures survive.
 Core3.3/heuristics/code-intelligence1.4/test-assessment1.2/binding apply. No broad audit is initiated.
 
+## Integrated execution · 2026-11-15
+
+**In progress; implementation and qualification remain separate.** The operator authorized the
+remaining DDO-00–11 scope, including development cutover after verified recovery and target acceptance.
+This supersedes the earlier bounded authorization; it does not mark adoption performed or restart
+cancelled campaigns. DDO-12 retains its whole-series qualification owner.
+
+CA-10 now includes the complete subject identifier-kind contract in operation definition/recipe
+identity and withholds identity for incomplete closure. The native projection includes subject-only
+kinds and its reader authenticates their contract. The current effective interpretation is v8;
+v7 explicitly refuses, with scalar framing/source sidecar unchanged. The current SQL admission guard
+also requires v8. Frozen migrations remain untouched; coherent native capture is still required.
+The compiler/archive cohort170 `3bce1c7c81f842979e765715a9411bbe` had169passed/1failed: a new
+incomplete-kind control expected a later diagnostic than the actual valid early refusal. Its exact
+retry1 `1a3b35fb33084681a8151472d9673ef9` passed after correcting that diagnostic expectation.
+
+CA-11 consumes nullable source context through impact acquisition/population keys/comparison.
+CA-12 refuses conflicting explicit graph and before/target impact read/cut pins before acquisition,
+restoring only matching/omitted pins. Source-free acquisition/currentness, null-versus-empty keys,
+all six explicit pin conflicts and valid continuation paths passed in focused29
+`a13588868d9e41f9a6afab3e473e1bdd`. These are Python boundary controls, not native journeys.
+
+CA-13 now charges retained preparation before request-window selection and uses atomic admission
+with existing ReadyFrontier backpressure. Batch chunks respect byte/claim limits; abandoned leases
+release while physical borrowers retain their shares. Focused13
+`a45ba5b35d9d472cbf673488c2ce8d52` passed, including actual schema preparation/spawned CPU,
+sibling failure/defer, bounded batches and cancellation. Native I/O is controlled in that cohort;
+provider/native qualification is not established. Earlier worker diagnostics are secondary.
+
+Selected candidate-inspection, resolved-reading and finite-interpretation facets now decode through
+actual captured nominal definitions and validate private standing, real member references, coverage,
+reading events and finite reports. Known families no longer enter the unsupported-facet branch.
+This does not implement grouped measurement interpretation or confer accepted scientific standing.
+
+The obsolete named-query BoundQuery/registry/token compatibility reader and run-based invocation
+are retired, including `serve/explain.py` and compatibility configuration. Pack acquisition/compiler
+functions and shared session/digest/errors still have real consumers and remain. Independent loaded
+source-custody/rows/coverage controls and current empty-answer unknown-completeness control passed31
+`ddefd3d611084b9097db8edca707ff0a`. This closes that bounded route, not the whole legacy reader/compiler.
+
+Read-only `ci db status --maintenance --json` reacquired `corpus_structure_dev` on PostgreSQL18.7,
+port5434, OID25921445/system7701811359771751232, revision `semantic_bep_located_v2`, checkout head
+`semantic_ddo_graph_v2`. No database mutation, native registration, activation or conversion occurred.
+
+Integrated type/lint checks passed without diagnostics: `a8cb54d7f1b9432db279795693b5a245`
+and `470b5fafeb794eb0acb042190fd50207`. Original failed type checks
+`84616a2962884655bcbc39f70dde8288`/`64538139ebb5431fb196a95c4701ec6a` and lint
+`cb253f1572f24017bffe0861b6ac3f70` remain held; controlled-test annotations and imports were
+repaired without suppressions. Earlier facet24 `863f3edc2dc64fafb0a594513b185198` had22passed/
+2source-custody refusals while formatting changed loaded helper bytes; correspondence checks were
+preserved. The final stable-source cohort supersedes that attempt only for its actual selection.
+
+After root formatting, the combined affected functional cohort267 **passed**
+`8e4b8a4529e8459084fefefbf632c7ba` through `uv run ci test --workers 4 --json -- …`.
+It covers compiler/archive/subject/native-projection controls, source-free impact and graph pins,
+actual prepared CPU admission, current candidate/nonrich/composite transport and retained query
+acquisition/delivery. This is bounded Python/physical evidence, not native/provider or whole-series
+qualification. Managed primary receipts are held. All worker edits are integrated on main and all
+auxiliary worktrees removed; no frozen migration changes entered main.
+
+The remaining execution order is shared admission/family integration; genuine rich/measurement/
+neighborhood/journey/dossier/public/protected consumers with old authority removal; clean supported
+installation and verified development cutover; then applicable final-source qualification. Existing
+physical/native helpers remain until actual current callers are separated from obsolete authority.
+
 ## Current state and execution order
 
 | Package | Implemented / evidence boundary | Remaining accepted work and prerequisites |
 |---|---|---|
 | DDO-00 | ADR-0109 accepted; DESIGN B4/B5 and affected owners reconciled | Complete operation-by-operation disposition with migrated callers; previous census is evidence, not mandatory historical recovery scope. |
-| DDO-01/02 | Current-only v7 codec; checked subject definitions/discovery relations; descriptive slice prose excluded from recipe determinants. Targeted controls below | Mandatory subject-definition references, checked enforcement and scoring/encoder numerical policies integrated; complete coverage/remaining numerical contracts and one operation authority remain; CA-10 withholds current foundation completion for subject-kind identity closure. No closed CA finding is automatically reopened. |
+| DDO-01/02 | Current-only v8 codec; checked subject definitions/discovery relations; descriptive slice prose excluded from recipe determinants. Targeted controls below | Mandatory subject-definition references, checked enforcement and scoring/encoder numerical policies integrated; complete coverage/remaining numerical contracts and one operation authority remain; CA-10 repair is integrated with scoped controls; native capture/qualification remains. No closed CA finding is automatically reopened. |
 | DDO-03/04 | Typed native/binding/support/replay foundation and CA-08/09 scoped native repairs Tested2026-11-14 | I03 generated fate/transition consumption and explicit terminal mappings; I04 shared prepared capability integration; new contracts reach native/generated callers. |
-| DDO-05/06 | Frozen demands/discovery/claims and bounded native execution; family/provider qualification incomplete | I01 subject relation discovery; I03 typed status conversion, preserve physical attempt/lease/recovery. No name-dependent fan-in or unmapped outcome fallback; CA-13 admission/backpressure repair remains. |
+| DDO-05/06 | Frozen demands/discovery/claims and bounded native execution; family/provider qualification incomplete | I01 subject relation discovery; I03 typed status conversion, preserve physical attempt/lease/recovery. No name-dependent fan-in or unmapped outcome fallback; CA-13 repair has scoped physical controls; native/family qualification remains. |
 | DDO-07/08 | Source/primary/downstream increments and real port adoption; enclosing packages open | I02 all remaining legacy operations and consumers; I04 capability-based shared execution; I08 acquisition-test consolidation; rich producer integration with I05. |
-| DDO-09 | Source currentness/impact and graph foundations implemented within bounded receipts | I03 deliberate fate partition; I05 full rich cut/policy/standing/contracts and reuse consumers; copied-task/twin/stale-cut retirement; CA-11 source-free contexts and CA-12 explicit continuation pin refusal remain. |
-| DDO-10 | Source/graph CLI/MCP/export and selected prediction inspection within focused receipts | I06 literals/typed artifact reader/variant association; rich named-query/reference/grading callers; target model difference distinct from source drift/currentness; old reader retirement; CA-12 also affects selected graph continuation. |
+| DDO-09 | Source currentness/impact and graph foundations implemented within bounded receipts | I03 deliberate fate partition; I05 full rich cut/policy/standing/contracts and reuse consumers; copied-task/twin/stale-cut retirement; CA-11/12 Python repairs have scoped controls; actual native journeys remain. |
+| DDO-10 | Source/graph CLI/MCP/export and selected prediction inspection within focused receipts | I06 literals/typed artifact reader/variant association; rich named-query/reference/grading callers; target model difference distinct from source drift/currentness; old reader retirement; CA-12 selected graph pin repair has scoped controls; native continuation remains to qualify. |
 | DDO-11 | Checkout graph_v2 registered; persistent database remains located_v2, no adoption | I09 choose supported physical route, selective faithful import/regeneration, fence writers, switch maintained callers and remove all legacy/one-time converter code. Optional conversion does not block target delivery. |
 | DDO-12 | No assembled completion; earlier passes scoped only | Final-source functional/native/fault/provider/nonfunctional union for complete replacement and retirement, including target-native source/evaluation journeys. |
 
@@ -278,10 +343,10 @@ new work without rewriting previous failed/passed receipts.
 | DDO-CA-07 (hard-target retirement; Python I05) | **Former v1 authoring/decoder/alias retirement remains implemented; reassessed 2026-11-14.** The dated v5/v6 baselines were superseded by ADR-0109/current v7. Current model and source-interface readers reject obsolete encodings; old v2–v5 compatibility is no longer implemented or required. No current v1 fallback remains. | TS-19 helper removal is retained, not repeated. Preserve original evidence. Domain-model I09 schedules old-reader retirement without reopening the former v1 finding; the former remaining-v1 allegation in the retirement inventory is corrected below. This is not universal completion of caller/reader retirement. |
 | DDO-CA-08 (F02/F10/F11) | **Closed at DDO-03/04 boundary; scoped Tested, 2026-11-14.** Native selected provider identity comes from authenticated producing episode/release/recipe and captured profile attestations; candidate/request/admission use the same contract projection. Historical missing profiles remain unavailable. | Native provider-identity3 passed exact retry `c584d326d3ae46f59962b0fc5b9ba396`, including positive attachment, forged identity refusal and missing-producing-profile refusal. Runtime artifact controls passed in the initial31 cohort. `semantic_ddo_found_v1` is registered, not deployed; actual provider inference/family qualification remains separate. |
 | DDO-CA-09 (F07/F11/F13) | **Closed at DDO-04 boundary; scoped Tested, 2026-11-14.** One finite recursive support walk covers original/computational and selected replacement-use scopes for acquisition, continuation and sorted publication locks. Complete-support containment is retained. | Three-source/two-hop and rebound cases passed `20359b7ebaae4d09af4d18390bd97157`: unchanged continuation, old-pin revocation refusal, upstream nonzero epoch, C-scope locks and authentic retained-intent publication refusal with unchanged derivation counts. Earlier no-work-only variants are not the publication evidence. Remaining source discovery failure is separately open. |
-| DDO-CA-10 (I01; F04/F12) | **Open; Interface-checked by source inspection, 2026-11-15.** `data_operation_compilation.py:1724–1745,2132–2218` accepts a resolved subject identifier kind but definition/recipe issuance fingerprints only its name unless also a role/parameter kind. A changed standalone identifier kind can retain the recipe; incomplete kind closure need not withhold it. Maintained subjects inspected use primitive:string; no current-family collision was demonstrated. | DDO-01/02, DDO-03 native correspondence: bind the complete subject identifier-kind contract into definition/recipe identity and withhold reusable identity for incomplete closure. Independently check changed, incomplete and unrelated kinds, then reconcile native admission/projection. This is not CA-01's captured-builtin issue. |
-| DDO-CA-11 (I05; F08/F09) | **Open; Interface-checked by source inspection, 2026-11-15.** `change_impact.py:28,568–574` requires non-null `PopulationMember.original_source`, while actual rich invocation requires source-free project context (`rich_invocations.py:207–211`). Acquiring valid rich obligations raises validation errors instead of giving an impact/currentness result. | DDO-09 with rich I05: consume nullable current contexts throughout population acquisition/key/comparison; independently check source-free before/target populations and appropriate current/unknown results. |
-| DDO-CA-12 (F09; NetworkX I05) | **Open; Interface-checked by source inspection, 2026-11-15.** `graph_inspection.py:449–456` and `change_impact.py:659–685` exclude read/cut pins from request identity then overwrite explicit pins from a cursor without equality checks. A valid prior cursor plus conflicting explicit snapshot silently selects the cursor snapshot. | DDO-09/10: refuse conflicting explicit graph and before/target impact read/cut pins before restoring omitted pins, as current rich/composite readers already do. Independently check wrong-read/wrong-cut for every side and valid matching/omitted-pin continuation. |
-| DDO-CA-13 (I04; F13) | **Open; Interface-checked by source inspection, 2026-11-15.** `orchestrate/data_operations.py:1062–1063` sizes admission using total bytes although `cpu_execution.py:586–588` already charges the retained capsule. With capsule S, reservation R, 0<S<R, budget=2R and max_claims>=2, two ready schema-prepared scalar requests over-admit; the second raises at `data_operations.py:851` before its try block, aborting the invocation. | DDO-06/shared prepared execution: make the existing budget and admission window account for retained preparation or defer reservations safely. Check a genuine nonempty capsule at the boundary, sibling progress, deferred work and complete retirement; no new estimator or accounting system is required. |
+| DDO-CA-10 (I01; F04/F12) | **Repair integrated; scoped Tested2026-11-15; native acceptance pending.** Original source-established diagnosis: `data_operation_compilation.py:1724–1745,2132–2218` accepts a resolved subject identifier kind but definition/recipe issuance fingerprints only its name unless also a role/parameter kind. A changed standalone identifier kind can retain the recipe; incomplete kind closure need not withhold it. Maintained subjects inspected use primitive:string; no current-family collision was demonstrated. | DDO-01/02, DDO-03 native correspondence: bind the complete subject identifier-kind contract into definition/recipe identity and withhold reusable identity for incomplete closure. Independently check changed, incomplete and unrelated kinds, then reconcile native admission/projection. This is not CA-01's captured-builtin issue. |
+| DDO-CA-11 (I05; F08/F09) | **Repair integrated; scoped Tested2026-11-15; native acceptance pending.** Original source-established diagnosis: `change_impact.py:28,568–574` requires non-null `PopulationMember.original_source`, while actual rich invocation requires source-free project context (`rich_invocations.py:207–211`). Acquiring valid rich obligations raises validation errors instead of giving an impact/currentness result. | DDO-09 with rich I05: consume nullable current contexts throughout population acquisition/key/comparison; independently check source-free before/target populations and appropriate current/unknown results. |
+| DDO-CA-12 (F09; NetworkX I05) | **Repair integrated; scoped Tested2026-11-15; native acceptance pending.** Original source-established diagnosis: `graph_inspection.py:449–456` and `change_impact.py:659–685` exclude read/cut pins from request identity then overwrite explicit pins from a cursor without equality checks. A valid prior cursor plus conflicting explicit snapshot silently selects the cursor snapshot. | DDO-09/10: refuse conflicting explicit graph and before/target impact read/cut pins before restoring omitted pins, as current rich/composite readers already do. Independently check wrong-read/wrong-cut for every side and valid matching/omitted-pin continuation. |
+| DDO-CA-13 (I04; F13) | **Repair integrated; scoped Tested2026-11-15; native acceptance pending.** Original source-established diagnosis: `orchestrate/data_operations.py:1062–1063` sizes admission using total bytes although `cpu_execution.py:586–588` already charges the retained capsule. With capsule S, reservation R, 0<S<R, budget=2R and max_claims>=2, two ready schema-prepared scalar requests over-admit; the second raises at `data_operations.py:851` before its try block, aborting the invocation. | DDO-06/shared prepared execution: make the existing budget and admission window account for retained preparation or defer reservations safely. Check a genuine nonempty capsule at the boundary, sibling progress, deferred work and complete retirement; no new estimator or accounting system is required. |
 
 ### Domain-model review disposition · accepted 2026-11-15
 

@@ -209,12 +209,10 @@ population receipts are matched for every frozen discovery producer context and 
 complete root cannot prove another root complete. Caller-supplied population claims confer no
 completeness authority. Scoped/partial or missing observations remain unknown.
 
-DDO-CA-11/12 in the coordinator retain two implementation corrections before this is complete
-for current rich subjects and pinned continuations: population acquisition must accept the genuine
-null original source of project-scoped rich knowledge, and a cursor must refuse conflicting explicit
-before/target read or cut pins before restoring omitted pins. Existing typed rich/composite readers
-already preserve explicit pin equality. Native capture alone does not repair either Python seam.
-Independent source-free population and wrong-read/wrong-cut cases are required.
+Source-free project contexts now retain null original-source identity through impact acquisition,
+population keys and comparison. Continuations refuse conflicting explicit before/target read or cut
+pins before restoring matching/omitted pins, consistent with rich/composite readers. The coordinator
+owns CA-11/12 controls and remaining native journey qualification.
 
 Declared graph closure identifies potential affected operations only. States distinguish potential,
 awaiting execution/population, stale, revoked, substitutable, inapplicable and unknown. Substitution

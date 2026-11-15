@@ -1,6 +1,6 @@
 # Declared graph projections and NetworkX analysis
 
-**Accepted contract; focused realization implemented with CA-12 continuation gap; bounded qualification owned by the coordinator · 2026-11-15.** Consumes the
+**Accepted contract; focused realization implemented with CA-12 Python continuation repair; bounded qualification owned by the coordinator · 2026-11-15.** Consumes the
 [NetworkX review](../../plan_improvement_reviews/declared-data-operations-networkx_2026-11-12.md)
 at `7c5368faa`. Implements its I01–I07 planning amendments within DDO-00–12; the
 [coordinator](../declared-data-operations_2026-11-12.md) alone owns progress and scheduled dispositions.
@@ -32,7 +32,7 @@ body acquisition must retain all population/relationship/intermediate facts need
 examined graph. No graph-specific database mirror, latest selection or separate cursor authority.
 
 
-**Current realization boundary:** effective-model v7 archives the interpreted static, selected-native,
+**Current realization boundary:** effective-model v8 archives the interpreted static, selected-native,
 source, assessment and implementation-reference profiles. Current readers reject obsolete encodings
 under ADR-0109. Earlier v6 capture and v2–v5 readback describe dated evidence, not a current feature
 or a requirement to restore compatibility. Useful old data imports into the current basis or regenerates. Concrete runtime nodes/occurrences live in immutable selected snapshots, not the model.
@@ -283,10 +283,9 @@ Partial member facts remain inspectable, while incomplete acquisition withholds 
 path claims. The former separate model-version historical reader is removed under Domain-model I09; remaining
 legacy domain/SQLReader consumers retain their own open retirement obligations. Supported target-native histories retain exact model/cut/trust meaning.
 
-**Completion audit · 2026-11-15:** CA-12 qualifies selected pagination above: the implementation
-currently overwrites conflicting explicit read/cut pins from a cursor. Refuse mismatches before
-native acquisition and restore only omitted/matching pins; retain independently expected wrong-read,
-wrong-cut and valid continuation controls. This is an implementation gap, separate from native capture.
+**Audit repair boundary · 2026-11-15:** selected graph continuation rejects conflicting
+explicit read/cut pins before native acquisition, restoring matching/omitted pins. The coordinator
+owns CA-12 independent controls and remaining native capture/journey qualification.
 
 Dated forward graph-v1 admits v6; graph-v2 additionally binds delegated graph helper bytes and NetworkX3.7
 execution profile through native capture. Neither rewrites predecessors or deploys persistently.

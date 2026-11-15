@@ -82,7 +82,9 @@ def read_native_definition_projection(prepared, *, model=None) -> NativeDefiniti
         kind = model.subject_definition(operation.subject).identifier_kind
         contract = identities.get((kind, "kind"))
         if contract is None or projected_kinds.get(kind) != contract:
-            raise ValueError("native subject identifier kind differs from the checked effective model")
+            raise ValueError(
+                "native subject identifier kind differs from the checked effective model"
+            )
     expected_policies = {
         operation.semantic_id: operation.replicate_policy for operation in model.operations
     }

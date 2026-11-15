@@ -201,10 +201,12 @@ def test_selected_continuation_checks_explicit_pins_before_reader(field, pin, ex
 
     selected = request(demand_id="demand", project_id="project")
     token = {"request_identity": _request_identity(selected), "read_id": "read", "cut": "cut"}
-    selected = selected.model_copy(update={
-        "cursor": base64.urlsafe_b64encode(json_bytes(token)).decode(),
-        field: None if explicit is None else pin if explicit == "matching" else "wrong",
-    })
+    selected = selected.model_copy(
+        update={
+            "cursor": base64.urlsafe_b64encode(json_bytes(token)).decode(),
+            field: None if explicit is None else pin if explicit == "matching" else "wrong",
+        }
+    )
 
     class ReaderEntered(Exception):
         pass
