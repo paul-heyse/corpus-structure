@@ -234,11 +234,7 @@ def lower_rich_proposals(builder, *, check_active):
             value = RichScientificSourceContext(
                 original=original, context=context_ref, macros=macros
             )
-            existing = tuple(item for item in builder.source_contexts if item.original == original)
-            if existing and any(item != value for item in existing):
-                raise ValueError("one actual source member has conflicting interpretation contexts")
-            if not existing:
-                builder.source_contexts.append(value)
+            builder.add_source_context(value)
 
         def occurrence(
             result,

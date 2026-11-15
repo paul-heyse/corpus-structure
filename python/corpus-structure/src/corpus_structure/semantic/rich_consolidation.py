@@ -80,6 +80,7 @@ class RichAssembly:
         self.policy_digest = rich_eligibility_policy_digest(self.policy)
         self.packets = {}
         self.source_contexts = []
+        self._source_context_index = {}
         self.entities = {}
         self.known = {}
         self.facts = set()
@@ -172,6 +173,15 @@ class RichAssembly:
         )
         return _body_id(body)
 
+    def add_source_context(self, value):
+        key = rich_reference_key(value.original)
+        previous = self._source_context_index.get(key)
+        if previous is not None and previous != value:
+            raise ValueError("one actual source member has conflicting interpretation contexts")
+        if previous is None:
+            self._source_context_index[key] = value
+            self.source_contexts.append(value)
+
     def diagnostic(self, code, reason, refs):
         identifier = canonical_identity(
             "rich-diagnostic",
@@ -244,7 +254,7 @@ class RichAssembly:
                             evidence_count=0,
                         )
                     )
-                    self.source_contexts.append(
+                    self.add_source_context(
                         RichScientificSourceContext(
                             original=original, context=parent, macros=whole.macros
                         )
