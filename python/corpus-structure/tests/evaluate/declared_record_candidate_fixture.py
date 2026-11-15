@@ -95,11 +95,17 @@ def candidate_values(prepared, source, pin, *, model, check_active, family="tabl
                 ("condition", "literal", True),
                 ("normalized_value", "normalized", False),
             ):
-                fields.append(dict(
-                    role=role, kind=kind, state="unstated", meaning_changing=meaning_changing,
-                    evidence_status="unavailable", evidence_sets=(),
-                    reason="not stated in this exact native numeric cell",
-                ))
+                fields.append(
+                    dict(
+                        role=role,
+                        kind=kind,
+                        state="unstated",
+                        meaning_changing=meaning_changing,
+                        evidence_status="unavailable",
+                        evidence_sets=(),
+                        reason="not stated in this exact native numeric cell",
+                    )
+                )
         record = dict(
             contract="FixtureRecordFields" if family == "table" else "MeasurementRecordFields",
             family=family,
@@ -148,7 +154,11 @@ def execute_kernel(
         canonical_bytes(source).decode(), canonical_bytes(pin).decode()
     )
     rows, coordinates = candidate_values(
-        prepared, source, pin, model=bound_data_operation_model(prepared), check_active=check_active,
+        prepared,
+        source,
+        pin,
+        model=bound_data_operation_model(prepared),
+        check_active=check_active,
         family=question.get("family", "table"),
     )
     actual_context = SubjectContext(
@@ -169,7 +179,9 @@ def execute_kernel(
         inspection_outcome=outcome,
         records=rows,
         coordinate_texts=coordinates,
-        coverage=(dict(family=question.get("family", "table"), scope=pin["source"], outcome=outcome),),
+        coverage=(
+            dict(family=question.get("family", "table"), scope=pin["source"], outcome=outcome),
+        ),
         diagnostics={"reports": [], "fixture": "controlled-native-two-cell-computation"},
     )
 
