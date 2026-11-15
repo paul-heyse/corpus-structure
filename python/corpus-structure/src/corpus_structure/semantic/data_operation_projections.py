@@ -341,14 +341,14 @@ def binding_branches(metadata):
     scope = _var("p_scope", JSONB)
     selected = _var("p_selected", JSONB)
 
-    def selected_key(product, member):
+    def selected_key(product, member=None):
         requested = _items(selected, "selected_binding_key")
+        predicates = [requested.c.value["product_id"].astext == product]
+        if member is not None:
+            predicates.append(requested.c.value["member_id"].astext.is_not_distinct_from(member))
         return or_(
             selected.is_(None),
-            exists(select(1).select_from(requested).where(
-                requested.c.value["product_id"].astext == product,
-                requested.c.value["member_id"].astext.is_not_distinct_from(member),
-            )),
+            exists(select(1).select_from(requested).where(*predicates).correlate_except(requested)),
         )
 
     def decoded(value):
@@ -456,6 +456,7 @@ def binding_branches(metadata):
             or_(uses.c.demand_id == demand, exact_pin),
             uses.c.fate == "fulfilled",
             products.c.project_id == project,
+            selected_key(products.c.id),
             _visible(uses),
             func.ops.ddo_use_valid(uses.table_valued(), boundary),
             allowed_producer,
