@@ -536,12 +536,12 @@ class NativeDemandExecutor:
                 )
                 if selected.effects:
                     from corpus_structure.semantic.data_operation_effects import (
-                        ReceiptBearingEffectPort,
+                        CapturedEffectPort,
                     )
 
-                    if not isinstance(port, ReceiptBearingEffectPort):
+                    if not isinstance(port, CapturedEffectPort):
                         raise PortRefusal(
-                            "declared effect has no admitted receipt-bearing effect owner"
+                            "declared effect has no captured native effect owner"
                         )
                 admission.authorize(port.identity)
                 if port.operation != selected:

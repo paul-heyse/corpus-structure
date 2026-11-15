@@ -52,8 +52,15 @@ class PreparedOriginalCallPort:
     def __post_init__(self):
         if self.operation != self.model.operation(self.identity.operation):
             raise PortRefusal("prepared call differs from its exact effective operation")
-        if self.operation.capabilities.forms != ("scalar",) or self.operation.effects:
-            raise PortRefusal("prepared original-call adapter requires a scalar pure computation")
+        native_publication = (
+            self.operation.profile == "command"
+            and self.operation.capabilities.preparation == "native-publication"
+            and bool(self.operation.effects)
+        )
+        if self.operation.capabilities.forms != ("scalar",) or (
+            self.operation.effects and not native_publication
+        ):
+            raise PortRefusal("prepared original-call adapter requires a scalar computation or native publication command")
         if self.operation.capabilities.preparation == "none":
             raise PortRefusal("prepared original-call adapter requires declared preparation")
         signature = inspect.signature(self.original, eval_str=True)

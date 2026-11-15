@@ -440,14 +440,14 @@ def resolve_prepared_factory(model, sources, operation):
         verify_bindings()
         result = function(*args, **kwargs)
         verify_bindings()
-        from .data_operation_effects import ReceiptBearingEffectPort
+        from .data_operation_effects import CapturedEffectPort
 
-        if isinstance(result, ReceiptBearingEffectPort):
+        if isinstance(result, CapturedEffectPort):
             method = result.effect_implementation
             verify_callable(method.__module__ + "." + method.__qualname__, method)
         implementations = (
             (result, result.effect_implementation())
-            if isinstance(result, ReceiptBearingEffectPort)
+            if isinstance(result, CapturedEffectPort)
             else (result,)
         )
         for implementation in implementations:

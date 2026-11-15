@@ -350,6 +350,24 @@ def derive_record_features(
     )
 
 
+def reading_potential(parameters: LinearParameters, values: tuple[float, ...]) -> float:
+    """The selected finite whole-reading kernel, shared by scoring and admission."""
+    READING_NUMERICS.require_runtime()
+    if len(values) != len(parameters.names) or any(
+        type(value) not in (int, float) or not math.isfinite(value) for value in values
+    ):
+        raise ValueError("whole-reading values require the exact finite feature order")
+    potential = math.fsum(
+        ((value - center) / scale) * coefficient
+        for value, center, scale, coefficient in zip(
+            values, parameters.center, parameters.scale, parameters.coefficients, strict=True
+        )
+    ) + parameters.intercept
+    if not math.isfinite(potential):
+        raise ArithmeticError("nonfinite whole-reading potential")
+    return potential
+
+
 def score_record(feature: FeatureInstance, vector: RecordFeatures, *, subset: str) -> RecordScore:
     READING_NUMERICS.require_runtime()
     applicability, parameters = feature.applicability, feature.parameters
@@ -364,17 +382,7 @@ def score_record(feature: FeatureInstance, vector: RecordFeatures, *, subset: st
     if any(value is None for value in vector.values):
         raise ValueError("required raw feature is unavailable; imputation is not declared")
     values = tuple(float(value) for value in vector.values if value is not None)
-    potential = (
-        math.fsum(
-            ((value - center) / scale) * coefficient
-            for value, center, scale, coefficient in zip(
-                values, parameters.center, parameters.scale, parameters.coefficients, strict=True
-            )
-        )
-        + parameters.intercept
-    )
-    if not math.isfinite(potential):
-        raise ArithmeticError("nonfinite whole-reading potential")
+    potential = reading_potential(parameters, values)
     return RecordScore(
         feature_instance_digest=feature.digest,
         feature_input_digest=vector.input_digest,
