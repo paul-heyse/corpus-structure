@@ -6,32 +6,22 @@ import json
 import os
 from dataclasses import replace
 from pathlib import Path
+from semantic.data_operation_kernel_support import CapturedKernelInputs, KernelRecipe
+
+from semantic.current_pdf_source_support import (
+    current_pdf_source_factory as current_pdf_source_factory, admit_current_target, current_consumer_request, selected_current_sources,
+)
 
 import pytest
-from semantic.data_operation_kernel_support import CapturedKernelInputs, Kernel, KernelRecipe
-from semantic.data_operation_original_support import OriginalSeedRecipe
-from semantic.native_record_fixtures import RecordSourceRecipe, claim_record_source
-from semantic.original_source_fixture import completed_original_source_reference
-from sqlalchemy import select, text
+from sqlalchemy import text
 
 from corpus_structure.core.method import MethodSettings
 from corpus_structure.ingest.sentences import SentenceConfig
-from corpus_structure.orchestrate.source_operation import (
-    prepare_source_demand,
-    run_source_operation,
-)
-from corpus_structure.orchestrate.source_request import (
-    RetainedSourceSelection,
-    SourceRunRequest,
-    WholeDocument,
-)
 from corpus_structure.semantic import SourceArtifact, SourceBundle
 from corpus_structure.semantic.data_operation_identity import decode_semantic_value
 from corpus_structure.semantic.data_operation_service import execute_data_demand, read_data_demand
 from corpus_structure.semantic.hanlp_products import prepare_hanlp_selection
-from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.primary_operations import primary_operation_inputs
-from corpus_structure.semantic.source_views import load_source_view
 
 ROOT = Path(__file__).resolve().parents[4]
 PASSAGES = (
@@ -64,68 +54,18 @@ def _recipe(assets):
         None,
         "",
         project_id=None,
-        source_stage="private-source",
         execution_profile="source-native",
         captured_inputs=CapturedKernelInputs(inputs.bundle, inputs.dependencies, inputs.profile),
     )
 
 
 @pytest.fixture
-def primary_source_case(scenario_seeds):
+def primary_source_case(current_pdf_source_factory, tmp_path):
     assets = Path(os.environ["CORPUS_PM2_NATIVE_TEST_ASSETS"])
-    recipe = OriginalSeedRecipe(RecordSourceRecipe(sibling_captions=PASSAGES), _recipe(assets))
-    with scenario_seeds.commit_clone(recipe) as clone:
-        kernel = Kernel(
-            clone.admin,
-            clone.stage.kernel.preparation,
-            clone.stage.kernel.identities,
-            recipe.target,
-            clone,
-        )
-        retained = claim_record_source(clone.stage.source, writer=clone.writer, clone=clone)
-        reference, _ = completed_original_source_reference(retained)
-        with clone.admin.connect() as connection:
-            views = table("kb.source_view")
-            row = (
-                connection.execute(select(views).where(views.c.id == retained.other_view))
-                .mappings()
-                .one()
-            )
-            reference = reference.model_copy(
-                update={
-                    "source_view_id": row["id"],
-                    "native_task_id": row["native_task_id"],
-                    "native_product_key": row["native_product_key"],
-                    "native_content_digest": row["native_content_digest"],
-                    "projection_digest": row["projection_digest"],
-                    "recipe_digest": row["recipe_digest"],
-                }
-            )
-            view = load_source_view(connection, row["id"], analysis=False)
-        selections = tuple(
-            RetainedSourceSelection(
-                source=reference,
-                selectors=(
-                    {
-                        "projection": reference.projection_digest,
-                        "native_pointer": next(
-                            item["self_ref"] for item in view.items if item.get("text") == passage
-                        ),
-                    },
-                ),
-            )
-            for passage in PASSAGES
-        )
-        request = SourceRunRequest(
-            project_id=retained.project_id,
-            release_id=kernel.prepared.release_id,
-            runtime_id=kernel.runtime,
-            domain="toy",
-            workflow="characterize",
-            selection=WholeDocument(),
-            retained_sources=selections,
-        )
-        yield clone, kernel, request
+    with current_pdf_source_factory(tuple(("text", passage, passage, None) for passage in PASSAGES)) as source:
+        kernel = admit_current_target(source, _recipe(assets), tmp_path / "consumer")
+        request = current_consumer_request(source, kernel, ("text.compose_view/full-native",), discover=True)
+        yield source.kernel.clone, kernel, request, selected_current_sources(source)
 
 
 def _products(snapshot):
@@ -138,11 +78,11 @@ def _products(snapshot):
 def test_two_language_regions_use_native_source_demand_and_exact_resume(
     primary_source_case, tmp_path
 ):
-    clone, kernel, request = primary_source_case
+    clone, kernel, request, original_members = primary_source_case
     methods = MethodSettings(data_dir=tmp_path, model_cache=tmp_path)
     with clone.admin.connect() as connection:
         builds_before = connection.scalar(text("SELECT count(*) FROM ops.pdf_stage_build"))
-        frozen = prepare_source_demand(connection, request)
+        frozen = request
     selected = {value.operation: value for value in frozen.selections}
     assert selected["source.selected_views/discovery"].parameters == {"complete": True}
     assert set(selected["text.compose_view/full-native"].selected_dependencies) == {
@@ -154,13 +94,11 @@ def test_two_language_regions_use_native_source_demand_and_exact_resume(
         "text.declaration_syntax/source-native",
         "text.contextual_evaluation/source-native",
     }
-    result = run_source_operation(
-        kernel.purpose("write"),
-        request,
-        methods,
-        source_root=ROOT,
-        admission_engine=kernel.purpose("admit"),
-    )
+    from corpus_structure.semantic.data_operation_service import create_native_demand
+    with kernel.purpose("write").begin() as connection:
+        registered = create_native_demand(connection, request, prepared=kernel.prepared)
+    result = execute_data_demand(kernel.purpose("write"), registered["demand_id"], source_root=ROOT,
+        admission_engine=kernel.purpose("admit"), database_capacity=6)
     with clone.admin.begin() as connection:
         snapshot = read_data_demand(connection, result.demand_id, view="products", limit=1)
         continuation = snapshot["continuation"]
@@ -213,8 +151,8 @@ def test_two_language_regions_use_native_source_demand_and_exact_resume(
         if isinstance(member.get("body"), dict) and "text" in member["body"]
     ]
     assert len(source_bodies) == 2
-    assert {value["selectors"][0]["native_pointer"] for value in source_bodies} == {
-        value.selectors[0]["native_pointer"] for value in request.retained_sources
+    assert {value["source"]["section_pointer"] for value in source_bodies} == {
+        body["source"]["section_pointer"] for row, body in original_members
     }
     assert all(
         value["source"]["document"] == frozen.roots[0].original_source for value in source_bodies
@@ -239,22 +177,32 @@ def test_two_language_regions_use_native_source_demand_and_exact_resume(
 def test_empty_selected_source_population_closes_without_invented_language_products(
     primary_source_case, tmp_path
 ):
-    clone, kernel, request = primary_source_case
-    # The source owner explicitly closes an empty examined selection. This is
-    # different from incomplete discovery; no fabricated source/language work is due.
-    from corpus_structure.semantic.data_operation_service import create_native_demand
+    clone, kernel, request, _original_members = primary_source_case
+    # A different registered original has no computational view products. Its
+    # examined empty population therefore closes without an invented view/fact.
+    from corpus_structure.semantic.data_operation_service import create_native_demand, DemandRoot, DemandOriginalSelection
+    from corpus_structure.semantic.data_operation_support import OriginalDocumentRef
+    from corpus_structure.semantic.original_documents import (read_original_document_bytes, register_original_document,
+        acquire_original_document_selection)
+    from corpus_structure.core.evidence import document_key
+    from corpus_structure.semantic.data_operation_json import json_loads
+    from hashlib import sha256
 
     with clone.admin.begin() as connection:
-        frozen = prepare_source_demand(connection, request)
-        empty = frozen.model_copy(
-            update={
-                "original_sources": {
-                    key: value
-                    for key, value in frozen.original_sources.items()
-                    if key.startswith("original:")
-                }
-            }
-        )
+        reference = OriginalDocumentRef.model_validate(request.original_sources["original"].reference)
+        original = read_original_document_bytes(connection, reference, prepared=kernel.prepared)
+        path = tmp_path / "unprocessed.pdf"
+        path.write_bytes(original)
+        register_original_document(connection, prepared=kernel.prepared, project_id=request.project_id,
+            source_uri="unprocessed.pdf", original_path=str(path), original=original, mime="application/pdf")
+        path.unlink()
+        key = document_key(request.project_id, "unprocessed.pdf", sha256(original).hexdigest())
+        acquired = acquire_original_document_selection(connection, project_id=request.project_id, document_key=key)
+        empty = request.model_copy(update={
+            "roots": (DemandRoot(subject=acquired.root.subject, original_source=acquired.root.original_source,
+                analyzed_scope=json_loads(acquired.root.analyzed_scope)),),
+            "original_sources": {acquired.name: DemandOriginalSelection(**acquired.selection().record())},
+        })
         snapshot = create_native_demand(connection, empty)
     result = execute_data_demand(
         kernel.purpose("write"),

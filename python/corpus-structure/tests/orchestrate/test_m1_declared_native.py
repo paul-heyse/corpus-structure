@@ -6,13 +6,14 @@ import json
 import os
 from contextlib import contextmanager
 from pathlib import Path
+from semantic.data_operation_kernel_support import CapturedKernelInputs, KernelRecipe
+
+from semantic.current_pdf_source_support import (
+    current_pdf_source_factory as current_pdf_source_factory, admit_current_target, current_consumer_request,
+)
 from typing import cast as typing_cast
 
 import pytest
-from semantic.data_operation_kernel_support import CapturedKernelInputs, Kernel, KernelRecipe
-from semantic.data_operation_original_support import OriginalSeedRecipe
-from semantic.native_record_fixtures import RecordSourceRecipe, claim_record_source
-from semantic.original_source_fixture import completed_original_source_reference
 from sqlalchemy import text
 
 from corpus_structure.orchestrate.data_operations import NativeDemandExecutor
@@ -24,26 +25,17 @@ from corpus_structure.semantic.composed import (
     read_data_operation_inputs,
 )
 from corpus_structure.semantic.data_operation_artifacts import capture_port_generator_sources
-from corpus_structure.semantic.data_operation_demands import (
-    DemandPlanner,
-    OperationSelection,
-    freeze_demand,
-)
 from corpus_structure.semantic.data_operation_identity import decode_semantic_value
 from corpus_structure.semantic.data_operation_storage import (
     DataOperationStorage,
     native_operation_declarations,
     native_protocol_sources,
 )
-from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.m1_products import (
     freeze_m1_configuration,
     m1_operation_inputs,
     m1_operation_sources,
 )
-from corpus_structure.semantic.original_documents import acquire_original_document_selection
-from corpus_structure.semantic.source_admission import acquire_original_source_selection
-from corpus_structure.semantic.source_views import load_source_view
 from corpus_structure.semantic.terminology import acquire_terminology
 from corpus_structure.semantic.types import (
     PreparationProfile,
@@ -56,7 +48,7 @@ ROOT = Path(__file__).resolve().parents[4]
 SENTENCE = "The sample mean is the sum of the observations divided by the sample size."
 
 
-def _recipe():
+def _recipe(*, empty=False):
     from methods.domain_configuration import candidate_configuration
 
     terminology, vocabulary_assets, ontology_sources = acquire_terminology(
@@ -85,7 +77,7 @@ def _recipe():
         cfg.model_copy(
             update={
                 "local_schema": None,
-                "region_pointers": ("#/texts/0",),
+                "region_pointers": () if empty else ("#/texts/0",),
                 "max_context_chars": 512,
             }
         )
@@ -115,77 +107,16 @@ def _recipe():
 
 
 @contextmanager
-def _case(scenario_seeds, *, empty):
-    target = _recipe()
-    recipe = OriginalSeedRecipe(RecordSourceRecipe(sibling_captions=(SENTENCE,)), target)
-    with scenario_seeds.commit_clone(recipe) as clone:
-        stage = clone.stage
-        kernel = Kernel(
-            clone.admin, stage.kernel.preparation, stage.kernel.identities, target, clone
-        )
-        source = claim_record_source(stage.source, writer=clone.writer, clone=clone)
-        reference, _ = completed_original_source_reference(source)
-        with clone.admin.begin() as connection:
-            other = load_source_view(connection, source.other_view, analysis=False)
-            reference = reference.model_copy(
-                update={
-                    "source_view_id": source.other_view,
-                    "projection_digest": other.ref.projection_digest,
-                    "recipe_digest": other.ref.recipe_digest,
-                }
-            )
-            selectors = [
-                dict(
-                    projection=reference.projection_digest,
-                    **({"start": 0, "end": 0} if empty else {}),
-                )
-            ]
-            selected = acquire_original_source_selection(
-                connection, kernel.prepared, reference, selectors, name="selected-view"
-            )
-            original = acquire_original_document_selection(
-                connection,
-                project_id=source.project_id,
-                document_key=selected.root.original_source,
-                name="original-document",
-            )
-            from corpus_structure.semantic.data_operation_source_discovery import (
-                source_discovery_relations,
-            )
-
-            operation = "extract.m1_candidates"
-            required = {
-                operation,
-                *kernel.model.projection_graph("selected-dependencies").closure((operation,)),
-            }
-            discovery = tuple(
-                relation
-                for target_operation in sorted(required)
-                for relation in source_discovery_relations(
-                    kernel.model, "source.selected_views/discovery", "result", target_operation
-                )
-            )
-            intent = freeze_demand(
-                kernel.model,
-                roots=(original.root,),
-                targets=("source.selected_views/discovery",),
-                selections=(
-                    OperationSelection(
-                        "source.selected_views/discovery",
-                        parameters=canonical_bytes({"complete": True}),
-                    ),
-                ),
-                discovery=discovery,
-                inference="m1-native-test",
-                execution_profile=target.execution_profile,
-                original_sources=(original.selection(), selected.selection()),
-            )
-            demand = DemandPlanner(kernel.model, DataOperationStorage(connection)).register(
-                intent,
-                project=source.project_id,
-                release=kernel.prepared.release_id,
-                runtime=kernel.runtime,
-            )["demand_id"]
+def _case(current_pdf_source_factory, tmp_path, *, empty):
+    target = _recipe(empty=empty)
+    rows = (("text", "" if empty else SENTENCE, "" if empty else SENTENCE, None),)
+    with current_pdf_source_factory(rows) as source:
+        kernel = admit_current_target(source, target, tmp_path / "consumer")
+        clone = source.kernel.clone
+        request = current_consumer_request(source, kernel, ("extract.m1_candidates",), discover=True)
+        from corpus_structure.semantic.data_operation_service import create_native_demand
+        with kernel.purpose("write").begin() as connection:
+            demand = create_native_demand(connection, request, prepared=kernel.prepared)["demand_id"]
         acquired = read_data_operation_inputs(kernel.preparation.dependencies)
         assert acquired is not None and acquired[1] is not None
         captured = acquired[1]
@@ -199,7 +130,7 @@ def _case(scenario_seeds, *, empty):
             admission_engine=clone.purpose("admit"),
             database_capacity=6,
         )
-        yield kernel, source, selected, demand, executor
+        yield kernel, source.document_key, demand, executor
 
 
 def _m1_result(kernel, demand):
@@ -231,14 +162,14 @@ def _m1_result(kernel, demand):
                 for row in connection.execute(
                     text(
                         "SELECT product, kind_contract, subject, original_source, analyzed_scope, member, multiplicity, support_episodes, alternative_identity "
-                        "FROM ops.data_binding_rows(:demand,'extract.m1_candidates',CAST(:trust AS jsonb),:read,:subject,:source,CAST(:scope AS jsonb))"
+                        "FROM ops.data_binding_rows(:demand,'extract.m1_candidates',CAST(:trust AS jsonb),:read,:subject,CAST(:source AS jsonb),CAST(:scope AS jsonb))"
                     ),
                     {
                         "demand": demand,
                         "trust": json.dumps(result["trust_snapshot"]),
                         "read": result["read_id"],
                         "subject": child["subject"],
-                        "source": child["original_source"],
+                        "source": json.dumps(child["original_source"]),
                         "scope": json.dumps(child["analyzed_scope"]),
                     },
                 ).mappings()
@@ -275,21 +206,21 @@ def _m1_result(kernel, demand):
     return report, completion["execution_evidence"]
 
 
-def test_actual_m1_cpu_empty_scope_publishes_exact_empty_inspection_and_resumes(scenario_seeds):
-    with _case(scenario_seeds, empty=True) as (kernel, _source, selected, demand, executor):
+def test_actual_m1_cpu_empty_scope_publishes_exact_empty_inspection_and_resumes(current_pdf_source_factory, tmp_path):
+    with _case(current_pdf_source_factory, tmp_path, empty=True) as (kernel, document_key, demand, executor):
         executed = executor.run(demand)
         report, evidence = _m1_result(kernel, demand)
         assert executed.receipt_count >= 3
         assert report["inspection_outcome"] == "empty" and report["members"] == []
-        assert report["source_pin"]["original_source"] == selected.root.original_source
+        assert report["source_pin"]["original_source"] == document_key
         assert report["source_pin"]["analyzed_scope_meaning"]
         assert evidence["host_receipts"] == [] and evidence.get("provider_receipts", []) == []
         (cpu,) = evidence["cpu_receipts"]
         assert cpu["pid"] != os.getpid() and cpu["pid"] > 0
-        # A clipped/unselected native atom is never promoted to complete absence.
-        assert report["coverage"] and all(
-            row["outcome"] != "complete" for row in report["coverage"]
-        )
+        # This is a genuinely computed empty section, not a historical view
+        # relabelled as an original fact. Clipped-scope interpretation stays in
+        # the independent pure M1 controls.
+        assert report["coverage"]
         assert executor.budget.used_bytes == 0
         assert executor.run(demand).receipt_count == 0
 
@@ -298,14 +229,14 @@ def test_actual_m1_cpu_empty_scope_publishes_exact_empty_inspection_and_resumes(
 @pytest.mark.provider_evidence
 @pytest.mark.prerequisite("pm2_native_assets")
 def test_actual_m1_bounded_gliner_questions_publish_candidate_inspection_with_cohort_custody(
-    scenario_seeds,
+    current_pdf_source_factory, tmp_path,
 ):
-    with _case(scenario_seeds, empty=False) as (kernel, _source, selected, demand, executor):
+    with _case(current_pdf_source_factory, tmp_path, empty=False) as (kernel, document_key, demand, executor):
         executed = executor.run(demand)
         report, evidence = _m1_result(kernel, demand)
         assert executed.receipt_count >= 3
         assert report["inspection_outcome"] in {"produced", "empty"}
-        assert report["source_pin"]["original_source"] == selected.root.original_source
+        assert report["source_pin"]["original_source"] == document_key
         assert report["standing"] == "private_uncalibrated_candidates"
         diagnostics = json.loads(report["diagnostics_json"])
         assert "producer_failure" not in diagnostics

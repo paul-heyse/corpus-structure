@@ -3,28 +3,23 @@
 import os
 from hashlib import sha256
 from pathlib import Path
+from semantic.data_operation_kernel_support import CapturedKernelInputs, KernelRecipe
+
+from semantic.current_pdf_source_support import (
+    current_pdf_source_factory as current_pdf_source_factory, admit_current_target, current_consumer_request,
+)
 
 import pytest
 import yaml
 from pydantic import TypeAdapter
 from sqlalchemy import func, select
 
-from corpus_structure.core.method import MethodSettings
 from corpus_structure.ingest.sentences import SentenceConfig
 from corpus_structure.methods.gliner import GlinerProfile
 from corpus_structure.methods.native_profiles import (
     gliner_selection,
     pm2_selection,
     preflight_native_runtime,
-)
-from corpus_structure.orchestrate.source_operation import (
-    prepare_source_demand,
-    run_source_operation,
-)
-from corpus_structure.orchestrate.source_request import (
-    RetainedSourceSelection,
-    SourceRunRequest,
-    WholeDocument,
 )
 from corpus_structure.semantic import SourceArtifact, SourceBundle
 from corpus_structure.semantic.data_operation_identity import decode_semantic_value
@@ -35,10 +30,6 @@ from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.observations import source_python
 from corpus_structure.semantic.primary_operations import primary_operation_inputs
-from semantic.data_operation_kernel_support import CapturedKernelInputs, Kernel, KernelRecipe
-from semantic.data_operation_original_support import OriginalSeedRecipe
-from semantic.native_record_fixtures import RecordSourceRecipe, claim_record_source
-from semantic.original_source_fixture import completed_original_source_reference
 
 ROOT = Path(__file__).resolve().parents[4]
 TEXT = "A dispatch token is a short identifier assigned to a submitted support request."
@@ -87,7 +78,6 @@ def _captured_definition_recipe(assets):
         None,
         "",
         project_id=None,
-        source_stage="private-source",
         execution_profile="source-native",
         captured_inputs=CapturedKernelInputs(inputs.bundle, inputs.dependencies, inputs.profile),
     )
@@ -105,72 +95,18 @@ def _field_names(value) -> set[str]:
 @pytest.mark.provider_evidence
 @pytest.mark.prerequisite("pm2_native_assets")
 def test_actual_definition_demand_retains_provider_pair_and_exact_component_source(
-    scenario_seeds, tmp_path
+    current_pdf_source_factory, tmp_path
 ):
-    recipe = OriginalSeedRecipe(
-        RecordSourceRecipe(sibling_references=(TEXT,)),
-        _captured_definition_recipe(Path(os.environ["CORPUS_PM2_NATIVE_TEST_ASSETS"])),
-    )
-    with scenario_seeds.commit_clone(recipe) as clone:
-        kernel = Kernel(
-            clone.admin,
-            clone.stage.kernel.preparation,
-            clone.stage.kernel.identities,
-            recipe.target,
-            clone,
-        )
-        retained = claim_record_source(clone.stage.source, writer=clone.writer, clone=clone)
-        reference, _ = completed_original_source_reference(retained)
-        with clone.admin.connect() as connection:
-            row = (
-                connection.execute(
-                    select(table("kb.source_view")).where(
-                        table("kb.source_view").c.id == retained.other_view
-                    )
-                )
-                .mappings()
-                .one()
-            )
-        assert row["projection"]["text"] == TEXT
-        reference = reference.model_copy(
-            update={
-                key: row[key]
-                for key in (
-                    "native_task_id",
-                    "native_product_key",
-                    "native_content_digest",
-                    "projection_digest",
-                    "recipe_digest",
-                )
-            }
-            | {"source_view_id": row["id"]}
-        )
-        request = SourceRunRequest(
-            project_id=retained.project_id,
-            release_id=kernel.prepared.release_id,
-            runtime_id=kernel.runtime,
-            domain="toy",
-            workflow="interpret",
-            selection=WholeDocument(),
-            retained_sources=(
-                RetainedSourceSelection(
-                    source=reference,
-                    selectors=(
-                        {"projection": reference.projection_digest, "start": 0, "end": len(TEXT)},
-                    ),
-                ),
-            ),
-            targets=(COMPONENTS,),
-        )
-        with clone.admin.connect() as connection:
-            frozen = prepare_source_demand(connection, request)
-        result = run_source_operation(
-            kernel.purpose("write"),
-            request,
-            MethodSettings(data_dir=tmp_path, model_cache=tmp_path),
-            source_root=ROOT,
-            admission_engine=kernel.purpose("admit"),
-        )
+    with current_pdf_source_factory((("text", TEXT, TEXT, None),)) as source:
+        kernel = admit_current_target(source, _captured_definition_recipe(Path(os.environ["CORPUS_PM2_NATIVE_TEST_ASSETS"])), tmp_path / "consumer")
+        clone = source.kernel.clone
+        request = current_consumer_request(source, kernel, (COMPONENTS,), discover=True)
+        frozen = request
+        from corpus_structure.semantic.data_operation_service import create_native_demand
+        with kernel.purpose("write").begin() as connection:
+            registered = create_native_demand(connection, request, prepared=kernel.prepared)
+        result = execute_data_demand(kernel.purpose("write"), registered["demand_id"], source_root=ROOT,
+            admission_engine=kernel.purpose("admit"), database_capacity=6)
         with clone.admin.begin() as connection:
             snapshot = read_data_demand(connection, result.demand_id, view="products")
             receipts_before_resume = connection.scalar(

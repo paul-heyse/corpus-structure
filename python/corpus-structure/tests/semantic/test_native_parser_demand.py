@@ -3,13 +3,16 @@
 import json
 import os
 from pathlib import Path
+from semantic.data_operation_kernel_support import CapturedKernelInputs, KernelRecipe
+
+from semantic.current_pdf_source_support import (
+    current_pdf_source_factory as current_pdf_source_factory, admit_current_target, current_consumer_request,
+)
 
 import pytest
 import yaml
 from pydantic import TypeAdapter
-from sqlalchemy import select
 
-from corpus_structure.core.method import MethodSettings
 from corpus_structure.ingest.sentences import SentenceConfig
 from corpus_structure.methods.gliner import GlinerProfile
 from corpus_structure.methods.native_profiles import (
@@ -17,26 +20,12 @@ from corpus_structure.methods.native_profiles import (
     pm2_selection,
     preflight_native_runtime,
 )
-from corpus_structure.orchestrate.source_operation import (
-    prepare_source_demand,
-    run_source_operation,
-)
-from corpus_structure.orchestrate.source_request import (
-    RetainedSourceSelection,
-    SourceRunRequest,
-    WholeDocument,
-)
 from corpus_structure.semantic import SourceArtifact, SourceBundle
 from corpus_structure.semantic.data_operation_identity import decode_semantic_value
 from corpus_structure.semantic.data_operation_service import execute_data_demand, read_data_demand
 from corpus_structure.semantic.declared_candidate_products import candidate_member_values
 from corpus_structure.semantic.hanlp_products import prepare_hanlp_selection
-from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.primary_operations import primary_operation_inputs
-from semantic.data_operation_kernel_support import CapturedKernelInputs, Kernel, KernelRecipe
-from semantic.data_operation_original_support import OriginalSeedRecipe
-from semantic.native_record_fixtures import RecordSourceRecipe, claim_record_source
-from semantic.original_source_fixture import completed_original_source_reference
 
 ROOT = Path(__file__).resolve().parents[4]
 TARGETS = (
@@ -85,7 +74,6 @@ def _captured_parser_recipe(assets):
         None,
         "",
         project_id=None,
-        source_stage="private-source",
         execution_profile="source-native",
         captured_inputs=CapturedKernelInputs(inputs.bundle, inputs.dependencies, inputs.profile),
     )
@@ -94,7 +82,7 @@ def _captured_parser_recipe(assets):
 @pytest.mark.gpu
 @pytest.mark.provider_evidence
 @pytest.mark.prerequisite("pm2_native_assets")
-def test_actual_parser_demand_preserves_three_families_and_exact_resume(scenario_seeds, tmp_path):
+def test_actual_parser_demand_preserves_three_families_and_exact_resume(current_pdf_source_factory, tmp_path):
     panel = json.loads(
         (
             ROOT
@@ -102,73 +90,16 @@ def test_actual_parser_demand_preserves_three_families_and_exact_resume(scenario
         ).read_bytes()
     )["cases"]
     passages = tuple(panel[index]["text"] for index in (0, 2, 4))
-    recipe = OriginalSeedRecipe(
-        RecordSourceRecipe(sibling_references=passages),
-        _captured_parser_recipe(Path(os.environ["CORPUS_PM2_NATIVE_TEST_ASSETS"])),
-    )
-    with scenario_seeds.commit_clone(recipe) as clone:
-        kernel = Kernel(
-            clone.admin,
-            clone.stage.kernel.preparation,
-            clone.stage.kernel.identities,
-            recipe.target,
-            clone,
-        )
-        retained = claim_record_source(clone.stage.source, writer=clone.writer, clone=clone)
-        reference, _ = completed_original_source_reference(retained)
-        with clone.admin.connect() as connection:
-            row = (
-                connection.execute(
-                    select(table("kb.source_view")).where(
-                        table("kb.source_view").c.id == retained.other_view
-                    )
-                )
-                .mappings()
-                .one()
-            )
-        reference = reference.model_copy(
-            update={
-                key: row[key]
-                for key in (
-                    "native_task_id",
-                    "native_product_key",
-                    "native_content_digest",
-                    "projection_digest",
-                    "recipe_digest",
-                )
-            }
-            | {"source_view_id": row["id"]}
-        )
-        request = SourceRunRequest(
-            project_id=retained.project_id,
-            release_id=kernel.prepared.release_id,
-            runtime_id=kernel.runtime,
-            domain="toy",
-            workflow="parsers",
-            selection=WholeDocument(),
-            retained_sources=(
-                RetainedSourceSelection(
-                    source=reference,
-                    selectors=(
-                        {
-                            "projection": reference.projection_digest,
-                            "start": 0,
-                            "end": len("\n".join(passages)),
-                        },
-                    ),
-                ),
-            ),
-            targets=TARGETS,
-        )
-        with clone.admin.connect() as connection:
-            frozen = prepare_source_demand(connection, request)
-        result = run_source_operation(
-            kernel.purpose("write"),
-            request,
-            MethodSettings(data_dir=tmp_path, model_cache=tmp_path),
-            source_root=ROOT,
-            admission_engine=kernel.purpose("admit"),
-        )
+    with current_pdf_source_factory((("text", "\n".join(passages), "\n".join(passages), None),)) as source:
+        kernel = admit_current_target(source, _captured_parser_recipe(Path(os.environ["CORPUS_PM2_NATIVE_TEST_ASSETS"])), tmp_path / "consumer")
+        clone = source.kernel.clone
+        request = current_consumer_request(source, kernel, TARGETS, discover=True)
+        frozen = request
+        from corpus_structure.semantic.data_operation_service import create_native_demand
+        with kernel.purpose("write").begin() as connection:
+            registered = create_native_demand(connection, request, prepared=kernel.prepared)
+        result = execute_data_demand(kernel.purpose("write"), registered["demand_id"], source_root=ROOT,
+            admission_engine=kernel.purpose("admit"), database_capacity=6)
         with clone.admin.begin() as connection:
             snapshot = read_data_demand(connection, result.demand_id, view="products")
         obligations = {value["obligation_id"]: value for value in snapshot["obligations"]}
