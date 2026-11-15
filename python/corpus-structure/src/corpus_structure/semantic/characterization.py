@@ -12,13 +12,17 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from hashlib import sha256
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import yaml
 
 from .identity import canonical_bytes
 from .product_reference import ProductReference
 from .types import PreparedArtifact, PreparedRelease, SourceArtifact, SourceBundle
+
+if TYPE_CHECKING:
+    from .data_product_reference import DataProductReference, DataProductMemberReference
+    from .declared_formal_readings import DeclaredFormalInventory
 
 _MODEL = Path(__file__).resolve().parents[1] / "model/semantic/characterization.yaml"
 _INVENTORIES = ("occurrences", "annotations", "memberships", "roles", "terms", "choices")
@@ -859,13 +863,35 @@ def decode_view(
     return validate_view(prepared, json.loads(content), layers, releases=releases)
 
 
+def _reading_product(value):
+    from .data_product_reference import DataProductReference
+    if set(value) == {"product_id"}:
+        return DataProductReference(value["product_id"])
+    return ProductReference(**value)
+
+
+def _reading_reference(report, requested):
+    from .data_product_reference import DataProductReference
+    if isinstance(requested, DataProductReference):
+        if not isinstance(report.reference, DataProductReference):
+            raise ValueError("declared reading cannot consume a historical layer")
+        return report.reference
+    return report.reference(requested.task_id)
+
+
+def _reading_source(payload):
+    if "base_document" in payload:
+        return ("historical", canonical_bytes(payload["base_document"]))
+    return ("declared", canonical_bytes(payload["source"]), canonical_bytes(payload["selectors"]))
+
+
 def project_reading(
-    layer: LayerReport,
+    layer: LayerReport | DeclaredFormalInventory,
     root: str,
     *,
     choices: Sequence[str] = (),
-    dependencies: Mapping[ProductReference, LayerReport] | None = None,
-    external_choices: Sequence[AnnotationReference] = (),
+    dependencies: Mapping[ProductReference, LayerReport] | Mapping[DataProductReference, DeclaredFormalInventory] | None = None,
+    external_choices: Sequence[AnnotationReference | DataProductMemberReference] = (),
 ) -> dict[str, Any]:
     """Bounded supported DAG projection; unknown compatibility never creates combinations."""
     data = layer.payload
@@ -873,30 +899,30 @@ def project_reading(
     terms = {t["local_id"]: t for t in data["terms"]}
     members = {m["local_id"]: (g, m) for g in data["choices"] for m in g["members"]}
     selected = set(validate_reading_choices(data, choices))
-    external = {(_pin(ref.values()["layer"]), ref.local_id) for ref in external_choices}
+    external = {(ref.product, ref.member_id) for ref in external_choices}
     if len(external) != len(external_choices):
         raise ValueError("duplicate qualified analytical choice")
     # Only the actual dependency closure can supply upstream selections. A caller's
     # larger report cache is not authority to introduce an unrelated reading.
     reachable = set()
-    pending_dependencies = [_pin(value) for value in data.get("dependencies", ())]
+    pending_dependencies = [_reading_product(value) for value in data.get("dependencies", ())]
     while pending_dependencies:
         pin = pending_dependencies.pop()
         if pin in reachable:
             continue
         report = dependencies.get(pin) if dependencies is not None else None
-        if report is None or report.reference(pin.task_id) != pin:
+        if report is None or _reading_reference(report, pin) != pin:
             raise ValueError("reading requires exact retained dependency closure")
-        if report.payload["base_document"] != data["base_document"]:
+        if _reading_source(report.payload) != _reading_source(data):
             raise ValueError("reading dependency belongs to a different source document")
         reachable.add(pin)
-        pending_dependencies.extend(_pin(value) for value in report.payload.get("dependencies", ()))
+        pending_dependencies.extend(_reading_product(value) for value in report.payload.get("dependencies", ()))
     by_layer = {}
     for pin, identity in external:
         if pin not in reachable:
             raise ValueError("qualified choice is outside the reading dependency closure")
         dependency = dependencies.get(pin) if dependencies is not None else None
-        if dependency is None or dependency.reference(pin.task_id) != pin:
+        if dependency is None or _reading_reference(dependency, pin) != pin:
             raise ValueError("qualified choice requires exact retained dependency")
         by_layer.setdefault(pin, []).append(identity)
     for pin, identities in by_layer.items():
@@ -995,9 +1021,11 @@ def project_reading(
 
 
 def _require_external_selection(record, selected):
+    from .data_product_reference import read_member_reference
     if any(
-        (_pin(ref["layer"]), ref["local_id"]) not in selected
-        for ref in record.get("required_external_choices", ())
+        (ref.product, ref.member_id) not in selected
+        for raw in record.get("required_external_choices", ())
+        for ref in (read_member_reference(raw),)
     ):
         raise ValueError("reading requires an unselected qualified analytical choice")
 

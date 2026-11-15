@@ -1,5 +1,6 @@
 """Independent selected membership, group pagination and actual MCP read contracts."""
 from decimal import Decimal
+from typing import Any
 
 import anyio
 import pytest
@@ -12,7 +13,7 @@ from corpus_structure.semantic.demand_results import CutSelection, DemandResult
 from corpus_structure.serve.demand_journey import DemandQueryRequest, _decode, serve_demand_query
 
 
-def _page(*, trust=None, member_id=None, empty=False):
+def _page(*, trust=None, member_id=None, empty=False) -> dict[str, Any]:
     body = dict(members=[dict(member_id="first", kind_contract="kind:first", context=dict(subject="one", original_source="source:A", analyzed_scope={"scale": Decimal("1.20")}), body={"amount": Decimal("12.340")}), dict(member_id="second", kind_contract="kind:second", context=dict(subject="two", original_source="source:A", analyzed_scope={}), body={"target": "first", "direction": "outgoing"})])
     return dict(demand_id="demand:A", project_id="project:A", release_id="release:A", runtime_id="runtime:A", selection={"targets": ["op:A"]}, trust_snapshot={} if trust is None else trust, read_id="read:A", read_snapshot="1:2:", frontier_at="2026-11-14T00:00:00+00:00", scope={}, view="products", state="active", populations=[], original_source_admissions=[], continuation=None,
                 obligations=[dict(obligation_id="obligation:A", fate="waiting" if empty else "fulfilled")],
@@ -48,7 +49,7 @@ def test_current_member_cursor_preserves_whole_group_and_refuses_wrong_target(mo
         assert demand_id == "demand:A" and project_id == "project:A"
         request = dict(continuation or {"demand_id": demand_id}, limit=1, max_bytes=1048576, view="products")
         return DemandResult(json_bytes(_page()), json_bytes(request))
-    monkeypatch.setattr("corpus_structure.serve.demand_journey.read_demand_result", read)
+    monkeypatch.setattr("corpus_structure.semantic.demand_queries.read_demand_result", read)
     request = DemandQueryRequest(demand_id="demand:A", project_id="project:A", limit=1)
     first = serve_demand_query(None, request)
     assert [row["member_id"] for row in first["items"]] == [None]
@@ -66,7 +67,7 @@ def test_current_member_cursor_preserves_whole_group_and_refuses_wrong_target(mo
 
 def test_waiting_and_completed_empty_operations_do_not_claim_absence(monkeypatch):
     native = _page(empty=True)
-    monkeypatch.setattr("corpus_structure.serve.demand_journey.read_demand_result", lambda *a, **k: DemandResult(json_bytes(native)))
+    monkeypatch.setattr("corpus_structure.semantic.demand_queries.read_demand_result", lambda *a, **k: DemandResult(json_bytes(native)))
     request = DemandQueryRequest(demand_id="demand:A", project_id="project:A", view="operations")
     result = serve_demand_query(None, request)
     assert result["items"] == [{"obligation": {"obligation_id": "obligation:A", "fate": "waiting"}, "uses": []}]
@@ -101,7 +102,7 @@ def test_actual_main_mcp_read_and_resource_use_same_owner_and_exact_json(monkeyp
         engine.dispose()
 
 
-def _detached_closure():
+def _detached_closure() -> tuple[dict[str, Any], list[dict[str, Any]]]:
     from corpus_structure.semantic.data_operation_identity import body_identity, contextual_product_identity, SemanticRequestKey
     from corpus_structure.semantic.data_operation_model import SubjectContext
     context = SubjectContext("project:A", "root", "source:A", json_bytes({"scale": Decimal("1.20")}))
@@ -128,9 +129,9 @@ def _detached_closure():
 def test_detached_verifier_uses_disk_index_and_independent_identity_support_controls(tmp_path):
     from copy import deepcopy
     from corpus_structure.semantic.demand_results import verify_detached_result
-    from corpus_structure.serve.demand_export import _RecordIndex
+    from corpus_structure.semantic.data_operation_read_index import SelectedRecordIndex
     native, records = _detached_closure()
-    index = _RecordIndex(tmp_path / "closure.sqlite")
+    index = SelectedRecordIndex(tmp_path / "closure.sqlite")
     try:
         for row in records:
             index.append(json_bytes(row))
@@ -153,3 +154,34 @@ def test_detached_verifier_uses_disk_index_and_independent_identity_support_cont
     incomplete.append(dict(key="support:A", relation="ops.data_derivation_support", record=dict(derivation_id="episode:A", support_derivation_id="episode:missing", admission_use_id=None)))
     with pytest.raises(ValueError, match="support closure"):
         verify_detached_result(native, records=incomplete, wire_schema={})
+
+
+def test_product_selector_enters_protected_scope_before_unrelated_body_admission(monkeypatch):
+    requested = []
+    def native(connection,demand_id,*,project_id,scope,**kwargs):
+        # The unrelated first obligation is deliberately inadmissible to this
+        # caller's packet. Only native scope before paging can avoid its body.
+        if scope != {"product_ids":["product:A"]}:
+            raise ValueError("unrelated first output exceeds the native body budget")
+        requested.append(scope)
+        page = _page()
+        page["scope"] = scope
+        return DemandResult(json_bytes(page),json_bytes(dict(demand_id=demand_id,scope=scope,view="products",limit=1,max_bytes=1048576)))
+    monkeypatch.setattr("corpus_structure.semantic.demand_queries.read_demand_result",native)
+    result = serve_demand_query(None,DemandQueryRequest(demand_id="demand:A",project_id="project:A",product_id="product:A"))
+    assert requested == [{"product_ids":["product:A"]}]
+    assert {row["product_id"] for row in result["items"]} == {"product:A"}
+
+
+def test_operation_inspection_uses_frontier_without_output_body_hydration(monkeypatch):
+    calls = []
+    def native(connection,demand_id,*,project_id,view,**kwargs):
+        assert view == "frontier", "metadata inspection must not request giant result bodies"
+        calls.append(view)
+        page = _page(empty=True)
+        page["view"] = "frontier"
+        return DemandResult(json_bytes(page))
+    monkeypatch.setattr("corpus_structure.semantic.demand_queries.read_demand_result",native)
+    result = serve_demand_query(None,DemandQueryRequest(demand_id="demand:A",project_id="project:A",view="operations",max_bytes=8192))
+    assert calls == ["frontier"]
+    assert result["items"][0]["obligation"]["fate"] == "waiting"

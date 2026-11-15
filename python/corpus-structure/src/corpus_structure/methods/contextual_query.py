@@ -9,7 +9,9 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from corpus_structure.semantic.characterization import AnnotationReference, project_reading
+from corpus_structure.semantic.characterization import AnnotationReference, _reading_reference, project_reading
+from corpus_structure.semantic.data_product_reference import DataProductMemberReference
+from corpus_structure.semantic.declared_record_sources import DeclaredNativeFrameSource, DeclaredSourceSlice
 from corpus_structure.semantic.source_contexts import (
     NativeSourceContext,
     SourceSlice,
@@ -47,6 +49,25 @@ class QueryContextSelection(BaseModel):
 
 
 @dataclass(frozen=True)
+class DeclaredQueryContextBinding:
+    occurrence_id: str
+    evidence: DataProductMemberReference
+
+
+@dataclass(frozen=True)
+class DeclaredQueryContextSelection:
+    recipe: ContextRecipe
+    bindings: tuple[DeclaredQueryContextBinding, ...]
+
+    def __post_init__(self):
+        if self.recipe not in {"located-frame-2", "located-referent-2", "located-discourse-neighbor-2"}:
+            raise ValueError("unsupported declared query context recipe")
+        occurrences = tuple(binding.occurrence_id for binding in self.bindings)
+        if not 1 <= len(occurrences) <= 32 or occurrences != tuple(sorted(set(occurrences))) or any(not isinstance(binding.evidence, DataProductMemberReference) for binding in self.bindings):
+            raise ValueError("declared query contexts require distinct ordered semantic member bindings")
+
+
+@dataclass(frozen=True)
 class QuerySignal:
     label: str
     anchors: tuple[Mapping[str, Any], ...]
@@ -55,7 +76,7 @@ class QuerySignal:
 @dataclass(frozen=True)
 class LocatedQueryContext:
     recipe: ContextRecipe
-    evidence: AnnotationReference
+    evidence: AnnotationReference | DataProductMemberReference
     signals: tuple[QuerySignal, ...]
     omissions: tuple[str, ...] = ()
 
@@ -90,11 +111,13 @@ class _PrimaryContext:
         self.terms = {row["local_id"]: row for row in self.body["terms"]}
         self.annotations = {row["local_id"]: row for row in self.body["annotations"]}
         self.occurrences = {row["local_id"]: row for row in self.body["occurrences"]}
-        if (
-            layer.reference(reference.layer.task_id) != reference.layer
-            or layer.base_document != source.native_product
-            or source.source_view_id not in self.body["source_scope"]["source_view_ids"]
-        ):
+        product = reference.product
+        if _reading_reference(layer, product) != product:
+            raise ValueError("query context primary product differs from its exact reference")
+        if isinstance(reference, DataProductMemberReference):
+            if not isinstance(source, DeclaredNativeFrameSource) or self.body.get("source") != source.value["source"] or self.body.get("selectors") != source.value["selectors"]:
+                raise ValueError("query context primary product differs from exact original source/scope")
+        elif layer.base_document != source.native_product or source.source_view_id not in self.body["source_scope"]["source_view_ids"]:
             raise ValueError("query context primary layer differs from its exact source or pin")
         root = (self.terms if recipe == "located-frame-2" else self.annotations).get(
             reference.local_id
@@ -136,15 +159,19 @@ class _PrimaryContext:
             if occurrence is None:
                 raise ValueError("query context has an unavailable primary occurrence")
             for extent in occurrence["extents"]:
-                if (
-                    extent.get("source_view_id") != self.source.source_view_id
-                    or extent.get("projection") != self.source.projection_digest
-                ):
+                if extent["projection"] != self.source.projection_digest:
+                    raise ValueError("query context location belongs to another source projection")
+                if isinstance(self.source, DeclaredNativeFrameSource):
+                    if "source_view_id" in extent or not extent.get("native_pointer"):
+                        raise ValueError("declared query context requires original-relative extents")
+                elif extent.get("source_view_id") != self.source.source_view_id:
                     raise ValueError("query context location belongs to another source projection")
                 for piece in self.source_context.map_span(
                     extent["start"], extent["end"], allow_multiple=True
                 ):
                     anchor, _ = evidence_anchor(self.source_context, piece, native=True)
+                    if isinstance(self.source, DeclaredNativeFrameSource) and anchor["pointer"] != extent["native_pointer"]:
+                        raise ValueError("declared query extent belongs to another native item")
                     if anchor not in anchors:
                         anchors.append(anchor)
         return tuple(anchors)
@@ -324,10 +351,12 @@ def _discourse(context, focal):
 
 
 def resolve_query_contexts(
-    selection: QueryContextSelection,
+    selection: QueryContextSelection | DeclaredQueryContextSelection,
     layers: Mapping,
     source_products: Sequence[Mapping[str, Any]],
     source,
+    *,
+    preparation=None,
 ) -> dict[str, LocatedQueryContext]:
     """Project primary facts only; callers authenticate live or detached layer closure."""
     products = {row["occurrence_id"]: row for row in source_products}
@@ -342,12 +371,14 @@ def resolve_query_contexts(
     source_context = NativeSourceContext(
         source,
         (),
-        (SourceSlice(source.source_view_id, 0, len(source.text)),),
+        ((DeclaredSourceSlice(source.source_key, 0, len(source.text)) if isinstance(source, DeclaredNativeFrameSource) else SourceSlice(source.source_view_id, 0, len(source.text))),),
         "retained primary retrieval signal",
         "primary-query-signal-2",
         "exact retained primary selection",
         max_chars=max(1, len(source.text)),
         max_pieces=max(1, len(source.text)),
+        version=2 if isinstance(source, DeclaredNativeFrameSource) else 1,
+        preparation=preparation,
     )
     pin = record_source_pin(source)
     for binding in selection.bindings:
@@ -358,10 +389,10 @@ def resolve_query_contexts(
         ):
             raise ValueError("query context is outside the located source occurrence population")
         if binding.evidence not in roots:
-            if binding.evidence.layer not in layers:
+            if binding.evidence.product not in layers:
                 raise ValueError("query context lacks its exact selected primary layer")
             roots[binding.evidence] = _PrimaryContext(
-                layers[binding.evidence.layer],
+                layers[binding.evidence.product],
                 binding.evidence,
                 selection.recipe,
                 source,

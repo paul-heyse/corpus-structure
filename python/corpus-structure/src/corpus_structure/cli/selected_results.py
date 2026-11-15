@@ -13,7 +13,7 @@ from corpus_structure.serve.demand_journey import DemandQueryRequest, serve_dema
 
 def query(
     ctx: typer.Context,
-    name: Annotated[Literal["members", "operations", "sources", "support"], typer.Argument()],
+    name: Annotated[Literal["members", "operations", "sources", "support", "coverage"], typer.Argument()],
     demand: Annotated[str, typer.Option(help="Exact target demand; no promoted/latest selection.")],
     project: Annotated[str, typer.Option(help="Required project of the selected demand.")],
     operation: str | None = None,
@@ -40,6 +40,8 @@ def query(
             result = serve_demand_query(connection, request)
     write_report_text(json_bytes(result).decode() + "\n")
 
+
+contributions_app = typer.Typer(help="Read current selected contributions and operation standing.", no_args_is_help=True)
 
 records_app = typer.Typer(help="Read exact current semantic product/member records.", no_args_is_help=True)
 @records_app.command("list")
@@ -123,3 +125,36 @@ def register(root: typer.Typer):
     root.command("query")(query)
     root.command("export")(export)
     root.add_typer(records_app, name="records")
+    contributions_app.command("list")(records)
+    contributions_app.command("export")(export)
+    root.add_typer(contributions_app, name="contributions")
+    root.command("characterization")(characterization)
+    root.command("query-context")(query_context)
+    root.command("definition")(definition)
+
+
+def _inspect(ctx, request, model, operation, *, json):
+    from corpus_structure.cli.failures import failure_boundary
+    from corpus_structure.cli.output import read_request_bytes
+    from corpus_structure.semantic.data_operation_json import json_loads
+    from corpus_structure.semantic.runtime import open_runtime_engine
+    with failure_boundary(json, expected=(ValueError, KeyError, OSError)):
+        parsed = model.model_validate(json_loads(read_request_bytes(request)))
+        with open_runtime_engine(state(ctx).settings(), "ci-selected-inspection", purpose="read") as engine, engine.begin() as connection:
+            result = operation(connection, parsed)
+    write_report_text(json_bytes(result).decode() + "\n")
+
+
+def characterization(ctx: typer.Context, request: Annotated[Path, typer.Option()], json: JsonOpt = False):
+    from corpus_structure.serve.characterization import DemandCharacterizationRequest, inspect_demand_characterization
+    return _inspect(ctx, request, DemandCharacterizationRequest, inspect_demand_characterization, json=json)
+
+
+def query_context(ctx: typer.Context, request: Annotated[Path, typer.Option()], json: JsonOpt = False):
+    from corpus_structure.serve.demand_context import DemandContextRequest, inspect_demand_context
+    return _inspect(ctx, request, DemandContextRequest, inspect_demand_context, json=json)
+
+
+def definition(ctx: typer.Context, request: Annotated[Path, typer.Option()], json: JsonOpt = False):
+    from corpus_structure.serve.characterization import DemandDefinitionRequest, inspect_demand_definition
+    return _inspect(ctx, request, DemandDefinitionRequest, inspect_demand_definition, json=json)

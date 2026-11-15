@@ -405,7 +405,7 @@ def visual_observation_manifest(
     from corpus_structure.semantic.pdf_storage import _budgeted_mappings
     from corpus_structure.semantic.product_reference import ProductReference
     from corpus_structure.semantic.releases import open_release
-    from corpus_structure.semantic.visual_requests import VisualSelection
+    from corpus_structure.semantic.retained_visual import RetainedVisualSelection
 
     if not (1 <= limit <= 1000 and after_task >= 0 and (page_no is None or page_no > 0)):
         raise ValueError("invalid visual observation manifest page, position or limit")
@@ -528,7 +528,7 @@ def visual_observation_manifest(
                 context = pdf_context_for_release(conn, open_release(conn, release))
                 context.execution.require_operation("read_pdf_product")
                 allowed_releases.add(release)
-        scope = VisualSelection.model_validate(row["scope"])
+        scope = RetainedVisualSelection.model_validate(row["scope"])
         if (
             scope.source != source
             or scope.page_no != row["page_no"]

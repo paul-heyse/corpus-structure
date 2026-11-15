@@ -146,7 +146,7 @@ def export_contributions(
 
 
 def register(root: typer.Typer):
-    root.add_typer(app, name="contributions")
+    root.add_typer(app, name="retained-contributions")
 
 
 @app.command("compare-coverage")

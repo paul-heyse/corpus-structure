@@ -41,7 +41,7 @@ def declared_formal_layers(products, source):
         reference = DataProductReference(product.semantic_id)
         if reference in result:
             raise ValueError("formal input repeats a selected native product")
-        result[reference] = DeclaredFormalInventory(reference, canonical_bytes(product.inventory()))
+        result[reference] = DeclaredFormalInventory(reference, canonical_bytes({**product.inventory(), "source": body["source"], "selectors": body["selectors"], "dependencies": body.get("dependencies", [])}))
     return result
 
 

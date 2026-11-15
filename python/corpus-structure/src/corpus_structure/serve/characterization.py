@@ -584,3 +584,51 @@ def add_source_context(response, request, fetch):
         }
     response = response.model_copy(update={"source_items": items})
     return _with_inline_coverage(response, response.coverage, request)
+
+
+# Current target requests are independent of the sealed task/layer archive ABI above.
+from corpus_structure.serve.demand_journey import DemandQueryRequest
+
+
+class DemandCharacterizationRequest(DemandQueryRequest):
+    inventory: Literal["summary", "occurrences", "annotations", "terms", "memberships", "choices", "coverage"] = "summary"
+
+
+def inspect_demand_characterization(connection, request: DemandCharacterizationRequest):
+    """Read actual nominal primary members and explicit population/coverage standing."""
+    from corpus_structure.semantic.contribution_queries import read_demand_contributions
+    selected = request.model_dump(mode="python", exclude={"inventory"})
+    selected["view"] = "coverage" if request.inventory == "coverage" else "members"
+    selected["containers_only"] = request.inventory == "summary"
+    selected["record_type"] = None if request.inventory in {"summary", "coverage"} else {
+        "occurrences": "occurrence", "annotations": "annotation", "terms": "term",
+        "memberships": "membership", "choices": "choice",
+    }[request.inventory]
+    return read_demand_contributions(connection, DemandQueryRequest.model_validate(selected))
+
+
+class DemandDefinitionRequest(DemandQueryRequest):
+    product_id: str = Field(min_length=1)
+    variant: Literal["components", "applicability", "location"]
+
+
+def inspect_demand_definition(connection, request: DemandDefinitionRequest):
+    """Inspect genuine selected definition products; no knowledge admission follows."""
+    from corpus_structure.semantic.contribution_queries import read_demand_contributions
+    from corpus_structure.semantic.releases import open_release
+    selected = request.model_dump(mode="python", exclude={"variant"})
+    selected.update(view="members", containers_only=True)
+    result = read_demand_contributions(connection, DemandQueryRequest.model_validate(selected))
+    release = open_release(connection, result["cut"]["release_id"])
+    projection = json.loads(next(artifact.content for artifact in release.artifacts if artifact.kind == "data_operation_native_definitions.json"))
+    kind = {
+        "components": "urn:corpus:structural:DeclaredDefinitionComponentsReport",
+        "applicability": "urn:corpus:structural:DeclaredDefinitionApplicabilityReport",
+        "location": "https://corpus-structure.dev/semantic/data-operation-definition-location/DdoDefinitionLocationReport",
+    }[request.variant]
+    contracts = {row["kind_contract"] for row in projection["kinds"] if row["kind"] == kind}
+    if not contracts:
+        return dict(result, availability="unavailable", reason="selected release does not declare this definition product", items=[])
+    if any(row["kind_contract"] not in contracts for row in result["items"]):
+        raise ValueError("selected definition product has another nominal kind")
+    return dict(result, standing="private_selected_definition_product", variant=request.variant)

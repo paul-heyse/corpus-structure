@@ -175,6 +175,37 @@ def stream_selected_support(connection, page: DemandResult) -> Iterator[dict[str
         request["support_after"] = support["after"]
 
 
+from contextlib import contextmanager
+
+
+@contextmanager
+def selected_record_index(connection, demand_id, *, project_id, scope, read_id=None,
+                          expected_cut=None, max_bytes=8388608, page_rows=100):
+    """Keep one pinned native acquisition and its complete temporary witness index."""
+    from pathlib import Path
+    from tempfile import TemporaryDirectory
+    from .data_operation_read_index import SelectedRecordIndex
+    continuation = None if read_id is None else dict(demand_id=demand_id, read_id=read_id, scope=dict(scope), view="products")
+    cut = None
+    with TemporaryDirectory(prefix="selected-read-") as scratch:
+        index = SelectedRecordIndex(Path(scratch) / "support.sqlite")
+        try:
+            while True:
+                page = read_demand_result(connection, demand_id, project_id=project_id,
+                    continuation=continuation, cut=cut, scope=scope, limit=page_rows, max_bytes=max_bytes)
+                cut = page.cut
+                if expected_cut is not None and cut.identity != expected_cut:
+                    raise ValueError("selected resource belongs to another cut/trust assessment")
+                for record in stream_selected_support(connection, page):
+                    index.append(json_bytes(record), allow_equal=True)
+                continuation = page.continuation
+                if continuation is None:
+                    break
+            yield cut, index
+        finally:
+            index.close()
+
+
 def verify_detached_result(record: Mapping[str, Any], *, records=(), index=None, wire_schema=None, kinds=None, definitions=None, runtimes=None, source_artifacts=None, validate_closure=True) -> DemandResult:
     """Verify links and exact value identities against an explicit captured closure.
 
