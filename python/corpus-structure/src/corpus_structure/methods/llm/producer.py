@@ -31,7 +31,7 @@ def producer_binding(
     unit: str = TaskUnitType.SOURCE_VIEW,
     method_version: str | None = None,
 ) -> ProducerBinding:
-    from corpus_structure.semantic.operations import OperationConflict
+    from corpus_structure.semantic.refusals import OperationConflict
     from corpus_structure.semantic.proposals import SEMANTIC_AGENT_VERSION
 
     if method_version is not None and method_version != SEMANTIC_AGENT_VERSION:

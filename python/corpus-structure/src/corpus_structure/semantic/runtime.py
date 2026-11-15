@@ -6,16 +6,14 @@ from collections.abc import Generator
 from contextlib import contextmanager
 from typing import Literal
 
-from sqlalchemy import Connection, Engine, select
+from sqlalchemy import Connection, Engine, select, text
 from sqlalchemy.engine import URL, make_url
 
 from corpus_structure.semantic.metadata import table
-from corpus_structure.semantic.operations import OperationConflict
+from corpus_structure.semantic.refusals import OperationConflict
 from corpus_structure.settings import Settings
 
-from ._operation_ids import NativeAdmissionParametersPurpose
-
-type Purpose = NativeAdmissionParametersPurpose | Literal["maintenance", "fit"]
+type Purpose = Literal["read", "write", "evaluate", "admit", "maintenance", "fit"]
 
 
 def connection_settings(settings: Settings, purpose: Purpose = "write") -> Settings:
@@ -84,13 +82,9 @@ def open_runtime_engine(
             if purpose != "maintenance":
                 with store.engine.connect() as conn:
                     if purpose == "fit":
-                        from sqlalchemy import text
-
                         conn.execute(text("SELECT ops.ddo_require_feature_fit_principal()"))
                     else:
-                        from ._operation_calls import require_runtime_principal
-
-                        require_runtime_principal(conn, purpose=purpose)
+                        conn.execute(text("SELECT data.require_runtime_principal(:purpose)"), {"purpose": purpose}).scalar_one()
             yield store.engine
         except BaseException as error:
             from corpus_structure.core.db.store import operation_failure

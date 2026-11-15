@@ -949,7 +949,7 @@ class ReadSession:
         if configured_agent:
             from corpus_structure.methods.llm.producer import producer_binding
 
-            from .operations import OperationConflict
+            from .refusals import OperationConflict
 
             snapshot = dependencies.get("agent_configurations")
             if not isinstance(snapshot, dict) or not snapshot:

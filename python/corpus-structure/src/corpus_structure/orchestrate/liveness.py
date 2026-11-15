@@ -6,7 +6,7 @@ from math import ceil
 
 from sqlalchemy import Connection, Engine, text
 
-from corpus_structure.semantic.operations import OperationConflict
+from corpus_structure.semantic.refusals import OperationConflict
 
 _KEY = "corpus_runtime.run_supervisor_key(:run_id)"
 

@@ -19,7 +19,7 @@ from fastmcp.utilities.json_schema import compress_schema
 from pydantic import JsonValue, Field
 from sqlalchemy import Connection, Engine, select
 
-from corpus_structure.semantic.operations import OperationConflict
+from corpus_structure.semantic.refusals import OperationConflict
 from corpus_structure.semantic.proposals import ProposalRefused
 from corpus_structure.semantic.refusals import located_failure_context, tool_refusals
 from corpus_structure.serve.native_source import NativeSourceRequest, NativeSourceResponse

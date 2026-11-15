@@ -5,7 +5,7 @@ from __future__ import annotations
 from sqlalchemy import Connection, Engine, func, select
 
 from .metadata import table
-from .operations import OperationConflict
+from .refusals import OperationConflict
 from .proposals import NativeProposalFrame, ProposalPacket
 
 

@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from sqlalchemy import and_, func, or_, select, union
 
 from corpus_structure.semantic.metadata import table
-from corpus_structure.semantic.operations import OperationConflict
+from corpus_structure.semantic.refusals import OperationConflict
 
 
 @dataclass(frozen=True)

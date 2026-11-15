@@ -45,6 +45,7 @@ from .operation_results import (
     HoldDecision,
 )
 from .types import PreparedRelease
+from .refusals import OperationConflict, SourceReadRefused
 
 if TYPE_CHECKING:
     from .contextual_storage import PreparedContextualInventory
@@ -53,8 +54,6 @@ if TYPE_CHECKING:
 _SOURCE_RESULT_MAX_BYTES = 64 * 1024**2
 
 
-class OperationConflict(ValueError):
-    """Immutable input identity changed or a task/pass fence was lost."""
 
 
 @dataclass(frozen=True)
@@ -600,12 +599,6 @@ def cut_observations(conn: Connection, cut_id: CutId) -> list[dict[str, Any]]:
     ]
 
 
-class SourceReadRefused(OperationConflict):
-    """An owned source-read failure with an explicit modeled outcome."""
-
-    def __init__(self, outcome: str, reason: str):
-        self.outcome = outcome
-        super().__init__(reason)
 
 
 def _source_read_outcome(prepared: PreparedRelease | None, operation: str, outcome: str) -> None:

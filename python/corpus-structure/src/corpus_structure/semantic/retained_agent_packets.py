@@ -17,7 +17,8 @@ from corpus_structure.core.vocab import TaskUnitType
 
 from .identity import canonical_bytes
 from .metadata import table
-from .operations import OperationConflict, run_view
+from .operations import run_view
+from .refusals import OperationConflict
 
 
 def _unit(conn: Any, view: Any, ref: Any) -> UnitView:

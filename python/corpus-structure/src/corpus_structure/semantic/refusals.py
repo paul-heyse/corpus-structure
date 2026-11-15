@@ -24,6 +24,16 @@ class SemanticRefusal(ValueError):
     """An owned boundary deliberately refuses an unsupported or incompatible request."""
 
 
+class OperationConflict(ValueError):
+    """Immutable input identity changed or a task/pass fence was lost."""
+
+class SourceReadRefused(OperationConflict):
+    """An owned source-read failure with an explicit modeled outcome."""
+
+    def __init__(self, outcome: str, reason: str):
+        self.outcome = outcome
+        super().__init__(reason)
+
 SemanticReasonCode = Literal[
     "missing_operands", "unsupported_interpretation", "incompatible_bindings", "preparation_failed"
 ]

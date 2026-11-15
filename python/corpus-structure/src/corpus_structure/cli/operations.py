@@ -653,7 +653,7 @@ def promote(
     from corpus_structure.cli.failures import failure_boundary
     from corpus_structure.cli.managed import ResultError
     from corpus_structure.cli.target import select_target
-    from corpus_structure.semantic.operations import OperationConflict
+    from corpus_structure.semantic.refusals import OperationConflict
     from corpus_structure.semantic.releases import ActivationConflict, activation_token
     from corpus_structure.semantic.runtime import open_runtime_engine, select_completed_result
     from corpus_structure.semantic.storage_target import (

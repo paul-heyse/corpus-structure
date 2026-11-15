@@ -28,7 +28,8 @@ from .analytics import AnalysisScope, CandidateInput, compile_projection
 from .consolidation import FactItem, FactValueLowerer, SourceItem, assemble
 from .identity import canonical_bytes, claim_source_item, occurrence_key
 from .metadata import table
-from .operations import OperationConflict, cut_observations
+from .operations import cut_observations
+from .refusals import OperationConflict
 from .publication import (
     AlternativeGroupRow,
     AlternativeMemberRow,
