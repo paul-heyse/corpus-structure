@@ -372,11 +372,14 @@ def native_operation_declarations(sources=None) -> SourceArtifact:
                         "parameter": "payload",
                     },
                 ],
-                "applicability": ["native-deployment-admitted"],
+                "applicability": [{"kind": "documentation", "text": "native-deployment-admitted"}],
                 "invariants": [
-                    "native-wire-and-purpose",
-                    "native-attempt-fence",
-                    "native-source-and-kind-custody",
+                    {"kind": "documentation", "text": text}
+                    for text in (
+                        "native-wire-and-purpose",
+                        "native-attempt-fence",
+                        "native-source-and-kind-custody",
+                    )
                 ],
                 "coverage": "one-short-native-transaction",
                 "outcomes": ["returned"],
