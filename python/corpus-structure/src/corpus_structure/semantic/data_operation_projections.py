@@ -266,11 +266,10 @@ def _demand_support_scope_inputs(metadata, *, include_unfulfilled=False):
         .order_by(uses.c.obligation_id, uses.c.created_at.desc(), uses.c.id.desc())
         .cte("selected_use_seeds")
     )
-    external = exists(
+    selected_source = exists(
         select(1)
         .select_from(source_entries)
         .where(
-            func.ops.ddo_semantic_source_reference(source_entries.c.entry["reference"]),
             source_entries.c.entry["product"].astext == outputs.c.product_id,
         )
     )
@@ -288,7 +287,10 @@ def _demand_support_scope_inputs(metadata, *, include_unfulfilled=False):
             .join(requests, requests.c.id == episodes.c.request_id)
         )
         .where(
-            requests.c.project_id == project, external, uses.c.fate == "fulfilled", _visible(uses)
+            requests.c.project_id == project,
+            selected_source,
+            uses.c.fate == "fulfilled",
+            _visible(uses),
         ),
         _node("original", admissions.c.id).where(
             admissions.c.demand_id == demand, _visible(admissions)
@@ -438,7 +440,6 @@ def binding_branches(metadata):
         .where(
             definitions.c.release_id == release,
             definitions.c.operation_id == operation_id,
-            func.ops.ddo_semantic_source_reference(entries.c.value["reference"]),
         )
         .cte("declared_pins")
         .prefix_with("MATERIALIZED")
