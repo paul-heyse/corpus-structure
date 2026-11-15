@@ -1,4 +1,7 @@
-"""Actual rich CPU kernel integration over selected authored typed propositions."""
+"""Pure rich kernels over explicitly unadmitted authored input values.
+
+No native admission or CPU evidence is fabricated; native journeys cover custody.
+"""
 
 from decimal import Decimal
 
@@ -18,6 +21,7 @@ from corpus_structure.semantic.rich_knowledge_contracts import (
 )
 from corpus_structure.semantic.rich_policy_binding import rich_policy_value
 from semantic.test_rich_scientific import graph_inputs
+from semantic.test_rich_scientific import scientific as scientific
 
 
 def authored_inputs(scientific, values):
@@ -96,7 +100,8 @@ def authored_inputs(scientific, values):
             support,
         ),
     )
-    return prepared, model, RichKernelInputs("controlled-consolidation-recipe", context, roles)
+    recipe = next(item.key for item in model.identities if item.domain == "recipe" and item.owner == "rich.consolidate")
+    return prepared, model, RichKernelInputs(recipe, context, roles)
 
 
 def test_actual_authored_proposition_is_evaluated_and_selected_with_real_authored_origin(
