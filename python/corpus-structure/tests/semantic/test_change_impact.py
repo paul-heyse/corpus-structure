@@ -410,3 +410,19 @@ def test_changed_python_helper_executes_new_recipe_and_equal_output_cuts_off_con
     assert len(consumer.witnesses) == 1  # Original consumer episode is genuinely reused.
     producer = next(row for row in final.items if row.member.operation == "urn:change:producer")
     assert len(producer.witnesses) == 2  # New source execution, equal semantic output.
+
+
+def test_real_changed_helper_recipe_preserves_downstream_recipe():
+    from semantic.data_operation_kernel_support import prepare_kernel
+
+    recipe = _executed_change_recipe()
+    module, filename, content = recipe.python_sources[0]
+    target = replace(
+        recipe,
+        name="pure-source-change",
+        python_sources=(
+            (module, filename, content.replace(b"return value\n", b"return value + 0\n")),
+        ),
+    )
+    before, after = prepare_kernel(recipe), prepare_kernel(target)
+    assert changed_operations(before.model, after.model)[0] == {"urn:change:producer"}
