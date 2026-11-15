@@ -225,8 +225,11 @@ retain their separate released semantic owner. Historical revisions and migratio
 **Implemented; identity, native and retained-data controls Tested,2026-11-05.** Semantic
 compiler17/execution compiler27 separate positively declared semantic assets from exact executable
 runtime provenance. `contracts.SEMANTIC_IMPLEMENTATION_NAMES` owns the mixed-input classification;
-the schema/catalog and grammar/model/output contracts stay release-bound. `runtime_bindings` owns
-the separate source archive and execution fingerprint. Budget-only source repairs preserve the
+the schema/catalog and grammar/model/output contracts stay release-bound. Current DDO runtime
+records, exact source inputs and runtime validation are owned by `data_operation_runtime`; its
+consumers import that owner directly. `runtime_binding_store` persists the separate source archive
+and execution fingerprint. The old `runtime_bindings` dispatcher remains solely with legacy callers
+pending their retirement. Budget-only source repairs preserve the
 semantic release; declared interpretation/contract changes retain their explicit versioning.
 
 > Decision: [ADR-0063](../adr/0063-semantic-runtime-identity.md)

@@ -101,6 +101,16 @@ No test count or earlier successful campaign substitutes for the declared union.
 | PostgreSQL realization | Protocol-only structural/nominal changes at real callers; exact recursive/Decimal/absent/null fidelity; selected versus necessary population verification; actual renewal/port acquisition and once-only physical initialization; honest rollback versus uncertain-effect recovery; complete public/reference migration and live Arrow/helper/historical-import retirement. Conditional Arrow/SQL cross-check cases join only when triggered and selected. |
 | Generality | Independently specified non-statistics context involving attributed/quoted material and meaningful relationships; no page/corpus-specific planner logic |
 
+**Closeout verification obligations · 2026-11-15.** Retiring the old run/task fixture chains
+must not erase the independent behaviors they attempted to verify. Current source-export controls
+now use actual selected DDO publication references: whole Docling structure, exact selected formula
+scope, offline preparation, explicit additional context, all-family empty populations and three-phase
+PostgreSQL/ADBC cancellation. Their collection is not native execution. Keep nonempty companion
+families with duplicate endpoint ordinals, null-versus-empty values, nested coverage/caption references,
+wrong-project/read/use/product/derivation refusals and unresolved original-parent/prose ancestry on
+the required native union. Pure detached multiset/type/manifest and source-report validators retain
+independent expectations. Old integer-pin acceptance is retired, not a behavior to reproduce.
+
 Qualification distinguishes authentic execution, source/family examination, retained fidelity and
 linguistic correctness. Preserve source-first and output-first assessment boundaries; do not use
 producer output as expected truth. Empty completed recognition can still be a semantic miss.

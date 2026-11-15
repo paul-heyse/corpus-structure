@@ -575,9 +575,12 @@ regenerate. It translates explicitly typed caller failures, retains preparation 
 continuation reasons, and delegates DBAPI classification to the storage owner's SQLSTATE policy
 (`database_retry`, `database_fencing`, `database_defect`). Unexpected programming exceptions and
 cancellation retain their identity. Proposal hold/correction/completion dispositions remain results.
-Explain and export use the same SQLAlchemy `read_snapshot` lifetime owner as query, including
-`postgresql_readonly=True` and REPEATABLE READ; ADBC imports finish inside that owner before a
-captured packet is exported after detachment.
+Pure read-only consumers share `semantic.read_snapshot`, with `postgresql_readonly=True` and
+REPEATABLE READ. Current DDO explanation and selected export use the distinct
+`demand_results.selected_read_snapshot`: native read-receipt acquisition and trust-lock custody
+require its purpose-limited read/write transaction. ADBC imports that exact snapshot inside the
+owner; exports publish only after settlement. `ReadLimit` belongs to the shared refusal owner,
+without importing the old SQLReader. These owners do not grant historical runtime compatibility.
 
 Focused registered-command refusal/retry/fencing/defect/cancellation controls and independent
 continuation controls establish only their tested boundaries. Native dispatch, snapshot lifetimes

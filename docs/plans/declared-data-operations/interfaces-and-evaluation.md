@@ -78,13 +78,23 @@ located release/model context; input validation and unexpected SQL/acquisition e
 own identity. Actual read-only-role, changed privilege and missing/changed/extra row controls remain
 required after the combined native capture.
 
-Remaining domain-query integration is explicit: `cli/query.py::query/context` (`ci retained-query`)
-still calls `semantic.query_compatibility.open_query_registry` and `serve.journey.serve_query` against
-completed historical result bindings. `domains/statistics/queries.py::QUERIES` (family/construction
-profiles, mappings, transformations and relations) and `domains/toy/queries.py::OwnershipAt` still
-have actual consumers. DDO-09/10 must map these questions to actual new rich/nominal knowledge
-contracts and pinned query owners, or explicitly retire unsupported questions. Generic selected
-member inspection supplies neither those domain semantics nor permission to fabricate current pins.
+**Implemented current composites; bounded Tested, 2026-11-15.** Eleven named rich queries,
+selected rich/private contribution facets, explicit private/consolidated/accepted inspection and
+exact two-root identity-exclusion comparison now consume authenticated current selections. The
+current comparison keeps declaration, evidence and resolution distinct and reports unmatched
+constraints as unassessed. `cli/query.py` and its `retained-query` transport are deleted; the old
+exclusion comparison and serving facade are also deleted. Current transport, continuation and
+implementation custody remain enforced by their shared owners.
+
+Remaining domain-query integration is explicit: the old compiled registry, `serve.journey` and
+historical SQLReader/domain query implementations still require consumer disposition and retirement.
+Source-decision journeys, contextual navigation and genuine mutual-neighborhood products, structural
+gaps, immutable dossier membership/display and grouped SourceRecord measurement interpretations
+remain DDO-09/10 work. Grouping must retain each interpretation's actual fields, alternatives, units,
+basis, reading events and evidence without Cartesian joins or a scientific-truth upgrade. A list of
+retrieval candidates does not establish mutual neighbors. Candidate-inspection and finite-interpretation
+facets without a current decoder remain explicitly unavailable; generic selected rows do not supply
+these domain semantics or permission to fabricate pins.
 
 The lower-level historical `semantic.record_queries` / terminology selection controls remain only
 while protected `evaluate.record_references` consumes that owner; its current protected successor
