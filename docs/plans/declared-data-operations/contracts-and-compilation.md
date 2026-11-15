@@ -103,7 +103,10 @@ forms must not inherit source-view behavior merely through spelling. Compilation
 
 Classify every applicability/invariant entry as documentation or a checked reference to an actual binding
 predicate, schema constraint, native admission contract or captured operation-owned invariant. The
-reference includes parameters and interpretation revision sufficient for identity. No second editable
+reference includes parameters and interpretation revision sufficient for identity. Captured
+implementation enforcement bodies belong to recipe/eligibility identity; definitions retain the
+checked owner reference without its implementation digest. An authored native admission policy
+remains a definition determinant when its captured bytes supply the admissible conditions. No second editable
 invariant registry or arbitrary callback predicate belongs in the binding IR. Scientific invariants
 remain with scientific owners. Eligibility/result impact follows enforced meaning, not a descriptive label.
 
@@ -212,11 +215,15 @@ actual kernel uses them; they do not introduce approximate equality between cano
 | Owner | Actual consumed numerical basis |
 |---|---|
 | `operation_policy` | Selected NumPy/SciPy versions, float64 arithmetic, finite input/output refusal and selected arithmetic semantics; fitted parameters carry their numerical contract |
-| `contextual_retrieval` | Explicit selected PostgreSQL 18.x patch and pgvector extension/Python/SQLAlchemy versions, fully qualified English FTS, cosine distance, float8 score transport and ordered binary64 reciprocal-rank fusion; verify the selected backend before executing retrieval queries. The primary profile captures `contextual_retrieval_options` as a typed YAML input; its independent numerical asset affects retrieval rather than inventory identity |
+| `contextual_retrieval` | Explicit selected PostgreSQL 18.x patch and pgvector extension/Python/SQLAlchemy versions, fully qualified English FTS, cosine distance, float8 score transport and selected Python float-sum reciprocal-rank fusion; verify the selected backend before executing retrieval queries. The primary profile captures `contextual_retrieval_options` as a typed YAML input for downstream or explicit encoder dependencies; its independent numerical asset affects retrieval rather than inventory identity |
 | `contextual_embeddings` | CPU float32, normalization and vector acceptance tolerances; backend-dependent result bits require an explicit replicate selection |
 | `record_interpretation` | Selected NumPy/SciPy versions, float64 arrays, centered logsumexp and explicit overflow/invalid failure; exact enumeration remains relative to the retained finite joint and its authored limits |
 | `record_policy` | Selected Python/SciPy versions, binary64 inputs, `math.fsum` accumulation and `scipy.special.expit`; whole-reading potentials remain private and uncalibrated until their separate calibration/admission premises hold |
 | `source_profiles` | Exact integer interval-union counts and the exact scalar decimal-place/empty-fraction constants used by the captured pure kernel; Python binary64 division and `round` ties-to-even semantics |
+
+The retrieval policy captures/checks Python only for the actual opaque float-sum arithmetic owner;
+Python's [documented float summation implementation changed in 3.12](https://docs.python.org/3.14/library/functions.html#sum).
+This preserves the incumbent scores rather than claiming naive left-fold addition.
 
 The finite and reading policies do not infer fresh-execution bit determinism from their library
 versions. Provider observations retain their checked retained-observation reuse policy; fresh samples

@@ -416,8 +416,6 @@ def test_preparation_archives_effective_products_only_when_explicitly_supplied()
 
 
 def test_real_score_operation_has_owned_facts():
-    root = Path(__file__).parents[2] / "src/corpus_structure"
-    score = root / "semantic/operation_policy.py"
     from corpus_structure.semantic.operation_score_sources import operation_score_inputs, operation_score_sources
 
     score_model = compile_data_operations(declarations=operation_score_inputs(), python_sources=operation_score_sources())
@@ -1434,12 +1432,19 @@ def test_checked_binding_and_schema_claims_capture_the_actual_owners():
     assert json.loads(operation.invariants[0].semantics) == {"kind_contract": identity(model, "primitive:integer", "kind")}
 
 
-def test_checked_implementation_claim_changes_with_captured_code():
-    metadata = contract(invariants=[{"kind": "implementation", "reference": "python:example.derive", "interpretation": "captured-python-slice-v1", "parameters": {}}])
+@pytest.mark.parametrize("field", ["invariants", "applicability"])
+def test_checked_implementation_claim_changes_with_captured_code(field):
+    metadata = contract(**{field: [{"kind": "implementation", "reference": "python:example.derive", "interpretation": "captured-python-slice-v1", "parameters": {}}]})
     first = compile_data_operations(python_sources=python_inputs(operation_source(metadata=metadata)))
     second = compile_data_operations(python_sources=python_inputs(operation_source(body="return helper(x) + 1", metadata=metadata)))
-    assert first.operations[0].invariants[0].semantics != second.operations[0].invariants[0].semantics
-    assert json.loads(first.operations[0].invariants[0].semantics) == {"implementation_slice": identity(first, "python:example.derive", "implementation-slice")}
+    first_claim, second_claim = getattr(first.operations[0], field)[0], getattr(second.operations[0], field)[0]
+    assert first_claim.semantics != second_claim.semantics
+    assert identity(first, domain="recipe") != identity(second, domain="recipe")
+    assert identity(first, domain="definition") == identity(second, domain="definition")
+    assert first.operations[0].definition == second.operations[0].definition
+    if field == "applicability":
+        assert identity(first, domain="eligibility") != identity(second, domain="eligibility")
+    assert json.loads(first_claim.semantics) == {"implementation_slice": identity(first, "python:example.derive", "implementation-slice")}
 
 
 def test_native_enforcement_requires_the_actual_captured_policy_asset():
@@ -1506,7 +1511,7 @@ def test_precision_description_is_archived_documentation_without_semantic_identi
     from corpus_structure.semantic.data_operation_model import read_effective_data_operations
 
     for source_owned in (False, True):
-        def compile_description(description):
+        def compile_description(description, source_owned=source_owned):
             metadata = contract(precision_description=description)
             return (
                 compile_data_operations(python_sources=python_inputs(operation_source(metadata=metadata)))
@@ -1526,3 +1531,13 @@ def test_precision_description_is_archived_documentation_without_semantic_identi
             read_effective_data_operations(canonical_bytes(archived))
     with pytest.raises(PreparationError, match="unsupported fields: precision"):
         compile_data_operations(declarations=declarations(contract(precision="obsolete legacy label")))
+
+
+def test_native_admission_policy_remains_a_definition_determinant():
+    def compile_policy(content):
+        asset = SourceArtifact("native/admission-policy", content)
+        metadata = contract(assets=[{"reference": "guard:ordinary", "contract": asset.name, "content_digest": asset.digest, "role": "native-admission-policy"}], invariants=[{"kind": "native-admission", "reference": "guard:ordinary", "interpretation": "captured-native-admission-v1", "parameters": {}}])
+        return compile_data_operations(declarations=declarations(metadata), captured_contracts=(asset,))
+    first, second = (compile_policy(content) for content in (b'{"purpose":"ordinary-only"}', b'{"purpose":"protected-only"}'))
+    assert identity(first, domain="definition") != identity(second, domain="definition")
+    assert identity(first, domain="recipe") != identity(second, domain="recipe")

@@ -38,6 +38,9 @@ def test_backend_policy_checks_actual_pg_and_vector_versions_before_retrieval(na
     connection = native_rollback.connection
     selected = default_retrieval_numerics()
     selected.require_runtime(connection)
+    assert selected.fusion_arithmetic == "python-float-sum"
+    with pytest.raises(ValueError, match="selected Python policy"):
+        selected.model_copy(update={"python_version": "unsupported"}).require_fusion_runtime()
     values = inputs()
     acquired = prepare_contextual_retrieval(**values)
     changed = selected.model_copy(update={"postgres_version_num": selected.postgres_version_num + 1})

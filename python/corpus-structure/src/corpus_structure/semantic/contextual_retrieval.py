@@ -335,6 +335,7 @@ def fuse_candidates(
                 ChannelEvidence(channel, rank, hit.score, hit.evidence)
             )
     numerics = default_retrieval_numerics() if numerical_policy is None else numerical_policy
+    numerics.require_fusion_runtime()
     scores = {
         target: sum(1 / (numerics.reciprocal_rank_offset + value.rank) for value in evidence)
         for target, evidence in by_target.items()

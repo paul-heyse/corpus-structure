@@ -97,7 +97,7 @@ def contextual_encoder_declarations():
     }))
 
 
-def contextual_encoder_operation_sources(selection, *, include_dependencies=True):
+def contextual_encoder_operation_sources(selection, *, include_dependencies=True, numerical_policy=None):
     from .python_operation_sources import PythonSource, PythonSourceCollection
 
     own = PythonSourceCollection(
@@ -119,7 +119,7 @@ def contextual_encoder_operation_sources(selection, *, include_dependencies=True
     from .contextual_operations import contextual_operation_sources
     from .primary_operations import combine_primary_sources
 
-    return combine_primary_sources(contextual_operation_sources(), own)
+    return combine_primary_sources(contextual_operation_sources(numerical_policy), own)
 
 
 def execute_contextual_encoder_profile(receiver, source, occurrence, inventory):

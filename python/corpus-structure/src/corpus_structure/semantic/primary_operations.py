@@ -87,8 +87,8 @@ def primary_operation_inputs(
     by the caller. Compiled demand closure still decides which operations execute;
     captured availability does not select an operation or imply provider success.
     """
-    if contextual_retrieval_options is not None and not downstream:
-        raise ValueError("contextual retrieval options require the downstream profile")
+    if contextual_retrieval_options is not None and not downstream and contextual_encoder is None:
+        raise ValueError("contextual retrieval options require downstream or encoder dependencies")
     if visual and capture_sources is None:
         raise ValueError("visual preparation requires its actual captured PDF dependency")
     if dependencies is None:
@@ -347,14 +347,16 @@ def primary_operation_inputs(
         raise ValueError("record schemas require an explicit literal M1 configuration")
     if contextual_encoder is not None:
         from .contextual_encoder import contextual_encoder_declarations, contextual_encoder_operation_sources
-        from .contextual_operations import contextual_inputs
+        from .contextual_operations import contextual_inputs, contextual_operation_declarations
 
         bundle = contextual_inputs(bundle)
         declarations = (*declarations, contextual_encoder_declarations())
+        if not downstream:
+            declarations = (*declarations, contextual_operation_declarations())
         collections = (
             *collections,
             contextual_encoder_operation_sources(
-                contextual_encoder, include_dependencies=not downstream
+                contextual_encoder, include_dependencies=not downstream, numerical_policy=contextual_retrieval_options if not downstream else None
             ),
         )
     if extra_sources is not None:

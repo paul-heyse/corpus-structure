@@ -311,7 +311,7 @@ def test_public_downstream_acquires_private_reading_resolution_without_model_sel
     manifest = _manifest(root)
     manifest["primary_profile"]["downstream"] = True
     _write_manifest(root, manifest)
-    model, sources = _compiled_acquisition(root)
+    model, _sources = _compiled_acquisition(root)
     operation = model.operation("resolve.m1_readings/declared")
     assert operation.dependencies == ()
     roles = {role.name: role for role in operation.roles}
@@ -332,6 +332,8 @@ def test_public_encoder_without_downstream_acquires_its_inventory_dependency(tmp
     manifest = _manifest(root)
     manifest["primary_profile"].pop("m1")
     manifest["primary_profile"]["downstream"] = False
+    manifest["primary_profile"]["contextual_retrieval_options"] = "retrieval.yaml"
+    (root / "retrieval.yaml").write_text("postgres_version_num: 180008\n")
     _write_manifest(root, manifest)
 
     def forbidden(*args, **kwargs):
@@ -341,6 +343,9 @@ def test_public_encoder_without_downstream_acquires_its_inventory_dependency(tmp
     model, sources = _compiled_acquisition(root)
     encoder = model.operation("retrieve.contextual_vectors/declared")
     assert encoder.dependencies == ("retrieve.contextual_inventory/declared",)
+    retrieval = model.operation("retrieve.contextual/declared")
+    assert retrieval.numerical_policy is not None
+    assert json.loads(retrieval.numerical_policy.body)["postgres_version_num"] == 180008
     for identity in (encoder.semantic_id, *encoder.dependencies):
         assert callable(resolve_prepared_factory(model, sources, identity))
     assert "structure.dossier/declared" not in {item.semantic_id for item in model.operations}
@@ -352,7 +357,7 @@ def test_public_downstream_acquires_definition_location_with_exact_report_witnes
     manifest = _manifest(root)
     manifest["primary_profile"]["downstream"] = True
     _write_manifest(root, manifest)
-    model, sources = _compiled_acquisition(root)
+    model, _sources = _compiled_acquisition(root)
     operation = model.operation("locate.definition_terms/declared")
     inputs = {role.name: role for role in operation.roles if role.direction == "input"}
     assert inputs["components"].kind == "urn:corpus:structural:DeclaredDefinitionComponentsReport"

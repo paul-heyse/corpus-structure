@@ -10,7 +10,7 @@ import json
 from dataclasses import asdict, dataclass, field
 from decimal import Decimal
 from functools import cached_property, lru_cache
-from typing import Any, Literal, get_args
+from typing import Literal, get_args
 
 from .data_operation_json import json_bytes, json_loads
 from .data_operation_support import (
@@ -396,8 +396,15 @@ class EnforcementClaim:
         }
 
 
-def enforced_claims(claims: tuple[EnforcementClaim, ...]) -> list[dict]:
-    return [record for claim in claims if (record := claim.semantic_record) is not None]
+def enforced_claims(claims: tuple[EnforcementClaim, ...], *, definition_only=False) -> list[dict]:
+    records = []
+    for claim in claims:
+        record = claim.semantic_record
+        if record is not None:
+            if definition_only and claim.kind == "implementation":
+                record.pop("semantics")
+            records.append(record)
+    return records
 
 
 @dataclass(frozen=True)
@@ -547,7 +554,8 @@ class EffectiveOperation:
                 **json.loads(self.recipe),
                 "roles": [operation_role_record(role) for role in self.roles],
                 "coverage": self.coverage.record(definition_only=True),
-                "applicability": enforced_claims(self.applicability),
+                "invariants": enforced_claims(self.invariants, definition_only=True),
+                "applicability": enforced_claims(self.applicability, definition_only=True),
                 **(
                     {"potential_dependencies": self.potential_dependencies}
                     if self.potential_dependencies

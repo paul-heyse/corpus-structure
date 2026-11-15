@@ -321,8 +321,8 @@ def _acquire_primary_profile(
         )
     if profile.contextual_retrieval_options is not None:
         from .contextual_numerics import RetrievalNumericalPolicy
-        if not profile.downstream:
-            raise ValueError("contextual retrieval options require the downstream profile")
+        if not profile.downstream and profile.contextual_encoder is None:
+            raise ValueError("contextual retrieval options require downstream or encoder dependencies")
         arguments["contextual_retrieval_options"] = RetrievalNumericalPolicy.model_validate(yaml.safe_load(read(profile.contextual_retrieval_options)))
     if profile.contextual_encoder is not None:
         from pydantic import TypeAdapter
