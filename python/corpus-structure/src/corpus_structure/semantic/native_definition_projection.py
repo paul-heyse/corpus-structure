@@ -26,6 +26,7 @@ class NativeKindProjection(TypedDict):
 @with_config(ConfigDict(extra="forbid"))
 class NativeOperationProjection(TypedDict):
     operation_id: str
+    subject_definition: str
     recipe: str
     profile: str
     binding: dict[str, Any]
@@ -67,6 +68,10 @@ def read_native_definition_projection(prepared, *, model=None) -> NativeDefiniti
     operations = [row["operation_id"] for row in projection["operations"]]
     if len(set(kinds)) != len(kinds) or len(set(operations)) != len(operations):
         raise ValueError("native definition projection repeats a nominal identity")
+    expected_subjects = {operation.semantic_id: operation.subject for operation in model.operations}
+    actual_subjects = {row["operation_id"]: row["subject_definition"] for row in projection["operations"]}
+    if actual_subjects != expected_subjects:
+        raise ValueError("native operation subjects differ from the checked effective model")
     return projection
 
 
@@ -81,8 +86,8 @@ def definition_variant_contract(model, projection, variant: DefinitionVariant) -
     owners = {}
     for kind in model.kinds:
         facts = json.loads(kind.facts)
-        schema_value = facts.get("json_schema", {}).get("x-ddo-definition-variant")
-        policy_value = facts.get("policies", {}).get("cs:definition_variant")
+        schema_value = (facts.get("json_schema") or {}).get("x-ddo-definition-variant")
+        policy_value = (facts.get("policies") or {}).get("cs:definition_variant")
         values = {value for value in (schema_value, policy_value) if value is not None}
         if len(values) > 1 or any(value not in get_args(DefinitionVariant) for value in values):
             raise ValueError("invalid definition-variant association")

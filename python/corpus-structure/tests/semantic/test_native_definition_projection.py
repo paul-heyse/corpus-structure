@@ -10,7 +10,7 @@ from corpus_structure.semantic.native_definition_projection import read_native_d
 
 
 def _captured(**changes):
-    model = SimpleNamespace(content=b"independently supplied model bytes")
+    model = SimpleNamespace(content=b"independently supplied model bytes", operations=())
     record = {
         "model_digest": sha256(model.content).hexdigest(),
         "native_digest": "native-source-contract",
@@ -77,3 +77,31 @@ def test_actual_components_schema_owns_its_public_variant():
     from corpus_structure.semantic.structural_products import DeclaredDefinitionComponentsReport
 
     assert DeclaredDefinitionComponentsReport.model_json_schema()["x-ddo-definition-variant"] == "components"
+
+
+def test_native_operation_requires_its_exact_checked_subject():
+    operation = {
+        "operation_id": "inspect",
+        "subject_definition": "selected-source",
+        "recipe": "recipe", "profile": "derivation", "binding": {},
+        "definition": "definition", "eligibility": "eligibility",
+        "implementation_revision": "implementation", "input_roles": [],
+        "output_roles": [], "support_contract": {},
+    }
+    model, prepared = _captured(operations=[operation])
+    model.operations = (SimpleNamespace(semantic_id="inspect", subject="selected-source"),)
+    assert read_native_definition_projection(prepared, model=model)["operations"][0]["subject_definition"] == "selected-source"
+    model.operations = (SimpleNamespace(semantic_id="inspect", subject="project"),)
+    with pytest.raises(ValueError, match="checked effective model"):
+        read_native_definition_projection(prepared, model=model)
+
+
+def test_native_operation_missing_subject_is_an_invalid_current_projection():
+    model, prepared = _captured(operations=[{
+        "operation_id": "inspect", "recipe": "recipe", "profile": "derivation",
+        "binding": {}, "definition": "definition", "eligibility": "eligibility",
+        "implementation_revision": "implementation", "input_roles": [],
+        "output_roles": [], "support_contract": {},
+    }])
+    with pytest.raises(ValueError, match="subject_definition"):
+        read_native_definition_projection(prepared, model=model)

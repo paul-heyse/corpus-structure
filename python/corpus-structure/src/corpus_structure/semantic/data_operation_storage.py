@@ -855,6 +855,7 @@ def data_operation_definition_projection(
         operations.append(
             {
                 "operation_id": operation.semantic_id,
+                "subject_definition": operation.subject,
                 "recipe": recipe,
                 "profile": operation.profile,
                 "binding": exported_bindings[operation.binding],
