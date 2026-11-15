@@ -337,8 +337,23 @@ Text/Tree/Syntax render selected data without rerunning the producer or validato
 `ci schema diff` can survey explicitly selected source/review vocabulary uses, including recognized
 measurement dimensions and unresolved decisions. SemanticImpactReport4 surveys one `use_side` (`before` by default,
 explicit `after` available); its continuation binds compared releases and the full source/review
-population. Unsurveyed populations remain unknown. `ci research compare-exclusions` and its MCP
-counterpart compare pinned authenticated declarations, resolution bindings and evidence separately.
+population. Unsurveyed populations remain unknown.
+
+**Current comparator implemented; scoped Python/transport Tested, 2026-11-15; native qualification
+not_run.** `ci research compare-exclusions --request …` and MCP `compare_identity_exclusions`
+consume two explicit demand/project/product/use/derivation/read/cut pins. Each root is an actual
+selected `DdoRichAdmission` or private `DdoRichConsolidation`; the shared typed graph decoder
+preserves its standing and authentic selected support. Matches use only the original declaration's
+exact product/member address. Declaration, evidence, resolved endpoints and changed support stay
+separate facets. Scope, consumed-contract or policy differences remain explicit; unmatched source
+addresses establish neither addition/removal nor original-source absence. Conflicting projections
+of the same immutable declaration are bounded diagnostics, not source-change authority. Both exact
+roots, producer definition/recipe, knowledge context and policy accompany the result. Bounded
+continuations/resources bind the installed implementation as well as the inputs; optional managed
+retention settles only after the native read transaction succeeds. The former integer-run service
+and comparison mechanism are retired. Native source/publication/read qualification remains with the
+[DDO coordinator](../plans/declared-data-operations_2026-11-12.md).
+
 Independent offline preflight consumes exact archived validation-schema bytes with finite local
 resource closure and explicit structural-only limits. Settings explanation describes the actual
 constructor/environment acquisition snapshot, including aliases, with credential masking.
@@ -422,26 +437,40 @@ they do not impose a universal completeness gate on independently typed products
 
 ### Independent contribution inspection
 
-**Implemented; bounded transport controls Tested, 2026-11-05.** `ci contributions list` and
-registered MCP `contributions` share the completed-run contribution service. The selection and
-continuation bind run/cut/release/revision and normalized operation/kind/source filters. Reports,
-zero-output operations and contributions remain distinct populations. The bounded detached
-inventory remains private unless an explicit publication facet identifies an admitted local
-assertion. `include_publication` selects compact public event/policy/assessment standing;
-`include_support` additionally hydrates its exact statement, source anchors and witness closure.
-`include_interpretation` independently selects typed producer meanings, alternatives and derivation;
-it does not confer truth. `include_assessment` independently selects only published admission
-witnesses, with explicit scope `published_admission_witnesses_only`. Other products report
-`no_public_assessment`; this implies neither unassessed nor unsupported. Full protected grades
-remain evaluator-only. Version3 continuation binds operation version, contribution and own physical
-occurrence selectors as well as every facet. The occurrence selector excludes anchorless products
-associated through endpoints rather than claiming their closure. `ci contributions export` uses
-the same bounded selection to atomically write JSONL plus a pinned hash/manifest. It is not the
-full detached review bundle. Scientific support is unmodeled. Actual public run38 and archived run28
-CLI/fresh external MCP journeys passed2026-11-05; the selected local export passed on run38.
-Every presentation page currently reads the bounded selected inventory; no scaling benefit is
-claimed. Local quotation and independently assessed denotation policies use common atomic
-publication under ADR-0064; their actual acceptance is recorded in the PCE coordinator.
+**Current rich facets implemented; scoped Python/transport Tested, 2026-11-15; native qualification
+not_run.** `ci contributions list` and MCP `inspect_contributions` share current selected-native
+acquisition. The request identifies a demand/project and optional exact operation, subject, source,
+product/member or kind. Explicit source null differs from an omitted source filter. Native read/cut,
+actual product/use/derivation support and installed implementation identity govern continuation and
+resource replay; no completed-run, task or SourceView alias is accepted. Operation frontier rows,
+including zero-output or failed/unavailable work, remain separate from actual contribution rows.
+
+Located rich proposals retain their real source-local alternatives, placement evidence and supplied
+response coverage. Their private proposal standing grants no computed acceptance or source
+completeness. Rich graph interpretation uses the existing checked value/entity/fact/occurrence
+owners. Actual admission headers distinguish selected conclusions from retained premises; private
+consolidation eligibility remains private. Linked assessments, rule decisions, reading decisions,
+identity resolution and explicit source constraints are projected as captured producer judgments.
+A failed warning is not rewritten as rejection. Missing associated judgment stays unknown. A
+source-reading assertion remains evidence about source fidelity and does not establish the quoted
+proposition as scientific truth.
+
+Both examined selected records/support and returned pages/nested judgments have explicit bounds.
+Exact JSON preserves numeric values through CLI, MCP and resource delivery. Ordinary authorization
+conclusions may use only their exact native-returned valid authority leaf; protected inputs and
+producer requests remain undisclosed. Other nominal kinds expose their actual selected references
+with explicit unavailable interpretation/unknown assessment until a current family decoder exists.
+These generic rows do not deliver grouped measurement semantics, contextual-neighborhood or
+source-decision/gap/dossier views. Those remaining integrations and actual native qualification stay
+with the [DDO coordinator](../plans/declared-data-operations_2026-11-12.md). `ci contributions export`
+uses the authoritative current selected detached export, preserving its typed JSON/Parquet relations,
+exact cut and authority-leaf limits; it does not recreate the former completed-run export adapter.
+
+The selected 36 Python/transport controls passed in managed result
+`767b228b27d14b0bba7e3475a9b3f3ad`; controlled acquisition seams establish no native publication,
+CPU custody or complete-series qualification. Current contracts follow
+[ADR-0109](../adr/0109-ddo-current-domain-contracts.md), and bounded authorization disclosure follows
+[ADR-0110](../adr/0110-evaluator-authorized-policy-disclosure.md).
 
 ## Audit-closure target
 
