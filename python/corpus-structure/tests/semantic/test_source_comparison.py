@@ -165,3 +165,13 @@ def test_normal_preparation_archives_projection_and_bound_reader_uses_its_bytes(
         lambda _: pytest.fail("archive read reanalysed source"),
     )
     assert bound_data_operation_model(prepared).source_interfaces == archived.content
+
+
+def test_added_operation_frames_owned_encoded_json_without_erasing_types():
+    before = compile_data_operations()
+    after = compile_source(operation_source())
+    compared = compare_data_operation_models(before, after)
+    added = next(item for item in compared.changes if item.operation == "urn:test:derive")
+    assert added.kind == "added"
+    assert added.after["parameters"] == {"json": {}}
+    assert added.before is None

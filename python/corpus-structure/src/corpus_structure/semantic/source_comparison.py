@@ -57,6 +57,14 @@ class EffectiveChangeComparison(BaseModel):
 
 
 def _json(value):
+    # Match the effective archive's explicit JSON-payload framing. Parameters and
+    # overloads are owned encoded JSON, never arbitrary source text to stringify.
+    if isinstance(value, bytes):
+        return {"json": json.loads(value)}
+    if isinstance(value, dict):
+        return {key: _json(item) for key, item in value.items()}
+    if isinstance(value, (tuple, list)):
+        return [_json(item) for item in value]
     return json.loads(canonical_bytes(value))
 
 
