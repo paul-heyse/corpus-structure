@@ -7,7 +7,7 @@ from hashlib import sha256
 from importlib.resources import files
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import yaml
 from pydantic import create_model
@@ -24,6 +24,7 @@ from corpus_structure.semantic import (
     prepare_release,
 )
 from corpus_structure.semantic._operation_ids import DocumentId
+from corpus_structure.semantic._data_operation_wire import WireDemandId, WireExternalPacketId
 from corpus_structure.semantic.analytical_profile import analytical_inputs
 from corpus_structure.semantic.contracts import implementation_overridden
 from corpus_structure.semantic.domain_operations import domain_rule_inputs
@@ -51,6 +52,10 @@ from semantic.historical_agent_support import (
 )
 from semantic.native_record_fixtures import publish_native_record_fixture, qualified_view_draft
 from semantic.scenario_preparation_support import PersistedScenario, ScenarioPreparation
+
+
+if TYPE_CHECKING:
+    from semantic.data_operation_kernel_support import KernelSeedStage
 
 
 @dataclass(frozen=True)
@@ -887,3 +892,93 @@ def build_exclusion_recipe(recipe, admin, writer, directory, *, purpose_engine=N
 
 
 register_scenario_builder(ExclusionRecipe, build_exclusion_recipe)
+
+
+@dataclass(frozen=True)
+class DeclaredAgentRecipe:
+    """Current packet lifecycle over authentic published semantic source products.
+
+    These integer products exercise custody, context and multiplicity. They do
+    not stand in for rich reports, reference answers or consolidated facts.
+    """
+
+    source_values: tuple[int, int] = (3, 5)
+    subject: str = "declared-agent:subject"
+    original_source: str = "declared-agent:source"
+
+
+@dataclass(frozen=True)
+class DeclaredAgentStage:
+    kernel: "KernelSeedStage"
+    demand_id: WireDemandId
+    packet_id: WireExternalPacketId
+    source_receipt: bytes
+    subject: str
+    original_source: str
+    project_id: str = "ddo-test"
+
+    @property
+    def prepared(self) -> PreparedRelease:
+        return self.kernel.preparation.prepared
+
+    @property
+    def runtime(self) -> str:
+        return self.kernel.preparation.runtime.runtime_id
+
+    @property
+    def seed_files(self) -> tuple[Path, ...]:
+        return self.kernel.seed_files
+
+    def validate_clone(self, admin: Engine) -> None:
+        self.kernel.validate_clone(admin)
+        receipt = json.loads(self.source_receipt)
+        with admin.connect() as connection:
+            actual = connection.scalar(
+                select(table("ops.data_publication_receipt").c.derivation_id).where(
+                    table("ops.data_publication_receipt").c.id == receipt["receipt_id"]
+                )
+            )
+        if actual != receipt["derivation_id"]:
+            raise ValueError("declared packet seed lost its authentic source episode")
+
+
+def build_declared_agent_recipe(
+    recipe: DeclaredAgentRecipe, admin: Engine, writer: Engine, directory: Path, *, purpose_engine=None
+) -> DeclaredAgentStage:
+    """Publish exact source values and hand off an admitted external request."""
+    from typing import cast
+
+    from corpus_structure.semantic._data_operation_wire import WireRetainExternalDataPacketRequest
+    from corpus_structure.semantic.data_operation_demands import DemandPlanner, RootSubject, freeze_demand
+    from corpus_structure.semantic.data_operation_storage import DataOperationStorage
+    from semantic.data_operation_demand_support import claim, publish, retain
+    from semantic.data_operation_kernel_support import Kernel, build_kernel
+    from semantic.external_scenarios import EXTERNAL_INPUTS
+
+    stage = build_kernel(EXTERNAL_INPUTS, admin, writer, directory, purpose_engine=purpose_engine)
+    kernel = Kernel(writer, stage.preparation, stage.identities, EXTERNAL_INPUTS)
+    frozen = freeze_demand(
+        kernel.model,
+        roots=(RootSubject(recipe.subject, recipe.original_source, b'{"page":1}'),),
+        targets=("urn:ddo-test:source",),
+        inference="declared-agent-fixture",
+        execution_profile="execution:test",
+    )
+    with writer.begin() as connection:
+        planner = DemandPlanner(kernel.model, DataOperationStorage(connection))
+        demand = planner.register(frozen, project="ddo-test", release=kernel.prepared.release_id, runtime=kernel.runtime)["demand_id"]
+        (producer,) = planner.ready(planner.resume(demand), authorization=b"{}")
+    source_claim = claim(kernel, json.loads(producer.native))
+    source_receipt = publish(kernel, source_claim, retain(kernel, source_claim, outputs=recipe.source_values))
+    with writer.begin() as connection:
+        planner = DemandPlanner(kernel.model, DataOperationStorage(connection))
+        (external,) = planner.ready(planner.resume(demand), authorization=b"{}")
+    external_claim = claim(kernel, json.loads(external.native))
+    with writer.begin() as connection:
+        packet = DataOperationStorage(connection).retain_external_data_packet(
+            cast(WireRetainExternalDataPacketRequest, {**external_claim, "runtime_id": kernel.runtime, "max_bytes": 100000})
+        )
+    return DeclaredAgentStage(stage, demand, packet["packet_id"], canonical_bytes(source_receipt), recipe.subject, recipe.original_source)
+
+
+register_scenario_builder(DeclaredAgentRecipe, build_declared_agent_recipe)

@@ -22,7 +22,7 @@ from corpus_structure.semantic.types import PreparedRelease
 from native_scenario_seeds import ScenarioSeed, SeedClone
 from semantic.historical_agent_support import HistoricalAgentPublication
 
-from .agent_scenarios import build_resubmission_case
+from .agent_scenarios import build_resubmission_case, DeclaredAgentStage
 
 
 def build_completed_serving_case(
@@ -273,3 +273,67 @@ def install_pack_scenario(admin, writer, name, entries, *, contexts=False):
     ).bind_preparation(prepared)
     publish_batch(writer, batch)
     return prepared, batch
+
+
+@dataclass(frozen=True)
+class DeclaredServingRecipe:
+    """Completed current selected result; no run, task or synthetic fact addresses."""
+
+    source_values: tuple[int, int] = (3, 5)
+    result: int = 7
+
+
+@dataclass(frozen=True)
+class DeclaredServingStage:
+    agent: DeclaredAgentStage
+    publication: bytes
+
+    @property
+    def seed_files(self):
+        return self.agent.seed_files
+
+    @property
+    def prepared(self):
+        return self.agent.prepared
+
+    @property
+    def demand_id(self):
+        return self.agent.demand_id
+
+    def validate_clone(self, admin: Engine) -> None:
+        self.agent.validate_clone(admin)
+        from corpus_structure.semantic.demand_results import read_demand_result
+
+        expected = json.loads(self.publication)["publication"]["derivation_id"]
+        with admin.begin() as connection:
+            selected = read_demand_result(connection, self.demand_id, project_id=self.agent.project_id)
+        if not any(member["derivation_id"] == expected for member in selected.members()):
+            raise ValueError("serving seed lacks its actual selected producing episode")
+
+
+def build_declared_serving_recipe(recipe, admin, writer, directory, *, purpose_engine=None):
+    from corpus_structure.semantic.data_operation_external import ExternalDataSession
+    from corpus_structure.semantic.identity import canonical_bytes
+    from semantic.agent_scenarios import DeclaredAgentRecipe, build_declared_agent_recipe
+
+    agent = build_declared_agent_recipe(DeclaredAgentRecipe(recipe.source_values), admin, writer, directory, purpose_engine=purpose_engine)
+    session = ExternalDataSession(writer, agent.project_id, demand_id=agent.demand_id)
+    claim = session.claim(agent.packet_id)
+    if claim["state"] != "claimed":
+        raise ValueError("declared serving fixture failed to acquire its packet")
+    publication = session.submit(agent.packet_id, claim, {"outcome":"success", "outputs":[{"role":"result", "body":recipe.result}]}, actor_assertion="controlled-external", model_assertion=None)
+    return DeclaredServingStage(agent, canonical_bytes(publication))
+
+
+register_scenario_builder(DeclaredServingRecipe, build_declared_serving_recipe)
+
+
+@pytest.fixture(scope="session")
+def declared_serving_seed(scenario_seeds):
+    return scenario_seeds.seed(DeclaredServingRecipe())
+
+
+@pytest.fixture
+def declared_serving_case(declared_serving_seed, scenario_seeds):
+    with scenario_seeds.commit_clone(declared_serving_seed.recipe) as clone:
+        yield clone

@@ -7,9 +7,10 @@ from scenario_recipes import register_scenario_builder
 from sqlalchemy import select
 
 from corpus_structure.semantic.metadata import table
-from corpus_structure.semantic.operations import OperationBinding, create_run
-from semantic.serving_scenarios import serving_read_scenario as serving_read_scenario
-from semantic.serving_scenarios import serving_scenario_seed as serving_scenario_seed
+from corpus_structure.semantic.data_operation_demands import DemandPlanner, RootSubject, freeze_demand
+from corpus_structure.semantic.data_operation_storage import DataOperationStorage
+from semantic.serving_scenarios import declared_serving_case as serving_read_scenario
+from semantic.serving_scenarios import declared_serving_seed as serving_scenario_seed
 
 
 @dataclass(frozen=True)
@@ -55,29 +56,23 @@ def test_two_fresh_serving_clones_are_isolated(
 ):
     seed, first, second = serving_scenario_seed, serving_read_scenario, second_serving_clone
     assert len({seed.database_oid, first.database_oid, second.database_oid}) == 3
+    agent = seed.stage.agent
+    frozen = freeze_demand(
+        agent.kernel.preparation.model,
+        roots=(RootSubject("isolated", agent.original_source, b'{}'),),
+        targets=("urn:ddo-test:source",),
+        inference="scenario-isolation-test",
+        execution_profile="execution:test",
+    )
     with second.writer.begin() as connection:
-        second_run = create_run(
-            connection,
-            project_id="resubmit",
-            binding=OperationBinding(seed.stage.prepared.release_id, "input", 0, b"{}"),
-            kind="full",
-            options={},
-            code_commit="scenario-isolation-test",
-        )
-    with second.writer.connect() as connection:
-        assert (
-            connection.execute(
-                select(table("ops.run").c.id).where(table("ops.run").c.id == second_run)
-            ).scalar_one()
-            == second_run
-        )
-    with first.reader.connect() as connection:
-        assert (
-            connection.execute(
-                select(table("ops.run").c.id).where(table("ops.run").c.id == second_run)
-            ).scalar_one_or_none()
-            is None
-        )
+        demand = DemandPlanner(agent.kernel.preparation.model, DataOperationStorage(connection)).register(
+            frozen, project=agent.project_id, release=agent.prepared.release_id, runtime=agent.runtime
+        )["demand_id"]
+    demands = table("ops.data_demand")
+    with second.admin.connect() as connection:
+        assert connection.scalar(select(demands.c.id).where(demands.c.id == demand)) == demand
+    with first.admin.connect() as connection:
+        assert connection.scalar(select(demands.c.id).where(demands.c.id == demand)) is None
 
 
 def test_failed_seed_build_releases_owned_database(failed_serving_seed):

@@ -1,4 +1,10 @@
-"""Direct native fixtures for historical rich reports, without a scheduler or method registry."""
+"""Legacy synthetic rich-report fixtures awaiting current semantic consumer migration.
+
+These fixtures manufacture current run/task records; they are not immutable
+historical custody and carry no preservation exemption. Current packet lifecycle
+and selected-result tests use DeclaredAgentRecipe/DeclaredServingRecipe instead.
+Remaining rich exclusion/fact consumers require their actual target projection.
+"""
 
 from collections.abc import Mapping
 from hashlib import sha256
