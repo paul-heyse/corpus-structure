@@ -617,7 +617,7 @@ def compile_binding(
                 )
                 for entry in selected_source_sets[support.source_set]
             ]
-            return and_(association, or_(*permitted))
+            return and_(association, or_(false(), *permitted))
         return (
             and_(association, alias.c.original_source.is_not_distinct_from(original_source))
             if original_source is not _UNQUALIFIED_SOURCE

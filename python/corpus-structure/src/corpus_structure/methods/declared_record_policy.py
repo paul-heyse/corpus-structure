@@ -12,12 +12,12 @@ class RecordPolicyFit:
         "discovery_relation": "role-associated", "context": ["protected-record-grades", "exact-frozen-feature-instance", "held-out-final-events"],
         "entrypoints": ["run"],
         "roles": [
-            {"name": "feature_grade", "parameter": "feature_grade", "direction": "input", "kind": "https://corpus-structure.dev/semantic/data-operation-record-policy/protected/DdoRecordGrade",
+            {"name": "feature_grade", "parameter": "feature_grade", "direction": "input", "subject_target": "source-set", "kind": "https://corpus-structure.dev/semantic/data-operation-record-policy/protected/DdoRecordGrade",
              "minimum": 1, "maximum": 1, "collection": "scalar", "presence": "required",
-             "support": {"provenance": "exact", "source": "feature-fit-frame", "identity_requirements": ["episode"], "coverage": {"role": "feature_grade", "description": "complete-authenticated-feature-fit-frame"}}},
-            {"name": "calibration_grade", "parameter": "calibration_grade", "direction": "input", "kind": "https://corpus-structure.dev/semantic/data-operation-record-policy/protected/DdoRecordGrade",
+             "support": {"provenance": "exact", "source": "frozen-source-set", "source_set": "record-policy-feature-grades", "identity_requirements": ["episode"], "coverage": {"role": "feature_grade", "description": "complete-authenticated-feature-fit-frame"}}},
+            {"name": "calibration_grade", "parameter": "calibration_grade", "direction": "input", "subject_target": "source-set", "kind": "https://corpus-structure.dev/semantic/data-operation-record-policy/protected/DdoRecordGrade",
              "minimum": 1, "maximum": 1, "collection": "scalar", "presence": "required",
-             "support": {"provenance": "exact", "source": "held-out-final-event-frame", "identity_requirements": ["episode"], "coverage": {"role": "calibration_grade", "description": "complete-authenticated-calibration-frame"}}},
+             "support": {"provenance": "exact", "source": "frozen-source-set", "source_set": "record-policy-calibration-grades", "identity_requirements": ["episode"], "coverage": {"role": "calibration_grade", "description": "complete-authenticated-calibration-frame"}}},
             {"name": "specification", "parameter": "specification", "direction": "input", "kind": "https://corpus-structure.dev/semantic/data-operation-record-policy/protected/DdoRecordFitSpecification",
              "minimum": 1, "maximum": 1, "collection": "scalar", "presence": "required",
              "support": {"provenance": "exact", "source": "predeclared-fitting-procedure", "origins": ["authored"], "identity_requirements": ["original-source"], "coverage": {"role": "specification", "description": "exact-frozen-feature-and-fit-selection"}}},
@@ -53,18 +53,21 @@ class RecordPolicyGrade:
         "discovery_relation": "role-associated", "context": ["source-only-independent-references", "complete-reading-population", "protected-grading"],
         "entrypoints": ["run"],
         "roles": [
-            {"name": "reference_a", "parameter": "reference_a", "direction": "input", "kind": "https://corpus-structure.dev/semantic/data-operation-record-policy/protected/DdoRecordReferencePopulation",
+            {"name": "sources", "parameter": "sources", "direction": "input", "subject_target": "source-set", "kind": "https://corpus-structure.dev/semantic/data-operation-source/DdoSelectedNativeSource",
+             "minimum": 1, "maximum": None, "collection": "set", "presence": "required",
+             "support": {"provenance": "exact", "source": "frozen-source-set", "source_set": "record-policy-sources", "identity_requirements": ["episode"], "coverage": {"role": "sources", "description": "every-actual-primary-and-related-consumed-source"}}},
+            {"name": "reference_a", "parameter": "reference_a", "direction": "input", "kind": "https://corpus-structure.dev/semantic/data-operation-record-policy/protected/DdoRecordReferencePopulationA",
              "minimum": 1, "maximum": 1, "collection": "scalar", "presence": "required",
              "support": {"provenance": "exact", "source": "source-only-independent-a", "origins": ["authored"], "identity_requirements": ["original-source"], "coverage": {"role": "reference_a", "description": "exact-independent-source-only-a"}}},
-            {"name": "reference_b", "parameter": "reference_b", "direction": "input", "kind": "https://corpus-structure.dev/semantic/data-operation-record-policy/protected/DdoRecordReferencePopulation",
+            {"name": "reference_b", "parameter": "reference_b", "direction": "input", "kind": "https://corpus-structure.dev/semantic/data-operation-record-policy/protected/DdoRecordReferencePopulationB",
              "minimum": 1, "maximum": 1, "collection": "scalar", "presence": "required",
              "support": {"provenance": "exact", "source": "source-only-independent-b", "origins": ["authored"], "identity_requirements": ["original-source"], "coverage": {"role": "reference_b", "description": "exact-independent-source-only-b"}}},
-            {"name": "adjudication", "parameter": "adjudication", "direction": "input", "kind": "https://corpus-structure.dev/semantic/data-operation-record-policy/protected/DdoRecordReferencePopulation",
+            {"name": "adjudication", "parameter": "adjudication", "direction": "input", "kind": "https://corpus-structure.dev/semantic/data-operation-record-policy/protected/DdoRecordReferencePopulationC",
              "minimum": 1, "maximum": 1, "collection": "scalar", "presence": "required",
              "support": {"provenance": "exact", "source": "source-only-c-adjudication", "origins": ["authored"], "identity_requirements": ["original-source"], "coverage": {"role": "adjudication", "description": "exact-c-over-retained-independent-a-b"}}},
-            {"name": "prediction", "parameter": "prediction", "direction": "input", "kind": "https://corpus-structure.dev/semantic/data-operation-reading-resolution/DdoResolvedReadingReport",
-             "minimum": 0, "maximum": None, "collection": "sequence", "presence": "optional",
-             "support": {"provenance": "exact", "source": "complete-reading-prediction-carrier", "identity_requirements": ["episode"], "coverage": {"role": "prediction", "description": "all-private-readings-including-empty-and-low-score"}}},
+            {"name": "prediction", "parameter": "prediction", "direction": "input", "subject_target": "source-set", "kind": "https://corpus-structure.dev/semantic/data-operation-reading-resolution/DdoResolvedReadingReport",
+             "minimum": 0, "maximum": None, "collection": "set", "presence": "optional",
+             "support": {"provenance": "exact", "source": "frozen-source-set", "source_set": "record-policy-predictions", "identity_requirements": ["episode"], "coverage": {"role": "prediction", "description": "all-private-readings-including-empty-and-low-score"}}},
             {"name": "specification", "parameter": "specification", "direction": "input", "kind": "https://corpus-structure.dev/semantic/data-operation-record-policy/protected/DdoRecordGradeSpecification",
              "minimum": 1, "maximum": 1, "collection": "scalar", "presence": "required",
              "support": {"provenance": "exact", "source": "predeclared-grade-procedure", "origins": ["authored"], "identity_requirements": ["original-source"], "coverage": {"role": "specification", "description": "exact-frozen-prediction-selection-and-feature-algorithm"}}},
@@ -80,7 +83,8 @@ class RecordPolicyGrade:
         "behavior": "protected-complete-reading-grading-without-public-policy-authority",
         "binding": {"operator": "all", "children": [
             {"operator": "scan", "roles": ["reference_a", "reference_b", "adjudication", "specification"]},
-            {"operator": "collection", "roles": ["prediction"], "collection": "sequence"},
+            {"operator": "collection", "roles": ["prediction"], "collection": "set"},
+            {"operator": "collection", "roles": ["sources"], "collection": "set"},
         ]},
         "opaque": [{"reference": "corpus_structure.evaluate.declared_record_policy.execute_grade_profile", "contract": "record-policy/computation-assets", "role": "current-complete-family-record-grading"}],
         "assets": [{"reference": "record-policy-computation", "contract": "record-policy/computation-assets", "role": "exact-record-grading-source-and-domain-contracts"}],
@@ -89,8 +93,8 @@ class RecordPolicyGrade:
     def __init__(self, execute):
         self.execute = execute
 
-    def run(self, reference_a: dict, reference_b: dict, adjudication: dict, prediction: list[dict], specification: dict) -> dict:
-        return execute_grade_profile(self, reference_a, reference_b, adjudication, prediction, specification)
+    def run(self, sources: list[dict], reference_a: dict, reference_b: dict, adjudication: dict, prediction: list[dict], specification: dict) -> dict:
+        return execute_grade_profile(self, sources, reference_a, reference_b, adjudication, prediction, specification)
 
     @staticmethod
     def acquire_port(prepared, model, operation, *, identity, authorize, custody, sources):

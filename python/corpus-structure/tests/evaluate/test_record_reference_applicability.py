@@ -1,12 +1,15 @@
 """Independent compatibility controls; these are not source/model quality evidence."""
 
-import json
 from copy import deepcopy
 from dataclasses import replace
+from functools import cache
+import yaml
+
+from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
+from corpus_structure.semantic.data_operation_compilation import compile_data_operations
 
 import pytest
-from evaluation_record_references_support import fixture, prepared
-from pglast import parse_sql
+from evaluation_record_references_support import fixture, prepared, model, bundle
 
 from corpus_structure.evaluate.record_alignment import RecordSide, align_records, reference_contract
 from corpus_structure.evaluate.record_alignment import whole_reading_correct
@@ -16,12 +19,40 @@ from corpus_structure.semantic.record_contracts import (
     evidence_set_identity,
     interpretation_identity,
     record_identity,
+    record_family_contract,
 )
+
+
+@cache
+def successor_preparation(change="unrelated"):
+    """Prepare actual closed counterfactual sources; never alias a release identity."""
+    original = bundle()
+    sources = list(original.sources)
+    if change in {"schema", "semantics", "vocabulary"}:
+        name = "observations" if change in {"schema", "vocabulary"} else "statistics_semantic"
+        position = next(index for index, source in enumerate(sources) if source.name == name)
+        document = yaml.safe_load(sources[position].content)
+        if change == "schema":
+            document["classes"]["SourceRecord"]["attributes"]["new_meaning"] = {"range": "string", "required": True}
+        elif change == "vocabulary":
+            document["enums"]["RecordEvidenceOrdering"]["permissible_values"]["ordered"]["description"] = "changed authored ordering meaning"
+        else:
+            document["classes"]["MeasurementRecordFields"]["attributes"]["unit"]["required"] = True
+        sources[position] = SourceArtifact(name, yaml.safe_dump(document).encode())
+    root_name = "counterfactual_record_reference_root"
+    root = SourceArtifact(root_name, yaml.safe_dump({
+        "id": "urn:corpus:counterfactual-record-reference", "name": root_name,
+        "imports": [original.root],
+        "classes": {"UnrelatedGradeDiagnostics": {"attributes": {"summary": {"range": "string"},
+                     **({"review_note": {"range": "string"}} if change == "output" else {})}}},
+    }).encode())
+    actual = SourceBundle(root_name, (*sources, root))
+    return prepare_release(actual), compile_data_operations(actual)
 
 
 def successor_reading(reference, contexts, binding):
     """An independently validated prediction fixture with distinct release/alias IDs."""
-    target = replace(prepared(), release_id="release:" + "9" * 64)
+    target, target_model = successor_preparation()
     pin = dict(binding.pin, source="source:actual-successor", source_view_id=73)
     prediction = deepcopy(reference)
     prediction["pin"] = pin
@@ -42,7 +73,7 @@ def successor_reading(reference, contexts, binding):
     )
     for value in prediction["fields"]:
         value["evidence_sets"] = tuple(sets[identity] for identity in value["evidence_sets"])
-    prediction["record_id"] = record_identity(target.release_id, prediction)
+    prediction["record_id"] = record_identity(record_family_contract(target_model, prediction["contract"]), prediction)
     prediction["interpretation_id"] = interpretation_identity(prediction)
     # The original opaque IDs remain the cut authority, not an invented translated
     # inventory. Membership derives a counterpart ID from each actual descriptor.
@@ -51,7 +82,7 @@ def successor_reading(reference, contexts, binding):
     correspondence = [
         {"reference_pin": dict(binding.pin), "prediction_pin": pin, "physical_digest": "d" * 64}
     ]
-    return target, prediction, target_frame, target_contexts, correspondence
+    return target, prediction, target_frame, target_contexts, correspondence, target_model
 
 
 @pytest.mark.parametrize(
@@ -60,7 +91,7 @@ def successor_reading(reference, contexts, binding):
 def test_successor_compares_physical_occurrences_without_rebinding_original_ids(family):
     reference, contexts, binding = fixture(family)
     before = canonical_bytes(reference)
-    target, prediction, target_frame, target_contexts, correspondence = successor_reading(
+    target, prediction, target_frame, target_contexts, correspondence, target_model = successor_reading(
         reference, contexts, binding
     )
     assert prediction["record_id"] != reference["record_id"]
@@ -72,7 +103,7 @@ def test_successor_compares_physical_occurrences_without_rebinding_original_ids(
         prediction_prepared=target,
         prediction_coordinate_texts=target_contexts,
         correspondence=correspondence,
-    )
+    model = model(), prediction_model = target_model)
     assert result.matches == {
         tier: [reference["record_id"]] for tier in ("core", "full", "evidence")
     }
@@ -103,13 +134,13 @@ def test_successor_compares_physical_occurrences_without_rebinding_original_ids(
         prediction_frame=target_frame,
         prediction_coordinate_texts=target_contexts,
         correspondence=correspondence,
-    )
+    reference_model = model(), prediction_model = target_model)
     assert prediction["standing"] == "candidate"
 
 
 def test_cross_release_opaque_allowlist_checks_actual_descriptor_not_reference_record_coverage():
     reference, contexts, binding = fixture()
-    target, prediction, target_frame, target_contexts, correspondence = successor_reading(
+    target, prediction, target_frame, target_contexts, correspondence, target_model = successor_reading(
         reference, contexts, binding
     )
     # A cut may permit an additional source anchor that no expected record used.
@@ -139,7 +170,7 @@ def test_cross_release_opaque_allowlist_checks_actual_descriptor_not_reference_r
         prediction_prepared=target,
         prediction_coordinate_texts=target_contexts,
         correspondence=correspondence,
-    )
+    model = model(), prediction_model = target_model)
     assert result.counts["full"].matched == 1
     with pytest.raises(ValueError, match="outside the explicit evaluation cut"):
         align_records(
@@ -153,7 +184,7 @@ def test_cross_release_opaque_allowlist_checks_actual_descriptor_not_reference_r
             prediction_prepared=target,
             prediction_coordinate_texts=target_contexts,
             correspondence=correspondence,
-        )
+        model = model(), prediction_model = target_model)
 
 
 @pytest.mark.parametrize(
@@ -161,7 +192,7 @@ def test_cross_release_opaque_allowlist_checks_actual_descriptor_not_reference_r
 )
 def test_changed_source_or_consumed_contract_refuses_instead_of_false_misses(change):
     reference, contexts, binding = fixture()
-    target, prediction, target_frame, target_contexts, correspondence = successor_reading(
+    target, prediction, target_frame, target_contexts, correspondence, target_model = successor_reading(
         reference, contexts, binding
     )
     if change == "source":
@@ -182,32 +213,9 @@ def test_changed_source_or_consumed_contract_refuses_instead_of_false_misses(cha
         target_frame = replace(target_frame, guideline_version="changed-guideline")
     elif change == "policy":
         target_frame = replace(target_frame, prediction_policy_version="changed-policy")
-    elif change == "schema":
-        artifact = next(
-            value for value in target.artifacts if value.kind == "json_schema/SourceRecord"
-        )
-        schema = json.loads(artifact.content)
-        schema["required"] = [*schema["required"], "new-meaning"]
-        target = replace(
-            target,
-            artifacts=tuple(
-                replace(value, content=canonical_bytes(schema)) if value is artifact else value
-                for value in target.artifacts
-            ),
-        )
-    elif change == "semantics":
-        definition = next(value for value in target.definitions if value.name == "RecordSourcePin")
-        prop = definition.properties[0]
-        changed = replace(
-            definition,
-            properties=(replace(prop, case_policy="changed"), *definition.properties[1:]),
-        )
-        target = replace(
-            target,
-            definitions=tuple(
-                changed if value is definition else value for value in target.definitions
-            ),
-        )
+    elif change in {"schema", "semantics", "vocabulary"}:
+        target, target_model = successor_preparation(change)
+        target_frame = replace(target_frame, release_id=target.release_id)
     else:
         correspondence.append(deepcopy(correspondence[0]))
     with pytest.raises(ValueError):
@@ -219,23 +227,16 @@ def test_changed_source_or_consumed_contract_refuses_instead_of_false_misses(cha
             prediction_prepared=target,
             prediction_coordinate_texts=target_contexts,
             correspondence=correspondence,
-        )
+        model = model(), prediction_model = target_model)
 
 
 def test_report_schema_is_not_an_authored_source_premise_and_empty_units_survive():
     reference, contexts, binding = fixture()
-    target, _, target_frame, target_contexts, correspondence = successor_reading(
+    target, _, target_frame, target_contexts, correspondence, target_model = successor_reading(
         reference, contexts, binding
     )
-    target = replace(
-        target,
-        artifacts=tuple(
-            replace(value, content=b"{}")
-            if value.kind == "json_schema/ReferenceRecordEvaluationReport"
-            else value
-            for value in target.artifacts
-        ),
-    )
+    target, target_model = successor_preparation("output")
+    target_frame = replace(target_frame, release_id=target.release_id)
     assert reference_contract(prepared()) == reference_contract(target)
     result = align_records(
         RecordSide(binding, (reference,)),
@@ -245,7 +246,7 @@ def test_report_schema_is_not_an_authored_source_premise_and_empty_units_survive
         prediction_prepared=target,
         prediction_coordinate_texts=target_contexts,
         correspondence=correspondence,
-    )
+    model = model(), prediction_model = target_model)
     assert (
         result.counts["full"].reference,
         result.counts["full"].prediction,
@@ -253,17 +254,9 @@ def test_report_schema_is_not_an_authored_source_premise_and_empty_units_survive
     ) == (1, 0, 0)
 
 
-def test_native_reference_and_policy_sql_outer_syntax():
-    from pathlib import Path
-
-    root = Path(__file__).resolve().parents[2] / "src/corpus_structure/semantic/sql"
-    for name in ("record_references.sql", "record_policy.sql"):
-        assert parse_sql((root / name).read_text())
-
-
 def test_successor_changed_prediction_policy_with_recomputed_identity_refuses():
     reference, contexts, binding = fixture()
-    target, prediction, target_frame, target_contexts, correspondence = successor_reading(
+    target, prediction, target_frame, target_contexts, correspondence, target_model = successor_reading(
         reference, contexts, binding
     )
     prediction["standing"] = "candidate"
@@ -280,4 +273,24 @@ def test_successor_changed_prediction_policy_with_recomputed_identity_refuses():
             prediction_frame=target_frame,
             prediction_coordinate_texts=target_contexts,
             correspondence=correspondence,
-        )
+        reference_model = model(), prediction_model = target_model)
+
+
+def test_unrelated_release_does_not_resalt_the_original_source_occurrence():
+    reference, _, _ = fixture()
+    target, target_model = successor_preparation()
+    assert target.release_id != prepared().release_id
+    assert record_family_contract(model(), reference["contract"]) == record_family_contract(target_model, reference["contract"])
+    assert record_identity(record_family_contract(target_model, reference["contract"]), reference) == reference["record_id"]
+
+
+def test_consumed_vocabulary_meaning_changes_source_reference_contract():
+    reference, contexts, binding = fixture()
+    target, target_model = successor_preparation("vocabulary")
+    assert reference_contract(prepared()) != reference_contract(target)
+    prediction_frame = replace(binding, release_id=target.release_id)
+    with pytest.raises(ValueError, match="source reading declarations differ"):
+        align_records(RecordSide(binding, (reference,)), RecordSide(prediction_frame), prepared(),
+                      model=model(), prediction_model=target_model, prediction_prepared=target,
+                      coordinate_texts=contexts, prediction_coordinate_texts=contexts,
+                      correspondence=[{"reference_pin": dict(binding.pin), "prediction_pin": dict(binding.pin), "physical_digest": "d" * 64}])

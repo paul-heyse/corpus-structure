@@ -15,7 +15,7 @@ DECLARE named record; entry jsonb; reference_schema constant jsonb:='__DDO_EXTER
 BEGIN
  IF jsonb_typeof(source_sets)<>'object' THEN RAISE EXCEPTION 'frozen source sets must be a named object'; END IF;
  FOR named IN SELECT * FROM jsonb_each(source_sets) LOOP
- IF named.key='' OR jsonb_typeof(named.value)<>'array' OR jsonb_array_length(named.value)=0 THEN RAISE EXCEPTION 'source set requires exact nonempty pins'; END IF;
+ IF named.key='' OR jsonb_typeof(named.value)<>'array' THEN RAISE EXCEPTION 'source set requires an explicit name and exact pin array'; END IF;
  IF EXISTS(SELECT FROM jsonb_array_elements(named.value) value GROUP BY value->>'product',value->>'member' HAVING count(*)<>1) THEN RAISE EXCEPTION 'duplicate qualified source-set product/member'; END IF;
  FOR entry IN SELECT value FROM jsonb_array_elements(named.value) LOOP
  PERFORM ops.ddo_fields(entry,ARRAY['project_id','original_source','subject','subject_definition','analyzed_scope','product','member','source_reference','reference']);

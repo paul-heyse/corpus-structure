@@ -65,7 +65,7 @@ def test_fit_acquires_feature_labels_only_through_explicit_fitter_resource(monke
         event_procedure="procedure:whole-reading", assumptions="controlled complete source population",
         threshold=0.99, threshold_procedure="predeclared-threshold",
     )
-    support = ComputationalSupportReference(derivation_id=selected.derivation_id, admission_use_id=selected.use_id)
+    support = ComputationalSupportReference(derivation_id=selected.derivation_id, admission_use_id=None)
     member = BoundRoleMember(selected.product_id, "kind:grade", "knowledge-universe", None, b"{}", b"{}",
                              (selected.derivation_id,), b"{}", subject_definition="knowledge-universe", support_references=(support,))
     binding = SimpleNamespace(sufficient=True, subject_context=SubjectContext("project:one", "knowledge-universe", None, b"{}", subject_definition="knowledge-universe"),

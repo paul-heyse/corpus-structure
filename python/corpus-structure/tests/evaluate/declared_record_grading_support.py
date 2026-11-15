@@ -39,7 +39,7 @@ def cut():
 
 def current_reading(family, source_index=1):
     from copy import deepcopy
-    prepared, _ = current()
+    prepared, model = current()
     raw, contexts = reading(family)
     row = deepcopy(raw)
     pin = source(source_index).model_dump(mode="json", exclude_none=True)
@@ -59,7 +59,7 @@ def current_reading(family, source_index=1):
         sets[old] = evidence["set_id"]
     for field in row["fields"]:
         field["evidence_sets"] = tuple(sets[key] for key in field["evidence_sets"])
-    row["record_id"] = record_identity(prepared.release_id, row)
+    row["record_id"] = record_identity(record_family_contract(model, row["contract"]), row)
     row["interpretation_id"] = interpretation_identity(row)
     return row, [dict(context, pin=pin) for context in contexts]
 

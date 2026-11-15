@@ -1863,3 +1863,29 @@ def test_project_source_filters_distinguish_unqualified_null_and_actual_source(s
     source_scoped = replace(product, subject_definitions=(replace(product.subject_definitions[0], scope="original-source"),))
     with pytest.raises(ValueError, match="only a checked project-scoped"):
         compile_binding(source_scoped, "urn:op", (projection,), subject="doc", original_source=None)
+
+
+def test_explicit_empty_source_set_is_closed_absence_and_never_an_unbounded_scan(storage):
+    from corpus_structure.semantic.data_operation_source_sets import FrozenSourceSet, read_source_sets, source_sets_record
+
+    connection, _table, projection = storage
+    sources = (FrozenSourceSet("selected", ()),)
+    assert source_sets_record(sources) == {"selected": []}
+    assert read_source_sets({"selected": []}) == sources
+    base = model(BindingExpression("scan", roles=("items",)), minimum=0, presence="optional")
+    original = base.operations[0].roles[0]
+    role = replace(original, subject_target="source-set", support=replace(original.support, source="frozen-source-set", source_set="selected"))
+    schema = replace(base, operations=(replace(base.operations[0], roles=(role,)),))
+    def bind(selected):
+        return execute_binding(connection, compile_binding(schema, "urn:op", (projection,), subject="doc", source_sets=selected))
+    result = bind(sources)
+    assert result.status == "ready"
+    # A collection can be present and exactly empty; unknown/missing is separate.
+    assert [(role.state, role.members) for role in result.roles] == [("present", ())]
+    with pytest.raises(ValueError, match="source.set"):
+        bind(())
+    required = replace(role, minimum=1, presence="required")
+    required_schema = replace(schema, operations=(replace(schema.operations[0], roles=(required,)),))
+    refused = execute_binding(connection, compile_binding(required_schema, "urn:op", (projection,), subject="doc", source_sets=sources))
+    assert refused.status != "ready"
+    assert not refused.roles[0].members

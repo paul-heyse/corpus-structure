@@ -346,6 +346,18 @@ class DdoRecordReferencePopulation(FrozenContract):
         return self
 
 
+class DdoRecordReferencePopulationA(DdoRecordReferencePopulation):
+    pass_kind: Literal["A"]
+
+
+class DdoRecordReferencePopulationB(DdoRecordReferencePopulation):
+    pass_kind: Literal["B"]
+
+
+class DdoRecordReferencePopulationC(DdoRecordReferencePopulation):
+    pass_kind: Literal["C"]
+
+
 class DdoRecordPredictionSelection(FrozenContract):
     source: DeclaredStructuralSource
     outcome: Literal["completed", "no_output", "failed"]
@@ -574,7 +586,9 @@ class DdoProtectedRecordPolicyContracts(FrozenContract):
     grade: DdoRecordGrade
     fitted: DdoFittedRecordPolicy
     specification: DdoRecordFitSpecification
-    reference: DdoRecordReferencePopulation
+    reference_a: DdoRecordReferencePopulationA
+    reference_b: DdoRecordReferencePopulationB
+    adjudication: DdoRecordReferencePopulationC
     grading: DdoRecordGradeSpecification
     preliminary: DdoRecordFeatureFitRequest
 
@@ -648,7 +662,7 @@ class RecordPolicyFitPlan:
         if (selection.project_id != binding.subject_context.project_id
                 or selection.product_id != feature_member.product
                 or not any(isinstance(ref, ComputationalSupportReference)
-                           and (ref.derivation_id, ref.admission_use_id) == (selection.derivation_id, selection.use_id)
+                           and ref.derivation_id == selection.derivation_id
                            for ref in feature_member.support_references)
                 or not calibration_member.support_episodes
                 or specification.calibration_selection.product_id != calibration_member.product
@@ -819,7 +833,7 @@ def grade_complete_record_values(
         if any(row["family"] != question.family for row in rows):
             raise ValueError("independent reference contains a record outside its declared family")
         comparison = replace(reference_frame, prediction_policy_version=reference_frame.reference_policy_version)
-        align_records(RecordSide(comparison, rows), RecordSide(comparison, rows), reference_prepared, coordinate_texts=coordinates)
+        align_records(RecordSide(comparison, rows), RecordSide(comparison, rows), reference_prepared, model=reference_model, prediction_model=reference_model, coordinate_texts=coordinates)
         reference_rows[kind] = rows
     if predictions is not None and predictions["source_pin"] != question.source.model_dump(mode="json", exclude_none=True):
         raise ValueError("prediction source differs from the original frozen source-only question")
@@ -846,6 +860,7 @@ def grade_complete_record_values(
         correct = whole_reading_correct(
             prediction_prepared, row, reference_rows["C"], reference_frame,
             coordinate_texts=coordinates, reference_prepared=reference_prepared,
+            reference_model=reference_model, prediction_model=prediction_model,
             prediction_frame=prediction_frame, prediction_coordinate_texts=predictions["coordinate_texts"],
             correspondence=correspondence,
         )
@@ -989,10 +1004,10 @@ def _authenticate_question_sources(connection, prepared, questions):
     return tuple(result)
 
 
-def execute_grade_profile(receiver, reference_a, reference_b, adjudication, prediction, specification):
+def execute_grade_profile(receiver, sources, reference_a, reference_b, adjudication, prediction, specification):
     if receiver.execute is None:
         raise ValueError("record grading requires its acquired current source and release resources")
-    return receiver.execute(reference_a, reference_b, adjudication, prediction, specification)
+    return receiver.execute(sources, reference_a, reference_b, adjudication, prediction, specification)
 
 
 def grade_complete_record_population_values(
@@ -1049,7 +1064,7 @@ def grade_complete_record_population_values(
     ))
 
 
-def execute_grade_kernel(reference_a: dict, reference_b: dict, adjudication: dict, prediction: list[dict],
+def execute_grade_kernel(sources: list[dict], reference_a: dict, reference_b: dict, adjudication: dict, prediction: list[dict],
                          specification: dict, metadata: dict, *, prepared, check_active) -> dict:
     from corpus_structure.semantic.cpu_execution import hydrate_capsule
     from corpus_structure.semantic.data_operation_admission import bound_data_operation_model
@@ -1075,6 +1090,42 @@ def execute_grade_kernel(reference_a: dict, reference_b: dict, adjudication: dic
         check_active=check_active,
     )
     return result.model_dump(mode="json")
+
+
+def _bound_source_members(binding):
+    if binding is None or not binding.sufficient or binding.subject_context is None:
+        raise ValueError("record grading requires its sufficient exact native binding")
+    roles = [role for role in binding.roles if role.role == "sources" and role.state == "present"]
+    if len(roles) != 1 or not roles[0].members:
+        raise ValueError("record grading requires every actual primary and related source input")
+    members = roles[0].members
+    if any(member.multiplicity != 1 for member in members) or len({(member.product, member.member) for member in members}) != len(members):
+        raise ValueError("record source population repeats or multiplies an original source address")
+    return members
+
+
+def _verify_declared_sources(source_values, members, bodies, *, project):
+    """Native source roles retain the same actual sources that the reference cut authenticated."""
+    from corpus_structure.semantic.data_operation_identity import semantic_value
+
+    expected = {}
+    for values in source_values:
+        for raw_pin, body in values:
+            pin = DeclaredStructuralSource.model_validate(raw_pin)
+            key = (pin.source_product, pin.source_member)
+            previous = expected.setdefault(key, (pin, body))
+            if previous != (pin, body):
+                raise ValueError("record question assigns conflicting source meaning to one actual address")
+    if len(members) != len(bodies) or {(member.product, member.member) for member in members} != set(expected):
+        raise ValueError("declared sources differ from the exact primary and related consumed source closure")
+    for member, body in zip(members, bodies, strict=True):
+        pin, actual = expected[(member.product, member.member)]
+        address = DeclaredProductRef.from_bound(member, project=project)
+        if ((address.kind_contract, address.project_id, address.subject, address.subject_definition,
+             address.original_source, address.analyzed_scope_meaning) !=
+            (pin.kind_contract, pin.project_id, pin.subject, pin.subject_definition, pin.original_source, pin.analyzed_scope_meaning)
+                or semantic_value(body) != semantic_value(actual)):
+            raise ValueError("declared source body/context differs from its authenticated selected source")
 
 
 def _bound_prediction_members(binding):
@@ -1113,6 +1164,7 @@ class RecordPolicyGradePlan:
         values = arguments.arguments
         populations = tuple(DdoRecordReferencePopulation.model_validate_json(canonical_bytes(values[name])) for name in ("reference_a", "reference_b", "adjudication"))
         reference_members = tuple(_bound_scalar(binding, name) for name in ("reference_a", "reference_b", "adjudication"))
+        source_members = _bound_source_members(binding)
         prediction_members = _bound_prediction_members(binding)
         specification = DdoRecordGradeSpecification.model_validate_json(canonical_bytes(values["specification"]))
         questions = tuple(row.question for row in populations[2].references)
@@ -1145,6 +1197,7 @@ class RecordPolicyGradePlan:
             reference_prepared = open_release(connection, questions[0].source_release_id)
             reference_release_id = capture(reference_prepared)
             sources_by_question = _authenticate_question_sources(connection, reference_prepared, questions)
+            _verify_declared_sources(sources_by_question, source_members, values["sources"], project=context.project_id)
             with selected_record_index(connection, cut.record["demand_id"], project_id=context.project_id,
                                        scope=cut.record["scope"], read_id=cut.record["read_id"], expected_cut=cut.identity,
                                        capture_frontier=True) as (_, index):
@@ -1274,13 +1327,16 @@ def author_record_policy_inputs(engine, prepared, *, request):
     from corpus_structure.semantic.data_operation_identity import decode_semantic_value
     from corpus_structure.semantic.native_definition_projection import read_native_definition_projection
     from corpus_structure.serve.interpretation_authoring import author_interpretations
+    from corpus_structure.semantic.data_operation_admission import bound_data_operation_model
     from .record_alignment import RecordSide, align_records
     from corpus_structure.semantic.releases import open_release
 
     if request.targets not in {("record_policy.grade",), ("record_policy.fit",)}:
         raise ValueError("protected record authoring requires its exact grade or fit target")
     supported = {PROTECTED_NAMESPACE + name: cls for name, cls in (
-        ("DdoRecordReferencePopulation", DdoRecordReferencePopulation),
+        ("DdoRecordReferencePopulationA", DdoRecordReferencePopulationA),
+        ("DdoRecordReferencePopulationB", DdoRecordReferencePopulationB),
+        ("DdoRecordReferencePopulationC", DdoRecordReferencePopulationC),
         ("DdoRecordGradeSpecification", DdoRecordGradeSpecification),
         ("DdoRecordFitSpecification", DdoRecordFitSpecification),
     )}
@@ -1308,7 +1364,7 @@ def author_record_policy_inputs(engine, prepared, *, request):
                     comparison = replace(frame, prediction_policy_version=frame.reference_policy_version)
                     coordinates = _canonical_json_value(question.coordinate_texts_canonical_json)
                     _check_source_coordinates(original, source_values, coordinates, [anchor for row in rows for anchor in row["anchors"]])
-                    align_records(RecordSide(comparison, rows), RecordSide(comparison, rows), original, coordinate_texts=coordinates)
+                    align_records(RecordSide(comparison, rows), RecordSide(comparison, rows), original, model=bound_data_operation_model(original), prediction_model=bound_data_operation_model(original), coordinate_texts=coordinates)
     return author_interpretations(engine, prepared, request=request)
 
 

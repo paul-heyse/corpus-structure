@@ -16,6 +16,7 @@ from hashlib import sha256
 from typing import Any
 
 from corpus_structure.semantic.identity import canonical_bytes
+from corpus_structure.semantic.data_operation_model import EffectiveDataOperationModel
 from corpus_structure.semantic.record_contracts import (
     anchor_identity,
     bind_record_candidates,
@@ -63,12 +64,14 @@ def reference_contract(prepared: PreparedRelease) -> dict[str, Any]:
                 "schemas": schemas,
                 "definitions": definitions,
                 "vocabularies": sorted(
-                    (asdict(value) for value in prepared.vocabularies if value.enum in ranges),
+                    ({key: item for key, item in asdict(value).items() if key != "definition_digest"}
+                     for value in prepared.vocabularies if value.enum in ranges),
                     key=lambda value: value["enum"],
                 ),
                 "enum_declarations": sorted(
                     (
-                        {"kind": row.kind, "name": row.name, "body_hex": row.body.hex()}
+                        {"kind": row.kind, "name": row.name,
+                         "declaration": {key: value for key, value in json.loads(row.body).items() if key != "definition_digest"}}
                         for row in prepared.registry_rows
                         if row.kind == "enum" and row.name in ranges
                     ),
@@ -324,12 +327,12 @@ def anchor_in_scope(anchor, anchor_ids, scopes):
     return False
 
 
-def _records(prepared, side, frame, contexts, contracts, *, reference, anchor_allowed=None):
+def _records(prepared, model, side, frame, contexts, contracts, *, reference, anchor_allowed=None):
     rows = tuple(
         model.model_dump(mode="python")
         for model in bind_record_candidates(
             prepared,
-            source=frame["pin"]["source"],
+            model=model, source=frame["pin"]["source"],
             records=side.records,
             coordinate_texts=contexts,
         )
@@ -407,6 +410,8 @@ def align_records(
     prediction: RecordSide,
     prepared: PreparedRelease,
     *,
+    model: EffectiveDataOperationModel,
+    prediction_model: EffectiveDataOperationModel,
     coordinate_texts: Sequence[Mapping[str, Any]] = (),
     comparison_policy: str = COMPARISON_POLICY,
     prediction_prepared: PreparedRelease | None = None,
@@ -478,7 +483,7 @@ def align_records(
     pins = {canonical_bytes(value) for value in (ref_frame["pin"], *ref_frame["related_pins"])}
     if any(canonical_bytes(context["pin"]) not in pins for context in contexts):
         raise ValueError("coordinate text has a stale or mismatched source pin")
-    rr, _ = _records(prepared, reference, ref_frame, contexts, contracts, reference=True)
+    rr, _ = _records(prepared, model, reference, ref_frame, contexts, contracts, reference=True)
     prediction_contexts = (
         contexts
         if prediction_coordinate_texts is None
@@ -505,6 +510,7 @@ def align_records(
 
     pp, standings = _records(
         target,
+        prediction_model,
         prediction,
         pred_frame,
         prediction_contexts,
@@ -609,6 +615,8 @@ def whole_reading_correct(
     reference_records: Sequence[Mapping[str, Any]],
     frame,
     *,
+    reference_model: EffectiveDataOperationModel,
+    prediction_model: EffectiveDataOperationModel,
     coordinate_texts: Sequence[Mapping[str, Any]],
     reference_prepared: PreparedRelease | None = None,
     prediction_frame=None,
@@ -623,7 +631,7 @@ def whole_reading_correct(
     reference_prepared = reference_prepared or prepared
     prediction_frame = prediction_frame or frame
     options = dict(
-        coordinate_texts=coordinate_texts,
+        model=reference_model, prediction_model=prediction_model, coordinate_texts=coordinate_texts,
         prediction_prepared=prepared,
         prediction_coordinate_texts=prediction_coordinate_texts,
         correspondence=correspondence,

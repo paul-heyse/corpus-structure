@@ -3,7 +3,7 @@
 from copy import deepcopy
 
 import pytest
-from evaluation_record_alignment_support import finish, frame, prepared, reading, role
+from evaluation_record_alignment_support import finish, frame, prepared, reading, role, model
 
 from corpus_structure.evaluate.record_alignment import whole_reading_correct
 from corpus_structure.semantic.reading_resolution_products import reading_diagnostics
@@ -15,8 +15,8 @@ def test_candidate_correctness_does_not_require_or_grant_public_acceptance():
     candidate["standing"] = "candidate"
     before = deepcopy(candidate)
     assert whole_reading_correct(
-        prepared(), candidate, (reference,), frame(reference), coordinate_texts=contexts
-    )
+        prepared(), candidate, (reference,), frame(reference), coordinate_texts=contexts,
+    reference_model = model(), prediction_model = model())
     assert candidate == before
     assert candidate["standing"] == "candidate"
 
@@ -38,8 +38,8 @@ def test_complete_wrong_reading_and_nonpresent_meaning_are_negative_labels():
     )
     finish(candidate)
     assert not whole_reading_correct(
-        prepared(), candidate, (reference,), frame(reference), coordinate_texts=contexts
-    )
+        prepared(), candidate, (reference,), frame(reference), coordinate_texts=contexts,
+    reference_model = model(), prediction_model = model())
 
 
 def test_stale_source_binding_refuses_instead_of_becoming_a_negative_label():
@@ -50,8 +50,8 @@ def test_stale_source_binding_refuses_instead_of_becoming_a_negative_label():
     finish(candidate)
     with pytest.raises(ValueError, match="policy"):
         whole_reading_correct(
-            prepared(), candidate, (reference,), frame(reference), coordinate_texts=contexts
-        )
+            prepared(), candidate, (reference,), frame(reference), coordinate_texts=contexts,
+        reference_model = model(), prediction_model = model())
 
 
 def test_diagnostics_follow_exact_native_group_dependencies_not_array_positions():

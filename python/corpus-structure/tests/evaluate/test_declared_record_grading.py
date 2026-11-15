@@ -160,6 +160,13 @@ def test_actual_grade_and_fit_factories_compile_as_closed_project_derivations():
     assert fit.capabilities.prepared_factory.entrypoint == "corpus_structure.methods.declared_record_policy.RecordPolicyFit.acquire_port"
     assert [role.name for role in grade.roles if role.direction == "output"] == ["grade"]
     assert [role.name for role in fit.roles if role.direction == "output"] == ["fitted"]
-    assert next(role for role in grade.roles if role.name == "prediction").collection == "sequence"
+    assert next(role for role in grade.roles if role.name == "prediction").collection == "set"
     assert fit.outcomes == ("success", "empty")
+    assert next(role for role in grade.roles if role.name == "prediction").support.source_set == "record-policy-predictions"
+    assert {role.name: role.support.source_set for role in fit.roles if role.name in {"feature_grade", "calibration_grade"}} == {
+        "feature_grade": "record-policy-feature-grades", "calibration_grade": "record-policy-calibration-grades",
+    }
+    assert [role.kind.rsplit("/", 1)[-1] for role in grade.roles if role.name in {"reference_a", "reference_b", "adjudication"}] == [
+        "DdoRecordReferencePopulationA", "DdoRecordReferencePopulationB", "DdoRecordReferencePopulationC",
+    ]
     assert all(item.complete for item in model.implementation_slices)

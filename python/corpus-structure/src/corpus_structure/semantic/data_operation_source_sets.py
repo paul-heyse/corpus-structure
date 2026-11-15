@@ -186,8 +186,8 @@ class FrozenSourceSet:
             or any(not isinstance(entry, SourceSetEntry) for entry in self.entries)
         ):
             raise TypeError("source sets require an immutable typed entry tuple")
-        if not self.name or not self.entries:
-            raise ValueError("source sets require a name and exact original members")
+        if not self.name:
+            raise ValueError("source sets require an explicit name")
         identities = {(entry.product, entry.member) for entry in self.entries}
         if len(identities) != len(self.entries):
             raise ValueError("source sets require unique qualified product/member pins")
