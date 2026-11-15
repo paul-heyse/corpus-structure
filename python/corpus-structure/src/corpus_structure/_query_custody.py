@@ -108,7 +108,21 @@ RICH_QUERY_SOURCES = (
     "semantic/unicode_identity.py",
     "semantic/graph_runtime.py",
 )
-QUERY_SOURCES = tuple(dict.fromkeys((*QUERY_SOURCES, *RICH_QUERY_SOURCES)))
+COMPOSITE_READ_SOURCES = (
+    *(name for name in RICH_QUERY_SOURCES if name != "semantic/rich_statistics_queries.py"),
+    "serve/selected_contributions.py",
+    "serve/contribution_facets.py",
+    "serve/identity_exclusion_comparison.py",
+    "semantic/contribution_facets.py",
+    "semantic/identity_exclusion_comparison.py",
+    "semantic/rich_proposals.py",
+    "semantic/demand_results.py",
+    "semantic/data_operation_read_index.py",
+    "semantic/authority_leaf.py",
+    "semantic/record_policy_authority.py",
+    "semantic/record_policy.py",
+)
+QUERY_SOURCES = tuple(dict.fromkeys((*QUERY_SOURCES, *RICH_QUERY_SOURCES, *COMPOSITE_READ_SOURCES)))
 _BASE = Path(__file__).resolve().parent
 _NAMES = {
     "corpus_structure." + name[:-3].replace("/", "."): str(_BASE / name) for name in QUERY_SOURCES

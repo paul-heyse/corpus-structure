@@ -215,7 +215,6 @@ POSTGRESQL_IMPLEMENTATION_SOURCES = (
     ("invocation/interpretation-queries.py", "semantic/interpretation_queries.py"),
     ("invocation/portable-interpretation.py", "semantic/portable_interpretation.py"),
     ("invocation/interpretation-serving.py", "serve/interpretations.py"),
-    ("invocation/research-serving.py", "serve/research.py"),
     ("invocation/alias-policy.py", "semantic/alias_policy.py"),
     ("capture/operation-report-schemas.json", "model/semantic/operation-report-schemas.json"),
     ("capture/companion-columns.py", "semantic/_companion_columns.py"),

@@ -285,7 +285,7 @@ def register(root: typer.Typer):
     root.add_typer(review, name="review")
     root.command("export")(export)
     root.add_typer(records_app, name="records")
-    contributions_app.command("list")(records)
+    contributions_app.command("list")(contributions)
     contributions_app.command("export")(export)
     root.add_typer(contributions_app, name="contributions")
     root.command("characterization")(characterization)
@@ -339,3 +339,95 @@ def definition(ctx: typer.Context, request: Annotated[Path, typer.Option()], jso
     )
 
     return _inspect(ctx, request, DemandDefinitionRequest, inspect_demand_definition, json=json)
+
+
+def contributions(
+    ctx: typer.Context,
+    demand: Annotated[str, typer.Option()],
+    project: Annotated[str, typer.Option()],
+    operation: str | None = None,
+    subject: str | None = None,
+    original_source: str | None = None,
+    without_original_source: bool = False,
+    kind_contract: str | None = None,
+    product: str | None = None,
+    member: str | None = None,
+    read_id: str | None = None,
+    cut_id: str | None = None,
+    include_interpretation: bool = True,
+    include_assessment: bool = True,
+    include_operations: bool = True,
+    cursor: str | None = None,
+    limit: int = 100,
+    max_bytes: int = 1048576,
+    max_graph_bytes: int = 8388608,
+    max_graph_records: int = 100000,
+    max_support_edges: int = 100000,
+    max_nested_members: int = 1000,
+    json: JsonOpt = False,
+):
+    """Join current contributions with typed interpretation and actual captured judgments.
+
+    Explicit read/cut pins or returned cursors retain exact native selection. Private
+    proposals remain private; missing judgment or unsupported facets remain unknown.
+    """
+    from pydantic import ValidationError
+
+    from corpus_structure.cli.failures import failure_boundary
+    from corpus_structure.semantic.demand_results import (
+        SelectedGraphBudgetExceeded,
+        selected_read_snapshot,
+    )
+    from corpus_structure.semantic.refusals import InvalidContinuation
+    from corpus_structure.semantic.rich_queries import RichQueryRefused
+    from corpus_structure.semantic.runtime import open_runtime_engine
+    from corpus_structure.serve.contribution_facets import (
+        ContributionFacetsRequest,
+        serve_contribution_facets,
+    )
+
+    with failure_boundary(
+        json,
+        expected=(
+            ValidationError,
+            RichQueryRefused,
+            InvalidContinuation,
+            SelectedGraphBudgetExceeded,
+        ),
+    ):
+        if without_original_source and original_source is not None:
+            raise RichQueryRefused(
+                "select either an exact original source or explicit no original source"
+            )
+        values = dict(
+            demand_id=demand,
+            project_id=project,
+            operation_id=operation,
+            subject=subject,
+            kind_contract=kind_contract,
+            product_id=product,
+            member_id=member,
+            read_id=read_id,
+            expected_cut=cut_id,
+            include_interpretation=include_interpretation,
+            include_assessment=include_assessment,
+            include_operations=include_operations,
+            cursor=cursor,
+            limit=limit,
+            max_bytes=max_bytes,
+            max_graph_bytes=max_graph_bytes,
+            max_graph_records=max_graph_records,
+            max_support_edges=max_support_edges,
+            max_nested_members=max_nested_members,
+        )
+        if original_source is not None or without_original_source:
+            values["original_source"] = original_source
+        request = ContributionFacetsRequest.model_validate(values)
+        with (
+            open_runtime_engine(
+                state(ctx).settings(), "ci-contribution-facets", purpose="read"
+            ) as engine,
+            selected_read_snapshot(engine) as connection,
+        ):
+            report = serve_contribution_facets(connection, request)
+    write_report_text(json_bytes(report).decode() + "\n")

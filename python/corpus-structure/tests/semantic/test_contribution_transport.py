@@ -1,4 +1,4 @@
-"""Current selected-member CLI/MCP transport; this grants no v3 facet aggregation."""
+"""Current composite CLI/MCP transport; native acquisition is controlled here."""
 
 import json
 from contextlib import nullcontext
@@ -11,13 +11,19 @@ from typer.testing import CliRunner
 
 from corpus_structure.cli import selected_results as cli_adapter
 from corpus_structure.cli.app import app
+from corpus_structure.intervene import contribution_facet_tools
 from corpus_structure.intervene.semantic_server import build_retained_reader_server
-from corpus_structure.serve import demand_journey
+from corpus_structure.semantic.demand_queries import _cursor
+from corpus_structure.serve import contribution_facets
 
 
-def test_cli_and_registered_mcp_preserve_current_selected_member_scope(monkeypatch):
+def test_cli_and_registered_mcp_preserve_current_composite_scope(monkeypatch):
     engine = create_engine("sqlite://")
     captured = []
+    monkeypatch.setattr(
+        "corpus_structure.semantic.demand_results.selected_read_snapshot",
+        lambda selected: nullcontext(None),
+    )
     monkeypatch.setattr(
         "corpus_structure.semantic.runtime.open_runtime_engine", lambda *a, **k: nullcontext(engine)
     )
@@ -25,11 +31,15 @@ def test_cli_and_registered_mcp_preserve_current_selected_member_scope(monkeypat
 
     def inspect(conn, request):
         captured.append(request.model_dump(mode="python"))
-        return {"cut_id": "cut:controlled", "rows": [], "cursor": None}
+        return {
+            "cut_id": "cut:controlled",
+            "items": [],
+            "cursor": None,
+            "resource_handle": _cursor(request.model_dump(mode="python", exclude_unset=True)),
+        }
 
-    monkeypatch.setattr(cli_adapter, "serve_demand_query", inspect)
-    monkeypatch.setattr(demand_journey, "serve_demand_query", inspect)
-    monkeypatch.setattr("corpus_structure.intervene.demand_read_tools.serve_demand_query", inspect)
+    monkeypatch.setattr(contribution_facets, "serve_contribution_facets", inspect)
+    monkeypatch.setattr(contribution_facet_tools, "serve_contribution_facets", inspect)
     result = CliRunner().invoke(
         app,
         [
@@ -65,9 +75,9 @@ def test_cli_and_registered_mcp_preserve_current_selected_member_scope(monkeypat
                 "structural_gap",
                 "structural_products",
                 "dossier_representation",
-                "compare_identity_exclusions",
             }
-            response = await client.call_tool("read_result", {"request": captured[0]})
+            assert "inspect_contributions" in tools and "compare_identity_exclusions" in tools
+            response = await client.call_tool("inspect_contributions", {"request": captured[0]})
             assert not response.is_error
 
     try:

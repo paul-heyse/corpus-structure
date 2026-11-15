@@ -51,7 +51,7 @@ def request(**changes):
 
 def test_pages_require_exact_cut_root_query_and_installed_meaning(monkeypatch, statistics):
     graph, index = statistics
-    ref = index.state.selection.reference
+    ref = graph.root_input.reference
     cut = CutSelection(json_bytes(CUT))
     read = dict(
         demand_id="query-demand",
@@ -122,7 +122,7 @@ def test_exact_cursor_keeps_fractional_parameters_and_refuses_work_and_response_
     monkeypatch, statistics
 ):
     graph, index = statistics
-    ref = index.state.selection.reference
+    ref = graph.root_input.reference
     cut = CutSelection(json_bytes(CUT))
     monkeypatch.setattr(
         service,

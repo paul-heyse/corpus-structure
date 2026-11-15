@@ -32,9 +32,8 @@ VERSION = "selected-rich-query-1"
 @contextmanager
 def rich_query_implementation(query):
     """Bind actual installed helper objects and selected semantic libraries, never archived code."""
-    from corpus_structure._query_custody import RICH_QUERY_SOURCES, query_sources
+    from corpus_structure._query_custody import RICH_QUERY_SOURCES
 
-    root = Path(__file__).resolve().parents[1]
     names = tuple(
         name
         for name in RICH_QUERY_SOURCES
@@ -49,7 +48,24 @@ def rich_query_implementation(query):
         }
         or name != "semantic/rich_statistics_queries.py"
     )
-    sources = {str(root / name): sha256((root / name).read_bytes()).hexdigest() for name in names}
+    with installed_read_implementation(
+        type(query),
+        sources=names,
+        profile=VERSION,
+        extra_libraries=("networkx",) if query.name == "relations_between" else (),
+    ) as identity:
+        yield identity
+
+
+@contextmanager
+def installed_read_implementation(contract, *, sources, profile, extra_libraries=()):
+    """Existing import custody shared by finite current read consumers."""
+    from corpus_structure._query_custody import query_sources
+
+    root = Path(__file__).resolve().parents[1]
+    captured = {
+        str(root / name): sha256((root / name).read_bytes()).hexdigest() for name in sources
+    }
     libraries = {
         name: version(name)
         for name in (
@@ -61,24 +77,23 @@ def rich_query_implementation(query):
             "jsonschema",
             "referencing",
             "jsonschema-specifications",
+            *extra_libraries,
         )
     }
     libraries["unicode"] = unicodedata.unidata_version
-    if query.name == "relations_between":
-        libraries["networkx"] = version("networkx")
     identity = sha256(
         json_bytes(
             dict(
-                version=VERSION,
+                version=profile,
                 sources={
-                    str(Path(path).relative_to(root)): digest for path, digest in sources.items()
+                    str(Path(path).relative_to(root)): digest for path, digest in captured.items()
                 },
-                query_contract=type(query).model_json_schema(),
+                query_contract=contract.model_json_schema(),
                 libraries=libraries,
             )
         )
     ).hexdigest()
-    with query_sources(sources):
+    with query_sources(captured):
         yield identity
 
 

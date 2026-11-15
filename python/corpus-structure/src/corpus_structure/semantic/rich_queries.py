@@ -26,6 +26,7 @@ from .rich_graph_validation import ValidatedRichGraph
 from .rich_knowledge_contracts import (
     DdoRichAdmission,
     DdoRichCollectionValue,
+    DdoRichConsolidation,
     DdoRichEntity,
     DdoRichFact,
     DdoRichOccurrence,
@@ -151,8 +152,8 @@ def statement_key(reference) -> str | None:
     )
 
 
-class RichQueryIndex:
-    """Bounded reusable indexes; all semantic decoding stays with the actual graph owner."""
+class RichGraphIndex:
+    """Bounded indexes over actual accepted or explicitly private rich graph meaning."""
 
     def __init__(
         self,
@@ -161,8 +162,11 @@ class RichQueryIndex:
         max_members: int = 100000,
         max_nested_members: int = 1000,
     ):
-        if not isinstance(state.graph, DdoRichAdmission):
-            raise RichQueryRefused("rich queries require the actual selected accepted whole")
+        if not isinstance(state.graph, (DdoRichAdmission, DdoRichConsolidation)):
+            raise RichQueryRefused("rich interpretation requires its actual typed graph whole")
+        selection = (
+            state.graph if isinstance(state.graph, DdoRichAdmission) else state.graph.eligibility
+        )
         if len(state.members) > max_members or max_members < 1 or max_nested_members < 1:
             raise RichQueryRefused("rich query graph exceeds the admitted member capacity")
         self.state, self.max_nested_members = state, max_nested_members
@@ -182,11 +186,15 @@ class RichQueryIndex:
             for key, value in state.members.items()
             if isinstance(value, DdoRichSourceReadingAssertion)
         }
-        self.selected_facts = frozenset(state.graph.selected_fact_ids)
-        self.selected_occurrences = frozenset(state.graph.selected_occurrence_ids)
-        self.selected_readings = frozenset(state.graph.selected_reading_ids)
+        self.selected_facts = frozenset(selection.selected_fact_ids)
+        self.selected_occurrences = frozenset(selection.selected_occurrence_ids)
+        self.selected_readings = (
+            frozenset(state.graph.selected_reading_ids)
+            if isinstance(state.graph, DdoRichAdmission)
+            else frozenset()
+        )
         self.scientific_representatives = {
-            row.fact_id: row for row in state.graph.scientific_representatives
+            row.fact_id: row for row in selection.scientific_representatives
         }
         if (
             not self.selected_facts <= self.facts.keys()
@@ -397,6 +405,15 @@ class RichQueryIndex:
                 if item.kind == "fact"
             )
         return frozenset(references)
+
+
+class RichQueryIndex(RichGraphIndex):
+    """Public named knowledge queries require the actual selected accepted whole."""
+
+    def __init__(self, state: ValidatedRichGraph, **limits):
+        if not isinstance(state.graph, DdoRichAdmission):
+            raise RichQueryRefused("rich queries require the actual selected accepted whole")
+        super().__init__(state, **limits)
 
 
 def query_rows(index: RichQueryIndex, query: RichQuery):

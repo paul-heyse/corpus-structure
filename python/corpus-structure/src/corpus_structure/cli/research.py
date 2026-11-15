@@ -1,86 +1,94 @@
-"""Read-only pinned research comparisons."""
+"""Current read comparisons over two explicit selected native roots."""
 
-from __future__ import annotations
-
+from contextlib import nullcontext
+from hashlib import sha256
+from pathlib import Path
 from typing import Annotated
 
 import typer
+from pydantic import ValidationError
 
-from corpus_structure.cli.output import JsonOpt, emit, state
-
-app = typer.Typer(help="Compare explicitly pinned research inputs.", no_args_is_help=True)
-
-
-@app.command(
-    "compare-exclusions",
-    epilog=(
-        "Example: ci retained-research compare-exclusions --before-run 10 "
-        "--after-run 11 --json\n\nDomain contract: [domain "
-        "reader](docs/design/D8-agent-and-query-interfaces.md)"
-    ),
+from corpus_structure.cli.output import JsonOpt, read_request_json, state, write_report_text
+from corpus_structure.semantic.data_operation_json import json_bytes
+from corpus_structure.semantic.demand_results import (
+    SelectedGraphBudgetExceeded,
+    selected_read_snapshot,
 )
+from corpus_structure.semantic.refusals import InvalidContinuation
+from corpus_structure.semantic.rich_queries import RichQueryRefused
+
+app = typer.Typer(help="Compare explicitly pinned current research inputs.", no_args_is_help=True)
+
+
+@app.command("compare-exclusions")
 def compare_exclusions(
     ctx: typer.Context,
-    before_run: Annotated[
-        int, typer.Option(help="Pinned source run ID.", rich_help_panel="Inputs")
+    request: Annotated[
+        Path,
+        typer.Option(
+            help="ExclusionComparisonRequest JSON with exact before/after read/cut/use/product/derivation pins."
+        ),
     ],
-    after_run: Annotated[int, typer.Option(help="Pinned source run ID.", rich_help_panel="Inputs")],
-    limit: Annotated[
-        int,
-        typer.Option(
-            min=1, max=1000, help="Maximum changed exclusion entries.", rich_help_panel="Delivery"
-        ),
-    ] = 100,
-    max_rows: Annotated[
-        int,
-        typer.Option(
-            min=1, max=10000, help="Maximum examined rows per input.", rich_help_panel="Inputs"
-        ),
-    ] = 1000,
-    max_bytes: Annotated[
-        int,
-        typer.Option(
-            min=1,
-            max=8 * 1024**2,
-            help="Byte bound for captures and response.",
-            rich_help_panel="Delivery",
-        ),
-    ] = 1024**2,
-    retain: Annotated[
-        bool,
-        typer.Option(
-            "--retain/--no-retain",
-            help="Publish the comparison in managed storage.",
-            rich_help_panel="Delivery",
-        ),
-    ] = False,
+    retain: bool = False,
     json: JsonOpt = False,
 ):
-    """Compare exclusions in two pinned runs; optionally retain the bounded read result."""
+    """Compare materialized source constraints; unmatched declarations establish no absence."""
     from corpus_structure.cli.failures import failure_boundary
     from corpus_structure.cli.managed import result_store
-    from corpus_structure.semantic.query import read_snapshot
     from corpus_structure.semantic.runtime import open_runtime_engine
-    from corpus_structure.serve.research import comparison_delivery
+    from corpus_structure.serve.identity_exclusion_comparison import (
+        ExclusionComparisonRequest,
+        compare_selected_exclusions,
+    )
 
-    with (
-        failure_boundary(json),
-        open_runtime_engine(
-            state(ctx).settings(), application_name="ci-research", purpose="read"
-        ) as engine,
-        read_snapshot(engine) as conn,
+    with failure_boundary(
+        json,
+        expected=(
+            ValidationError,
+            RichQueryRefused,
+            InvalidContinuation,
+            SelectedGraphBudgetExceeded,
+        ),
     ):
-        report = comparison_delivery(
-            conn,
-            before_run,
-            after_run,
-            limit=limit,
-            max_rows=max_rows,
-            max_bytes=max_bytes,
-            store=result_store(ctx) if retain else None,
-        )
-    emit(report, json=json)
+        try:
+            incoming = read_request_json(request)
+        except OSError as error:
+            raise RichQueryRefused("comparison request could not be read") from error
+        selected = ExclusionComparisonRequest.model_validate(incoming)
+        store = result_store(ctx) if retain else None
+        with (
+            store.operation("research.exclusion-comparison", scope=selected.selection())
+            if store is not None
+            else nullcontext(None) as operation
+        ):
+            with (
+                open_runtime_engine(
+                    state(ctx).settings(), "ci-identity-exclusion-comparison", purpose="read"
+                ) as engine,
+                selected_read_snapshot(engine) as connection,
+            ):
+                report = compare_selected_exclusions(connection, selected)
+            if operation is not None:
+                # Settle only after the native acquisition transaction succeeded.
+                content = json_bytes(report)
+                path = operation.directory / "comparison.json"
+                path.write_bytes(content)
+                operation.publish("comparison", path)
+                operation.settle(
+                    "passed",
+                    scope="explicit-selected-root-observations",
+                    sha256=sha256(content).hexdigest(),
+                )
+                report = dict(
+                    report,
+                    retained=dict(
+                        result_id=operation.id,
+                        role="comparison",
+                        sha256=sha256(content).hexdigest(),
+                    ),
+                )
+    write_report_text(json_bytes(report).decode() + "\n")
 
 
 def register(root):
-    root.add_typer(app, name="retained-research")
+    root.add_typer(app, name="research")

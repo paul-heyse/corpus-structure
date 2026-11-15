@@ -228,6 +228,7 @@ class Graph:
             }
         )
         proof = RichWholeInput(ref, admission)
+        self.root_input = proof
         state = read_retained_rich_graph(
             self.prepared,
             self.model,
