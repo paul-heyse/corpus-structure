@@ -5,28 +5,14 @@ from dataclasses import dataclass
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from corpus_structure._query_custody import STRUCTURAL_READ_SOURCES
+
 from corpus_structure.semantic.data_operation_json import json_bytes, json_loads
 from corpus_structure.semantic.nonrich_contribution_facets import read_nonrich_root
 from corpus_structure.semantic.observations import source_python
 
 from .contribution_facets import ContributionFacetsRequest
 from .selected_contributions import SelectedContributionScope, selected_contribution_scope
-
-STRUCTURAL_READ_SOURCES = (
-    "serve/selected_structural.py",
-    "serve/structural_products.py",
-    "serve/structural_gaps.py",
-    "serve/source_decision_journey.py",
-    "serve/selected_contributions.py",
-    "serve/selected_math.py",
-    "semantic/nonrich_contribution_facets.py",
-    "semantic/structural_products.py",
-    "semantic/declared_structural_references.py",
-    "semantic/source_products.py",
-    "semantic/contextual_operations.py",
-    "semantic/observations.py",
-)
-
 
 @dataclass(frozen=True)
 class StructuralScope(SelectedContributionScope):
@@ -37,7 +23,7 @@ class SelectedStructuralRoot(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
     product_id: str = Field(min_length=1)
     member_id: str | None = None
-    use_id: str = Field(min_length=1)
+    use_id: str | None = Field(min_length=1, description="Exact native use, or explicit null for an episode-only authority support reference.")
     derivation_id: str = Field(min_length=1)
 
 
@@ -85,38 +71,20 @@ def structural_scope(connection, request, *, roots, source_products=()):
             scope = connection
             pins = scope.cut.record
             if (
-                pins["demand_id"] != request.demand_id
-                or pins["project_id"] != request.project_id
+                pins["demand_id"] != request.demand_id or pins["project_id"] != request.project_id
                 or scope.scope != {"product_ids": products}
-                or (
-                    request.read_id is not None
-                    and (
-                        request.read_id != pins["read_id"]
-                        or request.expected_cut != scope.cut.identity
-                    )
-                )
+                or (request.read_id is not None and (request.read_id != pins["read_id"]
+                    or request.expected_cut != scope.cut.identity))
                 or scope.implementation != implementation
             ):
-                raise ValueError(
-                    "detached structural request differs from its authenticated read scope"
-                )
-            if (
-                scope.index.retained_bytes > request.max_graph_bytes
-                or scope.index.retained_records > request.max_graph_records
-            ):
+                raise ValueError("detached structural request differs from its authenticated read scope")
+            if scope.index.retained_bytes > request.max_graph_bytes or scope.index.retained_records > request.max_graph_records:
                 raise ValueError("detached structural closure exceeds its examined bound")
             yield scope
             return
         with selected_contribution_scope(connection, acquired, product_ids=products) as scope:
-            yield StructuralScope(
-                scope.cut,
-                scope.index,
-                scope.prepared,
-                scope.model,
-                scope.scope,
-                scope.max_support_edges,
-                implementation,
-            )
+            yield StructuralScope(scope.cut, scope.index, scope.prepared, scope.model,
+                                  scope.scope, scope.max_support_edges, implementation)
 
 
 def selected_root(scope, root):
@@ -150,19 +118,12 @@ def selected_contextual(scope, selected):
     nominal = "https://corpus-structure.dev/semantic/data-operation-contextual/DdoContextualRetrievalProduct"
     kind = next((kind for kind in scope.model.kinds if kind.semantic_id == nominal), None)
     contract = next(
-        (
-            identity.key
-            for identity in scope.model.identities
-            if identity.domain == "kind" and identity.owner == nominal
-        ),
-        None,
+        (identity.key for identity in scope.model.identities
+         if identity.domain == "kind" and identity.owner == nominal), None
     )
     if (
-        selected.nominal != nominal
-        or selected.reference.member_id is not None
-        or kind is None
-        or not kind.complete
-        or contract != selected.reference.kind_contract
+        selected.nominal != nominal or selected.reference.member_id is not None
+        or kind is None or not kind.complete or contract != selected.reference.kind_contract
     ):
         raise ValueError("contextual journey requires its actual captured retrieval whole")
     schema = json_loads(kind.facts).get("json_schema")
@@ -171,10 +132,8 @@ def selected_contextual(scope, selected):
     validate_wire_schema(schema, json_loads(json_bytes(selected.body)))
     return {
         **selected.body,
-        **{
-            name: source_python(selected.body[name])
-            for name in ("inventory", "candidate_list", "relationship_decision")
-        },
+        **{name: source_python(selected.body[name])
+           for name in ("inventory", "candidate_list", "relationship_decision")},
     }
 
 

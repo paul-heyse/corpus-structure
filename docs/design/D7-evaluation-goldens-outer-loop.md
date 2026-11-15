@@ -808,6 +808,15 @@ then the successive `phase0-golden` runs, whose scope resolves the dev set's uni
 
 ## Cross-source group assessment and portable feedback
 
+**DDO successor Proposed; native qualification remains open · 2026-11-15.** Structural
+reference passes retain their actual original authored admissions, submitted principals and author
+assertions. Typed actor/session identities record independent attribution; they do not attest that
+a provider ran or verify independent provider execution. C identifies the exact native A/B products
+and body identities. All three share the frozen source frame, question, report, direction and rubric.
+Exact explicit pins replace silent newest-row selection; currentness remains separately inspectable.
+Only the dedicated native issuer can publish the allowlisted ordinary statement. Protected answers,
+actors and parent references remain behind its bounded provenance boundary.
+
 **Implemented; bounded native controls Tested, 2026-11-05.** Structural assessment uses a
 finite group frame with every original source pin, exact question/operation/rubric and selected
 products. Independent A/B authored bytes and C parent identities are retained. Whole public
@@ -822,4 +831,4 @@ quality. Actual automatic20-pair semantic findings remain separate from four sup
 assembled statements and cannot inherit their grades. Source-only A/B, output-first authoring,
 exposed development feedback and unseen-origin claims retain distinct provenance.
 
-> Decision: [ADR-0065](../adr/0065-cross-source-structural-products.md)
+> Decision: [ADR-0065](../adr/0065-cross-source-structural-products.md), [ADR-0113](../adr/0113-selected-structural-admission.md) (proposed successor)

@@ -33,6 +33,8 @@ _PATHS = (
     "semantic/declared_candidate_products.py",
     "semantic/contextual_operations.py",
     "semantic/structural_admission.py",
+    "semantic/declared_structural_admission.py",
+    "semantic/structural_admission_native.py",
     "semantic/source_contexts.py",
     "semantic/declared_record_sources.py",
 )
@@ -210,6 +212,7 @@ class PreparedDossierInputs:
         comparisons,
         candidates,
         relationships,
+        admissions,
         *,
         component_id,
         candidate_selections,
@@ -323,6 +326,12 @@ class PreparedDossierInputs:
             retain(member, raw, DeclaredDefinitionApplicabilityReport)
         for member, raw in pairs("comparisons", comparisons):
             retain(member, raw, DeclaredComparisonReport)
+        apply_structural_admissions(
+            retained,
+            pairs("admissions", admissions),
+            project_id=self.context.project_id,
+        )
+        dependencies.extend(member.product for member in self.members("admissions"))
         for selected in TypeAdapter(tuple[DossierPassageSelection, ...]).validate_json(
             extra_passages
         ):
@@ -470,7 +479,7 @@ class PreparedDossierInputs:
             dependencies=tuple(dict.fromkeys(dependencies)),
             coverage_limits=(
                 "Only explicitly selected retained predecessors are assembled; membership is not exhaustive.",
-                "Protected independent assessment facets were not supplied; members remain private proposals.",
+                "Only explicitly selected native structural admissions support comparison-statement facets; assembly establishes no member truth.",
             ),
         )
         value = produce_structural_dossier(
@@ -502,6 +511,7 @@ class PreparedDossierInputs:
                 "comparisons_input": pins("comparisons"),
                 "candidates_input": pins("candidates"),
                 "relationships_input": pins("relationships"),
+                "admissions_input": pins("admissions"),
             }
         )
         self.check_active()
@@ -509,11 +519,43 @@ class PreparedDossierInputs:
 
 
 def execute_dossier(
-    receiver, sources, components, definitions, comparisons, candidates, relationships, **selection
+    receiver, sources, components, definitions, comparisons, candidates, relationships, admissions, **selection
 ):
     return receiver.inputs.run(
-        sources, components, definitions, comparisons, candidates, relationships, **selection
+        sources, components, definitions, comparisons, candidates, relationships, admissions, **selection
     )
+
+
+def apply_structural_admissions(retained, admissions, *, project_id):
+    """Supply the existing kernel only exact scoped whole-statement conclusions.
+
+    Native completion authenticates each issuer's ordinary receipt and exact input
+    support. These CPU checks prevent borrowing another retained report's statement;
+    product possession alone confers no admission authority.
+    """
+    from .data_operation_identity import semantic_value
+    from .declared_structural_admission import DdoStructuralAdmission
+    from .declared_structural_references import DeclaredProductRef
+    from .structural_admission import structural_statement
+
+    by_reference = {
+        canonical_bytes(DeclaredProductRef.model_validate(reference.model_dump(exclude={"structural_id"})).model_dump()): payload
+        for reference, payload in retained
+    }
+    used = set()
+    for member, raw in admissions:
+        value = DdoStructuralAdmission.model_validate(raw)
+        key = canonical_bytes(value.report.model_dump())
+        if value.report.project_id != project_id or key not in by_reference:
+            raise ValueError("dossier admission is outside its exact retained native report population")
+        if key in used:
+            raise ValueError("dossier repeats admission for the same exact native report")
+        used.add(key)
+        payload = by_reference[key]
+        if value.statement_meaning_json != canonical_bytes(semantic_value(structural_statement(payload["report"]))).decode():
+            raise ValueError("dossier admission substitutes its actual source-qualified statement")
+        payload["public_assertions"] = ({"statement": value.statement, "assessment_id": member.product,
+                                         "assessment_scope": "comparison_statement"},)
 
 
 def dossier_kernel(

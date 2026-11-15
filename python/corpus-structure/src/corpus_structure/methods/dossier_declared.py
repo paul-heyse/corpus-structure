@@ -153,6 +153,24 @@ class DossierOperation:
                 },
             },
             {
+                "name": "admissions",
+                "parameter": "admissions",
+                "kind": "urn:corpus:structural-admission:DdoStructuralAdmission",
+                "direction": "input",
+                "minimum": 0,
+                "maximum": None,
+                "collection": "set",
+                "presence": "optional",
+                "subject_target": "source-set",
+                "support": {
+                    "provenance": "exact",
+                    "source": "frozen-source-set",
+                    "source_set": "dossier-admissions",
+                    "coverage": {"role": "admissions", "description": "exact-native-structural-admission"},
+                    "identity_requirements": ["episode"],
+                },
+            },
+            {
                 "name": "result",
                 "kind": "urn:corpus:structural:DeclaredDossierReport",
                 "direction": "output",
@@ -213,6 +231,7 @@ class DossierOperation:
                 {"operator": "collection", "roles": ["comparisons"], "collection": "set"},
                 {"operator": "collection", "roles": ["candidates"], "collection": "set"},
                 {"operator": "collection", "roles": ["relationships"], "collection": "set"},
+                {"operator": "collection", "roles": ["admissions"], "collection": "set"},
             ],
         },
         "output_witnesses": [
@@ -690,6 +709,85 @@ class DossierOperation:
                     },
                 ],
             },
+            {
+                "output_role": "result",
+                "records": "/admissions_input/*",
+                "input_role": "admissions",
+                "comparisons": [
+                    {
+                        "output_field": "product_id",
+                        "input": {
+                            "role": "admissions",
+                            "projection": "selected-input",
+                            "field": "product",
+                        },
+                        "encoding": "value",
+                    },
+                    {
+                        "output_field": "reference",
+                        "input": {
+                            "role": "admissions",
+                            "projection": "selected-input",
+                            "field": "reference",
+                        },
+                        "encoding": "json",
+                    },
+                    {
+                        "output_field": "kind_contract",
+                        "input": {
+                            "role": "admissions",
+                            "projection": "selected-input",
+                            "field": "kind_contract",
+                        },
+                        "encoding": "value",
+                    },
+                    {
+                        "output_field": "project_id",
+                        "input": {
+                            "role": "admissions",
+                            "projection": "selected-input",
+                            "field": "project_id",
+                        },
+                        "encoding": "value",
+                    },
+                    {
+                        "output_field": "subject",
+                        "input": {
+                            "role": "admissions",
+                            "projection": "selected-input",
+                            "field": "subject",
+                        },
+                        "encoding": "value",
+                    },
+                    {
+                        "output_field": "subject_definition",
+                        "input": {
+                            "role": "admissions",
+                            "projection": "selected-input",
+                            "field": "subject_definition",
+                        },
+                        "encoding": "value",
+                    },
+                    {
+                        "output_field": "original_source",
+                        "input": {
+                            "role": "admissions",
+                            "projection": "selected-input",
+                            "field": "original_source",
+                        },
+                        "encoding": "value",
+                    },
+                    {
+                        "output_field": "analyzed_scope_meaning",
+                        "input": {
+                            "role": "admissions",
+                            "projection": "selected-input",
+                            "field": "analyzed_scope",
+                        },
+                        "encoding": "context-meaning-json",
+                    },
+                ],
+            },
         ],
         "opaque": [
             {
@@ -732,6 +830,7 @@ class DossierOperation:
             inputs.role("comparisons"),
             inputs.role("candidates"),
             inputs.role("relationships"),
+            inputs.role("admissions"),
         )
 
     def run(
@@ -742,6 +841,7 @@ class DossierOperation:
         comparisons: tuple[dict, ...],
         candidates: tuple[dict, ...],
         relationships: tuple[dict, ...],
+        admissions: tuple[dict, ...],
         component_id: str,
         candidate_selections: str = "[]",
         comparison_selections: str = "[]",
@@ -761,6 +861,7 @@ class DossierOperation:
             comparisons,
             candidates,
             relationships,
+            admissions,
             component_id=component_id,
             candidate_selections=candidate_selections,
             comparison_selections=comparison_selections,

@@ -1382,6 +1382,7 @@ class DeclaredDossierReport(DeclaredStructuralProductReport):
     comparisons_input: tuple[DeclaredStructuralInputPin, ...] = ()
     candidates_input: tuple[DeclaredStructuralInputPin, ...] = ()
     relationships_input: tuple[DeclaredStructuralInputPin, ...] = ()
+    admissions_input: tuple[DeclaredStructuralInputPin, ...]
 
 
 class DeclaredConditionReport(DeclaredStructuralProductReport):

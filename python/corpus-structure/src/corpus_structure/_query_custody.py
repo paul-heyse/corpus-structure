@@ -149,6 +149,23 @@ GROUPED_INTERPRETATION_SOURCES = tuple(
         )
     )
 )
+STRUCTURAL_READ_SOURCES = tuple(
+    dict.fromkeys(
+        (
+            *COMPOSITE_READ_SOURCES,
+            "serve/selected_structural.py",
+            "serve/structural_products.py",
+            "serve/structural_gaps.py",
+            "serve/source_decision_journey.py",
+            "serve/selected_structural_admission.py",
+            "serve/selected_math.py",
+            "semantic/source_products.py",
+            "semantic/contextual_operations.py",
+            "semantic/declared_structural_admission.py",
+            "semantic/structural_admission.py",
+        )
+    )
+)
 QUERY_SOURCES = tuple(
     dict.fromkeys(
         (
@@ -156,6 +173,7 @@ QUERY_SOURCES = tuple(
             *RICH_QUERY_SOURCES,
             *COMPOSITE_READ_SOURCES,
             *GROUPED_INTERPRETATION_SOURCES,
+            *STRUCTURAL_READ_SOURCES,
         )
     )
 )

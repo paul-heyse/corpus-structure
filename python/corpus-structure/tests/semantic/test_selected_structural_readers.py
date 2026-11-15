@@ -27,6 +27,18 @@ ROOT = SelectedStructuralRoot.model_validate(
 )
 
 
+def test_structural_read_implementation_owns_actual_bootstrapped_helper_objects():
+    from corpus_structure._query_custody import STRUCTURAL_READ_SOURCES
+    from corpus_structure.serve.rich_queries import installed_read_implementation
+
+    # This checks the actual warm module objects, including this family's new
+    # selected owner. A source bundle alone cannot authenticate a prior plain import.
+    with installed_read_implementation(reader.SelectedStructuralRequest,
+                                       sources=STRUCTURAL_READ_SOURCES,
+                                       profile="selected-structural-read-v1") as implementation:
+        assert len(implementation) == 64
+
+
 def test_root_selection_requires_actual_member_use_and_original_episode():
     value = SimpleNamespace(
         reference=SimpleNamespace(member_id=None),
