@@ -1,371 +1,200 @@
-"""Real archived-release CLI/MCP observations, including native admission refusal."""
+"""Actual archived DDO CLI/MCP observations and independent native effect fences."""
 
 import json
 from dataclasses import replace
+from typing import cast
 
 import anyio
+import pytest
 from fastmcp import Client
+from sqlalchemy import text
+from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.intervene.semantic_server import build_retained_reader_server
-from corpus_structure.semantic.prepare import prepare_release
+from corpus_structure.semantic._data_operation_wire import WireRevokeDataSupportRequest
+from corpus_structure.semantic.data_operation_storage import DataOperationStorage
+from corpus_structure.semantic.demand_queries import DemandQueryRequest
+from corpus_structure.semantic.operation_reporting import explain_operation
 from corpus_structure.semantic.releases import persist_release
-from corpus_structure.semantic.types import SourceArtifact
 from corpus_structure.settings import Settings
-from semantic.operation_reporting_support import prepared, report_inputs
+from semantic.data_operation_demand_support import attach, claim, publish, retain
+from semantic.data_operation_kernel_support import STORAGE, prepare_kernel
 
 
-def test_actual_cli_and_mcp_reports_share_archived_meaning_and_located_refusal(
-    commit_db_engine,
-    commit_reader_engine,
-    cli,
+def reader_settings(engine):
+    url = engine.url.set(drivername="postgresql").render_as_string(hide_password=False)
+    return Settings(database={"url": url, "reader_url": url})
+
+
+@pytest.mark.parametrize("ddo_kernel", [STORAGE], indirect=True, ids=["storage"])
+def test_actual_cli_and_mcp_reports_share_current_archived_declaration_and_frontier(
+    ddo_kernel, cli
 ):
-    release = prepared()
-    bundle, deps, profile = report_inputs()
-    with commit_db_engine.begin() as conn:
-        persist_release(conn, bundle, deps, profile, release)
-    settings = Settings(
-        database={
-            "url": commit_reader_engine.url.set(drivername="postgresql").render_as_string(
-                hide_password=False
-            )
-        }
-    )
-    explained = cli(
-        "schema",
-        "explain-operation",
-        "claim",
-        "--release",
-        release.release_id,
-        "--dependency-detail",
-        "--dependency-family",
-        "input",
-        "--dependency-limit",
-        "1",
-        "--json",
-        settings=lambda: settings,
-    )
-    assert explained.exit_code == 0, explained.output
-    observation = json.loads(explained.stdout)
-    assert observation["operation"] == "claim"
-    assert "projection_dependencies" in observation
-    assert len(observation["projection_dependencies"]["items"]) <= 1
-    assert not observation["complete"]
-    assert any(c["status"] == "unresolved" for c in observation["checks"])
-    # Frozen84 supplies the required native realization. Observation alone still
-    # grants no mutable task ownership and attempts no claim effect.
-    native = next(
-        c for c in observation["checks"] if c["owner"] == "sem.require_execution_operation"
-    )
-    assert native["status"] == "applicable"
-    compared = cli(
-        "schema",
-        "diff",
-        release.release_id,
-        release.release_id,
-        "--dependency-detail",
-        "--dependency-family",
-        "input",
-        "--dependency-limit",
-        "1",
-        "--json",
-        settings=lambda: settings,
-    )
-    assert compared.exit_code == 0, compared.output
-    impact = json.loads(compared.stdout)
-    assert impact["changes"] == []
-    assert any("helper body not analyzed" in item for item in impact["unknowns"])
-    invalid = cli(
-        "schema",
-        "explain-operation",
-        "not_declared",
-        "--release",
-        release.release_id,
-        "--json",
-        settings=lambda: settings,
-    )
-    assert invalid.exit_code == 1, invalid.output
-    assert (
-        json.loads(invalid.stdout)["error"]["validation"]["observations"][0]["category"]
-        == "unassessed"
-    )
-
-    async def journey():
-        server = build_retained_reader_server(read_engine=commit_reader_engine, project="reports")
-        async with Client(server) as client:
-            answer = await client.call_tool(
-                "explain_operation",
-                {
-                    "release": release.release_id,
-                    "operation": "claim",
-                    "dependency_detail": True,
-                    "dependency_family": "input",
-                    "dependency_limit": 1,
-                },
-            )
-            assert answer.structured_content is not None
-            result = answer.structured_content
-            assert result["model_id"] == observation["model_id"]
-            assert result["checks"] == observation["checks"]
-            difference = await client.call_tool(
-                "compare_semantic_releases",
-                {
-                    "before": release.release_id,
-                    "after": release.release_id,
-                    "dependency_detail": True,
-                    "dependency_family": "input",
-                    "dependency_limit": 1,
-                },
-            )
-            assert difference.structured_content == impact
-
-    anyio.run(journey)
-
-
-def test_live_preflight_never_authorizes_stale_native_publication(
-    commit_db_engine,
-    commit_writer_engine,
-    commit_reader_engine,
-):
-    import pytest
-    from sqlalchemy import insert
-
-    from corpus_structure.semantic.arrow_publication import StaleAnalysisError
-    from corpus_structure.semantic.inference import derive, publish_inference
-    from corpus_structure.semantic.metadata import table
-    from corpus_structure.semantic.operation_reporting import explain_operation
-    from corpus_structure.semantic.publication import PublicationBatch, publish_batch
-    from corpus_structure.semantic.query import SnapshotBinding, read_snapshot
-    from semantic.inference_support import _inference_publication_state
-
-    release = prepared()
-    bundle, deps, profile = report_inputs()
-    realization = "report-stale-realization"
-    with commit_db_engine.begin() as conn:
-        persist_release(conn, bundle, deps, profile, release)
-        conn.execute(insert(table("data.project")).values(project_id="report-stale"))
-        conn.execute(
-            insert(table("data.realization")).values(
-                realization_id=realization,
-                project_id="report-stale",
-                release_id=release.release_id,
-            )
+    demand, _, _, _ = attach(ddo_kernel)
+    reader = ddo_kernel.purpose("read")
+    settings = reader_settings(reader)
+    release = ddo_kernel.prepared.release_id
+    operation = "urn:ddo-test:source"
+    try:
+        explained = cli(
+            "schema",
+            "explain-operation",
+            operation,
+            "--release",
+            release,
+            "--demand",
+            demand["demand_id"],
+            "--project",
+            "ddo-test",
+            "--json",
+            settings=lambda: settings,
         )
-    binding = SnapshotBinding(release.release_id, realization, 0, "report-preflight")
-    with read_snapshot(commit_reader_engine) as conn:
-        observed = explain_operation(
-            release, "derive", subject=binding, connection=conn
-        ).model_dump(mode="json")
-    check = next(item for item in observed["checks"] if item["contract_ref"] == "SnapshotBinding")
-    assert check["status"] == "applicable"
-    with (
-        commit_writer_engine.connect().execution_options(isolation_level="REPEATABLE READ") as conn,
-        conn.begin(),
-    ):
-        result = derive(conn, binding)
-    publish_batch(
-        commit_writer_engine,
-        PublicationBatch(release.release_id, realization, "advance-after-preflight"),
-    )
-    with commit_db_engine.connect() as conn:
-        before = _inference_publication_state(conn, release.release_id, realization)
-    assert len(before["data.batch"]) == 1
-    assert before["data.batch"][0]["batch_id"] == "advance-after-preflight"
-    assert before["data.realization"][0]["data_revision"] == 1
-    with pytest.raises(StaleAnalysisError, match="revision changed"):
-        publish_inference(commit_writer_engine, result)
-    with commit_db_engine.connect() as conn:
-        after = _inference_publication_state(conn, release.release_id, realization)
-    assert {name: len(rows) for name, rows in after.items()} == {
-        name: len(rows) for name, rows in before.items()
-    }
-    assert after == before
-    assert result.batch.batch_id not in {row["batch_id"] for row in after["data.batch"]}
-    with read_snapshot(commit_reader_engine) as conn:
-        stale = explain_operation(release, "derive", subject=binding, connection=conn).model_dump(
-            mode="json"
+        assert explained.exit_code == 0, explained.output
+        observation = json.loads(explained.stdout)
+        assert observation["report_version"] == 3
+        assert observation["operation"] == operation
+        assert observation["authority"] == "declaration_and_observation_only"
+        assert observation["observation_status"] == "observed"
+        frontier = json.loads(observation["observation_json"])
+        assert frontier["cut"]["release_id"] == release
+        assert frontier["items"][0]["obligation"]["operation_id"] == operation
+        assert frontier["items"][0]["uses"][0]["fate"] == "attached"
+        compared = cli("schema", "diff", release, release, "--json", settings=lambda: settings)
+        assert compared.exit_code == 0, compared.output
+        impact = json.loads(compared.stdout)
+        assert impact["report_version"] == 5 and impact["changes"] == []
+        invalid = cli(
+            "schema",
+            "explain-operation",
+            "not_declared",
+            "--release",
+            release,
+            "--json",
+            settings=lambda: settings,
         )
-    check = next(item for item in stale["checks"] if item["contract_ref"] == "SnapshotBinding")
-    assert check["status"] == "unavailable"
+        assert invalid.exit_code == 1, invalid.output
+        assert json.loads(invalid.stdout)["error"]["code"] == "SemanticRefusal"
+
+        async def journey():
+            server = build_retained_reader_server(read_engine=reader, project="ddo-test")
+            async with Client(server) as client:
+                answer = await client.call_tool(
+                    "explain_operation",
+                    {
+                        "release": release,
+                        "operation": operation,
+                        "demand_id": demand["demand_id"],
+                        "project_id": "ddo-test",
+                    },
+                )
+                result = answer.structured_content
+                assert result is not None
+                assert {k: v for k, v in result.items() if k != "observation_json"} == {
+                    k: v for k, v in observation.items() if k != "observation_json"
+                }
+                selected = json.loads(result["observation_json"])
+                assert selected["items"] == frontier["items"]
+                assert selected["cut_id"] == frontier["cut_id"]
+                difference = await client.call_tool(
+                    "compare_semantic_releases",
+                    {
+                        "before": release,
+                        "after": release,
+                    },
+                )
+                assert difference.structured_content == impact
+
+        anyio.run(journey)
+    finally:
+        reader.dispose()
 
 
-def test_actual_diff_preserves_selection_dependencies_and_declared_consumer_unknowns(
-    commit_db_engine,
-    commit_reader_engine,
-    cli,
-):
-    """Change retained recipe inputs, rather than fabricating an analysis result."""
-    import yaml
-
-    bundle, deps, profile = report_inputs()
-    path = "execution/implementation/capture/companion-projection-model.yaml"
-    source = next(item for item in deps.artifacts if item.name == path)
-    model = yaml.safe_load(source.content)
-    declaration = model["classes"]["PublishedCoverageRow"]["annotations"]
-    recipe = json.loads(declaration["cp:recipe"])
-    recipe["predicate"] = {
-        "all": [
-            recipe["predicate"],
-            {"equal": [{"field": ["c", "local_id"]}, {"constant": "selected-only"}]},
-        ]
-    }
-    declaration["cp:recipe"] = json.dumps(recipe)
-    changed = replace(
-        deps,
-        artifacts=tuple(
-            SourceArtifact(item.name, yaml.safe_dump(model).encode()) if item.name == path else item
-            for item in deps.artifacts
-        ),
-    )
-    changed_bundle = replace(
-        bundle,
-        sources=tuple(
-            SourceArtifact(item.name, item.content.replace(b"required: true", b"required: false"))
-            for item in bundle.sources
-        ),
-    )
-    before = prepare_release(bundle, deps, profile)
-    after = prepare_release(changed_bundle, changed, profile)
-    with commit_db_engine.begin() as conn:
-        persist_release(conn, bundle, deps, profile, before)
-        persist_release(conn, changed_bundle, changed, profile, after)
-    settings = Settings(
-        database={
-            "url": commit_reader_engine.url.set(drivername="postgresql").render_as_string(
-                hide_password=False
+@pytest.mark.parametrize("ddo_kernel", [STORAGE], indirect=True, ids=["storage"])
+def test_frontier_observation_never_authorizes_publication_after_producer_revocation(ddo_kernel):
+    demand, _, _, attached = attach(ddo_kernel)
+    fence = claim(ddo_kernel, attached)
+    intent = retain(ddo_kernel, fence)
+    reader = ddo_kernel.purpose("read")
+    try:
+        with reader.begin() as connection:
+            observed = explain_operation(
+                ddo_kernel.prepared,
+                "urn:ddo-test:source",
+                connection=connection,
+                observation=DemandQueryRequest(
+                    demand_id=demand["demand_id"],
+                    project_id="ddo-test",
+                    view="operations",
+                    operation_id="urn:ddo-test:source",
+                ),
+            ).model_dump(mode="json")
+        assert observed["observation_status"] == "observed"
+        assert observed["authority"] == "declaration_and_observation_only"
+        with ddo_kernel.engine.begin() as connection:
+            assert connection.scalar(text("SELECT count(*) FROM ops.data_publication_receipt")) == 0
+            DataOperationStorage(connection).revoke_data_support(
+                cast(
+                    WireRevokeDataSupportRequest,
+                    {
+                        "project_id": "ddo-test",
+                        "original_source": "source:test",
+                        "selector_kind": "recipe",
+                        "selector": ddo_kernel.identities["urn:ddo-test:source", "recipe"],
+                        "reason": "producer defect discovered after observation",
+                    },
+                )
             )
-        }
-    )
-    result = cli(
-        "schema",
-        "diff",
-        before.release_id,
-        after.release_id,
-        "--json",
-        settings=lambda: settings,
-    )
-    assert result.exit_code == 0, result.output
-    report = json.loads(result.stdout)
-    where = next(
-        item
-        for item in report["changes"]
-        if item["model_ref"] == "projection:coverage"
-        and item["aspect"] == "relational_dependencies"
-    )
-    assert "physical:kb.pdf_record_companion.local_id" in where["reason"]
-    assert "ops.read_published_coverage_batch" in where["consumers"]
-    assert "corpus_structure.serve.companion_export.export_companion_parquet" in where["consumers"]
-    changed_class = next(item for item in report["changes"] if item["model_ref"] == "class:Thing")
-    assert changed_class["members"] == [
-        {
-            "kind": "changed",
-            "model_path": "class:Thing/properties/label/minimum_cardinality",
-            "before": {"kind": "integer", "integer": 1},
-            "after": {"kind": "null"},
-        },
-        {
-            "kind": "changed",
-            "model_path": "class:Thing/properties/label/required",
-            "before": {"kind": "boolean", "boolean": True},
-            "after": {"kind": "boolean", "boolean": False},
-        },
-    ]
-    assert report["before_release"] == before.release_id
-    assert report["after_release"] == after.release_id
-    assert not report["complete"]
-    assert any("helper body not analyzed" in value for value in report["unknowns"])
-
-    async def journey():
-        server = build_retained_reader_server(read_engine=commit_reader_engine, project="impact")
-        async with Client(server) as client:
-            answer = await client.call_tool(
-                "compare_semantic_releases",
-                dict(before=before.release_id, after=after.release_id),
-            )
-            assert answer.structured_content == report
-
-    anyio.run(journey)
+        with pytest.raises(DBAPIError, match="revoked"):
+            publish(ddo_kernel, fence, intent)
+        with ddo_kernel.engine.connect() as connection:
+            assert connection.scalar(text("SELECT count(*) FROM ops.data_publication_receipt")) == 0
+            assert connection.scalar(text("SELECT count(*) FROM ops.data_derivation")) == 0
+    finally:
+        reader.dispose()
 
 
-def test_alias_only_released_change_reaches_actual_cli_mcp_and_advice(
-    commit_db_engine, commit_reader_engine, cli
-):
-    import yaml
-
-    from corpus_structure.schema.pack import DOMAINS
-    from corpus_structure.semantic.operation_reporting import compatibility_advice
-    from corpus_structure.semantic.regeneration import prepare_pack
-
-    bundle, deps, profile, _ = prepare_pack(DOMAINS / "statistics")
-    path = "operation/domain-rules.yaml"
-    source = next(item for item in deps.artifacts if item.name == path)
-    policy = yaml.safe_load(source.content)
-    old_policy = {
-        **policy,
-        "identity": {"alias_profile": "class-alias-input-1", "aliases": {}},
-    }
-    new_policy = {
-        **policy,
-        "identity": {
-            "alias_profile": "class-alias-input-1",
-            "aliases": {"rewrites": [{"match": "alpha", "replace": "beta"}]},
-        },
-    }
-    releases = []
-    for value in (old_policy, new_policy):
-        dependencies = replace(
-            deps,
-            artifacts=tuple(
-                SourceArtifact(item.name, yaml.safe_dump(value).encode())
-                if item.name == path
-                else item
-                for item in deps.artifacts
+@pytest.mark.parametrize("ddo_kernel", [STORAGE], indirect=True, ids=["storage"])
+def test_actual_archived_kind_change_reaches_cli_mcp_with_declared_consumers(ddo_kernel, cli):
+    changed = prepare_kernel(
+        replace(
+            STORAGE,
+            name="report-optional-sample",
+            schema_text=STORAGE.schema_text.replace(
+                "value: {range: integer, required: true}",
+                "value: {range: integer, required: false}",
             ),
         )
-        release = prepare_release(bundle, dependencies, profile)
-        with commit_db_engine.begin() as conn:
-            persist_release(conn, bundle, dependencies, profile, release)
-        releases.append(release)
-    before, after = releases
-    settings = Settings(
-        database={
-            "url": commit_reader_engine.url.set(drivername="postgresql").render_as_string(
-                hide_password=False
-            )
-        }
     )
-    result = cli(
-        "schema",
-        "diff",
-        before.release_id,
-        after.release_id,
-        "--json",
-        settings=lambda: settings,
-    )
-    assert result.exit_code == 0, result.output
-    report = json.loads(result.stdout)
-    expected_ref = "alias_policy:https://corpus-structure.dev/domains/statistics/DistributionFamily"
-    alias = next(c for c in report["changes"] if c["model_ref"] == expected_ref)
-    assert alias["aspect"] == "alias_normalization"
-    assert "implementation:resolve_identity" in alias["consumers"]
-    assert "analysis_profile:mathematical-interpretation/alignment_policy" in alias["consumers"]
-    assert alias["members"][0]["model_path"].endswith("/classes/rewrites")
-
-    async def journey():
-        server = build_retained_reader_server(
-            read_engine=commit_reader_engine, project="alias-impact"
+    with ddo_kernel.engine.begin() as connection:
+        persist_release(
+            connection, changed.bundle, changed.dependencies, changed.profile, changed.prepared
         )
-        async with Client(server) as client:
-            answer = await client.call_tool(
-                "compare_semantic_releases",
-                dict(before=before.release_id, after=after.release_id),
-            )
-            assert answer.structured_content == report
+    reader = ddo_kernel.purpose("read")
+    settings = reader_settings(reader)
+    before, after = ddo_kernel.prepared.release_id, changed.prepared.release_id
+    try:
+        result = cli("schema", "diff", before, after, "--json", settings=lambda: settings)
+        assert result.exit_code == 0, result.output
+        report = json.loads(result.stdout)
+        semantic = [
+            row
+            for row in report["changes"]
+            if row["aspect"] == "semantic-node" and row["model_ref"] == "urn:ddo-test:Sample"
+        ]
+        assert len(semantic) == 1
+        assert "urn:ddo-test:sample" in semantic[0]["consumers"]
+        assert any(member["model_path"].endswith("/required") for member in semantic[0]["members"])
+        assert report["before_release"] == before and report["after_release"] == after
+        assert any("unassessed" in value for value in report["unknowns"])
 
-    anyio.run(journey)
-    from corpus_structure.semantic.operation_reporting import compare_semantic_releases
+        async def journey():
+            server = build_retained_reader_server(read_engine=reader, project="ddo-test")
+            async with Client(server) as client:
+                answer = await client.call_tool(
+                    "compare_semantic_releases", {"before": before, "after": after}
+                )
+                assert answer.structured_content == report
 
-    advice = compatibility_advice(compare_semantic_releases(before, after))
-    assert any("implementation:resolve_identity" in text for text in advice)
-    assert any(
-        "analysis_profile:mathematical-interpretation/alignment_policy" in text for text in advice
-    )
+        anyio.run(journey)
+    finally:
+        reader.dispose()
