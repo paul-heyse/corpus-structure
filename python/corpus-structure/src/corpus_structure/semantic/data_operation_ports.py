@@ -267,6 +267,12 @@ def project_product_members(
             for name, value in constants[owner]
         ):
             raise PortRefusal("member body differs from its actual nominal discriminator")
+        if "json_schema" in kind_facts[owner]:
+            from .data_operation_wire import validate_wire_schema
+            try:
+                validate_wire_schema(kind_facts[owner]["json_schema"], packet["body"])
+            except ValueError as error:
+                raise PortRefusal("member body differs from its selected nominal contract: " + str(error)) from error
         result.append(canonical_bytes({**packet, "body": semantic_value(packet["body"])}))
     return tuple(result)
 

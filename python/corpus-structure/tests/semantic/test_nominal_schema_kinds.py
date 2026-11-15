@@ -121,7 +121,7 @@ def test_runtime_source_correspondence_reuses_compiled_nominal_owner_and_recompu
         PythonSourceCollection,
     )
 
-    value = contract()
+    value = contract(implementation_coverage=True)
     value["roles"][0].update(kind="urn:declared:report:Report", parameter="value")
     value["roles"][1]["kind"] = "urn:declared:report:Report"
     code = (

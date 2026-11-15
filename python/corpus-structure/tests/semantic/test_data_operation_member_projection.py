@@ -1,6 +1,5 @@
 """Independent nominal packet and typed-value controls for direct scalar/batch ports."""
 
-import copy
 import json
 from datetime import date
 from decimal import Decimal
@@ -17,7 +16,6 @@ from corpus_structure.semantic.data_operation_ports import (
     project_product_members,
     resolve_python_port,
 )
-from corpus_structure.semantic.identity import claim_source_item__data_operation__
 from corpus_structure.semantic.python_operation_sources import PythonSource, PythonSourceCollection
 
 
@@ -43,6 +41,7 @@ classes:
   Context:
     attributes:
       subject: {required: true}
+      subject_definition: {required: true}
       original_source: {required: true}
       analyzed_scope: {required: true}
   Packet:
@@ -71,6 +70,7 @@ def packet_value(model):
                 kind_contract=body_kind,
                 context=dict(
                     subject="original-subject",
+                    subject_definition="source-proposal-list",
                     original_source="original-document",
                     analyzed_scope="selected",
                 ),
@@ -84,7 +84,12 @@ def packet_value(model):
 def test_original_direct_port_projects_actual_nominal_members_and_preserves_decimal_date(
     schema, tmp_path, monkeypatch, form
 ):
-    metadata: dict[str, Any] = copy.deepcopy(claim_source_item__data_operation__)
+    from semantic.data_operation_declaration_support import contract
+    metadata: dict[str, Any] = contract(
+        subject="source-proposal-list",
+        subject_definition={"id": "source-proposal-list", "identifier_kind": "string", "scope": "project"},
+        implementation_coverage=True,
+    )
     metadata["roles"] = [
         dict(
             name="inventory",
@@ -99,7 +104,7 @@ def test_original_direct_port_projects_actual_nominal_members_and_preserves_deci
                 provenance="value_substitution",
                 identity_requirements=[],
                 source="original-source",
-                coverage="selected-scope",
+                coverage={"role": "inventory", "description": "selected-scope"},
             ),
         ),
         dict(
@@ -152,8 +157,13 @@ def test_original_direct_port_projects_actual_nominal_members_and_preserves_deci
     "defect", ["missing", "extra", "nominal", "discriminator", "duplicate", "noncontainer"]
 )
 def test_projection_refuses_forged_or_missing_packet_authority(schema, defect):
-    model = compile_data_operations(schema=schema)
+    from semantic.data_operation_declaration_support import contract, declarations
+    declaration = contract(subject="source-proposal-list", subject_definition={
+        "id": "source-proposal-list", "identifier_kind": "string", "scope": "project"
+    })
+    model = compile_data_operations(schema=schema, declarations=declarations(declaration))
     value = packet_value(model)
+    assert project_product_members(model, "urn:members:Container", value)
     packet = value["members"][0]
     kind = "urn:members:Container"
     if defect == "missing":
