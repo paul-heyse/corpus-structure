@@ -504,7 +504,6 @@ def test_native_population_closure_requires_each_frozen_producer_context(ddo_ker
         planner.storage.expand_data_obligation(
             cast(
                 WireExpandDataObligationRequest,
-                WireRetainDataCompletionIntentRequest,
                 dict(
                     demand_id=demand["demand_id"],
                     operation_id="urn:discover",
