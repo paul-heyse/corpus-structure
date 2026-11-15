@@ -1409,7 +1409,7 @@ BEGIN
  JOIN sem.data_operation_definition operation ON operation.release_id=d.release_id AND operation.operation_id=selected->>'operation'
  CROSS JOIN LATERAL jsonb_array_elements(operation.input_roles||operation.output_roles) role
  JOIN sem.data_kind_contract kind ON kind.kind_contract=role->>'kind_contract';
- IF (p ? 'selection' AND p->'selection' IS DISTINCT FROM d.selection) OR (p ? 'after' AND NOT (p ? 'selection' AND p ? 'trust_snapshot' AND p ? 'read_id'))
+ IF (p ? 'selection' AND p->'selection' IS DISTINCT FROM d.selection) OR (p ? 'after' AND NOT (p ? 'read_id'))
  OR ((p ? 'read_snapshot' OR p ? 'frontier_at') AND NOT p ? 'read_id') THEN RAISE EXCEPTION 'demand read selection/snapshot pins are incomplete or differ'; END IF;
  selected_view:=coalesce(p->>'view','frontier');
  IF selected_view NOT IN ('frontier','products','support') THEN RAISE EXCEPTION 'unknown demand read view'; END IF;

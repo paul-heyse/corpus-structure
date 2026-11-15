@@ -87,4 +87,4 @@ def export(
 
 
 def register(app: typer.Typer):
-    app.command("export")(export)
+    app.command("retained-export")(export)

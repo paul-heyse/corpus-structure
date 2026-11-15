@@ -1978,8 +1978,6 @@ definitions:
     additionalProperties: false
     dependencies:
       after:
-      - selection
-      - trust_snapshot
       - read_id
       read_snapshot:
       - read_id

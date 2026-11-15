@@ -18,10 +18,14 @@ def build_server(
     project: str | None = None,
     demand: str | None = None,
     settings: Settings | None = None,
+    read_engine=None,
 ) -> FastMCP:
     from .external_server import build_external_server
 
-    return build_external_server(session, project=project, demand=demand, settings=settings)
+    server = build_external_server(session, project=project, demand=demand, settings=settings)
+    from .demand_read_tools import register_demand_read_tools
+    register_demand_read_tools(server, settings=settings or Settings(), read_engine=read_engine, project=project, demand=demand)
+    return server
 
 
 def serve(

@@ -146,4 +146,4 @@ def export_records(
 
 
 def register(root: typer.Typer):
-    root.add_typer(app, name="records")
+    root.add_typer(app, name="retained-records")

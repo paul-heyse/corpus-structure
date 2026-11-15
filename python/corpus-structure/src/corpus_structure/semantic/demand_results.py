@@ -9,13 +9,24 @@ from __future__ import annotations
 from collections.abc import Iterator, Mapping
 from dataclasses import dataclass
 from hashlib import sha256
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal, cast
 
 from .data_operation_identity import (
-    body_identity, contextual_product_identity, decode_semantic_value,
+    body_identity, contextual_product_identity, decode_semantic_value, semantic_value,
 )
 from .data_operation_json import json_bytes, wire_json_loads
 from .data_operation_model import SubjectContext
+
+if TYPE_CHECKING:
+    from ._data_operation_wire import WireReadDemandResultRequest
+
+
+def _read_request(value):
+    from .data_operation_wire import validate_native_wire
+    # This is the explicit public ingress: the captured field correspondence gives
+    # demand/read strings their nominal request roles after runtime Draft7 admission.
+    return cast("WireReadDemandResultRequest", validate_native_wire("read_demand_result", "input", value))
+
 
 _PIN_FIELDS = ("demand_id", "project_id", "release_id", "runtime_id", "selection", "trust_snapshot", "read_id", "read_snapshot", "frontier_at", "scope")
 
@@ -78,13 +89,13 @@ class DemandResult:
                 if output["member_id"] is None:
                     occurrences.append(dict(header, member_id=None, kind_contract=output["kind_contract"],
                                             subject=output["subject"], original_source=output["original_source"],
-                                            analyzed_scope=output["analyzed_scope"], body=body))
+                                            analyzed_scope=output["analyzed_scope"], body=body, meaning_body=output["body"]))
                 packets = body.get("members", ()) if isinstance(body, dict) else ()
                 projected = [packet for packet in packets if output["member_id"] is None or packet["member_id"] == output["member_id"]]
                 if output["member_id"] is not None and len(projected) != 1:
                     raise ValueError("selected output member is absent from its canonical product")
                 occurrences.extend(dict(header, member_id=packet["member_id"], kind_contract=packet["kind_contract"],
-                                        **packet["context"], body=packet["body"]) for packet in projected)
+                                        **packet["context"], body=packet["body"], meaning_body=semantic_value(packet["body"])) for packet in projected)
         return tuple(occurrences)
 
     def report(self) -> dict[str, Any]:
@@ -116,7 +127,7 @@ def read_demand_result(connection, demand_id: str, *, project_id: str, continuat
     if continuation is None:
         request["scope"] = dict(scope or {})
     # Generated named transport validates the current Draft7 ingress and exact JSON.
-    native = DataOperationStorage(connection).read_demand_result(request)
+    native = DataOperationStorage(connection).read_demand_result(_read_request(request))
     if native["project_id"] != project_id:
         raise ValueError("demand belongs to another project")
     page = DemandResult(json_bytes(native), json_bytes(request))
@@ -150,13 +161,13 @@ def stream_selected_support(connection, page: DemandResult) -> Iterator[dict[str
             request[key] = original_request[key]
     request["view"] = "support"
     while True:
-        native = DataOperationStorage(connection).read_demand_result(request)
+        native = DataOperationStorage(connection).read_demand_result(_read_request(request))
         if CutSelection.from_native(native).content != cut.content:
             raise ValueError("support continuation differs from its selected result")
         support = native["support_page"]
         if not isinstance(support, dict):
             raise ValueError("native support projection is unavailable")
-        yield from support["records"]
+        yield from (dict(record) for record in support["records"])
         if support["complete"]:
             break
         if not support["after"] or support["after"] == request.get("support_after"):

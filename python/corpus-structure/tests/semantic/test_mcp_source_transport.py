@@ -124,7 +124,7 @@ def test_registered_source_tools_bound_whole_wire_and_preserve_payload(monkeypat
 
     async def journey():
         async with Client(
-            build_retained_reader_server(RetainedReaderBinding(engine, 1), writer_engine=engine)
+            build_retained_reader_server(RetainedReaderBinding(engine, 1))
         ) as client:
             tools = {tool.name: tool for tool in await client.list_tools()}
             schema = tools[name].output_schema
@@ -184,7 +184,7 @@ def test_tiny_source_transport_budget_is_control_error(monkeypatch):
 
     async def journey():
         async with Client(
-            build_retained_reader_server(RetainedReaderBinding(engine, 1), writer_engine=engine)
+            build_retained_reader_server(RetainedReaderBinding(engine, 1))
         ) as client:
             result = await client.call_tool(
                 "inspect_source",
@@ -200,91 +200,3 @@ def test_tiny_source_transport_budget_is_control_error(monkeypatch):
     finally:
         engine.dispose()
 
-
-@pytest.mark.parametrize("large_optional_result", [False, True])
-def test_registered_render_exact_wire_and_retained_reference_refusals(
-    monkeypatch, large_optional_result
-):
-    from types import SimpleNamespace
-
-    from mcp.types import ImageContent
-
-    from corpus_structure.semantic.native_requests import NativeRequestResult
-
-    engine = create_engine("sqlite://")
-    artifact = b"\x89PNG\r\n\x1a\n" + b"x" * 2048
-    digest = "d" * 64
-    result = NativeRequestResult(
-        run_id=1,
-        task_id=2,
-        cut_id=3,
-        status="done",
-        source_view_id=4,
-        product_digest="e" * 64,
-        artifact_digest=digest,
-        result={"detail": "x" * 2500} if large_optional_result else {},
-    )
-    body_reads = []
-
-    def execute(statement):
-        if "octet_length" in str(statement):
-            return SimpleNamespace(scalar_one=lambda: len(artifact))
-        body_reads.append(str(statement))
-        return SimpleNamespace(scalar_one=lambda: artifact)
-
-    monkeypatch.setattr(
-        "corpus_structure.semantic.query.read_snapshot",
-        lambda selected: nullcontext(SimpleNamespace(execute=execute)),
-    )
-    monkeypatch.setattr(
-        "corpus_structure.semantic.native_requests.request_source_view", lambda *args, **kw: result
-    )
-
-    def arguments(budget):
-        return dict(run_id=1, source_view_id=4, pointer="#/texts/0", max_bytes=budget)
-
-    async def journey():
-        async with Client(
-            build_retained_reader_server(RetainedReaderBinding(engine, 1), writer_engine=engine)
-        ) as client:
-            delivered = await client.call_tool("render_source_region", arguments(8192))
-            assert not delivered.is_error and delivered.structured_content is not None
-            assert delivered.structured_content["inline_image"]["disposition"] == "included"
-            assert isinstance(delivered.content[0], ImageContent)
-            encoded = _wire_size(delivered)
-            assert 1024 < encoded < 8192
-            # max_bytes is itself response metadata. Both budgets have four digits,
-            # so changing its value does not change the response's encoded length.
-            assert 1000 <= encoded <= 9999
-            body_reads.clear()
-            exact = await client.call_tool("render_source_region", arguments(encoded))
-            assert not exact.is_error and _wire_size(exact) == encoded
-            assert len(body_reads) == 1
-            body_reads.clear()
-            refused = await client.call_tool(
-                "render_source_region", arguments(encoded - 1), raise_on_error=False
-            )
-            assert refused.is_error and body_reads == []
-            assert refused.structured_content is not None
-            assert refused.structured_content["artifact_digest"] == digest
-            assert refused.structured_content["inline_image"]["disposition"] == "refused"
-            assert _wire_size(refused) <= encoded - 1
-            body_reads.clear()
-            compact = await client.call_tool(
-                "render_source_region", arguments(1024), raise_on_error=False
-            )
-            assert compact.is_error and body_reads == []
-            assert compact.structured_content is not None
-            assert compact.structured_content["artifact_digest"] == digest
-            assert compact.structured_content["source_view_id"] == 4
-            assert compact.structured_content["inline_image"]["disposition"] == "refused"
-            assert _wire_size(compact) <= 1024
-            if large_optional_result:
-                assert "result" not in compact.structured_content
-            else:
-                assert compact.structured_content["result"] == {}
-
-    try:
-        anyio.run(journey)
-    finally:
-        engine.dispose()

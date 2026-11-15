@@ -42,106 +42,6 @@ class RetainedReaderBinding:
     run_id: int
 
 
-def _rendered_artifact_result(engine, result, max_bytes):
-    """Bound inline MCP delivery after durable rendering, before artifact materialization."""
-    from dataclasses import asdict
-
-    from fastmcp.utilities.types import Image
-    from mcp.types import ImageContent, TextContent
-
-    from corpus_structure.semantic.metadata import table
-    from corpus_structure.semantic.query import read_snapshot
-
-    if type(max_bytes) is not int or not 1024 <= max_bytes <= 8 * 1024 * 1024:
-        raise ValueError("inline image max_bytes must be between 1024 and 8388608")
-    if result.artifact_digest is None:
-        raise ValueError("rendered source has no retained artifact reference")
-    structured = asdict(result)
-    artifact = table("kb.source_artifact")
-
-    def wire(content, body, *, refused=False):
-        return _stamp_mcp_result(
-            CallToolResult(content=content, structured_content=body, is_error=refused)
-        )
-
-    def size(response):
-        return len(response.model_dump_json(by_alias=True, exclude_none=True).encode("utf-8"))
-
-    def refusal(raw_bytes, required):
-        body = dict(
-            structured,
-            inline_image=dict(
-                disposition="refused",
-                reason="oversized_item",
-                media_type="image/png",
-                artifact_bytes=raw_bytes,
-                required_bytes=required,
-                max_bytes=max_bytes,
-            ),
-        )
-        response = wire(
-            [
-                TextContent(
-                    type="text",
-                    text=(
-                        "Rendered artifact is committed; inline image exceeds max_bytes. "
-                        "Use the retained artifact reference."
-                    ),
-                )
-            ],
-            body,
-            refused=True,
-        )
-        if size(response) > max_bytes:
-            # The minimum supported budget is sized for a reference-only refusal,
-            # independently of any potentially large optional native result detail.
-            body = {
-                key: structured[key]
-                for key in ("run_id", "task_id", "source_view_id", "artifact_digest")
-            }
-            body["inline_image"] = {"disposition": "refused", "reason": "oversized_item"}
-            response = wire(
-                [TextContent(type="text", text="Inline image refused; artifact retained.")],
-                body,
-                refused=True,
-            )
-            if size(response) > max_bytes:
-                raise ValueError("retained artifact reference exceeds inline response budget")
-        return ToolResult.from_mcp_result(response)
-
-    with read_snapshot(engine) as conn:
-        length = conn.execute(
-            select(func.octet_length(artifact.c.content)).where(
-                artifact.c.artifact_digest == result.artifact_digest
-            )
-        ).scalar_one()
-        body = dict(
-            structured,
-            inline_image=dict(
-                disposition="included",
-                media_type="image/png",
-                artifact_bytes=length,
-                max_bytes=max_bytes,
-            ),
-        )
-        empty = wire([ImageContent(type="image", data="", mime_type="image/png")], body)
-        required = size(empty) + 4 * ((length + 2) // 3)
-        if required > max_bytes:
-            return refusal(length, required)
-        content = bytes(
-            conn.execute(
-                select(artifact.c.content).where(
-                    artifact.c.artifact_digest == result.artifact_digest
-                )
-            ).scalar_one()
-        )
-    response = wire([Image(data=content, format="png").to_image_content()], body)
-    actual = size(response)
-    if actual > max_bytes:
-        return refusal(length, actual)
-    return ToolResult.from_mcp_result(response)
-
-
 def build_retained_reader_server(
     binding: RetainedReaderBinding | None = None,
     *,
@@ -149,9 +49,8 @@ def build_retained_reader_server(
     project: str | None = None,
     settings: Settings | None = None,
     read_engine: Engine | None = None,
-    writer_engine: Engine | None = None,
 ) -> FastMCP:
-    """Expose retained readers and the explicit native source render effect only."""
+    """Expose retained readers only."""
     bound_id = binding.run_id if binding is not None else run_id
 
     @lifespan
@@ -165,7 +64,7 @@ def build_retained_reader_server(
         MCP_SERVER_NAME,
         version=FASTMCP_VERSION,
         lifespan=open_session,
-        instructions="Inspect explicit archived releases and pinned published sources/cuts. No agent queue or submission is available. Source-region rendering is an explicit native writer effect.",
+        instructions="Inspect explicit archived releases and pinned published sources/cuts. No agent queue or submission is available.",
     )
     server.add_middleware(ObservationMiddleware(bound_id))
 
@@ -218,21 +117,6 @@ def build_retained_reader_server(
                 ):
                     raise ProposalRefused("run does not belong to this retained reader project")
             yield connection
-
-    @contextmanager
-    def artifact_writer(ctx: Context):
-        if writer_engine is not None:
-            yield writer_engine
-        else:
-            from corpus_structure.semantic.runtime import open_runtime_engine
-
-            with open_runtime_engine(
-                ctx.lifespan_context["settings"],
-                "ci-mcp-retained-render",
-                max_size=1,
-                purpose="write",
-            ) as engine:
-                yield engine
 
     from corpus_structure.intervene.record_tools import register_record_tools
     from corpus_structure.semantic.operation_reporting import report_schema
@@ -504,82 +388,6 @@ def build_retained_reader_server(
         with source_snapshot(ctx, request.run_id) as conn:
             packet = pack(conn, request)
         return _bounded_mcp_result(packet, request.max_bytes)
-
-    @server.tool(annotations={"readOnlyHint": False})
-    @tool_refusals(ProposalRefused, OperationConflict, ValueError)
-    def render_source_region(
-        ctx: Context,
-        run_id: int,
-        source_view_id: int,
-        pointer: str,
-        region_index: int = 0,
-        scale: float = 2,
-        max_bytes: Annotated[int, Field(ge=1024, le=8 * 1024 * 1024)] = 1024 * 1024,
-        writer_release: str | None = None,
-        writer_realization: str | None = None,
-    ) -> ToolResult:
-        """Retain a source-qualified region and deliver inline imagery within max_bytes."""
-        from corpus_structure.semantic.native_requests import request_source_view
-
-        with source_snapshot(ctx, run_id):
-            pass
-        with artifact_writer(ctx) as writer:
-            result = request_source_view(
-                writer,
-                source_run_id=run_id,
-                source_view_id=source_view_id,
-                demand="render",
-                pointer=pointer,
-                region_index=region_index,
-                scale=scale,
-                code_commit="native-source-mcp-v4",
-                writer_release=writer_release,
-                writer_realization=writer_realization,
-            )
-            if result.status == "failed":
-                raise ValueError(result.error or "native region render failed")
-            return _rendered_artifact_result(writer, result, max_bytes)
-
-    @server.tool(annotations={"readOnlyHint": True})
-    @tool_refusals(ProposalRefused, OperationConflict)
-    def queue_status(ctx: Context, run: int | None = None) -> service.QueueStatus:
-        from corpus_structure.semantic.metadata import table
-
-        tasks, configs, runs = table("ops.task"), table("ops.method_config"), table("ops.run")
-        selected = bound_id if run is None else run
-        statement = (
-            select(tasks.c.run_id, tasks.c.stage, configs.c.params, func.count().label("n"))
-            .join(configs, configs.c.id == tasks.c.method_config_id)
-            .where(tasks.c.status == "awaiting_agent")
-            .group_by(tasks.c.run_id, tasks.c.stage, configs.c.params)
-            .order_by(tasks.c.run_id.desc())
-        )
-        if selected is not None:
-            with source_snapshot(ctx, selected) as conn:
-                rows = conn.execute(statement.where(tasks.c.run_id == selected)).mappings().all()
-        else:
-            with reader_snapshot(ctx) as conn:
-                rows = (
-                    conn.execute(
-                        statement.join(runs, runs.c.id == tasks.c.run_id).where(
-                            runs.c.project_id == reader_project(ctx),
-                            runs.c.status.in_(("created", "running")),
-                        )
-                    )
-                    .mappings()
-                    .all()
-                )
-        return service.QueueStatus(
-            queues=[
-                service.QueueCount(
-                    run_id=row["run_id"],
-                    stage=row["stage"],
-                    mode=row["params"].get("mode", "extract"),
-                    awaiting=row["n"],
-                )
-                for row in rows
-            ]
-        )
 
     from corpus_structure.serve.research import register_research_tools
 
