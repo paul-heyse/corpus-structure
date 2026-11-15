@@ -365,7 +365,6 @@ def approved_implementations() -> Mapping[str, Any]:
         query,
         record_queries,
         releases,
-        runtime,
         source_views,
     )
 
@@ -466,7 +465,6 @@ def approved_implementations() -> Mapping[str, Any]:
             "reference_record_partition": record_references.assign_origin,
             "reference_record_fit": record_references.read_fitting_references,
             "read_source_records": record_queries.read_completed_record_projection,
-            "select_result": runtime.select_completed_result,
         }
     )
 
@@ -713,7 +711,6 @@ _APPROVED_NATIVE_GUARDS = {
     "completed_result": ("data.finish_evaluation(bigint,text,text)", "1"),
     "reference_pass": ("eval.record_reference_pass(bigint,text,text,bytea,jsonb)", "1"),
     "reference_grade": ("eval.record_reference_evaluation(text,bigint,bigint,jsonb,jsonb)", "1"),
-    "selected_result": ("data.select_project_result(text,bigint,bigint)", "1"),
 }
 
 

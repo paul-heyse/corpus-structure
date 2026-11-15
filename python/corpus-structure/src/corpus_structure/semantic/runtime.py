@@ -100,21 +100,3 @@ def open_runtime_engine(
                 operation_failure(error).failure
             )
             raise
-
-
-def select_completed_result(
-    conn: Connection,
-    project_id: str,
-    run_id: int,
-    expected_generation: int,
-) -> int:
-    """Atomically select an immutable completed output under the project generation CAS."""
-    from ._operation_calls import select_completed_result as invoke
-    from ._operation_ids import ProjectId, RunId
-
-    return invoke(
-        conn,
-        project_id=ProjectId(project_id),
-        run_id=RunId(run_id),
-        expected_generation=expected_generation,
-    )

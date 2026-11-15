@@ -200,6 +200,28 @@ def test_reference_model_governs_evaluator_universe_and_preserves_independent_so
 
 
 def selected_fixture(tmp_path, monkeypatch, acquired):
+    from dataclasses import replace
+
+    from corpus_structure.semantic.data_operation_admission import bound_data_operation_model
+    from corpus_structure.semantic.data_operation_json import wire_json_loads
+    from corpus_structure.semantic.data_operation_storage import (
+        data_operation_definition_projection,
+    )
+    from corpus_structure.semantic.types import PreparedArtifact
+
+    native_projection = wire_json_loads(
+        data_operation_definition_projection(
+            acquired, bound_data_operation_model(acquired), native_digest="test-native-contract"
+        )
+    )
+    contracts = {kind["kind"]: kind["kind_contract"] for kind in native_projection["kinds"]}
+    # Native acquisition is substituted; retain the complete checked projection and
+    # use its authentic nominal contracts for the selected reference products.
+    artifacts = (
+        *acquired.artifacts,
+        PreparedArtifact("data_operation_native_definitions.json", json_bytes(native_projection)),
+    )
+
     body = reference_body()
     coordinate = dict(
         document="document:A", projection="a" * 64, section_pointer="#/texts/0", membership="direct"
@@ -249,7 +271,9 @@ def selected_fixture(tmp_path, monkeypatch, acquired):
                 relation="kb.data_product",
                 record=dict(
                     id="product:authored-reference",
-                    kind_contract="kind:authored-reference",
+                    kind_contract=contracts[
+                        "https://corpus-structure.dev/semantic/data-operation-assessment/DdoSelectedReference"
+                    ],
                     canonical_body=semantic_value(body),
                 ),
             )
@@ -297,7 +321,9 @@ def selected_fixture(tmp_path, monkeypatch, acquired):
                 relation="kb.data_product",
                 record=dict(
                     id="product:reference",
-                    kind_contract="kind:reference",
+                    kind_contract=contracts[
+                        "https://corpus-structure.dev/semantic/data-operation-assessment/DdoSelectedReferenceSnapshot"
+                    ],
                     canonical_body=semantic_value(body),
                 ),
             )
@@ -340,35 +366,6 @@ def selected_fixture(tmp_path, monkeypatch, acquired):
 
     monkeypatch.setattr(
         "corpus_structure.evaluate.selected_references.selected_record_index", selected
-    )
-    from dataclasses import replace
-
-    from corpus_structure.semantic.data_operation_admission import bound_data_operation_model
-    from corpus_structure.semantic.data_operation_json import wire_json_loads
-    from corpus_structure.semantic.data_operation_storage import (
-        data_operation_definition_projection,
-    )
-    from corpus_structure.semantic.types import PreparedArtifact
-
-    native_projection = wire_json_loads(
-        data_operation_definition_projection(
-            acquired, bound_data_operation_model(acquired), native_digest="test-native-contract"
-        )
-    )
-    contracts = {
-        "https://corpus-structure.dev/semantic/data-operation-assessment/DdoSelectedReferenceSnapshot": "kind:reference",
-        "https://corpus-structure.dev/semantic/data-operation-assessment/DdoSelectedReference": "kind:authored-reference",
-    }
-    native_projection["kinds"] = [
-        {**kind, "kind_contract": contracts[kind["kind"]]}
-        for kind in native_projection["kinds"]
-        if kind["kind"] in contracts
-    ]
-    # Only native acquisition is substituted: archive/model binding and projection
-    # shape are supplied by the actual independently prepared release.
-    artifacts = (
-        *acquired.artifacts,
-        PreparedArtifact("data_operation_native_definitions.json", json_bytes(native_projection)),
     )
     monkeypatch.setattr(
         "corpus_structure.semantic.releases.open_release",

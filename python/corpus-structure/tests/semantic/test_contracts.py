@@ -81,7 +81,6 @@ def test_all_transitioned_families_and_measurement_context(products):
         "execution.lifecycle.v1",
         "execution.identity_exclusions.v1",
         "execution.reference_evaluation.v1",
-        "execution.selected_result.v1",
     )
     assert {
         op.implementation for op in products.operations if op.implementation is not None

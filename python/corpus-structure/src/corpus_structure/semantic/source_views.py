@@ -646,23 +646,6 @@ def store_source_view(
         raise
 
 
-def select_reused_source_views(conn: Connection, *, run_id: int, task_id: int) -> None:
-    from ._operation_calls import RunId, TaskId
-    from ._operation_calls import select_reused_source_views as invoke
-    from .pdf_contracts import pdf_context_for_task
-    from .releases import open_release
-
-    context = pdf_context_for_task(conn, task_id)
-    if context.release_id is None:
-        raise ValueError("reused source selection requires its bound task release")
-    invoke(
-        conn,
-        run_id=RunId(run_id),
-        task_id=TaskId(task_id),
-        projection_context=open_release(conn, context.release_id),
-    )
-
-
 def store_native_source_frame(
     conn: Connection, *, task_id: int, packet_hash: str, frame: dict[str, Any]
 ) -> None:

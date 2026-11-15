@@ -473,12 +473,6 @@ SUPPORTED_EFFECTS = {
         "transitions": {},
         "version": "1",
     },
-    "select_result": {
-        "effects": ("generation_cas_select_completed_output",),
-        "implementation": "select_result",
-        "transitions": {},
-        "version": "1",
-    },
     "start_run": {
         "effects": ("construct_new_run",),
         "implementation": "start_run",
@@ -507,7 +501,6 @@ SUPPORTED_EFFECT_VERSIONS = {
     "durable_checked_progress": "1",
     "final_cut_seals_source_atomically": "1",
     "freeze_method_configuration": "1",
-    "generation_cas_select_completed_output": "1",
     "immutable_cut": "1",
     "initialize_project_and_empty_writable_realization": "1",
     "invalidate_borrowed_handles": "1",
