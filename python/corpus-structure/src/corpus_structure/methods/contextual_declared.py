@@ -145,6 +145,15 @@ class ContextualRetrievalOperation:
                         "encoding": "value",
                     },
                     {
+                        "output_field": 'subject_definition',
+                        "input": {
+                            "role": "query",
+                            "projection": "https://corpus-structure.dev/semantic/data-operation-contextual/DdoContextualQuery",
+                            "field": '/source_pin/subject_definition',
+                        },
+                        "encoding": "value",
+                    },
+                    {
                         "output_field": "document",
                         "input": {
                             "role": "query",

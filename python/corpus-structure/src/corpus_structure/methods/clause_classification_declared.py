@@ -246,6 +246,15 @@ class ClauseClassificationOperation:
                         "encoding": "value",
                     },
                     {
+                        "output_field": 'subject_definition',
+                        "input": {
+                            "role": "source",
+                            "projection": "selected-input",
+                            "field": 'subject_definition',
+                        },
+                        "encoding": "value",
+                    },
+                    {
                         "output_field": "original_source",
                         "input": {
                             "role": "source",
@@ -312,6 +321,15 @@ class ClauseClassificationOperation:
                             "role": "predicates",
                             "projection": "selected-input",
                             "field": "subject",
+                        },
+                        "encoding": "value",
+                    },
+                    {
+                        "output_field": 'subject_definition',
+                        "input": {
+                            "role": "predicates",
+                            "projection": "selected-input",
+                            "field": 'subject_definition',
                         },
                         "encoding": "value",
                     },

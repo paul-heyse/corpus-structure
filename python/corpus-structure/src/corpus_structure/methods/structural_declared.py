@@ -193,6 +193,15 @@ class DeclaredStructuralComparison:
                         "encoding": "value",
                     },
                     {
+                        "output_field": 'subject_definition',
+                        "input": {
+                            "role": "sources",
+                            "projection": "selected-input",
+                            "field": 'subject_definition',
+                        },
+                        "encoding": "value",
+                    },
+                    {
                         "output_field": "original_source",
                         "input": {
                             "role": "sources",
@@ -263,6 +272,15 @@ class DeclaredStructuralComparison:
                         "encoding": "value",
                     },
                     {
+                        "output_field": 'subject_definition',
+                        "input": {
+                            "role": "reports",
+                            "projection": "selected-input",
+                            "field": 'subject_definition',
+                        },
+                        "encoding": "value",
+                    },
+                    {
                         "output_field": "original_source",
                         "input": {
                             "role": "reports",
@@ -329,6 +347,15 @@ class DeclaredStructuralComparison:
                             "role": "sources",
                             "projection": "selected-input",
                             "field": "subject",
+                        },
+                        "encoding": "value",
+                    },
+                    {
+                        "output_field": 'subject_definition',
+                        "input": {
+                            "role": "sources",
+                            "projection": "selected-input",
+                            "field": 'subject_definition',
                         },
                         "encoding": "value",
                     },
@@ -435,6 +462,15 @@ class DeclaredStructuralComparison:
                             "role": "formal",
                             "projection": "selected-input",
                             "field": "subject",
+                        },
+                        "encoding": "value",
+                    },
+                    {
+                        "output_field": 'subject_definition',
+                        "input": {
+                            "role": "formal",
+                            "projection": "selected-input",
+                            "field": 'subject_definition',
                         },
                         "encoding": "value",
                     },
@@ -705,6 +741,15 @@ class DeclaredConditionQualification:
                         "encoding": "value",
                     },
                     {
+                        "output_field": 'subject_definition',
+                        "input": {
+                            "role": "source",
+                            "projection": "selected-input",
+                            "field": 'subject_definition',
+                        },
+                        "encoding": "value",
+                    },
+                    {
                         "output_field": "original_source",
                         "input": {
                             "role": "source",
@@ -775,6 +820,15 @@ class DeclaredConditionQualification:
                         "encoding": "value",
                     },
                     {
+                        "output_field": 'subject_definition',
+                        "input": {
+                            "role": "report",
+                            "projection": "selected-input",
+                            "field": 'subject_definition',
+                        },
+                        "encoding": "value",
+                    },
+                    {
                         "output_field": "original_source",
                         "input": {
                             "role": "report",
@@ -841,6 +895,15 @@ class DeclaredConditionQualification:
                             "role": "source",
                             "projection": "selected-input",
                             "field": "subject",
+                        },
+                        "encoding": "value",
+                    },
+                    {
+                        "output_field": 'subject_definition',
+                        "input": {
+                            "role": "source",
+                            "projection": "selected-input",
+                            "field": 'subject_definition',
                         },
                         "encoding": "value",
                     },

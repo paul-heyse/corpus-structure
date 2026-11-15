@@ -140,6 +140,15 @@ class ContextualEncodingOperation:
                         "encoding": "value",
                     },
                     {
+                        "output_field": 'subject_definition',
+                        "input": {
+                            "role": "occurrence",
+                            "projection": "https://corpus-structure.dev/semantic/data-operation-candidate-inspection/DdoCandidateSourceContribution",
+                            "field": '/pin/subject_definition',
+                        },
+                        "encoding": "value",
+                    },
+                    {
                         "output_field": "document",
                         "input": {
                             "role": "occurrence",
@@ -465,6 +474,15 @@ class SelectedContextEncodingOperation:
                             "role": "primary",
                             "projection": "selected-input",
                             "field": "subject",
+                        },
+                        "encoding": "value",
+                    },
+                    {
+                        "output_field": 'subject_definition',
+                        "input": {
+                            "role": "primary",
+                            "projection": "selected-input",
+                            "field": 'subject_definition',
                         },
                         "encoding": "value",
                     },

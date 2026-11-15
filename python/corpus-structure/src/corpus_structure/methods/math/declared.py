@@ -408,6 +408,15 @@ class DeclaredMathOccurrences:
                         "encoding": "value",
                     },
                     {
+                        "output_field": 'subject_definition',
+                        "input": {
+                            "role": "source",
+                            "projection": "selected-input",
+                            "field": 'subject_definition',
+                        },
+                        "encoding": "value",
+                    },
+                    {
                         "output_field": "original_source",
                         "input": {
                             "role": "source",
@@ -478,6 +487,15 @@ class DeclaredMathOccurrences:
                         "encoding": "value",
                     },
                     {
+                        "output_field": 'subject_definition',
+                        "input": {
+                            "role": "formal",
+                            "projection": "selected-input",
+                            "field": 'subject_definition',
+                        },
+                        "encoding": "value",
+                    },
+                    {
                         "output_field": "original_source",
                         "input": {
                             "role": "formal",
@@ -544,6 +562,15 @@ class DeclaredMathOccurrences:
                             "role": "inherited",
                             "projection": "selected-input",
                             "field": "subject",
+                        },
+                        "encoding": "value",
+                    },
+                    {
+                        "output_field": 'subject_definition',
+                        "input": {
+                            "role": "inherited",
+                            "projection": "selected-input",
+                            "field": 'subject_definition',
                         },
                         "encoding": "value",
                     },
@@ -741,6 +768,15 @@ class DeclaredMathNormalization:
                         "encoding": "value",
                     },
                     {
+                        "output_field": 'subject_definition',
+                        "input": {
+                            "role": "source",
+                            "projection": "selected-input",
+                            "field": 'subject_definition',
+                        },
+                        "encoding": "value",
+                    },
+                    {
                         "output_field": "original_source",
                         "input": {
                             "role": "source",
@@ -807,6 +843,15 @@ class DeclaredMathNormalization:
                             "role": "occurrences",
                             "projection": "selected-input",
                             "field": "subject",
+                        },
+                        "encoding": "value",
+                    },
+                    {
+                        "output_field": 'subject_definition',
+                        "input": {
+                            "role": "occurrences",
+                            "projection": "selected-input",
+                            "field": 'subject_definition',
                         },
                         "encoding": "value",
                     },
@@ -1083,6 +1128,15 @@ class DeclaredMathScope:
                         "encoding": "value",
                     },
                     {
+                        "output_field": 'subject_definition',
+                        "input": {
+                            "role": "source",
+                            "projection": "selected-input",
+                            "field": 'subject_definition',
+                        },
+                        "encoding": "value",
+                    },
+                    {
                         "output_field": "original_source",
                         "input": {
                             "role": "source",
@@ -1149,6 +1203,15 @@ class DeclaredMathScope:
                             "role": "occurrences",
                             "projection": "selected-input",
                             "field": "subject",
+                        },
+                        "encoding": "value",
+                    },
+                    {
+                        "output_field": 'subject_definition',
+                        "input": {
+                            "role": "occurrences",
+                            "projection": "selected-input",
+                            "field": 'subject_definition',
                         },
                         "encoding": "value",
                     },
@@ -1223,6 +1286,15 @@ class DeclaredMathScope:
                         "encoding": "value",
                     },
                     {
+                        "output_field": 'subject_definition',
+                        "input": {
+                            "role": "symbolic",
+                            "projection": "selected-input",
+                            "field": 'subject_definition',
+                        },
+                        "encoding": "value",
+                    },
+                    {
                         "output_field": "original_source",
                         "input": {
                             "role": "symbolic",
@@ -1293,6 +1365,15 @@ class DeclaredMathScope:
                         "encoding": "value",
                     },
                     {
+                        "output_field": 'subject_definition',
+                        "input": {
+                            "role": "constructions",
+                            "projection": "selected-input",
+                            "field": 'subject_definition',
+                        },
+                        "encoding": "value",
+                    },
+                    {
                         "output_field": "original_source",
                         "input": {
                             "role": "constructions",
@@ -1359,6 +1440,15 @@ class DeclaredMathScope:
                             "role": "inherited",
                             "projection": "selected-input",
                             "field": "subject",
+                        },
+                        "encoding": "value",
+                    },
+                    {
+                        "output_field": 'subject_definition',
+                        "input": {
+                            "role": "inherited",
+                            "projection": "selected-input",
+                            "field": 'subject_definition',
                         },
                         "encoding": "value",
                     },

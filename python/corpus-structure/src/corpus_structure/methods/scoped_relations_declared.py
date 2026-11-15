@@ -183,6 +183,15 @@ class ScopedRelationsOperation:
                         "encoding": "value",
                     },
                     {
+                        "output_field": 'subject_definition',
+                        "input": {
+                            "role": "source",
+                            "projection": "selected-input",
+                            "field": 'subject_definition',
+                        },
+                        "encoding": "value",
+                    },
+                    {
                         "output_field": "project_id",
                         "input": {
                             "role": "source",
@@ -294,6 +303,15 @@ class ScopedRelationsOperation:
                             "role": "source",
                             "projection": "selected-input",
                             "field": "subject",
+                        },
+                        "encoding": "value",
+                    },
+                    {
+                        "output_field": 'subject_definition',
+                        "input": {
+                            "role": "source",
+                            "projection": "selected-input",
+                            "field": 'subject_definition',
                         },
                         "encoding": "value",
                     },
@@ -413,6 +431,15 @@ class ScopedRelationsOperation:
                         "encoding": "value",
                     },
                     {
+                        "output_field": 'subject_definition',
+                        "input": {
+                            "role": "source",
+                            "projection": "selected-input",
+                            "field": 'subject_definition',
+                        },
+                        "encoding": "value",
+                    },
+                    {
                         "output_field": "project_id",
                         "input": {
                             "role": "source",
@@ -528,6 +555,15 @@ class ScopedRelationsOperation:
                         "encoding": "value",
                     },
                     {
+                        "output_field": 'subject_definition',
+                        "input": {
+                            "role": "source",
+                            "projection": "selected-input",
+                            "field": 'subject_definition',
+                        },
+                        "encoding": "value",
+                    },
+                    {
                         "output_field": "project_id",
                         "input": {
                             "role": "source",
@@ -639,6 +675,15 @@ class ScopedRelationsOperation:
                             "role": "source",
                             "projection": "selected-input",
                             "field": "subject",
+                        },
+                        "encoding": "value",
+                    },
+                    {
+                        "output_field": 'subject_definition',
+                        "input": {
+                            "role": "source",
+                            "projection": "selected-input",
+                            "field": 'subject_definition',
                         },
                         "encoding": "value",
                     },

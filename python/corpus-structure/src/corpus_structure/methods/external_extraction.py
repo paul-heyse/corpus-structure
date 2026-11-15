@@ -207,6 +207,15 @@ class RichExtractionInputOperation:
                         "encoding": "value",
                     },
                     {
+                        "output_field": 'subject_definition',
+                        "input": {
+                            "role": "source",
+                            "projection": "selected-input",
+                            "field": 'subject_definition',
+                        },
+                        "encoding": "value",
+                    },
+                    {
                         "output_field": "project_id",
                         "input": {
                             "role": "source",
@@ -433,6 +442,15 @@ class RichExtractionPlacementOperation:
                             "role": "packet",
                             "projection": "https://corpus-structure.dev/semantic/data-operation-external-extraction/DdoExternalExtractionPacket",
                             "field": "/source_pin/subject",
+                        },
+                        "encoding": "value",
+                    },
+                    {
+                        "output_field": 'subject_definition',
+                        "input": {
+                            "role": "packet",
+                            "projection": "https://corpus-structure.dev/semantic/data-operation-external-extraction/DdoExternalExtractionPacket",
+                            "field": '/source_pin/subject_definition',
                         },
                         "encoding": "value",
                     },

@@ -105,6 +105,15 @@ class FiniteInterpretationOperation:
                         "encoding": "value",
                     },
                     {
+                        "output_field": 'subject_definition',
+                        "input": {
+                            "role": "candidates",
+                            "projection": "https://corpus-structure.dev/semantic/data-operation-candidate-inspection/DdoCandidateInspectionReport",
+                            "field": '/source_pin/subject_definition',
+                        },
+                        "encoding": "value",
+                    },
+                    {
                         "output_field": "document",
                         "input": {
                             "role": "candidates",

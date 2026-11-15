@@ -18,6 +18,7 @@ def group():
         "source_member": ("selected-input", "member", "value"),
         "source": ("selected-input", "reference", "json"),
         "subject": ("selected-input", "subject", "value"),
+        "subject_definition": ("selected-input", "subject_definition", "value"),
         "scope": ("selected-input", "analyzed_scope", "context-meaning-json"),
         "document": ("Source", "document", "value"),
     }
@@ -63,6 +64,7 @@ classes:
       source_member: {}
       source: {required: true}
       subject: {required: true}
+      subject_definition: {required: true}
       scope: {required: true}
       document: {required: true}
   Record:
@@ -89,6 +91,7 @@ def pin():
         "source_member": "m:a",
         "source": '["p:a","m:a"]',
         "subject": "s:a",
+        "subject_definition": "original-source-view",
         "scope": '["mapping",[["page",["decimal","1"]]]]',
         "document": "doc:a",
     }
@@ -101,6 +104,7 @@ def selected() -> dict[str, list[dict[str, Any]]]:
                 "product": "p:a",
                 "member": "m:a",
                 "subject": "s:a",
+                "subject_definition": "original-source-view",
                 "analyzed_scope": {"page": 1},
                 "body": {"document": "doc:a"},
             },
@@ -108,6 +112,7 @@ def selected() -> dict[str, list[dict[str, Any]]]:
                 "product": "p:b",
                 "member": "m:b",
                 "subject": "s:b",
+                "subject_definition": "original-document",
                 "analyzed_scope": {"page": 2},
                 "body": {"document": "doc:b"},
             },
@@ -142,6 +147,7 @@ def test_complete_member_satisfies_all_comparisons_with_jsonb_scope_semantics():
         ("source_product", "p:b"),
         ("source_member", "m:b"),
         ("subject", "s:b"),
+        ("subject_definition", "original-document"),
         ("scope", '["mapping",[["page",["decimal","2"]]]]'),
         ("document", "doc:b"),
         ("source", '["p:b","m:b"]'),
