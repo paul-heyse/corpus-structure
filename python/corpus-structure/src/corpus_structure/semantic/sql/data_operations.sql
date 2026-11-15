@@ -1182,6 +1182,7 @@ BEGIN
  PERFORM ops.ddo_require_record_grade_completion(r,p->'completion');
  PERFORM ops.ddo_require_record_fit_completion(r,p->'completion');
  PERFORM ops.ddo_require_policy_authorization_completion(r,p->'completion');
+ PERFORM ops.ddo_require_rich_preparation_completion(r,p->'completion');
  PERFORM ops.ddo_require_rich_admission_completion(r,p->'completion');
  PERFORM ops.ddo_assert_output_witnesses(r,p->'completion');
  key:='intent:'||ops.ddo_digest(jsonb_build_array(r.id,r.generation,t.id,t.attempt,t.claimed_by,p->>'runtime_id',p->'completion'));
@@ -1420,6 +1421,7 @@ BEGIN
  PERFORM ops.ddo_require_record_grade_completion(r,i.payload);
  PERFORM ops.ddo_require_record_fit_completion(r,i.payload);
  PERFORM ops.ddo_require_policy_authorization_completion(r,i.payload);
+ PERFORM ops.ddo_require_rich_preparation_completion(r,i.payload);
  PERFORM ops.ddo_require_rich_admission_completion(r,i.payload);
  PERFORM ops.ddo_assert_output_witnesses(r,i.payload);
  episode:='derivation:'||ops.ddo_digest(jsonb_build_array(i.id,i.payload_digest));

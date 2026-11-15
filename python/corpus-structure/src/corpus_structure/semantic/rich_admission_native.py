@@ -126,6 +126,54 @@ REVOKE ALL ON FUNCTION ops.ddo_rich_role_population(jsonb,text),ops.ddo_rich_sel
 
 def _rich_completion_sql() -> str:
     return r"""
+CREATE OR REPLACE FUNCTION ops.ddo_rich_require_preparation_producer(r ops.data_request,completion jsonb)
+RETURNS void LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $rich$
+DECLARE definition sem.data_operation_definition; output jsonb; factory text; output_role text; output_kind text;
+BEGIN
+ CASE r.operation_id
+ WHEN 'prepare.external_extraction' THEN
+ factory:='corpus_structure.methods.external_extraction.RichExtractionInputOperation.acquire_port';
+ output_role:='result'; output_kind:='https://corpus-structure.dev/semantic/data-operation-external-extraction/DdoExternalExtractionPacket';
+ WHEN 'locate.external_extraction' THEN
+ factory:='corpus_structure.methods.external_extraction.RichExtractionPlacementOperation.acquire_port';
+ output_role:='result'; output_kind:='https://corpus-structure.dev/semantic/data-operation-external-extraction/DdoLocatedExternalExtraction';
+ WHEN 'rich.consolidate' THEN
+ factory:='corpus_structure.methods.rich_knowledge.RichKnowledgeConsolidation.acquire_port';
+ output_role:='consolidated'; output_kind:='https://corpus-structure.dev/semantic/data-operation-rich-knowledge/DdoRichConsolidation';
+ ELSE RAISE EXCEPTION 'rich preparation requires its actual operation owner' USING ERRCODE='23514';
+ END CASE;
+ SELECT * INTO STRICT definition FROM sem.data_operation_definition WHERE release_id=r.release_id AND operation_id=r.operation_id;
+ IF definition.profile IS DISTINCT FROM 'derivation'
+ OR definition.support_contract->'effects' IS DISTINCT FROM '[]'::jsonb
+ OR definition.support_contract->'capabilities'->'prepared_factory'->>'entrypoint' IS DISTINCT FROM factory
+ OR (definition.support_contract->'capabilities'->'prepared_factory'->>'source_digest' ~ '^[0-9a-f]{64}$') IS NOT TRUE
+ OR (definition.implementation_revision LIKE 'implementation-slice:%') IS NOT TRUE
+ OR completion->>'implementation_revision' IS DISTINCT FROM definition.implementation_revision
+ OR r.recipe IS DISTINCT FROM definition.recipe
+ OR (r.operation_id='rich.consolidate' AND r.original_source IS NOT NULL)
+ OR completion->'inputs' IS DISTINCT FROM r.binding->'inputs'
+ OR completion->'support' IS DISTINCT FROM r.binding->'support'
+ OR jsonb_array_length(coalesce(completion->'execution_evidence'->'cpu_receipts','[]'))<>1 THEN
+ RAISE EXCEPTION 'rich preparation requires actual derivation/factory/CPU and declared inputs' USING ERRCODE='23514'; END IF;
+ IF completion->>'outcome' IS DISTINCT FROM 'success' OR jsonb_array_length(completion->'outputs')<>1 THEN
+ RAISE EXCEPTION 'rich preparation requires one exact successful conclusion' USING ERRCODE='23514'; END IF;
+ output:=completion->'outputs'->0;
+ IF output->>'role' IS DISTINCT FROM output_role OR output->>'member_id' IS NOT NULL
+ OR (output->>'position')::integer IS DISTINCT FROM 0 OR (output->>'multiplicity')::integer IS DISTINCT FROM 1
+ OR NOT EXISTS(SELECT FROM sem.data_kind_contract kind WHERE kind.kind_contract=output->'product'->>'kind_contract'
+ AND kind.kind=output_kind AND kind.universe='ordinary') THEN
+ RAISE EXCEPTION 'rich preparation differs from its actual whole nominal output' USING ERRCODE='23514'; END IF;
+END $rich$;
+
+CREATE OR REPLACE FUNCTION ops.ddo_require_rich_preparation_completion(r ops.data_request,completion jsonb)
+RETURNS void LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $rich$
+BEGIN
+ IF r.operation_id NOT IN ('prepare.external_extraction','locate.external_extraction','rich.consolidate') THEN RETURN; END IF;
+ PERFORM ops.ddo_rich_require_preparation_producer(r,completion);
+ IF ops.ddo_cpu_reply_output(r,completion) IS DISTINCT FROM data.ddo_normalize(completion->'outputs'->0->'product'->'body') THEN
+ RAISE EXCEPTION 'rich preparation differs from actual original CPU reply and input basis' USING ERRCODE='23514'; END IF;
+END $rich$;
+
 CREATE OR REPLACE FUNCTION ops.ddo_rich_require_admission_producer(r ops.data_request,completion jsonb)
 RETURNS void LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $rich$
 DECLARE definition sem.data_operation_definition; output jsonb;
@@ -161,7 +209,7 @@ CREATE OR REPLACE FUNCTION ops.ddo_require_rich_admission_completion(r ops.data_
 RETURNS void LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $rich$
 DECLARE basis jsonb; admission_meaning jsonb; admission jsonb; consolidated_meaning jsonb; consolidated jsonb;
  consolidation_request ops.data_request; consolidation_basis jsonb; selected jsonb; authorization_request ops.data_request;
- resolution_request ops.data_request; located_request ops.data_request; known_request ops.data_request;
+ resolution_request ops.data_request; located_request ops.data_request; known_request ops.data_request; packet_request ops.data_request;
  resolution_basis jsonb; reference jsonb; decision jsonb; raw_meaning jsonb; resolved_meaning jsonb; known_episode text;
  raw_record jsonb; resolved_record jsonb; resolution_meaning jsonb; report jsonb; policy_meaning jsonb; policy jsonb;
  events jsonb; event jsonb; reports jsonb:='{}'; raw_reports jsonb:='{}'; policies jsonb:='{}'; known_packets jsonb:='{}'; item jsonb; packet jsonb; raw_digest text;
@@ -210,7 +258,26 @@ BEGIN
  reference:=jsonb_build_object('product_id',selected->>'product_id','member_id',NULL,'kind_contract',selected->>'kind_contract','support_references',selected->'support');
  located_request:=ops.ddo_rich_producing_request(r.project_id,reference,'locate.external_extraction',
  'corpus_structure.methods.external_extraction.RichExtractionPlacementOperation.acquire_port','result',true);
+ SELECT intent.payload INTO STRICT item FROM ops.data_derivation producer
+ JOIN ops.data_completion_intent intent ON intent.id=producer.intent_id
+ WHERE producer.request_id=located_request.id AND EXISTS(SELECT FROM jsonb_array_elements(reference->'support_references') support WHERE support->>'derivation_id'=producer.id);
+ PERFORM ops.ddo_require_rich_preparation_completion(located_request,item);
+ IF item->'outputs'->0->'product'->'body' IS DISTINCT FROM
+ ops.ddo_rich_selected_value(r.project_id,consolidation_basis,'proposals',reference) THEN
+ RAISE EXCEPTION 'rich proposal differs from actual located CPU output' USING ERRCODE='23514'; END IF;
  PERFORM ops.ddo_rich_require_proposal_context(consolidation_basis,ops.ddo_cpu_input_basis(located_request));
+ END LOOP;
+ FOR selected IN SELECT value FROM ops.ddo_rich_role_headers(consolidation_basis) header(value) WHERE value->>'role'='proposal_contexts' LOOP
+ reference:=jsonb_build_object('product_id',selected->>'product_id','member_id',NULL,'kind_contract',selected->>'kind_contract','support_references',selected->'support');
+ packet_request:=ops.ddo_rich_producing_request(r.project_id,reference,'prepare.external_extraction',
+ 'corpus_structure.methods.external_extraction.RichExtractionInputOperation.acquire_port','result',true);
+ SELECT intent.payload INTO STRICT item FROM ops.data_derivation producer
+ JOIN ops.data_completion_intent intent ON intent.id=producer.intent_id
+ WHERE producer.request_id=packet_request.id AND EXISTS(SELECT FROM jsonb_array_elements(reference->'support_references') support WHERE support->>'derivation_id'=producer.id);
+ PERFORM ops.ddo_require_rich_preparation_completion(packet_request,item);
+ IF item->'outputs'->0->'product'->'body' IS DISTINCT FROM
+ ops.ddo_rich_selected_value(r.project_id,consolidation_basis,'proposal_contexts',reference) THEN
+ RAISE EXCEPTION 'rich proposal context differs from actual prepared CPU packet' USING ERRCODE='23514'; END IF;
  END LOOP;
  FOR selected IN SELECT value FROM ops.ddo_rich_role_headers(consolidation_basis) header(value) WHERE value->>'role'='known_universe' LOOP
  reference:=jsonb_build_object('product_id',selected->>'product_id','member_id',NULL,'kind_contract',selected->>'kind_contract','support_references',selected->'support');
@@ -394,7 +461,7 @@ RETURNS boolean LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_cata
 DECLARE r ops.data_request; completion jsonb;
 BEGIN
  SELECT request.* INTO STRICT r FROM ops.data_request request JOIN ops.data_derivation producer ON producer.request_id=request.id WHERE producer.id=episode;
- IF r.operation_id IS DISTINCT FROM 'rich.admit' THEN RETURN true; END IF;
+ IF r.operation_id NOT IN ('rich.admit','rich.consolidate','prepare.external_extraction','locate.external_extraction') THEN RETURN true; END IF;
  -- The same captured native kernel sealed all immutable correspondence checks.
  -- Ordinary support closure still rechecks every declared dependency/current
  -- trust scope. Do not replay every immutable event/graph on every support read.
@@ -402,11 +469,13 @@ BEGIN
  JOIN sem.artifact artifact ON artifact.release_id=producer.release_id AND artifact.artifact_name='data_operation_native_definitions.json'
  WHERE producer.id=episode AND producer.outcome='success' AND convert_from(artifact.content,'UTF8')::jsonb->>'native_digest'='__DDO_SOURCE_DIGEST__') THEN RETURN false; END IF;
  SELECT intent.payload INTO STRICT completion FROM ops.data_derivation producer JOIN ops.data_completion_intent intent ON intent.id=producer.intent_id WHERE producer.id=episode;
- PERFORM ops.ddo_rich_require_admission_producer(r,completion);
+ IF r.operation_id='rich.admit' THEN PERFORM ops.ddo_rich_require_admission_producer(r,completion);
+ ELSE PERFORM ops.ddo_rich_require_preparation_producer(r,completion); END IF;
  RETURN true;
  EXCEPTION WHEN data_exception OR integrity_constraint_violation OR no_data_found OR too_many_rows THEN RETURN false;
 END $rich$;
 
 REVOKE ALL ON FUNCTION ops.ddo_rich_require_admission_producer(ops.data_request,jsonb),
+ ops.ddo_rich_require_preparation_producer(ops.data_request,jsonb),ops.ddo_require_rich_preparation_completion(ops.data_request,jsonb),
  ops.ddo_require_rich_admission_completion(ops.data_request,jsonb),ops.ddo_rich_admission_dependencies_valid(text) FROM PUBLIC;
 """

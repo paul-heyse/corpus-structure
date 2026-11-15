@@ -73,6 +73,7 @@ def test_rich_private_helpers_compile_without_grants_or_authority_for_unrelated_
     connection = rich_guard_connection
     request = json.dumps({'operation_id': 'unrelated', 'project_id': 'project:actual'})
     connection.execute(text("SELECT ops.ddo_require_rich_admission_completion(jsonb_populate_record(NULL::ops.data_request,CAST(:r AS jsonb)),'{}'::jsonb)"), {'r': request})
+    connection.execute(text("SELECT ops.ddo_require_rich_preparation_completion(jsonb_populate_record(NULL::ops.data_request,CAST(:r AS jsonb)),'{}'::jsonb)"), {'r': request})
     assert connection.scalar(text("SELECT ops.ddo_rich_admission_dependencies_valid('missing-episode')")) is False
     assert connection.scalar(text("SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='ops' AND p.proname LIKE '%rich%' AND EXISTS(SELECT FROM aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) grant_ WHERE grant_.grantee=0 AND grant_.privilege_type='EXECUTE')")) == 0
 
@@ -88,6 +89,21 @@ def test_rich_command_name_without_real_factory_cpu_and_effect_is_refused(rich_g
                           'project_id': 'project:actual', 'original_source': None, 'binding': {'inputs': [], 'support': []}})
     with pytest.raises(DBAPIError, match='actual command/effect/factory/CPU'):
         connection.execute(text("SELECT ops.ddo_require_rich_admission_completion(jsonb_populate_record(NULL::ops.data_request,CAST(:r AS jsonb)),'{}'::jsonb)"), {'r': request})
+
+
+@pytest.mark.parametrize('operation', ['prepare.external_extraction', 'locate.external_extraction', 'rich.consolidate'])
+def test_private_rich_name_does_not_grant_computed_authority(rich_guard_connection, operation):
+    connection = rich_guard_connection
+    connection.execute(table('sem.data_operation_definition').insert().values(
+        release_id='release:controlled', operation_id=operation, subject_definition='knowledge-universe',
+        recipe='recipe:controlled', profile='derivation', implementation_revision='implementation-slice:controlled',
+        input_roles=[], output_roles=[], support_contract={'effects': []},
+    ))
+    request = {'release_id': 'release:controlled', 'operation_id': operation, 'recipe': 'recipe:controlled',
+               'project_id': 'project:actual', 'original_source': None, 'binding': {'inputs': [], 'support': []}}
+    with pytest.raises(DBAPIError, match='actual derivation/factory/CPU'):
+        connection.execute(text("SELECT ops.ddo_require_rich_preparation_completion(jsonb_populate_record(NULL::ops.data_request,CAST(:r AS jsonb)),'{}'::jsonb)"),
+                           {'r': json.dumps(request)})
 
 
 def test_selected_member_is_actual_member_of_bound_whole_report_with_original_support(rich_guard_connection):
@@ -224,5 +240,6 @@ def test_native_rich_function_population_has_explicit_independent_expectation():
         'ddo_rich_producing_request', 'ddo_rich_family_contract', 'ddo_rich_require_admission_producer',
         'ddo_rich_require_proposal_context',
         'ddo_rich_carried_reading',
+        'ddo_rich_require_preparation_producer', 'ddo_require_rich_preparation_completion',
         'ddo_require_rich_admission_completion', 'ddo_rich_admission_dependencies_valid',
     }
