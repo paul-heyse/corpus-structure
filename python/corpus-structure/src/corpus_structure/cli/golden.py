@@ -1,21 +1,15 @@
-"""Restricted semantic reference-set, split, pass and status commands."""
+"""Named sealed reference packet/status readers; original addresses remain intact."""
 
 from __future__ import annotations
 
 import json as jsonlib
 from contextlib import contextmanager
-from pathlib import Path
 from typing import Annotated
 
 import typer
 
 from corpus_structure.cli.failures import failure_boundary
 from corpus_structure.cli.output import JsonOpt, state
-
-golden_app = typer.Typer(
-    help="Independent references on an immutable semantic release.", no_args_is_help=True
-)
-InputFile = Annotated[Path, typer.Option(exists=True, dir_okay=False, readable=True)]
 
 
 @contextmanager
@@ -50,7 +44,6 @@ def reference_session(ctx, project=None, *, json=False):
                 raise references.ReferenceError("unknown semantic project")
             yield conn, project
 
-
 def output(result, json):
     if hasattr(result, "model_dump"):
         result = result.model_dump(mode="json")
@@ -66,7 +59,6 @@ def output(result, json):
         from corpus_structure.cli.output import stdout_console
 
         stdout_console().print(Pretty(result))
-
 
 def reference_protocol(conn, set_id, project_id):
     """Route only from a stored, project-bound reference-set declaration."""
@@ -89,146 +81,12 @@ def reference_protocol(conn, set_id, project_id):
     return protocol
 
 
-def read_object(path):
-    """Translate malformed caller JSON without masking implementation failures."""
-    from corpus_structure.evaluate.semantic import ReferenceError
-
-    try:
-        value = jsonlib.loads(path.read_bytes())
-    except (OSError, UnicodeDecodeError, jsonlib.JSONDecodeError) as error:
-        raise ReferenceError(f"invalid JSON input: {path}") from error
-    if not isinstance(value, dict):
-        raise ReferenceError(f"JSON input must be an object: {path}")
-    return value
 
 
-def decode_record_frame(value):
-    """Check the existing dataclass shape before its unchecked decoder reaches services."""
-    from pydantic import TypeAdapter, ValidationError
-
-    from corpus_structure.evaluate import record_references as references
-    from corpus_structure.evaluate.record_alignment import RecordEvaluationFrame
-
-    if not isinstance(value, dict):
-        raise references.ReferenceError("record frame must be a JSON object")
-    try:
-        TypeAdapter(RecordEvaluationFrame).validate_python(value.get("evaluation_frame"))
-    except ValidationError as error:
-        raise references.ReferenceError(f"invalid record evaluation_frame: {error}") from error
-    try:
-        return references.decode_frame(value)
-    except (KeyError, TypeError, ValueError) as error:
-        raise references.ReferenceError("invalid record reference frame") from error
 
 
-def validate_record_sample_shape(payload):
-    """Validate CLI containers; the existing service/native owners enforce their meaning."""
-    from typing import Any
-
-    from pydantic import TypeAdapter, ValidationError
-
-    from corpus_structure.evaluate.semantic import ReferenceError
-
-    shapes = {
-        "unit_keys": list[str],
-        "sampling": dict[str, Any],
-        "frames": dict[str, dict[str, Any]],
-        "captured_coordinates": dict[str, list[dict[str, Any]]] | None,
-        "context_dependency_digests": dict[str, str] | None,
-    }
-    for key, shape in shapes.items():
-        if key in payload:
-            try:
-                TypeAdapter(shape).validate_python(payload[key], strict=True)
-            except ValidationError as error:
-                raise ReferenceError(f"invalid sample {key}: {error}") from error
-    sampling = payload["sampling"]
-    for key in ("strata", "inclusion_probabilities", "provenance"):
-        if key in sampling and not isinstance(sampling[key], dict):
-            raise ReferenceError(f"sample sampling.{key} must be a JSON object")
 
 
-@golden_app.command("record-origin")
-def record_origin_command(
-    ctx: typer.Context,
-    origin_group: Annotated[str, typer.Option()],
-    partition: Annotated[str, typer.Option()],
-    source_uri: Annotated[list[str], typer.Option("--source-uri")],
-    provenance: InputFile,
-    project: str | None = None,
-    json: JsonOpt = False,
-):
-    """Assign explicitly attested common source origins to a record partition."""
-    from corpus_structure.evaluate import record_references as references
-
-    with reference_session(ctx, project, json=json) as (conn, pid):
-        references.assign_origin(
-            conn,
-            project_id=pid,
-            origin_group=origin_group,
-            partition=partition,
-            source_uris=source_uri,
-            provenance=read_object(provenance),
-        )
-    output({"origin_group": origin_group, "partition": partition, "source_uris": source_uri}, json)
-
-
-@golden_app.command("record-create")
-def record_create_command(
-    ctx: typer.Context,
-    from_run: Annotated[int, typer.Option()],
-    source_cut: Annotated[int, typer.Option()],
-    label: Annotated[str, typer.Option()],
-    split: Annotated[str, typer.Option()],
-    guideline: Annotated[str, typer.Option()],
-    guideline_text: InputFile,
-    partition: Annotated[str, typer.Option()],
-    reference_policy: Annotated[str, typer.Option()],
-    prediction_policy: Annotated[str, typer.Option()],
-    sample: InputFile,
-    project: str | None = None,
-    json: JsonOpt = False,
-):
-    """Freeze source-only frames and report unit IDs for protected author packets."""
-    from corpus_structure.evaluate import record_references as references
-
-    with reference_session(ctx, project, json=json) as (conn, pid):
-        payload = read_object(sample)
-        required = {"unit_keys", "sampling", "frames"}
-        optional = {"captured_coordinates", "context_dependency_digests"}
-        if not required <= payload.keys() or payload.keys() - required - optional:
-            raise references.ReferenceError(
-                "sample requires unit_keys, sampling, frames; optional captured_coordinates "
-                "and context_dependency_digests"
-            )
-        validate_record_sample_shape(payload)
-        frames = {key: decode_record_frame(value) for key, value in payload["frames"].items()}
-        try:
-            text = guideline_text.read_text(encoding="utf-8")
-        except (ValueError, OSError) as error:
-            raise references.ReferenceError("invalid record guideline text") from error
-        result = references.create_reference_set(
-            conn,
-            project_id=pid,
-            source_run_id=from_run,
-            source_cut_id=source_cut,
-            label=label,
-            legacy_split=split,
-            guideline=guideline,
-            guideline_text=text,
-            partition=partition,
-            unit_keys=payload["unit_keys"],
-            sampling=payload["sampling"],
-            frames=frames,
-            reference_policy_version=reference_policy,
-            prediction_policy_version=prediction_policy,
-            captured_coordinates=payload.get("captured_coordinates"),
-            context_dependency_digests=payload.get("context_dependency_digests"),
-        )
-    output(result, json)
-
-
-@golden_app.command("record-packet")
 def record_packet_command(
     ctx: typer.Context,
     unit: Annotated[int, typer.Option()],
@@ -261,63 +119,8 @@ def record_packet_command(
     output(result, json)
 
 
-@golden_app.command("split")
-def split_command(
-    ctx: typer.Context, seed: int | None = None, project: str | None = None, json: JsonOpt = False
-):
-    """Assign registered source documents immutably to development/test splits."""
-    from corpus_structure.evaluate import semantic as references
-
-    with reference_session(ctx, project, json=json) as (conn, pid):
-        result = references.split_documents(conn, pid, seed=seed)
-    output(result, json)
 
 
-@golden_app.command("operation-create")
-def operation_create_command(
-    ctx: typer.Context,
-    from_run: Annotated[int, typer.Option()],
-    source_cut: Annotated[int, typer.Option()],
-    label: Annotated[str, typer.Option()],
-    split: Annotated[str, typer.Option()],
-    guideline: Annotated[str, typer.Option()],
-    guideline_text: InputFile,
-    partition: Annotated[str, typer.Option()],
-    sample: InputFile,
-    project: str | None = None,
-    json: JsonOpt = False,
-):
-    """Freeze operation source/output frames before independent A/B authoring."""
-    from corpus_structure.evaluate import operation_assessment as references
-
-    with reference_session(ctx, project, json=json) as (conn, pid):
-        payload = read_object(sample)
-        if set(payload) != {"sampling", "frames"}:
-            raise references.ReferenceError("operation sample requires exactly sampling and frames")
-        try:
-            frames = {
-                key: references.decode_frame(value) for key, value in payload["frames"].items()
-            }
-            text = guideline_text.read_text(encoding="utf-8")
-        except (ValueError, OSError, TypeError, AttributeError) as error:
-            raise references.ReferenceError("invalid operation sample or guideline") from error
-        result = references.create_reference_set(
-            conn,
-            project_id=pid,
-            source_run_id=from_run,
-            source_cut_id=source_cut,
-            label=label,
-            legacy_split=split,
-            guideline=guideline,
-            guideline_text=text,
-            partition=partition,
-            sampling=payload["sampling"],
-            frames=frames,
-        )
-    output(result, json)
-
-
-@golden_app.command("operation-packet")
 def operation_packet_command(
     ctx: typer.Context,
     unit: Annotated[int, typer.Option()],
@@ -344,46 +147,7 @@ def operation_packet_command(
     output(result, json)
 
 
-@golden_app.command("create")
-def create_command(
-    ctx: typer.Context,
-    split: Annotated[str, typer.Option()],
-    label: Annotated[str, typer.Option()],
-    size: int | None = None,
-    seed: int | None = None,
-    from_run: int | None = None,
-    force_unit: Annotated[list[str] | None, typer.Option("--force-unit")] = None,
-    project: str | None = None,
-    json: JsonOpt = False,
-):
-    """Sample independent reference units from a completed result's frozen source cut."""
-    from sqlalchemy import select
 
-    from corpus_structure.evaluate import semantic as references
-    from corpus_structure.semantic.metadata import table
-
-    with reference_session(ctx, project, json=json) as (conn, pid):
-        run = from_run or conn.scalar(
-            select(table("data.project").c.selected_result_run_id).where(
-                table("data.project").c.project_id == pid
-            )
-        )
-        if run is None:
-            raise references.ReferenceError("choose --from-run or select a completed result")
-        result = references.create_reference_set(
-            conn,
-            project_id=pid,
-            source_run_id=run,
-            label=label,
-            split=split,
-            size=size,
-            seed=seed,
-            forced=tuple(force_unit or ()),
-        )
-    output(result, json)
-
-
-@golden_app.command("status")
 def status_command(
     ctx: typer.Context, label: str | None = None, project: str | None = None, json: JsonOpt = False
 ):
@@ -415,71 +179,12 @@ def status_command(
     output(result, json)
 
 
-@golden_app.command("submit")
-def submit_command(
-    ctx: typer.Context,
-    unit: Annotated[int, typer.Option()],
-    pass_kind: Annotated[str, typer.Option("--pass")],
-    actor: Annotated[str, typer.Option()],
-    authored: Annotated[Path, typer.Option(exists=True, dir_okay=False, readable=True)],
-    frame: Annotated[Path, typer.Option(exists=True, dir_okay=False, readable=True)],
-    project: str | None = None,
-    json: JsonOpt = False,
-):
-    """Store an automated independent pass and its exact source citation frame."""
-    from corpus_structure.evaluate import operation_assessment, record_references
-    from corpus_structure.evaluate import semantic as references
-    from corpus_structure.semantic.proposals import (
-        ProposalFrame,
-        ProposalSentence,
-        native_frame_from_dict,
-    )
-
-    with reference_session(ctx, project, json=json) as (conn, pid):
-        bound = references._unit(conn, unit)
-        if bound["project_id"] != pid:
-            raise references.ReferenceError("reference unit belongs to another project")
-        protocol = reference_protocol(conn, bound["set_id"], pid)
-        if protocol == operation_assessment.PROTOCOL:
-            operation_frame = operation_assessment.decode_frame(read_object(frame))
-            identity = operation_assessment.record_pass(
-                conn,
-                unit_id=unit,
-                pass_kind=pass_kind,
-                actor=actor,
-                authored=authored.read_bytes(),
-                frame=operation_frame,
-            )
-        elif protocol == record_references.PROTOCOL:
-            record_frame = decode_record_frame(read_object(frame))
-            identity = record_references.record_pass(
-                conn,
-                unit_id=unit,
-                pass_kind=pass_kind,
-                actor=actor,
-                authored=authored.read_bytes(),
-                frame=record_frame,
-            )
-        else:
-            try:
-                raw = jsonlib.loads(frame.read_bytes())
-                coordinates = tuple(ProposalSentence(**sentence) for sentence in raw["sentences"])
-                if "source_view_id" in raw:
-                    source = native_frame_from_dict(raw)
-                else:
-                    source = ProposalFrame(raw["unit_ref"], raw["text"], coordinates)
-            except (jsonlib.JSONDecodeError, KeyError, TypeError, ValueError) as error:
-                raise references.ReferenceError("invalid authored citation frame") from error
-            identity = references.record_pass(
-                conn,
-                unit_id=unit,
-                pass_kind=pass_kind,
-                actor=actor,
-                authored=authored.read_bytes(),
-                frame=source,
-            )
-    output({"pass_id": identity, "unit_id": unit, "pass_kind": pass_kind}, json)
-
 
 def register(app):
-    app.add_typer(golden_app, name="golden")
+    # Preserved original packets/status are named sealed readers. Current authoring
+    # uses protected declared reference facts; old create/submit mutators are absent.
+    retained = typer.Typer(help="Read original sealed reference inventories without regrading.")
+    retained.command("status")(status_command)
+    retained.command("record-packet")(record_packet_command)
+    retained.command("operation-packet")(operation_packet_command)
+    app.add_typer(retained, name="retained-golden")

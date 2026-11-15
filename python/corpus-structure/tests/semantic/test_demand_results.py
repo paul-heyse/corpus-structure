@@ -225,3 +225,14 @@ def test_detached_product_requires_its_artifact_even_without_document_admission(
     verify_detached_result(native, records=records, wire_schema={}, source_artifacts={"a" * 64:"captured.bin"})
     with pytest.raises(ValueError, match="artifact bytes are missing"):
         verify_detached_result(native, records=records, wire_schema={}, source_artifacts={})
+
+
+def test_scoped_operation_metadata_keeps_native_selected_obligation(monkeypatch):
+    def native(connection,demand_id,*,project_id,scope,view,**kwargs):
+        assert scope=={"product_ids":["product:A"]} and view=="frontier"
+        page=_page(empty=True)
+        page.update(view=view,scope=scope)
+        return DemandResult(json_bytes(page))
+    monkeypatch.setattr("corpus_structure.semantic.demand_queries.read_demand_result",native)
+    result=serve_demand_query(None,DemandQueryRequest(demand_id="demand:A",project_id="project:A",view="operations",product_id="product:A",max_bytes=8192))
+    assert result["items"][0]["obligation"]["obligation_id"]=="obligation:A"

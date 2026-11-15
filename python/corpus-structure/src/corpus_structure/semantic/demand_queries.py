@@ -1,6 +1,8 @@
 """Selected member/operation query projections over one explicit native CutSelection."""
 from __future__ import annotations
 
+from collections.abc import Mapping
+
 import base64
 from hashlib import sha256
 from typing import Any, Literal
@@ -82,7 +84,13 @@ def serve_demand_query(connection, request: DemandQueryRequest) -> dict:
         rows = tuple(dict(product_id=row["product_id"], use_id=row["use_id"], derivation_id=row["derivation_id"], source=row["body"]["source"], coverage=coverage) for row in page.members() if row["member_id"] is None and isinstance(row["body"], dict) and "source" in row["body"] for coverage in row["body"].get("coverage", ()))
     else:
         rows = page.members()
-    filtered = tuple(row for row in rows if (not request.containers_only or row.get("member_id") is None) and (request.record_type is None or row.get("body", {}).get("record_type") == request.record_type) and (request.family is None or row.get("body", row.get("coverage", {})).get("family") == request.family) and all(value is None or row.get(key) == value for key, value in dict(kind_contract=request.kind_contract, product_id=request.product_id, member_id=request.member_id).items()))
+    def body_field(row,name):
+        body=row.get("body",row.get("coverage"))
+        return body.get(name) if isinstance(body,Mapping) else None
+    member_filters=dict(kind_contract=request.kind_contract,member_id=request.member_id)
+    if request.view in {"members","coverage"}:
+        member_filters["product_id"]=request.product_id
+    filtered = tuple(row for row in rows if (not request.containers_only or row.get("member_id") is None) and (request.record_type is None or body_field(row,"record_type") == request.record_type) and (request.family is None or body_field(row,"family") == request.family) and all(value is None or row.get(key) == value for key,value in member_filters.items()))
     if offset > len(filtered):
         raise ValueError("cursor is outside the pinned member population")
     uses = [{**use, "products": [{key: value for key, value in product.items() if key != "body"} for product in use["products"]]} for use in native["uses"]]

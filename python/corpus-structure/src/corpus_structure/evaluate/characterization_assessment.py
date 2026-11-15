@@ -22,6 +22,10 @@ COLLECTIONS = ("occurrences", "annotations", "memberships", "roles", "terms", "c
 
 def pin_key(value):
     try:
+        if set(value) == {"product_id"}:
+            from corpus_structure.semantic.data_product_reference import DataProductReference
+            reference = DataProductReference(value["product_id"])
+            return ("semantic-product", reference.product_id)
         if set(value) != {"task_id", "product_key", "content_digest"}:
             raise ValueError("pin fields")
         pin = ProductReference(**value)
@@ -31,6 +35,12 @@ def pin_key(value):
 
 
 def output_key(value):
+    if isinstance(value, Mapping) and set(value) == {"product_id", "member_id", "collection"}:
+        from corpus_structure.semantic.data_product_reference import DataProductMemberReference, DataProductReference
+        reference = DataProductMemberReference(DataProductReference(value["product_id"]), value["member_id"])
+        if value["collection"] not in COLLECTIONS:
+            raise ReferenceError("assessment output requires an actual declared collection")
+        return (*pin_key(reference.product.values()), value["collection"], reference.member_id)
     if (
         not isinstance(value, Mapping)
         or set(value) != {"layer", "collection", "local_id"}
@@ -360,6 +370,12 @@ def _matches(actual, expected, graph_projection=None):
     )
 
 
+def _graph_member(value):
+    from corpus_structure.semantic.data_product_reference import read_member_reference
+    reference = read_member_reference(value)
+    return reference.product.values(), reference.member_id
+
+
 class LayerProjection:
     def __init__(self, load):
         self.load = load
@@ -401,13 +417,11 @@ class LayerProjection:
 
     def project(self, output, *, include_graph=True):
         output_key(output)
-        pin = output["layer"]
+        declared = "product_id" in output
+        pin = {"product_id": output["product_id"]} if declared else output["layer"]
         body = self.layer(pin)
-        local = (
-            "@coverage:" + output["local_id"]
-            if output["collection"] == "coverage"
-            else output["local_id"]
-        )
+        identifier = output["member_id"] if declared else output["local_id"]
+        local = "@coverage:" + identifier if output["collection"] == "coverage" else identifier
         pair = self.indexes[pin_key(pin)].get(local)
         if pair is None or pair[0] != output["collection"]:
             raise ReferenceError("frozen characterization output is absent")
@@ -486,12 +500,15 @@ class LayerProjection:
                         edge(name, target, position=position)
                 elif name in {"external_premises", "required_external_choices"}:
                     for position, target in enumerate(data):
-                        edge(name, target["local_id"], target["layer"], position=position)
+                        target_pin, target_member = _graph_member(target)
+                        edge(name, target_member, target_pin, position=position)
                 elif name == "head" and collection == "named_binding":
-                    edge(name, data["local_id"], data["layer"])
+                    target_pin, target_member = _graph_member(data)
+                    edge(name, target_member, target_pin)
                 elif name in {"members", "antecedent_members"} and collection == "named_binding":
                     for position, target in enumerate(data):
-                        edge(name, target["local_id"], target["layer"], position=position)
+                        target_pin, target_member = _graph_member(target)
+                        edge(name, target_member, target_pin, position=position)
                 elif name in {"native_token", "native_mention", "native_edu"} and witness_closure:
                     detail = dict(data)
                     for field in ("native_run", "container", "sentence"):
@@ -505,14 +522,14 @@ class LayerProjection:
                     if container is not None:
                         edge(
                             "named_match.native_container",
-                            container["local_id"],
-                            container["layer"],
+                            _graph_member(container)[1],
+                            _graph_member(container)[0],
                         )
                     for position, target in enumerate(match.pop("nodes", ())):
                         edge(
                             "named_match.nodes",
-                            target["local_id"],
-                            target["layer"],
+                            _graph_member(target)[1],
+                            _graph_member(target)[0],
                             position=position,
                         )
                     for position, _ in enumerate(match.pop("bindings", ())):
@@ -555,8 +572,8 @@ class LayerProjection:
                             target = token["native_node"]
                             edge(
                                 "navigation.native_tokens.native_node",
-                                target["local_id"],
-                                target["layer"],
+                                _graph_member(target)[1],
+                                _graph_member(target)[0],
                                 position=position,
                                 **metadata,
                             )
@@ -605,8 +622,8 @@ class LayerProjection:
                         for position, target in enumerate(basis.pop(field, ())):
                             edge(
                                 "basis." + field,
-                                target["local_id"],
-                                target["layer"],
+                                _graph_member(target)[1],
+                                _graph_member(target)[0],
                                 position=position,
                             )
                     value[name] = basis
@@ -638,6 +655,8 @@ class LayerProjection:
                     path=["named_match", "bindings", identity[2]],
                 )
             )
+            if set(current_pin) == {"product_id"}:
+                qualified = dict(product_id=current_pin["product_id"], member_id=identity) if isinstance(identity, str) else dict(product_id=current_pin["product_id"], member_id=identity[1], path=["named_match", "bindings", identity[2]])
             node = dict(
                 id=names[(*key, identity)],
                 qualified_identity=qualified,

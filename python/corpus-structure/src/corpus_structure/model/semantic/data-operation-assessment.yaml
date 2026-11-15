@@ -1,0 +1,61 @@
+id: https://corpus-structure.dev/semantic/data-operation-assessment
+name: data_operation_assessment
+prefixes:
+  assessment: https://corpus-structure.dev/semantic/data-operation-assessment/
+default_prefix: assessment
+default_range: string
+imports: [data_operation_references]
+classes:
+  DdoReferenceSourceMember:
+    is_a: DdoSemanticProductReference
+    annotations: {cs:data_universe: evaluator}
+    attributes:
+      member_id: {}
+      subject: {required: true}
+      original_source: {required: true}
+      analyzed_scope_meaning: {required: true}
+      kind_contract: {required: true}
+  DdoSelectedReferenceCase:
+    is_a: SourceRecordProduct
+    annotations: {cs:data_universe: evaluator}
+    attributes:
+      case_id: {required: true}
+      opportunity_id: {required: true}
+      question: {required: true}
+      source_members: {range: DdoReferenceSourceMember, inlined: true, multivalued: true, required: true, minimum_cardinality: 1}
+      matcher: {required: true, range: DdoReferenceMatcher}
+      expected: {range: SourceValue, inlined: true, required: true}
+      graph_projection: {range: DdoReferenceGraphProjection}
+      judgment: {required: true, range: DdoReferenceJudgment}
+  DdoSelectedReference:
+    is_a: SourceRecordProduct
+    annotations: {cs:data_universe: evaluator}
+    description: Independent authored questions/answers frozen against their actual source selection; never prediction input.
+    attributes:
+      reference_name: {required: true}
+      author: {required: true}
+      pass_kind: {required: true, equals_string: C}
+      direction: {required: true, range: DdoReferenceDirection}
+      source_demand_id: {required: true}
+      source_cut_id: {required: true}
+      source_read_id: {required: true}
+      source_cut: {range: SourceValue, inlined: true, required: true}
+      source_release_id: {required: true}
+      source_runtime_id: {required: true}
+      source_members: {range: DdoReferenceSourceMember, inlined: true, multivalued: true, required: true, minimum_cardinality: 1}
+      output_members: {range: DdoSemanticMemberReference, inlined: true, multivalued: true, value_presence: PRESENT, minimum_cardinality: 0}
+      cases: {range: DdoSelectedReferenceCase, inlined: true, multivalued: true, required: true, minimum_cardinality: 1}
+      retained_correspondence: {range: SourceValue, inlined: true, required: true, description: "Explicit null when no retained reference/grade correspondence is asserted."}
+  DdoSelectedReferenceSnapshot:
+    is_a: DdoSelectedReference
+    annotations: {cs:data_universe: evaluator}
+    description: Native derived snapshot of the independent authored reference; original source release and questions remain fixed.
+enums:
+  DdoReferenceDirection:
+    permissible_values: {source_first: {}, output_first: {}}
+  DdoReferenceMatcher:
+    permissible_values: {fields: {}, graph_full: {}}
+  DdoReferenceGraphProjection:
+    permissible_values: {source_semantics: {}, native_fidelity: {}, retained_identity: {}}
+  DdoReferenceJudgment:
+    permissible_values: {supported: {}, unsupported: {}, ambiguous: {}, unassessed: {}}

@@ -60,12 +60,21 @@ def author_interpretations(engine, prepared, *, request: NativeDemandRequest):
         )
         if registered.get("state") == "cancelled":
             raise ValueError("cancelled demand cannot admit new authored facts")
-        snapshot = storage.read_demand_result({"demand_id": registered["demand_id"], "limit": 1})
-        admissions = tuple(
-            value
-            for value in snapshot["original_source_admissions"]
-            if value["selection_name"] in names
-        )
+        from corpus_structure.semantic.demand_results import read_demand_result
+        continuation, cut, found = None, None, {}
+        while True:
+            page = read_demand_result(connection,registered["demand_id"],project_id=request.project_id,
+                continuation=continuation,cut=cut,limit=1000,view="frontier")
+            cut = page.cut
+            for value in page.record["original_source_admissions"]:
+                if value["selection_name"] in names:
+                    previous = found.setdefault(value["admission_id"],value)
+                    if previous != value:
+                        raise ValueError("authored admission changed across its pinned read")
+            continuation = page.continuation
+            if continuation is None:
+                break
+        admissions = tuple(found[key] for key in sorted(found))
         if len(admissions) != len(names) or any(
             not isinstance(value["evidence"], dict) or value["evidence"].get("standing") != "authored" for value in admissions
         ):

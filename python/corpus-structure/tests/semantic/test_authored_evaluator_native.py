@@ -17,6 +17,7 @@ from semantic.test_data_operation_authored import _recipe
 
 def protected_recipe():
     recipe = _recipe()
+    assert recipe.declaration_content is not None
     declaration = json.loads(recipe.declaration_content)
     kind = "urn:authored-reference:evaluator-integer"
     declaration["kinds"] = [dict(id=kind, primitive="integer", universe="evaluator")]

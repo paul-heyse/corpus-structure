@@ -77,17 +77,20 @@ def test_current_query_context_missing_focal_is_unavailable_not_absent(monkeypat
 
 def test_actual_query12_tool_and_resource_preserve_pinned_semantic_refs(monkeypatch):
     from corpus_structure.intervene.server import build_server
+    from corpus_structure.semantic.data_operation_external import ExternalDataSession
     request,rows = fixture()
     calls = install(monkeypatch,rows)
     engine = create_engine("sqlite://")
     async def journey():
-        async with Client(build_server(session=object(),read_engine=engine,project="project:A",demand="demand:A")) as client:
+        async with Client(build_server(session=ExternalDataSession(engine,"project:A",demand_id="demand:A"),read_engine=engine,project="project:A",demand="demand:A")) as client:
             tools = {tool.name:tool for tool in await client.list_tools()}
             assert {"inspect_characterization","inspect_definition","inspect_query_context"} <= tools.keys()
             result = await client.call_tool("inspect_query_context",{"request":request.model_dump(mode="json")})
+            assert result.structured_content is not None
             report = json_loads(result.structured_content["exact_json"])
             assert report["context"]["evidence"] == {"product_id":"product:primary","member_id":"frame"}
             resource = await client.read_resource(result.structured_content["resource"])
+            assert hasattr(resource[0],"text")
             replayed = json_loads(json_loads(resource[0].text)["exact_json"])
             assert replayed["context"] == report["context"]
             assert calls[-1][3]["continuation"]["read_id"] == "read:A"

@@ -112,6 +112,7 @@ class DataOperationInputs(BaseModel):
     source_bindings: bool = False
     record_bindings: bool = False
     pdf_contracts: bool = False
+    protected_references: bool = False
     primary_profile: PrimaryProfileInputs | None = None
 
 
@@ -180,6 +181,12 @@ def acquire_data_operation_inputs(
             python.generated_interfaces,
         )
     )
+    if declared.protected_references:
+        from .selected_reference_sources import selected_reference_inputs, selected_reference_operation_sources
+        from .primary_operations import combine_primary_sources
+        bundle = selected_reference_inputs(bundle)
+        reference_sources = selected_reference_operation_sources()
+        sources = reference_sources if sources is None else combine_primary_sources(sources,reference_sources)
     from .data_operation_artifacts import capture_port_generator_sources
     from .data_operation_storage import native_operation_declarations, native_protocol_sources
 

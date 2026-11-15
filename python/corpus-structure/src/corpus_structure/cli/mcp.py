@@ -31,6 +31,13 @@ def serve(
     run(project=project, demand=demand, settings=state(ctx).settings())
 
 
+@mcp_app.command("evaluator")
+def evaluator(ctx:typer.Context,project:Annotated[str,typer.Option(help="Exact protected evaluator project.")]):
+    """Serve selected reference comparison using the evaluator purpose on stdio."""
+    from corpus_structure.intervene.selected_assessment_server import build_evaluator_server
+    build_evaluator_server(project=project,settings=state(ctx).settings()).run(transport="stdio",show_banner=False)
+
+
 @mcp_app.command("retained")
 def retained(
     ctx: typer.Context,
