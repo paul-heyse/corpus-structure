@@ -74,3 +74,160 @@ def test_native_issuer_requires_exact_command_effect_factory(semantic_bare_engin
             else:
                 value["implementation_revision"] = "a-caller-label"
             assert connection.scalar(statement, {"declaration": json.dumps(value)}) is not True
+
+
+@pytest.fixture
+def policy_visibility_connection(semantic_bare_engine):
+    """Isolate the real summary's cut guard; issuer/trust admission is controlled here."""
+    from datetime import timedelta
+    from importlib.resources import files
+
+    from pglast import ast
+
+    relations = (
+        "ops.data_derivation",
+        "ops.demand_use",
+        "ops.data_demand_read",
+        "ops.data_derivation_output",
+        "ops.data_publication_receipt",
+        "kb.data_product",
+    )
+    with semantic_bare_engine.begin() as connection:
+        for schema in ("ops", "kb"):
+            connection.exec_driver_sql(f"CREATE SCHEMA IF NOT EXISTS {schema}")
+        for name in relations:
+            connection.execute(CreateTable(table(name), include_foreign_key_constraints=[]))
+        # These controls do not manufacture native issuance or qualify its trust
+        # predicates. The separate issuer test checks the actual declaration gate.
+        connection.exec_driver_sql(
+            "CREATE FUNCTION ops.ddo_policy_authority_leaf(text) RETURNS boolean "
+            "LANGUAGE sql AS 'SELECT true'"
+        )
+        connection.exec_driver_sql(
+            "CREATE FUNCTION ops.ddo_use_valid(ops.demand_use,ops.data_demand_read) "
+            "RETURNS boolean LANGUAGE sql AS 'SELECT true'"
+        )
+        connection.exec_driver_sql(
+            "CREATE FUNCTION ops.ddo_support_valid(text,ops.data_demand_read) "
+            "RETURNS boolean LANGUAGE sql AS 'SELECT true'"
+        )
+        source = files("corpus_structure.semantic").joinpath("sql/data_operations.sql").read_text()
+        start = source.index("CREATE OR REPLACE FUNCTION ops.ddo_read_visible(")
+        end = source.index("$$;", source.index("AS $$", start)) + len("$$;")
+        connection.exec_driver_sql(source[start:end])
+        prepared = prepare_sql(record_policy_native_sql(), source="policy-visibility-control")
+        for index, statement in enumerate(prepared.statements):
+            function = statement.stmt
+            if (
+                isinstance(function, ast.CreateFunctionStmt)
+                and function.funcname[-1].sval == "ddo_policy_authority_summary"
+            ):
+                connection.exec_driver_sql(prepared.excerpt(index))
+        now, snapshot, xid = connection.execute(
+            text("SELECT clock_timestamp(),pg_current_snapshot()::text,pg_current_xact_id()::text")
+        ).one()
+        connection.execute(
+            table("ops.data_demand_read").insert(),
+            dict(
+                id="read:one", demand_id="demand:one", read_snapshot=snapshot,
+                frontier_at=now, owner_xid=xid, trust_snapshot={}, scope={},
+            ),
+        )
+        connection.execute(
+            table("ops.data_derivation").insert(),
+            dict(
+                id="episode:one", request_id="request:one", generation=1,
+                intent_id="intent:one", release_id="release:one", recipe="recipe:one",
+                runtime_id="runtime:one", producer_task_id=1, producer_attempt=1,
+                outcome="success", completed_at=now - timedelta(seconds=3),
+            ),
+        )
+        marker = dict(
+            id="use:published", demand_id="demand:one", obligation_id="obligation:one",
+            fate="fulfilled", request_id="request:one", generation=1,
+            derivation_id="episode:one", selection={}, trust_snapshot={},
+            created_at=now - timedelta(seconds=2), created_xid=xid,
+        )
+        connection.execute(table("ops.demand_use").insert(), marker)
+        connection.execute(
+            table("ops.data_derivation_output").insert(),
+            dict(
+                derivation_id="episode:one", role="authorization", position=0,
+                multiplicity=1, product_id="product:one", member_id=None,
+            ),
+        )
+        connection.execute(
+            table("ops.data_publication_receipt").insert(),
+            dict(
+                id="receipt:one", intent_id="intent:one", derivation_id="episode:one",
+                publishing_task_id=1, publishing_attempt=1, trust_snapshot={},
+            ),
+        )
+        connection.execute(
+            table("kb.data_product").insert(),
+            dict(
+                id="product:one", kind_contract="kind:authorization", project_id="project:one",
+                subject="subject:one", subject_definition="subject-definition:one",
+                analyzed_scope={}, canonical_body={}, body_digest="a" * 64,
+            ),
+        )
+        yield connection, marker, now
+
+
+@pytest.mark.db
+@pytest.mark.parametrize("selected_use", [None, "use:published"])
+def test_authority_summary_preserves_visible_publication_and_exact_selected_use(
+    policy_visibility_connection, selected_use
+):
+    connection, _, _ = policy_visibility_connection
+    result = connection.scalar(
+        text("SELECT ops.ddo_policy_authority_summary('episode:one',:selected,'read:one')"),
+        {"selected": selected_use},
+    )
+    assert result["derivation_id"] == "episode:one"
+    assert result["receipt_id"] == "receipt:one"
+    assert result["use_id"] == selected_use
+    assert result["standing"] == "valid"
+    assert result["protected_dependencies"] == "undisclosed"
+
+
+@pytest.mark.db
+@pytest.mark.parametrize("outside", ["completion", "marker_time", "marker_snapshot", "unfulfilled", "selected_use"])
+def test_authority_summary_refuses_issuer_or_selected_use_outside_its_native_cut(
+    policy_visibility_connection, outside
+):
+    from datetime import timedelta
+
+    from sqlalchemy.exc import DBAPIError
+
+    connection, marker, now = policy_visibility_connection
+    uses = table("ops.demand_use")
+    selected_use = None
+    if outside == "completion":
+        connection.execute(
+            table("ops.data_derivation").update().values(completed_at=now + timedelta(seconds=1))
+        )
+    elif outside == "marker_time":
+        connection.execute(uses.update().values(created_at=now + timedelta(seconds=1)))
+    elif outside == "marker_snapshot":
+        xmax = connection.scalar(text("SELECT pg_snapshot_xmax(pg_current_snapshot())::text"))
+        # The owner's xid can equal the snapshot upper bound and is explicitly
+        # visible through owner_xid. Choose a full xid beyond both for this case.
+        future_xid = str(max(int(xmax), int(marker["created_xid"])) + 100)
+        connection.execute(uses.update().values(created_xid=future_xid))
+    elif outside == "unfulfilled":
+        connection.execute(uses.update().values(fate="attached"))
+    else:
+        selected_use = "use:later"
+        connection.execute(
+            uses.insert(),
+            {**marker, "id": selected_use, "created_at": now + timedelta(seconds=1)},
+        )
+    message = "policy authority use" if outside == "selected_use" else "policy issuer"
+    with connection.begin_nested() as savepoint:
+        with pytest.raises(DBAPIError, match=message + " is outside selected native visibility"):
+            connection.scalar(
+                text("SELECT ops.ddo_policy_authority_summary('episode:one',:selected,'read:one')"),
+                {"selected": selected_use},
+            )
+        savepoint.rollback()

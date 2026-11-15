@@ -146,7 +146,13 @@ BEGIN
  RAISE EXCEPTION 'ordinary policy authority summary requires an authenticated native issuer' USING ERRCODE='23514'; END IF;
  SELECT * INTO STRICT boundary FROM ops.data_demand_read WHERE id=read_id;
  SELECT * INTO STRICT d FROM ops.data_derivation WHERE id=episode;
- IF NOT ops.ddo_read_visible(d.created_at,d.created_xid,boundary) THEN
+ -- Publication records its fulfilled demand uses in the same transaction as
+ -- the episode. Those immutable rows carry the full transaction visibility
+ -- marker; the episode itself carries only its completion timestamp.
+ IF d.completed_at>boundary.frontier_at OR NOT EXISTS(
+ SELECT FROM ops.demand_use published WHERE published.derivation_id=d.id
+ AND published.fate='fulfilled'
+ AND ops.ddo_read_visible(published.created_at,published.created_xid,boundary)) THEN
  RAISE EXCEPTION 'policy issuer is outside selected native visibility' USING ERRCODE='23514'; END IF;
  SELECT * INTO STRICT output FROM ops.data_derivation_output WHERE derivation_id=episode;
  SELECT * INTO STRICT receipt FROM ops.data_publication_receipt WHERE derivation_id=episode AND intent_id=d.intent_id;

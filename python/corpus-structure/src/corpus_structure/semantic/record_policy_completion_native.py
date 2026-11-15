@@ -294,8 +294,9 @@ CREATE OR REPLACE FUNCTION ops.ddo_record_fit_cut_scopes(project text,selection 
 RETURNS SETOF text LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $fit$
 DECLARE d ops.data_demand; boundary ops.data_demand_read; p jsonb; actual jsonb;
 BEGIN
- SELECT * INTO STRICT d FROM ops.data_demand WHERE id=selection->>'demand_id' AND project_id=project;
- SELECT * INTO STRICT boundary FROM ops.data_demand_read WHERE id=selection->>'read_id' AND demand_id=d.id;
+ SELECT * INTO STRICT d FROM ops.data_demand WHERE id=ddo_record_fit_cut_scopes.selection->>'demand_id'
+ AND project_id=ddo_record_fit_cut_scopes.project;
+ SELECT * INTO STRICT boundary FROM ops.data_demand_read WHERE id=ddo_record_fit_cut_scopes.selection->>'read_id' AND demand_id=d.id;
  p:=jsonb_build_object('scope',boundary.scope);
  PERFORM ops.ddo_record_fit_require_finite_cut(d,boundary);
  __DDO_CORE_CUT_SELECTION__ INTO actual;

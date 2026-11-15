@@ -498,7 +498,7 @@ END $$;
 
 CREATE OR REPLACE FUNCTION ops.register_data_demand(p_payload jsonb) RETURNS jsonb
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
-DECLARE p jsonb:=p_payload; key text; d ops.data_demand; subject_scopes jsonb; root_context jsonb; definition sem.data_operation_definition; entry jsonb;
+DECLARE p jsonb:=p_payload; key text; d ops.data_demand; subject_scopes jsonb; root_context jsonb; selected_definition sem.data_operation_definition;
 BEGIN
  PERFORM ops.ddo_fields(p,ARRAY['project_id','release_id','runtime_id','root','selection','strength']);
  IF NOT EXISTS(SELECT FROM data.project WHERE project_id=p->>'project_id') OR
@@ -593,16 +593,16 @@ BEGIN
  AND NOT (role->'identity_requirements' ? 'episode')) THEN RAISE EXCEPTION 'episode strength requires episode-qualified input contracts'; END IF;
  subject_scopes:=ops.ddo_release_subject_scopes(p->>'release_id');
  FOR root_context IN SELECT value FROM jsonb_array_elements(p->'root') LOOP
- FOR definition IN SELECT operation.* FROM sem.data_operation_definition operation
+ FOR selected_definition IN SELECT operation.* FROM sem.data_operation_definition operation
  WHERE operation.release_id=p->>'release_id' AND p->'selection'->'root_operations' ? operation.operation_id LOOP
- PERFORM ops.ddo_require_subject_source(subject_scopes,definition.subject_definition,root_context->>'original_source');
+ PERFORM ops.ddo_require_subject_source(subject_scopes,selected_definition.subject_definition,root_context->>'original_source');
  END LOOP; END LOOP;
  PERFORM ops.ddo_validate_source_sets(coalesce(p->'selection'->'source_sets','{}'),p->>'project_id',subject_scopes);
  IF EXISTS(SELECT FROM jsonb_each(coalesce(p->'selection'->'source_sets','{}')) named WHERE NOT EXISTS(SELECT FROM jsonb_array_elements(p->'selection'->'operations') selected JOIN sem.data_operation_definition def ON def.release_id=p->>'release_id' AND def.operation_id=selected->>'operation' CROSS JOIN LATERAL jsonb_array_elements(def.input_roles) roledef WHERE roledef->'support'->>'source_set'=named.key))
  OR EXISTS(SELECT FROM jsonb_array_elements(p->'selection'->'operations') selected JOIN sem.data_operation_definition def ON def.release_id=p->>'release_id' AND def.operation_id=selected->>'operation' CROSS JOIN LATERAL jsonb_array_elements(def.input_roles) roledef WHERE roledef->'support'->>'source_set' IS NOT NULL AND NOT coalesce(p->'selection'->'source_sets','{}') ? (roledef->'support'->>'source_set')) THEN RAISE EXCEPTION 'frozen source sets differ from admitted selected role policies'; END IF;
  PERFORM sem.require_runtime_binding(p->>'release_id',p->>'runtime_id');
  key:='demand:'||ops.ddo_digest(p);
- INSERT INTO ops.data_trust_scope(scope,project_id,epoch) SELECT DISTINCT ops.ddo_scope(p->>'project_id',root->>'original_source'),p->>'project_id',0 FROM (SELECT value FROM jsonb_array_elements(p->'root') UNION ALL SELECT entry FROM jsonb_each(coalesce(p->'selection'->'source_sets','{}')) named CROSS JOIN LATERAL jsonb_array_elements(named.value) entry) roots(root) ORDER BY 1 ON CONFLICT DO NOTHING;
+ INSERT INTO ops.data_trust_scope(scope,project_id,epoch) SELECT DISTINCT ops.ddo_scope(p->>'project_id',root->>'original_source'),p->>'project_id',0 FROM (SELECT value FROM jsonb_array_elements(p->'root') UNION ALL SELECT source_entry.value FROM jsonb_each(coalesce(p->'selection'->'source_sets','{}')) named CROSS JOIN LATERAL jsonb_array_elements(named.value) source_entry(value)) roots(root) ORDER BY 1 ON CONFLICT DO NOTHING;
  INSERT INTO ops.data_demand VALUES(key,p->>'project_id',p->>'release_id',p->>'runtime_id',p->'root',p->'selection',p->>'strength',clock_timestamp()) ON CONFLICT DO NOTHING;
  SELECT * INTO STRICT d FROM ops.data_demand WHERE id=key;
  RETURN jsonb_build_object('payload',jsonb_build_object('demand_id',d.id,'selection',d.selection)||CASE WHEN ops.ddo_demand_active(d.id) THEN '{}'::jsonb ELSE jsonb_build_object('state','cancelled') END);
