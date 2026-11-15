@@ -41,6 +41,14 @@ must cover relevant transitive support scopes. This corrects implementation stat
 contract or the existing narrow typed-port/source-migration controls. See the
 [current audit](../declared-data-operations_2026-11-12.md#completion-audit--2026-11-14).
 
+**Completion audit qualification · 2026-11-15.** The checked-subject and kind-closure foundations
+are implemented but current completion is limited by DDO-CA-10 in the coordinator: a subject's
+identifier kind must contribute its complete contract fingerprint, not only its semantic name, to
+operation definition/recipe identity. An incomplete identifier-kind closure must withhold reusable
+identity even when the kind is not independently selected by an input/output/parameter. Changed,
+incomplete and unrelated identifier-kind controls and native correspondence reconciliation remain
+required. This is a missing accepted determinant, not a requirement for a broad runtime salt.
+
 ## Responsibility and delivered contracts
 
 **Archive contract · 2026-11-15:** current effective model v7 archives the complete governing

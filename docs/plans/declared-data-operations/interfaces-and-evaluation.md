@@ -7,6 +7,13 @@ contract design participates in producer/native publication packages rather than
 
 ## One read projection
 
+**Completion audit qualification · 2026-11-15.** CA-11/12 in the coordinator qualify current
+change/graph interfaces: valid source-free rich contexts must survive impact population acquisition,
+and explicit native read/cut pins must not be silently replaced by a continuation. The current
+rich/composite equality checks are the existing behavior to preserve across graph and both impact
+sides. Missing native qualification remains separate; it cannot repair these source-level defects.
+
+
 **Domain PG I01/I02/I06/I07 extension · accepted 2026-11-14.** Build the selected read contract
 early with DDO-04/09 and consume useful typed native records from DDO-03. The
 [PostgreSQL realization](postgresql-realization-and-retirement.md#reads) and

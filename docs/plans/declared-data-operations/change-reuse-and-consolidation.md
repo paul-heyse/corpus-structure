@@ -201,13 +201,20 @@ newly applicable domain subjects from implementation call graphs.
 
 ## Focused source-change/currentness realization · 2026-11-14
 
-**Implemented; native qualification is recorded by the coordinator.** `semantic.change_impact`
+**Implemented in part; completion audit qualifies current integration, 2026-11-15.** `semantic.change_impact`
 acquires authenticated before/optional target selected reads through the existing protected demand
 result/support export. The comparison binds exact project, archived effective releases, native cuts,
 trust epochs, requested subject/original-source/analyzed scopes and continuation identity. Native
 population receipts are matched for every frozen discovery producer context and output role; one
 complete root cannot prove another root complete. Caller-supplied population claims confer no
 completeness authority. Scoped/partial or missing observations remain unknown.
+
+DDO-CA-11/12 in the coordinator retain two implementation corrections before this is complete
+for current rich subjects and pinned continuations: population acquisition must accept the genuine
+null original source of project-scoped rich knowledge, and a cursor must refuse conflicting explicit
+before/target read or cut pins before restoring omitted pins. Existing typed rich/composite readers
+already preserve explicit pin equality. Native capture alone does not repair either Python seam.
+Independent source-free population and wrong-read/wrong-cut cases are required.
 
 Declared graph closure identifies potential affected operations only. States distinguish potential,
 awaiting execution/population, stale, revoked, substitutable, inapplicable and unknown. Substitution

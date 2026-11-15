@@ -410,9 +410,9 @@ for authoring. All tests and investigations above are future implementation obli
 **Tested, bounded; see coordinator receipts.** `data_operation_source_interfaces.json` is a prepared
 Griffe projection bound to the exact effective-model digest and authenticated by the release manifest.
 It records module provenance, exposed/supplying callable origins, final signatures, operation/class
-documentation, typed parsed sections and explicit unknowns. Current v2 adds owner documentation;
-historical v1 serialization/content/identity remain exact, and absent owner docs are unknown. Old
-archives without a sidecar remain readable with unavailable source documentation. The sidecar does
+documentation, typed parsed sections and explicit unknowns. Current v2 adds owner documentation and rejects obsolete v1 sidecars under ADR-0109. Earlier v1
+readback is a dated receipt, not supported current interpretation. A current-basis archive without
+a sidecar retains explicit unavailable source documentation; inspection does not synthesize it. The sidecar does
 not enter canonical implementation/recipe identity; normal runtime admission does not parse it.
 
 The shared comparison reports kind, contract, domain, documentation, implementation, recipe,

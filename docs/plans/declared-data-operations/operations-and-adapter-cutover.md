@@ -62,6 +62,10 @@ redundant callable-presence checks; retain family semantics, source mismatch and
 Rich producers and record-policy/projection-analysis use [their target owner](rich-domain-integration.md).
 
 
+The 2026-11-15 completion audit confirms the shared prepared execution and captured Demand route
+are present, but CA-13 retains a concrete byte-admission/backpressure defect. Family delegation and
+wiring passes do not close that boundary or the separately open complete operation retirement.
+
 ## DDO-07 — Source and primary operations
 
 Build a declaration-to-current-owner inventory from the actual registries and ad hoc entry points.

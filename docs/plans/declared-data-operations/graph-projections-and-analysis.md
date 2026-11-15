@@ -1,6 +1,6 @@
 # Declared graph projections and NetworkX analysis
 
-**Accepted contract; focused realization implemented and bounded qualification owned by the coordinator · 2026-11-15.** Consumes the
+**Accepted contract; focused realization implemented with CA-12 continuation gap; bounded qualification owned by the coordinator · 2026-11-15.** Consumes the
 [NetworkX review](../../plan_improvement_reviews/declared-data-operations-networkx_2026-11-12.md)
 at `7c5368faa`. Implements its I01–I07 planning amendments within DDO-00–12; the
 [coordinator](../declared-data-operations_2026-11-12.md) alone owns progress and scheduled dispositions.
@@ -32,10 +32,10 @@ body acquisition must retain all population/relationship/intermediate facts need
 examined graph. No graph-specific database mirror, latest selection or separate cursor authority.
 
 
-**Current realization boundary:** effective-model v6 archives the interpreted static, selected-native,
-source, assessment and implementation-reference profiles. The implemented baseline has exact v2–v5 readback with no current execution authority;
-Domain-model I09 schedules its removal. The target supports one current encoding family; useful
-old data imports into that basis or regenerates. Concrete runtime nodes/occurrences live in immutable selected snapshots, not the model.
+**Current realization boundary:** effective-model v7 archives the interpreted static, selected-native,
+source, assessment and implementation-reference profiles. Current readers reject obsolete encodings
+under ADR-0109. Earlier v6 capture and v2–v5 readback describe dated evidence, not a current feature
+or a requirement to restore compatibility. Useful old data imports into the current basis or regenerates. Concrete runtime nodes/occurrences live in immutable selected snapshots, not the model.
 CA-06's compiled foundation is already closed; the coordinator owns this increment's consumer and
 qualification obligations.
 
@@ -280,10 +280,15 @@ Empty/unsupported assessment roots are unavailable. Requestless unsettled obliga
 without a fabricated request edge. Native pagination binds exact request/cut/trust context before
 acquisition; whole-graph retained-byte budgets are separate from native transport and response bounds.
 Partial member facts remain inspectable, while incomplete acquisition withholds exact SCC/order/negative
-path claims. The implemented separate historical reader is a retirement obligation under Domain-model I09,
-not a target feature. Supported target-native histories retain exact model/cut/trust meaning.
+path claims. The former separate model-version historical reader is removed under Domain-model I09; remaining
+legacy domain/SQLReader consumers retain their own open retirement obligations. Supported target-native histories retain exact model/cut/trust meaning.
 
-Forward graph-v1 admits v6; graph-v2 additionally binds delegated graph helper bytes and NetworkX3.7
+**Completion audit · 2026-11-15:** CA-12 qualifies selected pagination above: the implementation
+currently overwrites conflicting explicit read/cut pins from a cursor. Refuse mismatches before
+native acquisition and restore only omitted/matching pins; retain independently expected wrong-read,
+wrong-cut and valid continuation controls. This is an implementation gap, separate from native capture.
+
+Dated forward graph-v1 admits v6; graph-v2 additionally binds delegated graph helper bytes and NetworkX3.7
 execution profile through native capture. Neither rewrites predecessors or deploys persistently.
 The coordinator supplies final verification and preserved failed receipts; this companion owns meaning,
 not a second completion ledger.
@@ -292,4 +297,4 @@ Reader-factory acquisition retains the temporary index after the native transact
 construction and analysis hold no shared trust/publication locks. Assessment root count is bounded;
 nominal admission and per-container/member preparation are reused within the invocation, avoiding
 whole-container duplication per requested member. This is invocation-local preparation, not another
-cache authority. Final integrated qualification is recorded in the coordinator on 2026-11-15.
+cache authority. Dated integrated qualification is recorded in the coordinator; it does not requalify subsequent v7 changes.

@@ -277,6 +277,15 @@ with explicit convergence/partial-result semantics, not accidental planner recur
 
 ## DDO-06 — request ownership, execution and recovery
 
+**Completion audit qualification · 2026-11-15.** DDO-CA-13 limits the integrated shared prepared
+execution claim: the invocation charges its retained schema capsule before selecting ready requests,
+but capacity currently divides the total byte limit by per-request reservation. At budget=2R,
+0<capsule<R and two ready schema-prepared requests, the second admission raises instead of deferring.
+Use the existing budget to size/defer admission while preserving useful siblings and physical cleanup.
+Qualify this exact boundary with a genuine retained capsule; this requires no additional memory
+estimator or performance benchmark. The coordinator owns finding disposition.
+
+
 ### Native request and attempt ownership
 
 `attach_data_request` authenticates the demand obligation and exact request manifest. A unique
