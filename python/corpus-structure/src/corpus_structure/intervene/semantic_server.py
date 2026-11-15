@@ -234,7 +234,11 @@ def build_retained_reader_server(
             demand_id=demand_id, project_id=project_id, view="operations", operation_id=operation,
             cursor=cursor, limit=limit,
         )
-        with reader_snapshot(ctx) as conn:
+        with (
+            selected_source_snapshot(ctx, project_id)
+            if project_id is not None
+            else reader_snapshot(ctx)
+        ) as conn:
             prepared = open_release(conn, release)
             with located_failure_context(prepared, operation):
                 return explain(prepared, operation, connection=conn, observation=request).model_dump(mode="json")

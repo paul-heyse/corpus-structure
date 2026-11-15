@@ -741,7 +741,7 @@ def explain_operation_(
     from corpus_structure.cli.output import state
     from corpus_structure.semantic.operation_reporting import explain_operation
     from corpus_structure.semantic.demand_queries import DemandQueryRequest
-    from corpus_structure.semantic.query import read_snapshot
+    from corpus_structure.semantic.demand_results import selected_read_snapshot
     from corpus_structure.semantic.refusals import SemanticRefusal
     from corpus_structure.semantic.releases import open_release
     from corpus_structure.semantic.runtime import open_runtime_engine
@@ -751,7 +751,7 @@ def explain_operation_(
             raise ValueError("selected operation observation requires explicit demand and project")
         with (
             open_runtime_engine(state(ctx).settings(), "ci-explain-operation", purpose="read") as engine,
-            read_snapshot(engine) as conn,
+            selected_read_snapshot(engine) as conn,
         ):
             prepared = open_release(conn, release)
             failure.bind(prepared, operation)
