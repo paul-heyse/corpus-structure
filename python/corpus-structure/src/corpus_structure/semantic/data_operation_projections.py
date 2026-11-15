@@ -911,6 +911,69 @@ def selected_support_export(metadata, selected_uses, admissions, in_page):
             definitions.c.operation_id,
         ),
     )
+    # Revocation witnesses belong to the same authenticated, body-authorized
+    # selected closure. Keep selector/epoch provenance; never infer cause merely
+    # because a use is currently unavailable. No private table grant is added.
+    revoked = metadata.tables["ops.data_revocation"]
+    episode_match = exists(
+        select(1)
+        .select_from(episodes.join(requests, requests.c.id == episodes.c.request_id))
+        .where(
+            episodes.c.id.in_(episode_ids),
+            revoked.c.scope
+            == func.ops.ddo_scope(requests.c.project_id, requests.c.original_source),
+            or_(
+                and_(revoked.c.selector_kind == "derivation", revoked.c.selector == episodes.c.id),
+                and_(revoked.c.selector_kind == "recipe", revoked.c.selector == episodes.c.recipe),
+                and_(
+                    revoked.c.selector_kind == "runtime",
+                    revoked.c.selector == episodes.c.runtime_id,
+                ),
+                and_(
+                    revoked.c.selector_kind == "product",
+                    exists(
+                        select(1)
+                        .select_from(outputs)
+                        .where(
+                            outputs.c.derivation_id == episodes.c.id,
+                            outputs.c.product_id == revoked.c.selector,
+                        )
+                    ),
+                ),
+            ),
+        )
+    )
+    original_match = exists(
+        select(1)
+        .select_from(admissions)
+        .where(
+            reached("original", admissions.c.id),
+            revoked.c.scope
+            == func.ops.ddo_scope(admissions.c.project_id, admissions.c.original_source),
+            or_(
+                and_(
+                    revoked.c.selector_kind == "original-admission",
+                    revoked.c.selector == admissions.c.id,
+                ),
+                and_(
+                    revoked.c.selector_kind == "original-source",
+                    revoked.c.selector == admissions.c.source_reference,
+                ),
+                and_(
+                    revoked.c.selector_kind == "product",
+                    revoked.c.selector == admissions.c.product_id,
+                ),
+            ),
+        )
+    )
+    selected_epoch = cast(
+        _var("boundary.trust_snapshot", JSONB).op("->>")(revoked.c.scope), BigInteger
+    )
+    fields["revocations"] = records(
+        revoked,
+        and_(or_(episode_match, original_match), revoked.c.epoch <= selected_epoch),
+        revoked.c.id,
+    )
     intents = metadata.tables["ops.data_completion_intent"]
     receipts = metadata.tables["ops.data_publication_receipt"]
     fields["completion_intents"] = records(

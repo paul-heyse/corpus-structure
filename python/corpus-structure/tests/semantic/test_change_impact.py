@@ -1,12 +1,14 @@
 """Independent source-change relevance and actual native selected-currentness cases."""
 
 from dataclasses import replace
+from decimal import Decimal
 
 import pytest
 
 from corpus_structure.semantic.change_impact import (
     ChangeImpactRequest,
     PopulationMember,
+    RevocationCause,
     SelectionEvidence,
     changed_operations,
     classify_change_impact,
@@ -100,7 +102,20 @@ def test_unavailable_producer_cannot_be_rehabilitated_by_equal_bytes_or_same_epi
         )[0].state
         == "substitutable"
     )
-    assert classify_change_impact(before, target, before=(old,))[0].state == "revoked"
+    assert classify_change_impact(before, target, before=(old,))[0].state == "unknown"
+    proven = old.model_copy(
+        update={
+            "invalidity_causes": (
+                RevocationCause(
+                    kind="direct",
+                    reference="revocation:one",
+                    selector_kind="derivation",
+                    selector="episode:one",
+                ),
+            )
+        }
+    )
+    assert classify_change_impact(before, target, before=(proven,))[0].state == "revoked"
 
 
 def test_complete_populations_find_never_derived_addition_and_removed_subject():
@@ -185,3 +200,83 @@ def test_actual_native_currentness_pins_target_and_continuation(declared_serving
                 request.model_copy(update={"project_id": "wrong"}),
                 target_prepared=stage.prepared,
             )
+
+
+def test_population_context_uses_jsonb_number_meaning_without_bool_or_string_conflation():
+    base = PopulationMember(
+        operation="op", subject="one", original_source="source", analyzed_scope={"index": 1}
+    )
+    assert base.key == base.model_copy(update={"analyzed_scope": {"index": Decimal("1.00")}}).key
+    assert base.key != base.model_copy(update={"analyzed_scope": {"index": True}}).key
+    assert base.key != base.model_copy(update={"analyzed_scope": {"index": "1"}}).key
+
+
+def test_actual_native_revocation_causes_distinguish_producer_and_upstream(declared_serving_case):
+    import json
+    from typing import cast
+
+    from corpus_structure.semantic._data_operation_wire import WireRevokeDataSupportRequest
+    from corpus_structure.semantic.data_operation_storage import DataOperationStorage
+
+    clone, stage = declared_serving_case, declared_serving_case.stage.agent
+    episode = json.loads(stage.source_receipt)["derivation_id"]
+    with clone.writer.begin() as connection:
+        DataOperationStorage(connection).revoke_data_support(
+            cast(
+                WireRevokeDataSupportRequest,
+                dict(
+                    project_id=stage.project_id,
+                    original_source=stage.original_source,
+                    selector_kind="derivation",
+                    selector=episode,
+                    reason="independent revoked producer fixture",
+                ),
+            )
+        )
+    request = ChangeImpactRequest(
+        project_id=stage.project_id,
+        before_demand_id=stage.demand_id,
+        target_release_id=stage.prepared.release_id,
+        target_demand_id=stage.demand_id,
+    )
+    with clone.reader.begin() as connection:
+        result = inspect_change_impact(connection, request, target_prepared=stage.prepared)
+    rows = [row for row in result.items if row.state == "revoked"]
+    assert rows
+    assert any("direct_derivation_revocation" in row.reasons for row in rows)
+    assert any("upstream_derivation_revocation" in row.reasons for row in rows)
+    assert all(any(witness.startswith("revocation:") for witness in row.witnesses) for row in rows)
+
+
+def test_cancelled_target_demand_is_not_reported_as_revoked(declared_serving_case):
+    from typing import cast
+
+    from corpus_structure.semantic._data_operation_wire import WireCancelDataDemandRequest
+    from corpus_structure.semantic.data_operation_storage import DataOperationStorage
+
+    clone, stage = declared_serving_case, declared_serving_case.stage.agent
+    with clone.writer.begin() as connection:
+        DataOperationStorage(connection).cancel_data_demand(
+            cast(
+                WireCancelDataDemandRequest,
+                dict(
+                    demand_id=stage.demand_id,
+                    reason="independent requested cancellation",
+                ),
+            )
+        )
+    with clone.reader.begin() as connection:
+        report = inspect_change_impact(
+            connection,
+            ChangeImpactRequest(
+                project_id=stage.project_id,
+                before_demand_id=stage.demand_id,
+                target_release_id=stage.prepared.release_id,
+                target_demand_id=stage.demand_id,
+            ),
+            target_prepared=stage.prepared,
+        )
+    assert all(
+        row.state == "inapplicable" and row.reasons == ("target_demand_cancelled",)
+        for row in report.items
+    )

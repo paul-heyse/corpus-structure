@@ -15,7 +15,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from .data_operation_json import json_bytes, json_loads
-from .data_operation_model import EffectiveDataOperationModel
+from .data_operation_model import EffectiveDataOperationModel, json_context_meaning
 from .demand_results import read_demand_result, stream_selected_support
 
 
@@ -28,7 +28,16 @@ class PopulationMember(BaseModel):
 
     @property
     def key(self) -> bytes:
-        return json_bytes(self.model_dump(mode="python"))
+        return json_bytes(
+            dict(
+                operation=self.operation,
+                subject=self.subject,
+                original_source=self.original_source,
+                analyzed_scope_meaning=json_context_meaning(
+                    json_bytes(self.analyzed_scope)
+                ).decode(),
+            )
+        )
 
 
 class ChangeImpactRequest(BaseModel):
@@ -89,6 +98,14 @@ class ChangeImpactPage(BaseModel):
     continuation: str | None
 
 
+class RevocationCause(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+    kind: Literal["direct", "upstream"]
+    reference: str
+    selector_kind: str
+    selector: str
+
+
 class SelectionEvidence(BaseModel):
     """Detached native observation, never an alternate admission decision."""
 
@@ -99,6 +116,7 @@ class SelectionEvidence(BaseModel):
     products: tuple[tuple[str, str | None, str, int, int], ...] = ()
     inputs: tuple[tuple[str, str | None, str, int, int], ...] = ()
     support: tuple[str, ...] = ()
+    invalidity_causes: tuple[RevocationCause, ...] = ()
 
 
 def changed_operations(before: EffectiveDataOperationModel, target: EffectiveDataOperationModel):
@@ -194,8 +212,15 @@ def classify_change_impact(
             state, reason = "inapplicable", "operation_removed_from_target"
         elif population_complete and key in old_population and key not in new_population:
             state, reason = "inapplicable", "absent_under_complete_target_population"
+        elif current and current.fate == "cancelled":
+            state, reason = "inapplicable", "target_demand_cancelled"
         elif current and current.fate == "unavailable":
-            state, reason = "revoked", "native_target_support_unavailable"
+            state = "revoked" if current.invalidity_causes else "unknown"
+            reason = (
+                "native_target_revocation_witness"
+                if current.invalidity_causes
+                else "native_target_unavailable_cause_unestablished"
+            )
         elif current and current.fate == "fulfilled":
             if previous and previous.products == current.products:
                 # A direct producer revocation cannot be laundered by reusing its
@@ -214,7 +239,12 @@ def classify_change_impact(
             else:
                 state, reason = "substitutable", "newly_derived_native_target_selection"
         elif previous and previous.fate == "unavailable":
-            state, reason = "revoked", "native_selected_support_unavailable"
+            state = "revoked" if previous.invalidity_causes else "unknown"
+            reason = (
+                "native_selected_revocation_witness"
+                if previous.invalidity_causes
+                else "native_selected_unavailable_cause_unestablished"
+            )
         elif key in new_population and key not in old_population and population_complete:
             state, reason = "awaiting", "newly_applicable_or_never_derived_subject"
         elif current and current.fate in {
@@ -233,16 +263,87 @@ def classify_change_impact(
             state, reason = "unknown", "target_admission_not_observed"
         else:
             state, reason = "unknown", "insufficient_selected_or_population_evidence"
+        causes = tuple(
+            cause
+            for observation in (previous, current)
+            if observation
+            for cause in observation.invalidity_causes
+        )
+        witnesses = tuple(sorted(set(witnesses) | {cause.reference for cause in causes}))
+        reason_codes = (
+            reason,
+            *sorted({cause.kind + "_" + cause.selector_kind + "_revocation" for cause in causes}),
+        )
         rows.append(
             ChangeImpactItem(
                 member=member,
                 state=state,
-                reasons=(reason,),
+                reasons=reason_codes,
                 changed_roots=roots,
                 witnesses=witnesses,
             )
         )
     return tuple(rows)
+
+
+def _revocation_causes(index, roots):
+    """Attribute only native-exported selector/epoch witnesses to reached support."""
+    episodes = index.mapping("ops.data_derivation", ("id",))
+    requests = index.mapping("ops.data_request", ("id",))
+    admissions = index.mapping("ops.original_source_admission", ("id",))
+    revocations = tuple(index.rows("ops.data_revocation"))
+    pending, visited, causes = [("episode", root) for root in roots], set(), {}
+    while pending:
+        kind, identity = pending.pop()
+        if (kind, identity) in visited:
+            continue
+        visited.add((kind, identity))
+        row = episodes.get(identity) if kind == "episode" else admissions.get(identity)
+        if row is None:
+            continue
+        if kind == "episode":
+            request = requests[row["request_id"]]
+            project, source = request["project_id"], request["original_source"]
+            products = {
+                r["product_id"]
+                for r in index.rows_for("ops.data_derivation_output", derivation_id=identity)
+            }
+            selectors = {
+                ("derivation", identity),
+                ("recipe", row["recipe"]),
+                ("runtime", row["runtime_id"]),
+            } | {("product", product) for product in products}
+            pending.extend(
+                ("episode", r["support_derivation_id"])
+                for r in index.rows_for("ops.data_derivation_support", derivation_id=identity)
+            )
+            pending.extend(
+                ("original", r["admission_id"])
+                for r in index.rows_for(
+                    "ops.data_derivation_original_support", derivation_id=identity
+                )
+            )
+        else:
+            project, source = row["project_id"], row["original_source"]
+            selectors = {
+                ("original-admission", identity),
+                ("original-source", row["source_reference"]),
+                ("product", row["product_id"]),
+            }
+        # Scope is the existing native framed JSON project/source key.
+        scope = "source:" + sha256(json_bytes([project, source])).hexdigest()
+        for revoked in revocations:
+            if (
+                revoked["scope"] == scope
+                and (revoked["selector_kind"], revoked["selector"]) in selectors
+            ):
+                causes[revoked["id"]] = RevocationCause(
+                    kind="direct" if kind == "episode" and identity in roots else "upstream",
+                    reference=revoked["id"],
+                    selector_kind=revoked["selector_kind"],
+                    selector=revoked["selector"],
+                )
+    return tuple(causes[key] for key in sorted(causes))
 
 
 def _acquire(connection, demand, *, project, scope, read_id, expected_cut, max_bytes):
@@ -330,11 +431,14 @@ def _acquire(connection, demand, *, project, scope, read_id, expected_cut, max_b
                 evidence.append(
                     SelectionEvidence(
                         member=member,
-                        fate=obligation["fate"],
+                        fate="cancelled"
+                        if page.record["state"] == "cancelled"
+                        else obligation["fate"],
                         derivations=tuple(sorted(derivations)),
                         products=tuple(sorted(edges, key=json_bytes)),
                         inputs=tuple(sorted(inputs, key=json_bytes)),
                         support=tuple(sorted(support)),
+                        invalidity_causes=_revocation_causes(index, derivations),
                     )
                 )
             population = {row.member.key: row.member for row in evidence}
