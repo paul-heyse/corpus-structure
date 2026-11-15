@@ -97,6 +97,7 @@ def source_hierarchy_snapshot(prepared, model, cut, index):
     return GraphSnapshot(
         projection="source-hierarchy",
         specification=specification.identity_bytes.hex(),
+        orientation="parent-to-child",
         pins_json=json_bytes({**cut.record, "cut_id": cut.identity}).decode(),
         nodes=tuple(nodes[key] for key in sorted(nodes)),
         occurrences=tuple(sorted(edges, key=lambda edge: edge.identity)),
