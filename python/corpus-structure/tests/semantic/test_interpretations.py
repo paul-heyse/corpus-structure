@@ -18,18 +18,19 @@ from corpus_structure.semantic.portable_interpretation import export_interpretat
 
 
 def payload(statistics_pack_prepared):
+    from evaluate.declared_record_policy_support import source
+
     lookup = lookup_terms(statistics_pack_prepared, "distribution_family", "Gaussian distribution")
     return dict(
+        standing="private_authored_judgment",
+        judgment_type="terminology.interpretation",
         source_record=dict(
-            project_id="research",
-            run_id=1,
-            cut_id=2,
-            release_id=statistics_pack_prepared.release_id,
-            realization_id="realization",
-            data_revision=1,
-            record_id="record",
+            project_id="research", demand_id="demand:source", read_id="read:source",
+            cut_id="cut:source", release_id=statistics_pack_prepared.release_id,
+            runtime_id="runtime:source", read_scope_json="{}", product_id="product:source", member_id="member:source",
+            kind_contract="kind:source", family_contract="family:source", record_id="record",
             interpretation_id="interpretation",
-            source_view_id=1,
+            source_pin=source(1).model_dump(mode="json", exclude_none=True),
         ),
         vocabulary_release=statistics_pack_prepared.release_id,
         metadata_digest=lookup["metadata_digest"],
@@ -102,17 +103,7 @@ def test_normalization_does_not_strip_accents_or_punctuation():
 def test_released_subtype_and_semantic_closure(statistics_pack_prepared):
     value = payload(statistics_pack_prepared)
     statistics_pack_prepared.validate_json(
-        "TerminologyInterpretationV1",
-        json.dumps(
-            dict(
-                kind="proposal",
-                semantic_type="terminology.interpretation",
-                effect="retain_private",
-                assessment_event="local-contribution-1",
-                question="interpret.terminology",
-                value=value,
-            )
-        ).encode(),
+        "DdoAuthoredTerminologyJudgment", json.dumps(value).encode(),
     )
     validate_interpretation_payload(statistics_pack_prepared, "terminology.interpretation", value)
     assert value["decisions"][0]["mapping_predicate"].endswith("closeMatch")
@@ -165,14 +156,7 @@ def test_unit_metadata_is_captured_draft_unchecked_and_unexecuted(statistics_pac
 def test_independent_offline_authoring_consumer(statistics_pack_prepared, tmp_path):
     package = tmp_path / "contract"
     report = export_interpretation_contract(statistics_pack_prepared, package)
-    instance: dict[str, Any] = dict(
-        kind="proposal",
-        semantic_type="terminology.interpretation",
-        effect="retain_private",
-        assessment_event="local-contribution-1",
-        question="interpret.terminology",
-        value=payload(statistics_pack_prepared),
-    )
+    instance: dict[str, Any] = payload(statistics_pack_prepared)
     path = tmp_path / "input.json"
     path.write_text(json.dumps(instance))
     script = Path(__file__).parents[4] / "examples/offline_interpretation.py"
@@ -188,48 +172,18 @@ def test_independent_offline_authoring_consumer(statistics_pack_prepared, tmp_pa
     run = subprocess.run(args, cwd=tmp_path, capture_output=True, text=True)
     assert run.returncode == 0, run.stderr
     assert json.loads(run.stdout)["claim"] == "structural_preflight_only"
-    instance["value"]["source_record"]["run_id"] = "1"
+    instance["source_record"]["member_id"] = 1
     path.write_text(json.dumps(instance))
     invalid = subprocess.run(args, cwd=tmp_path, capture_output=True, text=True)
     assert invalid.returncode == 1
     result = json.loads(invalid.stdout)
     assert result["errors"] and result["errors"][0]["instance_path"] == [
-        "value",
         "source_record",
-        "run_id",
+        "member_id",
     ]
     # A wrong externally supplied digest refuses, even though the schema itself is valid.
     wrong = subprocess.run([*args[:-1], "0" * 64], cwd=tmp_path, capture_output=True, text=True)
     assert wrong.returncode != 0
-
-
-def test_authored_wire_retains_explicit_decision_without_reextracting(statistics_pack_prepared):
-    from corpus_structure.semantic.interpretations import interpretation_contribution
-    from corpus_structure.semantic.observations import source_python
-
-    value = payload(statistics_pack_prepared)
-    pin = dict(
-        source="source",
-        native_product_task_id=3,
-        product_key="native",
-        product_digest="a" * 64,
-        projection_digest="b" * 64,
-        recipe_digest="c" * 64,
-        source_view_id=1,
-    )
-    row = interpretation_contribution(
-        statistics_pack_prepared,
-        semantic_type="terminology.interpretation",
-        payload=value,
-        operation_key="authored-wire-fixture",
-        item_key="0",
-        pin=pin,
-        anchors=(),
-    )
-    assert "occurrence_id" not in row and row["anchors"] == ()
-    assert source_python(row["value"]) == value
-    assert row["semantic_type"] == "terminology.interpretation"
-    assert value["source_record"]["run_id"] == 1
 
 
 def test_offline_error_inventory_and_file_bounds(tmp_path):
@@ -281,6 +235,27 @@ def test_authored_source_records_decode_json_lists_without_scalar_loss(
     from semantic.record_contracts_support import measurement_record
 
     record, coordinates = measurement_record()
+    from evaluate.declared_record_policy_support import source
+    from corpus_structure.semantic.record_contracts import anchor_identity, evidence_set_identity
+
+    pin = source(1).model_dump(mode="json", exclude_none=True)
+    record["pin"] = pin
+    anchors = {}
+    for anchor in record["anchors"]:
+        old = anchor["anchor_id"]
+        anchor["pin"] = pin
+        anchor["anchor_id"] = anchor_identity(anchor)
+        anchors[old] = anchor["anchor_id"]
+    record["occurrence_anchors"] = [anchors[key] for key in record["occurrence_anchors"]]
+    sets = {}
+    for evidence in record["evidence_sets"]:
+        old = evidence["set_id"]
+        evidence["anchors"] = [anchors[key] for key in evidence["anchors"]]
+        evidence["set_id"] = evidence_set_identity(evidence)
+        sets[old] = evidence["set_id"]
+    for field in record["fields"]:
+        field["evidence_sets"] = [sets[key] for key in field["evidence_sets"]]
+    coordinates = [{**coordinate, "pin": pin} for coordinate in coordinates]
     from corpus_structure.semantic.data_operation_compilation import compile_data_operations
 
     model = compile_data_operations(statistics_pack_inputs[0])

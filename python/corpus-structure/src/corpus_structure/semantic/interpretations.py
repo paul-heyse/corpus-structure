@@ -5,7 +5,6 @@ from __future__ import annotations
 import unicodedata
 from typing import Any
 
-from .identity import canonical_bytes
 from .terminology import ARTIFACT
 
 FIELD_ENUMS = {
@@ -134,51 +133,3 @@ def validate_interpretation_payload(prepared, semantic_type: str, payload: dict[
             raise ValueError("unresolved terminology decision cannot claim a selected mapping")
         if decision["outcome"] == "no_match" and candidates:
             raise ValueError("no-match decision cannot retain examined candidates as matches")
-
-
-def interpretation_contribution(
-    prepared, *, semantic_type, payload, operation_key, item_key, pin, anchors
-):
-    """Build a normal sealed contribution; this does not bypass task completion."""
-    from .contributions import contribution_identity, occurrence_identity
-    from .observations import source_value
-
-    contract = {
-        "terminology.interpretation": "TerminologyInterpretationV1",
-        "measurement.interpretation": "MeasurementInterpretationV1",
-    }[semantic_type]
-    question = {
-        "terminology.interpretation": "interpret.terminology",
-        "measurement.interpretation": "interpret.measurement",
-    }[semantic_type]
-    prepared.validate_json(
-        contract,
-        canonical_bytes(
-            dict(
-                kind="proposal",
-                semantic_type=semantic_type,
-                effect="retain_private",
-                assessment_event="local-contribution-1",
-                question=question,
-                value=payload,
-            )
-        ),
-    )
-    validate_interpretation_payload(prepared, semantic_type, payload)
-    row = dict(
-        contract=contract,
-        kind="proposal",
-        semantic_type=semantic_type,
-        operation_key=operation_key,
-        item_key=item_key,
-        pin=pin,
-        anchors=tuple(anchors),
-        disposition="unassessed",
-        standing="retained_private",
-        score_state="missing",
-        value=source_value(payload),
-    )
-    if anchors:
-        row["occurrence_id"] = occurrence_identity(anchors)
-    row["contribution_id"] = contribution_identity(row)
-    return row

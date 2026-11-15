@@ -474,7 +474,7 @@ def test_authored_admission_reader_follows_all_obligation_pages(monkeypatch):
     )
     monkeypatch.setattr(
         "corpus_structure.semantic.data_operation_admission.bound_data_operation_model",
-        lambda *a: object(),
+        lambda *a: SimpleNamespace(identities=()),
     )
     monkeypatch.setattr(
         "corpus_structure.serve.interpretation_authoring.DataOperationStorage", lambda *a: object()
@@ -506,7 +506,7 @@ def test_authored_admission_reader_follows_all_obligation_pages(monkeypatch):
 
     monkeypatch.setattr("corpus_structure.semantic.demand_results.read_demand_result", page)
     report = author_interpretations(
-        engine, SimpleNamespace(release_id="release:A"), request=request
+        engine, SimpleNamespace(release_id="release:A", definitions=()), request=request
     )
     assert [row["admission_id"] for row in report["authored_admissions"]] == [
         "admission:0",

@@ -42,10 +42,22 @@ class InterpretationRoot(GroupedRecord):
     interpretation_id: Nonempty | None = None
 
 
+class AuthoredJudgmentRead(GroupedRecord):
+    """Explicit independent authored input read; its scope is part of the pinned cut."""
+
+    demand_id: Nonempty
+    read_id: Nonempty
+    expected_cut: Nonempty
+    scope: dict[str, DdoJsonValue]
+    product_ids: Annotated[tuple[Nonempty, ...], Field(min_length=1, max_length=100)]
+
+
 class GroupedInterpretationRequest(GroupedRecord):
     project_id: Nonempty
     demand_id: Nonempty
     roots: Annotated[tuple[InterpretationRoot, ...], Field(min_length=1, max_length=100)]
+    authored_products: Annotated[tuple[Nonempty, ...], Field(max_length=100)] = ()
+    authored_reads: Annotated[tuple[AuthoredJudgmentRead, ...], Field(max_length=100)] = ()
     read_id: Nonempty | None = None
     expected_cut: Nonempty | None = None
     operation_id: Nonempty | None = None
@@ -92,6 +104,15 @@ class RetainedFiniteInterpretation(GroupedRecord):
     report: dict[str, DdoJsonValue]
 
 
+class RetainedAuthoredJudgment(GroupedRecord):
+    reference: DdoRichSelectedMember
+    author: Nonempty = Field(description="Author assertion from the immutable AuthoredFactRef; the support reference identifies actual native admission.")
+    selection_id: Nonempty
+    source_reference: Nonempty
+    body: dict[str, DdoJsonValue]
+    standing: Literal["private_authored_judgment"] = "private_authored_judgment"
+
+
 class RecordInterpretationGroup(GroupedRecord):
     identity: Nonempty
     record_id: Nonempty
@@ -101,6 +122,7 @@ class RecordInterpretationGroup(GroupedRecord):
     candidate_universe: DdoRichSelectedMember
     readings: tuple[RetainedReading, ...]
     finite_interpretations: tuple[RetainedFiniteInterpretation, ...] = ()
+    authored_judgments: tuple[RetainedAuthoredJudgment, ...] = ()
     dependency_coverage: Literal["recorded", "unknown"] = Field(
         description="Presence of dependency lists on every retained reading; recorded does not establish exhaustive provenance."
     )

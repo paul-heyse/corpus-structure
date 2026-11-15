@@ -215,7 +215,7 @@ def groups(
     request: Annotated[
         Path,
         typer.Argument(
-            help="GroupedInterpretationRequest JSON pinning complete candidate products and optional member/reading selectors."
+            help="GroupedInterpretationRequest JSON pinning complete candidate products, optional member/reading selectors and authored judgment products."
         ),
     ],
     json: JsonOpt = False,

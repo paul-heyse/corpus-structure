@@ -102,8 +102,13 @@ class SelectedRecordIndex:
         if self.cut is not None and self.cut.content != cut.content:
             raise ValueError("selected frontier pages belong to different native cuts")
         self.cut, self.has_frontier = cut, True
-        for kind, identity_field in (("obligations", "obligation_id"), ("uses", "use_id")):
-            for row in page[kind]:
+        for kind, identity_field in (
+            ("obligations", "obligation_id"),
+            ("uses", "use_id"),
+            ("original_source_admissions", "admission_id"),
+        ):
+            population = page.get(kind, ()) if kind == "original_source_admissions" else page[kind]
+            for row in population:
                 # Body-bearing products already have native record custody. Keep the
                 # exact frontier/selection fields without copying their bodies again.
                 value = {key: value for key, value in row.items() if key != "products"}

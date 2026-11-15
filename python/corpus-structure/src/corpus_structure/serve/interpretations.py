@@ -164,7 +164,9 @@ def _group_selected_interpretations(connection, request, implementation):
     roots = {}
     for root in request.roots:
         roots.setdefault(root.product_id, []).append(root)
-    with selected_contribution_scope(connection, acquired, product_ids=tuple(roots)) as selected:
+    with selected_contribution_scope(
+        connection, acquired, product_ids=(*roots, *request.authored_products)
+    ) as selected:
         groups, found, universes, finite = {}, set(), {}, []
         for product in selected.products():
             identity = product.reference.product_id
@@ -245,6 +247,30 @@ def _group_selected_interpretations(connection, request, implementation):
                     "source_pin": product.body["source_pin"],
                 }
             )
+        if request.authored_products or request.authored_reads:
+            from corpus_structure.semantic.authored_interpretations import attach_authored_judgment
+            from corpus_structure.serve.interpretation_authoring import (
+                read_authored_judgment_selection,
+                selected_authored_judgments,
+            )
+
+            for body, provenance in selected_authored_judgments(
+                connection, selected, request.authored_products
+            ):
+                grouped = attach_authored_judgment(grouped, body, **provenance)
+            for authored_read in request.authored_reads:
+                for body, provenance in read_authored_judgment_selection(
+                    connection, request, authored_read
+                ):
+                    grouped = attach_authored_judgment(grouped, body, **provenance)
+        from corpus_structure.semantic.authored_interpretations import JUDGMENT_KINDS
+
+        definitions = {value.iri: value.name for value in selected.prepared.definitions}
+        judgment_contracts = {
+            definitions[value.owner]: value.key
+            for value in selected.model.identities
+            if value.domain == "kind" and definitions.get(value.owner) in JUDGMENT_KINDS
+        }
         items = [group.model_dump(mode="python") for group in grouped]
         cut_id, cut = selected.cut.identity, selected.cut.record
         obligations = tuple(selected.index.frontier_rows("obligations"))
@@ -275,6 +301,9 @@ def _group_selected_interpretations(connection, request, implementation):
             "selection": selection,
             "candidate_universes": list(universes.values()),
             "finite_universes": finite_universes,
+            "authored_judgment_contracts": judgment_contracts,
+            "authored_judgment_products": list(request.authored_products),
+            "authored_judgment_reads": [value.model_dump(mode="python") for value in request.authored_reads],
             "items": items[offset:end],
             "continuation": continuation,
             "page_complete": continuation is None,
@@ -283,7 +312,11 @@ def _group_selected_interpretations(connection, request, implementation):
             "knowledge": "observed" if items[offset:end] else "unknown",
             "capability": "complete_private_source_record_groups",
             "unavailable_capabilities": [
-                "authored_measurement_and_terminology_judgments",
+                *(
+                    ["authored_measurement_and_terminology_judgments"]
+                    if set(judgment_contracts) != set(JUDGMENT_KINDS)
+                    else []
+                ),
                 "accepted_knowledge",
             ],
         }

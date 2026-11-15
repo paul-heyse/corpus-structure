@@ -18,38 +18,25 @@ classes:
         range: StatisticalDistributionAttribute
         description: A characteristic of a mathematical probability distribution; sample estimators and local measurement roles remain distinct.
   InterpretationSourceRecord:
+    is_a: SourceRecordProduct
+    description: Exact retained reading selected under an immutable native source cut; no run or task provenance.
     attributes:
-      project_id:
-        range: string
-        required: true
-      run_id:
-        range: integer
-        required: true
-        minimum_value: 1
-      cut_id:
-        range: integer
-        required: true
-        minimum_value: 1
-      release_id:
-        range: string
-        required: true
-      realization_id:
-        range: string
-        required: true
-      data_revision:
-        range: integer
-        required: true
-      record_id:
-        range: string
-        required: true
-      interpretation_id:
-        range: string
-        required: true
-      source_view_id:
-        range: integer
-        required: true
-        minimum_value: 1
+      project_id: {required: true}
+      demand_id: {required: true}
+      read_id: {required: true}
+      cut_id: {required: true}
+      release_id: {required: true}
+      runtime_id: {required: true}
+      read_scope_json: {required: true}
+      product_id: {required: true}
+      member_id: {required: true}
+      kind_contract: {required: true}
+      family_contract: {required: true}
+      record_id: {required: true}
+      interpretation_id: {required: true}
+      source_pin: {range: RecordSourcePin, inlined: true, required: true}
   InterpretationFieldFocus:
+    is_a: SourceRecordProduct
     attributes:
       role:
         required: true
@@ -66,6 +53,7 @@ classes:
       source_piece:
         required: true
   InterpretationCandidate:
+    is_a: SourceRecordProduct
     attributes:
       value:
         required: true
@@ -78,6 +66,7 @@ classes:
       matching_predicate:
         required: true
   TerminologyFieldDecision:
+    is_a: SourceRecordProduct
     attributes:
       field:
         range: TerminologyFieldName
@@ -103,6 +92,7 @@ classes:
       reviewer:
         required: true
   TerminologyInterpretationPayload:
+    is_a: SourceRecordProduct
     attributes:
       source_record:
         range: InterpretationSourceRecord
@@ -121,23 +111,8 @@ classes:
         inlined: true
         minimum_cardinality: 1
         required: true
-  TerminologyInterpretationV1:
-    is_a: RetainedContributionSemantics
-    attributes:
-      semantic_type:
-        equals_string: terminology.interpretation
-        required: true
-      kind:
-        equals_string: proposal
-        required: true
-      question:
-        equals_string: interpret.terminology
-        required: true
-      value:
-        range: TerminologyInterpretationPayload
-        inlined: true
-        required: true
   MeasurementInterpretationPayload:
+    is_a: SourceRecordProduct
     attributes:
       source_record:
         range: InterpretationSourceRecord
@@ -169,22 +144,18 @@ classes:
       numerical_equivalence:
         equals_string: unassessed
         required: true
-  MeasurementInterpretationV1:
-    is_a: RetainedContributionSemantics
+  DdoAuthoredTerminologyJudgment:
+    is_a: TerminologyInterpretationPayload
+    description: Private actual authored input; neither a computed reading nor accepted knowledge.
     attributes:
-      semantic_type:
-        equals_string: measurement.interpretation
-        required: true
-      kind:
-        equals_string: proposal
-        required: true
-      question:
-        equals_string: interpret.measurement
-        required: true
-      value:
-        range: MeasurementInterpretationPayload
-        inlined: true
-        required: true
+      standing: {required: true, equals_string: private_authored_judgment}
+      judgment_type: {required: true, equals_string: terminology.interpretation}
+  DdoAuthoredMeasurementJudgment:
+    is_a: MeasurementInterpretationPayload
+    description: Private actual authored input; unit and basis alternatives remain separate without numerical conversion.
+    attributes:
+      standing: {required: true, equals_string: private_authored_judgment}
+      judgment_type: {required: true, equals_string: measurement.interpretation}
 
 enums:
   StatisticalDistributionFamily:

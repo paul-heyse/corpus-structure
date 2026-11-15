@@ -12,7 +12,7 @@ DIALECT = "https://json-schema.org/draft/2020-12/schema"
 
 
 def export_interpretation_contract(prepared, destination: Path) -> dict:
-    name = "TerminologyInterpretationV1"
+    name = "DdoAuthoredTerminologyJudgment"
     artifact = next((a for a in prepared.artifacts if a.kind == "json_schema/" + name), None)
     if artifact is None:
         raise ValueError("retained terminology interpretation contract unavailable")
