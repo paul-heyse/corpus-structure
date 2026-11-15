@@ -492,17 +492,19 @@ def read_graph_inspection(reader, request: GraphInspectionRequest):
                 if request.project_id is None:
                     raise ValueError("selected graph requires an explicit project")
                 try:
-                    selected = witnesses.enter_context(selected_record_index(
-                        connection,
-                        request.demand_id,
-                        project_id=request.project_id,
-                        scope=request.scope,
-                        read_id=request.read_id,
-                        expected_cut=request.expected_cut,
-                        max_bytes=8388608,
-                        max_total_bytes=request.max_examined_bytes,
-                        capture_frontier=True,
-                    ))
+                    selected = witnesses.enter_context(
+                        selected_record_index(
+                            connection,
+                            request.demand_id,
+                            project_id=request.project_id,
+                            scope=request.scope,
+                            read_id=request.read_id,
+                            expected_cut=request.expected_cut,
+                            max_bytes=8388608,
+                            max_total_bytes=request.max_examined_bytes,
+                            capture_frontier=True,
+                        )
+                    )
                 except SelectedGraphBudgetExceeded as error:
                     # A successful native read established this cut. Commit it
                     # even when its retained closure exceeds the graph budget.
@@ -510,7 +512,9 @@ def read_graph_inspection(reader, request: GraphInspectionRequest):
         if archived.version != MODEL_VERSION:
             snapshot = archived_graph_snapshot(prepared, request.projection)
             pins = json_loads(snapshot.pins_json)
-            pins["requested_context"] = dict(project_id=request.project_id, demand_id=request.demand_id)
+            pins["requested_context"] = dict(
+                project_id=request.project_id, demand_id=request.demand_id
+            )
             snapshot = snapshot.model_copy(update={"pins_json": json_bytes(pins).decode()})
             return inspect_graph(snapshot, request.model_copy(update={"demand_id": None}))
         if budget_error is not None:

@@ -747,7 +747,18 @@ def test_assessment_roots_share_one_container_guard_load(tmp_path, monkeypatch):
     product_kind = identities[kinds["DdoFormalProduct"], "kind"]
     member_kind = identities[kinds["DdoFormalTerm"], "kind"]
     product = "product:shared-assessment-container"
-    payload = dict(source={}, selectors=[], members=[dict(member_id=row["local_id"], kind_contract=member_kind, body=dict(row, record_type="term")) for row in graph_inventory()["terms"]])
+    payload = dict(
+        source={},
+        selectors=[],
+        members=[
+            dict(
+                member_id=row["local_id"],
+                kind_contract=member_kind,
+                body=dict(row, record_type="term"),
+            )
+            for row in graph_inventory()["terms"]
+        ],
+    )
     lookups = Counter()
     calls = Counter()
 
@@ -779,17 +790,52 @@ def test_assessment_roots_share_one_container_guard_load(tmp_path, monkeypatch):
     monkeypatch.setattr(owner, "derive_member_kinds", counted_derive)
     index = SelectedRecordIndex(tmp_path / "shared-container.sqlite")
     try:
-        index.append(json_bytes(dict(key="product", relation="kb.data_product", record=dict(id=product, kind_contract=product_kind, canonical_body=semantic_value(payload)))))
+        index.append(
+            json_bytes(
+                dict(
+                    key="product",
+                    relation="kb.data_product",
+                    record=dict(
+                        id=product,
+                        kind_contract=product_kind,
+                        canonical_body=semantic_value(payload),
+                    ),
+                )
+            )
+        )
         for member in ("root", "leaf"):
-            index.append(json_bytes(dict(key=member, relation="kb.data_product_member", record=dict(product_id=product, member_id=member, kind_contract=member_kind))))
+            index.append(
+                json_bytes(
+                    dict(
+                        key=member,
+                        relation="kb.data_product_member",
+                        record=dict(
+                            product_id=product, member_id=member, kind_contract=member_kind
+                        ),
+                    )
+                )
+            )
         mapping = index.mapping
-        monkeypatch.setattr(index, "mapping", lambda relation, fields: CountingMapping(mapping(relation, fields), relation))
+        monkeypatch.setattr(
+            index,
+            "mapping",
+            lambda relation, fields: CountingMapping(mapping(relation, fields), relation),
+        )
         native = dict(_page(), release_id=prepared.release_id)
-        snapshot = owner.assessment_graph_snapshot(prepared, CutSelection.from_native(native), index, members=((product, "root"), (product, "leaf")))
+        snapshot = owner.assessment_graph_snapshot(
+            prepared,
+            CutSelection.from_native(native),
+            index,
+            members=((product, "root"), (product, "leaf")),
+        )
         assert snapshot.standing == "complete"
         assert len(snapshot.nodes) == 2 and len(snapshot.occurrences) == 2
         assert all(json_loads(node.payload_json)["root"] for node in snapshot.nodes)
-        assert lookups == {("kb.data_product", product): 1, ("kb.data_product_member", (product, "root")): 1, ("kb.data_product_member", (product, "leaf")): 1}
+        assert lookups == {
+            ("kb.data_product", product): 1,
+            ("kb.data_product_member", (product, "root")): 1,
+            ("kb.data_product_member", (product, "leaf")): 1,
+        }
         assert calls == {"decode": 1, "derive": 1}
     finally:
         index.close()
