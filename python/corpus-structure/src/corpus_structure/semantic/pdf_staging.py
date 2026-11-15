@@ -10,8 +10,8 @@ from sqlalchemy import Connection
 
 from corpus_structure.core.db.lifetime import BorrowerCancellation
 
-from . import _operation_calls as calls
-from ._operation_ids import ReleaseId, TaskAttempt, TaskId
+from . import _pdf_native_calls as calls
+from .identifiers import ReleaseId, TaskAttempt, TaskId
 from .arrow_transfer import ArrowWriteProfile, copy_arrow_stream
 from .pdf_record_model import record_arrow_schema, record_write_profile
 
@@ -140,8 +140,8 @@ def begin_pdf_build(
 ) -> PdfBuildRef:
     row = calls.begin_pdf_build(
         conn,
-        task_id=calls.TaskId(task_id),
-        attempt=calls.TaskAttempt(attempt),
+        task_id=TaskId(task_id),
+        attempt=TaskAttempt(attempt),
         holder=holder,
         source_digest=source_digest,
         recipe_digest=recipe_digest,
@@ -170,8 +170,8 @@ def adopt_pdf_batch(
     calls.prepare_pdf_stage(
         conn,
         build_id=build.build_id,
-        task_id=calls.TaskId(build.task_id),
-        attempt=calls.TaskAttempt(build.attempt),
+        task_id=TaskId(build.task_id),
+        attempt=TaskAttempt(build.attempt),
         holder=build.holder,
     )
     count = size = 0
@@ -198,8 +198,8 @@ def adopt_pdf_batch(
     row = calls.adopt_pdf_batch(
         conn,
         build_id=build.build_id,
-        task_id=calls.TaskId(build.task_id),
-        attempt=calls.TaskAttempt(build.attempt),
+        task_id=TaskId(build.task_id),
+        attempt=TaskAttempt(build.attempt),
         holder=build.holder,
         replay_key=replay_key,
     )
@@ -210,8 +210,8 @@ def inspect_pdf_progress(conn: Connection, build: PdfBuildRef) -> tuple[PdfStage
     rows = calls.inspect_pdf_progress(
         conn,
         build_id=build.build_id,
-        task_id=calls.TaskId(build.task_id),
-        attempt=calls.TaskAttempt(build.attempt),
+        task_id=TaskId(build.task_id),
+        attempt=TaskAttempt(build.attempt),
         holder=build.holder,
     )
     return tuple(
@@ -226,8 +226,8 @@ def resume_pdf_build(
     calls.resume_pdf_build(
         conn,
         build_id=build.build_id,
-        task_id=calls.TaskId(build.task_id),
-        attempt=calls.TaskAttempt(attempt),
+        task_id=TaskId(build.task_id),
+        attempt=TaskAttempt(attempt),
         holder=holder,
     )
     from dataclasses import replace
@@ -239,8 +239,8 @@ def abandon_pdf_build(conn: Connection, build: PdfBuildRef) -> None:
     calls.abandon_pdf_build(
         conn,
         build_id=build.build_id,
-        task_id=calls.TaskId(build.task_id),
-        attempt=calls.TaskAttempt(build.attempt),
+        task_id=TaskId(build.task_id),
+        attempt=TaskAttempt(build.attempt),
         holder=build.holder,
     )
 

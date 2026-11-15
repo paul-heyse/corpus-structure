@@ -116,7 +116,7 @@ def reader_fixture(
         pdf_record_reader,
         source_views,
     )
-    from corpus_structure.semantic._operation_calls import PdfBuildValidation
+    from corpus_structure.semantic._pdf_native_calls import PdfBuildValidation
 
     consumer, _, _ = released_context()
     _, producer, schema = released_context(schema_mode)

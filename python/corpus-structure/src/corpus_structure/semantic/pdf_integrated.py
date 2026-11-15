@@ -599,7 +599,8 @@ def store_pdf_observation(
     if product.values()["kind"] != "recognition_observation":
         raise ValueError("observation publication refuses native or integrated document bodies")
     require_pdf_database_action(conn, archived.release_id, "publish_pdf_observation")
-    from ._operation_calls import TaskAttempt, TaskId, publish_pdf_observation
+    from .identifiers import TaskAttempt, TaskId
+    from ._pdf_native_calls import publish_pdf_observation
     from .releases import open_release
 
     return publish_pdf_observation(

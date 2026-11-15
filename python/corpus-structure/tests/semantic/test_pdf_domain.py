@@ -63,7 +63,7 @@ def test_pdf_domain_projects_real_actions_and_native_schema_without_legacy_execu
 
 
 def test_pdf_domain_call_projection_checks_exact_variant_and_digest(domain, model):
-    from corpus_structure.semantic._operation_calls import RETAIN_PDF_ORIGINAL_CONTRACT_DIGEST
+    from corpus_structure.semantic._pdf_native_calls import RETAIN_PDF_ORIGINAL_CONTRACT_DIGEST
 
     dependencies = ResolvedDependencies(
         (
@@ -104,10 +104,7 @@ def test_pdf_domain_native_checks_exact_frozen_facet_and_declared_action(domain)
 
 
 def test_pdf_domain_owns_observation_boundary_and_exact_published_read_calls(domain, model):
-    from corpus_structure.semantic._operation_calls import (
-        READ_PUBLISHED_SECTION_NODES_CONTRACT_DIGEST,
-        READ_PUBLISHED_SECTIONS_CONTRACT_DIGEST,
-    )
+    from corpus_structure.semantic._pdf_native_calls import READ_PUBLISHED_SECTION_NODES_CONTRACT_DIGEST, READ_PUBLISHED_SECTIONS_CONTRACT_DIGEST
 
     boundary = _boundary(domain.schema)
     assert (
@@ -132,3 +129,62 @@ def test_pdf_domain_owns_observation_boundary_and_exact_published_read_calls(dom
         require_call_context(prepared, "read_native_source", variant, digest)
         with pytest.raises(SemanticRefusal, match="incompatible consumer"):
             require_call_context(prepared, "read_native_source", variant, "changed")
+
+
+def test_current_pdf_diagnostics_preserve_exact_native_identity(domain):
+    from types import SimpleNamespace
+    from corpus_structure.semantic.invariant_failures import classify_invariant_failure
+
+    class NativeError(Exception):
+        sqlstate = "23503"
+        diag = SimpleNamespace(schema_name="kb", table_name="source_view",
+                               constraint_name="fk_source_view_native_build_id_native_revision_id_secti_79ff",
+                               message_detail=None)
+    error = NativeError("arbitrary source-view failure prose")
+    identity = "pdf-domain:" + sha256(domain.content).hexdigest()
+    failure = classify_invariant_failure(domain.invariants, "publish_source_view", error, model_id=identity)
+    assert failure is not None
+    assert (failure.code, failure.invariant, failure.scope, failure.model_id) == (
+        "pdf.published_document_address", "published_document_address", "relational", identity)
+    assert classify_invariant_failure(domain.invariants, "read_source_view", error, model_id=identity) is None
+    error.diag.constraint_name = "another_foreign_key"
+    assert classify_invariant_failure(domain.invariants, "publish_source_view", error, model_id=identity) is None
+
+
+def test_selected_pdf_receipt_read_requires_explicit_use_and_producer():
+    from corpus_structure.semantic.data_operation_wire import validate_native_wire
+    request = {"project_id": "project:one", "demand_id": "demand:one", "read_id": "read:one", "use_id": "use:one",
+               "product_id": "product:one", "derivation_id": "episode:one"}
+    assert validate_native_wire("read_selected_pdf_source", "input", request) == request
+    for missing in ("project_id", "use_id", "derivation_id"):
+        with pytest.raises(ValueError, match="schema"):
+            validate_native_wire("read_selected_pdf_source", "input", {key: value for key, value in request.items() if key != missing})
+    with pytest.raises(ValueError, match="schema"):
+        validate_native_wire("read_selected_pdf_source", "input", {**request, "run_id": 7})
+
+
+def test_current_pdf_facade_has_canonical_ids_and_no_stage_run_slot():
+    from corpus_structure.semantic import _pdf_native_calls, _pdf_native_ids, identifiers
+    from corpus_structure.semantic.pdf_call_generation import generated_source, generated_enums
+    from corpus_structure.semantic.metadata import table
+    from pathlib import Path
+
+    assert _pdf_native_calls.TaskId is identifiers.TaskId
+    assert _pdf_native_calls.TaskAttempt is identifiers.TaskAttempt
+    assert not hasattr(_pdf_native_ids, "TaskId")
+    assert "run_id" not in _pdf_native_calls.PdfStageBuild.model_fields
+    assert "run_id" not in table("ops.pdf_stage_build").c
+    assert Path(_pdf_native_calls.__file__).read_text() == generated_source()
+    assert Path(_pdf_native_ids.__file__).read_text() == generated_enums()
+
+
+def test_selected_pdf_cut_reuses_exact_read_owner_field_schemas():
+    from corpus_structure.semantic._data_operation_wire import WireCutSelection
+    from corpus_structure.semantic.data_operation_wire import wire_contracts
+    result = wire_contracts()["read_selected_pdf_source"]["output"]
+    cut = result["definitions"]["cut_selection"]
+    page = wire_contracts()["read_demand_result"]["output"]["definitions"]["read_demand_result_result"]
+    expected = {"demand_id", "project_id", "release_id", "runtime_id", "selection", "trust_snapshot",
+                "read_id", "read_snapshot", "frontier_at", "scope"}
+    assert set(WireCutSelection.__annotations__) == set(cut["required"]) == set(cut["properties"]) == expected
+    assert {field: page["properties"][field] for field in expected} == cut["properties"]

@@ -1933,7 +1933,7 @@ class BoundReader:
 
     def _native_product_input(self, reference):
         """Selected/input pins or this running task's exact published output custody."""
-        from .contracts import require_bound_operation
+        from .pdf_domain import require_pdf_prepared_action
         from .pdf_contracts import pdf_context_for_task
         from .pdf_record_reader import PublishedSchemaUnavailable, published_record_reader
         from .pdf_storage import (
@@ -1941,7 +1941,7 @@ class BoundReader:
             _record_product_identity,
         )
 
-        require_bound_operation(self.prepared, "read_pdf_product")
+        require_pdf_prepared_action(self.prepared, "read_pdf_product")
         context = pdf_context_for_task(self.conn, reference.task_id)
         published = published_record_reader(self.conn, reference, projection_context=self.prepared)
         if published is not None:

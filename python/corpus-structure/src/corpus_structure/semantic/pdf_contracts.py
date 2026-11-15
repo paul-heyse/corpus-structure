@@ -540,8 +540,8 @@ def store_pdf_original(
     require_pdf_database_action(conn, context.release_id, "retain_pdf_original")
     if not original.startswith(b"%PDF-"):
         raise ValueError("PDF original has no PDF header")
-    from ._operation_calls import retain_pdf_original
-    from ._operation_ids import TaskAttempt, TaskId
+    from ._pdf_native_calls import retain_pdf_original
+    from .identifiers import TaskAttempt, TaskId
     from .releases import open_release
 
     return retain_pdf_original(

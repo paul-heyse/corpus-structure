@@ -237,6 +237,46 @@ def require_pdf_model_asset(model, domain: PdfDomainContract) -> None:
         raise ValueError("PDF helper contract is not bound by a checked native PDF operation")
 
 
+def require_pdf_prepared_action(prepared, operation: str):
+    """Read the helper asset authenticated by the current effective DDO model."""
+    from .data_operation_admission import bound_data_operation_model
+    model = bound_data_operation_model(prepared)
+    retained = [artifact for artifact in prepared.artifacts if artifact.kind == CONTRACT]
+    if len(retained) != 1:
+        raise ValueError("release lacks one current PDF helper contract")
+    artifact = retained[0]
+    if not any(op.capabilities.preparation == "pdf-native" and any(
+        asset.reference == CONTRACT and asset.contract == HELPER_CONTRACT and asset.role == "native-pdf-helper-bindings"
+        and asset.content_digest == artifact.digest for asset in op.assets
+    ) for op in model.operations):
+        raise ValueError("PDF helper contract is not bound by a checked native PDF operation")
+    contract = json.loads(artifact.content)
+    if set(contract) != {"version", "schema", "actions", "inputs", "diagnostics"} or contract["version"] != "pdf-domain-contract-v2":
+        raise ValueError("unsupported current PDF helper contract")
+    action = contract["actions"].get(operation)
+    if action is None or action["contract"]["id"] != operation or not _pdf_action(operation, action["implementation"]["owner"], action["implementation"]["symbol"]):
+        raise ValueError("required action is absent from current PDF helper contract: " + operation)
+    return action
+
+
+def require_pdf_call_context(prepared, operation: str, variant: str, contract_digest: str) -> None:
+    from .refusals import SemanticRefusal
+    action = require_pdf_prepared_action(prepared, operation)
+    calls = [call for call in action["contract"]["calls"] if call["id"] == variant]
+    if len(calls) != 1 or sha256(canonical_bytes(calls)).hexdigest() != contract_digest:
+        raise SemanticRefusal(f"{operation}/{variant}: incompatible PDF helper call correspondence")
+
+
+def pdf_call_bindings():
+    contract, *_ = pdf_domain_sources()
+    from cattrs import Converter
+    from .native_call_contracts import OperationCallBinding
+    converter = Converter(forbid_extra_keys=True)
+    return tuple((name, converter.structure(call, OperationCallBinding))
+                 for name, action in json.loads(contract.content)["actions"].items()
+                 for call in action["contract"]["calls"])
+
+
 def require_pdf_database_action(connection, release_id: str, action: str) -> None:
     """Ask the PDF owner to enforce its archived action/capability correspondence."""
     from sqlalchemy import Text, bindparam, func, select

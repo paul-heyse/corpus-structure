@@ -94,11 +94,16 @@ def test_native_source_helper_capture_and_compilation():
         "native/data-operation-source-native.py",
     }
     parsed = prepare_sql(source_native_sql(), source="source")
-    assert len(parsed.statements) == 4
+    names = []
     for index, raw in enumerate(parsed.statements):
         assert isinstance(raw.stmt, ast.CreateFunctionStmt)
+        assert raw.stmt.funcname
+        names.append(raw.stmt.funcname[-1].sval)
         if index == 0:
             pglast.parse_plpgsql(parsed.excerpt(index))
+    assert len(names) == len(set(names))
+    assert {"ddo_pdf_derivation_receipt", "ddo_pdf_capture_source", "ddo_impl_read_selected_pdf_source"} <= set(names)
+    assert "read_selected_pdf_source" not in names
 
 
 def test_native_source_builder_matches_source_owner_without_legacy_diagnostic_salts(

@@ -2023,14 +2023,45 @@ definitions:
       complete: {type: boolean}
     required: [records, after, complete]
     additionalProperties: false
+  cut_selection:
+    type: object
+    properties:
+      demand_id: &cut_demand_id
+        $ref: '#/definitions/identifier'
+      project_id: &cut_project_id
+        $ref: '#/definitions/identifier'
+      release_id: &cut_release_id
+        $ref: '#/definitions/identifier'
+      runtime_id: &cut_runtime_id
+        $ref: '#/definitions/identifier'
+      selection: &cut_selection
+        $ref: '#/definitions/demand_intent'
+      trust_snapshot: &cut_trust_snapshot
+        $ref: '#/definitions/trust_snapshot'
+      read_id: &cut_read_id
+        $ref: '#/definitions/read_id'
+      read_snapshot: &cut_read_snapshot
+        $ref: '#/definitions/read_snapshot'
+      frontier_at: &cut_frontier_at
+        $ref: '#/definitions/frontier_at'
+      scope: &cut_scope
+        $ref: '#/definitions/demand_read_scope'
+    required: [demand_id, project_id, release_id, runtime_id, selection, trust_snapshot, read_id, read_snapshot, frontier_at, scope]
+    additionalProperties: false
   read_demand_result_result:
     type: object
     properties:
-      scope: {$ref: '#/definitions/demand_read_scope'}
-      demand_id:
-        $ref: '#/definitions/identifier'
-      selection:
-        $ref: '#/definitions/demand_intent'
+      demand_id: *cut_demand_id
+      project_id: *cut_project_id
+      release_id: *cut_release_id
+      runtime_id: *cut_runtime_id
+      selection: *cut_selection
+      trust_snapshot: *cut_trust_snapshot
+      read_id: *cut_read_id
+      read_snapshot: *cut_read_snapshot
+      frontier_at: *cut_frontier_at
+      scope: *cut_scope
+
       intent:
         $ref: '#/definitions/demand_intent'
       root:
@@ -2038,14 +2069,7 @@ definitions:
         items:
           $ref: '#/definitions/root_subject'
         minItems: 0
-      project_id:
-        $ref: '#/definitions/identifier'
-      release_id:
-        $ref: '#/definitions/identifier'
-      runtime_id:
-        $ref: '#/definitions/identifier'
-      trust_snapshot:
-        $ref: '#/definitions/trust_snapshot'
+
       uses:
         type: array
         items:
@@ -2075,12 +2099,7 @@ definitions:
         anyOf:
         - $ref: '#/definitions/continuation'
         - type: 'null'
-      read_id:
-        $ref: '#/definitions/read_id'
-      read_snapshot:
-        $ref: '#/definitions/read_snapshot'
-      frontier_at:
-        $ref: '#/definitions/frontier_at'
+
       view:
         type: string
         enum:
@@ -2107,6 +2126,7 @@ definitions:
     - read_snapshot
     - frontier_at
     - view
+    - scope
     additionalProperties: false
     allOf:
     - if:
@@ -2352,18 +2372,20 @@ definitions:
   read_selected_pdf_source_request:
     type: object
     properties:
+      project_id: {$ref: '#/definitions/identifier'}
       demand_id: {$ref: '#/definitions/identifier'}
       read_id: {$ref: '#/definitions/read_id'}
       use_id: {$ref: '#/definitions/identifier'}
       product_id: {$ref: '#/definitions/identifier'}
       derivation_id: {$ref: '#/definitions/identifier'}
-    required: [demand_id, read_id, use_id, product_id, derivation_id]
+    required: [project_id, demand_id, read_id, use_id, product_id, derivation_id]
     additionalProperties: false
   read_selected_pdf_source_result:
     type: object
     properties:
+      cut: {$ref: '#/definitions/cut_selection'}
       receipt: {$ref: '#/definitions/PdfExecutionReceipt'}
-    required: [receipt]
+    required: [receipt, cut]
     additionalProperties: false
 
 operations:

@@ -21,7 +21,10 @@ def source_native_sources() -> tuple[SourceArtifact, ...]:
 
 
 def source_native_sql() -> str:
-    return _SQL.read_text()
+    from .data_operation_storage import _rename_native_entrypoints
+    from .data_operation_wire import wire_operations
+
+    return _rename_native_entrypoints(_SQL.read_text(), {operation["name"] for operation in wire_operations()})
 
 
 def source_native_definitions(connection) -> tuple[NativeDefinition, ...]:

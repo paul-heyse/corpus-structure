@@ -172,7 +172,6 @@ BEGIN
  RAISE EXCEPTION 'selected PDF capture body differs from actual sealed publication' USING ERRCODE='23514'; END IF;
  RETURN receipt;
 END $$;
-REVOKE ALL ON FUNCTION ops.ddo_pdf_derivation_receipt(text,text,text,text,ops.data_demand_read) FROM PUBLIC;
 
 CREATE OR REPLACE FUNCTION ops.ddo_pdf_capture_source(p_request text,p_project text,
  p_product text,p_derivation text) RETURNS jsonb
@@ -189,17 +188,15 @@ BEGIN
  RAISE EXCEPTION 'PDF source is outside exact selected computational support' USING ERRCODE='23514'; END IF;
  RETURN ops.ddo_pdf_derivation_receipt(p_project,p_product,p_derivation,consumer.original_source);
 END $$;
-REVOKE ALL ON FUNCTION ops.ddo_pdf_capture_source(text,text,text,text) FROM PUBLIC;
 
 CREATE OR REPLACE FUNCTION ops.read_selected_pdf_source(p_payload jsonb) RETURNS jsonb
 LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
-DECLARE p jsonb:=p_payload; demand ops.data_demand; boundary ops.data_demand_read; receipt jsonb;
+DECLARE p jsonb:=p_payload; demand ops.data_demand; boundary ops.data_demand_read; receipt jsonb; cut jsonb;
 BEGIN
- PERFORM ops.ddo_fields(p,ARRAY['demand_id','read_id','use_id','product_id','derivation_id']);
- PERFORM ops.ddo_require_selected_output(p->>'demand_id',p->>'read_id',p->>'use_id',p->>'product_id',p->>'derivation_id');
- SELECT * INTO STRICT demand FROM ops.data_demand WHERE id=p->>'demand_id';
+ PERFORM ops.ddo_fields(p,ARRAY['project_id','demand_id','read_id','use_id','product_id','derivation_id']);
+ SELECT * INTO STRICT demand FROM ops.data_demand WHERE id=p->>'demand_id' AND project_id=p->>'project_id';
+ cut:=ops.ddo_require_selected_output(p->>'demand_id',p->>'read_id',p->>'use_id',p->>'product_id',p->>'derivation_id');
  SELECT * INTO STRICT boundary FROM ops.data_demand_read WHERE id=p->>'read_id' AND demand_id=demand.id;
  receipt:=ops.ddo_pdf_derivation_receipt(demand.project_id,p->>'product_id',p->>'derivation_id',NULL,boundary);
- RETURN jsonb_build_object('payload',jsonb_build_object('receipt',receipt));
+ RETURN jsonb_build_object('payload',jsonb_build_object('receipt',receipt,'cut',cut));
 END $$;
-REVOKE ALL ON FUNCTION ops.read_selected_pdf_source(jsonb) FROM PUBLIC;

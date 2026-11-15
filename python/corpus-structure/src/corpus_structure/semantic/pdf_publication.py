@@ -29,8 +29,8 @@ from corpus_structure.core.db.store import (
     record_operation_failure,
 )
 
-from . import _operation_calls as calls
-from ._operation_ids import ContentDigest, ProductKey
+from . import _pdf_native_calls as calls
+from .identifiers import ContentDigest, ProductKey, TaskAttempt, TaskId
 from .pdf_staging import PdfBuildRef
 
 COMPANION_BATCH_ROWS = 64
@@ -107,7 +107,7 @@ def published_pdf_revision(
 ) -> PublishedPdfDocumentRef | None:
     row = calls.read_pdf_published_revision(
         conn,
-        task_id=calls.TaskId(task_id),
+        task_id=TaskId(task_id),
         product_key=ProductKey(product_key),
         logical_digest=ContentDigest(logical_digest),
     )
@@ -140,8 +140,8 @@ def prepare_pdf_build(conn: Connection, frozen: FrozenPdfBuildRef) -> None:
     calls.prepare_pdf_build(
         conn,
         build_id=frozen.build.build_id,
-        task_id=calls.TaskId(frozen.build.task_id),
-        attempt=calls.TaskAttempt(frozen.build.attempt),
+        task_id=TaskId(frozen.build.task_id),
+        attempt=TaskAttempt(frozen.build.attempt),
         holder=frozen.build.holder,
         frozen_digest=frozen.frozen_digest,
     )
@@ -696,8 +696,8 @@ def validate_pdf_build(
         existing = calls.lookup_pdf_validation(
             conn,
             build_id=frozen.build.build_id,
-            task_id=calls.TaskId(frozen.build.task_id),
-            attempt=calls.TaskAttempt(frozen.build.attempt),
+            task_id=TaskId(frozen.build.task_id),
+            attempt=TaskAttempt(frozen.build.attempt),
             holder=frozen.build.holder,
             frozen_digest=frozen.frozen_digest,
         )
@@ -771,8 +771,8 @@ def validate_pdf_build(
                         raw_values = calls.read_pdf_frozen_rows(
                             conn,
                             build_id=frozen.build.build_id,
-                            task_id=calls.TaskId(frozen.build.task_id),
-                            attempt=calls.TaskAttempt(frozen.build.attempt),
+                            task_id=TaskId(frozen.build.task_id),
+                            attempt=TaskAttempt(frozen.build.attempt),
                             holder=frozen.build.holder,
                             frozen_digest=frozen.frozen_digest,
                             family=family,
@@ -837,8 +837,8 @@ def validate_pdf_build(
             calls.record_pdf_native_validation(
                 conn,
                 build_id=frozen.build.build_id,
-                task_id=calls.TaskId(frozen.build.task_id),
-                attempt=calls.TaskAttempt(frozen.build.attempt),
+                task_id=TaskId(frozen.build.task_id),
+                attempt=TaskAttempt(frozen.build.attempt),
                 holder=frozen.build.holder,
                 frozen_digest=frozen.frozen_digest,
                 passed=True,
@@ -852,8 +852,8 @@ def validate_pdf_build(
                     calls.adopt_pdf_access_batch(
                         conn,
                         build_id=frozen.build.build_id,
-                        task_id=calls.TaskId(frozen.build.task_id),
-                        attempt=calls.TaskAttempt(frozen.build.attempt),
+                        task_id=TaskId(frozen.build.task_id),
+                        attempt=TaskAttempt(frozen.build.attempt),
                         holder=frozen.build.holder,
                         frozen_digest=frozen.frozen_digest,
                         rows=rows,
@@ -872,8 +872,8 @@ def validate_pdf_build(
     build = frozen.build
     scope = dict(
         build_id=build.build_id,
-        task_id=calls.TaskId(build.task_id),
-        attempt=calls.TaskAttempt(build.attempt),
+        task_id=TaskId(build.task_id),
+        attempt=TaskAttempt(build.attempt),
         holder=build.holder,
         frozen_digest=frozen.frozen_digest,
     )
@@ -920,8 +920,8 @@ def seal_pdf_build(
     row = calls.seal_pdf_build(
         conn,
         build_id=frozen.build.build_id,
-        task_id=calls.TaskId(frozen.build.task_id),
-        attempt=calls.TaskAttempt(frozen.build.attempt),
+        task_id=TaskId(frozen.build.task_id),
+        attempt=TaskAttempt(frozen.build.attempt),
         holder=frozen.build.holder,
         frozen_digest=frozen.frozen_digest,
         product_key=ProductKey(product_key),
@@ -934,8 +934,8 @@ def retain_pdf_stage_recipe(
 ) -> str:
     return calls.bind_pdf_stage_recipe(
         conn,
-        task_id=calls.TaskId(task_id),
-        attempt=calls.TaskAttempt(attempt),
+        task_id=TaskId(task_id),
+        attempt=TaskAttempt(attempt),
         holder=holder,
         recipe=recipe_bytes,
     )
@@ -954,8 +954,8 @@ def inspect_pdf_build(
 ) -> PdfBuildState | None:
     value = calls.lookup_pdf_build(
         conn,
-        task_id=calls.TaskId(task_id),
-        attempt=calls.TaskAttempt(attempt),
+        task_id=TaskId(task_id),
+        attempt=TaskAttempt(attempt),
         holder=holder,
         replay_key=replay_key,
     )
@@ -966,15 +966,15 @@ def inspect_pdf_build(
     digest = calls.lookup_pdf_frozen_digest(
         conn,
         build_id=build.build_id,
-        task_id=calls.TaskId(task_id),
-        attempt=calls.TaskAttempt(attempt),
+        task_id=TaskId(task_id),
+        attempt=TaskAttempt(attempt),
         holder=holder,
     )
     kind = calls.lookup_pdf_frozen_kind(
         conn,
         build_id=build.build_id,
-        task_id=calls.TaskId(task_id),
-        attempt=calls.TaskAttempt(attempt),
+        task_id=TaskId(task_id),
+        attempt=TaskAttempt(attempt),
         holder=holder,
     )
     published = None
@@ -982,8 +982,8 @@ def inspect_pdf_build(
         result = calls.lookup_pdf_published_build(
             conn,
             build_id=build.build_id,
-            task_id=calls.TaskId(task_id),
-            attempt=calls.TaskAttempt(attempt),
+            task_id=TaskId(task_id),
+            attempt=TaskAttempt(attempt),
             holder=holder,
         )
         published = _published(result.model_dump(mode="python"))

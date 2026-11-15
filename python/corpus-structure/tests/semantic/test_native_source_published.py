@@ -203,7 +203,7 @@ def test_structural_input_preserves_original_product_custody():
 )
 def test_record_identity_requires_qualified_producer_archive(monkeypatch, change):
     from corpus_structure.semantic import pdf_contracts, pdf_record_reader, pdf_storage
-    from corpus_structure.semantic._operation_calls import PdfBuildValidation
+    from corpus_structure.semantic._pdf_native_calls import PdfBuildValidation
 
     context = replace(pdf_contracts.trusted_pdf_context(), release_id="producer-release")
     revision = dict(
@@ -417,25 +417,19 @@ def test_published_native_ports_qualify_retained_schema_before_legacy_gate(
     retained = json.dumps(declaration, sort_keys=True).encode()
     digest = sha256(retained).hexdigest()
     assert digest != sha256(installed).hexdigest()
-    producer = SimpleNamespace(
-        release_id="retained-producer",
-        contract_digest="c" * 64,
-        native_schema_digest=digest,
-        require_operation=lambda name: SimpleNamespace(implementation="read_pdf_product"),
-        domain=None,
-        execution=SimpleNamespace(
-            require_operation=lambda name: SimpleNamespace(implementation="read_pdf_product"),
-            implementations=(
-                SimpleNamespace(
-                    id="read_pdf_product", owner="semantic.pdf_storage", symbol="read_pdf_product"
-                ),
-            ),
-        ),
-    )
+    from corpus_structure.semantic.pdf_contracts import trusted_pdf_context
+    from corpus_structure.semantic.types import SourceArtifact
+    from semantic.pdf_domain_support import altered_domain
+    current = trusted_pdf_context()
+    domain = altered_domain(current.domain, sources=tuple(
+        SourceArtifact(source.name, retained) if source.name == "pdf-domain/implementation/pdf/docling-validation.schema.json" else source
+        for source in current.domain.sources
+    ))
+    producer = replace(current, release_id="retained-producer", contract_digest="c" * 64, domain=domain)
     consumer = SimpleNamespace(release_id="current-consumer")
     connection = MagicMock()
     selected = []
-    from corpus_structure.semantic._operation_calls import PdfBuildValidation
+    from corpus_structure.semantic._pdf_native_calls import PdfBuildValidation
 
     receipt = PdfBuildValidation(
         build_id="bound-build",

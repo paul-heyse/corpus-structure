@@ -11,8 +11,8 @@ from .identifiers import RealizationId as RealizationId
 from .identifiers import ReleaseId as ReleaseId
 from .metadata import table
 
-PHYSICAL_MODEL_ID = "physical:621f039b37e9daade4414fcb44795dc63907ec73a98e0fc4bb4bcc847ed84c96"
-TYPE_MODEL_ID = "2a1a4de314eb5f6a147eb1efe4a8db04a7cd1936f03608fc92fa07ba83ca2aff"
+PHYSICAL_MODEL_ID = "physical:d29111a4dcaabb8790fe2ae30cee174a6bf47405374a85b23c1a3d4d9796a88e"
+TYPE_MODEL_ID = "2728871c0ff64c70b83b65e1362066eb9af06c3328a20b963a4243dc93cc20aa"
 
 
 class DataOccurrenceColumns(TypedColumns):

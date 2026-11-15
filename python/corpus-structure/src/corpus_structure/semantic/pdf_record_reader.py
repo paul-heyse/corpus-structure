@@ -29,11 +29,11 @@ from corpus_structure.core.db.store import (
     record_operation_failure,
 )
 
-from ._operation_ids import ContentDigest, ProductKey
+from .identifiers import ContentDigest, ProductKey
 from .product_reference import ProductReference
 
 if TYPE_CHECKING:
-    from ._operation_calls import ContentDigest, ProductKey, TaskId
+    from .identifiers import ContentDigest, ProductKey, TaskId
     from .operation_value_types import NativeRowResult
     from .types import PreparedRelease
 
@@ -119,7 +119,7 @@ class _RecordParameters(TypedDict):
 
 
 def _record_parameters(reference: ProductReference) -> _RecordParameters:
-    from ._operation_ids import ContentDigest, ProductKey, TaskId
+    from .identifiers import ContentDigest, ProductKey, TaskId
 
     return _RecordParameters(
         task_id=TaskId(reference.task_id),
@@ -136,11 +136,8 @@ def _record_envelope(row: NativeRowResult) -> dict[str, Any]:
 
 
 def _published_revision(conn: Connection, reference: ProductReference, *, read_budget=None):
-    from ._operation_calls import (
-        materialize_read_pdf_published_revision,
-        prepare_read_pdf_published_revision,
-    )
-    from ._operation_ids import TaskId
+    from ._pdf_native_calls import materialize_read_pdf_published_revision, prepare_read_pdf_published_revision
+    from .identifiers import TaskId
 
     statement = prepare_read_pdf_published_revision(
         task_id=TaskId(reference.task_id),
@@ -293,7 +290,7 @@ class PublishedPdfReader:
                 return list(result)
 
     def _read_operation(self, name, *, selection=None, **parameters):
-        from . import _operation_calls as calls
+        from . import _pdf_native_calls as calls
 
         statement = getattr(calls, "prepare_" + name)(**parameters)
         if selection is not None:
@@ -316,7 +313,7 @@ class PublishedPdfReader:
         batch_size: int = 100,
         _payload_reserved=False,
     ) -> Generator[dict[str, Any]]:
-        from ._operation_calls import materialize_read_pdf_record_rows, prepare_read_pdf_record_rows
+        from ._pdf_native_calls import materialize_read_pdf_record_rows, prepare_read_pdf_record_rows
 
         if not 1 <= batch_size <= 1000:
             raise ValueError("published record batch size must be 1..1000")
@@ -416,7 +413,7 @@ class PublishedPdfReader:
 
     @contextmanager
     def _projection_scope(self) -> Generator[_ProjectionParameters]:
-        from ._operation_calls import ContentDigest, ProductKey, TaskId
+        from .identifiers import ContentDigest, ProductKey, TaskId
 
         if self.projection_context is None:
             raise ValueError("selected published projection requires its explicit consumer release")
@@ -486,7 +483,7 @@ class PublishedPdfReader:
 
     def require_native_item_inventory(self, pointers: Sequence[str]) -> None:
         """Validate complete address membership without transferring sibling bodies."""
-        from ._operation_calls import prepare_read_published_items
+        from ._pdf_native_calls import prepare_read_published_items
         from .published_document import PublishedDocumentBinding
 
         wanted = tuple(dict.fromkeys(pointers))
@@ -742,8 +739,8 @@ class PublishedPdfReader:
 
     def require_materialization_capacity(self) -> int:
         """Admit exact whole-product detachment before transferring its content."""
-        from ._operation_calls import read_pdf_materialization_bound
-        from ._operation_ids import TaskId
+        from ._pdf_native_calls import read_pdf_materialization_bound
+        from .identifiers import TaskId
         from .query import ReadLimit
 
         self._check_active()
@@ -787,10 +784,7 @@ class PublishedPdfReader:
 
     def validation_receipt(self):
         """Read immutable sealed assurance, including its original contract epoch."""
-        from ._operation_calls import (
-            materialize_read_pdf_published_validation,
-            prepare_read_pdf_published_validation,
-        )
+        from ._pdf_native_calls import materialize_read_pdf_published_validation, prepare_read_pdf_published_validation
 
         with (
             self._read_scope(),
@@ -1080,10 +1074,7 @@ class PublishedPdfReader:
             yield self.decode_companion_row(row)
 
     def iter_companion_export_events(self, family) -> Generator[dict[str, Any]]:
-        from ._operation_calls import (
-            materialize_read_pdf_companion_export_events,
-            prepare_read_pdf_companion_export_events,
-        )
+        from ._pdf_native_calls import materialize_read_pdf_companion_export_events, prepare_read_pdf_companion_export_events
 
         with (
             self._read_scope(),
@@ -1204,10 +1195,7 @@ class PublishedPdfReader:
                 events.close()
 
     def context_rows(self, family, pointers, section_pointer):
-        from ._operation_calls import (
-            materialize_read_pdf_record_context_rows,
-            prepare_read_pdf_record_context_rows,
-        )
+        from ._pdf_native_calls import materialize_read_pdf_record_context_rows, prepare_read_pdf_record_context_rows
 
         after = ""
         while True:
@@ -1239,10 +1227,7 @@ class PublishedPdfReader:
         membership: str = "direct",
     ) -> dict[str, Any]:
         """Use the same published relational context constructor as native frame guards."""
-        from ._operation_calls import (
-            materialize_record_integrated_source_context,
-            prepare_record_integrated_source_context,
-        )
+        from ._pdf_native_calls import materialize_record_integrated_source_context, prepare_record_integrated_source_context
 
         statement = prepare_record_integrated_source_context(
             **_record_parameters(self.reference),
@@ -1463,10 +1448,7 @@ class PublishedPdfReader:
                     raise ValueError("unsupported published export event")
 
     def iter_native_events(self) -> Generator[dict[str, Any]]:
-        from ._operation_calls import (
-            materialize_read_pdf_native_events,
-            prepare_read_pdf_native_events,
-        )
+        from ._pdf_native_calls import materialize_read_pdf_native_events, prepare_read_pdf_native_events
 
         with (
             self._read_scope(),

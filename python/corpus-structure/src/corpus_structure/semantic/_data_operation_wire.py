@@ -39,6 +39,7 @@ WireReadSnapshotIdentity = NewType("WireReadSnapshotIdentity", str)
 WireRequestId = NewType("WireRequestId", str)
 WireRuntimeId = NewType("WireRuntimeId", str)
 WireSubjectId = NewType("WireSubjectId", str)
+WireUseIdentity = NewType("WireUseIdentity", str)
 
 
 class WireAuthoredFactRef(TypedDict):
@@ -647,6 +648,19 @@ class WireContinuation(TypedDict):
     view: Required[Literal["frontier", "products", "support"]]
 
 
+class WireCutSelection(TypedDict):
+    demand_id: Required[WireDemandId]
+    frontier_at: Required[WireFrontierAt]
+    project_id: Required[ProjectId]
+    read_id: Required[WireReadIdentity]
+    read_snapshot: Required[WireReadSnapshot]
+    release_id: Required[ReleaseId]
+    runtime_id: Required[WireRuntimeId]
+    scope: Required[WireDemandReadScope]
+    selection: Required[WireDemandIntent]
+    trust_snapshot: Required[WireTrustSnapshot]
+
+
 class WireDataAttemptLostResult(TypedDict):
     attempt: Required[TaskAttempt]
     generation: Required[WireGeneration]
@@ -867,7 +881,7 @@ class WireResultUse(TypedDict):
     selection: Required[WireBinding | WireResultBinding | WireReasonSelection]
     semantic_outcome: Required[WireIdentifier | None]
     trust_snapshot: Required[WireTrustSnapshot]
-    use_id: Required[WireIdentifier]
+    use_id: Required[WireUseIdentity]
 
 
 class WireReadDemandResultResult(TypedDict):
@@ -885,7 +899,7 @@ class WireReadDemandResultResult(TypedDict):
     release_id: Required[ReleaseId]
     root: Required[list[WireRootSubject]]
     runtime_id: Required[WireRuntimeId]
-    scope: NotRequired[WireDemandReadScope]
+    scope: Required[WireDemandReadScope]
     selection: Required[WireDemandIntent]
     state: NotRequired[Literal["active", "cancelled"]]
     support_page: NotRequired[WireSelectedSupportPage | None]
@@ -918,6 +932,20 @@ class WireReadExternalDataQueueRequest(TypedDict):
 
 class WireReadExternalDataQueueResult(TypedDict):
     packets: Required[list[WireExternalPacketHead]]
+
+
+class WireReadSelectedPdfSourceRequest(TypedDict):
+    demand_id: Required[WireDemandId]
+    derivation_id: Required[WireDerivationId]
+    product_id: Required[WireProductId]
+    project_id: Required[ProjectId]
+    read_id: Required[WireReadIdentity]
+    use_id: Required[WireUseIdentity]
+
+
+class WireReadSelectedPdfSourceResult(TypedDict):
+    cut: Required[WireCutSelection]
+    receipt: Required[WirePdfExecutionReceipt]
 
 
 class WireRecordDataFateRequest(TypedDict):
@@ -1382,3 +1410,10 @@ class DataOperationCalls:
         self, payload: WireClaimExternalDataPacketRequest
     ) -> WireClaimDataRequestResult:
         return cast(WireClaimDataRequestResult, self._invoke("claim_external_data_packet", payload))
+
+    def read_selected_pdf_source(
+        self, payload: WireReadSelectedPdfSourceRequest
+    ) -> WireReadSelectedPdfSourceResult:
+        return cast(
+            WireReadSelectedPdfSourceResult, self._invoke("read_selected_pdf_source", payload)
+        )
