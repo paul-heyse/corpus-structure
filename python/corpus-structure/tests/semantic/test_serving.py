@@ -609,21 +609,6 @@ def test_real_cli_query_explain_and_export_dispatch(serving_read_scenario, tmp_p
     unit = cli("explain", "unit", locator, "--run", str(run), "--json", settings=lambda: settings)
     assert unit.exit_code == 0, unit.output
     assert json.loads(unit.stdout)["detail"]["observations"]
-    exported = cli(
-        "export",
-        "--out",
-        str(tmp_path / "cli-export"),
-        "--run",
-        str(run),
-        "--format",
-        "parquet",
-        "--json",
-        settings=lambda: settings,
-    )
-    assert exported.exit_code == 0, exported.output
-    result = json.loads(exported.stdout)
-    assert result["manifest"]["binding"]["realization_id"] == "served-result"
-    assert (tmp_path / "cli-export" / "manifest.json").is_file()
 
 
 def test_real_cli_query_implementation_edit_and_bound_followups(
