@@ -11,10 +11,12 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, JsonValue, model_validator
 from pydantic_core import to_jsonable_python
-from sqlalchemy import Connection, select
+from sqlalchemy import Connection
 
 from corpus_structure.core.db.lifetime import BorrowerCancellation
-from corpus_structure.semantic.product_reference import ProductReference
+from corpus_structure.serve.selected_pdf import (
+    SelectedPdfSourceReference, acquire_selected_pdf_source,
+)
 from corpus_structure.serve.pdf_visual_evidence import (
     VisualEvidenceKind,
     VisualEvidencePin,
@@ -22,13 +24,9 @@ from corpus_structure.serve.pdf_visual_evidence import (
 )
 
 
-class NativeSourceRequest(BaseModel):
+class NativeSourceRequest(SelectedPdfSourceReference):
     model_config = ConfigDict(frozen=True, extra="forbid")
-    version: Literal[4] = 4
-    run_id: int = Field(gt=0)
-    task_id: int = Field(gt=0)
-    product_key: str = Field(min_length=1)
-    content_digest: str = Field(pattern=r"^[0-9a-f]{64}$")
+    version: Literal[5] = 5
     view: Literal[
         "products",
         "items",
@@ -164,9 +162,10 @@ class NativeSourceRequest(BaseModel):
 
 class NativeSourceResponse(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
-    version: Literal[4] = 4
+    version: Literal[5] = 5
     selection: NativeSourceRequest
     release_id: str
+    cut: dict[str, JsonValue]
     outcome: Literal["source_ready", "missing", "invalid", "unsupported"] = "source_ready"
     health: dict[str, JsonValue]
     rows: list[dict[str, JsonValue]]
@@ -183,7 +182,7 @@ def _source_cursor(request, after):
     from corpus_structure.semantic.query import ReadLimit
 
     token = base64.urlsafe_b64encode(
-        canonical_bytes(dict(cursor_version=4, selection=request.selection_digest(), after=after))
+        canonical_bytes(dict(cursor_version=5, selection=request.selection_digest(), after=after))
     ).decode("ascii")
     if len(token.encode("ascii")) > 8192:
         raise ReadLimit("native source cursor exceeds 8192 bytes", reason="oversized_item")
@@ -200,7 +199,7 @@ def _source_position(request):
         if (
             set(body) != {"cursor_version", "selection", "after"}
             or type(body["cursor_version"]) is not int
-            or body["cursor_version"] != 4
+            or body["cursor_version"] != 5
             or body["selection"] != request.selection_digest()
         ):
             raise ValueError("cursor version or selection differs")
@@ -325,7 +324,7 @@ def inspect_native_source(
         return response
 
 
-def _published_native_header(reader, origin_run: int, *, runtime: bool):
+def _published_native_header(reader, *, runtime: bool):
     """Read only bounded native health and requested runtime bytes under the exact pin."""
     from contextlib import closing
     from itertools import islice
@@ -347,7 +346,6 @@ def _published_native_header(reader, origin_run: int, *, runtime: bool):
         release_id=reader.revision["release_id"],
         content_digest=reader.revision["logical_digest"],
         artifact_digest=reader.revision["source_digest"],
-        origin_run=origin_run,
         page_start=native_health[0].get("page_start"),
         page_end=native_health[0].get("page_end"),
         health={
@@ -366,94 +364,39 @@ def _inspect_native_source(
     cancellation: BorrowerCancellation,
     read_budget,
 ) -> NativeSourceResponse:
-    from corpus_structure.semantic.metadata import table
-    from corpus_structure.semantic.pdf_record_reader import (
-        published_record_reader,
-    )
+    from corpus_structure.semantic.pdf_record_reader import published_record_reader
     from corpus_structure.semantic.pdf_storage import read_native_items, read_native_regions
-
-    runs, tasks = map(table, ("ops.run", "ops.task"))
-    run = conn.execute(
-        select(runs.c.project_id, runs.c.release_id).where(runs.c.id == request.run_id)
-    ).one_or_none()
-    if run is None:
-        raise ValueError("unknown native source run")
     from corpus_structure.semantic.pdf_contracts import pdf_context_for_release
-    from corpus_structure.semantic.releases import open_release
 
-    projection_context = open_release(conn, run.release_id)
+    source = acquire_selected_pdf_source(conn, request)
+    projection_context = source.prepared
     context = pdf_context_for_release(conn, projection_context)
     context.require_operation("read_native_source")
+    context.boundary.validate_json(
+        "PdfNativeReadRequest", request.model_dump_json(exclude_none=True)
+    )
     if request.view == "visual_evidence":
         from corpus_structure.serve.pdf_visual_evidence import inspect_pdf_visual_evidence
 
         return inspect_pdf_visual_evidence(
-            conn,
-            request,
-            project_id=run.project_id,
-            projection_context=projection_context,
-            cancellation=cancellation,
-            read_budget=read_budget,
+            conn, request, source=source, projection_context=projection_context,
+            cancellation=cancellation, read_budget=read_budget,
         )
-    from corpus_structure.semantic.pdf_contracts import trusted_pdf_context
-
-    trusted_pdf_context().boundary.validate_json(
-        "PdfNativeReadRequest", request.model_dump_json(exclude_none=True)
-    )
     if request.view in {"companion", "manifest", "artifact"} or (
         request.view == "trace" and request.occurrence_id is not None
     ):
         return _inspect_companion(
-            conn,
-            request,
-            run.project_id,
-            cancellation=cancellation,
-            projection_context=projection_context,
-            read_budget=read_budget,
+            conn, request, source=source, cancellation=cancellation,
+            projection_context=projection_context, read_budget=read_budget,
         )
-    pin = dict(
-        task_id=request.task_id,
-        product_key=request.product_key,
-        content_digest=request.content_digest,
-    )
+    pin = source.physical.values()
     published = published_record_reader(
-        conn,
-        ProductReference(**pin),
-        cancellation=cancellation,
-        projection_context=projection_context,
-        read_budget=read_budget,
+        conn, source.physical, cancellation=cancellation,
+        projection_context=projection_context, read_budget=read_budget,
     )
     if published is None:
         raise ValueError("native source requires a current published record")
-    origin = runs.alias("native_origin_run")
-    origin_run = conn.execute(
-        select(tasks.c.run_id)
-        .join(origin, origin.c.id == tasks.c.run_id)
-        .where(tasks.c.id == request.task_id, origin.c.project_id == run.project_id)
-    ).scalar_one_or_none()
-    if origin_run is None:
-        raise ValueError("native source is unavailable in the requested project")
-    header = _published_native_header(published, origin_run, runtime=request.view == "products")
-    if header is None:
-        raise ValueError("native source is unavailable in the requested project")
-    if header.content_digest != request.content_digest:
-        raise ValueError("native source product differs from requested pin")
-    if header.origin_run != request.run_id:
-        # A retained input pin is reachable through the selected immutable product graph.
-        from corpus_structure.semantic.pdf_storage import selected_native_ancestry
-
-        selected = selected_native_ancestry(request.run_id)
-        chosen = conn.execute(
-            select(selected.c.task_id)
-            .where(
-                selected.c.task_id == request.task_id,
-                selected.c.product_key == request.product_key,
-                selected.c.content_digest == request.content_digest,
-            )
-            .limit(1)
-        ).first()
-        if chosen is None:
-            raise ValueError("native source is not selected by the requested run")
+    header = _published_native_header(published, runtime=request.view == "products")
     after = -1
     if request.cursor is not None:
         after = _source_position(request)
@@ -485,9 +428,9 @@ def _inspect_native_source(
     if request.view == "products":
         rows = [
             dict(
-                task_id=request.task_id,
-                product_key=request.product_key,
-                content_digest=request.content_digest,
+                task_id=pin["task_id"],
+                product_key=pin["product_key"],
+                content_digest=pin["content_digest"],
                 artifact_digest=header.artifact_digest,
                 runtime_report=header.runtime_report,
             )
@@ -503,8 +446,8 @@ def _inspect_native_source(
         selected = selected[: request.limit]
         rows = [
             dict(
-                task_id=request.task_id,
-                product_key=request.product_key,
+                task_id=pin["task_id"],
+                product_key=pin["product_key"],
                 **{key: value for key, value in row.items() if key != "ancestors"},
             )
             for row in selected
@@ -601,7 +544,7 @@ def _inspect_native_source(
                         recognition=health,
                         inline_alignment_reports=alignment,
                         interpretation=_recorded_interpretations(
-                            conn, request, read_budget=read_budget
+                            conn, request, source=source, read_budget=read_budget
                         ),
                         regions=read_native_regions(
                             conn,
@@ -662,6 +605,7 @@ def _inspect_native_source(
     return NativeSourceResponse(
         selection=request,
         release_id=header.release_id,
+        cut=source.cut.record,
         health=to_jsonable_python(header.health),
         rows=to_jsonable_python(rows),
         next_cursor=next_cursor,
@@ -672,61 +616,20 @@ def _inspect_native_source(
 def _inspect_companion(
     conn: Connection,
     request: NativeSourceRequest,
-    project_id: int,
     *,
+    source,
     cancellation: BorrowerCancellation,
     projection_context,
     read_budget,
 ) -> NativeSourceResponse:
-    """Authorize the exact selected graph before reading retained companion/observation data."""
-    from corpus_structure.semantic.metadata import table
-    from corpus_structure.semantic.pdf_record_reader import (
-        published_record_reader,
-    )
+    """Read only the publication authenticated by the pinned semantic selection."""
+    from corpus_structure.semantic.pdf_record_reader import published_record_reader
     from corpus_structure.semantic.pdf_storage import (
-        read_pdf_manifest,
-        read_pdf_product,
-        selected_native_ancestry,
-        trace_pdf_occurrence,
+        read_pdf_manifest, read_pdf_product, trace_pdf_occurrence,
     )
 
-    products, tasks, runs, bodies = map(
-        table, ("ops.pdf_product", "ops.task", "ops.run", "ops.pdf_product_body")
-    )
-    selected = selected_native_ancestry(request.run_id)
-    reachable = (
-        select(selected.c.task_id)
-        .where(
-            selected.c.task_id == products.c.task_id,
-            selected.c.product_key == products.c.product_key,
-            selected.c.content_digest == products.c.content_digest,
-        )
-        .exists()
-    )
-    row = conn.execute(
-        select(
-            products.c.release_id,
-            bodies.c.descriptor["observation"]["pass_role"].astext.label("pass_role"),
-        )
-        .join(tasks, tasks.c.id == products.c.task_id)
-        .join(runs, runs.c.id == tasks.c.run_id)
-        .outerjoin(
-            bodies,
-            (bodies.c.task_id == products.c.task_id)
-            & (bodies.c.product_key == products.c.product_key),
-        )
-        .where(
-            products.c.task_id == request.task_id,
-            products.c.product_key == request.product_key,
-            products.c.content_digest == request.content_digest,
-            runs.c.project_id == project_id,
-            (tasks.c.run_id == request.run_id) | reachable,
-        )
-    ).one_or_none()
-    if row is None:
-        raise ValueError("PDF companion is not selected by the requested project/run")
-    if row.pass_role in {"chandra_page", "chandra_crop"}:
-        raise ValueError("Chandra observation inspection requires the visual evidence selection")
+    pin = source.physical.values()
+    publication = source.receipt.publication
     after = ""
     if request.cursor is not None:
         after = _source_position(request)
@@ -736,11 +639,6 @@ def _inspect_companion(
             raise InvalidContinuation(
                 "invalid native companion continuation", reason="invalid_continuation"
             )
-    pin = dict(
-        task_id=request.task_id,
-        product_key=request.product_key,
-        content_digest=request.content_digest,
-    )
     if request.view == "artifact":
         from corpus_structure.semantic.pdf_storage import read_pdf_artifact
 
@@ -769,7 +667,8 @@ def _inspect_companion(
         continuation = None if following is None else _source_cursor(request, str(following))
         return NativeSourceResponse(
             selection=request,
-            release_id=row.release_id,
+            release_id=publication.release_id,
+            cut=source.cut.record,
             health={},
             rows=[to_jsonable_python(result)],
             next_cursor=continuation,
@@ -804,7 +703,7 @@ def _inspect_companion(
         elif request.section_pointer is not None:
             published = published_record_reader(
                 conn,
-                ProductReference(**pin),
+                source.physical,
                 cancellation=cancellation,
                 projection_context=projection_context,
                 read_budget=read_budget,
@@ -835,7 +734,8 @@ def _inspect_companion(
 
     return NativeSourceResponse(
         selection=request,
-        release_id=row.release_id,
+        release_id=publication.release_id,
+        cut=source.cut.record,
         health={},
         rows=[to_jsonable_python(result)],
         next_cursor=next_cursor,
@@ -843,80 +743,15 @@ def _inspect_companion(
 
 
 def _recorded_interpretations(
-    conn: Connection, request: NativeSourceRequest, *, read_budget=None
+    conn: Connection, request: NativeSourceRequest, *, source, read_budget
 ) -> dict:
-    """Read selected-run analysis only; inspection never requests stronger computation."""
+    """Return only mathematical outputs selected under this exact native cut."""
+    from corpus_structure.serve.selected_math import selected_formula_interpretations
+
     if request.pointer is None:
         raise ValueError("recorded analysis requires one native formula occurrence")
-    from corpus_structure.core.vocab import ObservationKind
-    from corpus_structure.semantic.metadata import table
-    from corpus_structure.semantic.operations import BoundReader
-    from corpus_structure.semantic.releases import open_release
-
-    runs = table("ops.run")
-    release = conn.execute(
-        select(runs.c.release_id).where(runs.c.id == request.run_id)
-    ).scalar_one()
-    reader = BoundReader(
-        conn, request.run_id, open_release(conn, release), analysis=False, read_budget=read_budget
-    )
-    results = []
-    views, selection = table("kb.source_view"), table("ops.run_source_view")
-    newer = selection.alias("newer_analysis_selection")
-    view_query = (
-        select(views.c.id)
-        .join(selection, selection.c.source_view_id == views.c.id)
-        .where(
-            selection.c.run_id == request.run_id,
-            views.c.native_task_id == request.task_id,
-            views.c.native_product_key == request.product_key,
-            views.c.native_content_digest == request.content_digest,
-            views.c.projection["items"].contains([request.pointer]),
-            ~select(newer.c.source_view_id)
-            .where(
-                newer.c.run_id == request.run_id, newer.c.supersedes_source_view_id == views.c.id
-            )
-            .exists(),
-        )
-        .order_by(views.c.id)
-    )
-    if read_budget is not None:
-        read_budget.preflight(conn, view_query)
-    view_ids = tuple(conn.execute(view_query).scalars())
-    if read_budget is not None:
-        read_budget.value(view_ids)
-    from corpus_structure.semantic.native_analysis import stored_native_analysis
-
-    for view_id in view_ids:
-        analysis = stored_native_analysis(reader, view_id, request.pointer)[request.pointer]
-        reference = reader.source_view_ref(view_id)
-        requests = []
-        for observation in reader.source_observations_for_ref(
-            reference, "native.source_request", ObservationKind.RECORD
-        ):
-            payload = observation.payload
-            if not isinstance(payload, dict):
-                continue
-            if payload.get("source_view_id") != view_id or payload.get("native_product") != dict(
-                task_id=request.task_id,
-                product_key=request.product_key,
-                content_digest=request.content_digest,
-            ):
-                raise ValueError("recorded native request differs from the selected source pin")
-            items = payload.get("items", [])
-            if not isinstance(items, list):
-                continue
-            for item in items:
-                if isinstance(item, dict) and item.get("pointer") == request.pointer:
-                    requests.append(
-                        dict(
-                            task_id=observation.task_id, demand=payload.get("demand"), analysis=item
-                        )
-                    )
-        results.append(dict(analysis, requests=requests))
-    recorded = any(result["observations"] or result["requests"] for result in results)
-    return dict(
-        status="recorded" if recorded else "not_selected", run_id=request.run_id, results=results
+    return selected_formula_interpretations(
+        conn, source, request.pointer, read_budget=read_budget,
     )
 
 
@@ -942,6 +777,8 @@ def _export_native_source(
     from corpus_structure.semantic.pdf_record_reader import published_record_reader
 
     destination = Path(destination)
+    source = acquire_selected_pdf_source(conn, request)
+    pin = source.physical.values()
     if format == "selected-source-v1":
         from .selected_source import export_selected_native_source
 
@@ -952,7 +789,9 @@ def _export_native_source(
     if destination.exists():
         raise FileExistsError(destination)
     binding = dict(
-        contract="integrated-pdf-source-3",
+        contract="integrated-pdf-source-4",
+        cut=source.cut.record,
+        producing_receipt=to_jsonable_python(source.receipt),
         selection=request.model_dump(mode="json", exclude_none=True),
         companion_request=request.model_copy(
             update={"view": "companion", "cursor": None}
@@ -980,7 +819,7 @@ def _export_native_source(
 
         record_reader = published_record_reader(
             conn,
-            ProductReference(request.task_id, request.product_key, request.content_digest),
+            source.physical,
             cancellation=cancellation,
         )
         if record_reader is None:
@@ -1000,7 +839,7 @@ def _export_native_source(
                         binding,
                         byte_length=receipt.byte_length,
                         serialization_sha256=receipt.serialization_sha256,
-                        logical_digest=request.content_digest,
+                        logical_digest=pin["content_digest"],
                         projection="integrated-document"
                         if format == "integrated-json"
                         else "docling-content-only",
@@ -1027,16 +866,10 @@ def _export_native_source(
     # Existing typed SQL projection determines Arrow types, retaining the original text.
     from corpus_structure.semantic.arrow_types import sql_arrow_type
     from corpus_structure.semantic.metadata import table
-    from corpus_structure.semantic.releases import open_release
-
-    runs = table("ops.run")
-    projection_context = open_release(
-        conn,
-        conn.execute(select(runs.c.release_id).where(runs.c.id == request.run_id)).scalar_one(),
-    )
+    projection_context = source.prepared
     published = published_record_reader(
         conn,
-        ProductReference(request.task_id, request.product_key, request.content_digest),
+        source.physical,
         cancellation=cancellation,
         projection_context=projection_context,
     )
@@ -1046,7 +879,7 @@ def _export_native_source(
     # This is the public export shape; placement coordinates remain private to its reader.
     relation = table("ops.pdf_published_item")
     derivation = table("ops.pdf_published_derivation")
-    source = _published_native_header(published, request.run_id, runtime=False)
+    source = _published_native_header(published, runtime=False)
     parent = _published_parent_product(published)
     schema = pa.schema(
         [
@@ -1159,7 +992,7 @@ def _export_native_source(
                 rows = [
                     dict(
                         row,
-                        content_digest=request.content_digest,
+                        content_digest=pin["content_digest"],
                         companion_binding=json.dumps(binding),
                         name=native[row["pointer"]].get("name"),
                         artifact_digest=source.artifact_digest,

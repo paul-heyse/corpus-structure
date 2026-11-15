@@ -17,20 +17,20 @@ from corpus_structure.serve import native_source
 
 def request(**changes):
     return native_source.NativeSourceRequest(
-        run_id=1, task_id=2, product_key="native", content_digest="a" * 64, **changes
+        project_id="p", demand_id="d", read_id="r", use_id="u", product_id="product", derivation_id="episode", **changes
     )
 
 
-def test_v4_requires_explicit_row_byte_admission_and_refuses_old_meaning():
+def test_v5_requires_explicit_row_byte_admission_and_refuses_old_meaning():
     selected = request()
     assert (selected.version, selected.limit, selected.max_rows, selected.max_bytes) == (
-        4,
+        5,
         100,
         10000,
         1048576,
     )
     for changes in (
-        {"version": 3},
+        {"version": 4},
         {"max_bytes": 8388609},
         {"max_rows": 10001},
         {"max_bytes": True},
@@ -102,7 +102,7 @@ def test_scalar_length_refuses_before_first_artifact_part():
 def test_native_envelope_refuses_complete_oversized_body(monkeypatch):
     selected = request(max_bytes=1024)
     response = native_source.NativeSourceResponse(
-        selection=selected, release_id="r", health={}, rows=[{"text": "x" * 2048}]
+        selection=selected, release_id="r", cut={}, health={}, rows=[{"text": "x" * 2048}]
     )
     monkeypatch.setattr(native_source, "_inspect_native_source", lambda *args, **kwargs: response)
     with pytest.raises(ReadLimit) as caught:

@@ -736,27 +736,15 @@ classes:
       version:
         range: PdfInteger
         required: true
-        minimum_value: 4
-        maximum_value: 4
+        minimum_value: 5
+        maximum_value: 5
         slot_uri: pdf:PdfNativeReadRequest_version
-      run_id:
-        range: PdfInteger
-        required: true
-        minimum_value: 1
-        slot_uri: pdf:PdfNativeReadRequest_run_id
-      task_id:
-        range: PdfInteger
-        required: true
-        minimum_value: 1
-        slot_uri: pdf:PdfNativeReadRequest_task_id
-      product_key:
-        range: PdfString
-        required: true
-        slot_uri: pdf:PdfNativeReadRequest_product_key
-      content_digest:
-        range: PdfDigest
-        required: true
-        slot_uri: pdf:PdfNativeReadRequest_content_digest
+      project_id: {range: PdfString, required: true, slot_uri: pdf:PdfNativeReadRequest_project_id}
+      demand_id: {range: PdfString, required: true, slot_uri: pdf:PdfNativeReadRequest_demand_id}
+      read_id: {range: PdfString, required: true, slot_uri: pdf:PdfNativeReadRequest_read_id}
+      use_id: {range: PdfString, required: true, slot_uri: pdf:PdfNativeReadRequest_use_id}
+      product_id: {range: PdfString, required: true, slot_uri: pdf:PdfNativeReadRequest_product_id}
+      derivation_id: {range: PdfString, required: true, slot_uri: pdf:PdfNativeReadRequest_derivation_id}
       view:
         range: PdfNativeReadView
         required: true

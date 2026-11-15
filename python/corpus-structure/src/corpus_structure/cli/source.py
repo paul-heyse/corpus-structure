@@ -39,10 +39,12 @@ class SourceCoverageReport(BaseModel):
 @app.command("inspect")
 def inspect(
     ctx: typer.Context,
-    run: int,
-    producing_task: int = typer.Option(...),
+    demand: str,
+    project: str = typer.Option(...),
+    read: str = typer.Option(...),
+    use: str = typer.Option(...),
     product: str = typer.Option(...),
-    native_digest: str = typer.Option(...),
+    derivation: str = typer.Option(...),
     pointer: str | None = None,
     section: str | None = None,
     membership: Literal["direct", "descendants"] | None = None,
@@ -64,10 +66,9 @@ def inspect(
     occurrence: str | None = None,
     artifact_digest: str | None = None,
     collection: Literal["inputs", "coverage", "relations", "mapping_reports"] | None = None,
-    evidence_run: int | None = None,
-    evidence_task: int | None = None,
+    evidence_use: str | None = None,
+    evidence_derivation: str | None = None,
     evidence_product: str | None = None,
-    evidence_digest: str | None = None,
     page: int | None = None,
     region_index: int | None = None,
     visual_kind: VisualEvidenceKind | None = None,
@@ -92,21 +93,17 @@ def inspect(
         evidence = None
         if any(
             part is not None
-            for part in (evidence_run, evidence_task, evidence_product, evidence_digest)
+            for part in (evidence_use, evidence_derivation, evidence_product)
         ):
             evidence = VisualEvidencePin.model_validate(
                 dict(
-                    run_id=evidence_run,
-                    task_id=evidence_task,
-                    product_key=evidence_product,
-                    content_digest=evidence_digest,
+                    use_id=evidence_use, derivation_id=evidence_derivation,
+                    product_id=evidence_product,
                 )
             )
         request = NativeSourceRequest(
-            run_id=run,
-            task_id=producing_task,
-            product_key=product,
-            content_digest=native_digest,
+            project_id=project, demand_id=demand, read_id=read,
+            use_id=use, product_id=product, derivation_id=derivation,
             view="visual_evidence" if native_view == "visual-evidence" else native_view,
             pointer=pointer,
             section_pointer=section,
@@ -158,9 +155,10 @@ def inspect(
         ),
         json=json,
         render=lambda report: report_fields(
-            ("Run", report.selection.run_id),
-            ("Producer", f"{report.selection.task_id} · {report.selection.product_key}"),
-            ("Content digest", report.selection.content_digest),
+            ("Demand", report.selection.demand_id),
+            ("Read", report.selection.read_id),
+            ("Product", report.selection.product_id),
+            ("Producer", report.selection.derivation_id),
             ("Release", report.release_id),
             ("Outcome", report.outcome),
             (
@@ -226,10 +224,12 @@ def visual_observations(
 @app.command("native-export")
 def native_export(
     ctx: typer.Context,
-    run: Annotated[int, typer.Option()],
-    producing_task: Annotated[int, typer.Option()],
+    demand: Annotated[str, typer.Option()],
+    project: Annotated[str, typer.Option()],
+    read: Annotated[str, typer.Option()],
+    use: Annotated[str, typer.Option()],
     product: Annotated[str, typer.Option()],
-    digest: Annotated[str, typer.Option()],
+    derivation: Annotated[str, typer.Option()],
     output: Annotated[Path, typer.Option()],
     section: str | None = None,
     membership: Literal["direct", "descendants"] | None = None,
@@ -248,10 +248,8 @@ def native_export(
         with failure_boundary(True, expected=(ValueError, FileExistsError)):
             receipt = export_selected_native_source(
                 NativeSourceRequest(
-                    run_id=run,
-                    task_id=producing_task,
-                    product_key=product,
-                    content_digest=digest,
+                    project_id=project, demand_id=demand, read_id=read,
+                    use_id=use, product_id=product, derivation_id=derivation,
                     section_pointer=section,
                     membership=membership,
                 ),
