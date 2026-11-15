@@ -8,6 +8,7 @@ from __future__ import annotations
 import base64
 from hashlib import sha256
 from dataclasses import asdict
+from collections import Counter
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -41,6 +42,9 @@ class GraphSnapshot(BaseModel):
     pins_json: str
     nodes: tuple[GraphNode, ...]
     occurrences: tuple[GraphOccurrence, ...]
+    orientation: Literal["owner-to-dependency", "parent-to-child", "assertion-incidence"] = (
+        "owner-to-dependency"
+    )
     standing: Literal["complete", "partial", "unavailable"] = "complete"
     unknowns: tuple[str, ...] = ()
 
@@ -98,7 +102,8 @@ def inspect_graph(snapshot: GraphSnapshot, request: GraphInspectionRequest):
         raise ValueError("graph selected context differs from request")
     unknowns = list(snapshot.unknowns)
     standing = snapshot.standing
-    if len(json_bytes(snapshot.model_dump())) > request.max_examined_bytes:
+    over_budget = len(json_bytes(snapshot.model_dump())) > request.max_examined_bytes
+    if over_budget:
         standing = "partial"
         unknowns.append("complete examined graph exceeds the requested acquisition bound")
     nodes = {node.identity: node for node in snapshot.nodes}
@@ -106,19 +111,27 @@ def inspect_graph(snapshot: GraphSnapshot, request: GraphInspectionRequest):
         raise ValueError("graph repeats a qualified node identity")
     if len({edge.identity for edge in snapshot.occurrences}) != len(snapshot.occurrences):
         raise ValueError("graph repeats a qualified occurrence identity")
-    if not set(request.roots) <= nodes.keys() or (request.target and request.target not in nodes):
+    if standing == "complete" and (
+        not set(request.roots) <= nodes.keys() or (request.target and request.target not in nodes)
+    ):
         raise ValueError("graph request names an unknown node")
     if any(edge.source not in nodes or edge.target not in nodes for edge in snapshot.occurrences):
         raise ValueError("graph occurrence has an unauthenticated endpoint")
     items = []
-    if standing == "complete":
+    if not over_budget and (
+        standing == "complete" or (standing == "partial" and request.view == "members")
+    ):
         graph = nx.MultiDiGraph(backend="networkx")
         graph.add_nodes_from(sorted(nodes))
         for edge in snapshot.occurrences:
             graph.add_edge(edge.source, edge.target, key=edge.identity)
         graph = nx.freeze(graph)
         selected = (
-            rooted_closure(graph, request.roots, reverse=request.direction == "dependents")
+            rooted_closure(
+                graph,
+                tuple(root for root in request.roots if root in nodes),
+                reverse=request.direction == "dependents",
+            )
             if request.roots
             else frozenset(nodes)
         )
@@ -148,7 +161,13 @@ def inspect_graph(snapshot: GraphSnapshot, request: GraphInspectionRequest):
                 items = [
                     dict(node=node)
                     for node in nx.lexicographical_topological_sort(
-                        viewed.subgraph(selected).reverse(copy=False), key=str, backend="networkx"
+                        (
+                            viewed.subgraph(selected)
+                            if snapshot.orientation == "parent-to-child"
+                            else viewed.subgraph(selected).reverse(copy=False)
+                        ),
+                        key=str,
+                        backend="networkx",
                     )
                 ]
             except nx.NetworkXUnfeasible:
@@ -255,11 +274,15 @@ def snapshot_from_records(projection, specification, pins, records, *, unknowns=
         )
     )
     edges = []
-    for position, row in enumerate(sorted(records["edges"], key=json_bytes)):
+    duplicates = Counter()
+    for row in sorted(records["edges"], key=json_bytes):
+        key = json_bytes(row)
+        position = duplicates[key]
+        duplicates[key] += 1
         edges.append(
             GraphOccurrence(
                 identity="graph-occurrence:"
-                + sha256(json_bytes([specification, row, position])).hexdigest(),
+                + sha256(json_bytes([projection, row, position])).hexdigest(),
                 source=row["source"],
                 target=row["target"],
                 relation=row["relation"],
@@ -322,6 +345,7 @@ def archived_graph_snapshot(prepared, projection, *, selected_dependencies=()):
             if node.id in nodes and nodes[node.id] != node.record():
                 raise ValueError("implementation projections disagree on shared node meaning")
             nodes[node.id] = node.record()
+    for implementation in model.implementation_slices:
         if projection == "implementation-determinant":
             edges.extend(asdict(edge) for edge in implementation.edges)
         else:
@@ -356,7 +380,10 @@ def archived_graph_snapshot(prepared, projection, *, selected_dependencies=()):
         projection,
         definition.identity_bytes.hex(),
         dict(release_id=prepared.release_id, model_digest=sha256(model.content).hexdigest()),
-        dict(nodes=list(nodes.values()), edges=edges),
+        dict(
+            nodes=list(nodes.values()),
+            edges=[json_loads(value) for value in sorted({json_bytes(edge) for edge in edges})],
+        ),
         unknowns=unknowns,
     )
 
@@ -385,4 +412,26 @@ def read_graph_inspection(connection, request: GraphInspectionRequest):
         snapshot = archived_graph_snapshot(
             prepared, request.projection, selected_dependencies=request.selected_dependencies
         )
+    from .data_operation_admission import bound_data_operation_model
+
+    model = bound_data_operation_model(prepared)
+    specification = model.projection_definition(request.projection)
+    if snapshot.specification != specification.identity_bytes.hex():
+        raise ValueError("graph snapshot differs from its released interpretation")
+    if not {node.kind for node in snapshot.nodes} <= set(specification.node_kinds):
+        raise ValueError("graph nodes differ from the released projection kinds")
+    if not {edge.relation for edge in snapshot.occurrences} <= set(
+        specification.relationship_kinds
+    ):
+        raise ValueError("graph occurrences differ from the released projection relations")
+    analysis = {
+        "members": "members",
+        "components": "strong-components",
+        "order": "dependency-order",
+        "path": "witness-path",
+        "boundary": "scope-boundary",
+    }[request.view]
+    if analysis not in specification.analyses:
+        raise ValueError("analysis is not admitted by the released projection")
+    snapshot = snapshot.model_copy(update={"orientation": specification.orientation})
     return inspect_graph(snapshot, request)

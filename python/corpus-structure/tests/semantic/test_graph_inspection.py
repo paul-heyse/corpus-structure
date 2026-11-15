@@ -105,3 +105,61 @@ def test_examined_budget_is_separate_from_presentation_page():
     assert result.standing == "partial" and result.items == ()
     cyclic = inspect_graph(snapshot(), request(view="order"))
     assert cyclic.standing == "unavailable" and "cyclic" in cyclic.unknowns[0]
+
+
+def test_budget_refusal_with_unexamined_roots_is_partial_not_missing():
+    empty = snapshot().model_copy(
+        update={
+            "nodes": (),
+            "occurrences": (),
+            "standing": "partial",
+            "unknowns": ("acquisition budget",),
+        }
+    )
+    result = inspect_graph(empty, request(view="path", roots=("A",), target="B"))
+    assert result.standing == "partial" and result.items == ()
+    partial = snapshot().model_copy(update={"standing": "partial", "unknowns": ("outside parent",)})
+    page = inspect_graph(partial, request(view="members", roots=("A",)))
+    assert page.standing == "partial" and any(row.get("identity") == "A" for row in page.items)
+
+
+def test_occurrence_identity_does_not_depend_on_unrelated_edge_rank():
+    from corpus_structure.semantic.graph_inspection import snapshot_from_records
+
+    nodes = [dict(id=n, category="node", payload={}) for n in "ABC"]
+    edge = dict(source="B", target="C", relation="ref", location="module.py:4:2")
+    one = snapshot_from_records(
+        "lexical-reference", "spec", dict(release_id="release:one"), dict(nodes=nodes, edges=[edge])
+    )
+    two = snapshot_from_records(
+        "lexical-reference",
+        "spec",
+        dict(release_id="release:one"),
+        dict(nodes=nodes, edges=[dict(source="A", target="B", relation="ref"), edge]),
+    )
+    assert one.occurrences[0].identity == next(
+        row.identity for row in two.occurrences if row.source == "B"
+    )
+    assert one.occurrences[0].attributes_json == '{"location":"module.py:4:2"}'
+
+
+def test_archived_shared_helper_occurrences_are_unioned_once(monkeypatch):
+    from dataclasses import replace
+    from corpus_structure.semantic import data_operation_admission
+    from corpus_structure.semantic.graph_inspection import archived_graph_snapshot
+    from semantic.test_source_comparison import compile_source, operation_source
+
+    model = compile_source(operation_source())
+    monkeypatch.setattr(
+        data_operation_admission, "bound_data_operation_model", lambda prepared: model
+    )
+    prepared = type("Prepared", (), {"release_id": "release:one"})()
+    single = archived_graph_snapshot(prepared, "possible-call")
+    doubled = replace(
+        model, implementation_slices=(*model.implementation_slices, *model.implementation_slices)
+    )
+    monkeypatch.setattr(
+        data_operation_admission, "bound_data_operation_model", lambda prepared: doubled
+    )
+    repeated = archived_graph_snapshot(prepared, "possible-call")
+    assert single.occurrences and single.occurrences == repeated.occurrences
