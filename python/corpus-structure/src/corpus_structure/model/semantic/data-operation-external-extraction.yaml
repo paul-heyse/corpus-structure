@@ -43,11 +43,11 @@ classes:
     is_a: SourceRecordProduct
     description: Mechanically checked rich source report; no claims are selected or admitted into knowledge.
     attributes:
-      version: {required: true, equals_string: located-external-extraction-1}
+      version: {required: true, equals_string: source-rich-proposals-1}
       unit_ref: {required: true}
       source_pin: {range: RecordSourcePin, inlined: true, required: true}
-      standing: {required: true, equals_string: unselected_source_report}
-      authored: {range: AgentAuthoredBatch, inlined: true, required: true}
-      stored: {range: AgentStoredBatch, inlined: true, required: true}
+      standing: {required: true, equals_string: private_proposed}
+      members: {range: DdoRichProposalPacket, inlined_as_list: true, multivalued: true, value_presence: PRESENT, minimum_cardinality: 0}
+      coverage: {range: DdoRichProposalCoverage, inlined_as_list: true, multivalued: true, required: true, minimum_cardinality: 6, maximum_cardinality: 6}
       issues: {range: SourceValue, inlined: true, required: true}
       known_reference_standing: {required: true, equals_string: authored}

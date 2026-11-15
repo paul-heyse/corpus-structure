@@ -298,7 +298,7 @@ class ExternalDataSession:
         """Read mechanically placed rich reports through the native pinned public result."""
         from .data_operation_identity import decode_semantic_value
         from .data_operation_service import read_data_demand
-        from .external_extraction import located_external_batch
+        from .rich_proposals import read_rich_proposals
 
         if self.demand_id is not None and demand_id != self.demand_id:
             raise PortRefusal("located report demand is outside this session scope")
@@ -328,21 +328,24 @@ class ExternalDataSession:
                 if product["kind_contract"] != contract or product["body_state"] != "present":
                     continue
                 value = decode_semantic_value(product["body"])
-                stored, issues = located_external_batch(prepared, value)
+                rich = read_rich_proposals(prepared, value)
                 reports.append(
                     {
                         "use_id": use["use_id"],
                         "fate": use["fate"],
-                        "product": product,
+                        "derivation_id": use["derivation_id"],
+                        "product_id": product["product_id"],
+                        "kind_contract": product["kind_contract"],
                         "standing": value["standing"],
-                        "stored": stored.model_dump(mode="python", exclude_unset=True),
-                        "issues": list(issues),
+                        "members": rich["members"],
+                        "coverage": rich["coverage"],
+                        "issues": rich["issues"],
                     }
                 )
+        from .demand_results import CutSelection
         return {
             "demand_id": demand_id,
-            "read_id": snapshot["read_id"],
-            "trust_snapshot": snapshot["trust_snapshot"],
+            "cut": CutSelection.from_native(snapshot).record,
             "continuation": snapshot["continuation"],
             "reports": reports,
         }

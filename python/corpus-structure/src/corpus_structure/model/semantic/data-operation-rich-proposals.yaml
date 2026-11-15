@@ -1,0 +1,70 @@
+id: https://corpus-structure.dev/semantic/data-operation-rich-proposals
+name: data_operation_rich_proposals
+prefixes:
+  rich: https://corpus-structure.dev/semantic/data-operation-rich-proposals/
+default_prefix: rich
+default_range: string
+classes:
+  DdoRichProposalValue:
+    is_a: SourceRecordProduct
+    abstract: true
+    attributes:
+      proposal_type: {required: true}
+      standing: {required: true, equals_string: private_proposed}
+  DdoRichEntityProposal:
+    is_a: AgentStoredEntity
+    mixins: [DdoRichProposalValue]
+    attributes:
+      proposal_type: {equals_string: entity}
+  DdoRichStatementProposal:
+    is_a: AgentStatement
+    mixins: [DdoRichProposalValue]
+    attributes:
+      proposal_type: {equals_string: statement}
+  DdoRichClaimProposal:
+    is_a: AgentStoredClaim
+    mixins: [DdoRichProposalValue]
+    attributes:
+      proposal_type: {equals_string: claim}
+  DdoRichIdentityExclusionProposal:
+    is_a: AgentStoredIdentityExclusion
+    mixins: [DdoRichProposalValue]
+    attributes:
+      proposal_type: {equals_string: identity_exclusion}
+  DdoRichLocalClaimReference:
+    is_a: SourceRecordProduct
+    attributes:
+      member_id: {required: true}
+  DdoRichAlternativeProposal:
+    is_a: DdoRichProposalValue
+    attributes:
+      proposal_type: {equals_string: alternative}
+      id: {required: true}
+      claims: {range: DdoRichLocalClaimReference, inlined_as_list: true, multivalued: true, required: true, minimum_cardinality: 1}
+      faithful: {range: boolean, required: true}
+      reason: {required: true}
+  DdoRichUnsupportedProposal:
+    is_a: AgentStoredUnsupported
+    mixins: [DdoRichProposalValue]
+    attributes:
+      proposal_type: {equals_string: unsupported}
+  DdoRichProposalPacket:
+    is_a: SourceRecordProduct
+    attributes:
+      member_id: {required: true}
+      kind_contract: {required: true}
+      context: {range: DdoSourceViewContext, inlined: true, required: true}
+      body: {range: DdoRichProposalValue, inlined: true, required: true}
+  DdoRichProposalCoverage:
+    is_a: SourceRecordProduct
+    attributes:
+      family: {range: DdoRichProposalFamily, required: true}
+      scope: {required: true, equals_string: supplied-authored-response}
+      outcome: {range: DdoRichProposalOutcome, required: true}
+      count: {range: integer, minimum_value: 0, required: true}
+      reason: {}
+enums:
+  DdoRichProposalFamily:
+    permissible_values: {entities: {}, statements: {}, claims: {}, identity_exclusions: {}, alternatives: {}, unsupported: {}}
+  DdoRichProposalOutcome:
+    permissible_values: {produced: {}, empty: {}, partial: {}}

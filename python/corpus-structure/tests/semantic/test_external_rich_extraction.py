@@ -16,13 +16,14 @@ from corpus_structure.semantic.external_extraction import (
     external_extraction_operation_sources,
     external_extraction_prompt,
     locate_external_extraction,
-    located_external_batch,
     rich_external_declarations,
 )
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.observations import source_value
 from corpus_structure.semantic.proposals import ProposalRefused, ProposalSentence, native_address
 from semantic.proposals_support import batch
+from corpus_structure.semantic.rich_proposals import read_rich_proposals
+from corpus_structure.semantic.data_operation_identity import semantic_value
 
 
 @pytest.fixture(scope="module")
@@ -52,13 +53,22 @@ def rich_prepared(rich_bundle):
     return prepare_release(rich_bundle)
 
 
+@pytest.fixture(scope="module")
+def rich_model(rich_bundle):
+    from corpus_structure.semantic.declared_math_products import math_operation_declarations
+    protocol=ExternalExecutorContract("external-executor-v1","Read declared packet inputs and emit rich proposals.","explicit-external-agent","asserted-model","declared-inputs-only")
+    return compile_data_operations(rich_bundle,declarations=(math_operation_declarations(),rich_external_declarations(protocol)),python_sources=external_extraction_operation_sources())
+
+
 def frame():
     from corpus_structure.semantic.declared_record_sources import DeclaredNativeFrameSource
 
+    from corpus_structure.semantic.original_documents import original_document_subject
     text = "Alice is here. Alice is here."
     value = {
         "source": {
             "document": "document:one",
+            "document_subject": original_document_subject("document:one"),
             "projection": "a" * 64,
             "section_pointer": "#/groups/0",
             "membership": "descendants",
@@ -79,9 +89,10 @@ def frame():
         "source_product": "product:source",
         "kind_contract": "kind:source",
         "subject": "subject:one",
+        "subject_definition":"original-source-view",
         "project_id": "project:one",
         "original_source": "document:one",
-        "analyzed_scope_meaning": '["null"]',
+        "analyzed_scope_meaning": canonical_bytes(semantic_value(dict(source=value["source"],selectors=value["selectors"]))).decode(),
         "document": "document:one",
         "projection_digest": "a" * 64,
         "section_pointer": "#/groups/0",
@@ -141,7 +152,7 @@ def test_rich_family_declares_actual_authored_batch_and_complete_captured_placem
 
 
 def test_declared_rich_placement_picks_exact_repeated_native_piece_and_retains_full_batch(
-    rich_prepared,
+    rich_prepared, rich_model,
 ):
     actual = frame()
     raw = batch()
@@ -167,23 +178,26 @@ def test_declared_rich_placement_picks_exact_repeated_native_piece_and_retains_f
         }
     ]
     result = locate_external_extraction(
-        rich_prepared, packet(), raw, placement_policy=PlacementPolicy(), check_active=lambda: None
+        rich_prepared, packet(), raw, model=rich_model, placement_policy=PlacementPolicy(), check_active=lambda: None
     )
-    stored, issues = located_external_batch(rich_prepared, result)
-    wire = stored.model_dump(mode="python")
-    evidence = wire["claims"][0]["evidence"][0]
-    assert (evidence["start"], evidence["end"], evidence["outcome"]) == (15, 29, "located")
-    assert evidence["locator"] == native_address(actual, start=15, end=29)
+    rich=read_rich_proposals(rich_prepared,result)
+    claims=[member for member in rich["members"] if member["body"]["proposal_type"]=="claim"]
+    evidence=claims[0]["body"]["evidence"][0]
+    assert (evidence["start"],evidence["end"],evidence["outcome"])==(15,29,"located")
+    assert evidence["locator"]==native_address(actual,start=15,end=29)
     assert "source_view_id" not in evidence["locator"] and "task_id" not in evidence["locator"]
-    assert len(wire["claims"]) == 2 and wire["alternatives"][0]["members"] == ("c1", "c2")
-    assert wire["unsupported"][0]["reason"] == "no admitted relation" and issues == ()
-    assert (
-        result["standing"] == "unselected_source_report"
-        and result["known_reference_standing"] == "authored"
-    )
+    assert [member["member_id"] for member in claims]==["claim:c1","claim:c2"]
+    alternatives=[member["body"] for member in rich["members"] if member["body"]["proposal_type"]=="alternative"]
+    assert list(alternatives[0]["claims"])==[{"member_id":"claim:c1"},{"member_id":"claim:c2"}]
+    unsupported=[member["body"] for member in rich["members"] if member["body"]["proposal_type"]=="unsupported"]
+    assert unsupported[0]["reason"]=="no admitted relation"
+    assert result["standing"]=="private_proposed" and result["known_reference_standing"]=="authored"
+    assert "stored" not in rich and "authored" not in rich
+    assert len(result["coverage"])==6
+    assert all(row["scope"]=="supplied-authored-response" for row in result["coverage"])
 
 
-def test_declared_rich_prompt_uses_real_member_coordinates_and_refuses_wrong_unit(rich_prepared):
+def test_declared_rich_prompt_uses_real_member_coordinates_and_refuses_wrong_unit(rich_prepared,rich_model):
     presented = external_extraction_prompt(packet())
     assert presented["native_evidence"][1]["text"] == "Alice is here."
     assert presented["native_evidence"][1]["handle"] == "native_evidence:1"
@@ -195,6 +209,20 @@ def test_declared_rich_prompt_uses_real_member_coordinates_and_refuses_wrong_uni
             rich_prepared,
             packet(),
             raw,
+            model=rich_model,
             placement_policy=PlacementPolicy(),
             check_active=lambda: None,
         )
+
+
+@pytest.mark.parametrize("invalid",["accepted","duplicate-member","false-coverage"])
+def test_private_rich_member_collection_refuses_promoted_or_inconsistent_values(rich_prepared,rich_model,invalid):
+    actual=frame();raw=batch();raw["unit_ref"]=actual.unit_ref
+    raw["statements"][0]["anchor"]=actual.unit_ref
+    raw["claims"][0]["evidence"][0]["sentence"]="native_evidence:1"
+    result=locate_external_extraction(rich_prepared,packet(),raw,model=rich_model,placement_policy=PlacementPolicy(),check_active=lambda:None)
+    changed=deepcopy(result)
+    if invalid=="accepted": changed["members"][0]["body"]["standing"]="accepted"
+    elif invalid=="duplicate-member": changed["members"]=(*changed["members"],deepcopy(changed["members"][0]))
+    else: changed["coverage"][0]["count"]+=1
+    with pytest.raises(ValueError): read_rich_proposals(rich_prepared,changed)

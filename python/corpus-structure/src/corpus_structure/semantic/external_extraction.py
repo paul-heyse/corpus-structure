@@ -15,9 +15,11 @@ from .python_module_projection import admitted_operation_module_meaning
 
 _ROOT = Path(__file__).parents[1]
 _MODEL = _ROOT / "model/semantic/data-operation-external-extraction.yaml"
+_RICH_MODEL = _ROOT / "model/semantic/data-operation-rich-proposals.yaml"
 _FILES = (
     "methods/external_extraction.py",
     "semantic/external_extraction.py",
+    "semantic/rich_proposals.py",
     "semantic/declared_proposal_frames.py",
     "semantic/proposals.py",
     "semantic/declared_record_sources.py",
@@ -48,9 +50,13 @@ def external_extraction_inputs(
     from .proposals import proposal_inputs
     from .sentence_products import sentence_product_inputs
 
+    from .source_discovery import source_discovery_inputs
+
     names = {source.name for source in bundle.sources}
     if "data_operation_sentences" not in names:
         bundle = sentence_product_inputs(bundle)
+    if "data_operation_source_discovery" not in {source.name for source in bundle.sources}:
+        bundle=source_discovery_inputs(bundle)
     if "agent" not in names:
         observation_content = next(
             source.content for source in bundle.sources if source.name == "observations"
@@ -78,13 +84,14 @@ def external_extraction_inputs(
         (
             *bundle.sources,
             SourceArtifact(name, _MODEL.read_bytes()),
+            SourceArtifact("data_operation_rich_proposals", _RICH_MODEL.read_bytes()),
             SourceArtifact(
                 root,
                 yaml.safe_dump(
                     {
                         "id": "urn:corpus:external-extraction-root",
                         "name": root,
-                        "imports": [bundle.root, name],
+                        "imports": [bundle.root, name, "data_operation_rich_proposals"],
                     }
                 ).encode(),
             ),
@@ -102,7 +109,6 @@ def external_extraction_assets():
         canonical_bytes(
             {
                 "version": "rich-external-placement-1",
-                "schema": _MODEL.read_bytes().hex(),
                 "placement_policy": asdict(policy),
                 "policy_sources": [(source.name, source.content.hex()) for source in analysis_policy_sources() if source.name.startswith("analysis/")],
                 "files": [(name, (admitted_operation_module_meaning((_ROOT / name).read_bytes()).hex() if name in ('methods/external_extraction.py',) else (_ROOT / name).read_bytes().hex())) for name in _FILES],
@@ -121,7 +127,7 @@ def external_extraction_operation_sources():
                 (_ROOT / name).read_bytes(),
                 str((_ROOT / name).resolve()),
             )
-            for name in _FILES[:2]
+            for name in ("methods/external_extraction.py", "semantic/external_extraction.py")
         ),
         boundary_contracts=(external_extraction_assets(),),
     )
@@ -404,7 +410,7 @@ def external_extraction_prompt(packet):
     }
 
 
-def locate_external_extraction(prepared, packet, authored, *, placement_policy, check_active):
+def locate_external_extraction(prepared, packet, authored, *, model, placement_policy, check_active):
     from corpus_structure.core.evidence import MacroDef
 
     from .declared_proposal_frames import declared_proposal_frame_from_dict
@@ -432,24 +438,8 @@ def locate_external_extraction(prepared, packet, authored, *, placement_policy, 
         placement_policy=placement_policy,
     )
     check_active()
-    return {
-        "version": "located-external-extraction-1",
-        "unit_ref": frame.unit_ref,
-        "source_pin": frame.pin.values(),
-        "standing": "unselected_source_report",
-        "authored": located.authored.model_dump(mode="python", exclude_unset=True),
-        "stored": located.stored.model_dump(mode="python", exclude_unset=True),
-        "issues": source_value([asdict(issue) for issue in located.issues]),
-        "known_reference_standing": "authored",
-    }
-
-
-def located_external_batch(prepared, value):
-    """Immediate target consumer: retain all rich fields and placement diagnostics."""
-    from .observations import source_python
-
-    checked = prepared.validate_json("DdoLocatedExternalExtraction", json_bytes(value))
-    return (checked.stored, tuple(source_python(checked.issues.model_dump(mode="python"))))
+    from .rich_proposals import located_rich_proposals
+    return located_rich_proposals(prepared,model,packet,located)
 
 
 def execute_rich_profile(receiver, values):
@@ -476,6 +466,7 @@ def execute_rich_kernel(
             prepared,
             values["packet"],
             values["authored"],
+            model=bound_data_operation_model(prepared),
             placement_policy=PlacementPolicy(**placement_policy),
             check_active=check_active,
         )
