@@ -83,6 +83,7 @@ def test_native_context_fanin_waits_for_new_child_products_and_preserves_pinned_
         planner = DemandPlanner(ddo_kernel["model"], DataOperationStorage(connection))
         snapshot = planner.resume(demand["demand_id"])
         use = next(use for use in snapshot["uses"] if use["products"])
+        assert use["derivation_id"] is not None
         planner.expand_discovery(
             snapshot,
             population="all-items",
@@ -170,6 +171,7 @@ def test_native_one_discovery_population_fans_out_without_duplicate_custody(ddo_
         planner = DemandPlanner(ddo_kernel["model"], DataOperationStorage(connection))
         snapshot = planner.resume(demand["demand_id"])
         use = next(use for use in snapshot["uses"] if use["products"])
+        assert use["derivation_id"] is not None
         for _ in range(2):
             closed = planner.expand_discovery(
                 snapshot,

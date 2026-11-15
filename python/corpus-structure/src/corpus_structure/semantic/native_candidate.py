@@ -2052,7 +2052,6 @@ def _order_row_type_evolution(connection, upgrade_ops, authoring):
     if not relations:
         return
     before = {item.identity: item for item in authoring.predecessor}
-    after = {item.identity: item for item in authoring.desired}
     identities = (*before, *sorted(relations, key=lambda identity: identity.qualified))
     graph = native_dependency_graph(connection, identities)
     selected = set().union(*(nx.descendants(graph, identity, backend="networkx") for identity in relations)) & before.keys()

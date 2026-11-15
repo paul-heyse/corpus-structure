@@ -780,7 +780,7 @@ class NativeDemandExecutor:
             datetime.fromisoformat(claimed["lease_until"].replace("Z", "+00:00")),
         )
         owner.add_claim(claim)
-        return claim, cast(WireClaimDataRequestResultVariant2, claimed)
+        return claim, claimed
 
     def _publish(self, claim, retained, owner):
         def publish(connection):

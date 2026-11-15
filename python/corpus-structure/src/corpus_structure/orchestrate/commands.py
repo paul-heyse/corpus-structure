@@ -1,8 +1,13 @@
-"""Current semantic project/run/task command operations and their typed reports."""
+"""Source-pack resolution and exact retained run inspection/finalization.
+
+Current operator progress/cancellation uses native demand custody. Retained runs
+are selected by exact ID; this owner never infers a current/latest selection.
+Legacy finalization remains a migration obligation until its genuine knowledge
+projection and synthetic consumers move to declared consolidation.
+"""
 
 from __future__ import annotations
 
-from collections.abc import Sequence
 from datetime import datetime
 from pathlib import Path
 from typing import Literal
@@ -10,7 +15,6 @@ from typing import Literal
 from pydantic import BaseModel, Field, JsonValue
 from sqlalchemy import Connection, Engine
 
-from corpus_structure.core.vocab import TaskStatus
 from corpus_structure.semantic.pm2_coverage import ScopeCoverage, scope_coverage
 from corpus_structure.settings import AnalyticsSettings
 
@@ -18,11 +22,6 @@ from .source_progress import SourceOperationProgress, read_source_operation_prog
 from .source_request import SourceRequestError
 
 CommandError = SourceRequestError
-
-
-class CancelReport(BaseModel):
-    run_id: int
-    tasks_cancelled: int
 
 
 class StageCount(BaseModel):
@@ -65,24 +64,6 @@ class StatusReport(BaseModel):
     settings: dict[str, str] = {}
 
 
-class TaskRow(BaseModel):
-    id: int
-    stage: str
-    unit_key: str | None
-    config: str
-    status: str
-    reason: str | None
-    rule_key: str | None
-    cost: dict[str, JsonValue]
-
-
-class TaskListing(BaseModel):
-    run_id: int | None
-    tasks: list[TaskRow]
-    total: int
-    limit: int
-
-
 def resolve_source_domain(
     conn: Connection,
     project_id: str,
@@ -118,92 +99,21 @@ def resolve_source_domain(
     raise CommandError(f"project {project_id!r} has no matching executable pack for this release")
 
 
-def cancel_bound_run(engine: Engine, run_id: int) -> CancelReport:
-    from corpus_structure.semantic.operation_results import RunId
-    from corpus_structure.semantic.operations import end_source_run
-
-    with engine.begin() as conn:
-        return CancelReport(run_id=run_id, tasks_cancelled=end_source_run(conn, RunId(run_id)))
-
-
 def _bound_run_id(conn: Connection, run_id: int | None, project_id: str | None) -> int | None:
     from sqlalchemy import select
 
     from corpus_structure.semantic.metadata import table
 
     runs = table("ops.run")
-    query = select(runs.c.id)
-    if run_id is not None:
-        query = query.where(runs.c.id == run_id)
+    if run_id is None:
+        return None
+    query = select(runs.c.id).where(runs.c.id == run_id)
     if project_id is not None:
         query = query.where(runs.c.project_id == project_id)
     found = conn.execute(query.order_by(runs.c.id.desc()).limit(1)).scalar_one_or_none()
     if found is None and run_id is not None:
         raise CommandError(f"no semantic run {run_id} in the selected project")
     return found
-
-
-def bound_task_listing(
-    conn: Connection,
-    run_id: int | None = None,
-    *,
-    project_id: str | None = None,
-    statuses: Sequence[TaskStatus] = (),
-    methods: Sequence[str] = (),
-    limit: int = 50,
-) -> TaskListing:
-    from sqlalchemy import func, select
-
-    from corpus_structure.semantic.metadata import table
-
-    if limit < 0:
-        raise CommandError("task limit must be nonnegative")
-    run = _bound_run_id(conn, run_id, project_id)
-    if run is None:
-        return TaskListing(run_id=None, tasks=[], total=0, limit=limit)
-    t, c, m = table("ops.task"), table("ops.method_config"), table("ops.method")
-    query = (
-        select(
-            t.c.id,
-            t.c.stage,
-            t.c.unit_key,
-            t.c.trigger,
-            t.c.status,
-            t.c.reason,
-            t.c.cost,
-            c.c.name.label("configuration"),
-            m.c.name.label("method"),
-        )
-        .join(c, t.c.method_config_id == c.c.id)
-        .join(m, c.c.method_id == m.c.id)
-        .where(t.c.run_id == run)
-    )
-    if statuses:
-        query = query.where(t.c.status.in_([s.value for s in statuses]))
-    if methods:
-        query = query.where(m.c.name.in_(methods))
-    total = conn.execute(select(func.count()).select_from(query.subquery())).scalar_one()
-    rows = conn.execute(query.order_by(t.c.id).limit(limit)).mappings()
-    return TaskListing(
-        run_id=run,
-        total=total,
-        limit=limit,
-        tasks=[
-            TaskRow(
-                id=r["id"],
-                stage=r["stage"],
-                unit_key=r["unit_key"],
-                config=r["method"]
-                + "/"
-                + (r.get("trigger") or {}).get("configuration_name", r["configuration"]),
-                status=r["status"],
-                reason=r["reason"],
-                rule_key=(r.get("trigger") or {}).get("rule_key"),
-                cost=r["cost"] or {},
-            )
-            for r in rows
-        ],
-    )
 
 
 def finalize_bound_run(
@@ -227,7 +137,6 @@ def _finalize_bound_run(
     from corpus_structure.semantic.domain_operations import DomainOperationRefused, consolidate_cut
     from corpus_structure.semantic.metadata import table
     from corpus_structure.semantic.operations import seal_cut
-    from corpus_structure.semantic.visual_requests import VISUAL_REQUEST_CODE_COMMIT
 
     t = table("ops.task")
     with engine.begin() as conn:
@@ -241,9 +150,7 @@ def _finalize_bound_run(
         native_request = row["options"].get("native_request")
         if isinstance(native_request, dict) and native_request.get("demand") == "render":
             raise DomainOperationRefused("native render runs have no evaluated realization")
-        if row["code_commit"] == VISUAL_REQUEST_CODE_COMMIT and (
-            {"visual_request", "visual_group"} & row["options"].keys()
-        ):
+        if {"visual_request", "visual_group"} & row["options"].keys():
             raise DomainOperationRefused("visual evidence runs have no evaluated realization")
         if row["status"] in ("cancelled", "failed"):
             raise DomainOperationRefused("cancelled or failed run cannot finalize")
@@ -281,10 +188,6 @@ def bound_status(
 
     from corpus_structure.orchestrate.liveness import observe_supervisor
     from corpus_structure.semantic.metadata import table
-    from corpus_structure.semantic.visual_requests import (
-        VISUAL_REQUEST_CODE_COMMIT,
-        VISUAL_REQUEST_CUT,
-    )
 
     run = _bound_run_id(conn, run_id, project_id)
     if run is None:
@@ -330,12 +233,11 @@ def bound_status(
     ).scalar_one()
     status = row["status"]
     visual_ready = (
-        row["code_commit"] == VISUAL_REQUEST_CODE_COMMIT
-        and ({"visual_request", "visual_group"} & row["options"].keys())
+        ({"visual_request", "visual_group"} & row["options"].keys())
         and row["sealed"]
         and latest_cut is not None
         and latest_cut.final
-        and latest_cut.name == VISUAL_REQUEST_CUT
+        and latest_cut.name == "visual-request-source"
     )
     native_request = row["options"].get("native_request")
     render_ready = (

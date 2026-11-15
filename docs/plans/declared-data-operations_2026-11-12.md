@@ -285,12 +285,13 @@ triggers. Existing semantic companions keep their responsibilities. This coordin
 scheduled recommendation/question status; no DDO-13, separate findings register or PostgreSQL
 qualification campaign is introduced.
 
-**Planning adoption, not implementation · 2026-11-14.** Existing bounded foundation completions,
+**Accepted scope; integrated increment executing · 2026-11-14.** Existing bounded foundation completions,
 CA-08/09 closure and SQLAlchemy/Alembic I01–I05 implementation retain their evidence. New typed
 native-consumer/decoder and compiler-reduction extensions are open, even where an enclosing package
 has a completed earlier foundation slice. DDO-06–12 and the three unresolved closeout journeys remain
-open. Product/native/provider tests, authoring, deployment and activation do not resume through
-this amendment. Expected benefits remain Proposed and unmeasured.
+open. The separately authorized execution increment below resumes focused affected checks and rollback-only
+authoring/registration. Persistent deployment, activation and provider inference remain excluded.
+Expected benefits remain Proposed and unmeasured.
 
 | Source-qualified recommendation | Scheduled disposition / responsible packages | Required closure or conditional trigger |
 |---|---|---|
@@ -319,6 +320,28 @@ read/reuse/cut/query/export/evaluation integration; runtime/connection/COPY and 
 reduction; coordinator-owned scoped verification, native successor integration and assembled review.
 The coordinator retains source/context-qualified receipts and all unfinished obligations here.
 
+### Integrated source and remaining retirement account · 2026-11-14
+
+**Implemented source; scoped Tested where explicitly receipted below.** This is the one current
+account for the selected increment. An installed generated interface, migrated entrypoint or accepted
+ADR does not establish full DDO-09–12 completion or deployment. Historical test fixtures are not
+preservation obligations merely because they exercise old publishers.
+
+| Responsibility | Integrated implementation / evidence | Remaining integration and retirement |
+|---|---|---|
+| I01 wire/correspondence | Captured-schema structural TypedDict/Required/NotRequired/Literal views, nominal field correspondence, fixed named storage calls and exact codec; actual planner, executor, admission, receipt and authoring callers migrated. Pure preparation/consumer50 passed `07053a12aa624aa1b2952c6f1dbc098a`; exact-number6 passed `341177bc13444034b8272348acf95183`. | Final generated artifacts/report schema, assembled typing and native-source qualification remain required. Draft7 still owns conditional/dependent constraints; mutable transport mappings are detached snapshots. |
+| I02 selected reads/export | Protected scope-pinned read acquisition, paged finite support closure, immutable-byte CutSelection, actual query/records/export and main MCP resource/cursor route. Export spools closure to SQLite, streams complete authenticated original bytes, retains producing release/runtime archives and checks an explicitly trusted manifest digest. | Specialized characterization/contextual recipes, protected references/evaluation, current synthetic fixtures and complete detached semantic replay are being migrated. Final native end-to-end export/read receipts remain required. |
+| I03/I07 source writers | PDF-region render is a genuine declared prepared operation with source/publisher/geometry checks and generic native receipt. Old render run/task wrappers, publisher model/effect/call/native function/grant source and obsolete tests removed (`69df0eb72`). | Visual Chandra actor is moving to genuine existing external packet/claim/receipt custody; old visual group/writer wrappers and ProposalSession registration remain open until their callers migrate. Historical seeds require specific custody, not a writer compatibility facade. |
+| I03 operator reporting | Current `status`/`tasks` require an exact demand/project for progress and use the same pinned frontier. Settings-only `status` performs no DB lookup. Three settings/help controls passed `75c18884d8024f5baa7f60bacbaad065`; exact-target/codec controls passed `80f21ce6a562436ea25789f3bb1762c0` after retained test-decoder failure `037b2df004cb4ead8432170ae09d622d`. | Legacy run finalization/supervision, copied-task/twin reuse, current operation registrations and their synthetic consumers remain separate removal obligations. Current declaration/value/support reuse already coalesces authentic episodes; this does not establish complete modeled consolidation or change-impact analysis. |
+| I04 selected native verification | Filter product/member IDs before materialized binding work; decode meaning only where needed. Population-sensitive forall/absence/membership/coverage retain the full necessary scoped inventory. Candidate Core filtering and protected native validation remain independent. Core2 passed `0f6f91e2fd5546739d9795adb494f51b`. | Frozen successor and independent native selected/population controls on the final source remain required. No selective-only population shortcut or hard performance claim. |
+| I05 lifecycle | [ADR-0106](../adr/0106-postgresql-current-realization.md): existing writer inventory reserves renewal before foreground admission; bounded driver/port capacity, no inference-held checkout, public idempotent notice registration and physical invalidation/replacement. Renewal10 passed `04296bb89d6041a9bda9316969ecec1c`; native saturation1 passed in `b441ebc54d2f488fac2088d02abed8b5`; its reconnect failure was repaired and exact reconnect1 passed `5fccf0c69835479da445a64d2f4895a0`. | Final integrated checks retain primary/cleanup attribution and unknown-commit refusal. Purpose engines and actual physical fences remain; no second renewal pool or generic retry framework. |
+| I06 compiler/COPY reduction | Legacy relational/interchange/default/installed compilation and HalfVec mapping removed; live SQL-to-Arrow helper moved to semantic ownership; frozen Vector imports and historical compiler maps preserved. Current generated revision records current compiler identities. Archive rows batch into one existing COPY stream. Runtime/compiler controls retain worker receipts. | Old Alembic restoration/import and final physical historical table retirement remain DDO-11 preservation work; retained files alone do not establish recoverability. New selected Arrow reads remain conditional. |
+| I08 native structure/authoring | pglast prepared declaration-header rename and shared literal-descriptor extraction; four descriptor controls passed `f1100d2483c948f6a13cd7cd4517e1a0`. Exact frozen row-type dependents now retire before ALTER and restore after it, without CASCADE. Real evolve/stale/undeclared-dependency3 passed `c7c6dc5628204b7fb0825a829ea07459`. | Root final source-owned authoring/registration and scoped native consumer checks remain required. Initial candidate `4cc4a7c038c344aea54d7b5032514614` failed with SQLSTATE0A000; cleanup established. Passing rollback-only worker rehearsal does not replace final integrated authoring. |
+
+[PostgreSQL evidence](../design_review/evidence/2026-11-14_ddo-postgresql-realization/README.md)
+retains the authoring inputs, diagnostic material and bounded worker rehearsal. Failed receipts remain
+failed; replacement passes cover their named identities only. No persistent database change occurred.
+
 ### Preparation questions and readiness
 
 The companion defines the investigation content and safe boundaries; this table owns current
@@ -326,10 +349,10 @@ question disposition. Settling a design does not certify its implementation.
 
 | Question | Current disposition / owner | Settling result and constrained work |
 |---|---|---|
-| PG-Q1 (I01) | **In progress**, DDO-03 with DDO-01/04 | Current protocol construct/nominal correspondence and exact recursive decoding design; supports all current valid operations and archived generation. Precedes generator/correspondence changes and dependent consumer migration. |
-| PG-Q2 (I04) | **In progress**, DDO-04/05 | Actual frozen-predicate scope/column analysis selects selective acquisition or justifies necessary scoped aggregate. Precedes native verification rewrite; not a benchmark gate. |
-| PG-Q3 (I05) | **In progress**, DDO-06/store owner | Actual retained renewal checkout/settlement lock plus port/admission borrower lifetimes; select sufficient capacity/initialization hooks and reconcile D3/D9. Rule impact, if any, precedes dependent implementation. |
-| PG-Q4 (I06/I03) | **In progress**, DDO-01/10/11 | Finite live helper/compiler/format and historical migration/reference consumer account; specifies preserved/imported/regenerated and removable portions. Blocks only affected destructive retirement. |
+| PG-Q1 (I01) | **Design settled; implementation integrated**, DDO-03 with DDO-01/04 | Captured-schema structural TypedDict views with explicit nominal field paths; preserve absent/null and exact codecs, Draft7 conditional enforcement and existing correspondence/archive generation. Final integrated evidence remains above. |
+| PG-Q2 (I04) | **Design settled; source integrated**, DDO-04/05 | Keyed selected product/member filtering and no unnecessary raw-body decoding; complete scoped populations retained for forall/absence/membership/coverage. Native qualification remains above. |
+| PG-Q3 (I05) | **Settled**, DDO-06/store owner | One reserved existing writer checkout is acquired before foreground admission; driving call plus bounded port workers use remaining capacity. ADR-0106 and D3/D9 reconcile ownership. Public notice/invalidate hooks retain full dialect setup and actual replacement. |
+| PG-Q4 (I06/I03) | **Compiler/helper portion settled; historical/current-consumer portion open**, DDO-01/10/11 | Live native_source Arrow helper extracted; current compiler set separated from immutable historical maps; unused HalfVec removed, frozen Vector retained. Old restore paths/reference fixture applicability and remaining writer/reader closure still block only their affected retirement. |
 | PG-Q5 (I07) | **Deferred until trigger**, DDO-10 | Named tabular consumer first; then select and qualify native-pin/owner-XID visibility and snapshot handoff. Until then bounded native/Psycopg reads remain the route. |
 
 **Sequence:** establish I01 typed/correspondence and I02 selected-read design together before

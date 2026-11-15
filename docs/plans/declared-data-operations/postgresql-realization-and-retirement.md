@@ -1,6 +1,6 @@
 # PostgreSQL realization and retirement
 
-**Accepted planned scope; implementation Proposed · 2026-11-14.** Consumes all actionable portions
+**Accepted scope; integrated implementation in progress · 2026-11-14.** Consumes all actionable portions
 of [PostgreSQL domain alignment I01–I08](../../plan_improvement_reviews/declared-data-operations-postgresql-domain-alignment_2026-11-14.md)
 at `a1b9cc73a`, selected by the operator with conditions preserved. The
 [coordinator amendment](../declared-data-operations_2026-11-12.md#postgresql-domain-alignment-amendment--accepted-2026-11-14)
@@ -44,8 +44,11 @@ Currently `native_operation_calls` maps every request/result to `json_payload`; 
 protect runtime admission but do not give planner/executor consumers a useful static record shape.
 Do not introduce a parallel handwritten DTO or signature catalog.
 
-Generate operation-specific request/result records through the existing immutable record emitter
-and named typed call surface. Preserve fixed symbol selection; the validated generic
+The selected realization generates operation-specific structural TypedDict views through captured
+schema/correspondence generation and the named typed call surface (ADR-0106). Draft7 and the exact
+codec remain the runtime boundary; no second runtime object/decoder layer is introduced.
+Return values are detached mutable snapshots. See the coordinator for implementation and evidence.
+The planned record-emitter alternative is superseded by this consumed structural representation. Preserve fixed symbol selection; the validated generic
 `DataOperationStorage.invoke` remains private transport. Model-owned explicit field correspondence
 supplies nominal product, member, demand, request, attempt, receipt and contextual identities;
 shared `identifier: string` or field spelling cannot infer them. Contracts owns that correspondence;

@@ -9,7 +9,7 @@ from unittest.mock import MagicMock
 
 import psycopg
 import pytest
-from sqlalchemy import Connection
+from sqlalchemy import Connection, Engine
 from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.core.db.store import DatabasePhase, EffectKnowledge, classify_error
@@ -41,7 +41,9 @@ def fake_engine(conn):
         finally:
             released.set()
 
-    return SimpleNamespace(connect=connect), acquired, released
+    engine = MagicMock(spec=Engine)
+    engine.connect.side_effect = connect
+    return engine, acquired, released
 
 
 def claim():

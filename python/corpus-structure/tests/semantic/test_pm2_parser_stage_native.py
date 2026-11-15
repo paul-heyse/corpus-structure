@@ -175,7 +175,7 @@ def test_pm2_unattempted_scope_remains_visible_without_provider_or_contributions
 def test_cancelled_pm2_scope_does_not_gain_an_operation_result(parser_source):
     from hashlib import sha256
 
-    from corpus_structure.orchestrate.commands import bound_status, cancel_bound_run
+    from corpus_structure.orchestrate.commands import bound_status
     from corpus_structure.semantic._operation_calls import select_source_view
     from corpus_structure.semantic._operation_ids import SourceViewId
     from corpus_structure.semantic.operations import binding_of, create_run, create_task, start_run
@@ -232,7 +232,9 @@ def test_cancelled_pm2_scope_does_not_gain_an_operation_result(parser_source):
             unit_key="private-unit",
             input_hash=digest,
         )
-    assert cancel_bound_run(case.writer, run).tasks_cancelled == 1
+    from corpus_structure.semantic.operations import end_source_run
+    with case.writer.begin() as connection:
+        assert end_source_run(connection, run) == 1
     with read_snapshot(case.writer) as conn:
         status = bound_status(conn, run).run
         with pytest.raises(ValueError, match="scope source view differs from its admitted task"):

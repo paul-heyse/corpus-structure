@@ -64,7 +64,7 @@ def test_supervisor_handoff_distinguishes_waiting_from_lost_active_session(
     commit_application_settings = resubmission_application_settings
     from sqlalchemy.exc import DBAPIError
 
-    from corpus_structure.orchestrate.commands import bound_status, cancel_bound_run
+    from corpus_structure.orchestrate.commands import bound_status
     from corpus_structure.orchestrate.liveness import (
         record_supervisor,
         run_supervisor,
@@ -116,7 +116,9 @@ def test_supervisor_handoff_distinguishes_waiting_from_lost_active_session(
             status("active")
             supervisor.invalidate()
         status("orphaned")
-        assert cancel_bound_run(engine, run).run_id == run
+        from corpus_structure.semantic.operations import end_source_run
+        with engine.begin() as connection:
+            end_source_run(connection, run)
         status("terminal")
 
 

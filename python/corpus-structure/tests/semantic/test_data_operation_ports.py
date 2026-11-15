@@ -788,8 +788,9 @@ def test_data_stream_close_and_cancel_never_mark_prefix_complete(tmp_path, monke
 
 
 def test_publication_port_requires_the_native_effect_receipt_and_preserves_replay():
-    from types import SimpleNamespace
+    from unittest.mock import MagicMock
 
+    from corpus_structure.semantic.data_operation_storage import DataOperationStorage
     from corpus_structure.semantic.data_operation_ports import ResolvedPublicationPort
 
     seen = []
@@ -800,11 +801,13 @@ def test_publication_port_requires_the_native_effect_receipt_and_preserves_repla
         "trust_snapshot": {},
     }
 
-    def invoke(name, payload):
-        seen.append((name, payload))
+    def publish(payload):
+        seen.append(("publish_data_derivation", payload))
         return result
 
-    port = ResolvedPublicationPort(SimpleNamespace(invoke=invoke), "request:kind", "result:kind")
+    storage = MagicMock(spec=DataOperationStorage)
+    storage.publish_data_derivation.side_effect = publish
+    port = ResolvedPublicationPort(storage, "request:kind", "result:kind")
     value = RoleValue("request", "request:kind", b'{"intent_id":"original"}')
     first = port.invoke_json(value)
     assert first.receipt_id == "receipt:one"
