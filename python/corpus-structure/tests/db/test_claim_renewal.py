@@ -120,7 +120,9 @@ def test_uncertain_or_uncovered_renewal_never_retries(failure_kind):
         with maintained_claims(engine, [claim()], "owner", interval=0.001, renew=renew) as owner:
             error = await_failure(owner)
             if failure_kind == "rollback":
-                assert str(error) == "rollback failed" and error.__context__ is original
+                assert error is original
+                assert str(error.__cause__) == "rollback failed"
+                assert error.__dict__["database_cleanup_unresolved"] is True
     assert calls == [1]
 
 

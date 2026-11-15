@@ -21,6 +21,7 @@ from corpus_structure.core.db.store import (
     EffectKnowledge,
     classify_error,
     record_operation_failure,
+    record_cleanup_failure,
 )
 from corpus_structure.settings import DatabaseSettings
 
@@ -337,8 +338,12 @@ def maintained_claims(
                                         holder=holder,
                                     )
                                 cancellation.check_active()
-                            except BaseException:
-                                transaction.rollback()
+                            except BaseException as error:
+                                try:
+                                    transaction.rollback()
+                                except BaseException as cleanup:
+                                    record_cleanup_failure(error, cleanup)
+                                    raise error from cleanup
                                 effects = EffectKnowledge.ROLLED_BACK
                                 raise
                             phase = DatabasePhase.COMMITTING
