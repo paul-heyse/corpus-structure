@@ -327,12 +327,16 @@ def _rename_native_entrypoints(sql: str, names: set[str]) -> str:
 
 def native_sql(sources=None) -> str:
     captured = native_protocol_sources() if sources is None else tuple(sources)
-    sql = (
-        _captured(captured)["native/data-operation-record-grade-native.sql"].decode() + "\n" + _captured(captured)["native/data-operation-record-policy.sql"].decode() + "\n" + _captured(captured)["native/data-operation-record-policy-completion.sql"].decode() + "\n" + _captured(captured)["native/data-operations.sql"]
-        .decode()
-        .replace("__DDO_SOURCE_DIGEST__", native_source_digest(captured))
-    )
-    sql += "\n" + _captured(captured).get("native/data-operation-external.sql", b"").decode()
+    bodies = _captured(captured)
+    sql = "\n".join(bodies[name].decode() for name in (
+        "native/data-operation-record-grade-native.sql",
+        "native/data-operation-record-policy.sql",
+        "native/data-operation-record-policy-completion.sql",
+        "native/data-operations.sql",
+    ))
+    sql += "\n" + bodies.get("native/data-operation-external.sql", b"").decode()
+    # Every private completion guard attests the same captured native kernel.
+    sql = sql.replace("__DDO_SOURCE_DIGEST__", native_source_digest(captured))
     if "__DDO_SUBJECT_SCOPES__" in sql:
         sql=sql.replace("__DDO_SUBJECT_SCOPES__",_captured(captured)["native/data-operation-subject-scopes.json"].decode().replace("'","''"))
     if "__DDO_RECORDABLE_FATES__" in sql:
