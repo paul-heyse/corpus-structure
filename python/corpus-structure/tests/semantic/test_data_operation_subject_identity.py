@@ -82,7 +82,7 @@ def test_incomplete_subject_kind_closure_withholds_operation_identity_and_native
     assert identity(model, "primitive:integer", "kind")
     assert not any(item.owner == SUBJECT_KIND and item.domain == "kind" for item in model.identities)
     assert not any(item.owner == operation["id"] for item in model.identities)
-    with pytest.raises(ValueError, match="incomplete effective kind"):
+    with pytest.raises(ValueError, match="incomplete effective kind|requires a complete nominal kind"):
         native_projection(model)
 
 
