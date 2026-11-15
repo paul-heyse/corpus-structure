@@ -35,6 +35,11 @@ class DdoRichValueEntry(RichRecord):
     value_id: Nonempty
 
 
+class DdoRichPropertyValue(RichRecord):
+    property_contract: Nonempty
+    value_id: Nonempty
+
+
 class DdoRichScalarValue(RichRecord):
     member_type: Literal["scalar-value"]
     value_id: Nonempty
@@ -73,7 +78,7 @@ class DdoRichRecordValue(RichRecord):
     member_type: Literal["record-value"]
     value_id: Nonempty
     kind_contract: Nonempty
-    fields: tuple[DdoRichValueEntry, ...]
+    fields: tuple[DdoRichPropertyValue, ...]
 
 
 class DdoRichCollectionValue(RichRecord):
@@ -96,7 +101,7 @@ class DdoRichQualificationMeaning(RichRecord):
     member_type: Literal["qualification-meaning"]
     value_id: Nonempty
     qualification_contract: Nonempty
-    fields: tuple[DdoRichValueEntry, ...]
+    fields: tuple[DdoRichPropertyValue, ...]
 
 
 class DdoRichEntity(RichRecord):
@@ -219,14 +224,12 @@ class DdoRichAdmission(RichRecord):
 
 
 def rich_context_pin(context: SubjectContext) -> DdoRichContextPin:
-    from .data_operation_identity import semantic_value
-    from .identity import canonical_bytes
-    from .data_operation_json import json_loads
+    from .data_operation_model import json_context_meaning
 
     return DdoRichContextPin(
         project_id=context.project_id, subject=context.subject,
         subject_definition=context.subject_definition, original_source=context.original_source,
-        analyzed_scope_meaning=canonical_bytes(semantic_value(json_loads(context.analyzed_scope))).decode(),
+        analyzed_scope_meaning=json_context_meaning(context.analyzed_scope).decode(),
     )
 
 

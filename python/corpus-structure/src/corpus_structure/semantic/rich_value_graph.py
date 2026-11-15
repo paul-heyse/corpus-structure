@@ -12,7 +12,7 @@ from .data_operation_identity import canonical_identity
 from .data_operation_model import EffectiveDataOperationModel
 from .rich_knowledge_contracts import (
     DdoRichCollectionValue, DdoRichEntityValue, DdoRichRecordValue,
-    DdoRichScalarValue, DdoRichValueEntry,
+    DdoRichScalarValue, DdoRichValueEntry, DdoRichPropertyValue,
     DdoRichCasefoldText, DdoRichQualificationMeaning,
 )
 from .types import PreparedRelease, PropertyDefinition
@@ -87,8 +87,8 @@ class RichValueGraph:
                 self._retain(DdoRichCasefoldText(member_type="casefold-text", value_id=value_id, property_contract=property_contract, text=component.equality_value))
             else:
                 value_id = self._property_value(definition.iri, prop, component.observed)
-            fields.append(DdoRichValueEntry(name=prop.iri, position=0, value_id=value_id))
-        fields = tuple(sorted(fields, key=lambda field: field.name))
+            fields.append(DdoRichPropertyValue(property_contract=self._contract(definition.iri + "/property/" + prop.name), value_id=value_id))
+        fields = tuple(sorted(fields, key=lambda field: field.property_contract))
         contract = self._contract(definition.iri)
         identifier = canonical_identity("rich-value", ["qualification-meaning", contract, [field.model_dump(mode="python") for field in fields]]).key
         self._retain(DdoRichQualificationMeaning(member_type="qualification-meaning", value_id=identifier, qualification_contract=contract, fields=fields))
@@ -135,8 +135,8 @@ class RichValueGraph:
                     continue
                 child = getattr(value, prop.name)
                 child_id = self._property_value(definition.iri, prop, child)
-                fields.append(DdoRichValueEntry(name=prop.iri, position=0, value_id=child_id))
-            fields = tuple(sorted(fields, key=lambda field: field.name))
+                fields.append(DdoRichPropertyValue(property_contract=self._contract(definition.iri + "/property/" + prop.name), value_id=child_id))
+            fields = tuple(sorted(fields, key=lambda field: field.property_contract))
             identifier = canonical_identity("rich-value", ["record", contract, [field.model_dump(mode="python") for field in fields]]).key
             return self._retain(DdoRichRecordValue(member_type="record-value", value_id=identifier, kind_contract=contract, fields=fields))
         if isinstance(value, (Mapping, tuple, list)):

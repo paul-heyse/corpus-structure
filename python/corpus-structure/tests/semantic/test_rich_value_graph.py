@@ -44,7 +44,8 @@ classes:
       optional_values: {multivalued: true}
   Detail:
     attributes:
-      label: {required: true}
+      label: {required: true, slot_uri: r:shared}
+      alias: {slot_uri: r:shared}
   Qualification:
     attributes:
       label: {required: true, annotations: {cs:case: casefold}}
@@ -54,7 +55,8 @@ classes:
     operation = contract(subject="knowledge-universe", subject_definition={
         "id": "knowledge-universe", "identifier_kind": "string", "scope": "project"
     })
-    return prepare_release(bundle), compile_data_operations(bundle, declarations=declarations(operation))
+    kinds = SourceArtifact("actual-rich-contracts.json", canonical_bytes({"version": MODEL_VERSION, "kinds": rich_kind_declarations()}))
+    return prepare_release(bundle), compile_data_operations(bundle, declarations=(*declarations(operation), kinds))
 
 
 def test_exact_rich_value_members_keep_decimal_scale_independent_meaning_and_signed_float(source):
@@ -83,9 +85,9 @@ def test_rich_record_fields_retain_actual_property_owners_and_original_entity_re
     rows = {value.value_id: value for value in graph.values}
     record = rows[identifier]
     assert isinstance(record, DdoRichRecordValue)
-    fields = {field.name: rows[field.value_id] for field in record.fields}
+    fields = {field.property_contract: rows[field.value_id] for field in record.fields}
     definition = prepared.index.definitions["Measurement"]
-    expected = {prop.name: prop.iri for prop in definition.properties}
+    expected = {prop.name: next(item.key for item in model.identities if item.domain == "kind" and item.owner == definition.iri + "/property/" + prop.name) for prop in definition.properties}
     assert set(fields) == {expected[name] for name in values}
     at = fields[expected["at"]]
     reference = fields[expected["reference"]]
@@ -172,18 +174,18 @@ def test_actual_optional_boundaries_keep_omission_empty_and_present_values_disti
     present = graph.lower_record("Measurement", {**observed, "note": "", "optional_ref": "entity:retained", "optional_inline": {"label": "actual"}})
     assert len({omitted, empty, present}) == 3
     rows = {value.value_id: value for value in graph.values}
-    props = {prop.name: prop for prop in prepared.index.definitions["Measurement"].properties}
+    props = {prop.name: next(item.key for item in model.identities if item.domain == "kind" and item.owner == "urn:rich-values:Measurement/property/" + prop.name) for prop in prepared.index.definitions["Measurement"].properties}
     empty_record = rows[empty]
     assert isinstance(empty_record, DdoRichRecordValue)
-    empty_values = rows[next(field.value_id for field in empty_record.fields if field.name == props["optional_values"].iri)]
+    empty_values = rows[next(field.value_id for field in empty_record.fields if field.property_contract == props["optional_values"])]
     assert isinstance(empty_values, DdoRichCollectionValue)
     assert empty_values.entries == ()
     present_record = rows[present]
     assert isinstance(present_record, DdoRichRecordValue)
-    fields = {field.name: rows[field.value_id] for field in present_record.fields}
-    assert isinstance(fields[props["optional_inline"].iri], DdoRichRecordValue)
-    assert isinstance(fields[props["optional_ref"].iri], DdoRichEntityValue)
-    assert isinstance(fields[props["note"].iri], DdoRichScalarValue)
+    fields = {field.property_contract: rows[field.value_id] for field in present_record.fields}
+    assert isinstance(fields[props["optional_inline"]], DdoRichRecordValue)
+    assert isinstance(fields[props["optional_ref"]], DdoRichEntityValue)
+    assert isinstance(fields[props["note"]], DdoRichScalarValue)
     for name in ("note", "optional_ref", "optional_inline", "optional_values"):
         with pytest.raises(ValidationError):
             graph.lower_record("Measurement", {**observed, name: None})
@@ -251,3 +253,104 @@ def test_rich_fact_subject_context_is_a_real_determinant_and_property_null_stays
     assert a.fact.fact_id != b.fact.fact_id
     with pytest.raises(ValidationError):
         first.add_property_fact(**{**kwargs, "property_name": "optional_ref", "value": None})
+
+
+def actual_graph(source):
+    from corpus_structure.semantic.rich_fact_graph import RichFactGraph
+    from corpus_structure.semantic.data_operation_model import SubjectContext
+    from corpus_structure.semantic.rich_knowledge_contracts import DdoRichConsolidation, DdoRichContext, DdoRichEntity, DdoRichOccurrence, DdoRichPacket, DdoRichSelectedMember
+    prepared, model = source
+    context = SubjectContext("project:actual", "knowledge:actual", None, b'{}', subject_definition="knowledge-universe")
+    ids = {item.owner: item.key for item in model.identities if item.domain == "kind"}
+    prefix = "https://corpus-structure.dev/semantic/data-operation-rich-knowledge/"
+    entity_ref = DdoRichSelectedMember(product_id="selected:known-entities", member_id="entity:subject", kind_contract=ids[prefix + "DdoRichEntity"])
+    claim_ref = DdoRichSelectedMember(product_id="selected:authored-fact", member_id="fact:source", kind_contract=ids[prefix + "DdoRichFact"])
+    values = RichFactGraph(prepared, model, context=context, entities={"entity:subject": frozenset({"urn:rich-values:Measurement"})}, known_fact_ids=frozenset())
+    result = values.add_property_fact(subject_entity="entity:subject", class_name="Measurement", property_name="amount", value=Decimal("12.3"), qualification={"label": "Gaussian", "reporter": "original-source"})
+    entity = DdoRichEntity(member_type="entity", entity_id="entity:subject", class_contracts=(ids["urn:rich-values:Measurement"],), source_members=(entity_ref,))
+    occurrence = DdoRichOccurrence(member_type="source-occurrence", occurrence_id="occurrence:actual", fact_id=result.fact.fact_id, original=claim_ref, statement=None, observed_qualification_value=result.observed_qualification_value, dependencies=())
+    bodies = (*((value.value_id, value) for value in values.values), (entity.entity_id, entity), (result.fact.fact_id, result.fact), (occurrence.occurrence_id, occurrence))
+    packets = tuple(DdoRichPacket(member_id=identifier, kind_contract=ids[prefix + type(body).__name__], context=DdoRichContext(subject=context.subject, subject_definition=context.subject_definition, original_source=None, analyzed_scope={}), body=body) for identifier, body in bodies)
+    inputs = (entity_ref, claim_ref)
+    return context, DdoRichConsolidation(version="rich-consolidation-1", standing="private-consolidated", members=packets, input_population=inputs), inputs
+
+
+def test_finite_rich_graph_validator_checks_real_member_property_range_and_source_links(source):
+    from corpus_structure.semantic.rich_graph_validation import validate_rich_graph
+    prepared, model = source
+    context, graph, inputs = actual_graph(source)
+    checked = validate_rich_graph(prepared, model, context=context, graph=graph, inputs=inputs)
+    assert checked == graph
+    assert checked.standing == "private-consolidated"
+    from corpus_structure.semantic.data_operation_ports import project_product_members
+    projected = project_product_members(model, "https://corpus-structure.dev/semantic/data-operation-rich-knowledge/DdoRichConsolidation", checked)
+    assert len(projected) == len(checked.members)
+    assert {__import__("json").loads(item)["member_id"] for item in projected} == {packet.member_id for packet in checked.members}
+
+
+@pytest.mark.parametrize("defect", ["dangling-value", "different-range", "nominal-header", "source-possession", "wrong-context", "body-identity", "provenance-equality", "wrong-property-owner"])
+def test_finite_rich_graph_validator_refuses_lookalike_ids_and_unselected_or_wrong_typed_relations(source, defect):
+    from corpus_structure.semantic.rich_graph_validation import validate_rich_graph
+    from corpus_structure.semantic.rich_knowledge_contracts import DdoRichFact, DdoRichOccurrence, DdoRichQualificationMeaning, DdoRichPropertyValue
+    prepared, model = source
+    context, graph, inputs = actual_graph(source)
+    packets = list(graph.members)
+    ids = {item.owner: item.key for item in model.identities if item.domain == "kind"}
+    for index, packet in enumerate(packets):
+        body = packet.body
+        if defect == "dangling-value" and isinstance(body, DdoRichFact):
+            packets[index] = packet.model_copy(update={"body": body.model_copy(update={"object_value": "rich-value:same-looking-unselected"})})
+            break
+        if defect == "different-range" and isinstance(body, DdoRichScalarValue) and body.datatype == "decimal":
+            packets[index] = packet.model_copy(update={"body": body.model_copy(update={"kind_contract": ids["type:urn:rich-values#string"]})})
+            break
+        if defect == "nominal-header" and isinstance(body, DdoRichFact):
+            packets[index] = packet.model_copy(update={"kind_contract": ids["https://corpus-structure.dev/semantic/data-operation-rich-knowledge/DdoRichEntity"]})
+            break
+        if defect == "source-possession" and isinstance(body, DdoRichOccurrence):
+            packets[index] = packet.model_copy(update={"body": body.model_copy(update={"original": body.original.model_copy(update={"product_id": "unselected:source"})})})
+            break
+        if defect == "wrong-context":
+            packets[index] = packet.model_copy(update={"context": packet.context.model_copy(update={"subject": "another-universe"})})
+            break
+        if defect == "body-identity" and isinstance(body, DdoRichFact):
+            packets[index] = packet.model_copy(update={"body": body.model_copy(update={"fact_id": "rich-fact:unowned"})})
+            break
+        if defect == "provenance-equality" and isinstance(body, DdoRichQualificationMeaning):
+            packets[index] = packet.model_copy(update={"body": body.model_copy(update={"fields": (DdoRichPropertyValue(property_contract=ids["urn:rich-values:Qualification/property/reporter"], value_id=body.fields[0].value_id),)})})
+            break
+        if defect == "wrong-property-owner" and isinstance(body, DdoRichQualificationMeaning):
+            packets[index] = packet.model_copy(update={"body": body.model_copy(update={"fields": (DdoRichPropertyValue(property_contract=ids["urn:rich-values:Measurement/property/note"], value_id=body.fields[0].value_id),)})})
+            break
+    else:
+        raise AssertionError("independent invalid fixture did not identify its intended member")
+    invalid = graph.model_copy(update={"members": tuple(packets)})
+    with pytest.raises(ValueError):
+        validate_rich_graph(prepared, model, context=context, graph=invalid, inputs=inputs)
+
+
+def test_record_property_contracts_preserve_distinct_alias_fields_sharing_a_predicate_iri(source):
+    prepared, model = source
+    graph = RichValueGraph(prepared, model)
+    identifier = graph.lower_record("Detail", {"label": "first", "alias": "second"})
+    props = prepared.index.definitions["Detail"].properties
+    assert len(props) == 2 and props[0].iri == props[1].iri
+    rows = {value.value_id: value for value in graph.values}
+    record = rows[identifier]
+    assert isinstance(record, DdoRichRecordValue)
+    actual = {field.property_contract: rows[field.value_id] for field in record.fields}
+    ids = {item.owner: item.key for item in model.identities if item.domain == "kind"}
+    assert len(actual) == 2
+    label = actual[ids["urn:rich-values:Detail/property/label"]]
+    alias = actual[ids["urn:rich-values:Detail/property/alias"]]
+    assert isinstance(label, DdoRichScalarValue) and isinstance(alias, DdoRichScalarValue)
+    assert (label.lexical, alias.lexical) == ("first", "second")
+
+
+def test_rich_context_pin_uses_shared_json_number_equality_without_collapsing_booleans():
+    from corpus_structure.semantic.data_operation_model import SubjectContext
+    from corpus_structure.semantic.rich_knowledge_contracts import rich_context_pin
+    def pin(scope):
+        return rich_context_pin(SubjectContext("project", "knowledge", None, scope, subject_definition="knowledge-universe"))
+    assert pin(b'{"page":1}') == pin(b'{"page":1.0}')
+    assert pin(b'{"page":1}') != pin(b'{"page":true}')
