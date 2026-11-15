@@ -33,7 +33,7 @@ from .data_operation_model import SubjectContext
 from .data_operation_outcomes import successful_return_outcome
 from .identity import canonical_bytes
 from .source_products import FrozenNativeSource, source_product_inputs, source_subject
-from .types import PreparedRelease, SourceArtifact, SourceBundle
+from .types import PreparationProfile, PreparedRelease, SourceArtifact, SourceBundle
 
 if TYPE_CHECKING:
     from corpus_structure.methods.native_host import NativeHostGroup
@@ -46,10 +46,12 @@ if TYPE_CHECKING:
 _MODEL = Path(__file__).resolve().parents[1] / "model/semantic/data-operation-sentences.yaml"
 
 
-def sentence_product_inputs(bundle: SourceBundle) -> SourceBundle:
+def sentence_product_inputs(
+    bundle: SourceBundle, *, profile: PreparationProfile | None = None
+) -> SourceBundle:
     from .declared_record_sources import declared_record_inputs
 
-    bundle = declared_record_inputs(source_product_inputs(bundle))
+    bundle = declared_record_inputs(source_product_inputs(bundle, profile=profile))
     names = {source.name for source in bundle.sources}
     if names & {"data_operation_sentences", "data_operation_sentences_root"}:
         raise ValueError("sentence profile uses reserved source schema names")
@@ -598,9 +600,11 @@ def _detach_annotation_block(
     )
     # ProjectedPiece.to_wire omits absent optional fields, including a synthetic
     # separator's item_ref. Restore that actual absence at the typed boundary.
-    pieces = tuple(
-        ProjectedPiece(**{"item_ref": None, **selected["pieces"][index]}) for index in block.pieces
-    )
+    restored_pieces = []
+    for index in block.pieces:
+        fields: dict[str, Any] = {"item_ref": None, **selected["pieces"][index]}
+        restored_pieces.append(ProjectedPiece(**fields))
+    pieces = tuple(restored_pieces)
     supplied = AnnotationInput(source_pin, block.block_id, kind, block.block, layout, pieces)
     (annotation,) = annotate(
         (supplied,),

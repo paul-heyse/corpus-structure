@@ -12,7 +12,7 @@ from typing import Any
 from .data_operation_json import json_bytes, wire_json_loads
 from .identity import canonical_bytes
 from .python_module_projection import admitted_operation_module_meaning
-from .types import SourceArtifact, SourceBundle
+from .types import PreparationProfile, SourceArtifact, SourceBundle
 
 _ROOT = Path(__file__).parents[1]
 _MODEL = _ROOT / "model/semantic/data-operation-external-extraction.yaml"
@@ -46,6 +46,7 @@ def external_extraction_inputs(
     *,
     qualification_class="Qualification",
     statement_class="SourceStatement",
+    profile: PreparationProfile | None = None,
 ):
     """Reuse the release's actual Agent vocabulary and existing declared source pins."""
     import yaml
@@ -56,7 +57,7 @@ def external_extraction_inputs(
 
     names = {source.name for source in bundle.sources}
     if "data_operation_sentences" not in names:
-        bundle = sentence_product_inputs(bundle)
+        bundle = sentence_product_inputs(bundle, profile=profile)
     if "data_operation_source_discovery" not in {source.name for source in bundle.sources}:
         bundle = source_discovery_inputs(bundle)
     if "agent" not in names:
@@ -67,6 +68,7 @@ def external_extraction_inputs(
             "qualification_class": qualification_class,
             "statement_class": statement_class,
             "observation_content": observation_content,
+            "profile": profile,
         }
         bundle = (
             proposal_inputs(bundle, **options)

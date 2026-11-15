@@ -268,6 +268,11 @@ def test_semantic_1_and_preview_keep_refusing_rules():
     assert all(a.kind != "conditional_rules.json" for a in baseline.artifacts)
 
 
+def test_preview_uses_explicit_semantic_2_profile_for_supported_rules():
+    candidate = preview_schema(bundle(schema()), profile=PROFILE)
+    assert {item.name for item in candidate.classes} == {"Thing"}
+
+
 def test_native_rule_atoms_preserve_alias_presence_and_branch_scope():
     from corpus_structure.semantic.conditional_rules import compile_native_conditionals
 

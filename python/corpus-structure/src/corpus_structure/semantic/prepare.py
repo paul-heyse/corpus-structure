@@ -535,10 +535,13 @@ def _plain_uri(value: str) -> str:
 
 
 def preview_schema(
-    bundle: SourceBundle, dependencies: ResolvedDependencies = _EMPTY_DEPENDENCIES
+    bundle: SourceBundle,
+    dependencies: ResolvedDependencies = _EMPTY_DEPENDENCIES,
+    *,
+    profile: PreparationProfile | None = None,
 ) -> SchemaPreview:
     """Resolve exact names/vocabulary without generating models, graphs or release artifacts."""
-    view, vocabularies, diagnostics = _view_and_vocabularies(bundle, dependencies)
+    view, vocabularies, diagnostics = _view_and_vocabularies(bundle, dependencies, profile)
     classes = tuple(
         ClassPreview(
             str(name),

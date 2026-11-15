@@ -21,7 +21,13 @@ from corpus_structure.core.evidence import MacroDef
 from corpus_structure.core.locators import LocatorIndex
 from corpus_structure.methods.llm.parts import PAGE_CHARS, Part, text_hash
 
-from .types import PreparedRelease, ResolvedDependencies, SourceArtifact, SourceBundle
+from .types import (
+    PreparationProfile,
+    PreparedRelease,
+    ResolvedDependencies,
+    SourceArtifact,
+    SourceBundle,
+)
 
 if TYPE_CHECKING:
     from .declared_proposal_frames import DeclaredProposalFrame, DeclaredProposalSource
@@ -43,16 +49,17 @@ def proposal_inputs(
     statement_class: str = "SourceStatement",
     model_content: bytes | None = None,
     observation_content: bytes | None = None,
+    profile: PreparationProfile | None = None,
 ) -> SourceBundle:
     """Archive model-facing boundaries with the exact candidate vocabulary."""
     from .observations import observation_inputs
 
-    bundle = observation_inputs(bundle, model_content=observation_content)
+    bundle = observation_inputs(bundle, model_content=observation_content, profile=profile)
     if {source.name for source in bundle.sources} & {"agent", "agent-root"}:
         raise ValueError("reserved agent module name already supplied")
     from .prepare import preview_schema
 
-    candidate = preview_schema(bundle, dependencies)
+    candidate = preview_schema(bundle, dependencies, profile=profile)
     module = yaml.safe_load(_MODEL.read_bytes() if model_content is None else model_content)
     qualification = next((d for d in candidate.classes if d.name == qualification_class), None)
     if qualification is None or not (

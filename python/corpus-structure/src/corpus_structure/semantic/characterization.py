@@ -18,7 +18,13 @@ import yaml
 
 from .identity import canonical_bytes
 from .product_reference import ProductReference
-from .types import PreparedArtifact, PreparedRelease, SourceArtifact, SourceBundle
+from .types import (
+    PreparationProfile,
+    PreparedArtifact,
+    PreparedRelease,
+    SourceArtifact,
+    SourceBundle,
+)
 
 if TYPE_CHECKING:
     from .data_product_reference import DataProductMemberReference, DataProductReference
@@ -30,7 +36,10 @@ _POLICY_ARTIFACT = "characterization/attachment-policies.json"
 
 
 def characterization_inputs(
-    bundle: SourceBundle, *, model_content: bytes | None = None
+    bundle: SourceBundle,
+    *,
+    model_content: bytes | None = None,
+    profile: PreparationProfile | None = None,
 ) -> SourceBundle:
     """Acquire and archive the trusted declaration; reserved names cannot be substituted."""
     content = _construction_model(_MODEL.read_bytes()) if model_content is None else model_content
@@ -38,7 +47,7 @@ def characterization_inputs(
     if "observations" not in names:
         from .observations import observation_inputs
 
-        bundle = observation_inputs(bundle)
+        bundle = observation_inputs(bundle, profile=profile)
         names = {source.name for source in bundle.sources}
     if names & {"characterization", "characterization-root"}:
         from .prepare import _view
@@ -47,7 +56,7 @@ def characterization_inputs(
         if (
             module is not None
             and module.content == content
-            and "AnnotationLayer" in _view(bundle).all_classes()
+            and "AnnotationLayer" in _view(bundle, profile).all_classes()
         ):
             return bundle
         raise ValueError("reserved characterization module supplied with another meaning")

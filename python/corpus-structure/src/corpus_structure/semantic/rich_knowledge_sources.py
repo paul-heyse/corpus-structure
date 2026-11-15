@@ -11,7 +11,7 @@ import yaml
 from linkml_runtime.utils.yamlutils import DupCheckYamlLoader
 
 from .identity import canonical_bytes
-from .types import ResolvedDependencies, SourceArtifact, SourceBundle
+from .types import PreparationProfile, ResolvedDependencies, SourceArtifact, SourceBundle
 
 RULE_INPUT = "operation/domain-rules.yaml"
 VERSION = "semantic-domain-3"
@@ -151,12 +151,22 @@ def rich_knowledge_schema_inputs(
 
     if any(artifact.name == RICH_CONTRACT_INPUT for artifact in dependencies.artifacts):
         raise ValueError("rich knowledge contracts already declared")
-    bundle, dependencies = prepare_source_inputs(bundle, dependencies)
+    # An existing immutable observation module is the semantic source owner.
+    # Maintained record/source capsules may already carry the current pin
+    # projection; adding rich routes must not acquire a second installed meaning.
+    observation_content = next(
+        (source.content for source in bundle.sources if source.name == "observations"), None
+    )
+    preparation = PreparationProfile(version="semantic-2")
+    bundle, dependencies = prepare_source_inputs(
+        bundle, dependencies, model_content=observation_content, profile=preparation
+    )
     bundle = external_extraction_inputs(
         bundle,
         dependencies,
         qualification_class=qualification_class,
         statement_class=statement_class,
+        profile=preparation,
     )
     bundle = source_reading_inputs(reading_resolution_inputs(bundle), require_families=False)
     declarations = SourceArtifact(

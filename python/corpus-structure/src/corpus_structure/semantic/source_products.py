@@ -15,12 +15,14 @@ from pydantic import BaseModel
 
 from .identity import canonical_bytes
 from .original_documents import original_document_subject
-from .types import PreparedRelease, SourceArtifact, SourceBundle
+from .types import PreparationProfile, PreparedRelease, SourceArtifact, SourceBundle
 
 _MODEL = Path(__file__).resolve().parents[1] / "model/semantic/data-operation-source.yaml"
 
 
-def source_product_inputs(bundle: SourceBundle) -> SourceBundle:
+def source_product_inputs(
+    bundle: SourceBundle, *, profile: PreparationProfile | None = None
+) -> SourceBundle:
     """Capture the one common nominal source model, reusing existing selectors."""
     from .characterization import characterization_inputs
     from .data_product_reference import reference_inputs
@@ -37,7 +39,7 @@ def source_product_inputs(bundle: SourceBundle) -> SourceBundle:
         ):
             raise ValueError("shared native source model differs from installed owner")
         return reference_inputs(bundle)
-    bundle = reference_inputs(characterization_inputs(bundle))
+    bundle = reference_inputs(characterization_inputs(bundle, profile=profile))
     root = "data_operation_source_root"
     if root in names:
         raise ValueError("native source model uses a reserved root name")

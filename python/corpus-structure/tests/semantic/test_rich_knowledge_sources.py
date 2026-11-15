@@ -207,3 +207,27 @@ def test_rich_policy_refs_resolve_exact_captured_profile_and_checked_kind_owners
     assert require_rich_policy(prepared, model, policy.model_dump(mode="python")) == policy
     with pytest.raises(ValueError, match="checked captured"):
         require_rich_policy(prepared, model, policy.model_copy(update={"rules_digest": "f" * 64}))
+
+
+def test_rich_augmentation_preserves_exact_captured_current_observations(monkeypatch):
+    from corpus_structure.semantic import observations, prepare_release
+    from corpus_structure.semantic.declared_record_sources import declared_record_inputs
+
+    current = declared_record_inputs(release_inputs()[0])
+    captured = next(source.content for source in current.sources if source.name == "observations")
+    assert b"declared-native-source-v1" in captured
+    # This acquisition already has its actual schema authority. Reopening an
+    # installed observation default would be a second owner, not a valid merge.
+    monkeypatch.setattr(observations, "_MODEL", Path("unavailable-installed-observation-default.yaml"))
+    bundle, dependencies = rich_knowledge_schema_inputs(current, ResolvedDependencies(),
+        qualification_class="StatisticsQualification", statement_class="SourceStatement")
+    actual = [source.content for source in bundle.sources if source.name == "observations"]
+    assert actual == [captured]
+    prepared = prepare_release(bundle, dependencies)
+    fields = {prop.name for prop in prepared.index.definitions["RecordSourcePin"].properties}
+    assert {"format", "source_product", "subject_definition", "analyzed_scope_meaning"} <= fields
+    assert not {"source_view_id", "native_product_task_id", "recipe_digest"} & fields
+    conflicting = captured.replace(b"declared-native-source-v1", b"incompatible-pin-v2")
+    assert conflicting != captured
+    with pytest.raises(ValueError, match="reserved observation module"):
+        observations.observation_inputs(current, model_content=conflicting)

@@ -20,12 +20,17 @@ from corpus_structure.core.method import METHOD_SOURCE, UnitResult
 
 from .identity import canonical_bytes
 from .metrics import validate_measurement
-from .types import PreparedRelease, SourceArtifact, SourceBundle
+from .types import PreparationProfile, PreparedRelease, SourceArtifact, SourceBundle
 
 _MODEL = Path(__file__).resolve().parents[1] / "model" / "semantic" / "observations.yaml"
 
 
-def observation_inputs(bundle: SourceBundle, *, model_content: bytes | None = None) -> SourceBundle:
+def observation_inputs(
+    bundle: SourceBundle,
+    *,
+    model_content: bytes | None = None,
+    profile: PreparationProfile | None = None,
+) -> SourceBundle:
     """Include the source-report module through archived, hashed release preparation."""
     names = {source.name for source in bundle.sources}
     content = _MODEL.read_bytes() if model_content is None else model_content
@@ -36,7 +41,7 @@ def observation_inputs(bundle: SourceBundle, *, model_content: bytes | None = No
         if (
             module is not None
             and module.content == content
-            and "SourceObservation" in _view(bundle).all_classes()
+            and "SourceObservation" in _view(bundle, profile).all_classes()
         ):
             return bundle
         raise ValueError("reserved observation module name already supplied with another meaning")
@@ -67,6 +72,7 @@ def prepare_source_inputs(
     model_content: bytes | None = None,
     characterization_content: bytes | None = None,
     characterization_question_content: bytes | None = None,
+    profile: PreparationProfile | None = None,
 ):
     """Explicitly acquire source-report schema and metric definitions before pure preparation."""
     from .characterization import characterization_inputs
@@ -84,8 +90,9 @@ def prepare_source_inputs(
 
     return (
         characterization_inputs(
-            observation_inputs(bundle, model_content=model_content),
+            observation_inputs(bundle, model_content=model_content, profile=profile),
             model_content=characterization_content,
+            profile=profile,
         ),
         selected_dependencies,
     )
