@@ -27,7 +27,6 @@ QUERY_SOURCES = (
     "serve/contextual_navigation.py",
     "serve/source_decision_journey.py",
     "serve/structural_gaps.py",
-    "serve/explain.py",
     "serve/native_source.py",
     "serve/pdf_visual_evidence.py",
     "serve/selected_pdf.py",

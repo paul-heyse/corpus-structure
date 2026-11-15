@@ -23,11 +23,7 @@ from .refusals import SemanticRefusal
 from .types import PreparedArtifact, RegistryRow, ResolvedDependencies, SourceArtifact
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping
-
     from corpus_structure.serve.protocol import DomainQuery
-
-    from .types import PreparedRelease
 
 MANIFEST = "operation/query-manifest.json"
 PRODUCT = "query_bindings.json"
@@ -48,18 +44,10 @@ class _Strict(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid", strict=True)
 
 
-class CompatibilityEntry(_Strict):
-    query: str = Field(min_length=1)
-    contract: str = Field(pattern=r"^[0-9a-f]{64}$")
-    implementation: str = Field(pattern=r"^[0-9a-f]{64}$")
-    evidence: str = Field(min_length=1)
-
-
 class BundleDeclaration(_Strict):
     version: Literal[1] = 1
     meaning_revision: str = Field(default="1", min_length=1)
     sources: list[str] = Field(default_factory=list)
-    compatibility: list[CompatibilityEntry] = Field(default_factory=list)
 
 
 class QueryContract(_Strict):
@@ -258,145 +246,3 @@ def prepare_query_bindings(dependencies: ResolvedDependencies):
     return PreparedArtifact(PRODUCT, canonical_bytes({"version": 1, "bindings": bindings})), tuple(
         rows
     )
-
-
-@dataclass(frozen=True)
-class BoundQuery:
-    release_id: str
-    query: DomainQuery
-    contract: str
-    producing_implementation: str
-    implementation: str
-    compatibility: str
-    definition: QueryContract
-
-    @property
-    def name(self) -> str:
-        return self.definition.name
-
-    @property
-    def version(self) -> str:
-        return self.definition.version
-
-    @property
-    def reference(self) -> QueryBindingReference:
-        return QueryBindingReference(
-            release_id=self.release_id,
-            query=self.name,
-            version=self.version,
-            contract=self.contract,
-            producing_implementation=self.producing_implementation,
-            implementation=self.implementation,
-            compatibility=self.compatibility,
-        )
-
-    def __getattr__(self, name: str):
-        return getattr(self.query, name)
-
-
-def open_query_registry(
-    prepared: PreparedRelease, pack: Path, *, query_name: str | None = None
-) -> Mapping[str, BoundQuery]:
-    """Resolve release custody and compatibility before loading installed query code."""
-    products = [a for a in prepared.artifacts if a.kind == PRODUCT]
-    if len(products) != 1:
-        raise QueryCompatibilityError(
-            "completed release has no named-query binding; prepare/select a supported release",
-            reason="unavailable_query",
-        )
-    product = json.loads(products[0].content)
-    if product.get("version") != 1:
-        raise QueryCompatibilityError(
-            "unsupported named-query binding reader", reason="unavailable_query"
-        )
-    installed = installed_query_inputs(pack)
-    producing = [
-        b
-        for b in product["bindings"]
-        if b["pack"] == pack.name and (query_name is None or b["query"]["name"] == query_name)
-    ]
-    if not producing:
-        raise QueryCompatibilityError(
-            "release has no binding for this query pack", reason="unavailable_query"
-        )
-    resolved = {}
-    for binding in producing:
-        contract = QueryContract.model_validate(binding["query"])
-        if contract.identity != binding["contract"] or contract.name in resolved:
-            raise QueryCompatibilityError(
-                "ambiguous or invalid producing query identity", reason="ambiguous_query"
-            )
-        matches = [
-            entry
-            for entry in installed.declaration.compatibility
-            if entry.query == contract.name
-            and entry.contract == binding["contract"]
-            and entry.implementation == binding["implementation"]
-        ]
-        exact = installed.implementation == binding["implementation"]
-        if len(matches) > 1:
-            raise QueryCompatibilityError(
-                "ambiguous trusted query compatibility entry", reason="ambiguous_query"
-            )
-        if not exact and not matches:
-            raise QueryCompatibilityError(
-                "installed query implementation is incompatible with producing release; "
-                "select/rebuild a supported release",
-                reason="incompatible_query",
-            )
-        if prepared.execution_model_id is not None:
-            from .contracts import bound_execution_model
-
-            for operation in contract.required_operations:
-                bound_execution_model(prepared).require_operation(operation)
-        compatibility = _digest(
-            {
-                "contract": binding["contract"],
-                "producing_implementation": binding["implementation"],
-                "implementation": installed.implementation,
-                "entry": matches[0].model_dump() if matches else "exact",
-            }
-        )
-        resolved[contract.name] = (binding, contract, compatibility, exact)
-    registry = _registry(installed)
-    out = {}
-    for name, (binding, contract, compatibility, exact) in resolved.items():
-        query = registry.get(name)
-        if query is None:
-            raise QueryCompatibilityError(
-                "installed query is unavailable", reason="unavailable_query"
-            )
-        current = _contract(query, installed.declaration.meaning_revision)
-        if (
-            current.identity != contract.identity
-            if exact
-            else (current.parameters, current.results) != (contract.parameters, contract.results)
-        ):
-            raise QueryCompatibilityError(
-                "installed query meaning/parameter/result contract differs",
-                reason="incompatible_query",
-            )
-        out[name] = BoundQuery(
-            prepared.release_id,
-            query,
-            binding["contract"],
-            binding["implementation"],
-            installed.implementation,
-            compatibility,
-            contract,
-        )
-    return out
-
-
-def validate_query_token(query: BoundQuery, body: Mapping[str, Any]) -> None:
-    if any(
-        body.get(field) != value
-        for field, value in {
-            "query_contract": query.contract,
-            "implementation": query.implementation,
-            "compatibility": query.compatibility,
-        }.items()
-    ):
-        raise QueryCompatibilityError(
-            "continuation query implementation/compatibility binding differs"
-        )

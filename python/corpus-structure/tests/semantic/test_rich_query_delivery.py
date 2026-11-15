@@ -83,6 +83,11 @@ def test_pages_require_exact_cut_root_query_and_installed_meaning(monkeypatch, s
         and pinned.implementation == first["implementation"]
     )
     assert service.serve_rich_query(None, pinned)["rows"] == first["rows"]
+    empty = service.serve_rich_query(
+        None, request(query={"name": "claims", "fact_id": "unobserved-fact"})
+    )
+    assert empty["rows"] == [] and empty["cursor"] is None
+    assert empty["scope"]["global_completeness"] == "unknown"
     with pytest.raises(InvalidContinuation):
         service.serve_rich_query(
             None, request(cursor=first["cursor"], query={"name": "claims", "subject": "normal"})

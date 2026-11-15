@@ -115,7 +115,7 @@ def report(conn, member, outcome="complete"):
 
 
 def test_general_only_units_are_required_and_complete_reports_establish_coverage(
-    coverage_database, monkeypatch
+    coverage_database
 ):
     conn = coverage_database
     session = populate(conn, [("agent.general", "general-A"), ("agent.general", "general-B")])
@@ -126,7 +126,6 @@ def test_general_only_units_are_required_and_complete_reports_establish_coverage
     assert session.coverage_summary(required).state == "not_established"
     report(conn, "general-B")
     assert session.coverage_summary(required).state == "established"
-    assert empty_named_answer(session, monkeypatch).knowledge == "absent"
     assert session.required_coverage(1, FAMILY, "documents", [102]).members == frozenset(
         {"general-B"}
     )
@@ -134,7 +133,7 @@ def test_general_only_units_are_required_and_complete_reports_establish_coverage
 
 @pytest.mark.parametrize("general_report", [None, "partial", "failed", "unanalysed"])
 def test_mixed_complete_opus_cannot_hide_missing_or_incomplete_general_scope(
-    coverage_database, general_report, monkeypatch
+    coverage_database, general_report
 ):
     conn = coverage_database
     session = populate(conn, [("agent.opus", "opus-A"), ("agent.general", "general-B")])
@@ -144,8 +143,6 @@ def test_mixed_complete_opus_cannot_hide_missing_or_incomplete_general_scope(
     required = session.required_coverage(1, FAMILY)
     assert required.members == frozenset({"opus-A", "general-B"})
     assert session.coverage_summary(required).state == "not_established"
-    # The actual empty named-answer consumer must keep unknown knowledge.
-    assert empty_named_answer(session, monkeypatch).knowledge == "unknown"
     assert required.diagnostic is None
     assert session.required_coverage(1, FAMILY, "units", ["general-B"]).members == frozenset(
         {"general-B"}
@@ -208,48 +205,3 @@ def test_v3_archive_keeps_original_opus_universe_and_unknown_recipe_refuses(cove
     bind_recipe(session, {"abi": "semantic-query-coverage-99"})
     with pytest.raises(SemanticRefusal, match="unsupported archived"):
         session.required_coverage(1, FAMILY)
-
-
-def empty_named_answer(session, monkeypatch):
-    from pydantic import BaseModel
-
-    from corpus_structure.semantic.query import InventoryPage
-    from corpus_structure.semantic.query_compatibility import BoundQuery, QueryContract
-    from corpus_structure.serve import journey
-    from corpus_structure.serve.protocol import QueryContext, Scope
-
-    class Parameters(BaseModel):
-        predicate: str = FAMILY
-
-    query = SimpleNamespace(
-        params=Parameters,
-        result=BaseModel,
-        scope=lambda ctx, p: Scope.run(),
-        rows=lambda ctx, p, after=None: iter(()),
-    )
-    bound = BoundQuery(
-        "release",
-        query,
-        "contract",
-        "producing",
-        "installed",
-        "exact",
-        QueryContract(name="empty", version="1", meaning_revision="1", parameters={}, results={}),
-    )
-    monkeypatch.setattr(journey, "bind_session", lambda *args: session)
-    monkeypatch.setattr(
-        QueryContext, "reader", property(lambda ctx: SimpleNamespace(iri=lambda x: x))
-    )
-    # Coverage detail transport is independent of this required-universe/summary test.
-    monkeypatch.setattr(
-        ReadSession,
-        "coverage_details",
-        lambda *args, **kwargs: InventoryPage(
-            binding=session.binding,
-            root=FAMILY,
-            collection="coverage",
-            items=(),
-            population_complete=True,
-        ),
-    )
-    return journey.serve_query(session.connection, {"empty": bound}, "empty", run=1)
