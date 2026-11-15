@@ -80,7 +80,6 @@ class GraphInspectionRequest(BaseModel):
     max_bytes: int = Field(default=262144, ge=1024, le=8388608)
     max_examined_bytes: int = Field(default=8388608, ge=1024, le=67108864)
 
-
     @model_validator(mode="after")
     def supported_request_shape(self):
         if self.view == "path" and (len(self.roots) != 1 or self.target is None):
@@ -95,8 +94,12 @@ class GraphInspectionRequest(BaseModel):
             raise ValueError("assessed members require the assessment projection")
         if self.assessed_members and self.demand_id is None:
             raise ValueError("assessed members require an authenticated native selection")
-        if self.selected_dependencies and (self.projection != "selected-dependencies" or self.demand_id):
-            raise ValueError("producer choices are supported only for archived selected dependencies")
+        if self.selected_dependencies and (
+            self.projection != "selected-dependencies" or self.demand_id
+        ):
+            raise ValueError(
+                "producer choices are supported only for archived selected dependencies"
+            )
         if self.demand_id is None and (self.scope or self.read_id or self.expected_cut):
             raise ValueError("native scope/read pins require a demand")
         return self
@@ -344,6 +347,7 @@ def snapshot_from_records(projection, specification, pins, records, *, unknowns=
         nodes=nodes,
         occurrences=tuple(edges),
         unknowns=tuple(unknowns),
+        standing="partial" if unknowns else "complete",
     )
 
 
@@ -412,6 +416,10 @@ def archived_graph_snapshot(prepared, projection, *, selected_dependencies=()):
                         "source-reference:"
                         + sha256(json_bytes([fact.supplying_owner, fact.target])).hexdigest()
                     )
+                    if fact.relation != "lexical_reference":
+                        unknowns.append(
+                            f"{fact.location}: target outside captured definition universe: {fact.target}"
+                        )
                     nodes[target] = dict(
                         id=target,
                         category="lexical-reference"
