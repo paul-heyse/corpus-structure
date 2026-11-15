@@ -1,7 +1,5 @@
 """Read-only prepared source and explicitly requested tooling observations."""
 
-from pydantic import JsonValue, RootModel
-
 from corpus_structure.semantic.source_navigation import NavigationRequest
 
 
@@ -10,28 +8,48 @@ def register_source_inspection_tools(server, reader, *, project=None, demand=Non
     from corpus_structure.semantic.change_impact import ChangeImpactRequest, inspect_change_impact
     from corpus_structure.semantic.refusals import tool_refusals
     from corpus_structure.semantic.releases import open_release
-    from corpus_structure.semantic.source_interfaces import read_source_interfaces
+    from corpus_structure.semantic.source_interface_read import (
+        SourceInterfaceRequest,
+        read_source_interface_page,
+    )
     from corpus_structure.semantic.source_navigation import (
         archived_navigation_snapshot,
         inspect_source_navigation,
     )
 
+    def interface_page(request):
+        with reader() as connection:
+            return read_source_interface_page(open_release(connection, request.release_id), request)
+
     @server.tool(annotations={"readOnlyHint": True})
     @tool_refusals(ValueError, KeyError)
-    def inspect_source_interfaces(release_id: str, max_bytes: int = 262144):
-        """Read archived prepared facts; historical gaps remain explicit."""
-        with reader() as connection:
-            facts = read_source_interfaces(open_release(connection, release_id))
-        return bounded_mcp_result(
-            RootModel[dict[str, JsonValue]](
-                {
-                    "release_id": release_id,
-                    "standing": "unavailable" if facts is None else "prepared",
-                    "interfaces": None if facts is None else facts.model_dump(mode="json"),
-                }
-            ),
-            max_bytes,
+    def inspect_source_interfaces(
+        release_id: str,
+        operation_id: str | None = None,
+        cursor: str | None = None,
+        limit: int = 100,
+        max_bytes: int = 262144,
+    ):
+        """Read a bounded pinned prepared interface page."""
+        request = SourceInterfaceRequest(
+            release_id=release_id,
+            operation_id=operation_id,
+            cursor=cursor,
+            limit=limit,
+            max_bytes=max_bytes,
         )
+        return bounded_mcp_result(interface_page(request), max_bytes)
+
+    @server.resource("corpus://source-interfaces/{handle}")
+    def source_interfaces_resource(handle: str):
+        import base64
+
+        request = SourceInterfaceRequest.model_validate_json(base64.urlsafe_b64decode(handle))
+        result = interface_page(request)
+        content = result.model_dump_json()
+        if len(content.encode()) > request.max_bytes:
+            raise ValueError("complete source interface resource exceeds byte bound")
+        return content
 
     @server.tool(annotations={"readOnlyHint": True})
     @tool_refusals(ValueError, KeyError)

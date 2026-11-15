@@ -44,14 +44,23 @@ def navigate(
 
 
 @app.command("interfaces")
-def interfaces(ctx: typer.Context, release: str, json: JsonOpt = False):
-    """Read prepared interface/doc facts from an explicit archived release."""
-    from pydantic import JsonValue, RootModel
-
+def interfaces(
+    ctx: typer.Context,
+    release: str,
+    operation: str | None = None,
+    cursor: str | None = None,
+    limit: int = 100,
+    max_bytes: int = 262144,
+    json: JsonOpt = False,
+):
+    """Read bounded prepared facts from an explicit archived release."""
     from corpus_structure.cli.failures import failure_boundary
     from corpus_structure.semantic.releases import open_release
     from corpus_structure.semantic.runtime import open_runtime_engine
-    from corpus_structure.semantic.source_interfaces import read_source_interfaces
+    from corpus_structure.semantic.source_interface_read import (
+        SourceInterfaceRequest,
+        read_source_interface_page,
+    )
 
     with (
         failure_boundary(json, expected=(ValueError, KeyError)),
@@ -60,18 +69,17 @@ def interfaces(ctx: typer.Context, release: str, json: JsonOpt = False):
         ) as engine,
         engine.begin() as connection,
     ):
-        prepared = open_release(connection, release)
-        result = read_source_interfaces(prepared)
-    emit(
-        RootModel[JsonValue](
-            {
-                "release_id": release,
-                "standing": "unavailable" if result is None else "prepared",
-                "interfaces": None if result is None else result.model_dump(mode="json"),
-            }
-        ),
-        json=json,
-    )
+        result = read_source_interface_page(
+            open_release(connection, release),
+            SourceInterfaceRequest(
+                release_id=release,
+                operation_id=operation,
+                cursor=cursor,
+                limit=limit,
+                max_bytes=max_bytes,
+            ),
+        )
+    emit(result, json=json)
 
 
 @app.command("impact")

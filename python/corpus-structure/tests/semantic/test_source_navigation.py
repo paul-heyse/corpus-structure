@@ -57,3 +57,30 @@ def test_wrong_snapshot_refused_before_starting_tool():
     )
     with pytest.raises(ValueError, match="another captured snapshot"):
         inspect_source_navigation(snapshot, request)
+
+
+@pytest.mark.parametrize(
+    "operation,direction,needle,expected",
+    [
+        ("call_hierarchy", "outgoing", "caller", "called"),
+        ("call_hierarchy", "incoming", "called", "caller"),
+        ("type_hierarchy", "supertypes", "Child", "Base"),
+        ("type_hierarchy", "subtypes", "Base", "Child"),
+    ],
+)
+def test_actual_hierarchy_locations(operation, direction, needle, expected):
+    source = "class Base:\n    pass\nclass Child(Base):\n    pass\ndef called():\n    return 1\ndef caller():\n    return called()\n"
+    snapshot = NavigationSnapshot(documents=(SourceDocument(path="example.py", content=source),))
+    request = NavigationRequest(
+        snapshot_id=snapshot.identity,
+        path="example.py",
+        byte_offset=source.encode().index(needle.encode()),
+        operation=operation,
+        direction=direction,
+    )
+    result = inspect_source_navigation(snapshot, request)
+    assert result.standing == "complete", result
+    import json
+
+    assert expected in json.dumps(result.items)
+    assert all("file://" not in json.dumps(row) for row in result.items)

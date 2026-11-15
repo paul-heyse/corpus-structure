@@ -11,19 +11,26 @@ from corpus_structure.semantic.source_navigation import NavigationSnapshot, Sour
 
 
 def test_mcp_prepared_facts_and_actual_navigation(monkeypatch):
-    from corpus_structure.semantic import releases, source_interfaces, source_navigation
+    from corpus_structure.semantic import (
+        releases,
+        source_interface_read,
+        source_interfaces,
+        source_navigation,
+    )
 
     source = "def twice(x: int) -> int:\n    return x * 2\nresult = twice(3)\n"
     snapshot = NavigationSnapshot(documents=(SourceDocument(path="example.py", content=source),))
     projection = SourceInterfaceProjection(
+        model_digest="f" * 64,
         interpreter="python-3.14",
         interpretation="closed-python-operations-v1",
         libraries={"griffe": "2.4.1"},
         modules=(),
         operations=(),
     )
-    monkeypatch.setattr(releases, "open_release", lambda connection, release: object())
+    monkeypatch.setattr(releases, "open_release", lambda connection, release: type("Prepared", (), {"release_id": release})())
     monkeypatch.setattr(source_interfaces, "read_source_interfaces", lambda prepared: projection)
+    monkeypatch.setattr(source_interface_read, "read_source_interfaces", lambda prepared: projection)
     monkeypatch.setattr(
         source_navigation, "archived_navigation_snapshot", lambda connection, release: snapshot
     )
@@ -42,7 +49,7 @@ def test_mcp_prepared_facts_and_actual_navigation(monkeypatch):
             )
             assert result.structured_content is not None
             assert result.structured_content["standing"] == "prepared"
-            assert result.structured_content["interfaces"]["libraries"] == {"griffe": "2.4.1"}
+            assert result.structured_content["projection_id"] == projection.identity
             result = await client.call_tool(
                 "navigate_captured_source",
                 {
