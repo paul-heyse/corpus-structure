@@ -44,6 +44,7 @@ from corpus_structure.cli.target import (
 from corpus_structure.schema.source_migrations import ConsumerOutcome
 from corpus_structure.semantic.migration_chain import NativeMigrationBase
 from corpus_structure.semantic.source_comparison import EffectiveChangeComparison
+from corpus_structure.semantic.model_comparison import DeclaredModelComparison
 from corpus_structure.semantic.storage_target import StorageTarget
 from corpus_structure.settings import DeploymentProfile
 
@@ -150,6 +151,14 @@ class PreviewSourcesReport(BaseModel):
     total_unknowns: int
     next_after: int | None
     changed_paths: tuple[str, ...]
+
+
+class PreviewModelComparisonReport(BaseModel):
+    preview_id: str
+    comparison: DeclaredModelComparison | None
+    total_changes: int
+    total_unknowns: int
+    next_after: int | None
 
 
 class PatchHunk(BaseModel):
@@ -667,9 +676,9 @@ def inspect_preview(
     ctx: typer.Context,
     preview_id: Annotated[str, typer.Argument(metavar="PREVIEW_ID")],
     view: Annotated[
-        Literal["effects", "patch", "discovery", "sources", "sql"],
+        Literal["effects", "patch", "discovery", "sources", "model", "sql"],
         typer.Option(
-            help="Select effects, patch hunks, source migrations, discovery or SQL change entries."
+            help="Select effects, patch hunks, source migrations, declared model changes, discovery or SQL."
         ),
     ] = "effects",
     limit: Annotated[
@@ -697,9 +706,9 @@ def inspect_preview(
 
     if stdout and (view != "patch" or json_ or limit is not None or after_hunk):
         raise typer.BadParameter("--stdout requires --view patch without JSON or hunk selection")
-    if view not in {"patch", "sql", "sources"} and (limit is not None or after_hunk):
+    if view not in {"patch", "sql", "sources", "model"} and (limit is not None or after_hunk):
         raise typer.BadParameter("hunk selection requires --view patch")
-    if (after and view not in {"sql", "sources"}) or (after_hunk and view in {"sql", "sources"}):
+    if (after and view not in {"sql", "sources", "model"}) or (after_hunk and view in {"sql", "sources", "model"}):
         raise typer.BadParameter("SQL paging and patch-hunk paging are separate")
     with refusal(json_, expected=(ResultError, ModelError, OSError, ValueError)):
         store = result_store(ctx)
@@ -751,6 +760,31 @@ def inspect_preview(
                 ),
                 json=json_,
                 render=_patch_view,
+            )
+            return
+        if view == "model":
+            comparison = (
+                DeclaredModelComparison.model_validate(staged.comparison)
+                if staged.request.data_operations and staged.comparison is not None
+                else None
+            )
+            end = after + (limit or 8)
+            total_changes = len(comparison.changes) if comparison else 0
+            total_unknowns = len(comparison.unknowns) if comparison else 0
+            if after > max(total_changes, total_unknowns):
+                raise ValueError("model comparison continuation is outside its population")
+            emit(
+                PreviewModelComparisonReport(
+                    preview_id=preview_id,
+                    comparison=comparison.model_copy(update={
+                        "changes": comparison.changes[after:end],
+                        "unknowns": comparison.unknowns[after:end],
+                    }) if comparison else None,
+                    total_changes=total_changes,
+                    total_unknowns=total_unknowns,
+                    next_after=end if end < max(total_changes, total_unknowns) else None,
+                ),
+                json=json_,
             )
             return
         if view == "sources":
@@ -1398,9 +1432,19 @@ def preview(
                                 compare_data_operation_models,
                             )
 
+                            from corpus_structure.semantic.model_comparison import (
+                                compare_declared_models,
+                            )
+
+                            before_model = bound_data_operation_model(before)
+                            after_model = bound_data_operation_model(local)
+                            impact = compare_declared_models(
+                                before_model, after_model,
+                                before_release=before.release_id,
+                                after_release=local.release_id,
+                            ).model_dump(mode="json")
                             source_impact = compare_data_operation_models(
-                                bound_data_operation_model(before),
-                                bound_data_operation_model(local),
+                                before_model, after_model,
                             )
                         else:
                             impact = compare_semantic_releases(

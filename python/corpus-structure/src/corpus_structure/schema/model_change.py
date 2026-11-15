@@ -276,6 +276,7 @@ def prepare_preview(
     root = root.resolve()
     if request.source_migrations and not request.data_operations:
         raise model.ModelError(["source migrations require explicit data-operation inputs"])
+    comparison_model = None
     migrations = tuple(prepare_source_migration(root, item) for item in request.source_migrations)
     proposed: dict[str, str] = {}
     for migration in migrations:
@@ -422,6 +423,7 @@ def prepare_preview(
         from corpus_structure.semantic.data_operation_admission import bound_data_operation_model
 
         effective = bound_data_operation_model(prepared_source)
+        comparison_model = effective
         owners = {operation.semantic_id for operation in effective.operations}
         if any((item.new_owner or item.owner) not in owners for item in request.source_migrations):
             raise model.ModelError(
@@ -557,6 +559,12 @@ def prepare_preview(
                         ]
                     )
 
+        if comparison is None:
+            from corpus_structure.semantic.model_comparison import compare_declared_models
+
+            comparison = compare_declared_models(
+                previous, effective, after_release=prepared_source.release_id,
+            ).model_dump(mode="json")
         if source_comparison is None:
             source_comparison = compare_data_operation_models(previous, effective)
         elif source_comparison.after_digest != sha256(effective.content).hexdigest():
@@ -565,7 +573,7 @@ def prepare_preview(
         local_release = prepared_source.release_id
         release_manifest_sha256 = sha256(prepared_source.manifest).hexdigest()
         release_artifacts_sha256 = prepared_source.artifacts_sha256
-    if source_comparison is not None and request.data_operations and not migrations:
+    if (source_comparison is not None or comparison is not None) and request.data_operations and not migrations:
         assert acquired is not None
         from corpus_structure.semantic.data_operation_admission import bound_data_operation_model
         from corpus_structure.semantic.prepare import prepare_release
@@ -573,8 +581,22 @@ def prepare_preview(
         compiled = bound_data_operation_model(
             prepare_release(acquired.bundle, acquired.dependencies, acquired.profile)
         )
-        if source_comparison.after_digest != sha256(compiled.content).hexdigest():
+        comparison_model = compiled
+        if source_comparison is not None and source_comparison.after_digest != sha256(compiled.content).hexdigest():
             raise model.ModelError(["source comparison differs from the proposed effective model"])
+    if comparison is not None and request.data_operations:
+        from corpus_structure.semantic.model_comparison import DeclaredModelComparison
+
+        checked_comparison = DeclaredModelComparison.model_validate(comparison)
+        assert comparison_model is not None
+        if checked_comparison.after_digest != sha256(comparison_model.content).hexdigest():
+            raise model.ModelError(["declared model comparison differs from the proposed effective model"])
+        if source_comparison is not None and (
+            checked_comparison.before_digest != source_comparison.before_digest
+            or checked_comparison.after_digest != source_comparison.after_digest
+        ):
+            raise model.ModelError(["declared and source comparisons refer to different model pairs"])
+        comparison = checked_comparison.model_dump(mode="json")
     staged = {path: content for path, content in source.items() if content is not None} | generated
     if proposed.keys() & staged.keys():
         raise model.ModelError(["source migration overlaps a generated or canonical effect"])
