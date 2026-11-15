@@ -25,7 +25,7 @@ def test_current_pdf_fixture_prepares_real_native_owners_without_legacy_seed(tmp
     assert not incomplete
     from corpus_structure.serve.selected_source import _captured_analysis_profile
 
-    context = _captured_analysis_profile(prepared.prepared)
+    context = _captured_analysis_profile(prepared.prepared, prepared.dependencies)
     assert (context is not None) is math_context
     if context is not None:
         from corpus_structure.semantic.analysis_contracts import prepare_interpretation_context

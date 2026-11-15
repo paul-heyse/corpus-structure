@@ -344,23 +344,25 @@ def _write_selected_package(
     return receipt
 
 
-def _captured_analysis_profile(prepared):
+def _captured_analysis_profile(prepared, dependencies):
     """Decode only profiles archived by the selected current operation model."""
     from pydantic import TypeAdapter
 
     from corpus_structure.semantic.analysis_contracts import AnalysisContextProfile
     from corpus_structure.semantic.composed import read_data_operation_inputs
-    from corpus_structure.semantic.types import ResolvedDependencies
-
-    inputs = read_data_operation_inputs(
-        ResolvedDependencies(
-            tuple(
-                SourceArtifact(artifact.kind, artifact.content)
-                for artifact in prepared.artifacts
-                if artifact.kind.startswith("data-operations/")
-            )
-        )
-    )
+    expected = {
+        name: digest
+        for name, digest in json.loads(prepared.manifest)["dependencies"]
+        if name.startswith("data-operations/")
+    }
+    actual = {
+        artifact.name: artifact.digest
+        for artifact in dependencies.artifacts
+        if artifact.name.startswith("data-operations/")
+    }
+    if actual != expected:
+        raise SelectedSourceUnavailable("mathematical context inputs differ from captured release")
+    inputs = read_data_operation_inputs(dependencies)
     profiles = tuple(
         TypeAdapter(AnalysisContextProfile).validate_json(
             canonical_bytes(json.loads(artifact.content)["profile"])
@@ -403,7 +405,10 @@ def export_selected_source(
         ):
             selected = acquire_selected_pdf_source(connection, request.pin)
             release = selected.prepared
-            profile = _captured_analysis_profile(release)
+            from corpus_structure.semantic.releases import load_release_inputs
+
+            _, dependencies, _, _ = load_release_inputs(connection, release.release_id)
+            profile = _captured_analysis_profile(release, dependencies)
             reader = published_record_reader(
                 connection,
                 selected.physical,

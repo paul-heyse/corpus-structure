@@ -36,7 +36,9 @@ def test_native_selection_context_and_offline_preparation(
             selection=SelectedSourceSelection(root="#/groups/0"),
             destination=tmp_path / "export",
         )
-        profile = _captured_analysis_profile(source.kernel.prepared)
+        profile = _captured_analysis_profile(
+            source.kernel.prepared, source.kernel.preparation.dependencies
+        )
         assert profile is not None
         context = prepare_interpretation_context(
             source.kernel.prepared, macros={}, kind="formula", context_profile=profile
