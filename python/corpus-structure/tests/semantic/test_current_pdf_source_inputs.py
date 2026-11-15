@@ -30,10 +30,10 @@ def test_current_pdf_fixture_prepares_real_native_owners_without_legacy_seed(
     context = _captured_analysis_profile(prepared.prepared, prepared.dependencies)
     assert (context is not None) is math_context
     if context is not None:
-        from corpus_structure.semantic.analysis_contracts import prepare_interpretation_context
+        from corpus_structure.semantic.math_context import prepare_interpretation_context
 
         interpreted = prepare_interpretation_context(
-            prepared.prepared, macros={}, kind="formula", context_profile=context
+            macros={}, kind="formula", context_profile=context
         )
         assert interpreted.model_id == context.model_id
 

@@ -44,6 +44,7 @@ QUERY_SOURCES = (
     "semantic/scientific_evidence_schema.py",
     "semantic/outcomes.py",
     "semantic/analysis_contracts.py",
+    "semantic/math_context.py",
     "semantic/analysis_policies.py",
     "semantic/identity.py",
     "semantic/unicode_identity.py",

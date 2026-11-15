@@ -195,7 +195,7 @@ def test_actual_preparation_failure_is_an_owned_reason(tmp_path):
 
 
 def test_runtime_or_admission_preparation_errors_remain_failures(monkeypatch, tmp_path):
-    from corpus_structure.semantic import analysis_contracts
+    from corpus_structure.semantic import math_context
     from corpus_structure.semantic.types import Diagnostic, PreparationError
 
     inputs = cut()
@@ -205,19 +205,19 @@ def test_runtime_or_admission_preparation_errors_remain_failures(monkeypatch, tm
             (Diagnostic("unsupported_analysis_implementation", "release", "runtime mismatch"),)
         )
 
-    monkeypatch.setattr(analysis_contracts, "prepare_interpretation_context", incompatible)
+    monkeypatch.setattr(math_context, "prepare_interpretation_context", incompatible)
     with pytest.raises(PreparationError, match="runtime mismatch"):
         evaluate(inputs, tmp_path)
 
 
 def test_actual_reading_boundary_does_not_flatten_programming_value_errors(monkeypatch, tmp_path):
-    from corpus_structure.semantic import analysis_contracts
+    from corpus_structure.semantic import math_context
 
     inputs = cut()
 
     def broken(*args, **kwargs):
         raise ValueError("injected programming failure")
 
-    monkeypatch.setattr(analysis_contracts, "prepare_interpretation_context", broken)
+    monkeypatch.setattr(math_context, "prepare_interpretation_context", broken)
     with pytest.raises(ValueError, match="injected programming failure"):
         evaluate(inputs, tmp_path)

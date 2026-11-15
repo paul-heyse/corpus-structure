@@ -2,7 +2,7 @@
 
 import pytest
 
-from corpus_structure.semantic.analysis_contracts import prepare_interpretation_context
+from corpus_structure.semantic.math_context import prepare_interpretation_context
 from corpus_structure.serve.selected_source import (
     AdditionalContextRequired,
     SelectedSourceExportRequest,
@@ -41,7 +41,7 @@ def test_native_selection_context_and_offline_preparation(
         )
         assert profile is not None
         context = prepare_interpretation_context(
-            source.kernel.prepared, macros={}, kind="formula", context_profile=profile
+            macros={}, kind="formula", context_profile=profile
         )
         receipt = export_selected_source(
             request, read_settings(native_settings, source.kernel.engine)

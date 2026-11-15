@@ -19,7 +19,7 @@ from . import grammar
 from .prepared import PreparedMathInput
 
 if TYPE_CHECKING:
-    from corpus_structure.semantic.analysis_contracts import PreparedInterpretationContext
+    from corpus_structure.semantic.math_context import PreparedInterpretationContext
 
 RecognitionHealth = Literal["succeeded", "failed", "unknown", "not_requested"]
 

@@ -484,10 +484,9 @@ class MathematicalEvidence:
         *,
         context=None,
     ) -> MathReading:
-        from .analysis_contracts import prepare_interpretation_context
+        from .math_context import prepare_interpretation_context
 
         context = context or prepare_interpretation_context(
-            getattr(self, "prepared", None),
             context_profile=self.context_profile,
             macros=self.macros,
             constants=self.constants,
@@ -959,10 +958,9 @@ class SemanticComparator(MathematicalEvidence):
                 raise ScientificInterpretationUnavailable(
                     "mathematical restriction requires a supported semantic expression"
                 )
-            from .analysis_contracts import prepare_interpretation_context
+            from .math_context import prepare_interpretation_context
 
             context = prepare_interpretation_context(
-                self.prepared,
                 context_profile=self.context_profile,
                 macros=self.macros,
                 constants=self.constants,
@@ -1012,12 +1010,11 @@ class SemanticComparator(MathematicalEvidence):
         return product
 
     def operand_context(self, operand):
-        from .analysis_contracts import prepare_interpretation_context
+        from .math_context import prepare_interpretation_context
 
         key = canonical_bytes(operand.get("bindings", ()))
         if key not in self._contexts:
             self._contexts[key] = prepare_interpretation_context(
-                self.prepared,
                 context_profile=self.context_profile,
                 macros=self.macros,
                 constants=self.constants,
@@ -1179,14 +1176,13 @@ def read_reference_operand(value, *, prepared=None, capture=None, context_profil
         m["name"]: MacroDef(nargs=m["nargs"], body=m["body"], default=m.get("default"))
         for m in macros
     }
-    from .analysis_contracts import prepare_interpretation_context
+    from .math_context import prepare_interpretation_context
 
     if context_profile is None:
         raise ValueError(
             "reference mathematics requires its explicit captured analysis context profile"
         )
     context = prepare_interpretation_context(
-        prepared,
         macros=env,
         bindings=tuple(bindings),
         demand="symbolic",

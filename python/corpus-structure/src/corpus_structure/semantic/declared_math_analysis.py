@@ -13,7 +13,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, JsonValue
 
-from .analysis_contracts import acquire_analysis_context_profile, prepare_interpretation_context
+from .math_context import acquire_analysis_context_profile, prepare_interpretation_context
 from .data_operation_model import ResolvedRoleBinding, SubjectContext
 from .declared_structural_references import DeclaredStructuralSource
 from .identity import canonical_bytes
@@ -30,7 +30,7 @@ _FILES = (
     "methods/math/native_topology.py",
     "methods/math/configuration.py",
     "semantic/formal_forest.py",
-    "semantic/analysis_contracts.py",
+    "semantic/math_context.py",
     "semantic/analysis_policies.py",
     "semantic/declared_math_products.py",
     "semantic/constructions/math_scope.py",
@@ -376,7 +376,6 @@ def analyze_declared_math(
             blocks=blocks,
         )
         interpretation = prepare_interpretation_context(
-            prepared,
             context_profile=context_profile,
             macros=options.section().macro_table(),
             constants=options.constants,

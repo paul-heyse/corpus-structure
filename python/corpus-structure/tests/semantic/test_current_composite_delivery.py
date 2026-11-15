@@ -12,7 +12,7 @@ from typer.testing import CliRunner
 
 from corpus_structure.cli.app import app
 from corpus_structure.semantic import prepare_release
-from corpus_structure.semantic.analysis_contracts import acquire_analysis_context_profile
+from corpus_structure.semantic.math_context import acquire_analysis_context_profile
 from corpus_structure.semantic.data_operation_compilation import compile_data_operations
 from corpus_structure.semantic.data_operation_identity import semantic_value
 from corpus_structure.semantic.data_operation_json import json_bytes, json_loads

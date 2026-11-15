@@ -23,7 +23,7 @@ from .transform import NotRepresentable
 
 if TYPE_CHECKING:
     from corpus_structure.core.text_structure import TextCapture
-    from corpus_structure.semantic.analysis_contracts import PreparedInterpretationContext
+    from corpus_structure.semantic.math_context import PreparedInterpretationContext
 
     from .source_context import EarlyFunctionDeclaration
 
@@ -439,7 +439,7 @@ class PreparedMathInput:
         key = question, predicate
         if key in self._assessments:
             return self._assessments[key]
-        from corpus_structure.semantic.analysis_contracts import scientific_question_rule
+        from corpus_structure.semantic.math_context import scientific_question_rule
 
         rule = scientific_question_rule(self.context.profile, question)
         implemented = {"definedness", "predicate", "refine", "free_symbols", "calculate"}

@@ -7,6 +7,8 @@ so a SymPy bump that sends a construct down a deprecated path fails these tests.
 
 from __future__ import annotations
 
+from corpus_structure.semantic.math_context import acquire_analysis_context_profile
+
 import threading
 import time
 from collections import OrderedDict
@@ -45,7 +47,7 @@ OK, AMBIGUOUS, PARTIAL, FAILED = (
 
 
 def P(latex: str, kind: G.Kind = "any_value", **declared: set[str]) -> G.MathResult:
-    from corpus_structure.semantic.analysis_contracts import prepare_interpretation_context
+    from corpus_structure.semantic.math_context import prepare_interpretation_context
 
     declarations = tuple(
         {
@@ -65,7 +67,7 @@ def P(latex: str, kind: G.Kind = "any_value", **declared: set[str]) -> G.MathRes
         )
         for symbol in declared.get(field, ())
     )
-    context = prepare_interpretation_context(
+    context = prepare_interpretation_context(context_profile=acquire_analysis_context_profile(),
         macros=PAGE,
         declarations=declarations,
         kind=kind,
@@ -439,10 +441,10 @@ def test_relation_chain_keeps_unevaluated_components():
 
 def test_the_deadline_bounds_the_whole_read_including_the_resolver(monkeypatch) -> None:
     """An expensive resolver leaf cannot swallow one expiry and disable the whole-read budget."""
-    from corpus_structure.semantic.analysis_contracts import prepare_interpretation_context
+    from corpus_structure.semantic.math_context import prepare_interpretation_context
 
     latex = "\\int_0^\\infty h(t) \\, dt = \\infty"
-    context = prepare_interpretation_context(
+    context = prepare_interpretation_context(context_profile=acquire_analysis_context_profile(),
         macros=PAGE, kind="any_value", source_id="deadline-leaf-control"
     ).grammar_context
     assert G.syntax(latex, "any_value", PAGE).tree is not None

@@ -6,7 +6,7 @@ import pytest
 from pydantic import ValidationError
 
 from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
-from corpus_structure.semantic.analysis_contracts import acquire_analysis_context_profile
+from corpus_structure.semantic.math_context import acquire_analysis_context_profile
 from corpus_structure.semantic.observations import observation_inputs
 
 

@@ -967,9 +967,9 @@ _MEMO: OrderedDict[tuple[str, str, str, str], MathResult] = OrderedDict()
 
 
 def _prepare_standalone_context(table: Mapping[str, MacroDef], kind: Kind) -> MathContext:
-    from corpus_structure.semantic.analysis_contracts import prepare_interpretation_context
+    from corpus_structure.semantic.math_context import acquire_analysis_context_profile, prepare_interpretation_context
 
-    return prepare_interpretation_context(macros=table, kind=kind).grammar_context
+    return prepare_interpretation_context(context_profile=acquire_analysis_context_profile(), macros=table, kind=kind).grammar_context
 
 
 _STANDALONE_CONTEXTS: OrderedDict[tuple[str, str], MathContext] = OrderedDict()

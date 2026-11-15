@@ -123,7 +123,6 @@ def declared_math_readings(
         health=health,
         section=section,
         seconds=getattr(configuration, "parse_seconds", grammar.PARSE_SECONDS),
-        prepared=prepared,
         source=source.source_key,
         topology=topology,
         inherited=inherited,
@@ -172,7 +171,6 @@ def declared_normalization_readings(
         seen.add(pointer)
         basis = record["context"]
         context = prepare_context(
-            prepared,
             macros=configuration.section().macro_table(),
             constants=configuration.section().constants,
             source_id=basis["source_id"],

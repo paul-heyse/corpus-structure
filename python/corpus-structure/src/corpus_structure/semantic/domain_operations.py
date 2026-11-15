@@ -186,7 +186,8 @@ def _candidate_reading(prepared, candidate, raw, readings):
     """Translate only owned preparation/reading inability; programming errors propagate."""
     from corpus_structure.core.evidence import MacroDef
 
-    from .analysis_contracts import prepare_interpretation_context
+    from .math_context import prepare_interpretation_context
+    from .rich_policy_binding import rich_context_profile
     from .grammar_profile import GRAMMAR_KINDS
     from .rule_views import Reading
     from .types import PreparationError
@@ -208,7 +209,7 @@ def _candidate_reading(prepared, candidate, raw, readings):
         macros = {name: MacroDef.model_validate(value) for name, value in candidate.macros.items()}
         kind = str(raw.get("kind"))
         context = prepare_interpretation_context(
-            prepared,
+            context_profile=rich_context_profile(prepared),
             macros=macros,
             constants=candidate.constants,
             bindings=raw.get("bindings", ()),

@@ -30,7 +30,7 @@ NAMESPACE = "https://corpus-structure.dev/semantic/data-operation-rich-knowledge
 
 
 def rich_policy_recipe(directory):
-    from corpus_structure.semantic.analysis_contracts import acquire_analysis_context_profile
+    from corpus_structure.semantic.math_context import acquire_analysis_context_profile
     from corpus_structure.semantic.composed import (
         data_operation_dependencies,
         read_data_operation_inputs,

@@ -33,7 +33,7 @@ from corpus_structure.serve.selected_pdf import (
 
 if TYPE_CHECKING:
     from corpus_structure.methods.math.pdf import PreparedFormulaOccurrence
-    from corpus_structure.semantic.analysis_contracts import PreparedInterpretationContext
+    from corpus_structure.semantic.math_context import PreparedInterpretationContext
 
 
 @lru_cache(maxsize=1)
@@ -348,7 +348,7 @@ def _captured_analysis_profile(prepared, dependencies):
     """Decode only profiles archived by the selected current operation model."""
     from pydantic import TypeAdapter
 
-    from corpus_structure.semantic.analysis_contracts import AnalysisContextProfile
+    from corpus_structure.semantic.math_context import AnalysisContextProfile
     from corpus_structure.semantic.composed import read_data_operation_inputs
 
     expected = {
@@ -845,8 +845,7 @@ class SelectedSourceReader:
         if self._closed or not self._verified:
             raise SelectedSourceUnavailable("selected source reader is closed/unverified")
         if (
-            context.release_id != self.receipt.cut["release_id"]
-            or context.model_id != self.header["analysis_context_profile_id"]
+            context.model_id != self.header["analysis_context_profile_id"]
             or [list(value) for value in context.implementation_digests]
             != self.header["implementation_digests"]
         ):

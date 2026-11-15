@@ -1,11 +1,12 @@
 """Actual retained mathematical semantics under an explicit semantic source binding."""
 
+
 import pytest
 
 from corpus_structure.methods.math import grammar
 from corpus_structure.methods.math.declared import declared_math_readings, selected_formula_inputs
 from corpus_structure.methods.math.methods import ExtractMathConfig
-from corpus_structure.semantic.analysis_contracts import prepare_interpretation_context
+from corpus_structure.semantic.math_context import acquire_analysis_context_profile, prepare_interpretation_context
 from corpus_structure.semantic.data_operation_model import BoundRoleMember, SubjectContext
 from corpus_structure.semantic.declared_record_sources import DeclaredNativeFrameSource
 from corpus_structure.semantic.formal_products import FormalEvidenceOptions
@@ -15,11 +16,11 @@ from semantic.formal_products_support import profile as profile
 from semantic.formal_products_support import selected
 
 
-def _standalone_context(_source_release, **values):
+def _standalone_context(**values):
     # Independent kernel qualification only. A target mathematical producer must
     # supply its separately admitted profile; no legacy execution rows are added
     # to this source/formal archive to make it an analysis authority.
-    return prepare_interpretation_context(None, **values)
+    return prepare_interpretation_context(context_profile=acquire_analysis_context_profile(), **values)
 
 
 def _source(profile, *, clipped=False):

@@ -15,7 +15,7 @@ from pydantic import BaseModel, ConfigDict
 
 from corpus_structure.core.evidence import MacroDef
 
-from .analysis_contracts import AnalysisContextProfile
+from .math_context import AnalysisContextProfile
 from .data_operation_identity import canonical_identity, semantic_value
 from .data_operation_model import EffectiveDataOperationModel, SubjectContext
 from .expression_context import bind_expression_context

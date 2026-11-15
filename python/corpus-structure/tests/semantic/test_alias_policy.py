@@ -16,7 +16,7 @@ from corpus_structure.semantic.alias_policy import (
     label_normalizer,
     released_label_policy,
 )
-from corpus_structure.semantic.analysis_contracts import acquire_analysis_context_profile
+from corpus_structure.semantic.math_context import acquire_analysis_context_profile
 from corpus_structure.semantic.prepare import prepare_release
 from corpus_structure.semantic.regeneration import acquire_pack, compose_pack_inputs, prepare_pack
 from corpus_structure.semantic.rich_knowledge_sources import rich_policy_inputs
@@ -307,6 +307,6 @@ def current_alignment_policy():
 
 
 def current_analysis_context():
-    from corpus_structure.semantic.analysis_contracts import acquire_analysis_context_profile
+    from corpus_structure.semantic.math_context import acquire_analysis_context_profile
 
     return acquire_analysis_context_profile()

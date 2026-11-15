@@ -6,7 +6,7 @@ from dataclasses import dataclass
 
 from lark import Tree
 
-from corpus_structure.semantic.analysis_contracts import SymbolDeclaration
+from corpus_structure.semantic.math_context import SymbolDeclaration
 
 from . import _tree, grammar
 from .transform import bare, symbol_name

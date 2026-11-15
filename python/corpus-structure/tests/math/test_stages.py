@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+
 import gc
 import signal
 import threading
@@ -15,12 +16,12 @@ from sympy.assumptions import global_assumptions
 from corpus_structure.core.vocab import ParseOutcome
 from corpus_structure.methods.math import grammar
 from corpus_structure.methods.math.prepared import PreparedMathInput
-from corpus_structure.semantic.analysis_contracts import prepare_interpretation_context
+from corpus_structure.semantic.math_context import acquire_analysis_context_profile, prepare_interpretation_context
 
 
 def operand(text, **context):
     context.setdefault("kind", "formula")
-    return PreparedMathInput(prepare_interpretation_context(macros={}, **context), text)
+    return PreparedMathInput(prepare_interpretation_context(context_profile=acquire_analysis_context_profile(), macros={}, **context), text)
 
 
 def test_lexical_demand_does_not_recognize_or_construct(monkeypatch):
@@ -64,7 +65,7 @@ def test_symbolic_equivalence_is_an_explicit_stronger_request():
 
 
 def test_original_delimiters_and_exact_occurrence_offsets_remain_separate():
-    context = prepare_interpretation_context(macros={}, kind="formula")
+    context = prepare_interpretation_context(context_profile=acquire_analysis_context_profile(), macros={}, kind="formula")
     value = PreparedMathInput(
         context, "x+x", source_text="$ x+x $", source_start=10, parse_start=12
     )

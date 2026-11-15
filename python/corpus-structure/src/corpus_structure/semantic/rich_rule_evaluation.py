@@ -15,7 +15,7 @@ import networkx as nx
 import pyarrow as pa
 from pydantic import BaseModel
 
-from .analysis_contracts import AnalysisContextProfile, prepare_interpretation_context
+from .math_context import AnalysisContextProfile, prepare_interpretation_context
 from .analytical_kernels import (
     VIEW_ALTERNATIVES,
     VIEW_CLAIMS,
@@ -267,7 +267,6 @@ def _reading(prepared, profile, occurrence, value, qualification, source, readin
     macros = checked_rich_operand_macros((value, qualification), source)
     try:
         context = prepare_interpretation_context(
-            prepared,
             context_profile=profile,
             macros=macros,
             bindings=value.get("bindings", ()),

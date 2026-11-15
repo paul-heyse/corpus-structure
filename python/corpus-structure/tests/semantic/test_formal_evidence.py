@@ -1,4 +1,6 @@
 """Independent positions and domain outcomes for retained positioned formal syntax."""
+from corpus_structure.semantic.math_context import acquire_analysis_context_profile
+
 
 import pytest
 from lark.exceptions import VisitError
@@ -442,7 +444,7 @@ def test_decimal_normalization_is_exact_and_does_not_expand_large_exponents(surf
 
 def test_native_math_working_syntax_uses_retained_callbacks_without_parse(prepared, monkeypatch):
     from corpus_structure.methods.math.prepared import PreparedMathInput
-    from corpus_structure.semantic.analysis_contracts import prepare_interpretation_context
+    from corpus_structure.semantic.math_context import prepare_interpretation_context
     from corpus_structure.semantic.formal_forest import retained_math_syntax
 
     view = source(("x+1", "formula", "x+1", "succeeded"))
@@ -455,7 +457,7 @@ def test_native_math_working_syntax_uses_retained_callbacks_without_parse(prepar
     assert result.status is ParseOutcome.OK, result.failure
     assert result.tree is not None
     assert any(node.data == "add" for node in result.tree.iter_subtrees())
-    operand = PreparedMathInput(prepare_interpretation_context(macros={}), "x+1")
+    operand = PreparedMathInput(prepare_interpretation_context(context_profile=acquire_analysis_context_profile(), macros={}), "x+1")
     operand.retain_primary_syntax(result)
     assert operand.syntax() is result
 

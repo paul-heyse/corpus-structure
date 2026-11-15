@@ -20,7 +20,7 @@ from corpus_structure.semantic.types import (
 
 @cache
 def analysis_context():
-    from corpus_structure.semantic.analysis_contracts import acquire_analysis_context_profile
+    from corpus_structure.semantic.math_context import acquire_analysis_context_profile
 
     return acquire_analysis_context_profile()
 

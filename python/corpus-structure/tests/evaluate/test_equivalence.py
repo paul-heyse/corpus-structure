@@ -147,6 +147,6 @@ def test_condition_trees_match_their_leaves_one_to_one() -> None:
 
 
 def analysis_context():
-    from corpus_structure.semantic.analysis_contracts import acquire_analysis_context_profile
+    from corpus_structure.semantic.math_context import acquire_analysis_context_profile
 
     return acquire_analysis_context_profile()

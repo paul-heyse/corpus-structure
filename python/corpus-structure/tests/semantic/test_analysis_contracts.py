@@ -5,10 +5,8 @@ from dataclasses import replace
 import pytest
 import yaml
 
-from corpus_structure.semantic.analysis_contracts import (
-    bind_analysis_family,
-    prepare_interpretation_context,
-)
+from corpus_structure.semantic.analysis_contracts import bind_analysis_family
+from corpus_structure.semantic.math_context import acquire_analysis_context_profile, prepare_interpretation_context
 from corpus_structure.semantic.contracts import (
     EXECUTION_COMPILER_VERSION,
     compile_execution_model,
@@ -53,7 +51,7 @@ def different_implementation():
 
 
 def context(**kwargs):
-    return prepare_interpretation_context(macros={}, **kwargs)
+    return prepare_interpretation_context(context_profile=acquire_analysis_context_profile(), macros={}, **kwargs)
 
 
 def source_role(role, **extra):
@@ -225,7 +223,7 @@ def test_schema_only_and_retired_composed_profiles_refuse_execution():
         with pytest.raises(PreparationError, match="composed execution binding"):
             operation()
     with pytest.raises(PreparationError, match="composed execution binding"):
-        prepare_interpretation_context(base, macros={})
+        bind_analysis_family(base, "publication")
     import json
 
     from corpus_structure.semantic.identity import canonical_bytes
@@ -233,8 +231,8 @@ def test_schema_only_and_retired_composed_profiles_refuse_execution():
     historical_manifest = json.loads(base.manifest)
     historical_manifest["profile"]["compiler_version"] = "12"
     with pytest.raises(PreparationError):
-        prepare_interpretation_context(
-            replace(base, manifest=canonical_bytes(historical_manifest)), macros={}
+        bind_analysis_family(
+            replace(base, manifest=canonical_bytes(historical_manifest)), "publication"
         )
     model = compile_execution_model(trusted_execution_inputs())
     historic = json.loads(model.content)
@@ -255,7 +253,7 @@ def test_schema_only_and_retired_composed_profiles_refuse_execution():
         PreparationError,
         match=rf"current compiler {EXECUTION_COMPILER_VERSION}; regenerate the release",
     ):
-        prepare_interpretation_context(archived, macros={})
+        bind_analysis_family(archived, "publication")
 
 
 def test_unknown_result_and_binding_kind_refuse():
@@ -332,7 +330,7 @@ def test_historical_abi_cannot_self_attest_analysis_capabilities():
         PreparationError,
         match=rf"current compiler {EXECUTION_COMPILER_VERSION}; regenerate the release",
     ):
-        prepare_interpretation_context(archived, macros={})
+        bind_analysis_family(archived, "publication")
 
 
 def test_explicit_implementation_bytes_are_part_of_identity_and_runtime_support():
@@ -360,13 +358,14 @@ def test_explicit_implementation_bytes_are_part_of_identity_and_runtime_support(
         ),
     )
     with pytest.raises(PreparationError, match="admitted semantic determinant bytes"):
-        prepare_interpretation_context(prepared, macros={})
+        bind_analysis_family(prepared, "publication")
 
 
 def test_scientific_profile_and_source_sharing_are_admitted_data():
-    from corpus_structure.semantic.analysis_contracts import scientific_computation_profile
-
-    computation = scientific_computation_profile("reference-evidence-2")
+    computation = next(
+        item for item in acquire_analysis_context_profile().profile.scientific_profiles
+        if item.policy_id == "reference-evidence-2"
+    )
     assert computation.minimum_valid_points == 12
     assert computation.numeric_requires == "no-restrictions"
     assert context().profile.grammar_recipe == "extended-lark-3"
@@ -379,7 +378,7 @@ def test_candidate_scientific_parameters_rebind_supplied_recipe_without_ambient_
     import json
 
     from corpus_structure.semantic import SourceArtifact, SourceBundle
-    from corpus_structure.semantic.analysis_contracts import acquire_analysis_context_profile
+    from corpus_structure.semantic.math_context import acquire_analysis_context_profile
     from corpus_structure.semantic.identity import canonical_bytes
     from corpus_structure.semantic.scientific_evidence import (
         SCIENTIFIC_POLICY_INPUT,
@@ -471,76 +470,35 @@ def test_current_compilation_and_preparation_refuse_retained_analysis_profile():
     )
     # Retained profiles cannot supply current analytical execution authority.
     with pytest.raises(PreparationError, match="admitted analysis profile"):
-        prepare_interpretation_context(altered, macros={})
+        bind_analysis_family(altered, "publication")
 
 
-def test_invocation_identity_is_disjoint_and_binds_complete_decisions():
-    from corpus_structure.semantic.analysis_contracts import invocation_identity
-
-    dependencies = dict(
-        source={"revision": 1},
-        configuration={"method": "agent.opus", "model": "declared"},
-        policy={"classification": "unknown", "limit": 1},
-        unit={"id": 3},
+def test_captured_semantic_assets_determine_every_analysis_stage():
+    first_profile = acquire_analysis_context_profile()
+    changed_profile = replace(
+        first_profile,
+        implementation_digests=(*first_profile.implementation_digests, ("grammar/alternate", "changed")),
     )
-    skipped = invocation_identity(
-        None, release="release:one", **dependencies, skip_reason="limit", packet_hash=None
-    )
-    executable = invocation_identity(
-        None, release="release:one", **dependencies, skip_reason=None, packet_hash="packet:one"
-    )
-    assert skipped != executable
-    for key, replacement in (
-        ("source", {"revision": 2}),
-        ("configuration", {"model": "other"}),
-        ("policy", {"classification": "known", "limit": 1}),
-        ("unit", {"id": 4}),
-    ):
-        assert (
-            invocation_identity(
-                None,
-                release="release:one",
-                **{**dependencies, key: replacement},
-                skip_reason="limit",
-                packet_hash=None,
-            )
-            != skipped
-        )
-    with pytest.raises(ValueError, match="packet presence"):
-        invocation_identity(
-            None, release="release:one", **dependencies, skip_reason="limit", packet_hash="forged"
-        )
-    with pytest.raises(ValueError, match="packet presence"):
-        invocation_identity(
-            None, release="release:one", **dependencies, skip_reason=None, packet_hash=None
-        )
-
-
-def test_runtime_change_invalidates_every_analysis_stage_without_changing_semantic_model(
-    monkeypatch,
-):
-    from corpus_structure.semantic import analysis_contracts
-
-    first = context()
-    monkeypatch.setattr(
-        analysis_contracts,
-        "_analysis_runtime",
-        lambda prepared: (first.implementation_digests, "runtime:independent-change"),
-    )
-    changed = context()
-    assert changed.model_id == first.model_id
-    assert changed.runtime_id != first.runtime_id
+    first = prepare_interpretation_context(context_profile=first_profile, macros={})
+    changed = prepare_interpretation_context(context_profile=changed_profile, macros={})
+    assert changed.model_id != first.model_id
     for demand in ("lexical", "structure", "syntax", "occurrences", "interpretation", "symbolic"):
         assert changed.stage_key(demand) != first.stage_key(demand)
 
 
 def test_analysis_support_checks_current_semantic_determinants(different_implementation):
     with pytest.raises(PreparationError, match="semantic determinant bytes"):
-        context(prepared=different_implementation)
+        bind_analysis_family(different_implementation, "publication")
 
 
 def test_archived_snapshot_read_uses_unchanged_owned_contract(different_implementation):
+    from corpus_structure.semantic.contracts import (
+        IMPLEMENTATION_UNAVAILABLE,
+        implementation_override,
+    )
+
     prepared = different_implementation
-    assert bind_analysis_family(prepared, "read").contract.id == "read"
+    with implementation_override(IMPLEMENTATION_UNAVAILABLE):
+        assert bind_analysis_family(prepared, "read").contract.id == "read"
     with pytest.raises(PreparationError, match="semantic determinant bytes"):
         bind_analysis_family(prepared, "publication")

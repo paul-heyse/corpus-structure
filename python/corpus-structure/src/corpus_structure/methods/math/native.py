@@ -16,7 +16,7 @@ from pydantic import BaseModel, ConfigDict
 from corpus_structure.core.evidence import MacroDef, Segment
 from corpus_structure.core.method import CoverageDraft, ObservationDraft, UnitResult
 from corpus_structure.core.vocab import ObservationKind, ObservationOutcome, ParseOutcome
-from corpus_structure.semantic.analysis_contracts import prepare_interpretation_context
+from corpus_structure.semantic.math_context import acquire_analysis_context_profile, prepare_interpretation_context
 from corpus_structure.semantic.constructions.math_scope import NativeDomainRule
 
 from . import grammar
@@ -305,6 +305,7 @@ def native_ancestor_declarations(
 
     from .prepared import PreparedMathInput
 
+    context_profile = acquire_analysis_context_profile()
     parents, missing = ancestor_views(reader, view)
     issues = list(missing)
     declarations = []
@@ -333,7 +334,8 @@ def native_ancestor_declarations(
                 )
                 continue
             context = prepare_interpretation_context(
-                getattr(reader, "prepared", None), macros=macros or {}
+                context_profile=context_profile,
+                macros=macros or {},
             )
             operand = PreparedMathInput(context, item["text"], seconds=seconds)
             syntax = _retain_syntax(operand, parent, item["self_ref"], layers).syntax()
@@ -408,6 +410,7 @@ def readings(
         batch = MathReadingsBatch()
         reader.math_readings_batch = batch
     batch.bind(reader)
+    context_profile = acquire_analysis_context_profile()
     section = cfg.section()
     seconds = getattr(cfg, "parse_seconds", grammar.PARSE_SECONDS)
     layers = _primary_layers(reader, view)
@@ -446,7 +449,6 @@ def readings(
             health=health,
             section=section,
             seconds=seconds,
-            prepared=getattr(reader, "prepared", None),
             source=f"source-view:{view.ref.id}:{view.ref.projection_digest}:native-order",
             topology=native_topology(view),
             inherited=inherited,
@@ -460,6 +462,9 @@ def readings(
                 "succeeded",
             ),
             retain_syntax=lambda operand, pointer: _retain_syntax(operand, view, pointer, layers),
+            prepare_context=lambda **values: prepare_interpretation_context(
+                context_profile=context_profile, **values
+            ),
         )
     )
     batch.native[key] = tuple(out)
@@ -478,7 +483,6 @@ def prepare_native_readings(
     health,
     section,
     seconds,
-    prepared,
     source,
     topology,
     inherited,
@@ -488,7 +492,7 @@ def prepare_native_readings(
     retain_syntax,
     selected=lambda item: True,
     check_active=lambda: None,
-    prepare_context=prepare_interpretation_context,
+    prepare_context,
 ):
     """Original occurrence algorithm on explicit source columns and retained primary syntax.
 
@@ -520,7 +524,6 @@ def prepare_native_readings(
             blocks=blocks,
         )
         context = prepare_context(
-            prepared,
             macros=section.macro_table(),
             constants=section.constants,
             source_id=source_id,
@@ -629,6 +632,7 @@ def normalization_readings(view: Any, cfg: Any, reader: Any) -> tuple[NativeRead
     """Normalize the exact retained occurrence product; do not recognize formulas again."""
     from .prepared import PreparedMathInput
 
+    context_profile = acquire_analysis_context_profile()
     source = required_occurrence_record(reader, view)
     items = {item["self_ref"]: n for n, item in enumerate(view.items)}
     pieces = {piece["item_ref"]: piece for piece in view.pieces if piece.get("item_ref")}
@@ -639,7 +643,7 @@ def normalization_readings(view: Any, cfg: Any, reader: Any) -> tuple[NativeRead
         source_id = basis["source_id"]
         declarations = [d for d in basis["declarations"] if d["authority"] == "source"]
         context = prepare_interpretation_context(
-            getattr(reader, "prepared", None),
+            context_profile=context_profile,
             macros=cfg.section().macro_table(),
             constants=cfg.section().constants,
             source_id=source_id,
@@ -1003,6 +1007,7 @@ def native_request_analysis(
     """Finite native demand kernel; no converter, database or stronger extraction entrypoint."""
     from .prepared import PreparedMathInput
 
+    context_profile = acquire_analysis_context_profile()
     allowed = {
         "lexical",
         "structure",
@@ -1053,7 +1058,7 @@ def native_request_analysis(
         ordinal = positions[ref]
         source_id, scope, end = _declaration_scope(view, domain_rules, ordinal, blocks)
         context = prepare_interpretation_context(
-            prepared,
+            context_profile=context_profile,
             macros=macros or {},
             source_id=source_id,
             scope=scope,
@@ -1064,7 +1069,7 @@ def native_request_analysis(
         )
         operand = PreparedMathInput(context, item["text"], seconds=seconds)
         _retain_syntax(operand, view, ref, layers)
-        from corpus_structure.semantic.analysis_contracts import scientific_question_rule
+        from corpus_structure.semantic.math_context import scientific_question_rule
 
         question_rule = (
             scientific_question_rule(context.profile, question)
@@ -1136,7 +1141,7 @@ def analyze_native_operand(
 
     import sympy
 
-    from corpus_structure.semantic.analysis_contracts import scientific_question_rule
+    from corpus_structure.semantic.math_context import scientific_question_rule
 
     from .transform import NotRepresentable
 
@@ -1383,6 +1388,7 @@ def native_context_result(unit: Any, view: Any, cfg: Any, reader: Any) -> UnitRe
     from .scope import math_tokens
     from .spans import MathSpan, SpanReading, extract, formula_values
 
+    context_profile = acquire_analysis_context_profile()
     section = cfg.section()
     pieces = {p["item_ref"]: p for p in view.pieces if p.get("item_ref")}
     primary_scope = _primary_scope(reader, view, cfg.binders, section.native_domain_rules)
@@ -1418,7 +1424,7 @@ def native_context_result(unit: Any, view: Any, cfg: Any, reader: Any) -> UnitRe
         if ":section:" not in scope and not wide:
             continue
         context = prepare_interpretation_context(
-            getattr(reader, "prepared", None),
+            context_profile=context_profile,
             macros=section.macro_table(),
             constants=section.constants,
         )

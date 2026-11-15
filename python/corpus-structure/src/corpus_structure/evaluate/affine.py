@@ -100,7 +100,7 @@ def assess_exact_affine(
                                 source_start=operand.source_start,
                                 source_id=context.source_id,
                                 scope=context.scope,
-                                release=context.release_id,
+                                analysis_profile=context.model_id,
                                 interpretation=context.stage_key("symbolic"),
                                 output=output,
                                 generator=generator,

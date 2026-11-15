@@ -4,7 +4,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from corpus_structure.semantic.analysis_contracts import acquire_analysis_context_profile
+from corpus_structure.semantic.math_context import acquire_analysis_context_profile
 from corpus_structure.semantic.data_operation_model import SubjectContext
 from corpus_structure.semantic.declared_math_analysis import analyze_declared_math
 from corpus_structure.semantic.declared_math_products import DeclaredMathOptions

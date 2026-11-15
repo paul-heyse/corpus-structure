@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from corpus_structure.semantic.analysis_contracts import acquire_analysis_context_profile
+from corpus_structure.semantic.math_context import acquire_analysis_context_profile
 from corpus_structure.semantic.data_operation_compilation import compile_data_operations
 from corpus_structure.semantic.data_operation_member_contracts import derive_member_kinds
 from corpus_structure.semantic.rich_knowledge_sources import (

@@ -98,7 +98,7 @@ def acquire_pack(pack: Path) -> PackInputs:
     methods = _mapping(pack / "methods.yaml")
     core_rules = pack.parent / "core/schema/rules.yaml"
     rules = pack / "schema/rules.yaml"
-    from .analysis_contracts import acquire_analysis_context_profile
+    from .math_context import acquire_analysis_context_profile
 
     deps = rich_policy_inputs(
         ResolvedDependencies(),

@@ -50,6 +50,7 @@ _FILES = (
     "semantic/unicode_identity.py",
     "semantic/rule_views.py",
     "semantic/scientific_evidence.py",
+    "semantic/math_context.py",
     "semantic/statement_types.py",
 )
 

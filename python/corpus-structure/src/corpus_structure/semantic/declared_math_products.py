@@ -17,11 +17,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, JsonValue
 
-from .analysis_contracts import (
-    AnalysisContextProfile,
-    acquire_analysis_context_profile,
-    prepare_interpretation_context,
-)
+from .math_context import AnalysisContextProfile, acquire_analysis_context_profile, prepare_interpretation_context
 from .constructions.math_scope import Binders, NativeDomainRule
 from .data_operation_model import MODEL_VERSION, ResolvedRoleBinding
 from .declared_record_sources import DeclaredNativeFrameSource
@@ -42,7 +38,7 @@ _PATHS = (
     "methods/math/native_context.py",
     "methods/math/grammar.py",
     "methods/math/transform.py",
-    "semantic/analysis_contracts.py",
+    "semantic/math_context.py",
     "semantic/analysis_policies.py",
     "semantic/declared_math_products.py",
     "semantic/declared_math_scope.py",
@@ -233,9 +229,9 @@ class PreparedMathInputs:
             self.prepared, value, self.member("source"), project=self.project
         )
 
-    def prepare_context(self, prepared, **values):
+    def prepare_context(self, **values):
         return prepare_interpretation_context(
-            prepared, context_profile=self.context_profile, **values
+            context_profile=self.context_profile, **values
         )
 
 

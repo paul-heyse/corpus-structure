@@ -547,6 +547,6 @@ def test_unknown_power_domain_cannot_become_empty_domain_proof():
 
 
 def analysis_context():
-    from corpus_structure.semantic.analysis_contracts import acquire_analysis_context_profile
+    from corpus_structure.semantic.math_context import acquire_analysis_context_profile
 
     return acquire_analysis_context_profile()
