@@ -2579,3 +2579,42 @@ def test_overlapping_differing_intents_preserve_one_answer_and_its_publication(d
     with ddo_kernel["engine"].connect() as connection:
         assert connection.scalar(text("SELECT count(*) FROM ops.data_completion_intent")) == 1
         assert connection.scalar(text("SELECT count(*) FROM ops.data_derivation")) == 1
+
+
+@pytest.mark.parametrize("name", [
+    "native/data-operation-kind-refinements.py",
+    "native/data-operation-graph-topology.py",
+    "native/data-operation-graph-runtime.py",
+    "native/data-operation-graph-execution.json",
+])
+def test_native_nominal_topology_capture_requires_every_selected_dependency(name):
+    sources = native_protocol_sources()
+    assert name in {source.name for source in sources}
+    with pytest.raises(ValueError, match="captured"):
+        native_source_digest(tuple(source for source in sources if source.name != name))
+
+
+@pytest.mark.parametrize("name", [
+    "native/data-operation-graph-topology.py",
+    "native/data-operation-graph-runtime.py",
+    "native/data-operation-graph-execution.json",
+])
+def test_native_nominal_topology_capture_binds_helper_bytes_and_execution(name):
+    sources = native_protocol_sources()
+    initial = native_source_digest(sources)
+    altered = tuple(replace(source, content=source.content + b"\n") if source.name == name else source for source in sources)
+    assert native_source_digest(altered) != initial
+    assert native_source_digest(sources) == initial
+
+
+def test_native_graph_execution_capture_names_selected_engine_and_library():
+    import json
+    from pathlib import Path
+    from corpus_structure.semantic import graph_runtime, graph_topology
+
+    captured = {source.name: source.content for source in native_protocol_sources()}
+    assert captured["native/data-operation-graph-topology.py"] == Path(graph_topology.__file__).read_bytes()
+    assert captured["native/data-operation-graph-runtime.py"] == Path(graph_runtime.__file__).read_bytes()
+    assert json.loads(captured["native/data-operation-graph-execution.json"]) == {
+        "version": "data-operation-graph-execution-v1", "networkx": "3.7", "backend": "networkx"
+    }
