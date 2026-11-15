@@ -2349,6 +2349,23 @@ definitions:
       holder: {$ref: '#/definitions/identifier'}
       lease_seconds: {type: integer, minimum: 1, maximum: 86400}
 
+  read_selected_pdf_source_request:
+    type: object
+    properties:
+      demand_id: {$ref: '#/definitions/identifier'}
+      read_id: {$ref: '#/definitions/read_id'}
+      use_id: {$ref: '#/definitions/identifier'}
+      product_id: {$ref: '#/definitions/identifier'}
+      derivation_id: {$ref: '#/definitions/identifier'}
+    required: [demand_id, read_id, use_id, product_id, derivation_id]
+    additionalProperties: false
+  read_selected_pdf_source_result:
+    type: object
+    properties:
+      receipt: {$ref: '#/definitions/PdfExecutionReceipt'}
+    required: [receipt]
+    additionalProperties: false
+
 operations:
 - name: admit_authored_data
   profile: command
@@ -2521,3 +2538,9 @@ operations:
   request: claim_external_data_packet_request
   result: claim_data_request_result
   purposes: [write]
+
+- name: read_selected_pdf_source
+  profile: read
+  request: read_selected_pdf_source_request
+  result: read_selected_pdf_source_result
+  purposes: [read]
