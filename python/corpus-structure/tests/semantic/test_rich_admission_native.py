@@ -240,6 +240,6 @@ def test_native_rich_function_population_has_explicit_independent_expectation():
         'ddo_rich_producing_request', 'ddo_rich_family_contract', 'ddo_rich_require_admission_producer',
         'ddo_rich_require_proposal_context',
         'ddo_rich_carried_reading',
-        'ddo_rich_require_preparation_producer', 'ddo_require_rich_preparation_completion',
+        'ddo_rich_require_preparation_producer', 'ddo_require_rich_preparation_completion', 'ddo_rich_require_proposal_inputs',
         'ddo_require_rich_admission_completion', 'ddo_rich_admission_dependencies_valid',
     }
