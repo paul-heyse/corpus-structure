@@ -38,7 +38,7 @@ class AuthoredFactRef(BaseModel):
     kind_contract: Nonempty
     subject: Nonempty
     subject_definition: Nonempty
-    original_source: Nonempty
+    original_source: Nonempty | None
     analyzed_scope: DdoJsonValue
     meaning_body: JsonValue
 
@@ -134,6 +134,14 @@ class OriginalSourceSelection:
             raise ValueError("original document selection requires its exact whole-document scope")
         if isinstance(reference, AuthoredFactRef) and selectors != [{"scope": "authored-fact"}]:
             raise ValueError("authored admission requires its explicit authored-fact scope")
+
+    def validate_subject(self, model) -> None:
+        """Check authored context against its actual admitted subject definition."""
+        from .data_operation_model import validate_subject_source
+
+        reference = read_original_source_reference(self.reference)
+        if isinstance(reference, AuthoredFactRef):
+            validate_subject_source(model, reference.subject_definition, reference.original_source)
 
     def record(self) -> dict:
         return {

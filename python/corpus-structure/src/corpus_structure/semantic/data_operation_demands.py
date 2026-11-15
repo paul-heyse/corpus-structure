@@ -127,6 +127,8 @@ def freeze_demand(
     if any(type(root.subject) is not str or not root.subject or (root.original_source is not None and (type(root.original_source) is not str or not root.original_source)) for root in roots):
         raise ValueError("root subject and nullable source must be explicit")
     frozen_source_sets = source_sets_record(source_sets)
+    for original in original_sources:
+        original.validate_subject(model)
     frozen_original_sources = original_source_selections_record(original_sources)
     supplied = {item.operation: item for item in selections}
     if len(supplied) != len(selections):
