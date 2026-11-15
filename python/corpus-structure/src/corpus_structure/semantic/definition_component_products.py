@@ -9,6 +9,7 @@ from typing import Any
 
 from .identity import canonical_bytes
 from .types import SourceArtifact
+from .python_module_projection import admitted_operation_module_meaning
 
 _ROOT = Path(__file__).parents[1]
 _FILES = (
@@ -48,7 +49,7 @@ def definition_component_assets():
         canonical_bytes(
             {
                 "version": "declared-located-definition-components-v1",
-                "files": [(name, (_ROOT / name).read_bytes().hex()) for name in _FILES],
+                "files": [(name, (admitted_operation_module_meaning((_ROOT / name).read_bytes()).hex() if name in ('methods/definition_components_declared.py', 'methods/definition_named_declared.py') else (_ROOT / name).read_bytes().hex())) for name in _FILES],
             }
         ),
     )

@@ -11,6 +11,7 @@ from typing import Any
 from .data_operation_json import json_bytes, wire_json_loads
 from .identity import canonical_bytes
 from .types import SourceArtifact, SourceBundle
+from .python_module_projection import admitted_operation_module_meaning
 
 _ROOT = Path(__file__).parents[1]
 _MODEL = _ROOT / "model/semantic/data-operation-external-extraction.yaml"
@@ -104,7 +105,7 @@ def external_extraction_assets():
                 "schema": _MODEL.read_bytes().hex(),
                 "placement_policy": asdict(policy),
                 "policy_sources": [(source.name, source.content.hex()) for source in analysis_policy_sources() if source.name.startswith("analysis/")],
-                "files": [(name, (_ROOT / name).read_bytes().hex()) for name in _FILES],
+                "files": [(name, (admitted_operation_module_meaning((_ROOT / name).read_bytes()).hex() if name in ('methods/external_extraction.py',) else (_ROOT / name).read_bytes().hex())) for name in _FILES],
             }
         ),
     )

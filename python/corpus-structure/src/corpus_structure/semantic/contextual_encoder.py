@@ -13,6 +13,7 @@ from corpus_structure.methods.contextual_embeddings import ENCODER_NUMERICS, Enc
 
 from .identity import canonical_bytes
 from .types import SourceArtifact
+from .python_module_projection import admitted_operation_module_meaning
 
 _ROOT = Path(__file__).parents[1]
 _FILES = (
@@ -66,7 +67,7 @@ def contextual_encoder_assets(selection):
                 "profile": asdict(selection.profile),
                 "artifacts": selection.artifacts,
                 "numerical_policy": ENCODER_NUMERICS.model_dump(mode="json"),
-                "files": [(name, (_ROOT / name).read_bytes().hex()) for name in _FILES],
+                "files": [(name, (admitted_operation_module_meaning((_ROOT / name).read_bytes()).hex() if name in ('methods/contextual_encoding.py',) else (_ROOT / name).read_bytes().hex())) for name in _FILES],
             }
         ),
     )

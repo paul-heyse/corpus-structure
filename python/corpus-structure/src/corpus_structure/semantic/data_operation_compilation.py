@@ -1548,25 +1548,16 @@ def compile_data_operations(
             # Runtime custody inspects that supplier's captured syntax and code.
             entrypoint = member.path
             source = frontend.modules[frontend._module_for(entrypoint)].source
-            return ConsumerSelectionCapability(entrypoint, sha256(source.content).hexdigest())
+            from .python_module_projection import admitted_operation_module_digest
+
+            return ConsumerSelectionCapability(entrypoint, sha256(source.content).hexdigest(), admitted_operation_module_digest(source.content))
 
         factory = (
             captured_method(capabilities["prepared_factory"])
             if capabilities.get("prepared_factory") is not None
             else None
         )
-        selection = None
-        if raw.get("consumer_selection") is not None:
-            if isinstance(raw["consumer_selection"], str):
-                selection = captured_method(raw["consumer_selection"])
-            else:
-                record = _mapping(
-                    raw["consumer_selection"], semantic_id, {"entrypoint", "source_digest"}
-                )
-                selection = ConsumerSelectionCapability(
-                    _text(record.get("entrypoint"), semantic_id),
-                    _text(record.get("source_digest"), semantic_id),
-                )
+        selection = captured_method(raw["consumer_selection"]) if raw.get("consumer_selection") is not None else None
         capability = ImplementationCapabilities(
             cast(Any, forms),
             _text(capabilities.get("preparation"), semantic_id),

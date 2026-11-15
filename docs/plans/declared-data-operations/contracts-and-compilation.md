@@ -120,6 +120,45 @@ Changes to captured factory code or admitted slices may legitimately change iden
 encoding and synchronized generated/native consumers are required where representation changes; no old
 encoding reader is a target obligation. Schedule decision successors before these changes.
 
+The capability and asset owners distinguish raw source custody from semantic module meaning.
+`ConsumerSelectionCapability.source_digest` authenticates the exact supplying module at every actual
+factory or selector acquisition. Its `semantic_digest` covers the complete supplying module after
+removing explicit module/class operation metadata declarations; the typed operation model owns those
+metadata projections. Definition identity uses the semantic digest. Constructors, factories, globals,
+docstrings, imports and reflective code remain in the module projection. Function-local variables and
+ordinary class attributes that resemble metadata names remain executable syntax. Manual
+`consumer_selection` descriptor maps are retired; the declaration resolves an actual captured method.
+
+The following semantic asset owners apply that same module projection to their admitted declaration
+wrappers. They retain those wrappers' executable meaning, not just the `run` slice: inspection showed
+that the old implementation slice alone did not close factory/constructor/global behavior. Exact raw
+wrapper bytes remain in supplied-source custody. Other algorithm, DTO, schema and resource files keep
+their existing exact-byte or explicit algorithm-node responsibility.
+
+| Semantic asset owner | Admitted wrapper modules projected separately from metadata |
+|---|---|
+| `artifact_products`, `clause_products`, `scoped_products`, `predicate_products` | Their corresponding `methods/*_declared.py` owners |
+| `contextual_operations`, `contextual_encoder` | `methods/contextual_declared.py`, `methods/contextual_encoding.py` |
+| `declaration_products` | `methods/declaration_syntax.py` |
+| `declared_math_products`, `declared_math_analysis` | `methods/math/declared.py`, `methods/math/analysis.py` |
+| `declared_structural_calls` | `methods/structural_declared.py` |
+| `definition_component_products` | `methods/definition_components_declared.py`, `methods/definition_named_declared.py` |
+| `definition_location_products` | `methods/definition_location.py` |
+| `definition_products` | `methods/definition_declared.py`, `methods/definition_applicability_declared.py` |
+| `dossier_products` | `methods/dossier_declared.py` |
+| `external_extraction` | `methods/external_extraction.py` |
+| `finite_interpretation_products` | `methods/finite_interpretation.py` |
+| `learned_primary` | `methods/learned_primary.py` |
+| `reading_resolution_products` | `methods/reading_resolution.py` |
+
+Formal/canonical/spaCy/HanLP acquisition already separates execution custody or selects explicit
+semantic nodes. The PDF owner checked its capture, transformation and view assets: they preserve
+actual kernels, adapters and schemas, without embedding the separately admitted ingest declaration
+wrappers as raw semantic salts. This inventory does not remove opaque/reflected code merely because
+it contains metadata-like text. The [actual family controls](../../../python/corpus-structure/tests/semantic/test_data_operation_semantic_asset_owners.py)
+cover a real finite-family metadata rewrite, factory/run/global changes and an opaque array dtype
+change; raw source custody and semantic reuse remain separate assertions.
+
 **Preparation and acceptance:** the compiler/identity owner inventories existing labels by operation and
 records each semantic home, enforcement owner and identity projection. Resolve subject relation shape
 using actual source-view/document plus rich entity/statement cases before replacing discovery. An

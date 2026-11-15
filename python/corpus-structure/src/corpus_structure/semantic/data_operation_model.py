@@ -260,6 +260,11 @@ class StreamSettlement:
 class ConsumerSelectionCapability:
     entrypoint: str
     source_digest: str
+    semantic_digest: str
+
+    @property
+    def semantic_record(self) -> dict:
+        return {"entrypoint": self.entrypoint, "semantic_digest": self.semantic_digest}
 
 
 @dataclass(frozen=True)
@@ -509,12 +514,12 @@ class EffectiveOperation:
                 "state_dimensions": [asdict(s) for s in self.state_dimensions],
                 "transitions": [asdict(s) for s in self.transitions],
                 "capabilities": {
-                    key: value
+                    key: (self.capabilities.prepared_factory.semantic_record if key == "prepared_factory" and self.capabilities.prepared_factory is not None else value)
                     for key, value in asdict(self.capabilities).items()
                     if value is not None
                 },
                 **(
-                    {"consumer_selection": asdict(self.consumer_selection)}
+                    {"consumer_selection": self.consumer_selection.semantic_record}
                     if self.consumer_selection is not None
                     else {}
                 ),

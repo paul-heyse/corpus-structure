@@ -20,6 +20,7 @@ from .construction_products import (
 from .data_operation_model import ResolvedRoleBinding, SubjectContext
 from .identity import canonical_bytes
 from .types import PreparedRelease, SourceArtifact
+from .python_module_projection import admitted_operation_module_meaning
 
 _ROOT = Path(__file__).parents[1]
 _PATHS = (
@@ -61,7 +62,7 @@ def declaration_profile_assets():
         canonical_bytes(
             {
                 "version": "declared-canonical-hanlp-syntax-v1",
-                "files": [(name, (_ROOT / name).read_bytes().hex()) for name in _PATHS],
+                "files": [(name, (admitted_operation_module_meaning((_ROOT / name).read_bytes()).hex() if name in ('methods/declaration_syntax.py',) else (_ROOT / name).read_bytes().hex())) for name in _PATHS],
             }
         ),
     )

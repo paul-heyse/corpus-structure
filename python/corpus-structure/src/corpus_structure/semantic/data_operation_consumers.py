@@ -14,6 +14,7 @@ from typing import Any
 
 from .data_operation_bindings import BindingResult
 from .data_operation_model import MODEL_VERSION, BoundRoleMember, ResolvedRoleBinding
+from .python_module_projection import admitted_operation_module_digest
 
 
 @dataclass(frozen=True)
@@ -317,6 +318,7 @@ def resolve_consumer_selection(model, sources, operation, receiver, *, authorize
         if (
             path.read_bytes() != source.content
             or sha256(source.content).hexdigest() != capability.source_digest
+            or admitted_operation_module_digest(source.content) != capability.semantic_digest
         ):
             raise PortRefusal("consumer source differs from captured capability")
         if Path(inspect.getfile(module)).resolve() != path or not inspect.ismethod(function):
@@ -421,6 +423,7 @@ def resolve_prepared_factory(model, sources, operation):
         if (
             path.read_bytes() != source.content
             or sha256(source.content).hexdigest() != capability.source_digest
+            or admitted_operation_module_digest(source.content) != capability.semantic_digest
         ):
             raise PortRefusal("prepared acquisition source differs from admitted bytes")
         actual = module

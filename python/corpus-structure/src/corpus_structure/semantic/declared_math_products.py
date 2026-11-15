@@ -29,6 +29,7 @@ from .declared_structural_references import DeclaredStructuralSource
 from .identity import canonical_bytes
 from .structural_products import DeclaredStructuralInputPin as DeclaredMathInput
 from .types import PreparedRelease, SourceArtifact
+from .python_module_projection import admitted_operation_module_meaning
 
 NAMESPACE = "urn:corpus:math:"
 _ASSET = "math/declared-profile"
@@ -143,7 +144,7 @@ def math_profile_assets(options: DeclaredMathOptions) -> SourceArtifact:
                 "algorithms": [
                     (
                         name,
-                        _normalized_math_source((root / name).read_bytes()),
+                        (admitted_operation_module_meaning((root / name).read_bytes()).decode() if name in ('methods/math/declared.py',) else _normalized_math_source((root / name).read_bytes())),
                     )
                     for name in _PATHS
                 ],

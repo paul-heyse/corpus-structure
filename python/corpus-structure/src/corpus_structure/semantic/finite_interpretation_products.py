@@ -11,6 +11,7 @@ from typing import Any
 
 from .identity import canonical_bytes
 from .types import SourceArtifact, SourceBundle
+from .python_module_projection import admitted_operation_module_meaning
 
 _ROOT = Path(__file__).parents[1]
 _MODEL = _ROOT / "model/semantic/data-operation-interpretation.yaml"
@@ -66,7 +67,7 @@ def finite_interpretation_assets():
             {
                 "version": "finite-interpretation-1",
                 "schema": _MODEL.read_bytes().hex(),
-                "files": [(name, (_ROOT / name).read_bytes().hex()) for name in _FILES],
+                "files": [(name, (admitted_operation_module_meaning((_ROOT / name).read_bytes()).hex() if name in ('methods/finite_interpretation.py',) else (_ROOT / name).read_bytes().hex())) for name in _FILES],
             }
         ),
     )

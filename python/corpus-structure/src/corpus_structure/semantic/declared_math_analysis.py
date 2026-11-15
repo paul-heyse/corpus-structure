@@ -19,6 +19,7 @@ from .declared_structural_references import DeclaredStructuralSource
 from .identity import canonical_bytes
 from .structural_products import DeclaredStructuralInputPin
 from .types import PreparedRelease, SourceArtifact
+from .python_module_projection import admitted_operation_module_meaning
 
 _ROOT = Path(__file__).parents[1]
 _FILES = (
@@ -96,7 +97,7 @@ def math_analysis_assets(options):
                 "profile": asdict(acquire_analysis_context_profile()),
                 "schema": math_analysis_declarations().content.decode(),
                 "algorithms": [
-                    (name, _normalized_math_source((_ROOT / name).read_bytes())) for name in _FILES
+                    (name, (admitted_operation_module_meaning((_ROOT / name).read_bytes()).decode() if name in ('methods/math/analysis.py',) else _normalized_math_source((_ROOT / name).read_bytes()))) for name in _FILES
                 ],
             }
         ),

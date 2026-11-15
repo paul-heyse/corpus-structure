@@ -11,6 +11,7 @@ from typing import Any
 
 from .identity import canonical_bytes
 from .types import SourceArtifact, SourceBundle
+from .python_module_projection import admitted_operation_module_meaning
 
 RECIPE = "retained-m1-reading-resolution-1"
 EVENT_PROCEDURE = "independent-complete-reading-logistic-1"
@@ -65,7 +66,7 @@ def reading_resolution_assets():
             {
                 "version": "declared-reading-resolution-1",
                 "schema": _MODEL.read_bytes().hex(),
-                "files": [(name, (_ROOT / name).read_bytes().hex()) for name in _FILES],
+                "files": [(name, (admitted_operation_module_meaning((_ROOT / name).read_bytes()).hex() if name in ('methods/reading_resolution.py',) else (_ROOT / name).read_bytes().hex())) for name in _FILES],
             }
         ),
     )

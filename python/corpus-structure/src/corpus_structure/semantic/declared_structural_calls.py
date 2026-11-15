@@ -24,6 +24,7 @@ from .declared_structural_references import (
 )
 from .identity import canonical_bytes
 from .types import PreparedRelease, SourceArtifact
+from .python_module_projection import admitted_operation_module_meaning
 
 NAMESPACE = "urn:corpus:structural:"
 _ASSET = "structural/call-assets"
@@ -87,7 +88,7 @@ def structural_call_assets():
                 "algorithms": [
                     (
                         name,
-                        ast.dump(ast.parse((root / name).read_bytes()), include_attributes=False),
+                        (admitted_operation_module_meaning((root / name).read_bytes()).decode() if name in ('methods/structural_declared.py',) else ast.dump(ast.parse((root / name).read_bytes()), include_attributes=False)),
                     )
                     for name in _PATHS
                 ],
