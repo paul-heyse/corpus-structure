@@ -18,6 +18,15 @@ class _OperationMetadata(ast.NodeTransformer):
     def __init__(self, tree):
         self.path = ()
         self.declarations = set()
+        # Metadata is descriptive only where executable code does not inspect it.
+        # Keep direct metadata reads and ordinary reflection conservative; this is
+        # deliberately not an attempt to infer arbitrary Python data flow.
+        self.reflective = any(
+            (isinstance(node, ast.Attribute) and node.attr == "__data_operation__" and isinstance(node.ctx, ast.Load))
+            or (isinstance(node, ast.Name) and node.id.endswith("__data_operation__") and isinstance(node.ctx, ast.Load))
+            or (isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id in {"getattr", "vars", "globals", "locals", "eval", "exec"})
+            for node in ast.walk(tree)
+        )
 
         def collect(body, prefix):
             for node in body:
@@ -45,7 +54,7 @@ class _OperationMetadata(ast.NodeTransformer):
         return None
 
     def declared_metadata(self, targets, value):
-        if not targets or any(self.owner(target) not in self.declarations for target in targets):
+        if self.reflective or not targets or any(self.owner(target) not in self.declarations for target in targets):
             return False
         if not isinstance(value, ast.Dict):
             return False

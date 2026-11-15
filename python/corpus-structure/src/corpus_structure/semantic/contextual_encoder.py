@@ -463,18 +463,19 @@ def resolve_contextual_encoder_port(
         tuple((name, digest) for name, digest in value["artifacts"]),
     )
     selected = model.operation(operation)
-    classes = {
-        kind.__data_operation__["id"]: kind
-        for kind in (ContextualEncodingOperation, SelectedContextEncodingOperation)
-    }
-    if selected.semantic_id not in classes or not selection.artifacts:
+    owners = {surface.exposed.rsplit(".", 1)[0] for surface in selected.callable_surfaces}
+    classes = tuple(
+        kind for kind in (ContextualEncodingOperation, SelectedContextEncodingOperation)
+        if kind.__module__ + "." + kind.__qualname__ in owners
+    )
+    if len(classes) != 1 or not selection.artifacts:
         raise PortRefusal("contextual encoder factory differs from its acquired operation/model")
-    receiver = classes[selected.semantic_id](None)
+    receiver_type = classes[0]
+    receiver = receiver_type(None)
     plan = ContextualEncoderPlan(
         prepared,
         selection,
-        selected_context=selected.semantic_id
-        == SelectedContextEncodingOperation.__data_operation__["id"],
+        selected_context=receiver_type is SelectedContextEncodingOperation,
     )
     port = PreparedOriginalCallPort(
         identity,

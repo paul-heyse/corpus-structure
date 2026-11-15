@@ -108,3 +108,16 @@ def test_module_projection_does_not_strip_unattributed_reflective_metadata():
     assert admitted_operation_module_digest(suffix) != admitted_operation_module_digest(suffix.replace(b"'value':1", b"'value':2"))
     unrelated = b"class Data:\n    __data_operation__ = {'value':1}\n"
     assert admitted_operation_module_digest(unrelated) != admitted_operation_module_digest(unrelated.replace(b"'value':1", b"'value':2"))
+
+
+def test_module_projection_retains_metadata_when_executable_code_inspects_it():
+    from corpus_structure.semantic.python_module_projection import admitted_operation_module_digest
+
+    declaration = b"class Op:\n    __data_operation__ = {'profile':'derivation','subject':'local','roles':[],'behavior':'first'}\n"
+    for reflection in (
+        b"def factory():\n    return Op.__data_operation__['behavior']\n",
+        b"def factory():\n    return getattr(Op, '__data_operation__')['behavior']\n",
+        b"def factory():\n    return vars(Op)['__data_operation__']['behavior']\n",
+    ):
+        first = declaration + reflection
+        assert admitted_operation_module_digest(first) != admitted_operation_module_digest(first.replace(b"'first'", b"'second'"))
