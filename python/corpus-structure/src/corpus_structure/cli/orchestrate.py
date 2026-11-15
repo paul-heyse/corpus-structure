@@ -11,7 +11,8 @@ import typer
 from pydantic import BaseModel
 from rich.table import Table
 
-from corpus_structure.cli.output import JsonOpt, emit, state
+from corpus_structure.cli.output import JsonOpt, emit, state, read_request_json, read_request_model
+from corpus_structure.semantic.refusals import SemanticRefusal
 
 project_app = typer.Typer(
     help="Register a project and immutable original documents.", no_args_is_help=True
@@ -45,9 +46,8 @@ READ_ENGINE: Callable[..., Any] = _open_read_engine
 
 def _refusals(json: bool):
     from corpus_structure.cli.failures import failure_boundary
-    from corpus_structure.semantic.refusals import SemanticRefusal
 
-    return failure_boundary(json, expected=(ValueError, KeyError, OSError, SemanticRefusal))
+    return failure_boundary(json, expected=(OSError,))
 
 
 def _table(title: str, result: BaseModel) -> Table:
@@ -120,6 +120,7 @@ def execute_source_choices(
     from corpus_structure.orchestrate.source_request import (
         RetainedSourceSelection,
         SourceRunRequest,
+        SourceRequestError,
         source_selection,
     )
     from corpus_structure.semantic.data_operation_json import json_loads
@@ -151,9 +152,9 @@ def execute_source_choices(
         ):
             raise typer.BadParameter("--request owns its source and operation selections")
         with _refusals(json):
-            parsed = SourceRunRequest.model_validate(json_loads(request.read_bytes()))
+            parsed = read_request_model(request, SourceRunRequest)
             if parsed.workflow != workflow:
-                raise ValueError("request workflow differs from the selected command")
+                raise SourceRequestError("request workflow differs from the selected command")
     else:
         if semantic_release is None or runtime is None:
             raise typer.BadParameter("new source demands require --semantic-release and --runtime")
@@ -170,7 +171,7 @@ def execute_source_choices(
                 recognition_pages=tuple(recognition_page or ()),
                 documents=tuple(document or ()),
                 retained_sources=tuple(
-                    RetainedSourceSelection.model_validate(json_loads(value.read_bytes()))
+                    read_request_model(value, RetainedSourceSelection)
                     for value in source or ()
                 ),
                 targets=tuple(target or ()),
@@ -179,7 +180,7 @@ def execute_source_choices(
                     *tuple(
                         DemandOperationSelection.model_validate(value)
                         for value in (
-                            json_loads(operation_options.read_bytes())
+                            read_request_json(operation_options)
                             if operation_options is not None
                             else ()
                         )
@@ -360,9 +361,13 @@ def tasks(
     from corpus_structure.semantic.demand_results import read_demand_result
 
     with _refusals(json), READ_ENGINE(state(ctx).settings()) as engine, engine.begin() as conn:
-        pins = None if continuation is None else wire_json_loads(continuation.read_bytes())
+        from rapidjson import JSONDecodeError
+        try:
+            pins = None if continuation is None else wire_json_loads(continuation.read_bytes())
+        except (JSONDecodeError, UnicodeDecodeError) as error:
+            raise SemanticRefusal("continuation must be valid native JSON") from error
         if pins is not None and not isinstance(pins, dict):
-            raise ValueError("continuation must be a native cursor object")
+            raise SemanticRefusal("continuation must be a native cursor object")
         page = read_demand_result(
             conn, demand, project_id=project, continuation=pins, limit=limit, view="frontier"
         )
@@ -495,9 +500,9 @@ def _execute_declared_request(
     from .demands import execute_request
 
     with _refusals(json):
-        selection = NativeDemandRequest.model_validate(json_loads(request.read_bytes()))
+        selection = read_request_model(request, NativeDemandRequest)
         if project is not None and selection.project_id != project:
-            raise ValueError("request belongs to another project")
+            raise SemanticRefusal("request belongs to another project")
     execute_request(
         ctx,
         request=selection,
@@ -765,11 +770,11 @@ def run_interpretation_command(
             if question != "function" or candidate_mode != "source":
                 raise typer.BadParameter("explicit focuses require a source-function question")
             with _refusals(json):
-                values = json_loads(focuses.read_bytes())
+                values = read_request_json(focuses)
                 if not isinstance(values, list) or any(
                     not isinstance(value, dict) for value in values
                 ):
-                    raise ValueError(
+                    raise SemanticRefusal(
                         "focuses must be a list of exact focal/context extent selections"
                     )
                 selections = (

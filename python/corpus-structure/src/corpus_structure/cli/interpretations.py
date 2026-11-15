@@ -162,6 +162,7 @@ def author(
     them as an active result. Inspect the admitted kind contract before authoring.
     """
     from pydantic import ValidationError
+    from rapidjson import JSONDecodeError
 
     from corpus_structure.cli.failures import failure_boundary
     from corpus_structure.semantic.data_operation_service import NativeDemandRequest
@@ -179,7 +180,7 @@ def author(
             raise SemanticRefusal("authored review input exceeds 4MiB")
         try:
             request = NativeDemandRequest.model_validate(json_loads(content))
-        except ValidationError as error:
+        except (ValidationError, JSONDecodeError, UnicodeDecodeError) as error:
             raise SemanticRefusal(
                 "authored input must match the native demand request contract"
             ) from error

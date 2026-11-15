@@ -22,6 +22,7 @@ from .data_operation_json import DdoJsonValue as DdoJsonValue
 from .data_operation_json import json_bytes
 from .data_operation_storage import DataOperationStorage
 from .releases import load_release
+from .refusals import SemanticRefusal
 
 
 class DemandRoot(BaseModel):
@@ -133,7 +134,7 @@ def create_native_demand(
 
     prepared = load_release(connection, request.release_id) if prepared is None else prepared
     if prepared.release_id != request.release_id:
-        raise ValueError("prepared source request belongs to another release")
+        raise SemanticRefusal("prepared source request belongs to another release")
     runtime_binding_for_release(connection, prepared, request.runtime_id)
     intent = freeze_native_demand(prepared, request)
     planner = DemandPlanner(bound_data_operation_model(prepared), DataOperationStorage(connection))
@@ -175,7 +176,7 @@ def execute_data_demand(
     from .runtime_binding_store import runtime_binding_for_release
 
     if purpose not in {"write", "evaluate"}:
-        raise ValueError("native execution purpose must be write or evaluate")
+        raise SemanticRefusal("native execution purpose must be write or evaluate")
     with engine.begin() as connection:
         if admission_engine is not None:
             from .storage_target import acquired_target
@@ -185,15 +186,15 @@ def execute_data_demand(
                 if acquired_target(admitted, purpose="admit") != target.model_copy(
                     update={"purpose": "admit"}
                 ):
-                    raise ValueError("demand admission belongs to another PostgreSQL target")
+                    raise SemanticRefusal("demand admission belongs to another PostgreSQL target")
         snapshot = read_data_demand(connection, demand_id, limit=1)
         if project_id is not None and snapshot["project_id"] != project_id:
-            raise ValueError("retained demand belongs to another project")
+            raise SemanticRefusal("retained demand belongs to another project")
         bundle, dependencies, _, prepared = load_release_inputs(connection, snapshot["release_id"])
         runtime = runtime_binding_for_release(connection, prepared, snapshot["runtime_id"])
         captured = read_data_operation_inputs(dependencies)
         if captured is None:
-            raise ValueError("demand execution requires its captured operation declarations")
+            raise SemanticRefusal("demand execution requires its captured operation declarations")
         if captured[1] is None:
             from .data_operation_admission import bound_data_operation_model
             from .python_operation_sources import PythonSourceCollection
@@ -202,19 +203,19 @@ def execute_data_demand(
                 operation.external is None
                 for operation in bound_data_operation_model(prepared).operations
             ):
-                raise ValueError("Python operations require their captured source context")
+                raise SemanticRefusal("Python operations require their captured source context")
             sources = PythonSourceCollection(())
         else:
             sources = captured[1]
     if source_root is None and sources.sources:
-        raise ValueError("captured Python execution requires an explicit source root")
+        raise SemanticRefusal("captured Python execution requires an explicit source root")
     root = source_root.resolve() if source_root is not None else None
     locations = {}
     for source in sources.sources:
         assert root is not None
         path = root / source.filename
         if not path.resolve().is_relative_to(root):
-            raise ValueError("runtime source location escapes its explicit root")
+            raise SemanticRefusal("runtime source location escapes its explicit root")
         locations[source.module] = path
     executor = NativeDemandExecutor(
         engine,
@@ -269,14 +270,14 @@ def read_data_demand(
     """Preserve all native continuation pins; new bounds and view are explicit overrides."""
     payload = dict(continuation) if continuation is not None else {"demand_id": demand_id}
     if payload.get("demand_id") != demand_id:
-        raise ValueError("continuation belongs to another demand")
+        raise SemanticRefusal("continuation belongs to another demand")
     if limit is not None:
         payload["limit"] = limit
     if max_bytes is not None:
         payload["max_bytes"] = max_bytes
     if view is not None:
         if continuation is not None and payload.get("view", view) != view:
-            raise ValueError("continuation view differs from the explicit requested view")
+            raise SemanticRefusal("continuation view differs from the explicit requested view")
         payload["view"] = view
     return DataOperationStorage(connection).read_demand_result(
         cast(WireReadDemandResultRequest, payload)

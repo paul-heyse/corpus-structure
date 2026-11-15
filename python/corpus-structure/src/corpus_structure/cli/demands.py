@@ -202,6 +202,7 @@ def execute_request(
 ) -> DemandActionReport:
     """One managed path for source creation, explicit native requests and exact resume."""
     from corpus_structure.cli.characterization_options import method_settings
+    from corpus_structure.semantic.refusals import OperationConflict
     from corpus_structure.orchestrate.data_operations import NativeDemandExecutionError
     from corpus_structure.orchestrate.source_reporting import (
         record_native_demand,
@@ -216,7 +217,7 @@ def execute_request(
         result_store(ctx),
         action,
         json=json,
-        expected=(ValueError, KeyError, OSError),
+        expected=(OperationConflict, OSError),
         scope={"demand_id": demand, "project": project},
     ) as invocation:
         if source_root is not None:

@@ -114,25 +114,26 @@ def freeze_demand(
     from .data_operation_identity import decode_semantic_value, semantic_value
 
     from .data_operation_model import validate_replicate_selection
+    from .refusals import SemanticRefusal
 
     if not targets or not inference or not execution_profile:
-        raise ValueError("demand requires targets, inference and an execution profile")
+        raise SemanticRefusal("demand requires targets, inference and an execution profile")
     if len(
         {
             (root.subject, root.original_source, json_context_meaning(root.analyzed_scope))
             for root in roots
         }
     ) != len(roots):
-        raise ValueError("duplicate root context")
+        raise SemanticRefusal("duplicate root context")
     if any(type(root.subject) is not str or not root.subject or (root.original_source is not None and (type(root.original_source) is not str or not root.original_source)) for root in roots):
-        raise ValueError("root subject and nullable source must be explicit")
+        raise SemanticRefusal("root subject and nullable source must be explicit")
     frozen_source_sets = source_sets_record(source_sets)
     for original in original_sources:
         original.validate_subject(model)
     frozen_original_sources = original_source_selections_record(original_sources)
     supplied = {item.operation: item for item in selections}
     if len(supplied) != len(selections):
-        raise ValueError("duplicate operation selection")
+        raise SemanticRefusal("duplicate operation selection")
     operations = {op.semantic_id: op for op in model.operations}
     graph = model.projection_graph(
         "selected-dependencies",
@@ -150,11 +151,11 @@ def freeze_demand(
             relation.population in population_sources
             and population_sources[relation.population] != source
         ):
-            raise ValueError("one discovery population requires one source projection")
+            raise SemanticRefusal("one discovery population requires one source projection")
         population_sources[relation.population] = source
         relation_key = (*source, relation.population, relation.target)
         if relation_key in seen_relations:
-            raise ValueError("duplicate frozen discovery target")
+            raise SemanticRefusal("duplicate frozen discovery target")
         seen_relations.add(relation_key)
         producer = operations.get(relation.producer)
         if (
@@ -167,7 +168,7 @@ def freeze_demand(
                 for role in producer.roles
             )
         ):
-            raise ValueError("discovery relation is outside declared output contracts")
+            raise SemanticRefusal("discovery relation is outside declared output contracts")
         if relation.target_role is not None:
             from .data_operation_kind_refinements import input_kind_refinements
             from .data_operation_member_contracts import derive_member_kinds
@@ -187,20 +188,20 @@ def freeze_demand(
                 or target_roles[0].support is None
                 or "computation" not in target_roles[0].support.origins
             ):
-                raise ValueError("discovery target role must accept computational members")
+                raise SemanticRefusal("discovery target role must accept computational members")
             target_role = target_roles[0]
             if not set(
                 input_kind_refinements(model, (target_role.kind,))[target_role.kind]
             ).intersection(derive_member_kinds(model, output.kind)):
-                raise ValueError("discovery target role does not accept the producer member kind")
+                raise SemanticRefusal("discovery target role does not accept the producer member kind")
             if any(
                 previous.target == relation.target and previous.target_role == relation.target_role
                 for previous in discovery[: discovery.index(relation)]
             ):
-                raise ValueError("discovery target role requires one frozen population")
+                raise SemanticRefusal("discovery target role requires one frozen population")
         requested.update((relation.producer, relation.target))
     if not requested <= operations.keys():
-        raise ValueError("unknown demand target")
+        raise SemanticRefusal("unknown demand target")
     closure = set(requested)
     for target in requested:
         closure.update(graph.closure((target,)))
@@ -225,20 +226,20 @@ def freeze_demand(
         for entry in source_set.entries:
             validate_subject_source(model, entry.subject_definition, entry.original_source)
     if not supplied.keys() <= closure:
-        raise ValueError("selection is outside the requested closure")
+        raise SemanticRefusal("selection is outside the requested closure")
     identities = {(item.owner, item.domain): item.key for item in model.identities}
     selected = []
     for operation_id in sorted(closure):
         operation = operations[operation_id]
         item = supplied.get(operation_id, OperationSelection(operation_id))
         if (operation_id, "recipe") not in identities:
-            raise ValueError(f"unknown implementation determinants: {operation_id}")
+            raise SemanticRefusal(f"unknown implementation determinants: {operation_id}")
         validate_replicate_selection(operation.replicate_policy, item.replicate, owner=operation_id)
         parameters, choices = json.loads(item.parameters), json.loads(item.choices)
         if item.parameter_meaning is not None:
             parameters = decode_semantic_value(json.loads(item.parameter_meaning))
         if not isinstance(parameters, dict) or not isinstance(choices, dict):
-            raise ValueError("operation parameters and choices must be mappings")
+            raise SemanticRefusal("operation parameters and choices must be mappings")
         parameters = effective_binding_parameters(operation, parameters)
         required_source_sets = {
             role.support.source_set
@@ -246,7 +247,7 @@ def freeze_demand(
             if role.support is not None and role.support.source_set is not None
         }
         if not required_source_sets <= frozen_source_sets.keys():
-            raise ValueError("selected operation lacks its explicit frozen source set")
+            raise SemanticRefusal("selected operation lacks its explicit frozen source set")
         selected.append(
             {
                 "operation": operation_id,
@@ -267,7 +268,7 @@ def freeze_demand(
         if role.support is not None and role.support.source_set is not None
     }
     if frozen_source_sets.keys() != declared_source_sets:
-        raise ValueError("frozen source sets must exactly match selected operation declarations")
+        raise SemanticRefusal("frozen source sets must exactly match selected operation declarations")
     return DemandIntent(
         json_bytes(
             {

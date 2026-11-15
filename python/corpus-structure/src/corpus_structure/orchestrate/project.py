@@ -6,9 +6,10 @@ from pydantic import BaseModel
 from sqlalchemy import Connection
 
 from corpus_structure.semantic.data_operation_support import OriginalDocumentRef
+from corpus_structure.semantic.refusals import SemanticRefusal
 
 
-class ProjectError(ValueError):
+class ProjectError(SemanticRefusal):
     """A project or source pack cannot be registered as supplied."""
 
 

@@ -12,9 +12,10 @@ from corpus_structure.core.execution_policy import CharacterizationExecutionPoli
 from corpus_structure.core.method import MethodSettings
 from corpus_structure.semantic.data_operation_service import DdoJsonValue, DemandOperationSelection
 from corpus_structure.semantic.structural_products import ExternalSourceRef
+from corpus_structure.semantic.refusals import SemanticRefusal
 
 
-class SourceRequestError(ValueError):
+class SourceRequestError(SemanticRefusal):
     """Source choices cannot be frozen against the admitted operation model."""
 
 

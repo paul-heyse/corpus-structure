@@ -10,8 +10,6 @@ import psycopg
 import pytest
 from sqlalchemy.exc import DBAPIError
 
-from corpus_structure.evaluate.semantic import ReferenceError
-from corpus_structure.semantic.refusals import SemanticRefusal
 
 
 def test_model_preview_delivers_preparation_error_when_report_schema_is_unavailable(
@@ -41,20 +39,51 @@ def test_model_preview_delivers_preparation_error_when_report_schema_is_unavaila
     assert [d["location"] for d in error["diagnostics"]] == ["Example"]
 
 
+def current_failure_command(command, directory):
+    """Use current request DTOs; every taxonomy case must reach engine acquisition."""
+    from corpus_structure.evaluate.selected_references import SelectedReferenceEvaluationRequest, ReferenceApplicability
+    from corpus_structure.orchestrate.source_request import SourceRunRequest
+    from corpus_structure.semantic.data_operation_service import NativeDemandRequest, DemandRoot
+    from corpus_structure.semantic.data_operation_json import json_bytes
+
+    if command == "golden":
+        request = NativeDemandRequest(project_id="project:failure", release_id="release:failure", runtime_id="runtime:failure",
+            roots=(DemandRoot(subject="subject:failure", original_source="original:failure", analyzed_scope={}),),
+            targets=("reference.snapshot/declared",), execution_profile="execution:failure")
+        route = ("golden", "author")
+    elif command == "eval":
+        request = SelectedReferenceEvaluationRequest(project_id="project:failure", reference_demand_id="demand:reference",
+            reference_product_id="product:reference", prediction_demand_id="demand:prediction", prediction_product_id="product:prediction",
+            assignments={}, applicability=ReferenceApplicability(reference_source_release_id="release:source", reference_source_cut_id="cut:source",
+                prediction_release_id="release:prediction", original_source="original:failure", projection="projection:failure", selectors=(), basis="independently selected scope"))
+        route = ("eval", "run")
+    else:
+        request = SourceRunRequest(project_id="project:failure", release_id="release:failure", runtime_id="runtime:failure", domain="toy", documents=("document:failure",))
+        route = ("regenerate", "--source-root", str(directory))
+    path = directory / (command + ".json")
+    path.write_bytes(json_bytes(request.model_dump(mode="python")))
+    return (*route, "--request", str(path), "--json")
+
+
 @pytest.mark.parametrize("command", ["golden", "eval", "regenerate"])
 @pytest.mark.parametrize(
     "kind", ["refusal", "serialization", "fencing", "unknown", "bug", "cancel"]
 )
 def test_actual_command_failure_classification(cli, monkeypatch, tmp_path, command, kind):
     from corpus_structure.core.db.store import FENCING_CONSTRAINT
-    from corpus_structure.semantic import regeneration, runtime
+    from corpus_structure.semantic import runtime
+    from corpus_structure.evaluate.selected_references import SelectedReferenceRefusal
+    from corpus_structure.orchestrate.source_request import SourceRequestError
 
     if kind == "refusal":
         failure = (
-            ReferenceError("reference selection refused")
+            SelectedReferenceRefusal("reference selection refused")
             if command != "regenerate"
-            else SemanticRefusal("pack refused")
+            else SourceRequestError("source selection refused")
         )
+    elif kind == "conflict":
+        from corpus_structure.semantic.refusals import OperationConflict
+        failure = OperationConflict("native fence changed")
     elif kind == "serialization":
         failure = DBAPIError(None, None, psycopg.errors.SerializationFailure("serialization"))
     elif kind == "fencing":
@@ -68,36 +97,34 @@ def test_actual_command_failure_classification(cli, monkeypatch, tmp_path, comma
         failure = DBAPIError(None, None, psycopg.errors.UndefinedColumn("broken SQL"))
     elif kind == "bug":
         failure = ValueError("implementation defect")
+    elif kind == "key_bug":
+        failure = KeyError("unexpected implementation lookup")
     else:
         failure = KeyboardInterrupt()
 
+    acquired = []
     @contextmanager
     def unavailable(*args, **kwargs):
+        acquired.append(kwargs["purpose"])
         raise failure
         yield
 
-    def bad_pack(*args, **kwargs):
-        raise failure
-
     monkeypatch.setattr(runtime, "open_runtime_engine", unavailable)
-    monkeypatch.setattr(regeneration, "prepare_pack", bad_pack)
-    args = {
-        "golden": ("golden", "status", "--json"),
-        "eval": ("eval", "run", "--run", "1", "--set-id", "1", "--json"),
-        "regenerate": ("regenerate", "--domain", "toy", "--corpus", str(tmp_path), "--json"),
-    }[command]
+    monkeypatch.setenv("CORPUS_CI_RESULTS", str(tmp_path / "managed"))
+    args = current_failure_command(command, tmp_path)
     result = cli(*args)
+    assert acquired == ["write" if command == "regenerate" else "evaluate"], (result.output, result.exception)
     assert result.exit_code != 0
-    if kind in {"bug", "cancel"}:
+    if kind in {"bug", "key_bug", "cancel"}:
         assert "refused:" not in result.output
         assert '"error"' not in result.output
-        if kind == "bug":
+        if kind in {"bug", "key_bug"}:
             assert result.exception is failure
         return
     error = json.loads(result.stdout)["error"]
-    expected = type(failure).__name__ if kind == "refusal" else "database_" + kind
+    expected = type(failure).__name__ if kind in {"refusal", "conflict"} else "database_" + kind
     assert error["code"] == expected
-    if kind != "refusal":
+    if kind not in {"refusal", "conflict"}:
         assert error["failure"]["phase"] == "unknown"
         assert error["failure"]["effects"] == "uncertain"
         assert (
@@ -107,12 +134,20 @@ def test_actual_command_failure_classification(cli, monkeypatch, tmp_path, comma
         assert error["remediation"] == "inspect_failure"
 
 
-def test_invalid_pack_is_a_typed_actual_regenerate_refusal(cli, tmp_path):
-    result = cli(
-        "regenerate", "--domain", "absent-fixture-pack", "--corpus", str(tmp_path), "--json"
-    )
-    assert result.exit_code == 1
-    assert json.loads(result.stdout)["error"]["code"] == "PackInputError"
+def test_regenerate_refuses_another_workflow_before_engine_acquisition(cli, tmp_path, monkeypatch):
+    from corpus_structure.orchestrate.source_request import SourceRunRequest
+    from corpus_structure.semantic import runtime
+    from corpus_structure.semantic.data_operation_json import json_bytes
+
+    def forbidden(*args, **kwargs):
+        pytest.fail("incompatible source workflow must not acquire a database")
+    monkeypatch.setattr(runtime, "open_runtime_engine", forbidden)
+    request = SourceRunRequest(project_id="project:failure", release_id="release:failure", runtime_id="runtime:failure", workflow="characterize")
+    path = tmp_path / "source.json"
+    path.write_bytes(json_bytes(request.model_dump(mode="python")))
+    result = cli("regenerate", "--source-root", str(tmp_path), "--request", str(path), "--json")
+    assert result.exit_code == 1, result.output
+    assert json.loads(result.stdout)["error"]["code"] == "SourceRequestError"
 
 
 @pytest.mark.parametrize("route", ["schema", "db_check"])
@@ -337,3 +372,20 @@ def test_actual_archive_query_failure_reaches_cli_unchanged(
             == {"serialization": "40001", "fencing": "23505", "unknown": "42703"}[kind]
         )
         assert error["remediation"] == "inspect_failure"
+
+
+def test_current_reference_owner_types_explicit_refusal_without_wrapping_unknown_helper(monkeypatch):
+    from corpus_structure.evaluate import selected_references
+    from corpus_structure.semantic.data_operation_service import NativeDemandRequest, DemandRoot
+    request = NativeDemandRequest(project_id="p", release_id="r", runtime_id="runtime",
+        roots=(DemandRoot(subject="subject", original_source="original", analyzed_scope={}),),
+        targets=("unrelated",), execution_profile="execution")
+    with pytest.raises(selected_references.SelectedReferenceRefusal, match="dedicated snapshot"):
+        selected_references.author_selected_references(object(), object(), request=request)
+    failure = ValueError("unexpected implementation helper defect")
+    def broken(prepared):
+        raise failure
+    monkeypatch.setattr(selected_references, "read_native_definition_projection", broken)
+    with pytest.raises(ValueError) as caught:
+        selected_references.author_selected_references(object(), object(), request=request.model_copy(update={"targets": ("reference.snapshot/declared",)}))
+    assert caught.value is failure

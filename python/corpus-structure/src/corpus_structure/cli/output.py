@@ -124,8 +124,29 @@ def read_request_bytes(source: str | Path) -> bytes:
         with Path(source).open("rb") as stream:
             data = stream.read(limit + 1)
     if len(data) > limit:
-        raise ValueError("request input exceeds the 8 MiB limit")
+        from corpus_structure.semantic.refusals import SemanticRefusal
+
+        raise SemanticRefusal("request input exceeds the 8 MiB limit")
     return data
+
+
+def read_request_json(source: str | Path):
+    """Decode bounded caller JSON exactly without translating implementation failures."""
+    from rapidjson import JSONDecodeError
+
+    from corpus_structure.semantic.data_operation_json import json_loads
+    from corpus_structure.semantic.refusals import SemanticRefusal
+
+    content = read_request_bytes(source)
+    try:
+        return json_loads(content)
+    except (JSONDecodeError, UnicodeDecodeError) as error:
+        raise SemanticRefusal("request must be valid JSON") from error
+
+
+def read_request_model[Request: BaseModel](source: str | Path, model: type[Request]) -> Request:
+    """Validate the current request DTO after exact, bounded JSON acquisition."""
+    return model.model_validate(read_request_json(source))
 
 
 def emit[Report: BaseModel](

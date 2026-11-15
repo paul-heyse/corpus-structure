@@ -11,12 +11,17 @@ from collections.abc import Mapping
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from corpus_structure.semantic.refusals import SemanticRefusal
 from corpus_structure.semantic.data_operation_identity import decode_semantic_value
 from corpus_structure.semantic.data_operation_json import json_bytes
 from corpus_structure.semantic.data_operation_model import json_context_meaning
 from corpus_structure.semantic.demand_results import CutSelection, selected_record_index
 from corpus_structure.semantic.observations import source_python
 from corpus_structure.semantic.native_definition_projection import read_native_definition_projection
+
+class SelectedReferenceRefusal(SemanticRefusal):
+    """An explicit reference or prediction selection cannot support this comparison."""
+
 
 _REFERENCE = "https://corpus-structure.dev/semantic/data-operation-assessment/DdoSelectedReference"
 _SNAPSHOT = (
@@ -34,7 +39,7 @@ def _body(index, product, member=None):
         )
     )
     if row is None:
-        raise ValueError("reference address is outside the selected native closure")
+        raise SelectedReferenceRefusal("reference address is outside the selected native closure")
     return row, decode_semantic_value(row["canonical_body" if member is None else "body"])
 
 
@@ -54,27 +59,27 @@ def _reference_invariants(body):
         body["source_release_id"],
         body["source_runtime_id"],
     ):
-        raise ValueError("reference question differs from its immutable original source cut")
+        raise SelectedReferenceRefusal("reference question differs from its immutable original source cut")
     if body["direction"] == "source_first" and body["output_members"]:
-        raise ValueError("source-first reference cannot freeze exposed prediction outputs")
+        raise SelectedReferenceRefusal("source-first reference cannot freeze exposed prediction outputs")
     if body["direction"] == "output_first" and not body["output_members"]:
-        raise ValueError("output-first reference requires its exact frozen output population")
+        raise SelectedReferenceRefusal("output-first reference requires its exact frozen output population")
     cases = [case["case_id"] for case in body["cases"]]
     if len(set(cases)) != len(cases):
-        raise ValueError("independent reference repeats a case identity")
+        raise SelectedReferenceRefusal("independent reference repeats a case identity")
     sources = [(row["product_id"], row.get("member_id")) for row in body["source_members"]]
     if len(set(sources)) != len(sources):
-        raise ValueError("independent reference repeats a source identity")
+        raise SelectedReferenceRefusal("independent reference repeats a source identity")
     source_keys = {json_bytes(row) for row in body["source_members"]}
     for case in body["cases"]:
         if not {json_bytes(row) for row in case["source_members"]} <= source_keys:
-            raise ValueError("reference case cites outside its frozen source population")
+            raise SelectedReferenceRefusal("reference case cites outside its frozen source population")
         expected = source_python(case["expected"])
         if not isinstance(expected, Mapping):
-            raise ValueError("reference matcher requires an explicit object expectation")
+            raise SelectedReferenceRefusal("reference matcher requires an explicit object expectation")
         if case["matcher"] == "graph_full":
             if not {"root", "nodes"} <= expected.keys() or "graph_projection" not in case:
-                raise ValueError(
+                raise SelectedReferenceRefusal(
                     "graph reference requires its full rooted graph and explicit comparison projection"
                 )
             from .characterization_assessment import project_graph
@@ -96,7 +101,7 @@ def _reference_invariants(body):
             or not correspondence["basis"]
             or not correspondence["reviewed_by"]
         ):
-            raise ValueError(
+            raise SelectedReferenceRefusal(
                 "retained reference requires explicit reviewed identity/question correspondence and its original grade"
             )
 
@@ -105,7 +110,7 @@ def _authenticate_reference_sources(connection, body, *, project_id, max_bytes=8
     source_cut = CutSelection(json_bytes(source_python(body["source_cut"])))
     pins = source_cut.record
     if pins["project_id"] != project_id:
-        raise ValueError("reference original source belongs to another project")
+        raise SelectedReferenceRefusal("reference original source belongs to another project")
     with selected_record_index(
         connection,
         body["source_demand_id"],
@@ -125,7 +130,7 @@ def _authenticate_reference_sources(connection, body, *, project_id, max_bytes=8
                 or json_context_meaning(json_bytes(actual["analyzed_scope"])).decode()
                 != source["analyzed_scope_meaning"]
             ):
-                raise ValueError("reference source member differs from its native source/context")
+                raise SelectedReferenceRefusal("reference source member differs from its native source/context")
         for output in body["output_members"]:
             _body(index, output["product_id"], output["member_id"])
 
@@ -136,21 +141,21 @@ def author_selected_references(engine, prepared, *, request):
     from corpus_structure.serve.interpretation_authoring import author_interpretations
 
     if request.targets != ("reference.snapshot/declared",):
-        raise ValueError("reference authoring requires its dedicated snapshot target")
+        raise SelectedReferenceRefusal("reference authoring requires its dedicated snapshot target")
     contracts = {
         kind["kind_contract"]
         for kind in read_native_definition_projection(prepared)["kinds"]
         if kind["kind"] == _REFERENCE and kind["universe"] == "evaluator"
     }
     if len(contracts) != 1:
-        raise ValueError("reference authoring release lacks its protected declared kind")
+        raise SelectedReferenceRefusal("reference authoring release lacks its protected declared kind")
     for selected in request.original_sources.values():
         reference = selected.reference
         if (
             reference.get("kind") != "authored-fact"
             or reference.get("kind_contract") not in contracts
         ):
-            raise ValueError("reference authoring accepts only the protected reference fact kind")
+            raise SelectedReferenceRefusal("reference authoring accepts only the protected reference fact kind")
         body = prepared.validate_json(
             "DdoSelectedReference", json_bytes(decode_semantic_value(reference["meaning_body"]))
         ).model_dump(mode="python", exclude_unset=True)
@@ -205,7 +210,7 @@ def evaluate_selected_references(connection, request: SelectedReferenceEvaluatio
     reference_scope = {"product_ids": [request.reference_product_id]}
     prediction_scope = {"product_ids": [request.prediction_product_id]}
     if request.reference_demand_id == request.prediction_demand_id:
-        raise ValueError("reference and prediction require their separate native selections")
+        raise SelectedReferenceRefusal("reference and prediction require their separate native selections")
     with selected_record_index(
         connection,
         request.reference_demand_id,
@@ -223,7 +228,7 @@ def evaluate_selected_references(connection, request: SelectedReferenceEvaluatio
             if kind["kind"] in {_REFERENCE, _SNAPSHOT} and kind["universe"] == "evaluator"
         }
         if reference_row["kind_contract"] not in admitted:
-            raise ValueError("selected reference is not a protected declared reference kind")
+            raise SelectedReferenceRefusal("selected reference is not a protected declared reference kind")
         prepared.validate_json(
             "DdoSelectedReferenceSnapshot"
             if reference_row["kind_contract"]
@@ -258,7 +263,7 @@ def evaluate_selected_references(connection, request: SelectedReferenceEvaluatio
                 if row["derivation_id"] in episodes and row["role"] == "reference"
             ]
             if len(originals) != 1:
-                raise ValueError(
+                raise SelectedReferenceRefusal(
                     "reference snapshot requires its exact independently authored input"
                 )
             original = originals[0]
@@ -286,7 +291,7 @@ def evaluate_selected_references(connection, request: SelectedReferenceEvaluatio
                     for row in references.rows("ops.data_derivation_original_support")
                 )
             ):
-                raise ValueError(
+                raise SelectedReferenceRefusal(
                     "reference snapshot differs from its authentic independently authored input"
                 )
         with selected_record_index(
@@ -309,7 +314,7 @@ def evaluate_selected_references(connection, request: SelectedReferenceEvaluatio
                 applicability.reference_source_cut_id,
                 applicability.prediction_release_id,
             ):
-                raise ValueError(
+                raise SelectedReferenceRefusal(
                     "reference source release and prediction release require exact reviewed applicability"
                 )
             producer_episodes = {
@@ -321,7 +326,7 @@ def evaluate_selected_references(connection, request: SelectedReferenceEvaluatio
                 row["derivation_id"] in producer_episodes and row["fate"] == "fulfilled"
                 for row in predictions.rows("ops.demand_use")
             ):
-                raise ValueError("prediction requires its authentic selected producing episode")
+                raise SelectedReferenceRefusal("prediction requires its authentic selected producing episode")
             source = prediction["source"]
             if (
                 source["document"] != applicability.original_source
@@ -332,7 +337,7 @@ def evaluate_selected_references(connection, request: SelectedReferenceEvaluatio
                     for row in reference["source_members"]
                 )
             ):
-                raise ValueError("prediction source is outside the independent reference scope")
+                raise SelectedReferenceRefusal("prediction source is outside the independent reference scope")
             expected_cases = {
                 case["case_id"] for case in reference["cases"] if case["judgment"] != "unassessed"
             }
@@ -340,7 +345,7 @@ def evaluate_selected_references(connection, request: SelectedReferenceEvaluatio
                 reference["direction"] == "output_first"
                 and set(request.assignments) != expected_cases
             ):
-                raise ValueError("assessment assignments differ from the frozen assessed cases")
+                raise SelectedReferenceRefusal("assessment assignments differ from the frozen assessed cases")
             if reference["direction"] == "output_first":
                 frozen = {
                     (row["product_id"], row["member_id"]) for row in reference["output_members"]
@@ -350,7 +355,7 @@ def evaluate_selected_references(connection, request: SelectedReferenceEvaluatio
                     for member in request.assignments.values()
                 }
                 if actual != frozen:
-                    raise ValueError(
+                    raise SelectedReferenceRefusal(
                         "output-first assessment differs from its frozen prediction population"
                     )
             products = predictions.mapping("kb.data_product", ("id",))
@@ -386,7 +391,7 @@ def evaluate_selected_references(connection, request: SelectedReferenceEvaluatio
                 if member is not None and not any(
                     row["original_source"] == source["document"] for row in case["source_members"]
                 ):
-                    raise ValueError(
+                    raise SelectedReferenceRefusal(
                         "prediction assignment cites outside the case's independent source question"
                     )
                 if member not in collections:
@@ -449,5 +454,5 @@ def evaluate_selected_references(connection, request: SelectedReferenceEvaluatio
                     reference["retained_correspondence"]
                 )
             if len(json_bytes(report)) > request.max_bytes:
-                raise ValueError("complete selected reference comparison exceeds max_bytes")
+                raise SelectedReferenceRefusal("complete selected reference comparison exceeds max_bytes")
             return report

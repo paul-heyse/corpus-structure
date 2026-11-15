@@ -6,6 +6,7 @@ from pathlib import Path
 
 from corpus_structure.semantic.data_operation_service import create_native_demand, read_data_demand
 from corpus_structure.semantic.storage_target import acquired_target
+from corpus_structure.semantic.refusals import SemanticRefusal
 
 
 def execute_native_intent(
@@ -17,9 +18,9 @@ def execute_native_intent(
     from corpus_structure.semantic.data_operation_service import execute_data_demand
 
     if sum(value is not None for value in (demand, request, source_request)) != 1:
-        raise ValueError("select one source request, native request or retained demand")
+        raise SemanticRefusal("select one source request, native request or retained demand")
     if request is not None and required_targets is not None and request.targets != required_targets:
-        raise ValueError("native request differs from the required explicit targets")
+        raise SemanticRefusal("native request differs from the required explicit targets")
     with engine.begin() as connection:
         target = acquired_target(connection, purpose="write")
         if source_request is not None:
@@ -32,19 +33,19 @@ def execute_native_intent(
             prepared = None
         if request is not None:
             if project is not None and request.project_id != project:
-                raise ValueError("request belongs to another project")
+                raise SemanticRefusal("request belongs to another project")
             snapshot = create_native_demand(connection, request, prepared=prepared)
             demand = snapshot["demand_id"]
         else:
             if demand is None:
-                raise ValueError("native execution lacks its explicit demand")
+                raise SemanticRefusal("native execution lacks its explicit demand")
             snapshot = read_data_demand(connection, demand, limit=1)
             if project is not None and snapshot["project_id"] != project:
-                raise ValueError("retained demand belongs to another project")
+                raise SemanticRefusal("retained demand belongs to another project")
         if required_targets is not None and tuple(snapshot["selection"]["targets"]) != required_targets:
-            raise ValueError("retained demand differs from the required explicit targets")
+            raise SemanticRefusal("retained demand differs from the required explicit targets")
     if demand is None:
-        raise ValueError("native registration lacks its exact demand identity")
+        raise RuntimeError("native registration lacks its exact demand identity")
     if registered is not None:
         registered(snapshot, target, request)
     execute = execute_data_demand

@@ -8,8 +8,9 @@ from typing import Annotated
 import typer
 
 from corpus_structure.cli.managed import managed_operation, result_store
-from corpus_structure.cli.output import JsonOpt, read_request_bytes, state, write_report_text
-from corpus_structure.semantic.data_operation_json import json_bytes, json_loads
+from corpus_structure.cli.output import JsonOpt, read_request_model, state, write_report_text
+from corpus_structure.semantic.data_operation_json import json_bytes
+from corpus_structure.semantic.refusals import OperationConflict
 
 reference_app = typer.Typer(
     help="Author independent protected references against exact source selections.",
@@ -31,9 +32,9 @@ def author(ctx: typer.Context, request: Annotated[Path, typer.Option()], json: J
     from corpus_structure.semantic.storage_target import acquired_target
 
     with managed_operation(
-        result_store(ctx), "golden.author", json=json, expected=(ValueError, KeyError, OSError)
+        result_store(ctx), "golden.author", json=json, expected=(OperationConflict, OSError)
     ) as invocation:
-        parsed = NativeDemandRequest.model_validate(json_loads(read_request_bytes(request)))
+        parsed = read_request_model(request, NativeDemandRequest)
         request_path = invocation.directory / "request.json"
         request_path.write_bytes(json_bytes(parsed.model_dump(mode="python")))
         invocation.publish("request", request_path)
@@ -78,9 +79,9 @@ def snapshot(
     from corpus_structure.semantic.storage_target import acquired_target
 
     with managed_operation(
-        result_store(ctx), "golden.snapshot", json=json, expected=(ValueError, KeyError, OSError)
+        result_store(ctx), "golden.snapshot", json=json, expected=(OperationConflict, OSError)
     ) as invocation:
-        parsed = NativeDemandRequest.model_validate(json_loads(read_request_bytes(request)))
+        parsed = read_request_model(request, NativeDemandRequest)
         request_path = invocation.directory / "request.json"
         request_path.write_bytes(json_bytes(parsed.model_dump(mode="python")))
         invocation.publish("request", request_path)
@@ -129,11 +130,9 @@ def evaluate(ctx: typer.Context, request: Annotated[Path, typer.Option()], json:
     from corpus_structure.semantic.storage_target import acquired_target
 
     with managed_operation(
-        result_store(ctx), "eval.selected", json=json, expected=(ValueError, KeyError, OSError)
+        result_store(ctx), "eval.selected", json=json, expected=(OperationConflict, OSError)
     ) as invocation:
-        parsed = SelectedReferenceEvaluationRequest.model_validate(
-            json_loads(read_request_bytes(request))
-        )
+        parsed = read_request_model(request, SelectedReferenceEvaluationRequest)
         request_path = invocation.directory / "request.json"
         request_path.write_bytes(json_bytes(parsed.model_dump(mode="python")))
         invocation.publish("request", request_path)
@@ -181,10 +180,12 @@ def evaluate_records(
     from corpus_structure.semantic.runtime import open_runtime_engine
     from corpus_structure.semantic.storage_target import acquired_target
 
-    with managed_operation(result_store(ctx), "eval.records", json=json, expected=(ValueError, KeyError, OSError)) as invocation:
-        parsed = NativeDemandRequest.model_validate(json_loads(read_request_bytes(request)))
+    with managed_operation(result_store(ctx), "eval.records", json=json, expected=(OperationConflict, OSError)) as invocation:
+        parsed = read_request_model(request, NativeDemandRequest)
         if parsed.targets not in {("record_policy.grade",), ("record_policy.fit",)}:
-            raise ValueError("record evaluation requires exactly its protected grade or fit target")
+            from corpus_structure.semantic.refusals import SemanticRefusal
+
+            raise SemanticRefusal("record evaluation requires exactly its protected grade or fit target")
         request_path = invocation.directory / "request.json"
         request_path.write_bytes(json_bytes(parsed.model_dump(mode="python")))
         invocation.publish("request", request_path)
@@ -220,8 +221,8 @@ def fit_record_features(ctx: typer.Context, request: Annotated[Path, typer.Optio
     from corpus_structure.evaluate.declared_record_policy import DdoRecordFeatureFitRequest, prepare_record_feature_policy
     from corpus_structure.semantic.runtime import open_runtime_engine
 
-    with managed_operation(result_store(ctx), "eval.record-feature-fit", json=json, expected=(ValueError, KeyError, OSError)) as invocation:
-        parsed = DdoRecordFeatureFitRequest.model_validate_json(read_request_bytes(request))
+    with managed_operation(result_store(ctx), "eval.record-feature-fit", json=json, expected=(OperationConflict, OSError)) as invocation:
+        parsed = read_request_model(request, DdoRecordFeatureFitRequest)
         request_path = invocation.directory / "request.json"
         request_path.write_bytes(json_bytes(parsed.model_dump(mode="json")))
         invocation.publish("request", request_path)

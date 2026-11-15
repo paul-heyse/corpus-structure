@@ -18,6 +18,7 @@ from corpus_structure.semantic.data_operation_support import (
 )
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.runtime_binding_store import runtime_binding_for_release
+from corpus_structure.semantic.refusals import SemanticRefusal
 
 
 def author_interpretations(engine, prepared, *, request: NativeDemandRequest):
@@ -28,7 +29,7 @@ def author_interpretations(engine, prepared, *, request: NativeDemandRequest):
     native authority; a caller's author string is retained as an assertion.
     """
     if not isinstance(request, NativeDemandRequest) or request.release_id != prepared.release_id:
-        raise ValueError(
+        raise SemanticRefusal(
             "authored input requires its exact admitted release and native demand request"
         )
     names = tuple(
@@ -39,7 +40,7 @@ def author_interpretations(engine, prepared, *, request: NativeDemandRequest):
         )
     )
     if not names:
-        raise ValueError("authored input requires at least one explicit authored-fact selection")
+        raise SemanticRefusal("authored input requires at least one explicit authored-fact selection")
     intent = freeze_native_demand(prepared, request)
     from corpus_structure.semantic.data_operation_admission import bound_data_operation_model
 
@@ -54,7 +55,7 @@ def author_interpretations(engine, prepared, *, request: NativeDemandRequest):
             strength=request.strength,
         )
         if registered.get("state") == "cancelled":
-            raise ValueError("cancelled demand cannot admit new authored facts")
+            raise SemanticRefusal("cancelled demand cannot admit new authored facts")
         from corpus_structure.semantic.demand_results import read_demand_result
 
         continuation, cut, found = None, None, {}
@@ -73,7 +74,7 @@ def author_interpretations(engine, prepared, *, request: NativeDemandRequest):
                 if value["selection_name"] in names:
                     previous = found.setdefault(value["admission_id"], value)
                     if previous != value:
-                        raise ValueError("authored admission changed across its pinned read")
+                        raise SemanticRefusal("authored admission changed across its pinned read")
             continuation = page.continuation
             if continuation is None:
                 break
@@ -83,7 +84,7 @@ def author_interpretations(engine, prepared, *, request: NativeDemandRequest):
             or value["evidence"].get("standing") != "authored"
             for value in admissions
         ):
-            raise ValueError("native demand did not retain the exact authored fact admissions")
+            raise SemanticRefusal("native demand did not retain the exact authored fact admissions")
     return {
         "demand_id": registered["demand_id"],
         "release_id": prepared.release_id,
