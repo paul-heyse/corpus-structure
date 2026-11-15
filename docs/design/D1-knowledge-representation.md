@@ -34,6 +34,20 @@ original identity meaning. The coordinator owns implementation and qualification
 
 > Decision: [ADR-0100](../adr/0100-ddo-contextual-identities.md), [ADR-0093](../adr/0093-ddo-products-and-support.md), [ADR-0096](../adr/0096-original-source-admission.md), [ADR-0097](../adr/0097-ddo-native-composition.md)
 
+### Protected support and public authority
+
+**Accepted target; implementation and native qualification Proposed · 2026-11-15.** An ordinary
+policy-instance authorization is a typed conclusion issued by an authenticated evaluator command
+through the common completion/effect receipt. It does not expose its protected reference, grade,
+feature-fit or calibration inputs. Internal validity, impact and trust locks retain the full support
+closure. Ordinary provenance represents an explicit authority leaf with an allowlisted summary;
+request/intent payloads, hidden input/support edges and other evaluator outputs do not cross it.
+Detached inspection can validate this bounded disclosure but cannot reproduce hidden judgments.
+Unknown protected dependencies are not absent dependencies. Equal copied values do not grant or
+restore revoked authority. The coordinator owns remaining implementation and evidence.
+
+> Decision: [ADR-0110](../adr/0110-evaluator-authorized-policy-disclosure.md)
+
 ## Enriched-document analysis layers
 
 **Implemented; bounded functional scope Tested · 2026-11-11.** A full exact published document

@@ -99,6 +99,32 @@ contracts are settled and usable.
 
 ## Consumer migration and retirement
 
+### Evaluator authorization and disclosure
+
+[ADR-0110](../../adr/0110-evaluator-authorized-policy-disclosure.md) settles the bounded authority
+design. Protected complete-record grades, feature-fit and calibration remain evaluator products;
+a dedicated native issuer publishes only an ordinary exact policy-instance authorization through
+the existing command/effect/factory and completion receipt. Actual feature fitting retains its
+restricted feature-fit capability. Generic selected-case comparison is not a complete-record grade.
+
+Native validity, impact and trust locking retain full protected support. Ordinary read/export
+provenance uses an explicit opaque authority leaf with allowlisted issuer/output summary and
+approved standing. It excludes hidden input/support edges, request bindings, completion-intent
+payloads and other outputs; graph/detached consumers report unknown protected dependencies rather
+than inventing a complete closure. Authored/copied same-kind values and wrong producers refuse.
+Direct revocation of the issuer/recipe/runtime/output cannot be repaired by value substitution.
+
+The fitted-instance authorization binds predictor/calibration, numerical/family interpretation,
+question/rubric, checked applicability and event/threshold procedures. Rich admission still checks
+each actual new reading, interpretation, feature input, unique completed final event, finite
+calibrated threshold, complete required evidence, alternatives and exact lowering membership.
+Production readings need not occur in calibration samples. Preserve low-scored scored events and
+no-output source coverage in their distinct fit populations. A caller's subset string is not
+checked applicability, and calibrated source-reading fidelity is not scientific truth. Exact-member
+assessment, where supported, has separate meaning. No implicit latest-reference rebinding occurs.
+Native purpose/disclosure/revocation, counterfactual per-record refusal and actual current public
+consumer controls remain required; this target decision does not close their implementation.
+
 The [operations companion](operations-and-adapter-cutover.md) owns the complete per-operation
 inventory. Its rich-family entries link here for meaning and cover genuine consolidation, evaluation,
 assembly, record-policy and projection-analysis responsibilities. The [interfaces companion](interfaces-and-evaluation.md)

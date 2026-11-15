@@ -120,6 +120,17 @@ fingerprint churn alone is not a reason to re-author compatible references.
 
 ## M1 fitted instances and final-event calibration
 
+**Accepted DDO successor target; implementation and native qualification Proposed · 2026-11-15.**
+Complete-record grading, protected feature-fit data and final-event calibration remain distinct
+typed products and populations. The restricted fitter capability exposes only feature-fit labels;
+ordinary producers receive exact authorized parameters and permitted evidence summaries. A dedicated
+native evaluator command authenticates the ordinary policy-instance authorization through common
+DDO effect receipts. Public provenance explicitly stops at that authority boundary while internal
+trust/revocation retains protected support. Generic case comparison without publication authority
+does not establish complete-record correctness. The coordinator owns implementation and qualification.
+
+> Decision: [ADR-0110](../adr/0110-evaluator-authorized-policy-disclosure.md)
+
 **Implemented; bounded native controls Tested (2026-11-04).** The authoring release and exact source-ready frames
 freeze before A/B/C; their original identities remain immutable. A compatible execution successor
 may be evaluated through independently validated physical-source correspondence and the unchanged

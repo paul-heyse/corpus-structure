@@ -98,6 +98,18 @@ bounded joint guard; that trigger has not been established by the current select
 
 ## M1 evaluated record admission
 
+**Accepted DDO successor target; implementation and native qualification Proposed · 2026-11-15.**
+Rich admission consumes an exact native evaluator-issued policy-instance authorization and separately
+checks every new reading's source/context, interpretation, feature input and unique completed final
+event, calibrated threshold, field/evidence completeness, alternatives and lowering membership.
+An authorized predictor is not a grade of every production record; production need not be a
+calibration sample. Applicability requires checked subject/context/population membership. Reference
+or instance changes do not silently rebind existing authority. Fitting and interpretation precede
+the common native publication transaction. Private source-reading assertions remain distinct from
+scientific proposals and accepted knowledge; calibrated source fidelity does not prove scientific truth.
+
+> Decision: [ADR-0110](../adr/0110-evaluator-authorized-policy-disclosure.md)
+
 **Implemented; bounded native controls Tested (2026-11-04).** Bounded interpretation runs before
 private task-result sealing; an exact candidate-relative event score grants no acceptance. Existing
 domain policy returns whole-record admission alongside ordinary selections. Every record-produced
