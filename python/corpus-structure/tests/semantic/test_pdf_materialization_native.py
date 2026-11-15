@@ -140,6 +140,25 @@ def test_exact_pdf_materialization_bound_admits_small_source_and_refuses_before_
             publication["product_key"],
             publication["logical_digest"],
         )
+        with clone.admin.connect() as connection:
+            from sqlalchemy import text
+
+            context = (
+                connection.execute(
+                    text("SELECT * FROM ops.pdf_task_context(:task)"),
+                    {"task": publication["task_id"]},
+                )
+                .mappings()
+                .one()
+            )
+            assert context["run_id"] is None
+            assert context["request_id"] is not None
+            assert context["document_id"] == clone.stage.source.document
+            request_demand = connection.scalar(
+                text("SELECT demand_id FROM ops.demand_use WHERE request_id=:request LIMIT 1"),
+                {"request": context["request_id"]},
+            )
+            assert request_demand == demand
         with kernel.purpose("read").connect() as connection:
             reader = PublishedPdfReader(
                 connection,

@@ -116,6 +116,7 @@ def test_evaluator_snapshot_executes_and_preserves_complete_authored_reference(d
             source_root=Path(__file__).parents[2] / "src",
             admission_engine=admitted,
             purpose="evaluate",
+            database_capacity=4,
         )
         assert result.receipt_count == 1
         with evaluator.begin() as connection:

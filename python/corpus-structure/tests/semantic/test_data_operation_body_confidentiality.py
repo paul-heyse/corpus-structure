@@ -218,9 +218,10 @@ def test_actual_member_body_closure_guards_native_reads_and_hydration(
             o="urn:body-privacy:container-consumer",
             t=json.dumps(pins["trust_snapshot"]),
             r=pins["read_id"],
+            scope=json.dumps({"page": 1}),
         )
         statement = text(
-            "SELECT meaning_body FROM ops.data_binding_rows(:d,:o,CAST(:t AS jsonb),:r,'subject:one','source:test','{\"page\":1}'::jsonb)"
+            "SELECT meaning_body FROM ops.data_binding_rows(:d,:o,CAST(:t AS jsonb),:r,'subject:one','source:test',CAST(:scope AS jsonb))"
         )
         if protected:
             with pytest.raises(DBAPIError, match="evaluator"), connection.begin_nested():

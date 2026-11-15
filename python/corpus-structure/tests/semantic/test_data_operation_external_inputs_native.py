@@ -53,7 +53,7 @@ def test_native_external_packet_preserves_repeated_pins_order_context_and_proven
                 {**source_fence, "runtime_id": ddo_kernel["runtime"], "max_bytes": 100000},
             )
         )
-        assert packet["state"] == "claimed"
+        assert packet["state"] == "awaiting-external"
     session = ExternalDataSession(ddo_kernel["engine"], "ddo-test")
     leased = session.claim(packet["packet_id"])
     actual = session.read(packet["packet_id"], leased)["packet"]
