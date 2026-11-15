@@ -74,6 +74,14 @@ class GraphInspectionRequest(BaseModel):
     max_examined_bytes: int = Field(default=8388608, ge=1024, le=67108864)
 
 
+def _request_identity(request):
+    return sha256(
+        json_bytes(
+            request.model_dump(exclude={"cursor", "limit", "max_bytes", "read_id", "expected_cut"})
+        )
+    ).hexdigest()
+
+
 class GraphInspectionPage(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
     snapshot_id: str
@@ -239,6 +247,7 @@ def inspect_graph(snapshot: GraphSnapshot, request: GraphInspectionRequest):
             continuation=base64.urlsafe_b64encode(
                 json_bytes(
                     dict(
+                        request_identity=_request_identity(request),
                         binding=binding,
                         offset=following,
                         read_id=pins.get("read_id"),
@@ -408,6 +417,13 @@ def archived_graph_snapshot(prepared, projection, *, selected_dependencies=()):
 def read_graph_inspection(connection, request: GraphInspectionRequest):
     from .releases import open_release
 
+    if request.cursor:
+        try:
+            cursor = json_loads(base64.urlsafe_b64decode(request.cursor))
+            if cursor.get("request_identity") != _request_identity(request):
+                raise ValueError("graph continuation differs from request scope")
+        except (KeyError, TypeError, ValueError) as error:
+            raise ValueError("invalid graph continuation scope") from error
     if request.cursor and request.demand_id:
         try:
             cursor = json_loads(base64.urlsafe_b64decode(request.cursor))

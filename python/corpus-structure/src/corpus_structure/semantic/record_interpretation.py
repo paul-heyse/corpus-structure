@@ -18,9 +18,10 @@ from threading import Event
 from time import monotonic
 from typing import Literal
 
-from .graph_runtime import nx
 import numpy as np
 from scipy.special import logsumexp
+
+from .graph_runtime import nx
 
 
 class CandidateKind(StrEnum):

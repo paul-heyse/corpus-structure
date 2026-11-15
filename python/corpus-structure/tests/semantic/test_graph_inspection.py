@@ -169,6 +169,7 @@ def test_archived_shared_helper_occurrences_are_unioned_once(monkeypatch):
 def test_historical_projection_is_unavailable_without_current_execution_or_backfill():
     from dataclasses import replace
     from hashlib import sha256
+
     from corpus_structure.semantic.data_operation_admission import (
         archived_data_operation_model,
         bound_data_operation_model,

@@ -15,7 +15,6 @@ from typing import Any
 
 from corpus_structure.semantic.graph_runtime import nx
 from corpus_structure.semantic.graph_topology import condensation, rooted_closure
-
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.reference_positions import collect_references
 from corpus_structure.semantic.types import PreparedRelease

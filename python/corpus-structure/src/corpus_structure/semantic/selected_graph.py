@@ -164,7 +164,12 @@ def snapshot_from_index(prepared, cut, index, projection):
             ("ops.original_source_admission", admissions.values(), "original"),
         ):
             for row in rows:
-                admitted_kind = "authored" if relation == "ops.original_source_admission" and row.get("evidence", {}).get("standing") == "authored" else kind
+                admitted_kind = (
+                    "authored"
+                    if relation == "ops.original_source_admission"
+                    and row.get("evidence", {}).get("standing") == "authored"
+                    else kind
+                )
                 node(relation, row["id"], admitted_kind, row)
         for row in index.rows("kb.data_product_member"):
             member = node(

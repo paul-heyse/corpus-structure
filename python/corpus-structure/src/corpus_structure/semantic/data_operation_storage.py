@@ -53,8 +53,8 @@ def native_protocol_sources(
         original_support_reference_schema,
     )
     from .data_operation_wire_native import wire_native_sources
-    from .pdf_completion_native import pdf_completion_native_sql
     from .graph_runtime import nx
+    from .pdf_completion_native import pdf_completion_native_sql
 
     if physical_sources is None:
         protocol = (_ROOT / "data-operation-native.yaml").read_bytes()
@@ -122,9 +122,24 @@ def native_protocol_sources(
             "native/data-operation-kind-refinements.py",
             Path(__file__).with_name("data_operation_kind_refinements.py").read_bytes(),
         ),
-        SourceArtifact("native/data-operation-graph-topology.py", Path(__file__).with_name("graph_topology.py").read_bytes()),
-        SourceArtifact("native/data-operation-graph-runtime.py", Path(__file__).with_name("graph_runtime.py").read_bytes()),
-        SourceArtifact("native/data-operation-graph-execution.json", canonical_bytes({"version": "data-operation-graph-execution-v1", "networkx": nx.__version__, "backend": "networkx"})),
+        SourceArtifact(
+            "native/data-operation-graph-topology.py",
+            Path(__file__).with_name("graph_topology.py").read_bytes(),
+        ),
+        SourceArtifact(
+            "native/data-operation-graph-runtime.py",
+            Path(__file__).with_name("graph_runtime.py").read_bytes(),
+        ),
+        SourceArtifact(
+            "native/data-operation-graph-execution.json",
+            canonical_bytes(
+                {
+                    "version": "data-operation-graph-execution-v1",
+                    "networkx": nx.__version__,
+                    "backend": "networkx",
+                }
+            ),
+        ),
         SourceArtifact(
             "native/data-operation-subjects.py",
             Path(__file__).with_name("data_operation_subjects.py").read_bytes(),
@@ -166,8 +181,17 @@ def _captured(sources) -> dict[str, bytes]:
         result.get("native/data-operation-member-contracts.py", b""),
         result.get("native/data-operation-kind-refinements.py", b""),
     )
-    if any(b".graph_topology import" in source or b".graph_runtime import" in source for source in nominal_sources):
-        required.update({"native/data-operation-graph-topology.py", "native/data-operation-graph-runtime.py", "native/data-operation-graph-execution.json"})
+    if any(
+        b".graph_topology import" in source or b".graph_runtime import" in source
+        for source in nominal_sources
+    ):
+        required.update(
+            {
+                "native/data-operation-graph-topology.py",
+                "native/data-operation-graph-runtime.py",
+                "native/data-operation-graph-execution.json",
+            }
+        )
     if b"__DDO_RECORDABLE_FATES__" in result.get("native/data-operations.sql", b""):
         required.update(
             {"native/data-operation-protocol.py", "native/data-operation-recordable-fates.sql"}

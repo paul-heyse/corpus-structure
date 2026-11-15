@@ -18,7 +18,6 @@ def test_witness_allows_extra_parallel_relationship_between_mapped_nodes():
     assert not list(comparison_mappings(actual, expected, mode="exact", policy="expected-fields"))
 
 
-
 def test_source_assessment_and_reified_task_profiles_do_not_relabel_each_other():
     from corpus_structure.semantic.data_operation_model import compiled_snapshot_projections
 
