@@ -17,6 +17,11 @@ from corpus_structure.semantic.product_reference import ProductReference
 
 from .semantic import ReferenceError
 
+
+class WitnessGraphBudgetExceeded(ReferenceError):
+    """The full authenticated witness graph exceeds its requested examination bound."""
+
+
 COLLECTIONS = ("occurrences", "annotations", "memberships", "roles", "terms", "choices", "coverage")
 
 
@@ -650,7 +655,7 @@ class LayerProjection:
             if remaining is not None:
                 remaining -= len(canonical_bytes(node)) + 1
                 if remaining < 0:
-                    raise ReferenceError("operation author witness graph exceeds byte bound")
+                    raise WitnessGraphBudgetExceeded("operation author witness graph exceeds byte bound")
             nodes.append(node)
         return dict(
             root=names[initial],
