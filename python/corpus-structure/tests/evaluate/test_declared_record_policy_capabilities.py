@@ -179,3 +179,21 @@ def test_native_source_text_authentication_and_exact_observation_refusal():
         _check_source_coordinates(prepared, ((pin, native.value),), (coordinate,), (
             dict(pin=pin, space="selected_projection", pointer="#/texts/0", precision="exact", start=0, end=6),
         ))
+
+
+def test_record_policy_boundary_owns_refusals_and_preserves_unexpected_value_error(monkeypatch):
+    import corpus_structure.evaluate.declared_record_policy as owner
+    from corpus_structure.semantic.refusals import SemanticRefusal
+    grade = training_grade()
+    selected = selection(grade)
+    with pytest.raises(SemanticRefusal, match="original acquired cut bytes"):
+        owner.reacquire_record_feature_grade(object(), selected.model_copy(update={"expected_cut": "different"}))
+    unexpected = ValueError("internal acquisition implementation error")
+    def broken(*_args):
+        raise unexpected
+    monkeypatch.setattr(owner, "reacquire_record_feature_grade", broken)
+    request = DdoRecordFeatureFitRequest(selection=selected, algorithm=algorithm(), assumptions="complete source population")
+    with pytest.raises(ValueError) as observed:
+        owner.prepare_record_feature_policy(object(), request)
+    assert observed.value is unexpected
+    assert not isinstance(observed.value, SemanticRefusal)
