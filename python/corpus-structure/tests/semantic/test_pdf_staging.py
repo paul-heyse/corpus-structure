@@ -20,8 +20,8 @@ from corpus_structure.semantic.pdf_staging import (
     resume_pdf_build,
     stage_schema,
 )
-from semantic.pdf_staging_support import native_batch
 from semantic.pdf_staging_support import create_private_build as create_private_build
+from semantic.pdf_staging_support import native_batch
 from semantic.pdf_staging_support import private_build as private_build
 
 

@@ -793,10 +793,6 @@ def test_naming_resolves_only_a_unique_selected_restricted_antecedent(context):
         assert "content_antecedent" not in match
 
 
-
-
-
-
 def test_current_named_definition_primary_witness_crosses_released_batch():
     from types import SimpleNamespace
 

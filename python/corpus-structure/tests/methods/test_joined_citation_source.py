@@ -104,7 +104,8 @@ def _joined_production(view, *, batch_size):
 def test_joined_citation_keeps_exact_annotation_owner_and_native_piece(batch_size):
     output = _joined_production(_joined_view(), batch_size=batch_size)
     (cue,) = [
-        row for row in output["contributions"]
+        row
+        for row in output["contributions"]
         if row["kind"] == "occurrence"
         and source_python(row["value"]).get("role") == "named_link_cue"
     ]

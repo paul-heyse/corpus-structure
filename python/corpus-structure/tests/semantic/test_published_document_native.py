@@ -15,8 +15,8 @@ from corpus_structure.semantic.releases import open_release
 from corpus_structure.semantic.source_products import FrozenNativeSource
 from semantic.native_record_fixtures import publish_native_record_fixture
 from semantic.pdf_inline_reports_support import example as inline_report_example
-from semantic.pdf_staging_support import private_build as private_build
 from semantic.pdf_staging_support import create_private_build as create_private_build
+from semantic.pdf_staging_support import private_build as private_build
 from semantic.selected_source_native_support import publish_selected
 
 
@@ -63,7 +63,10 @@ def test_selected_pin_ancestry_source_product_replay_and_empty_array_scope(
     assert [(row["product_id"], row["member_id"], row["body"]) for row in replayed] == [
         (row["product_id"], row["member_id"], row["body"]) for row in first
     ]
-    values = [FrozenNativeSource.acquire(create_private_build.kernel.prepared, row["body"]).value for row in first]
+    values = [
+        FrozenNativeSource.acquire(create_private_build.kernel.prepared, row["body"]).value
+        for row in first
+    ]
     by_pointer = {value["source"]["section_pointer"]: value for value in values}
     assert set(by_pointer) == {"#/groups/1", "#/groups/2"}
     assert by_pointer["#/groups/2"]["text"] == "x=1\nx=1\ninside cell"
@@ -300,10 +303,16 @@ def test_default_residual_body_read_publish_and_refusal_controls(
         body = next(d for d in drafts if d.section_pointer == "#/body")
         assert body.text == "omitted sibling body" and body.membership == "direct"
         assert tuple(item["self_ref"] for item in body.items) == ("#/body", "#/texts/0")
-        assert all("#/texts/0" not in {item["self_ref"] for item in d.items} for d in drafts if d.section_pointer != "#/body")
+        assert all(
+            "#/texts/0" not in {item["self_ref"] for item in d.items}
+            for d in drafts
+            if d.section_pointer != "#/body"
+        )
     create_private_build.complete(private_build, published)
     values = create_private_build.selected_sources(private_build)
-    selected = next(row["body"] for row in values if row["body"]["source"]["section_pointer"] == "#/body")
+    selected = next(
+        row["body"] for row in values if row["body"]["source"]["section_pointer"] == "#/body"
+    )
     assert selected["text"] == "omitted sibling body"
     assert selected["source"]["membership"] == "direct"
     for pointer, membership in (
@@ -324,6 +333,8 @@ def test_default_residual_body_read_publish_and_refusal_controls(
     # even when ordinary sections use descendant membership. The native reader
     # above independently refuses a body/descendants selection.
     descendants = create_private_build.selected_sources(private_build, membership="descendants")
-    residual = next(row["body"] for row in descendants if row["body"]["source"]["section_pointer"] == "#/body")
+    residual = next(
+        row["body"] for row in descendants if row["body"]["source"]["section_pointer"] == "#/body"
+    )
     assert residual["source"]["membership"] == "direct"
     assert residual["text"] == "omitted sibling body"

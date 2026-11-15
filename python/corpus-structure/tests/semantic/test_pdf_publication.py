@@ -491,7 +491,9 @@ def test_large_relation_publishes_ordered_endpoints_and_exact_evidence(
         ]
 
 
-def test_preparation_does_not_hold_task_lease_lock(create_private_build, commit_writer_engine, tmp_path):
+def test_preparation_does_not_hold_task_lease_lock(
+    create_private_build, commit_writer_engine, tmp_path
+):
     build = create_private_build()
     stage_complete_native(commit_writer_engine, build, tmp_path)
     with commit_writer_engine.begin() as conn:

@@ -1,6 +1,6 @@
 # DDO v8 intermediate native realization
 
-**In progress · 2026-11-15.** Owns the exact native-only request and scoped authoring results for
+**Registered intermediate successor · 2026-11-15.** Owns the exact native-only request and scoped authoring results for
 current v8 feedback. This is not clean-baseline adoption or persistent deployment.
 
 `change.json` refreshes the prior graph-v2 successor request and explicitly includes the sixteen
@@ -53,3 +53,31 @@ two changed return/OUT contracts among469 exact matched function input signature
 signatures); both drop only the obsolete run ID from the same PDF context tuple. This is static
 source inventory, not native authoring qualification. The refreshed request recreates both exact
 signatures; PostgreSQL authoring and catalog verification remain required.
+
+## Registered successor and first native integration · 2026-11-15
+
+Preview `24a8fc228d71421faa1fe620798fe253` and apply
+`75411c10ac624fd3ad621262f28cde52` passed at `0a4cfd4c6`. Candidate
+`e68600aff7a04881b727a275027c4e76` passed with established rollback cleanup.
+The reviewed candidate contains166 native operations,10 ordinary operations and no privilege
+operations; the ordinary scope is the three explicit subject-definition columns, five nullable
+source-context changes, obsolete PDF run-column removal and physical admission. Existing owners
+and ACLs did not widen. Registration `736b455fb29e4991afa7353b50b8327a` passed;
+commit `1af350758` contains the four frozen `semantic_ddo_domain_v8` files. Release
+`release:098de455c2a782c1ef57ba03478075e95192a490e745cc48d489e32ec3ca9723`,
+artifact digest `fdd59e4ab8b1e3de7644ae89662b576e46f7d0aba3321b3bfeb947166f9faefa`.
+This registers checkout artifacts only; the persistent development database is unchanged.
+
+The first real private-host cohort, `uv run ci test --native-host private --workers 3 --json --`
+authored interpretation, PDF publication and native math demand selections,
+**failed**, `d56655d1af804c7caaa966966ad026c6`:19selected,1passed,18failed.
+It exposed actual source-registration writer authority, authored subject/terminology fixture and
+closed obligation-wire defects, plus14 obsolete run-based PDF fixtures. Current source repairs
+now use atomic native descriptor-and-byte registration, the explicit real document subject,
+actual acquired statistics terminology and the required subject-definition wire field; current PDF
+controls use actual declared requests/generations/attempts/receipts. They require a new captured
+successor before native retry. No passing pure control substitutes for that obligation.
+
+All named managed authoring receipts and the failed native cohort are held by the root results
+store. Frozen v8 artifacts remain immutable. Current source has advanced beyond this capture;
+its registration does not qualify subsequent structural admission or source changes.

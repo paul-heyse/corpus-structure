@@ -15,8 +15,8 @@ from corpus_structure.semantic.pdf_publication import (
     validate_pdf_build,
 )
 from corpus_structure.semantic.pdf_record_identity import structured_payload_scalar
-from semantic.pdf_staging_support import private_build as private_build
 from semantic.pdf_staging_support import create_private_build as create_private_build
+from semantic.pdf_staging_support import private_build as private_build
 
 
 def test_payload_forward_state_retains_previous_managed_objects():
@@ -143,10 +143,15 @@ def test_final_validation_freezes_projection_membership(
     )
     with commit_db_engine.begin() as conn:
         runtime_id = conn.execute(
-            text("SELECT r.runtime_id FROM ops.task t JOIN ops.data_request r "
-                 "ON r.id=t.data_request_id WHERE t.id=:task"), params
+            text(
+                "SELECT r.runtime_id FROM ops.task t JOIN ops.data_request r "
+                "ON r.id=t.data_request_id WHERE t.id=:task"
+            ),
+            params,
         ).scalar_one()
-        runtime = runtime_binding_for_release(conn, open_release(conn, build.release_id), runtime_id)
+        runtime = runtime_binding_for_release(
+            conn, open_release(conn, build.release_id), runtime_id
+        )
         single_source = runtime.input("pdf-domain/native/actions.yaml").content
         conn.exec_driver_sql("SET LOCAL ROLE corpus_sem_publisher")
         projection = conn.execute(

@@ -129,7 +129,6 @@ def test_pm2_unattempted_scope_remains_visible_without_provider_or_contributions
     ]
 
 
-
 def test_cancelled_pm2_scope_does_not_gain_an_operation_result(parser_source):
     from hashlib import sha256
 

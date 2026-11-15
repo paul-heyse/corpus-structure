@@ -28,4 +28,3 @@ def construction_release_inputs():
         SourceBundle("core", (SourceArtifact("core", (model_root / "core.yaml").read_bytes()),)),
         model_content=yaml.safe_dump(model).encode(),
     )
-

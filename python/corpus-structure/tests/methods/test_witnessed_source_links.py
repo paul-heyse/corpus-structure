@@ -101,7 +101,6 @@ def test_formula_uses_only_the_source_declared_symbol():
     assert source_python(use["value"])["syntax_standing"] == "syntax_only"
 
 
-
 @pytest.mark.parametrize(
     "kwargs",
     [
@@ -320,7 +319,6 @@ def test_ordered_formula_witness_keeps_exact_pieces_and_original_formula_populat
     assert link["component"]["effective_version"] == "R2"
     assert source_python(name["value"])["source_pointer"] == "#/texts/2"
     assert source_python(name["value"])["region"] == wider.passage_id
-
 
 
 def test_ordered_formula_witness_refuses_same_extent_or_changed_source_bytes():

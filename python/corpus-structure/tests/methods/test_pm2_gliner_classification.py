@@ -330,8 +330,6 @@ def test_custody_refuses_changed_source_question_order_profile_or_reply(case, ch
         _result(case, reply, request)
 
 
-
-
 def test_batch_receipt_keeps_exact_member_and_choice_projection(case):
     from dataclasses import replace
     from hashlib import sha256

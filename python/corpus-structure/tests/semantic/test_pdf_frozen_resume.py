@@ -19,8 +19,8 @@ from corpus_structure.semantic.pdf_staging import (
     adopt_pdf_batch,
     resume_pdf_build,
 )
-from semantic.pdf_staging_support import private_build as private_build
 from semantic.pdf_staging_support import create_private_build as create_private_build
+from semantic.pdf_staging_support import private_build as private_build
 
 
 def snapshot(engine, build):

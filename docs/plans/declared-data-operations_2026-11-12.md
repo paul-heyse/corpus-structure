@@ -90,13 +90,15 @@ The selected structural reader now owns exact structural roots, source-decision 
 comparison-to-dossier membership and bounded gap reports. CLI/MCP and detached selected review
 use the same scoped demand export, authenticated archive and replay. An unavailable independently
 admitted comparison remains explicitly unavailable; computational support is not public structural
-admission. The protected A/B/C target and its ordinary native-issued conclusion remain in progress.
-Old internal detached bundle consumers still require migration before their shells can be removed.
+admission. ADR-0113 is accepted. Protected independently attributed authored A/B/C passes, exact native
+completion guards, bounded ordinary authority and dossier inputs are integrated; their actual
+issuer-to-dossier/export journey still requires qualification. The closed old internal review/replay
+cluster is now deleted; current selected demand archives remain authoritative.
 
 The catalog retirement removes45 obsolete fixed-call registrations (41 duplicated PDF calls and
 four unused old companion readers), then three more unused variants and the complete uncalled
 selected-result logical registration closure. Actual source-view publication/selection and physical
-task/attempt/lease guards remain with real consumers. There are44 remaining fixed variants in this
+task/attempt/lease guards remain with real consumers. Four further unused catalog variants are removed, for52 removed overall and40 remaining in this
 inspected increment; that count is evidence, not an acceptance quota. Inert native functions have not
 thereby been retired. Companion controls now exercise the actual current projection/export route.
 
@@ -133,6 +135,38 @@ neighborhood/journey/dossier/public/protected consumers with old authority remov
 installation and verified development cutover; then applicable final-source qualification. Existing
 physical/native helpers remain until actual current callers are separated from obsolete authority.
 
+### Integrated authority and native successor · 2026-11-15
+
+**Implemented; bounded Tested, 2026-11-15.** The structural issuer now participates in the actual
+primary profile, common native completion/publication guards and ordinary authority-leaf reader.
+`ci eval structural` requires exactly its evaluator-purpose target. Actual whole-statement meaning
+preserves tagged integer/float/Decimal/null values; independently attributed judgments do not
+establish verified external-provider execution, scientific truth or every member's truth.
+Private native visibility plus interpreted authority controls17 **passed**
+`3abb4b0beb904db3bb3dda5a28447035`; the38-control integration had37passed and an omitted new
+factory expectation, `fb1216e44e7143efb746ad82f6969f52`, whose exact corrected retry1 **passed**
+`b7d2f70454b747d9a051788e4f517d30`. Types **passed**
+`ef307c6cd5ad4a94a6fdc95760c991c9`; lint **passed** `ce92dee669a647958da70caaa8f27aa3`;
+publication **passed** `b1db8f9dad564a41806d338e82fa75ce` at their recorded source. Later
+consumer edits need affected reassessment. The full structural issuer journey remains open.
+
+Checkout successor `semantic_ddo_domain_v8` is registered at `1af350758`; rollback candidate
+`e68600aff7a04881b727a275027c4e76` and registration `736b455fb29e4991afa7353b50b8327a`
+**passed**, with the reviewed166native/10ordinary/0privilege scope. The
+[v8 evidence owner](../design_review/evidence/2026-11-15_ddo-v8-native/README.md#registered-successor-and-first-native-integration--2026-11-15)
+retains exact release/artifact/source and limitations. No persistent deployment occurred.
+The first real native publication cohort19 **failed**, `d56655d1af804c7caaa966966ad026c6`,
+1passed/18failed. Atomic original registration, actual authored subject/terminology and the
+required obligation subject-definition wire are repaired;14 legacy PDF fixture failures are
+migrated to current native requests. Capture the next successor and execute those actual identities
+before claiming native closure. Frozen v8 is unchanged.
+
+The obsolete retained-review/golden/eval CLI adapters and11-module legacy internal review/export/
+replay cluster are deleted. Independent scientific expectations now live with actual producer/
+reader controls; no compatibility decoder replaces the cluster. Current selected archives and
+selected evaluation remain. A now-orphaned review-assessment Python/native pair is under bounded
+retirement investigation; shared current characterization scientific kernels still have consumers.
+
 ## Current state and execution order
 
 | Package | Implemented / evidence boundary | Remaining accepted work and prerequisites |
@@ -144,7 +178,7 @@ physical/native helpers remain until actual current callers are separated from o
 | DDO-07/08 | Source/primary/downstream increments and real port adoption; enclosing packages open | I02 all remaining legacy operations and consumers; I04 capability-based shared execution; I08 acquisition-test consolidation; rich producer integration with I05. |
 | DDO-09 | Source currentness/impact and graph foundations implemented within bounded receipts | I03 deliberate fate partition; I05 full rich cut/policy/standing/contracts and reuse consumers; copied-task/twin/stale-cut retirement; CA-11/12 Python repairs have scoped controls; actual native journeys remain. |
 | DDO-10 | Source/graph CLI/MCP/export and selected prediction inspection within focused receipts | I06 literals/typed artifact reader/variant association; rich named-query/reference/grading callers; target model difference distinct from source drift/currentness; old reader retirement; CA-12 selected graph pin repair has scoped controls; native continuation remains to qualify. |
-| DDO-11 | Checkout graph_v2 registered; persistent database remains located_v2, no adoption | I09 choose supported physical route, selective faithful import/regeneration, fence writers, switch maintained callers and remove all legacy/one-time converter code. Optional conversion does not block target delivery. |
+| DDO-11 | Checkout domain_v8 registered; persistent database remains located_v2, no adoption | I09 choose supported physical route, selective faithful import/regeneration, fence writers, switch maintained callers and remove all legacy/one-time converter code. Optional conversion does not block target delivery. |
 | DDO-12 | No assembled completion; earlier passes scoped only | Final-source functional/native/fault/provider/nonfunctional union for complete replacement and retirement, including target-native source/evaluation journeys. |
 
 First settle decision records and shared I01/I03 contracts; operation classification and shared-port

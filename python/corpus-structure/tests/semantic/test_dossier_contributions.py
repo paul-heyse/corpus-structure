@@ -273,12 +273,6 @@ def test_native_source_member_replay_preserves_all_endpoint_citations(commit_db_
         assert {c["citation"]["text"] for c in page["citations"]} == {"50", "Probability %"}
 
 
-
-
-
-
-
-
 @pytest.mark.parametrize(
     ("field", "replacement"),
     [

@@ -7,8 +7,8 @@ from pydantic import TypeAdapter
 from sqlalchemy import text
 
 from corpus_structure.semantic.pdf_publication import PdfExecutionReceipt, PublishedPdfDocumentRef
-from semantic.pdf_staging_support import private_build as private_build
 from semantic.pdf_staging_support import create_private_build as create_private_build
+from semantic.pdf_staging_support import private_build as private_build
 
 
 def test_pdf_sealed_publisher_receipt_retains_original_physical_custody():
@@ -53,7 +53,11 @@ def test_native_declared_stage_context_authenticates_real_original_and_owner(
             text("SELECT operation_id,live_task_id,generation FROM ops.data_request WHERE id=:id"),
             {"id": context["request_id"]},
         ).one()
-        assert tuple(request) == ("source.pdf/capture", private_build.task_id, context["generation"])
+        assert tuple(request) == (
+            "source.pdf/capture",
+            private_build.task_id,
+            context["generation"],
+        )
         assert context["document_id"] > 0
         assert context["source_digest"] == private_build.source_digest
         assert (
@@ -93,9 +97,9 @@ def _unapproved_pdf_preparation_recipe():
     # not authorize a native side effect or substitute for its captured factory.
     declaration["capabilities"]["preparation"] = "pdf-native"
     return replace(
-            STORAGE,
-            name="unapproved-pdf-preparation",
-            declaration_content=json_bytes({"version": MODEL_VERSION, "operations": [declaration]}),
+        STORAGE,
+        name="unapproved-pdf-preparation",
+        declaration_content=json_bytes({"version": MODEL_VERSION, "operations": [declaration]}),
     )
 
 
@@ -108,7 +112,9 @@ def test_native_pdf_preparation_does_not_authorize_private_original_writes(
     from semantic.data_operation_kernel_support import admit_kernel
 
     with commit_db_engine.begin() as connection:
-        kernel = admit_kernel(connection, _unapproved_pdf_preparation_recipe(), engine=commit_writer_engine)
+        kernel = admit_kernel(
+            connection, _unapproved_pdf_preparation_recipe(), engine=commit_writer_engine
+        )
     _, _, _, attached = attach(
         kernel,
         subject="original:" + create_private_build.key,

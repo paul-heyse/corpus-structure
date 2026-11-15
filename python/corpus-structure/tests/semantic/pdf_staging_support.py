@@ -7,6 +7,7 @@ from typing import Literal, cast
 
 import pyarrow as pa
 import pytest
+
 from corpus_structure.core.evidence import document_key
 from corpus_structure.semantic._data_operation_wire import (
     WireAttemptFence,
@@ -15,12 +16,17 @@ from corpus_structure.semantic._data_operation_wire import (
     wire_attempt_fence,
 )
 from corpus_structure.semantic.composed import read_data_operation_inputs
-from corpus_structure.semantic.data_operation_demands import DemandPlanner, OperationSelection, ReadyDataRequest, freeze_demand
+from corpus_structure.semantic.data_operation_demands import (
+    DemandPlanner,
+    OperationSelection,
+    ReadyDataRequest,
+    freeze_demand,
+)
 from corpus_structure.semantic.data_operation_execution_evidence import bind_execution_evidence
 from corpus_structure.semantic.data_operation_identity import semantic_value
 from corpus_structure.semantic.data_operation_outcomes import successful_return_outcome
-from corpus_structure.semantic.data_operation_storage import DataOperationStorage
 from corpus_structure.semantic.data_operation_service import execute_data_demand
+from corpus_structure.semantic.data_operation_storage import DataOperationStorage
 from corpus_structure.semantic.demand_queries import DemandQueryRequest, serve_demand_query
 from corpus_structure.semantic.identifiers import ProjectId, ReleaseId, RuntimeId
 from corpus_structure.semantic.identity import canonical_bytes
@@ -42,7 +48,9 @@ from semantic.current_pdf_source_support import ROOT, current_pdf_recipe
 from semantic.data_operation_kernel_support import Kernel, admit_kernel
 
 _PROJECT = "pdf-staging-controls"
-type PdfFixtureCase = Literal["default", "unknown-cell-coverage", "partial-cell-coverage", "integer-region-coordinates"]
+type PdfFixtureCase = Literal[
+    "default", "unknown-cell-coverage", "partial-cell-coverage", "integer-region-coordinates"
+]
 
 # These policies describe the controlled authored records, rather than manufacturing
 # independent work with physical task IDs or a fresh nonce. The native request owns
@@ -126,9 +134,13 @@ class _PrivatePdfBuildFactory:
 
     def reclaim(self, connection, build, *, holder):
         previous = self.requests[build.build_id]
-        claimed = DataOperationStorage(connection).claim_data_request({
-            "request_id": previous.fence["request_id"], "holder": holder, "lease_seconds": 300,
-        })
+        claimed = DataOperationStorage(connection).claim_data_request(
+            {
+                "request_id": previous.fence["request_id"],
+                "holder": holder,
+                "lease_seconds": 300,
+            }
+        )
         assert claimed["state"] == "claimed"
         fence = wire_attempt_fence(claimed)
         assert fence["request_id"] == previous.fence["request_id"]
@@ -141,26 +153,49 @@ class _PrivatePdfBuildFactory:
     def selected_sources(self, build, *, sections=(), membership="direct"):
         """Consume the completed capture through its actual declared source projector."""
         with self.writer.begin() as conn:
-            original = acquire_original_document_selection(conn, project_id=_PROJECT, document_key=self.key)
+            original = acquire_original_document_selection(
+                conn, project_id=_PROJECT, document_key=self.key
+            )
             demand = DemandPlanner(self.kernel.model, DataOperationStorage(conn)).register(
                 freeze_demand(
-                    self.kernel.model, roots=(original.root,), targets=("source.pdf_views/discovery",),
+                    self.kernel.model,
+                    roots=(original.root,),
+                    targets=("source.pdf_views/discovery",),
                     original_sources=(original.selection(),),
-                    selections=(OperationSelection("source.pdf_views/discovery", parameters=canonical_bytes({"sections": list(sections), "membership": membership})),),
+                    selections=(
+                        OperationSelection(
+                            "source.pdf_views/discovery",
+                            parameters=canonical_bytes(
+                                {"sections": list(sections), "membership": membership}
+                            ),
+                        ),
+                    ),
                     inference=self.requests[build.build_id].ready.resolved.inference,
                     execution_profile=self.kernel.recipe.execution_profile,
                 ),
-                project=_PROJECT, release=self.kernel.prepared.release_id, runtime=self.kernel.runtime,
+                project=_PROJECT,
+                release=self.kernel.prepared.release_id,
+                runtime=self.kernel.runtime,
             )
         execute_data_demand(
-            self.writer, demand["demand_id"], source_root=ROOT, admission_engine=self.kernel.engine,
-            project_id=_PROJECT, database_capacity=6,
+            self.writer,
+            demand["demand_id"],
+            source_root=ROOT,
+            admission_engine=self.kernel.engine,
+            project_id=_PROJECT,
+            database_capacity=6,
         )
         with self.writer.connect() as conn:
-            page = serve_demand_query(conn, DemandQueryRequest(
-                project_id=_PROJECT, demand_id=demand["demand_id"], view="members", limit=100,
-                max_bytes=8 * 1024 * 1024,
-            ))
+            page = serve_demand_query(
+                conn,
+                DemandQueryRequest(
+                    project_id=_PROJECT,
+                    demand_id=demand["demand_id"],
+                    view="members",
+                    limit=100,
+                    max_bytes=8 * 1024 * 1024,
+                ),
+            )
         assert page["continuation"] is None
         kind = self.kernel.prepared.index.definitions["DdoSelectedNativeSource"].iri
         contract = self.kernel.identities[kind, "kind"]
@@ -178,7 +213,9 @@ class _PrivatePdfBuildFactory:
             )
             reader = PublishedPdfReader(
                 conn,
-                ProductReference(publication.task_id, publication.product_key, publication.logical_digest),
+                ProductReference(
+                    publication.task_id, publication.product_key, publication.logical_digest
+                ),
                 projection_context=self.kernel.prepared,
                 read_budget=PublishedReadBudget(100, 8 * 1024 * 1024),
             )
@@ -188,25 +225,46 @@ class _PrivatePdfBuildFactory:
                 "DdoPdfCapture", pdf_publication_value(self.key, publication, health[0])
             ).model_dump(mode="python", exclude_unset=True)
             binding = json.loads(request.ready.binding)
-            completion = cast(WireCompletion, {
-                "outcome": successful_return_outcome(operation),
-                "inputs": binding["inputs"],
-                "support": binding["support"],
-                "implementation_revision": self.kernel.identities[operation.implementation_root, "implementation-slice"],
-                "outputs": [{
-                    "role": output.name, "position": 0, "multiplicity": 1,
-                    "product": {"kind_contract": self.kernel.identities[output.kind, "kind"], "body": semantic_value(value), "members": []},
-                }],
-                "execution_evidence": bind_execution_evidence(
-                    None, fence=dict(request.fence), runtime_id=self.kernel.runtime,
-                    pdf_content=canonical_bytes(asdict(receipt)),
-                ),
-            })
+            completion = cast(
+                WireCompletion,
+                {
+                    "outcome": successful_return_outcome(operation),
+                    "inputs": binding["inputs"],
+                    "support": binding["support"],
+                    "implementation_revision": self.kernel.identities[
+                        operation.implementation_root, "implementation-slice"
+                    ],
+                    "outputs": [
+                        {
+                            "role": output.name,
+                            "position": 0,
+                            "multiplicity": 1,
+                            "product": {
+                                "kind_contract": self.kernel.identities[output.kind, "kind"],
+                                "body": semantic_value(value),
+                                "members": [],
+                            },
+                        }
+                    ],
+                    "execution_evidence": bind_execution_evidence(
+                        None,
+                        fence=dict(request.fence),
+                        runtime_id=self.kernel.runtime,
+                        pdf_content=canonical_bytes(asdict(receipt)),
+                    ),
+                },
+            )
             storage = DataOperationStorage(conn)
-            retained = storage.retain_data_completion_intent({
-                **request.fence, "runtime_id": RuntimeId(self.kernel.runtime), "completion": completion,
-            })
-            return storage.publish_data_derivation({**request.fence, "intent_id": retained["intent_id"]})
+            retained = storage.retain_data_completion_intent(
+                {
+                    **request.fence,
+                    "runtime_id": RuntimeId(self.kernel.runtime),
+                    "completion": completion,
+                }
+            )
+            return storage.publish_data_derivation(
+                {**request.fence, "intent_id": retained["intent_id"]}
+            )
 
 
 def _private_build_factory(commit_db_engine, commit_writer_engine, tmp_path, request):
@@ -215,7 +273,11 @@ def _private_build_factory(commit_db_engine, commit_writer_engine, tmp_path, req
         kernel = admit_kernel(conn, recipe)
     captured = read_data_operation_inputs(kernel.preparation.dependencies)
     assert captured is not None and captured[1] is not None
-    profile = next(asset for asset in captured[1].boundary_contracts if asset.name == "pdf-capture/profile-assets")
+    profile = next(
+        asset
+        for asset in captured[1].boundary_contracts
+        if asset.name == "pdf-capture/profile-assets"
+    )
     recipe_bytes = bytes.fromhex(json.loads(profile.content)["recipe"])
     path = tmp_path / "source.pdf"
     if getattr(request, "param", None) in {
@@ -253,15 +315,26 @@ def _private_build_factory(commit_db_engine, commit_writer_engine, tmp_path, req
         path.write_bytes(original)
 
     with commit_writer_engine.begin() as conn:
-        DataOperationStorage(conn).initialize_source_project({
-            "project_id": ProjectId(_PROJECT), "release_id": ReleaseId(kernel.prepared.release_id),
-        })
+        DataOperationStorage(conn).initialize_source_project(
+            {
+                "project_id": ProjectId(_PROJECT),
+                "release_id": ReleaseId(kernel.prepared.release_id),
+            }
+        )
         register_original_document(
-            conn, prepared=kernel.prepared, project_id=_PROJECT, source_uri="file:pdf-stage",
-            original_path=str(path), original=original, mime="application/pdf",
+            conn,
+            prepared=kernel.prepared,
+            project_id=_PROJECT,
+            source_uri="file:pdf-stage",
+            original_path=str(path),
+            original=original,
+            mime="application/pdf",
         )
     return _PrivatePdfBuildFactory(
-        kernel, commit_writer_engine, original, recipe_bytes,
+        kernel,
+        commit_writer_engine,
+        original,
+        recipe_bytes,
         document_key(_PROJECT, "file:pdf-stage", sha256(original).hexdigest()),
     )
 
