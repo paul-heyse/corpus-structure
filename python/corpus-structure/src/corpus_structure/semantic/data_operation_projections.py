@@ -617,7 +617,7 @@ def binding_branches(metadata):
         )
     ).where(
         func.ops.ddo_kind_access(candidates.c.parent_kind),
-        func.ops.ddo_kind_access(candidates.c.projected_kind),
+        func.ops.ddo_body_access(candidates.c.projected_kind, candidates.c.projected_body),
     )
     admissions = metadata.tables["ops.original_source_admission"].alias("admission")
     fact_origin = case(
@@ -704,7 +704,7 @@ def binding_branches(metadata):
                 for field, value in zip(binding_columns(), original_values, strict=True)
             )
         )
-        .where(func.ops.ddo_kind_access(fact.c.kind_contract))
+        .where(func.ops.ddo_body_access(fact.c.kind_contract, fact.c.canonical_body))
         .group_by(
             fact.c.product_id,
             fact.c.kind_contract,
@@ -803,7 +803,12 @@ def selected_support_export(metadata, selected_uses, admissions, in_page):
     more = select(func.count()).select_from(bounded_rows).scalar_subquery() > _var("lim", BigInteger)
     payload = _obj(records=select(_aggregate(_obj(key=page.c.key, relation=page.c.relation, record=page.c.record), page.c.key)).scalar_subquery(), after=case((more, last), else_=null()), complete=~more)
     body_bytes = select(func.coalesce(func.sum(func.octet_length(page.c.record.cast(Text))), 0)).scalar_subquery()
-    return case((body_bytes <= _var("selected_max_bytes", BigInteger), payload), else_=func.ops.ddo_result_bytes_refusal())
+    body_access = (
+        select(func.coalesce(func.bool_and(func.ops.ddo_body_access(products.c.kind_contract, products.c.canonical_body)), literal(True)))
+        .where(products.c.id.in_(select(product_ids.c.product_id)))
+        .scalar_subquery()
+    )
+    return case((body_access, case((body_bytes <= _var("selected_max_bytes", BigInteger), payload), else_=func.ops.ddo_result_bytes_refusal())), else_=func.ops.ddo_result_bytes_refusal())
 
 
 def read_page(metadata):
@@ -883,6 +888,11 @@ def read_page(metadata):
             ),
         )
     )
+    body_ids = func.jsonb_array_elements_text(read_scope["product_ids"]).table_valued(column("value", Text())).render_derived(name="selected_body_product")
+    product_body_selected = or_(
+        ~read_scope.op("?")(literal("product_ids")),
+        exists(select(1).select_from(body_ids).where(body_ids.c.value == products.c.id)),
+    )
     product_value = _obj(
         role=outputs.c.role,
         position=outputs.c.position,
@@ -906,7 +916,14 @@ def read_page(metadata):
     selected_products = (
         select(_aggregate(product_value, outputs.c.role, outputs.c.position))
         .select_from(outputs.join(products, products.c.id == outputs.c.product_id))
-        .where(outputs.c.derivation_id == selected_uses.c.derivation_id)
+        .where(
+            outputs.c.derivation_id == selected_uses.c.derivation_id,
+            case(
+                (_var("selected_view", Text) == "products",
+                 case((product_body_selected, func.ops.ddo_body_access(products.c.kind_contract, products.c.canonical_body)), else_=literal(False))),
+                else_=literal(True),
+            ),
+        )
         .scalar_subquery()
     )
     semantic_outcome = (
@@ -1169,6 +1186,7 @@ def read_page(metadata):
                 outputs, outputs.c.derivation_id == selected_uses.c.derivation_id
             ).join(products, products.c.id == outputs.c.product_id)
         )
+        .where(product_body_selected)
         .scalar_subquery()
     )
     payload = _obj(

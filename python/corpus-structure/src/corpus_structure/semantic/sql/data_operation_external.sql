@@ -56,7 +56,9 @@ BEGIN
  UNION SELECT child.value FROM exposed JOIN sem.data_kind_contract parent USING(kind_contract)
  CROSS JOIN LATERAL jsonb_array_elements_text(parent.member_contracts) child(value)
  ) SELECT FROM exposed JOIN sem.data_kind_contract kind USING(kind_contract) WHERE kind.universe='evaluator')
- OR EXISTS(SELECT FROM jsonb_array_elements(r.binding->'inputs') item JOIN kb.data_product_member member ON member.product_id=item->>'product_id' JOIN sem.data_kind_contract kind ON kind.kind_contract=member.kind_contract WHERE item->>'member_id' IS NULL AND kind.universe='evaluator') THEN RAISE EXCEPTION 'protected evaluator data cannot enter an external packet'; END IF;
+ OR EXISTS(SELECT FROM jsonb_array_elements(r.binding->'inputs') item JOIN kb.data_product_member member ON member.product_id=item->>'product_id' JOIN sem.data_kind_contract kind ON kind.kind_contract=member.kind_contract WHERE item->>'member_id' IS NULL AND kind.universe='evaluator') OR EXISTS(SELECT FROM ops.ddo_external_input_rows(r) input
+ CROSS JOIN LATERAL ops.ddo_body_kind_contracts(input->>'kind_contract',input->'meaning') included(kind_contract)
+ JOIN sem.data_kind_contract kind ON kind.kind_contract=included.kind_contract WHERE kind.universe='evaluator') THEN RAISE EXCEPTION 'protected evaluator data cannot enter an external packet'; END IF;
  SELECT count(*),coalesce(sum(octet_length(data.canonical_json(input))),0),coalesce(bool_or(kind.universe='evaluator' OR role.value IS NULL OR NOT (role.value->'accepted_kind_contracts' ? (input->>'kind_contract'))),false)
  INTO count_,size_,forbidden FROM ops.ddo_external_input_rows(r) input
  JOIN sem.data_kind_contract kind ON kind.kind_contract=input->>'kind_contract'
@@ -197,6 +199,10 @@ BEGIN
  OR packet.payload->'protocol'->>'requested_model' IS DISTINCT FROM p->>'model_assertion' THEN RAISE EXCEPTION 'external result differs from exact packet/native claim/actor/model assertion contract'; END IF;
  IF completion->'inputs' IS DISTINCT FROM r.binding->'inputs' OR completion->'support' IS DISTINCT FROM r.binding->'support'
  OR completion->>'implementation_revision' IS DISTINCT FROM packet.payload->>'implementation_revision' THEN RAISE EXCEPTION 'external result changes its immutable input/implementation binding'; END IF;
+ IF EXISTS(SELECT FROM jsonb_array_elements(completion->'outputs') output
+ CROSS JOIN LATERAL ops.ddo_body_kind_contracts(output->'product'->>'kind_contract',output->'product'->'body') included(kind_contract)
+ JOIN sem.data_kind_contract kind ON kind.kind_contract=included.kind_contract WHERE kind.universe='evaluator') THEN
+ RAISE EXCEPTION 'protected evaluator data cannot leave an external packet'; END IF;
  key:='external-result:'||ops.ddo_digest(jsonb_build_array(packet.id,digest_));
  INSERT INTO ops.data_external_receipt VALUES(key,packet.id,packet.payload_digest,r.id,r.generation,t.id,t.attempt,t.claimed_by,packet.runtime_id,session_user,p->>'actor_assertion',p->>'model_assertion',digest_,clock_timestamp()) RETURNING * INTO receipt;
  evidence:=jsonb_build_object('version','native-execution-evidence-v1','request_id',r.id,'generation',r.generation,'task_id',t.id,'attempt',t.attempt,'holder',t.claimed_by,'runtime_id',packet.runtime_id,'host_receipts','[]'::jsonb,'cpu_receipts','[]'::jsonb,'pdf_receipts','[]'::jsonb,'provider_receipts','[]'::jsonb,'external_receipts',jsonb_build_array(ops.ddo_external_receipt_value(receipt)));

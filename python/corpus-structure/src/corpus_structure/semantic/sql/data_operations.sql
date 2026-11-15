@@ -1083,6 +1083,7 @@ BEGIN
  IF NOT EXISTS(SELECT FROM sem.data_kind_release WHERE release_id=(context->>'release_id') AND kind_contract=k.kind_contract) THEN RAISE EXCEPTION 'output kind is outside release'; END IF;
  IF o->>'artifact_digest' IS NOT NULL THEN RAISE EXCEPTION 'artifact publication requires an authenticated staged receipt profile'; END IF;
  b:=data.ddo_normalize(o->'body');
+ PERFORM ops.ddo_body_access(k.kind_contract,b);
  IF NOT public.json_matches_schema(k.meaning_schema::json,b::json) OR NOT public.json_matches_schema(k.body_schema::json,data.ddo_json(b)::json) OR jsonb_typeof(o->'members')<>'array' THEN RAISE EXCEPTION 'body violates kind contract'; END IF;
  IF k.member_schema='{"not":{}}'::jsonb THEN
  IF o->'members'<>'[]'::jsonb THEN RAISE EXCEPTION 'noncontainer kind cannot publish projected members'; END IF;
@@ -1162,7 +1163,7 @@ END $$;
 CREATE OR REPLACE FUNCTION ops.ddo_admit_original_source(p_payload jsonb) RETURNS jsonb
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
 DECLARE p jsonb:=p_payload; d ops.data_demand; frozen jsonb; fact jsonb; kind text; product text; identity text;
- snapshot jsonb; kind_name text; key text; admitted ops.original_source_admission; rooted boolean; documentary jsonb; document_fact jsonb;
+ snapshot jsonb; kind_name text; kind_universe text; key text; admitted ops.original_source_admission; rooted boolean; documentary jsonb; document_fact jsonb;
 BEGIN
  PERFORM ops.ddo_fields(p,ARRAY['demand_id','selection_name','reference','selectors']);
  SELECT * INTO STRICT d FROM ops.data_demand WHERE id=p->>'demand_id';
@@ -1172,10 +1173,11 @@ BEGIN
  IF p->'reference'->>'kind'='authored-fact' THEN
  IF p->'selectors' IS DISTINCT FROM '[{"scope":"authored-fact"}]'::jsonb THEN
  RAISE EXCEPTION 'authored input requires its explicit immutable selection scope'; END IF;
- SELECT contract.kind INTO STRICT kind_name FROM sem.data_kind_contract contract
+ SELECT contract.kind,contract.universe INTO STRICT kind_name,kind_universe FROM sem.data_kind_contract contract
  JOIN sem.data_kind_release release ON release.kind_contract=contract.kind_contract
  WHERE release.release_id=d.release_id AND contract.kind_contract=p->'reference'->>'kind_contract'
- AND contract.universe='ordinary';
+ AND contract.universe IN ('ordinary','evaluator');
+ PERFORM ops.ddo_authorize(kind_universe);
  fact:=jsonb_build_object('subject',p->'reference'->>'subject','original_source',p->'reference'->>'original_source',
  'analyzed_scope',p->'reference'->'analyzed_scope','meaning_body',data.ddo_normalize(p->'reference'->'meaning_body'),
  'evidence',jsonb_build_object('standing','authored','author_assertion',p->'reference'->>'author',
@@ -1730,6 +1732,35 @@ DECLARE universe text;
 BEGIN
  SELECT kind.universe INTO STRICT universe FROM sem.data_kind_contract kind WHERE kind.kind_contract=contract;
  PERFORM ops.ddo_authorize(universe);
+ RETURN true;
+END $$;
+-- Actual nominal member bodies, not the set of types a container could hold.
+-- The captured member schema/contracts decide whether `members` has this meaning.
+CREATE OR REPLACE FUNCTION ops.ddo_body_kind_contracts(p_kind text,p_body jsonb) RETURNS SETOF text
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
+DECLARE kind sem.data_kind_contract; members jsonb; packet jsonb; child text; child_body jsonb;
+BEGIN
+ SELECT * INTO STRICT kind FROM sem.data_kind_contract WHERE kind_contract=p_kind;
+ RETURN NEXT p_kind;
+ IF kind.member_schema='{"not":{}}'::jsonb THEN RETURN; END IF;
+ members:=data.ddo_field(p_body,'members');
+ IF members IS NULL THEN RETURN; END IF;
+ IF members->>0 IS DISTINCT FROM 'sequence' THEN RAISE EXCEPTION 'invalid nominal member body'; END IF;
+ FOR packet IN SELECT value FROM jsonb_array_elements(members->1) LOOP
+ child:=data.ddo_field(packet,'kind_contract')->>1;
+ child_body:=data.ddo_field(packet,'body');
+ IF child IS NULL OR child_body IS NULL OR NOT kind.member_contracts ? child THEN
+ RAISE EXCEPTION 'body member kind is outside its captured nominal contract'; END IF;
+ RETURN QUERY SELECT * FROM ops.ddo_body_kind_contracts(child,child_body);
+ END LOOP;
+END $$;
+CREATE OR REPLACE FUNCTION ops.ddo_body_access(p_kind text,p_body jsonb) RETURNS boolean
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
+DECLARE contract text;
+BEGIN
+ FOR contract IN SELECT * FROM ops.ddo_body_kind_contracts(p_kind,p_body) LOOP
+ PERFORM ops.ddo_kind_access(contract);
+ END LOOP;
  RETURN true;
 END $$;
 CREATE OR REPLACE FUNCTION ops.ddo_binding_rows(p_demand text,p_operation text,p_trust jsonb,p_read text DEFAULT NULL,p_subject text DEFAULT NULL,p_source text DEFAULT NULL,p_scope jsonb DEFAULT NULL,p_decode_body boolean DEFAULT true,p_selected jsonb DEFAULT NULL)
