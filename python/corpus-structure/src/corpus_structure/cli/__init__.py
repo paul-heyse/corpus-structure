@@ -7,7 +7,6 @@ from collections.abc import Callable
 import typer
 
 from corpus_structure.cli import (
-    contributions,
     db,
     demands,
     explain,
@@ -50,7 +49,6 @@ REGISTRY: tuple[Callable[[typer.Typer], None], ...] = (
     query.register,
     research.register,
     interpretations.register,
-    contributions.register,
     review.register,
     structure.register,
     explain.register,

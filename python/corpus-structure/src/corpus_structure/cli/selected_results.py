@@ -6,17 +6,21 @@ from pathlib import Path
 from typing import Annotated, Literal
 
 import typer
+from pydantic import TypeAdapter
 
 from corpus_structure.cli.output import JsonOpt, state, write_report_text
 from corpus_structure.semantic.data_operation_json import json_bytes
 from corpus_structure.semantic.demand_queries import DemandView
+from corpus_structure.semantic.rich_queries import RichQueryName, QUERY_NAMES
+
+QueryName = Literal[DemandView, RichQueryName]
 from corpus_structure.serve.demand_journey import DemandQueryRequest, serve_demand_query
 
 
 def query(
     ctx: typer.Context,
     name: Annotated[
-        DemandView, typer.Argument()
+        QueryName, typer.Argument()
     ],
     demand: Annotated[str, typer.Option(help="Exact target demand; no promoted/latest selection.")],
     project: Annotated[str, typer.Option(help="Required project of the selected demand.")],
@@ -31,18 +35,52 @@ def query(
     limit: Annotated[int, typer.Option(min=1, max=1000)] = 100,
     max_bytes: Annotated[int, typer.Option(min=1024, max=67108864)] = 1048576,
     json: JsonOpt = False,
+    parameters: Annotated[Path | None, typer.Option(help="Rich query parameters JSON object; the positional name selects its contract.")] = None,
+    max_graph_bytes: Annotated[int, typer.Option(min=1024, max=67108864)] = 8388608,
+    max_graph_members: Annotated[int, typer.Option(min=1, max=1000000)] = 100000,
 ) -> None:
-    """Read selected members or operation/source/support standing under native pins."""
+    """Read native standing or named knowledge from an explicit accepted product.
+
+    Rich names require --product and accept a --parameters JSON object: entity
+    (key, class_name); claims (subject, predicate, object_entity, fact_id);
+    statement (product_id, member_id); evidence (fact_id, occurrence_id);
+    source_readings (record_id); family_profile/transformations_of (family);
+    construction_profile (construction); parameter_mapping (family, construction);
+    families_where (predicate, value); relations_between (a, b, depth up to4).
+    Filters are optional except a named query's subject, endpoints or statement.
+    Common rich options are population=selected|retained and include_suppositions.
+    """
     from corpus_structure.cli.failures import failure_boundary
     from corpus_structure.semantic.runtime import open_runtime_engine
 
     with failure_boundary(json, expected=(ValueError, KeyError)):
         if without_original_source and original_source is not None:
             raise ValueError("select either an exact original source or explicit no original source")
+        if name in QUERY_NAMES:
+            from corpus_structure.cli.output import read_request_bytes
+            from corpus_structure.semantic.data_operation_json import json_loads
+            from corpus_structure.serve.rich_queries import RichQueryRequest, serve_rich_query
+
+            if product is None:
+                raise ValueError("rich queries require the explicit accepted product")
+            if any(value is not None for value in (operation, subject, original_source, kind_contract, member)) or without_original_source:
+                raise ValueError("rich queries use their actual root and typed parameters, not native row filters")
+            values = {} if parameters is None else json_loads(read_request_bytes(parameters))
+            if not isinstance(values, dict) or "name" in values:
+                raise ValueError("rich query parameters must be an object without a name override")
+            rich_request = RichQueryRequest(demand_id=demand, project_id=project, product_id=product,
+                                            query={"name": name, **values}, cursor=cursor, limit=limit,
+                                            max_bytes=max_bytes, max_graph_bytes=max_graph_bytes, max_graph_members=max_graph_members)
+            with open_runtime_engine(state(ctx).settings(), "ci-rich-query", purpose="read") as engine, engine.begin() as connection:
+                result = serve_rich_query(connection, rich_request)
+            write_report_text(json_bytes(result).decode() + "\n")
+            return
+        if parameters is not None:
+            raise ValueError("parameters are only supported for a named rich query")
         request = DemandQueryRequest(
             demand_id=demand,
             project_id=project,
-            view=name,
+            view=TypeAdapter(DemandView).validate_python(name, strict=True),
             operation_id=operation,
             subject=subject,
             kind_contract=kind_contract,

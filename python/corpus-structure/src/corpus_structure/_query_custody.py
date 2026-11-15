@@ -73,6 +73,20 @@ QUERY_SOURCES = (
     "schema/relational.py",
     "core/canonical.py",
 )
+# Current finite rich-query owners. Retired integer-cut helpers remain above only
+# until their compiler/consumer removal; current meanings acquire this subset.
+RICH_QUERY_SOURCES = (
+    "_query_custody.py", "semantic/rich_queries.py", "semantic/rich_statistics_queries.py",
+    "serve/rich_queries.py", "serve/rich_knowledge.py", "semantic/rich_graph_validation.py",
+    "semantic/rich_knowledge_contracts.py", "semantic/rich_decisions.py", "semantic/rich_value_graph.py",
+    "semantic/qualification_meaning.py", "semantic/reference_positions.py", "semantic/statement_types.py",
+    "semantic/alias_policy.py", "core/keys.py", "core/tex.py", "core/vocab.py",
+    "semantic/data_operation_identity.py", "semantic/data_operation_json.py", "semantic/data_operation_model.py",
+    "semantic/data_operation_ports.py", "semantic/data_operation_support.py", "semantic/data_operation_wire.py", "semantic/property_roles.py",
+    "semantic/identity.py", "semantic/value_codec.py", "semantic/types.py", "semantic/unicode_identity.py",
+    "semantic/graph_runtime.py",
+)
+QUERY_SOURCES = tuple(dict.fromkeys((*QUERY_SOURCES, *RICH_QUERY_SOURCES)))
 _BASE = Path(__file__).resolve().parent
 _NAMES = {
     "corpus_structure." + name[:-3].replace("/", "."): str(_BASE / name) for name in QUERY_SOURCES
@@ -141,7 +155,7 @@ def verify_plugin(module: ModuleType, path: Path, source: bytes) -> None:
         raise SourceCustodyError("query plugin cache has no matching source custody")
 
 
-def _check_loaded(expected: dict[str, str], pack: str) -> None:
+def _check_loaded(expected: dict[str, str], pack: str | None) -> None:
     # Retain custody for helper objects still referenced by cached query code even
     # if somebody removed their module from sys.modules before importing it again.
     for module in [*sys.modules.values(), *_EXECUTED]:
@@ -157,7 +171,7 @@ def _check_loaded(expected: dict[str, str], pack: str) -> None:
         record = _EXECUTED.get(module)
         if record is not None and record[2]:
             continue  # The selected plugin cache entry is verified by its loader.
-        if Path(path).is_relative_to(pack) and path not in expected:
+        if pack is not None and Path(path).is_relative_to(pack) and path not in expected:
             raise SourceCustodyError("unlisted warm query helper; restart with its declared bundle")
         if path not in expected:
             continue
@@ -168,9 +182,9 @@ def _check_loaded(expected: dict[str, str], pack: str) -> None:
 
 
 @contextmanager
-def query_sources(expected: dict[str, str], *, pack: Path):
+def query_sources(expected: dict[str, str], *, pack: Path | None = None):
     """Check already-loaded helpers and constrain later imports to captured bytes."""
-    root = str(pack.resolve())
+    root = str(pack.resolve()) if pack is not None else None
     _check_loaded(expected, root)
     token = _EXPECTED.set(expected)
     pack_token = _PACK.set(root)

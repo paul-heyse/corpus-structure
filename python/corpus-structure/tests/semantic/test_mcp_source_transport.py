@@ -12,7 +12,7 @@ from fastmcp import Client
 from mcp.types import CallToolResult, TextContent
 from sqlalchemy import create_engine
 
-from corpus_structure.intervene.semantic_server import RetainedReaderBinding, build_retained_reader_server
+from corpus_structure.intervene.semantic_server import build_retained_reader_server
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.visual_evidence import VisualEvidencePin, VisualEvidenceRead, VisualText
 from corpus_structure.serve.native_source import NativeSourceRequest, NativeSourceResponse
@@ -119,16 +119,16 @@ def test_manifest_uses_same_current_source_reference_and_preserves_raw_producer(
     assert seen[0][0]==SelectedPdfSourceReference(**SOURCE) and seen[0][1]["page_no"]==3
 
 
-@pytest.mark.parametrize("bound,project",[(True,"project:A"),(False,"project:other")])
-def test_current_tools_refuse_legacy_binding_or_another_project(monkeypatch,bound,project):
+def test_current_tools_refuse_another_project_before_acquisition(monkeypatch):
+    project = "project:other"
     engine=create_engine("sqlite://")
     opened=[]
     monkeypatch.setattr("corpus_structure.semantic.demand_results.selected_read_snapshot",lambda selected:opened.append(True) or nullcontext(None))
     async def journey():
-        server=build_retained_reader_server(RetainedReaderBinding(engine,1),project=project) if bound else build_retained_reader_server(project=project,read_engine=engine)
+        server=build_retained_reader_server(project=project,read_engine=engine)
         async with Client(server) as client:
             result=await client.call_tool("inspect_source",{"request":_native_request().model_dump(mode="json")},raise_on_error=False)
-            assert result.is_error and "refused" in str(result.content).lower()
+            assert result.is_error and "another server project" in str(result.content)
     try: anyio.run(journey)
     finally: engine.dispose()
     assert not opened

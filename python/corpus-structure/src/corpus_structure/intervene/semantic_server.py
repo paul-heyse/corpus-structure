@@ -8,24 +8,20 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator, Generator
 from contextlib import contextmanager
-from dataclasses import dataclass
 from typing import Annotated, Any, Literal
 
 from fastmcp import Context, FastMCP
 from fastmcp import __version__ as FASTMCP_VERSION
 from fastmcp.server.lifespan import lifespan
 from fastmcp.tools import ToolResult
-from fastmcp.utilities.json_schema import compress_schema
 from pydantic import JsonValue, Field
-from sqlalchemy import Connection, Engine, select
+from sqlalchemy import Connection, Engine
 
 from corpus_structure.semantic.refusals import OperationConflict
 from corpus_structure.semantic.proposals import ProposalRefused
 from corpus_structure.semantic.refusals import located_failure_context, tool_refusals
-from corpus_structure.serve.native_source import NativeSourceRequest, NativeSourceResponse
+from corpus_structure.serve.native_source import NativeSourceRequest
 from corpus_structure.serve.selected_pdf import SelectedPdfSourceReference
-from corpus_structure.serve.source_search import SourceSearchRequest
-from corpus_structure.intervene.native_source_tools import ExactSourceSearch, exact_source_search
 from corpus_structure.settings import Settings
 
 from .mcp_observations import ObservationMiddleware
@@ -34,28 +30,18 @@ from .mcp_results import bounded_mcp_result as _bounded_mcp_result
 MCP_SERVER_NAME = "corpus-structure"
 
 
-@dataclass(frozen=True)
-class RetainedReaderBinding:
-    engine: Engine
-    run_id: int
-
-
 def build_retained_reader_server(
-    binding: RetainedReaderBinding | None = None,
     *,
-    run_id: int | None = None,
     project: str | None = None,
     settings: Settings | None = None,
     read_engine: Engine | None = None,
 ) -> FastMCP:
-    """Expose retained readers only."""
-    bound_id = binding.run_id if binding is not None else run_id
-
+    """Expose current pinned readers and explicit captured contract inspection."""
     @lifespan
     async def open_session(server: FastMCP) -> AsyncIterator[dict[str, Any]]:
         from corpus_structure.cli.observation_logging import child_capture
 
-        with child_capture(run_id=bound_id) as observations:
+        with child_capture() as observations:
             yield {"settings": settings or Settings(), "observation_writer": observations}
 
     server = FastMCP(
@@ -64,20 +50,14 @@ def build_retained_reader_server(
         lifespan=open_session,
         instructions="Inspect explicit archived releases and pinned published sources/cuts. No agent queue or submission is available.",
     )
-    server.add_middleware(ObservationMiddleware(bound_id))
+    server.add_middleware(ObservationMiddleware(None))
 
     @contextmanager
     def reader_snapshot(ctx: Context) -> Generator[Connection]:
         from corpus_structure.semantic.query import read_snapshot
         from corpus_structure.semantic.runtime import open_runtime_engine
 
-        injected = (
-            read_engine
-            if read_engine is not None
-            else binding.engine
-            if binding is not None
-            else None
-        )
+        injected = read_engine
         if injected is not None:
             with read_snapshot(injected) as connection:
                 yield connection
@@ -97,31 +77,9 @@ def build_retained_reader_server(
         return project or ctx.lifespan_context["settings"].runtime.default_project
 
     @contextmanager
-    def source_snapshot(ctx: Context, selected_run: int) -> Generator[Connection]:
-        if bound_id is not None and selected_run != bound_id:
-            raise ProposalRefused("this retained reader is bound to a different semantic run")
-        with reader_snapshot(ctx) as connection:
-            if bound_id is None:
-                from corpus_structure.semantic.metadata import table
-
-                runs = table("ops.run")
-                if (
-                    connection.scalar(
-                        select(runs.c.id).where(
-                            runs.c.id == selected_run, runs.c.project_id == reader_project(ctx)
-                        )
-                    )
-                    is None
-                ):
-                    raise ProposalRefused("run does not belong to this retained reader project")
-            yield connection
-
-    @contextmanager
     def selected_source_snapshot(ctx: Context, project_id: str) -> Generator[Connection]:
         from corpus_structure.semantic.demand_results import selected_read_snapshot
         from corpus_structure.semantic.runtime import open_runtime_engine
-        if bound_id is not None:
-            raise ProposalRefused("current demand tools require a project-scoped reader")
         if project_id != reader_project(ctx):
             raise ProposalRefused("selected source belongs to another reader project")
         injected = read_engine if read_engine is not None else None
@@ -133,13 +91,11 @@ def build_retained_reader_server(
                   selected_read_snapshot(engine) as connection):
                 yield connection
 
-    from corpus_structure.intervene.record_tools import register_record_tools
     from corpus_structure.semantic.operation_reporting import report_schema
+    from corpus_structure.intervene.demand_read_tools import register_demand_read_tools
 
-    register_record_tools(server, source_snapshot)
-    from corpus_structure.intervene.interpretation_tools import register_interpretation_tools
-
-    register_interpretation_tools(server, reader_snapshot, selected_source_snapshot, project=project)
+    effective_settings = settings or Settings()
+    register_demand_read_tools(server, settings=effective_settings, read_engine=read_engine, project=project or effective_settings.runtime.default_project)
 
     @server.tool(
         annotations={"readOnlyHint": True}, output_schema=report_schema("ContractInspection")
@@ -257,36 +213,6 @@ def build_retained_reader_server(
             with located_failure_context(new, "compare_declared_models"):
                 return compare(old, new).model_dump(mode="json")
 
-    @server.tool(
-        annotations={"readOnlyHint": True},
-        output_schema=compress_schema(
-            ExactSourceSearch.model_json_schema(mode="serialization"), prune_titles=True
-        ),
-    )
-    @tool_refusals(ProposalRefused, OperationConflict, ValueError)
-    def find(ctx: Context, request: SourceSearchRequest) -> ToolResult:
-        """Find selected PDF source sections, with exact retrievable source handles."""
-        from corpus_structure.serve.source_search import search_source
-
-        with selected_source_snapshot(ctx, request.project_id) as conn:
-            response = search_source(conn, request)
-        return _bounded_mcp_result(exact_source_search(response), request.max_bytes)
-
-    @server.tool(
-        annotations={"readOnlyHint": True},
-        output_schema=compress_schema(
-            NativeSourceResponse.model_json_schema(mode="serialization"), prune_titles=True
-        ),
-    )
-    @tool_refusals(ProposalRefused, OperationConflict, ValueError)
-    def inspect_source(ctx: Context, request: NativeSourceRequest) -> ToolResult:
-        """Inspect pinned source products and origins, or explicitly pinned visual candidates."""
-        from corpus_structure.serve.native_source import inspect_native_source
-
-        with selected_source_snapshot(ctx, request.project_id) as conn:
-            response = inspect_native_source(conn, request)
-        return _bounded_mcp_result(response, request.max_bytes)
-
     @server.tool(annotations={"readOnlyHint": True})
     @tool_refusals(ProposalRefused, OperationConflict, ValueError)
     def list_visual_observations(
@@ -312,7 +238,4 @@ def build_retained_reader_server(
             packet = pack(conn, request)
         return _bounded_mcp_result(packet, request.max_bytes)
 
-    from corpus_structure.serve.research import register_research_tools
-
-    register_research_tools(server, reader_snapshot, _bounded_mcp_result, tool_refusals)
     return server
