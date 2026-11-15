@@ -18,7 +18,7 @@ from threading import Event
 from time import monotonic
 from typing import Literal
 
-import networkx as nx
+from .graph_runtime import nx
 import numpy as np
 from scipy.special import logsumexp
 
@@ -447,7 +447,7 @@ def _interpret(
         ):
             raise _Stop(Outcome.INVALID_INPUT, "invalid candidate selection scope/limit")
 
-        graph = nx.Graph()
+        graph = nx.Graph(backend="networkx")
         graph.add_nodes_from(by_key)
 
         def scope_size(scope: tuple[str, ...]) -> int:
@@ -496,7 +496,9 @@ def _interpret(
             scope_size(dependence.scope)
             if not dependence.reason:
                 raise _Stop(Outcome.INVALID_INPUT, "dependence needs a reason")
-        components = tuple(sorted(tuple(sorted(c)) for c in nx.connected_components(graph)))
+        components = tuple(
+            sorted(tuple(sorted(c)) for c in nx.connected_components(graph, backend="networkx"))
+        )
 
         # Reserve support, index/sort/reduction temporaries and block arrays conservatively.
         # No product-shaped broadcasting or full-joint assignment matrix is allocated.

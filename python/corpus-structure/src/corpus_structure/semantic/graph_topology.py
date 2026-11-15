@@ -67,7 +67,7 @@ def boundary_edges(graph, nodes, *, reverse=False):
     selected = nx.reverse_view(graph) if reverse else graph
     # Selected3.6 stubs omit the documented3.7 dispatch keyword here.
     return tuple(
-        nx.edge_boundary(
+        nx.edge_boundary(  # type: ignore[no-matching-overload]
             selected, nodes, keys=selected.is_multigraph(), data=True, backend="networkx"
         )
-    )  # type: ignore[no-matching-overload]
+    )

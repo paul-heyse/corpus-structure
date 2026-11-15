@@ -13,7 +13,8 @@ from dataclasses import dataclass
 from types import MappingProxyType
 from typing import Any
 
-import networkx as nx
+from corpus_structure.semantic.graph_runtime import nx
+from corpus_structure.semantic.graph_topology import condensation, rooted_closure
 
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.reference_positions import collect_references
@@ -86,7 +87,7 @@ class CandidateComparisons:
         )
         self._decisions: dict[tuple[int, int, str], Any] = {}
         self._mapping: dict[str, str] = {}
-        graph: nx.DiGraph[tuple[str | int, ...]] = nx.DiGraph()
+        graph: nx.DiGraph[tuple[str | int, ...]] = nx.DiGraph(backend="networkx")
         # Values need preparation only once per reference occurrence, not once per pair.
         dependencies = {}
         for i, claim in enumerate(reference):
@@ -120,7 +121,7 @@ class CandidateComparisons:
             if not complete:
                 graph.add_edge(("global",), pair)
         # Own the graphs privately; expose no mutable attribute dictionaries.
-        self._dag = nx.condensation(graph, nx.strongly_connected_components(graph))
+        self._dag = condensation(graph)
         self._components = self._dag.graph["mapping"]
 
     def update(self, claim_map: Mapping[str, str]) -> None:
@@ -136,9 +137,7 @@ class CandidateComparisons:
             for node in [("global",), *(("fact", key) for key in changed)]
             if node in self._components
         }
-        affected = set(components)
-        for component in components:
-            affected.update(nx.descendants(self._dag, component))
+        affected = rooted_closure(self._dag, components)
         dirty = {
             (node[1], node[2])
             for component in affected
@@ -190,7 +189,7 @@ def independent_assignment(weights):
 
     if not weights.size:
         return []
-    graph = nx.Graph()
+    graph = nx.Graph(backend="networkx")
     maxima = []
     for i in range(weights.shape[0]):
         js = np.flatnonzero(weights[i] > 0)
@@ -206,7 +205,7 @@ def independent_assignment(weights):
         rows, cols = linear_sum_assignment(weights, maximize=True)
         return [(int(i), int(j)) for i, j in zip(rows, cols, strict=True) if weights[i, j] > 0]
     pairs = []
-    for component in nx.connected_components(graph):
+    for component in nx.connected_components(graph, backend="networkx"):
         ri = sorted(node[1] for node in component if node[0] == "r")
         pi = sorted(node[1] for node in component if node[0] == "p")
         rows, cols = linear_sum_assignment(weights[np.ix_(ri, pi)], maximize=True)

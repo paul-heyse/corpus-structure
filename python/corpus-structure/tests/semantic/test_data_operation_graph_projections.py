@@ -22,6 +22,7 @@ def test_current_model_archives_exact_interpretation_and_refuses_missing_project
         "selected-support",
         "source-hierarchy",
         "assessment",
+        "task-assessment",
         "lexical-reference",
         "possible-call",
         "resolved-definition",
@@ -84,7 +85,7 @@ def test_v6_specs_are_interpretations_not_selected_runtime_facts():
     assert "scope-boundary" in support.analyses
     assert compiled.projection_definition("source-hierarchy").orientation == "parent-to-child"
     assert (
-        compiled.projection_definition("assessment").selection
+        compiled.projection_definition("task-assessment").selection
         == "protected-question-and-prediction"
     )
     with pytest.raises(ValueError, match="source acquisition"):

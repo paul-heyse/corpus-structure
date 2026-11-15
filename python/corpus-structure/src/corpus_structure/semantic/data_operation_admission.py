@@ -34,8 +34,8 @@ if TYPE_CHECKING:
     from .types import PreparedRelease, SourceArtifact, SourceBundle
 
 
-def bound_data_operation_model(prepared: PreparedRelease) -> EffectiveDataOperationModel:
-    """Read archived effective meaning; this grants no runtime or database permission."""
+def archived_data_operation_model(prepared: PreparedRelease) -> EffectiveDataOperationModel:
+    """Read exact archived meaning; this grants no current execution authority."""
     artifacts = [a for a in prepared.artifacts if a.kind == "data_operations.json"]
     manifest = json.loads(prepared.manifest)
     if (
@@ -45,8 +45,6 @@ def bound_data_operation_model(prepared: PreparedRelease) -> EffectiveDataOperat
     ):
         raise SemanticRefusal("release lacks an unambiguous target operation model")
     model = read_effective_data_operations(artifacts[0].content)
-    if model.version != MODEL_VERSION:
-        raise SemanticRefusal("execution requires the current target operation model; regenerate")
     # Ordinary runtime admission does not parse/render documentation. The normal
     # archive reader authenticates the artifact set; explicit inspection/comparison
     # validates its version and effective-model binding when those facts are used.
@@ -56,6 +54,14 @@ def bound_data_operation_model(prepared: PreparedRelease) -> EffectiveDataOperat
     if len(interfaces) > 1:
         raise SemanticRefusal("release has ambiguous source interface projection")
     return replace(model, source_interfaces=interfaces[0].content) if interfaces else model
+
+
+def bound_data_operation_model(prepared: PreparedRelease) -> EffectiveDataOperationModel:
+    """Require the current interpreted model before execution/binding."""
+    model = archived_data_operation_model(prepared)
+    if model.version != MODEL_VERSION:
+        raise SemanticRefusal("execution requires the current target operation model; regenerate")
+    return model
 
 
 def require_data_operation_call_context(

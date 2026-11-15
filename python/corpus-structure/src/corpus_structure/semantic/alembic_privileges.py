@@ -172,7 +172,7 @@ def _expected(connection, policy):
 
 def _revoke_acl_edges(connection, policy, target, kind, failure_context):
     """Remove observed delegation leaves first; never cascade into implicit dependents."""
-    from networkx import DiGraph, NetworkXUnfeasible, lexicographical_topological_sort
+    from .graph_runtime import nx
 
     quote = connection.dialect.identifier_preparer.quote
     if kind == "TABLE":
@@ -201,11 +201,13 @@ def _revoke_acl_edges(connection, policy, target, kind, failure_context):
     else:
         sql = "SELECT pg_get_userbyid(a.grantor),CASE WHEN a.grantee=0 THEN 'PUBLIC' ELSE pg_get_userbyid(a.grantee) END,a.privilege_type,NULL::text FROM pg_class c CROSS JOIN LATERAL aclexplode(coalesce(c.relacl,acldefault('r',c.relowner))) a WHERE c.oid=to_regclass(:name) AND a.grantee<>c.relowner UNION ALL SELECT pg_get_userbyid(a.grantor),CASE WHEN a.grantee=0 THEN 'PUBLIC' ELSE pg_get_userbyid(a.grantee) END,a.privilege_type,at.attname FROM pg_attribute at CROSS JOIN pg_class c CROSS JOIN LATERAL aclexplode(at.attacl) a WHERE c.oid=to_regclass(:name) AND at.attrelid=c.oid AND at.attnum>0 AND NOT at.attisdropped AND a.grantee<>c.relowner"
     edges = connection.execute(text(sql), {"name": policy["name"]}).all()
-    graph = DiGraph()
+    graph = nx.DiGraph(backend="networkx")
     graph.add_edges_from((grantor, grantee) for grantor, grantee, _, _ in edges)
     try:
-        leaves = list(reversed(list(lexicographical_topological_sort(graph))))
-    except NetworkXUnfeasible as error:
+        leaves = list(
+            reversed(list(nx.lexicographical_topological_sort(graph, backend="networkx")))
+        )
+    except nx.NetworkXUnfeasible as error:
         raise NativeAuthoringError(
             "cyclic privilege delegation requires explicit authoring intent"
         ) from error

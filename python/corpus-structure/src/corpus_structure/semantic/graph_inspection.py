@@ -9,6 +9,7 @@ import base64
 from collections import Counter
 from dataclasses import asdict
 from hashlib import sha256
+from itertools import pairwise
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -180,7 +181,7 @@ def inspect_graph(snapshot: GraphSnapshot, request: GraphInspectionRequest):
                 path = nx.shortest_path(
                     viewed, request.roots[0], request.target, weight=None, backend="networkx"
                 )
-                for start, end in zip(path, path[1:]):
+                for start, end in pairwise(path):
                     original = (end, start) if request.direction == "dependents" else (start, end)
                     items.append(
                         dict(
@@ -310,9 +311,25 @@ def snapshot_from_records(projection, specification, pins, records, *, unknowns=
 
 
 def archived_graph_snapshot(prepared, projection, *, selected_dependencies=()):
-    from .data_operation_admission import bound_data_operation_model
+    from .data_operation_admission import archived_data_operation_model
 
-    model = bound_data_operation_model(prepared)
+    model = archived_data_operation_model(prepared)
+    from .data_operation_model import MODEL_VERSION
+
+    if model.version != MODEL_VERSION:
+        return GraphSnapshot(
+            projection=projection,
+            specification="historical-unavailable",
+            pins_json=json_bytes(
+                dict(release_id=prepared.release_id, model_digest=sha256(model.content).hexdigest())
+            ).decode(),
+            nodes=(),
+            occurrences=(),
+            standing="unavailable",
+            unknowns=(
+                "historical graph interpretation is preserved; current projection is unavailable",
+            ),
+        )
     definition = model.projection_definition(projection)
     if projection in {"semantic-reference", "potential-producers", "selected-dependencies"}:
         graph = model.projection_graph(projection, selected_dependencies=selected_dependencies)
@@ -402,6 +419,16 @@ def read_graph_inspection(connection, request: GraphInspectionRequest):
         except (KeyError, TypeError, ValueError) as error:
             raise ValueError("invalid selected graph continuation") from error
     prepared = open_release(connection, request.release_id)
+    from .data_operation_admission import archived_data_operation_model
+    from .data_operation_model import MODEL_VERSION
+
+    archived = archived_data_operation_model(prepared)
+    if archived.version != MODEL_VERSION:
+        snapshot = archived_graph_snapshot(prepared, request.projection)
+        pins = json_loads(snapshot.pins_json)
+        pins["requested_context"] = dict(project_id=request.project_id, demand_id=request.demand_id)
+        snapshot = snapshot.model_copy(update={"pins_json": json_bytes(pins).decode()})
+        return inspect_graph(snapshot, request.model_copy(update={"demand_id": None}))
     if request.demand_id:
         if request.selected_dependencies:
             raise ValueError("native selected graphs use their frozen producer choices")
@@ -412,9 +439,13 @@ def read_graph_inspection(connection, request: GraphInspectionRequest):
         snapshot = archived_graph_snapshot(
             prepared, request.projection, selected_dependencies=request.selected_dependencies
         )
-    from .data_operation_admission import bound_data_operation_model
+    from .data_operation_admission import archived_data_operation_model
 
-    model = bound_data_operation_model(prepared)
+    model = archived_data_operation_model(prepared)
+    from .data_operation_model import MODEL_VERSION
+
+    if model.version != MODEL_VERSION:
+        return inspect_graph(snapshot, request)
     specification = model.projection_definition(request.projection)
     if snapshot.specification != specification.identity_bytes.hex():
         raise ValueError("graph snapshot differs from its released interpretation")
