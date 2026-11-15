@@ -53,9 +53,11 @@ def test_literal_change_is_not_artifact_equivalence(commit_reader_engine):
     assert a.sql == "SELECT 'one'::text"
 
 
-def test_native_binding_unknown_column_and_real_role(commit_db_engine, commit_reader_engine):
+def test_native_binding_unknown_column_and_real_role(commit_db_engine, commit_reader_engine, monkeypatch):
     from corpus_structure.semantic.metadata import metadata
+    import sys
 
+    monkeypatch.setitem(sys.modules, "corpus_structure.semantic._operation_calls", None)
     with commit_reader_engine.connect() as conn:
         artifact = admit_sql(
             conn,

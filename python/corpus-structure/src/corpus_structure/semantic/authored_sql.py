@@ -206,9 +206,7 @@ def _analysis_snapshot(
         from sqlalchemy.exc import DBAPIError
 
         try:
-            from ._operation_calls import require_runtime_principal
-
-            require_runtime_principal(conn, purpose="read")
+            conn.execute(text("SELECT data.require_runtime_principal(:purpose)"), {"purpose": "read"})
         except DBAPIError as exc:
             raise SQLAdmissionError(
                 "catalog admission requires restricted read capabilities"
