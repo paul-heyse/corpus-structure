@@ -7,7 +7,8 @@ stream; immutable archive bytes and the reader format are unchanged.
 from __future__ import annotations
 
 import json
-from collections.abc import Mapping, Sequence
+from itertools import batched
+from collections.abc import Iterable, Iterator, Mapping, Sequence
 from typing import Any
 
 import pyarrow as pa
@@ -96,3 +97,19 @@ def archive_batch(
         ],
         schema=profile.schema,
     )
+
+
+def archive_batches(
+    relation: Table,
+    profile: ArrowWriteProfile,
+    rows: Iterable[Mapping[str, Any]],
+    *,
+    batch_size: int = 1024,
+) -> Iterator[pa.RecordBatch]:
+    """Convert row chunks under one relation schema, without a whole-relation Arrow copy.
+
+    This bounds rows converted per batch, not native memory or individual value size.
+    The caller retains one COPY stream and its transaction across all batches.
+    """
+    for chunk in batched(rows, batch_size):
+        yield archive_batch(relation, profile, chunk)

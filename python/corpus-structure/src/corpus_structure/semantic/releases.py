@@ -451,7 +451,7 @@ def persist_release(
     from ._operation_calls import prepare_release_archive, publish_release_archive
     from ._operation_ids import ReleaseId
     from .archive_transport import (
-        archive_batch,
+        archive_batches,
         archive_tables,
         archive_write_profile,
         scratch_name,
@@ -469,7 +469,7 @@ def persist_release(
                     conn,
                     write,
                     target=("pg_temp", scratch_name(relation)),
-                    batches=(archive_batch(relation, write, relations[relation.name]),),
+                    batches=archive_batches(relation, write, relations[relation.name]),
                 )
             archived = publish_release_archive(conn, release_id=release_id)
     except DBAPIError as error:

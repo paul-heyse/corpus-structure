@@ -89,3 +89,30 @@ def test_native_archive_has_one_typed_transport_and_parses():
     assert "FULL JOIN" in sql
     assert "sem.require_archive_bytes(p_release_id)" in sql
     assert "sem.require_execution_projection(p_release_id)" in sql
+
+
+def test_archive_chunks_share_schema_and_preserve_rows_without_eager_consumption():
+    from corpus_structure.semantic.archive_transport import archive_batches
+
+    relation = table("sem.input")
+    profile = archive_write_profile(relation, "release:chunks")
+    consumed = []
+
+    def rows():
+        for index in range(5):
+            consumed.append(index)
+            yield {
+                "release_id": "release:chunks", "input_kind": "source",
+                "input_name": str(index), "content": bytes([index]), "content_digest": "digest",
+            }
+
+    batches = archive_batches(relation, profile, rows(), batch_size=2)
+    first = next(batches)
+    assert consumed == [0, 1]
+    rest = list(batches)
+    assert [batch.num_rows for batch in [first, *rest]] == [2, 2, 1]
+    assert all(batch.schema.equals(profile.schema) for batch in rest)
+    assert pa.Table.from_batches([first, *rest]).column("content").to_pylist() == [
+        bytes([index]) for index in range(5)
+    ]
+    assert list(archive_batches(relation, profile, ())) == []
