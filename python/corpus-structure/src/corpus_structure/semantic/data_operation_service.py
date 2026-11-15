@@ -156,6 +156,7 @@ def execute_data_demand(
     policy=None,
     project_id: str | None = None,
     admission_engine=None,
+    fitter_engine=None,
     nemotron_endpoint: str | None = None,
     database_capacity: int | None = None,
     limit: int = 100,
@@ -225,6 +226,7 @@ def execute_data_demand(
         policy=policy,
         nemotron_endpoint=nemotron_endpoint,
         admission_engine=admission_engine,
+        fitter_engine=fitter_engine,
         database_capacity=database_capacity,
     )
     return executor.run(demand_id, limit=limit, max_rounds=max_rounds)

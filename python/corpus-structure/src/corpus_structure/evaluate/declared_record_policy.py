@@ -7,6 +7,7 @@ labels remain protected and are exposed only through the dedicated fitter capabi
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from hashlib import sha256
 from typing import Annotated, Literal, Self
 
@@ -18,9 +19,12 @@ from corpus_structure.semantic.declared_structural_references import (
 )
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.record_policy import (
-    Digest, Family, FrozenContract, Nonempty, RecordFeatures,
+    Digest, Family, FeatureInstance, FitDiagnostics, FrozenContract, Nonempty,
+    PolicyApplicability, RecordAcceptanceInstance, RecordAlgorithm, RecordFeatures, reading_potential,
 )
-from corpus_structure.semantic.record_policy_authority import DdoFittedRecordPolicy, NAMESPACE
+from corpus_structure.semantic.record_policy_authority import (
+    DdoFittedRecordPolicy, DdoRecordPolicyApplicability, NAMESPACE,
+)
 
 Partition = Literal["development", "feature_fit", "final_event_calibration", "final_assessment"]
 PROTECTED_NAMESPACE = NAMESPACE + "protected/"
@@ -160,8 +164,9 @@ class DdoRecordGradeFrame(FrozenContract):
         passes = {row.pass_kind: row for row in self.reference_passes}
         if len(passes) != 3 or set(passes) != {"A", "B", "C"}:
             raise ValueError("grade requires exact independent A/B and C adjudication")
-        if passes["A"].author == passes["B"].author:
-            raise ValueError("A/B record references require distinct independent authors")
+        pass_addresses = {(row.reference.product_id, row.reference.member_id) for row in self.reference_passes}
+        if len(pass_addresses) != 3:
+            raise ValueError("A/B/C references require distinct retained pass identities")
         if set(passes["C"].adjudicates) != {passes["A"].content_digest, passes["B"].content_digest}:
             raise ValueError("C does not adjudicate the exact retained A/B answers")
         if any((row.question_digest, row.rubric_digest, row.source_cut_id, row.reference.project_id) != (
@@ -211,11 +216,190 @@ class DdoRecordGrade(FrozenContract):
         return cls(frame=frame, frame_canonical_json=content.decode(), frame_digest=sha256(content).hexdigest())
 
 
+class DdoRecordGradeSelection(FrozenContract):
+    """Exact evaluator-acquired selected grade, reacquired by the fitter principal."""
+
+    project_id: Nonempty
+    demand_id: Nonempty
+    read_id: Nonempty
+    use_id: Nonempty
+    derivation_id: Nonempty
+    product_id: Nonempty
+    expected_cut: Nonempty
+    frame_digest: Digest
+
+
+class DdoRecordFitSpecification(FrozenContract):
+    feature_selection: DdoRecordGradeSelection
+    frozen_feature: FeatureInstance
+    applicability: DdoRecordPolicyApplicability
+    family_contract: Nonempty
+    reading_recipe: Nonempty
+    event_procedure: Nonempty
+    assumptions: Nonempty
+    threshold: Annotated[FiniteFloat, Field(gt=0, le=1)]
+    threshold_procedure: Nonempty
+
+
+@dataclass(frozen=True)
+class DeclaredRecordPolicyFitOutcome:
+    diagnostics: tuple[FitDiagnostics, ...]
+    fitted: DdoFittedRecordPolicy | None = None
+
+
+def _fitting_frame(grade: DdoRecordGrade, assumptions: str):
+    from .record_fitting import FittingFrame
+
+    frame = grade.frame
+    return FittingFrame(
+        frame_digest=grade.frame_digest, reference_digest=frame.reference_digest,
+        coverage_digest=sha256(canonical_bytes([
+            row.model_dump(mode="json") for row in frame.coverage
+        ])).hexdigest(),
+        event_ids=tuple(row.interpretation_id for row in frame.events),
+        provenance="declared-selected-complete-record-grade-1", assumptions=assumptions,
+    )
+
+
+def _fit_feature_value(grade: DdoRecordGrade, *, algorithm: RecordAlgorithm, assumptions: str):
+    """Pure numerical step; the caller authenticates the grade using the fit capability."""
+    from .record_fitting import FeatureFitObservation, WholeReadingLabel, fit_whole_reading_features
+
+    frame = grade.frame
+    if frame.partition != "feature_fit":
+        raise ValueError("feature fitting requires the distinct feature_fit partition")
+    observations = tuple(FeatureFitObservation(
+        features=row.features, label=WholeReadingLabel(
+            event_id=row.interpretation_id, origin_group=row.origin_group,
+            correct=row.correct, sample_weight=row.sample_weight,
+        ),
+    ) for row in frame.events)
+    return fit_whole_reading_features(
+        observations, algorithm=algorithm,
+        applicability=PolicyApplicability(
+            release_id=frame.prediction_release_id, family=frame.family,
+            subset=frame.subset, assumptions=assumptions,
+        ),
+        frame=_fitting_frame(grade, assumptions),
+    )
+
+
+def reacquire_record_feature_grade(connection, selection: DdoRecordGradeSelection) -> DdoRecordGrade:
+    """Use the actual restricted native fitter capability; never a general read fallback."""
+    from corpus_structure.semantic.record_policy_native import read_record_feature_fit_frame
+
+    result = read_record_feature_fit_frame(connection, **selection.model_dump(mode="python"))
+    if (result["product_id"], result["derivation_id"]) != (selection.product_id, selection.derivation_id):
+        raise ValueError("native fitter result differs from selected grade product or derivation")
+    grade = DdoRecordGrade.model_validate_json(canonical_bytes(result["frame"]))
+    if (grade.frame.partition, grade.frame.project_id, grade.frame_digest) != (
+        "feature_fit", selection.project_id, selection.frame_digest,
+    ):
+        raise ValueError("native fitter result differs from exact feature-fit frame")
+    return grade
+
+
+def fit_record_feature_frame(connection, selection: DdoRecordGradeSelection, *, algorithm: RecordAlgorithm, assumptions: str):
+    """Fit preliminary parameters through the dedicated actual fitter connection.
+
+    The returned parameters may be authored into the real reading policy so that a
+    separate calibration population can be produced. They grant no admission authority;
+    final fitting recomputes the exact frozen instance from the same immutable grade.
+    """
+    if not assumptions.strip():
+        raise ValueError("feature fitting requires explicit conditioning assumptions")
+    grade = reacquire_record_feature_grade(connection, selection)
+    return _fit_feature_value(grade, algorithm=algorithm, assumptions=assumptions)
+
+
+def fit_declared_record_policy(
+    feature_grade: DdoRecordGrade, calibration_grade: DdoRecordGrade,
+    specification: DdoRecordFitSpecification,
+) -> DeclaredRecordPolicyFitOutcome:
+    """Pure exact-instance recomputation and separately held-out event calibration.
+
+    The acquired family port authenticates the selected grade bodies first. This
+    function does not grant native authority merely from the possession of DTOs.
+    Original release identities remain attribution; calibration may use a later
+    compatible release with the same consumed family contract and reading recipe.
+    """
+    from .record_fitting import FinalEventObservation, WholeReadingLabel, fit_final_event_calibration
+
+    first, second = feature_grade.frame, calibration_grade.frame
+    if (first.partition, second.partition) != ("feature_fit", "final_event_calibration"):
+        raise ValueError("feature-fit and final-event calibration require separate declared partitions")
+    expected = (specification.applicability.project_id, specification.family_contract, specification.reading_recipe)
+    if any((frame.project_id, frame.family_contract, frame.reading_recipe) != expected for frame in (first, second)):
+        raise ValueError("fitting frames differ from the exact project, consumed family contract or reading recipe")
+    if (first.family, first.subset, first.rubric_digest) != (second.family, second.subset, second.rubric_digest):
+        raise ValueError("calibration changes the declared family, subset or grading rubric")
+    if (feature_grade.frame_digest == calibration_grade.frame_digest
+            or first.reference_digest == second.reference_digest
+            or feature_grade.frame_digest not in second.held_out_from):
+        raise ValueError("calibration requires a separately held-out frozen frame and reference")
+    groups = [{row.origin_group for row in frame.origin_groups} for frame in (first, second)]
+    origins = [{source.original_source for row in frame.origin_groups for source in (
+        row.source, *row.copied_from,
+    )} for frame in (first, second)]
+    if groups[0] & groups[1] or origins[0] & origins[1]:
+        raise ValueError("calibration shares a declared origin group or known copied source with feature fitting")
+    feature = specification.frozen_feature
+    fitted = _fit_feature_value(feature_grade, algorithm=feature.algorithm, assumptions=specification.assumptions)
+    if fitted.instance is None:
+        return DeclaredRecordPolicyFitOutcome((fitted.diagnostics,))
+    if canonical_bytes(fitted.instance.model_dump(mode="json")) != canonical_bytes(feature.model_dump(mode="json")):
+        raise ValueError("frozen feature instance differs from actual immutable feature-fit recomputation")
+    observations = []
+    for row in second.events:
+        event = row.final_event
+        if event is None or (event.feature_instance_digest, event.event_procedure) != (
+            feature.digest, specification.event_procedure,
+        ):
+            raise ValueError("calibration event differs from actual frozen predictor or event procedure")
+        vector = row.features
+        if (vector.names != feature.parameters.names
+                or vector.feature_signature != feature.parameters.feature_signature
+                or any(value is None for value in vector.values)):
+            raise ValueError("calibration features differ from the frozen ordered predictor")
+        potential = reading_potential(feature.parameters, tuple(value for value in vector.values if value is not None))
+        if event.final_event_score != potential:
+            raise ValueError("calibration sealed score differs from the actual frozen predictor")
+        observations.append(FinalEventObservation(
+            feature_instance_digest=feature.digest, event_procedure=event.event_procedure,
+            final_event_score=event.final_event_score, label=WholeReadingLabel(
+                event_id=row.interpretation_id, origin_group=row.origin_group,
+                correct=row.correct, sample_weight=row.sample_weight,
+            ),
+        ))
+    calibration = fit_final_event_calibration(
+        observations, feature=feature, frame=_fitting_frame(calibration_grade, specification.assumptions),
+        event_procedure=specification.event_procedure,
+    )
+    diagnostics = (fitted.diagnostics, calibration.diagnostics)
+    if calibration.calibration is None:
+        return DeclaredRecordPolicyFitOutcome(diagnostics)
+    instance = RecordAcceptanceInstance(
+        feature=feature, calibration=calibration.calibration, threshold=specification.threshold,
+        threshold_procedure=specification.threshold_procedure,
+        conditioning_assumptions=specification.assumptions,
+    )
+    basis = sha256(canonical_bytes([
+        feature_grade.frame_digest, calibration_grade.frame_digest,
+        specification.model_dump(mode="json"),
+    ])).hexdigest()
+    return DeclaredRecordPolicyFitOutcome(diagnostics, DdoFittedRecordPolicy.from_instance(
+        instance, family_contract=specification.family_contract,
+        reading_recipe=specification.reading_recipe, judgment_basis_digest=basis,
+        applicability=specification.applicability,
+    ))
+
+
 class DdoProtectedRecordPolicyContracts(FrozenContract):
     """One schema root owns the entire protected nominal namespace."""
 
     grade: DdoRecordGrade
     fitted: DdoFittedRecordPolicy
+    specification: DdoRecordFitSpecification
 
 
 def protected_record_policy_kind_declarations():

@@ -253,6 +253,7 @@ class _RequestExecution:
         self.cpu, self.native_hosts = invocation.cpu, invocation.native_hosts
         self.providers = invocation.providers
         self.engine = invocation.executor.engine
+        self.fitter_engine = invocation.executor.fitter_engine
         self.claim: NativeRequestClaim | None = None
         self.handles = []
         self.consumer_inputs = {}
@@ -464,6 +465,7 @@ class NativeDemandExecutor:
         runtime_locations: Mapping[str, Path] | None = None,
         capability_factories: Mapping[str, Callable[..., Any]] | None = None,
         admission_engine: Engine | None = None,
+        fitter_engine: Engine | None = None,
         schema: SourceBundle | None = None,
         nemotron_endpoint: str | None = None,
         database_capacity: int | None = None,
@@ -471,6 +473,7 @@ class NativeDemandExecutor:
         if runtime.release_id != prepared.release_id:
             raise ValueError("runtime belongs to another release")
         self.engine, self.prepared, self.runtime, self.sources = engine, prepared, runtime, sources
+        self.fitter_engine = fitter_engine
         self.admission_engine = engine if admission_engine is None else admission_engine
         self.model = bound_data_operation_model(prepared)
         self.runtime_locations = runtime_locations
