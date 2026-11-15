@@ -190,7 +190,7 @@ def operation_event_availability(
     """Project aggregate applicability without running a fit or disclosing protected labels."""
     from sqlalchemy.exc import DBAPIError
 
-    from corpus_structure.semantic.query import read_snapshot
+    from corpus_structure.semantic.read_snapshot import read_snapshot
     from corpus_structure.semantic.runtime import open_runtime_engine
 
     with (

@@ -13,7 +13,7 @@ from corpus_structure.semantic.observations import source_value
 from corpus_structure.semantic.operations import BoundReader, OperationConflict
 from corpus_structure.semantic.pdf_record_reader import PublishedReadBudget
 from corpus_structure.semantic.proposals import native_source_frame
-from corpus_structure.semantic.query import ReadLimit
+from corpus_structure.semantic.refusals import ReadLimit
 from corpus_structure.semantic.source_contexts import NativeSourcePin
 from corpus_structure.semantic.types import PreparedRelease
 

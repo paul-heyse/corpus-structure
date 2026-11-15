@@ -33,7 +33,7 @@ from corpus_structure.orchestrate.commands import finalize_bound_run
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.operations import OperationBinding
-from corpus_structure.semantic.query import read_snapshot
+from corpus_structure.semantic.read_snapshot import read_snapshot
 from corpus_structure.semantic.retained_contributions import RetainedContributionRef
 from corpus_structure.semantic.structural_admission import structural_claim_id, structural_statement
 from corpus_structure.semantic.structural_products import StructuralInput

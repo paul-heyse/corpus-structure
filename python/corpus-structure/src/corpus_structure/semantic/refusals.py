@@ -24,6 +24,12 @@ class SemanticRefusal(ValueError):
     """An owned boundary deliberately refuses an unsupported or incompatible request."""
 
 
+class ReadLimit(SemanticRefusal):
+    def __init__(self, message: str, *, reason: str):
+        self.reason = reason
+        super().__init__(message)
+
+
 class OperationConflict(ValueError):
     """Immutable input identity changed or a task/pass fence was lost."""
 

@@ -128,7 +128,7 @@ def _rank_sections(connection, texts, text, *, position, limit):
 def search_source(connection, request: SourceSearchRequest) -> SourceSearchResponse:
     from corpus_structure.ingest.pdf_section_views import published_section_projections
     from corpus_structure.semantic.pdf_record_reader import PublishedPdfReader, PublishedReadBudget
-    from corpus_structure.semantic.query import ReadLimit
+    from corpus_structure.semantic.refusals import ReadLimit
     from corpus_structure.semantic.source_products import FrozenNativeSource
 
     budget = PublishedReadBudget(request.max_rows, request.max_bytes)

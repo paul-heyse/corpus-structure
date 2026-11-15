@@ -40,7 +40,7 @@ def _read(conn, source, evidence, mode, budget, **selectors):
     from corpus_structure.semantic.data_operation_wire import validate_native_wire
 
     if budget.max_bytes <= budget.bytes:
-        from corpus_structure.semantic.query import ReadLimit
+        from corpus_structure.semantic.refusals import ReadLimit
 
         raise ReadLimit("visual byte budget exhausted", reason="work_limit")
     payload = dict(
@@ -207,7 +207,7 @@ def visual_observation_manifest(
 
 
 def _charge_rows(budget, count):
-    from corpus_structure.semantic.query import ReadLimit
+    from corpus_structure.semantic.refusals import ReadLimit
 
     if budget.rows + count > budget.max_rows:
         raise ReadLimit("visual evidence row-work budget exhausted", reason="work_limit")
@@ -284,7 +284,7 @@ def inspect_pdf_visual_evidence(
     from pydantic_core import to_jsonable_python
 
     from corpus_structure.semantic.pdf_record_reader import published_record_reader
-    from corpus_structure.semantic.query import ReadLimit
+    from corpus_structure.semantic.refusals import ReadLimit
     from corpus_structure.semantic.refusals import InvalidContinuation
 
     from .native_source import (

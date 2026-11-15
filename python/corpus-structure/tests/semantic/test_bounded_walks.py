@@ -10,7 +10,8 @@ from pydantic import JsonValue
 from sqlalchemy import Connection as SqlConnection
 from sqlalchemy import select
 
-from corpus_structure.semantic.query import EntityReference, QueryRow, ReadLimit
+from corpus_structure.semantic.query import EntityReference, QueryRow
+from corpus_structure.semantic.refusals import ReadLimit
 from corpus_structure.semantic.refusals import InvalidContinuation
 from corpus_structure.serve.protocol import Positioned, QueryContext
 from corpus_structure.serve.read import T

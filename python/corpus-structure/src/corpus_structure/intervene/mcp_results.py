@@ -25,7 +25,7 @@ def bounded_mcp_result(
     value: BaseModel, max_bytes: int, *, presentation: str | None = None
 ) -> ToolResult:
     """Admit the actual full text-plus-structured result, retaining its exact wire form."""
-    from corpus_structure.semantic.query import ReadLimit
+    from corpus_structure.semantic.refusals import ReadLimit
 
     encoded = ToolResult(
         content=presentation if presentation is not None else value,

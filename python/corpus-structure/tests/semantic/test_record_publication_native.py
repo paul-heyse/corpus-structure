@@ -423,7 +423,7 @@ def test_shared_structure_requires_each_complete_literal_set_in_source_order(
 def test_completed_public_reader_pins_detached_projection_and_retains_source_selectors(
     private_source, record_source_reader
 ):
-    from corpus_structure.semantic.query import read_snapshot
+    from corpus_structure.semantic.read_snapshot import read_snapshot
     from corpus_structure.semantic.record_queries import read_completed_record_projection
     from corpus_structure.semantic.refusals import SemanticRefusal
 
@@ -485,7 +485,7 @@ def test_completed_public_reader_pins_detached_projection_and_retains_source_sel
 def test_completed_public_reader_distinguishes_empty_report_from_missing_source(
     private_source, record_source_reader
 ):
-    from corpus_structure.semantic.query import read_snapshot
+    from corpus_structure.semantic.read_snapshot import read_snapshot
     from corpus_structure.semantic.record_queries import read_completed_record_projection
 
     case = private_source
@@ -520,7 +520,7 @@ def test_completed_record_journey_preserves_sealed_no_output_diagnostics(
     private_source, record_source_reader, no_report_status
 ):
     from corpus_structure.semantic.operations import claim_tasks, complete_task, create_task
-    from corpus_structure.semantic.query import read_snapshot
+    from corpus_structure.semantic.read_snapshot import read_snapshot
     from corpus_structure.semantic.record_queries import (
         RecordReadSelection,
         read_completed_record_projection,
@@ -664,7 +664,7 @@ def test_record_continuation_keeps_completed_cut_after_project_selection_changes
 ):
     from sqlalchemy import update
 
-    from corpus_structure.semantic.query import read_snapshot
+    from corpus_structure.semantic.read_snapshot import read_snapshot
     from corpus_structure.semantic.record_queries import (
         RecordReadSelection,
         read_completed_record_projection,
@@ -725,7 +725,7 @@ def test_final_run_nonmember_resolver_blocks_raw_candidate_fallback(
         create_task,
         record_method,
     )
-    from corpus_structure.semantic.query import read_snapshot
+    from corpus_structure.semantic.read_snapshot import read_snapshot
     from corpus_structure.semantic.record_queries import read_completed_record_projection
 
     case = private_source
@@ -795,7 +795,7 @@ def test_completed_public_reader_refuses_wrong_run_project_and_invalid_selectors
     private_source, record_source_reader
 ):
     from corpus_structure.semantic.operations import OperationBinding, create_run
-    from corpus_structure.semantic.query import read_snapshot
+    from corpus_structure.semantic.read_snapshot import read_snapshot
     from corpus_structure.semantic.record_queries import read_completed_record_projection
     from corpus_structure.semantic.refusals import SemanticRefusal
 
@@ -842,7 +842,7 @@ def test_completed_public_reader_record_row_and_exact_serialized_byte_budgets(
     import json
     from dataclasses import asdict
 
-    from corpus_structure.semantic.query import read_snapshot
+    from corpus_structure.semantic.read_snapshot import read_snapshot
     from corpus_structure.semantic.record_queries import (
         RecordReadLimit,
         read_completed_record_projection,
@@ -907,7 +907,7 @@ def test_completed_public_reader_refuses_archive_without_record_projection(
     from corpus_structure.semantic.analytical_profile import analytical_inputs
     from corpus_structure.semantic.composed import composed_dependencies
     from corpus_structure.semantic.operations import OperationBinding, create_run
-    from corpus_structure.semantic.query import read_snapshot
+    from corpus_structure.semantic.read_snapshot import read_snapshot
     from corpus_structure.semantic.record_queries import read_completed_record_projection
     from corpus_structure.semantic.refusals import SemanticRefusal
     from corpus_structure.semantic.releases import persist_release
@@ -979,7 +979,7 @@ classes:
 def test_completed_public_reader_selects_and_pages_roots_before_hydration(
     private_source, record_source_reader
 ):
-    from corpus_structure.semantic.query import read_snapshot
+    from corpus_structure.semantic.read_snapshot import read_snapshot
     from corpus_structure.semantic.record_queries import (
         RecordReadLimit,
         RecordReadSelection,

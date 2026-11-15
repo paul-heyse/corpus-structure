@@ -23,7 +23,7 @@ def structures(
     json: JsonOpt = False,
 ):
     from corpus_structure.cli.failures import failure_boundary
-    from corpus_structure.semantic.query import read_snapshot
+    from corpus_structure.semantic.read_snapshot import read_snapshot
     from corpus_structure.semantic.runtime import open_runtime_engine
     from corpus_structure.serve.structural_products import (
         StructuralRequest,
@@ -70,7 +70,7 @@ def dossier_page(
     import json as json_module
 
     from corpus_structure.cli.failures import failure_boundary
-    from corpus_structure.semantic.query import read_snapshot
+    from corpus_structure.semantic.read_snapshot import read_snapshot
     from corpus_structure.semantic.runtime import open_runtime_engine
     from corpus_structure.serve.structural_products import (
         DossierRepresentationRequest,
@@ -117,7 +117,7 @@ def structural_gap(
 ):
     """Inspect one selected structural gap report and its producer coverage."""
     from corpus_structure.cli.failures import failure_boundary
-    from corpus_structure.semantic.query import read_snapshot
+    from corpus_structure.semantic.read_snapshot import read_snapshot
     from corpus_structure.semantic.runtime import open_runtime_engine
     from corpus_structure.serve.structural_gaps import GapRequest, serve_structural_gap
 

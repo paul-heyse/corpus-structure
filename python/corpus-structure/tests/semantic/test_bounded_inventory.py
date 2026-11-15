@@ -5,7 +5,8 @@ import json
 
 import pytest
 
-from corpus_structure.semantic.query import ReadLimit, ReadSession, SnapshotBinding
+from corpus_structure.semantic.refusals import ReadLimit
+from corpus_structure.semantic.query import ReadSession, SnapshotBinding
 from corpus_structure.semantic.refusals import WrongBinding
 
 

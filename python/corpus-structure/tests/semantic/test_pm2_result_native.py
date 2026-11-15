@@ -34,7 +34,7 @@ from corpus_structure.semantic.operations import (
 from corpus_structure.semantic.pm2_coverage import scope_coverage
 from corpus_structure.semantic.prepare import prepare_release
 from corpus_structure.semantic.proposals import native_source_frame
-from corpus_structure.semantic.query import read_snapshot
+from corpus_structure.semantic.read_snapshot import read_snapshot
 from corpus_structure.semantic.retained_contributions import RetainedContributionRef
 from corpus_structure.semantic.source_contexts import (
     NativeSourceContext,

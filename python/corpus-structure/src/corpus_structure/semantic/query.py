@@ -43,6 +43,8 @@ from ._operation_ids import RealizationId, ReleaseId
 from .coverage_contract import coverage_recipe
 from .identity import canonical_bytes
 from .metadata import table
+from .read_snapshot import _Store, read_snapshot
+from .refusals import ReadLimit
 from .outcomes import ScientificOutcome
 from .query_compatibility import QueryBindingReference
 from .releases import open_release
@@ -254,10 +256,6 @@ class InventoryPage(_Envelope):
     next_page_token: str | None = None
 
 
-class ReadLimit(SemanticRefusal):
-    def __init__(self, message: str, *, reason: str):
-        self.reason = reason
-        super().__init__(message)
 
 
 class QueryResult(_Envelope):
@@ -408,8 +406,6 @@ class Explanation(_Envelope):
     inventories: dict[str, InventoryPage]
 
 
-class _Store(Protocol):
-    engine: Engine
 
 
 def _scope(binding: SnapshotBinding, relation: Any) -> ColumnElement[bool]:
@@ -431,22 +427,6 @@ scope_clause = _scope
 same_scope_clause = _same_scope
 
 
-@contextmanager
-def read_snapshot(
-    store: Engine | _Store, *, cancellation: BorrowerCancellation | None = None
-) -> Generator[Connection]:
-    """One read-only snapshot opener, including SQLAlchemy/psycopg reset ownership."""
-    engine = store if isinstance(store, Engine) else store.engine
-    with (
-        engine.connect().execution_options(
-            isolation_level="REPEATABLE READ", postgresql_readonly=True
-        ) as conn,
-        cancellation.borrow(conn) if cancellation is not None else nullcontext(),
-        conn.begin(),
-    ):
-        yield conn
-        if cancellation is not None:
-            cancellation.check_active()
 
 
 def _require_snapshot(conn: Connection) -> None:

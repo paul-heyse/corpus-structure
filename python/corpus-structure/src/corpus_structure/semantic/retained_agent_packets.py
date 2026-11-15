@@ -93,7 +93,7 @@ def _packet_for_unit(
     finally:
         view.reader.characterization_selection = previous_selection
     if read_budget is not None:
-        from corpus_structure.semantic.query import ReadLimit
+        from corpus_structure.semantic.refusals import ReadLimit
 
         if sum(len(part.text.encode("utf-8")) for part in packet.parts()) > read_budget.max_bytes:
             raise ReadLimit(

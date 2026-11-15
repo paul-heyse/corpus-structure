@@ -12,7 +12,7 @@ from corpus_structure.semantic.arrow_publication import AppendPublication, stage
 from corpus_structure.semantic.domain_operations import _cut_input, consolidate_cut
 from corpus_structure.semantic.local_admission import assertion_identity
 from corpus_structure.semantic.metadata import table
-from corpus_structure.semantic.query import read_snapshot
+from corpus_structure.semantic.read_snapshot import read_snapshot
 from corpus_structure.serve.contributions import ContributionRequest, serve_contributions
 from semantic.local_admission_scenarios import LocalWitnessRecipe
 from semantic.native_record_fixtures import private_source as private_source

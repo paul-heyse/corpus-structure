@@ -256,7 +256,7 @@ def check_(
     dependency_limit: DependencyLimit = 100,
 ):
     """Check candidate packs or fully verify an archived release without changing it."""
-    from corpus_structure.semantic.query import read_snapshot
+    from corpus_structure.semantic.read_snapshot import read_snapshot
     from corpus_structure.semantic.refusals import SemanticRefusal
 
     if release is None:
@@ -798,7 +798,7 @@ def diff_(
     """Compare captured current meaning; retained-use impact is a separate query."""
     from corpus_structure.cli.output import state
     from corpus_structure.semantic.operation_reporting import compare_semantic_releases
-    from corpus_structure.semantic.query import read_snapshot
+    from corpus_structure.semantic.read_snapshot import read_snapshot
     from corpus_structure.semantic.refusals import SemanticRefusal
     from corpus_structure.semantic.releases import open_release
     from corpus_structure.semantic.runtime import open_runtime_engine
@@ -868,7 +868,7 @@ def inspect_contract_command(
     """Inspect a selected archived contract; validate optional input without effects."""
     from corpus_structure.cli.output import state
     from corpus_structure.semantic.contract_inspection import inspect_contract
-    from corpus_structure.semantic.query import read_snapshot
+    from corpus_structure.semantic.read_snapshot import read_snapshot
     from corpus_structure.semantic.releases import open_release
     from corpus_structure.semantic.runtime import open_runtime_engine
 

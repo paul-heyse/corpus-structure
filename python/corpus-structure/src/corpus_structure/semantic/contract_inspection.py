@@ -366,7 +366,7 @@ def inspect_contract(
                 )
                 if len(canonical_bytes(report.model_dump(mode="json"))) <= MAX_REPORT_BYTES:
                     return report
-        from .query import ReadLimit
+        from .refusals import ReadLimit
 
         raise ReadLimit(
             "inspection detail exceeds byte budget; select a property or smaller page",

@@ -1113,7 +1113,7 @@ def _widen_contexts(
     enclosing section defines a symbol. The assembler/interpretation owns attachment.
     """
     from corpus_structure.semantic.pdf_record_reader import PublishedReadBudget
-    from corpus_structure.semantic.query import ReadLimit
+    from corpus_structure.semantic.refusals import ReadLimit
 
     budget = read_budget or PublishedReadBudget(max_rows=4096, max_bytes=4_194_304)
     nodes = {node["self_ref"]: node for node in view.items}

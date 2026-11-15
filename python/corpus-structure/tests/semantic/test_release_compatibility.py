@@ -123,7 +123,7 @@ def test_cache_is_database_scoped_and_rechecks_current_archive_digest(
 
 
 def test_shared_snapshot_restores_connection_state_after_failure(commit_reader_engine):
-    from corpus_structure.semantic.query import read_snapshot
+    from corpus_structure.semantic.read_snapshot import read_snapshot
 
     with (
         pytest.raises(RuntimeError, match="cancelled consumer"),

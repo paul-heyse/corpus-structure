@@ -174,7 +174,7 @@ def test_registered_actual_occurrences_resolve_component_and_retain_compatible_e
         table(n) for n in ("ops.task", "ops.task_result", "ops.method_config", "ops.method")
     )
     finalize_bound_run(case.writer, outcome.run_id, "wce-links")
-    from corpus_structure.semantic.query import read_snapshot
+    from corpus_structure.semantic.read_snapshot import read_snapshot
     from corpus_structure.serve.contributions import (
         ContributionRequest,
         export_contribution_selection,

@@ -180,7 +180,7 @@ class NativeSourceResponse(BaseModel):
 
 def _source_cursor(request, after):
     from corpus_structure.semantic.identity import canonical_bytes
-    from corpus_structure.semantic.query import ReadLimit
+    from corpus_structure.semantic.refusals import ReadLimit
 
     token = base64.urlsafe_b64encode(
         canonical_bytes(dict(cursor_version=5, selection=request.selection_digest(), after=after))
@@ -310,7 +310,7 @@ def inspect_native_source(
     with cancellation.borrow(conn):
         from corpus_structure.semantic.identity import canonical_bytes
         from corpus_structure.semantic.pdf_record_reader import PublishedReadBudget
-        from corpus_structure.semantic.query import ReadLimit
+        from corpus_structure.semantic.refusals import ReadLimit
 
         budget = PublishedReadBudget(request.max_rows, request.max_bytes)
         response = _inspect_native_source(

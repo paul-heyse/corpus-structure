@@ -7,7 +7,7 @@ import pytest
 from corpus_structure.core.method import CoverageDraft
 from corpus_structure.semantic.domain_operations import consolidate_cut
 from corpus_structure.semantic.operations import complete_unit_result, seal_cut
-from corpus_structure.semantic.query import read_snapshot
+from corpus_structure.semantic.read_snapshot import read_snapshot
 from corpus_structure.semantic.record_queries import (
     RecordReadLimit,
     read_completed_record_projection,

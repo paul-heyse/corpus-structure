@@ -102,7 +102,8 @@ def test_native_cut_family_universe_and_document_lifting(resubmission_case, tmp_
     from corpus_structure.orchestrate.commands import finalize_bound_run
     from corpus_structure.semantic.metadata import table
     from corpus_structure.semantic.operations import claim_tasks, complete_task, create_task
-    from corpus_structure.semantic.query import bind_completed_result, read_snapshot
+    from corpus_structure.semantic.query import bind_completed_result
+    from corpus_structure.semantic.read_snapshot import read_snapshot
 
     prepared, run, task, locator = resubmission_case.stage.result
     with commit_writer_engine.begin() as conn:

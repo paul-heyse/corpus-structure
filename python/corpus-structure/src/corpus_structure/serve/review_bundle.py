@@ -31,7 +31,8 @@ from corpus_structure.semantic.capture_storage import LogicalRows
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.pdf_record_reader import PublishedReadBudget
-from corpus_structure.semantic.query import bind_completed_result, read_snapshot
+from corpus_structure.semantic.query import bind_completed_result
+from corpus_structure.semantic.read_snapshot import read_snapshot
 from corpus_structure.semantic.refusals import SemanticRefusal
 from corpus_structure.semantic.runtime import open_runtime_engine
 from corpus_structure.semantic.source_views import (

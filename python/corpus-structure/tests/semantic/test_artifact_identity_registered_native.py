@@ -23,7 +23,7 @@ from corpus_structure.semantic.artifact_identity import (
 )
 from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.operations import OperationBinding, OperationConflict
-from corpus_structure.semantic.query import read_snapshot
+from corpus_structure.semantic.read_snapshot import read_snapshot
 from corpus_structure.semantic.structural_products import (
     ExternalSourceRef,
     StructuralInput,

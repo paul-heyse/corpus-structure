@@ -11,7 +11,7 @@ from sqlalchemy import select
 
 from .metadata import table
 from .pdf_record_reader import PublishedReadBudget
-from .query import read_snapshot
+from .read_snapshot import read_snapshot
 from .source_views import load_source_view, selected_source_views
 from .structural_products import (
     ExternalSourceRef,

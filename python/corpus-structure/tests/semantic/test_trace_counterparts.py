@@ -3,7 +3,7 @@
 import json
 
 from corpus_structure.schema.pack import DOMAINS
-from corpus_structure.semantic.query import read_snapshot
+from corpus_structure.semantic.read_snapshot import read_snapshot
 from corpus_structure.semantic.query_compatibility import open_query_registry
 from corpus_structure.serve.journey import serve_query
 from semantic.reference_scenarios import publish_reference_case

@@ -19,7 +19,7 @@ class InterpretationAnswer(BaseModel):
 
 
 def answer(kind, body, max_bytes=1024**2):
-    from corpus_structure.semantic.query import ReadLimit
+    from corpus_structure.semantic.refusals import ReadLimit
 
     report = InterpretationAnswer(kind=kind, body=body)
     content = json_bytes(report.model_dump(mode="python"))

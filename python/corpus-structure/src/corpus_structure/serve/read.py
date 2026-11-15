@@ -9,7 +9,8 @@ from sqlalchemy import and_, exists, false, func, or_, select
 
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.metadata import table
-from corpus_structure.semantic.query import ReadLimit, same_scope_clause, scope_clause
+from corpus_structure.semantic.refusals import ReadLimit
+from corpus_structure.semantic.query import same_scope_clause, scope_clause
 from corpus_structure.semantic.refusals import SemanticRefusal
 from corpus_structure.serve.results import ClaimAnswer, EntityAnswer
 

@@ -12,7 +12,7 @@ from corpus_structure.semantic import SourceBundle
 from corpus_structure.semantic.domain_operations import consolidate_cut
 from corpus_structure.semantic.interpretations import metadata_binding
 from corpus_structure.semantic.operations import seal_cut
-from corpus_structure.semantic.query import read_snapshot
+from corpus_structure.semantic.read_snapshot import read_snapshot
 from semantic.native_admission_scenarios import InterpretationSourceRecipe
 from semantic.native_record_fixtures import RecordSourceRecipe, candidate
 from semantic.native_record_fixtures import private_source as private_source

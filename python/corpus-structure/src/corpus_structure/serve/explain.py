@@ -12,7 +12,8 @@ from sqlalchemy import and_, select
 
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.metadata import table
-from corpus_structure.semantic.query import AnswerSelection, ReadLimit, SnapshotBinding
+from corpus_structure.semantic.query import AnswerSelection, SnapshotBinding
+from corpus_structure.semantic.refusals import ReadLimit
 from corpus_structure.semantic.query import Explanation as FactExplanation
 from corpus_structure.semantic.query_compatibility import (
     BoundQuery,

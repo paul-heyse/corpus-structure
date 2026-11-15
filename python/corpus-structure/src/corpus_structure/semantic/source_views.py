@@ -312,7 +312,7 @@ def read_context_sources(
     from hashlib import sha256
 
     from .pdf_record_reader import published_native_table
-    from .query import ReadLimit
+    from .refusals import ReadLimit
     from .source_contexts import (
         ContextRelationship,
         NativeSourcePin,

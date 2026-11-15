@@ -9,7 +9,7 @@ import pytest
 from corpus_structure.core.method import UnitRef, UnitResult
 from corpus_structure.core.vocab import ObservationOutcome, TaskUnitType
 from corpus_structure.orchestrate.commands import finalize_bound_run
-from corpus_structure.semantic.query import read_snapshot
+from corpus_structure.semantic.read_snapshot import read_snapshot
 from corpus_structure.semantic.structural_sources import (
     StructuralPassageSelection,
     prepare_structural_sources,

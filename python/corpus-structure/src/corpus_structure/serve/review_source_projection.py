@@ -30,7 +30,7 @@ from corpus_structure.semantic.pdf_record_identity import (
 )
 from corpus_structure.semantic.pdf_record_reader import published_record_reader
 from corpus_structure.semantic.product_reference import ProductReference
-from corpus_structure.semantic.query import ReadLimit
+from corpus_structure.semantic.refusals import ReadLimit
 
 SECTION_TEXT_INPUT = "execution/implementation/pdf/section-text-recipe.json"
 _COMPLETE_INVENTORY_RECIPE = "native-section-text-v10"

@@ -11,7 +11,7 @@ from sqlalchemy import Connection, Engine
 from corpus_structure.core.db.lifetime import BorrowerCancellation, DatabaseOperationCancelled
 from corpus_structure.semantic.pdf_record_reader import PublishedPdfReader
 from corpus_structure.semantic.product_reference import ProductReference
-from corpus_structure.semantic.query import read_snapshot
+from corpus_structure.semantic.read_snapshot import read_snapshot
 from corpus_structure.serve import native_source
 
 

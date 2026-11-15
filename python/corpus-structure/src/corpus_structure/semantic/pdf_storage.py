@@ -1025,7 +1025,7 @@ def read_pdf_artifact(
     if offset > total_bytes:
         raise ValueError("PDF artifact offset exceeds retained byte length")
     if read_budget is not None:
-        from .query import ReadLimit
+        from .refusals import ReadLimit
 
         if read_budget.rows >= read_budget.max_rows:
             raise ReadLimit("native artifact row-work budget exhausted", reason="work_limit")

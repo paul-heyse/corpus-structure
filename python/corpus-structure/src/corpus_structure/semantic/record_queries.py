@@ -139,7 +139,7 @@ def _read_producer_coverage(
     """
     from .observations import source_python
     from .pdf_record_reader import PublishedReadBudget
-    from .query import ReadLimit
+    from .refusals import ReadLimit
 
     task, result, config, method, cut = map(
         table,

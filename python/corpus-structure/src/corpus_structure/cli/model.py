@@ -1425,7 +1425,7 @@ def preview(
                         )
                 if bound.archive_release:
                     model_stage(result, "compare archived release")
-                    from corpus_structure.semantic.query import read_snapshot
+                    from corpus_structure.semantic.read_snapshot import read_snapshot
                     from corpus_structure.semantic.releases import open_release
                     from corpus_structure.semantic.runtime import open_runtime_engine
 

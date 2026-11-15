@@ -80,7 +80,7 @@ def test_native_completed_scope_comparison_and_cli(
     from corpus_structure.semantic._operation_ids import SourceViewId
     from corpus_structure.semantic.metadata import table
     from corpus_structure.semantic.operations import binding_of, create_run, start_run
-    from corpus_structure.semantic.query import read_snapshot
+    from corpus_structure.semantic.read_snapshot import read_snapshot
     from corpus_structure.serve.coverage_comparison import (
         CoverageComparisonRequest,
         compare_coverage,

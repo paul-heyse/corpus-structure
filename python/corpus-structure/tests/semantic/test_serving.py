@@ -759,7 +759,7 @@ def test_real_cli_query_implementation_edit_and_bound_followups(
 def test_empty_named_continuation_does_not_assert_whole_query_absence(
     commit_db_engine, commit_writer_engine, commit_reader_engine, tmp_path
 ):
-    from corpus_structure.semantic.query import read_snapshot
+    from corpus_structure.semantic.read_snapshot import read_snapshot
 
     prepared, run, _, _ = build_completed_serving_case(
         commit_db_engine, commit_writer_engine, tmp_path, complete_coverage=True

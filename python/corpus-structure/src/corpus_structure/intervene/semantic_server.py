@@ -58,7 +58,7 @@ def build_retained_reader_server(
 
     @contextmanager
     def reader_snapshot(ctx: Context) -> Generator[Connection]:
-        from corpus_structure.semantic.query import read_snapshot
+        from corpus_structure.semantic.read_snapshot import read_snapshot
         from corpus_structure.semantic.runtime import open_runtime_engine
 
         injected = read_engine
