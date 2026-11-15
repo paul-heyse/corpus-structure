@@ -47,6 +47,7 @@ class CutSelection:
 class DemandResult:
     """A bounded native page; immutable bytes own all nested values."""
     content: bytes
+    request: bytes = b"{}"
 
     @property
     def record(self) -> dict[str, Any]:
@@ -60,45 +61,30 @@ class DemandResult:
     def continuation(self) -> dict[str, Any] | None:
         return self.record["continuation"]
 
-    def members(self, *, include_support: bool = False) -> tuple[dict[str, Any], ...]:
-        """Retain nominal member references, context and authentic episode/use pins."""
+    def members(self) -> tuple[dict[str, Any], ...]:
+        """Project actual selected packets without opening any other product body."""
         page = self.record
-        closure = page.get("support_closure")
-        if page["view"] != "products" or not isinstance(closure, dict):
+        if page["view"] != "products":
             raise ValueError("member reads require a body-bearing selected result")
-        kinds = {item["kind_contract"]: item["kind"] for item in closure["kinds"]}
-        member_rows = {(item["product_id"], item["member_id"]): item for item in closure["members"]}
-        products = {item["id"]: item for item in closure["products"]}
         occurrences = []
-        uses = closure["uses"] if include_support else page["uses"]
-        for use in uses:
-            if use.get("fate") != "fulfilled":
+        for use in page["uses"]:
+            if use["fate"] != "fulfilled":
                 continue
-            for output in closure["outputs"]:
-                if output["derivation_id"] != use["derivation_id"]:
-                    continue
-                product_id = output["product_id"]
-                selected_member = output["member_id"]
-                projected = [row for (product, member), row in member_rows.items() if product == product_id and (selected_member is None or member == selected_member)]
-                if selected_member is None:
-                    projected.insert(0, dict(products[product_id], product_id=product_id, member_id=None, body=products[product_id]["canonical_body"]))
-                for row in projected:
-                    occurrences.append(dict(
-                        product_id=product_id, member_id=row["member_id"], kind_contract=row["kind_contract"], kind=kinds[row["kind_contract"]],
-                        subject=row["subject"], original_source=row["original_source"], analyzed_scope=row["analyzed_scope"],
-                        body=decode_semantic_value(row["body"]), meaning_body=row["body"],
-                        use_id=use["use_id"] if "use_id" in use else use["id"], derivation_id=use["derivation_id"],
-                        role=output["role"], position=output["position"], multiplicity=output["multiplicity"],
-                    ))
-        for admission in page.get("original_source_admissions", ()):
-            product = products.get(admission["product_id"])
-            if product is not None:
-                occurrences.append(dict(
-                    product_id=product["id"], member_id=None, kind_contract=product["kind_contract"], kind=kinds[product["kind_contract"]],
-                    subject=admission["subject"], original_source=admission["original_source"], analyzed_scope=admission["analyzed_scope"],
-                    body=decode_semantic_value(product["canonical_body"]), meaning_body=product["canonical_body"],
-                    admission_id=admission["admission_id"], source_reference=admission["source_reference"],
-                ))
+            for output in use["products"]:
+                body = decode_semantic_value(output["body"])
+                header = dict(use_id=use["use_id"], derivation_id=use["derivation_id"],
+                              product_id=output["product_id"], role=output["role"],
+                              position=output["position"], multiplicity=output["multiplicity"])
+                if output["member_id"] is None:
+                    occurrences.append(dict(header, member_id=None, kind_contract=output["kind_contract"],
+                                            subject=output["subject"], original_source=output["original_source"],
+                                            analyzed_scope=output["analyzed_scope"], body=body))
+                packets = body.get("members", ()) if isinstance(body, dict) else ()
+                projected = [packet for packet in packets if output["member_id"] is None or packet["member_id"] == output["member_id"]]
+                if output["member_id"] is not None and len(projected) != 1:
+                    raise ValueError("selected output member is absent from its canonical product")
+                occurrences.extend(dict(header, member_id=packet["member_id"], kind_contract=packet["kind_contract"],
+                                        **packet["context"], body=packet["body"]) for packet in projected)
         return tuple(occurrences)
 
     def report(self) -> dict[str, Any]:
@@ -108,13 +94,13 @@ class DemandResult:
                     obligations=page["obligations"], uses=page["uses"],
                     populations=page["populations"], original_source_admissions=page.get("original_source_admissions", []),
                     attempt_failures=page.get("attempt_failures", []),
-                    support_closure=page.get("support_closure"), continuation=page["continuation"])
+                    support_page=page.get("support_page"), continuation=page["continuation"])
 
 
 def read_demand_result(connection, demand_id: str, *, project_id: str, continuation=None,
                        cut: CutSelection | None = None, limit: int = 100,
                        max_bytes: int = 8 * 1024 * 1024,
-                       view: Literal["frontier", "products"] = "products", scope: Mapping[str, str] | None = None) -> DemandResult:
+                       view: Literal["frontier", "products", "support"] = "products", scope: Mapping[str, str] | None = None) -> DemandResult:
     """Acquire or continue one explicit target, with no default project or run lookup."""
     from .data_operation_storage import DataOperationStorage
     if not demand_id or not project_id:
@@ -133,7 +119,7 @@ def read_demand_result(connection, demand_id: str, *, project_id: str, continuat
     native = DataOperationStorage(connection).read_demand_result(request)
     if native["project_id"] != project_id:
         raise ValueError("demand belongs to another project")
-    page = DemandResult(json_bytes(native))
+    page = DemandResult(json_bytes(native), json_bytes(request))
     if cut is not None and page.cut.content != cut.content:
         raise ValueError("continuation differs from the pinned cut selection")
     return page
@@ -153,24 +139,57 @@ def stream_demand_result(connection, demand_id: str, *, project_id: str, limit=1
             break
 
 
-def verify_detached_result(record: Mapping[str, Any]) -> DemandResult:
-    """Verify exact product identities and closed selected links without inference.
+def stream_selected_support(connection, page: DemandResult) -> Iterator[dict[str, Any]]:
+    """Read a page's full required closure in bounded native pages on its session."""
+    from .data_operation_storage import DataOperationStorage
+    cut = page.cut
+    request = {key: value for key, value in cut.record.items() if key not in {"project_id", "release_id", "runtime_id"}}
+    original_request = wire_json_loads(page.request)
+    for key in ("after", "limit", "max_bytes"):
+        if key in original_request:
+            request[key] = original_request[key]
+    request["view"] = "support"
+    while True:
+        native = DataOperationStorage(connection).read_demand_result(request)
+        if CutSelection.from_native(native).content != cut.content:
+            raise ValueError("support continuation differs from its selected result")
+        support = native["support_page"]
+        if not isinstance(support, dict):
+            raise ValueError("native support projection is unavailable")
+        yield from support["records"]
+        if support["complete"]:
+            break
+        if not support["after"] or support["after"] == request.get("support_after"):
+            raise ValueError("native support cursor did not advance")
+        request["support_after"] = support["after"]
 
-    This establishes internal integrity against the captured pins, not independent
-    authenticity or present trust. Current trust requires native reacquisition.
+
+def verify_detached_result(record: Mapping[str, Any], *, records, wire_schema=None, kinds=None) -> DemandResult:
+    """Verify links and exact value identities against an explicit captured closure.
+
+    Export verification authenticates the captured contracts/runtime and trusted
+    manifest first. A page alone establishes neither authenticity nor current trust.
     """
     from jsonschema import Draft7Validator
-    from .data_operation_wire import validate_native_wire
-    page = DemandResult(json_bytes(validate_native_wire("read_demand_result", "output", dict(record))))
-    closure = record.get("support_closure")
-    if record["view"] != "products" or not isinstance(closure, dict):
-        raise ValueError("detached result requires complete selected bodies and support")
-    kinds = {item["kind_contract"]: item for item in closure["kinds"]}
-    products = {item["id"]: item for item in closure["products"]}
-    if len(products) != len(closure["products"]) or len(kinds) != len(closure["kinds"]):
-        raise ValueError("duplicate detached product or kind")
+    from .data_operation_wire import validate_native_wire, validate_wire_schema
+    admitted = validate_native_wire("read_demand_result", "output", dict(record)) if wire_schema is None else validate_wire_schema(wire_schema, dict(record))
+    page = DemandResult(json_bytes(admitted))
+    closure = {}
+    for row in records:
+        relation = row["relation"]
+        key = row["key"]
+        previous = closure.setdefault(relation, {}).get(key)
+        if previous is not None and previous != row["record"]:
+            raise ValueError("detached support key has conflicting records")
+        closure[relation][key] = row["record"]
+    def rows(name):
+        return tuple(closure.get(name, {}).values())
+    actual_kinds = {item["kind_contract"]: item for item in rows("sem.data_kind_contract")}
+    if kinds is not None and any(kinds.get(key) != value for key, value in actual_kinds.items()):
+        raise ValueError("detached kind differs from its captured release contract")
+    products = {item["id"]: item for item in rows("kb.data_product")}
     for product in products.values():
-        kind = kinds[product["kind_contract"]]
+        kind = actual_kinds[product["kind_contract"]]
         decoded = decode_semantic_value(product["canonical_body"])
         Draft7Validator(kind["meaning_schema"]).validate(product["canonical_body"])
         Draft7Validator(kind["body_schema"]).validate(decoded)
@@ -178,30 +197,34 @@ def verify_detached_result(record: Mapping[str, Any]) -> DemandResult:
         context = SubjectContext(product["project_id"], product["subject"], product["original_source"], json_bytes(product["analyzed_scope"]))
         if body != product["body_digest"] or contextual_product_identity(kind=product["kind_contract"], context=context, body=body).key != product["id"]:
             raise ValueError("detached product differs from its semantic identity")
-    members = {(row["product_id"], row["member_id"]): row for row in closure["members"]}
+    members = {(row["product_id"], row["member_id"]): row for row in rows("kb.data_product_member")}
     for member in members.values():
         product = products[member["product_id"]]
-        kind = kinds[member["kind_contract"]]
+        kind = actual_kinds[member["kind_contract"]]
         Draft7Validator(kind["meaning_schema"]).validate(member["body"])
         decoded = decode_semantic_value(member["body"])
         Draft7Validator(kind["body_schema"]).validate(decoded)
         packets = decode_semantic_value(product["canonical_body"]).get("members", ())
         if not any(packet["member_id"] == member["member_id"] and packet["kind_contract"] == member["kind_contract"] and packet["body"] == decoded and packet["context"] == dict(subject=member["subject"], original_source=member["original_source"], analyzed_scope=member["analyzed_scope"]) for packet in packets):
             raise ValueError("detached member differs from its canonical container")
-    episodes = {row["id"]: row for row in closure["episodes"]}
-    uses = {row["id"]: row for row in closure["uses"]}
-    originals = {row["id"]: row for row in closure["original_admissions"]}
+    episodes = {row["id"]: row for row in rows("ops.data_derivation")}
+    uses = {row["id"]: row for row in rows("ops.demand_use")}
+    originals = {row["id"]: row for row in rows("ops.original_source_admission")}
     for use in record["uses"]:
         retained = uses.get(use["use_id"])
         if retained is None or any(retained[key] != use[key] for key in ("obligation_id", "request_id", "derivation_id", "selection", "trust_snapshot")):
             raise ValueError("detached selected use differs from its retained episode binding")
-    for edge in (*closure["inputs"], *closure["outputs"]):
+        for product in use["products"]:
+            actual = products.get(product["product_id"])
+            if actual is None or ("body" in product and actual["canonical_body"] != product["body"]):
+                raise ValueError("detached selected body differs from its support closure")
+    for edge in (*rows("ops.data_derivation_input"), *rows("ops.data_derivation_output")):
         if edge["derivation_id"] not in episodes or edge["product_id"] not in products or (edge["member_id"] is not None and (edge["product_id"], edge["member_id"]) not in members):
             raise ValueError("detached role edge has an absent endpoint")
-    for edge in closure["support"]:
+    for edge in rows("ops.data_derivation_support"):
         if edge["derivation_id"] not in episodes or edge["support_derivation_id"] not in episodes or (edge["admission_use_id"] is not None and edge["admission_use_id"] not in uses):
             raise ValueError("detached support closure is incomplete")
-    for edge in closure["original_support"]:
+    for edge in rows("ops.data_derivation_original_support"):
         if edge["derivation_id"] not in episodes or edge["admission_id"] not in originals:
             raise ValueError("detached original support closure is incomplete")
     return page

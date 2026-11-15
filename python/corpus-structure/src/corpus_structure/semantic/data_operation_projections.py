@@ -753,7 +753,8 @@ def selected_support_export(metadata, selected_uses, admissions, in_page):
         for name in ("created_at", "created_xid", "live_task_id"):
             if name in relation.c:
                 value = value.op("-")(literal(name))
-        return select(_aggregate(value, *order)).where(predicate).scalar_subquery()
+        key = func.jsonb_build_array(*(relation.c[col.name] for col in relation.primary_key.columns)).cast(Text)
+        return select((literal(relation.fullname + ":") + key).label("key"), literal(relation.fullname).label("relation"), value.label("record")).where(predicate)
 
     fields = dict(
         uses=records(uses, reached("use", uses.c.id), uses.c.id),
@@ -777,7 +778,14 @@ def selected_support_export(metadata, selected_uses, admissions, in_page):
     for name in ("coordinate", "role", "endpoint", "coverage", "choice"):
         relation = metadata.tables["kb.data_member_" + name]
         fields[name] = records(relation, relation.c.product_id.in_(select(product_ids.c.product_id)), *relation.primary_key.columns)
-    return _obj(**fields)
+    rows = union_all(*fields.values()).cte("support_export_rows")
+    bounded_rows = (select(rows).where(rows.c.key > func.coalesce(_var("p", JSONB)["support_after"].astext, literal(""))).order_by(rows.c.key).limit(_var("lim", BigInteger) + 1).cte("support_export_bounded").prefix_with("MATERIALIZED"))
+    page = select(bounded_rows).order_by(bounded_rows.c.key).limit(_var("lim", BigInteger)).cte("support_export_page")
+    last = select(func.max(page.c.key)).scalar_subquery()
+    more = select(func.count()).select_from(bounded_rows).scalar_subquery() > _var("lim", BigInteger)
+    payload = _obj(records=select(_aggregate(_obj(key=page.c.key, relation=page.c.relation, record=page.c.record), page.c.key)).scalar_subquery(), after=case((more, last), else_=null()), complete=~more)
+    body_bytes = select(func.coalesce(func.sum(func.octet_length(page.c.record.cast(Text))), 0)).scalar_subquery()
+    return case((body_bytes <= _var("selected_max_bytes", BigInteger), payload), else_=func.ops.ddo_result_bytes_refusal())
 
 
 def read_page(metadata):
@@ -1150,7 +1158,7 @@ def read_page(metadata):
             uses=result_uses,
             obligations=result_obligations,
             original_source_admissions=result_admissions,
-            support_closure=case((_var("selected_view", Text) == "products", selected_support_export(metadata, selected_uses, admissions, in_page)), else_=null()),
+            support_page=case((_var("selected_view", Text) == "support", selected_support_export(metadata, selected_uses, admissions, or_(in_page, ~exists(select(1).select_from(bounded))))), else_=null()),
             attempt_failures=result_failures,
             populations=result_populations,
             continuation=continuation,

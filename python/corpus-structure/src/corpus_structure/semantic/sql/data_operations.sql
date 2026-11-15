@@ -1403,7 +1403,7 @@ CREATE OR REPLACE FUNCTION ops.read_demand_result(p_payload jsonb) RETURNS jsonb
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
 DECLARE p jsonb:=p_payload; d ops.data_demand; snapshot jsonb:='{}'; results jsonb; obligations jsonb; lim integer; after_key text; next_key text; more boolean; selected_view text; selected_max_bytes bigint; boundary ops.data_demand_read; scope_key text; epoch bigint;
 BEGIN
- PERFORM ops.ddo_fields(p,ARRAY['demand_id'],ARRAY['selection','after','limit','trust_snapshot','read_id','read_snapshot','frontier_at','view','max_bytes','scope']);
+ PERFORM ops.ddo_fields(p,ARRAY['demand_id'],ARRAY['selection','after','limit','trust_snapshot','read_id','read_snapshot','frontier_at','view','max_bytes','scope','support_after']);
  SELECT * INTO STRICT d FROM ops.data_demand WHERE id=p->>'demand_id';
  PERFORM ops.ddo_authorize(kind.universe) FROM jsonb_array_elements(d.selection->'operations') selected
  JOIN sem.data_operation_definition operation ON operation.release_id=d.release_id AND operation.operation_id=selected->>'operation'
@@ -1412,7 +1412,7 @@ BEGIN
  IF (p ? 'selection' AND p->'selection' IS DISTINCT FROM d.selection) OR (p ? 'after' AND NOT (p ? 'selection' AND p ? 'trust_snapshot' AND p ? 'read_id'))
  OR ((p ? 'read_snapshot' OR p ? 'frontier_at') AND NOT p ? 'read_id') THEN RAISE EXCEPTION 'demand read selection/snapshot pins are incomplete or differ'; END IF;
  selected_view:=coalesce(p->>'view','frontier');
- IF selected_view NOT IN ('frontier','products') THEN RAISE EXCEPTION 'unknown demand read view'; END IF;
+ IF selected_view NOT IN ('frontier','products','support') THEN RAISE EXCEPTION 'unknown demand read view'; END IF;
  selected_max_bytes:=coalesce((p->>'max_bytes')::bigint,8388608);
  IF selected_max_bytes NOT BETWEEN 1 AND 67108864 THEN RAISE EXCEPTION 'invalid product page byte bound'; END IF;
  lim:=coalesce((p->>'limit')::integer,100); after_key:=coalesce(p->>'after','');
@@ -1444,7 +1444,7 @@ BEGIN
  IF p ? 'trust_snapshot' AND ops.ddo_trust_snapshot_meaning(p->'trust_snapshot') IS DISTINCT FROM snapshot THEN RAISE EXCEPTION 'trust snapshot changed; reacquire demand read'; END IF;
  PERFORM ops.ddo_authorize(k.universe) FROM ops.demand_use u JOIN ops.data_derivation_output outp ON outp.derivation_id=u.derivation_id JOIN kb.data_product x ON x.id=outp.product_id JOIN sem.data_kind_contract k ON k.kind_contract=x.kind_contract WHERE u.demand_id=d.id AND ops.ddo_read_visible(u.created_at,u.created_xid,boundary);
  __DDO_CORE_READ_PAGE__ INTO results;
- IF selected_view='products' AND octet_length(data.canonical_json(results))>selected_max_bytes THEN
+ IF selected_view IN ('products','support') AND octet_length(data.canonical_json(results))>selected_max_bytes THEN
  RAISE EXCEPTION 'complete native product page envelope exceeds max_bytes; reduce the page limit'; END IF;
  RETURN results;
 END $$;

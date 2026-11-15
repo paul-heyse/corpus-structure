@@ -1122,6 +1122,7 @@ definitions:
   continuation:
     type: object
     properties:
+      support_after: {$ref: '#/definitions/identifier'}
       scope: {$ref: '#/definitions/demand_read_scope'}
       demand_id:
         $ref: '#/definitions/identifier'
@@ -1150,6 +1151,7 @@ definitions:
         enum:
         - frontier
         - products
+        - support
     required:
     - demand_id
     - selection
@@ -1939,6 +1941,7 @@ definitions:
   read_demand_result_request:
     type: object
     properties:
+      support_after: {$ref: '#/definitions/identifier'}
       scope: {$ref: '#/definitions/demand_read_scope'}
       demand_id:
         $ref: '#/definitions/identifier'
@@ -1968,6 +1971,7 @@ definitions:
         enum:
         - frontier
         - products
+        - support
         default: frontier
     required:
     - demand_id
@@ -1981,64 +1985,21 @@ definitions:
       - read_id
       frontier_at:
       - read_id
-  selected_support_closure:
+  selected_support_row:
     type: object
     properties:
-      uses:
-        type: array
-        items: {type: object, additionalProperties: {$ref: '#/definitions/json_value'}}
-      episodes:
-        type: array
-        items: {type: object, additionalProperties: {$ref: '#/definitions/json_value'}}
-      requests:
-        type: array
-        items: {type: object, additionalProperties: {$ref: '#/definitions/json_value'}}
-      original_admissions:
-        type: array
-        items: {type: object, additionalProperties: {$ref: '#/definitions/json_value'}}
-      populations:
-        type: array
-        items: {type: object, additionalProperties: {$ref: '#/definitions/json_value'}}
-      inputs:
-        type: array
-        items: {type: object, additionalProperties: {$ref: '#/definitions/json_value'}}
-      outputs:
-        type: array
-        items: {type: object, additionalProperties: {$ref: '#/definitions/json_value'}}
-      products:
-        type: array
-        items: {type: object, additionalProperties: {$ref: '#/definitions/json_value'}}
-      members:
-        type: array
-        items: {type: object, additionalProperties: {$ref: '#/definitions/json_value'}}
-      kinds:
-        type: array
-        items: {type: object, additionalProperties: {$ref: '#/definitions/json_value'}}
-      definitions:
-        type: array
-        items: {type: object, additionalProperties: {$ref: '#/definitions/json_value'}}
-      support:
-        type: array
-        items: {type: object, additionalProperties: {$ref: '#/definitions/json_value'}}
-      original_support:
-        type: array
-        items: {type: object, additionalProperties: {$ref: '#/definitions/json_value'}}
-      coordinate:
-        type: array
-        items: {type: object, additionalProperties: {$ref: '#/definitions/json_value'}}
-      role:
-        type: array
-        items: {type: object, additionalProperties: {$ref: '#/definitions/json_value'}}
-      endpoint:
-        type: array
-        items: {type: object, additionalProperties: {$ref: '#/definitions/json_value'}}
-      coverage:
-        type: array
-        items: {type: object, additionalProperties: {$ref: '#/definitions/json_value'}}
-      choice:
-        type: array
-        items: {type: object, additionalProperties: {$ref: '#/definitions/json_value'}}
-    required: [uses, episodes, requests, original_admissions, populations, inputs, outputs, products, members, kinds, definitions, support, original_support, coordinate, role, endpoint, coverage, choice]
+      key: {$ref: '#/definitions/identifier'}
+      relation: {$ref: '#/definitions/identifier'}
+      record: {type: object, additionalProperties: {$ref: '#/definitions/json_value'}}
+    required: [key, relation, record]
+    additionalProperties: false
+  selected_support_page:
+    type: object
+    properties:
+      records: {type: array, items: {$ref: '#/definitions/selected_support_row'}}
+      after: {anyOf: [{$ref: '#/definitions/identifier'}, {type: 'null'}]}
+      complete: {type: boolean}
+    required: [records, after, complete]
     additionalProperties: false
   read_demand_result_result:
     type: object
@@ -2084,9 +2045,9 @@ definitions:
         items:
           $ref: '#/definitions/population'
         minItems: 0
-      support_closure:
+      support_page:
         anyOf:
-        - {$ref: '#/definitions/selected_support_closure'}
+        - {$ref: '#/definitions/selected_support_page'}
         - {type: 'null'}
       continuation:
         anyOf:
@@ -2103,6 +2064,7 @@ definitions:
         enum:
         - frontier
         - products
+        - support
       state:
         type: string
         enum: [active, cancelled]
