@@ -379,3 +379,25 @@ def test_current_reference_owner_types_explicit_refusal_without_wrapping_unknown
     with pytest.raises(ValueError) as caught:
         selected_references.author_selected_references(object(), object(), request=request.model_copy(update={"targets": ("reference.snapshot/declared",)}))
     assert caught.value is failure
+
+
+def test_cli_database_failure_is_not_semantic_refusal():
+    import json
+
+    import psycopg
+    import typer
+    from sqlalchemy.exc import OperationalError
+    from typer.testing import CliRunner
+
+    from corpus_structure.cli.failures import failure_boundary
+
+    app = typer.Typer()
+
+    @app.command()
+    def command():
+        with failure_boundary(True):
+            raise OperationalError(None, None, psycopg.errors.SerializationFailure("retry"))
+
+    result = CliRunner().invoke(app, [])
+    assert result.exit_code == 1
+    assert json.loads(result.stdout)["error"]["code"] == "database_serialization"

@@ -93,28 +93,6 @@ def test_actual_fastmcp_dispatch_keeps_context_schema_and_database_classificatio
     anyio.run(journey)
 
 
-def test_cli_database_failure_is_not_semantic_refusal():
-    import json
-
-    import psycopg
-    import typer
-    from sqlalchemy.exc import OperationalError
-    from typer.testing import CliRunner
-
-    from corpus_structure.cli.query import refusal
-
-    app = typer.Typer()
-
-    @app.command()
-    def command():
-        with refusal(True):
-            raise OperationalError(None, None, psycopg.errors.SerializationFailure("retry"))
-
-    result = CliRunner().invoke(app, [])
-    assert result.exit_code == 1
-    assert json.loads(result.stdout)["error"]["code"] == "database_serialization"
-
-
 @pytest.mark.parametrize("resubmission_case", [ResubmissionRecipe(composed=True)], indirect=True)
 def test_native_cut_family_universe_and_document_lifting(resubmission_case, tmp_path):
     commit_writer_engine = resubmission_case.writer
