@@ -196,6 +196,7 @@ POSTGRESQL_IMPLEMENTATION_SOURCES = (
     ("invocation/invariant-failures.py", "semantic/invariant_failures.py"),
     ("invocation/operation-call-generation.py", "semantic/operation_call_generation.py"),
     ("invocation/native-call-contracts.py", "semantic/native_call_contracts.py"),
+    ("invocation/native-call-sources.py", "semantic/native_call_sources.py"),
     ("invocation/operation-calls.py", "semantic/_operation_calls.py"),
     ("invocation/operation-identifiers.py", "semantic/_operation_ids.py"),
     ("capture/directions.sql", "semantic/sql/directions.sql"),

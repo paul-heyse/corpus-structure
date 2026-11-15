@@ -22,6 +22,8 @@ GENERATOR_VERSION = "data-operation-ports-v1"
 _GENERATOR_FILES = (
     "data_operation_artifacts.py",
     "operation_call_generation.py",
+    "native_call_contracts.py",
+    "native_call_sources.py",
     "data_operation_ports.py",
     "data_operation_cpu.py",
     "data_operation_wire.py",
