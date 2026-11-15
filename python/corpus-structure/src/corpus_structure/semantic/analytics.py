@@ -57,6 +57,7 @@ from .analytical_kernels import (
     VIEWS_MACRO_NAME,
     VIEWS_MACRO_SQL,
     ViewSpec,
+    operation_view_tables,
 )
 from .analytical_profile import AnalyticalProfile
 from .capture_storage import (
@@ -1418,34 +1419,15 @@ class AnalysisScope:
             expected = set(self.packet.decision_occurrence_ids)
             if actual != expected:
                 raise ValueError("operation view claims differ from bound candidate universe")
-        names = [spec.name for spec in specs]
-        if len(set(names)) != len(names) or {SAME_SLOT, ALTERNATIVE_OF} & set(names):
-            raise ValueError("view names repeat or shadow a generic fact")
-        declared = set(self.packet.property_ids)
-        for spec in specs:
-            if spec.source not in declared or not spec.applies_to <= declared:
-                raise ValueError("view uses a property outside this release")
-        rows = [
-            {
-                "view": s.name,
-                "source": s.source,
-                "match_source": s.match_source,
-                "match_claim": s.match_claim,
-                "head": s.head,
-                "attr": s.attr,
-                "slot": s.slot,
-            }
-            for s in specs
-        ]
-        applies = [{"view": s.name, "predicate": p} for s in specs for p in sorted(s.applies_to)]
+        spec_rows, applies = operation_view_tables(specs, self.packet.property_ids)
         return self._view_inputs(
             {
                 "view_claims": claims,
                 "view_entities": entities,
                 "view_identity": identity,
                 "view_alternatives": alternatives,
-                "view_specs": pa.Table.from_pylist(rows, schema=VIEW_SPECS),
-                "view_applies": pa.Table.from_pylist(applies, schema=VIEW_APPLIES),
+                "view_specs": spec_rows,
+                "view_applies": applies,
             },
         )
 

@@ -112,6 +112,24 @@ class ViewSpec:
         )
 
 
+def operation_view_tables(specs: Iterable[ViewSpec], property_ids: Iterable[str]) -> tuple[pa.Table, pa.Table]:
+    """Validate actual declared property references and realize the fixed view inputs."""
+    specs = tuple(specs)
+    names = [spec.name for spec in specs]
+    if len(set(names)) != len(names) or {SAME_SLOT, ALTERNATIVE_OF} & set(names):
+        raise ValueError("view names repeat or shadow a generic fact")
+    declared = set(property_ids)
+    for spec in specs:
+        if spec.source not in declared or not spec.applies_to <= declared:
+            raise ValueError("view uses a property outside this release")
+    rows = [{"view": spec.name, "source": spec.source, "match_source": spec.match_source,
+             "match_claim": spec.match_claim, "head": spec.head, "attr": spec.attr,
+             "slot": spec.slot} for spec in specs]
+    applies = [{"view": spec.name, "predicate": predicate}
+               for spec in specs for predicate in sorted(spec.applies_to)]
+    return pa.Table.from_pylist(rows, schema=VIEW_SPECS), pa.Table.from_pylist(applies, schema=VIEW_APPLIES)
+
+
 DISAGREEMENTS_SQL = """
 WITH d AS (SELECT DISTINCT key, meaning FROM meanings),
      k AS (SELECT key FROM d GROUP BY key HAVING count(*) > 1)
