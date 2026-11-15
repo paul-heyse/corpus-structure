@@ -5,7 +5,8 @@ from copy import deepcopy
 import pytest
 from evaluation_record_alignment_support import finish, frame, prepared, reading, role
 
-from corpus_structure.evaluate.record_policy import _diagnostics, whole_reading_correct
+from corpus_structure.evaluate.record_alignment import whole_reading_correct
+from corpus_structure.semantic.reading_resolution_products import reading_diagnostics
 
 
 def test_candidate_correctness_does_not_require_or_grant_public_acceptance():
@@ -58,5 +59,5 @@ def test_diagnostics_follow_exact_native_group_dependencies_not_array_positions(
     other = {"group_dependency": "native-group:other", "role": "note", "code": "unlocated"}
     unbound = {"role": "note", "code": "unlocated"}
     detail = {"reports": [{"diagnostics": [other, unbound]}, {"diagnostics": [owned]}]}
-    assert _diagnostics({"computation_dependencies": ["native-group:owned"]}, detail) == [owned]
-    assert _diagnostics({"computation_dependencies": []}, detail) == []
+    assert reading_diagnostics({"computation_dependencies": ["native-group:owned"]}, detail) == [owned]
+    assert reading_diagnostics({"computation_dependencies": []}, detail) == []

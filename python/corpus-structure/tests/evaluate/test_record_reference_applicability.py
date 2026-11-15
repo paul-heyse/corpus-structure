@@ -9,7 +9,7 @@ from evaluation_record_references_support import fixture, prepared
 from pglast import parse_sql
 
 from corpus_structure.evaluate.record_alignment import RecordSide, align_records, reference_contract
-from corpus_structure.evaluate.record_policy import whole_reading_correct
+from corpus_structure.evaluate.record_alignment import whole_reading_correct
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.record_contracts import (
     anchor_identity,

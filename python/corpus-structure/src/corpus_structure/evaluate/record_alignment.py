@@ -597,3 +597,56 @@ def align_records(
     out.match_bindings.sort(key=lambda value: value["reference_record_id"])
     out.field_failures.sort(key=lambda value: value["record_id"])
     return out
+
+
+def whole_reading_correct(
+    prepared: PreparedRelease,
+    candidate: Mapping[str, Any],
+    reference_records: Sequence[Mapping[str, Any]],
+    frame,
+    *,
+    coordinate_texts: Sequence[Mapping[str, Any]],
+    reference_prepared: PreparedRelease | None = None,
+    prediction_frame=None,
+    prediction_coordinate_texts: Sequence[Mapping[str, Any]] | None = None,
+    correspondence: Sequence[Mapping[str, Any]] | None = None,
+) -> bool:
+    """Apply the same full-reading semantics without changing sealed standing or IDs.
+
+    An accepted comparison copy exists only in this private evaluator calculation. It
+    does not enter a producer result, public projection or admission decision.
+    """
+    reference_prepared = reference_prepared or prepared
+    prediction_frame = prediction_frame or frame
+    options = dict(
+        coordinate_texts=coordinate_texts,
+        prediction_prepared=prepared,
+        prediction_coordinate_texts=prediction_coordinate_texts,
+        correspondence=correspondence,
+    )
+    # Validate source/frame/policy even when the candidate cannot be accepted.
+    align_records(
+        RecordSide(frame, reference_records),
+        RecordSide(prediction_frame, (candidate,)),
+        reference_prepared,
+        **options,
+    )
+    comparison = dict(candidate, standing="accepted")
+    try:
+        aligned = align_records(
+            RecordSide(frame, reference_records),
+            RecordSide(prediction_frame, (comparison,)),
+            reference_prepared,
+            **options,
+        )
+    except ValueError:
+        # The original candidate was valid; accepted-only completeness/precision
+        # requirements can legitimately make this full reading incorrect.
+        return False
+    if correspondence is not None:
+        return any(
+            value["prediction_record_id"] == candidate["record_id"] and "full" in value["tiers"]
+            for value in aligned.match_bindings
+        )
+    return candidate["record_id"] in aligned.matches["full"]
+

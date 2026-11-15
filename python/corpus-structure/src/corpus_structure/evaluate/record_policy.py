@@ -32,7 +32,8 @@ from corpus_structure.semantic.record_policy import (
 from corpus_structure.semantic.releases import open_release
 from corpus_structure.semantic.types import PreparedRelease
 
-from .record_alignment import RecordSide, align_records
+from . import record_alignment
+from corpus_structure.semantic.reading_resolution_products import reading_diagnostics
 from .record_fitting import (
     FeatureFitObservation,
     FinalEventObservation,
@@ -57,65 +58,6 @@ class PolicyFitOutcome:
 
 def _digest(value: Any) -> str:
     return sha256(canonical_bytes(value)).hexdigest()
-
-
-def whole_reading_correct(
-    prepared: PreparedRelease,
-    candidate: Mapping[str, Any],
-    reference_records: Sequence[Mapping[str, Any]],
-    frame,
-    *,
-    coordinate_texts: Sequence[Mapping[str, Any]],
-    reference_prepared: PreparedRelease | None = None,
-    prediction_frame=None,
-    prediction_coordinate_texts: Sequence[Mapping[str, Any]] | None = None,
-    correspondence: Sequence[Mapping[str, Any]] | None = None,
-) -> bool:
-    """Apply the same full-reading semantics without changing sealed standing or IDs.
-
-    An accepted comparison copy exists only in this private evaluator calculation. It
-    does not enter a producer result, public projection or admission decision.
-    """
-    reference_prepared = reference_prepared or prepared
-    prediction_frame = prediction_frame or frame
-    options = dict(
-        coordinate_texts=coordinate_texts,
-        prediction_prepared=prepared,
-        prediction_coordinate_texts=prediction_coordinate_texts,
-        correspondence=correspondence,
-    )
-    # Validate source/frame/policy even when the candidate cannot be accepted.
-    align_records(
-        RecordSide(frame, reference_records),
-        RecordSide(prediction_frame, (candidate,)),
-        reference_prepared,
-        **options,
-    )
-    comparison = dict(candidate, standing="accepted")
-    try:
-        aligned = align_records(
-            RecordSide(frame, reference_records),
-            RecordSide(prediction_frame, (comparison,)),
-            reference_prepared,
-            **options,
-        )
-    except ValueError:
-        # The original candidate was valid; accepted-only completeness/precision
-        # requirements can legitimately make this full reading incorrect.
-        return False
-    if correspondence is not None:
-        return any(
-            value["prediction_record_id"] == candidate["record_id"] and "full" in value["tiers"]
-            for value in aligned.match_bindings
-        )
-    return candidate["record_id"] in aligned.matches["full"]
-
-
-def _diagnostics(record: Mapping[str, Any], detail: Mapping[str, Any]) -> list[dict[str, Any]]:
-    # One shared producer recipe retains first exact diagnostics for a native group.
-    from corpus_structure.semantic.reading_resolution_products import reading_diagnostics
-
-    return reading_diagnostics(record, detail)
 
 
 def fit_record_policy(
@@ -228,7 +170,7 @@ def fit_record_policy(
         for report, records in reports:
             detail = source_python(report["parse_detail"]) if report["parse_detail"] else {}
             for record in records:
-                correct = whole_reading_correct(
+                correct = record_alignment.whole_reading_correct(
                     prepared,
                     record,
                     reference,
@@ -244,7 +186,7 @@ def fit_record_policy(
                     origin_group=unit["origin_group"],
                     correct=correct,
                 )
-                diagnostics = _diagnostics(record, detail)
+                diagnostics = reading_diagnostics(record, detail)
                 vector = derive_record_features(
                     prepared, record, algorithm=algorithm, diagnostics=diagnostics
                 )
