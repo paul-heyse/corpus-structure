@@ -58,6 +58,7 @@ def native_protocol_sources(
     from .pdf_completion_native import pdf_completion_native_sql
     from .record_policy_native import record_policy_native_sql, record_policy_grade_schema, GRADE_SCHEMA_SOURCE
     from .record_policy_completion_native import record_policy_completion_native_sql
+    from .record_grade_native import record_grade_native_sql
     from .authority_leaf import NativeAuthorityLeaf
 
     if physical_sources is None:
@@ -91,6 +92,8 @@ def native_protocol_sources(
             "native/data-operation-pdf-effect-contract.py",
             Path(__file__).with_name("pdf_effect_contract.py").read_bytes(),
         ),
+        SourceArtifact("native/data-operation-record-grade-native.sql", record_grade_native_sql().encode()),
+        SourceArtifact("native/data-operation-record-grade-native.py", Path(__file__).with_name("record_grade_native.py").read_bytes()),
         SourceArtifact("native/data-operation-record-policy.sql", record_policy_native_sql().encode()),
         SourceArtifact(GRADE_SCHEMA_SOURCE, record_policy_grade_schema()),
         SourceArtifact("native/data-operation-record-grade.py", Path(__file__).parents[1].joinpath("evaluate/declared_record_policy.py").read_bytes()),
@@ -199,6 +202,8 @@ def _captured(sources) -> dict[str, bytes]:
         "native/data-operation-source-native.py",
         "native/data-operation-original-reference.json",
         "native/data-operation-support.py",
+        "native/data-operation-record-grade-native.sql",
+        "native/data-operation-record-grade-native.py",
         "native/data-operation-record-policy.sql",
         "native/data-operation-record-grade.schema.json",
         "native/data-operation-record-grade.py",
@@ -323,7 +328,7 @@ def _rename_native_entrypoints(sql: str, names: set[str]) -> str:
 def native_sql(sources=None) -> str:
     captured = native_protocol_sources() if sources is None else tuple(sources)
     sql = (
-        _captured(captured)["native/data-operation-record-policy.sql"].decode() + "\n" + _captured(captured)["native/data-operation-record-policy-completion.sql"].decode() + "\n" + _captured(captured)["native/data-operations.sql"]
+        _captured(captured)["native/data-operation-record-grade-native.sql"].decode() + "\n" + _captured(captured)["native/data-operation-record-policy.sql"].decode() + "\n" + _captured(captured)["native/data-operation-record-policy-completion.sql"].decode() + "\n" + _captured(captured)["native/data-operations.sql"]
         .decode()
         .replace("__DDO_SOURCE_DIGEST__", native_source_digest(captured))
     )

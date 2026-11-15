@@ -139,6 +139,24 @@ BEGIN
  END LOOP;
  RETURN snapshot;
 END $$;
+-- Completion must lock the union once in canonical order. A grade's retained
+-- census includes failed and zero-output producers beyond bound product support.
+CREATE OR REPLACE FUNCTION ops.ddo_lock_completion_support(r ops.data_request,completion jsonb) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
+DECLARE project text:=r.project_id; source text:=r.original_source; support jsonb:=completion->'support';
+ scope_key text; snapshot jsonb:='{}'; e bigint;
+BEGIN
+ FOR scope_key IN
+ SELECT scope FROM (__DDO_CORE_LOCK_SUPPORT_SCOPES__) ordinary_scopes
+ UNION SELECT scope FROM ops.ddo_record_grade_completion_scopes(r) extra(scope)
+ ORDER BY scope
+ LOOP
+ INSERT INTO ops.data_trust_scope(scope,project_id,epoch) VALUES(scope_key,project,0) ON CONFLICT DO NOTHING;
+ SELECT epoch INTO e FROM ops.data_trust_scope WHERE scope=scope_key FOR UPDATE;
+ snapshot:=snapshot||jsonb_build_object(scope_key,e);
+ END LOOP;
+ RETURN snapshot;
+END $$;
 CREATE OR REPLACE FUNCTION ops.ddo_read_visible(created_at timestamp with time zone,created_xid text,boundary ops.data_demand_read) RETURNS boolean
 LANGUAGE sql STABLE STRICT SET search_path=pg_catalog,pg_temp AS $$
  SELECT created_at<=boundary.frontier_at AND (created_xid=boundary.owner_xid OR pg_visible_in_snapshot(created_xid::xid8,boundary.read_snapshot::pg_snapshot))
@@ -169,7 +187,8 @@ END $$;
 
 CREATE OR REPLACE FUNCTION ops.ddo_direct_support_valid(episode text) RETURNS boolean
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
- SELECT EXISTS(SELECT FROM ops.data_derivation WHERE id=episode AND outcome IN ('success','empty')) AND NOT EXISTS(
+ SELECT EXISTS(SELECT FROM ops.data_derivation WHERE id=episode AND outcome IN ('success','empty'))
+ AND ops.ddo_record_grade_dependencies_valid(episode) AND NOT EXISTS(
  SELECT FROM ops.data_derivation d JOIN ops.data_request r ON r.id=d.request_id
  JOIN ops.data_revocation v ON v.scope=ops.ddo_scope(r.project_id,r.original_source)
  WHERE d.id=episode AND ((v.selector_kind='derivation' AND v.selector=d.id) OR (v.selector_kind='recipe' AND v.selector=d.recipe)
@@ -1094,7 +1113,7 @@ BEGIN
  OR member->'attempt' IS DISTINCT FROM p->'attempt')) THEN
  RAISE EXCEPTION 'provider logical receipt differs from native attempt'; END IF;
  SELECT * INTO STRICT r FROM ops.data_request WHERE id=p->>'request_id';
- snapshot:=ops.ddo_lock_support(r.project_id,r.original_source,p->'completion'->'support');
+ snapshot:=ops.ddo_lock_completion_support(r,p->'completion');
  SELECT * INTO STRICT r FROM ops.data_request WHERE id=r.id FOR UPDATE;
  t:=ops.ddo_claim(r,p);
  PERFORM sem.require_runtime_binding(r.release_id,p->>'runtime_id');
@@ -1106,6 +1125,7 @@ BEGIN
  PERFORM ops.ddo_assert_support(r,p->'completion'->'support');
  PERFORM ops.ddo_require_pdf_completion(p->'completion',t.id,t.attempt,t.claimed_by,r.release_id,r.operation_id);
  PERFORM ops.ddo_require_external_completion(p->'completion',r,t.id,t.attempt,t.claimed_by);
+ PERFORM ops.ddo_require_record_grade_completion(r,p->'completion');
  PERFORM ops.ddo_require_policy_authorization_completion(r,p->'completion');
  PERFORM ops.ddo_assert_output_witnesses(r,p->'completion');
  key:='intent:'||ops.ddo_digest(jsonb_build_array(r.id,r.generation,t.id,t.attempt,t.claimed_by,p->>'runtime_id',p->'completion'));
@@ -1121,7 +1141,7 @@ BEGIN
  PERFORM ops.ddo_fields(p,ARRAY['request_id','generation','task_id','attempt','holder','intent_id']);
  SELECT * INTO STRICT i FROM ops.data_completion_intent WHERE id=p->>'intent_id';
  SELECT * INTO STRICT r FROM ops.data_request WHERE id=p->>'request_id';
- snapshot:=ops.ddo_lock_support(r.project_id,r.original_source,i.payload->'support');
+ snapshot:=ops.ddo_lock_completion_support(r,i.payload);
  SELECT * INTO STRICT r FROM ops.data_request WHERE id=r.id FOR UPDATE;
  t:=ops.ddo_claim(r,p);
  IF i.request_id<>r.id OR i.generation<>r.generation OR i.generation<>(p->>'generation')::integer OR EXISTS(SELECT FROM ops.data_publication_receipt WHERE intent_id=i.id) THEN RAISE EXCEPTION 'only unresolved exact generation intent can be adopted'; END IF;
@@ -1340,7 +1360,7 @@ BEGIN
  -- Receipt replay remains readable after terminal ownership and distrust. It creates no new admission.
  SELECT * INTO receipt FROM ops.data_publication_receipt WHERE intent_id=i.id;
  IF FOUND AND i.request_id=r.id AND i.generation=(p->>'generation')::integer THEN RETURN jsonb_build_object('payload',jsonb_build_object('receipt_id',receipt.id,'derivation_id',receipt.derivation_id,'replayed',true,'trust_snapshot',receipt.trust_snapshot)); END IF;
- snapshot:=ops.ddo_lock_support(r.project_id,r.original_source,i.payload->'support');
+ snapshot:=ops.ddo_lock_completion_support(r,i.payload);
  SELECT * INTO STRICT r FROM ops.data_request WHERE id=r.id FOR UPDATE;
  -- A concurrent publisher may have committed while support/request locks waited.
  -- Read again before requiring ownership of the now-terminal producer task.
@@ -1362,6 +1382,7 @@ BEGIN
  -- Reconciliation validates the original sealed producer, not the adopter's later fence.
  PERFORM ops.ddo_require_pdf_completion(i.payload,i.producer_task_id,i.producer_attempt,i.producer_holder,r.release_id,r.operation_id);
  PERFORM ops.ddo_require_external_completion(i.payload,r,i.producer_task_id,i.producer_attempt,i.producer_holder);
+ PERFORM ops.ddo_require_record_grade_completion(r,i.payload);
  PERFORM ops.ddo_require_policy_authorization_completion(r,i.payload);
  PERFORM ops.ddo_assert_output_witnesses(r,i.payload);
  episode:='derivation:'||ops.ddo_digest(jsonb_build_array(i.id,i.payload_digest));

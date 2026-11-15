@@ -130,20 +130,30 @@ def _support_walk(metadata, seed, *, public=False):
 
     def episode_kind(identity):
         return (
-            case((func.ops.ddo_policy_authority_leaf(identity), literal("authority")), else_=literal("episode"))
-            if public else literal("episode")
+            case(
+                (func.ops.ddo_policy_authority_leaf(identity), literal("authority")),
+                else_=literal("episode"),
+            )
+            if public
+            else literal("episode")
         )
 
-    use_inputs_visible = ~func.ops.ddo_policy_authority_leaf(uses.c.derivation_id) if public else literal(True)
+    use_inputs_visible = (
+        ~func.ops.ddo_policy_authority_leaf(uses.c.derivation_id) if public else literal(True)
+    )
     if public:
         reference_kind = case(
-            (and_(reference_kind == "episode", func.ops.ddo_policy_authority_leaf(reference_id)), literal("authority")),
+            (
+                and_(reference_kind == "episode", func.ops.ddo_policy_authority_leaf(reference_id)),
+                literal("authority"),
+            ),
             else_=reference_kind,
         )
     edge_queries = (
         _node(
             case(
-                (support.c.admission_use_id.is_not(None), literal("use")), else_=episode_kind(support.c.support_derivation_id)
+                (support.c.admission_use_id.is_not(None), literal("use")),
+                else_=episode_kind(support.c.support_derivation_id),
             ),
             func.coalesce(support.c.admission_use_id, support.c.support_derivation_id),
         ).where(closure.c.kind == "episode", support.c.derivation_id == closure.c.id),
@@ -191,7 +201,7 @@ def _support_walk(metadata, seed, *, public=False):
     )
 
 
-def _scope_projection(metadata, nodes, project, direct_sources):
+def _scope_projection(metadata, nodes, project, direct_sources, *, domain_dependencies=True):
     episodes = metadata.tables["ops.data_derivation"]
     requests = metadata.tables["ops.data_request"]
     admissions = metadata.tables["ops.original_source_admission"]
@@ -211,11 +221,28 @@ def _scope_projection(metadata, nodes, project, direct_sources):
         .where(admissions.c.project_id == project),
     ).cte("support_sources")
     scope = func.ops.ddo_scope(project, sources.c.source)
-    return select(scope.label("scope")).order_by(scope)
+    ordinary = select(scope.label("scope"))
+    if not domain_dependencies:
+        return ordinary.order_by(scope)
+    grade_scopes = (
+        func.ops.ddo_record_grade_dependency_scopes(episodes.c.id)
+        .table_valued(column("scope", Text()))
+        .render_derived(name="record_grade_scope")
+    )
+    extra = (
+        select(grade_scopes.c.scope)
+        .select_from(
+            nodes.join(episodes, and_(nodes.c.kind == "episode", episodes.c.id == nodes.c.id))
+            .join(requests, requests.c.id == episodes.c.request_id)
+            .join(grade_scopes, literal(True))
+        )
+        .where(requests.c.project_id == project)
+    )
+    return union(ordinary, extra).order_by("scope")
 
 
-def support_scopes(metadata):
-    """Pinned reader validity and publication use the same selected-support walk."""
+def _demand_support_scope_inputs(metadata, *, include_unfulfilled=False):
+    """One frozen demand seed and finite support walk for native read consumers."""
     demand, project = _var("d.id", Text), _var("d.project_id", Text)
     selection = _var("d.selection", JSONB)
     root = _items(_var("d.root", JSONB), "root")
@@ -248,7 +275,9 @@ def support_scopes(metadata):
         )
     )
     seed = union(
-        _node("use", selected_uses.c.id).where(selected_uses.c.fate == "fulfilled"),
+        _node("use", selected_uses.c.id).where(
+            literal(True) if include_unfulfilled else selected_uses.c.fate == "fulfilled"
+        ),
         _node("population", populations.c.id).where(
             populations.c.demand_id == demand, _visible(populations)
         ),
@@ -269,9 +298,25 @@ def support_scopes(metadata):
         select(root.c.value["original_source"].astext.label("source")),
         select(source_entries.c.entry["original_source"].astext),
     ).cte("direct_sources")
+    return _support_walk(metadata, seed), select(direct.c.source)
+
+
+def support_scopes(metadata, *, domain_dependencies=True, include_unfulfilled=True):
+    """Pinned reader validity and publication use the same selected-support walk."""
+    nodes, direct = _demand_support_scope_inputs(metadata, include_unfulfilled=include_unfulfilled)
     return _scope_projection(
-        metadata, _support_walk(metadata, seed), project, select(direct.c.source)
+        metadata,
+        nodes,
+        _var("d.project_id", Text),
+        direct,
+        domain_dependencies=domain_dependencies,
     )
+
+
+def record_grade_census_nodes(metadata):
+    """Inspect the actual frozen census graph without recursive validity calls."""
+    nodes, _ = _demand_support_scope_inputs(metadata, include_unfulfilled=True)
+    return select(nodes.c.kind, nodes.c.id)
 
 
 def lock_support_scopes(metadata):
@@ -324,9 +369,7 @@ def binding_columns(*, decoder=False):
 
 def member_columns():
     return tuple(
-        item.name
-        for item in binding_columns()
-        if item.name not in {"body", "meaning_body"}
+        item.name for item in binding_columns() if item.name not in {"body", "meaning_body"}
     )
 
 
@@ -354,15 +397,17 @@ def binding_branches(metadata):
     )
     selection = _var("d.selection", JSONB)
     operation_id, subject = _var("p_operation", Text), _var("p_subject", Text)
-    source_filter=_var("p_source",JSONB)
-    source=cast(source_filter.op("#>>")(literal("{}")),Text)
+    source_filter = _var("p_source", JSONB)
+    source = cast(source_filter.op("#>>")(literal("{}")), Text)
     scope = _var("p_scope", JSONB)
     selected = _var("p_selected", JSONB)
 
     def source_matches(roledef, header):
         return or_(
-            and_(source_filter.is_(None),roledef["support"]["source_set"].astext.is_(None)),
-            func.ops.ddo_binding_source(roledef,header,source,func.coalesce(selection["source_sets"],_json({}))),
+            and_(source_filter.is_(None), roledef["support"]["source_set"].astext.is_(None)),
+            func.ops.ddo_binding_source(
+                roledef, header, source, func.coalesce(selection["source_sets"], _json({}))
+            ),
         )
 
     def selected_key(product, member=None):
@@ -568,7 +613,7 @@ def binding_branches(metadata):
                                         roles.c.value, header, subject, source
                                     ),
                                 ),
-                                source_matches(roles.c.value,full_header),
+                                source_matches(roles.c.value, full_header),
                             ),
                         ),
                         else_=literal(False),
@@ -666,9 +711,15 @@ def binding_branches(metadata):
         (admissions.c.reference["kind"].astext == "authored-fact", literal("authored")),
         else_=literal("original-source"),
     )
-    factual_header = _obj(product=admissions.c.product_id,member=cast(null(),Text),subject=admissions.c.subject,
-        subject_definition=products.c.subject_definition,original_source=admissions.c.original_source,
-        analyzed_scope=admissions.c.analyzed_scope,meaning_body=products.c.canonical_body)
+    factual_header = _obj(
+        product=admissions.c.product_id,
+        member=cast(null(), Text),
+        subject=admissions.c.subject,
+        subject_definition=products.c.subject_definition,
+        original_source=admissions.c.original_source,
+        analyzed_scope=admissions.c.analyzed_scope,
+        meaning_body=products.c.canonical_body,
+    )
     factual_role = exists(
         select(1)
         .select_from(definitions.join(roles, literal(True)))
@@ -688,7 +739,7 @@ def binding_branches(metadata):
                             roles.c.value["subject_target"].astext == "source-set",
                             admissions.c.analyzed_scope.is_not_distinct_from(scope),
                         ),
-                        source_matches(roles.c.value,factual_header),
+                        source_matches(roles.c.value, factual_header),
                     ),
                     case(
                         (
@@ -710,7 +761,12 @@ def binding_branches(metadata):
         )
     )
     fact = (
-        select(*admissions.c, products.c.kind_contract, products.c.subject_definition, products.c.canonical_body)
+        select(
+            *admissions.c,
+            products.c.kind_contract,
+            products.c.subject_definition,
+            products.c.canonical_body,
+        )
         .select_from(admissions.join(products, products.c.id == admissions.c.product_id))
         .where(
             admissions.c.demand_id == demand,
@@ -833,7 +889,10 @@ def selected_support_export(metadata, selected_uses, admissions, in_page):
 
     def reached(kind, identity):
         return exists(
-            select(1).select_from(nodes).where(nodes.c.kind == kind, nodes.c.id == identity).correlate_except(nodes)
+            select(1)
+            .select_from(nodes)
+            .where(nodes.c.kind == kind, nodes.c.id == identity)
+            .correlate_except(nodes)
         )
 
     episode_ids = select(episodes.c.id).where(reached("episode", episodes.c.id))
@@ -868,7 +927,13 @@ def selected_support_export(metadata, selected_uses, admissions, in_page):
         ).where(predicate)
 
     fields = dict(
-        uses=records(uses, and_(reached("use", uses.c.id), ~func.ops.ddo_policy_authority_leaf(uses.c.derivation_id)), uses.c.id),
+        uses=records(
+            uses,
+            and_(
+                reached("use", uses.c.id), ~func.ops.ddo_policy_authority_leaf(uses.c.derivation_id)
+            ),
+            uses.c.id,
+        ),
         episodes=records(episodes, episodes.c.id.in_(episode_ids), episodes.c.id),
         requests=records(requests, requests.c.id.in_(request_ids), requests.c.id),
         original_admissions=records(
@@ -941,13 +1006,28 @@ def selected_support_export(metadata, selected_uses, admissions, in_page):
     # In particular no issuer use/binding, request, intent, protected input, other
     # output or transitive protected support is exported as a normal episode.
     authority_use = uses.alias("authority_use")
-    fields["authority_leaves"] = select(
-        (literal("ops.data_authority_leaf:") + func.jsonb_build_array(nodes.c.id, authority_use.c.id).cast(Text)).label("key"),
-        literal("ops.data_authority_leaf").label("relation"),
-        func.ops.ddo_policy_authority_summary(nodes.c.id, authority_use.c.id, _var("boundary.id", Text)).label("record"),
-    ).select_from(nodes.outerjoin(authority_use, and_(
-        authority_use.c.derivation_id == nodes.c.id, reached("use", authority_use.c.id),
-    ))).where(nodes.c.kind == "authority")
+    fields["authority_leaves"] = (
+        select(
+            (
+                literal("ops.data_authority_leaf:")
+                + func.jsonb_build_array(nodes.c.id, authority_use.c.id).cast(Text)
+            ).label("key"),
+            literal("ops.data_authority_leaf").label("relation"),
+            func.ops.ddo_policy_authority_summary(
+                nodes.c.id, authority_use.c.id, _var("boundary.id", Text)
+            ).label("record"),
+        )
+        .select_from(
+            nodes.outerjoin(
+                authority_use,
+                and_(
+                    authority_use.c.derivation_id == nodes.c.id,
+                    reached("use", authority_use.c.id),
+                ),
+            )
+        )
+        .where(nodes.c.kind == "authority")
+    )
     # Revocation witnesses belong to the same authenticated, body-authorized
     # selected closure. Keep selector/epoch provenance; never infer cause merely
     # because a use is currently unavailable. No private table grant is added.
@@ -1115,7 +1195,10 @@ def _scoped_read_obligations(metadata):
     outputs = metadata.tables["ops.data_derivation_output"]
     read_scope = _requested_read_scope()
     scope_predicates = tuple(
-        or_(~read_scope.op("?")(literal(name)), obligations.c[name].is_not_distinct_from(read_scope[name].astext))
+        or_(
+            ~read_scope.op("?")(literal(name)),
+            obligations.c[name].is_not_distinct_from(read_scope[name].astext),
+        )
         for name in ("operation_id", "subject", "original_source")
     )
     scoped_use = uses.alias("scope_use")
@@ -1177,45 +1260,64 @@ def selected_support_output(metadata, *, purpose="read"):
     obligations = _scoped_read_obligations(metadata).cte("scoped_obligations")
     latest = _latest_read_use(metadata, obligations)
     selected = (
-        select(latest)
-        .select_from(obligations.join(latest, literal(True)))
-        .cte("selected_uses")
+        select(latest).select_from(obligations.join(latest, literal(True))).cte("selected_uses")
     )
     boundary = literal_column("boundary")
-    seed = _node("use", selected.c.id).where(
-        selected.c.id == _var("p_use", Text),
-        selected.c.fate == "fulfilled",
-        func.ops.ddo_use_valid(selected.table_valued(), boundary),
-    ).cte("selected_output_seed")
+    seed = (
+        _node("use", selected.c.id)
+        .where(
+            selected.c.id == _var("p_use", Text),
+            selected.c.fate == "fulfilled",
+            func.ops.ddo_use_valid(selected.table_valued(), boundary),
+        )
+        .cte("selected_output_seed")
+    )
     nodes = _support_walk(metadata, seed)
     outputs = metadata.tables["ops.data_derivation_output"]
     episodes = metadata.tables["ops.data_derivation"]
     products = metadata.tables["kb.data_product"]
     if purpose == "read":
-        access = (func.ops.ddo_kind_access(products.c.kind_contract),
-                  func.ops.ddo_body_access(products.c.kind_contract, products.c.canonical_body))
+        access = (
+            func.ops.ddo_kind_access(products.c.kind_contract),
+            func.ops.ddo_body_access(products.c.kind_contract, products.c.canonical_body),
+        )
     elif purpose == "feature-fit":
-        access = (func.ops.ddo_feature_fit_body_access(products.c.kind_contract, products.c.canonical_body),)
+        access = (
+            func.ops.ddo_feature_fit_body_access(
+                products.c.kind_contract, products.c.canonical_body
+            ),
+        )
     else:
         raise ValueError("unknown selected output purpose")
-    reached = exists(select(1).select_from(nodes).where(
-        nodes.c.kind == "episode", nodes.c.id == episodes.c.id,
-    ))
-    return select(exists(
+    reached = exists(
         select(1)
-        .select_from(episodes.join(outputs, outputs.c.derivation_id == episodes.c.id).join(products, products.c.id == outputs.c.product_id))
+        .select_from(nodes)
         .where(
-            reached,
-            episodes.c.id == _var("p_derivation", Text),
-            outputs.c.product_id == _var("p_product", Text),
-            outputs.c.member_id.is_(None),
-            products.c.project_id == _var("d.project_id", Text),
-            # Episodes and products are immutable facts reached from the visible
-            # selected use; visibility belongs to that admission, not the fact.
-            func.ops.ddo_support_valid(episodes.c.id, boundary),
-            *access,
+            nodes.c.kind == "episode",
+            nodes.c.id == episodes.c.id,
         )
-    ))
+    )
+    return select(
+        exists(
+            select(1)
+            .select_from(
+                episodes.join(outputs, outputs.c.derivation_id == episodes.c.id).join(
+                    products, products.c.id == outputs.c.product_id
+                )
+            )
+            .where(
+                reached,
+                episodes.c.id == _var("p_derivation", Text),
+                outputs.c.product_id == _var("p_product", Text),
+                outputs.c.member_id.is_(None),
+                products.c.project_id == _var("d.project_id", Text),
+                # Episodes and products are immutable facts reached from the visible
+                # selected use; visibility belongs to that admission, not the fact.
+                func.ops.ddo_support_valid(episodes.c.id, boundary),
+                *access,
+            )
+        )
+    )
 
 
 def read_page(metadata):
@@ -1416,7 +1518,12 @@ def read_page(metadata):
         .op("||")(
             _obj(
                 obligation_id=bounded.c.id,
-                subject_definition=select(definitions.c.subject_definition).where(definitions.c.release_id == _var("d.release_id", Text), definitions.c.operation_id == bounded.c.operation_id).scalar_subquery(),
+                subject_definition=select(definitions.c.subject_definition)
+                .where(
+                    definitions.c.release_id == _var("d.release_id", Text),
+                    definitions.c.operation_id == bounded.c.operation_id,
+                )
+                .scalar_subquery(),
                 historical_fate=latest.c.fate,
                 fate=case(
                     (
@@ -1443,9 +1550,7 @@ def read_page(metadata):
     next_key = select(func.max(bounded.c.id)).scalar_subquery()
     more = and_(
         next_key.is_not(None),
-        exists(
-            _scoped_read_obligations(metadata).where(obligations.c.id > next_key)
-        ),
+        exists(_scoped_read_obligations(metadata).where(obligations.c.id > next_key)),
     )
     admissions = metadata.tables["ops.original_source_admission"]
     admission_value = _obj(
@@ -1557,7 +1662,15 @@ def read_page(metadata):
     cut_fields = _cut_fields()
     pins = {
         name: cut_fields[name]
-        for name in ("demand_id", "scope", "selection", "trust_snapshot", "read_id", "read_snapshot", "frontier_at")
+        for name in (
+            "demand_id",
+            "scope",
+            "selection",
+            "trust_snapshot",
+            "read_id",
+            "read_snapshot",
+            "frontier_at",
+        )
     }
     pins["view"] = _var("selected_view", Text)
     continuation = case(
@@ -1651,13 +1764,19 @@ def capture_projection_sources(*, physical_sources=None, linkml_types=None):
     branches = binding_branches(metadata)
     products = {
         "support_scopes": compiled(support_scopes(metadata)),
+        "record_grade_census_scopes": compiled(
+            support_scopes(metadata, domain_dependencies=False, include_unfulfilled=True)
+        ),
+        "record_grade_census_nodes": compiled(record_grade_census_nodes(metadata)),
         "lock_support_scopes": compiled(lock_support_scopes(metadata)),
         "binding_returns": native_return_shape(),
         "binding_computed": compiled(branches[0]),
         "binding_original": compiled(branches[1]),
         "read_page": compiled(read_page(metadata)),
         "selected_support_output": compiled(selected_support_output(metadata)),
-        "selected_feature_fit_output": compiled(selected_support_output(metadata, purpose="feature-fit")),
+        "selected_feature_fit_output": compiled(
+            selected_support_output(metadata, purpose="feature-fit")
+        ),
         "cut_selection": compiled(cut_selection_projection()),
     }
     return (
