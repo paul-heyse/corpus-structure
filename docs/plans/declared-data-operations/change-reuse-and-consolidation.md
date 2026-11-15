@@ -171,3 +171,29 @@ helper versus unrelated edit, inherited constant/default/asset, permitted cosmet
 changed normalization/analysis meaning and unchanged output stopping propagation. Preserve genuine
 nonreuse, trust revocation and explicit population/absence witnesses; source analysis cannot infer
 newly applicable domain subjects from implementation call graphs.
+
+## Focused source-change/currentness realization · 2026-11-14
+
+**Implemented; native qualification is recorded by the coordinator.** `semantic.change_impact`
+acquires authenticated before/optional target selected reads through the existing protected demand
+result/support export. The comparison binds exact project, archived effective releases, native cuts,
+trust epochs, requested subject/original-source/analyzed scopes and continuation identity. Native
+population receipts are matched for every frozen discovery producer context and output role; one
+complete root cannot prove another root complete. Caller-supplied population claims confer no
+completeness authority. Scoped/partial or missing observations remain unknown.
+
+Declared graph closure identifies potential affected operations only. States distinguish potential,
+awaiting execution/population, stale, revoked, substitutable, inapplicable and unknown. Substitution
+requires actual target native admission; equal product IDs alone do not establish it. Explanations
+retain exact direct/upstream/support revocation selectors, cause paths and selected-use derivations,
+including a rebound replacement's later revocation. Historical revoked support is not substituted
+for the currently selected support witness. A same-producer episode with newly admitted upstream
+support remains eligible when native admission establishes it; a directly revoked producer does not.
+
+Explicit `resume_changed_demand` uses the existing demand executor. The source-change path neither
+schedules execution during apply nor introduces copied tasks or a second invalidation system. Native
+`ddo_require_binding` now authenticates a reused request against the target admitted operation and
+recipe; its historical request release ID does not invalidate genuine cross-release reuse. Producing
+episodes retain their immutable release. Forward `semantic_ddo_source_v1/v2` capture these native
+changes, with rollback-only authoring/registration and unchanged owners/ACLs; persistent deployment
+and historical conversion are outside this increment.

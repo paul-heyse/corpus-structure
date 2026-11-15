@@ -120,9 +120,9 @@ second journal, watcher or independent source-update transaction system.
 ## Selected library mechanisms and required contracts
 
 LibCST 1.9.0 is the selected Python transformation substrate. These references supply enabling
-details, not permission to infer domain behavior from syntax. Ast-grep 0.51.2 is the researched
-binding version, not a selected Python dependency. Griffe/Astroid/conditional ty roles and the
-pyrefly checker remain with their existing owners.
+details, not permission to infer domain behavior from syntax. Embedded ast-grep-py 0.51.2 is selected for the acquired/proposed-snapshot consumer finder;
+the CLI remains for repository rules and deliberate manual queries. Griffe/Astroid and explicit
+public ty inspection retain their separate roles; pyrefly remains the checker.
 
 | Mechanism | Supplies / retained obligation | Detailed reference and acceptance |
 |---|---|---|
@@ -133,7 +133,7 @@ pyrefly checker remain with their existing owners.
 | Matcher captures/metadata predicates and `parse_template_*` | Structural construction with inserted CST nodes, preserving explicit eligibility and module parsing conventions. Templates do not infer target operation semantics. | [Matchers](https://libcst.readthedocs.io/en/latest/matchers.html), [template helpers](https://libcst.readthedocs.io/en/latest/helpers.html). Independently check exact source for arguments, defaults, decorators and multiline/comment cases. |
 | `ScopeProvider`, `QualifiedNameProvider`, `FullyQualifiedNameProvider`, expression/position metadata | Qualified lexical facts and source correspondence within supported scope. Preserve unknown runtime dispatch/attributes and logical module identities. | [Metadata](https://libcst.readthedocs.io/en/latest/metadata.html), [module helpers](https://github.com/Instagram/LibCST/blob/v1.9.0/libcst/helpers/module.py). Check alias/shadow/inherited-owner distinctions; node handles never become semantic IDs. |
 | Explicit `ApplyTypeAnnotationsVisitor` stage with `store_stub_in_context` | Reconcile authoritative annotation inputs and coordinated imports using an ephemeral model-derived stub. It does not reshape parameters or migrate callers. Stub storage does not automatically schedule the annotation visitor. | [1.9.0 implementation](https://github.com/Instagram/LibCST/blob/v1.9.0/libcst/codemod/visitors/_apply_type_annotations.py), [upstream tests](https://github.com/Instagram/LibCST/blob/v1.9.0/libcst/codemod/visitors/tests/test_apply_type_annotations.py). Resolve the version-specific question below before use. |
-| Existing ast-grep CLI / bounded `locate_consumers` | Finite structural candidate discovery where it removes manual search. Keep attributed matches, examined scope and unknowns. No standing alignment lint or new scanner. | [CLI search](https://ast-grep.github.io/guide/quick-start.html), [rule reference](https://ast-grep.github.io/reference/rule.html). Check that same-spelled syntax is not counted as an eligible semantic caller. |
+| Embedded `SgRoot` over captured modules / `discover_source_consumers` | Reused per-module syntax trees provide complete selected-root structural candidate discovery, including untracked callers. Keep attributed matches, examined scope and unknowns. No standing alignment lint or new scanner. | [CLI search](https://ast-grep.github.io/guide/quick-start.html), [rule reference](https://ast-grep.github.io/reference/rule.html). Check that same-spelled syntax is not counted as an eligible semantic caller. |
 
 ### Pivotal questions and settling evidence
 
@@ -152,9 +152,9 @@ The following questions constrain adoption, not completion of unrelated packages
   identity, trust snapshot and byte bound. DDO-06/07 must provide these authentically before the
   source migration is eligible. No guessed context, default subject or method-name exception in
   the common orchestrator can bridge the gap.
-- **Optional embedded ast-grep:** adopt only for an actual supplied-snapshot consumer whose native
-  structural queries remove material custom work. Compare LibCST-only, existing CLI and embedded
-  binding routes. Absence of that consumer leaves the Python dependency unselected.
+- **Embedded ast-grep selected:** the supplied-snapshot discovery consumer now replaces the
+  duplicate AST/symtable and CLI discovery backends. LibCST supplies lexical qualification and
+  transformations after structural discovery. No general raw Tree-sitter service is selected.
 
 ## Conditional capability coverage
 
@@ -257,7 +257,7 @@ through the existing decision route before dependent work relies on it.
 
 ## Implemented preparation boundary · 2026-11-13
 
-The typed request uses `SourceMigration` with `symbol_move` or `annotations`, semantic owner ID,
+The typed request uses `SourceMigration` with `symbol_move`, `annotations` or `authored_update`, semantic owner ID,
 exact authored before-digest/after-source and logical `SourceRoot` mappings. Preview verifies the
 owner in acquired and proposed effective models; symbol moves verify the actual old/new callable
 declarations. Authored source changes must belong to the acquired operation input closure. Symbol moves preserve callable parameter/default/annotation/return/overload contracts; signature migrations require a separately supported transformation. Source inputs remain UTF-8 (BOM and other encodings explicitly refuse).
@@ -287,3 +287,21 @@ repository-owned builders at authoring and capture their relevant implementation
 upgrades execute compiled SQL. The combined operation payload and explanation must represent new
 privilege operations as well as NativeTransitionOp, preserving supported frozen predecessor reading.
 This is planned integration, not implemented behavior or authorization to apply source/native effects.
+
+## Focused integrated source increment · 2026-11-14
+
+**Tested, bounded; qualification is owned by the coordinator.** Discovery parses each supplied module
+once through ast-grep-py, queries calls/imports/declarations/attributes structurally, and reports typed
+locations plus LibCST lexical eligibility. Semantic coverage is the complete selected source universe,
+including newly added untracked callers; presentation limits do not truncate it. Native
+`VisitorBasedCodemodCommand` lifecycle owns import cleanup; annotation application uses an explicit
+context-stub stage. Class moves bind the actual implementation root and unchanged supplying surface,
+including inherited entrypoints. `authored_update` admits explicitly supplied changes through the same
+proposed compilation, immutable snapshot checks and existing FileEffect writer.
+
+`ci model change inspect --view sources` exposes bounded per-site outcomes and typed effective drift.
+A declared-operation preview can compare an explicitly archived release without a source migration;
+no archive means comparison is unavailable. Source apply still publishes only the approved source
+effects and does not execute a demand. Actual M1, contextual and captured-document implementation
+families are covered by migration/snapshot cases; their removed method selectors are not recreated.
+The coordinator records remaining rich semantic consumers and their domain prerequisites.

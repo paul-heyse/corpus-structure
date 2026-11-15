@@ -171,8 +171,27 @@ record drift and native selected API breakages remain distinct. Direct suitable 
 retain nominal distinctions, strict ingress and native permission enforcement.
 
 ty [public LSP](https://docs.astral.sh/ty/features/language-server/) navigation/signatures/hierarchy
-are conditional for a concrete inspection consumer, with selected 0.0.102 capability negotiation.
+are selected for explicit CLI/MCP captured-source inspection, with 0.0.102 capability negotiation.
 Hover prose, internal Rust types and Salsa dependencies are not canonical contract/fingerprint APIs.
 Keep pyrefly and actual generated-consumer expectations. Qualification compares independent selected
 facts, source/byte spans, inherited origins, alias ambiguity, custom metadata and old cursor/archive
 meaning, rather than equating a doc roundtrip/type pass with complete behavior.
+
+## Focused source inspection realization · 2026-11-14
+
+**Tested, bounded; coordinator owns receipts and remaining qualification.** `ci model source` now
+provides `interfaces`, `compare`, `navigate` and `impact`; actual MCP tools use the same read owners,
+including the pinned source-interface resource. Interface/comparison pages bind immutable releases
+and projection/comparison identities, preserve unknowns and enforce full-envelope byte limits.
+Runtime comparison without both explicit bindings is unknown. Impact requires explicit project,
+before demand, target release and optional target-demand/read/population pins; its native trust/cut
+authority is separate from static source facts.
+
+The ty adapter starts a bounded invocation-owned stdio LSP process over the exact source snapshot,
+negotiates public capabilities, converts UTF-8/UTF-16 coordinates, remaps only captured locations and
+returns explicit partial/unavailable outcomes. It isolates user/project environment and ty settings,
+uses a synthetic empty source environment, and closes reader/process/descriptor custody on completion
+or timeout. Definition/declaration/implementation/references/signatures and call/type hierarchy requests
+are tooling observations, never canonical DDO contracts, currentness evidence or a checker replacement.
+Detached demand export carries release-side interface artifacts through existing capture and
+manifest authentication; it introduces no second export authority.

@@ -1,0 +1,7 @@
+baseline: HEAD
+packs:
+- statistics
+native_predecessor: semantic_ddo_pg_v3
+native_revision: semantic_ddo_source_v1
+deployment: true
+deployment_profile: development

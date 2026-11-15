@@ -1,0 +1,73 @@
+{
+  "schema_version": 1,
+  "id": "ddo.source-change-native",
+  "title": "Scoped source-change support inspection and target-recipe reuse successors",
+  "group": "Declared data operations",
+  "package": "DDO-03–10",
+  "finalized": "2026-11-14",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can source-change selected support causes and cross-release equal-value cutoff be admitted through forward native successors without persistent deployment?",
+  "answers": [],
+  "method": "Rollback-only native authoring, independent operation/owner/ACL inspection and exact frozen checkout registration.",
+  "commands": [
+    "uv run ci model change preview docs/design_review/evidence/2026-11-14_ddo-source-change-inspection/change-v2.yaml --json",
+    "uv run ci model change candidate 5e6ee22006cb454b8128a835dac3f35d --json",
+    "uv run ci model change inspect-candidate 215ee7abc44347c6ac57caf4815b3975 --view operations --limit 20 --json",
+    "uv run ci model change register 215ee7abc44347c6ac57caf4815b3975 --json"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "change.yaml",
+      "role": "native authoring request",
+      "sha256": "15607c7d3bf6c109b303eabff241faa9e65e0ab1d8bf9b2826be11b09261e732"
+    },
+    {
+      "path": "change-v2.yaml",
+      "role": "native authoring request",
+      "sha256": "6244d947141b33cb91226561e38c81d369ac3fa8218961a829028c9fa2a39913"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "results/registered-files.json",
+      "role": "typed native custody and exact registered file hashes",
+      "sha256": "cbe36604e597d20a23cd290d6bb14fc67f806cd6df10838da7c891a995661319"
+    },
+    {
+      "path": "results/source-v1-candidate.json",
+      "role": "typed native custody and exact registered file hashes",
+      "sha256": "ae4537fc693c5adb3bdacfd7521c5ebdbce16dcf1c8b08586eb72c163f15a24d"
+    },
+    {
+      "path": "results/source-v1-operations.json",
+      "role": "typed native custody and exact registered file hashes",
+      "sha256": "58a2e4af58f16524fbb720bbf7ecc7780bdd0c91c49998cdc2a3fa9088ed9a99"
+    },
+    {
+      "path": "results/source-v2-candidate.json",
+      "role": "typed native custody and exact registered file hashes",
+      "sha256": "b418410400b7e7c28b19d0959f00a51ff2e745d7e97cef775d7452a386f73afd"
+    },
+    {
+      "path": "results/source-v2-operations.json",
+      "role": "typed native custody and exact registered file hashes",
+      "sha256": "7092698f559d9a409d8d1cfc3bfc962f2716c68e7ff300215d3cc65ac2f475d4"
+    }
+  ],
+  "depends_on": [
+    "2026-11-14_ddo-postgresql-realization/ddo.postgresql-native-realization"
+  ],
+  "results": [],
+  "outcome": "passed",
+  "conclusion": "Forward semantic_ddo_source_v1/v2 rollback candidates719e389631ba40949928082c5b12848a and215ee7abc44347c6ac57caf4815b3975 passed with cleanup established; registrationsa97c31a2ca9647228eab2c0294c320bd and7efd5aedffc74a86abce466ae7ece4c9 verified exact files. Each contains3 native body/0ordinary/0privilege operations with unchanged owners/ACLs. V1 exposes only reached epoch-bound revocations through protected selected-support closure. V2 authenticates reused semantic requests against the target admitted operation and recipe while keeping immutable producing episodes. Persistent corpus_structure_dev remains semantic_bep_located_v2, OID25921445/system7701811359771751232 on5434. Functional qualification is separately scoped in the DDO coordinator; this record establishes authoring/registration only. No deployment or activation.",
+  "consumed_by": [
+    "DDO-03",
+    "DDO-04",
+    "DDO-09",
+    "DDO-10",
+    "ADR-0107"
+  ]
+}

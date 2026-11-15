@@ -1,0 +1,10 @@
+{
+  "python/corpus-structure/semantic_alembic/versions/semantic_ddo_source_v2.py": "28dc33104c9634c24b7a325d18d20543d41160e26537f7cc8bc6207b98ea4b06",
+  "python/corpus-structure/semantic_alembic/versions/semantic_ddo_source_v1_admission.sql": "6f62040ad1b2d10e2f2410f47223e08aa700b8fd79b6d821bcccc182535c00e7",
+  "python/corpus-structure/semantic_alembic/versions/semantic_ddo_source_v1_native.json": "e780c9de412b5735f5e56759785e3295c41ea8d6295e0a675d495d27e73a5b65",
+  "python/corpus-structure/semantic_alembic/versions/semantic_ddo_source_v1.py": "8fcc93b63de36f0f95382ac26804e19af21f9d3e83088de963227de124fc2297",
+  "python/corpus-structure/semantic_alembic/versions/semantic_ddo_source_v2_upgrade.txt": "3ca3b1a55495872a1ab9c63710b4abe9530a9da6f81afb22dd1f86e8cd819c76",
+  "python/corpus-structure/semantic_alembic/versions/semantic_ddo_source_v2_admission.sql": "ae4304d7c2c4d08fb5f638f02a3cde5223b58621d75bfad2ac538bb50bf2b1c3",
+  "python/corpus-structure/semantic_alembic/versions/semantic_ddo_source_v2_native.json": "87dbcf9f2df9ede9052c93cbfbe9f6a65d95c316f35974a47803c7ff24180179",
+  "python/corpus-structure/semantic_alembic/versions/semantic_ddo_source_v1_upgrade.txt": "f5465d5a184b1fa6bc83b0a3d1a8e4e97921fbcc8b95776eba15efff3ef9fa27"
+}

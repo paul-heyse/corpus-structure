@@ -344,7 +344,7 @@ identified consumer, selected-version API check and focused semantic qualificati
 | Griffe hooks/extra/model mutation, typed docstrings, native serialization/diff | Select thin operation extraction plus explicit effective-model export, final resolution and comprehensive drift. Native extra omission, cached parsed docstrings and selected breakage limits require I04's separate treatment. [Serialization](https://mkdocstrings.github.io/griffe/guide/users/serializing/). |
 | Griffe LinesCollection/store_source/GitInfo/source_link/load_git, statistics/faster | Select source provenance where consumed. Git worktree loading/statistics/accelerators conditional; no ordinary compiler worktrees. prune-source/body omission conflicts with body-dependent analysis and AST hooks. Loader caching is not edit invalidation. [Git provenance](https://mkdocstrings.github.io/griffe/guide/users/how-to/set-git-info/). |
 | Griffe Pydantic/typingdoc/generics/fieldz/framework extensions | Conditional actual unsupported model shape; qualify exact versions, Griffe2/Pydantic2 compatibility, static versus runtime import effects and explicit metadata export. No extensions installed/adopted by this review. [Extension catalogue](https://mkdocstrings.github.io/griffe/extensions/). |
-| ty public hierarchy/references/definitions/implementation/symbols/signatures/hover | Conditional actual repeated operator inspection, I06. Selected 0.0.102 capability negotiation required; return structured evidence without treating prose display as canonical model. [LSP features](https://docs.astral.sh/ty/features/language-server/#feature-reference). |
+| ty public hierarchy/references/definitions/implementation/symbols/signatures/hover | Explicit CLI/MCP captured-source navigation selected for I06; definitions/declarations/implementations/references/signatures and call/type hierarchies implemented. Symbols/hover remain optional. Selected 0.0.102 capability negotiation required; return structured evidence without treating prose display as canonical model. [LSP features](https://docs.astral.sh/ty/features/language-server/#feature-reference). |
 | ty narrowing/Unknown/Any/intersection/negation/reachability/return inference | Conditional semantic assistance/conformance; explicit annotations retain their contract role. return-type-inference=always is opt-in, with async/generator limitations to check at selected version. Not effect/behavior proof. [Type system](https://docs.astral.sh/ty/features/type-system/), [configuration](https://docs.astral.sh/ty/reference/configuration/). |
 | ty generated dataclass/PEP681/NamedTuple/TypedDict/enum/Pydantic interfaces and import/re-export/namespace/partial-stub resolution | Conditional targeted comparison when simpler extraction leaves a consequential unknown. Effective typed constructor does not establish runtime validators. Fix environment/Python/platform/stub scope explicitly. [Pydantic](https://docs.astral.sh/ty/features/third-party/pydantic/). |
 | ty soundness/override/overload/cast/truthiness/awaitable/deprecation/sentinel/Pydantic-argument diagnostics | Conditional focused check, not automatic replacement/duplication of pyrefly. Distinguish assignability/subtyping and dynamic leakage. [Rules](https://docs.astral.sh/ty/reference/rules/). |
@@ -385,3 +385,20 @@ compact products; do not retain permanent four-engine mirrors or reparse on ever
 plan preparation additionally checked installed Griffe visit/resolution/serialization signatures.
 Semantic probes, extraction integration, native/provider/product tests and benchmarks are **not_run**
 for authoring. All tests and investigations above are future implementation obligations, not receipts.
+
+## Integrated facts and comparison realization · 2026-11-14
+
+**Tested, bounded; see coordinator receipts.** `data_operation_source_interfaces.json` is a prepared
+Griffe projection bound to the exact effective-model digest and authenticated by the release manifest.
+It records module provenance, exposed/supplying callable origins, final signatures, operation/class
+documentation, typed parsed sections and explicit unknowns. Current v2 adds owner documentation;
+historical v1 serialization/content/identity remain exact, and absent owner docs are unknown. Old
+archives without a sidecar remain readable with unavailable source documentation. The sidecar does
+not enter canonical implementation/recipe identity; normal runtime admission does not parse it.
+
+The shared comparison reports kind, contract, domain, documentation, implementation, recipe,
+eligibility and optional explicit runtime-custody changes separately. Griffe asymmetric breakages
+are auxiliary findings attached by exposed identity, never a substitute for comprehensive drift.
+Astroid refinement remains preparation-local, structural and closed to ambient loading/unrestricted
+inference. Archived read, comparison and detached export consume captured facts without recompiling
+or reparsing current Python sources. D2/D8 and ADR-0107 retain the lasting boundary decisions.

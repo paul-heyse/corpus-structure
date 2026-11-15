@@ -192,7 +192,7 @@ confirmation/decision route. This is plan adoption, not implementation or renewe
 
 ## Focused Python source execution · accepted 2026-11-14
 
-**In progress; no enclosing completion.** The operator authorized the coordinated source-analysis,
+**Implemented and tested in the bounded increment; no enclosing DDO completion.** The operator authorized the coordinated source-analysis,
 editing/codemod, semantic-change and inspection increment after the PostgreSQL increment. Required
 planned consumers are implemented with their prerequisites; baseline absence does not defer them.
 This account owns current Python I01–I07/Ast-grep I01–I06 disposition for the increment, alongside
@@ -207,16 +207,78 @@ and D2/D8 own the decision, not qualification.
 
 | Responsibility | Current implementation / remaining acceptance |
 |---|---|
-| Snapshot discovery and editing | Exact binding installed; embedded candidate path, authored_update, typed sites, native import cleanup and CLI source view integrating. Required unknowns block apply; current writer, proposed compilation and exact retry retained. |
-| Source facts and comprehensive drift | Prepared versioned sidecar and typed effective comparison integrated. Sidecar is outside implementation/recipe identity, archives with release products and preserves old absence; final-signature documentation/owners and unknowns remain explicit. Functional/type endpoint in progress. |
-| Change/currentness | Native selected-cut acquisition and pure classification integrated; explicit target execution/admission required for substitution. Population and cursor premise hardening plus real demanded equal-value cutoff acceptance in progress. No code graph becomes semantic readiness. |
-| Public inspection/navigation | CLI model source and actual MCP routes integrating; live ty core requests already exercised. Archive-source authentication, coordinate/hierarchy and public delivery qualification remain required. |
-| Actual families/retirement | Reacquire actual current M1/contextual/structural/captured composition consumers; existing deleted selectors are not recreated. Remove superseded scanner/shape/compatibility paths with real replacements. Named rich/retained consumers keep only their specific outstanding obligations. |
+| Snapshot discovery and editing | **Tested 2026-11-14.** Embedded per-snapshot candidate discovery replaces duplicate AST/symtable and CLI discovery backends. Complete selected roots include untracked callers. `authored_update`, class moves/inherited supplying surfaces, native LibCST import lifecycle, explicit annotation stub stage and typed per-site outcomes use the existing exact FileEffect writer. Required unknowns block apply. |
+| Source facts and comprehensive drift | **Tested 2026-11-14.** Manifest-authenticated/model-bound v2 sidecar captures final callable and operation/class documentation plus supplying/exposed provenance. Historical v1 bytes/identity and older absence remain exact. Typed full-facet drift and auxiliary asymmetric Griffe breakages share one comparison; runtime custody without both explicit bindings stays unknown. Normal runtime does not parse docs. |
+| Change/currentness | **Tested 2026-11-14.** Native selected cuts/trust/populations and exact causal paths back potential/awaiting/stale/revoked/substitutable/inapplicable/unknown. Every frozen discovery context needs its own complete witness. Genuine changed helper executes a new producer, while equal output permits reuse of the original downstream consumer. Rebound support later revoked is attributed to its current selected replacement. Explicit target admission remains required. |
+| Public inspection/navigation | **Tested 2026-11-14.** CLI `model source interfaces/compare/navigate/impact` and actual MCP use shared bounded owners. Archived source authentication, public ty navigation/signatures/call/type hierarchy, UTF-8/UTF-16 coordinates, source/environment isolation, deadline/process cleanup and explicit partial/unavailable outcomes exercised. Tooling never becomes canonical authority. |
+| Actual families/retirement | **Tested 2026-11-14.** Actual M1/contextual/captured inherited source families exercise target migration surfaces and current run/stream delegation. Removed method selectors stay deleted. Superseded discovery AST/symtable/CLI backend and manual codemod import cleanup retire. Rich/retained production consumers below retain their domain-owned prerequisites; source migration tests do not establish provider or rich acceptance. |
 
 Source apply does not execute corpus work. Native/ci/MCP reports preserve exact source/release/cut,
 project, population and trust context. Missing optional impact context yields unknown; missing source
 or transformation premises blocks edits. No persistent deployment, historical conversion, provider
 campaign, new workflow/index service or blanket modernization is included.
+
+### Focused acceptance and retirement account · 2026-11-14
+
+- **passed:** `uv run ci test --json --` with source navigation/interface/MCP/comparison, implementation
+  snapshot and schema discovery/migration files: root `905b64562e8d40d38c97ccc8726c12c8`,82/82.
+  Owner-doc/v1 compatibility/archive-read expanded cohort `d444f3f10f4b4d28915bf5ac3a266fea`,40/40.
+- **passed:** actual native `test_change_impact.py`, `60fbf770308c4ddca3956920be3f1f4d`,15/15.
+  This closes the independent root/context population, same-producer upstream substitution and
+  selected replacement revocation-cause defects. Earlier `1cef2d26322c4808aae71df84ef11f61`
+  remains13 passed/2 failed: authentic pipeline exposed the repaired stale request-release check,
+  and a population fixture incorrectly used an integer-only completion helper.
+- **passed:** native CLI `test_native_cli_compares_archived_ddo_without_source_migrations`,
+  `a03cb02da47f454796f5864f99e81874`,1/1. Actual persisted archive/native reader and CLI preview/
+  inspect agree on exact model digests and drift; no migration intent or deployment is needed.
+- **passed:** `uv run ci test --json -- python/corpus-structure/tests/semantic/test_demand_export_native.py`,
+  `638f00e2c76640da9d5d0c603f7760c3`,5/5: actual Python producer execution and JSONL/Parquet
+  detached sidecar read with source analysis/preparation disabled; source-free recipes retain
+  sidecar absence. Initial `aa29377996274d889bc05f05efd0460d` remains failed2/2 because
+  a new test incorrectly expected Python sidecars on the deliberately source-free serving fixture.
+  Corrected coverage keeps the source-free controls and adds a real Python-backed producer.
+- **passed:** whole `uv run ci check --only types --json`, `78fbb79c86d14ab6863576c3724adf56`
+  after integrated source comparison/owner-doc/native-binding changes. Later changes are tests/docs
+  and exact frozen registration; final qualification below records subsequent diagnostics.
+- **passed:** [native source-change authoring](../design_review/evidence/2026-11-14_ddo-source-change-inspection/README.md):
+  forward `semantic_ddo_source_v1/v2`, each3 native body/0ordinary/
+  0privilege operations, unchanged owners/ACLs. Final candidate `215ee7abc44347c6ac57caf4815b3975`
+  and registration `7efd5aedffc74a86abce466ae7ece4c9`; cleanup established. Persistent database
+  remains `semantic_bep_located_v2` on dedicated5434; no deployment/activation.
+- **passed:** integrated `uv run ci check --json`, `133ae0cbc8f4461aa2a806f634426adc`:
+  agent/ADR/rules checks, Ruff, whole pyrefly, docs publication, dependency pins and Clippy.
+  Rust result used `rustc1.102.0-nightly (5f4effd57 2026-11-13)`. Separate lint
+  `38a78d52e37949f3afb56be8860fa4f8`, deps `bfbc75649a3848208e44548e2001399c`,
+  docs `c63f7df593c54292861b355ebd004cec` and final `15111d5b4334435599621f83cdd9bd9d`
+  (1281 canonical pages/zero link errors); final `just turn-end` changed no code.
+- **failed, existing baseline:** final `uv run ci evidence check --json`,
+  `b23f6b0e882d4fcfa4f50f1b2ff9767d`, four unchanged older-DDO errors (one changed output
+  hash and three unresolved cross-folder references). Initial `d4deff3dbeee45a98d868b65de27a204`
+  also reported two new stale indexes; `uv run ci evidence index --json`,
+  `97df289037d3445cb10828c6d20448f1` **passed** and repaired those. New native record
+  finalized successfully (`85751942360e4f1995c07227f9b9ffcd`); old hashes were not rewritten.
+- **failed prerequisite:** `uv run ci doctor`, `35a4b8abeab94ff09ae05c17bf495511`,
+  missing `pg_virtualenv` (postgresql-common294). Dedicated shared PostgreSQL native tests run
+  successfully; this does not turn the tool inventory failure into a pass.
+
+The complete selected source pipeline is implemented; wider DDO-06–12 and existing rich conversion
+obligations remain open. Retained `source_dependencies` policies are consumed by actual M1 readings
+and current native source-support custody; `approved_implementations` remains consumed by legacy
+native contract correspondence and `pdf_storage`'s retained PDF reader. Do not delete those symbols
+by spelling. Migrate the named rich/retained consumers through genuine declared products/cuts before
+removing their remaining registrations, historical agent publication/finalization, copied-task/twin
+reuse and mechanism-specific tests. That integration remains owned by the preceding retirement
+account, not an excuse to preserve replaced source-discovery or codemod machinery.
+
+All13 editor,12 impact and7 initial facts original result directories were moved to root storage
+with unchanged inodes and CLI read/hold verification before worktree cleanup. New facts/exports
+ran directly on main and remain held. Failed originals are retained; no marker was rewritten. All
+worktrees are removed and commit branches retained. Independent focused review at `ec36afae3`
+confirmed the three impact findings addressed; no broad audit or completion audit was initiated.
+
+Benefits are **Proposed**, qualitative and unmeasured. Full provider/fault qualification, persistent
+migration/historical conversion, and broad checker/grammar modernization are **not_run/out of this
+increment**. Bounded receipt unions do not establish full DDO acceptance.
 
 ## Reading and work-package ownership
 
