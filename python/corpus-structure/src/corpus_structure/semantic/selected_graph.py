@@ -142,9 +142,9 @@ def snapshot_from_index(prepared, cut, index, projection):
                         required("ops.data_request", target, "producer request"),
                         "selected-input",
                         ref.get("role", ""),
-                        position=position,
+                        position=ref.get("position"),
                         multiplicity=ref.get("multiplicity", 1),
-                        witness=ref,
+                        witness={"reference": ref, "selection_position": position},
                     )
             for position, ref in enumerate(row.get("selection", {}).get("populations", ())):
                 edge(
@@ -152,8 +152,8 @@ def snapshot_from_index(prepared, cut, index, projection):
                     required("ops.data_population", ref["population_id"], "selected population"),
                     "population",
                     "selected-population",
-                    position=position,
-                    witness=ref,
+                    position=ref.get("position"),
+                    witness={"reference": ref, "selection_position": position},
                 )
     else:
         for relation, rows, kind in (
@@ -164,7 +164,8 @@ def snapshot_from_index(prepared, cut, index, projection):
             ("ops.original_source_admission", admissions.values(), "original"),
         ):
             for row in rows:
-                node(relation, row["id"], kind, row)
+                admitted_kind = "authored" if relation == "ops.original_source_admission" and row.get("evidence", {}).get("standing") == "authored" else kind
+                node(relation, row["id"], admitted_kind, row)
         for row in index.rows("kb.data_product_member"):
             member = node(
                 "kb.data_product_member", [row["product_id"], row["member_id"]], "member", row
@@ -216,9 +217,9 @@ def snapshot_from_index(prepared, cut, index, projection):
                     reference(ref),
                     "support",
                     ref.get("role", ""),
-                    position=position,
+                    position=ref.get("position"),
                     multiplicity=ref.get("multiplicity", 1),
-                    witness=ref,
+                    witness={"reference": ref, "selection_position": position},
                 )
             for position, ref in enumerate(row.get("selection", {}).get("populations", ())):
                 edge(
@@ -226,8 +227,8 @@ def snapshot_from_index(prepared, cut, index, projection):
                     required("ops.data_population", ref["population_id"], "population"),
                     "population",
                     "selected-population",
-                    position=position,
-                    witness=ref,
+                    position=ref.get("position"),
+                    witness={"reference": ref, "selection_position": position},
                 )
         selected_episodes = {
             row["derivation_id"] for row in all_uses.values() if row.get("derivation_id")
@@ -253,7 +254,7 @@ def snapshot_from_index(prepared, cut, index, projection):
                     target,
                     "support",
                     row.get("role", ""),
-                    position=row.get("occurrence"),
+                    position=row.get("position"),
                     witness=row,
                 )
         for name, row in admissions.items():

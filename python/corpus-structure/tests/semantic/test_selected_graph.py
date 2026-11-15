@@ -14,10 +14,10 @@ from semantic.data_operation_declaration_support import model, operation
 def selected_index(tmp_path):
     index = SelectedRecordIndex(tmp_path / "index.sqlite")
     pins = dict(demand_id="demand", project_id="project", release_id="release", runtime_id="runtime", selection={}, trust_snapshot={}, read_id="read", read_snapshot="snapshot", frontier_at="time", scope={})
-    index.append_page(dict(**pins, obligations=[dict(obligation_id="obligation",operation_id="consumer",request_id="consumer")], uses=[dict(use_id="cu",request_id="consumer",derivation_id="ce",selection=dict(support=[dict(kind="computation",derivation_id="new",admission_use_id="su",role="value",position=0)],populations=[]))]))
+    index.append_page(dict(**pins, obligations=[dict(obligation_id="obligation",operation_id="consumer",request_id="consumer")], uses=[dict(use_id="cu",request_id="consumer",derivation_id="ce",selection=dict(support=[dict(kind="computation",derivation_id="new",admission_use_id="su",role="value",position=7)],populations=[]))]))
     rows = {
         "ops.data_request": [dict(id="consumer"),dict(id="producer")],
-        "ops.demand_use": [dict(id="cu",request_id="consumer",derivation_id="ce",selection=dict(support=[dict(kind="computation",derivation_id="new",admission_use_id="su",role="value",position=0)],populations=[])),dict(id="su",request_id="producer",derivation_id="new",selection=dict(support=[],populations=[]))],
+        "ops.demand_use": [dict(id="cu",request_id="consumer",derivation_id="ce",selection=dict(support=[dict(kind="computation",derivation_id="new",admission_use_id="su",role="value",position=7)],populations=[])),dict(id="su",request_id="producer",derivation_id="new",selection=dict(support=[],populations=[]))],
         "ops.data_derivation": [dict(id="ce",request_id="consumer"),dict(id="old",request_id="producer"),dict(id="new",request_id="producer")],
         "ops.data_derivation_support": [dict(derivation_id="ce",support_derivation_id="old",occurrence=0,role="value")],
     }
@@ -40,6 +40,7 @@ def test_bound_precedence_and_selected_support_are_distinct_projections(tmp_path
         support=snapshot_from_index(prepared,cut,index,"selected-support")
         assert {node.kind for node in support.nodes} == {"episode","use"}
         assert any(edge.source=='ops.demand_use:"cu"' and edge.target=='ops.demand_use:"su"' and edge.relation=="support" for edge in support.occurrences)
+        assert next(edge for edge in support.occurrences if edge.relation=="support").position==7
         assert not any(edge.source=='ops.data_derivation:"ce"' and edge.target=='ops.data_derivation:"old"' for edge in support.occurrences)
     finally:
         index.close()
