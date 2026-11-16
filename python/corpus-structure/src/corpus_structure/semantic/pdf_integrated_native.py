@@ -29,13 +29,9 @@ def observation_publication_sql(context=None) -> str:
     marker = "-- {observation_meaning_projection}"
     if meaning_option.arg[0].sval.count(marker) != 1:
         raise ValueError("recognition meaning requires its one captured selection")
-    meaning_option.arg[0].sval = meaning_option.arg[0].sval.replace(
-        marker, observation_meaning_sql(specification)
-    )
-    projection = functions["ops", "pdf_observation_projection"]
-    projection_option = next(
-        option for option in projection.options or () if option.defname == "as"
-    )
+    meaning_option.arg[0].sval = meaning_option.arg[0].sval.replace(marker, observation_meaning_sql(specification))
+    projection = functions["ops", "pdf_observation_projection_for_request"]
+    projection_option = next(option for option in projection.options or () if option.defname == "as")
     marker = "-- {observation_report_shape}"
     if projection_option.arg[0].sval.count(marker) != 1:
         raise ValueError("observation report requires its one typed boundary")
@@ -88,6 +84,9 @@ def observation_publication_sql(context=None) -> str:
         + ";\nALTER FUNCTION ops.pdf_recognition_profile(text,sem.data_operation_definition) OWNER TO corpus_sem_publisher;\n"
         + "REVOKE ALL ON FUNCTION ops.pdf_recognition_profile(text,sem.data_operation_definition) FROM PUBLIC;\n"
         + RawStream()(projection)
+        + ";\nALTER FUNCTION ops.pdf_observation_projection_for_request(jsonb,bigint,bigint,text,ops.data_request) OWNER TO corpus_sem_publisher;\n"
+        + "REVOKE ALL ON FUNCTION ops.pdf_observation_projection_for_request(jsonb,bigint,bigint,text,ops.data_request) FROM PUBLIC;\n"
+        + RawStream()(functions["ops", "pdf_observation_projection"])
         + ";\nALTER FUNCTION ops.pdf_observation_projection(jsonb,bigint,bigint,text) OWNER TO corpus_sem_publisher;\n"
         + "REVOKE ALL ON FUNCTION ops.pdf_observation_projection(jsonb,bigint,bigint,text) FROM PUBLIC;\n"
         + "GRANT EXECUTE ON FUNCTION ops.pdf_observation_projection(jsonb,bigint,bigint,text) TO corpus_sem_writer;\n"

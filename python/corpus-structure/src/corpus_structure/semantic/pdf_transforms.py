@@ -494,9 +494,6 @@ def _read_selected_pdf(
 
 def _read_selected_observations(value, binding, execution_owner, selected, check_active):
     """Detach only the exact selected set after native support/meaning correspondence."""
-    from sqlalchemy import bindparam
-    from sqlalchemy.dialects.postgresql import JSONB
-
     from .pdf_observations import PdfObservationExecutionReceipt
 
     claim = execution_owner.claim
@@ -517,31 +514,12 @@ def _read_selected_observations(value, binding, execution_owner, selected, check
     detached = []
     check_active()
     with execution_owner.engine.connect() as connection:
-        receipt = PdfObservationExecutionReceipt.model_validate_json(
-            canonical_bytes(
-                connection.scalar(
-                    select(
-                        func.ops.ddo_pdf_observation_source(
-                            claim.request_id,
-                            binding.subject_context.project_id,
-                            members[0].product,
-                            members[0].support_episodes[0],
-                        )
-                    )
-                )
-            )
-        )
-        expected = connection.scalar(
-            select(
-                func.ops.pdf_observation_projection(
-                    bindparam("_observation_receipt", receipt.model_dump(mode="json"), type_=JSONB),
-                    receipt.task_id,
-                    receipt.attempt,
-                    receipt.holder,
-                )
-            )
-        )
-        if expected != value:
+        authenticated = connection.scalar(select(
+            func.ops.ddo_pdf_observation_source(claim.request_id, binding.subject_context.project_id,
+                members[0].product, members[0].support_episodes[0])
+        ))
+        receipt = PdfObservationExecutionReceipt.model_validate_json(canonical_bytes(authenticated["receipt"]))
+        if authenticated["value"] != value:
             raise ValueError("selected observation value differs from actual native adoption")
         final = {page["page_no"]: page["outcome"] for page in value["pages"]}
         failures = [number for number, outcome in final.items() if outcome != "succeeded"]

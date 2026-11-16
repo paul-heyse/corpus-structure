@@ -185,64 +185,22 @@ def test_current_policy_only_change_reuses_native_observation_support_without_pr
     monkeypatch,
     native_settings,
 ):
-    from corpus_structure.core.method import MethodSettings
-    from corpus_structure.orchestrate.source_operation import run_source_operation
-    from corpus_structure.orchestrate.source_request import SourceRunRequest, WholeDocument
-    from corpus_structure.semantic.data_operation_service import read_data_demand
-    from corpus_structure.semantic.runtime import open_runtime_engine
-    from corpus_structure.serve.selected_pdf import (
-        acquire_selected_pdf_observations,
-        acquire_selected_pdf_source,
-    )
-    from semantic.current_pdf_integration_support import ROOT, current_pdf_recipe
-    from semantic.current_pdf_source_support import admit_current_target
+    from corpus_structure.serve.selected_pdf import acquire_selected_pdf_observations, acquire_selected_pdf_source
+    from semantic.current_pdf_integration_support import remap_current_integration
 
     with current_integration_journey(
         scenario_seeds, tmp_path, monkeypatch, native_settings
     ) as case:
         before = tuple(case.calls)
         first_publication = case.publications["integrated"]
-        policy = dict(
-            policy_id="pdf-integration-v1",
-            conflict_action="keep",
-            unmatched_action="add",
-            specialized_crop_precedence=True,
-            comparison_demand="lexical",
-        )
-        next_kernel = admit_current_target(
-            case,
-            current_pdf_recipe(tmp_path, integration_policy=policy),
-            tmp_path / "policy-consumer",
-        )
+        policy = dict(policy_id="pdf-integration-v1", conflict_action="keep", unmatched_action="add",
+                      specialized_crop_precedence=True, comparison_demand="lexical")
+        next_kernel, snapshot = remap_current_integration(case, policy)
         assert next_kernel.prepared.release_id != case.prepared.release_id
-        request = SourceRunRequest(
-            project_id=case.original.project_id,
-            release_id=next_kernel.prepared.release_id,
-            runtime_id=next_kernel.runtime,
-            domain="toy",
-            workflow="capture",
-            selection=WholeDocument(),
-            documents=(case.original.document_key,),
-            pdf_mode="integrated",
-            recognition_pages=(1,),
-            targets=("source.pdf_integrated_views/discovery",),
-        )
-        with open_runtime_engine(
-            case.settings, "current-policy-remap", purpose="write", max_size=6
-        ) as engine:
-            result = run_source_operation(
-                engine,
-                request,
-                MethodSettings(data_dir=tmp_path, model_cache=tmp_path),
-                source_root=ROOT,
-                admission_engine=next_kernel.purpose("admit"),
-            )
         assert tuple(case.calls) == before
         with case.reader().begin() as connection:
-            snapshot = read_data_demand(connection, result.demand_id, view="products")
-            reused = acquire_selected_pdf_observations(
-                connection, selected_reference(case, "source.pdf_recognition/observe", snapshot)
-            )
+            reused = acquire_selected_pdf_observations(connection, selected_reference(case,
+                "source.pdf_recognition/observe", snapshot))
             assert reused.reference.product_id == case.observation_source.reference.product_id
             assert reused.reference.derivation_id == case.observation_source.reference.derivation_id
             assert reused.receipt == case.observation_source.receipt
@@ -262,6 +220,81 @@ def test_current_policy_only_change_reuses_native_observation_support_without_pr
             assert decisions and any(
                 row.get("outcome") == "retained_alternative" for row in decisions
             )
+
+
+def test_historical_pdf_basis_survives_real_generation_advance_without_rehabilitating_withdrawal(
+    scenario_seeds, tmp_path, monkeypatch, native_settings,
+):
+    from typing import cast
+    from psycopg import Error as NativePgError
+    from sqlalchemy.exc import DBAPIError
+    from corpus_structure.semantic._data_operation_wire import WireRevokeDataSupportRequest
+    from corpus_structure.semantic.data_operation_json import json_bytes
+    from corpus_structure.semantic.data_operation_storage import DataOperationStorage
+    from corpus_structure.serve.selected_pdf import acquire_selected_pdf_observations, acquire_selected_pdf_source
+    from semantic.current_pdf_integration_support import remap_current_integration
+
+    with current_integration_journey(scenario_seeds, tmp_path, monkeypatch, native_settings) as case:
+        old = case.observation_source
+        old_raw = selected_reference(case, "source.pdf/capture")
+        with case.kernel.purpose("write").begin() as connection:
+            with pytest.raises(DBAPIError) as private, connection.begin_nested():
+                connection.scalar(text("SELECT ops.ddo_pdf_producing_request(:episode)"),
+                                  {"episode": old.reference.derivation_id})
+            assert isinstance(private.value.orig, NativePgError)
+            assert private.value.orig.sqlstate == "42501"
+        with case.clone.admin.connect() as connection:
+            original = connection.scalar(text(
+                "SELECT to_jsonb(request) FROM ops.data_request request JOIN ops.data_derivation episode ON episode.request_id=request.id WHERE episode.id=:episode"
+            ), {"episode": old.reference.derivation_id})
+        with case.kernel.purpose("write").begin() as connection:
+            DataOperationStorage(connection).revoke_data_support(cast(WireRevokeDataSupportRequest,
+                dict(project_id=case.original.project_id, original_source=case.original.document_key,
+                    selector_kind="derivation", selector=old.reference.derivation_id,
+                    reason="withdraw this actual recognition episode before a new generation")))
+        kernel, snapshot = remap_current_integration(case, dict(policy_id="pdf-integration-v1",
+            conflict_action="keep", unmatched_action="add", specialized_crop_precedence=True,
+            comparison_demand="lexical"))
+        with case.reader().begin() as connection:
+            with pytest.raises(DBAPIError), connection.begin_nested():
+                acquire_selected_pdf_observations(connection, old.reference)
+            current = acquire_selected_pdf_observations(connection,
+                selected_reference(case, "source.pdf_recognition/observe", snapshot))
+            assert current.receipt.request_id == old.receipt.request_id
+            assert current.receipt.generation > old.receipt.generation
+            assert current.receipt.task_id != old.receipt.task_id
+            assert current.receipt.runtime_id == kernel.runtime != old.receipt.runtime_id
+            assert current.reference.derivation_id != old.reference.derivation_id
+            # Equal retained readings may have distinct genuine native origins.
+            assert current.reference.product_id == old.reference.product_id
+            raw = acquire_selected_pdf_source(connection, selected_reference(case,
+                "source.pdf/capture", snapshot))
+            assert raw.reference.derivation_id == old_raw.derivation_id
+            assert raw.physical == case.publications["native"]
+        assert case.calls == ["capture", "recognize", "recognition-adopt"]
+        with case.clone.admin.begin() as connection:
+            live = connection.scalar(text("SELECT to_jsonb(request) FROM ops.data_request request WHERE id=:request"),
+                                     {"request": old.receipt.request_id})
+            assert live["release_id"] == kernel.prepared.release_id != original["release_id"]
+            assert live["runtime_id"] == kernel.runtime and live["generation"] > original["generation"]
+            restored = connection.scalar(text("SELECT to_jsonb(ops.ddo_pdf_producing_request(:episode))"),
+                                         {"episode": old.reference.derivation_id})
+            # Private immutable evidence inspection is not current trust standing.
+            for name in ("id", "release_id", "runtime_id", "recipe", "generation", "live_task_id", "binding"):
+                assert restored[name] == original[name]
+            parameters = dict(receipt=json_bytes(old.receipt.model_dump(mode="json")).decode(),
+                task=old.receipt.task_id, attempt=old.receipt.attempt, holder=old.receipt.holder,
+                episode=old.reference.derivation_id)
+            historical = connection.scalar(text(
+                "SELECT ops.pdf_observation_projection_for_request(CAST(:receipt AS jsonb),:task,:attempt,:holder,ops.ddo_pdf_producing_request(:episode))"
+            ), parameters)
+            assert historical == case.values["source.pdf_recognition/observe"]["result"]
+            with pytest.raises(DBAPIError) as wrong, connection.begin_nested():
+                connection.scalar(text(
+                    "SELECT ops.pdf_observation_projection_for_request(CAST(:receipt AS jsonb),:task,:attempt,:holder,request) FROM ops.data_request request WHERE request.id=:request"
+                ), {**parameters, "request": old.receipt.request_id})
+            assert isinstance(wrong.value.orig, NativePgError)
+            assert wrong.value.orig.sqlstate == "23514"
 
 
 def test_current_rich_integration_retains_separate_claims_inventory_and_originals(

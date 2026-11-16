@@ -90,6 +90,71 @@ BEGIN
  RETURN jsonb_build_object('source',coordinate,'text',text_value,'pieces',pieces,'items',atoms,'ancestors',ancestors,'recognition',recognition,'selectors',selected);
 END $$;
 
+-- A selected historical publication is interpreted against its sealed producing
+-- episode, never the binding/release/runtime currently stored on its request.
+CREATE OR REPLACE FUNCTION ops.ddo_pdf_producing_request(p_derivation text)
+RETURNS ops.data_request LANGUAGE plpgsql STABLE STRICT SECURITY DEFINER
+SET search_path=pg_catalog,pg_temp AS $$
+DECLARE episode ops.data_derivation; intent ops.data_completion_intent; request ops.data_request;
+ publication ops.data_publication_receipt;
+ job ops.task; definition sem.data_operation_definition; profile text; captured record;
+ binding jsonb; candidate jsonb;
+BEGIN
+ SELECT * INTO STRICT episode FROM ops.data_derivation WHERE id=p_derivation AND outcome='success';
+ SELECT * INTO STRICT publication FROM ops.data_publication_receipt
+ WHERE intent_id=episode.intent_id AND derivation_id=episode.id;
+ SELECT original.* INTO STRICT intent FROM ops.data_completion_intent original
+ WHERE original.id=publication.intent_id AND original.request_id=episode.request_id
+ AND original.generation=episode.generation;
+ SELECT * INTO STRICT request FROM ops.data_request WHERE id=episode.request_id;
+ SELECT * INTO STRICT job FROM ops.task WHERE id=episode.producer_task_id;
+ SELECT * INTO STRICT definition FROM sem.data_operation_definition
+ WHERE release_id=episode.release_id AND operation_id=request.operation_id;
+ IF (intent.producer_task_id,intent.producer_attempt,intent.runtime_id) IS DISTINCT FROM
+ (episode.producer_task_id,episode.producer_attempt,episode.runtime_id)
+ OR publication.publishing_task_id IS DISTINCT FROM episode.producer_task_id
+ OR publication.publishing_attempt NOT BETWEEN intent.producer_attempt AND job.attempt
+ OR (job.data_request_id,job.data_generation,job.release_id) IS DISTINCT FROM
+ (episode.request_id,episode.generation,episode.release_id)
+ OR job.attempt<intent.producer_attempt OR nullif(intent.producer_holder,'') IS NULL
+ OR NOT EXISTS(SELECT FROM ops.data_request_generation generation WHERE generation.request_id=episode.request_id
+ AND generation.generation=episode.generation AND generation.task_id=episode.producer_task_id)
+ OR episode.recipe IS DISTINCT FROM definition.recipe OR request.recipe IS DISTINCT FROM episode.recipe
+ OR intent.payload->>'implementation_revision' IS DISTINCT FROM definition.implementation_revision
+ OR ops.ddo_completion_state(definition,intent.payload->>'outcome') IS DISTINCT FROM episode.outcome THEN
+ RAISE EXCEPTION 'PDF original producer differs from sealed episode/intent/task fences' USING ERRCODE='23514'; END IF;
+ SELECT convert_from(runtime.manifest_bytes,'UTF8')::jsonb->>'execution_profile' INTO STRICT profile
+ FROM sem.runtime_binding runtime WHERE runtime.release_id=episode.release_id AND runtime.runtime_id=episode.runtime_id;
+ IF nullif(profile,'') IS NULL THEN
+ RAISE EXCEPTION 'PDF original producer lacks its admitted execution profile' USING ERRCODE='23514'; END IF;
+ FOR captured IN
+ SELECT selected.selection,demand.selection->'execution_profile' execution_profile
+ FROM ops.demand_use selected JOIN ops.data_demand demand ON demand.id=selected.demand_id
+ JOIN ops.data_obligation obligation ON obligation.id=selected.obligation_id AND obligation.demand_id=demand.id
+ WHERE selected.request_id=episode.request_id AND selected.generation=episode.generation
+ AND selected.fate IN ('attached','fulfilled') AND (selected.derivation_id IS NULL OR selected.derivation_id=episode.id)
+ AND demand.project_id=request.project_id AND demand.release_id=episode.release_id
+ AND demand.selection->>'execution_profile'=profile
+ AND obligation.operation_id=request.operation_id AND obligation.subject=request.subject
+ AND obligation.original_source IS NOT DISTINCT FROM request.original_source
+ AND obligation.analyzed_scope=request.analyzed_scope
+ AND selected.selection->'inputs' IS NOT DISTINCT FROM intent.payload->'inputs'
+ AND selected.selection->'support' IS NOT DISTINCT FROM intent.payload->'support'
+ ORDER BY selected.created_at,selected.id
+ LOOP
+ candidate:=captured.selection||jsonb_build_object('execution_profile',captured.execution_profile);
+ IF binding IS NULL THEN binding:=candidate;
+ ELSIF (binding-'read_id') IS DISTINCT FROM (candidate-'read_id') THEN
+ RAISE EXCEPTION 'PDF original producer binding is ambiguous in immutable admitted uses' USING ERRCODE='23514'; END IF;
+ END LOOP;
+ IF binding IS NULL THEN
+ RAISE EXCEPTION 'PDF original producer lacks its full immutable admitted binding' USING ERRCODE='23514'; END IF;
+ request.release_id:=episode.release_id; request.runtime_id:=episode.runtime_id;
+ request.recipe:=episode.recipe; request.generation:=episode.generation;
+ request.live_task_id:=episode.producer_task_id; request.binding:=binding;
+ RETURN request;
+END $$;
+
 CREATE OR REPLACE FUNCTION ops.read_selected_pdf_observations(p_payload jsonb) RETURNS jsonb
 LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
 DECLARE p jsonb:=p_payload; demand ops.data_demand; boundary ops.data_demand_read; receipt jsonb; cut jsonb;
@@ -138,8 +203,9 @@ BEGIN
  SELECT der.* INTO STRICT derivation FROM ops.data_derivation der
  JOIN ops.data_derivation_output output ON output.derivation_id=der.id
  WHERE der.id=p_derivation AND output.product_id=p_product AND output.member_id IS NULL;
- SELECT * INTO STRICT producer FROM ops.data_request WHERE id=derivation.request_id
- AND project_id=p_project AND (p_source IS NULL OR original_source=p_source);
+ producer:=ops.ddo_pdf_producing_request(derivation.id);
+ IF producer.project_id IS DISTINCT FROM p_project OR (p_source IS NOT NULL AND producer.original_source IS DISTINCT FROM p_source) THEN
+ RAISE EXCEPTION 'PDF producer is outside exact qualified selected source' USING ERRCODE='23514'; END IF;
  PERFORM ops.ddo_authorize_request(producer);
  IF NOT EXISTS(SELECT FROM sem.data_operation_definition definition
  WHERE definition.release_id=derivation.release_id AND definition.operation_id=producer.operation_id
@@ -167,6 +233,15 @@ LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $
 DECLARE consumer ops.data_request;
 BEGIN
  SELECT * INTO STRICT consumer FROM ops.data_request WHERE id=p_request AND project_id=p_project;
+ RETURN ops.ddo_pdf_capture_source_for_request(consumer,p_project,p_product,p_derivation);
+END $$;
+
+CREATE OR REPLACE FUNCTION ops.ddo_pdf_capture_source_for_request(consumer ops.data_request,p_project text,
+ p_product text,p_derivation text) RETURNS jsonb
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
+BEGIN
+ IF consumer.project_id IS DISTINCT FROM p_project THEN
+ RAISE EXCEPTION 'PDF source consumer changes its qualified project' USING ERRCODE='23514'; END IF;
  PERFORM ops.ddo_authorize_request(consumer);
  IF NOT EXISTS(SELECT FROM jsonb_array_elements(consumer.binding->'inputs') selected
  WHERE selected->>'product_id'=p_product AND selected->>'member_id' IS NULL
@@ -200,8 +275,9 @@ BEGIN
  SELECT der.* INTO STRICT derivation FROM ops.data_derivation der
  JOIN ops.data_derivation_output output ON output.derivation_id=der.id
  WHERE der.id=p_derivation AND output.product_id=p_product AND output.member_id IS NULL;
- SELECT * INTO STRICT producer FROM ops.data_request WHERE id=derivation.request_id
- AND project_id=p_project AND (p_source IS NULL OR original_source=p_source);
+ producer:=ops.ddo_pdf_producing_request(derivation.id);
+ IF producer.project_id IS DISTINCT FROM p_project OR (p_source IS NOT NULL AND producer.original_source IS DISTINCT FROM p_source) THEN
+ RAISE EXCEPTION 'observation producer is outside exact qualified selected source' USING ERRCODE='23514'; END IF;
  PERFORM ops.ddo_authorize_request(producer);
  IF NOT EXISTS(SELECT FROM sem.data_operation_definition definition
  WHERE definition.release_id=derivation.release_id AND definition.operation_id=producer.operation_id
@@ -216,7 +292,9 @@ BEGIN
  IF jsonb_typeof(receipts) IS DISTINCT FROM 'array' OR jsonb_array_length(receipts)<>1 THEN
  RAISE EXCEPTION 'selected observations lack one actual native retention receipt' USING ERRCODE='23514'; END IF;
  receipt:=receipts->0;
- expected:=ops.pdf_observation_projection(receipt,intent.producer_task_id,intent.producer_attempt,intent.producer_holder);
+ IF receipt->>'runtime_id' IS DISTINCT FROM intent.runtime_id THEN
+ RAISE EXCEPTION 'selected observation receipt changes its original producing runtime' USING ERRCODE='23514'; END IF;
+ expected:=ops.pdf_observation_projection_for_request(receipt,intent.producer_task_id,intent.producer_attempt,intent.producer_holder,producer);
  IF data.ddo_json(product.canonical_body) IS DISTINCT FROM expected
  OR expected->>'document' IS DISTINCT FROM producer.original_source THEN
  RAISE EXCEPTION 'selected observation meaning differs from native retained evidence' USING ERRCODE='23514'; END IF;
@@ -239,11 +317,11 @@ BEGIN
  RAISE EXCEPTION 'observations are outside exact selected computational support' USING ERRCODE='23514'; END IF;
  receipt:=ops.ddo_pdf_observation_derivation_receipt(p_project,p_product,p_derivation,consumer.original_source);
  SELECT * INTO STRICT derivation FROM ops.data_derivation WHERE id=p_derivation;
- SELECT * INTO STRICT producer FROM ops.data_request WHERE id=derivation.request_id;
+ producer:=ops.ddo_pdf_producing_request(derivation.id);
  SELECT value INTO STRICT raw_capture FROM jsonb_array_elements(producer.binding->'inputs') WHERE value->>'role'='capture';
- PERFORM ops.ddo_pdf_capture_source(producer.id,p_project,raw_capture->>'product_id',raw_capture->>'support_derivation_id');
+ PERFORM ops.ddo_pdf_capture_source_for_request(producer,p_project,raw_capture->>'product_id',raw_capture->>'support_derivation_id');
  IF NOT EXISTS(SELECT FROM ops.data_derivation raw_derivation JOIN ops.data_request raw_request ON raw_request.id=raw_derivation.request_id
- JOIN sem.data_operation_definition raw_definition ON raw_definition.release_id=raw_request.release_id AND raw_definition.operation_id=raw_request.operation_id
+ JOIN sem.data_operation_definition raw_definition ON raw_definition.release_id=raw_derivation.release_id AND raw_definition.operation_id=raw_request.operation_id
  WHERE raw_derivation.id=raw_capture->>'support_derivation_id'
  AND raw_definition.support_contract->'effects'->0->>'name'='publish_pdf_capture') THEN
  RAISE EXCEPTION 'recognition input is not the exact qualified raw capture kind' USING ERRCODE='23514'; END IF;
@@ -264,5 +342,5 @@ BEGIN
  AND candidate.project_id=p_project AND candidate.original_source=consumer.original_source
  AND ops.ddo_support_valid(lineage.id)) THEN
  RAISE EXCEPTION 'observation raw capture differs from qualified selected source lineage' USING ERRCODE='23514'; END IF;
- RETURN receipt;
+ RETURN jsonb_build_object('receipt',receipt,'value',(SELECT data.ddo_json(product.canonical_body) FROM kb.data_product product WHERE product.id=p_product));
 END $$;

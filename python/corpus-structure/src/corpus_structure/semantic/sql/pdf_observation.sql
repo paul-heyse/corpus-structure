@@ -27,7 +27,7 @@ BEGIN
  RETURN profile;
 END $profile$;
 
-CREATE OR REPLACE FUNCTION ops.pdf_observation_projection(p_receipt jsonb,p_task bigint,p_attempt bigint,p_holder text)
+CREATE OR REPLACE FUNCTION ops.pdf_observation_projection_for_request(p_receipt jsonb,p_task bigint,p_attempt bigint,p_holder text,p_request ops.data_request)
 RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $projection$
 DECLARE job ops.task; request ops.data_request; definition sem.data_operation_definition;
  context record; profile jsonb; selected jsonb; capture jsonb; page jsonb; request_ref jsonb;
@@ -40,11 +40,17 @@ BEGIN
  PERFORM ops.ddo_fields(p_receipt,ARRAY['version','request_id','generation','task_id','attempt','holder','runtime_id','source_digest','recipe_digest','pages']);
  SELECT * INTO STRICT job FROM ops.task WHERE id=p_task;
  SELECT * INTO STRICT context FROM ops.pdf_task_context(p_task);
- SELECT * INTO STRICT request FROM ops.data_request WHERE id=context.request_id;
+ request:=p_request;
+ IF (request.id,request.generation,request.release_id) IS DISTINCT FROM
+ (context.request_id,context.generation,context.release_id)
+ OR request.project_id IS DISTINCT FROM context.project_id
+ OR request.original_source IS DISTINCT FROM (SELECT document.key FROM kb.document document WHERE document.id=context.document_id) THEN
+ RAISE EXCEPTION 'observation projection changes its actual task request basis' USING ERRCODE='23514'; END IF;
  PERFORM ops.ddo_authorize_request(request);
  SELECT * INTO STRICT definition FROM sem.data_operation_definition
  WHERE release_id=context.release_id AND operation_id=request.operation_id;
  IF NOT coalesce(ops.ddo_pdf_command_eligible(definition),false)
+ OR request.recipe IS DISTINCT FROM definition.recipe
  OR definition.support_contract->'effects'->0->>'name' IS DISTINCT FROM 'retain_pdf_observations'
  OR p_receipt->>'version' IS DISTINCT FROM 'pdf-observation-execution-1'
  OR p_receipt->>'request_id' IS DISTINCT FROM context.request_id
@@ -61,7 +67,7 @@ BEGIN
  IF p_receipt->>'recipe_digest' IS DISTINCT FROM profile->>'base_recipe_digest' THEN
  RAISE EXCEPTION 'observation receipt changes configured recognition recipe' USING ERRCODE='23514'; END IF;
  SELECT value INTO STRICT selected FROM jsonb_array_elements(request.binding->'inputs') WHERE value->>'role'='capture';
- capture:=ops.ddo_pdf_capture_source(request.id,request.project_id,selected->>'product_id',selected->>'support_derivation_id')->'publication';
+ capture:=ops.ddo_pdf_capture_source_for_request(request,request.project_id,selected->>'product_id',selected->>'support_derivation_id')->'publication';
  requested:=data.ddo_json(data.ddo_field(request.binding->'parameters','parameters'))->'pages';
  IF requested IS NULL OR jsonb_typeof(requested)<>'array' THEN
  RAISE EXCEPTION 'observation request lacks its exact physical page selection' USING ERRCODE='23514'; END IF;
@@ -157,6 +163,18 @@ BEGIN
  IF page_groups IS DISTINCT FROM requested THEN
  RAISE EXCEPTION 'observation reports do not cover the exact requested page inventory' USING ERRCODE='23514'; END IF;
  RETURN jsonb_build_object('document',request.original_source,'source_digest',context.source_digest,'recipe_digest',p_receipt->'recipe_digest','pages',pages);
+END $projection$;
+
+CREATE OR REPLACE FUNCTION ops.pdf_observation_projection(p_receipt jsonb,p_task bigint,p_attempt bigint,p_holder text)
+RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $projection$
+DECLARE job ops.task; request ops.data_request;
+BEGIN
+ SELECT * INTO STRICT job FROM ops.task WHERE id=p_task;
+ SELECT * INTO STRICT request FROM ops.data_request WHERE id=job.data_request_id;
+ IF request.live_task_id IS DISTINCT FROM p_task OR request.generation IS DISTINCT FROM job.data_generation
+ OR request.release_id IS DISTINCT FROM job.release_id THEN
+ RAISE EXCEPTION 'active observation projection requires its current task request basis' USING ERRCODE='23514'; END IF;
+ RETURN ops.pdf_observation_projection_for_request(p_receipt,p_task,p_attempt,p_holder,request);
 END $projection$;
 
 CREATE OR REPLACE FUNCTION ops.publish_pdf_observation(p_task bigint,p_attempt bigint,p_holder text,p_runtime text,p_contract text,p_payload bytea,p_artifacts bytea[]) RETURNS text

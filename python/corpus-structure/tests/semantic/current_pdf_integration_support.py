@@ -189,6 +189,27 @@ class CurrentPdfIntegration:
         return self.kernel.purpose("read")
 
 
+def remap_current_integration(case, policy):
+    """Admit and execute a real policy-only consumer of this actual source."""
+    from semantic.current_pdf_source_support import admit_current_target
+
+    kernel = admit_current_target(case,
+        current_pdf_recipe(case.directory, integration_policy=policy),
+        case.directory / "policy-consumer")
+    request = SourceRunRequest(project_id=case.original.project_id,
+        release_id=kernel.prepared.release_id, runtime_id=kernel.runtime,
+        domain="toy", workflow="capture", selection=WholeDocument(),
+        documents=(case.original.document_key,), pdf_mode="integrated", recognition_pages=(1,),
+        targets=("source.pdf_integrated_views/discovery",))
+    with open_runtime_engine(case.settings, "current-policy-remap", purpose="write", max_size=6) as engine:
+        result = run_source_operation(engine, request,
+            MethodSettings(data_dir=case.directory, model_cache=case.directory), source_root=ROOT,
+            admission_engine=kernel.purpose("admit"))
+    with case.reader().begin() as connection:
+        snapshot = read_data_demand(connection, result.demand_id, view="products")
+    return kernel, snapshot
+
+
 @contextmanager
 def current_integration_journey(
     scenario_seeds,
