@@ -39,57 +39,10 @@ from corpus_structure.semantic.structural_products import (
     StructuralValue,
 )
 
-from .scoped_relations import SourceWorkBinding
 
 
-class ArtifactIdentityConfig(StructuralValue):
-    characterization_layers: tuple[dict, ...] = ()
-    inputs: StructuralInput | None = None
-    structural_input_digest: str | None = None
-    work_bindings: tuple[SourceWorkBinding, ...] = ()
-    policy: ArtifactScoringPolicy | None = None
-    title_threshold: float = Field(default=70, ge=0, le=100)
-    external_nomination_refs: tuple[RetainedContributionRef, ...] = ()
-    exclusions: tuple[tuple[str, str], ...] = ()
-    known_anchor_ids: tuple[str, ...] = ()
-
-    @model_validator(mode="after")
-    def closure(self):
-        if self.inputs is None:
-            if (
-                self.structural_input_digest
-                or self.policy
-                or self.work_bindings
-                or self.external_nomination_refs
-                or self.exclusions
-                or self.known_anchor_ids
-            ):
-                raise ValueError("partial artifact identity config")
-        elif self.structural_input_digest != self.inputs.identity or self.policy is None:
-            raise ValueError("artifact identity requires exact sources and declared model policy")
-        nomination_ids = {r.contribution_id for r in self.external_nomination_refs}
-        if len(nomination_ids) != len(self.external_nomination_refs) or (
-            self.inputs is not None and not nomination_ids <= set(self.inputs.dependencies)
-        ):
-            raise ValueError("external nomination requires distinct declared dependencies")
-        if len(set(self.known_anchor_ids)) != len(self.known_anchor_ids):
-            raise ValueError("known artifact anchors repeat")
-        if len({b.native_content_digest for b in self.work_bindings}) != len(self.work_bindings):
-            raise ValueError("source-work mappings repeat")
-        return self
 
 
-def discover_identity_records(frame, inputs, source_ref, source_work, *, primary_layers):
-    from .scoped_relations import discover_relations
-    from .witnessed_source_links import navigation_index
-
-    index = navigation_index(
-        primary_layers, frame.projection_digest, source_view_id=frame.source_view_id
-    ).require()
-    rows = discover_relations(frame, source_work=source_work, primary_layers=primary_layers)[
-        "contributions"
-    ]
-    return identity_records(frame, inputs, source_ref, rows, index, record_type=ArtifactRecord)
 
 
 def identity_records[Record: (ArtifactRecord, DeclaredArtifactRecord)](
@@ -220,17 +173,6 @@ def artifact_cohort[Record: (ArtifactRecord, DeclaredArtifactRecord)](
     return tuple(cohort.values())
 
 
-def artifact_declared_relationships(records, inputs, frames, *, primary_layers):
-    """Resolve explicit bounded artifact declarations without inferring lineage from labels."""
-    from .witnessed_source_links import navigation_index
-
-    indexes = {
-        source: navigation_index(
-            primary_layers, frame.projection_digest, source_view_id=frame.source_view_id
-        ).require()
-        for source, frame in frames.items()
-    }
-    return declared_artifact_relationships(records, inputs, indexes)
 
 
 def declared_artifact_relationships(
@@ -354,25 +296,6 @@ def declared_artifact_relationships(
     return tuple(dict.fromkeys(output))
 
 
-def retained_artifact_nomination(
-    inputs, records, reference, payload, *, primary_layers=None
-) -> ArtifactNomination:
-    """Bind one genuine retained reference relationship to its exact cohort endpoints."""
-    from .witnessed_source_links import navigation_index
-
-    return artifact_nomination(
-        inputs,
-        records,
-        reference,
-        payload["contributions"],
-        sources={view["source_view_id"]: view for view in payload["sources"]},
-        source_key=lambda pin: pin["source_view_id"],
-        navigation_for=lambda pin: navigation_index(
-            primary_layers, pin["projection_digest"], source_view_id=pin["source_view_id"]
-        ),
-        origin_fields=lambda pin: {"origin_source_view_id": pin["source_view_id"]},
-        nomination_type=ArtifactNomination,
-    )
 
 
 def artifact_nomination[Nomination: (ArtifactNomination, DeclaredArtifactNomination)](
@@ -500,83 +423,3 @@ SEALED_ARTIFACT_NAME = "structure.artifact_identity"
 SEALED_ARTIFACT_VERSION = "5"
 
 
-def project_retained_artifact_identity(
-    cfg, *, frames, primary_layers, nomination_inputs=(), check_active
-):
-    """Replay a sealed artifact report from explicit retained inputs, without execution ownership."""
-    if cfg.inputs is None or cfg.policy is None:
-        raise ValueError("artifact identity inputs absent")
-    bindings = {b.native_content_digest: b for b in cfg.work_bindings}
-    if set(frames) != {
-        source.identity for source in cfg.inputs.sources if source.native_content_digest in bindings
-    }:
-        raise ValueError("retained artifact frames differ from the exact bound source cohort")
-    records = []
-    unbound = []
-    provenance = []
-    for source in cfg.inputs.sources:
-        check_active()
-        binding = bindings.get(source.native_content_digest)
-        if binding is None:
-            unbound.append(source.source_view_id)
-            continue
-        frame = frames[source.identity]
-        records.extend(
-            discover_identity_records(
-                frame,
-                cfg.inputs,
-                source.identity,
-                binding.source_work,
-                primary_layers=primary_layers,
-            )
-        )
-        provenance.append(binding.provenance)
-    selected = artifact_cohort(records)
-    expected = tuple(sorted(cfg.external_nomination_refs, key=lambda ref: ref.contribution_id))
-    if tuple(reference for reference, _ in nomination_inputs) != expected:
-        raise ValueError(
-            "retained artifact nominations differ from the exact configured population"
-        )
-    nominations = []
-    for reference, payload in nomination_inputs:
-        check_active()
-        nominations.append(
-            retained_artifact_nomination(
-                cfg.inputs, selected, reference, payload, primary_layers=primary_layers
-            )
-        )
-    alias, _ = native_alias_candidates(selected)
-    explicit_references = artifact_reference_resolutions(selected)
-    declarations = artifact_declared_relationships(
-        selected, cfg.inputs, frames, primary_layers=primary_layers
-    )
-    pairs = pair_candidates(
-        selected,
-        external_nominations=tuple(nominations),
-        declared_relationships=declarations or (),
-        explicit_references=explicit_references,
-        native_alias_pairs=alias,
-        title_threshold=cfg.title_threshold,
-        exclusions=cfg.exclusions,
-        known_anchor_ids=cfg.known_anchor_ids,
-    )
-    scored = score_pairs(selected, pairs, cfg.policy)
-    report = StructuralProductReport(
-        kind="artifact_identity",
-        inputs=cfg.inputs,
-        artifact_identity=ArtifactIdentityProduct(
-            protocol="artifact-identity-5",
-            records=selected,
-            pairs=scored,
-            native_alias_pairs=tuple(ArtifactPairKey(left=a, right=b) for a, b in alias),
-            external_nominations=tuple(nominations),
-            explicit_references=explicit_references,
-            declared_relationships=declarations,
-            route_counts=artifact_route_counts(scored),
-            policy=cfg.policy,
-            source_mapping_provenance=tuple(sorted(set(provenance))),
-            unbound_source_ids=tuple(unbound),
-            known_anchor_ids=tuple(sorted(cfg.known_anchor_ids)),
-        ),
-    )
-    return report

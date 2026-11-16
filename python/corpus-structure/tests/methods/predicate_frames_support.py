@@ -20,7 +20,7 @@ def retained(
     text,
     profile,
     *,
-    block_id="paragraph:3",
+    block_id="#/paragraphs/3",
     kind: Literal["paragraph", "list_item", "table_cell", "caption"] = "paragraph",
     pieces=None,
 ):
@@ -38,10 +38,13 @@ def retained(
     spellings = {}
     for piece in pieces:
         spellings[piece.item_ref] = spellings.get(piece.item_ref, "") + complete[piece.start:piece.end]
+    inline = block_id + "/inline"
+    items = [dict(self_ref=block_id,label=kind,children=[{"$ref":inline}]),
+        dict(self_ref=inline,label="inline",parent={"$ref":block_id},children=[{"$ref":pointer} for pointer in spellings]),
+        *(dict(self_ref=pointer,label="text",text=literal,orig=literal,parent={"$ref":inline}) for pointer,literal in spellings.items())]
     _source, frame, _context = selected_source(complete,
         pieces=[dict(kind="synthetic_separator",start=0,end=len(_PREFIX)), *(p.to_wire() for p in pieces)],
-        items=[dict(self_ref=pointer,label=kind if kind != "paragraph" else "text",text=literal,orig=literal)
-            for pointer,literal in spellings.items()])
+        items=items)
     request = AnnotationInput(frame.pin, block_id, kind, block, layout, pieces)
     (product,) = annotate((request,), profile)
     primary = source_primary_products(frame, (product,), profile=profile, native_profile=native_profile)

@@ -18,12 +18,6 @@ from .predicate_frames import (
     PredicateFrame as PredicateFrame,
 )
 from .predicate_frames import (
-    frames_from_annotation as frames_from_annotation,
-)
-from .predicate_frames import (
-    predicate_frame_result as predicate_frame_result,
-)
-from .predicate_frames import (
     predicate_frames as predicate_frames,
 )
 

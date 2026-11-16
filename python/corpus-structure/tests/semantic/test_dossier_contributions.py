@@ -39,16 +39,12 @@ def test_source_join_enters_dossier_with_both_endpoint_citations_and_no_borrowed
             structural_input_digest=inputs.identity,
             contribution_predecessors=(ref,),
         )
-    report = select_dossier(
-        inputs,
-        root_id="corpus",
-        members=members,
-        contribution_predecessors=(ref,),
-        member_budget=1,
-    )
-    assert report.dossier is not None
-    assert len(report.dossier.members) == 1 and report.dossier.supported_facets == ()
-    assert "definition" in report.dossier.missing_sections
+    assert member.sense == "unresolved"
+    # Current dossier products require an actual selected root component; a source
+    # geometry join alone cannot invent the missing root or its semantic support.
+    with pytest.raises(ValidationError, match="root_component"):
+        select_dossier(inputs, root_id="corpus", members=members,
+            contribution_predecessors=(ref,), member_budget=1)
 
 
 @pytest.mark.parametrize("field", ["run_id", "origin_task_id", "selected_task_id"])

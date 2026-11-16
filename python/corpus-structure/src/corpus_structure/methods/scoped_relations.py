@@ -30,69 +30,11 @@ from corpus_structure.semantic.structural_products import (
 )
 
 
-class SourceWorkBinding(StructuralValue):
-    native_content_digest: str = Field(pattern="^[0-9a-f]{64}$")
-    source_work: str = Field(min_length=1)
-    provenance: str = Field(min_length=1)
 
 
 PROCEDURE_OPERATION_VERSION = "2"
 
 
-class ScopedRelationsConfig(StructuralValue):
-    characterization_layers: tuple[dict[str, Any], ...] = ()
-    inputs: StructuralInput | None = None
-    structural_input_digest: str | None = None
-    work_bindings: tuple[SourceWorkBinding, ...] = ()
-    interpretation_mode: Literal["feasibility", "independent", "coupled"] = "coupled"
-    interpretation_weight_scale: float = Field(default=1.0, strict=True)
-    sentences: SentenceConfig = Field(default_factory=lambda: SentenceConfig(exclude=("ner",)))
-    formula_seconds: float = Field(default=0.5, gt=0)
-    max_formula_chars: int = Field(default=2048, gt=0, strict=True)
-    classification_refs: tuple[RetainedStructuralRef, ...] = ()
-
-    ordered_formula_witness: StructuralPassage | None = Field(
-        default=None, exclude_if=lambda value: value is None
-    )
-
-    @model_validator(mode="after")
-    def bound_inputs(self) -> Self:
-        if self.interpretation_weight_scale not in (0.5, 1.0, 2.0):
-            raise ValueError("table interpretation weight scale must be 0.5, 1, or 2")
-        if self.inputs is None:
-            if self.structural_input_digest is not None or self.classification_refs:
-                raise ValueError("original annotation inputs and digest must be supplied together")
-        elif self.structural_input_digest != self.inputs.identity:
-            raise ValueError(
-                "original annotation inputs require their exact structural input digest"
-            )
-        elif len(set(self.classification_refs)) != len(self.classification_refs) or any(
-            ref.product_id not in self.inputs.dependencies for ref in self.classification_refs
-        ):
-            raise ValueError("classification requires distinct retained report dependencies")
-        return self
-
-    @model_validator(mode="after")
-    def bound_ordered_formula_witness(self) -> Self:
-        witness = self.ordered_formula_witness
-        if witness is not None:
-            if (
-                self.inputs is None
-                or len(self.inputs.sources) != 1
-                or len(self.inputs.passages) != 1
-            ):
-                raise ValueError("ordered formula witness requires one original selected passage")
-            (query,) = self.inputs.passages
-            if (
-                (witness.source_ref, witness.scope, witness.effective_version)
-                != (query.source_ref, query.scope, query.effective_version)
-                or witness.passage_id == query.passage_id
-                or not witness.start <= query.start < query.end <= witness.end
-                or (witness.start, witness.end) == (query.start, query.end)
-                or witness.end - witness.start > 4096
-            ):
-                raise ValueError("ordered formula witness must contain the same exact query scope")
-        return self
 
 
 SCOPED_VERSION = "17"
@@ -248,83 +190,6 @@ class ScalarProcedureReading(TypedDict):
     block: NotRequired[str]
 
 
-def _scalar_procedure_readings(proposals, passages) -> Iterable[ScalarProcedureReading]:
-    """Project compatible one-span procedure roles for existing structural readers."""
-    for annotation, result in proposals:
-        predicates = {
-            p.predicate.tokens[0]: p.predicate for p in result.frames if p.predicate.tokens
-        }
-        for frame in result.frames:
-            if frame.reading not in {"active", "passive"} or len(frame.predicate.extents) != 1:
-                continue
-            (action,) = frame.predicate.extents
-            scopes = (
-                ((annotation.block_start, annotation.block_end),)
-                if passages is None
-                else tuple((p.start, p.end) for p in passages)
-            )
-            local = tuple((a, b) for a, b in scopes if a <= action[0] < action[1] <= b)
-            if not local:
-                continue
-
-            def exact(span, local=local):
-                if len(span.extents) == 1:
-                    ((start, end),) = span.extents
-                    if any(a <= start < end <= b for a, b in local):
-                        return ((start, end),)
-                return ()
-
-            roles = {
-                name: tuple(
-                    extent
-                    for role in frame.roles
-                    if role.name == name and role.status == "located"
-                    for extent in exact(role.span)
-                )
-                for name in ("actor", "object")
-            }
-            qualifiers = {
-                field: tuple(
-                    extent
-                    for cue in frame.cues
-                    if cue.kind == kind and cue.status == "located"
-                    for extent in exact(cue.span)
-                )
-                for field, kind in (
-                    ("modality", "modality"),
-                    ("conditions", "condition"),
-                    ("exceptions", "exception"),
-                )
-            }
-            orders = []
-            for cue in frame.cues:
-                if (
-                    cue.kind != "order"
-                    or cue.status != "located"
-                    or cue.component not in predicates
-                ):
-                    continue
-                subordinate = exact(predicates[cue.component])
-                if subordinate:
-                    if cue.variant == "before":
-                        orders.append((action, subordinate[0]))
-                    elif cue.variant == "after":
-                        orders.append((subordinate[0], action))
-            yield dict(
-                action=action,
-                actor=roles["actor"],
-                object=roles["object"],
-                modality=qualifiers["modality"],
-                conditions=qualifiers["conditions"],
-                exceptions=qualifiers["exceptions"],
-                orders=tuple(orders),
-                voice=frame.voice,
-                polarity=frame.polarity,
-                behavior=frame.interpretation,
-                clause_role=frame.reading,
-                dependency="annotation:" + annotation.dependency_digest,
-                reading_key=f"{annotation.block_id}:{frame.variant}:{frame.predicate.tokens}",
-            )
 
 
 def retained_action_extent(contributions, link):
@@ -561,18 +426,13 @@ def discover_relations(
     frame,
     *,
     source_work=None,
-    annotations=(),
-    primary_layers=None,
     annotation_errors=(),
-    annotation_origin_task_id=None,
     passages=None,
     formula_seconds=0.5,
     max_formula_chars=2048,
-    predicate_version="6",
     inline_equations_enabled=False,
     witnessed_links_enabled=False,
     ordered_formula_witness=None,
-    named_link_version="4",
     qualifier_preflight=None,
     navigation=None,
     formal_layers=None,
@@ -586,101 +446,59 @@ def discover_relations(
     Geometry determines candidates/containment, never independent semantic support. No
     materialized full-corpus graph or source-independent role reconstruction is used.
     """
-    if predicate_version != "6" or named_link_version != "4":
-        raise ValueError("current scoped relations require primary predicate6 and navigation4")
     from corpus_structure.semantic.constructions.navigation import NativeNavigationIndex
     from corpus_structure.semantic.declared_record_sources import DeclaredNativeFrameSource
     from corpus_structure.semantic.source_contexts import PreparedNativeSources, source_slice
 
-    from .witnessed_source_links import navigation_index, symbol_declarations
+    from .witnessed_source_links import symbol_declarations
 
-    declared = isinstance(frame, DeclaredNativeFrameSource)
+    if not isinstance(frame, DeclaredNativeFrameSource):
+        raise TypeError("scoped relations require the actual declared native source")
     native = json.loads(frame.native_context)
-    if declared:
-        if (
-            not isinstance(navigation, NativeNavigationIndex)
-            or formal_layers is None
-            or retained_predicates is None
-        ):
-            raise ValueError(
-                "declared scoped relations require actual navigation, formal and retained predicate inputs"
-            )
-        if annotations or annotation_origin_task_id is not None:
-            raise ValueError(
-                "declared scoped relations cannot use task-addressed annotation custody"
-            )
-        if not {"source_predicate_frames", "source_predicate_interpretation"} <= {
-            operation["question"] for operation in retained_predicate_operations
-        }:
-            raise ValueError(
-                "declared scoped relations require actual retained predicate inspection outcomes"
-            )
-        primary_layers = formal_layers
-        navigation.require()
-        legacy_view_id = None
-    else:
-        primary_layers = primary_layers or {
-            pin: report
-            for annotation in annotations
-            for pin, report in getattr(annotation, "primary_layers", {}).items()
-        }
-        navigation = (
-            navigation
-            if navigation is not None
-            else navigation_index(
-                primary_layers, frame.projection_digest, source_view_id=frame.source_view_id
-            )
+    if (
+        not isinstance(navigation, NativeNavigationIndex)
+        or formal_layers is None
+        or retained_predicates is None
+    ):
+        raise ValueError(
+            "declared scoped relations require actual navigation, formal and retained predicate inputs"
         )
-        navigation.require()
-        legacy_view_id = frame.source_view_id
+    if not {"source_predicate_frames", "source_predicate_interpretation"} <= {
+        operation["question"] for operation in retained_predicate_operations
+    }:
+        raise ValueError(
+            "declared scoped relations require actual retained predicate inspection outcomes"
+        )
+    navigation.require()
     if not frame.text:
         raise ValueError("structural joins require a nonempty source projection")
     source_pieces = tuple(
         piece
         for piece in native["pieces"]
-        if not declared
-        or any(a <= piece["start"] < piece["end"] <= b for a, b in frame.selected_ranges)
+        if (any(a <= piece["start"] < piece["end"] <= b for a, b in frame.selected_ranges))
     )
-    if declared:
-        context = NativeSourceContext(
-            frame,
-            (),
-            (source_slice(frame, 0, len(frame.text)),),
-            "native structural composition",
-            "scoped-source-joins-1",
-            "selected source",
-            max_chars=max(1, len(frame.text)),
-            max_pieces=max(1, len(source_pieces)),
-            max_sources=1,
-            version=2,
-            preparation=PreparedNativeSources((frame,), max_sources=1),
-        )
-    else:
-        context = NativeSourceContext(
-            frame,
-            (),
-            (source_slice(frame, 0, len(frame.text)),),
-            "native structural composition",
-            "scoped-source-joins-1",
-            "selected source",
-            max_chars=max(1, len(frame.text)),
-            max_pieces=max(1, len(source_pieces)),
-            preparation=PreparedNativeSources((frame,)),
-        )
+    context = NativeSourceContext(
+        frame,
+        (),
+        (source_slice(frame, 0, len(frame.text)),),
+        "native structural composition",
+        "scoped-source-joins-1",
+        "selected source",
+        max_chars=max(1, len(frame.text)),
+        max_pieces=max(1, len(source_pieces)),
+        max_sources=1,
+        version=2,
+        preparation=PreparedNativeSources((frame,), max_sources=1),
+    )
     pin = record_source_pin(frame)
     dependency = (
-        pin["source_product"]
-        if declared
-        else "native:" + str(frame.native_product.task_id)
-        if hasattr(frame, "native_product")
-        else "native:" + str(pin["native_product_task_id"])
+        (pin["source_product"])
     )
     # The unchanged geometry/artifact operation has an independent identity.
     # Artifact cohort replay also reconstructs this identity from the source.
     op = operation_identity("structure.scoped_relations", "3", pin)
     products, coordinates, participants = [], {}, {}
     formula_diagnostics = []
-    annotation_dependencies = tuple("annotation:" + a.dependency_digest for a in annotations)
     items = {item["self_ref"]: item for item in native["items"]}
     geometry = {
         pointer: _measure_table_geometry(node, navigation=navigation)
@@ -925,9 +743,7 @@ def discover_relations(
                     source_work,
                     dependency,
                     piece["start"],
-                    artifact_type=DeclaredSourceArtifactOccurrence
-                    if declared
-                    else SourceArtifactOccurrence,
+                    artifact_type=(DeclaredSourceArtifactOccurrence),
                 )
                 caption = node.get("label") == "caption"
                 products.append(artifact)
@@ -1142,9 +958,8 @@ def discover_relations(
                     parsed, status = captured_formula_symbols(
                         formula_text,
                         seconds=formula_seconds,
-                        primary_layers=primary_layers,
+                        primary_layers=formal_layers,
                         projection=frame.projection_digest,
-                        source_view_id=legacy_view_id,
                         source_start=previous["start"],
                         native_pointer=previous["item_ref"],
                     )
@@ -1199,9 +1014,8 @@ def discover_relations(
                     parsed, status = captured_formula_symbols(
                         formula_text,
                         seconds=formula_seconds,
-                        primary_layers=primary_layers,
+                        primary_layers=formal_layers,
                         projection=frame.projection_digest,
-                        source_view_id=legacy_view_id,
                         source_start=following["start"],
                         native_pointer=following["item_ref"],
                     )
@@ -1246,11 +1060,6 @@ def discover_relations(
                                 "matched_cue",
                                 primary_node=declaration_match.primary_node,
                             )
-    from corpus_structure.ingest.annotations import AnnotationProduct
-
-    from .predicate_contributions import predicate_results, publish_predicate_evidence
-    from .structural_roles import procedure_frames
-
     procedure_op = operation_identity(
         "source_procedure_roles",
         PROCEDURE_OPERATION_VERSION,
@@ -1258,40 +1067,13 @@ def discover_relations(
         None if passages is None else tuple(p.passage_id for p in passages),
     )
     readings: list[ScalarProcedureReading]
-    if declared:
-        assert retained_predicates is not None
-        products.extend(retained_predicates)
-        for coordinate in retained_coordinate_texts:
-            coordinates[
-                canonical_bytes({key: value for key, value in coordinate.items() if key != "text"})
-            ] = coordinate
-        predicate_proposals = ()
-        readings = list(retained_procedure_readings(retained_predicates, passages))
-    else:
-        predicate_proposals = predicate_results(frame, annotations, source_pieces, items)
-        readings = [
-            *(
-                ScalarProcedureReading(
-                    action=base["action"],
-                    actor=base["actor"],
-                    object=base["object"],
-                    modality=base["modality"],
-                    conditions=base["conditions"],
-                    exceptions=base["exceptions"],
-                    orders=base["orders"],
-                    voice=base["voice"],
-                    polarity=base["polarity"],
-                    behavior=base["behavior"],
-                    clause_role=base["clause_role"],
-                    dependency="annotation:" + base["dependency"],
-                )
-                for base in procedure_frames(
-                    frame.text,
-                    tuple(a for a in annotations if not isinstance(a, AnnotationProduct)),
-                )
-            ),
-            *_scalar_procedure_readings(predicate_proposals, passages),
-        ]
+    assert retained_predicates is not None
+    products.extend(retained_predicates)
+    for coordinate in retained_coordinate_texts:
+        coordinates[
+            canonical_bytes({key: value for key, value in coordinate.items() if key != "text"})
+        ] = coordinate
+    readings = list(retained_procedure_readings(retained_predicates, passages))
     for reading in readings:
 
         def located(extent, role, reading=reading):
@@ -1315,12 +1097,10 @@ def discover_relations(
                     behavior=action_reading["behavior"],
                     clause_role=action_reading["clause_role"],
                     **(
-                        {
+                        ({
                             "predicate_token": action_reading["predicate_token"],
                             "block": action_reading["block"],
-                        }
-                        if declared
-                        else {}
+                        })
                     ),
                     role_states={
                         name: "located_linguistic_proposal"
@@ -1405,15 +1185,10 @@ def discover_relations(
                 )
     # Diagnostics are retained independently of contribution count or solver success.
     available = (
-        all(
+        (all(
             operation["outcome"] in {"succeeded", "empty"}
             for operation in retained_predicate_operations
-        )
-        if declared
-        else any(
-            {"DEP", "POS"} <= {x.attribute for x in a.availability if x.status == "complete"}
-            for a in annotations
-        )
+        ))
     )
     emitted = sum(p["operation_key"] == procedure_op for p in products)
     extra_operations = (
@@ -1426,7 +1201,7 @@ def discover_relations(
             else (
                 ("succeeded" if emitted else "empty")
                 if available
-                else ("unsupported" if annotations else "not_run")
+                else "not_run"
             ),
             reason=(
                 "Some retained annotation blocks failed; independently assess emitted roles."
@@ -1437,32 +1212,14 @@ def discover_relations(
                     else "No complete retained DEP/POS product; no absence is inferred."
                 )
             ),
-            inspected_count=sum(
+            inspected_count=(sum(
                 operation["inspected_count"] for operation in retained_predicate_operations
-            )
-            if declared
-            else sum(len(a.tokens) for a in annotations),
+            )),
             emitted_count=emitted,
-            computation_dependencies=tuple(dict.fromkeys((dependency, *annotation_dependencies))),
+            computation_dependencies=tuple(dict.fromkeys((dependency,))),
         ),
     )
-    if declared:
-        predicate_operations = retained_predicate_operations
-    else:
-        predicate_operations = publish_predicate_evidence(
-            frame,
-            context,
-            pin,
-            dependency,
-            predicate_proposals,
-            annotation_errors,
-            annotation_origin_task_id,
-            passages,
-            products,
-            coordinates,
-            version=predicate_version,
-            qualifier_preflight=qualifier_preflight,
-        )
+    predicate_operations = retained_predicate_operations
     inline_operations = ()
     witnessed_operations = ()
     formula_uses = []
@@ -1488,9 +1245,8 @@ def discover_relations(
                 items,
                 selection,
                 max_chars=max_formula_chars,
-                primary_layers=primary_layers,
+                primary_layers=formal_layers,
                 projection=frame.projection_digest,
-                source_view_id=legacy_view_id,
             )
         )
         if equations:
@@ -1504,9 +1260,8 @@ def discover_relations(
                     frame.text,
                     equation,
                     seconds=formula_seconds,
-                    primary_layers=primary_layers,
+                    primary_layers=formal_layers,
                     projection=frame.projection_digest,
-                    source_view_id=legacy_view_id,
                 )
                 formula_diagnostics.append(equation.diagnostic(outcome))
                 unavailable |= outcome != "parsed"
@@ -1572,9 +1327,8 @@ def discover_relations(
                 {**{item["self_ref"]: item for item in native["ancestors"]}, **items},
                 ordered_formula_witness,
                 query,
-                primary_layers=primary_layers,
+                primary_layers=formal_layers,
                 projection=frame.projection_digest,
-                source_view_id=legacy_view_id,
                 navigation=navigation,
             )
             witness_version = ORDERED_VERSION
@@ -1586,9 +1340,8 @@ def discover_relations(
                     source_pieces,
                     items,
                     passages,
-                    primary_layers=primary_layers,
+                    primary_layers=formal_layers,
                     projection=frame.projection_digest,
-                    source_view_id=legacy_view_id,
                     navigation=navigation,
                 )
             )
@@ -1706,7 +1459,7 @@ def discover_relations(
                 inheritance_outcome = "limited" if annotation_errors else "succeeded"
             else:
                 inheritance_outcome = (
-                    "unsupported" if annotation_errors or not annotations else "empty"
+                    "unsupported" if annotation_errors or not available else "empty"
                 )
             witnessed_operations += (
                 dict(
@@ -1717,7 +1470,7 @@ def discover_relations(
                     inspected_count=inspected,
                     emitted_count=len(inherited),
                     computation_dependencies=tuple(
-                        dict.fromkeys((dependency, *annotation_dependencies))
+                        dict.fromkeys((dependency,))
                     ),
                     **(
                         {"reason": "Some selected qualifier evidence is unavailable."}
@@ -1731,23 +1484,16 @@ def discover_relations(
                 source_pieces,
                 items,
                 passages,
-                annotations,
                 annotation_errors=annotation_errors,
-                version=named_link_version,
-                primary_layers=primary_layers,
+                version="4",
+                primary_layers=formal_layers,
                 projection=frame.projection_digest,
-                source_view_id=legacy_view_id,
                 navigation=navigation,
             )
-            named_op = operation_identity(NAMED_QUESTION, named_link_version, pin, selection)
+            named_op = operation_identity(NAMED_QUESTION, "4", pin, selection)
             first = len(products)
             artifact_bindings = procedure_artifact_bindings(products)
             procedure_rows = {row["contribution_id"]: row for row in products}
-            procedure_annotations = {
-                "annotation:" + annotation.dependency_digest: annotation
-                for annotation in annotations
-                if isinstance(annotation, AnnotationProduct)
-            }
             for link in inspection.matches:
                 evidence = link.evidence()
                 extra = dict(
@@ -1806,12 +1552,10 @@ def discover_relations(
                     binding = procedure_artifact_endpoint(
                         procedure_rows,
                         link,
-                        None if declared else procedure_annotations[link.witness.annotation],
+                        (None),
                         artifact_deps[0],
                         **(
-                            {"verb_extent": retained_action_extent(retained_predicates, link)}
-                            if declared
-                            else {}
+                            ({"verb_extent": retained_action_extent(retained_predicates, link)})
                         ),
                     )
                     if binding is not None:
@@ -1825,7 +1569,7 @@ def discover_relations(
                             operation=named_op,
                             extra_witnesses=(subject, cue, artifact),
                             question=NAMED_QUESTION,
-                            question_version=named_link_version,
+                            question_version="4",
                             effective_version=link.witness.effective_version,
                         )
                 if link.right is None or link.target_pointer is None:
@@ -1849,7 +1593,7 @@ def discover_relations(
                     operation=named_op,
                     witness=cue,
                     question=NAMED_QUESTION,
-                    question_version=named_link_version,
+                    question_version="4",
                     effective_version=link.witness.effective_version,
                 )
             outcome = inspection.outcome()
@@ -1857,17 +1601,12 @@ def discover_relations(
                 dict(
                     operation_key=named_op,
                     question=NAMED_QUESTION,
-                    operation_version=named_link_version,
+                    operation_version="4",
                     outcome=outcome,
                     inspected_count=inspection.inspected_count,
                     emitted_count=len(products) - first,
                     computation_dependencies=tuple(
-                        dict.fromkeys((dependency, *annotation_dependencies))
-                    ),
-                    **(
-                        {"annotation_origin_task_id": annotation_origin_task_id}
-                        if annotation_origin_task_id is not None
-                        else {}
+                        dict.fromkeys((dependency,))
                     ),
                     **(
                         {"reason": "Some selected cue or target coverage remains unresolved."}
@@ -1883,9 +1622,7 @@ def discover_relations(
             {
                 **operation,
                 **(
-                    {"primary_products": tuple(reference.values() for reference in primary_product_refs)}
-                    if declared
-                    else {"primary_layers": [pin.values() for pin in primary_layers]}
+                    ({"primary_products": tuple(reference.values() for reference in primary_product_refs)})
                 ),
             }
             for operation in (
@@ -1900,14 +1637,12 @@ def discover_relations(
             operation_key=op,
             question="source_structural_relations",
             **(
-                {"primary_products": tuple(reference.values() for reference in primary_product_refs)}
-                if declared
-                else {"primary_layers": [pin.values() for pin in primary_layers]}
+                ({"primary_products": tuple(reference.values() for reference in primary_product_refs)})
             ),
             operation_version="1",
             outcome="succeeded" if any(p["operation_key"] == op for p in products) else "empty",
             inspected_count=len(source_pieces),
             emitted_count=sum(p["operation_key"] == op for p in products),
-            computation_dependencies=tuple(dict.fromkeys((dependency, *annotation_dependencies))),
+            computation_dependencies=tuple(dict.fromkeys((dependency,))),
         ),
     )

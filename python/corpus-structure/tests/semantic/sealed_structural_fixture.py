@@ -40,38 +40,3 @@ def comparison_result(reader, cfg, ref, *, check_active):
     )
 
 
-def artifact_result(reader, cfg, ref, *, check_active):
-    from corpus_structure.methods.artifact_identity import project_retained_artifact_identity
-    from corpus_structure.semantic.product_reference import ProductReference
-
-    if cfg.inputs is None or cfg.policy is None:
-        raise ValueError("artifact identity inputs absent")
-    primary = (
-        reader.characterization_layers(
-            tuple(ProductReference(**pin) for pin in cfg.characterization_layers)
-        )
-        if cfg.characterization_layers
-        else {}
-    )
-    bindings = {value.native_content_digest for value in cfg.work_bindings}
-    frames = {}
-    for source in cfg.inputs.sources:
-        check_active()
-        if source.native_content_digest in bindings:
-            frames[source.identity] = reader.structural_source_frame(cfg.inputs, source.identity)
-    retained = []
-    for reference in sorted(cfg.external_nomination_refs, key=lambda value: value.contribution_id):
-        check_active()
-        retained.append((reference, reader.retained_source_contribution(reference)))
-    report = project_retained_artifact_identity(
-        cfg,
-        frames=frames,
-        primary_layers=primary,
-        nomination_inputs=tuple(retained),
-        check_active=check_active,
-    )
-    return UnitResult(
-        ref=ref,
-        outcome=ObservationOutcome.PRODUCED,
-        structural_product=report.model_dump(mode="json"),
-    )

@@ -291,7 +291,7 @@ def test_released_identity_shapes_retain_empty_unbound_and_singleton_diagnostics
     from methods.navigation_fixture import source_primary_products
     from corpus_structure.semantic.artifact_products import native_artifact_records
     from corpus_structure.semantic.declared_structural_references import DeclaredStructuralSource
-    from corpus_structure.semantic.structural_products import DeclaredStructuralInput, StructuralPassage, DeclaredArtifactReport, DeclaredArtifactIdentityProduct
+    from corpus_structure.semantic.structural_products import DeclaredStructuralInput, StructuralPassage, DeclaredArtifactReport, DeclaredArtifactIdentityProduct, DeclaredStructuralInputPin
     from corpus_structure.semantic.refusals import SemanticRefusal
     from corpus_structure.semantic.structural_admission import structural_statement
     policy = ArtifactScoringPolicy(prior=0.1,code_m=0.9,code_u=0.01,title_m=0.8,title_u=0.05)
@@ -302,9 +302,13 @@ def test_released_identity_shapes_retain_empty_unbound_and_singleton_diagnostics
         inputs = DeclaredStructuralInput(question="Artifact source development",scope="fixture",inventory_id="literal",policy_id="artifact-candidate-1",
             sources=(reference,),passages=(StructuralPassage(passage_id="literal",source_ref=reference.identity,start=0,end=len(raw),text=raw,scope="fixture"),),dependencies=(reference.source_product,))
         records = native_artifact_records(frame,primary.source,inputs,reference.identity,"parent",primary.navigation) if bound else ()
-        product = DeclaredArtifactIdentityProduct(records=records,pairs=(),route_counts=artifact_route_counts(()),policy=policy,
+        product = DeclaredArtifactIdentityProduct(records=records,pairs=(),route_counts=artifact_route_counts(()),policy=policy,declared_relationships=(),
             source_mapping_provenance=("literal-source",) if bound else (),unbound_sources=() if bound else (frame.source_key,))
-        report = DeclaredArtifactReport(inputs=inputs,artifact_identity=product)
+        pin = DeclaredStructuralInputPin(product_id=reference.source_product,member_id=reference.source_member,
+            kind_contract=reference.kind_contract,project_id=reference.project_id,subject=reference.subject,
+            subject_definition=reference.subject_definition,original_source=reference.original_source,
+            analyzed_scope_meaning=reference.analyzed_scope_meaning,reference=reference.source)
+        report = DeclaredArtifactReport(inputs=inputs,artifact_identity=product,sources_input=(pin,))
         with pytest.raises(SemanticRefusal,match="No public structural policy"):
             structural_statement(report)
         assert DeclaredArtifactReport.model_validate_json(report.model_dump_json()) == report

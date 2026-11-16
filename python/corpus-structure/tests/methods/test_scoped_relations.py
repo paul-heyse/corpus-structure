@@ -8,10 +8,6 @@ import pytest
 
 from corpus_structure.core.method import UnitRef
 from corpus_structure.core.vocab import TaskUnitType
-from corpus_structure.methods.scoped_relations import (
-    ScopedRelationsConfig,
-    SourceWorkBinding,
-)
 from corpus_structure.semantic.observations import source_python
 from corpus_structure.semantic.structural_products import (
     DeclaredStructuralInput,

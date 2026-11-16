@@ -13,6 +13,7 @@ from corpus_structure.semantic.structural_products import (
     DossierContributionCitation,
     DossierDependency,
     DossierMember,
+    DeclaredDossierMember,
     LocatedDefinitionSpan,
 )
 
@@ -49,10 +50,8 @@ def derive_contribution_members(
     )
 
 
-def derive_declared_contribution_members(inputs, reference, payload, *, root=None):
+def derive_declared_contribution_members(inputs, reference, payload, *, root=None) -> tuple[DeclaredDossierMember, ...]:
     """Consume the genuine admitted native source/member protocol without task aliases."""
-    from corpus_structure.semantic.structural_products import DeclaredDossierMember
-
     views = {v["pin"]["source"]: v for v in payload["sources"]}
     sources = {source.source: source for source in inputs.sources}
 
