@@ -130,14 +130,7 @@ def contextual_native_values(
                     "selected native discourse scope was not inspected",
                 )
         builder.hypotheses()
-        for name, rows in (
-            ("occurrences", builder.occurrences.values()),
-            ("annotations", builder.annotations),
-            ("memberships", builder.memberships),
-            ("roles", builder.roles),
-            ("terms", builder.terms),
-            ("choices", builder.choices),
-        ):
+        for name, rows in builder.inventory().items():
             for row in rows:
                 prior = inventories[name].setdefault(row["local_id"], row)
                 if prior != row:

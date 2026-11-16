@@ -7,12 +7,12 @@ settles scientific identity or creates a Cartesian product of analytical alterna
 
 from __future__ import annotations
 
+from bisect import bisect_left, bisect_right
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
 from corpus_structure.methods.native_evidence_layers import (
-    NativeEvidenceBuilder,
     digest,
     source_identity,
     source_projection,
@@ -26,7 +26,8 @@ from corpus_structure.semantic.data_product_reference import (
     read_member_reference,
 )
 from corpus_structure.semantic.declared_record_sources import DeclaredNativeFrameSource
-from corpus_structure.semantic.product_reference import ProductReference
+from corpus_structure.semantic.characterization import occurrence_id
+from corpus_structure.semantic.identity import canonical_bytes
 
 CONTEXT_FAMILIES = (
     "context.structure",
@@ -139,9 +140,18 @@ class ContextInput:
         return result
 
 
-class ContextualLayer(NativeEvidenceBuilder):
+class ContextualLayer:
     def __init__(self, base, scope, operation, context: ContextInput):
-        super().__init__(base, scope, operation, profile=REVISION, families=CONTEXT_FAMILIES)
+        self.base, self.scope, self.operation = dict(base), dict(scope), dict(operation)
+        self.profile, self.families = REVISION, CONTEXT_FAMILIES
+        self.occurrences: dict[str, dict[str, Any]] = {}
+        self.annotations: list[dict[str, Any]] = []
+        self.memberships: list[dict[str, Any]] = []
+        self.roles: list[dict[str, Any]] = []
+        self.covered: dict[str, list[tuple[dict[str, Any], str, str | None]]] = {
+            family: [] for family in self.families
+        }
+        self._source_maps: dict[Any, Any] = {}
         self.context = context
         self.terms: list[dict[str, Any]] = []
         self.choices: list[dict[str, Any]] = []
@@ -160,11 +170,11 @@ class ContextualLayer(NativeEvidenceBuilder):
             "examined",
             context=context.declaration(),
         )
-        self._proxies: dict[tuple[ProductReference | DataProductReference, str], str] = {}
-        self._dependencies: dict[ProductReference | DataProductReference, Any] = {}
-        self._semantic_dependencies: dict[ProductReference | DataProductReference, Any] = {}
+        self._proxies: dict[tuple[DataProductReference, str], str] = {}
+        self._dependencies: dict[DataProductReference, Any] = {}
+        self._semantic_dependencies: dict[DataProductReference, Any] = {}
         self._choice_groups: dict[
-            tuple[ProductReference | DataProductReference, str], tuple[str, str]
+            tuple[DataProductReference, str], tuple[str, str]
         ] = {}
         self._native_clusters: list[tuple[str, list[str]]] = []
         self._mention_metadata: dict[str, dict[str, Any]] = {}
@@ -187,26 +197,210 @@ class ContextualLayer(NativeEvidenceBuilder):
         self.annotations[-1]["status"] = status
         return key
 
-    def payload(self, release_id: str, *, dependencies=()):
-        body = super().payload(release_id, dependencies=dependencies)
-        body["terms"], body["choices"] = self.terms, self.choices
-        for coverage in body["coverage"]:
-            if coverage["outcome"] == "complete" and not any(
-                row["family"] == coverage["family"]
-                for name in ("annotations", "memberships", "roles", "terms", "choices")
-                for row in body[name]
-            ):
-                coverage["outcome"] = "empty"
-        body["outcome"] = (
-            "complete"
-            if all(c["outcome"] in {"complete", "empty"} for c in body["coverage"])
-            else "partial"
+    def inventory(self):
+        """Return the exact members consumed by current nominal product assembly."""
+        return {
+            "occurrences": list(self.occurrences.values()),
+            "annotations": self.annotations,
+            "memberships": self.memberships,
+            "roles": self.roles,
+            "terms": self.terms,
+            "choices": self.choices,
+        }
+
+    def record(
+        self,
+        family: str,
+        selectors: Sequence[Mapping[str, Any]],
+        status: str = "complete",
+        reason: str | None = None,
+    ) -> None:
+        if family in self.covered:
+            self.covered[family].extend((dict(selector), status, reason) for selector in selectors)
+
+
+    def occurrence(self, view: Any, start: int, end: int) -> str:
+        if not 0 <= start < end <= len(view.text):
+            raise ValueError("native extent is outside its source projection")
+        extents = []
+        position = start
+        if source_identity(view) not in self._source_maps:
+            real = [p for p in view.pieces if p["kind"] == "native_text"]
+            items = {node["self_ref"]: node for node in getattr(view, "items", ())}
+            self._source_maps[source_identity(view)] = (
+                [p["end"] for p in view.pieces],
+                real,
+                [p["end"] for p in real],
+                items,
+            )
+        piece_ends, real, real_ends, items = self._source_maps[source_identity(view)]
+        first = bisect_right(piece_ends, start)
+        for piece in view.pieces[first:]:
+            if piece["start"] >= end:
+                break
+            a, b = max(start, piece["start"]), min(end, piece["end"])
+            if a >= b:
+                continue
+            if a != position:
+                raise ValueError("native extent crosses an unmapped source gap")
+            synthetic = piece["kind"] != "native_text"
+            # A separator has no native character authority. Its contextual pointer is
+            # a real adjacent source item and synthetic remains explicit throughout.
+            nearest = bisect_left(real_ends, a)
+            pointer = piece.get("item_ref") or (
+                real[nearest]["item_ref"] if nearest < len(real) else None
+            )
+            if pointer is None:
+                raise ValueError("synthetic token has no source context")
+            extent = dict(
+                projection=source_projection(view),
+                native_pointer=pointer,
+                start=a,
+                end=b,
+                text=view.text[a:b],
+                synthetic=synthetic,
+            )
+            from corpus_structure.semantic.declared_record_sources import DeclaredNativeFrameSource
+
+            if not isinstance(view, DeclaredNativeFrameSource):
+                extent["source_view_id"] = view.ref.id
+            if not synthetic:
+                node = items.get(pointer, {})
+                pages = {
+                    prov["page_no"]
+                    for prov in node.get("prov", ())
+                    if type(prov.get("page_no")) is int and prov["page_no"] > 0
+                }
+                # A multi-page native item needs finer original correspondence;
+                # retaining unknown is preferable to assigning all text one page.
+                if len(pages) == 1:
+                    extent["page"] = next(iter(pages))
+            extents.append(extent)
+            position = b
+        if position != end:
+            raise ValueError("native extent is not covered by retained source pieces")
+        identity = occurrence_id(self.base, extents)
+        self.occurrences.setdefault(identity, dict(local_id=identity, extents=extents))
+        return identity
+
+
+    def annotation(
+        self,
+        key: str,
+        kind: str,
+        family: str,
+        occurrences: Sequence[str],
+        scheme: str,
+        label: str,
+        **values: Any,
+    ) -> str:
+        members = list(dict.fromkeys(occurrences))
+        if not members:
+            raise ValueError("native annotation requires exact source members")
+        self.annotations.append(
+            dict(
+                local_id=key,
+                kind=kind,
+                family=family,
+                vocabulary=scheme,
+                native_scheme=scheme,
+                native_label=label,
+                status="native_evidence",
+                occurrences=members,
+                **values,
+            )
         )
-        return body
+        return key
+
+
+    def membership(
+        self,
+        group: str,
+        member: str,
+        role: str,
+        order: int,
+        family: str,
+        occurrences: Sequence[str],
+        *,
+        structural: bool = True,
+    ) -> None:
+        row = dict(
+            group=group,
+            member=member,
+            role=role,
+            order=order,
+            family=family,
+            occurrences=list(dict.fromkeys(occurrences)),
+            scope=group,
+            structural=structural,
+        )
+        self.memberships.append(dict(local_id="membership:" + digest(row), **row))
+
+
+
+    def coverage_values(self):
+        coverage = []
+        for family in self.families:
+            rows = self.covered[family]
+            if not rows:
+                rows = [
+                    (dict(s), "failed", "producer did not examine requested source scope")
+                    for s in self.scope["selectors"]
+                ]
+            # Eligible/examined source denotes the actual admitted source units; a gap
+            # is recorded explicitly by the producer rather than hidden by item count.
+            eligible = list({canonical_bytes(s): s for s, _, _ in rows}.values())
+            examined = list(
+                {
+                    canonical_bytes(s): s
+                    for s, status, _ in rows
+                    if status in {"complete", "empty", "partial"}
+                }.values()
+            )
+            unexamined = list(
+                {
+                    canonical_bytes(s): s
+                    for s, status, _ in rows
+                    if status not in {"complete", "empty", "partial"}
+                }.values()
+            )
+            complete = all(status in {"complete", "empty"} for _, status, _ in rows)
+            reasons = list(dict.fromkeys(reason for _, _, reason in rows if reason))
+            statuses = {status for _, status, _ in rows}
+            outcome = (
+                "empty"
+                if statuses == {"empty"}
+                else "complete"
+                if complete
+                else "partial"
+                if examined
+                else "unsupported"
+                if statuses == {"unsupported"}
+                else "failed"
+            )
+            row = dict(
+                family=family,
+                operation=self.operation["key"],
+                eligible=eligible,
+                examined=eligible if complete else examined,
+                unexamined=unexamined,
+                availability="available"
+                if complete or examined
+                else "unsupported"
+                if outcome == "unsupported"
+                else "unavailable",
+                outcome=outcome,
+                profile=self.profile,
+            )
+            if not complete:
+                row["reason"] = "; ".join(reasons) or "native family is incomplete"
+            coverage.append(row)
+        return coverage
+
 
     def depend(
         self,
-        layers: Mapping[ProductReference, Any] | Mapping[DataProductReference, Any],
+        layers: Mapping[DataProductReference, Any],
         *,
         semantic_pins=None,
     ):
@@ -216,11 +410,9 @@ class ContextualLayer(NativeEvidenceBuilder):
             for pin in (self._dependencies if semantic_pins is None else semantic_pins)
         }
         for pin, report in layers.items():
-            actual_base = (
-                report.payload["source"]
-                if isinstance(pin, DataProductReference)
-                else report.base_document.values()
-            )
+            if not isinstance(pin, DataProductReference):
+                raise ValueError("context dependency requires a current semantic product reference")
+            actual_base = report.payload["source"]
             if actual_base != self.base:
                 raise ValueError("context dependency belongs to another source document")
             for group in report.payload["choices"]:
@@ -231,7 +423,7 @@ class ContextualLayer(NativeEvidenceBuilder):
                     )
 
     def proxy(
-        self, pin: ProductReference | DataProductReference, local_id: str, *, family: str
+        self, pin: DataProductReference, local_id: str, *, family: str
     ) -> str:
         identity = (pin, local_id)
         if identity in self._proxies:
@@ -302,7 +494,7 @@ class ContextualLayer(NativeEvidenceBuilder):
         return key
 
     def required_choices(
-        self, pin: ProductReference | DataProductReference, node: Mapping[str, Any]
+        self, pin: DataProductReference, node: Mapping[str, Any]
     ) -> list[dict[str, Any]]:
         return [
             member_reference(pin, choice).values() for choice in node.get("required_choices", ())
@@ -326,11 +518,9 @@ class ContextualLayer(NativeEvidenceBuilder):
         seen = {}
         for choice in choices:
             reference = read_member_reference(choice)
-            pin, local_id = (
-                (reference.product, reference.member_id)
-                if isinstance(reference, DataProductMemberReference)
-                else (reference.layer, reference.local_id)
-            )
+            if not isinstance(reference, DataProductMemberReference):
+                raise ValueError("context hypothesis requires a current semantic member reference")
+            pin, local_id = reference.product, reference.member_id
             selected = self._choice_groups.get((pin, local_id))
             if selected is None:
                 raise ValueError("context hypothesis requires an unknown analytical choice")
