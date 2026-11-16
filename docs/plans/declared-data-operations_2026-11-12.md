@@ -211,6 +211,14 @@ correspondence; the PDF fixture uses existing bounded production staging and gen
 maintenance. Source-profile/Python-port controls81 **passed**, `835c45d995fd416f9c7630a09ca63fa5`;
 affected native execution remains required, and admission SQL requires a new frozen successor.
 
+Affected native math/PDF2 **failed**, `5e60540e2afe43e8bab1cfc4b75d662b`. Source
+correspondence cleared; math now uses self-contained current discovery to acquire its actual
+inputs. PDF's maintained bounded append still timed out renewing behind repeated full-model
+parsing. Current native source projects exact assets into existing immutable admitted definitions,
+checks them against the archive at admission, and consumes those facts in the PDF guard. No
+permission cache/registry or weaker fence is introduced. Focused protocol/PDF13 **passed**,
+`fe54c77b6e8a418091a129bcc12ca0a2`; new native capture and affected retries remain required.
+
 Current rich publication/support/alternative controls now use genuine requests and captured CPU
 products rather than old run/consolidate-cut/fact/selection publication. Their17 native controls
 remain **not_run**; pure2/14 controls **passed** `0ce67a69f02f4a34ab5a25f86d482c9c`/

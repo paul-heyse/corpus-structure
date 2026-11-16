@@ -1066,6 +1066,7 @@ def data_operation_definition_projection(
                 "input_roles": [role for role in roles if role["direction"] == "input"],
                 "output_roles": [role for role in roles if role["direction"] == "output"],
                 "support_contract": {
+                    "assets": archived_operations[operation.semantic_id]["assets"],
                     "coverage": archived_operations[operation.semantic_id]["coverage"],
                     **(
                         {"external": asdict(operation.external)}

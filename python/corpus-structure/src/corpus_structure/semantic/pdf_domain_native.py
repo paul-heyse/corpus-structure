@@ -40,11 +40,10 @@ BEGIN
  AND input_name='PDF_CONTRACT' AND content_digest='PDF_DIGEST'
  AND encode(sha256(content),'hex')='PDF_DIGEST') OR
  NOT EXISTS(SELECT FROM sem.release_finalization WHERE release_id=p_release) OR
- NOT EXISTS(SELECT FROM sem.artifact archive CROSS JOIN LATERAL jsonb_array_elements(convert_from(archive.content,'UTF8')::jsonb->'operations') operation
- JOIN sem.data_operation_definition definition ON definition.release_id=archive.release_id AND definition.operation_id=operation->>'semantic_id'
- WHERE archive.release_id=p_release AND archive.artifact_name='data_operations.json'
- AND operation->'capabilities'->>'preparation'='pdf-native'
- AND EXISTS(SELECT FROM jsonb_array_elements(operation->'assets') asset WHERE asset->>'reference'='PDF_CONTRACT'
+ NOT EXISTS(SELECT FROM sem.data_operation_definition definition
+ WHERE definition.release_id=p_release
+ AND definition.support_contract->'capabilities'->>'preparation'='pdf-native'
+ AND EXISTS(SELECT FROM jsonb_array_elements(definition.support_contract->'assets') asset WHERE asset->>'reference'='PDF_CONTRACT'
  AND asset->>'contract'='pdf-native/helper-bindings' AND asset->>'role'='native-pdf-helper-bindings' AND asset->>'content_digest'='PDF_DIGEST')) OR
  facet->'actions'->p_operation->'contract'->>'id' IS DISTINCT FROM p_operation THEN
  RAISE EXCEPTION 'PDF action/capability correspondence differs' USING ERRCODE='23514'; END IF;

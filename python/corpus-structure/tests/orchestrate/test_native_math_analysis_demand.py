@@ -99,7 +99,7 @@ def test_actual_math_request_retains_source_coordinates_and_resumes_without_new_
 ):
     with current_pdf_source_factory((("formula", "f(x)=x", "f(x)=x", "succeeded"),)) as source:
         kernel = admit_current_target(source, recipe(), tmp_path / "consumer")
-        request = current_consumer_request(source, kernel, ("analyze.math/lexical",))
+        request = current_consumer_request(source, kernel, ("analyze.math/lexical",), discover=True)
         with kernel.purpose("write").begin() as connection:
             registered = create_native_demand(connection, request, prepared=kernel.prepared)
         methods = MethodSettings(data_dir=tmp_path, model_cache=tmp_path)

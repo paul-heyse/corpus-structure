@@ -85,3 +85,22 @@ bounded staging and real request maintenance. Pure source-correspondence control
 and Python-port modules. These repairs still require actual native retry. The admission-scope
 repair needs a new frozen successor; v9 remains immutable. Full structural issuance, new rich
 publication controls, provider qualification, target-only installation and adoption remain open.
+
+## Deeper integration refusals · 2026-11-15
+
+Affected native math/PDF controls2 **failed**, `5e60540e2afe43e8bab1cfc4b75d662b`, via
+`uv run ci test --native-host private --workers 2 --json --` the exact two identities.
+Source correspondence cleared its former failure; math then awaited two source inputs because
+its fixture selected contexts without acquiring inputs through current discovery. The fixture now
+requests self-contained source discovery. No arbitrary earlier-demand product is implicitly usable.
+
+PDF used the real maintained request and bounded producer transactions, but renewal still hit a
+trust-scope lock timeout. Every row's PDF guard parsed the full archived operation model. The
+current repair projects exact asset facts into the existing immutable admitted definition and
+checks them against that archive at admission; the PDF guard consumes the admitted facts. It adds
+no permission cache or registry and preserves contract digest, finalization and action checks.
+Current-source protocol/PDF controls13 **passed**, `fe54c77b6e8a418091a129bcc12ca0a2`, via
+`uv run ci test --workers 2 --json --` the PDF-domain module and protocol custody control.
+Native capture and the exact affected publication retry remain required. V9's frozen files remain
+unchanged; these SQL changes belong to the next successor. No timing benefit or native closure is
+claimed from source inspection or the bounded pure pass.
