@@ -88,29 +88,71 @@ def test_native_score_function_preserves_proven_empty_inventory(native_rollback)
 
 def test_native_score_refuses_another_backend_policy(native_rollback):
     numerics = default_retrieval_numerics()
-    with pytest.raises(DBAPIError, match="exact declared policy"), native_rollback.connection.begin_nested():
-        native_scores(native_rollback.connection, inputs(), numerics.model_copy(update={"postgres_version_num": 180008}))
+    with (
+        pytest.raises(DBAPIError, match="exact declared policy"),
+        native_rollback.connection.begin_nested(),
+    ):
+        native_scores(
+            native_rollback.connection,
+            inputs(),
+            numerics.model_copy(update={"postgres_version_num": 180008}),
+        )
 
 
 def test_unicode_target_ids_use_canonical_c_ties_for_all_native_channels(native_rollback):
     from dataclasses import asdict
-    from corpus_structure.methods.contextual_embeddings import EncodedVector, EncoderProfile, identity
-    from corpus_structure.semantic.contextual_retrieval import freeze_inventory, target_representation
+
+    from corpus_structure.methods.contextual_embeddings import (
+        EncodedVector,
+        EncoderProfile,
+        identity,
+    )
+    from corpus_structure.semantic.contextual_retrieval import (
+        freeze_inventory,
+        target_representation,
+    )
     from corpus_structure.semantic.contextual_storage import lexical_target_rows
     from corpus_structure.semantic.observations import source_python
+
     values = inputs()
     profile = EncoderProfile(**source_python(values["vectors"]["profile"]))
     ids = ("é", "Ω", "z", "Å", "a")
-    targets = tuple(target_representation(name, "controlled-source:" + name, "alpha", "alpha same") for name in ids)
-    inventory = freeze_inventory(targets, source_selection="explicit-unicode-ids", scope="source-scope")
+    targets = tuple(
+        target_representation(name, "controlled-source:" + name, "alpha", "alpha same")
+        for name in ids
+    )
+    inventory = freeze_inventory(
+        targets, source_selection="explicit-unicode-ids", scope="source-scope"
+    )
     vectors = [source_python(values["vectors"]["vectors"])[0]]
     for target in targets:
-        vector_id = identity("context-vector", [target.target_id, target.source_binding, profile.profile_id,
-            "controlled-identical-input", target.representation_digest])
-        vectors.append(asdict(EncodedVector(vector_id, target.target_id, target.source_binding,
-            profile.profile_id, "controlled-identical-input", (1.0, 0.0), target.representation_digest)))
+        vector_id = identity(
+            "context-vector",
+            [
+                target.target_id,
+                target.source_binding,
+                profile.profile_id,
+                "controlled-identical-input",
+                target.representation_digest,
+            ],
+        )
+        vectors.append(
+            asdict(
+                EncodedVector(
+                    vector_id,
+                    target.target_id,
+                    target.source_binding,
+                    profile.profile_id,
+                    "controlled-identical-input",
+                    (1.0, 0.0),
+                    target.representation_digest,
+                )
+            )
+        )
     values["inventory"] = dict(inventory=source_value(asdict(inventory)))
-    values["vectors"].update(vectors=source_value(vectors), lexical_targets=source_value(lexical_target_rows(inventory)))
+    values["vectors"].update(
+        vectors=source_value(vectors), lexical_targets=source_value(lexical_target_rows(inventory))
+    )
     values["policy"].update(budget=5, channel_budget=5)
     acquired = prepare_contextual_retrieval(**values)
     numerics = default_retrieval_numerics()
@@ -119,5 +161,13 @@ def test_unicode_target_ids_use_canonical_c_ties_for_all_native_channels(native_
     expected_order = ["a", "z", "Å", "é", "Ω"]
     assert actual["membership"] == expected_order
     for channel in ("alias", "lexical", "dense"):
-        assert [(row["target_id"], row["rank"]) for row in actual["hits"] if row["channel"] == channel] == list(zip(expected_order, range(1, 6), strict=True))
-    assert actual == query_contextual_scores(native_rollback.connection, acquired, values["query"], values["policy"], numerical_policy=numerics)
+        assert [
+            (row["target_id"], row["rank"]) for row in actual["hits"] if row["channel"] == channel
+        ] == list(zip(expected_order, range(1, 6), strict=True))
+    assert actual == query_contextual_scores(
+        native_rollback.connection,
+        acquired,
+        values["query"],
+        values["policy"],
+        numerical_policy=numerics,
+    )

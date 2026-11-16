@@ -113,7 +113,7 @@ RETURNS jsonb LANGUAGE sql IMMUTABLE STRICT SET search_path=pg_catalog,pg_temp A
  jsonb_build_array('target_id',jsonb_build_array('string',value->>'target_id')),
  jsonb_build_array('rank',jsonb_build_array('integer',value->>'rank')),
  jsonb_build_array('score_float8_hex',jsonb_build_array('string',value->>'score_float8_hex')))) ORDER BY ordinal),'[]')
- FROM jsonb_array_elements(scores->'hits') WITH ORDINALITY items(value,ordinal))))))
+ FROM jsonb_array_elements(scores->'hits') WITH ORDINALITY items(value,ordinal)))))))
 $score$;
 REVOKE ALL ON FUNCTION ops.ddo_contextual_observed_vector(jsonb),ops.ddo_contextual_vector_rows(jsonb,jsonb),
  ops.ddo_contextual_native_scores(jsonb,jsonb,jsonb,jsonb,jsonb),ops.ddo_contextual_score_meaning(jsonb) FROM PUBLIC;

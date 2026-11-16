@@ -408,7 +408,9 @@ def contextual_score_statement(
         .prefix_with("MATERIALIZED")
     )
     target_order = eligible.c.target_id.collate("C")
-    distance = eligible.c.vector.op("OPERATOR(public.<=>)", return_type=DOUBLE_PRECISION)(query_vector)
+    distance = eligible.c.vector.op("OPERATOR(public.<=>)", return_type=DOUBLE_PRECISION)(
+        query_vector
+    )
     config = text_configuration.cast(REGCONFIG)
     tsquery = func.websearch_to_tsquery(config, lexical_query)
     tsvector = func.to_tsvector(config, eligible.c.search_text)
@@ -454,8 +456,12 @@ def contextual_score_statement(
             )
         )
     combined = union_all(*branches).subquery("retrieval_rows")
-    return select(combined).order_by(combined.c.kind.desc(), combined.c.channel,
-        combined.c.rank, combined.c.target_id.collate("C"))
+    return select(combined).order_by(
+        combined.c.kind.desc(),
+        combined.c.channel,
+        combined.c.rank,
+        combined.c.target_id.collate("C"),
+    )
 
 
 def retrieve_candidates(
