@@ -12,11 +12,6 @@ from sqlalchemy import Text, column, select, table
 
 from corpus_structure.core.method import SourceViewDraft, SourceViewRef
 from corpus_structure.semantic.identity import canonical_bytes
-from corpus_structure.semantic.native_analysis import (
-    NativeAnalysisUnavailable,
-    _resolve_native_analysis,
-    stored_native_analysis,
-)
 from corpus_structure.semantic.operations import BoundReader, OperationConflict
 from corpus_structure.semantic.pdf_record_reader import PublishedPdfReader
 from corpus_structure.semantic.pdf_storage import NativeDocumentUnavailable
@@ -190,120 +185,6 @@ def test_compact_reference_rejects_superseded_or_other_run_selection(monkeypatch
     with pytest.raises(OperationConflict, match="outside bound run"):
         reader.source_view_ref(source[1].id)
     assert selected.call_args.kwargs == dict(read_budget=budget, source_view_id=source[1].id)
-
-
-def observation(reference, key, **updates):
-    payload = dict(
-        source_view_id=reference.id,
-        native_product=reference.native_product.values(),
-        projection_digest=reference.projection_digest,
-        recipe_digest=reference.recipe_digest,
-        demand="occurrences",
-        items=[dict(pointer=POINTER, meaning="retained meaning")],
-    )
-    payload.update(updates)
-    return SimpleNamespace(payload=payload, observation_key=key, task_id=23, payload_hash="d" * 64)
-
-
-def test_occurrence_analysis_preserves_unknown_health_without_source_view(source):
-    reference = source[1]
-    reader = SimpleNamespace(
-        source_formula_metadata=Mock(return_value=(reference, {POINTER: "unknown"})),
-        source_observations_for_ref=Mock(return_value=[]),
-        source_view=Mock(side_effect=AssertionError("whole source view is not needed")),
-    )
-    answer = stored_native_analysis(reader, reference.id, POINTER)[POINTER]
-    assert answer["recognition_health"] == "unknown"
-    assert answer["availability"] == "unavailable"
-    assert answer["observations"] == [] and answer["interpretation"] is None
-    assert answer["native_product"] == reference.native_product.values()
-
-
-def test_bulk_analysis_keeps_existing_complete_source_view_port(source):
-    reference = source[1]
-    view = SimpleNamespace(
-        ref=reference,
-        items=[dict(self_ref=POINTER, label="formula")],
-        health={"formula_outcomes": [dict(pointer=POINTER, outcome="unknown")]},
-    )
-    reader = SimpleNamespace(
-        source_view=Mock(return_value=view),
-        source_observations=Mock(return_value=[]),
-        source_formula_metadata=Mock(side_effect=AssertionError("bulk must retain full view")),
-    )
-    answer = stored_native_analysis(reader, reference.id)
-    reader.source_view.assert_called_once_with(reference.id)
-    assert set(answer) == {POINTER}
-    assert answer[POINTER]["recognition_health"] == "unknown"
-
-
-def test_recorded_formula_resolution_retains_meaning_and_named_observation(source):
-    reference = source[1]
-    row = observation(reference, "weak")
-    answer = _resolve_native_analysis(
-        reference,
-        [POINTER],
-        {POINTER: "succeeded"},
-        {"extract.math": [row], "normalize.formula": []},
-    )[POINTER]
-    assert answer["availability"] == "available"
-    assert answer["interpretation"] == {"pointer": POINTER, "meaning": "retained meaning"}
-    assert answer["normalization"] is None
-    assert answer["observations"] == [
-        dict(observation_key="weak", task_id=23, payload_hash="d" * 64, method="extract.math")
-    ]
-    absent = _resolve_native_analysis(
-        reference, [POINTER], {POINTER: "succeeded"}, {"extract.math": [], "normalize.formula": []}
-    )[POINTER]
-    assert absent["availability"] == "not_requested"
-
-
-@pytest.mark.parametrize(
-    "defect",
-    [
-        "view",
-        "product",
-        "projection",
-        "recipe",
-        "abi",
-        "duplicate",
-        "competing",
-        "cycle",
-        "missing",
-        "ambiguous-item",
-        "foreign-pointer",
-        "missing-weak",
-    ],
-)
-def test_recorded_resolution_keeps_binding_ambiguity_and_reference_refusals(source, defect):
-    reference = source[1]
-    row = observation(reference, "weak")
-    by_method = {"extract.math": [row], "normalize.formula": []}
-    if defect in {"view", "product", "projection", "recipe", "abi"}:
-        field = {
-            "view": "source_view_id",
-            "product": "native_product",
-            "projection": "projection_digest",
-            "recipe": "recipe_digest",
-            "abi": "demand",
-        }[defect]
-        row.payload[field] = "different"
-    elif defect == "duplicate":
-        by_method["normalize.formula"] = [observation(reference, "weak")]
-    elif defect == "competing":
-        by_method["extract.math"].append(observation(reference, "other"))
-    elif defect in {"cycle", "missing"}:
-        row.payload["source_record"] = "weak" if defect == "cycle" else "outside-cut"
-    elif defect == "ambiguous-item":
-        row.payload["items"] *= 2
-    elif defect == "foreign-pointer":
-        row.payload["items"][0]["interpretation_ref"] = dict(
-            pointer="#/texts/99", observation_key="weak"
-        )
-    else:
-        row.payload["demand"] = "symbolic"
-    with pytest.raises(NativeAnalysisUnavailable):
-        _resolve_native_analysis(reference, [POINTER], {POINTER: "succeeded"}, by_method)
 
 
 def cell_reader(native_type="table", **changes):

@@ -117,8 +117,9 @@ def test_symbolic_output_keeps_occurrences_and_source_definedness(math_profile):
     assert result["items"][0]["definedness"]["conditions"][0]["expression"] == "x"
 
 
-def test_unattributed_text_never_becomes_successful_interpretation(math_profile, monkeypatch):
-    prepared = inputs(math_profile, health="failed")
+@pytest.mark.parametrize("health", ["failed", "unknown"])
+def test_unattributed_text_never_becomes_successful_interpretation(math_profile, monkeypatch, health):
+    prepared = inputs(math_profile, health=health)
     monkeypatch.setattr(grammar, "syntax", lambda *a, **k: pytest.fail("fallback parsed"))
     result = analyze(math_profile, prepared, "syntax")
     assert result["items"][0]["availability"] == "unavailable"

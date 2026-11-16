@@ -4,7 +4,7 @@ import pytest
 
 from corpus_structure.methods.math import grammar
 from corpus_structure.methods.math.declared import declared_math_readings, selected_formula_inputs
-from corpus_structure.methods.math.methods import ExtractMathConfig
+from corpus_structure.semantic.declared_math_products import DeclaredMathOptions
 from corpus_structure.semantic.data_operation_model import BoundRoleMember, SubjectContext
 from corpus_structure.semantic.declared_record_sources import DeclaredNativeFrameSource
 from corpus_structure.semantic.formal_products import FormalEvidenceOptions
@@ -84,7 +84,7 @@ def test_declared_math_uses_original_positions_semantic_source_and_retained_prim
     (reading,) = declared_math_readings(
         frame,
         (product,),
-        ExtractMathConfig(),
+        DeclaredMathOptions(),
         prepared=profile.prepared,
         prepare_context=_standalone_context,
     )
@@ -105,7 +105,7 @@ def test_declared_math_clipped_formula_is_unexamined_not_inspected_empty(profile
         declared_math_readings(
             frame,
             (),
-            ExtractMathConfig(),
+            DeclaredMathOptions(),
             prepared=profile.prepared,
             prepare_context=_standalone_context,
         )

@@ -991,7 +991,6 @@ class BoundReader:
         self.conn, self.run_id, self.prepared, self.cut_id = conn, run_id, prepared, cut_id
         self._analysis_enabled = analysis
         self._read_budget = read_budget
-        self.math_readings_batch = None
         self.source_tasks: dict[int, int] = {}
         self.source_producers: Mapping[tuple[int, str], BoundSourceProducer] = {}
         self.characterization_selection: tuple[Any, ...] = ()
