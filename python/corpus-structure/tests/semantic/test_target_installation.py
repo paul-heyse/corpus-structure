@@ -143,14 +143,24 @@ def test_captured_recognition_reader_is_an_exact_current_pdf_authoring_input():
     from pglast import parse_sql
 
     from corpus_structure.semantic.native_inventory import update_function_inventory
-    from corpus_structure.semantic.target_installation import capture_target_installation, target_pdf_sql
+    from corpus_structure.semantic.target_installation import (
+        capture_target_installation,
+        target_pdf_sql,
+    )
 
     capture = capture_target_installation(prepared_target())
-    source = next(item for item in capture.authoring_inputs.sources
-                  if item.name == "authoring/pdf-captured-recognition.sql")
-    assert source.content == (
-        Path(__file__).parents[2] / "src/corpus_structure/semantic/sql/source_record_recognition.sql"
-    ).read_bytes()
+    source = next(
+        item
+        for item in capture.authoring_inputs.sources
+        if item.name == "authoring/pdf-captured-recognition.sql"
+    )
+    assert (
+        source.content
+        == (
+            Path(__file__).parents[2]
+            / "src/corpus_structure/semantic/sql/source_record_recognition.sql"
+        ).read_bytes()
+    )
     # Offline PL/pgSQL parsing cannot resolve the actual ops composite row type.
     # The normal PostgreSQL authoring checker owns that installed-layout check.
     assert parse_sql(source.content.decode())
@@ -159,16 +169,26 @@ def test_captured_recognition_reader_is_an_exact_current_pdf_authoring_input():
     specification = inventory["ops.record_captured_recognition_text(bigint,text,text,text,jsonb)"]
     assert specification["owner"] == "corpus_sem_publisher"
     assert set(specification["execute_roles"]) == {
-        "corpus_sem_reader", "corpus_sem_writer", "corpus_sem_evaluator"
+        "corpus_sem_reader",
+        "corpus_sem_writer",
+        "corpus_sem_evaluator",
     }
-    altered = replace(source, content=source.content.replace(
-        b"original precision differs", b"changed captured precision diagnostic"
-    ))
-    changed = replace(capture, authoring_inputs=replace(
-        capture.authoring_inputs,
-        sources=tuple(altered if item.name == source.name else item
-                      for item in capture.authoring_inputs.sources),
-    ))
+    altered = replace(
+        source,
+        content=source.content.replace(
+            b"original precision differs", b"changed captured precision diagnostic"
+        ),
+    )
+    changed = replace(
+        capture,
+        authoring_inputs=replace(
+            capture.authoring_inputs,
+            sources=tuple(
+                altered if item.name == source.name else item
+                for item in capture.authoring_inputs.sources
+            ),
+        ),
+    )
     assert "changed captured precision diagnostic" in target_pdf_sql(changed)
     assert "original precision differs" not in target_pdf_sql(changed)
 

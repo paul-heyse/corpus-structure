@@ -18,7 +18,6 @@ from sqlalchemy import Connection, Engine
 
 from corpus_structure.core.db.lifetime import BorrowerCancellation
 from corpus_structure.semantic.claim_lifetime import OwnedClaim
-from corpus_structure.semantic.product_reference import ProductReference
 
 if TYPE_CHECKING:
     from corpus_structure.core.method import PdfRecordProducerRequest, PdfRecordPublicationDraft
@@ -228,9 +227,7 @@ def run_private_native_pdf_build(
                         adopt_pdf_companion_batch,
                     )
 
-                    if not replay.path.resolve().is_relative_to(
-                        (replay_root / "pages").resolve()
-                    ):
+                    if not replay.path.resolve().is_relative_to((replay_root / "pages").resolve()):
                         raise ValueError("candidate payload escaped owned replay directory")
                     encoded = encoded_replay(replay, payload_family)
                     with _pdf_transaction(engine, cancellation) as connection:
@@ -262,9 +259,7 @@ def run_private_native_pdf_build(
                     number = page["page"]["page_no"]
                     raster = page["raster"]
                     raster_path = Path(raster["path"])
-                    if not raster_path.resolve().is_relative_to(
-                        (replay_root / "pages").resolve()
-                    ):
+                    if not raster_path.resolve().is_relative_to((replay_root / "pages").resolve()):
                         raise ValueError("native raster escaped owned replay directory")
                     retained = [
                         ("assembly", replay, artifact_profile("assembly")),
@@ -358,9 +353,7 @@ def run_private_native_pdf_build(
                         )
                     else:
                         native_lifetime.enter_context(
-                            suspend_resident_nemotron(
-                                nemotron_endpoint, check_active=check_active
-                            )
+                            suspend_resident_nemotron(nemotron_endpoint, check_active=check_active)
                         )
                 native_lifetime.enter_context(closing(worker))
                 reply = worker.stream(
@@ -523,9 +516,7 @@ def publish_pdf_record_draft(
                 existing, claim, source_digest, recipe_digest, schema_digest, draft.kind
             )
             if existing.state != "open":
-                raise ValueError(
-                    "identified PDF draft cannot replace frozen/published content"
-                )
+                raise ValueError("identified PDF draft cannot replace frozen/published content")
             build = existing.build
             if build.attempt != claim.attempt or build.holder != holder:
                 build = resume_pdf_build(connection, build, attempt=claim.attempt, holder=holder)

@@ -81,7 +81,10 @@ def capture_target_installation(selected: MetaData) -> TargetInstallation:
             ),
             SourceArtifact(
                 "authoring/pdf-captured-recognition.sql",
-                Path(__file__).with_name("sql").joinpath("source_record_recognition.sql").read_bytes(),
+                Path(__file__)
+                .with_name("sql")
+                .joinpath("source_record_recognition.sql")
+                .read_bytes(),
             ),
         ),
     )

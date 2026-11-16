@@ -52,16 +52,20 @@ def math_profile():
 
 
 def _inputs(profile, source=None):
-    source = source if source is not None else selected(
-        profile,
-        "  2+1",
-        pieces=[
-            dict(kind="synthetic_separator", start=0, end=2),
-            dict(kind="native_text", start=2, end=5, item_ref="#/texts/0", source_field="text"),
-        ],
-        items=[dict(self_ref="#/texts/0", label="formula", text="2+1", orig="2+1")],
-        recognition=[dict(pointer="#/texts/0", outcome="succeeded")],
-        selectors=[dict(projection="b" * 64, native_pointer="#/texts/0", start=2, end=5)],
+    source = (
+        source
+        if source is not None
+        else selected(
+            profile,
+            "  2+1",
+            pieces=[
+                dict(kind="synthetic_separator", start=0, end=2),
+                dict(kind="native_text", start=2, end=5, item_ref="#/texts/0", source_field="text"),
+            ],
+            items=[dict(self_ref="#/texts/0", label="formula", text="2+1", orig="2+1")],
+            recognition=[dict(pointer="#/texts/0", outcome="succeeded")],
+            selectors=[dict(projection="b" * 64, native_pointer="#/texts/0", start=2, end=5)],
+        )
     )
     context = SubjectContext(
         "outside-statistics",
@@ -92,5 +96,3 @@ def _inputs(profile, source=None):
 
 def _role(name, members):
     return ResolvedRoleBinding(name, "present" if members else "known-absent", tuple(members))
-
-

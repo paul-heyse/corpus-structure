@@ -172,7 +172,9 @@ def test_native_constraint_diagnostic_distinguishes_stale_descriptor_from_shape_
 
     schema = yaml.safe_load(STORAGE.schema_text)
     schema["classes"]["Sample"]["attributes"]["value"] = {
-        "range": "string", "required": True, "pattern": "^bounded$"
+        "range": "string",
+        "required": True,
+        "pattern": "^bounded$",
     }
     with commit_db_engine.begin() as connection:
         *_, prepared = _stage(connection, schema=schema)
@@ -190,7 +192,9 @@ def test_native_constraint_diagnostic_distinguishes_stale_descriptor_from_shape_
                     'source_digest',repeat('0',64)) $$
             """)
             with (
-                pytest.raises(DBAPIError, match="native constraint projection is missing or incompatible"),
+                pytest.raises(
+                    DBAPIError, match="native constraint projection is missing or incompatible"
+                ),
                 connection.begin_nested(),
             ):
                 connection.execute(query, {"r": prepared.release_id})

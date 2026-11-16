@@ -225,7 +225,7 @@ derive counts from the same selected inventory rather than scanning raw reports 
 
 Use specified source pieces, policy inputs and expected decisions, with real protected operations
 for custody/publication claims. Existing
-[admission](../../../python/corpus-structure/tests/semantic/test_record_admission.py),
+[admission (historical source)](../../README.md#historical-recovery),
 [publication](../../../python/corpus-structure/tests/semantic/test_record_publication_native.py),
 [consumer](../../../python/corpus-structure/tests/semantic/test_record_consumers.py) and
 [support](../../../python/corpus-structure/tests/semantic/test_record_support_native.py) tests

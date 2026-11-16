@@ -6,11 +6,14 @@ from semantic.declared_math_support import math_profile as math_profile
 from semantic.formal_products_support import selected
 
 from corpus_structure.methods.math import grammar
+from corpus_structure.semantic.construction_products import (
+    ConstructionOptions,
+    PreparedConstructionProfile,
+)
+from corpus_structure.semantic.data_operation_admission import bound_data_operation_model
 from corpus_structure.semantic.data_operation_model import SubjectContext
 from corpus_structure.semantic.declared_math_analysis import analyze_declared_math
 from corpus_structure.semantic.declared_math_products import DeclaredMathOptions
-from corpus_structure.semantic.construction_products import ConstructionOptions, PreparedConstructionProfile
-from corpus_structure.semantic.data_operation_admission import bound_data_operation_model
 from corpus_structure.semantic.math_context import acquire_analysis_context_profile
 
 
@@ -23,14 +26,20 @@ def inputs(profile, text="x+x", health="succeeded", *, contextual=False):
     )
     source, formal, source_member, formal_member = _inputs(profile, source)
     context = SubjectContext(
-        "outside-statistics", source_member.subject, source_member.original_source,
-        source_member.analyzed_scope, subject_definition=source_member.subject_definition
+        "outside-statistics",
+        source_member.subject,
+        source_member.original_source,
+        source_member.analyzed_scope,
+        subject_definition=source_member.subject_definition,
     )
     roles = (_role("source", (source_member,)), _role("formal", (formal_member,)))
     arguments = {
         "source": source.value,
         "formal": formal.value.model_dump(mode="json", exclude_unset=True),
-        "pointer": "", "question": "", "predicate": "", "seconds": 2.0,
+        "pointer": "",
+        "question": "",
+        "predicate": "",
+        "seconds": 2.0,
     }
     if contextual:
         from dataclasses import replace
@@ -40,20 +49,29 @@ def inputs(profile, text="x+x", health="succeeded", *, contextual=False):
         ).run(source, (formal,), ConstructionOptions(), subject_context=context)
         roles += (
             _role("constructions", (replace(formal_member, product=construction.semantic_id),)),
-            _role("inherited", ()), _role("ancestor_sources", ()),
+            _role("inherited", ()),
+            _role("ancestor_sources", ()),
         )
-        arguments.update({
-            "constructions": construction.value.model_dump(mode="json", exclude_unset=True),
-            "inherited": (), "ancestor_sources": (),
-        })
+        arguments.update(
+            {
+                "constructions": construction.value.model_dump(mode="json", exclude_unset=True),
+                "inherited": (),
+                "ancestor_sources": (),
+            }
+        )
     return roles, context, arguments
 
 
 def analyze(profile, prepared, demand, **options):
     roles, context, arguments = prepared
     return analyze_declared_math(
-        profile.prepared, roles, context, DeclaredMathOptions(), acquire_analysis_context_profile(),
-        {**arguments, "demand": demand, **options}, check_active=lambda: None,
+        profile.prepared,
+        roles,
+        context,
+        DeclaredMathOptions(),
+        acquire_analysis_context_profile(),
+        {**arguments, "demand": demand, **options},
+        check_active=lambda: None,
     )
 
 

@@ -167,8 +167,9 @@ def test_selected_publication_projection_does_not_hydrate_whole_native(source_sc
     requested = []
 
     class SelectedRows:
-        reference = ProductReference(3, "native", "a" * 64)
-        revision = {"source_digest": "b" * 64}
+        def __init__(self):
+            self.reference = ProductReference(3, "native", "a" * 64)
+            self.revision = {"source_digest": "b" * 64}
 
         def sections(self):
             return []
@@ -185,7 +186,11 @@ def test_selected_publication_projection_does_not_hydrate_whole_native(source_sc
             assert section == "#/body" and membership == "direct"
             requested.append(section)
             return [
-                {"pointer": node.self_ref, "role": "selected", "native_json": node.model_dump(mode="json", by_alias=True)}
+                {
+                    "pointer": node.self_ref,
+                    "role": "selected",
+                    "native_json": node.model_dump(mode="json", by_alias=True),
+                }
                 for node in (document.body, item)
             ]
 
