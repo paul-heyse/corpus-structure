@@ -103,7 +103,8 @@ class Candidate(BaseModel):
         revision: str | None,
         prepared: PreparedRelease | None,
         products: dict[str, bytes],
-        *, runtime: RuntimeBinding | None = None,
+        *,
+        runtime: RuntimeBinding | None = None,
     ) -> Candidate:
         if (
             not preview.target
@@ -926,7 +927,9 @@ def deploy_candidate(
                     return native
                 if runtime is not None:
                     try:
-                        retained = runtime_binding_for_release(observing, prepared, runtime.runtime_id)
+                        retained = runtime_binding_for_release(
+                            observing, prepared, runtime.runtime_id
+                        )
                     except NoResultFound:
                         return False
                     except RuntimeBindingError:
@@ -992,9 +995,13 @@ def deploy_candidate(
                 # Native catalog correspondence uses the acquired maintenance
                 # route: the execution descriptor is deliberately not a reader API.
                 if not exact_archive(snapshot) or observe_admission(conn) is not True:
-                    raise ModelError(["admitted release does not match the candidate release/runtime custody"])
-                if runtime is not None and runtime_binding_for_release(
-                    snapshot, prepared, runtime.runtime_id
-                ) != runtime:
+                    raise ModelError(
+                        ["admitted release does not match the candidate release/runtime custody"]
+                    )
+                if (
+                    runtime is not None
+                    and runtime_binding_for_release(snapshot, prepared, runtime.runtime_id)
+                    != runtime
+                ):
                     raise ModelError(["reader runtime differs from reviewed custody"])
             settled("verified")

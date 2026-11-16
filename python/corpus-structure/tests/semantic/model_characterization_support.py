@@ -13,7 +13,6 @@ from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_rele
 from corpus_structure.semantic.characterization import characterization_inputs
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.interpretation_questions import (
-    CHARACTERIZATION_FAMILIES,
     characterization_question_dependencies,
 )
 from corpus_structure.semantic.model_characterization import (
@@ -114,15 +113,42 @@ def gliner_report(pack, item, profile, raw, *, overlap="nested", threshold=0.5):
 
 def scope(text="may may", focal=None):
     from corpus_structure.semantic.data_operation_model import SubjectContext
-    from corpus_structure.semantic.declared_record_sources import DeclaredNativeFrameSource, DeclaredRecordSource
+    from corpus_structure.semantic.declared_record_sources import (
+        DeclaredNativeFrameSource,
+        DeclaredRecordSource,
+    )
     from corpus_structure.semantic.source_products import native_projection_identity, source_subject
 
-    pieces = [dict(kind="native_text", item_ref="#/texts/0", source_field="text", start=0, end=len(text))]
+    pieces = [
+        dict(kind="native_text", item_ref="#/texts/0", source_field="text", start=0, end=len(text))
+    ]
     items = [dict(self_ref="#/texts/0", label="text", text=text)]
     projection = native_projection_identity(text, pieces, items)
-    coordinate = dict(document="book", projection=projection, section_pointer="#/groups/0", membership="direct")
+    coordinate = dict(
+        document="book", projection=projection, section_pointer="#/groups/0", membership="direct"
+    )
     selectors = [dict(projection=projection, start=0, end=len(text))]
-    context = SubjectContext("p", source_subject(coordinate), "book", canonical_bytes(dict(source=coordinate, selectors=selectors)), subject_definition="original-source-view")
-    source = DeclaredRecordSource("book", projection, "#/groups/0", "direct", context, "product:source", None, "kind:source")
-    frame = DeclaredNativeFrameSource(canonical_bytes(dict(source=coordinate, selectors=selectors, text=text, pieces=pieces, items=items, ancestors=[])).decode(), canonical_bytes(source.pin()).decode())
+    context = SubjectContext(
+        "p",
+        source_subject(coordinate),
+        "book",
+        canonical_bytes(dict(source=coordinate, selectors=selectors)),
+        subject_definition="original-source-view",
+    )
+    source = DeclaredRecordSource(
+        "book", projection, "#/groups/0", "direct", context, "product:source", None, "kind:source"
+    )
+    frame = DeclaredNativeFrameSource(
+        canonical_bytes(
+            dict(
+                source=coordinate,
+                selectors=selectors,
+                text=text,
+                pieces=pieces,
+                items=items,
+                ancestors=[],
+            )
+        ).decode(),
+        canonical_bytes(source.pin()).decode(),
+    )
     return prepare_model_scope(frame, focal or (0, len(text)), (0, len(text)))

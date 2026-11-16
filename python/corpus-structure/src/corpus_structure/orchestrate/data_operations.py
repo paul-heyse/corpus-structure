@@ -679,7 +679,10 @@ class NativeDemandExecutor:
             decoded = tuple(member.value() for member in members)
             if roles[role].collection == "scalar":
                 if len(decoded) != 1:
-                    raise PortRefusal("scalar input requires one admitted member")
+                    raise PortRefusal(
+                        "scalar input requires one admitted member: "
+                        f"{ready.operation}/{role} has {len(decoded)}"
+                    )
                 value = decoded[0]
             else:
                 value = decoded

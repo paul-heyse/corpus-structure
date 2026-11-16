@@ -2641,7 +2641,7 @@ operations:
   profile: command
   request: release_data_attempt_request
   result: release_data_attempt_result
-  purposes: [write]
+  purposes: [write, evaluate]
 - name: retain_data_completion_intent
   profile: command
   request: retain_data_completion_intent_request

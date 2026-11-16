@@ -109,6 +109,31 @@ def test_native_context_fanin_waits_for_new_child_products_and_preserves_pinned_
     witness = json.loads(aggregate.binding_result.roles[0].population_witness)
     assert witness["projection"] == "qualified-context"
     assert {member["analyzed_scope"]["page"] for member in witness["members"]} == {1, 2}
+    # Inputs retain their child contexts when the aggregate runs at its parent.
+    # Hydration must consume those exact selected pins, not filter them by the
+    # aggregate's distinct subject/scope.
+    from corpus_structure.semantic.data_operation_consumers import (
+        BoundConsumerSelection,
+        hydrate_consumer_selection,
+    )
+
+    pins = json.loads(aggregate.resolved.trust_evidence)
+    with ddo_kernel.purpose("write").begin() as connection:
+        hydrated = hydrate_consumer_selection(
+            connection,
+            ddo_kernel.model,
+            BoundConsumerSelection.from_binding(
+                aggregate.binding_result, operation=aggregate.operation
+            ),
+            demand_id=demand["demand_id"],
+            read_id=pins["read_id"],
+            trust_snapshot=pins["trust"],
+            max_bytes=1048576,
+        )
+    assert {json.loads(value.content)["value"] for value in hydrated.role("items")} == {101, 202}
+    assert {
+        json.loads(value.member.analyzed_scope)["page"] for value in hydrated.role("items")
+    } == {1, 2}
     # Independently exercise the same protected validator attachment invokes:
     # a portable caller cannot invent a smaller/wrong closure or another project.
     binding = json.loads(aggregate.binding)

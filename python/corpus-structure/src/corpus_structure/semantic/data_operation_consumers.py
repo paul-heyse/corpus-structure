@@ -211,7 +211,7 @@ def hydrate_consumer_selection(
         ).data(records)
         predicates = [
             relation.c[name].is_not_distinct_from(pins.c[name])
-            if name in {"member", "position"}
+            if name in {"member", "position", "original_source"}
             else json_context_equal(relation.c[name], pins.c[name])
             if name == "analyzed_scope"
             else relation.c[name] == pins.c[name]

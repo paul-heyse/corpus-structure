@@ -104,18 +104,6 @@ def test_completion_and_renewal_budgets_have_separate_defaults():
     assert settings.renewal_lock_timeout_seconds == 5
 
 
-
-
-
-
-
-
-
-
-
-
-
-
 def test_adbc_native_fields_do_not_invent_transport_or_sqlstate():
     import adbc_driver_manager as adbc
 

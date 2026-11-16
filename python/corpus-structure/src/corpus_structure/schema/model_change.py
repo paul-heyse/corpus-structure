@@ -207,7 +207,8 @@ class ChangePreview(BaseModel):
     @model_validator(mode="after")
     def runtime_matches_application(self):
         if self.runtime is not None and (
-            not self.effects.admission or not self.request.data_operations
+            not self.effects.admission
+            or not self.request.data_operations
             or self.request.execution_profile != self.runtime.execution_profile
         ):
             raise ValueError("runtime custody requires its reviewed DDO application/profile")

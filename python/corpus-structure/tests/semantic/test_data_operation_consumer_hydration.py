@@ -146,9 +146,12 @@ def hydration_case(monkeypatch, native_rollback):
         event.remove(connection, "before_cursor_execute", record)
 
 
-def test_hydration_preserves_repeated_pins_scopes_multiplicity_and_absence(hydration_case):
+@pytest.mark.parametrize("original_source", ["original:one", None])
+def test_hydration_preserves_repeated_pins_scopes_multiplicity_and_absence(
+    hydration_case, original_source
+):
     hydrate, statements = hydration_case
-    first = _member(multiplicity=2)
+    first = _member(multiplicity=2, original_source=original_source)
     second = _member(analyzed_scope=b'{"page":2}')
     result = hydrate(
         [(first, {"text": "one"}), (second, {"text": "two"})],
@@ -188,6 +191,7 @@ def test_hydration_uses_one_body_query_per_bounded_values_page(hydration_case, c
         {"subject": "other"},
         {"subject_definition": "other-kind"},
         {"original_source": "other"},
+        {"original_source": None},
         {"analyzed_scope": b"null"},
         {"support_evidence": b"{}"},
         {
@@ -215,6 +219,7 @@ def test_hydration_uses_one_body_query_per_bounded_values_page(hydration_case, c
         "subject",
         "subject-definition",
         "original",
+        "source-free",
         "scope",
         "support",
         "episodes",

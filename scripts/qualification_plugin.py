@@ -282,6 +282,10 @@ def pytest_runtest_makereport(
         from test_prerequisites import PrerequisiteUnavailable
 
         error = call.excinfo.value
+        if isinstance(error, BaseExceptionGroup):
+            report.user_properties.append(
+                ("qualification_exception_group", _exception_group_messages(error))
+            )
         if isinstance(error, PrerequisiteUnavailable):
             report.user_properties.extend(
                 [
@@ -290,6 +294,56 @@ def pytest_runtest_makereport(
                 ]
             )
     return report
+
+
+def _exception_group_messages(error: BaseExceptionGroup) -> dict[str, Any]:
+    """Capture native group/cause messages, without rendered frames, SQL or locals."""
+    entries = []
+    seen = set()
+    omitted = 0
+    remaining = 16384
+
+    def visit(value: BaseException, path: str, depth: int) -> None:
+        nonlocal omitted, remaining
+        if id(value) in seen:
+            return
+        seen.add(id(value))
+        if len(entries) >= 32 or depth > 8:
+            omitted += 1
+            return
+        try:
+            # Driver details/SQL are subsequent lines. Never pre-clip credentials;
+            # the managed CLI redacts complete captured messages before display.
+            message = str(value).split("\n", 1)[0]
+        except Exception:
+            message = "exception message unavailable"
+        try:
+            message.encode("utf-8")
+        except UnicodeError:
+            message = "exception message encoding unavailable"
+            omitted += 1
+        if len(message) > remaining:
+            message = "exception message exceeds capture limit"
+            omitted += 1
+        else:
+            remaining -= len(message)
+        entries.append(
+            dict(
+                path=path,
+                type=type(value).__module__ + "." + type(value).__qualname__,
+                message=message,
+            )
+        )
+        if isinstance(value, BaseExceptionGroup):
+            for index, child in enumerate(value.exceptions):
+                visit(child, path + f".exceptions[{index}]", depth + 1)
+        if value.__cause__ is not None:
+            visit(value.__cause__, path + ".__cause__", depth + 1)
+        elif not value.__suppress_context__ and value.__context__ is not None:
+            visit(value.__context__, path + ".__context__", depth + 1)
+
+    visit(error, "$", 0)
+    return dict(version=1, entries=entries, omitted=omitted)
 
 
 def pytest_runtest_logfinish(nodeid: str, location: object) -> None:

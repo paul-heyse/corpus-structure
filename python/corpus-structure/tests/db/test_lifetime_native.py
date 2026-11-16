@@ -2,9 +2,9 @@
 
 from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime
-from types import SimpleNamespace
 from threading import Event
 from time import monotonic, sleep
+from types import SimpleNamespace
 
 import psycopg
 import pytest
@@ -234,9 +234,7 @@ def test_cli_runtime_failure_reports_its_actual_live_pool_without_sql(infrastruc
     def inspect_failure():
         with (
             failure_boundary(True),
-            open_runtime_engine(
-                settings, "diagnostic-invocation", purpose="maintenance"
-            ) as engine,
+            open_runtime_engine(settings, "diagnostic-invocation", purpose="maintenance") as engine,
             engine.begin() as conn,
         ):
             conn.execute(text("SELECT 1/0"))

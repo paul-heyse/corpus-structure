@@ -108,8 +108,7 @@ the old expression resolved the same-named text column. Eight actual archive con
 inspection controls passed at worker source. Frozen successor `semantic_ddo_inspection_rows`,
 registered `343da6870`, deployed on the owned stage with result `eb242dfb66554ed4987724f9d5fa2079`;
 maintenance status independently confirms revision=head. Its10 native transitions preserve owners
-and privileges, with no ordinary operations. Actual post-successor CLI/native qualification is
-running; no archive compatibility facade is restored.
+and privileges, with no ordinary operations. Actual CLI/inspection25 exact retries passed `14d042098aa64fa7aa1a1594a4db27e3` after original66 had41passed; compiler23 changes the source/context boundary, so assembled qualification remains open; no archive compatibility facade is restored.
 
 Canonical observations and characterization now own current product/member references directly;
 the redundant record schema projector, old pin branches and unused record_bindings input option
@@ -125,6 +124,25 @@ Artifact/event retries `0e299d0d051d4d4f9930d818c5906721` and
 `5cbee57fe7c44b2dbab48fa9975b50be` failed exact prepared-resource custody/imports after PDF helper
 integration. Captured PDF dependency closure and stable-source retries remain required; native
 or recipe guards will not be relaxed.
+
+Compiler23 removes the unused run-query coverage artifact and issues distinct current release
+identities. The old query reader, orphan run-chain policy loader and domain policy files are removed;
+current rich/scientific policy contracts remain. Frozen successor `semantic_ddo_compiler23`,
+registered at `1dccaff42`, deployed/verified on the same owned stage with
+`c2ab6cb2292046d48b93ea3395c4638f`; its3 native body/descriptor transitions preserve privileges and
+physical layout. Earlier native/current-root receipts retain their stated compiler/source boundary.
+Current compiler/report/archive Python73 passed `367dd912025a4201992f73312f939dd1`; CLI37 passed
+`8fc14f10a2354755aacfdf9763f78074`. Canonical reference schema composition fixes actual database
+failure reporting, and native inspection tampering tests now use literal bind parameters rather than
+SQLAlchemy-interpreted colon fragments. Original failures remain held.
+
+PDF moved-helper resource closure is integrated across the actual capture/view/transformation
+asset owners, with13 pure factory/custody controls passed `8483925b21154236b822239234fc9c57` and
+all97 native protocol source hashes unchanged. These controls distinguish stable capture from
+mutated helper bytes; the exact historical resource-mismatch asset is not established. Fresh actual
+artifact/spaCy/event, record-policy and archive/CAS cohorts are running against the stable current
+source. Remaining old operation/publication/source-view runtime and fixture closure, final typing,
+recovery/adoption and DDO-12 qualification remain required.
 
 ## Integrated execution · 2026-11-15
 
@@ -523,7 +541,7 @@ coherent integrated native source; prior previews establish only their recorded 
 | DDO-07/08 | Source/primary/downstream increments and real port adoption; enclosing packages open | I02 all remaining legacy operations and consumers; I04 capability-based shared execution; I08 acquisition-test consolidation; rich producer integration with I05. |
 | DDO-09 | Source currentness/impact and graph foundations implemented within bounded receipts | I03 deliberate fate partition; I05 full rich cut/policy/standing/contracts and reuse consumers; copied-task/twin/stale-cut retirement; CA-11/12 Python repairs have scoped controls; actual native journeys remain. |
 | DDO-10 | Source/graph CLI/MCP/export and selected prediction inspection within focused receipts | I06 literals/typed artifact reader/variant association; rich named-query/reference/grading callers; target model difference distinct from source drift/currentness; old reader retirement; CA-12 selected graph pin repair has scoped controls; native continuation remains to qualify. |
-| DDO-11 | Checkout domain_v9 registered; persistent database remains located_v2, no adoption | I09 choose supported physical route, selective faithful import/regeneration, fence writers, switch maintained callers and remove all legacy/one-time converter code. Optional conversion does not block target delivery. |
+| DDO-11 | Current root and exact inspection/compiler23 successors registered and installed on owned stage; persistent development remains located_v2, no adoption | I09 choose supported physical route, selective faithful import/regeneration, fence writers, switch maintained callers and remove all legacy/one-time converter code. Optional conversion does not block target delivery. |
 | DDO-12 | No assembled completion; earlier passes scoped only | Final-source functional/native/fault/provider/nonfunctional union for complete replacement and retirement, including target-native source/evaluation journeys. |
 
 First settle decision records and shared I01/I03 contracts; operation classification and shared-port

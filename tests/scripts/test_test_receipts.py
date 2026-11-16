@@ -566,6 +566,40 @@ def test_real_prerequisite_annotation_and_native_context(tmp_path: Path) -> None
     assert result["native_contexts"][0]["scope"] == "test"
 
 
+def test_real_grouped_failure_keeps_native_children_and_cause_without_rendered_details(tmp_path):
+    output = child(
+        tmp_path,
+        "def test_case():\n"
+        "    try:\n        raise ValueError('original producer refusal')\n"
+        "    except ValueError as cause:\n"
+        "        cleanup = RuntimeError('cleanup failed\\nSQL and parameters withheld')\n"
+        "        cleanup.__cause__ = cause\n"
+        "        raise ExceptionGroup('operation failed', [ExceptionGroup('retirement', [cleanup])])\n",
+    )
+    result = classify_receipt(output)
+    assert result["status"] == "failed"
+    node = next(iter(result["nodes"].values()))
+    report = next(report for report in node["reports"] if report["outcome"] == "failed")
+    diagnostic = _failure_diagnostic(report)["diagnostic"]
+    assert "$.exceptions[0].exceptions[0]: builtins.RuntimeError: cleanup failed" in diagnostic
+    assert "builtins.ValueError: original producer refusal" in diagnostic
+    assert "SQL and parameters withheld" not in diagnostic
+
+
+def test_grouped_failure_capture_bounds_omit_whole_messages_without_clipping():
+    from qualification_plugin import _exception_group_messages
+
+    failure = ExceptionGroup("outer", [ValueError("x" * 20000), RuntimeError("useful sibling")])
+    captured = _exception_group_messages(failure)
+    assert captured["omitted"] == 1
+    assert captured["entries"][1]["message"] == "exception message exceeds capture limit"
+    diagnostic = _failure_diagnostic(
+        {"user_properties": [("qualification_exception_group", captured)]}
+    )["diagnostic"]
+    assert "builtins.RuntimeError: useful sibling" in diagnostic
+    assert "x" * 100 not in diagnostic
+
+
 def test_a_required_native_test_without_acquired_context_is_incomplete(tmp_path: Path) -> None:
     output = child(
         tmp_path,

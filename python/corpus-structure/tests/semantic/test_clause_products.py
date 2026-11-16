@@ -19,7 +19,9 @@ from corpus_structure.semantic.structural_products import LocatedDefinitionSpan
 from corpus_structure.semantic.types import ResolvedDependencies
 
 
-def paired_answer(*, score=0.9, candidate_product="product:functions", scores=None, selected_keys=("definition",)):
+def paired_answer(
+    *, score=0.9, candidate_product="product:functions", scores=None, selected_keys=("definition",)
+):
     scores = (("definition", score), ("explanation", 0.4)) if scores is None else scores
     prepared = SimpleNamespace(
         registry_rows=compile_question_families(
@@ -226,9 +228,18 @@ def test_target_clause_inventory_keeps_unknown_frames_and_historical_empty_refus
 
 
 def test_current_clause_answer_preserves_overlaps_raw_scores_and_exact_focal_scope():
-    prepared, frame, focus, pair = paired_answer(scores=(("definition", 0.92), ("example", 0.8), ("description", 0.4)), selected_keys=("definition", "example"))
-    labels, references, digest, disposition, _ = retained_clause_functions(prepared, frame, focus, (7, 13), (pair,))
-    assert [(label.label, label.score, label.accepted) for label in labels] == [("definition", 0.92, True), ("example", 0.8, True), ("description", 0.4, False)]
+    prepared, frame, focus, pair = paired_answer(
+        scores=(("definition", 0.92), ("example", 0.8), ("description", 0.4)),
+        selected_keys=("definition", "example"),
+    )
+    labels, references, digest, disposition, _ = retained_clause_functions(
+        prepared, frame, focus, (7, 13), (pair,)
+    )
+    assert [(label.label, label.score, label.accepted) for label in labels] == [
+        ("definition", 0.92, True),
+        ("example", 0.8, True),
+        ("description", 0.4, False),
+    ]
     assert len(references) == 1 and disposition == "observed" and digest
     assert pair[1]["members"][0]["body"]["anchors"] == ()
     assert retained_clause_functions(prepared, frame, focus, (0, 19), (pair,))[3] == "failed"

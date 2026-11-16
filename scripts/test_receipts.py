@@ -1500,6 +1500,32 @@ def _startup_failure(receipt: dict[str, Any]) -> dict[str, Any] | None:
 
 
 def _failure_diagnostic(report: dict[str, Any]) -> dict[str, Any]:
+    for key, value in report.get("user_properties", []):
+        if (
+            key == "qualification_exception_group"
+            and isinstance(value, dict)
+            and value.get("version") == 1
+        ):
+            entries = value.get("entries", [])
+            if (
+                isinstance(entries, list)
+                and entries
+                and all(
+                    isinstance(row, dict)
+                    and all(
+                        isinstance(row.get(field), str) for field in ("path", "type", "message")
+                    )
+                    for row in entries
+                )
+            ):
+                message = "\n".join(
+                    f"{row['path']}: {row['type']}: {row['message']}" for row in entries
+                )
+                if value.get("omitted"):
+                    message += f"\nException observations omitted: {value['omitted']}"
+                if len(message) <= 32768:
+                    return {"diagnostic": message}
+                return {"diagnostic_truncated": True}
     representation = report.get("longrepr")
     if isinstance(representation, dict):
         crash = representation.get("reprcrash")

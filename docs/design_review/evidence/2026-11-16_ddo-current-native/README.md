@@ -101,7 +101,40 @@ digest/descriptor recustody bodies, and the enclosing execution catalog descript
 ordinary operations, owner changes or ACL changes. Full-row equality and native source custody
 remain strict. The registered root was not edited. A separate maintenance status reacquired stage
 OID130661481/system7701811359771751232 with revision=head=`semantic_ddo_inspection_rows`.
-Current actual CLI/native qualification is running; installation alone does not close it.
+Actual CLI/inspection66 originally passed41 in `5db056f8db3646378cd27008c75eee1f`; all25 failed identities passed exact retry `14d042098aa64fa7aa1a1594a4db27e3` after current reporting composition, literal SQL parameters and diagnostic expectations were corrected. Compiler23 below changes the native context; this bounded union is not enclosing qualification.
+
+## Compiler23 archive successor · 2026-11-16
+
+**passed:** refreshed preview `05d890a9799447d1be6cd440552425fc`, exact apply
+`671dc7b17bd442d79baf14c01f9c68a4`, rollback-only candidate
+`b0861c462be14fe8b43a3fe518b9b2d9`, registration `deaa279b0f5744c09d07e97d13cc2bc0`
+and stage deployment `c2ab6cb2292046d48b93ea3395c4638f`. The
+[request](compiler23-successor.yaml) names predecessor `semantic_ddo_inspection_rows`.
+The exact frozen revision `semantic_ddo_compiler23` is registered at `1dccaff42`.
+Preview `e23d8dfad30c4bd191f58666c719c8bc` and apply refusal
+`a7de040ec3794e4cb987f7889a7182af` remain retained: HEAD changed before apply, and the existing
+check correctly refused without effects. The refreshed preview/apply captured the intended source.
+
+The retired run-query reader was the sole consumer of the prepared `query_coverage.json` artifact.
+Removing that artifact changes archive contents, so compiler23 supplies a new release identity rather
+than reusing compiler22 identity for different bytes. Python archive/comparison readers and native
+archive/projection guards enforce the same current-only compiler. Older archives remain inert;
+regeneration can use the new basis without retaining a compatibility reader. The orphan run-chain
+loader/configuration is also removed; current rich/scientific policies retain their own contracts.
+
+Review paged all3 native transitions and their changes: the exact compiler23 archive guard, the
+exact compiler23 execution-projection guard and the enclosing catalog descriptor. There are no
+ordinary operations, owner changes or ACL changes. A separate maintenance status reacquired the
+same owned stage OID/system with revision=head=`semantic_ddo_compiler23`. Development remains
+unchanged at `semantic_bep_located_v2`; no application activation or adoption has occurred.
+
+Current compiler/report/archive Python73 passed `367dd912025a4201992f73312f939dd1` and CLI
+dispatch37 passed `8fc14f10a2354755aacfdf9763f78074`. Complete-cut native scoring and exact MCP
+replay retain `cf96fad70bba434280bf49511ee9390b` / `9bd4cd97071d4a7aa8d425473a2ce9dd` at their
+earlier source. Fresh current artifact/spaCy/event, record-policy and archive/CAS cohorts remain in
+progress. Original capture/import failures are preserved. PDF capture/view/transformation assets
+now include the moved health/hierarchy dependencies;13 pure custody controls passed
+`8483925b21154236b822239234fc9c57`, with all97 native protocol source hashes unchanged.
 
 ## Acceptance still required
 

@@ -265,16 +265,21 @@ def _load_artifact(store, result_id: str, action: str, role: str) -> bytes:
     return raw
 
 
-
 def _publish_runtime(result, binding: RuntimeBinding) -> None:
-    for role, content in (("runtime_manifest", binding.manifest), ("runtime_archive", binding.archive)):
+    for role, content in (
+        ("runtime_manifest", binding.manifest),
+        ("runtime_archive", binding.archive),
+    ):
         path = result.directory / (role + ".json")
         path.write_bytes(content)
         result.publish(role, path)
 
 
 def _read_runtime(
-    store: ResultStore, result_id: str, custody: RuntimeCustody | None, prepared: PreparedRelease | None
+    store: ResultStore,
+    result_id: str,
+    custody: RuntimeCustody | None,
+    prepared: PreparedRelease | None,
 ) -> RuntimeBinding | None:
     from corpus_structure.cli.managed import ResultError
     from corpus_structure.schema.model import ModelError
@@ -290,7 +295,8 @@ def _read_runtime(
     if prepared is None:
         raise ModelError(["runtime custody requires its application release"])
     binding = RuntimeBinding(
-        prepared.release_id, custody.runtime_id,
+        prepared.release_id,
+        custody.runtime_id,
         store.read_artifact(result_id, "runtime_manifest"),
         store.read_artifact(result_id, "runtime_archive"),
     )
@@ -642,7 +648,10 @@ def _effects_view(report: PreviewEffectsReport) -> Table:
         ("Release", report.release or "unavailable"),
         ("Prepared artifacts SHA-256", report.release_artifacts_sha256 or "unavailable"),
         ("Runtime", report.runtime.runtime_id if report.runtime else "not applicable"),
-        ("Execution profile (logical selection)", report.runtime.execution_profile if report.runtime else "not applicable"),
+        (
+            "Execution profile (logical selection)",
+            report.runtime.execution_profile if report.runtime else "not applicable",
+        ),
         ("Changed paths", _path_summary(report.changed_paths)),
         ("Native authoring", "required" if report.effects["native"] else "not required"),
         ("Release admission", "planned" if report.effects["admission"] else "not planned"),
@@ -1037,7 +1046,10 @@ def _candidate_view(report: CandidateInspection) -> Table:
         ("Release", report.release),
         ("Prepared artifacts SHA-256", report.release_artifacts_sha256 or "unavailable"),
         ("Runtime", report.runtime.runtime_id if report.runtime else "not applicable"),
-        ("Execution profile (logical selection)", report.runtime.execution_profile if report.runtime else "not applicable"),
+        (
+            "Execution profile (logical selection)",
+            report.runtime.execution_profile if report.runtime else "not applicable",
+        ),
         ("Native revision", report.native_revision or "not applicable"),
         ("Predecessor", report.predecessor or "not applicable"),
         ("Pending authoring base", _base_summary(report.native_base)),
@@ -1588,10 +1600,14 @@ def preview(
                     assert bound.execution_profile is not None
                     staged.verify_release(local)
                     runtime = prepare_data_operation_runtime(
-                        local, dependencies.artifacts,
-                        execution_profile=bound.execution_profile, observed={},
+                        local,
+                        dependencies.artifacts,
+                        execution_profile=bound.execution_profile,
+                        observed={},
                     )
-                    staged = staged.model_copy(update={"runtime": RuntimeCustody.from_binding(runtime)})
+                    staged = staged.model_copy(
+                        update={"runtime": RuntimeCustody.from_binding(runtime)}
+                    )
                     staged.verify_runtime(runtime, local)
                     _publish_runtime(result, runtime)
                 artifact = result.directory / "preview.json"
@@ -1897,7 +1913,9 @@ def candidate(
                         sql_holder[0] = explanation_from_native(
                             products["native_operations.json"], sql_holder[0]
                         )
-                    binding = Candidate.from_preview(staged, revision, prepared, products, runtime=runtime)
+                    binding = Candidate.from_preview(
+                        staged, revision, prepared, products, runtime=runtime
+                    )
                     if prepared is not None:
                         from corpus_structure.semantic.inspection_capsule import make_capsule
 
@@ -2080,7 +2098,10 @@ def deploy(
                     )
                     raise
             store.release(candidate, _registration_hold(candidate))
-            result.settle(release=binding.release, runtime_id=binding.runtime.runtime_id if binding.runtime else None)
+            result.settle(
+                release=binding.release,
+                runtime_id=binding.runtime.runtime_id if binding.runtime else None,
+            )
         emit(
             ModelResult(
                 result_id=result.id,

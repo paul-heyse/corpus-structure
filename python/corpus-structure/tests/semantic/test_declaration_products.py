@@ -27,7 +27,6 @@ from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.source_products import native_projection_identity, source_subject
 from corpus_structure.semantic.structural_products import StructuralPassage
 
-
 # Each native UD/SRL fact is authored independently of the consumer's checks.
 _ROWS = (
     (
@@ -367,12 +366,23 @@ def test_missing_native_premise_or_changed_canonical_association_cannot_become_e
         declaration_sentences_products((failed,), source, passage(source), supporting=(hanlp,))
 
 
-def test_target_definition_component_retains_semantic_witness_and_independent_domain_result(monkeypatch):
+def test_target_definition_component_retains_semantic_witness_and_independent_domain_result(
+    monkeypatch,
+):
     source, native, canonical, hanlp = case()
     product = produce(source, native, canonical, hanlp)
     import corpus_structure.semantic.constructions.retained_declarations as declaration_owner
-    monkeypatch.setattr(declaration_owner, "_declared_sentences", lambda *_a, **_k: pytest.fail("consumer reran native syntax projection"))
-    monkeypatch.setattr(declaration_owner, "_facts", lambda *_a, **_k: pytest.fail("consumer recognized declaration syntax"))
+
+    monkeypatch.setattr(
+        declaration_owner,
+        "_declared_sentences",
+        lambda *_a, **_k: pytest.fail("consumer reran native syntax projection"),
+    )
+    monkeypatch.setattr(
+        declaration_owner,
+        "_facts",
+        lambda *_a, **_k: pytest.fail("consumer recognized declaration syntax"),
+    )
     component = primary_declaration_component_products(
         (product,),
         source,
@@ -392,11 +402,12 @@ def test_target_definition_component_retains_semantic_witness_and_independent_do
         "Let X be a set. Let Y be a set that contains elements from the set of X. The elements of Y"
     )
     assert witness["version"] == "definition-declaration-chain-2"
-    assert witness["naming_frame"] in {reference.identity for reference in component.declaration_chain.primary_evidence}
+    assert witness["naming_frame"] in {
+        reference.identity for reference in component.declaration_chain.primary_evidence
+    }
     assert len(witness["bindings"]) == 1
     assert witness["bindings"][0]["subject_token"] == 3
     assert witness["bindings"][0]["use_token"] == 12
-
 
 
 def applicability_case():
@@ -620,7 +631,9 @@ def test_declared_applicability_refuses_carrier_meaning_usage_or_edge_substituti
         )
 
 
-@pytest.mark.parametrize("failure", ["missing_declaration", "clipped_sentence", "changed_source", "unexamined"])
+@pytest.mark.parametrize(
+    "failure", ["missing_declaration", "clipped_sentence", "changed_source", "unexamined"]
+)
 def test_current_declaration_reader_refuses_missing_or_substituted_semantic_scope(failure):
     source, native, canonical, hanlp = case()
     product = produce(source, native, canonical, hanlp)
@@ -634,7 +647,9 @@ def test_current_declaration_reader_refuses_missing_or_substituted_semantic_scop
         if failure == "changed_source":
             body["source"]["document"] = "another-book"
         else:
-            body["coverage"][0]["unexamined"] = [dict(projection=source.value["source"]["projection"], start=0, end=1)]
+            body["coverage"][0]["unexamined"] = [
+                dict(projection=source.value["source"]["projection"], start=0, end=1)
+            ]
         products = (CharacterizationSnapshot(product.product_id, canonical_bytes(body)),)
     with pytest.raises(DeclarationNotQualified):
         declaration_sentences_products(products, source, selected, supporting=(hanlp,))
@@ -645,17 +660,25 @@ def test_current_declaration_syntax_failure_preserves_healthy_siblings(corruptio
     source, native, canonical, hanlp = case()
     body = json.loads(hanlp.content)
     if corruption == "missing_column":
-        token = next(row["body"] for row in body["members"] if row["body"]["record_type"] == "token")
+        token = next(
+            row["body"] for row in body["members"] if row["body"]["record_type"] == "token"
+        )
         del token["lemma"]
     else:
-        group = next(row["body"] for row in body["members"] if row["body"]["record_type"] == "srl_group")
+        group = next(
+            row["body"] for row in body["members"] if row["body"]["record_type"] == "srl_group"
+        )
         group["roles"][0]["tokens"] = []
     changed = CharacterizationSnapshot(hanlp.product_id, canonical_bytes(body))
     product = produce(source, native, canonical, changed)
     facts = product.inventory()
     roots = [term for term in facts["terms"] if term["value"] == "declaration_sentence"]
     assert len(roots) == 2
-    (coverage,) = [row for row in json.loads(product.content)["coverage"] if row["family"] == DECLARATION_FAMILY]
+    (coverage,) = [
+        row
+        for row in json.loads(product.content)["coverage"]
+        if row["family"] == DECLARATION_FAMILY
+    ]
     assert coverage["outcome"] == "partial"
     assert len(coverage["examined"]) == 2 and len(coverage["unexamined"]) == 1
     with pytest.raises(DeclarationNotQualified):
@@ -669,11 +692,18 @@ def test_current_healthy_chain_survives_unselected_malformed_sentence(monkeypatc
     monkeypatch.setattr(sys.modules[__name__], "_ROWS", (*_ROWS, _ROWS[0]))
     source, native, canonical, hanlp = case()
     body = json.loads(hanlp.content)
-    token = next(row["body"] for row in body["members"] if row["body"]["record_type"] == "token" and row["body"]["sentence"]["member_id"] == "sentence:3")
+    token = next(
+        row["body"]
+        for row in body["members"]
+        if row["body"]["record_type"] == "token"
+        and row["body"]["sentence"]["member_id"] == "sentence:3"
+    )
     del token["lemma"]
     changed = CharacterizationSnapshot(hanlp.product_id, canonical_bytes(body))
     product = produce(source, native, canonical, changed)
     selected = passage(source).model_copy(update=dict(text=selected_text, end=len(selected_text)))
-    component = primary_declaration_component_products((product,), source, selected, supporting=(changed,), source_pin=native[0].source.values())
+    component = primary_declaration_component_products(
+        (product,), source, selected, supporting=(changed,), source_pin=native[0].source.values()
+    )
     assert component.term.text == "samples"
     assert component.declaration_chain is not None

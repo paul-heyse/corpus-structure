@@ -46,8 +46,10 @@ def test_application_candidate_uses_retained_runtime_not_ambient_repreparation(m
     (root / "operations.yaml").write_bytes(STORAGE.declaration_content)
     (root / "target.yaml").write_text(STORAGE.manifest_text)
     binding = prepare_data_operation_runtime(
-        prepared.prepared, prepared.dependencies.artifacts,
-        execution_profile="execution:cpu", observed={},
+        prepared.prepared,
+        prepared.dependencies.artifacts,
+        execution_profile="execution:cpu",
+        observed={},
     )
     custody = RuntimeCustody.from_binding(binding)
     assert json.loads(binding.manifest)["observed"] == {}
@@ -55,7 +57,10 @@ def test_application_candidate_uses_retained_runtime_not_ambient_repreparation(m
         deployment=True, data_operations="target.yaml", execution_profile="execution:cpu"
     )
     preview = prepare_preview(
-        root, request, target="target", local_release=prepared.prepared.release_id,
+        root,
+        request,
+        target="target",
+        local_release=prepared.prepared.release_id,
         release_manifest_sha256=sha256(prepared.prepared.manifest).hexdigest(),
         release_artifacts_sha256=prepared.prepared.artifacts_sha256,
     )
@@ -73,8 +78,10 @@ def test_application_candidate_uses_retained_runtime_not_ambient_repreparation(m
     assert retained == binding
     # A newly selected profile is a different runtime, even with identical inputs.
     another = prepare_data_operation_runtime(
-        prepared.prepared, prepared.dependencies.artifacts,
-        execution_profile="execution:other", observed={},
+        prepared.prepared,
+        prepared.dependencies.artifacts,
+        execution_profile="execution:other",
+        observed={},
     )
     assert another.runtime_id != binding.runtime_id
     with pytest.raises(ModelError, match="exact reviewed custody"):

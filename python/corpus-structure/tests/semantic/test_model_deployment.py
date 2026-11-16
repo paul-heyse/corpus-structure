@@ -154,7 +154,9 @@ def test_current_native_release_deployment_resumes_before_separate_activation(
     )
     effects = []
     with pytest.raises(DBAPIError) as denied:
-        deploy_candidate(root, wrong_purpose, binding, prepared, report=effects.append, runtime=runtime)
+        deploy_candidate(
+            root, wrong_purpose, binding, prepared, report=effects.append, runtime=runtime
+        )
     assert getattr(denied.value.orig, "sqlstate", None) == "42501"
     assert effects == ["migration"]
     with semantic_bare_engine.connect() as connection:
@@ -278,7 +280,9 @@ def test_current_native_release_deployment_resumes_before_separate_activation(
             connection.execute(update(admitted).where(exact).values(content_digest="0" * 64))
     try:
         with pytest.raises(ModelError, match="admitted release does not match"):
-            deploy_candidate(root, settings, binding, prepared, report=lambda _: None, runtime=runtime)
+            deploy_candidate(
+                root, settings, binding, prepared, report=lambda _: None, runtime=runtime
+            )
     finally:
         with (
             semantic_bare_engine.begin() as connection,
@@ -307,21 +311,31 @@ def test_current_native_release_deployment_resumes_before_separate_activation(
     # or legacy-run publication route.
     assert sha256(prepared[3].manifest).hexdigest() == binding.release_manifest_sha256
 
-
     # The normal application-only route reuses the installed native root and
     # admits the same exact reviewed runtime without authoring another migration.
-    application = success(command(
-        "model", "change", "preview", "-", input=yaml.safe_dump({
-            "deployment": True, "data_operations": "target.yaml",
-            "execution_profile": "execution:deployment-control",
-        })
-    ))
+    application = success(
+        command(
+            "model",
+            "change",
+            "preview",
+            "-",
+            input=yaml.safe_dump(
+                {
+                    "deployment": True,
+                    "data_operations": "target.yaml",
+                    "execution_profile": "execution:deployment-control",
+                }
+            ),
+        )
+    )
     success(run("apply", application["result_id"]))
     application_candidate = success(run("candidate", application["result_id"]))
     assert application_candidate["runtime"]["runtime_id"] == runtime.runtime_id
     application_deployed = success(run("deploy", application_candidate["result_id"]))
     assert application_deployed["operation_account"]["known_effects"] == [
-        "archive", "admission", "verified"
+        "archive",
+        "admission",
+        "verified",
     ]
 
     # Actual ordinary demand creation can select the newly admitted runtime.
@@ -340,17 +354,23 @@ def test_current_native_release_deployment_resumes_before_separate_activation(
     intent = freeze_demand(
         bound_data_operation_model(prepared[3]),
         roots=(RootSubject("deployment:subject", "deployment:source", b'{"page":1}'),),
-        targets=("urn:ddo-test:source",), inference="deployment:initial-native-request",
+        targets=("urn:ddo-test:source",),
+        inference="deployment:initial-native-request",
         execution_profile="execution:deployment-control",
     )
     with (
         open_runtime_engine(settings, "deployment-first-demand", purpose="write") as engine,
         engine.begin() as connection,
     ):
-        created = create_data_demand(connection, CreateDataDemand(
-            project_id=project, release_id=binding.release, runtime_id=runtime.runtime_id,
-            intent=cast(dict, intent.record),
-        ))
+        created = create_data_demand(
+            connection,
+            CreateDataDemand(
+                project_id=project,
+                release_id=binding.release,
+                runtime_id=runtime.runtime_id,
+                intent=cast(dict, intent.record),
+            ),
+        )
     assert created["runtime_id"] == runtime.runtime_id
     assert created["release_id"] == binding.release
     assert created["obligations"][0]["subject"] == "deployment:subject"

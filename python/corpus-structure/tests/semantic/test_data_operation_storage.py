@@ -1477,6 +1477,53 @@ def test_real_purpose_principals_cannot_cross_evaluator_kind_boundary(ddo_kernel
 
 
 @pytest.mark.parametrize("ddo_kernel", [STORAGE], indirect=True, ids=["storage"])
+def test_evaluator_retires_own_failed_attempt_without_granting_writer_private_access(ddo_kernel):
+    writer = ddo_kernel.purpose("write")
+    evaluator = ddo_kernel.purpose("evaluate")
+    try:
+        _, _, _, attached = attach(ddo_kernel, operation="urn:ddo-test:evaluator", engine=evaluator)
+        with evaluator.begin() as connection:
+            owned = DataOperationStorage(connection).claim_data_request(
+                typing_cast(
+                    WireClaimDataRequestRequest,
+                    {
+                        "request_id": attached["request_id"],
+                        "holder": "evaluator-failure",
+                        "lease_seconds": 30,
+                    },
+                )
+            )
+        payload = {
+            **{
+                name: owned[name]
+                for name in ("request_id", "generation", "task_id", "attempt", "holder")
+            },
+            "physical_retirement": "confirmed",
+            "failure": {
+                "code": "known-test-failure",
+                "message": "owned finite computation retired",
+            },
+        }
+        with writer.begin() as connection, pytest.raises(DBAPIError, match="evaluator"):
+            DataOperationStorage(connection).release_data_attempt(
+                typing_cast(WireReleaseDataAttemptRequest, payload)
+            )
+        with evaluator.begin() as connection:
+            storage = DataOperationStorage(connection)
+            released = storage.release_data_attempt(
+                typing_cast(WireReleaseDataAttemptRequest, payload)
+            )
+            assert released["state"] == "released" and released["replayed"] is False
+            repeated = storage.release_data_attempt(
+                typing_cast(WireReleaseDataAttemptRequest, payload)
+            )
+            assert repeated["failure_id"] == released["failure_id"] and repeated["replayed"] is True
+    finally:
+        writer.dispose()
+        evaluator.dispose()
+
+
+@pytest.mark.parametrize("ddo_kernel", [STORAGE], indirect=True, ids=["storage"])
 def test_native_request_renewal_uses_exact_runless_fence_and_does_not_shorten_lease(ddo_kernel):
     _, _, _, attached = attach(ddo_kernel)
     fence = claim(ddo_kernel, attached)

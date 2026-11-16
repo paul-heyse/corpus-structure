@@ -15,7 +15,6 @@ from sqlalchemy import Engine, insert, select, text, update
 from corpus_structure.semantic import (
     ResolvedDependencies,
     SourceArtifact,
-    SourceBundle,
     prepare_release,
     releases,
 )
@@ -118,7 +117,9 @@ def test_current_archive_survives_read_but_refuses_changed_producing_runtime(
         )
         # Ordinary archived-product reads retain custody without today's producer.
         assert releases.open_release(conn, prepared.release_id) == prepared
-        with pytest.raises(releases.ReleaseConflict, match="reacquire"):
+        with pytest.raises(
+            releases.ReleaseConflict, match="archived compiler library versions differ"
+        ):
             releases.verify_release(conn, prepared.release_id)
 
 
@@ -133,7 +134,15 @@ def test_conflicting_artifact_refuses_without_partial_changes(commit_db_engine: 
         assert releases.activation_token(conn, pid) == releases.ActivationToken(
             prepared.release_id, 0
         )
-        mismatched = SourceBundle(bundle.root, (replace(bundle.sources[0], content=b"other"),))
+        mismatched = replace(
+            bundle,
+            sources=(
+                replace(
+                    bundle.sources[0], content=bundle.sources[0].content + b"\n# other bytes\n"
+                ),
+                *bundle.sources[1:],
+            ),
+        )
         with pytest.raises(releases.ReleaseConflict, match="exact inputs"):
             releases.persist_release(conn, mismatched, dependencies, profile, prepared)
 
