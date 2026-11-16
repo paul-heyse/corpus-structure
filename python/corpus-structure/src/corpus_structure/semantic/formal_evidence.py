@@ -26,7 +26,7 @@ from corpus_structure.core import tex
 from corpus_structure.core.evidence import MacroDef
 from corpus_structure.core.vocab import ParseOutcome
 from corpus_structure.methods.math import grammar as math_grammar
-from corpus_structure.semantic.characterization import LayerReport, occurrence_id, validate_layer
+from corpus_structure.semantic.characterization import occurrence_id
 from corpus_structure.semantic.formal_forest import recognize_formal
 from corpus_structure.semantic.formal_sources import (
     NORMALIZATION_RECIPE,
@@ -35,7 +35,6 @@ from corpus_structure.semantic.formal_sources import (
     normalize_inline_equation,
 )
 from corpus_structure.semantic.identity import canonical_bytes
-from corpus_structure.semantic.source_views import PreparedSourceView
 from corpus_structure.semantic.structural_parsing import (
     COMPARISON_BASIS,
     FIELD_GRAMMAR,
@@ -46,7 +45,6 @@ from corpus_structure.semantic.structural_parsing import (
     formal_field_grammar,
     located_tokens,
 )
-from corpus_structure.semantic.types import PreparedRelease
 
 PROFILE = "positioned-formal-v1"
 FAMILIES = (
@@ -1390,155 +1388,3 @@ def extract_formal_facts(
     if not selectors:
         selectors = [dict(projection=builder.identity.projection, start=0, end=0)]
     return selectors
-
-
-def build_formal_layer(
-    view: PreparedSourceView,
-    prepared: PreparedRelease,
-    operation: Mapping[str, Any],
-    *,
-    math_start: math_grammar.Kind = "any_value",
-    parse_seconds: float = math_grammar.PARSE_SECONDS,
-    max_forest_nodes: int = 20000,
-    check_active: Callable[[], None] = lambda: None,
-    source_scope: Mapping[str, Any] | None = None,
-    max_inline_chars: int = 2048,
-    macros: Mapping[str, MacroDef] | None = None,
-) -> LayerReport:
-    """Recognize privately, then validate one detached publishable source-bound layer.
-
-    ``operation`` comes from the execution owner's immutable task determinants. This
-    function never invents runtime/model/input identity and performs no native algebra.
-    """
-    required = {
-        "key",
-        "version",
-        "runtime",
-        "configuration",
-        "input",
-        "model",
-        "grammar",
-        "context",
-    }
-    if not required <= operation.keys() or any(not operation[key] for key in required):
-        raise ValueError("formal producer requires authoritative operation determinants")
-    if math_start not in math_grammar.STARTS or parse_seconds <= 0 or max_forest_nodes < 1:
-        raise ValueError("invalid formal parser request")
-    builder = _LayerBuilder(
-        view,
-        operation,
-        FormalIdentity(
-            canonical_bytes(view.ref.native_product.values()),
-            view.ref.projection_digest,
-            view.ref.id,
-        ),
-    )
-    builder.macros = dict(macros or {})
-    selected: list[dict[str, Any]]
-    if source_scope is not None:
-        expected = dict(
-            source_view_id=view.ref.id,
-            key=view.ref.key,
-            base_document=view.ref.native_product.values(),
-            section_pointer=view.ref.section_pointer,
-            membership=view.ref.membership,
-            projection_digest=view.ref.projection_digest,
-            recipe_digest=view.ref.recipe_digest,
-        )
-        if source_scope["source_view_ids"] != [view.ref.id] or source_scope["source_views"] != [
-            expected
-        ]:
-            raise ValueError(
-                "formal source selection differs from the actual immutable source view"
-            )
-        selected = list(source_scope["selectors"])
-        if any(selector["projection"] != view.ref.projection_digest for selector in selected):
-            raise ValueError("formal selected source has a different projection")
-    else:
-        selected = [dict(projection=view.ref.projection_digest, start=0, end=len(view.text))]
-    selectors = extract_formal_facts(
-        builder,
-        selected,
-        math_start=math_start,
-        parse_seconds=parse_seconds,
-        max_forest_nodes=max_forest_nodes,
-        max_inline_chars=max_inline_chars,
-        check_active=check_active,
-    )
-    scope = dict(
-        source_view_ids=[view.ref.id],
-        source_views=[
-            dict(
-                source_view_id=view.ref.id,
-                key=view.ref.key,
-                base_document=view.ref.native_product.values(),
-                section_pointer=view.ref.section_pointer,
-                membership=view.ref.membership,
-                projection_digest=view.ref.projection_digest,
-                recipe_digest=view.ref.recipe_digest,
-            )
-        ],
-        profile=PROFILE,
-        selectors=selectors,
-    )
-    if source_scope is not None:
-        scope = dict(source_scope)
-        selectors = list(scope["selectors"])
-    coverage = [
-        dict(
-            family=family,
-            operation=operation["key"],
-            eligible=selectors,
-            examined=selectors,
-            availability="available",
-            outcome="partial"
-            if builder.problems[family]
-            else "complete"
-            if builder.counts[family]
-            else "empty",
-            profile=PROFILE,
-            **(
-                {"reason": "; ".join(dict.fromkeys(builder.problems[family]))}
-                if builder.problems[family]
-                else {}
-            ),
-        )
-        for family in FAMILIES
-    ]
-    partial = any(builder.problems.values())
-    return validate_layer(
-        prepared,
-        dict(
-            format="characterization-layer-v1",
-            base_document=view.ref.native_product.values(),
-            release_id=prepared.release_id,
-            operation={
-                **operation,
-                "produced_families": list(FAMILIES),
-                "outcomes": ["complete", "partial", "failed"],
-                "result_determinants": sorted(required),
-                "preconditions": [
-                    (
-                        "positioned-formal-v1 nomination: lexical numbers, comparison operators, "
-                        "ISO dates, explicit labeled literals, conventional quantities "
-                        "and intervals; "
-                        "recognized formulas require attributable recognition"
-                    )
-                ],
-                "effects": [
-                    (
-                        "immutable positioned formal syntax and packed symbolic structure; "
-                        "no native symbolic evaluation"
-                    )
-                ],
-            },
-            source_scope=scope,
-            outcome="partial" if partial else "complete",
-            occurrences=list(builder.occurrences.values()),
-            annotations=builder.annotations,
-            memberships=builder.memberships,
-            terms=list(builder.terms.values()),
-            choices=list(builder.choices.values()),
-            coverage=coverage,
-        ),
-    )

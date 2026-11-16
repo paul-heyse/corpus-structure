@@ -57,16 +57,11 @@ def declared_formal_layers(products, source):
     return result
 
 
-def formal_member_reference(product, identifier):
-    """Keep actual target addresses and exact historical replay addresses distinct."""
-    if isinstance(product, DataProductReference):
-        return member_reference(product, identifier)
-    from .characterization import annotation_reference
-    from .product_reference import ProductReference
-
-    if isinstance(product, ProductReference):
-        return annotation_reference(product, identifier)
-    raise TypeError("positioned formal evidence requires its actual nominal product reference")
+def formal_member_reference(product: DataProductReference, identifier):
+    """Positioned evidence retains its exact current semantic product/member address."""
+    if not isinstance(product, DataProductReference):
+        raise TypeError("positioned formal evidence requires its actual nominal product reference")
+    return member_reference(product, identifier)
 
 
 class SelectedCharacterizationInventories(Mapping):

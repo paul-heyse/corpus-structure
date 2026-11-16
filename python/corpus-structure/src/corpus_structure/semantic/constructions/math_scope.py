@@ -16,7 +16,6 @@ from spacy.tokens import Doc, Token
 
 from corpus_structure.semantic.data_product_reference import member_reference
 
-from .matching import retained_documents
 from .nodes import identity
 
 FAMILY = "construction.math_scope"
@@ -98,56 +97,6 @@ class PreparedScopeCues:
             [(self.vocab.strings[label], a, b) for label, a, b in self.matcher(doc)]
             + [("section_wide", a, b) for _, a, b in self.phrases(doc)]
         )
-
-
-def populate_math_scope(
-    layer,
-    view,
-    dependencies,
-    vocab,
-    *,
-    binders,
-    rules=(),
-    check_active=lambda: None,
-    admitted=lambda a, b: True,
-):
-    """Project the sealed layer representation into the shared native cue kernel."""
-    blocks = []
-    fields = []
-    for pin, container, doc, columns, offset, end in retained_documents(dependencies, view, vocab):
-        body = dependencies[pin].payload
-        occurrences = {row["local_id"]: row for row in body["occurrences"]}
-        sentences = {}
-        for row in body["annotations"]:
-            parts = [e for oid in row["occurrences"] for e in occurrences[oid]["extents"]]
-            if parts:
-                sentences[row["local_id"]] = (
-                    min(e["start"] for e in parts),
-                    max(e["end"] for e in parts),
-                )
-        blocks.append((pin, container, doc, columns, offset, end, sentences))
-    for pin, report in dependencies.items():
-        body = report.payload
-        occurrences = {row["local_id"]: row for row in body["occurrences"]}
-        for row in body["annotations"]:
-            inp = row.get("formal_input")
-            if inp is not None:
-                extents = occurrences[inp["parent_occurrence"]]["extents"]
-                if all(e["source_view_id"] == view.ref.id for e in extents):
-                    fields.append((pin, row["local_id"], inp, extents))
-    _populate_math_scope(
-        layer,
-        view,
-        blocks,
-        vocab,
-        source_key=view.ref.id,
-        projection=view.ref.projection_digest,
-        formal_fields=fields,
-        binders=binders,
-        rules=rules,
-        check_active=check_active,
-        admitted=admitted,
-    )
 
 
 def populate_math_scope_products(
@@ -512,40 +461,6 @@ class MathScopeReadings:
             if span == sentence
             and (kind != "clause" or (target is not None and target[0] == position))
         )
-
-
-def retained_math_scope(layers, view, *, binders, rules=()):
-    """Read exact sealed layer facts without recognizing language downstream."""
-    selected = []
-    for pin, report in layers.items():
-        if report.reference(pin.task_id) != pin:
-            raise ValueError("math source projection requires exact primary layer pins")
-        body = report.payload
-        views = [
-            row
-            for row in body["source_scope"]["source_views"]
-            if row["source_view_id"] == view.ref.id
-        ]
-        if not views:
-            continue
-        if (
-            len(views) != 1
-            or body["base_document"] != view.ref.native_product.values()
-            or views[0]["projection_digest"] != view.ref.projection_digest
-            or views[0]["recipe_digest"] != view.ref.recipe_digest
-        ):
-            raise ValueError("math source projection differs from selected source")
-        if FAMILY in body["operation"]["produced_families"]:
-            selected.append((pin, body))
-    return _read_math_scope(
-        selected,
-        view.pieces,
-        len(view.text),
-        view.ref.projection_digest,
-        lambda extent: extent["source_view_id"] == view.ref.id,
-        binders=binders,
-        rules=rules,
-    )
 
 
 def retained_math_scope_products(products, source, *, binders, rules=()):

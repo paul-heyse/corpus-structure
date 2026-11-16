@@ -501,59 +501,6 @@ def _factored_native_alternatives(values, *, inline):
     return Tree("_ambig", list(values), copy(first.meta) if isinstance(first, Tree) else None)
 
 
-def retained_math_syntax(
-    layers,
-    view,
-    pointer: str,
-    latex: str,
-    *,
-    macros=None,
-    kind: grammar.Kind = "any_value",
-    max_nodes=20000,
-):
-    """Restore a factored native working DAG with the original Lark callbacks.
-
-    Callback inlining/filtering is the installed library's responsibility. No parse
-    call or Cartesian ambiguity expander runs. Local choices remain available to
-    the existing contextual resolver. Correlated private sequences that cannot be
-    factored remain explicitly unavailable, never independently recombined.
-    """
-    candidates = []
-    for pin, report in layers.items():
-        if report.reference(pin.task_id) != pin:
-            raise ValueError("native mathematical syntax requires exact retained layer pins")
-        body = report.payload
-        selected = [
-            row
-            for row in body["source_scope"]["source_views"]
-            if row["source_view_id"] == view.ref.id
-        ]
-        if not selected:
-            continue
-        if (
-            len(selected) != 1
-            or body["base_document"] != view.ref.native_product.values()
-            or selected[0]["projection_digest"] != view.ref.projection_digest
-            or selected[0]["recipe_digest"] != view.ref.recipe_digest
-        ):
-            raise ValueError("retained mathematical syntax differs from exact source")
-        occurrences = {row["local_id"]: row for row in body["occurrences"]}
-        for root in body["annotations"]:
-            inp = root.get("formal_input")
-            if inp is None or inp["representation"] != "recognized_latex" or inp["text"] != latex:
-                continue
-            parent = occurrences[inp["parent_occurrence"]]
-            if not any(
-                e["native_pointer"] == pointer
-                and e["source_view_id"] == view.ref.id
-                and e["projection"] == view.ref.projection_digest
-                for e in parent["extents"]
-            ):
-                continue
-            candidates.append((body, root))
-    return _restore_math_syntax(candidates, latex, macros=macros, kind=kind, max_nodes=max_nodes)
-
-
 def _restore_math_syntax(
     candidates,
     latex,
@@ -561,13 +508,12 @@ def _restore_math_syntax(
     macros=None,
     kind: grammar.Kind = "any_value",
     max_nodes=20000,
-    semantic=False,
 ):
     """Shared retained DAG/callback restoration after the owning source lookup."""
     from lark import Tree
     from lark.parse_tree_builder import ParseTreeBuilder
 
-    from .formal_evidence import macro_identity, math_grammar_identity
+    from .formal_evidence import macro_identity
 
     table = dict(macros or {})
     classes = grammar.classify(table)
@@ -577,7 +523,7 @@ def _restore_math_syntax(
         return replace(base, failure=grammar.Failure(category, "PrimarySyntaxUnavailable"))
     body, root = candidates[0]
     inp = root["formal_input"]
-    expected_grammar = "formal-math" if semantic else math_grammar_identity(table)
+    expected_grammar = "formal-math"
     if inp["macro_identity"] != macro_identity(table) or inp["grammar"] != expected_grammar:
         return replace(
             base, failure=grammar.Failure("primary_grammar_drift", "PrimarySyntaxUnavailable")
@@ -795,52 +741,17 @@ class SourceNativeMathReadings:
             macros=macros,
             kind=kind,
             max_nodes=max_nodes,
-            semantic=True,
         )
 
     def inventory(self, pointer, latex, *, macros=None):
         return _math_inventory(
-            self._inputs.get((pointer, latex), ()), latex, macros=macros, semantic=True
+            self._inputs.get((pointer, latex), ()), latex, macros=macros
         )
 
 
-def retained_math_inventory(layers, view, pointer, latex, *, macros=None):
-    """Read raw positioned constituents and packing without a private lexical walk."""
-    from .formal_evidence import macro_identity, math_grammar_identity
-
-    candidates = []
-    for pin, report in layers.items():
-        if report.reference(pin.task_id) != pin:
-            raise ValueError("primary mathematical inventory differs from exact pin")
-        body = report.payload
-        occurrences = {row["local_id"]: row for row in body["occurrences"]}
-        for row in body["annotations"]:
-            inp = row.get("formal_input")
-            if inp is None or inp["representation"] != "recognized_latex" or inp["text"] != latex:
-                continue
-            extents = occurrences[inp["parent_occurrence"]]["extents"]
-            if not any(
-                e["native_pointer"] == pointer
-                and e["source_view_id"] == view.ref.id
-                and e["projection"] == view.ref.projection_digest
-                for e in extents
-            ):
-                continue
-            if (
-                body["base_document"] != view.ref.native_product.values()
-                or inp["macro_identity"] != macro_identity(macros)
-                or inp["grammar"] != math_grammar_identity(macros)
-            ):
-                raise ValueError(
-                    "primary mathematical inventory differs from frozen source or macros"
-                )
-            candidates.append((pin, body, row))
-    return _math_inventory(candidates, latex, macros=macros)
-
-
-def _math_inventory(candidates, latex, *, macros=None, semantic=False):
+def _math_inventory(candidates, latex, *, macros=None):
     from .data_product_reference import member_reference
-    from .formal_evidence import macro_identity, math_grammar_identity
+    from .formal_evidence import macro_identity
 
     if len(candidates) != 1:
         return dict(
@@ -853,7 +764,7 @@ def _math_inventory(candidates, latex, *, macros=None, semantic=False):
         )
     pin, body, root = candidates[0]
     inp = root["formal_input"]
-    expected_grammar = "formal-math" if semantic else math_grammar_identity(macros)
+    expected_grammar = "formal-math"
     if inp["macro_identity"] != macro_identity(macros) or inp["grammar"] != expected_grammar:
         raise ValueError("primary mathematical inventory differs from frozen macros")
     rows = [

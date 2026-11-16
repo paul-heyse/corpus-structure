@@ -679,13 +679,9 @@ def read_retained_clause(
     reading_type = DeclaredClauseReading if target else ClauseReading
     if reference.project_id != source.project_id:
         raise ValueError("reading belongs to another project")
-    primary = (
-        primary_layers
-        if isinstance(primary_layers, FormalSourceReadings)
-        else FormalSourceReadings(primary_layers, source)
-        if primary_layers is not None
-        else None
-    )
+    primary = primary_layers
+    if primary is not None and not isinstance(primary, FormalSourceReadings):
+        raise TypeError("clause reading requires its prepared current formal source index")
     rows = {row["contribution_id"]: row for row in retained["contributions"]}
     reading = rows[reference.contribution_id]
     component = reading.get("component", {})

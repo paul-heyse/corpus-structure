@@ -60,7 +60,7 @@ def profiles():
     ), PreparedConstructionProfile(prepared, model)
 
 
-def selected_source(text, *, pieces=None, items=None):
+def selected_source(text, *, pieces=None, items=None, recognition=()):
     formal, _construction = profiles()
     pieces = (
         pieces
@@ -88,6 +88,7 @@ def selected_source(text, *, pieces=None, items=None):
         text=text,
         pieces=pieces,
         items=items,
+        recognition=recognition,
     )
     coordinate = source.value["source"]
     context = SubjectContext(

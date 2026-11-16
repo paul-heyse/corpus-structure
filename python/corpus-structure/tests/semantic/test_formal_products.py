@@ -81,6 +81,7 @@ def test_formal_source_identity_and_exact_scope_change_meaning(profile):
     full = selected(profile, "Quantity: 2 kg")
     changed = full.value
     changed["source"]["document"] = "document:another-original"
+    changed["source"]["document_subject"] = original_document_subject("document:another-original")
     other = FrozenFormalSource.acquire(profile.prepared, changed)
     first = profile.run(full, FormalEvidenceOptions(), subject_context=_publication_context(full))
     second = profile.run(
@@ -251,6 +252,7 @@ def test_immediate_construction_boundary_reuses_formal_facts_without_parser(prof
     assert fields[0].reference.product.product_id == product.semantic_id
     changed = source.value
     changed["source"]["document"] = "another-original"
+    changed["source"]["document_subject"] = original_document_subject("another-original")
     with pytest.raises(ValueError, match="another original source"):
         FormalSourceReadings.from_products(
             (product,), FrozenFormalSource.acquire(profile.prepared, changed)
@@ -511,6 +513,7 @@ def test_formal_nominal_packet_kinds_compile_to_native_publication_contract(prof
             "DdoFormalTerm",
             "DdoFormalChoice",
             "DdoFormalAlternative",
+            "DdoFormalManifest",
         )
     }
     projected = json.loads(
@@ -519,12 +522,12 @@ def test_formal_nominal_packet_kinds_compile_to_native_publication_contract(prof
         )
     )
     contract = next(row for row in projected["kinds"] if row["kind"] == kind)
-    assert len(contract["member_contracts"]) == 6
+    assert len(contract["member_contracts"]) == 7
     assert contract["member_schema"] != {"not": {}}
     assert contract["universe"] == "source"
     for member in members:
         body = next(row for row in projected["kinds"] if row["kind"] == member)
-        assert body["universe"] == "source"
+        assert body["universe"] == ("ordinary" if member == profile.prepared.index.definitions["DdoFormalManifest"].iri else "source")
         assert body["families"] == []
 
 
@@ -675,16 +678,16 @@ def test_schema_free_target_cpu_owner_retires_shared_credit(profile):
         {
             "external_premises": [
                 {
-                    "layer": {"task_id": 9, "product_key": "private", "content_digest": "c" * 64},
-                    "local_id": "external",
+                    "product_id": "unadmitted:private-source",
+                    "member_id": "external",
                 }
             ]
         },
         {
             "required_external_choices": [
                 {
-                    "layer": {"task_id": 9, "product_key": "private", "content_digest": "c" * 64},
-                    "local_id": "external",
+                    "product_id": "unadmitted:private-source",
+                    "member_id": "external",
                 }
             ]
         },
@@ -1028,7 +1031,9 @@ def test_target_formal_profile_refuses_stale_captured_grammar(profile):
 
 
 def test_target_distinct_original_projections_keep_disjoint_formal_members(profile):
-    left, right = selected(profile, "x+y=1"), selected(profile, "x-y=2")
+    from semantic.formal_products_support import selected_rows
+    left, right = (selected_rows(profile, (text, "formula", text, "succeeded"))
+                   for text in ("x+y=1", "x-y=2"))
     assert left.value["source"]["document"] == right.value["source"]["document"]
     assert left.value["source"]["projection"] != right.value["source"]["projection"]
     results = tuple(

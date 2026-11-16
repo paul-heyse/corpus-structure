@@ -7,12 +7,6 @@ from dataclasses import dataclass
 from types import MappingProxyType
 from typing import Any
 
-from corpus_structure.semantic.characterization import (
-    AnnotationReference,
-    LayerReport,
-)
-from corpus_structure.semantic.product_reference import ProductReference
-
 from .data_product_reference import (
     DataProductMemberReference,
     DataProductReference,
@@ -26,14 +20,14 @@ class SemanticFormalSource:
     projection_digest: str
 
 
-def _reference(pin, local_id):
+def _reference(pin: DataProductReference, local_id: str):
     return member_reference(pin, local_id)
 
 
 @dataclass(frozen=True, slots=True)
 class FormalFieldReading:
-    reference: AnnotationReference | DataProductMemberReference
-    input_reference: AnnotationReference | DataProductMemberReference
+    reference: DataProductMemberReference
+    input_reference: DataProductMemberReference
     start: int
     end: int
     text: str
@@ -45,7 +39,7 @@ class FormalFieldReading:
 
 @dataclass(frozen=True, slots=True)
 class ComparisonBasisReading:
-    reference: AnnotationReference | DataProductMemberReference
+    reference: DataProductMemberReference
     start: int
     end: int
     text: str
@@ -54,26 +48,22 @@ class ComparisonBasisReading:
 
 @dataclass(frozen=True, slots=True)
 class LexicalFact:
-    reference: AnnotationReference | DataProductMemberReference
+    reference: DataProductMemberReference
     start: int
     end: int
     text: str
     kind: str
     value: str
-    bindings: tuple[tuple[str, AnnotationReference | DataProductMemberReference, str], ...] = ()
+    bindings: tuple[tuple[str, DataProductMemberReference, str], ...] = ()
 
 
 class FormalSourceReadings:
     """One operation's exact source index, shared by its field and gap projections."""
 
-    _lexical: tuple[dict[str, Any], ...] | None
+    _lexical: tuple[dict[str, Any], ...]
     _text: str
-
-    def __init__(self, layers, source):
-        self._lexical = None
-        self._text = ""
-        self.source = source
-        self._selected = tuple(_selected(layers, source))
+    source: SemanticFormalSource
+    _selected: tuple[tuple[DataProductReference, dict[str, Any]], ...]
 
     @classmethod
     def from_products(cls, products, source):
@@ -123,10 +113,6 @@ class FormalSourceReadings:
         """Exact primary lexical categories and atoms; never recover by classifying again."""
         from .constructions.lexical import PositionedTerminal, ProtectedAtom, region_terminals
 
-        if self._lexical is None:
-            raise ValueError(
-                "legacy formal inputs do not declare primary construction lexical coverage"
-            )
         eligible = [
             row
             for row in self._lexical
@@ -158,37 +144,10 @@ class FormalSourceReadings:
         return formal_field_readings(self, self.source, family=family, start=start, end=end)
 
 
-def _selected(layers, source):
-    if isinstance(layers, FormalSourceReadings):
-        if layers.source != source:
-            raise ValueError("formal reading index belongs to another source")
-        yield from layers._selected
-        return
-    for pin, layer in layers.items():
-        if layer.reference(pin.task_id) != pin:
-            raise ValueError("formal field projection requires exact retained layer pins")
-        body = layer.payload
-        views = [
-            row
-            for row in body["source_scope"]["source_views"]
-            if row["source_view_id"] == source.source_view_id
-        ]
-        if not views:
-            continue
-        base = dict(
-            task_id=source.native_task_id,
-            product_key=source.native_product_key,
-            content_digest=source.native_content_digest,
-        )
-        if (
-            len(views) != 1
-            or body["base_document"] != base
-            or views[0]["base_document"] != base
-            or views[0]["projection_digest"] != source.projection_digest
-            or views[0]["recipe_digest"] != source.recipe_digest
-        ):
-            raise ValueError("formal field projection differs from exact source binding")
-        yield pin, body
+def _selected(layers: FormalSourceReadings, source):
+    if not isinstance(layers, FormalSourceReadings) or layers.source != source:
+        raise ValueError("formal reading index belongs to another source")
+    yield from layers._selected
 
 
 def _extent(row, occurrences, source):
@@ -198,11 +157,7 @@ def _extent(row, occurrences, source):
     part = parts[0]
     if (
         part.get("synthetic")
-        or (
-            "source_view_id" in part
-            if isinstance(source, SemanticFormalSource)
-            else part["source_view_id"] != source.source_view_id
-        )
+        or "source_view_id" in part
         or part["projection"] != source.projection_digest
         or not isinstance(part.get("text"), str)
     ):
@@ -229,7 +184,7 @@ def _covered(body, source, family, start, end):
 
 
 def formal_field_readings(
-    layers: Mapping[ProductReference, LayerReport] | FormalSourceReadings,
+    layers: FormalSourceReadings,
     source,
     *,
     family: str,
@@ -306,7 +261,7 @@ def formal_field_readings(
 
 
 def comparison_basis_readings(
-    layers: Mapping[ProductReference, LayerReport], source, *, start: int, end: int
+    layers: FormalSourceReadings, source, *, start: int, end: int
 ) -> tuple[ComparisonBasisReading, ...]:
     results = []
     for pin, body in _selected(layers, source):
