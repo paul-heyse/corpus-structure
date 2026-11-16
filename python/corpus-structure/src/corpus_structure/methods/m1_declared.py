@@ -60,6 +60,22 @@ class M1SourceCandidatesOperation:
                 },
             },
             {
+                "name": "construction",
+                "parameter": "construction",
+                "kind": "https://corpus-structure.dev/semantic/data-operation-constructions/DdoPrimaryConstructionProduct",
+                "direction": "input",
+                "minimum": 1,
+                "maximum": 1,
+                "collection": "scalar",
+                "presence": "required",
+                "support": {
+                    "provenance": "exact",
+                    "source": "same-original",
+                    "coverage": {"role": "construction", "description": "exact-selected-source"},
+                    "identity_requirements": ["episode"],
+                },
+            },
+            {
                 "name": "sources",
                 "parameter": "sources",
                 "kind": "https://corpus-structure.dev/semantic/data-operation-source/DdoSelectedNativeSource",
@@ -110,7 +126,7 @@ class M1SourceCandidatesOperation:
         },
         "outcomes": ["success", "failed"],
         "precision_description": "original-native-half-open-extents",
-        "dependencies": ["segment.sentences/source-native"],
+        "dependencies": ["text.constructions/source-native"],
         "effects": [],
         "capabilities": {
             "forms": ["scalar"],
@@ -127,6 +143,7 @@ class M1SourceCandidatesOperation:
             "children": [
                 {"operator": "scan", "roles": ["primary"]},
                 {"operator": "scan", "roles": ["annotations"]},
+                {"operator": "scan", "roles": ["construction"]},
                 {
                     "operator": "forall",
                     "roles": ["sources"],
@@ -813,9 +830,9 @@ class M1SourceCandidatesOperation:
     def select_hydrated(self, inputs):
         if inputs.selection.binding.operation != self.__data_operation__["id"]:
             raise ValueError("M1 selection belongs to another governing producer")
-        return inputs.one("primary"), inputs.one("annotations"), inputs.role("sources")
+        return inputs.one("primary"), inputs.one("annotations"), inputs.one("construction"), inputs.role("sources")
 
     def run(
-        self, primary: dict, annotations: dict, sources: tuple[dict, ...]
+        self, primary: dict, annotations: dict, construction: dict, sources: tuple[dict, ...]
     ) -> Generator[M1GlinerRequest, M1GlinerReply, M1CandidateProduct]:
-        return (yield from execute_declared_m1(self, primary, annotations, sources))
+        return (yield from execute_declared_m1(self, primary, annotations, construction, sources))

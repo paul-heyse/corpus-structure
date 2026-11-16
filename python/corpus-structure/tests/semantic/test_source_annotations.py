@@ -72,7 +72,8 @@ def detached(acquired, monkeypatch, request):
     prepared, model, configuration, selection = acquired
     nlp = spacy.blank("en")
     monkeypatch.setattr(annotations, "pipeline", lambda _configuration: nlp)
-    text = getattr(request, "param", "A valve opens.")
+    parameter = getattr(request, "param", "A valve opens.")
+    text = parameter["text"] if isinstance(parameter, dict) else parameter
     source = FrozenNativeSource.from_projection(
         prepared,
         document="document:one",
@@ -124,6 +125,10 @@ def detached(acquired, monkeypatch, request):
             token.morph = MorphAnalysis(doc.vocab, "VerbForm=Fin")
             token.dep_ = "ROOT" if token.i == 0 else "dep"
             token.head = doc[0]
+        if isinstance(parameter, dict):
+            for token, columns in zip(doc, parameter["columns"], strict=True):
+                token.lemma_, token.pos_, token.tag_, token.dep_, head = columns
+                token.head = doc[head]
     detached = _detach_annotation_block(
         source.value, block, layout, doc, pin, configuration, selection.native.fingerprint
     )

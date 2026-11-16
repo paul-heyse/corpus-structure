@@ -19,7 +19,7 @@ from corpus_structure.semantic.m1_products import (
     m1_profile_assets,
 )
 from corpus_structure.semantic.source_products import FrozenNativeSource, source_subject
-from corpus_structure.semantic.types import SourceArtifact, SourceBundle
+from corpus_structure.semantic.types import SourceArtifact, SourceBundle, PreparationProfile
 
 ROOT = Path(__file__).resolve().parents[4]
 
@@ -51,8 +51,20 @@ def configuration():
     return M1Config.model_validate(candidate_configuration(ROOT / "domains/statistics", "default"))
 
 
+
+def _sources():
+    """Capture controlled provider metadata only; never acquire an executable model."""
+    from corpus_structure.methods.native_profiles import NativeProfile, NativeSelection
+
+    config = configuration()
+    selected = NativeSelection(
+        NativeProfile("spacy", {"fixture": "preparation"}, {},
+                      config.sentences.model_dump(mode="json"), "float32", "cupy"), Path(".")
+    )
+    return m1_operation_sources(config, record_schemas=record_schemas(), sentence_selection=selected)
+
 def test_empty_m1_inspection_has_successful_typed_report_and_exact_denominator():
-    prepared = prepare_release(m1_operation_inputs(record_schemas()))
+    prepared = prepare_release(m1_operation_inputs(record_schemas()), profile=PreparationProfile(version="semantic-2"))
     source = FrozenNativeSource.from_projection(
         prepared,
         document="original:doc",
@@ -126,12 +138,15 @@ def test_actual_m1_producer_captures_selection_witnesses_and_single_stored_membe
     bundle = m1_operation_inputs(record_schemas())
     model = compile_data_operations(
         bundle,
-        python_sources=m1_operation_sources(configuration(), record_schemas=record_schemas()),
+        python_sources=_sources(),
     )
     operation = model.operation("extract.m1_candidates")
     assert operation.subject == "original-source-view"
     assert model.subject_definition(operation.subject).scope == "original-source"
     assert operation.consumer_selection is not None
+    assert {role.name for role in operation.roles if role.direction == "input"} == {
+        "primary", "annotations", "construction", "sources",
+    }
     assert (
         operation.consumer_selection.entrypoint
         == "corpus_structure.methods.m1_declared.M1SourceCandidatesOperation.select_hydrated"
@@ -187,10 +202,10 @@ def test_candidate_body_is_stored_once_and_keeps_required_source_record_anchors(
     )
 
     bundle = m1_operation_inputs(record_schemas())
-    prepared = prepare_release(bundle)
+    prepared = prepare_release(bundle, profile=PreparationProfile(version="semantic-2"))
     model = compile_data_operations(
         bundle,
-        python_sources=m1_operation_sources(configuration(), record_schemas=record_schemas()),
+        python_sources=_sources(),
     )
     source = FrozenNativeSource.from_projection(
         prepared,
@@ -324,10 +339,10 @@ def test_partial_produced_inspection_preserves_real_candidates_after_later_worke
     )
 
     bundle = m1_operation_inputs(record_schemas())
-    prepared = prepare_release(bundle)
+    prepared = prepare_release(bundle, profile=PreparationProfile(version="semantic-2"))
     model = compile_data_operations(
         bundle,
-        python_sources=m1_operation_sources(configuration(), record_schemas=record_schemas()),
+        python_sources=_sources(),
     )
     source = FrozenNativeSource.from_projection(
         prepared,
@@ -531,7 +546,7 @@ def test_m1_scoped_source_and_direct_context_cannot_inspect_unselected_original_
         source_slice,
     )
 
-    prepared = prepare_release(m1_operation_inputs(record_schemas()))
+    prepared = prepare_release(m1_operation_inputs(record_schemas()), profile=PreparationProfile(version="semantic-2"))
     base = FrozenNativeSource.from_projection(
         prepared,
         document="original:scope",
@@ -611,7 +626,7 @@ def test_related_m1_context_consumes_only_related_members_own_selected_span():
     from corpus_structure.semantic.m1_products import NativeCandidateData
     from corpus_structure.semantic.source_contexts import PreparedNativeSources
 
-    prepared = prepare_release(m1_operation_inputs(record_schemas()))
+    prepared = prepare_release(m1_operation_inputs(record_schemas()), profile=PreparationProfile(version="semantic-2"))
     primary = FrozenNativeSource.from_projection(
         prepared,
         document="original:related",
@@ -784,10 +799,10 @@ def test_actual_m1_discovery_separates_scalar_child_from_complete_context_popula
     bundle = m1_operation_inputs(record_schemas())
     model = compile_data_operations(
         bundle,
-        python_sources=m1_operation_sources(configuration(), record_schemas=record_schemas()),
+        python_sources=_sources(),
     )
     operation = model.operation("extract.m1_candidates")
-    assert operation.dependencies == ("segment.sentences/source-native",)
+    assert operation.dependencies == ("text.constructions/source-native",)
     relations = source_discovery_relations(
         model, "source.selected_views/discovery", "result", operation.semantic_id
     )

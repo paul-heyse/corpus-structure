@@ -7,14 +7,12 @@ from itertools import pairwise
 from typing import Any
 
 from corpus_structure.ingest.annotations import AnnotationProduct, SentenceAnnotation
-from corpus_structure.semantic.proposals import NativeFrameSource
+from corpus_structure.semantic.declared_record_sources import DeclaredNativeFrameSource, DeclaredSourcePin
 from corpus_structure.semantic.source_contexts import (
     ContextRefused,
     NativeSourceContext,
-    NativeSourcePin,
     NativeSpanEvidence,
     SourceInterval,
-    SourcePin,
 )
 
 from .gliner import GlinerPack, GlinerRefused, GlinerReport, map_record_field
@@ -25,6 +23,7 @@ from .predicate_frames import (
     PredicateFrameResult,
     RoleSpan,
     predicate_frames,
+    prepare_predicate_readings,
     source_layout,
 )
 from .record_assembly import LiteralSpan, NativeRecordGroup, RoleInput
@@ -36,7 +35,7 @@ def _record_extent(
     pack: GlinerPack,
     report: GlinerReport,
     context: NativeSourceContext,
-    pin: SourcePin,
+    pin: DeclaredSourcePin,
     role: str,
     raw: Any,
 ) -> RoleSpan | None:
@@ -53,7 +52,7 @@ def _record_extent(
 
 
 def _sentence_model_start(
-    context: NativeSourceContext, pin: SourcePin, sentence: SentenceAnnotation
+    context: NativeSourceContext, pin: DeclaredSourcePin, sentence: SentenceAnnotation
 ) -> int | None:
     """Invert the exact source projection only for a complete, unique sentence run."""
     source_end = sentence.start
@@ -100,16 +99,21 @@ class AssertionQualification:
 
     def __init__(
         self,
-        source: NativeFrameSource,
+        source: DeclaredNativeFrameSource,
         annotations: Sequence[AnnotationProduct],
         pieces: Sequence[Mapping[str, Any]],
         items: Sequence[Mapping[str, Any]],
+        *,
+        primary_products=(),
     ) -> None:
         self._source = source
-        self._pin = NativeSourcePin.from_source(source)
+        self._pin = source.pin
         self._annotations = tuple(block for block in annotations if block.source == self._pin)
         self._pieces = pieces
         self._items = {item["self_ref"]: item for item in items}
+        self._primary = prepare_predicate_readings(primary_products)
+        if self._primary:
+            self._primary.for_source(self._pin)
         self._results: dict[str, tuple[FrameLayout, PredicateFrameResult]] = {}
 
     def supplement(
@@ -121,7 +125,7 @@ class AssertionQualification:
     ) -> NativeRecordGroup | None:
         if (
             not self._annotations
-            or NativeSourcePin.from_source(context.primary) != self._pin
+            or context.primary.pin != self._pin
             or report.context_id != context.dependency_digest
         ):
             return None
@@ -144,10 +148,10 @@ class AssertionQualification:
             return None
         (block,) = blocks
         if block.block_id not in self._results:
-            layout = source_layout(block, self._source.text, self._pieces, self._items)
+            layout = source_layout(block, self._source.text, self._pieces, self._items, primary_products=self._primary)
             self._results[block.block_id] = (
                 layout,
-                predicate_frames(self._source.text, (block,), layout=layout),
+                predicate_frames(self._source.text, (block,), layout=layout, primary_products=self._primary),
             )
         layout, result = self._results[block.block_id]
         if result.issues:

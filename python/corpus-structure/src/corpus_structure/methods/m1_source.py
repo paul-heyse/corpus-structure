@@ -33,7 +33,6 @@ from corpus_structure.methods.source_preparation import (
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.source_contexts import (
     ContextRefused,
-    NativeSourcePin,
     NativeSpanEvidence,
 )
 
@@ -345,6 +344,7 @@ def plan_candidate_replies(
     check_active,
     generic_role_guidance=False,
     source_capture_rules=(),
+    primary_products=(),
 ) -> Generator[M1GlinerRequest, M1GlinerReply, M1CandidateProduct]:
     """Translate only bounded provider dispositions into the original kernel."""
     plan = plan_candidates(
@@ -357,6 +357,7 @@ def plan_candidate_replies(
         check_active=check_active,
         generic_role_guidance=generic_role_guidance,
         source_capture_rules=source_capture_rules,
+        primary_products=primary_products,
     )
     reports, failure = None, None
     try:
@@ -391,6 +392,7 @@ def plan_candidates(
     check_active,
     generic_role_guidance=False,
     source_capture_rules=(),
+    primary_products=(),
 ):
     """Execute only explicitly prepared language, annotation and selected primary facts.
 
@@ -410,12 +412,13 @@ def plan_candidates(
 
     packs = configured_pack_variants(prepared, cfg, generic_role_guidance=generic_role_guidance)
     assertion_qualification = AssertionQualification(
-        prepared_source.source, prepared_source.annotations, view.pieces, view.items
+        prepared_source.source, prepared_source.annotations, view.pieces, view.items,
+        primary_products=primary_products,
     )
     details: dict[str, Any] = dict(
         policy=cfg.policy,
         standing="private_uncalibrated_candidates",
-        source_pin=asdict(NativeSourcePin.from_source(prepared_source.source)),
+        source_pin=prepared_source.source.pin.values(),
         regions=[asdict(region) for region in prepared_source.regions],
         contexts=[
             json.loads(canonical_bytes(asdict(selection)))

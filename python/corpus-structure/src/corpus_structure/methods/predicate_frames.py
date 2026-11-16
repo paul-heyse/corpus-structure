@@ -65,6 +65,22 @@ class PreparedPredicateReadings:
             for body in (json.loads(product.content),)
         )
 
+    def for_source(self, source):
+        """Check exact selected native coordinates before projecting any private meaning."""
+        from corpus_structure.semantic.declared_record_sources import DeclaredSourcePin
+
+        if not isinstance(source, DeclaredSourcePin):
+            raise ValueError("declared predicate input requires its original governed source pin")
+        selected = source.values()
+        for _pin, coordinate, scope, _inventory in self.inventories:
+            if (
+                coordinate["document"] != selected["original_source"]
+                or coordinate["projection"] != selected["projection_digest"]
+                or scope != selected["analyzed_scope_meaning"]
+            ):
+                raise ValueError("predicate primary product differs from its exact original source")
+        return tuple((pin, inventory) for pin, _coordinate, _scope, inventory in self.inventories)
+
     def __iter__(self):
         return iter(self.products)
 
@@ -83,23 +99,11 @@ def prepare_predicate_readings(products):
 def _reports(product, primary_products=()):
     """Read explicit governed inventories, or the genuine sealed historical layers."""
     if primary_products:
-        from corpus_structure.semantic.declared_record_sources import DeclaredSourcePin
-
-        if not isinstance(product.source, DeclaredSourcePin):
-            raise ValueError("declared predicate input requires its original governed source pin")
-        source = product.source.values()
-        selected = []
-        for pin, coordinate, scope, inventory in prepare_predicate_readings(
-            primary_products
-        ).inventories:
-            if (
-                coordinate["document"] != source["original_source"]
-                or coordinate["projection"] != source["projection_digest"]
-                or scope != source["analyzed_scope_meaning"]
-            ):
-                raise ValueError("predicate primary product differs from its exact original source")
-            if any(row["family"] == PRIMARY_RULE_FAMILY for row in inventory["coverage"]):
-                selected.append((pin, inventory))
+        selected = [
+            (pin, inventory)
+            for pin, inventory in prepare_predicate_readings(primary_products).for_source(product.source)
+            if any(row["family"] == PRIMARY_RULE_FAMILY for row in inventory["coverage"])
+        ]
     else:
         layers = getattr(product, "primary_layers", None)
         if not layers:
