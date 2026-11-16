@@ -1,6 +1,6 @@
 # DDO v9 source and structural authority integration
 
-**Preparation · 2026-11-15.** This intermediate rollback-only successor captures the current
+**Registered; bounded Tested · 2026-11-15.** This intermediate rollback-only successor captures the current
 atomic original-document registration and request protocol, structural native issuer/dossier
 completion guards and bounded ordinary authority. The registered v8 predecessor is immutable.
 The exact retired `ops.retain_original_document(text,bigint,bytea)` signature is superseded by
@@ -52,3 +52,36 @@ context. Original `598e014beb404ec98d94d6232c8fbc2c` had1passed/1failed because 
 `jsonb_populate_record` converted a JSON null field to SQL NULL. Named typed-row assignment
 corrects the setup; the production context encoder was already correct and was not changed.
 These are helper controls, not authentic structural issuance or complete publication qualification.
+
+## Registered successor and native retry · 2026-11-15
+
+At source `02129eb1d`, preview `09aef4fc9a1748deaf8ab796596d71da` and apply
+`16c50116622f42cd874e29a9437c06b0` **passed**. Rollback candidate
+`d216fabff0b64f21a612e1a63eb51578` **passed** with cleanup established; registration
+`70fd0081369f4aa49eb675bafe3ec5b1` **passed**. Four frozen migration files are committed
+at `14b362df6`, revision `semantic_ddo_domain_v9`. No persistent deployment occurred.
+
+The reviewed change has51 native operations, one ordinary physical-contract insert and no
+privilege delta. Nine exact retired functions are the old original-retention function and eight
+orphaned evaluation history/exposure functions. Twelve new structural helpers remain private to
+the publisher; atomic original registration grants the writer its declared command. Existing
+owners and ACLs remain unchanged. The ordinary insert names physical ID, checks and source digest;
+it neither updates existing contracts nor changes structural data.
+
+- Release: `release:139e78c56318d87cf48187e0ce8a4ad23122a66b2eab8d725279b748f0f4b862`.
+- Release artifacts: `6bd4454b2eeb1545a3e1831b7e8798b988e2003b54be332b283e2e87eaf8c4ea`.
+- Physical contract: `2870d2391286823c4364715652db9daa78625f09c250d8811abc4fbf7cd7dafa`.
+- 267 checks digest: `20491a67d543392ae56ad87ced2a26b2aaa249e19da84ad0c06ba16164ca4c57`.
+- Physical source digest: `0195dbfc951f4ccec0897eeb4f8a34589d0d287f67f6e28b950d447301e42c82`.
+
+`uv run ci test retry d56655d1af804c7caaa966966ad026c6 --lane ordinary --workers 3 --json`
+**failed**, result `332b6e06c10549bebcd6c4bde8b16adf`:18 selected,15 passed,3 failed.
+It preserves private-host mode. Remaining failures are dropped external declarations during
+Python port correspondence, the legacy global pattern refusal applied to current question fields,
+and a915-row PDF test transaction starving claim renewal. The first is repaired by threading the
+original archived declarations/contracts through correspondence; the latter now uses the existing
+bounded staging and real request maintenance. Pure source-correspondence controls81 **passed**,
+`835c45d995fd416f9c7630a09ca63fa5`, via `uv run ci test --workers 2 --json --` the source-profile
+and Python-port modules. These repairs still require actual native retry. The admission-scope
+repair needs a new frozen successor; v9 remains immutable. Full structural issuance, new rich
+publication controls, provider qualification, target-only installation and adoption remain open.

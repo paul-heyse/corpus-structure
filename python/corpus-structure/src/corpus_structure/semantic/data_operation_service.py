@@ -224,6 +224,8 @@ def execute_data_demand(
         sources,
         runtime_locations=locations,
         schema=bundle,
+        declarations=captured[0],
+        captured_contracts=dependencies.artifacts,
         policy=policy,
         nemotron_endpoint=nemotron_endpoint,
         admission_engine=admission_engine,

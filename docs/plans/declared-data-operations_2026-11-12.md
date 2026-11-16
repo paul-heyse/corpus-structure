@@ -196,17 +196,30 @@ native execution remains **not_run** pending v9. It grants no provider-accuracy 
 verified external actor-execution credit. Actual source-member versus comparison subject-definition
 alignment must be observed rather than relabelled to satisfy a guard.
 
-V9 authoring remains open after two settled rollback failures, `1054387e05c146dcb77f6322bf259ac5`
-and `82db512e0f1e41699200db98c2915108`. The first required correct SQL definition order; the
-second found one ambiguous dossier local. Both are repaired in current source; the
-[v9 evidence owner](../design_review/evidence/2026-11-15_ddo-v9-native/README.md) retains exact
-source, intent and limits. No v9 files are registered and no persistent deployment occurred.
-Integrated endpoint types/lint **passed** `315905a338f84ac4b5a965a877f0adf1`/
-`18efc94533824c2d9910370a68c615bf`; documentation publication **passed**
-`6680c49e07104463a0fc88b3343a7f03`. These diagnostics do not establish native qualification. All transferred settled worker
-receipts, including failures, are root-held/read; their fully merged worktrees are removed.
-The remaining rich-publication worker owns a still-active worktree.
+V9 is registered at `14b362df6` after the two preserved rollback failures,
+`1054387e05c146dcb77f6322bf259ac5` and `82db512e0f1e41699200db98c2915108`.
+Correct SQL definition order and the dossier local repair passed candidate
+`d216fabff0b64f21a612e1a63eb51578` and registration `70fd0081369f4aa49eb675bafe3ec5b1`;
+51 native/1 ordinary/0 privilege changes were reviewed. The
+[v9 evidence owner](../design_review/evidence/2026-11-15_ddo-v9-native/README.md#registered-successor-and-native-retry--2026-11-15)
+retains exact source, release, physical contract and limits. No persistent deployment occurred.
+Actual v9 retry18 **failed**, `332b6e06c10549bebcd6c4bde8b16adf`:15passed/3failed.
+Remaining owners are source correspondence's dropped external declarations, legacy admission's
+blanket pattern refusal over current question fields, and a large PDF fixture transaction
+preventing renewal. Original archived declarations/contracts are now threaded through Python
+correspondence; the PDF fixture uses existing bounded production staging and genuine claim
+maintenance. Source-profile/Python-port controls81 **passed**, `835c45d995fd416f9c7630a09ca63fa5`;
+affected native execution remains required, and admission SQL requires a new frozen successor.
 
+Current rich publication/support/alternative controls now use genuine requests and captured CPU
+products rather than old run/consolidate-cut/fact/selection publication. Their17 native controls
+remain **not_run**; pure2/14 controls **passed** `0ce67a69f02f4a34ab5a25f86d482c9c`/
+`12c5629a713d4e5aa269f941a1d47f29`. An unresolved record-field alternative retains independent
+literal evidence; large diagnostics traverse the actual controlled CPU output. Integrated types/lint
+**passed** `68f7afdaffdd449ba3fb0ccffd9ae9ea`/`8a928411a9464dd3bd3d4ebfca81b5ee` at
+`d10a40d52`; these precede subsequent correspondence repairs and do not establish qualification.
+All settled transferred worker receipts are root-held/read. Fully merged earlier worktrees are
+removed; three isolated workers retain unmerged current scope.
 Two bounded investigations remain with I02/I05/I06: preserve truthful D1 limited-result inspection
 without manufacturing successful/empty candidates, and migrate legacy record publication/support/
 alternative controls through the actual rich CPU/native ports. An unresolved record-field value

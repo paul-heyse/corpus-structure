@@ -1,7 +1,9 @@
 """Private staged PDF build fixture shared by native consumer tests."""
 
 import json
+from contextlib import contextmanager
 from dataclasses import asdict, dataclass
+from datetime import datetime
 from hashlib import sha256
 from typing import Literal, cast
 
@@ -67,6 +69,7 @@ _POLICIES: dict[PdfFixtureCase, str] = {
 class _PdfRequest:
     ready: ReadyDataRequest
     fence: WireAttemptFence
+    deadline: datetime
 
 
 class _PrivatePdfBuildFactory:
@@ -124,8 +127,29 @@ class _PrivatePdfBuildFactory:
                 schema_digest=sha256(native_schema_bytes()).hexdigest(),
                 replay_key="product:native",
             )
-        self.requests[build.build_id] = _PdfRequest(ready, fence)
+        self.requests[build.build_id] = _PdfRequest(
+            ready, fence, datetime.fromisoformat(claim["lease_until"].replace("Z", "+00:00"))
+        )
         return build
+
+    @contextmanager
+    def maintained(self, build):
+        """Use the real request fence and renewal owner for long staged fixtures."""
+        from corpus_structure.orchestrate.data_operations import NativeRequestClaim
+        from corpus_structure.semantic.claim_lifetime import ClaimFenceLost, maintained_claims
+
+        request = self.requests[build.build_id]
+        claim = NativeRequestClaim(
+            **request.fence, release_id=build.release_id, deadline=request.deadline
+        )
+
+        def renew(connection, owned):
+            result = self.renew(connection, build)
+            if result["state"] == "lost":
+                raise ClaimFenceLost(owned, result["reason"])
+
+        with maintained_claims(self.writer, (claim,), claim.holder, renew=renew) as owner:
+            yield owner
 
     def renew(self, connection, build):
         return DataOperationStorage(connection).renew_data_request(
@@ -147,7 +171,11 @@ class _PrivatePdfBuildFactory:
         assert fence["generation"] == previous.fence["generation"]
         assert fence["task_id"] == build.task_id
         assert fence["attempt"] == build.attempt + 1
-        self.requests[build.build_id] = _PdfRequest(previous.ready, fence)
+        self.requests[build.build_id] = _PdfRequest(
+            previous.ready,
+            fence,
+            datetime.fromisoformat(claimed["lease_until"].replace("Z", "+00:00")),
+        )
         return fence
 
     def register_sources(self, build, *, sections=(), membership="direct"):

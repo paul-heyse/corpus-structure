@@ -395,13 +395,15 @@ def test_metadata_parts_do_not_replace_semantic_schema_validation(
 
 
 def test_large_relation_publishes_ordered_endpoints_and_exact_evidence(
-    private_build, commit_writer_engine, commit_reader_engine, tmp_path
+    create_private_build, commit_writer_engine, commit_reader_engine, tmp_path
 ):
+    from corpus_structure.core.db.lifetime import BorrowerCancellation
+    from corpus_structure.orchestrate.pdf_streaming import adopt_pdf_companions
     from corpus_structure.semantic.identity import canonical_bytes
     from corpus_structure.semantic.pdf_record_reader import PublishedPdfReader
     from corpus_structure.semantic.product_reference import ProductReference
 
-    build = private_build
+    build = create_private_build()
     stage_complete_native(commit_writer_engine, build, tmp_path)
     occurrences = [
         dict(
@@ -432,7 +434,19 @@ def test_large_relation_publishes_ordered_endpoints_and_exact_evidence(
             )
             > 65536
         )
-        adopt_pdf_companion_batch(conn, build, "occurrence", occurrences, "occurrences")
+    # The real producer commits bounded append transactions, allowing the claim
+    # owner to renew between them. One 915-row transaction prevents that renewal.
+    with create_private_build.maintained(build) as owner:
+        adopt_pdf_companions(
+            commit_writer_engine,
+            build,
+            "occurrence",
+            occurrences,
+            "occurrences",
+            check_active=owner,
+            cancellation=BorrowerCancellation(),
+        )
+    with commit_writer_engine.begin() as conn:
         for _ in range(2):
             adopt_pdf_companion_batch(conn, build, "relation", [relation], "wide")
 

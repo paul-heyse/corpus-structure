@@ -185,6 +185,8 @@ def acquire_prepared_execution(
     runtime: RuntimeBinding,
     *,
     schema: SourceBundle | None = None,
+    declarations: tuple[SourceArtifact, ...] | None = None,
+    captured_contracts: tuple[SourceArtifact, ...] = (),
 ) -> AcquiredPreparedExecution:
     """Acquire declared preparation, retaining source and opaque asset custody.
 
@@ -199,7 +201,14 @@ def acquire_prepared_execution(
     if selected.capabilities.preparation == "none":
         raise SemanticRefusal("prepared execution requires declared preparation")
     admission = acquire_python_execution(
-        connection, prepared, sources, operation, runtime, schema=schema
+        connection,
+        prepared,
+        sources,
+        operation,
+        runtime,
+        schema=schema,
+        declarations=declarations,
+        captured_contracts=captured_contracts,
     )
     archived = json.loads(runtime.archive)["inputs"]
     retained = {item["sha256"] for item in archived}
@@ -237,6 +246,8 @@ def acquire_python_execution(
     runtime: RuntimeBinding,
     *,
     schema: SourceBundle | None = None,
+    declarations: tuple[SourceArtifact, ...] | None = None,
+    captured_contracts: tuple[SourceArtifact, ...] = (),
 ) -> AcquiredPythonExecution:
     """Acquire permissions briefly; no DB connection is retained through computation."""
     from .data_operation_ports import python_port_identity
@@ -252,7 +263,15 @@ def acquire_python_execution(
             (item.name, item.digest) for item in schema.sources
         ) != [tuple(item) for item in manifest["sources"]]:
             raise SemanticRefusal("callable schema differs from captured release inputs")
-    identity = python_port_identity(model, sources, operation, schema=schema, prepared=prepared)
+    identity = python_port_identity(
+        model,
+        sources,
+        operation,
+        schema=schema,
+        prepared=prepared,
+        declarations=declarations,
+        captured_contracts=captured_contracts,
+    )
     retained = DataOperationStorage(connection).inspect_data_execution(
         cast(
             WireInspectDataExecutionRequest,

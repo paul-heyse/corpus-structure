@@ -115,6 +115,31 @@ def test_unknown_ancestry_and_missing_math_parent_do_not_become_false_absence(ac
         source_profile_values(value)
 
 
+def test_mixed_source_runtime_correspondence_retains_external_declarations(tmp_path):
+    from corpus_structure.semantic.composed import read_data_operation_inputs
+    from semantic.current_pdf_source_support import current_pdf_recipe
+
+    captured = current_pdf_recipe(tmp_path).captured_inputs
+    assert captured is not None
+    prepared = prepare_release(captured.bundle, captured.dependencies, captured.profile)
+    inputs = read_data_operation_inputs(captured.dependencies)
+    assert inputs is not None and inputs[1] is not None
+    declarations, sources = inputs
+    assert sources is not None
+    model = bound_data_operation_model(prepared)
+    identity = python_port_identity(
+        model,
+        sources,
+        "source.visual/map",
+        schema=captured.bundle,
+        prepared=prepared,
+        declarations=declarations,
+        captured_contracts=captured.dependencies.artifacts,
+    )
+    assert identity.operation == "source.visual/map" and identity.recipe.startswith("recipe:")
+    assert model.operation(identity.operation).dependencies == ("source.visual/recognize",)
+
+
 def test_original_profile_callable_is_statically_complete_and_nominal(acquired):
     bundle, sources, prepared, model = acquired
     operation = model.operation("profile.segments/source-native")

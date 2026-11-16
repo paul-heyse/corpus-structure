@@ -47,6 +47,7 @@ from .identity import canonical_bytes
 from .operation_value_types import decode_json_text, native_result_scope
 from .python_operation_sources import PythonSourceCollection
 from .types import (
+    SourceArtifact,
     SourceBundle,
 )
 
@@ -827,6 +828,8 @@ def python_port_identity(
     *,
     schema: SourceBundle | None = None,
     prepared: PreparedRelease | None = None,
+    declarations: tuple[SourceArtifact, ...] | None = None,
+    captured_contracts: tuple[SourceArtifact, ...] = (),
 ) -> PythonPortIdentity:
     """Prepare a correspondence statically; no import and no execution permission."""
     from dataclasses import asdict
@@ -843,14 +846,21 @@ def python_port_identity(
     # EffectiveOperation or a matching signature alone.
     from .nominal_schema_kinds import effective_nominal_kind_declarations
 
-    declarations = effective_nominal_kind_declarations(model)
+    if declarations is None:
+        declarations = effective_nominal_kind_declarations(model)
     definitions = prepared.definitions if prepared is not None else None
     vocabularies = prepared.vocabularies if prepared is not None else ()
     if compile_data_operations is _STATIC_COMPILER and _ordinary_static_input(
-        (schema, declarations, sources, definitions, vocabularies)
+        (schema, declarations, sources, definitions, vocabularies, captured_contracts)
     ):
         observed = _prepared_python_sources(
-            schema, declarations, sources, definitions, vocabularies, _STATIC_COMPILER_CONTEXT
+            schema,
+            declarations,
+            sources,
+            definitions,
+            vocabularies,
+            _STATIC_COMPILER_CONTEXT,
+            captured_contracts,
         )
     else:
         # Substituted compilers own their lifetime. Nonordinary values must be
@@ -861,6 +871,7 @@ def python_port_identity(
             python_sources=sources,
             definitions=definitions,
             vocabularies=vocabularies,
+            captured_contracts=captured_contracts,
         )
     expected = {(i.owner, i.domain): i.key for i in model.identities}
     actual = {(i.owner, i.domain): i.key for i in observed.identities}
@@ -905,6 +916,8 @@ def resolve_python_port(
     runtime_locations: Mapping[str, Path] | None = None,
     schema: SourceBundle | None = None,
     prepared: PreparedRelease | None = None,
+    declarations: tuple[SourceArtifact, ...] | None = None,
+    captured_contracts: tuple[SourceArtifact, ...] = (),
 ) -> ResolvedPythonPort:
     """Acquire the original callable after explicit execution-owner authorization.
 
@@ -916,7 +929,15 @@ def resolve_python_port(
     the model and refuse here until their implementation capability is admitted.
     There is no scalar fallback for them and no ambient Reader parameter.
     """
-    identity = python_port_identity(model, sources, operation, schema=schema, prepared=prepared)
+    identity = python_port_identity(
+        model,
+        sources,
+        operation,
+        schema=schema,
+        prepared=prepared,
+        declarations=declarations,
+        captured_contracts=captured_contracts,
+    )
     selected = model.operation(operation)
     if (
         selected.effects

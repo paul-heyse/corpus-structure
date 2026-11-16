@@ -68,7 +68,7 @@ from corpus_structure.semantic.data_operation_storage import (
 from corpus_structure.semantic.identifiers import RuntimeId
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.python_operation_sources import PythonSourceCollection
-from corpus_structure.semantic.types import PreparedRelease, SourceBundle
+from corpus_structure.semantic.types import PreparedRelease, SourceArtifact, SourceBundle
 
 
 @dataclass(frozen=True)
@@ -476,6 +476,8 @@ class NativeDemandExecutor:
         admission_engine: Engine | None = None,
         fitter_engine: Engine | None = None,
         schema: SourceBundle | None = None,
+        declarations: tuple[SourceArtifact, ...] | None = None,
+        captured_contracts: tuple[SourceArtifact, ...] = (),
         nemotron_endpoint: str | None = None,
         database_capacity: int | None = None,
     ):
@@ -487,6 +489,8 @@ class NativeDemandExecutor:
         self.model = bound_data_operation_model(prepared)
         self.runtime_locations = runtime_locations
         self.schema = schema
+        self.declarations = declarations
+        self.captured_contracts = captured_contracts
         self.nemotron_endpoint = nemotron_endpoint
         self.capability_factories = dict(capability_factories or {})
         for operation in self.capability_factories:
@@ -537,6 +541,8 @@ class NativeDemandExecutor:
                         operation,
                         self.runtime,
                         schema=self.schema,
+                        declarations=self.declarations,
+                        captured_contracts=self.captured_contracts,
                     )
                 port = factory(
                     self.prepared,
@@ -581,6 +587,8 @@ class NativeDemandExecutor:
                         operation,
                         self.runtime,
                         schema=self.schema,
+                        declarations=self.declarations,
+                        captured_contracts=self.captured_contracts,
                     )
                 self.ports[operation] = resolve_python_port(
                     self.model,
@@ -590,6 +598,8 @@ class NativeDemandExecutor:
                     runtime_locations=self.runtime_locations,
                     schema=self.schema,
                     prepared=self.prepared,
+                    declarations=self.declarations,
+                    captured_contracts=self.captured_contracts,
                 )
                 if selected.consumer_selection is not None:
                     from corpus_structure.semantic.data_operation_consumers import (
