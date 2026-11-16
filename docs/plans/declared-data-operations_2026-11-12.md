@@ -223,8 +223,32 @@ record/contribution/observation schemas. Composed `ci schema check --json` compi
 its optional projection analysis remains unassessed, not an independent semantic validation claim.
 The old layer/view/native-run LinkML subtree is also removed (13classes), preserving the35 current
 shared characterization classes. Generated report schemas track the exact semantic source bytes.
-Current-loader assessment/native-evidence residual cleanup is the final bounded source increment;
-provider profile/attestation stays with actual native source products, not an orphan layer-run join.
+Current-loader residual cleanup is implemented (`5d3d50df1`): orphan native-run/provider joins,
+old native transport validation and source-view aliases are removed. Formal invariants remain;
+navigation source-role/label/native-premise conservation now runs at the current interpreted-product
+owner. Its final125 pure controls passed `1a1be65ee7044542a7c1539d93550f13`; intermediate126 passed
+`da6ece12a36e4a989ddcdb3096fc743b`. The initial fixture error
+`462f5ecd82fd4186b64178f068b6ec8f` remains held. Provider profile/attestation stays with actual
+native source products, not an orphan layer-run join. Root maintenance (`e0f37b9b6`) and normal
+wire/report generation are complete. Whole typing passed `ace71108919b4fedba3063b3adbae42b` after
+an explicit optional-condition fixture assertion; its source control1 passed
+`45085840ffdd4610aaf7b13232d85957`, original typing failure
+`965138ef2b74433bb151472237407f71` retained. Lint passed
+`ee0ffb5ebefe4af8990ac5c21967c11a`; docs1300 passed
+`1d1436655d6d484fa973ff7f70f2ba3d`. Final composed compilation passed at release
+`release:a988f29e97f82e4a9c1dbb95763f5d6b5b9074d24c04873c81a211587ebf48f6`
+(387 artifacts); optional projection analysis remains unassessed.
+
+Independent source review at `5d3d50df1` found the following current integration gaps. They include
+inherited target-path defects, not solely retirement regressions. Source inspection is their present
+evidence; native capture is waiting for their bounded repairs and affected controls.
+
+| Finding | Current gap / owning repair | Disposition |
+|---|---|---|
+| DDO-SI-01 | Named-rule witness projection consumes `{product_id, block_id}` as a generic member reference, and its inventory loader drops actual native block/token packets. Resolve the typed block through its retained product, preserve genuine node kinds and traverse actual current dependencies. | **Open**; selected inventory/assessment owner, isolated witness increment. |
+| DDO-SI-02 | Interpreted complete coverage can omit an eligible span, duplicate a family or omit a fact-bearing family. Reuse current source-selector interval semantics and validate union conservation while preserving partitioned examination. | **Open**; interpreted-product/source selector owner. |
+| DDO-SI-03 | Required external choices accept ordinary authenticated dependency members. Narrow to the existing validated `record_type=choice_member` packet subset and retain owning-group/source custody. | **Open**; interpreted-product owner. |
+| DDO-SI-04 | Interpreted occurrences can remain inside native pieces while escaping narrowed selected scope. Reuse source selector containment already required by formal products, including pointer/page meaning. | **Open**; source/formal/interpreted owners; share the existing selector responsibility. |
 
 Cross-release request execution (`c0e1b6f4d`, `f5ac9e2a3`, `726a411bc`) uses authenticated attach
 metadata and the exact original generation release/runtime/binding before capacity reservation.
