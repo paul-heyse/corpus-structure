@@ -95,6 +95,10 @@ def _reference_invariants(body):
             from .characterization_assessment import project_graph
 
             project_graph(expected, case["graph_projection"])
+        elif case["matcher"] == "spacy_native":
+            from .native_scoring import SelectedNativeScoringQuestion
+
+            SelectedNativeScoringQuestion.model_validate(expected)
     if source_python(body["retained_correspondence"]) is not None:
         correspondence = source_python(body["retained_correspondence"])
         if (
@@ -206,6 +210,141 @@ class SelectedReferenceEvaluationRequest(BaseModel):
     prediction_read_id: str | None = None
     prediction_cut_id: str | None = None
     max_bytes: int = Field(default=8388608, ge=1024, le=67108864)
+
+
+def _score_selected_native_block(prepared, index, cut, product_id, member_id, expected, source_members):
+    """Score only the explicit native block and its authenticated original source.
+
+    Native acquisition owns current trust/visibility. This consumer neither looks
+    outside that closure nor upgrades a token/sentence into a block population.
+    """
+    from spacy.vocab import Vocab
+
+    from corpus_structure.ingest.annotation_views import annotation_view
+    from corpus_structure.ingest.annotations import AnnotationUnavailable
+    from corpus_structure.semantic.data_operation_admission import bound_data_operation_model
+    from corpus_structure.semantic.data_operation_model import SubjectContext
+    from corpus_structure.semantic.declared_record_sources import DeclaredRecordSource
+    from corpus_structure.semantic.sentence_products import (
+        retained_source_annotation_products, validate_source_annotations,
+    )
+    from corpus_structure.semantic.source_products import FrozenNativeSource
+
+    from .native_scoring import SelectedNativeScoringQuestion, score_native
+
+    question = SelectedNativeScoringQuestion.model_validate(expected)
+
+    def unavailable(reason):
+        return dict(score_native(None, question.reference), reason=reason)
+
+    product_row, body = _body(index, product_id)
+    projection = read_native_definition_projection(prepared)
+    kinds = {kind["kind"]: kind["kind_contract"] for kind in projection["kinds"]}
+    namespace = "https://corpus-structure.dev/semantic/data-operation-sentences/"
+    if product_row["kind_contract"] != kinds.get(namespace + "DdoSourceAnnotations"):
+        return unavailable("native_annotation_kind_unavailable")
+    member_row, member = _body(index, product_id, member_id)
+    if (member_row["kind_contract"] != kinds.get(namespace + "DdoNativeBlock")
+            or member.get("record_type") != "native_block"):
+        raise SelectedReferenceRefusal("native scoring requires an explicit whole-block member")
+    checked = prepared.validate_json("DdoSourceAnnotations", json_bytes(body)).model_dump(
+        mode="json", exclude_unset=True
+    )
+    blocks = [block for block in checked["blocks"]
+              if block["annotation"]["block_id"] == member["block_id"]]
+    if len(blocks) != 1:
+        raise SelectedReferenceRefusal("selected native block differs from its actual population")
+    annotation = blocks[0]["annotation"]
+    if (question.projection, question.start, question.end) != (
+            checked["source"]["projection"], annotation["block_start"], annotation["block_end"]
+    ) or (member["start"], member["end"]) != (question.start, question.end):
+        raise SelectedReferenceRefusal("native question differs from the selected whole block")
+    pin = annotation["source"]
+    source_row, source_body = _body(index, pin["source_product"], pin.get("source_member"))
+    source_kind = "https://corpus-structure.dev/semantic/data-operation-source/DdoSelectedNativeSource"
+    if source_row["kind_contract"] != kinds.get(source_kind):
+        raise SelectedReferenceRefusal("native block source has another nominal kind")
+    if not any(
+        all(item[name] == source_row[name] for name in
+            ("subject", "subject_definition", "original_source"))
+        and item["analyzed_scope_meaning"] ==
+            json_context_meaning(json_bytes(source_row["analyzed_scope"])).decode()
+        for item in source_members
+    ):
+        raise SelectedReferenceRefusal("native source is outside the independent question scope")
+    source = FrozenNativeSource.acquire(prepared, source_body)
+    coordinate = source.value["source"]
+    actual_pin = DeclaredRecordSource(
+        coordinate["document"], coordinate["projection"], coordinate["section_pointer"],
+        coordinate["membership"],
+        SubjectContext(cut.record["project_id"], source_row["subject"],
+                       source_row["original_source"], json_bytes(source_row["analyzed_scope"]),
+                       subject_definition=source_row["subject_definition"]),
+        pin["source_product"], pin.get("source_member"), source_row["kind_contract"],
+    ).pin()
+    if json_bytes(pin) != json_bytes(actual_pin):
+        raise SelectedReferenceRefusal("native block source pin differs from selected source context")
+    producing = {row["derivation_id"] for row in index.rows("ops.data_derivation_output")
+                 if row["product_id"] == product_id}
+    selected = {row["derivation_id"] for row in index.rows("ops.demand_use")
+                if row["demand_id"] == cut.record["demand_id"] and row["fate"] == "fulfilled"}
+    definition = next((item for item in projection["operations"]
+                       if item["operation_id"] == "segment.sentences/source-native"), None)
+    capability = {} if definition is None else definition["support_contract"].get("capabilities", {})
+    factory = capability.get("prepared_factory", {})
+    if (definition is None or definition["profile"] != "derivation"
+            or factory.get("entrypoint") !=
+               "corpus_structure.methods.sentence_evidence.SentenceEvidenceOperation.acquire_port"
+            or not factory.get("source_digest")):
+        raise SelectedReferenceRefusal("native scoring lacks its captured sentence producer")
+    requests = index.mapping("ops.data_request", ("id",))
+    authentic = set()
+    for episode in index.rows("ops.data_derivation"):
+        if episode["id"] not in producing & selected:
+            continue
+        request = requests.get(episode["request_id"])
+        if (request is not None and request["project_id"] == cut.record["project_id"]
+                and request["operation_id"] == definition["operation_id"]
+                and episode["release_id"] == prepared.release_id
+                and episode["recipe"] == definition["recipe"] and episode["outcome"] == "success"):
+            authentic.add(episode["id"])
+    if not any(row["derivation_id"] in authentic and row["role"] == "source"
+               and (row["product_id"], row.get("member_id")) ==
+                   (pin["source_product"], pin.get("source_member"))
+               for row in index.rows("ops.data_derivation_input")):
+        raise SelectedReferenceRefusal("native block lacks its actual selected source input")
+    model = bound_data_operation_model(prepared)
+    native = validate_source_annotations(prepared, model, checked, source)
+    from corpus_structure.semantic.data_operation_json import json_loads
+
+    packets = [packet for packet in json_loads(native.content)["members"]
+               if packet["member_id"] == member_id]
+    if (len(packets) != 1 or json_bytes(packets[0]["body"]) != json_bytes(member)
+            or packets[0]["kind_contract"] != member_row["kind_contract"]
+            or any(packets[0]["context"][name] != member_row[name]
+                   for name in ("subject", "subject_definition", "original_source"))
+            or json_context_meaning(json_bytes(packets[0]["context"]["analyzed_scope"])) !=
+               json_context_meaning(json_bytes(member_row["analyzed_scope"]))):
+        raise SelectedReferenceRefusal("native block member differs from its actual parent")
+    text = source.value["text"][question.start:question.end]
+    if text != question.reference.text:
+        raise SelectedReferenceRefusal("native gold text differs from the exact original block")
+    if not question.reference.inspected:
+        return score_native(None, question.reference)
+    products = retained_source_annotation_products(source, native)
+    (product,) = [item for item in products if item.block_id == member["block_id"]]
+    required = (("DEP",) if question.reference.kind == "dependencies" else
+                ("SENT_START",) if question.reference.kind == "spans" and
+                question.reference.span_key == "sents" else ())
+    try:
+        view = annotation_view(product, text, Vocab(), required=required)
+    except AnnotationUnavailable:
+        return unavailable("native_required_columns_unavailable")
+    result = score_native(view.doc, question.reference)
+    result["prediction_reference"] = dict(product_id=product_id, member_id=member_id)
+    result["source_scope"] = dict(projection=question.projection,
+                                  start=question.start, end=question.end)
+    return result
 
 
 def evaluate_selected_references(connection, request: SelectedReferenceEvaluationRequest):
@@ -389,7 +528,9 @@ def evaluate_selected_references(connection, request: SelectedReferenceEvaluatio
             projection = LayerProjection(
                 lambda pin: inventories[DataProductReference(pin["product_id"])].payload
             )
-            payload = inventories[DataProductReference(request.prediction_product_id)].payload
+            payload = (inventories[DataProductReference(request.prediction_product_id)].payload
+                       if any(case["matcher"] != "spacy_native" for case in reference["cases"])
+                       else {})
             collections = {
                 row["local_id"]: collection
                 for collection in (
@@ -402,6 +543,9 @@ def evaluate_selected_references(connection, request: SelectedReferenceEvaluatio
                 )
                 for row in payload.get(collection, ())
             }
+            native_prepared = (open_release(connection, prediction_cut.record["release_id"])
+                               if any(case["matcher"] == "spacy_native" for case in reference["cases"])
+                               else None)
             cases = []
             for case in reference["cases"]:
                 member = request.assignments.get(case["case_id"])
@@ -420,6 +564,23 @@ def evaluate_selected_references(connection, request: SelectedReferenceEvaluatio
                     raise SelectedReferenceRefusal(
                         "prediction assignment cites outside the case's independent source question"
                     )
+                if case["matcher"] == "spacy_native":
+                    if member is None:
+                        from .native_scoring import SelectedNativeScoringQuestion, score_native
+
+                        native = score_native(None, SelectedNativeScoringQuestion.model_validate(
+                            source_python(case["expected"])).reference)
+                    else:
+                        assert native_prepared is not None
+                        native = _score_selected_native_block(
+                            native_prepared, predictions, prediction_cut,
+                            request.prediction_product_id, member, source_python(case["expected"]),
+                            case["source_members"],
+                        )
+                    cases.append(dict(case_id=case["case_id"],
+                                      opportunity_id=case["opportunity_id"],
+                                      judgment=case["judgment"], outcome=native["status"], native=native))
+                    continue
                 if member not in collections:
                     cases.append(
                         dict(

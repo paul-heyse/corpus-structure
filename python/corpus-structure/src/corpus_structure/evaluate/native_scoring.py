@@ -141,6 +141,22 @@ class NativeScoringReference(BaseModel):
         return self
 
 
+class SelectedNativeScoringQuestion(BaseModel):
+    """Independent native gold for one exact original-relative whole block."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+    projection: str = Field(min_length=1)
+    start: StrictInt = Field(ge=0)
+    end: StrictInt = Field(gt=0)
+    reference: NativeScoringReference
+
+    @model_validator(mode="after")
+    def whole_block(self):
+        if self.end <= self.start or self.end - self.start != len(self.reference.text):
+            raise ValueError("native scoring question requires exact whole-block text extent")
+        return self
+
+
 def _counts(reference: NativeScoringReference) -> dict[str, dict[str, Any]]:
     eligible = (
         len(reference.spans)

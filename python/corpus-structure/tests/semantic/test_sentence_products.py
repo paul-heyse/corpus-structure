@@ -27,12 +27,27 @@ from corpus_structure.semantic.source_products import FrozenNativeSource, native
 
 
 @pytest.fixture(scope="module")
-def profile():
+def nominal_schema():
     core = Path(__file__).parents[2] / "src/corpus_structure/model/semantic/core.yaml"
     bundle = sentence_product_inputs(
         SourceBundle("core", (SourceArtifact("core", core.read_bytes()),))
     )
-    prepared = prepare_release(bundle)
+    return bundle, prepare_release(bundle)
+
+
+@pytest.fixture(scope="module")
+def nominal_profile(nominal_schema):
+    """Schema-only membership checks require no acquired provider or execution claim."""
+    bundle, prepared = nominal_schema
+    model = compile_data_operations(
+        schema=bundle, definitions=prepared.definitions, vocabularies=prepared.vocabularies,
+    )
+    return SimpleNamespace(prepared=prepared, model=model)
+
+
+@pytest.fixture(scope="module")
+def profile(nominal_schema):
+    bundle, prepared = nominal_schema
     model = compile_data_operations(
         schema=bundle,
         python_sources=sentence_operation_sources(),
@@ -403,13 +418,14 @@ def test_admitted_prepared_sentence_port_emits_typed_empty_inventory_and_refuses
         port.invoke_python((value,))
 
 
-def test_sentence_members_derive_from_actual_nominal_body_graph(profile):
+def test_sentence_members_derive_from_actual_nominal_body_graph(nominal_profile):
+    profile = nominal_profile
     from corpus_structure.semantic.data_operation_member_contracts import derive_member_kinds
 
     container = profile.prepared.index.definitions["DdoSourceAnnotations"].iri
     expected = {
         profile.prepared.index.definitions[name].iri
-        for name in ("DdoNativeToken", "DdoNativeSentence", "DdoSourceAnnotationManifest")
+        for name in ("DdoNativeBlock", "DdoNativeToken", "DdoNativeSentence", "DdoSourceAnnotationManifest")
     }
     assert set(derive_member_kinds(profile.model, container)) == expected
 
@@ -745,3 +761,31 @@ def _controlled_source_pin(source):
             DeclaredRecordSource.from_bound(source, member, project=context.project_id).pin()
         ).decode()
     )
+
+
+def test_native_whole_blocks_have_their_own_exact_member_population(nominal_profile):
+    """Unadmitted packet projection; no provider or native publication claim."""
+    from corpus_structure.semantic.sentence_products import source_annotation_packets
+
+    profile = nominal_profile
+    source = selected(profile)
+    value = dict(
+        source=source.value["source"], selectors=source.value["selectors"],
+        outcome="partial", coverage=[],
+        blocks=[dict(annotation=dict(block_id="#/texts/0", block_start=0,
+                                     block_end=len(source.value["text"]), tokens=[], sentences=[]),
+                     lexemes=[])],
+    )
+    packets = source_annotation_packets(profile.prepared, profile.model, value)
+    (block,) = [row for row in packets if row["body"]["record_type"] == "native_block"]
+    assert block["body"] == dict(record_type="native_block", local_id=block["member_id"],
+                                 block_id="#/texts/0", ordinal=0, start=0,
+                                 end=len(source.value["text"]))
+    assert block["kind_contract"] == next(
+        item.key for item in profile.model.identities if item.domain == "kind"
+        and item.owner == profile.prepared.index.definitions["DdoNativeBlock"].iri
+    )
+    assert block["context"]["analyzed_scope"] == dict(
+        source=source.value["source"], selectors=source.value["selectors"]
+    )
+    profile.prepared.validate_json("DdoNativeBlock", canonical_bytes(block["body"]))

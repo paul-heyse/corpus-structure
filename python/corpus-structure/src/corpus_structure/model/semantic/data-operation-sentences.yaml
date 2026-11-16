@@ -430,6 +430,17 @@ classes:
     abstract: true
     attributes:
       record_type: {required: true}
+  DdoNativeBlock:
+    annotations: {cs:data_universe: source}
+    is_a: DdoSourceAnnotationMember
+    description: One actual complete retained annotation block; no token or sentence expands into it.
+    attributes:
+      record_type: {required: true, equals_string: native_block}
+      local_id: {required: true}
+      block_id: {required: true}
+      ordinal: {range: integer, required: true, minimum_value: 0}
+      start: {range: integer, required: true, minimum_value: 0}
+      end: {range: integer, required: true, minimum_value: 1}
   DdoNativeToken:
     annotations: {cs:data_universe: source}
     is_a: DdoSourceAnnotationMember

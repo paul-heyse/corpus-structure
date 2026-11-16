@@ -55,7 +55,7 @@ enums:
   DdoReferenceDirection:
     permissible_values: {source_first: {}, output_first: {}}
   DdoReferenceMatcher:
-    permissible_values: {fields: {}, graph_full: {}}
+    permissible_values: {fields: {}, graph_full: {}, spacy_native: {}}
   DdoReferenceGraphProjection:
     permissible_values: {source_semantics: {}, native_fidelity: {}, retained_identity: {}}
   DdoReferenceJudgment:
