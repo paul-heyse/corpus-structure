@@ -416,7 +416,7 @@ def test_deferred_failure_fenced_owner_cannot_release_another_attempt():
             raise AssertionError("a lost fence cannot perform native release")
 
     claim = NativeRequestClaim(
-        "request:one", 1, 1, 1, "old-holder", "release:one", datetime.now(UTC)
+        "request:one", 1, 1, 1, "old-holder", "release:one", datetime.now(UTC), runtime_id="runtime:one"
     )
 
     class LostOwner:

@@ -1410,6 +1410,7 @@ def test_real_purpose_principals_cannot_cross_evaluator_kind_boundary(ddo_kernel
                     WireClaimDataRequestRequest,
                     {
                         "request_id": attached["request_id"],
+                        "generation": attached["generation"],
                         "holder": "evaluator",
                         "lease_seconds": 30,
                     },
@@ -1488,6 +1489,7 @@ def test_evaluator_retires_own_failed_attempt_without_granting_writer_private_ac
                     WireClaimDataRequestRequest,
                     {
                         "request_id": attached["request_id"],
+                        "generation": attached["generation"],
                         "holder": "evaluator-failure",
                         "lease_seconds": 30,
                     },
@@ -1671,6 +1673,7 @@ def test_native_cancellation_fences_orphan_without_claiming_physical_retirement(
                 WireClaimDataRequestRequest,
                 {
                     "request_id": fence["request_id"],
+                    "generation": fence["generation"],
                     "holder": "late",
                     "lease_seconds": 30,
                 },
@@ -1805,6 +1808,7 @@ def test_native_concurrent_cancel_and_attach_never_resurrects_demand(ddo_kernel)
                     WireClaimDataRequestRequest,
                     {
                         "request_id": attached["request_id"],
+                        "generation": attached["generation"],
                         "holder": "late",
                         "lease_seconds": 30,
                     },
@@ -1924,6 +1928,7 @@ def test_native_release_retired_failed_attempt_preserves_intent_and_physical_his
                 WireClaimDataRequestRequest,
                 {
                     "request_id": fence["request_id"],
+                    "generation": fence["generation"],
                     "holder": "replacement",
                     "lease_seconds": 30,
                 },
@@ -1965,6 +1970,7 @@ def test_native_claim_owner_isolates_cancelled_request_renewal_and_preserves_sib
                     WireClaimDataRequestRequest,
                     {
                         "request_id": request["request_id"],
+                        "generation": request["generation"],
                         "holder": "owner",
                         "lease_seconds": 30,
                     },
@@ -1978,8 +1984,9 @@ def test_native_claim_owner_isolates_cancelled_request_renewal_and_preserves_sib
                     response["task_id"],
                     response["attempt"],
                     response["holder"],
-                    ddo_kernel["prepared"].release_id,
+                    response["release_id"],
                     datetime.fromisoformat(response["lease_until"].replace("Z", "+00:00")),
+                    runtime_id=response["runtime_id"],
                 )
             )
     sibling_renewed = Event()

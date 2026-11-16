@@ -1439,6 +1439,11 @@ definitions:
     properties:
       request_id:
         $ref: '#/definitions/identifier'
+      release_id: {$ref: '#/definitions/identifier'}
+      runtime_id: {$ref: '#/definitions/identifier'}
+      binding: {$ref: '#/definitions/binding'}
+      binding_demand_id: {$ref: '#/definitions/identifier'}
+      binding_obligation_id: {$ref: '#/definitions/identifier'}
       generation:
         $ref: '#/definitions/positive_integer'
       task_id:
@@ -1467,6 +1472,11 @@ definitions:
         - type: 'null'
     required:
     - request_id
+    - release_id
+    - runtime_id
+    - binding
+    - binding_demand_id
+    - binding_obligation_id
     - generation
     - task_id
     - fate
@@ -1481,6 +1491,7 @@ definitions:
     properties:
       request_id:
         $ref: '#/definitions/identifier'
+      generation: {$ref: '#/definitions/positive_integer'}
       holder:
         $ref: '#/definitions/identifier'
       external_packet_id: {$ref: '#/definitions/identifier'}
@@ -1490,6 +1501,7 @@ definitions:
         maximum: 86400
     required:
     - request_id
+    - generation
     - holder
     - lease_seconds
     additionalProperties: false
@@ -1507,6 +1519,16 @@ definitions:
         state:
           const: claimed
         request_id:
+          $ref: '#/definitions/identifier'
+        release_id:
+          $ref: '#/definitions/identifier'
+        runtime_id:
+          $ref: '#/definitions/identifier'
+        binding:
+          $ref: '#/definitions/binding'
+        binding_demand_id:
+          $ref: '#/definitions/identifier'
+        binding_obligation_id:
           $ref: '#/definitions/identifier'
         generation:
           $ref: '#/definitions/positive_integer'
@@ -1531,6 +1553,11 @@ definitions:
       required:
       - state
       - request_id
+      - release_id
+      - runtime_id
+      - binding
+      - binding_demand_id
+      - binding_obligation_id
       - generation
       - task_id
       - attempt

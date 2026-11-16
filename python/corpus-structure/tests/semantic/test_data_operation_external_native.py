@@ -55,6 +55,7 @@ def test_external_packet_waits_without_fulfillment_then_publishes_real_native_re
                     WireClaimDataRequestRequest,
                     {
                         "request_id": attached["request_id"],
+                        "generation": attached["generation"],
                         "holder": "ordinary",
                         "lease_seconds": 30,
                     },

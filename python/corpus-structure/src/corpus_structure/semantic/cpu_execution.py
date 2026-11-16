@@ -261,13 +261,18 @@ def _dispatch(
     generation: int,
     profile: Literal["formal-source-native", "closed-python", "closed-python-stream"],
     stream_connection=None,
+    capsule: bytes | None = None,
 ) -> CPUReply:
     import os
 
     global _WORKER_REQUEST
     _WORKER_REQUEST = None if slot < 0 else (slot, generation)
+    releases = _WORKER_RELEASES
     try:
         _worker_active()
+        if capsule is not None:
+            prepared = hydrate_capsule(capsule)
+            releases = {prepared.release_id: prepared}
         if profile == "formal-source-native":
             return _compute_formal(content, max_reply_bytes)
         if profile in {"closed-python", "closed-python-stream"}:
@@ -284,14 +289,14 @@ def _dispatch(
                     _apply_native_thread_limits,
                     max_reply_bytes,
                     {"slot": slot, "generation": generation},
-                    prepared_releases=_WORKER_RELEASES,
+                    prepared_releases=releases,
                 )
             else:
                 result = execute_python_call(
                     content,
                     _worker_active,
                     _apply_native_thread_limits,
-                    prepared_releases=_WORKER_RELEASES,
+                    prepared_releases=releases,
                 )
             if len(result) > max_reply_bytes:
                 raise CapacityExceeded("CPU Python result exceeds admitted reply byte capacity")
@@ -557,6 +562,22 @@ def _report_cleanup_failure(error: BaseException) -> None:
         raise error
 
 
+class _ReleaseCPUView:
+    """Exact per-call capsule on the invocation's existing pool and byte owner."""
+
+    def __init__(self, scope, capsule):
+        self.scope, self.capsule = scope, capsule
+
+    def __getattr__(self, name):
+        return getattr(self.scope, name)
+
+    def submit_closed_python(self, admission, content, check_active):
+        return self.scope._submit(admission, content, check_active, "closed-python", capsule=self.capsule)
+
+    def submit_closed_python_stream(self, admission, content, connection, check_active):
+        return self.scope._submit(admission, content, check_active, "closed-python-stream", connection, capsule=self.capsule)
+
+
 class CPUExecutionScope:
     def __init__(
         self,
@@ -583,6 +604,7 @@ class CPUExecutionScope:
         self._close_error: BaseException | None = None
         self._physical_retired = False
         self._capsule_bytes = 0
+        self._release_capsules = {}
         self._free = list(range(self.policy.max_submissions))
         self._admissions: dict[int, _InputAdmission] = {}
         self._handles: set[CPUHandle] = set()
@@ -596,8 +618,9 @@ class CPUExecutionScope:
                 raise RuntimeError("CPU invocation is closed or retains uncertain submission")
             if self._pool is None:
                 capsule = release_capsule(self.prepared) if self.retain_schema else None
-                self._capsule_bytes = 0 if capsule is None else len(capsule)
-                self.budget.reserve(self._capsule_bytes)
+                size = 0 if capsule is None else len(capsule)
+                self.budget.reserve(size)
+                self._capsule_bytes += size
                 self._pool = ProcessPoolExecutor(
                     max_workers=self.policy.workers,
                     mp_context=self._context,
@@ -615,6 +638,19 @@ class CPUExecutionScope:
     def prepare(self) -> None:
         """Retain the one schema capsule before request credits consume capacity."""
         self._executor()
+
+    def for_release(self, prepared: PreparedRelease):
+        """Retain a bounded authenticated capsule; never create another physical pool."""
+        with self._lock:
+            if self._closed:
+                raise RuntimeError("CPU invocation is closed")
+            capsule = self._release_capsules.get(prepared.release_id)
+            if capsule is None:
+                capsule = release_capsule(prepared)
+                self.budget.reserve(len(capsule))
+                self._capsule_bytes += len(capsule)
+                self._release_capsules[prepared.release_id] = capsule
+            return _ReleaseCPUView(self, capsule)
 
     @property
     def preparation_bytes(self) -> int:
@@ -726,7 +762,7 @@ class CPUExecutionScope:
         return self._submit(admission, content, check_active, "closed-python-stream", connection)
 
     def _submit(
-        self, admission, content, check_active, profile, stream_connection=None
+        self, admission, content, check_active, profile, stream_connection=None, *, capsule=None
     ) -> CPUHandle:
         check_active()
         if admission.owner is not self or not admission.active or admission.submitted:
@@ -754,6 +790,7 @@ class CPUExecutionScope:
                 admission.generation,
                 profile,
                 stream_connection,
+                capsule,
             )
             with self._lock:
                 handle = CPUHandle(
@@ -896,6 +933,7 @@ class CPUExecutionScope:
                             failures.append(error)
                         else:
                             self._capsule_bytes = 0
+                            self._release_capsules.clear()
                 if failures:
                     self._close_error = BaseExceptionGroup("CPU cleanup failed", failures)
                 self._close_finished = True

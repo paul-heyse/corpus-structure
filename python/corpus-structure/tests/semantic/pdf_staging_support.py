@@ -103,6 +103,7 @@ class _PrivatePdfBuildFactory:
             claim = DataOperationStorage(conn).claim_data_request(
                 {
                     "request_id": WireRequestId(json.loads(ready.native)["request_id"]),
+                    "generation": json.loads(ready.native)["generation"],
                     "holder": "stage-owner",
                     "lease_seconds": 300,
                 }
@@ -140,7 +141,7 @@ class _PrivatePdfBuildFactory:
 
         request = self.requests[build.build_id]
         claim = NativeRequestClaim(
-            **request.fence, release_id=build.release_id, deadline=request.deadline
+            **request.fence, release_id=build.release_id, deadline=request.deadline, runtime_id=self.kernel.runtime
         )
 
         def renew(connection, owned):
@@ -161,6 +162,7 @@ class _PrivatePdfBuildFactory:
         claimed = DataOperationStorage(connection).claim_data_request(
             {
                 "request_id": previous.fence["request_id"],
+                "generation": previous.fence["generation"],
                 "holder": holder,
                 "lease_seconds": 300,
             }

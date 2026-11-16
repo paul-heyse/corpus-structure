@@ -339,6 +339,21 @@ def freeze_demand(
 
 
 @dataclass(frozen=True)
+class BoundDataRequest:
+    """A sufficient frozen native-read binding, before request attachment."""
+
+    obligation: str
+    operation: str
+    subject: str
+    request: bytes
+    request_id: str
+    admission: bytes
+    binding: bytes
+    resolved: ResolvedOperationBinding
+    binding_result: BindingResult
+
+
+@dataclass(frozen=True)
 class ReadyDataRequest:
     obligation: str
     operation: str
@@ -612,6 +627,47 @@ class DemandPlanner:
     def ready(
         self, snapshot: Mapping[str, Any], *, authorization: bytes
     ) -> tuple[ReadyDataRequest, ...]:
+        ready = []
+        selected = {item["operation"]: item for item in snapshot["intent"]["operations"]}
+        obligations = {item["obligation_id"]: item for item in snapshot["obligations"]}
+        for bound in self.bound_requests(snapshot, authorization=authorization):
+            obligation = obligations[bound.obligation]
+            operation = selected[bound.operation]
+            wire_binding = wire_json_loads(bound.binding)
+            # The pinned native view names a directly trusted historical producer.
+            # The hint is not authority: attachment revalidates it under trust locks.
+            rebind = next(
+                (
+                    use["rebind_derivation"]
+                    for use in snapshot.get("uses", ())
+                    if use.get("obligation_id") == obligation["obligation_id"]
+                    and use.get("request_id") == bound.request_id
+                    and use.get("rebind_derivation")
+                ),
+                None,
+            )
+            native = self.storage.attach_data_request(
+                cast(
+                    WireAttachDataRequestRequest,
+                    {
+                        **({"rebind_derivation": rebind} if rebind is not None else {}),
+                        "obligation_id": obligation["obligation_id"],
+                        "request_meaning": json.loads(bound.request),
+                        "request_key": bound.request_id,
+                        "binding": wire_binding,
+                        "replicate": operation["replicate"],
+                    },
+                )
+            )
+            if native["fate"] == "fulfilled":
+                self.fulfilled_request_ids += (native["request_id"],)
+                continue
+            ready.append(ReadyDataRequest(**{name: value for name, value in vars(bound).items() if name != "request_id"}, native=canonical_bytes(native)))
+        return tuple(ready)
+
+    def bound_requests(
+        self, snapshot: Mapping[str, Any], *, authorization: bytes, retained: bool = False
+    ):
         self.selected_population_ids = ()
         self.fulfilled_request_ids = ()
         if snapshot.get("state") == "cancelled":
@@ -635,7 +691,6 @@ class DemandPlanner:
             raise ValueError("binding requires the demand's retained model")
         selected = {item["operation"]: item for item in frozen["operations"]}
         source_sets = frozen.get("source_sets", {})
-        ready = []
         for obligation in snapshot["obligations"]:
             if obligation["fate"] in {"fulfilled", "closed", "cancelled", "failed"}:
                 continue
@@ -803,6 +858,8 @@ class DemandPlanner:
                 if len(parents) > 1:
                     ambiguities.append(role_name)
                 elif parents:
+                    if retained:
+                        raise ValueError("retained binding lacks its exact frozen population witness")
                     receipt = self.storage.select_data_population(
                         cast(
                             WireSelectDataPopulationRequest,
@@ -817,6 +874,8 @@ class DemandPlanner:
                     self.selected_population_ids += (receipt["population_id"],)
                     derived = True
             if ambiguities:
+                if retained:
+                    raise ValueError("retained binding has ambiguous original population witnesses")
                 self.storage.record_data_fate(
                     cast(
                         WireRecordDataFateRequest,
@@ -886,6 +945,8 @@ class DemandPlanner:
             )
             binding = execute_binding(self.storage.connection, compiled)
             if not binding.sufficient:
+                if retained:
+                    raise ValueError("retained native-read binding is no longer sufficient: " + binding.status)
                 self.storage.record_data_fate(
                     cast(
                         WireRecordDataFateRequest,
@@ -969,45 +1030,8 @@ class DemandPlanner:
                 "inference": frozen["inference"],
                 "read_id": snapshot["read_id"],
             }
-            # The pinned native view names a directly trusted historical producer.
-            # The hint is not authority: attachment revalidates it under trust locks.
-            rebind = next(
-                (
-                    use["rebind_derivation"]
-                    for use in snapshot.get("uses", ())
-                    if use.get("obligation_id") == obligation["obligation_id"]
-                    and use.get("request_id") == request.identity.key
-                    and use.get("rebind_derivation")
-                ),
-                None,
+            yield BoundDataRequest(
+                obligation["obligation_id"], operation["operation"], obligation["subject"],
+                request.identity.canonical_input, request.identity.key, admission.identity.canonical_input,
+                canonical_bytes(wire_binding), resolved, binding,
             )
-            native = self.storage.attach_data_request(
-                cast(
-                    WireAttachDataRequestRequest,
-                    {
-                        **({"rebind_derivation": rebind} if rebind is not None else {}),
-                        "obligation_id": obligation["obligation_id"],
-                        "request_meaning": json.loads(request.identity.canonical_input),
-                        "request_key": request.identity.key,
-                        "binding": wire_binding,
-                        "replicate": operation["replicate"],
-                    },
-                )
-            )
-            if native["fate"] == "fulfilled":
-                self.fulfilled_request_ids += (native["request_id"],)
-                continue
-            ready.append(
-                ReadyDataRequest(
-                    obligation["obligation_id"],
-                    operation["operation"],
-                    obligation["subject"],
-                    request.identity.canonical_input,
-                    admission.identity.canonical_input,
-                    canonical_bytes(native),
-                    canonical_bytes(wire_binding),
-                    resolved,
-                    binding,
-                )
-            )
-        return tuple(ready)

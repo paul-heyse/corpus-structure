@@ -202,6 +202,7 @@ def test_authentic_original_fact_admission_publication_and_revocation(ddo_kernel
                 WireClaimDataRequestRequest,
                 {
                     "request_id": native["request_id"],
+                    "generation": native["generation"],
                     "holder": "original-test",
                     "lease_seconds": 30,
                 },
@@ -371,6 +372,7 @@ def test_original_pdf_fact_admission_and_runless_private_stage_use_actual_reques
                 WireClaimDataRequestRequest,
                 {
                     "request_id": json.loads(ready.native)["request_id"],
+                    "generation": json.loads(ready.native)["generation"],
                     "holder": "raw-pdf-owner",
                     "lease_seconds": 30,
                 },

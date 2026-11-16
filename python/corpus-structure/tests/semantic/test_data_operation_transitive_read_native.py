@@ -178,6 +178,7 @@ def test_transitive_support_revocation_changes_pinned_read_and_fresh_acquisition
                 WireClaimDataRequestRequest,
                 {
                     "request_id": json.loads(ready_a.native)["request_id"],
+                    "generation": json.loads(ready_a.native)["generation"],
                     "holder": "after-revocation",
                     "lease_seconds": 30,
                 },
@@ -343,6 +344,7 @@ def test_read_and_publication_pin_selected_rebound_support_in_addition_to_origin
                 WireClaimDataRequestRequest,
                 {
                     "request_id": json.loads(ready_d.native)["request_id"],
+                    "generation": json.loads(ready_d.native)["generation"],
                     "holder": "after-rebound-revocation",
                     "lease_seconds": 30,
                 },

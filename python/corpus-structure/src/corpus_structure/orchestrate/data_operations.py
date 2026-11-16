@@ -11,7 +11,7 @@ import json
 from collections.abc import Callable, Mapping, Sequence
 from concurrent.futures import Future, ThreadPoolExecutor
 from contextlib import contextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from threading import Event, Lock, Thread
@@ -62,6 +62,7 @@ from corpus_structure.semantic.data_operation_ports import (
     resolve_python_port,
 )
 from corpus_structure.semantic.data_operation_runtime import RuntimeBinding
+from corpus_structure.semantic.data_operation_service import DataExecutionBasis, acquire_data_execution_basis
 from corpus_structure.semantic.data_operation_storage import (
     DataOperationStorage,
 )
@@ -80,10 +81,22 @@ class NativeRequestClaim:
     holder: str
     release_id: str
     deadline: datetime
+    runtime_id: str = field(kw_only=True)
 
     @property
     def fence(self) -> WireAttemptFence:
         return wire_attempt_fence(vars(self))
+
+
+class _BasisExecution:
+    """Invocation-local capabilities for one immutable acquired execution basis."""
+
+    def __init__(self, basis):
+        self.basis = basis
+        self.model = bound_data_operation_model(basis.prepared)
+        self.ports, self.consumer_selectors = {}, {}
+        self.cpu = None
+        self.prepared_schema = False
 
 
 @dataclass(frozen=True)
@@ -342,38 +355,30 @@ class _InvocationExecution:
             executor.budget, executor.policy, native_group=self.native_hosts
         )
         self.executor = executor
-        self._selected_operations = None
 
     def __enter__(self):
         self.executor._preparation_bytes = 0
+        for context in self.executor._contexts.values():
+            context.cpu, context.prepared_schema = None, False
         return self
 
-    def select_operations(self, operations):
-        """Declare only the native-admitted demand closure, before first serving."""
-        selected = tuple(sorted(operations))
-        if self._selected_operations is not None:
-            if selected != self._selected_operations:
-                raise PortRefusal("native demand changed its frozen operation closure")
-            return
-        for operation in selected:
-            if (
-                operation in self.executor.capability_factories
-                or self.executor.model.operation(operation).capabilities.prepared_factory
-                is not None
-            ):
-                port = self.executor._port(operation)
+    def select_operations(self, operations, context=None):
+        context = self.executor._target_context if context is None else context
+        """Prepare the claimed basis closure before admitting physical request work."""
+        for operation in operations:
+            selected = context.model.operation(operation)
+            if operation in self.executor.capability_factories or selected.capabilities.prepared_factory is not None:
+                port = self.executor._port(operation, context)
                 self.native_hosts.declare(port.native_selections)
-                if getattr(port, "requires_prepared_schema", False):
-                    self.cpu.retain_schema = True
-        # Capture one schema capsule only for the frozen closure's actual
-        # prepared kernels, before request credits consume retained capacity.
+                if getattr(port, "requires_prepared_schema", False) and not context.prepared_schema:
+                    context.cpu = self.cpu.for_release(context.basis.prepared)
+                    context.prepared_schema = True
+        if context.cpu is None:
+            context.cpu = self.cpu
         self.cpu.prepare()
         self.executor._preparation_bytes = self.cpu.preparation_bytes
         if self.executor.capacity < 1:
-            raise CapacityExceeded(
-                "native preparation and one complete request exceed owned capacity"
-            )
-        self._selected_operations = selected
+            raise CapacityExceeded("native preparation and one complete request exceed owned capacity")
 
     def __exit__(self, *error):
         failures = []
@@ -480,13 +485,18 @@ class NativeDemandExecutor:
         captured_contracts: tuple[SourceArtifact, ...] = (),
         nemotron_endpoint: str | None = None,
         database_capacity: int | None = None,
+        source_root: Path | None = None,
     ):
         if runtime.release_id != prepared.release_id:
             raise ValueError("runtime belongs to another release")
         self.engine, self.prepared, self.runtime, self.sources = engine, prepared, runtime, sources
         self.fitter_engine = fitter_engine
         self.admission_engine = engine if admission_engine is None else admission_engine
-        self.model = bound_data_operation_model(prepared)
+        basis = DataExecutionBasis(prepared, runtime, sources, schema, declarations, captured_contracts, runtime_locations)
+        self._target_context = _BasisExecution(basis)
+        self._contexts = {basis.key: self._target_context}
+        self.source_root = source_root
+        self.model = self._target_context.model
         self.runtime_locations = runtime_locations
         self.schema = schema
         self.declarations = declarations
@@ -512,13 +522,15 @@ class NativeDemandExecutor:
         self._preparation_bytes = 0
         self._invocation = Lock()
         self._quarantined = False
-        self.ports = {}
-        self.consumer_selectors = {}
+        self.ports = self._target_context.ports
+        self.consumer_selectors = self._target_context.consumer_selectors
         self.holder = "demand-owner:" + uuid4().hex
 
-    def _port(self, operation):
-        if operation not in self.ports:
-            selected = self.model.operation(operation)
+    def _port(self, operation, context=None):
+        context = self._target_context if context is None else context
+        basis = context.basis
+        if operation not in context.ports:
+            selected = context.model.operation(operation)
             if selected.effects and selected.capabilities.prepared_factory is None:
                 raise PortRefusal("effectful operation requires its captured native effect owner")
             if selected.capabilities.preparation != "none":
@@ -527,7 +539,7 @@ class NativeDemandExecutor:
                 )
 
                 factory = (
-                    resolve_prepared_factory(self.model, self.sources, operation)
+                    resolve_prepared_factory(context.model, basis.sources, operation)
                     if selected.capabilities.prepared_factory is not None
                     else self.capability_factories.get(operation)
                 )
@@ -536,22 +548,22 @@ class NativeDemandExecutor:
                 with self.admission_engine.begin() as connection:
                     admission = acquire_prepared_execution(
                         connection,
-                        self.prepared,
-                        self.sources,
+                        basis.prepared,
+                        basis.sources,
                         operation,
-                        self.runtime,
-                        schema=self.schema,
-                        declarations=self.declarations,
-                        captured_contracts=self.captured_contracts,
+                        basis.runtime,
+                        schema=basis.schema,
+                        declarations=basis.declarations,
+                        captured_contracts=basis.captured_contracts,
                     )
                 port = factory(
-                    self.prepared,
-                    self.model,
+                    basis.prepared,
+                    context.model,
                     operation,
                     identity=admission.identity,
                     authorize=admission.authorize,
                     custody=admission.custody,
-                    sources=self.sources,
+                    sources=basis.sources,
                 )
                 if selected.effects:
                     from corpus_structure.semantic.data_operation_effects import (
@@ -563,15 +575,15 @@ class NativeDemandExecutor:
                 admission.authorize(port.identity)
                 if port.operation != selected:
                     raise PortRefusal("prepared capability differs from effective operation")
-                self.ports[operation] = port
+                context.ports[operation] = port
                 if selected.consumer_selection is not None:
                     from corpus_structure.semantic.data_operation_consumers import (
                         resolve_consumer_selection,
                     )
 
-                    self.consumer_selectors[operation] = resolve_consumer_selection(
-                        self.model,
-                        self.sources,
+                    context.consumer_selectors[operation] = resolve_consumer_selection(
+                        context.model,
+                        basis.sources,
                         operation,
                         port.consumer_receiver,
                         authorize=lambda admission=admission, port=port: admission.authorize(
@@ -582,41 +594,98 @@ class NativeDemandExecutor:
                 with self.admission_engine.begin() as connection:
                     admission = acquire_python_execution(
                         connection,
-                        self.prepared,
-                        self.sources,
+                        basis.prepared,
+                        basis.sources,
                         operation,
-                        self.runtime,
-                        schema=self.schema,
-                        declarations=self.declarations,
-                        captured_contracts=self.captured_contracts,
+                        basis.runtime,
+                        schema=basis.schema,
+                        declarations=basis.declarations,
+                        captured_contracts=basis.captured_contracts,
                     )
-                self.ports[operation] = resolve_python_port(
-                    self.model,
-                    self.sources,
+                context.ports[operation] = resolve_python_port(
+                    context.model,
+                    basis.sources,
                     operation,
                     authorize=admission.authorize,
-                    runtime_locations=self.runtime_locations,
-                    schema=self.schema,
-                    prepared=self.prepared,
-                    declarations=self.declarations,
-                    captured_contracts=self.captured_contracts,
+                    runtime_locations=basis.runtime_locations,
+                    schema=basis.schema,
+                    prepared=basis.prepared,
+                    declarations=basis.declarations,
+                    captured_contracts=basis.captured_contracts,
                 )
                 if selected.consumer_selection is not None:
                     from corpus_structure.semantic.data_operation_consumers import (
                         resolve_consumer_selection,
                     )
 
-                    port = self.ports[operation]
-                    self.consumer_selectors[operation] = resolve_consumer_selection(
-                        self.model,
-                        self.sources,
+                    port = context.ports[operation]
+                    context.consumer_selectors[operation] = resolve_consumer_selection(
+                        context.model,
+                        basis.sources,
                         operation,
                         port.consumer_receiver,
                         authorize=lambda admission=admission, port=port: admission.authorize(
                             port.identity
                         ),
                     )
-        return self.ports[operation]
+        return context.ports[operation]
+
+    def _basis_context(self, release_id, runtime_id):
+        if not runtime_id:
+            raise PortRefusal("native execution metadata lacks its authenticated runtime basis")
+        key = release_id, runtime_id
+        if key not in self._contexts:
+            with self.engine.begin() as connection:
+                basis = acquire_data_execution_basis(connection, *key, source_root=self.source_root)
+            self._contexts[key] = _BasisExecution(basis)
+        return self._contexts[key]
+
+    def _execution_context(self, claim):
+        return self._basis_context(claim.release_id, claim.runtime_id)
+
+    def _ready_context(self, ready):
+        native = wire_json_loads(ready.native)
+        return self._basis_context(native["release_id"], native["runtime_id"])
+
+    def _generation_ready(self, ready, request_id, claimed, context, authorization):
+        """Reconstruct only the generation's original frozen native read, never latest."""
+        from corpus_structure.semantic._data_operation_wire import WireReadDemandResultRequest
+        binding = claimed["binding"]
+        with self.engine.begin() as connection:
+            storage = DataOperationStorage(connection)
+            request = {
+                "demand_id": claimed["binding_demand_id"], "read_id": binding["read_id"], "limit": 1000,
+            }
+            while True:
+                snapshot = storage.read_demand_result(cast(WireReadDemandResultRequest, request))
+                obligations = [row for row in snapshot["obligations"] if row["obligation_id"] == claimed["binding_obligation_id"]]
+                if obligations:
+                    break
+                continuation = snapshot.get("continuation")
+                if continuation is None:
+                    raise PortRefusal("claimed generation lacks its original pinned obligation")
+                request = dict(continuation)
+            snapshot = {**snapshot, "obligations": obligations}
+            candidates = tuple(DemandPlanner(context.model, storage).bound_requests(snapshot, authorization=authorization, retained=True))
+        if len(candidates) != 1 or candidates[0].request_id != request_id or canonical_bytes(wire_json_loads(candidates[0].binding)) != canonical_bytes(binding):
+            raise PortRefusal("claimed generation differs from its original frozen binding")
+        bound = candidates[0]
+        original = ReadyDataRequest(
+            obligation=ready.obligation, operation=bound.operation, subject=bound.subject,
+            request=bound.request, admission=bound.admission, native=ready.native,
+            binding=bound.binding, resolved=bound.resolved, binding_result=bound.binding_result,
+        )
+        operations = tuple(row["operation"] for row in snapshot["selection"]["operations"])
+        return original, operations
+
+    def _prepare_ready(self, ready, authorization):
+        native = wire_json_loads(ready.native)
+        if native["action"] == "reconcile":
+            return ready
+        context = self._ready_context(ready)
+        original, operations = self._generation_ready(ready, native["request_id"], native, context, authorization)
+        self._physical.select_operations(operations, context)
+        return original
 
     def _renew(self, connection: Connection, claim: OwnedClaim):
         if not isinstance(claim, NativeRequestClaim):
@@ -627,7 +696,8 @@ class NativeDemandExecutor:
         if result["state"] == "lost":
             raise ClaimFenceLost(claim, result["reason"])
 
-    def _hydrate(self, ready: ReadyDataRequest, execution_owner=None):
+    def _hydrate(self, ready: ReadyDataRequest, execution_owner=None, *, context=None):
+        context = self._target_context if context is None else context
         from corpus_structure.semantic.data_operation_consumers import (
             BoundConsumerSelection,
             hydrate_consumer_selection,
@@ -637,7 +707,7 @@ class NativeDemandExecutor:
         with self.engine.begin() as connection:
             selected = hydrate_consumer_selection(
                 connection,
-                self.model,
+                context.model,
                 BoundConsumerSelection.from_binding(
                     ready.binding_result, operation=ready.operation
                 ),
@@ -646,8 +716,8 @@ class NativeDemandExecutor:
                 trust_snapshot=pins["trust"],
                 max_bytes=self.policy.max_packet_bytes,
             )
-        if self.model.operation(ready.operation).consumer_selection is not None:
-            result = self.consumer_selectors[ready.operation].select_hydrated(selected)
+        if context.model.operation(ready.operation).consumer_selection is not None:
+            result = context.consumer_selectors[ready.operation].select_hydrated(selected)
             if execution_owner is not None:
                 execution_owner.consumer_results[ready.obligation] = result
         if execution_owner is not None:
@@ -669,8 +739,8 @@ class NativeDemandExecutor:
                 )
                 for role, values in selected.values
             }
-        roles = {role.name: role for role in self.model.operation(ready.operation).roles}
-        identities = {(value.owner, value.domain): value.key for value in self.model.identities}
+        roles = {role.name: role for role in context.model.operation(ready.operation).roles}
+        identities = {(value.owner, value.domain): value.key for value in context.model.identities}
         values = []
         retained_roles = {role.role: role for role in ready.binding_result.roles}
         for role, members in selected.values:
@@ -697,9 +767,10 @@ class NativeDemandExecutor:
         return tuple(values)
 
     def _retain_answer(self, ready, claim, answer, port, owner, *, physical=None):
+        context = self._execution_context(claim)
         if answer.operation != ready.operation:
             raise PortRefusal("completion belongs to another operation")
-        operation = self.model.operation(ready.operation)
+        operation = context.model.operation(ready.operation)
         if operation.output_witnesses:
             from corpus_structure.semantic.data_operation_output_witnesses import (
                 validate_output_witnesses,
@@ -725,7 +796,7 @@ class NativeDemandExecutor:
             > self.policy.max_reply_bytes
         ):
             raise ValueError("completion reply exceeds owned reply capacity")
-        if answer.outcome not in self.model.operation(ready.operation).outcomes:
+        if answer.outcome not in context.model.operation(ready.operation).outcomes:
             raise PortRefusal("completion outcome is outside the declared operation")
         outputs = []
         positions = {}
@@ -770,7 +841,7 @@ class NativeDemandExecutor:
             completion["execution_evidence"] = bind_execution_evidence(
                 answer.execution_evidence,
                 fence=claim.fence,
-                runtime_id=self.runtime.runtime_id,
+                runtime_id=claim.runtime_id,
                 cpu_content=answer.cpu_execution_evidence,
                 cpu_reply_content=answer.cpu_execution_reply,
                 pdf_content=answer.pdf_execution_evidence,
@@ -784,7 +855,7 @@ class NativeDemandExecutor:
             return DataOperationStorage(connection).retain_data_completion_intent(
                 {
                     **claim.fence,
-                    "runtime_id": RuntimeId(self.runtime.runtime_id),
+                    "runtime_id": RuntimeId(claim.runtime_id),
                     "completion": cast(WireCompletion, completion),
                 }
             )
@@ -801,6 +872,7 @@ class NativeDemandExecutor:
             claimed = DataOperationStorage(connection).claim_data_request(
                 {
                     "request_id": json.loads(ready.native)["request_id"],
+                    "generation": json.loads(ready.native)["generation"],
                     "holder": self.holder,
                     "lease_seconds": 300,
                 }
@@ -813,10 +885,16 @@ class NativeDemandExecutor:
             claimed["task_id"],
             claimed["attempt"],
             claimed["holder"],
-            self.prepared.release_id,
+            claimed["release_id"],
             datetime.fromisoformat(claimed["lease_until"].replace("Z", "+00:00")),
+            runtime_id=claimed["runtime_id"],
         )
         owner.add_claim(claim)
+        native = wire_json_loads(ready.native)
+        if any(claimed[field] != native[field] for field in ("request_id", "generation", "release_id", "runtime_id", "binding", "binding_demand_id", "binding_obligation_id")):
+            error = PortRefusal("native claim differs from its prepared immutable generation basis")
+            self._known_failure(claim, owner, error, phase="native claim correspondence")
+            raise error
         return claim, claimed
 
     def _publish(self, claim, retained, owner):
@@ -863,7 +941,7 @@ class NativeDemandExecutor:
         def release(connection):
             from corpus_structure.semantic.d1_limitation import known_d1_failure
 
-            failure = known_d1_failure(error, fence=claim.fence, runtime_id=self.runtime.runtime_id)
+            failure = known_d1_failure(error, fence=claim.fence, runtime_id=claim.runtime_id)
             return DataOperationStorage(connection).release_data_attempt(
                 {
                     **claim.fence,
@@ -898,14 +976,14 @@ class NativeDemandExecutor:
                 raise ValueError("native claim state differs from active claim")
             if claimed["action"] == "reconcile":
                 receipt = self._reconcile(claim, claimed.get("retained_intent_id"), owner)
-            elif self.model.operation(ready.operation).external is not None:
+            elif self._execution_context(claim).model.operation(ready.operation).external is not None:
                 phase = "external packet custody"
 
                 def retain_packet(connection):
                     return DataOperationStorage(connection).retain_external_data_packet(
                         {
                             **claim.fence,
-                            "runtime_id": RuntimeId(self.runtime.runtime_id),
+                            "runtime_id": RuntimeId(claim.runtime_id),
                             "max_bytes": self.policy.max_packet_bytes,
                         }
                     )
@@ -916,8 +994,10 @@ class NativeDemandExecutor:
                 return _ExecutionResult()
             else:
                 phase = "computation"
-                port = self._port(ready.operation)
-                inputs = self._hydrate(ready, physical)
+                context = self._execution_context(claim)
+                physical.cpu = context.cpu or self._physical.cpu
+                port = self._port(ready.operation, context)
+                inputs = self._hydrate(ready, physical, context=context)
                 answer = yield from physical.relay(
                     port.plan_python(
                         inputs,
@@ -965,8 +1045,10 @@ class NativeDemandExecutor:
                         )
                     else:
                         phase = "computation"
-                        port = self._port(item.operation)
-                        inputs = self._hydrate(item, physical)
+                        context = self._execution_context(claim)
+                        physical.cpu = context.cpu or self._physical.cpu
+                        port = self._port(item.operation, context)
+                        inputs = self._hydrate(item, physical, context=context)
                         member = f"{claim.request_id}:{claim.generation}:{claim.attempt}"
                         if item.obligation in physical.consumer_inputs:
                             physical.consumer_inputs[member] = physical.consumer_inputs[
@@ -1080,14 +1162,22 @@ class NativeDemandExecutor:
             )
             selected = tuple(getattr(planner, "selected_population_ids", ()))
             fulfilled = planner.fulfilled_request_ids
-        receipts, failures = [], []
+        receipts, failures, prepared = [], [], []
+        for item in ready:
+            try:
+                prepared.append(self._prepare_ready(item, authorization))
+            except Exception as error:
+                self._failed_requests.add((json.loads(item.native)["request_id"], json.loads(item.native).get("generation")))
+                error.add_note("native obligation: " + item.obligation)
+                failures.append(error)
 
         def plan():
             groups = {}
             pending: list[tuple[bool, tuple[ReadyDataRequest, ...]]] = []
-            for item in ready:
-                if self.model.operation(item.operation).capabilities.forms == ("batch",):
-                    groups.setdefault(item.operation, []).append(item)
+            for item in prepared:
+                context = self._ready_context(item)
+                if context.model.operation(item.operation).capabilities.forms == ("batch",):
+                    groups.setdefault((context.basis.key, item.operation), []).append(item)
                 else:
                     pending.append((False, (item,)))
             pending.extend((True, tuple(items)) for items in groups.values())
@@ -1262,9 +1352,6 @@ class NativeDemandExecutor:
                                             )
                                             seen_discovered.add(identity)
                                             progress = True
-                        physical.select_operations(
-                            item["operation"] for item in page["selection"]["operations"]
-                        )
                         settled, selected, fulfilled, errors = self._drive_page(
                             page, authorization, owner
                         )

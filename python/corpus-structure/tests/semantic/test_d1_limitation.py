@@ -293,7 +293,7 @@ def test_known_failure_uses_existing_release_only_after_claim_check(controlled, 
     executor.runtime = cast(Any, SimpleNamespace(runtime_id="runtime:one"))
     checked = []
     owner = SimpleNamespace(check_claim=checked.append, settle=lambda claim, action: action(None))
-    claim = SimpleNamespace(fence=controlled.fence)
+    claim = SimpleNamespace(fence=controlled.fence, runtime_id="runtime:one")
     executor._known_failure(claim, owner, classify(controlled), phase="computation")
     assert checked == [claim]
     assert retained[0]["physical_retirement"] == "confirmed"

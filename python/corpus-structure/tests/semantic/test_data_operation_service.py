@@ -193,3 +193,34 @@ def test_evaluator_execution_still_refuses_a_different_admission_target(monkeypa
             engine, "demand:exact", admission_engine=admission, purpose="evaluate"
         )
     read.assert_not_called()
+
+
+def test_execution_basis_acquisition_uses_exact_retained_pins_and_explicit_root(monkeypatch, tmp_path):
+    from types import SimpleNamespace
+    from corpus_structure.semantic import composed, releases, runtime_binding_store
+    from corpus_structure.semantic.python_operation_sources import PythonSource, PythonSourceCollection
+
+    prepared = SimpleNamespace(release_id="release:original")
+    runtime = SimpleNamespace(release_id="release:original", runtime_id="runtime:original")
+    dependencies = SimpleNamespace(artifacts=("captured-contract",))
+    sources = PythonSourceCollection((PythonSource("owned.source", b"VALUE = 1\n", "owned/source.py"),))
+    observed = []
+
+    def load(connection, release_id):
+        observed.append(("release", connection, release_id))
+        return "schema", dependencies, "profile", prepared
+
+    def retained(connection, selected, runtime_id):
+        observed.append(("runtime", connection, selected, runtime_id))
+        return runtime
+
+    monkeypatch.setattr(releases, "load_release_inputs", load)
+    monkeypatch.setattr(runtime_binding_store, "runtime_binding_for_release", retained)
+    monkeypatch.setattr(composed, "read_data_operation_inputs", lambda _: (("declaration",), sources))
+    basis = service.acquire_data_execution_basis("connection", "release:original", "runtime:original", source_root=tmp_path)
+    assert observed == [("release", "connection", "release:original"), ("runtime", "connection", prepared, "runtime:original")]
+    assert basis.prepared is prepared and basis.runtime is runtime
+    assert basis.runtime_locations == {"owned.source": tmp_path / "owned/source.py"}
+    assert basis.captured_contracts == ("captured-contract",)
+    with pytest.raises(ValueError, match="explicit source root"):
+        service.acquire_data_execution_basis("connection", "release:original", "runtime:original")

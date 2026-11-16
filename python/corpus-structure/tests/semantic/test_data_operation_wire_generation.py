@@ -57,7 +57,7 @@ def test_fixed_call_preserves_omission_and_rejects_wrong_union_result():
 
     connection = Connection()
     storage = DataOperationStorage(cast(Any, connection))
-    original = {"request_id": "request:x", "holder": "worker", "lease_seconds": 3}
+    original = {"request_id": "request:x", "generation": 1, "holder": "worker", "lease_seconds": 3}
     assert storage.claim_data_request(cast(WireClaimDataRequestRequest, original)) == {
         "state": "no-work"
     }
@@ -178,7 +178,7 @@ def test_fixed_native_caller_preserves_nominal_ids_unions_and_required_keys(tmp_
         "from corpus_structure.semantic._data_operation_wire import WireInspectDataExecutionRequest, WireOperationId\n"
         "from corpus_structure.semantic.data_operation_storage import DataOperationStorage\n"
         "def good(storage: DataOperationStorage) -> None:\n"
-        "    result = storage.claim_data_request({'request_id': WireRequestId('r'), 'holder': 'worker', 'lease_seconds': 3})\n"
+        "    result = storage.claim_data_request({'request_id': WireRequestId('r'), 'generation': 1, 'holder': 'worker', 'lease_seconds': 3})\n"
         "    if result['state'] == 'claimed':\n"
         "        task: TaskId = result['task_id']\n"
         "    pin: WireInspectDataExecutionRequest = {'operation_id': WireOperationId('o'), 'release_id': ReleaseId('r'), 'runtime_id': RuntimeId('x')}\n"

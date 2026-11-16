@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Literal, cast
+from typing import TYPE_CHECKING, Any, Literal, cast
 
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import Connection
@@ -23,6 +24,12 @@ from .data_operation_json import json_bytes
 from .data_operation_storage import DataOperationStorage
 from .refusals import SemanticRefusal
 from .releases import load_release
+
+
+if TYPE_CHECKING:
+    from .data_operation_runtime import RuntimeBinding
+    from .python_operation_sources import PythonSourceCollection
+    from .types import PreparedRelease, SourceArtifact, SourceBundle
 
 
 class DemandRoot(BaseModel):
@@ -148,6 +155,54 @@ def create_native_demand(
     return planner.resume(demand["demand_id"])
 
 
+@dataclass(frozen=True)
+class DataExecutionBasis:
+    """One authenticated release/runtime and its explicit current source locations."""
+
+    prepared: PreparedRelease
+    runtime: RuntimeBinding
+    sources: PythonSourceCollection
+    schema: SourceBundle | None
+    declarations: tuple[SourceArtifact, ...] | None
+    captured_contracts: tuple[SourceArtifact, ...]
+    runtime_locations: Mapping[str, Path] | None
+
+    @property
+    def key(self):
+        return self.prepared.release_id, self.runtime.runtime_id
+
+
+def acquire_data_execution_basis(connection, release_id, runtime_id, *, source_root=None):
+    """Acquire retained execution custody once, independent of a target demand."""
+    from .composed import read_data_operation_inputs
+    from .python_operation_sources import PythonSourceCollection
+    from .releases import load_release_inputs
+    from .runtime_binding_store import runtime_binding_for_release
+
+    bundle, dependencies, _, prepared = load_release_inputs(connection, release_id)
+    runtime = runtime_binding_for_release(connection, prepared, runtime_id)
+    captured = read_data_operation_inputs(dependencies)
+    if captured is None:
+        raise SemanticRefusal("demand execution requires its captured operation declarations")
+    if captured[1] is None:
+        if any(operation.external is None for operation in bound_data_operation_model(prepared).operations):
+            raise SemanticRefusal("Python operations require their captured source context")
+        sources = PythonSourceCollection(())
+    else:
+        sources = captured[1]
+    if source_root is None and sources.sources:
+        raise SemanticRefusal("captured Python execution requires an explicit source root")
+    root = source_root.resolve() if source_root is not None else None
+    locations = {}
+    for source in sources.sources:
+        assert root is not None
+        path = root / source.filename
+        if not path.resolve().is_relative_to(root):
+            raise SemanticRefusal("runtime source location escapes its explicit root")
+        locations[source.module] = path
+    return DataExecutionBasis(prepared, runtime, sources, bundle, captured[0], dependencies.artifacts, locations)
+
+
 def execute_data_demand(
     engine,
     demand_id: str,
@@ -171,10 +226,6 @@ def execute_data_demand(
     """
     from corpus_structure.orchestrate.data_operations import NativeDemandExecutor
 
-    from .composed import read_data_operation_inputs
-    from .releases import load_release_inputs
-    from .runtime_binding_store import runtime_binding_for_release
-
     if purpose not in {"write", "evaluate"}:
         raise SemanticRefusal("native execution purpose must be write or evaluate")
     with engine.begin() as connection:
@@ -190,42 +241,19 @@ def execute_data_demand(
         snapshot = read_data_demand(connection, demand_id, limit=1)
         if project_id is not None and snapshot["project_id"] != project_id:
             raise SemanticRefusal("retained demand belongs to another project")
-        bundle, dependencies, _, prepared = load_release_inputs(connection, snapshot["release_id"])
-        runtime = runtime_binding_for_release(connection, prepared, snapshot["runtime_id"])
-        captured = read_data_operation_inputs(dependencies)
-        if captured is None:
-            raise SemanticRefusal("demand execution requires its captured operation declarations")
-        if captured[1] is None:
-            from .data_operation_admission import bound_data_operation_model
-            from .python_operation_sources import PythonSourceCollection
-
-            if any(
-                operation.external is None
-                for operation in bound_data_operation_model(prepared).operations
-            ):
-                raise SemanticRefusal("Python operations require their captured source context")
-            sources = PythonSourceCollection(())
-        else:
-            sources = captured[1]
-    if source_root is None and sources.sources:
-        raise SemanticRefusal("captured Python execution requires an explicit source root")
-    root = source_root.resolve() if source_root is not None else None
-    locations = {}
-    for source in sources.sources:
-        assert root is not None
-        path = root / source.filename
-        if not path.resolve().is_relative_to(root):
-            raise SemanticRefusal("runtime source location escapes its explicit root")
-        locations[source.module] = path
+        basis = acquire_data_execution_basis(
+            connection, snapshot["release_id"], snapshot["runtime_id"], source_root=source_root
+        )
     executor = NativeDemandExecutor(
         engine,
-        prepared,
-        runtime,
-        sources,
-        runtime_locations=locations,
-        schema=bundle,
-        declarations=captured[0],
-        captured_contracts=dependencies.artifacts,
+        basis.prepared,
+        basis.runtime,
+        basis.sources,
+        runtime_locations=basis.runtime_locations,
+        schema=basis.schema,
+        declarations=basis.declarations,
+        captured_contracts=basis.captured_contracts,
+        source_root=source_root,
         policy=policy,
         nemotron_endpoint=nemotron_endpoint,
         admission_engine=admission_engine,

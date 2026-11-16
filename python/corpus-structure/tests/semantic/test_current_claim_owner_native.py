@@ -42,7 +42,7 @@ def acquired(kernel):
         deadline = connection.scalar(
             text("SELECT lease_until FROM ops.task WHERE id=:id"), {"id": fence["task_id"]}
         )
-    owned = NativeRequestClaim(**fence, release_id=kernel["prepared"].release_id, deadline=deadline)
+    owned = NativeRequestClaim(**fence, release_id=kernel["prepared"].release_id, deadline=deadline, runtime_id=kernel["runtime"])
     intent = retain(kernel, fence)
 
     def publish(connection):

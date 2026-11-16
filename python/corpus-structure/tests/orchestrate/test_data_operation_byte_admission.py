@@ -91,7 +91,16 @@ def controlled_executor(monkeypatch, prepared, policy, requests, ports):
             external=None,
         )
     )
-    executor._port = ports.__getitem__
+    context = SimpleNamespace(
+        basis=SimpleNamespace(prepared=prepared, key=(prepared.release_id, "runtime:controlled")),
+        model=executor.model, cpu=None, prepared_schema=False,
+    )
+    executor._target_context = context
+    executor._contexts = {context.basis.key: context}
+    executor._execution_context = lambda _: context
+    executor._ready_context = lambda _: context
+    executor._prepare_ready = lambda item, _: item
+    executor._port = lambda operation, _context=None: ports[operation]
     ready = tuple(
         SimpleNamespace(
             operation=operation,
@@ -114,7 +123,7 @@ def controlled_executor(monkeypatch, prepared, policy, requests, ports):
         observed.claims.append((index, executor.budget.used_bytes))
         observed.live.add(index)
         observed.windows.append(len(observed.live))
-        return SimpleNamespace(request_id=index, generation=1, attempt=1), {
+        return SimpleNamespace(request_id=index, generation=1, attempt=1, fence=dict(request_id=index, generation=1, task_id=int(index) + 1, attempt=1, holder="controlled")), {
             "state": "claimed",
             "action": "execute",
         }
@@ -129,7 +138,7 @@ def controlled_executor(monkeypatch, prepared, policy, requests, ports):
         observed.live.remove(claim.request_id)
 
     executor._claim = claim
-    executor._hydrate = lambda item, _: int(item.obligation)
+    executor._hydrate = lambda item, _, **_kwargs: int(item.obligation)
     executor._retain_answer = lambda _item, _claim, answer, *_args, **_kw: answer
     executor._publish = publish
     executor._known_failure = failed
@@ -244,7 +253,7 @@ def test_batch_chunks_and_scalar_sibling_share_claim_and_byte_bounds(monkeypatch
         executor._physical = physical
         physical.select_operations(ports)
         receipts, _, _, failures = executor._drive_page({}, b"{}", Active())
-    assert len(receipts) == 6 and not failures
+    assert len(receipts) == 6 and not failures, (receipts, failures)
     assert sum(batches) == 5 and max(batches) <= 2 and len(batches) >= 3
     assert max(observed.windows) <= 2
     assert all(used <= executor.policy.max_owned_bytes for _, used in observed.claims)

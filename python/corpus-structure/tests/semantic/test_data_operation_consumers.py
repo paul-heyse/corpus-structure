@@ -126,6 +126,7 @@ def test_executor_scalar_handoff_preserves_optional_omission_and_exact_cardinali
             policy=SimpleNamespace(max_packet_bytes=1024),
         ),
     )
+    executor._target_context = SimpleNamespace(model=executor.model, consumer_selectors={})
     ready = cast(
         ReadyDataRequest,
         SimpleNamespace(

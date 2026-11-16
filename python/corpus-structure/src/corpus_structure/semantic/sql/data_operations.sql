@@ -880,6 +880,7 @@ CREATE OR REPLACE FUNCTION ops.attach_data_request(p_payload jsonb) RETURNS json
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
 DECLARE p jsonb:=p_payload; o ops.data_obligation; d ops.data_demand; def sem.data_operation_definition;
  r ops.data_request; key text; snapshot jsonb; read_trust jsonb; episode text; task bigint; usekey text; item jsonb; declared jsonb; cnt bigint; retained_id text; retained ops.data_completion_intent; current_task ops.task; invalid_current boolean; invalid_retained boolean;
+ binding_use ops.demand_use;
 BEGIN
  PERFORM ops.ddo_fields(p,ARRAY['obligation_id','request_meaning','binding','replicate'],ARRAY['rebind_derivation','request_key']);
  IF p->'request_meaning'->>0='ddo' THEN
@@ -1003,19 +1004,24 @@ BEGIN
  SELECT intent.id INTO retained_id FROM ops.data_completion_intent intent WHERE intent.request_id=r.id AND intent.generation=r.generation AND NOT EXISTS(SELECT FROM ops.data_publication_receipt receipt WHERE receipt.intent_id=intent.id);
  usekey:='use:'||ops.ddo_digest(jsonb_build_array(o.id,r.id,r.generation,episode,p->'binding',snapshot));
  INSERT INTO ops.demand_use VALUES(usekey,d.id,o.id,CASE WHEN episode IS NULL THEN 'attached' ELSE 'fulfilled' END,r.id,r.generation,episode,p->'binding',snapshot,clock_timestamp(),pg_current_xact_id()::text) ON CONFLICT DO NOTHING;
- RETURN jsonb_build_object('payload',jsonb_build_object('request_id',r.id,'generation',r.generation,'task_id',r.live_task_id,'fate',CASE WHEN episode IS NULL THEN 'attached' ELSE 'fulfilled' END,'derivation_id',episode,'use_id',usekey,'trust_snapshot',snapshot,'action',CASE WHEN episode IS NOT NULL THEN 'reuse' WHEN retained_id IS NOT NULL THEN 'reconcile' ELSE 'compute' END,'retained_intent_id',retained_id));
+ SELECT * INTO STRICT binding_use FROM ops.demand_use original_use
+ WHERE original_use.request_id=r.id AND original_use.generation=r.generation
+ AND original_use.selection=r.binding-'execution_profile'
+ ORDER BY original_use.id LIMIT 1;
+ RETURN jsonb_build_object('payload',jsonb_build_object('request_id',r.id,'release_id',r.release_id,'runtime_id',r.runtime_id,'binding',r.binding-'execution_profile','binding_demand_id',binding_use.demand_id,'binding_obligation_id',binding_use.obligation_id,'generation',r.generation,'task_id',r.live_task_id,'fate',CASE WHEN episode IS NULL THEN 'attached' ELSE 'fulfilled' END,'derivation_id',episode,'use_id',usekey,'trust_snapshot',snapshot,'action',CASE WHEN episode IS NOT NULL THEN 'reuse' WHEN retained_id IS NOT NULL THEN 'reconcile' ELSE 'compute' END,'retained_intent_id',retained_id));
 END $$;
 
 CREATE OR REPLACE FUNCTION ops.claim_data_request(p_payload jsonb) RETURNS jsonb
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
-DECLARE p jsonb:=p_payload; r ops.data_request; t ops.task; snapshot jsonb; retained_id text; packet ops.data_external_packet;
+DECLARE p jsonb:=p_payload; r ops.data_request; t ops.task; snapshot jsonb; retained_id text; packet ops.data_external_packet; binding_use ops.demand_use;
 BEGIN
- PERFORM ops.ddo_fields(p,ARRAY['request_id','holder','lease_seconds'],ARRAY['external_packet_id']);
+ PERFORM ops.ddo_fields(p,ARRAY['request_id','generation','holder','lease_seconds'],ARRAY['external_packet_id']);
  IF nullif(p->>'holder','') IS NULL OR (p->>'lease_seconds')::integer NOT BETWEEN 1 AND 86400 THEN RAISE EXCEPTION 'invalid holder/lease'; END IF;
  SELECT * INTO STRICT r FROM ops.data_request WHERE id=p->>'request_id';
  PERFORM ops.ddo_authorize_request(r);
  snapshot:=ops.ddo_lock_support(r.project_id,r.original_source,r.binding->'support');
  SELECT * INTO STRICT r FROM ops.data_request WHERE id=r.id FOR UPDATE;
+ IF r.generation IS DISTINCT FROM (p->>'generation')::integer THEN RETURN jsonb_build_object('payload',jsonb_build_object('state','no-work')); END IF;
  IF NOT ops.ddo_request_useful(r) THEN RETURN jsonb_build_object('payload',jsonb_build_object('state','no-work')); END IF;
  SELECT * INTO STRICT t FROM ops.task WHERE id=r.live_task_id FOR UPDATE;
  SELECT * INTO packet FROM ops.data_external_packet WHERE request_id=r.id AND generation=r.generation;
@@ -1026,9 +1032,15 @@ BEGIN
  IF t.status NOT IN ('pending','running') OR (t.status='running' AND t.lease_until>clock_timestamp()) THEN RETURN jsonb_build_object('payload',jsonb_build_object('state','no-work')); END IF;
  PERFORM ops.ddo_assert_support(r,r.binding->'support');
  IF packet.id IS NOT NULL THEN PERFORM ops.ddo_assert_external_active(r); END IF;
+ -- A useful shared request retains its generation's original admitted binding,
+ -- even when the creating demand no longer supplies the current usefulness.
+ SELECT * INTO STRICT binding_use FROM ops.demand_use original_use
+ WHERE original_use.request_id=r.id AND original_use.generation=r.generation
+ AND original_use.selection=r.binding-'execution_profile'
+ ORDER BY original_use.id LIMIT 1;
  UPDATE ops.task SET status='running',attempt=attempt+1,claimed_by=p->>'holder',lease_until=clock_timestamp()+make_interval(secs=>(p->>'lease_seconds')::integer),started_at=coalesce(started_at,clock_timestamp()) WHERE id=t.id RETURNING * INTO t;
  SELECT intent.id INTO retained_id FROM ops.data_completion_intent intent WHERE intent.request_id=r.id AND intent.generation=r.generation AND NOT EXISTS(SELECT FROM ops.data_publication_receipt receipt WHERE receipt.intent_id=intent.id);
- RETURN jsonb_build_object('payload',jsonb_build_object('state','claimed','request_id',r.id,'generation',r.generation,'task_id',t.id,'attempt',t.attempt,'holder',t.claimed_by,'lease_until',t.lease_until,'trust_snapshot',snapshot,'action',CASE WHEN retained_id IS NULL THEN 'compute' ELSE 'reconcile' END,'retained_intent_id',retained_id));
+ RETURN jsonb_build_object('payload',jsonb_build_object('state','claimed','request_id',r.id,'release_id',r.release_id,'runtime_id',r.runtime_id,'binding',r.binding-'execution_profile','binding_demand_id',binding_use.demand_id,'binding_obligation_id',binding_use.obligation_id,'generation',r.generation,'task_id',t.id,'attempt',t.attempt,'holder',t.claimed_by,'lease_until',t.lease_until,'trust_snapshot',snapshot,'action',CASE WHEN retained_id IS NULL THEN 'compute' ELSE 'reconcile' END,'retained_intent_id',retained_id));
 END $$;
 
 CREATE OR REPLACE FUNCTION ops.ddo_lost_attempt(p jsonb,reason text) RETURNS jsonb

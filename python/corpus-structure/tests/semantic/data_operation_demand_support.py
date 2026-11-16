@@ -116,6 +116,7 @@ def claim(kernel, attached, holder="producer", seconds=30):
                 WireClaimDataRequestRequest,
                 {
                     "request_id": attached["request_id"],
+                    "generation": attached["generation"],
                     "holder": holder,
                     "lease_seconds": seconds,
                 },
