@@ -6,11 +6,13 @@ an explicit empty tuple means unavailable native annotations, never inspected-em
 """
 
 import json
+from collections.abc import Iterable
 from dataclasses import dataclass, replace
 
 from corpus_structure.ingest.annotations import AnnotationProduct, AnnotationProfile, annotate
 from corpus_structure.ingest.sentences import pipeline
 from corpus_structure.methods.source_preparation import annotation_inputs
+from corpus_structure.methods.native_profiles import NativeProfile
 from corpus_structure.semantic.constructions.navigation import NativeNavigationIndex
 from corpus_structure.semantic.data_operation_identity import decode_semantic_value
 from corpus_structure.semantic.data_operation_json import json_bytes
@@ -42,8 +44,15 @@ class SourcePrimaryProducts:
     navigation: NativeNavigationIndex
 
 
-def source_primary_products(frame, annotations=None, *, profile=None, native_profile=None,
-                            max_formula_chars=2048, construction=None):
+def source_primary_products(
+    frame: DeclaredNativeFrameSource,
+    annotations: Iterable[AnnotationProduct] | None = None,
+    *,
+    profile: AnnotationProfile | None = None,
+    native_profile: NativeProfile | None = None,
+    max_formula_chars: int = 2048,
+    construction: ConstructionProduct | None = None,
+) -> SourcePrimaryProducts:
     formal, construction_profile = profiles()
     source = FrozenNativeSource.acquire(formal.prepared, frame.value)
     pin = frame.pin.values()
