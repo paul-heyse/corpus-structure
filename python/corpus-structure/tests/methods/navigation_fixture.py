@@ -1,109 +1,74 @@
-"""Execute the primary navigation owner, then hand retained products to consumers."""
+"""Current nominal primary products for source/navigation consumers.
+
+Literal fixture references confer no publication, execution receipt or admission.
+An omitted annotations argument invokes the actually selected annotation producer;
+an explicit empty tuple means unavailable native annotations, never inspected-empty.
+"""
 
 import json
-from types import SimpleNamespace
-from typing import Any
+from dataclasses import dataclass, replace
 
-from corpus_structure.methods.source_preparation import prepare_source
-from corpus_structure.semantic.constructions.layers import ConstructionLayer
-from corpus_structure.semantic.constructions.navigation import FAMILY, populate_navigation
-from corpus_structure.semantic.constructions.retained_rules import PRIMARY_RULE_FAMILY, populate
-from corpus_structure.semantic.formal_evidence import build_formal_layer
-from methods.primary_reading_fixture import prepared
+from corpus_structure.ingest.annotations import AnnotationProduct, AnnotationProfile, annotate
+from corpus_structure.ingest.sentences import pipeline
+from corpus_structure.methods.source_preparation import annotation_inputs
+from corpus_structure.semantic.constructions.navigation import NativeNavigationIndex
+from corpus_structure.semantic.data_operation_identity import decode_semantic_value
+from corpus_structure.semantic.data_operation_json import json_bytes
+from corpus_structure.semantic.data_operation_model import SubjectContext
+from corpus_structure.semantic.formal_products import FormalEvidenceOptions
+from corpus_structure.semantic.m1_products import NativeCandidateData
+from corpus_structure.semantic.source_products import FrozenNativeSource
+from methods.declared_primary_fixture import profiles, retained_source_annotations
+from corpus_structure.semantic.construction_products import ConstructionProduct
+from corpus_structure.semantic.formal_products import FormalEvidenceProduct
+from corpus_structure.semantic.sentence_products import SourceAnnotations
+from corpus_structure.semantic.declared_record_sources import DeclaredNativeFrameSource
+from corpus_structure.semantic.declared_contexts import DeclaredContextPopulation
+from corpus_structure.semantic.source_contexts import PreparedNativeSources
+from corpus_structure.semantic.identity import canonical_bytes
 
 
-def primary_navigation(
-    view, annotations=None, *, formal=False, task_start=201, native_profile=None
-):
+@dataclass(frozen=True)
+class SourcePrimaryProducts:
+    source: FrozenNativeSource
+    frame: DeclaredNativeFrameSource
+    prepared: PreparedNativeSources
+    population: DeclaredContextPopulation
+    annotations: tuple[AnnotationProduct, ...]
+    native: SourceAnnotations | None
+    construction: ConstructionProduct
+    formal: FormalEvidenceProduct
+    context: SubjectContext
+    navigation: NativeNavigationIndex
+
+
+def source_primary_products(frame, annotations=None, *, profile=None, native_profile=None,
+                            max_formula_chars=2048, construction=None):
+    formal, construction_profile = profiles()
+    source = FrozenNativeSource.acquire(formal.prepared, frame.value)
+    pin = frame.pin.values()
+    context = SubjectContext(pin["project_id"], pin["subject"], pin["original_source"],
+        json_bytes(decode_semantic_value(json.loads(pin["analyzed_scope_meaning"]))),
+        subject_definition=pin["subject_definition"])
+    profile = profile or AnnotationProfile()
     if annotations is None:
-        from corpus_structure.ingest.annotations import AnnotationProfile
-        from corpus_structure.ingest.sentences import pipeline
-
-        profile = AnnotationProfile()
-        nlp: Any = pipeline(profile.configuration)
-        native_profile = nlp.selection().native
-        annotations = prepare_source(view, profile=profile, annotations_only=True).annotations
-    scope = dict(
-        source_view_ids=[view.ref.id],
-        source_views=[
-            dict(
-                source_view_id=view.ref.id,
-                key=view.ref.key,
-                base_document=view.ref.native_product.values(),
-                section_pointer=view.ref.section_pointer,
-                membership=view.ref.membership,
-                projection_digest=view.ref.projection_digest,
-                recipe_digest=view.ref.recipe_digest,
-            )
-        ],
-        profile="navigation-fixture",
-        selectors=[dict(projection=view.ref.projection_digest, start=0, end=len(view.text))],
-    )
-    operation = dict(
-        key="text.native_evidence",
-        version="1",
-        runtime="fixture",
-        model="fixture",
-        grammar="none",
-        configuration="fixture",
-        input="fixture",
-        context="source",
-    )
-    from methods.primary_native_fixture import primary_native_layer
-    from methods.primary_reading_fixture import native_execution_for_product
-
-    execution = (
-        native_execution_for_product(annotations[0], native_profile=native_profile)
-        if annotations
-        else None
-    )
-    native_layer, native_pin = primary_native_layer(
-        view.ref.native_product.values(),
-        scope,
-        operation,
-        prepared(),
-        ((view, product) for product in annotations),
-        configuration="fixture",
-        digest="pipeline",
-        reference=task_start,
-        execution=execution,
-    )
-    layers = {native_pin: native_layer}
-    navigation = ConstructionLayer(
-        view.ref.native_product.values(),
-        scope,
-        dict(operation, key="text.constructions"),
-        families=(FAMILY, PRIMARY_RULE_FAMILY),
-    )
+        native_profile = pipeline(profile.configuration).selection().native
+        profile = replace(profile, execution_profile=native_profile.fingerprint)
+        annotations = tuple(annotate(annotation_inputs(NativeCandidateData.from_frame(frame),
+            profile=profile, source_frame=frame), profile))
+    else:
+        annotations = tuple(annotations)
     if annotations:
-        populate(navigation, view, native_pin, native_layer)
-    populate_navigation(navigation, view, layers)
-    report = navigation.finish(prepared(), dependencies=layers)
-    layers[report.reference(task_start + 1)] = report
-    if formal:
-        formal_layer = build_formal_layer(
-            view, prepared(), dict(operation, key="text.formal_evidence", model="none")
-        )
-        layers[formal_layer.reference(task_start + 2)] = formal_layer
-    return layers
-
-
-def view_from_frame(frame):
-    context = json.loads(frame.native_context)
-    return SimpleNamespace(
-        ref=SimpleNamespace(
-            id=frame.source_view_id,
-            key=frame.unit_ref,
-            native_product=frame.native_product,
-            section_pointer=frame.section_pointer,
-            membership=frame.membership,
-            projection_digest=frame.projection_digest,
-            recipe_digest=frame.recipe_digest,
-        ),
-        text=frame.text,
-        pieces=context["pieces"],
-        items=context["items"],
-        ancestors=context["ancestors"],
-        health=context["health"],
-        integrated_context=None,
-    )
+        if native_profile is not None:
+            profile = replace(profile, execution_profile=native_profile.fingerprint)
+        if profile.execution_profile is None:
+            raise ValueError("supplied annotation columns require their explicit execution profile")
+        native = retained_source_annotations(source, frame, context, annotations, profile)
+    else:
+        native = None
+    primary = formal.run(source, FormalEvidenceOptions(max_inline_chars=max_formula_chars), subject_context=context)
+    built = construction if construction is not None else construction_profile.run(source, (primary,), sentences=native, subject_context=context)
+    navigation = NativeNavigationIndex((built,), source)
+    return SourcePrimaryProducts(source, frame, PreparedNativeSources((frame,)),
+        DeclaredContextPopulation((frame,), canonical_bytes({"fixture": "complete selected source inventory"})),
+        annotations, native, built, primary, context, navigation)

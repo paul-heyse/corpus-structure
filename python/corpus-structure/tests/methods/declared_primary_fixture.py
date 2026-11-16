@@ -116,7 +116,7 @@ def selected_source(text, *, pieces=None, items=None, recognition=()):
     return source, frame, context
 
 
-def retained_products(source, frame, context, products, profile):
+def retained_source_annotations(source, frame, context, products, profile):
     """Validate literal columns and execute the genuine formal/construction kernels."""
     from corpus_structure.ingest.annotations import AnnotationProduct
 
@@ -197,6 +197,13 @@ def retained_products(source, frame, context, products, profile):
         configuration=profile.configuration,
         subject_context=context,
     )
+    return native
+
+
+def retained_products(source, frame, context, products, profile):
+    """Execute annotation, formal and construction owners over the explicit source."""
+    formal, construction = profiles()
+    native = retained_source_annotations(source, frame, context, products, profile)
     primary = formal.run(source, FormalEvidenceOptions(), subject_context=context)
     return native, construction.run(source, (primary,), sentences=native, subject_context=context)
 
