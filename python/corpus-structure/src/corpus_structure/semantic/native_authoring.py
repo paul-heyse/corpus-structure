@@ -809,14 +809,17 @@ def verify_frozen_catalog(connection, admission):
         checks = catalog_checks(body)
     except ValueError as error:
         raise NativeAuthoringError("frozen guard lacks the authoring catalog boundaries") from error
-    connection.exec_driver_sql(
-        "DO $candidate_catalog$ DECLARE expected jsonb; spec jsonb; owner_name text; BEGIN "
-        "expected:=data.execution_contract_descriptor(); "
-        "SELECT pg_get_userbyid(nspowner) INTO owner_name FROM pg_namespace WHERE nspname='sem'; "
-        + checks
-        + " END $candidate_catalog$;",
-        execution_options={"no_parameters": True},
-    )
+    from .native_sql_body import catalog_path
+
+    with catalog_path(connection):
+        connection.exec_driver_sql(
+            "DO $candidate_catalog$ DECLARE expected jsonb; spec jsonb; owner_name text; BEGIN "
+            "expected:=data.execution_contract_descriptor(); "
+            "SELECT pg_get_userbyid(nspowner) INTO owner_name FROM pg_namespace WHERE nspname='sem'; "
+            + checks
+            + " END $candidate_catalog$;",
+            execution_options={"no_parameters": True},
+        )
 
 
 def verify_rendered_candidate(connection, python_source, authoring, policies, admission):

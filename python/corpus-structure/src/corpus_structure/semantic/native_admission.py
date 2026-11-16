@@ -126,7 +126,11 @@ def native_admission_sql(
     descriptor["checks"] = [
         item for item in descriptor["checks"] if item["relation"] in target_metadata.tables
     ]
+    from pglast import ast
+
+    from .native_function_signatures import function_signature
     from .native_inventory import update_function_inventory
+    from .prepared_sql import prepare_sql
 
     functions = {item["signature"]: item for item in descriptor["functions"]}
     update_function_inventory(functions, sql)
@@ -135,10 +139,22 @@ def native_admission_sql(
         if native.identity.kind != "function":
             continue
         signature = native.identity.qualified
-        if signature not in functions:
+        declared = [
+            function_signature(raw.stmt)
+            for statement in native.statements
+            for raw in prepare_sql(statement, source=native.source).statements
+            if isinstance(raw.stmt, ast.CreateFunctionStmt)
+        ]
+        if len(declared) != 1 or declared[0] not in functions:
             raise ValueError(
                 f"normalized native function is absent from source inventory: {signature}"
             )
+        source_signature = declared[0]
+        if source_signature != signature:
+            if signature in functions:
+                raise ValueError(f"ambiguous canonical native identity: {signature}")
+            functions[signature] = functions.pop(source_signature)
+            functions[signature]["signature"] = signature
         catalog = native.catalog
         if native.catalog_version == 2:
             from .native_sql_body import SQL_STANDARD_PROFILE
@@ -163,6 +179,7 @@ def native_admission_sql(
                 for grantee, privilege, _ in catalog["acl"]
                 if privilege == "EXECUTE" and grantee != catalog["owner"]
             ),
+            result=catalog["result_type"],
             result_definition=catalog["result"],
             argument_definition=catalog["arguments"],
             catalog_acl=catalog["acl"],

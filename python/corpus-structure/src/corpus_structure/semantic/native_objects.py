@@ -16,7 +16,7 @@ from dataclasses import asdict, dataclass, replace
 from pglast import ast, enums
 from pglast.stream import RawStream
 from sqlalchemy import Connection, Integer, cast, func, literal, select, text
-from sqlalchemy.dialects.postgresql import dialect
+from sqlalchemy.dialects.postgresql import OID, dialect
 from sqlalchemy.engine import RowMapping
 from sqlalchemy.exc import DBAPIError
 
@@ -278,9 +278,13 @@ def definition_from_sql(
             }:
                 continue
             kind = RawStream()(parameter.argType)
-            canonical = connection.scalar(
-                select(catalog_queries.pg.format_type(catalog_queries.pg.to_regtype(kind), None)),
-            )
+            type_oid = connection.scalar(select(cast(catalog_queries.pg.to_regtype(kind), OID)))
+            from .native_sql_body import catalog_path
+
+            with catalog_path(connection):
+                canonical = connection.scalar(
+                    select(catalog_queries.pg.format_type(type_oid, None)),
+                )
             if canonical is None:
                 raise NativeAuthoringError(f"{source}: unresolved input type {kind}")
             arguments.append(canonical)
@@ -325,7 +329,10 @@ def observe_native(
         )
     else:
         raise NativeAuthoringError(f"unsupported native kind {identity.kind}")
-    row = connection.execute(statement).mappings().one_or_none()
+    from .native_sql_body import catalog_path
+
+    with catalog_path(connection):
+        row = connection.execute(statement).mappings().one_or_none()
     if identity.kind == "trigger":
         return None if row is None else dict(row)
     if row is not None and identity.kind == "view" and row["kind"] != "v":
