@@ -1171,16 +1171,8 @@ def series_native_definitions(connection, *, include_selected=True, target_metad
     )
     review_sql = Path(__file__).with_name("sql").joinpath("review_assessments.sql").read_text()
     for name in (
-        "review_history_preflight",
-        "operation_review_history_bounded",
-        "structural_review_history_bounded",
-        "operation_review_history",
-        "record_review_exposure",
         "create_structural_reference_set",
         "record_structural_reference_pass",
-        "structural_review_history",
-        "record_structural_review_exposure",
-        "record_feature_fit_review_exposure",
     ):
         definitions.extend(
             _task_call_definitions(
@@ -1189,9 +1181,7 @@ def series_native_definitions(connection, *, include_selected=True, target_metad
                 name=name,
                 source="operation review history:forward",
                 schema="eval",
-                grants=()
-                if name == "review_history_preflight"
-                else (("corpus_sem_evaluator", "EXECUTE", False),),
+                grants=(("corpus_sem_evaluator", "EXECUTE", False),),
             )
         )
     definitions.append(

@@ -259,7 +259,6 @@ POSTGRESQL_IMPLEMENTATION_SOURCES = (
     ("operations/structural-producers.py", "methods/structural_products.py"),
     ("operations/structural-parsing.py", "semantic/structural_parsing.py"),
     ("operations/review-assessments.sql", "semantic/sql/review_assessments.sql"),
-    ("operations/review-assessments.py", "evaluate/review_assessments.py"),
     ("operations/structural-assessment.py", "evaluate/structural_assessment.py"),
     ("operations/structural-products.sql", "semantic/sql/structural_products.sql"),
     ("operations/definition-declaration.py", "methods/definition_declaration.py"),
