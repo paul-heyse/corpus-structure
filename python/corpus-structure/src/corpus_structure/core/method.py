@@ -37,10 +37,6 @@ if typing.TYPE_CHECKING:
 
     from corpus_structure.ingest.pdf import PdfRecipe
     from corpus_structure.ingest.pdf_assets import PreparedPdfAssets
-    from corpus_structure.semantic.characterization import (
-        EnrichedDocumentView,
-        LayerReport,
-    )
     from corpus_structure.semantic.product_reference import ProductReference
 
 
@@ -363,23 +359,8 @@ class UnitResult:
     contributions: tuple[Mapping[str, Any], ...] | None = None
     contribution_coordinate_texts: tuple[Mapping[str, Any], ...] = ()
     structural_product: Mapping[str, Any] | None = None
-    characterization_layer: LayerReport | None = None
-    characterization_view: EnrichedDocumentView | None = None
 
     def __post_init__(self) -> None:
-        if (self.characterization_layer is not None or self.characterization_view is not None) and (
-            self.observations
-            or self.records is not None
-            or self.contributions is not None
-            or self.structural_product is not None
-            or self.contribution_operations is not None
-            or self.parse_detail is not None
-            or self.contribution_coordinate_texts
-            or self.coverage
-            or self.measurements
-            or self.source_views
-        ):
-            raise ValueError("characterization publication requires its distinct terminal product")
         match self.outcome:
             case ObservationOutcome.PRODUCED:
                 ok = (
@@ -388,8 +369,6 @@ class UnitResult:
                         or self.records
                         or self.contributions
                         or self.structural_product
-                        or self.characterization_layer
-                        or self.characterization_view
                     )
                     and self.error is None
                 )
@@ -399,8 +378,6 @@ class UnitResult:
                     and not self.records
                     and not self.contributions
                     and self.structural_product is None
-                    and self.characterization_layer is None
-                    and self.characterization_view is None
                     and self.error is None
                 )
             case ObservationOutcome.FAILED:
@@ -409,8 +386,6 @@ class UnitResult:
                     and not self.records
                     and not self.contributions
                     and self.structural_product is None
-                    and self.characterization_layer is None
-                    and self.characterization_view is None
                     and not self.measurements
                     and bool(self.error)
                 )

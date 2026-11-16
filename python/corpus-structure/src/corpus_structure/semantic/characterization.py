@@ -1,8 +1,8 @@
 """Immutable document characterization, distinct from scientific admission.
 
 LinkML owns boundary shapes and attachment-basis constraints. This module owns graph,
-identity and closure invariants; neither codec nor read projection performs inference.
-Local references become globally qualified only after the containing layer is pinned.
+identity and closure invariants; reading projection performs no inference.
+Current inventories use semantic product/member references.
 """
 
 from __future__ import annotations
@@ -12,7 +12,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from hashlib import sha256
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any
 
 import yaml
 
@@ -56,7 +56,7 @@ def characterization_inputs(
         if (
             module is not None
             and module.content == content
-            and "AnnotationLayer" in _view(bundle, profile).all_classes()
+            and "CharacterizationAttachmentBasis" in _view(bundle, profile).all_classes()
         ):
             return bundle
         raise ValueError("reserved characterization module supplied with another meaning")
@@ -198,21 +198,11 @@ def attachment_policies(prepared: PreparedRelease) -> dict[str, Any]:
     return json.loads(artifact.content)
 
 
-def _pin(value: Mapping[str, Any]) -> ProductReference:
-    return ProductReference(**value)
-
-
 def occurrence_id(
-    base_document: ProductReference | Mapping[str, Any], extents: Sequence[Mapping[str, Any]]
+    source: Mapping[str, Any], extents: Sequence[Mapping[str, Any]]
 ) -> str:
     """Stable across analyses and database placement, different at repeated native addresses."""
-    base = (
-        base_document.values()
-        if isinstance(base_document, ProductReference)
-        else dict(base_document)
-    )
-    portable = [{k: v for k, v in extent.items() if k != "source_view_id"} for extent in extents]
-    return sha256(canonical_bytes({"base_document": base, "extents": portable})).hexdigest()
+    return sha256(canonical_bytes({"base_document": dict(source), "extents": list(extents)})).hexdigest()
 
 
 @dataclass(frozen=True, slots=True)
@@ -240,67 +230,6 @@ class AnnotationReference:
         return "annotation:" + sha256(canonical_bytes(self.values())).hexdigest()
 
 
-def annotation_reference(layer: ProductReference, local_id: str) -> AnnotationReference:
-    return AnnotationReference(layer, local_id)
-
-
-@dataclass(frozen=True, slots=True)
-class LayerReport:
-    """Canonical detached bytes keep validated state immutable; payload is a fresh value."""
-
-    content: bytes
-
-    @property
-    def payload(self) -> dict[str, Any]:
-        return json.loads(self.content)
-
-    @property
-    def content_digest(self) -> str:
-        return sha256(self.content).hexdigest()
-
-    @property
-    def base_document(self) -> ProductReference:
-        return _pin(self.payload["base_document"])
-
-    def reference(self, task_id: int) -> ProductReference:
-        return ProductReference(
-            task_id, "characterization-layer:" + self.content_digest, self.content_digest
-        )
-
-
-@dataclass(frozen=True, slots=True)
-class EnrichedDocumentView:
-    content: bytes
-
-    @property
-    def payload(self) -> dict[str, Any]:
-        return json.loads(self.content)
-
-    @property
-    def content_digest(self) -> str:
-        return sha256(self.content).hexdigest()
-
-    @property
-    def base_document(self) -> ProductReference:
-        return _pin(self.payload["base_document"])
-
-    def reference(self, task_id: int) -> ProductReference:
-        return ProductReference(
-            task_id, "characterization-view:" + self.content_digest, self.content_digest
-        )
-
-
-def layer_reference(task_id: int, report: LayerReport) -> ProductReference:
-    return report.reference(task_id)
-
-
-def _shape(prepared: PreparedRelease, name: str, payload: Mapping[str, Any]) -> dict[str, Any]:
-    # JSON is the declared product wire: a single generated strict boundary validates it.
-    return prepared.validate_json(name, canonical_bytes(dict(payload))).model_dump(
-        mode="json", exclude_none=True
-    )
-
-
 def _acyclic(edges: Mapping[str, Sequence[str]], label: str) -> None:
     from .graph_runtime import nx
     from .graph_topology import cyclic_components
@@ -314,343 +243,22 @@ def _acyclic(edges: Mapping[str, Sequence[str]], label: str) -> None:
         raise ValueError(f"{label} structural cycle")
 
 
-def _scope(scope, base):
-    ids = scope["source_view_ids"]
-    views = scope["source_views"]
-    if (
-        len(set(ids)) != len(ids)
-        or set(ids) != {v["source_view_id"] for v in views}
-        or len(views) != len(ids)
-    ):
-        raise ValueError("source scope requires one exact portable pin per source view")
-    if any(v["base_document"] != base for v in views):
-        raise ValueError("source scope has wrong-source document pin")
-    projections = {v["projection_digest"] for v in views}
-    for selector in scope["selectors"]:
-        _selector(selector, projections)
-    return {v["source_view_id"]: v for v in views}
-
-
-def _selector(selector, projections):
-    if selector["projection"] not in projections:
-        raise ValueError("source selector references an unselected projection")
-    if ("start" in selector) != ("end" in selector) or selector.get("end", 0) < selector.get(
-        "start", 0
-    ):
-        raise ValueError("source selector has invalid extent")
-
-
-def _coverage(rows, scope, operation=None, *, composed=False):
-    projections = {v["projection_digest"] for v in scope["source_views"]}
-    seen = set()
-    for row in rows:
-        identity = canonical_bytes(row) if composed else row["family"]
-        if identity in seen:
-            raise ValueError("family coverage must be unique")
-        seen.add(identity)
-        if operation is not None and (
-            row["operation"] != operation["key"]
-            or row["family"] not in operation["produced_families"]
-        ):
-            raise ValueError("coverage differs from declared operation family")
-        for field in ("eligible", "examined", "unexamined"):
-            for selector in row.get(field, ()):
-                _selector(selector, projections)
-        if row["outcome"] in {"complete", "empty"}:
-            if row["availability"] != "available" or row.get("unexamined"):
-                raise ValueError("complete or empty family requires available fully examined scope")
-            if not row.get("eligible") or row.get("examined") != row.get("eligible"):
-                raise ValueError("complete or empty family must examine its eligible scope")
-        elif not row.get("reason"):
-            raise ValueError("incomplete family coverage requires a reason")
-    if operation is not None and seen != set(operation["produced_families"]):
-        raise ValueError("operation must account for every produced family")
-
-
-def _require_layer_contract(payload: Mapping[str, Any]) -> None:
-    if payload.get("format") != "characterization-layer-v1":
-        raise ValueError("unsupported characterization layer contract")
-
-
-_PUBLISHED_MANIFEST = object()
-
-
-@dataclass(frozen=True)
-class LayerManifest:
-    """Authenticated metadata of one sealed layer; never an uploaded layer value."""
-
-    pin: ProductReference
-    content: bytes
-    _authority: object
-
-    def __post_init__(self):
-        if self._authority is not _PUBLISHED_MANIFEST:
-            raise ValueError("layer manifests require a protected published-product read")
-        _require_layer_contract(self.payload)
-
-    @property
-    def payload(self) -> dict[str, Any]:
-        return json.loads(self.content)
-
-    @property
-    def base_document(self) -> ProductReference:
-        return _pin(self.payload["base_document"])
-
-    def reference(self, task_id: int) -> ProductReference:
-        if task_id != self.pin.task_id:
-            raise ValueError("manifest differs from exact producing task")
-        return self.pin
-
-
-def _published_layer_manifest(
-    reference: ProductReference, payload: Mapping[str, Any]
-) -> LayerManifest:
-    return LayerManifest(reference, canonical_bytes(payload), _PUBLISHED_MANIFEST)
-
-
-class _LayerValidation:
-    """One explicitly supplied archived-release closure; never resolves ambient state."""
-
-    def __init__(
-        self,
-        prepared: PreparedRelease,
-        releases: Mapping[str, PreparedRelease] | None,
-        dependencies: Mapping[ProductReference, LayerReport] | None,
-    ):
-        self.prepared = prepared
-        self.releases = releases or {}
-        self.dependencies = dependencies
-        self.validated: dict[str, LayerReport] = {}
-        self.visiting: set[str] = set()
-
-    def validate(
-        self,
-        payload: Mapping[str, Any],
-        *,
-        dependencies: Mapping[ProductReference, LayerReport] | None = None,
-    ) -> LayerReport:
-        # The callback signature also serves the shared detached-view validator.
-        if dependencies is not None and dependencies is not self.dependencies:
-            raise ValueError("layer validation dependency context differs")
-        _require_layer_contract(payload)
-        release_id = payload["release_id"]
-        prepared = (
-            self.prepared
-            if release_id == self.prepared.release_id
-            else self.releases.get(release_id)
-        )
-        if prepared is None or prepared.release_id != release_id:
-            raise ValueError("layer requires its own archived semantic release")
-        key = sha256(canonical_bytes(payload)).hexdigest()
-        if key in self.validated:
-            return self.validated[key]
-        if key in self.visiting:
-            raise ValueError("layer dependency cycle")
-        self.visiting.add(key)
-        try:
-            data = _shape(prepared, "AnnotationLayer", payload)
-            for reference in data.get("dependencies", ()):
-                pin = _pin(reference)
-                report = self.dependencies.get(pin) if self.dependencies is not None else None
-                if report is None or report.reference(pin.task_id) != pin:
-                    raise ValueError("layer requires exact dependency closure")
-                validated = self.validated.get(report.content_digest)
-                if validated is None:
-                    validated = self.validate(report.payload)
-                if validated.content != report.content:
-                    raise ValueError("dependency differs from its own released canonical contract")
-            policies = attachment_policies(prepared)
-            validate_json = prepared.validate_json
-
-            def validate_basis(basis):
-                validate_attachment_basis(
-                    basis,
-                    policies,
-                    lambda name, value: validate_json(name, canonical_bytes(value)),
-                )
-                return (
-                    policies.get("released_construction", {})
-                    .get("rules", {})
-                    .get(basis.get("rule_id"), {})
-                )
-
-            result = validate_layer_structure(
-                data,
-                validate_basis=validate_basis,
-                dependencies=self.dependencies,
-            )
-            self.validated[key] = result
-            return result
-        finally:
-            self.visiting.remove(key)
-
-
-def validate_layer(
-    prepared: PreparedRelease,
-    payload: Mapping[str, Any],
-    *,
-    dependencies: Mapping[ProductReference, LayerReport] | None = None,
-    releases: Mapping[str, PreparedRelease] | None = None,
-) -> LayerReport:
-    """Validate every participating v1 layer under its own explicitly archived release.
-
-    ``prepared`` owns this payload. ``releases`` supplies differing dependency releases;
-    same-release calls need no map. Neither layer bytes nor producer provenance are rebased.
-    """
-    if payload.get("release_id") != prepared.release_id:
-        raise ValueError("characterization layer uses another semantic release")
-    return _LayerValidation(prepared, releases, dependencies).validate(payload)
-
-
-def validate_layer_structure(
-    payload: Mapping[str, Any],
-    *,
-    validate_basis,
-    dependencies: Mapping[ProductReference, LayerReport] | None = None,
-) -> LayerReport:
-    """Graph checks after participating layers receive their own archived schema validation.
-
-    ``validate_basis`` must validate the dispatched released subtype; detached callers
-    supply their archived JSON Schema validator, live callers use PreparedRelease.
-    """
-    _require_layer_contract(payload)
-    data = json.loads(canonical_bytes(payload))
-    for name in _INVENTORIES:
-        data.setdefault(name, [])
-    data.setdefault("dependencies", [])
-    base = data["base_document"]
-    views = _scope(data["source_scope"], base)
-    _coverage(data["coverage"], data["source_scope"], data["operation"])
-    if data["outcome"] not in data["operation"]["outcomes"]:
-        raise ValueError("layer outcome is not declared by its operation")
-    pins = [_pin(p) for p in data["dependencies"]]
-    if len(set(pins)) != len(pins):
-        raise ValueError("duplicate layer dependency")
-    if pins and dependencies is None:
-        raise ValueError("layer requires dependency closure")
-    for pin in pins:
-        dependency = _reading_dependency(dependencies, pin)
-        if (
-            not isinstance(dependency, LayerReport)
-            or dependency.reference(pin.task_id) != pin
-            or dependency.base_document != _pin(base)
-        ):
-            raise ValueError("layer has missing or wrong-source dependency")
-        _require_layer_contract(dependency.payload)
-    if not set(_pin(p) for p in data["operation"].get("required_layers", ())) <= set(pins):
-        raise ValueError("required operation layer missing from dependencies")
-    all_nodes = {}
-    indexes = {}
-    for name in _INVENTORIES:
-        index = {}
-        for item in data[name]:
-            key = item["local_id"]
-            if key in all_nodes:
-                raise ValueError("local IDs must be distinct across the layer")
-            all_nodes[key] = item
-            index[key] = item
-        indexes[name] = index
-    from .characterization_evidence import validate_evidence
+def validate_inventory_graph(data, indexes, all_nodes, choice_members, validate_basis):
+    """Local source, score, structural and choice invariants for current inventories."""
     from .observations import source_python
 
-    validate_evidence(data, indexes)
-    for name in _INVENTORIES[1:]:
-        for item in data[name]:
-            scores = list(item.get("scores", ()))
-            if name == "choices":
-                scores.extend(
-                    score for member in item["members"] for score in member.get("scores", ())
-                )
-            for score in scores:
-                value = source_python(score["value"])
-                if value is not None and type(value) not in {int, float}:
-                    raise ValueError(
-                        "native score must be an exact numeric source value or explicit null"
-                    )
-    coverage_by_family = {row["family"]: row for row in data["coverage"]}
-    for name in _INVENTORIES[1:]:
-        for item in data[name]:
-            family = coverage_by_family.get(item["family"])
-            if family is None:
-                raise ValueError("inventory item has undeclared family")
-            if family["outcome"] == "empty":
-                raise ValueError("successful empty family contains output")
-    choice_members = {}
-    for group in data["choices"]:
-        for member in group["members"]:
-            key = member["local_id"]
-            if key in all_nodes:
-                raise ValueError("choice member local ID repeats")
-            all_nodes[key] = member
-            choice_members[key] = group
-
-    def refs(values, index, label):
-        if any(value not in index for value in values):
-            raise ValueError(f"dangling {label} reference")
-
     for occurrence in data["occurrences"]:
-        for extent in occurrence["extents"]:
-            view = views.get(extent["source_view_id"])
-            if view is None or extent["projection"] != view["projection_digest"]:
-                raise ValueError("occurrence has wrong-source projection")
-            _selector(extent, {view["projection_digest"]})
-            if not extent["synthetic"] and "start" in extent and extent["end"] <= extent["start"]:
+        for extent in occurrence.get("extents", ()):
+            if not extent.get("synthetic", False) and "start" in extent and extent["end"] <= extent["start"]:
                 raise ValueError("literal source occurrence requires a nonempty extent")
-            if (
-                "text" in extent
-                and not extent["synthetic"]
-                and (
-                    "start" not in extent or len(extent["text"]) != extent["end"] - extent["start"]
-                )
-            ):
-                raise ValueError("literal source text differs from its exact extent")
-        if occurrence["local_id"] != occurrence_id(base, occurrence["extents"]):
-            raise ValueError("occurrence identity differs from ordered source addresses")
-    # References are layer-qualified only across immutable layer boundaries.
-    # All premise-bearing records share the same external closure validation.
-    premise_records = list(all_nodes.values()) + [r["basis"] for r in data["roles"]]
-    # Reports contain immutable canonical bytes. Reuse their verified indexes
-    # across external edges instead of decoding and hashing once per edge.
-    dependency_indexes: dict[ProductReference, tuple[set[str], set[str]]] = {}
-    base_pin = _pin(base)
-    for item in premise_records:
-        for external in (
-            *item.get("external_premises", ()),
-            *item.get("required_external_choices", ()),
-        ):
-            pin = _pin(external["layer"])
-            if pin not in pins:
-                raise ValueError("external premise layer missing from dependencies")
-            if dependencies is None:
-                raise ValueError("external premise requires dependency closure")
-            if pin not in dependency_indexes:
-                layer = dependencies.get(pin)
-                if layer is None or layer.reference(pin.task_id) != pin:
-                    raise ValueError("external premise has missing or wrong-source dependency")
-                body = layer.payload
-                if _pin(body["base_document"]) != base_pin:
-                    raise ValueError("external premise has missing or wrong-source dependency")
-                node_ids = {n["local_id"] for k in _INVENTORIES for n in body[k]}
-                member_ids = {m["local_id"] for g in body["choices"] for m in g["members"]}
-                node_ids.update(member_ids)
-                dependency_indexes[pin] = node_ids, member_ids
-            if external["local_id"] not in dependency_indexes[pin][0]:
-                raise ValueError("dangling external premise")
-        for external in item.get("required_external_choices", ()):
-            if dependencies is None:
-                raise ValueError("external choice requires exact dependency closure")
-            if external["local_id"] not in dependency_indexes[_pin(external["layer"])][1]:
-                raise ValueError("required external choice is not a choice member")
-    validate_inventory_graph(data, indexes, all_nodes, choice_members, validate_basis)
-    if data["outcome"] == "complete" and any(
-        c["outcome"] not in {"complete", "empty"} for c in data["coverage"]
-    ):
-        raise ValueError("complete layer contains incomplete family coverage")
-    return LayerReport(canonical_bytes(data))
-
-
-def validate_inventory_graph(data, indexes, all_nodes, choice_members, validate_basis):
-    """Shared local graph closure for legacy layers and source-native formal products."""
+    for name in _INVENTORIES[1:]:
+        for item in data[name]:
+            records = (item, *item["members"]) if name == "choices" else (item,)
+            for record in records:
+                for score in record.get("scores", ()):
+                    value = source_python(score["value"])
+                    if value is not None and type(value) not in {int, float}:
+                        raise ValueError("native score requires an exact numeric source value or explicit null")
 
     def refs(values, index, label):
         if any(value not in index for value in values):
@@ -708,216 +316,41 @@ def validate_inventory_graph(data, indexes, all_nodes, choice_members, validate_
     _acyclic(choice_edges, "choice dependency")
 
 
-def validate_view(
-    prepared: PreparedRelease,
-    payload: Mapping[str, Any],
-    layers: Mapping[ProductReference, LayerReport],
-    *,
-    releases: Mapping[str, PreparedRelease] | None = None,
-) -> EnrichedDocumentView:
-    data = _shape(prepared, "EnrichedDocumentView", payload)
-    if data["release_id"] != prepared.release_id:
-        raise ValueError("view uses another semantic release")
-    if data["profile"] == "full_characterization":
-        families = characterization_profiles(prepared).get(data["profile"])
-        if families is None or not set(families) <= {
-            row["family"] for row in data.get("coverage", ())
-        }:
-            raise ValueError(
-                "full characterization requires every released baseline family outcome"
-            )
-
-    def validate_root(payload, *, dependencies):
-        # Retain memoized canonical reports only for this root's dependency closure.
-        # A detached mapping may hydrate reports lazily; sharing this memo across
-        # independent roots would retain every full layer in a whole-book view.
-        closure = {}
-        pending = [_pin(value) for value in payload.get("dependencies", ())]
-        while pending:
-            pin = pending.pop()
-            if pin in closure:
-                continue
-            report = dependencies.get(pin)
-            if report is None or report.reference(pin.task_id) != pin:
-                raise ValueError("layer requires exact dependency closure")
-            closure[pin] = report
-            pending.extend(_pin(value) for value in report.payload.get("dependencies", ()))
-        return _LayerValidation(prepared, releases, closure).validate(payload)
-
-    return validate_view_structure(data, layers, validate_layer=validate_root)
-
-
-def validate_view_structure(
-    payload: Mapping[str, Any],
-    layers: Mapping[ProductReference, LayerReport | LayerManifest],
-    *,
-    validate_layer,
-) -> EnrichedDocumentView:
-    """Shared v1 closure checks; callback validates each layer under its own release."""
-    if payload.get("format") != "enriched-document-view-v1":
-        raise ValueError("unsupported enriched document view contract")
-    data = json.loads(canonical_bytes(payload))
-    _scope(data["source_scope"], data["base_document"])
-    data.setdefault("layers", [])
-    data.setdefault("coverage", [])
-    pins = [_pin(p) for p in data["layers"]]
-    if len(set(pins)) != len(pins):
-        raise ValueError("duplicate selected layer")
-    active = [_pin(p) for p in data.get("active_layers", data["layers"])]
-    if len(set(active)) != len(active) or not set(active) <= set(pins):
-        raise ValueError("active layer selection differs from retained dependency closure")
-    if bool(active) != bool(pins):
-        raise ValueError("analytical view requires active layers")
-    if data["profile"] == "source_only":
-        if pins or data["coverage"]:
-            raise ValueError("source_only view cannot claim analytical layers or coverage")
-    elif not pins:
-        raise ValueError("analytical view requires selected layers")
-    coverage = {}
-    for pin in pins:
-        layer = layers.get(pin)
-        if layer is None or layer.reference(pin.task_id) != pin:
-            raise ValueError("view has missing layer or malformed pin")
-        body = layer.payload
-        _require_layer_contract(body)
-        if body["base_document"] != data["base_document"]:
-            raise ValueError("view mixes incompatible source pins")
-        if not set(_pin(p) for p in body["dependencies"]) <= set(pins):
-            raise ValueError("view lacks selected layer dependency closure")
-        # A composed view may contain several independently analyzed source subsets.
-        # Exact selector inclusion avoids inventing geometric/native containment.
-        if not scope_contains(data["source_scope"], body["source_scope"]):
-            raise ValueError("view source scope does not contain selected layer scope")
-        if pin in active:
-            for row in body["coverage"]:
-                coverage[canonical_bytes(row)] = row
-    _coverage(data["coverage"], data["source_scope"], composed=True)
-    if any(canonical_bytes(row) not in coverage for row in data["coverage"]):
-        raise ValueError("view coverage is not supported by selected layers")
-    for pin in pins:
-        layer = layers[pin]
-        if isinstance(layer, LayerManifest):
-            if validate_layer is not None:
-                raise ValueError("published manifests cannot replace full layer validation")
-            continue
-        if validate_layer is None:
-            raise ValueError("published composition requires protected layer manifests")
-        validated = validate_layer(layer.payload, dependencies=layers)
-        if validated.content != layer.content:
-            raise ValueError("selected layer differs from its own released canonical contract")
-        del validated, layer
-    return EnrichedDocumentView(canonical_bytes(data))
-
-
-def validate_published_view(
-    prepared: PreparedRelease,
-    payload: Mapping[str, Any],
-    layers: Mapping[ProductReference, LayerManifest],
-) -> EnrichedDocumentView:
-    """Compose metadata whose immutable layer validity is held by native publication.
-
-    Full unsealed/local layers still enter validate_view/validate_layer. This route accepts
-    only manifests obtained from protected reads, preserving original archived authority.
-    """
-    if any(not isinstance(layer, LayerManifest) for layer in layers.values()):
-        raise ValueError("published composition requires authenticated layer manifests")
-    data = _shape(prepared, "EnrichedDocumentView", payload)
-    if data["release_id"] != prepared.release_id:
-        raise ValueError("view uses another semantic release")
-    if data["profile"] == "full_characterization":
-        families = characterization_profiles(prepared).get(data["profile"])
-        if families is None or not set(families) <= {
-            row["family"] for row in data.get("coverage", ())
-        }:
-            raise ValueError(
-                "full characterization requires every released baseline family outcome"
-            )
-    return validate_view_structure(data, layers, validate_layer=None)
-
-
-def encode_layer(layer: LayerReport) -> bytes:
-    return layer.content
-
-
-def decode_layer(
-    prepared: PreparedRelease,
-    content: bytes | str,
-    *,
-    dependencies: Mapping[ProductReference, LayerReport] | None = None,
-    releases: Mapping[str, PreparedRelease] | None = None,
-) -> LayerReport:
-    return validate_layer(
-        prepared, json.loads(content), dependencies=dependencies, releases=releases
-    )
-
-
-def encode_view(view: EnrichedDocumentView) -> bytes:
-    return view.content
-
-
-def decode_view(
-    prepared: PreparedRelease,
-    content: bytes | str,
-    layers: Mapping[ProductReference, LayerReport],
-    *,
-    releases: Mapping[str, PreparedRelease] | None = None,
-) -> EnrichedDocumentView:
-    return validate_view(prepared, json.loads(content), layers, releases=releases)
-
-
-def _reading_product(value) -> ProductReference | DataProductReference:
+def _reading_product(value: Mapping[str, Any]) -> DataProductReference:
     from .data_product_reference import DataProductReference
 
-    if set(value) == {"product_id"}:
-        return DataProductReference(value["product_id"])
-    return ProductReference(**value)
+    return DataProductReference(**value)
 
 
-def _reading_reference(
-    report: LayerReport | DeclaredFormalInventory,
-    requested: ProductReference | DataProductReference,
-) -> ProductReference | DataProductReference:
-    from .data_product_reference import DataProductReference
-
-    if isinstance(requested, DataProductReference):
-        if not isinstance(report.reference, DataProductReference):
-            raise ValueError("declared reading cannot consume a historical layer")
-        return report.reference
-    if not isinstance(report, LayerReport):
-        raise ValueError("historical reading cannot consume a declared product")
-    return report.reference(requested.task_id)
-
-
-def _reading_dependency(dependencies, pin) -> LayerReport | DeclaredFormalInventory:
-    from .data_product_reference import DataProductReference
-
-    report: LayerReport | DeclaredFormalInventory | None
-    if isinstance(pin, DataProductReference):
-        report = cast("Mapping[DataProductReference, DeclaredFormalInventory]", dependencies).get(pin)
-    else:
-        report = cast(Mapping[ProductReference, LayerReport], dependencies).get(pin)
-    if report is None or _reading_reference(report, pin) != pin:
+def _reading_dependency(
+    dependencies: Mapping[DataProductReference, DeclaredFormalInventory], pin: DataProductReference
+) -> DeclaredFormalInventory:
+    report = dependencies.get(pin)
+    if report is None or report.reference != pin:
         raise ValueError("reading requires its exact nominal dependency closure")
     return report
 
 
 def _reading_source(payload):
-    if "base_document" in payload:
-        return ("historical", canonical_bytes(payload["base_document"]))
-    return ("declared", canonical_bytes(payload["source"]), canonical_bytes(payload["selectors"]))
+    return canonical_bytes(payload["source"]), canonical_bytes(payload["selectors"])
 
 
 def project_reading(
-    layer: LayerReport | DeclaredFormalInventory,
+    layer: DeclaredFormalInventory,
     root: str,
     *,
     choices: Sequence[str] = (),
-    dependencies: Mapping[ProductReference, LayerReport]
-    | Mapping[DataProductReference, DeclaredFormalInventory]
-    | None = None,
-    external_choices: Sequence[AnnotationReference | DataProductMemberReference] = (),
+    dependencies: Mapping[DataProductReference, DeclaredFormalInventory] | None = None,
+    external_choices: Sequence[DataProductMemberReference] = (),
 ) -> dict[str, Any]:
     """Bounded supported DAG projection; unknown compatibility never creates combinations."""
+    from .data_product_reference import DataProductMemberReference
+    from .declared_formal_readings import DeclaredFormalInventory
+
+    if not isinstance(layer, DeclaredFormalInventory):
+        raise ValueError("reading requires a current nominal inventory")
+    if any(not isinstance(ref, DataProductMemberReference) for ref in external_choices):
+        raise ValueError("reading requires current semantic member choices")
     data = layer.payload
     dependencies = dependencies or {}
     terms = {t["local_id"]: t for t in data["terms"]}
@@ -935,8 +368,6 @@ def project_reading(
         if pin in reachable:
             continue
         report = _reading_dependency(dependencies, pin)
-        if report is None or _reading_reference(report, pin) != pin:
-            raise ValueError("reading requires exact retained dependency closure")
         if _reading_source(report.payload) != _reading_source(data):
             raise ValueError("reading dependency belongs to a different source document")
         reachable.add(pin)
@@ -947,9 +378,7 @@ def project_reading(
     for pin, identity in external:
         if pin not in reachable:
             raise ValueError("qualified choice is outside the reading dependency closure")
-        dependency = _reading_dependency(dependencies, pin)
-        if dependency is None or _reading_reference(dependency, pin) != pin:
-            raise ValueError("qualified choice requires exact retained dependency")
+        _reading_dependency(dependencies, pin)
         by_layer.setdefault(pin, []).append(identity)
     for pin, identities in by_layer.items():
         body = _reading_dependency(dependencies, pin).payload
@@ -1126,63 +555,6 @@ def validate_reading_choices(payload: Mapping[str, Any], choices: Sequence[str])
         if len(groups[group["local_id"]]) > 1 and group["compatibility"] != "compatible":
             raise ValueError("incompatible or unknown analytical choice combination")
     return tuple(sorted(selected))
-
-
-def scope_contains(container: Mapping[str, Any], subset: Mapping[str, Any]) -> bool:
-    """Portable pin/selector set inclusion, with no inferred native-tree containment."""
-    return (
-        set(subset["source_view_ids"]) <= set(container["source_view_ids"])
-        and {canonical_bytes(v) for v in subset["source_views"]}
-        <= {canonical_bytes(v) for v in container["source_views"]}
-        and {canonical_bytes(v) for v in subset["selectors"]}
-        <= {canonical_bytes(v) for v in container["selectors"]}
-    )
-
-
-def select_primary_layers(layers, source_view, *, families):
-    """A consumer's frozen selection must cover its actual native source population."""
-    requested = set(families)
-    if not requested:
-        raise ValueError("primary read requires explicit families")
-    selected = {
-        pin: layer
-        for pin, layer in layers.items()
-        if source_view.ref.id in layer.payload["source_scope"]["source_view_ids"]
-    }
-    for family in requested:
-        selectors = [
-            selector
-            for layer in selected.values()
-            for row in layer.payload["coverage"]
-            if row["family"] == family
-            and row["outcome"] in {"complete", "empty"}
-            and row["availability"] == "available"
-            for selector in row.get("examined", ())
-            if selector["projection"] == source_view.ref.projection_digest
-        ]
-        if not selectors:
-            raise ValueError(
-                f"primary family {family} is missing or incomplete in frozen selection"
-            )
-        for piece in source_view.pieces:
-            if piece["kind"] != "native_text":
-                continue
-            intervals = sorted(
-                (
-                    max(piece["start"], s.get("start", 0)),
-                    min(piece["end"], s.get("end", len(source_view.text))),
-                )
-                for s in selectors
-                if not s.get("native_pointer") or s["native_pointer"] == piece["item_ref"]
-            )
-            position = piece["start"]
-            for start, end in intervals:
-                if start > position:
-                    break
-                position = max(position, end)
-            if position < piece["end"]:
-                raise ValueError(f"primary family {family} leaves native source unexamined")
-    return selected
 
 
 def validate_released_attachment_rule(

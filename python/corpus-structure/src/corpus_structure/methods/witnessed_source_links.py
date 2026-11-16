@@ -42,7 +42,7 @@ from corpus_structure.semantic.constructions.navigation import (
     NamedLinkMatch as NamedLinkMatch,
 )
 from corpus_structure.semantic.constructions.navigation import (
-    NavigationIndex,
+    NativeNavigationIndex,
     _children,
     _parent,
 )
@@ -180,10 +180,6 @@ def procedure_artifact_endpoint(rows, link, annotation, artifact_id, *, verb_ext
     return actions[0], rows[artifact["members"][1]], artifact
 
 
-def navigation_index(primary_layers, projection, *, source_view_id=None):
-    return NavigationIndex(primary_layers, projection, source_view_id=source_view_id)
-
-
 class RetainedSourceMatch:
     """Located fields retained by a primary operation; this object never scans source text."""
 
@@ -240,103 +236,20 @@ def symbol_declarations(index, pointer, start, end, *, introducer=None):
     )
 
 
-def named_definition_subject(
-    text,
-    start,
-    cue_start,
-    *,
-    version=NAMED_PIECE_VERSION,
-    primary_layers=None,
-    projection=None,
-    source_view_id=None,
-    navigation=None,
-):
-    index = (
-        navigation
-        if navigation is not None
-        else NavigationIndex(primary_layers, projection, source_view_id=source_view_id)
-    )
-    found = [
-        (
-            record.span("definition_subject"),
-            record.payload["definition_subject_kind"],
-            record.reference.values(),
-        )
-        for record in index.select("named_link")
-        if record.span("cue")[0] == cue_start
-        and record.span("definition_subject") is not None
-        and start
-        <= record.span("definition_subject")[0]
-        < record.span("definition_subject")[1]
-        <= cue_start
-    ]
-    return found[0][:2] if len(found) == 1 else None
-
-
-def explicit_named_definition_extent(text, start, cue_start, **kwargs):
-    found = named_definition_subject(text, start, cue_start, **kwargs)
-    return None if found is None else found[0]
-
-
-def retained_named_definition_subject(
-    primary_layers, projection, *, start, cue_start, source_view_id=None, navigation=None
-):
-    """Return an exact subject plus its qualified primary support for contextual readers."""
-    index = (
-        navigation
-        if navigation is not None
-        else NavigationIndex(primary_layers, projection, source_view_id=source_view_id)
-    )
-    found = [
-        (
-            record.span("definition_subject"),
-            record.payload["definition_subject_kind"],
-            record.reference.values(),
-        )
-        for record in index.select("named_link")
-        if record.span("cue")[0] == cue_start
-        and record.span("definition_subject") is not None
-        and start
-        <= record.span("definition_subject")[0]
-        < record.span("definition_subject")[1]
-        <= cue_start
-    ]
-    return found[0] if len(found) == 1 else None
-
-
 def match_named_source_links(
     text,
     pieces,
     items,
     passages,
-    annotations=(),
     *,
     annotation_errors=(),
     version=NAMED_PIECE_VERSION,
-    native_piece_policy=None,
-    primary_layers=None,
-    projection=None,
-    source_view_id=None,
-    navigation=None,
+    navigation: NativeNavigationIndex,
 ):
     """Project primary named roles under the caller's source selection; never match a Doc."""
     if version != NAMED_PIECE_VERSION:
         raise ValueError("current named navigation requires the retained primary recipe")
-    if primary_layers is None:
-        primary_layers = {
-            pin: report
-            for annotation in annotations
-            for pin, report in getattr(annotation, "primary_layers", {}).items()
-        }
-    if projection is None and annotations:
-        projection = annotations[0].source.projection_digest
-    if source_view_id is None and annotations:
-        source_view_id = annotations[0].source.source_view_id
-    index = (
-        navigation
-        if navigation is not None
-        else NavigationIndex(primary_layers, projection, source_view_id=source_view_id)
-    )
+    index = navigation
     matches, inspected = [], set()
     incomplete = not index.complete or bool(annotation_errors)
     by_pointer = {p["item_ref"]: p for p in pieces if p["kind"] == "native_text"}
@@ -410,16 +323,9 @@ def named_source_links(
     items,
     passages,
     *,
-    primary_layers=None,
-    projection=None,
-    source_view_id=None,
-    navigation=None,
+    navigation: NativeNavigationIndex,
 ):
-    index = (
-        navigation
-        if navigation is not None
-        else NavigationIndex(primary_layers, projection, source_view_id=source_view_id)
-    ).require()
+    index = navigation.require()
     found = []
     for passage in passages or ():
         for record in index.select("lexical_named_link"):
@@ -468,10 +374,7 @@ def ordered_recapped_declarations(
     passage: StructuralPassage,
     query: StructuralPassage,
     *,
-    primary_layers=None,
-    projection=None,
-    source_view_id=None,
-    navigation=None,
+    navigation: NativeNavigationIndex,
 ) -> tuple[int, tuple[OrderedRecappedDeclaration, ...]]:
     """Inspect only selected recaps, then authenticate their wider native premises.
 
@@ -479,11 +382,7 @@ def ordered_recapped_declarations(
     premise passage is exact retained source, not a replacement query. Native
     whitespace substitution is local to cue matching and preserves coordinates.
     """
-    index = (
-        navigation
-        if navigation is not None
-        else NavigationIndex(primary_layers, projection, source_view_id=source_view_id)
-    ).require()
+    index = navigation.require()
     if (
         not 0 <= passage.start <= query.start < query.end <= passage.end <= len(text)
         or (passage.source_ref, passage.scope, passage.effective_version)
@@ -640,17 +539,10 @@ def recapped_declarations(
     items,
     passages,
     *,
-    primary_layers=None,
-    projection=None,
-    source_view_id=None,
-    navigation=None,
+    navigation: NativeNavigationIndex,
 ):
     """Resolve a named recap only within one complete selected passage and parent."""
-    index = (
-        navigation
-        if navigation is not None
-        else NavigationIndex(primary_layers, projection, source_view_id=source_view_id)
-    ).require()
+    index = navigation.require()
     physical = [
         p
         for p in pieces

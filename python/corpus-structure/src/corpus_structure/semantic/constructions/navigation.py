@@ -1312,83 +1312,9 @@ class NavigationRecord:
         return "".join(e["text"] for e in self.fragments(role))
 
 
-class NavigationIndex:
-    """Exact retained semantic fields; constructing this index performs no recognition."""
-
-    def __init__(self, layers, projection, *, source_view_id=None):
-        from corpus_structure.semantic.characterization import annotation_reference
-
-        self.records = []
-        self.coverage = []
-        for pin, report in (layers or {}).items():
-            if report.reference(pin.task_id) != pin:
-                raise ValueError("navigation requires exact retained layer pins")
-            body = report.payload
-            if (
-                source_view_id is not None
-                and source_view_id not in body["source_scope"]["source_view_ids"]
-            ):
-                continue
-            occurrences = {o["local_id"]: o for o in body["occurrences"]}
-            self.coverage.extend(
-                c
-                for c in body["coverage"]
-                if c["family"] == FAMILY
-                and any(s["projection"] == projection for s in c.get("examined", ()))
-            )
-            for annotation in body["annotations"]:
-                navigation = annotation.get("navigation")
-                if navigation is None:
-                    continue
-                if navigation["codec"] != CODEC or annotation["family"] != FAMILY:
-                    raise ValueError("unsupported retained navigation codec or family")
-                refs = [oid for role in navigation["roles"] for oid in role["occurrences"]]
-                if any(oid not in occurrences for oid in refs):
-                    raise ValueError("navigation role has an unknown source occurrence")
-                extents = [e for oid in refs for e in occurrences[oid]["extents"]]
-                if not extents or any(
-                    e.get("synthetic") or "text" not in e or "start" not in e or "end" not in e
-                    for e in extents
-                ):
-                    raise ValueError("navigation roles require literal source evidence")
-                if any(
-                    e["projection"] != projection
-                    or (source_view_id is not None and e["source_view_id"] != source_view_id)
-                    for e in extents
-                ):
-                    continue
-                if annotation.get("required_choices") or annotation.get(
-                    "required_external_choices"
-                ):
-                    raise ValueError("navigation projection requires explicit analytical choices")
-                self.records.append(
-                    NavigationRecord(
-                        annotation_reference(pin, annotation["local_id"]), navigation, occurrences
-                    )
-                )
-
-    @property
-    def complete(self):
-        return bool(self.coverage) and all(
-            c["availability"] == "available" and c["outcome"] in {"complete", "empty"}
-            for c in self.coverage
-        )
-
-    def select(self, kind, pointer=None):
-        return tuple(
-            row
-            for row in self.records
-            if row.payload["kind"] == kind
-            and (pointer is None or row.payload["pointer"] == pointer)
-        )
-
-    def require(self):
-        if not self.complete:
-            raise ValueError("required primary navigation coverage is missing or incomplete")
-        return self
 
 
-class NativeNavigationIndex(NavigationIndex):
+class NativeNavigationIndex:
     """Read exact declared construction members; never recognize missing navigation."""
 
     def __init__(self, products, source):
@@ -1448,3 +1374,23 @@ class NativeNavigationIndex(NavigationIndex):
                         occurrences,
                     )
                 )
+
+    @property
+    def complete(self):
+        return bool(self.coverage) and all(
+            c["availability"] == "available" and c["outcome"] in {"complete", "empty"}
+            for c in self.coverage
+        )
+
+    def select(self, kind, pointer=None):
+        return tuple(
+            row
+            for row in self.records
+            if row.payload["kind"] == kind
+            and (pointer is None or row.payload["pointer"] == pointer)
+        )
+
+    def require(self):
+        if not self.complete:
+            raise ValueError("required primary navigation coverage is missing or incomplete")
+        return self

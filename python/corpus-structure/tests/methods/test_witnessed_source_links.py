@@ -362,8 +362,7 @@ def test_named_links_use_literal_anchors_and_never_choose_first_section():
             items,
             (passage,),
             navigation=primary.navigation,
-            projection=view.projection_digest,
-        )
+            )
     )
 
     def literal(extent):

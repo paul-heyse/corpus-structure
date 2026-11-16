@@ -7,7 +7,6 @@ import pytest
 
 from corpus_structure.methods.witnessed_source_links import (
     match_named_source_links,
-    navigation_index,
     symbol_declarations,
 )
 from corpus_structure.semantic.constructions.navigation import NativeNavigationIndex
@@ -50,7 +49,6 @@ def test_navigation_retains_named_and_declaration_roles_before_consumption(monke
         {item["self_ref"]: item for item in view.items},
         (passage,),
         navigation=primary.navigation,
-        projection=view.projection_digest,
     )
     renamed = [row for row in found.matches if row.kind == "renames"]
     assert len(renamed) == 1
@@ -75,7 +73,6 @@ def test_navigation_refuses_missing_primary_and_dangling_retained_role():
         {item["self_ref"]: item for item in view.items},
         (passage,),
         navigation=NativeNavigationIndex((), primary.source),
-        projection=view.projection_digest,
     )
     assert missing.matches == () and missing.outcome() == "unsupported"
     payload = json.loads(primary.construction.content)

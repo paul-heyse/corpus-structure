@@ -699,6 +699,23 @@ def validate_interpreted_product(
         )
 
     validate_inventory_graph(inventory, indexes, all_nodes, choices, validate_basis)
+    for row in checked["coverage"]:
+        if row["outcome"] in {"complete", "empty"} and (
+            row["availability"] != "available"
+            or row.get("unexamined")
+            or (row["eligible"] and not row["examined"])
+        ):
+            raise ValueError("complete or empty family requires available examined coverage")
+        if row["outcome"] == "empty" and any(
+            item["family"] == row["family"]
+            for name in ("annotations", "memberships", "roles", "terms", "choices")
+            for item in inventory[name]
+        ):
+            raise ValueError("successful empty family contains analytical output")
+    if checked["outcome"] == "complete" and any(
+        row["outcome"] not in {"complete", "empty"} for row in checked["coverage"]
+    ):
+        raise ValueError("complete product contains incomplete family coverage")
     return product_type(canonical_bytes(checked), prepared, model, subject_context)
 
 

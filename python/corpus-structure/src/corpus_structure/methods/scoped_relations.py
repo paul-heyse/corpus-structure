@@ -1327,8 +1327,6 @@ def discover_relations(
                 {**{item["self_ref"]: item for item in native["ancestors"]}, **items},
                 ordered_formula_witness,
                 query,
-                primary_layers=formal_layers,
-                projection=frame.projection_digest,
                 navigation=navigation,
             )
             witness_version = ORDERED_VERSION
@@ -1340,8 +1338,6 @@ def discover_relations(
                     source_pieces,
                     items,
                     passages,
-                    primary_layers=formal_layers,
-                    projection=frame.projection_digest,
                     navigation=navigation,
                 )
             )
@@ -1486,8 +1482,6 @@ def discover_relations(
                 passages,
                 annotation_errors=annotation_errors,
                 version="4",
-                primary_layers=formal_layers,
-                projection=frame.projection_digest,
                 navigation=navigation,
             )
             named_op = operation_identity(NAMED_QUESTION, "4", pin, selection)

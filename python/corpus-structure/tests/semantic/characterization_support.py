@@ -1,121 +1,83 @@
-"""Shared controlled inputs and builders for characterization support."""
+"""Independent literal graphs validated as actual current nominal products."""
 
-from pathlib import Path
+from dataclasses import dataclass
 from typing import Any
 
 import pytest
 
-from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
-from corpus_structure.semantic.characterization import characterization_inputs, occurrence_id
+from corpus_structure.semantic.characterization import occurrence_id
+from corpus_structure.semantic.construction_products import (
+    interpreted_member_contracts, interpreted_product_value, validate_interpreted_product,
+)
+from corpus_structure.semantic.declared_formal_readings import declared_formal_layers
+from corpus_structure.semantic.source_products import FrozenNativeSource
+from corpus_structure.semantic.data_operation_model import SubjectContext
+from methods.declared_primary_fixture import profiles, selected_source
+
+
+@dataclass(frozen=True)
+class GraphSource:
+    source: FrozenNativeSource
+    context: SubjectContext
+
+
+def selected_graph(text="all", **kwargs):
+    selected, _frame, context = selected_source(text, **kwargs)
+    return GraphSource(selected, context)
+
+
+@pytest.fixture(scope="module")
+def graph_source():
+    return selected_graph()
 
 
 @pytest.fixture(scope="module")
 def prepared():
-    core = Path(__file__).parents[2] / "src/corpus_structure/model/semantic/core.yaml"
-    return prepare_release(
-        characterization_inputs(SourceBundle("core", (SourceArtifact("core", core.read_bytes()),)))
+    return profiles()[1].prepared
+
+
+def literal_inventory(case) -> dict[str, Any]:
+    coordinate = case.source.value["source"]
+    selector = case.source.value["selectors"][0]
+    extent = dict(projection=coordinate["projection"], native_pointer="#/texts/0",
+                  start=0, end=3, text="all", synthetic=False)
+    occurrence = dict(local_id=occurrence_id(coordinate, [extent]), extents=[extent])
+
+    def term(key, kind, value, children=()):
+        return dict(local_id=key, family="scope", kind=kind, vocabulary="literal-logic",
+                    value=value, status="interpreted", occurrences=[occurrence["local_id"]],
+                    children=[dict(role=role, target=target, structural=True) for role, target in children])
+
+    return dict(
+        outcome="complete", occurrences=[occurrence], annotations=[], memberships=[], roles=[], choices=[],
+        terms=[term("p", "predicate", "P"), term("x", "participant", "x"), term("r", "predicate", "R"),
+               term("forall", "binder", "all", [("variable", "x"), ("restrictor", "r"), ("body", "p")]),
+               term("not_all", "operator", "not", [("target", "forall")]),
+               term("not_p", "operator", "not", [("target", "p")]),
+               term("all_not", "binder", "all", [("variable", "x"), ("restrictor", "r"), ("body", "not_p")]),
+               term("or", "operator", "or", [("left", "p"), ("right", "r")])],
+        coverage=[dict(family="scope", operation="literal.scope", profile="literal-logic",
+                       eligible=[selector], examined=[selector], unexamined=[],
+                       availability="available", outcome="complete")],
     )
 
 
-def layer_payload(prepared) -> dict[str, Any]:
-    base = {"task_id": 7, "product_key": "document", "content_digest": "a" * 64}
-    projection = "b" * 64
-    selector = {"projection": projection, "native_pointer": "#/texts/0", "page": 3}
-    scope = {
-        "source_view_ids": [11],
-        "source_views": [
-            {
-                "source_view_id": 11,
-                "key": "section-source-v1",
-                "base_document": base,
-                "section_pointer": "#/groups/0",
-                "membership": "descendants",
-                "projection_digest": projection,
-                "recipe_digest": "c" * 64,
-            }
-        ],
-        "profile": "full",
-        "selectors": [selector],
-    }
-    extents = [
-        dict(
-            projection=projection,
-            source_view_id=11,
-            native_pointer="#/texts/0",
-            page=3,
-            start=0,
-            end=3,
-            text="all",
-            synthetic=False,
-        )
-    ]
-    occurrence = {"local_id": occurrence_id(base, extents), "extents": extents}
+def product_value(case, facts, dependencies=()) -> dict[str, Any]:
+    profile = profiles()[1]
+    return interpreted_product_value(case.source, facts,
+                                     interpreted_member_contracts(profile.prepared, profile.model), dependencies)
 
-    # This expected graph is literal test data: scope distinction is not produced by a constructor.
-    def term(key, kind, value, children=()):
-        return {
-            "local_id": key,
-            "family": "scope",
-            "kind": kind,
-            "vocabulary": "logic",
-            "value": value,
-            "status": "interpreted",
-            "occurrences": [occurrence["local_id"]],
-            "children": list(children),
-        }
 
-    def edge(role, target):
-        return {"role": role, "target": target, "structural": True}
+def validate_product(case, value, dependencies=()):
+    profile = profiles()[1]
+    return validate_interpreted_product(profile.prepared, profile.model, value, case.source, dependencies,
+                                        subject_context=case.context)
 
-    return {
-        "format": "characterization-layer-v1",
-        "base_document": base,
-        "release_id": prepared.release_id,
-        "operation": {
-            "key": "text.characterize",
-            "version": "1",
-            "runtime": "test-runtime",
-            "model": "none",
-            "grammar": "logic-1",
-            "configuration": "cfg",
-            "input": "source-1",
-            "context": "section",
-            "produced_families": ["scope"],
-            "outcomes": ["complete", "partial", "failed"],
-            "result_determinants": ["grammar", "input", "context"],
-        },
-        "source_scope": scope,
-        "outcome": "complete",
-        "occurrences": [occurrence],
-        "terms": [
-            term("p", "predicate", "P"),
-            term("x", "participant", "x"),
-            term("r", "predicate", "R"),
-            term(
-                "forall",
-                "binder",
-                "all",
-                [edge("variable", "x"), edge("restrictor", "r"), edge("body", "p")],
-            ),
-            term("not_all", "operator", "not", [edge("target", "forall")]),
-            term("not_p", "operator", "not", [edge("target", "p")]),
-            term(
-                "all_not",
-                "binder",
-                "all",
-                [edge("variable", "x"), edge("restrictor", "r"), edge("body", "not_p")],
-            ),
-            term("or", "operator", "or", [edge("left", "p"), edge("right", "r")]),
-        ],
-        "coverage": [
-            {
-                "family": "scope",
-                "operation": "text.characterize",
-                "eligible": [selector],
-                "examined": [selector],
-                "availability": "available",
-                "outcome": "complete",
-                "profile": "full",
-            }
-        ],
-    }
+
+def current_product(case, facts=None, dependencies=()):
+    facts = literal_inventory(case) if facts is None else facts
+    return validate_product(case, product_value(case, facts, dependencies), dependencies)
+
+
+def current_inventory(case, product):
+    return declared_formal_layers((product,), case.source)[product.reference]

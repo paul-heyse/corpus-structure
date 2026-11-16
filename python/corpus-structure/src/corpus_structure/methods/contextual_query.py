@@ -7,11 +7,9 @@ from dataclasses import dataclass
 from functools import cached_property
 from typing import Any, Literal
 
-from corpus_structure.semantic.characterization import (
-    _reading_reference,
-    project_reading,
-)
-from corpus_structure.semantic.data_product_reference import DataProductMemberReference
+from corpus_structure.semantic.characterization import project_reading
+from corpus_structure.semantic.data_product_reference import DataProductMemberReference, DataProductReference
+from corpus_structure.semantic.declared_formal_readings import DeclaredFormalInventory
 from corpus_structure.semantic.declared_record_sources import (
     DeclaredNativeFrameSource,
     DeclaredSourceSlice,
@@ -102,7 +100,11 @@ class LocatedQueryContext:
 
 
 class _PrimaryContext:
-    def __init__(self, layer, reference, recipe, source, layers, source_context):
+    def __init__(
+        self, layer: DeclaredFormalInventory, reference: DataProductMemberReference, recipe,
+        source: DeclaredNativeFrameSource, layers: Mapping[DataProductReference, DeclaredFormalInventory],
+        source_context: NativeSourceContext,
+    ):
         self.body = layer.payload
         self.source = source
         self.source_context = source_context
@@ -110,7 +112,7 @@ class _PrimaryContext:
         self.annotations = {row["local_id"]: row for row in self.body["annotations"]}
         self.occurrences = {row["local_id"]: row for row in self.body["occurrences"]}
         product = reference.product
-        if _reading_reference(layer, product) != product:
+        if layer.reference != product:
             raise ValueError("query context primary product differs from its exact reference")
         if (
             not isinstance(reference, DataProductMemberReference)
@@ -351,7 +353,7 @@ def _discourse(context, focal):
 
 def resolve_query_contexts(
     selection: DeclaredQueryContextSelection,
-    layers: Mapping,
+    layers: Mapping[DataProductReference, DeclaredFormalInventory],
     source_products: Sequence[Mapping[str, Any]],
     source: DeclaredNativeFrameSource,
     *,

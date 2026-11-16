@@ -252,8 +252,6 @@ def bind_result(
     Base-schema construction remains pure; every current effect owner separately requires the
     declared operation and native completion contracts before publication.
     """
-    if result.characterization_layer is not None or result.characterization_view is not None:
-        raise ValueError("characterization products require protected characterization completion")
 
     unit_key = result.ref.unit_key
     if not all(
