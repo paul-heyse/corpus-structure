@@ -16,7 +16,6 @@ from typing import TYPE_CHECKING, Protocol, runtime_checkable
 
 from sqlalchemy import Engine, text
 
-from corpus_structure.semantic.contracts import implementation_overridden
 from corpus_structure.settings import Settings
 from native_test_support import (
     DatabasePolicy,
@@ -201,10 +200,6 @@ class ScenarioSeeds:
     def seed(self, recipe: object) -> ScenarioSeed:
         if self._closed:
             raise RuntimeError("scenario seed registry is closed")
-        if implementation_overridden():
-            raise RuntimeError(
-                "scenario seed acquisition is unavailable under an implementation override"
-            )
         identity = recipe_id(recipe)
         with self._lock:
             key = recipe, self.head.name

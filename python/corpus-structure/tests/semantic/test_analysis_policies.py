@@ -5,10 +5,10 @@ from dataclasses import replace
 import pytest
 import yaml
 
-from corpus_structure.semantic.analysis_contracts import prepare_placement_policy
 from corpus_structure.semantic.analysis_policies import (
     analysis_policy_sources,
     compile_analysis_policies,
+    prepare_placement_policy,
 )
 from corpus_structure.semantic.math_context import (
     AnalysisContextProfile,
@@ -35,16 +35,10 @@ def _changed_sources(change):
     )
 
 
-def test_current_context_and_placement_do_not_acquire_the_retired_catalog():
-    from corpus_structure.semantic.contracts import (
-        IMPLEMENTATION_UNAVAILABLE,
-        implementation_override,
-    )
-
-    with implementation_override(IMPLEMENTATION_UNAVAILABLE):
-        captured = acquire_analysis_context_profile()
-        context = prepare_interpretation_context(macros={}, context_profile=captured)
-        placement = prepare_placement_policy()
+def test_current_context_and_explicit_placement_use_supported_policy():
+    captured = acquire_analysis_context_profile()
+    context = prepare_interpretation_context(macros={}, context_profile=captured)
+    placement = prepare_placement_policy()
     assert context.profile.grammar_recipe == "extended-lark-3"
     assert context.profile.mathematical_conventions == (
         "naturals-zero-1",

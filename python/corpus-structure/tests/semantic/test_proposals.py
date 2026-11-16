@@ -1,5 +1,7 @@
 """Rich agent proposals use release vocabulary and exact independently expected evidence."""
 
+from corpus_structure.semantic.analysis_policies import prepare_placement_policy
+
 from pathlib import Path
 
 import pytest
@@ -19,7 +21,7 @@ from semantic.proposals_support import prepared as prepared
 
 def test_new_declared_class_property_and_located_evidence_need_no_extractor_code():
     release = prepared()
-    result = locate_proposal(release, batch(), frame())
+    result = locate_proposal(release, batch(), frame(), placement_policy=prepare_placement_policy())
     assert result.clean
     stored = result.stored.model_dump(mode="python")
     evidence = stored["claims"][0]["evidence"][0]
@@ -39,7 +41,7 @@ def test_same_global_property_vocabulary_does_not_allow_wrong_subject_applicabil
     raw = batch()
     raw["claims"][0]["predicate"] = "https://example.org/serial"
     with pytest.raises(ProposalRefused, match="does not apply"):
-        locate_proposal(release, raw, frame())
+        locate_proposal(release, raw, frame(), placement_policy=prepare_placement_policy())
 
 
 def test_wrong_unit_unknown_property_and_invalid_object_refuse():
@@ -47,21 +49,21 @@ def test_wrong_unit_unknown_property_and_invalid_object_refuse():
     raw = batch()
     raw["unit_ref"] = "other"
     with pytest.raises(ProposalRefused, match="unit"):
-        locate_proposal(release, raw, frame())
+        locate_proposal(release, raw, frame(), placement_policy=prepare_placement_policy())
     raw = batch()
     raw["claims"][0]["predicate"] = "https://example.org/invented"
     with pytest.raises(ValidationError):
-        locate_proposal(release, raw, frame())
+        locate_proposal(release, raw, frame(), placement_policy=prepare_placement_policy())
     raw = batch()
     raw["claims"][0]["object"] = {"kind": "number", "number": 12}
     with pytest.raises(ProposalRefused, match="boundary"):
-        locate_proposal(release, raw, frame())
+        locate_proposal(release, raw, frame(), placement_policy=prepare_placement_policy())
 
 
 def test_unlocated_reports_are_retained_with_explicit_issue_and_no_false_evidence():
     raw = batch()
     raw["claims"][0]["evidence"][0]["quote"] = "Something wholly unrelated happened elsewhere"
-    result = locate_proposal(prepared(), raw, frame())
+    result = locate_proposal(prepared(), raw, frame(), placement_policy=prepare_placement_policy())
     assert not result.clean
     assert result.issues[0].code == "unlocated"
     evidence = result.stored.model_dump(mode="python")["claims"][0]["evidence"][0]
@@ -99,7 +101,7 @@ def test_alternatives_unsupported_and_declared_unresolved_endpoints_survive_loca
             "reference": {"source_uri": "other", "description": "unresolved named person"},
         }
     )
-    located = locate_proposal(release, raw, frame())
+    located = locate_proposal(release, raw, frame(), placement_policy=prepare_placement_policy())
     stored = located.stored.model_dump(mode="python")
     assert stored["alternatives"][0]["members"] == ("c1", "c2")
     assert len(stored["claims"]) == 2
@@ -108,7 +110,7 @@ def test_alternatives_unsupported_and_declared_unresolved_endpoints_survive_loca
     assert stored["entities"][1]["reference"]["description"] == "unresolved named person"
     raw["alternatives"][0]["members"] = ["c1", "missing"]
     with pytest.raises(ProposalRefused, match="undeclared claim"):
-        locate_proposal(release, raw, frame())
+        locate_proposal(release, raw, frame(), placement_policy=prepare_placement_policy())
 
 
 def test_packet_pins_release_schema_configuration_and_guideline():
@@ -165,11 +167,11 @@ def test_binary_entity_relation_preserves_declared_unresolved_endpoint():
     )
     raw["claims"][0]["predicate"] = "https://example.org/friend"
     raw["claims"][0]["object"] = {"kind": "entity", "target": "q"}
-    result = locate_proposal(prepared(), raw, frame())
+    result = locate_proposal(prepared(), raw, frame(), placement_policy=prepare_placement_policy())
     assert result.stored.model_dump()["claims"][0]["object"] == {"kind": "entity", "target": "q"}
     raw["claims"][0]["object"]["target"] = "undeclared"
     with pytest.raises(ProposalRefused, match="membership"):
-        locate_proposal(prepared(), raw, frame())
+        locate_proposal(prepared(), raw, frame(), placement_policy=prepare_placement_policy())
 
 
 def test_model_facing_entity_choices_exclude_abstract_classes():
@@ -218,7 +220,7 @@ def test_boundary_source_creation_does_not_generate_full_graph_artifacts(monkeyp
 def test_identity_exclusions_locate_and_bind_endpoints():
     from corpus_structure.methods.llm.cascade import PlacementPolicy
 
-    release = prepared(composed=True)
+    release = prepared()
     proposal = batch()
     proposal["entities"].append({"id": "q", "class_iri": "https://example.org/Person"})
     proposal["identity_exclusions"] = [
@@ -246,7 +248,7 @@ def test_identity_exclusions_use_actual_declared_schema_and_source_endpoints_wit
     from corpus_structure.methods.llm.cascade import PlacementPolicy
     from corpus_structure.semantic.proposals import proposal_packet
 
-    release = prepared(composed=False)
+    release = prepared()
     packet = proposal_packet(release, frame(), guideline="test", configuration={})
     assert "identity_exclusions" in json.loads(packet.schema)["properties"]
     proposal = batch()

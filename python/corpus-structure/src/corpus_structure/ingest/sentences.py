@@ -228,7 +228,7 @@ def split(
     policy: Any = None,
 ) -> list[list[tuple[int, int]]]:
     """Sentence extents of each block, relative to it, in input order."""
-    from corpus_structure.semantic.analysis_contracts import prepare_text_policy
+    from corpus_structure.semantic.analysis_policies import prepare_text_policy
 
     policy = prepare_text_policy() if policy is None else policy
     nlp: Any = pipeline(config)

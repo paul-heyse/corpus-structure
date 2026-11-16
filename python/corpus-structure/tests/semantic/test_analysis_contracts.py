@@ -3,54 +3,16 @@
 from dataclasses import replace
 
 import pytest
-import yaml
 
-from corpus_structure.semantic.analysis_contracts import bind_analysis_family
-from corpus_structure.semantic.contracts import (
-    EXECUTION_COMPILER_VERSION,
-    compile_execution_model,
-    trusted_execution_inputs,
-)
+
 from corpus_structure.semantic.math_context import (
     acquire_analysis_context_profile,
     prepare_interpretation_context,
 )
 from corpus_structure.semantic.prepare import prepare_release
-from corpus_structure.semantic.types import PreparationError, RegistryRow
+from corpus_structure.semantic.types import PreparationError
 
 
-@pytest.fixture
-def different_implementation():
-    from corpus_structure.semantic.contracts import (
-        ImplementationSnapshot,
-        current_implementation,
-        implementation_override,
-        semantic_implementation_inputs,
-    )
-
-    installed = current_implementation()
-    model = compile_execution_model(installed.execution_inputs)
-    base = prepare_release(installed.execution_inputs.schema)
-    prepared = replace(
-        base,
-        execution_model_id=model.model_id,
-        registry_rows=(
-            *base.registry_rows,
-            RegistryRow("execution_model", model.model_id, model.content),
-        ),
-    )
-    analysis = tuple(
-        replace(item, content=item.content + b"\n") if item.name == "libraries.json" else item
-        for item in installed.analysis_inputs
-    )
-    changed = ImplementationSnapshot(
-        replace(
-            installed.execution_inputs, implementations=semantic_implementation_inputs(analysis)
-        ),
-        analysis,
-    )
-    with implementation_override(changed):
-        yield prepared
 
 
 def context(**kwargs):
@@ -178,87 +140,10 @@ def test_scientific_key_requires_policy_and_conditions():
     assert first != second
 
 
-def test_dependency_and_callable_capabilities_are_not_self_attested():
-    inputs = trusted_execution_inputs()
-    body = yaml.safe_load(inputs.catalog.content)
-    occurrences = next(
-        d for d in body["analysis_profiles"][0]["demands"] if d["id"] == "occurrences"
-    )
-    occurrences["dependencies"].remove("scope")
-    with pytest.raises(PreparationError, match="consequential dependencies"):
-        compile_execution_model(
-            replace(inputs, catalog=replace(inputs.catalog, content=yaml.safe_dump(body).encode()))
-        )
 
 
-def test_owned_input_enforces_exact_release_and_dependencies():
-    model = compile_execution_model(trusted_execution_inputs())
-    base = prepare_release(trusted_execution_inputs().schema)
-    prepared = replace(
-        base,
-        release_id="release:1",
-        execution_model_id=model.model_id,
-        registry_rows=(
-            *base.registry_rows,
-            RegistryRow("execution_model", model.model_id, model.content),
-        ),
-    )
-    owner = bind_analysis_family(prepared, "publication")
-    owned = owner.prepare(release="release:1", snapshot="snapshot:1", content="sha256:1")
-    assert owned.family == "publication"
-    assert owned.lifetime == "operation"
-    with pytest.raises(PreparationError):
-        owner.prepare(release="release:2", snapshot="snapshot:1", content="sha256:1")
-    with pytest.raises(PreparationError):
-        owner.prepare(release="release:1", content="sha256:1")
 
 
-def test_schema_only_and_retired_composed_profiles_refuse_execution():
-    base = prepare_release(trusted_execution_inputs().schema)
-    from corpus_structure.semantic.analytics import compile_projection
-    from corpus_structure.semantic.consolidation import assemble
-    from corpus_structure.semantic.contracts import require_bound_operation
-    from corpus_structure.semantic.query import SnapshotBinding
-
-    for operation in (
-        lambda: require_bound_operation(base, "complete"),
-        lambda: compile_projection(base, SnapshotBinding(base.release_id, "z", 0, "capture")),
-        lambda: assemble(base, "z", "batch", ()),
-    ):
-        with pytest.raises(PreparationError, match="composed execution binding"):
-            operation()
-    with pytest.raises(PreparationError, match="composed execution binding"):
-        bind_analysis_family(base, "publication")
-    import json
-
-    from corpus_structure.semantic.identity import canonical_bytes
-
-    historical_manifest = json.loads(base.manifest)
-    historical_manifest["profile"]["compiler_version"] = "12"
-    with pytest.raises(PreparationError):
-        bind_analysis_family(
-            replace(base, manifest=canonical_bytes(historical_manifest)), "publication"
-        )
-    model = compile_execution_model(trusted_execution_inputs())
-    historic = json.loads(model.content)
-    for effect in historic["effect_definitions"]:
-        if effect["id"] == "schedule_pending_or_reused_or_skipped":
-            effect["version"] = "1"
-    historic["inputs"]["compiler_version"] = "4"
-    historic.pop("analysis_profiles")
-    archived = replace(
-        base,
-        execution_model_id=model.model_id,
-        registry_rows=(
-            *base.registry_rows,
-            RegistryRow("execution_model", model.model_id, canonical_bytes(historic)),
-        ),
-    )
-    with pytest.raises(
-        PreparationError,
-        match=rf"current compiler {EXECUTION_COMPILER_VERSION}; regenerate the release",
-    ):
-        bind_analysis_family(archived, "publication")
 
 
 def test_unknown_result_and_binding_kind_refuse():
@@ -277,30 +162,8 @@ def test_caller_cannot_override_prepared_dependency_identity():
             prepared.stage_key("scientific", **{name: "forged"})
 
 
-def test_ownership_declaration_cannot_change_implemented_lifetime():
-    inputs = trusted_execution_inputs()
-    body = yaml.safe_load(inputs.catalog.content)
-    body["analysis_profiles"][0]["ownership"][3]["lifetime"] = "batch"
-    with pytest.raises(PreparationError, match="producer/consumer ownership"):
-        compile_execution_model(
-            replace(inputs, catalog=replace(inputs.catalog, content=yaml.safe_dump(body).encode()))
-        )
 
 
-def test_unknown_execution_abi_refuses_before_model_binding():
-    import json
-
-    from corpus_structure.semantic.contracts import _bound_execution_model
-    from corpus_structure.semantic.identity import canonical_bytes
-
-    model = compile_execution_model(trusted_execution_inputs())
-    changed = json.loads(model.content)
-    changed["inputs"]["compiler_version"] = "999"
-    with pytest.raises(
-        PreparationError,
-        match=rf"current compiler {EXECUTION_COMPILER_VERSION}; regenerate the release",
-    ):
-        _bound_execution_model(canonical_bytes(changed), model.model_id)
 
 
 @pytest.mark.parametrize("authority", ["profile", "expression_local", "binding"])
@@ -310,60 +173,8 @@ def test_external_declarations_cannot_claim_owned_authority(authority):
         context(source_id="rendition:1", scope="statement:1", declarations=[declaration])
 
 
-def test_historical_abi_cannot_self_attest_analysis_capabilities():
-    import json
-
-    from corpus_structure.semantic.identity import canonical_bytes
-
-    base = prepare_release(trusted_execution_inputs().schema)
-    model = compile_execution_model(trusted_execution_inputs())
-    changed = json.loads(model.content)
-    for effect in changed["effect_definitions"]:
-        if effect["id"] == "schedule_pending_or_reused_or_skipped":
-            effect["version"] = "1"
-    changed["inputs"]["compiler_version"] = "4"
-    # Leave all compiler-5 declarations present: their presence does not grant support.
-    archived = replace(
-        base,
-        execution_model_id=model.model_id,
-        registry_rows=(
-            *base.registry_rows,
-            RegistryRow("execution_model", model.model_id, canonical_bytes(changed)),
-        ),
-    )
-    with pytest.raises(
-        PreparationError,
-        match=rf"current compiler {EXECUTION_COMPILER_VERSION}; regenerate the release",
-    ):
-        bind_analysis_family(archived, "publication")
 
 
-def test_explicit_implementation_bytes_are_part_of_identity_and_runtime_support():
-
-    from corpus_structure.semantic.types import RegistryRow
-
-    inputs = trusted_execution_inputs()
-    model = compile_execution_model(inputs)
-    changed_inputs = replace(
-        inputs,
-        implementations=(
-            replace(inputs.implementations[0], content=inputs.implementations[0].content + b"\n"),
-            *inputs.implementations[1:],
-        ),
-    )
-    changed = compile_execution_model(changed_inputs)
-    assert model.model_id != changed.model_id
-    base = prepare_release(inputs.schema)
-    prepared = replace(
-        base,
-        execution_model_id=changed.model_id,
-        registry_rows=(
-            *base.registry_rows,
-            RegistryRow("execution_model", changed.model_id, changed.content),
-        ),
-    )
-    with pytest.raises(PreparationError, match="admitted semantic determinant bytes"):
-        bind_analysis_family(prepared, "publication")
 
 
 def test_scientific_profile_and_source_sharing_are_admitted_data():
@@ -379,7 +190,6 @@ def test_scientific_profile_and_source_sharing_are_admitted_data():
 
 
 def test_candidate_scientific_parameters_rebind_supplied_recipe_without_ambient_acquisition(
-    monkeypatch,
 ):
     import json
 
@@ -421,13 +231,6 @@ def test_candidate_scientific_parameters_rebind_supplied_recipe_without_ambient_
         SCIENTIFIC_POLICY_INPUT, canonical_bytes(scientific_policy_recipe(context_profile=profile))
     )
     prepared = replace(prepared, artifacts=(*prepared.artifacts, recipe))
-    import corpus_structure.semantic.analysis_contracts as contracts
-
-    monkeypatch.setattr(
-        contracts,
-        "_legacy_profile",
-        lambda *_: (_ for _ in ()).throw(AssertionError("legacy lookup")),
-    )
     decoded = json.loads(recipe.content)
     assert decoded["consolidation"]["minimum_valid_points"] == 7
     assert decoded["computation_profiles"][0]["minimum_valid_points"] == 7
@@ -450,33 +253,6 @@ def test_candidate_scientific_parameters_rebind_supplied_recipe_without_ambient_
         require_scientific_policy(altered, context_profile=profile)
 
 
-def test_current_compilation_and_preparation_refuse_retained_analysis_profile():
-    import json
-
-    from corpus_structure.semantic.identity import canonical_bytes
-
-    inputs = trusted_execution_inputs()
-    data = yaml.safe_load(inputs.catalog.content)
-    data["analysis_profiles"][0]["version"] = "1"
-    with pytest.raises(PreparationError, match="required analysis preparation profile"):
-        compile_execution_model(
-            replace(inputs, catalog=replace(inputs.catalog, content=yaml.safe_dump(data).encode()))
-        )
-    current = compile_execution_model(inputs)
-    body = json.loads(current.content)
-    body["analysis_profiles"][0]["version"] = "1"
-    base = prepare_release(inputs.schema)
-    altered = replace(
-        base,
-        execution_model_id=current.model_id,
-        registry_rows=(
-            *base.registry_rows,
-            RegistryRow("execution_model", current.model_id, canonical_bytes(body)),
-        ),
-    )
-    # Retained profiles cannot supply current analytical execution authority.
-    with pytest.raises(PreparationError, match="admitted analysis profile"):
-        bind_analysis_family(altered, "publication")
 
 
 def test_captured_semantic_assets_determine_every_analysis_stage():
@@ -495,19 +271,5 @@ def test_captured_semantic_assets_determine_every_analysis_stage():
         assert changed.stage_key(demand) != first.stage_key(demand)
 
 
-def test_analysis_support_checks_current_semantic_determinants(different_implementation):
-    with pytest.raises(PreparationError, match="semantic determinant bytes"):
-        bind_analysis_family(different_implementation, "publication")
 
 
-def test_archived_snapshot_read_uses_unchanged_owned_contract(different_implementation):
-    from corpus_structure.semantic.contracts import (
-        IMPLEMENTATION_UNAVAILABLE,
-        implementation_override,
-    )
-
-    prepared = different_implementation
-    with implementation_override(IMPLEMENTATION_UNAVAILABLE):
-        assert bind_analysis_family(prepared, "read").contract.id == "read"
-    with pytest.raises(PreparationError, match="semantic determinant bytes"):
-        bind_analysis_family(prepared, "publication")

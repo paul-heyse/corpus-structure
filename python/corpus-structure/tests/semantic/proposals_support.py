@@ -11,7 +11,7 @@ from corpus_structure.semantic.proposals import ProposalFrame, ProposalSentence,
 
 
 @cache
-def prepared(*, composed=True):
+def prepared():
     path = Path(__file__).parents[2] / "src/corpus_structure/model/semantic/core.yaml"
     domain = {
         "id": "https://example.org/domain",
@@ -34,15 +34,6 @@ def prepared(*, composed=True):
             SourceArtifact("domain", yaml.safe_dump(domain).encode()),
         ),
     )
-    if composed:
-        from corpus_structure.semantic.composed import composed_dependencies
-        from corpus_structure.semantic.types import PreparationProfile, ResolvedDependencies
-
-        return prepare_release(
-            proposal_inputs(source),
-            composed_dependencies(ResolvedDependencies()),
-            PreparationProfile(version="semantic-2"),
-        )
     return prepare_release(proposal_inputs(source))
 
 

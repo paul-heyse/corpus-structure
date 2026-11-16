@@ -1,5 +1,7 @@
 """Independent expectations for released subsets, projections and source attribution."""
 
+from corpus_structure.semantic.analysis_policies import prepare_placement_policy
+
 from dataclasses import replace
 from types import SimpleNamespace
 
@@ -139,7 +141,7 @@ def test_each_attribute_keeps_own_qualification_and_support_without_claim_borrow
             "evidence": [dict(evidence), {**evidence, "role": "supporting"}],
         }
     ]
-    located = locate_proposal(release, raw, frame())
+    located = locate_proposal(release, raw, frame(), placement_policy=prepare_placement_policy())
     payload = located.stored.model_dump(mode="python", exclude_unset=True)
     observation = {
         "id": 9,
@@ -647,7 +649,7 @@ def test_incomplete_declared_identity_does_not_gain_membership():
 def _declaration_projection(release, raw):
     from corpus_structure.semantic.proposals import locate_proposal
 
-    payload = locate_proposal(release, raw, frame()).stored.model_dump(
+    payload = locate_proposal(release, raw, frame(), placement_policy=prepare_placement_policy()).stored.model_dump(
         mode="python", exclude_unset=True
     )
     observation = {

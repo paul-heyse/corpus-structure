@@ -6,15 +6,11 @@ import json
 import re
 from collections.abc import Sequence
 from dataclasses import dataclass, replace
-from typing import TYPE_CHECKING, Literal, Protocol
+from typing import Literal, Protocol
 
 from corpus_structure.core.db.store import DatabaseOperationFailure, operation_failure
 
 from .refusals import SemanticRefusal
-
-if TYPE_CHECKING:
-    from .contracts import ExecutionModelProducts
-
 
 @dataclass(frozen=True)
 class NativeDiagnosticBinding:
@@ -64,57 +60,6 @@ class InvariantViolation(SemanticRefusal):
     def __init__(self, failure: InvariantFailure):
         self.failure = failure
         super().__init__(f"{failure.code}: {failure.operation} violates {failure.invariant}")
-
-
-def validate_invariant_diagnostics(model: ExecutionModelProducts) -> None:
-    from .contracts import _fail
-
-    guards = {g.id: g for g in model.native_guards}
-    operations = {o.id: o for o in model.operations}
-    identities = set()
-    for invariant in model.invariants:
-        location = "invariants/" + invariant.id + "/diagnostics"
-        if invariant.observable and not invariant.diagnostics:
-            _fail(
-                "invariant_observability", location, "observable invariant needs a native identity"
-            )
-        for binding in invariant.diagnostics:
-            operation = operations.get(binding.operation)
-            if operation is None or invariant.id not in operation.applicability:
-                _fail("invariant_operation", location, "operation must declare this invariant")
-            if not re.fullmatch(r"[0-9A-Z]{5}", binding.sqlstate):
-                _fail("native_diagnostic", location, "native SQLSTATE must be explicit")
-            if binding.kind == "constraint":
-                if not all(
-                    (binding.schema_name, binding.table_name, binding.constraint_name)
-                ) or any((binding.guard, binding.guard_version)):
-                    _fail("native_diagnostic", location, "constraint identity must be qualified")
-                identity = (
-                    binding.operation,
-                    binding.sqlstate,
-                    binding.schema_name,
-                    binding.table_name,
-                    binding.constraint_name,
-                )
-            else:
-                guard = guards.get(binding.guard or "")
-                if (
-                    guard is None
-                    or guard.version != binding.guard_version
-                    or invariant.id not in guard.invariants
-                    or any((binding.schema_name, binding.table_name, binding.constraint_name))
-                ):
-                    _fail("native_diagnostic", location, "guard identity/version/invariant differs")
-                identity = (
-                    binding.operation,
-                    binding.sqlstate,
-                    binding.guard,
-                    binding.guard_version,
-                    invariant.id,
-                )
-            if identity in identities:
-                _fail("ambiguous_native_diagnostic", location, "native identity is assigned twice")
-            identities.add(identity)
 
 
 def _matches(binding: NativeDiagnosticBinding, invariant: str, native) -> bool:

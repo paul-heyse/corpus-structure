@@ -8,7 +8,7 @@ import pytest
 def test_candidate_check_and_derive_refuse_existing_output(cli, tmp_path):
     checked = cli("schema", "check", "--json")
     assert checked.exit_code == 0, checked.output
-    assert json.loads(checked.stdout)["execution_model_id"]
+    assert json.loads(checked.stdout)["operation_model_id"]
     target = tmp_path / "candidate"
     derived = cli("schema", "derive", "--out", str(target), "--json")
     assert derived.exit_code == 0, derived.output
@@ -16,8 +16,8 @@ def test_candidate_check_and_derive_refuse_existing_output(cli, tmp_path):
     assert (target / "sources").is_dir()
     assert list(target.glob("*.artifact"))
     assert (
-        json.loads(derived.stdout)["execution_model_id"]
-        == json.loads(checked.stdout)["execution_model_id"]
+        json.loads(derived.stdout)["operation_model_id"]
+        == json.loads(checked.stdout)["operation_model_id"]
     )
     before = (target / "manifest.json").read_bytes()
     refused = cli("schema", "derive", "--out", str(target))

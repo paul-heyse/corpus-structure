@@ -1,5 +1,7 @@
 """Actual released policy producers preserve machine reasons independently of prose."""
 
+from corpus_structure.semantic.analysis_policies import prepare_placement_policy
+
 from dataclasses import replace
 from typing import Any
 
@@ -68,7 +70,7 @@ def cut(
         other["id"] = "other"
         other["object"]["bindings"] = [{"kind": "constant", "symbol": "x"}]
         raw["claims"].append(other)
-    stored = locate_proposal(prepared, raw, frame).stored.model_dump(
+    stored = locate_proposal(prepared, raw, frame, placement_policy=prepare_placement_policy()).stored.model_dump(
         mode="python", exclude_unset=True
     )
     observation = {

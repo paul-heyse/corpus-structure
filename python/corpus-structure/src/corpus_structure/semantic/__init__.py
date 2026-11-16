@@ -1,6 +1,5 @@
 """New semantic target: explicit preparation, separate from the selected installed projection."""
 
-from .composed import composed_dependencies
 from .identity import fact_key, occurrence_key
 from .types import (
     Diagnostic,
@@ -24,7 +23,6 @@ __all__ = [
     "SourceBundle",
     "VocabularyMember",
     "VocabularySnapshot",
-    "composed_dependencies",
     "fact_key",
     "occurrence_key",
     "prepare_release",

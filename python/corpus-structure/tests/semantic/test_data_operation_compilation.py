@@ -563,13 +563,11 @@ def test_literal_role_specialization_refuses_unowned_or_invalid_changes(override
 
 
 def test_target_composed_preparation_never_enters_legacy_approval(monkeypatch):
-    from corpus_structure.semantic import contracts
+    import sys
+
     from corpus_structure.semantic.types import PreparationProfile
 
-    def forbidden():
-        pytest.fail("target preparation imported legacy approved implementations")
-
-    monkeypatch.setattr(contracts, "approved_implementations", forbidden)
+    monkeypatch.setitem(sys.modules, "corpus_structure.semantic.contracts", None)
     deps = data_operation_dependencies(ResolvedDependencies(), declarations(contract()))
     target = prepare_release(
         schema_bundle(), deps, profile=PreparationProfile(version="semantic-2")

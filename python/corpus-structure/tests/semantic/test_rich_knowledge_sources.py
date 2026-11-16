@@ -22,11 +22,9 @@ from semantic.record_contracts_support import release_inputs
 def test_actual_rich_composition_captures_schema_policy_and_nominal_members_without_legacy_catalog(
     monkeypatch,
 ):
-    def refuse(*args, **kwargs):
-        raise AssertionError("current rich composition must not acquire an execution catalog")
+    import sys
 
-    monkeypatch.setattr("corpus_structure.semantic.contracts.compile_execution_model", refuse)
-    monkeypatch.setattr("corpus_structure.semantic.contracts.bound_execution_model", refuse)
+    monkeypatch.setitem(sys.modules, "corpus_structure.semantic.contracts", None)
     root = Path(__file__).resolve().parents[4]
     bundle, deps = rich_knowledge_inputs(
         release_inputs()[0],

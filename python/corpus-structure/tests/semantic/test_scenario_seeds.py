@@ -7,7 +7,6 @@ from pathlib import Path
 import pytest
 from scenario_recipes import register_scenario_builder
 
-from corpus_structure.semantic.contracts import IMPLEMENTATION_UNAVAILABLE, implementation_override
 
 
 @dataclass(frozen=True)
@@ -162,20 +161,8 @@ def test_claimed_task_refuses_seed_even_after_lease_expiry(unfinished_seed_refus
     assert "building" not in _PATCH_STATE
 
 
-@pytest.fixture
-def override_refusal(scenario_seeds, native_server):
-    before = native_server.names("cs_sem_seed_")
-    with (
-        implementation_override(IMPLEMENTATION_UNAVAILABLE),
-        pytest.raises(RuntimeError, match="implementation override"),
-    ):
-        scenario_seeds.seed(TinyRecipe("override"))
-    return before, native_server.names("cs_sem_seed_")
 
 
-def test_override_refuses_seed_before_acquiring_database(override_refusal):
-    before, after = override_refusal
-    assert before == after
 
 
 @pytest.fixture

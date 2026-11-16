@@ -1,5 +1,7 @@
 """Source-only reference fixtures and completed-cut forced sampling scope."""
 
+from corpus_structure.semantic.analysis_policies import prepare_placement_policy
+
 import json
 from pathlib import Path
 
@@ -88,7 +90,7 @@ def test_trace_reference_is_well_typed_and_independently_source_located(trace_so
                     ProposalSentence(citation["sentence"], str(locator), segment.start, segment.end)
                 )
         frame = ProposalFrame(batch["unit_ref"], content.canonical_text, tuple(sentences))
-        located = locate_proposal(prepared, batch, frame)
+        located = locate_proposal(prepared, batch, frame, placement_policy=prepare_placement_policy())
         assert located.clean, located.issues
 
 

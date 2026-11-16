@@ -30,6 +30,8 @@ from .types import (
 )
 
 if TYPE_CHECKING:
+    from corpus_structure.methods.llm.cascade import PlacementPolicy
+
     from .declared_proposal_frames import DeclaredProposalFrame, DeclaredProposalSource
     from .declared_record_sources import DeclaredNativeFrameSource
     from .product_reference import ProductReference
@@ -801,9 +803,11 @@ def locate_proposal(
     *,
     macros: Mapping[str, MacroDef] | None = None,
     known_classes: Mapping[str, tuple[str, ...]] | None = None,
-    placement_policy=None,
+    placement_policy: PlacementPolicy,
 ) -> LocatedProposal:
     """Validate rich proposals and locate every citation without dropping items."""
+    if placement_policy is None:
+        raise TypeError("source placement requires its explicit policy")
     _refuse_rounded_decimals(prepared, batch)
 
     def decimal_lexical(value):
@@ -864,10 +868,6 @@ def locate_proposal(
     sentences = {handle: sentence for handle, (_, sentence) in source_entries.items()}
     from corpus_structure.methods.llm.cascade import Cascade, FrameSentence, Located, Step
 
-    from .analysis_contracts import prepare_placement_policy
-
-    if placement_policy is None:
-        placement_policy = prepare_placement_policy(prepared)
     cascade = Cascade(
         frame.text,
         [

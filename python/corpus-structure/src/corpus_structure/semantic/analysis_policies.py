@@ -512,3 +512,27 @@ _REQUIRED_COMPONENTS = {
     },
     "scientific": _DEMAND_COMPONENTS,
 }
+
+
+def prepare_text_policy() -> TextPreparationPolicy:
+    """Acquire the current finite sentence policy without an operation catalog."""
+    return acquire_analysis_policies().text
+
+
+def prepare_placement_policy():
+    """Materialize the current explicit placement recipe for its existing algorithm."""
+    from corpus_structure.methods.llm.cascade import PlacementPolicy
+
+    policy = acquire_analysis_policies().placement
+    return PlacementPolicy(
+        recipe=policy.recipe,
+        candidate_limit=policy.candidate_limit,
+        token_cutoff=policy.token_cutoff,
+        token_pad=policy.token_pad,
+        char_cutoff=policy.char_cutoff,
+        char_pad=float(policy.char_pad),
+        char_errors=float(policy.char_errors),
+        pick_cutoff=policy.pick_cutoff,
+        regex_timeout=float(policy.regex_timeout),
+        refine_timeout=float(policy.refine_timeout),
+    )

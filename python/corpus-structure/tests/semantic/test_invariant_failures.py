@@ -3,7 +3,6 @@
 import json
 from dataclasses import replace
 from functools import lru_cache
-from hashlib import sha256
 from types import SimpleNamespace
 
 import pytest
@@ -15,24 +14,24 @@ from corpus_structure.core.db.store import (
     classify_error,
     record_operation_failure,
 )
-from corpus_structure.semantic.contracts import (
-    EXECUTION_COMPILER_VERSION,
-    _bound_execution_model,
-    compile_execution_model,
-    trusted_execution_inputs,
-)
-from corpus_structure.semantic.identity import canonical_bytes
+
 from corpus_structure.semantic.invariant_failures import (
     NativeDiagnosticBinding,
     classify_invariant_failure,
-    validate_invariant_diagnostics,
+    NativeInvariant,
 )
-from corpus_structure.semantic.types import PreparationError
 
 
 @lru_cache(maxsize=1)
 def current_model():
-    return compile_execution_model(trusted_execution_inputs())
+    # A finite classifier input, not an admitted release or an execution receipt.
+    return SimpleNamespace(
+        model_id="definition:diagnostic-example",
+        invariants=(NativeInvariant(
+            "attempt_fence", "lifecycle", "execution.attempt_fence", True,
+            (NativeDiagnosticBinding("claim", "guard", "23514", guard="execution_task", guard_version="2"),),
+        ),),
+    )
 
 
 class NativeError(Exception):
@@ -122,8 +121,7 @@ def test_constraint_identity_includes_schema_and_relation():
         replace(i, diagnostics=(binding,)) if i.id == "attempt_fence" else i
         for i in model.invariants
     )
-    model = replace(model, invariants=invariants)
-    validate_invariant_diagnostics(model)
+    model = SimpleNamespace(model_id=model.model_id, invariants=invariants)
     error = NativeError(schema_name="ops", table_name="task")
     error.diag.constraint_name = "task_claim_check"
     failure = classify_invariant_failure(model.invariants, "claim", error, model_id=model.model_id)
@@ -135,212 +133,23 @@ def test_constraint_identity_includes_schema_and_relation():
     )
 
 
-@pytest.mark.parametrize("change", ["missing", "version", "operation", "ambiguous"])
-def test_unsupported_observable_declarations_refuse(change):
-    model = current_model()
-    attempt = next(i for i in model.invariants if i.id == "attempt_fence")
-    binding = attempt.diagnostics[0]
-    if change == "missing":
-        attempt = replace(attempt, diagnostics=())
-    elif change == "version":
-        attempt = replace(attempt, diagnostics=(replace(binding, guard_version="unimplemented"),))
-    elif change == "operation":
-        attempt = replace(attempt, diagnostics=(replace(binding, operation="unknown"),))
-    else:
-        attempt = replace(attempt, diagnostics=(binding, binding))
-    model = replace(
-        model, invariants=tuple(attempt if i.id == attempt.id else i for i in model.invariants)
-    )
-    with pytest.raises(PreparationError):
-        validate_invariant_diagnostics(model)
 
 
-def legacy20_product():
-    """Build the independent pre-extension normalized shape, not current model defaults."""
-    body = json.loads(current_model().content)
-    for invariant in body["invariants"]:
-        invariant.pop("observable")
-        invariant.pop("diagnostics")
-    for operation in body["operations"]:
-        operation.pop("calls")
-    next(g for g in body["native_guards"] if g["id"] == "execution_task")["version"] = "1"
-    body["inputs"]["compiler_version"] = "20"
-    body["model_id"] = "execution:" + sha256(canonical_bytes(body["inputs"])).hexdigest()
-    return body
 
 
-def test_compiler20_product_refuses_without_current_admission(monkeypatch):
-    from corpus_structure.semantic import contracts
-
-    body = legacy20_product()
-    encoded = canonical_bytes(body)
-
-    def no_current_admission(*args):
-        raise AssertionError("archived20 read cannot re-admit against current guard versions")
-
-    monkeypatch.setattr(contracts, "_validate", no_current_admission)
-    with pytest.raises(
-        PreparationError,
-        match=rf"requires current compiler {EXECUTION_COMPILER_VERSION}; regenerate",
-    ) as refusal:
-        _bound_execution_model(encoded, body["model_id"])
-    assert refusal.value.diagnostics[0].code == "unsupported_execution_abi"
 
 
-def test_compiler20_cannot_claim_new_observable_contracts():
-    body = legacy20_product()
-    body["invariants"][0]["observable"] = True
-    with pytest.raises(
-        PreparationError,
-        match=rf"requires current compiler {EXECUTION_COMPILER_VERSION}; regenerate",
-    ):
-        _bound_execution_model(canonical_bytes(body), body["model_id"])
 
 
-def test_compiler21_product_with_retired_bindings_refuses_without_current_admission(monkeypatch):
-    from corpus_structure.semantic import contracts
-
-    body = json.loads(current_model().content)
-    body["inputs"]["compiler_version"] = "21"
-    body["model_id"] = "execution:" + sha256(canonical_bytes(body["inputs"])).hexdigest()
-    for operation in body["operations"]:
-        operation["calls"] = [c for c in operation["calls"] if c["backend"] == "native"]
-        for call in operation["calls"]:
-            call.pop("json_read")
-            call.pop("backend")
-    legacy = next(op for op in body["operations"] if op["id"] == "publish_pdf_observation")
-    legacy["id"] = "publish_integrated_pdf"
-    encoded = canonical_bytes(body)
-
-    def no_current_admission(*args):
-        raise AssertionError("archived21 read cannot re-admit the current implementation catalog")
-
-    monkeypatch.setattr(contracts, "_normalize", no_current_admission)
-    with pytest.raises(
-        PreparationError,
-        match=rf"requires current compiler {EXECUTION_COMPILER_VERSION}; regenerate",
-    ) as refusal:
-        _bound_execution_model(encoded, body["model_id"])
-    assert refusal.value.diagnostics[0].code == "unsupported_execution_abi"
 
 
-def test_current_archived_product_read_is_independent_of_growing_current_capabilities(monkeypatch):
-    from corpus_structure.semantic import contracts, effect_support
-
-    original = current_model()
-    encoded = original.content
-    implementations = dict(contracts.approved_implementations())
-    implementations["future_owned_capability"] = object()
-    monkeypatch.setattr(contracts, "approved_implementations", lambda: implementations)
-    monkeypatch.setitem(
-        effect_support.SUPPORTED_EFFECTS,
-        "future_owned_capability",
-        {"effects": (), "implementation": "future_owned_capability", "transitions": {}},
-    )
-
-    def no_current_ingress(*args):
-        raise AssertionError("a static archived read cannot repeat current source admission")
-
-    monkeypatch.setattr(contracts, "_normalize", no_current_ingress)
-    _bound_execution_model.cache_clear()
-    archived = _bound_execution_model(encoded, original.model_id)
-    assert archived.content == encoded and archived.operations == original.operations
-    assert archived.operation("claim") == original.operation("claim")
-    changed = replace(
-        archived,
-        operations=tuple(
-            replace(op, effects=(*op.effects, "unadmitted_effect")) if op.id == "claim" else op
-            for op in archived.operations
-        ),
-    )
-    assert "unadmitted_effect" in changed.operation("claim").effects
-    with pytest.raises(PreparationError):
-        changed.require_operation("claim")
 
 
-@pytest.mark.parametrize("mutation", ["future", "malformed", "unknown_field"])
-def test_archived_execution_decoder_refuses_unknown_abi_or_malformed_shape(mutation):
-    body = json.loads(current_model().content)
-    if mutation == "future":
-        body["inputs"]["compiler_version"] = "999"
-    elif mutation == "malformed":
-        body["operations"][0]["calls"] = 17
-    else:
-        body["operations"][0]["unmodeled_fact"] = "not a known field"
-    with pytest.raises(PreparationError):
-        _bound_execution_model(canonical_bytes(body), body["model_id"])
 
 
-def test_published_address_constraint_is_qualified_and_operation_bound():
-    model = current_model()
-    error = NativeError(schema_name="kb", table_name="source_view")
-    error.sqlstate = "23503"
-    error.diag.constraint_name = "fk_source_view_native_build_id_native_revision_id_secti_79ff"
-    failure = classify_invariant_failure(
-        model.invariants, "publish_source_view", error, model_id=model.model_id
-    )
-    assert failure is not None
-    assert (failure.code, failure.invariant) == (
-        "pdf.published_document_address",
-        "published_document_address",
-    )
-    assert (
-        classify_invariant_failure(
-            model.invariants, "publish_pdf_observation", error, model_id=model.model_id
-        )
-        is None
-    )
-    error.diag.constraint_name = "fk_source_view_native_task_key_section"
-    assert (
-        classify_invariant_failure(
-            model.invariants, "publish_source_view", error, model_id=model.model_id
-        )
-        is None
-    )
 
 
-def test_compiler22_native_only_product_refuses_without_current_admission(monkeypatch):
-    from corpus_structure.semantic import contracts
-
-    body = json.loads(current_model().content)
-    body["inputs"]["compiler_version"] = "22"
-    body["model_id"] = "execution:" + sha256(canonical_bytes(body["inputs"])).hexdigest()
-    for operation in body["operations"]:
-        operation["calls"] = [c for c in operation["calls"] if c["backend"] == "native"]
-        for call in operation["calls"]:
-            call.pop("backend")
-    encoded = canonical_bytes(body)
-
-    def no_current_ingress(*args):
-        raise AssertionError("a retained22 reader cannot reinterpret current capabilities")
-
-    monkeypatch.setattr(contracts, "_normalize", no_current_ingress)
-    with pytest.raises(
-        PreparationError,
-        match=rf"requires current compiler {EXECUTION_COMPILER_VERSION}; regenerate",
-    ) as refusal:
-        _bound_execution_model(encoded, body["model_id"])
-    assert refusal.value.diagnostics[0].code == "unsupported_execution_abi"
 
 
-@pytest.mark.parametrize("compiler", ["20", "21", "22"])
-def test_pre23_archive_cannot_assert_core_backend_even_if_native(compiler):
-    body = json.loads(current_model().content)
-    body["inputs"]["compiler_version"] = compiler
-    with pytest.raises(
-        PreparationError,
-        match=rf"requires current compiler {EXECUTION_COMPILER_VERSION}; regenerate",
-    ):
-        _bound_execution_model(canonical_bytes(body), body["model_id"])
 
 
-def test_known24_archive_product_decodes_without_current_capability_readmission(monkeypatch):
-    from corpus_structure.semantic import contracts
-
-    body = json.loads(current_model().content)
-    body["inputs"]["compiler_version"] = "24"
-    body["model_id"] = "execution:" + sha256(canonical_bytes(body["inputs"])).hexdigest()
-    monkeypatch.setattr(contracts, "_normalize", lambda *_: pytest.fail("archive read re-admitted"))
-    archived = _bound_execution_model(canonical_bytes(body), body["model_id"])
-    assert archived.model_id == body["model_id"]
-    assert json.loads(archived.content)["inputs"]["compiler_version"] == "24"

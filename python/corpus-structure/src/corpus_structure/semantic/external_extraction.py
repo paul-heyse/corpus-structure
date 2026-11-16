@@ -28,7 +28,6 @@ _FILES = (
     "semantic/data_operation_cpu_basis.py",
     "methods/llm/cascade.py",
     "semantic/sentence_products.py",
-    "semantic/analysis_contracts.py",
     "semantic/analysis_policies.py",
     "semantic/declared_math_products.py",
     "semantic/declared_structural_references.py",
@@ -104,7 +103,7 @@ def external_extraction_inputs(
 
 
 def external_extraction_assets():
-    from .analysis_contracts import prepare_placement_policy
+    from .analysis_policies import prepare_placement_policy
     from .analysis_policies import analysis_policy_sources
 
     policy = prepare_placement_policy()
