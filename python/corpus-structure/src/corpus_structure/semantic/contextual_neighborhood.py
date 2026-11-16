@@ -74,7 +74,7 @@ def neighborhood_kernel_asset():
 
     from .prepared_sql import prepare_sql
 
-    path = Path(__file__).with_name("sql") / "source_contributions.sql"
+    path = Path(__file__).with_name("sql") / "contextual_neighborhood.sql"
     source = prepare_sql(path.read_text(), source=str(path))
     declarations = [
         source.excerpt(index)

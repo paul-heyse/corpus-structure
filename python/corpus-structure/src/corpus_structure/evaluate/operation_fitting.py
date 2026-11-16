@@ -603,14 +603,3 @@ def read_native_fit(conn, *, project_id: str, fit_id: int, protected: bool = Fal
         OperationEventParameters.model_validate_json(json.dumps(value["parameters"]))
     return value
 
-
-def operation_event_fitting_native_sql() -> str:
-    from pathlib import Path
-
-    return (
-        Path(__file__)
-        .resolve()
-        .parents[1]
-        .joinpath("semantic/sql/operation_event_fitting.sql")
-        .read_text()
-    )
