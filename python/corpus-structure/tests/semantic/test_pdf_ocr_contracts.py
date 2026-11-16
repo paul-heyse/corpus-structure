@@ -2,16 +2,12 @@
 
 import json
 from copy import deepcopy
-from hashlib import sha256
-from importlib.resources import files
-from types import SimpleNamespace
 from typing import Any
 
 import pytest
 from pdf_acceptance_support import inventory as inventory
-from pydantic import ValidationError, create_model
+from pydantic import ValidationError
 
-from corpus_structure.semantic.original_documents import register_original_document
 from corpus_structure.semantic.pdf_contracts import trusted_pdf_context
 from corpus_structure.semantic.pdf_ocr_contracts import (
     validate_pdf_cell_coverage,
@@ -19,7 +15,6 @@ from corpus_structure.semantic.pdf_ocr_contracts import (
     validate_pdf_page_payloads,
 )
 from corpus_structure.semantic.pdf_payloads import PayloadContractError, prepare_payload_family
-from semantic.operation_scenario_support import prepare_operation_scenario
 
 
 @pytest.mark.parametrize("declaration", ["scoped", "health"])
@@ -182,6 +177,17 @@ def ocr_payload_family():
     return prepare_payload_family()
 
 
+def test_current_candidate_font_omission_is_distinct_from_explicit_null():
+    page: dict[str, Any] = inventory()
+    assert "font" not in page["candidates"][0]
+    boundary = trusted_pdf_context().boundary
+    boundary.validate_json("PdfInlineCandidatePage", json.dumps(page))
+    page["candidates"][0]["font"] = None
+    with pytest.raises(ValidationError) as invalid:
+        boundary.validate_json("PdfInlineCandidatePage", json.dumps(page))
+    assert any(tuple(error["loc"]) == ("candidates", 0, "font") for error in invalid.value.errors())
+
+
 @pytest.mark.parametrize(
     "collection,outcome,text",
     [
@@ -314,197 +320,84 @@ def test_word_shape_does_not_admit_rotation_or_unbounded_confidence():
         boundary.validate_json("PdfInlineCandidatePage", json.dumps(page))
 
 
+def current_candidate_page(value):
+    from corpus_structure.ingest.pdf_candidates import CandidatePage, InlineCandidate
+
+    return CandidatePage(page_no=value["page_no"], has_words=value["has_words"],
+        has_chars=value["has_chars"], has_vectors=value["has_vectors"],
+        native_text_quality=value["native_text_quality"],
+        candidates=tuple(InlineCandidate.from_wire(row) for row in value["candidates"]),
+        ocr_regions=tuple(value["ocr_regions"]))
+
+
+@pytest.mark.parametrize("partial", [False, True])
 def test_public_native_writer_checks_word_custody_and_retains_partial(
-    commit_db_engine,
-    commit_writer_engine,
-    tmp_path,
+    scenario_seeds, tmp_path, monkeypatch, native_settings, partial,
 ):
-    from docling_core.types.doc import (
-        BoundingBox,
-        DocItemLabel,
-        DoclingDocument,
-        GroupLabel,
-        PageItem,
-        ProvenanceItem,
-        Size,
-    )
-
-    from corpus_structure.ingest.pdf import PdfConversion, publication_payload
-    from corpus_structure.ingest.pdf_hierarchy import snapshot
-    from corpus_structure.semantic.operations import (
-        OperationBinding,
-        claim_tasks,
-        create_run,
-        create_task,
-        record_method,
-    )
-    from corpus_structure.semantic.pdf_contracts import (
-        prepare_pdf_product,
-        store_pdf_original,
-    )
-
-    prepared = prepare_operation_scenario(commit_db_engine, observations=True, composed=True)
-    original = b"%PDF-1.7\nindependent OCR custody fixture"
-    recipe = b'{"fixture":"estimated-word"}'
-    schema = (
-        files("corpus_structure")
-        .joinpath("model/semantic/docling-validation.schema.json")
-        .read_bytes()
-    )
-    doc = DoclingDocument(name="Estimated words")
-    doc.pages[1] = PageItem(page_no=1, size=Size(width=200, height=300))
-    section = doc.add_group(label=GroupLabel.SECTION, name="1.1: Sets")
-    doc.add_text(
-        label=DocItemLabel.TEXT,
-        text="x = 2",
-        orig="x = 2",
-        parent=section,
-        prov=ProvenanceItem(
-            page_no=1,
-            bbox=BoundingBox(l=26, t=40, r=66, b=60, coord_origin="TOPLEFT"),
-            charspan=(0, 5),
-        ),
-    )
-    conversion = PdfConversion(
-        sha256(original).hexdigest(), recipe, snapshot(doc), "success", (), (), (), None
-    )
-    payload = publication_payload(
-        conversion,
-        product_key="native",
-        schema_digest=sha256(schema).hexdigest(),
-        section_refs=frozenset({section.self_ref}),
-    )
-    payload["inline_candidate_pages"] = [inventory()]
-    payload["recognition_coverage"] = [
-        dict(
-            section_pointer=section.self_ref,
-            membership="direct",
-            universe="inline",
-            outcome="complete",
-            policy="native-font-token-vector-ocr-word-v3",
-        )
-    ]
-    product = prepare_pdf_product(payload, original, schema, recipe)
-    path = tmp_path / "source.pdf"
-    path.write_bytes(original)
-    with commit_writer_engine.begin() as conn:
-        run = create_run(
-            conn,
-            project_id="p",
-            binding=OperationBinding(prepared.release_id, "z", 0, b"{}"),
-            kind="slice",
-            options={},
-            code_commit="ocr-word-test",
-        )
-        config = record_method(
-            conn,
-            SimpleNamespace(
-                name="pdf.ocr-fixture",
-                version="1",
-                family="ingest",
-                tier="deterministic",
-                confidence_source=None,
-                unit_type="document",
-                Config=create_model("OcrFixture"),
-            ),
-            "default",
-            {},
-            "ocr-fixture",
-            prepared=prepared,
-        )
-        document = register_original_document(
-            conn,
-            prepared=prepared,
-            project_id="p",
-            source_uri="file:ocr-fixture",
-            original_path=str(path),
-            original=original,
-            mime="application/pdf",
-        )
-        task = create_task(
-            conn,
-            run_id=run,
-            config_id=config,
-            stage="ingest",
-            unit_type="document",
-            unit_id=document,
-            unit_key="ocr-source",
-            input_hash="ocr-fixture",
-        )
-        claim = claim_tasks(conn, run_id=run, config_id=config, holder="ocr-fixture")[0]
-        store_pdf_original(
-            conn,
-            task_id=task,
-            attempt=claim.attempt,
-            holder="ocr-fixture",
-            original=original,
-            recipe_bytes=recipe,
-        )
+    from dataclasses import replace
     from corpus_structure.semantic.pdf_record_reader import published_record_reader
-    from corpus_structure.semantic.product_reference import ProductReference
-    from semantic.selected_source_native_support import publish_native_record_fixture
+    from semantic.current_pdf_integration_support import current_integration_journey
 
-    published = publish_native_record_fixture(
-        commit_writer_engine,
-        tmp_path / "native-records",
-        task_id=task,
-        attempt=claim.attempt,
-        holder="ocr-fixture",
-        product=product,
-        document=doc,
-    )
-    for mutation, diagnostic in [
-        ("transform", "raster-to-PDF"),
-        ("address", "estimated-word address"),
-        ("partial", "complete word inventory"),
-    ]:
-        bad = deepcopy(payload)
-        bad["product_key"] = "bad-" + mutation
-        if mutation == "transform":
-            bad["inline_candidate_pages"][0]["ocr_regions"][0]["lines"][0]["words"][0]["left"] += 1
-        elif mutation == "address":
-            bad["inline_candidate_pages"][0]["candidates"][0].pop("ocr_word_index")
-        else:
-            bad["inline_candidate_pages"][0]["ocr_regions"][0]["outcome"] = "partial"
-        with pytest.raises(ValueError, match=diagnostic):
-            malformed = prepare_pdf_product(bad, original, schema, recipe)
-            publish_native_record_fixture(
-                commit_writer_engine,
-                tmp_path / ("bad-" + mutation),
-                task_id=task,
-                attempt=claim.attempt,
-                holder="ocr-fixture",
-                product=malformed,
-                document=doc,
-            )
-    partial = deepcopy(payload)
-    partial["product_key"] = "partial"
-    partial["inline_candidate_pages"][0]["ocr_regions"][0]["outcome"] = "partial"
-    partial["inline_candidate_pages"][0]["ocr_regions"][0]["lines"][0]["words"].pop()
-    partial["recognition_coverage"][0]["outcome"] = "partial"
-    kept = prepare_pdf_product(partial, original, schema, recipe)
-    partial_pin = publish_native_record_fixture(
-        commit_writer_engine,
-        tmp_path / "partial-records",
-        task_id=task,
-        attempt=claim.attempt,
-        holder="ocr-fixture",
-        product=kept,
-        document=doc,
-    )
-    with commit_writer_engine.connect() as conn:
-        for key, retained, expected in (
-            ("native", published, payload),
-            ("partial", partial_pin, partial),
-        ):
-            reader = published_record_reader(
-                conn, ProductReference(task, key, retained.logical_digest)
-            )
-            assert reader is not None
-            assert (
-                list(reader.native_metadata("inline_candidate_pages"))
-                == expected["inline_candidate_pages"]
-            )
+    supplied = inventory()
+    # These are the actual declared candidate defaults, independently specified.
+    supplied["candidates"][0].update(before="", after="")
+    if partial:
+        supplied["ocr_regions"][0]["outcome"] = "partial"
+        supplied["ocr_regions"][0]["lines"][0]["words"].pop()
+    refused = []
+
+    def complete_scope_probe(case, engine, claim, holder, draft, arguments, publish):
+        if not partial or draft.product_key != "organized":
+            return
+        assert draft.metadata["inline_candidate_pages"]
+        malformed = replace(draft, product_key="invalid-complete-word-coverage", metadata={
+            **draft.metadata, "recognition_coverage": (dict(section_pointer="#/body",
+                membership="descendants", universe="inline", outcome="complete",
+                policy="native-font-token-vector-ocr-word-v3"),),
+        })
+        # One finite invalid publication under the actual organization claim.
+        # Its writer/validation transaction settles before ordinary publication;
+        # no caller-wide transaction holds support locks across other probes.
+        with pytest.raises(ValueError, match="complete word inventory"):
+            publish(engine, claim, holder, malformed, **arguments)
+        refused.append("complete-word-inventory")
+
+    with current_integration_journey(scenario_seeds, tmp_path, monkeypatch, native_settings,
+        candidate_pages=(current_candidate_page(supplied),), before_draft=complete_scope_probe) as case:
+        assert refused == (["complete-word-inventory"] if partial else [])
+        with case.reader().connect() as connection:
+            for key in ("native", "organized", "integrated"):
+                reader = published_record_reader(connection, case.publications[key],
+                    projection_context=case.prepared)
+                assert reader is not None
+                assert list(reader.native_metadata("inline_candidate_pages")) == [supplied]
+                retained = reader.product_descriptor()
+                assert retained["revision"]["source_digest"] == case.original.content_hash
+        if partial:
+            from sqlalchemy import text
+            with case.clone.admin.connect() as connection:
+                assert connection.scalar(text(
+                    "SELECT count(*) FROM ops.pdf_published_revision WHERE task_id=:task AND product_key='invalid-complete-word-coverage'"
+                ), {"task": case.claims["organized"].task_id}) == 0
+
+
+@pytest.mark.parametrize("mutation,diagnostic", [("transform", "raster-to-PDF"), ("address", "estimated-word address")])
+def test_actual_capture_refuses_forged_ocr_word_geometry_and_address(
+    scenario_seeds, tmp_path, monkeypatch, native_settings, mutation, diagnostic,
+):
+    from corpus_structure.orchestrate.data_operations import NativeDemandExecutionError
+    from semantic.current_pdf_integration_support import current_integration_journey
+
+    malformed = inventory()
+    if mutation == "transform":
+        malformed["ocr_regions"][0]["lines"][0]["words"][0]["left"] += 1
+    else:
+        malformed["candidates"][0].pop("ocr_word_index")
+    with pytest.raises(NativeDemandExecutionError) as refused:
+        with current_integration_journey(scenario_seeds, tmp_path, monkeypatch, native_settings,
+                candidate_pages=(current_candidate_page(malformed),)):
+            pytest.fail("invalid captured word custody unexpectedly published")
+    assert any(diagnostic in str(failure) for failure in refused.value.failures)
 
 
 def test_display_only_page_is_outside_the_declared_inline_prose_universe():

@@ -421,6 +421,21 @@ def test_current_failed_later_request_keeps_prior_observation_without_completed_
         assert first[0].task_id == later[0].task_id
         assert first[0].task_id != case.publications["organized"].task_id
         with case.reader().connect() as connection:
+            from decimal import Decimal
+            from corpus_structure.semantic.pdf_storage import read_native_items, read_native_regions
+
+            raw = case.publications["native"]
+            items = read_native_items(connection, **raw.values(), projection_context=case.prepared)
+            equal_items = [item for item in items if item.get("text") == "equal"]
+            assert len(equal_items) == 2 and len({item["pointer"] for item in equal_items}) == 2
+            regions = read_native_regions(connection, **raw.values(), pointer="#/texts/0",
+                                          projection_context=case.prepared)
+            assert len(regions) == 1
+            assert (regions[0]["left"], regions[0]["top"], regions[0]["right"], regions[0]["bottom"], regions[0]["origin"]) == (
+                Decimal(10), Decimal(10), Decimal(60), Decimal(20), "top_left")
+            original = read_pdf_artifact(connection, **raw.values(), artifact_digest=case.original.content_hash)["content"]
+            assert original.startswith(b"%PDF-") and sha256(original).hexdigest() == case.original.content_hash
+            assert connection.scalar(text("SELECT to_regclass('ops.rendition_build')")) is None
             succeeded = read_pdf_product(connection, **first[0].values(), include_body=True)
             failed = read_pdf_product(connection, **later[0].values(), include_body=True)
             assert succeeded["body"]["observation"]["outcome"] == "succeeded"

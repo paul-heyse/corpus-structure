@@ -197,11 +197,8 @@ def current_integration_journey(
     native_settings,
     *,
     raw_responses=(RICH_RESPONSE, RICH_RESPONSE),
-    outcome="succeeded",
-    before_draft=None,
-    before_observation=None,
-    expect_unresolved_page=False,
-    reclaim_after_recognition=False,
+    outcome="succeeded", before_draft=None, before_observation=None,
+    expect_unresolved_page=False, reclaim_after_recognition=False, candidate_pages=(),
 ):
     from corpus_structure.ingest import pdf_recognition, pdf_worker
     from corpus_structure.orchestrate import pdf_streaming
@@ -243,13 +240,12 @@ def current_integration_journey(
             document.add_heading(text="1 Controlled", level=1)
             # The independent fixture retains equal text in distinct native cells.
             assert document.tables[0].data.table_cells[0].text == "equal"
+            spool = PdfStreamSpool(spool_root, on_page=on_replay, check_active=check_active)
+            for page in candidate_pages:
+                spool.capture_candidates(page)
             streamed = StreamingPdfResult(
-                document,
-                PdfStreamSpool(spool_root, check_active=check_active),
-                "success",
-                (),
-                self.recipe.to_bytes(),
-                (),
+                document, spool,
+                "success", (), self.recipe.to_bytes(), (),
             )
             occurrences = streamed.write_native_occurrence_batches(
                 record_root.with_name(record_root.name + "-occurrences"),
@@ -353,12 +349,10 @@ def current_integration_journey(
         def retained_draft(engine, claim, holder, draft, **arguments):
             # A small finite fixture materializes its actual Arrow journal once.
             # Publication still consumes the same rows through the real writer.
-            draft = replace(
-                draft,
-                companions={
-                    family: tuple(rows) for family, rows in (draft.companions or {}).items()
-                },
-            )
+            draft = replace(draft, companions={
+                family: tuple(rows) for family, rows in (draft.companions or {}).items()
+            }, metadata={**(draft.metadata or {}), **({"inline_candidate_pages": tuple(draft.metadata["inline_candidate_pages"])}
+                if draft.metadata and "inline_candidate_pages" in draft.metadata else {})})
             case.claims[draft.product_key] = claim
             case.drafts[draft.product_key] = draft
             if before_draft is not None:
