@@ -15,7 +15,7 @@ from corpus_structure.semantic.product_reference import ProductReference
 from corpus_structure.semantic.refusals import ReadLimit
 from semantic.data_operation_kernel_support import Kernel
 from semantic.data_operation_original_support import OriginalSeedRecipe
-from semantic.test_pdf_transform_demand_native import ROOT, _pdf_recipe
+from semantic.current_pdf_integration_support import ROOT, current_pdf_recipe
 
 
 def test_exact_pdf_materialization_bound_admits_small_source_and_refuses_before_body(
@@ -78,7 +78,7 @@ def test_exact_pdf_materialization_bound_admits_small_source_and_refuses_before_
         return PdfStreamReply("success", (), self.recipe.to_bytes(), (), records + occurrences)
 
     monkeypatch.setattr(pdf_worker.PdfWorker, "stream", controlled_stream)
-    recipe = OriginalSeedRecipe(_pdf_recipe(tmp_path))
+    recipe = OriginalSeedRecipe(current_pdf_recipe(tmp_path))
     with scenario_seeds.commit_clone(recipe) as clone:
         kernel = Kernel(
             clone.admin,

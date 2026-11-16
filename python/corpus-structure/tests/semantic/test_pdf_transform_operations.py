@@ -219,9 +219,9 @@ def test_pdf_only_modes_declare_their_actual_source_member_contexts(tmp_path):
     from corpus_structure.semantic.source_discovery import selected_source_population
     from corpus_structure.semantic.source_products import FrozenNativeSource
     from semantic.data_operation_kernel_support import prepare_kernel
-    from semantic.test_pdf_transform_demand_native import _pdf_recipe
+    from semantic.current_pdf_integration_support import current_pdf_recipe
 
-    profile = prepare_kernel(_pdf_recipe(tmp_path))
+    profile = prepare_kernel(current_pdf_recipe(tmp_path))
     assert not any(
         name.startswith("text.") for name in (op.semantic_id for op in profile.model.operations)
     )

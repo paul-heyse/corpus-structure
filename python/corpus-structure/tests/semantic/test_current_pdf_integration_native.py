@@ -127,7 +127,8 @@ def test_current_rich_integration_retains_separate_claims_inventory_and_original
                     offset=len(raw) + 1,
                 )
             with pytest.raises(NativeDocumentUnavailable):
-                read_pdf_product(connection, **{**selected.values(), "content_digest": "0" * 64})
+                read_pdf_product(connection, task_id=selected.task_id,
+                                 product_key=selected.product_key, content_digest="0" * 64)
 
 
 def test_current_failed_later_request_keeps_prior_observation_without_completed_product(

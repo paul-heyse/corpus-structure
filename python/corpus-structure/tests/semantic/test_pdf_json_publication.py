@@ -99,6 +99,7 @@ def test_every_current_integrated_companion_is_closed_under_its_real_claim(
         with case.reader().connect() as connection:
             with pytest.raises(DBAPIError) as error, connection.begin_nested():
                 connection.scalar(text("SELECT count(*) FROM ops.pdf_stage_build"))
+            assert isinstance(error.value.orig, psycopg.Error)
             assert error.value.orig.sqlstate == "42501"
         with case.clone.admin.connect() as connection:
             assert (

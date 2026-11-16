@@ -8,6 +8,7 @@ import json
 from copy import deepcopy
 
 import pytest
+import psycopg
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
@@ -145,4 +146,5 @@ def test_current_native_captured_lineage_and_precision_forgery_refuse(
                     forged["observation_json"] = json.dumps(observed)
                 with pytest.raises(DBAPIError) as error, connection.begin_nested():
                     captured_text(connection, case.publications["integrated"], pointer, forged)
+                assert isinstance(error.value.orig, psycopg.Error)
                 assert error.value.orig.sqlstate == "23514"
