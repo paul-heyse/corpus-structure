@@ -84,6 +84,7 @@ The [architecture map](../design/README.md) and its section owners own contracts
 | [ADR-0111](0111-contract-scoped-record-occurrences.md) | Source record occurrence identity follows its consumed family contract | 2026-11-15 | [§B1](../design/DESIGN.md#section-b1), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
 | [ADR-0112](0112-cpu-reply-correspondence.md) | CPU execution receipts bind actual reply bytes for native admission | 2026-11-15 | [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
 | [ADR-0113](0113-selected-structural-admission.md) | Native structural admission preserves independent protected adjudication | 2026-11-15 | [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
+| [ADR-0114](0114-contextual-target-reuse-and-batch-evidence.md) | Contextual targets reuse independent vectors and disclose scoped execution evidence | 2026-11-15 | [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
 
 ## Superseded, still in the tree
 

@@ -21,6 +21,21 @@ The receipt contains no reply-body copy, and other operations acquire no new res
 
 > Decision: [ADR-0112](../adr/0112-cpu-reply-correspondence.md)
 
+**Accepted target; implementation/qualification Proposed · 2026-11-15.** Canonical contextual
+target demands run under their actual project/source roots before final cross-context vector-set
+assembly. The existing frozen source-set/demand engine owns this two-phase acquisition; discovery
+same-original constraints remain intact. CPU input-basis v2 includes exact parameters and explicit
+replicate. Current scalar and batch replies retain exact original member/fence/runtime attribution,
+including later adoption and lost unpublished siblings. Native first retention uses the validated
+execution runtime; retained replay never substitutes the request-creation or current adopter runtime.
+Whole batch replies remain private. A distinct bounded execution-evidence leaf discloses the actual
+receipt/reply digest and selected member commitment, with sibling bodies explicitly undisclosed,
+while keeping the selected input/support closure. Detached verification distinguishes native
+assertion from whole-cohort independent replay. This reuses existing export/custody owners and
+adds no attestation registry; model encoder batching requires explicit policy and qualification.
+
+> Decision: [ADR-0114](../adr/0114-contextual-target-reuse-and-batch-evidence.md)
+
 **Implemented; scoped native Tested · 2026-11-14.** A discovery selection can explicitly
 associate a target input role with its selected parent product/member. The planner filters that role
 to authenticated population membership before cardinality; native admission independently checks

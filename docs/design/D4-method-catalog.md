@@ -23,6 +23,22 @@ projection can be used. GLiNER uses its shared owner validation/device interpret
 artifact-map normalization. Acquisition location remains outside model meaning. Selected legacy
 profile bytes, defaults, loading and fingerprints remain exact until the owning caller cutover.
 
+## Independent contextual target vectors and native scoring
+
+**Accepted target; implementation/qualification Proposed · 2026-11-15.** M04/M14 materialize
+canonical standalone targets before encoding. Project-curated and actual source-backed definition
+targets retain their distinct origins and support. Query vectors do not depend on the target
+inventory. Frozen vector source sets feed exact candidate assembly; adding a target invalidates
+retrieval while unchanged targets can reuse compatible vectors under their exact encoder profile.
+The existing owned CPU encoder retains model preparation/resources. Native score products execute
+one Core alias/full-text/pgvector query; actual CPU RRF/relationship operations consume those
+products. Native admission recomputes that bounded scoring function, preserving exact observed
+numerics and complete population/tie/empty distinctions. No second query implementation or task
+engine is introduced. Encoder batching remains unsupported until its own explicit released policy
+and actual provider/native controls qualify; cue/classification policy alone does not qualify it.
+
+> Decision: [ADR-0114](../adr/0114-contextual-target-reuse-and-batch-evidence.md)
+
 ## Selected provider execution profiles and complete settings
 
 **Implemented; bounded actual compatibility Tested2026-11-12; combined qualification open.** D1 retains

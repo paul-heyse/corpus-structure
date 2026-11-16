@@ -469,6 +469,16 @@ D3 and D7 own realization and qualification; no persistent adoption follows from
 
 > Decision: [ADR-0109](../adr/0109-ddo-current-domain-contracts.md), [ADR-0110](../adr/0110-evaluator-authorized-policy-disclosure.md), [ADR-0112](../adr/0112-cpu-reply-correspondence.md), [ADR-0113](../adr/0113-selected-structural-admission.md)
 
+**Accepted target; implementation/qualification Proposed · 2026-11-15.** Contextual target
+materialization and vector products preserve unchanged-target reuse across inventory changes.
+One native scoring product owns Core alias/full-text/pgvector query execution; actual CPU reduction
+owns RRF and relationship selection. Whole batch replies stay privately retained while a distinct
+native-authenticated execution-evidence leaf discloses only the selected member commitment and
+explicit hidden cohort, preserving the selected input/support closure. D4/D6 own realization;
+model batching needs its own explicit released policy and actual qualification.
+
+> Decision: [ADR-0114](../adr/0114-contextual-target-reuse-and-batch-evidence.md)
+
 **Accepted realization; implementation/qualification tracked by DDO (2026-11-14).** Purpose-owned
 Psycopg pools lend sessions through SQLAlchemy NullPool. Demand execution reserves one writer
 checkout for renewal before bounded foreground admission; notice registration and physical
@@ -734,6 +744,14 @@ semantics remain authoritative. [D6](D6-orchestration-metrics-policies.md#native
 owns execution and receipt correspondence. Digests do not replace source, policy or publication authority.
 
 > Decision: [ADR-0112](../adr/0112-cpu-reply-correspondence.md)
+
+**Accepted target; implementation/qualification Proposed · 2026-11-15.** CPU input basis retains
+exact semantic parameters and explicit replicate. Current scalar/batch forms bind original whole
+reply, ordered member basis/output and authentic original producer/runtime independently of later
+adoption and current support. Bounded ordinary execution evidence grants no scientific standing and
+never relabels trimmed bytes as an original reply. D6 owns this contract and its qualification.
+
+> Decision: [ADR-0114](../adr/0114-contextual-target-reuse-and-batch-evidence.md)
 
 **Accepted realization; implementation/qualification tracked by DDO (2026-11-14).** Captured native
 schemas and explicit field correspondence derive structural Python wire types and fixed methods.

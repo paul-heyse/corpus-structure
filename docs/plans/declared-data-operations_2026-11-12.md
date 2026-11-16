@@ -227,6 +227,19 @@ alternative with independent literal evidence is distinct from numerical rich-va
 large diagnostics must traverse the actual current controlled producer/admission path. Useful old
 scientific expectations do not justify preserving their storage/protocol shells.
 
+**Accepted integration target; implementation/qualification Proposed · 2026-11-15.**
+[ADR-0114](../adr/0114-contextual-target-reuse-and-batch-evidence.md) retains the promised
+unchanged-target reuse through standalone canonical target/vector products and two-phase frozen
+source-set assembly. Native score products execute one existing Core alias/full-text/pgvector
+query, with exact native recomputation and actual CPU RRF/relationship reduction. Shared CPU
+basis v2 retains semantic parameters/replicate; batch proof retains original whole reply and
+authentic member/fence/runtime. A distinct bounded execution-evidence leaf hides unrelated cohort
+bodies while preserving selected input/support closure and explicit detached verification limits.
+Scalar target work and exact-integer batch controls do not qualify encoder batching: that requires
+its own explicit released numerical policy and actual provider/native controls. Implementation,
+common disclosure hooks, native capture, old consumer retirement and qualification remain open
+with I02/I04/I05/I06; no optional attestation registry or parallel scheduler is introduced.
+
 ## Current state and execution order
 
 | Package | Implemented / evidence boundary | Remaining accepted work and prerequisites |
@@ -238,7 +251,7 @@ scientific expectations do not justify preserving their storage/protocol shells.
 | DDO-07/08 | Source/primary/downstream increments and real port adoption; enclosing packages open | I02 all remaining legacy operations and consumers; I04 capability-based shared execution; I08 acquisition-test consolidation; rich producer integration with I05. |
 | DDO-09 | Source currentness/impact and graph foundations implemented within bounded receipts | I03 deliberate fate partition; I05 full rich cut/policy/standing/contracts and reuse consumers; copied-task/twin/stale-cut retirement; CA-11/12 Python repairs have scoped controls; actual native journeys remain. |
 | DDO-10 | Source/graph CLI/MCP/export and selected prediction inspection within focused receipts | I06 literals/typed artifact reader/variant association; rich named-query/reference/grading callers; target model difference distinct from source drift/currentness; old reader retirement; CA-12 selected graph pin repair has scoped controls; native continuation remains to qualify. |
-| DDO-11 | Checkout domain_v8 registered; persistent database remains located_v2, no adoption | I09 choose supported physical route, selective faithful import/regeneration, fence writers, switch maintained callers and remove all legacy/one-time converter code. Optional conversion does not block target delivery. |
+| DDO-11 | Checkout domain_v9 registered; persistent database remains located_v2, no adoption | I09 choose supported physical route, selective faithful import/regeneration, fence writers, switch maintained callers and remove all legacy/one-time converter code. Optional conversion does not block target delivery. |
 | DDO-12 | No assembled completion; earlier passes scoped only | Final-source functional/native/fault/provider/nonfunctional union for complete replacement and retirement, including target-native source/evaluation journeys. |
 
 First settle decision records and shared I01/I03 contracts; operation classification and shared-port
