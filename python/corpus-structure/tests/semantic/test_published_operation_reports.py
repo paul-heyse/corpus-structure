@@ -1,167 +1,93 @@
-"""Actual report consumers distinguish publication from prepared source context."""
+"""Actual CLI/MCP observations distinguish frozen demand from completed projection."""
 
 import json
 
 import anyio
 from fastmcp import Client
-from mcp.types import TextContent
 from sqlalchemy import text
 
-from corpus_structure.ingest.pdf_section_views import published_section_drafts
 from corpus_structure.intervene.semantic_server import build_retained_reader_server
-from corpus_structure.semantic.pdf_record_reader import published_record_reader
-from corpus_structure.semantic.product_reference import ProductReference
-from corpus_structure.semantic.releases import open_release
-from corpus_structure.semantic.source_views import store_source_view
 from corpus_structure.settings import Settings
-from semantic.pdf_staging_support import private_build as private_build
+from semantic.pdf_staging_support import create_private_build as create_private_build
 from semantic.selected_source_native_support import publish_selected
 
 
-def test_cli_mcp_published_pin_and_preparation_are_separate_read_only_observations(
-    private_build, commit_db_engine, commit_writer_engine, commit_reader_engine, tmp_path, cli
+def test_cli_mcp_current_projection_observations_are_read_only_and_preserve_unknown(
+    create_private_build, commit_db_engine, commit_writer_engine, commit_reader_engine, tmp_path, cli
 ):
-    published = publish_selected(commit_writer_engine, private_build, tmp_path / "publication")
-    with commit_writer_engine.connect() as conn:
-        task = conn.execute(
-            text("SELECT run_id,unit_id,attempt,claimed_by FROM ops.task WHERE id=:task"),
-            dict(task=private_build.task_id),
-        ).one()
-    settings = Settings(
-        database={
-            "url": commit_reader_engine.url.set(drivername="postgresql").render_as_string(
-                hide_password=False
-            )
-        }
-    )
-    pin = dict(
-        task_id=private_build.task_id,
-        product_key="selected",
-        content_digest=published.logical_digest,
-    )
-    subject = tmp_path / "subject.json"
-    subject.write_text(json.dumps(dict(**pin, run_id=task.run_id, section_pointer="#/groups/1")))
+    factory = create_private_build
+    build = factory()
+    publication = publish_selected(commit_writer_engine, build, tmp_path / "publication")
+    factory.complete(build, publication)
+    demand = factory.register_sources(build, sections=("Selected chapter",))
+    operation = "source.pdf_views/discovery"
+    settings = Settings(database={"url": commit_reader_engine.url.set(drivername="postgresql").render_as_string(hide_password=False)})
+
+    def counts():
+        with commit_db_engine.connect() as connection:
+            return connection.execute(text(
+                "SELECT (SELECT count(*) FROM ops.task),"
+                "(SELECT count(*) FROM ops.data_completion_intent),"
+                "(SELECT count(*) FROM ops.pdf_published_revision)"
+            )).one()
 
     def inspect():
-        result = cli(
-            "schema",
-            "explain-operation",
-            "read_source_view",
-            "--release",
-            private_build.release_id,
-            "--subject",
-            str(subject),
-            "--json",
-            settings=lambda: settings,
-        )
+        result = cli("schema", "explain-operation", operation, "--release", build.release_id,
+                     "--demand", demand, "--project", factory.project_id, "--json", settings=lambda: settings)
         assert result.exit_code == 0, result.output
-        value = json.loads(result.stdout)
-        return value, {check["contract_ref"]: check for check in value["checks"]}
+        report = json.loads(result.stdout)
+        observed = json.loads(report["observation_json"])
+        assert report["authority"] == "declaration_and_observation_only"
+        assert report["observation_status"] == "observed"
+        assert report["operation"] == operation and report["release_id"] == build.release_id
+        assert observed["cut"]["project_id"] == factory.project_id
+        assert observed["cut"]["demand_id"] == demand
+        return report, observed
 
-    before, checks = inspect()
-    assert checks["published_document"]["status"] == "applicable"
-    assert checks["selected_source_views"]["status"] == "unavailable"
-    assert not before["complete"]  # An observation does not invent missing live evaluators.
-    with commit_writer_engine.begin() as conn:
-        assert conn.scalar(text("SELECT count(*) FROM kb.source_view")) == 0
-        prepared = open_release(conn, private_build.release_id)
-        reader = published_record_reader(conn, ProductReference(**pin), projection_context=prepared)
-        assert reader is not None
-        drafts = published_section_drafts(
-            reader,
-            document_id=task.unit_id,
-            selections=("Selected chapter",),
-            membership="direct",
-            scope=None,
-            consumer_release=private_build.release_id,
-        )
-        for position, draft in enumerate(drafts):
-            store_source_view(
-                conn,
-                run_id=task.run_id,
-                task_id=private_build.task_id,
-                attempt=task.attempt,
-                holder=task.claimed_by,
-                draft=draft,
-                position=position,
-            )
-    after, checks = inspect()
-    assert checks["published_document"]["status"] == "applicable"
-    assert checks["selected_source_views"]["status"] == "applicable"
-    assert after["observed_revision"] == published.logical_digest
+    baseline = counts()
+    before, pending = inspect()
+    assert pending["items"] and all(row["obligation"]["fate"] != "fulfilled" for row in pending["items"])
+    assert counts() == baseline
+    # The read itself cannot prepare a source or create a computation. The
+    # explicit declared execution is the only change between these observations.
+    rows = factory.selected_sources(build, sections=("Selected chapter",))
+    assert {row["body"]["source"]["section_pointer"] for row in rows} == {"#/groups/1", "#/groups/2"}
+    after, fulfilled = inspect()
+    assert all(row["obligation"]["fate"] == "fulfilled" for row in fulfilled["items"])
+    assert after["definition"] == before["definition"] and after["recipe"] == before["recipe"]
+    completed = counts()
+    assert completed[0] > baseline[0] and completed[1] > baseline[1]
+    assert completed[2] == baseline[2] == 1
 
     async def journey():
-        server = build_retained_reader_server(read_engine=commit_reader_engine, project="published")
+        server = build_retained_reader_server(read_engine=commit_reader_engine, project=factory.project_id)
         async with Client(server) as client:
-            answer = await client.call_tool(
-                "explain_operation",
-                dict(
-                    release=private_build.release_id,
-                    operation="read_source_view",
-                    **pin,
-                    run_id=task.run_id,
-                    section_pointer="#/groups/1",
-                ),
-            )
+            answer = await client.call_tool("explain_operation", dict(
+                release=build.release_id, operation=operation, demand_id=demand, project_id=factory.project_id,
+            ))
             assert answer.structured_content is not None
-            assert answer.structured_content["checks"] == after["checks"]
-            missing = await client.call_tool(
-                "explain_operation",
-                dict(
-                    release=private_build.release_id,
-                    operation="read_source_view",
-                    **dict(pin, content_digest="0" * 64),
-                    run_id=task.run_id,
-                ),
-            )
+            report = answer.structured_content
+            assert report["definition"] == after["definition"] and report["recipe"] == after["recipe"]
+            observed = json.loads(report["observation_json"])
+            assert all(row["obligation"]["fate"] == "fulfilled" for row in observed["items"])
+            missing = await client.call_tool("inspect_characterization", {"request": dict(
+                project_id=factory.project_id, demand_id=demand, product_id="outside-selection", inventory="annotations",
+            )})
             assert missing.structured_content is not None
-            missing_checks = {
-                check["contract_ref"]: check for check in missing.structured_content["checks"]
-            }
-            assert missing_checks["published_document"]["status"] == "unavailable"
-            assert missing_checks["selected_source_views"]["status"] == "unavailable"
-            malformed = await client.call_tool(
-                "explain_operation",
-                dict(
-                    release=private_build.release_id,
-                    operation="read_source_view",
-                    **dict(pin, task_id=0),
-                ),
-                raise_on_error=False,
-            )
+            empty = json.loads(missing.structured_content["exact_json"])
+            assert empty["items"] == [] and empty["knowledge"] == "unknown"
+            refused = await client.call_tool("explain_operation", dict(
+                release=build.release_id, operation=operation, demand_id=demand, project_id="another-project",
+            ), raise_on_error=False)
+            assert refused.is_error
+            malformed = await client.call_tool("explain_operation", dict(
+                release=build.release_id, operation=operation, demand_id=demand, project_id=factory.project_id, limit=0,
+            ), raise_on_error=False)
             assert malformed.is_error
-            block = malformed.content[0]
-            assert isinstance(block, TextContent)
-            failure = json.loads(block.text)
-            assert failure["validation"]["release_id"] == private_build.release_id
-            assert failure["validation"]["model_id"] == after["model_id"]
-            observation = failure["validation"]["observations"][0]
-            assert observation["operation"] == "read_source_view"
-            assert observation["category"] == "invalid_input"
-            assert observation["input_path"] == "/task_id"
 
     anyio.run(journey)
-    subject.write_text(json.dumps(dict(pin, task_id=0)))
-    invalid = cli(
-        "schema",
-        "explain-operation",
-        "read_source_view",
-        "--release",
-        private_build.release_id,
-        "--subject",
-        str(subject),
-        "--json",
-        settings=lambda: settings,
-    )
-    assert invalid.exit_code == 1, invalid.output
-    validation = json.loads(invalid.stdout)["error"]["validation"]
-    assert validation["release_id"] == private_build.release_id
-    assert validation["model_id"] == after["model_id"]
-    observation = validation["observations"][0]
-    assert observation["operation"] == "read_source_view"
-    assert observation["category"] == "invalid_input"
-    assert observation["input_path"] == "/task_id"
-    with commit_reader_engine.connect() as conn:
-        assert conn.scalar(text("SELECT count(*) FROM kb.source_view")) == len(drafts)
-    with commit_db_engine.connect() as conn:
-        assert conn.scalar(text("SELECT count(*) FROM ops.pdf_published_revision")) == 1
+    assert counts() == completed
+    invalid = cli("schema", "explain-operation", operation, "--release", build.release_id,
+                  "--demand", demand, "--project", factory.project_id, "--limit", "0", "--json", settings=lambda: settings)
+    assert invalid.exit_code != 0 and "limit" in invalid.output.lower()
+    assert counts() == completed
