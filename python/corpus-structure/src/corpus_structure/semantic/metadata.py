@@ -36,7 +36,7 @@ metadata = compile_physical(
     )
 )
 tables = MappingProxyType(dict(metadata.tables))
-SCHEMAS = frozenset({"sem", "data", "ops", "kb", "eval"})
+SCHEMAS = frozenset(str(relation.schema) for relation in metadata.tables.values())
 _DECIMAL = re.compile(r"^[+-]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[eE][+-]?[0-9]+)?$")
 
 

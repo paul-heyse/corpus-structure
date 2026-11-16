@@ -1,6 +1,39 @@
-version: pdf-native-actions-v1
 actions:
-- id: retain_pdf_original
+- calls:
+  - cardinality: one
+    id: retain_pdf_original
+    order_by: []
+    ordered: false
+    parameters:
+    - name: task_id
+      native_parameter: p_task
+      nullable: false
+      semantic_type: TaskId
+      source: physical:ops.task.id
+    - name: attempt
+      native_parameter: p_attempt
+      nullable: false
+      semantic_type: TaskAttempt
+      source: physical:ops.task.attempt
+    - name: holder
+      native_parameter: p_holder
+      nullable: false
+      source: physical:ops.task.claimed_by
+    - name: original
+      native_parameter: p_original
+      nullable: false
+      source: primitive:bytes
+    - name: recipe_bytes
+      native_parameter: p_recipe
+      nullable: false
+      source: primitive:bytes
+    result_fields:
+    - name: digest
+      nullable: false
+      source: physical:kb.source_artifact.artifact_digest
+    result_mode: scalar
+    symbol: ops.retain_pdf_original
+  id: retain_pdf_original
   implementation:
     owner: semantic.pdf_contracts
     symbol: store_pdf_original
@@ -9,41 +42,8 @@ actions:
   - applied
   - replay
   - conflict
-  calls:
-  - id: retain_pdf_original
-    symbol: ops.retain_pdf_original
-    parameters:
-    - name: task_id
-      source: physical:ops.task.id
-      nullable: false
-      native_parameter: p_task
-      semantic_type: TaskId
-    - name: attempt
-      source: physical:ops.task.attempt
-      nullable: false
-      native_parameter: p_attempt
-      semantic_type: TaskAttempt
-    - name: holder
-      source: physical:ops.task.claimed_by
-      nullable: false
-      native_parameter: p_holder
-    - name: original
-      source: primitive:bytes
-      nullable: false
-      native_parameter: p_original
-    - name: recipe_bytes
-      source: primitive:bytes
-      nullable: false
-      native_parameter: p_recipe
-    result_fields:
-    - name: digest
-      source: physical:kb.source_artifact.artifact_digest
-      nullable: false
-    result_mode: scalar
-    cardinality: one
-    ordered: false
-    order_by: []
-- id: prepare_native_document
+- calls: []
+  id: prepare_native_document
   implementation:
     owner: semantic.pdf_contracts
     symbol: prepare_pdf_product
@@ -54,8 +54,8 @@ actions:
   - unknown
   - unsupported
   - failed
-  calls: []
-- id: convert_pdf
+- calls: []
+  id: convert_pdf
   implementation:
     owner: ingest.pdf
     symbol: PdfConverter.convert_bytes
@@ -66,8 +66,8 @@ actions:
   - unknown
   - unsupported
   - failed
-  calls: []
-- id: enrich_pdf_math
+- calls: []
+  id: enrich_pdf_math
   implementation:
     owner: ingest.pdf_selected_enrichment
     symbol: enrich_selected_pdf
@@ -78,8 +78,8 @@ actions:
   - unknown
   - unsupported
   - failed
-  calls: []
-- id: organize_pdf
+- calls: []
+  id: organize_pdf
   implementation:
     owner: ingest.pdf_hierarchy
     symbol: organize
@@ -90,8 +90,8 @@ actions:
   - unknown
   - unsupported
   - failed
-  calls: []
-- id: project_pdf_source
+- calls: []
+  id: project_pdf_source
   implementation:
     owner: ingest.pdf_hierarchy
     symbol: project_section
@@ -102,8 +102,550 @@ actions:
   - unknown
   - unsupported
   - failed
-  calls: []
-- id: read_native_source
+- calls:
+  - cardinality: many
+    id: read_published_sections
+    order_by:
+    - ordinal
+    ordered: true
+    parameters:
+    - name: task_id
+      native_parameter: p_task
+      nullable: false
+      semantic_type: TaskId
+      source: physical:ops.pdf_published_revision.task_id
+    - name: product_key
+      native_parameter: p_product
+      nullable: false
+      semantic_type: ProductKey
+      source: physical:ops.pdf_published_revision.product_key
+    - name: content_digest
+      native_parameter: p_digest
+      nullable: false
+      semantic_type: ContentDigest
+      source: physical:ops.pdf_published_revision.logical_digest
+    requires_context: true
+    result_fields: []
+    result_source: model:PublishedSectionRow
+    symbol: ops.read_pdf_published_sections
+  - cardinality: many
+    id: read_published_section_nodes
+    json_read: json-text-v1
+    order_by:
+    - ordinal
+    ordered: true
+    parameters:
+    - name: task_id
+      native_parameter: p_task
+      nullable: false
+      semantic_type: TaskId
+      source: physical:ops.pdf_published_revision.task_id
+    - name: product_key
+      native_parameter: p_product
+      nullable: false
+      semantic_type: ProductKey
+      source: physical:ops.pdf_published_revision.product_key
+    - name: content_digest
+      native_parameter: p_digest
+      nullable: false
+      semantic_type: ContentDigest
+      source: physical:ops.pdf_published_revision.logical_digest
+    - name: section
+      native_parameter: p_section
+      nullable: false
+      source: physical:kb.pdf_record_access.pointer
+    - name: membership
+      native_parameter: p_membership
+      nullable: false
+      source: model:PdfSourceViewPublication.membership
+    requires_context: true
+    result_fields: []
+    result_source: model:PublishedSectionNodeRow
+    symbol: ops.read_pdf_published_section_nodes
+  - cardinality: many
+    id: read_published_items
+    json_read: json-text-v1
+    order_by:
+    - ordinal
+    ordered: true
+    parameters:
+    - name: task_id
+      native_parameter: p_task
+      nullable: false
+      semantic_type: TaskId
+      source: physical:ops.pdf_published_revision.task_id
+    - name: product_key
+      native_parameter: p_product
+      nullable: false
+      semantic_type: ProductKey
+      source: physical:ops.pdf_published_revision.product_key
+    - name: content_digest
+      native_parameter: p_digest
+      nullable: false
+      semantic_type: ContentDigest
+      source: physical:ops.pdf_published_revision.logical_digest
+    - multivalued: true
+      name: pointers
+      native_parameter: p_pointers
+      nullable: false
+      source: physical:kb.pdf_record_access.pointer
+    requires_context: true
+    result_fields: []
+    result_source: model:PdfRecordAccess
+    symbol: ops.read_pdf_published_items
+  - cardinality: optional
+    id: read_published_region
+    order_by: []
+    ordered: false
+    parameters:
+    - name: task_id
+      native_parameter: p_task
+      nullable: false
+      semantic_type: TaskId
+      source: physical:ops.pdf_published_revision.task_id
+    - name: product_key
+      native_parameter: p_product
+      nullable: false
+      semantic_type: ProductKey
+      source: physical:ops.pdf_published_revision.product_key
+    - name: content_digest
+      native_parameter: p_digest
+      nullable: false
+      semantic_type: ContentDigest
+      source: physical:ops.pdf_published_revision.logical_digest
+    - name: pointer
+      native_parameter: p_pointer
+      nullable: false
+      source: physical:kb.pdf_record_access.pointer
+    - name: region_index
+      native_parameter: p_region_index
+      nullable: false
+      source: physical:kb.pdf_record_region.region_index
+    requires_context: true
+    result_fields: []
+    result_source: model:PdfRecordRegion
+    symbol: ops.read_pdf_published_region
+  - cardinality: many
+    id: read_published_section_reports
+    json_read: json-text-v1
+    order_by:
+    - ordinal
+    - local_id
+    ordered: true
+    parameters:
+    - name: task_id
+      native_parameter: p_task
+      nullable: false
+      semantic_type: TaskId
+      source: physical:ops.pdf_published_revision.task_id
+    - name: product_key
+      native_parameter: p_product
+      nullable: false
+      semantic_type: ProductKey
+      source: physical:ops.pdf_published_revision.product_key
+    - name: content_digest
+      native_parameter: p_digest
+      nullable: false
+      semantic_type: ContentDigest
+      source: physical:ops.pdf_published_revision.logical_digest
+    - multivalued: true
+      name: pointers
+      native_parameter: p_pointers
+      nullable: false
+      source: physical:kb.pdf_record_access.pointer
+    - multivalued: true
+      name: sections
+      native_parameter: p_sections
+      nullable: false
+      source: physical:kb.pdf_record_access.pointer
+    requires_context: true
+    result_fields: []
+    result_source: model:PublishedSectionReportRow
+    symbol: ops.read_pdf_published_section_reports
+  - cardinality: many
+    id: read_published_item_page
+    order_by:
+    - ordinal
+    ordered: true
+    parameters:
+    - name: task_id
+      native_parameter: p_task
+      nullable: false
+      semantic_type: TaskId
+      source: physical:ops.pdf_published_revision.task_id
+    - name: product_key
+      native_parameter: p_product
+      nullable: false
+      semantic_type: ProductKey
+      source: physical:ops.pdf_published_revision.product_key
+    - name: content_digest
+      native_parameter: p_digest
+      nullable: false
+      semantic_type: ContentDigest
+      source: physical:ops.pdf_published_revision.logical_digest
+    - name: section
+      native_parameter: p_section
+      nullable: true
+      source: physical:kb.pdf_record_access.pointer
+    - name: membership
+      native_parameter: p_membership
+      nullable: false
+      source: model:PdfSourceViewPublication.membership
+    - name: pointer
+      native_parameter: p_pointer
+      nullable: true
+      source: physical:kb.pdf_record_access.pointer
+    - name: after
+      native_parameter: p_after
+      nullable: false
+      source: primitive:integer
+    - name: limit
+      native_parameter: p_limit
+      nullable: false
+      source: primitive:integer
+    requires_context: true
+    result_fields: []
+    result_source: model:PublishedItemIndexRow
+    symbol: ops.read_pdf_published_item_page
+  - cardinality: many
+    id: read_published_regions
+    order_by:
+    - region_index
+    ordered: true
+    parameters:
+    - name: task_id
+      native_parameter: p_task
+      nullable: false
+      semantic_type: TaskId
+      source: physical:ops.pdf_published_revision.task_id
+    - name: product_key
+      native_parameter: p_product
+      nullable: false
+      semantic_type: ProductKey
+      source: physical:ops.pdf_published_revision.product_key
+    - name: content_digest
+      native_parameter: p_digest
+      nullable: false
+      semantic_type: ContentDigest
+      source: physical:ops.pdf_published_revision.logical_digest
+    - name: pointer
+      native_parameter: p_pointer
+      nullable: false
+      source: physical:kb.pdf_record_access.pointer
+    requires_context: true
+    result_fields: []
+    result_source: model:PdfRecordRegion
+    symbol: ops.read_pdf_published_regions
+  - cardinality: many
+    id: read_published_region_batch
+    order_by:
+    - pointer
+    - region_index
+    ordered: true
+    parameters:
+    - name: task_id
+      native_parameter: p_task
+      nullable: false
+      semantic_type: TaskId
+      source: physical:ops.pdf_published_revision.task_id
+    - name: product_key
+      native_parameter: p_product
+      nullable: false
+      semantic_type: ProductKey
+      source: physical:ops.pdf_published_revision.product_key
+    - name: content_digest
+      native_parameter: p_digest
+      nullable: false
+      semantic_type: ContentDigest
+      source: physical:ops.pdf_published_revision.logical_digest
+    - multivalued: true
+      name: pointers
+      native_parameter: p_pointers
+      nullable: false
+      source: physical:kb.pdf_record_access.pointer
+    requires_context: true
+    result_fields: []
+    result_source: model:PdfRecordRegion
+    symbol: ops.read_pdf_published_region_batch
+  - cardinality: many
+    id: read_published_item_ancestors
+    order_by:
+    - ordinal
+    ordered: true
+    parameters:
+    - name: task_id
+      native_parameter: p_task
+      nullable: false
+      semantic_type: TaskId
+      source: physical:ops.pdf_published_revision.task_id
+    - name: product_key
+      native_parameter: p_product
+      nullable: false
+      semantic_type: ProductKey
+      source: physical:ops.pdf_published_revision.product_key
+    - name: content_digest
+      native_parameter: p_digest
+      nullable: false
+      semantic_type: ContentDigest
+      source: physical:ops.pdf_published_revision.logical_digest
+    - name: pointer
+      native_parameter: p_pointer
+      nullable: false
+      source: physical:kb.pdf_record_access.pointer
+    requires_context: true
+    result_fields: []
+    result_source: model:PublishedItemIndexRow
+    symbol: ops.read_pdf_published_item_ancestors
+  - cardinality: many
+    id: read_pdf_record_rows
+    json_read: json-text-v1
+    order_by: []
+    ordered: false
+    parameters:
+    - name: task_id
+      native_parameter: p_task
+      nullable: false
+      semantic_type: TaskId
+      source: physical:ops.pdf_published_revision.task_id
+    - name: product_key
+      native_parameter: p_product
+      nullable: false
+      semantic_type: ProductKey
+      source: physical:ops.pdf_published_revision.product_key
+    - name: content_digest
+      native_parameter: p_digest
+      nullable: false
+      semantic_type: ContentDigest
+      source: physical:ops.pdf_published_revision.logical_digest
+    - name: family
+      native_parameter: p_family
+      nullable: false
+      source: primitive:string
+    - name: filters
+      native_parameter: p_filters
+      nullable: false
+      source: primitive:json_payload
+    - name: after
+      native_parameter: p_after
+      nullable: true
+      source: primitive:json_payload
+    - name: limit
+      native_parameter: p_limit
+      native_type: integer
+      nullable: false
+      source: primitive:integer
+    result_class: NativeJsonEnvelope
+    result_fields:
+    - name: body
+      nullable: false
+      source: primitive:json_payload
+    result_mode: scalar
+    symbol: ops.read_pdf_record_rows
+  - cardinality: many
+    id: read_pdf_record_context_rows
+    json_read: json-text-v1
+    order_by: []
+    ordered: false
+    parameters:
+    - name: task_id
+      native_parameter: p_task
+      nullable: false
+      semantic_type: TaskId
+      source: physical:ops.pdf_published_revision.task_id
+    - name: product_key
+      native_parameter: p_product
+      nullable: false
+      semantic_type: ProductKey
+      source: physical:ops.pdf_published_revision.product_key
+    - name: content_digest
+      native_parameter: p_digest
+      nullable: false
+      semantic_type: ContentDigest
+      source: physical:ops.pdf_published_revision.logical_digest
+    - multivalued: true
+      name: pointers
+      native_parameter: p_pointers
+      nullable: false
+      source: physical:kb.pdf_record_access.pointer
+    - name: section
+      native_parameter: p_section
+      nullable: true
+      source: primitive:string
+    - name: family
+      native_parameter: p_family
+      nullable: false
+      source: primitive:string
+    - name: after
+      native_parameter: p_after
+      nullable: true
+      source: primitive:string
+    - name: limit
+      native_parameter: p_limit
+      native_type: integer
+      nullable: false
+      source: primitive:integer
+    result_class: NativeJsonEnvelope
+    result_fields:
+    - name: body
+      nullable: false
+      source: primitive:json_payload
+    result_mode: scalar
+    symbol: ops.read_pdf_record_context_rows
+  - cardinality: many
+    id: read_pdf_companion_export_events
+    json_read: json-text-v1
+    order_by: []
+    ordered: false
+    parameters:
+    - name: task_id
+      native_parameter: p_task
+      nullable: false
+      semantic_type: TaskId
+      source: physical:ops.pdf_published_revision.task_id
+    - name: product_key
+      native_parameter: p_product
+      nullable: false
+      semantic_type: ProductKey
+      source: physical:ops.pdf_published_revision.product_key
+    - name: content_digest
+      native_parameter: p_digest
+      nullable: false
+      semantic_type: ContentDigest
+      source: physical:ops.pdf_published_revision.logical_digest
+    - name: family
+      native_parameter: p_family
+      nullable: false
+      source: primitive:string
+    result_class: NativeJsonEnvelope
+    result_fields:
+    - name: body
+      nullable: false
+      source: primitive:json_payload
+    result_mode: scalar
+    symbol: ops.read_pdf_companion_export_events
+  - cardinality: many
+    id: read_pdf_native_events
+    json_read: json-text-v1
+    order_by: []
+    ordered: false
+    parameters:
+    - name: task_id
+      native_parameter: p_task
+      nullable: false
+      semantic_type: TaskId
+      source: physical:ops.pdf_published_revision.task_id
+    - name: product_key
+      native_parameter: p_product
+      nullable: false
+      semantic_type: ProductKey
+      source: physical:ops.pdf_published_revision.product_key
+    - name: content_digest
+      native_parameter: p_digest
+      nullable: false
+      semantic_type: ContentDigest
+      source: physical:ops.pdf_published_revision.logical_digest
+    result_class: NativeJsonEnvelope
+    result_fields:
+    - name: body
+      nullable: false
+      source: primitive:json_payload
+    result_mode: scalar
+    symbol: ops.read_pdf_native_events
+  - cardinality: one
+    id: record_integrated_source_context
+    json_read: json-text-v1
+    order_by: []
+    ordered: false
+    parameters:
+    - name: task_id
+      native_parameter: p_task
+      nullable: false
+      semantic_type: TaskId
+      source: physical:ops.pdf_published_revision.task_id
+    - name: product_key
+      native_parameter: p_key
+      nullable: false
+      semantic_type: ProductKey
+      source: physical:ops.pdf_published_revision.product_key
+    - name: content_digest
+      native_parameter: p_digest
+      nullable: false
+      semantic_type: ContentDigest
+      source: physical:ops.pdf_published_revision.logical_digest
+    - multivalued: true
+      name: pointers
+      native_parameter: p_pointers
+      nullable: false
+      source: physical:kb.pdf_record_access.pointer
+    - name: section
+      native_parameter: p_section
+      nullable: false
+      source: primitive:string
+    - name: membership
+      native_parameter: p_membership
+      nullable: false
+      source: primitive:string
+    - name: row_budget
+      native_parameter: p_row_budget
+      nullable: true
+      source: primitive:integer
+    result_class: NativeJsonEnvelope
+    result_fields:
+    - name: body
+      nullable: false
+      source: primitive:json_payload
+    result_mode: scalar
+    symbol: ops.record_integrated_source_context
+  - cardinality: many
+    id: read_pdf_selected_source_events
+    json_read: json-text-v1
+    order_by: []
+    ordered: false
+    parameters:
+    - name: project_id
+      native_parameter: p_project
+      nullable: false
+      source: physical:ops.data_demand.project_id
+    - name: demand_id
+      native_parameter: p_demand
+      nullable: false
+      source: physical:ops.data_demand.id
+    - name: read_id
+      native_parameter: p_read
+      nullable: false
+      source: physical:ops.data_demand_read.id
+    - name: use_id
+      native_parameter: p_use
+      nullable: false
+      source: physical:ops.demand_use.id
+    - name: product_id
+      native_parameter: p_product
+      nullable: false
+      source: physical:kb.data_product.id
+    - name: derivation_id
+      native_parameter: p_derivation
+      nullable: false
+      source: physical:ops.data_derivation.id
+    - name: section
+      native_parameter: p_section
+      nullable: false
+      source: primitive:string
+    - name: membership
+      native_parameter: p_membership
+      nullable: false
+      source: primitive:string
+    - name: policy
+      native_parameter: p_policy
+      nullable: false
+      source: primitive:string
+    result_class: NativeJsonEnvelope
+    result_fields:
+    - name: body
+      nullable: false
+      source: primitive:json_payload
+    result_mode: scalar
+    symbol: ops.read_pdf_selected_source_events
+  id: read_native_source
   implementation:
     owner: semantic.source_views
     symbol: read_native_source
@@ -113,455 +655,8 @@ actions:
   - missing
   - invalid
   - unsupported
-  calls:
-  - id: read_published_sections
-    symbol: ops.read_pdf_published_sections
-    parameters:
-    - &id001
-      name: task_id
-      source: physical:ops.pdf_published_revision.task_id
-      nullable: false
-      native_parameter: p_task
-      semantic_type: TaskId
-    - &id002
-      name: product_key
-      source: physical:ops.pdf_published_revision.product_key
-      nullable: false
-      native_parameter: p_product
-      semantic_type: ProductKey
-    - &id003
-      name: content_digest
-      source: physical:ops.pdf_published_revision.logical_digest
-      nullable: false
-      native_parameter: p_digest
-      semantic_type: ContentDigest
-    result_source: model:PublishedSectionRow
-    result_fields: []
-    cardinality: many
-    ordered: true
-    order_by:
-    - ordinal
-    requires_context: true
-  - id: read_published_section_nodes
-    json_read: json-text-v1
-    symbol: ops.read_pdf_published_section_nodes
-    parameters:
-    - *id001
-    - *id002
-    - *id003
-    - name: section
-      source: physical:kb.pdf_record_access.pointer
-      native_parameter: p_section
-      nullable: false
-    - &id004
-      name: membership
-      source: model:PdfSourceViewPublication.membership
-      nullable: false
-      native_parameter: p_membership
-    result_source: model:PublishedSectionNodeRow
-    result_fields: []
-    cardinality: many
-    ordered: true
-    order_by:
-    - ordinal
-    requires_context: true
-  - id: read_published_items
-    json_read: json-text-v1
-    symbol: ops.read_pdf_published_items
-    parameters:
-    - *id001
-    - *id002
-    - *id003
-    - name: pointers
-      source: physical:kb.pdf_record_access.pointer
-      native_parameter: p_pointers
-      nullable: false
-      multivalued: true
-    result_source: model:PdfRecordAccess
-    result_fields: []
-    cardinality: many
-    ordered: true
-    order_by:
-    - ordinal
-    requires_context: true
-  - id: read_published_region
-    symbol: ops.read_pdf_published_region
-    parameters:
-    - *id001
-    - *id002
-    - *id003
-    - name: pointer
-      source: physical:kb.pdf_record_access.pointer
-      native_parameter: p_pointer
-      nullable: false
-    - name: region_index
-      source: physical:kb.pdf_record_region.region_index
-      nullable: false
-      native_parameter: p_region_index
-    result_source: model:PdfRecordRegion
-    result_fields: []
-    cardinality: optional
-    ordered: false
-    order_by: []
-    requires_context: true
-  - id: read_published_section_reports
-    json_read: json-text-v1
-    symbol: ops.read_pdf_published_section_reports
-    parameters:
-    - *id001
-    - *id002
-    - *id003
-    - name: pointers
-      source: physical:kb.pdf_record_access.pointer
-      native_parameter: p_pointers
-      nullable: false
-      multivalued: true
-    - name: sections
-      source: physical:kb.pdf_record_access.pointer
-      native_parameter: p_sections
-      nullable: false
-      multivalued: true
-    result_source: model:PublishedSectionReportRow
-    result_fields: []
-    cardinality: many
-    ordered: true
-    order_by:
-    - ordinal
-    - local_id
-    requires_context: true
-  - id: read_published_item_page
-    symbol: ops.read_pdf_published_item_page
-    parameters:
-    - *id001
-    - *id002
-    - *id003
-    - name: section
-      source: physical:kb.pdf_record_access.pointer
-      native_parameter: p_section
-      nullable: true
-    - *id004
-    - name: pointer
-      source: physical:kb.pdf_record_access.pointer
-      native_parameter: p_pointer
-      nullable: true
-    - name: after
-      source: primitive:integer
-      nullable: false
-      native_parameter: p_after
-    - name: limit
-      source: primitive:integer
-      nullable: false
-      native_parameter: p_limit
-    result_source: model:PublishedItemIndexRow
-    result_fields: []
-    cardinality: many
-    ordered: true
-    order_by:
-    - ordinal
-    requires_context: true
-  - id: read_published_regions
-    symbol: ops.read_pdf_published_regions
-    parameters:
-    - *id001
-    - *id002
-    - *id003
-    - name: pointer
-      source: physical:kb.pdf_record_access.pointer
-      native_parameter: p_pointer
-      nullable: false
-    result_source: model:PdfRecordRegion
-    result_fields: []
-    cardinality: many
-    ordered: true
-    order_by:
-    - region_index
-    requires_context: true
-  - id: read_published_region_batch
-    symbol: ops.read_pdf_published_region_batch
-    parameters:
-    - *id001
-    - *id002
-    - *id003
-    - name: pointers
-      source: physical:kb.pdf_record_access.pointer
-      native_parameter: p_pointers
-      nullable: false
-      multivalued: true
-    result_source: model:PdfRecordRegion
-    result_fields: []
-    cardinality: many
-    ordered: true
-    order_by:
-    - pointer
-    - region_index
-    requires_context: true
-  - id: read_published_item_ancestors
-    symbol: ops.read_pdf_published_item_ancestors
-    parameters:
-    - *id001
-    - *id002
-    - *id003
-    - name: pointer
-      source: physical:kb.pdf_record_access.pointer
-      native_parameter: p_pointer
-      nullable: false
-    result_source: model:PublishedItemIndexRow
-    result_fields: []
-    cardinality: many
-    ordered: true
-    order_by:
-    - ordinal
-    requires_context: true
-  - id: read_pdf_record_rows
-    symbol: ops.read_pdf_record_rows
-    parameters:
-    - name: task_id
-      source: physical:ops.pdf_published_revision.task_id
-      nullable: false
-      native_parameter: p_task
-      semantic_type: TaskId
-    - name: product_key
-      source: physical:ops.pdf_published_revision.product_key
-      nullable: false
-      native_parameter: p_product
-      semantic_type: ProductKey
-    - name: content_digest
-      source: physical:ops.pdf_published_revision.logical_digest
-      nullable: false
-      native_parameter: p_digest
-      semantic_type: ContentDigest
-    - name: family
-      source: primitive:string
-      nullable: false
-      native_parameter: p_family
-    - name: filters
-      source: primitive:json_payload
-      nullable: false
-      native_parameter: p_filters
-    - name: after
-      source: primitive:json_payload
-      nullable: true
-      native_parameter: p_after
-    - name: limit
-      source: primitive:integer
-      nullable: false
-      native_parameter: p_limit
-      native_type: integer
-    result_fields:
-    - name: body
-      source: primitive:json_payload
-      nullable: false
-    result_mode: scalar
-    cardinality: many
-    ordered: false
-    order_by: []
-    result_class: NativeJsonEnvelope
-    json_read: json-text-v1
-  - id: read_pdf_record_context_rows
-    symbol: ops.read_pdf_record_context_rows
-    parameters:
-    - name: task_id
-      source: physical:ops.pdf_published_revision.task_id
-      nullable: false
-      native_parameter: p_task
-      semantic_type: TaskId
-    - name: product_key
-      source: physical:ops.pdf_published_revision.product_key
-      nullable: false
-      native_parameter: p_product
-      semantic_type: ProductKey
-    - name: content_digest
-      source: physical:ops.pdf_published_revision.logical_digest
-      nullable: false
-      native_parameter: p_digest
-      semantic_type: ContentDigest
-    - name: pointers
-      source: physical:kb.pdf_record_access.pointer
-      nullable: false
-      native_parameter: p_pointers
-      multivalued: true
-    - name: section
-      source: primitive:string
-      nullable: true
-      native_parameter: p_section
-    - name: family
-      source: primitive:string
-      nullable: false
-      native_parameter: p_family
-    - name: after
-      source: primitive:string
-      nullable: true
-      native_parameter: p_after
-    - name: limit
-      source: primitive:integer
-      nullable: false
-      native_parameter: p_limit
-      native_type: integer
-    result_fields:
-    - name: body
-      source: primitive:json_payload
-      nullable: false
-    result_mode: scalar
-    cardinality: many
-    ordered: false
-    order_by: []
-    result_class: NativeJsonEnvelope
-    json_read: json-text-v1
-  - id: read_pdf_companion_export_events
-    symbol: ops.read_pdf_companion_export_events
-    parameters:
-    - name: task_id
-      source: physical:ops.pdf_published_revision.task_id
-      nullable: false
-      native_parameter: p_task
-      semantic_type: TaskId
-    - name: product_key
-      source: physical:ops.pdf_published_revision.product_key
-      nullable: false
-      native_parameter: p_product
-      semantic_type: ProductKey
-    - name: content_digest
-      source: physical:ops.pdf_published_revision.logical_digest
-      nullable: false
-      native_parameter: p_digest
-      semantic_type: ContentDigest
-    - name: family
-      source: primitive:string
-      nullable: false
-      native_parameter: p_family
-    result_fields:
-    - name: body
-      source: primitive:json_payload
-      nullable: false
-    result_mode: scalar
-    cardinality: many
-    ordered: false
-    order_by: []
-    result_class: NativeJsonEnvelope
-    json_read: json-text-v1
-  - id: read_pdf_native_events
-    symbol: ops.read_pdf_native_events
-    parameters:
-    - name: task_id
-      source: physical:ops.pdf_published_revision.task_id
-      nullable: false
-      native_parameter: p_task
-      semantic_type: TaskId
-    - name: product_key
-      source: physical:ops.pdf_published_revision.product_key
-      nullable: false
-      native_parameter: p_product
-      semantic_type: ProductKey
-    - name: content_digest
-      source: physical:ops.pdf_published_revision.logical_digest
-      nullable: false
-      native_parameter: p_digest
-      semantic_type: ContentDigest
-    result_fields:
-    - name: body
-      source: primitive:json_payload
-      nullable: false
-    result_mode: scalar
-    cardinality: many
-    ordered: false
-    order_by: []
-    result_class: NativeJsonEnvelope
-    json_read: json-text-v1
-  - id: record_integrated_source_context
-    symbol: ops.record_integrated_source_context
-    parameters:
-    - name: task_id
-      source: physical:ops.pdf_published_revision.task_id
-      nullable: false
-      native_parameter: p_task
-      semantic_type: TaskId
-    - name: product_key
-      source: physical:ops.pdf_published_revision.product_key
-      nullable: false
-      native_parameter: p_key
-      semantic_type: ProductKey
-    - name: content_digest
-      source: physical:ops.pdf_published_revision.logical_digest
-      nullable: false
-      native_parameter: p_digest
-      semantic_type: ContentDigest
-    - name: pointers
-      source: physical:kb.pdf_record_access.pointer
-      nullable: false
-      native_parameter: p_pointers
-      multivalued: true
-    - name: section
-      source: primitive:string
-      nullable: false
-      native_parameter: p_section
-    - name: membership
-      source: primitive:string
-      nullable: false
-      native_parameter: p_membership
-    - name: row_budget
-      source: primitive:integer
-      nullable: true
-      native_parameter: p_row_budget
-    result_fields:
-    - name: body
-      source: primitive:json_payload
-      nullable: false
-    result_mode: scalar
-    cardinality: one
-    ordered: false
-    order_by: []
-    result_class: NativeJsonEnvelope
-    json_read: json-text-v1
-  - id: read_pdf_selected_source_events
-    symbol: ops.read_pdf_selected_source_events
-    parameters:
-    - name: project_id
-      source: physical:ops.data_demand.project_id
-      nullable: false
-      native_parameter: p_project
-    - name: demand_id
-      source: physical:ops.data_demand.id
-      nullable: false
-      native_parameter: p_demand
-    - name: read_id
-      source: physical:ops.data_demand_read.id
-      nullable: false
-      native_parameter: p_read
-    - name: use_id
-      source: physical:ops.demand_use.id
-      nullable: false
-      native_parameter: p_use
-    - name: product_id
-      source: physical:kb.data_product.id
-      nullable: false
-      native_parameter: p_product
-    - name: derivation_id
-      source: physical:ops.data_derivation.id
-      nullable: false
-      native_parameter: p_derivation
-    - name: section
-      source: primitive:string
-      nullable: false
-      native_parameter: p_section
-    - name: membership
-      source: primitive:string
-      nullable: false
-      native_parameter: p_membership
-    - name: policy
-      source: primitive:string
-      nullable: false
-      native_parameter: p_policy
-    result_fields:
-    - name: body
-      source: primitive:json_payload
-      nullable: false
-    result_mode: scalar
-    cardinality: many
-    ordered: false
-    order_by: []
-    result_class: NativeJsonEnvelope
-    json_read: json-text-v1
-- id: prepare_integrated_pdf
+- calls: []
+  id: prepare_integrated_pdf
   implementation:
     owner: semantic.pdf_integrated
     symbol: prepare_integrated_pdf_product
@@ -572,8 +667,45 @@ actions:
   - unknown
   - unsupported
   - failed
-  calls: []
-- id: publish_pdf_observation
+- calls:
+  - cardinality: one
+    id: publish_pdf_observation
+    ordered: false
+    parameters:
+    - name: task_id
+      native_parameter: p_task
+      nullable: false
+      semantic_type: TaskId
+      source: physical:ops.task.id
+    - name: attempt
+      native_parameter: p_attempt
+      nullable: false
+      semantic_type: TaskAttempt
+      source: physical:ops.task.attempt
+    - name: holder
+      native_parameter: p_holder
+      nullable: false
+      source: physical:ops.task.claimed_by
+    - name: contract_digest
+      native_parameter: p_contract
+      nullable: false
+      source: primitive:string
+    - name: payload
+      native_parameter: p_payload
+      nullable: false
+      source: primitive:bytes
+    - multivalued: true
+      name: artifacts
+      native_parameter: p_artifacts
+      nullable: false
+      source: physical:kb.source_artifact.content
+    result_fields:
+    - name: content_digest
+      nullable: false
+      source: primitive:string
+    result_mode: scalar
+    symbol: ops.publish_pdf_observation
+  id: publish_pdf_observation
   implementation:
     owner: semantic.pdf_integrated
     symbol: store_pdf_observation
@@ -582,45 +714,78 @@ actions:
   - applied
   - replay
   - conflict
-  calls:
-  - id: publish_pdf_observation
-    symbol: ops.publish_pdf_observation
+- calls:
+  - cardinality: optional
+    id: read_pdf_published_revision
+    ordered: false
     parameters:
     - name: task_id
-      source: physical:ops.task.id
       native_parameter: p_task
       nullable: false
       semantic_type: TaskId
-    - name: attempt
-      source: physical:ops.task.attempt
-      native_parameter: p_attempt
+      source: model:PdfStageBuild.task_id
+    - name: product_key
+      native_parameter: p_key
       nullable: false
-      semantic_type: TaskAttempt
-    - name: holder
-      source: physical:ops.task.claimed_by
-      native_parameter: p_holder
+      source: model:PdfPublishedRevision.product_key
+    - name: logical_digest
+      native_parameter: p_digest
       nullable: false
-    - name: contract_digest
-      source: primitive:string
-      native_parameter: p_contract
-      nullable: false
-    - name: payload
-      source: primitive:bytes
-      native_parameter: p_payload
-      nullable: false
-    - name: artifacts
-      source: physical:kb.source_artifact.content
-      native_parameter: p_artifacts
-      nullable: false
-      multivalued: true
-    result_mode: scalar
-    result_fields:
-    - name: content_digest
-      source: primitive:string
-      nullable: false
-    cardinality: one
+      source: model:PdfPublishedRevision.logical_digest
+    result_fields: []
+    result_mode: table
+    result_source: model:PdfPublishedRevision
+    symbol: ops.read_pdf_published_revision
+  - cardinality: one
+    id: read_pdf_materialization_bound
     ordered: false
-- id: read_pdf_product
+    parameters:
+    - name: task_id
+      native_parameter: p_task
+      nullable: false
+      semantic_type: TaskId
+      source: physical:ops.pdf_published_revision.task_id
+    - name: product_key
+      native_parameter: p_product
+      nullable: false
+      semantic_type: ProductKey
+      source: physical:ops.pdf_published_revision.product_key
+    - name: content_digest
+      native_parameter: p_digest
+      nullable: false
+      semantic_type: ContentDigest
+      source: physical:ops.pdf_published_revision.logical_digest
+    result_fields:
+    - name: byte_bound
+      nullable: false
+      source: primitive:integer
+    result_mode: scalar
+    symbol: ops.read_pdf_materialization_bound
+  - cardinality: optional
+    id: read_pdf_published_validation
+    order_by: []
+    ordered: false
+    parameters:
+    - name: task_id
+      native_parameter: p_task
+      nullable: false
+      semantic_type: TaskId
+      source: physical:ops.pdf_published_revision.task_id
+    - name: product_key
+      native_parameter: p_key
+      nullable: false
+      semantic_type: ProductKey
+      source: physical:ops.pdf_published_revision.product_key
+    - name: content_digest
+      native_parameter: p_digest
+      nullable: false
+      semantic_type: ContentDigest
+      source: physical:ops.pdf_published_revision.logical_digest
+    result_fields: []
+    result_mode: table
+    result_source: model:PdfBuildValidation
+    symbol: ops.read_pdf_published_validation
+  id: read_pdf_product
   implementation:
     owner: semantic.pdf_storage
     symbol: read_pdf_product
@@ -631,78 +796,8 @@ actions:
   - unknown
   - unsupported
   - failed
-  calls:
-  - id: read_pdf_published_revision
-    symbol: ops.read_pdf_published_revision
-    parameters:
-    - name: task_id
-      source: model:PdfStageBuild.task_id
-      nullable: false
-      native_parameter: p_task
-      semantic_type: TaskId
-    - name: product_key
-      source: model:PdfPublishedRevision.product_key
-      nullable: false
-      native_parameter: p_key
-    - name: logical_digest
-      source: model:PdfPublishedRevision.logical_digest
-      nullable: false
-      native_parameter: p_digest
-    result_mode: table
-    result_fields: []
-    cardinality: optional
-    ordered: false
-    result_source: model:PdfPublishedRevision
-  - id: read_pdf_materialization_bound
-    symbol: ops.read_pdf_materialization_bound
-    parameters:
-    - name: task_id
-      source: physical:ops.pdf_published_revision.task_id
-      nullable: false
-      native_parameter: p_task
-      semantic_type: TaskId
-    - name: product_key
-      source: physical:ops.pdf_published_revision.product_key
-      nullable: false
-      native_parameter: p_product
-      semantic_type: ProductKey
-    - name: content_digest
-      source: physical:ops.pdf_published_revision.logical_digest
-      nullable: false
-      native_parameter: p_digest
-      semantic_type: ContentDigest
-    result_mode: scalar
-    result_fields:
-    - name: byte_bound
-      source: primitive:integer
-      nullable: false
-    cardinality: one
-    ordered: false
-  - id: read_pdf_published_validation
-    symbol: ops.read_pdf_published_validation
-    parameters:
-    - name: task_id
-      source: physical:ops.pdf_published_revision.task_id
-      nullable: false
-      native_parameter: p_task
-      semantic_type: TaskId
-    - name: product_key
-      source: physical:ops.pdf_published_revision.product_key
-      nullable: false
-      native_parameter: p_key
-      semantic_type: ProductKey
-    - name: content_digest
-      source: physical:ops.pdf_published_revision.logical_digest
-      nullable: false
-      native_parameter: p_digest
-      semantic_type: ContentDigest
-    result_fields: []
-    result_mode: table
-    cardinality: optional
-    ordered: false
-    order_by: []
-    result_source: model:PdfBuildValidation
-- id: recognize_pdf_observation
+- calls: []
+  id: recognize_pdf_observation
   implementation:
     owner: ingest.pdf_recognition
     symbol: RecognitionWorker.recognize_pages
@@ -713,8 +808,8 @@ actions:
   - unknown
   - unsupported
   - failed
-  calls: []
-- id: recognize_chandra_observation
+- calls: []
+  id: recognize_chandra_observation
   implementation:
     owner: ingest.pdf_chandra
     symbol: ChandraRuntime.recognize
@@ -724,8 +819,8 @@ actions:
   - partial
   - unknown
   - failed
-  calls: []
-- id: map_pdf_observation
+- calls: []
+  id: map_pdf_observation
   implementation:
     owner: ingest.pdf_reconciliation
     symbol: map_pdf_observation
@@ -734,8 +829,8 @@ actions:
   - complete
   - partial
   - unsupported
-  calls: []
-- id: compare_pdf_occurrences
+- calls: []
+  id: compare_pdf_occurrences
   implementation:
     owner: ingest.pdf_reconciliation
     symbol: compare_pdf_occurrences
@@ -744,8 +839,8 @@ actions:
   - complete
   - partial
   - unsupported
-  calls: []
-- id: select_pdf_integration
+- calls: []
+  id: select_pdf_integration
   implementation:
     owner: ingest.pdf_reconciliation
     symbol: select_pdf_integration
@@ -754,8 +849,40 @@ actions:
   - complete
   - partial
   - unsupported
-  calls: []
-- id: freeze_pdf_build
+- calls:
+  - cardinality: one
+    id: freeze_pdf_build
+    ordered: false
+    parameters:
+    - name: build_id
+      native_parameter: p_build
+      nullable: false
+      source: model:PdfStageBuild.build_id
+    - name: task_id
+      native_parameter: p_task
+      nullable: false
+      semantic_type: TaskId
+      source: model:PdfStageBuild.task_id
+    - name: attempt
+      native_parameter: p_attempt
+      nullable: false
+      semantic_type: TaskAttempt
+      source: model:PdfStageBuild.attempt
+    - name: holder
+      native_parameter: p_holder
+      nullable: false
+      source: model:PdfStageBuild.holder
+    - name: kind
+      native_parameter: p_kind
+      nullable: false
+      source: model:PdfFrozenBuild.kind
+    result_fields:
+    - name: frozen_digest
+      nullable: false
+      source: model:PdfFrozenBuild.frozen_digest
+    result_mode: scalar
+    symbol: ops.freeze_pdf_build
+  id: freeze_pdf_build
   implementation:
     owner: semantic.pdf_publication
     symbol: freeze_pdf_build
@@ -764,40 +891,37 @@ actions:
   - applied
   - replay
   - conflict
-  calls:
-  - id: freeze_pdf_build
-    symbol: ops.freeze_pdf_build
+- calls:
+  - cardinality: none
+    id: prepare_pdf_build
+    ordered: false
     parameters:
     - name: build_id
-      source: model:PdfStageBuild.build_id
-      nullable: false
       native_parameter: p_build
+      nullable: false
+      source: model:PdfStageBuild.build_id
     - name: task_id
-      source: model:PdfStageBuild.task_id
-      nullable: false
       native_parameter: p_task
+      nullable: false
       semantic_type: TaskId
+      source: model:PdfStageBuild.task_id
     - name: attempt
-      source: model:PdfStageBuild.attempt
-      nullable: false
       native_parameter: p_attempt
+      nullable: false
       semantic_type: TaskAttempt
+      source: model:PdfStageBuild.attempt
     - name: holder
-      source: model:PdfStageBuild.holder
-      nullable: false
       native_parameter: p_holder
-    - name: kind
-      source: model:PdfFrozenBuild.kind
       nullable: false
-      native_parameter: p_kind
-    result_mode: scalar
-    result_fields:
+      source: model:PdfStageBuild.holder
     - name: frozen_digest
-      source: model:PdfFrozenBuild.frozen_digest
+      native_parameter: p_frozen
       nullable: false
-    cardinality: one
-    ordered: false
-- id: prepare_pdf_build
+      source: model:PdfFrozenBuild.frozen_digest
+    result_fields: []
+    result_mode: void
+    symbol: ops.prepare_pdf_build
+  id: prepare_pdf_build
   implementation:
     owner: semantic.pdf_publication
     symbol: prepare_pdf_build
@@ -806,37 +930,217 @@ actions:
   - applied
   - replay
   - conflict
-  calls:
-  - id: prepare_pdf_build
-    symbol: ops.prepare_pdf_build
+- calls:
+  - cardinality: optional
+    id: lookup_pdf_validation
+    ordered: false
     parameters:
     - name: build_id
-      source: model:PdfStageBuild.build_id
-      nullable: false
       native_parameter: p_build
+      nullable: false
+      source: model:PdfStageBuild.build_id
     - name: task_id
-      source: model:PdfStageBuild.task_id
-      nullable: false
       native_parameter: p_task
+      nullable: false
       semantic_type: TaskId
+      source: model:PdfStageBuild.task_id
     - name: attempt
-      source: model:PdfStageBuild.attempt
-      nullable: false
       native_parameter: p_attempt
+      nullable: false
       semantic_type: TaskAttempt
+      source: model:PdfStageBuild.attempt
     - name: holder
-      source: model:PdfStageBuild.holder
-      nullable: false
       native_parameter: p_holder
-    - name: frozen_digest
-      source: model:PdfFrozenBuild.frozen_digest
       nullable: false
+      source: model:PdfStageBuild.holder
+    - name: frozen_digest
       native_parameter: p_frozen
-    result_mode: void
+      nullable: false
+      source: model:PdfFrozenBuild.frozen_digest
     result_fields: []
-    cardinality: none
+    result_mode: table
+    result_source: model:PdfBuildValidation
+    symbol: ops.lookup_pdf_validation
+  - cardinality: none
+    id: record_pdf_native_validation
     ordered: false
-- id: validate_pdf_build
+    parameters:
+    - name: build_id
+      native_parameter: p_build
+      nullable: false
+      source: model:PdfStageBuild.build_id
+    - name: task_id
+      native_parameter: p_task
+      nullable: false
+      semantic_type: TaskId
+      source: model:PdfStageBuild.task_id
+    - name: attempt
+      native_parameter: p_attempt
+      nullable: false
+      semantic_type: TaskAttempt
+      source: model:PdfStageBuild.attempt
+    - name: holder
+      native_parameter: p_holder
+      nullable: false
+      source: model:PdfStageBuild.holder
+    - name: frozen_digest
+      native_parameter: p_frozen
+      nullable: false
+      source: model:PdfFrozenBuild.frozen_digest
+    - name: passed
+      native_parameter: p_passed
+      nullable: false
+      source: primitive:boolean
+    result_fields: []
+    result_mode: void
+    symbol: ops.record_pdf_native_validation
+  - cardinality: none
+    id: check_pdf_build
+    ordered: false
+    parameters:
+    - name: build_id
+      native_parameter: p_build
+      nullable: false
+      source: model:PdfStageBuild.build_id
+    - name: task_id
+      native_parameter: p_task
+      nullable: false
+      semantic_type: TaskId
+      source: model:PdfStageBuild.task_id
+    - name: attempt
+      native_parameter: p_attempt
+      nullable: false
+      semantic_type: TaskAttempt
+      source: model:PdfStageBuild.attempt
+    - name: holder
+      native_parameter: p_holder
+      nullable: false
+      source: model:PdfStageBuild.holder
+    - name: frozen_digest
+      native_parameter: p_frozen
+      nullable: false
+      source: model:PdfFrozenBuild.frozen_digest
+    - name: check_name
+      native_parameter: p_check
+      nullable: false
+      source: model:PdfValidationCheck.check_name
+    result_fields: []
+    result_mode: void
+    symbol: ops.check_pdf_build
+  - cardinality: none
+    id: adopt_pdf_access_batch
+    ordered: false
+    parameters:
+    - name: build_id
+      native_parameter: p_build
+      nullable: false
+      source: model:PdfStageBuild.build_id
+    - name: task_id
+      native_parameter: p_task
+      nullable: false
+      semantic_type: TaskId
+      source: model:PdfStageBuild.task_id
+    - name: attempt
+      native_parameter: p_attempt
+      nullable: false
+      semantic_type: TaskAttempt
+      source: model:PdfStageBuild.attempt
+    - name: holder
+      native_parameter: p_holder
+      nullable: false
+      source: model:PdfStageBuild.holder
+    - name: frozen_digest
+      native_parameter: p_frozen
+      nullable: false
+      source: model:PdfFrozenBuild.frozen_digest
+    - name: rows
+      native_parameter: p_rows
+      nullable: false
+      source: primitive:json_payload
+    result_fields: []
+    result_mode: void
+    symbol: ops.adopt_pdf_access_batch
+  - cardinality: one
+    id: validate_pdf_build
+    ordered: false
+    parameters:
+    - name: build_id
+      native_parameter: p_build
+      nullable: false
+      source: model:PdfStageBuild.build_id
+    - name: task_id
+      native_parameter: p_task
+      nullable: false
+      semantic_type: TaskId
+      source: model:PdfStageBuild.task_id
+    - name: attempt
+      native_parameter: p_attempt
+      nullable: false
+      semantic_type: TaskAttempt
+      source: model:PdfStageBuild.attempt
+    - name: holder
+      native_parameter: p_holder
+      nullable: false
+      source: model:PdfStageBuild.holder
+    - name: frozen_digest
+      native_parameter: p_frozen
+      nullable: false
+      source: model:PdfFrozenBuild.frozen_digest
+    result_fields: []
+    result_mode: table
+    result_source: model:PdfBuildValidation
+    symbol: ops.validate_pdf_build
+  - cardinality: many
+    id: read_pdf_frozen_rows
+    json_read: json-text-v1
+    ordered: false
+    parameters:
+    - name: build_id
+      native_parameter: p_build
+      nullable: false
+      source: model:PdfStageBuild.build_id
+    - name: task_id
+      native_parameter: p_task
+      nullable: false
+      semantic_type: TaskId
+      source: model:PdfStageBuild.task_id
+    - name: attempt
+      native_parameter: p_attempt
+      nullable: false
+      semantic_type: TaskAttempt
+      source: model:PdfStageBuild.attempt
+    - name: holder
+      native_parameter: p_holder
+      nullable: false
+      source: model:PdfStageBuild.holder
+    - name: frozen_digest
+      native_parameter: p_frozen
+      nullable: false
+      source: model:PdfFrozenBuild.frozen_digest
+    - name: family
+      native_parameter: p_family
+      nullable: false
+      source: primitive:string
+    - name: after
+      native_parameter: p_after
+      nullable: true
+      source: primitive:json_payload
+    - name: limit
+      native_parameter: p_limit
+      native_type: integer
+      nullable: false
+      source: primitive:integer
+    - name: filters
+      native_parameter: p_filters
+      nullable: false
+      source: primitive:json_payload
+    result_fields:
+    - name: body
+      nullable: false
+      source: primitive:json_payload
+    result_mode: scalar
+    symbol: ops.read_pdf_frozen_rows
+  id: validate_pdf_build
   implementation:
     owner: semantic.pdf_publication
     symbol: validate_pdf_build
@@ -845,217 +1149,42 @@ actions:
   - applied
   - replay
   - conflict
-  calls:
-  - id: lookup_pdf_validation
-    symbol: ops.lookup_pdf_validation
+- calls:
+  - cardinality: one
+    id: seal_pdf_build
+    ordered: false
     parameters:
     - name: build_id
-      source: model:PdfStageBuild.build_id
-      nullable: false
       native_parameter: p_build
+      nullable: false
+      source: model:PdfStageBuild.build_id
     - name: task_id
-      source: model:PdfStageBuild.task_id
-      nullable: false
       native_parameter: p_task
+      nullable: false
       semantic_type: TaskId
+      source: model:PdfStageBuild.task_id
     - name: attempt
-      source: model:PdfStageBuild.attempt
-      nullable: false
       native_parameter: p_attempt
+      nullable: false
       semantic_type: TaskAttempt
+      source: model:PdfStageBuild.attempt
     - name: holder
-      source: model:PdfStageBuild.holder
-      nullable: false
       native_parameter: p_holder
-    - name: frozen_digest
-      source: model:PdfFrozenBuild.frozen_digest
       nullable: false
+      source: model:PdfStageBuild.holder
+    - name: frozen_digest
       native_parameter: p_frozen
+      nullable: false
+      source: model:PdfFrozenBuild.frozen_digest
+    - name: product_key
+      native_parameter: p_key
+      nullable: false
+      source: model:PdfPublishedRevision.product_key
+    result_fields: []
     result_mode: table
-    result_fields: []
-    cardinality: optional
-    ordered: false
-    result_source: model:PdfBuildValidation
-  - id: record_pdf_native_validation
-    symbol: ops.record_pdf_native_validation
-    parameters:
-    - name: build_id
-      source: model:PdfStageBuild.build_id
-      nullable: false
-      native_parameter: p_build
-    - name: task_id
-      source: model:PdfStageBuild.task_id
-      nullable: false
-      native_parameter: p_task
-      semantic_type: TaskId
-    - name: attempt
-      source: model:PdfStageBuild.attempt
-      nullable: false
-      native_parameter: p_attempt
-      semantic_type: TaskAttempt
-    - name: holder
-      source: model:PdfStageBuild.holder
-      nullable: false
-      native_parameter: p_holder
-    - name: frozen_digest
-      source: model:PdfFrozenBuild.frozen_digest
-      nullable: false
-      native_parameter: p_frozen
-    - name: passed
-      source: primitive:boolean
-      nullable: false
-      native_parameter: p_passed
-    result_mode: void
-    result_fields: []
-    cardinality: none
-    ordered: false
-  - id: check_pdf_build
-    symbol: ops.check_pdf_build
-    parameters:
-    - name: build_id
-      source: model:PdfStageBuild.build_id
-      nullable: false
-      native_parameter: p_build
-    - name: task_id
-      source: model:PdfStageBuild.task_id
-      nullable: false
-      native_parameter: p_task
-      semantic_type: TaskId
-    - name: attempt
-      source: model:PdfStageBuild.attempt
-      nullable: false
-      native_parameter: p_attempt
-      semantic_type: TaskAttempt
-    - name: holder
-      source: model:PdfStageBuild.holder
-      nullable: false
-      native_parameter: p_holder
-    - name: frozen_digest
-      source: model:PdfFrozenBuild.frozen_digest
-      nullable: false
-      native_parameter: p_frozen
-    - name: check_name
-      source: model:PdfValidationCheck.check_name
-      nullable: false
-      native_parameter: p_check
-    result_mode: void
-    result_fields: []
-    cardinality: none
-    ordered: false
-  - id: adopt_pdf_access_batch
-    symbol: ops.adopt_pdf_access_batch
-    parameters:
-    - name: build_id
-      source: model:PdfStageBuild.build_id
-      nullable: false
-      native_parameter: p_build
-    - name: task_id
-      source: model:PdfStageBuild.task_id
-      nullable: false
-      native_parameter: p_task
-      semantic_type: TaskId
-    - name: attempt
-      source: model:PdfStageBuild.attempt
-      nullable: false
-      native_parameter: p_attempt
-      semantic_type: TaskAttempt
-    - name: holder
-      source: model:PdfStageBuild.holder
-      nullable: false
-      native_parameter: p_holder
-    - name: frozen_digest
-      source: model:PdfFrozenBuild.frozen_digest
-      nullable: false
-      native_parameter: p_frozen
-    - name: rows
-      source: primitive:json_payload
-      nullable: false
-      native_parameter: p_rows
-    result_mode: void
-    result_fields: []
-    cardinality: none
-    ordered: false
-  - id: validate_pdf_build
-    symbol: ops.validate_pdf_build
-    parameters:
-    - name: build_id
-      source: model:PdfStageBuild.build_id
-      nullable: false
-      native_parameter: p_build
-    - name: task_id
-      source: model:PdfStageBuild.task_id
-      nullable: false
-      native_parameter: p_task
-      semantic_type: TaskId
-    - name: attempt
-      source: model:PdfStageBuild.attempt
-      nullable: false
-      native_parameter: p_attempt
-      semantic_type: TaskAttempt
-    - name: holder
-      source: model:PdfStageBuild.holder
-      nullable: false
-      native_parameter: p_holder
-    - name: frozen_digest
-      source: model:PdfFrozenBuild.frozen_digest
-      nullable: false
-      native_parameter: p_frozen
-    result_mode: table
-    result_fields: []
-    cardinality: one
-    ordered: false
-    result_source: model:PdfBuildValidation
-  - id: read_pdf_frozen_rows
-    json_read: json-text-v1
-    symbol: ops.read_pdf_frozen_rows
-    parameters:
-    - name: build_id
-      source: model:PdfStageBuild.build_id
-      nullable: false
-      native_parameter: p_build
-    - name: task_id
-      source: model:PdfStageBuild.task_id
-      nullable: false
-      native_parameter: p_task
-      semantic_type: TaskId
-    - name: attempt
-      source: model:PdfStageBuild.attempt
-      nullable: false
-      native_parameter: p_attempt
-      semantic_type: TaskAttempt
-    - name: holder
-      source: model:PdfStageBuild.holder
-      nullable: false
-      native_parameter: p_holder
-    - name: frozen_digest
-      source: model:PdfFrozenBuild.frozen_digest
-      nullable: false
-      native_parameter: p_frozen
-    - name: family
-      source: primitive:string
-      nullable: false
-      native_parameter: p_family
-    - name: after
-      source: primitive:json_payload
-      nullable: true
-      native_parameter: p_after
-    - name: limit
-      source: primitive:integer
-      nullable: false
-      native_parameter: p_limit
-      native_type: integer
-    - name: filters
-      source: primitive:json_payload
-      nullable: false
-      native_parameter: p_filters
-    result_mode: scalar
-    result_fields:
-    - name: body
-      source: primitive:json_payload
-      nullable: false
-    cardinality: many
-    ordered: false
-- id: seal_pdf_build
+    result_source: model:PdfPublishedRevision
+    symbol: ops.seal_pdf_build
+  id: seal_pdf_build
   implementation:
     owner: semantic.pdf_publication
     symbol: seal_pdf_build
@@ -1064,42 +1193,116 @@ actions:
   - applied
   - replay
   - conflict
-  calls:
-  - id: seal_pdf_build
-    symbol: ops.seal_pdf_build
+- calls:
+  - cardinality: optional
+    id: lookup_pdf_build
+    ordered: false
+    parameters:
+    - name: task_id
+      native_parameter: p_task
+      nullable: false
+      semantic_type: TaskId
+      source: model:PdfStageBuild.task_id
+    - name: attempt
+      native_parameter: p_attempt
+      nullable: false
+      semantic_type: TaskAttempt
+      source: model:PdfStageBuild.attempt
+    - name: holder
+      native_parameter: p_holder
+      nullable: false
+      source: model:PdfStageBuild.holder
+    - name: replay_key
+      native_parameter: p_key
+      nullable: false
+      source: model:PdfStageBuild.replay_key
+    result_fields: []
+    result_mode: table
+    result_source: model:PdfStageBuild
+    symbol: ops.lookup_pdf_build
+  - cardinality: optional
+    id: lookup_pdf_frozen_digest
+    ordered: false
     parameters:
     - name: build_id
-      source: model:PdfStageBuild.build_id
-      nullable: false
       native_parameter: p_build
+      nullable: false
+      source: model:PdfStageBuild.build_id
     - name: task_id
-      source: model:PdfStageBuild.task_id
-      nullable: false
       native_parameter: p_task
+      nullable: false
       semantic_type: TaskId
+      source: model:PdfStageBuild.task_id
     - name: attempt
-      source: model:PdfStageBuild.attempt
-      nullable: false
       native_parameter: p_attempt
+      nullable: false
       semantic_type: TaskAttempt
+      source: model:PdfStageBuild.attempt
     - name: holder
-      source: model:PdfStageBuild.holder
-      nullable: false
       native_parameter: p_holder
+      nullable: false
+      source: model:PdfStageBuild.holder
+    result_fields:
     - name: frozen_digest
+      nullable: false
       source: model:PdfFrozenBuild.frozen_digest
-      nullable: false
-      native_parameter: p_frozen
-    - name: product_key
-      source: model:PdfPublishedRevision.product_key
-      nullable: false
-      native_parameter: p_key
-    result_mode: table
-    result_fields: []
-    cardinality: one
+    result_mode: scalar
+    symbol: ops.lookup_pdf_frozen_digest
+  - cardinality: optional
+    id: lookup_pdf_frozen_kind
     ordered: false
+    parameters:
+    - name: build_id
+      native_parameter: p_build
+      nullable: false
+      source: model:PdfStageBuild.build_id
+    - name: task_id
+      native_parameter: p_task
+      nullable: false
+      semantic_type: TaskId
+      source: model:PdfStageBuild.task_id
+    - name: attempt
+      native_parameter: p_attempt
+      nullable: false
+      semantic_type: TaskAttempt
+      source: model:PdfStageBuild.attempt
+    - name: holder
+      native_parameter: p_holder
+      nullable: false
+      source: model:PdfStageBuild.holder
+    result_fields:
+    - name: kind
+      nullable: false
+      source: model:PdfFrozenBuild.kind
+    result_mode: scalar
+    symbol: ops.lookup_pdf_frozen_kind
+  - cardinality: one
+    id: lookup_pdf_published_build
+    ordered: false
+    parameters:
+    - name: build_id
+      native_parameter: p_build
+      nullable: false
+      source: model:PdfStageBuild.build_id
+    - name: task_id
+      native_parameter: p_task
+      nullable: false
+      semantic_type: TaskId
+      source: model:PdfStageBuild.task_id
+    - name: attempt
+      native_parameter: p_attempt
+      nullable: false
+      semantic_type: TaskAttempt
+      source: model:PdfStageBuild.attempt
+    - name: holder
+      native_parameter: p_holder
+      nullable: false
+      source: model:PdfStageBuild.holder
+    result_fields: []
+    result_mode: table
     result_source: model:PdfPublishedRevision
-- id: inspect_pdf_build
+    symbol: ops.lookup_pdf_published_build
+  id: inspect_pdf_build
   implementation:
     owner: semantic.pdf_publication
     symbol: inspect_pdf_build
@@ -1108,116 +1311,36 @@ actions:
   - applied
   - replay
   - conflict
-  calls:
-  - id: lookup_pdf_build
-    symbol: ops.lookup_pdf_build
-    parameters:
-    - name: task_id
-      source: model:PdfStageBuild.task_id
-      nullable: false
-      native_parameter: p_task
-      semantic_type: TaskId
-    - name: attempt
-      source: model:PdfStageBuild.attempt
-      nullable: false
-      native_parameter: p_attempt
-      semantic_type: TaskAttempt
-    - name: holder
-      source: model:PdfStageBuild.holder
-      nullable: false
-      native_parameter: p_holder
-    - name: replay_key
-      source: model:PdfStageBuild.replay_key
-      nullable: false
-      native_parameter: p_key
-    result_mode: table
-    result_fields: []
-    cardinality: optional
+- calls:
+  - cardinality: one
+    id: bind_pdf_stage_recipe
     ordered: false
-    result_source: model:PdfStageBuild
-  - id: lookup_pdf_frozen_digest
-    symbol: ops.lookup_pdf_frozen_digest
     parameters:
-    - name: build_id
-      source: model:PdfStageBuild.build_id
-      nullable: false
-      native_parameter: p_build
     - name: task_id
-      source: model:PdfStageBuild.task_id
-      nullable: false
       native_parameter: p_task
+      nullable: false
       semantic_type: TaskId
+      source: model:PdfStageBuild.task_id
     - name: attempt
-      source: model:PdfStageBuild.attempt
-      nullable: false
       native_parameter: p_attempt
-      semantic_type: TaskAttempt
-    - name: holder
-      source: model:PdfStageBuild.holder
       nullable: false
+      semantic_type: TaskAttempt
+      source: model:PdfStageBuild.attempt
+    - name: holder
       native_parameter: p_holder
-    result_mode: scalar
+      nullable: false
+      source: model:PdfStageBuild.holder
+    - name: recipe
+      native_parameter: p_recipe
+      nullable: false
+      source: primitive:bytes
     result_fields:
-    - name: frozen_digest
-      source: model:PdfFrozenBuild.frozen_digest
+    - name: recipe_digest
       nullable: false
-    cardinality: optional
-    ordered: false
-  - id: lookup_pdf_frozen_kind
-    symbol: ops.lookup_pdf_frozen_kind
-    parameters:
-    - name: build_id
-      source: model:PdfStageBuild.build_id
-      nullable: false
-      native_parameter: p_build
-    - name: task_id
-      source: model:PdfStageBuild.task_id
-      nullable: false
-      native_parameter: p_task
-      semantic_type: TaskId
-    - name: attempt
-      source: model:PdfStageBuild.attempt
-      nullable: false
-      native_parameter: p_attempt
-      semantic_type: TaskAttempt
-    - name: holder
-      source: model:PdfStageBuild.holder
-      nullable: false
-      native_parameter: p_holder
+      source: model:PdfStageBuild.recipe_digest
     result_mode: scalar
-    result_fields:
-    - name: kind
-      source: model:PdfFrozenBuild.kind
-      nullable: false
-    cardinality: optional
-    ordered: false
-  - id: lookup_pdf_published_build
-    symbol: ops.lookup_pdf_published_build
-    parameters:
-    - name: build_id
-      source: model:PdfStageBuild.build_id
-      nullable: false
-      native_parameter: p_build
-    - name: task_id
-      source: model:PdfStageBuild.task_id
-      nullable: false
-      native_parameter: p_task
-      semantic_type: TaskId
-    - name: attempt
-      source: model:PdfStageBuild.attempt
-      nullable: false
-      native_parameter: p_attempt
-      semantic_type: TaskAttempt
-    - name: holder
-      source: model:PdfStageBuild.holder
-      nullable: false
-      native_parameter: p_holder
-    result_mode: table
-    result_fields: []
-    cardinality: one
-    ordered: false
-    result_source: model:PdfPublishedRevision
-- id: retain_pdf_stage_recipe
+    symbol: ops.bind_pdf_stage_recipe
+  id: retain_pdf_stage_recipe
   implementation:
     owner: semantic.pdf_publication
     symbol: retain_pdf_stage_recipe
@@ -1226,36 +1349,58 @@ actions:
   - applied
   - replay
   - conflict
-  calls:
-  - id: bind_pdf_stage_recipe
-    symbol: ops.bind_pdf_stage_recipe
-    parameters:
-    - name: task_id
-      source: model:PdfStageBuild.task_id
-      nullable: false
-      native_parameter: p_task
-      semantic_type: TaskId
-    - name: attempt
-      source: model:PdfStageBuild.attempt
-      nullable: false
-      native_parameter: p_attempt
-      semantic_type: TaskAttempt
-    - name: holder
-      source: model:PdfStageBuild.holder
-      nullable: false
-      native_parameter: p_holder
-    - name: recipe
-      source: primitive:bytes
-      nullable: false
-      native_parameter: p_recipe
-    result_mode: scalar
-    result_fields:
-    - name: recipe_digest
-      source: model:PdfStageBuild.recipe_digest
-      nullable: false
-    cardinality: one
+- calls:
+  - batch: true
+    cardinality: none
+    id: adopt_pdf_companion
     ordered: false
-- id: adopt_pdf_companion_batch
+    parameters:
+    - name: build_id
+      native_parameter: p_build
+      nullable: false
+      source: model:PdfStageBuild.build_id
+    - name: task_id
+      native_parameter: p_task
+      nullable: false
+      semantic_type: TaskId
+      source: model:PdfStageBuild.task_id
+    - name: attempt
+      native_parameter: p_attempt
+      nullable: false
+      semantic_type: TaskAttempt
+      source: model:PdfStageBuild.attempt
+    - name: holder
+      native_parameter: p_holder
+      nullable: false
+      source: model:PdfStageBuild.holder
+    - name: family
+      native_parameter: p_family
+      nullable: false
+      source: model:PdfRecordCompanion.family
+    - name: local_id
+      native_parameter: p_local
+      nullable: false
+      source: model:PdfRecordCompanion.local_id
+    - name: body
+      native_parameter: p_body
+      nullable: false
+      source: primitive:json_payload
+    - name: replay_key
+      native_parameter: p_key
+      nullable: false
+      source: model:PdfStageBuild.replay_key
+    - name: ordinal
+      native_parameter: p_ordinal
+      nullable: false
+      source: model:PdfRecordCompanion.ordinal
+    - name: fields
+      native_parameter: p_fields
+      nullable: false
+      source: primitive:json_payload
+    result_fields: []
+    result_mode: void
+    symbol: ops.adopt_pdf_companion
+  id: adopt_pdf_companion_batch
   implementation:
     owner: semantic.pdf_publication
     symbol: adopt_pdf_companion_batch
@@ -1264,58 +1409,46 @@ actions:
   - applied
   - replay
   - conflict
-  calls:
-  - id: adopt_pdf_companion
-    symbol: ops.adopt_pdf_companion
-    parameters:
-    - name: build_id
-      source: model:PdfStageBuild.build_id
-      nullable: false
-      native_parameter: p_build
-    - name: task_id
-      source: model:PdfStageBuild.task_id
-      nullable: false
-      native_parameter: p_task
-      semantic_type: TaskId
-    - name: attempt
-      source: model:PdfStageBuild.attempt
-      nullable: false
-      native_parameter: p_attempt
-      semantic_type: TaskAttempt
-    - name: holder
-      source: model:PdfStageBuild.holder
-      nullable: false
-      native_parameter: p_holder
-    - name: family
-      source: model:PdfRecordCompanion.family
-      nullable: false
-      native_parameter: p_family
-    - name: local_id
-      source: model:PdfRecordCompanion.local_id
-      nullable: false
-      native_parameter: p_local
-    - name: body
-      source: primitive:json_payload
-      nullable: false
-      native_parameter: p_body
-    - name: replay_key
-      source: model:PdfStageBuild.replay_key
-      nullable: false
-      native_parameter: p_key
-    - name: ordinal
-      source: model:PdfRecordCompanion.ordinal
-      nullable: false
-      native_parameter: p_ordinal
-    - name: fields
-      source: primitive:json_payload
-      nullable: false
-      native_parameter: p_fields
-    result_mode: void
-    result_fields: []
-    cardinality: none
+- calls:
+  - cardinality: one
+    id: begin_pdf_build
     ordered: false
-    batch: true
-- id: begin_pdf_build
+    parameters:
+    - name: task_id
+      native_parameter: p_task
+      nullable: false
+      semantic_type: TaskId
+      source: model:PdfStageBuild.task_id
+    - name: attempt
+      native_parameter: p_attempt
+      nullable: false
+      semantic_type: TaskAttempt
+      source: model:PdfStageBuild.attempt
+    - name: holder
+      native_parameter: p_holder
+      nullable: false
+      source: model:PdfStageBuild.holder
+    - name: source_digest
+      native_parameter: p_source
+      nullable: false
+      source: model:PdfStageBuild.source_digest
+    - name: recipe_digest
+      native_parameter: p_recipe
+      nullable: false
+      source: model:PdfStageBuild.recipe_digest
+    - name: schema_digest
+      native_parameter: p_schema
+      nullable: false
+      source: model:PdfStageBuild.schema_digest
+    - name: replay_key
+      native_parameter: p_key
+      nullable: false
+      source: model:PdfStageBuild.replay_key
+    result_fields: []
+    result_mode: table
+    result_source: model:PdfStageBuild
+    symbol: ops.begin_pdf_build
+  id: begin_pdf_build
   implementation:
     owner: semantic.pdf_staging
     symbol: begin_pdf_build
@@ -1324,46 +1457,63 @@ actions:
   - applied
   - replay
   - conflict
-  calls:
-  - id: begin_pdf_build
-    symbol: ops.begin_pdf_build
-    parameters:
-    - name: task_id
-      source: model:PdfStageBuild.task_id
-      nullable: false
-      native_parameter: p_task
-      semantic_type: TaskId
-    - name: attempt
-      source: model:PdfStageBuild.attempt
-      nullable: false
-      native_parameter: p_attempt
-      semantic_type: TaskAttempt
-    - name: holder
-      source: model:PdfStageBuild.holder
-      nullable: false
-      native_parameter: p_holder
-    - name: source_digest
-      source: model:PdfStageBuild.source_digest
-      nullable: false
-      native_parameter: p_source
-    - name: recipe_digest
-      source: model:PdfStageBuild.recipe_digest
-      nullable: false
-      native_parameter: p_recipe
-    - name: schema_digest
-      source: model:PdfStageBuild.schema_digest
-      nullable: false
-      native_parameter: p_schema
-    - name: replay_key
-      source: model:PdfStageBuild.replay_key
-      nullable: false
-      native_parameter: p_key
-    result_mode: table
-    result_fields: []
-    cardinality: one
+- calls:
+  - cardinality: none
+    id: prepare_pdf_stage
     ordered: false
-    result_source: model:PdfStageBuild
-- id: adopt_pdf_batch
+    parameters:
+    - name: build_id
+      native_parameter: p_build
+      nullable: false
+      source: model:PdfStageBuild.build_id
+    - name: task_id
+      native_parameter: p_task
+      nullable: false
+      semantic_type: TaskId
+      source: model:PdfStageBuild.task_id
+    - name: attempt
+      native_parameter: p_attempt
+      nullable: false
+      semantic_type: TaskAttempt
+      source: model:PdfStageBuild.attempt
+    - name: holder
+      native_parameter: p_holder
+      nullable: false
+      source: model:PdfStageBuild.holder
+    result_fields: []
+    result_mode: void
+    symbol: ops.prepare_pdf_stage
+  - cardinality: one
+    id: adopt_pdf_batch
+    ordered: false
+    parameters:
+    - name: build_id
+      native_parameter: p_build
+      nullable: false
+      source: model:PdfStageBuild.build_id
+    - name: task_id
+      native_parameter: p_task
+      nullable: false
+      semantic_type: TaskId
+      source: model:PdfStageBuild.task_id
+    - name: attempt
+      native_parameter: p_attempt
+      nullable: false
+      semantic_type: TaskAttempt
+      source: model:PdfStageBuild.attempt
+    - name: holder
+      native_parameter: p_holder
+      nullable: false
+      source: model:PdfStageBuild.holder
+    - name: replay_key
+      native_parameter: p_key
+      nullable: false
+      source: model:PdfStageBuild.replay_key
+    result_fields: []
+    result_mode: table
+    result_source: model:PdfStageReceipt
+    symbol: ops.adopt_pdf_batch
+  id: adopt_pdf_batch
   implementation:
     owner: semantic.pdf_staging
     symbol: adopt_pdf_batch
@@ -1372,63 +1522,34 @@ actions:
   - applied
   - replay
   - conflict
-  calls:
-  - id: prepare_pdf_stage
-    symbol: ops.prepare_pdf_stage
-    parameters:
-    - name: build_id
-      source: model:PdfStageBuild.build_id
-      nullable: false
-      native_parameter: p_build
-    - name: task_id
-      source: model:PdfStageBuild.task_id
-      nullable: false
-      native_parameter: p_task
-      semantic_type: TaskId
-    - name: attempt
-      source: model:PdfStageBuild.attempt
-      nullable: false
-      native_parameter: p_attempt
-      semantic_type: TaskAttempt
-    - name: holder
-      source: model:PdfStageBuild.holder
-      nullable: false
-      native_parameter: p_holder
-    result_mode: void
-    result_fields: []
-    cardinality: none
+- calls:
+  - cardinality: many
+    id: inspect_pdf_progress
     ordered: false
-  - id: adopt_pdf_batch
-    symbol: ops.adopt_pdf_batch
     parameters:
     - name: build_id
-      source: model:PdfStageBuild.build_id
-      nullable: false
       native_parameter: p_build
+      nullable: false
+      source: model:PdfStageBuild.build_id
     - name: task_id
-      source: model:PdfStageBuild.task_id
-      nullable: false
       native_parameter: p_task
+      nullable: false
       semantic_type: TaskId
+      source: model:PdfStageBuild.task_id
     - name: attempt
-      source: model:PdfStageBuild.attempt
-      nullable: false
       native_parameter: p_attempt
+      nullable: false
       semantic_type: TaskAttempt
+      source: model:PdfStageBuild.attempt
     - name: holder
-      source: model:PdfStageBuild.holder
-      nullable: false
       native_parameter: p_holder
-    - name: replay_key
-      source: model:PdfStageBuild.replay_key
       nullable: false
-      native_parameter: p_key
+      source: model:PdfStageBuild.holder
+    result_fields: []
     result_mode: table
-    result_fields: []
-    cardinality: one
-    ordered: false
     result_source: model:PdfStageReceipt
-- id: inspect_pdf_progress
+    symbol: ops.inspect_pdf_progress
+  id: inspect_pdf_progress
   implementation:
     owner: semantic.pdf_staging
     symbol: inspect_pdf_progress
@@ -1437,34 +1558,33 @@ actions:
   - applied
   - replay
   - conflict
-  calls:
-  - id: inspect_pdf_progress
-    symbol: ops.inspect_pdf_progress
+- calls:
+  - cardinality: none
+    id: resume_pdf_build
+    ordered: false
     parameters:
     - name: build_id
-      source: model:PdfStageBuild.build_id
-      nullable: false
       native_parameter: p_build
+      nullable: false
+      source: model:PdfStageBuild.build_id
     - name: task_id
-      source: model:PdfStageBuild.task_id
-      nullable: false
       native_parameter: p_task
+      nullable: false
       semantic_type: TaskId
+      source: model:PdfStageBuild.task_id
     - name: attempt
-      source: model:PdfStageBuild.attempt
-      nullable: false
       native_parameter: p_attempt
-      semantic_type: TaskAttempt
-    - name: holder
-      source: model:PdfStageBuild.holder
       nullable: false
+      semantic_type: TaskAttempt
+      source: model:PdfStageBuild.attempt
+    - name: holder
       native_parameter: p_holder
-    result_mode: table
+      nullable: false
+      source: model:PdfStageBuild.holder
     result_fields: []
-    cardinality: many
-    ordered: false
-    result_source: model:PdfStageReceipt
-- id: resume_pdf_build
+    result_mode: void
+    symbol: ops.resume_pdf_build
+  id: resume_pdf_build
   implementation:
     owner: semantic.pdf_staging
     symbol: resume_pdf_build
@@ -1473,33 +1593,33 @@ actions:
   - applied
   - replay
   - conflict
-  calls:
-  - id: resume_pdf_build
-    symbol: ops.resume_pdf_build
+- calls:
+  - cardinality: none
+    id: abandon_pdf_build
+    ordered: false
     parameters:
     - name: build_id
-      source: model:PdfStageBuild.build_id
-      nullable: false
       native_parameter: p_build
+      nullable: false
+      source: model:PdfStageBuild.build_id
     - name: task_id
-      source: model:PdfStageBuild.task_id
-      nullable: false
       native_parameter: p_task
+      nullable: false
       semantic_type: TaskId
+      source: model:PdfStageBuild.task_id
     - name: attempt
-      source: model:PdfStageBuild.attempt
-      nullable: false
       native_parameter: p_attempt
-      semantic_type: TaskAttempt
-    - name: holder
-      source: model:PdfStageBuild.holder
       nullable: false
+      semantic_type: TaskAttempt
+      source: model:PdfStageBuild.attempt
+    - name: holder
       native_parameter: p_holder
-    result_mode: void
+      nullable: false
+      source: model:PdfStageBuild.holder
     result_fields: []
-    cardinality: none
-    ordered: false
-- id: abandon_pdf_build
+    result_mode: void
+    symbol: ops.abandon_pdf_build
+  id: abandon_pdf_build
   implementation:
     owner: semantic.pdf_staging
     symbol: abandon_pdf_build
@@ -1508,33 +1628,8 @@ actions:
   - applied
   - replay
   - conflict
-  calls:
-  - id: abandon_pdf_build
-    symbol: ops.abandon_pdf_build
-    parameters:
-    - name: build_id
-      source: model:PdfStageBuild.build_id
-      nullable: false
-      native_parameter: p_build
-    - name: task_id
-      source: model:PdfStageBuild.task_id
-      nullable: false
-      native_parameter: p_task
-      semantic_type: TaskId
-    - name: attempt
-      source: model:PdfStageBuild.attempt
-      nullable: false
-      native_parameter: p_attempt
-      semantic_type: TaskAttempt
-    - name: holder
-      source: model:PdfStageBuild.holder
-      nullable: false
-      native_parameter: p_holder
-    result_mode: void
-    result_fields: []
-    cardinality: none
-    ordered: false
-- id: stream_pdf_native
+- calls: []
+  id: stream_pdf_native
   implementation:
     owner: ingest.pdf_streaming
     symbol: StreamingPdfProducer.run
@@ -1543,8 +1638,8 @@ actions:
   - applied
   - replay
   - conflict
-  calls: []
-- id: reconcile_pdf_stream
+- calls: []
+  id: reconcile_pdf_stream
   implementation:
     owner: ingest.pdf_stream_reconciliation
     symbol: reconcile_pdf_stream
@@ -1553,8 +1648,8 @@ actions:
   - applied
   - replay
   - conflict
-  calls: []
-- id: stage_pdf_producer
+- calls: []
+  id: stage_pdf_producer
   implementation:
     owner: orchestrate.pdf_streaming
     symbol: run_private_pdf_build
@@ -1563,49 +1658,5 @@ actions:
   - applied
   - replay
   - conflict
-  calls: []
-- id: publish_source_view
-  implementation:
-    owner: semantic.source_views
-    symbol: store_source_view
-    version: '1'
-  outcomes:
-  - applied
-  - replay
-  - conflict
-  calls: []
-- id: read_source_view
-  implementation:
-    owner: semantic.source_views
-    symbol: load_source_view
-    version: '1'
-  outcomes:
-  - source_ready
-  - missing
-  - invalid
-  - unsupported
-  calls: []
-diagnostics:
-- id: published_document_address
-  scope: relational
-  failure_code: pdf.published_document_address
-  observable: true
-  diagnostics:
-  - operation: publish_source_view
-    kind: constraint
-    sqlstate: '23503'
-    schema_name: kb
-    table_name: source_view
-    constraint_name: fk_source_view_native_build_id_native_task_id_native_pr_bef7
-  - operation: publish_source_view
-    kind: constraint
-    sqlstate: '23503'
-    schema_name: kb
-    table_name: source_view
-    constraint_name: fk_source_view_native_build_id_native_revision_id_secti_79ff
-  - operation: publish_source_view
-    kind: constraint
-    sqlstate: '23514'
-    schema_name: kb
-    table_name: source_view
-    constraint_name: ck_source_view_physical_73dfcc4ba8
+diagnostics: []
+version: pdf-native-actions-v1

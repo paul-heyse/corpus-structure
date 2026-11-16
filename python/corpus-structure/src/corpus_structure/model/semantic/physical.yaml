@@ -1,8 +1,8 @@
-# Trusted physical projection. Edit with its consumers and an explicit Alembic revision.
 id: https://corpus-structure.org/model/semantic/physical
 name: semantic_physical
-version: 2026-11-05-multivalued-arrays-1
-description: Trusted fixed PostgreSQL realization; candidate semantic releases never supply physical annotations.
+version: 2026-11-16-current-declared-operations-1
+description: Current declared-operation PostgreSQL realization; semantic releases
+  never supply physical annotations.
 prefixes:
   cp: https://corpus-structure.dev/companion-projections/
   linkml: https://w3id.org/linkml/
@@ -12,8 +12,8 @@ imports:
 - linkml:types
 - pdf-records
 - pdf-staging
-- characterization-physical
 - data-operation-physical
+- data-operation-task-physical
 default_range: string
 subsets:
   sem: {}
@@ -52,52 +52,98 @@ types:
       ph:sql_type: vector
 classes:
   runtime_binding:
-    description: Immutable implementation provenance bound to one semantic release; implementation changes do not mint a semantic release.
-    in_subset: [sem]
+    description: Immutable implementation provenance bound to one semantic release;
+      implementation changes do not mint a semantic release.
+    in_subset:
+    - sem
     attributes:
-      release_id: {range: string, required: true}
+      release_id:
+        range: string
+        required: true
       runtime_id:
         range: string
         required: true
-        annotations: {ph:python_type: "corpus_structure.semantic.identifiers.RuntimeId"}
-      manifest_bytes: {range: bytes, required: true}
-      archive_bytes: {range: bytes, required: true}
+        annotations:
+          ph:python_type: corpus_structure.semantic.identifiers.RuntimeId
+      manifest_bytes:
+        range: bytes
+        required: true
+      archive_bytes:
+        range: bytes
+        required: true
     unique_keys:
-      primary_key: {unique_key_slots: [release_id, runtime_id]}
+      primary_key:
+        unique_key_slots:
+        - release_id
+        - runtime_id
     annotations:
       ph:foreign_keys: '[{"columns": ["release_id"], "target": "sem.release.release_id"}]'
       ph:immutability: intrinsic
   physical_contract:
-    in_subset: [sem]
+    in_subset:
+    - sem
     attributes:
-      physical_id: {range: string, required: true}
-      checks: {range: json_payload, required: true}
-      source_digest: {range: string, required: true}
+      physical_id:
+        range: string
+        required: true
+      checks:
+        range: json_payload
+        required: true
+      source_digest:
+        range: string
+        required: true
     unique_keys:
-      primary_key: {unique_key_slots: [physical_id]}
+      primary_key:
+        unique_key_slots:
+        - physical_id
     annotations:
       ph:immutability: physical
   release_finalization:
-    in_subset: [sem]
+    in_subset:
+    - sem
     attributes:
-      release_id: {range: string, required: true}
-      content_digest: {range: string, required: true}
+      release_id:
+        range: string
+        required: true
+      content_digest:
+        range: string
+        required: true
     unique_keys:
-      primary_key: {unique_key_slots: [release_id]}
+      primary_key:
+        unique_key_slots:
+        - release_id
     annotations:
       ph:foreign_keys: '[{"columns": ["release_id"], "target": "sem.release.release_id"}]'
       ph:immutability: immutable
   deployment_admission:
-    in_subset: [sem]
+    in_subset:
+    - sem
     attributes:
-      release_id: {range: string, required: true}
-      physical_id: {range: string, required: true}
-      deployment_id: {range: string, required: true}
-      kind: {range: string, required: true}
-      content: {range: bytes, required: true}
-      content_digest: {range: string, required: true}
+      release_id:
+        range: string
+        required: true
+      physical_id:
+        range: string
+        required: true
+      deployment_id:
+        range: string
+        required: true
+      kind:
+        range: string
+        required: true
+      content:
+        range: bytes
+        required: true
+      content_digest:
+        range: string
+        required: true
     unique_keys:
-      primary_key: {unique_key_slots: [release_id, physical_id, deployment_id, kind]}
+      primary_key:
+        unique_key_slots:
+        - release_id
+        - physical_id
+        - deployment_id
+        - kind
     annotations:
       ph:foreign_keys: '[{"columns": ["release_id"], "target": "sem.release.release_id"}]'
       ph:immutability: immutable
@@ -106,7 +152,8 @@ classes:
     - sem
     attributes:
       release_id:
-        annotations: {ph:python_type: "corpus_structure.semantic.identifiers.ReleaseId"}
+        annotations:
+          ph:python_type: corpus_structure.semantic.identifiers.ReleaseId
         range: string
         required: true
       parent_release_id:
@@ -350,9 +397,9 @@ classes:
       ph:archive_role: projection
       ph:foreign_keys: '[{"columns": ["release_id", "class_id"], "target": "sem.class_definition.release_id,class_id"},
         {"columns": ["release_id", "property_id"], "target": "sem.property_definition.release_id,property_id"}]'
-      ph:checks: '["minimum_cardinality IS NULL OR minimum_cardinality >= 0", "maximum_cardinality IS
-        NULL OR maximum_cardinality >= 0", "minimum_cardinality IS NULL OR maximum_cardinality IS NULL
-        OR minimum_cardinality <= maximum_cardinality"]'
+      ph:checks: '["minimum_cardinality IS NULL OR minimum_cardinality >= 0", "maximum_cardinality
+        IS NULL OR maximum_cardinality >= 0", "minimum_cardinality IS NULL OR maximum_cardinality
+        IS NULL OR minimum_cardinality <= maximum_cardinality"]'
   identity_slot:
     in_subset:
     - sem
@@ -421,13 +468,10 @@ classes:
       project_id:
         range: string
         required: true
-        annotations: {ph:python_type: "corpus_structure.semantic.identifiers.ProjectId"}
-
+        annotations:
+          ph:python_type: corpus_structure.semantic.identifiers.ProjectId
       active_release_id:
         range: string
-        required: false
-      selected_result_run_id:
-        range: integer
         required: false
       generation:
         range: integer
@@ -439,615 +483,11 @@ classes:
         unique_key_slots:
         - project_id
     annotations:
-      ph:foreign_keys: '[{"columns": ["active_release_id"], "target": "sem.release.release_id"}, {"columns": ["selected_result_run_id"], "target": "ops.completed_result.run_id"}]'
+      ph:foreign_keys: '[{"columns": ["active_release_id"], "target": "sem.release.release_id"}]'
       ph:checks: '["generation >= 0"]'
-  realization:
-    in_subset:
-    - data
-    attributes:
-      realization_id:
-        annotations: {ph:python_type: "corpus_structure.semantic.identifiers.RealizationId"}
-        range: string
-        required: true
-      project_id:
-        range: string
-        required: true
-      release_id:
-        range: string
-        required: true
-      state:
-        range: string
-        required: true
-        annotations:
-          ph:default: '''active'''
-      data_revision:
-        range: integer
-        required: true
-        annotations:
-          ph:default: '0'
-    unique_keys:
-      primary_key:
-        unique_key_slots:
-        - realization_id
-      unique_0:
-        unique_key_slots:
-        - realization_id
-        - release_id
-    annotations:
-      ph:foreign_keys: '[{"columns": ["project_id"], "target": "data.project.project_id"}, {"columns":
-        ["release_id"], "target": "sem.release.release_id"}]'
-      ph:checks: '["state IN (''active'', ''building'', ''retired'', ''failed'')", "data_revision >= 0"]'
-  batch:
-    in_subset:
-    - data
-    attributes:
-      realization_id:
-        range: string
-        required: true
-      release_id:
-        range: string
-        required: true
-      batch_id:
-        range: string
-        required: true
-      content_digest:
-        range: string
-        required: true
-      content:
-        range: bytes
-        required: true
-      data_revision:
-        range: integer
-        required: true
-    unique_keys:
-      primary_key:
-        unique_key_slots:
-        - realization_id
-        - release_id
-        - batch_id
-      unique_0:
-        unique_key_slots:
-        - realization_id
-        - release_id
-        - data_revision
-    annotations:
-      ph:immutability: admitted
-      ph:foreign_keys: '[{"columns": ["realization_id", "release_id"], "target": "data.realization.realization_id,release_id"}]'
-      ph:checks: '["data_revision > 0"]'
-  entity:
-    in_subset:
-    - data
-    attributes:
-      realization_id:
-        range: string
-        required: true
-      release_id:
-        range: string
-        required: true
-      entity_id:
-        range: string
-        required: true
-    unique_keys:
-      primary_key:
-        unique_key_slots:
-        - realization_id
-        - release_id
-        - entity_id
-    annotations:
-      ph:immutability: admitted
-      ph:foreign_keys: '[{"columns": ["realization_id", "release_id"], "target": "data.realization.realization_id,release_id"}]'
-  membership:
-    in_subset:
-    - data
-    attributes:
-      realization_id:
-        range: string
-        required: true
-      release_id:
-        range: string
-        required: true
-      entity_id:
-        range: string
-        required: true
-      class_id:
-        range: string
-        required: true
-      establishment:
-        range: string
-        required: true
-    unique_keys:
-      primary_key:
-        unique_key_slots:
-        - realization_id
-        - release_id
-        - entity_id
-        - class_id
-    annotations:
-      ph:immutability: admitted
-      ph:foreign_keys: '[{"columns": ["realization_id", "release_id"], "target": "data.realization.realization_id,release_id"},
-        {"columns": ["realization_id", "release_id", "entity_id"], "target": "data.entity.realization_id,release_id,entity_id"},
-        {"columns": ["release_id", "class_id"], "target": "sem.class_definition.release_id,class_id"}]'
-      ph:indexes: '[["realization_id", "release_id", "class_id", "entity_id"]]'
-  typed_value:
-    in_subset:
-    - data
-    attributes:
-      realization_id:
-        range: string
-        required: true
-      release_id:
-        range: string
-        required: true
-      value_id:
-        range: string
-        required: true
-      kind:
-        range: string
-        required: true
-      text_value:
-        range: string
-        required: false
-      integer_value:
-        range: exact_numeric
-        required: false
-      numeric_value:
-        range: exact_numeric
-        required: false
-      decimal_lexical:
-        range: string
-        required: false
-      boolean_value:
-        range: boolean
-        required: false
-      entity_id:
-        range: string
-        required: false
-      language:
-        range: string
-        required: false
-      datatype:
-        range: string
-        required: false
-      opaque_payload:
-        range: json_payload
-        required: false
-    unique_keys:
-      primary_key:
-        unique_key_slots:
-        - realization_id
-        - release_id
-        - value_id
-    annotations:
-      ph:immutability: admitted
-      ph:foreign_keys: '[{"columns": ["realization_id", "release_id"], "target": "data.realization.realization_id,release_id"},
-        {"columns": ["realization_id", "release_id", "entity_id"], "target": "data.entity.realization_id,release_id,entity_id"}]'
-      ph:checks: '["kind IN (''string'',''integer'',''decimal'',''number'',''boolean'',''entity'',''null'',''missing'',''sequence'',''mapping'',''record'',''interval'',''expression'',''date'',''datetime'',''float'',''opaque'')",
-        "(kind IN (''string'',''integer'',''date'',''datetime'',''float'',''expression'',''missing'')
-        AND text_value IS NOT NULL AND decimal_lexical IS NULL AND boolean_value IS NULL AND entity_id
-        IS NULL AND opaque_payload IS NULL) OR (kind IN (''decimal'',''number'') AND text_value IS NULL
-        AND decimal_lexical IS NOT NULL AND boolean_value IS NULL AND entity_id IS NULL AND opaque_payload
-        IS NULL) OR (kind IN (''boolean'') AND text_value IS NULL AND decimal_lexical IS NULL AND boolean_value
-        IS NOT NULL AND entity_id IS NULL AND opaque_payload IS NULL) OR (kind IN (''entity'') AND text_value
-        IS NULL AND decimal_lexical IS NULL AND boolean_value IS NULL AND entity_id IS NOT NULL AND opaque_payload
-        IS NULL) OR (kind IN (''opaque'') AND text_value IS NULL AND decimal_lexical IS NULL AND boolean_value
-        IS NULL AND entity_id IS NULL AND opaque_payload IS NOT NULL) OR (kind IN (''null'',''sequence'',''mapping'',''record'',''interval'')
-        AND text_value IS NULL AND decimal_lexical IS NULL AND boolean_value IS NULL AND entity_id IS
-        NULL AND opaque_payload IS NULL)", "numeric_value IS NULL OR kind IN (''decimal'',''number'')",
-        "CASE WHEN numeric_value IS NULL THEN true ELSE numeric_value = decimal_lexical::numeric END",
-        "decimal_lexical IS NULL OR decimal_lexical ~ ''^[+-]?([0-9]+(\\.[0-9]*)?|\\.[0-9]+)([eE][+-]?[0-9]+)?$''",
-        "integer_value IS NULL OR kind = ''integer''", "CASE WHEN integer_value IS NULL THEN true ELSE
-        integer_value = trunc(integer_value) AND integer_value = text_value::numeric END", "kind <> ''integer''
-        OR text_value ~ ''^[+-]?[0-9]+$''"]'
-      ph:indexes: '[{"columns": ["realization_id", "release_id", "kind", "text_value"], "where": "octet_length(text_value)
-        <= 1024"}, {"columns": ["realization_id", "release_id", "kind", "numeric_value"], "where": "octet_length(numeric_value::text)
-        <= 1024"}, ["realization_id", "release_id", "entity_id"]]'
-  value_role:
-    in_subset:
-    - data
-    attributes:
-      realization_id:
-        range: string
-        required: true
-      release_id:
-        range: string
-        required: true
-      parent_value_id:
-        range: string
-        required: true
-      role:
-        range: string
-        required: true
-      position:
-        range: integer
-        required: true
-      child_value_id:
-        range: string
-        required: true
-    unique_keys:
-      primary_key:
-        unique_key_slots:
-        - realization_id
-        - release_id
-        - parent_value_id
-        - role
-        - position
-    annotations:
-      ph:immutability: admitted
-      ph:foreign_keys: '[{"columns": ["realization_id", "release_id"], "target": "data.realization.realization_id,release_id"},
-        {"columns": ["realization_id", "release_id", "parent_value_id"], "target": "data.typed_value.realization_id,release_id,value_id"},
-        {"columns": ["realization_id", "release_id", "child_value_id"], "target": "data.typed_value.realization_id,release_id,value_id"}]'
-      ph:checks: '["position >= 0"]'
-  fact:
-    in_subset:
-    - data
-    attributes:
-      realization_id:
-        range: string
-        required: true
-      release_id:
-        range: string
-        required: true
-      fact_id:
-        range: string
-        required: true
-      subject_id:
-        range: string
-        required: true
-      property_id:
-        range: string
-        required: true
-      object_value_id:
-        range: string
-        required: true
-      qualification_value_id:
-        range: string
-        required: false
-    unique_keys:
-      primary_key:
-        unique_key_slots:
-        - realization_id
-        - release_id
-        - fact_id
-    annotations:
-      ph:immutability: admitted
-      ph:foreign_keys: '[{"columns": ["realization_id", "release_id"], "target": "data.realization.realization_id,release_id"},
-        {"columns": ["realization_id", "release_id", "subject_id"], "target": "data.entity.realization_id,release_id,entity_id"},
-        {"columns": ["release_id", "property_id"], "target": "sem.property_definition.release_id,property_id"},
-        {"columns": ["realization_id", "release_id", "object_value_id"], "target": "data.typed_value.realization_id,release_id,value_id"},
-        {"columns": ["realization_id", "release_id", "qualification_value_id"], "target": "data.typed_value.realization_id,release_id,value_id"}]'
-      ph:indexes: '[["realization_id", "release_id", "property_id", "subject_id"], ["realization_id", "release_id", "property_id", "object_value_id"], {"name": "ix_fact_scoped_adjacency", "include": ["property_id", "object_value_id"], "columns": ["release_id", "realization_id", "subject_id", "fact_id"], "collations": {"fact_id": "C"}}]'
-  occurrence:
-    in_subset:
-    - data
-    attributes:
-      realization_id:
-        annotations: {cp:type_source: "physical:data.realization.realization_id"}
-        range: string
-        required: true
-      release_id:
-        annotations: {cp:type_source: "physical:sem.release.release_id"}
-        range: string
-        required: true
-      occurrence_id:
-        range: string
-        required: true
-      fact_id:
-        range: string
-        required: true
-      source:
-        range: string
-        required: true
-      item:
-        range: string
-        required: true
-      batch_id:
-        range: string
-        required: true
-      report_object_value_id:
-        range: string
-        required: true
-      report_qualification_value_id:
-        range: string
-        required: false
-    unique_keys:
-      primary_key:
-        unique_key_slots:
-        - realization_id
-        - release_id
-        - occurrence_id
-      unique_0:
-        unique_key_slots:
-        - realization_id
-        - release_id
-        - occurrence_id
-        - fact_id
-    annotations:
-      ph:immutability: admitted
-      ph:foreign_keys: '[{"columns": ["realization_id", "release_id"], "target": "data.realization.realization_id,release_id"},
-        {"columns": ["realization_id", "release_id", "fact_id"], "target": "data.fact.realization_id,release_id,fact_id"},
-        {"columns": ["realization_id", "release_id", "batch_id"], "target": "data.batch.realization_id,release_id,batch_id"},
-        {"columns": ["realization_id", "release_id", "report_object_value_id"], "target": "data.typed_value.realization_id,release_id,value_id"},
-        {"columns": ["realization_id", "release_id", "report_qualification_value_id"], "target": "data.typed_value.realization_id,release_id,value_id"}]'
-      ph:indexes: '[["realization_id", "release_id", "source", "item"]]'
-  support:
-    in_subset:
-    - data
-    attributes:
-      realization_id:
-        range: string
-        required: true
-      release_id:
-        range: string
-        required: true
-      fact_id:
-        range: string
-        required: true
-      occurrence_id:
-        range: string
-        required: true
-    unique_keys:
-      primary_key:
-        unique_key_slots:
-        - realization_id
-        - release_id
-        - fact_id
-        - occurrence_id
-    annotations:
-      ph:immutability: admitted
-      ph:foreign_keys: '[{"columns": ["realization_id", "release_id"], "target": "data.realization.realization_id,release_id"},
-        {"columns": ["realization_id", "release_id", "occurrence_id", "fact_id"], "target": "data.occurrence.realization_id,release_id,occurrence_id,fact_id"}]'
-  selection:
-    in_subset:
-    - data
-    attributes:
-      realization_id:
-        range: string
-        required: true
-      release_id:
-        range: string
-        required: true
-      fact_id:
-        range: string
-        required: true
-    unique_keys:
-      primary_key:
-        unique_key_slots:
-        - realization_id
-        - release_id
-        - fact_id
-    annotations:
-      ph:foreign_keys: '[{"columns": ["realization_id", "release_id"], "target": "data.realization.realization_id,release_id"},
-        {"columns": ["realization_id", "release_id", "fact_id"], "target": "data.fact.realization_id,release_id,fact_id"}]'
-  evidence:
-    in_subset:
-    - data
-    attributes:
-      realization_id:
-        range: string
-        required: true
-      release_id:
-        range: string
-        required: true
-      evidence_id:
-        range: string
-        required: true
-      source_uri:
-        range: string
-        required: true
-      locator:
-        range: string
-        required: true
-      provider:
-        range: string
-        required: true
-      operation_version:
-        range: string
-        required: true
-    unique_keys:
-      primary_key:
-        unique_key_slots:
-        - realization_id
-        - release_id
-        - evidence_id
-    annotations:
-      ph:immutability: admitted
-      ph:foreign_keys: '[{"columns": ["realization_id", "release_id"], "target": "data.realization.realization_id,release_id"}]'
-  occurrence_evidence:
-    in_subset:
-    - data
-    attributes:
-      realization_id:
-        range: string
-        required: true
-      release_id:
-        range: string
-        required: true
-      occurrence_id:
-        range: string
-        required: true
-      evidence_id:
-        range: string
-        required: true
-    unique_keys:
-      primary_key:
-        unique_key_slots:
-        - realization_id
-        - release_id
-        - occurrence_id
-        - evidence_id
-    annotations:
-      ph:immutability: admitted
-      ph:foreign_keys: '[{"columns": ["realization_id", "release_id"], "target": "data.realization.realization_id,release_id"},
-        {"columns": ["realization_id", "release_id", "occurrence_id"], "target": "data.occurrence.realization_id,release_id,occurrence_id"},
-        {"columns": ["realization_id", "release_id", "evidence_id"], "target": "data.evidence.realization_id,release_id,evidence_id"}]'
-  occurrence_context:
-    in_subset: [data]
-    attributes:
-      realization_id: {range: string, required: true}
-      release_id: {range: string, required: true}
-      occurrence_id: {range: string, required: true}
-      statement_entity_id: {range: string}
-      statement_role: {range: string}
-    unique_keys:
-      primary_key:
-        unique_key_slots: [realization_id, release_id, occurrence_id]
-    annotations:
-      ph:immutability: admitted
-      ph:foreign_keys: '[{"columns": ["realization_id", "release_id"], "target": "data.realization.realization_id,release_id"}, {"columns": ["realization_id", "release_id", "occurrence_id"], "target": "data.occurrence.realization_id,release_id,occurrence_id"}, {"columns": ["realization_id", "release_id", "statement_entity_id"], "target": "data.entity.realization_id,release_id,entity_id"}]'
-      ph:checks: '["statement_entity_id IS NOT NULL OR statement_role IS NOT NULL"]'
-  occurrence_evidence_role:
-    in_subset: [data]
-    attributes:
-      realization_id: {range: string, required: true}
-      release_id: {range: string, required: true}
-      occurrence_id: {range: string, required: true}
-      evidence_id: {range: string, required: true}
-      role: {range: string, required: true}
-    unique_keys:
-      primary_key:
-        unique_key_slots: [realization_id, release_id, occurrence_id, evidence_id]
-    annotations:
-      ph:immutability: admitted
-      ph:foreign_keys: '[{"columns": ["realization_id", "release_id"], "target": "data.realization.realization_id,release_id"}, {"columns": ["realization_id", "release_id", "occurrence_id", "evidence_id"], "target": "data.occurrence_evidence.realization_id,release_id,occurrence_id,evidence_id"}]'
-  membership_support:
-    in_subset:
-    - data
-    attributes:
-      realization_id:
-        range: string
-        required: true
-      release_id:
-        range: string
-        required: true
-      entity_id:
-        range: string
-        required: true
-      class_id:
-        range: string
-        required: true
-      evidence_id:
-        range: string
-        required: true
-    unique_keys:
-      primary_key:
-        unique_key_slots:
-        - realization_id
-        - release_id
-        - entity_id
-        - class_id
-        - evidence_id
-    annotations:
-      ph:immutability: admitted
-      ph:foreign_keys: '[{"columns": ["realization_id", "release_id"], "target": "data.realization.realization_id,release_id"},
-        {"columns": ["realization_id", "release_id", "entity_id", "class_id"], "target": "data.membership.realization_id,release_id,entity_id,class_id"},
-        {"columns": ["realization_id", "release_id", "evidence_id"], "target": "data.evidence.realization_id,release_id,evidence_id"}]'
-  derivation:
-    in_subset:
-    - data
-    attributes:
-      realization_id:
-        range: string
-        required: true
-      release_id:
-        range: string
-        required: true
-      derivation_id:
-        range: string
-        required: true
-      conclusion_fact_id:
-        range: string
-        required: true
-      rule:
-        range: string
-        required: true
-      rule_version:
-        range: string
-        required: true
-    unique_keys:
-      primary_key:
-        unique_key_slots:
-        - realization_id
-        - release_id
-        - derivation_id
-    annotations:
-      ph:immutability: admitted
-      ph:foreign_keys: '[{"columns": ["realization_id", "release_id"], "target": "data.realization.realization_id,release_id"},
-        {"columns": ["realization_id", "release_id", "conclusion_fact_id"], "target": "data.fact.realization_id,release_id,fact_id"}]'
-  derivation_premise:
-    in_subset:
-    - data
-    attributes:
-      realization_id:
-        range: string
-        required: true
-      release_id:
-        range: string
-        required: true
-      derivation_id:
-        range: string
-        required: true
-      position:
-        range: integer
-        required: true
-      premise_fact_id:
-        range: string
-        required: true
-    unique_keys:
-      primary_key:
-        unique_key_slots:
-        - realization_id
-        - release_id
-        - derivation_id
-        - position
-    annotations:
-      ph:immutability: admitted
-      ph:foreign_keys: '[{"columns": ["realization_id", "release_id"], "target": "data.realization.realization_id,release_id"},
-        {"columns": ["realization_id", "release_id", "derivation_id"], "target": "data.derivation.realization_id,release_id,derivation_id"},
-        {"columns": ["realization_id", "release_id", "premise_fact_id"], "target": "data.fact.realization_id,release_id,fact_id"}]'
-      ph:checks: '["position >= 0"]'
-  coverage:
-    in_subset:
-    - data
-    attributes:
-      realization_id:
-        range: string
-        required: true
-      release_id:
-        range: string
-        required: true
-      coverage_id:
-        range: string
-        required: true
-      family:
-        range: string
-        required: true
-      scope:
-        range: string
-        required: true
-      outcome:
-        range: string
-        required: true
-      reason:
-        range: string
-        required: false
-      source_outcome:
-        range: string
-        required: false
-      required_capability:
-        range: string
-        required: false
-    unique_keys:
-      primary_key:
-        unique_key_slots:
-        - realization_id
-        - release_id
-        - coverage_id
-    annotations:
-      ph:immutability: admitted
-      ph:foreign_keys: '[{"columns": ["realization_id", "release_id"], "target": "data.realization.realization_id,release_id"}]'
-      ph:checks: '["outcome IN (''complete'',''partial'',''unanalysed'',''failed'')", "source_outcome IS NULL OR source_outcome IN (''complete'',''partial'',''unknown'',''unsupported'',''failed'')", "source_outcome IS NULL OR outcome = CASE WHEN source_outcome IN (''unknown'',''unsupported'') THEN ''unanalysed'' ELSE source_outcome END"]'
   sql_admission:
-    description: Derived authored-SQL admission tied to the frozen dependency and physical catalog.
+    description: Derived authored-SQL admission tied to the frozen dependency and
+      physical catalog.
     in_subset:
     - sem
     attributes:
@@ -1074,9 +514,9 @@ classes:
         - physical_id
     annotations:
       ph:immutability: deployment
-      ph:foreign_keys: '[{"columns": ["release_id", "input_kind", "input_name"], "target": "sem.input.release_id,input_kind,input_name"}]'
+      ph:foreign_keys: '[{"columns": ["release_id", "input_kind", "input_name"], "target":
+        "sem.input.release_id,input_kind,input_name"}]'
       ph:checks: '["input_kind = ''dependency''"]'
-
   document:
     in_subset:
     - kb
@@ -1085,10 +525,11 @@ classes:
         range: integer
         required: true
         annotations:
-          ph:python_type: "corpus_structure.semantic.identifiers.DocumentId"
+          ph:python_type: corpus_structure.semantic.identifiers.DocumentId
           ph:identity: 'true'
       project_id:
-        annotations: {cp:type_source: "physical:data.project.project_id"}
+        annotations:
+          cp:type_source: physical:data.project.project_id
         range: string
         required: true
       key:
@@ -1127,782 +568,6 @@ classes:
     annotations:
       ph:foreign_keys: '[{"columns": ["project_id"], "target": "data.project.project_id"}]'
       ph:checks: '[]'
-  method:
-    in_subset:
-    - ops
-    attributes:
-      id:
-        range: integer
-        required: true
-        annotations:
-          ph:identity: 'true'
-      name:
-        range: string
-        required: true
-      version:
-        range: string
-        required: true
-      family:
-        range: string
-        required: true
-      tier:
-        range: string
-        required: true
-      unit_type:
-        range: string
-        required: false
-      configuration_schema_digest:
-        range: string
-        required: false
-      confidence_source:
-        range: string
-        required: false
-    unique_keys:
-      primary_key:
-        unique_key_slots:
-        - id
-      unique_0:
-        unique_key_slots:
-        - name
-        - version
-    annotations:
-      ph:foreign_keys: '[]'
-      ph:checks: '["configuration_schema_digest IS NULL OR configuration_schema_digest ~ ''^[0-9a-f]{64}$''"]'
-  method_config:
-    in_subset:
-    - ops
-    attributes:
-      id:
-        range: integer
-        required: true
-        annotations:
-          ph:identity: 'true'
-      method_id:
-        range: integer
-        required: true
-      name:
-        range: string
-        required: true
-      params:
-        range: json_payload
-        required: true
-      config_hash:
-        range: string
-        required: true
-    unique_keys:
-      primary_key:
-        unique_key_slots:
-        - id
-      unique_0:
-        unique_key_slots:
-        - method_id
-        - config_hash
-    annotations:
-      ph:foreign_keys: '[{"columns": ["method_id"], "target": "ops.method.id"}]'
-      ph:checks: '[]'
-  run:
-    in_subset:
-    - ops
-    attributes:
-      id:
-        range: integer
-        required: true
-        annotations:
-          ph:identity: 'true'
-      project_id:
-        range: string
-        required: true
-      release_id:
-        range: string
-        required: true
-      runtime_id:
-        range: string
-        required: false
-      input_realization_id:
-        range: string
-        required: true
-      input_revision:
-        range: integer
-        required: true
-      dependency_digest:
-        range: string
-        required: true
-      dependencies:
-        range: bytes
-        required: true
-      kind:
-        range: string
-        required: true
-      phase:
-        range: integer
-        required: true
-      options:
-        range: json_payload
-        required: true
-      guideline:
-        range: string
-        required: true
-      status:
-        range: string
-        required: true
-      code_commit:
-        range: string
-        required: true
-      result_realization_id:
-        range: string
-        required: false
-      sealed:
-        range: boolean
-        required: true
-    unique_keys:
-      primary_key:
-        unique_key_slots:
-        - id
-      unique_0:
-        unique_key_slots:
-        - id
-        - release_id
-    annotations:
-      ph:foreign_keys: '[{"columns": ["project_id"], "target": "data.project.project_id"},
-        {"columns": ["release_id", "runtime_id"], "target": "sem.runtime_binding.release_id,runtime_id"},
-        {"columns": ["release_id", "input_realization_id"], "target": "data.realization.release_id,realization_id"}]'
-      ph:checks: '["input_revision >= 0", "status IN (''created'',''running'',''consolidating'',''finished'',''failed'',''cancelled'')"]'
-  task:
-    in_subset:
-    - ops
-    attributes:
-      data_request_id: {range: string, required: false}
-      data_generation: {range: integer, required: false}
-      trigger:
-        range: json_payload
-        required: true
-        annotations:
-          ph:default: "'{}'::jsonb"
-      invocation_key:
-        required: true
-        annotations:
-          ph:default: gen_random_uuid()::text
-      id:
-        range: integer
-        required: true
-        annotations:
-          ph:python_type: "corpus_structure.semantic.identifiers.TaskId"
-          ph:identity: 'true'
-      run_id:
-        range: integer
-        required: false
-      release_id:
-        range: string
-        required: true
-      stage:
-        range: string
-        required: false
-      unit_type:
-        range: string
-        required: false
-      unit_id:
-        range: integer
-        required: false
-      unit_key:
-        range: string
-        required: false
-      method_config_id:
-        range: integer
-        required: false
-      input_hash:
-        range: string
-        required: false
-      packet_hash:
-        range: string
-        required: false
-      reused_task_id:
-        range: integer
-        required: false
-      status:
-        range: string
-        required: true
-      attempt:
-        range: integer
-        required: true
-        annotations: {ph:python_type: "corpus_structure.semantic.identifiers.TaskAttempt"}
-
-      claimed_by:
-        range: string
-        required: false
-      lease_until:
-        range: timestamp
-        required: false
-      result_digest:
-        range: string
-        required: false
-      error:
-        range: json_payload
-        required: false
-      cost:
-        range: json_payload
-        required: true
-      reason:
-        range: string
-        required: false
-      priority:
-        range: integer
-        required: true
-      created_at:
-        range: timestamp
-        required: true
-      started_at:
-        range: timestamp
-        required: false
-      finished_at:
-        range: timestamp
-        required: false
-    unique_keys:
-      primary_key:
-        unique_key_slots:
-        - id
-      unique_0:
-        unique_key_slots:
-        - id
-        - release_id
-      unique_invocation:
-        unique_key_slots:
-        - invocation_key
-    annotations:
-      ph:foreign_keys: '[{"columns": ["run_id", "release_id"], "target": "ops.run.id,release_id"},
-        {"columns": ["method_config_id"], "target": "ops.method_config.id"}, {"columns":
-        ["reused_task_id"], "target": "ops.task.id"}]'
-      ph:checks: '["(data_request_id IS NULL AND data_generation IS NULL AND run_id IS NOT NULL AND stage IS NOT NULL AND unit_type IS NOT NULL AND method_config_id IS NOT NULL AND input_hash IS NOT NULL) OR (data_request_id IS NOT NULL AND data_generation > 0 AND run_id IS NULL AND stage IS NULL AND method_config_id IS NULL AND input_hash IS NULL)", "invocation_key <> ''''", "attempt >= 0", "status IN (''pending'',''running'',''awaiting_agent'',''done'',''empty'',''failed'',''reused'',''skipped'',''cancelled'')"]'
-  observation:
-    in_subset:
-    - kb
-    attributes:
-      id:
-        range: integer
-        required: true
-        annotations:
-          ph:identity: 'true'
-      task_id:
-        range: integer
-        required: true
-      release_id:
-        range: string
-        required: true
-      observation_key:
-        range: string
-        required: true
-      ordinal:
-        range: integer
-        required: true
-      kind:
-        range: string
-        required: true
-      payload_definition:
-        range: string
-        required: true
-      payload:
-        range: json_payload
-        required: true
-      rendition_id:
-        range: integer
-        required: false
-      segment_id:
-        range: integer
-        required: false
-      span_id:
-        range: integer
-        required: false
-      score:
-        range: exact_numeric
-        required: false
-      outcome:
-        range: string
-        required: true
-      source_view_id:
-        range: integer
-        required: false
-    unique_keys:
-      primary_key:
-        unique_key_slots:
-        - id
-      unique_0:
-        unique_key_slots:
-        - observation_key
-      unique_1:
-        unique_key_slots:
-        - task_id
-        - ordinal
-      bound_observation:
-        unique_key_slots:
-        - release_id
-        - id
-      source_identity:
-        unique_key_slots:
-        - release_id
-        - observation_key
-    annotations:
-      ph:foreign_keys: '[{"columns":["task_id","release_id"],"target":"ops.task.id,release_id"},{"columns":["source_view_id"],"target":"kb.source_view.id"}]'
-      ph:checks: '["ordinal >= 0"]'
-  measurement:
-    in_subset:
-    - ops
-    attributes:
-      id:
-        range: integer
-        required: true
-        annotations:
-          ph:identity: 'true'
-      run_id:
-        range: integer
-        required: true
-      task_id:
-        range: integer
-        required: true
-      source_position:
-        range: integer
-        required: false
-      metric:
-        range: string
-        required: true
-      scope_type:
-        range: string
-        required: true
-      scope_id:
-        range: integer
-        required: false
-      scope_key:
-        range: string
-        required: false
-      value:
-        range: exact_numeric
-        required: false
-      detail:
-        range: json_payload
-        required: true
-    unique_keys:
-      primary_key:
-        unique_key_slots:
-        - id
-      source_row:
-        unique_key_slots: [task_id, source_position]
-    annotations:
-      ph:foreign_keys: '[{"columns": ["run_id"], "target": "ops.run.id"}, {"columns":
-        ["task_id"], "target": "ops.task.id"}]'
-      ph:checks: '["source_position IS NULL OR source_position >= 0"]'
-  input_cut:
-    in_subset:
-    - ops
-    attributes:
-      id:
-        range: integer
-        required: true
-        annotations:
-          ph:identity: 'true'
-      run_id:
-        range: integer
-        required: true
-      name:
-        range: string
-        required: true
-      final:
-        range: boolean
-        required: true
-      release_id:
-        range: string
-        required: true
-      source_revision:
-        range: integer
-        required: true
-    unique_keys:
-      primary_key:
-        unique_key_slots:
-        - id
-      unique_0:
-        unique_key_slots:
-        - run_id
-        - name
-    annotations:
-      ph:foreign_keys: '[{"columns": ["run_id", "release_id"], "target": "ops.run.id,release_id"}]'
-      ph:checks: '[]'
-  cut_task:
-    in_subset:
-    - ops
-    attributes:
-      cut_id:
-        range: integer
-        required: true
-      task_id:
-        range: integer
-        required: true
-      origin_task_id:
-        range: integer
-        required: true
-    unique_keys:
-      primary_key:
-        unique_key_slots:
-        - cut_id
-        - task_id
-    annotations:
-      ph:foreign_keys: '[{"columns": ["cut_id"], "target": "ops.input_cut.id"}, {"columns":
-        ["task_id"], "target": "ops.task.id"}, {"columns": ["origin_task_id"], "target":
-        "ops.task.id"}]'
-      ph:checks: '[]'
-  intervention:
-    in_subset:
-    - ops
-    attributes:
-      id:
-        range: integer
-        required: true
-        annotations:
-          ph:identity: 'true'
-      run_id:
-        range: integer
-        required: true
-      task_id:
-        range: integer
-        required: false
-      actor:
-        range: string
-        required: true
-      session_ref:
-        range: string
-        required: true
-      kind:
-        range: string
-        required: true
-      body:
-        range: json_payload
-        required: true
-      rationale:
-        range: string
-        required: false
-    unique_keys:
-      primary_key:
-        unique_key_slots:
-        - id
-    annotations:
-      ph:foreign_keys: '[{"columns": ["run_id"], "target": "ops.run.id"}, {"columns":
-        ["task_id"], "target": "ops.task.id"}]'
-      ph:checks: '[]'
-  evidence_source:
-    in_subset:
-    - data
-    attributes:
-      realization_id:
-        range: string
-        required: true
-      release_id:
-        range: string
-        required: true
-      evidence_id:
-        range: string
-        required: true
-      observation_id:
-        range: integer
-        required: true
-      rendition_id:
-        range: integer
-        required: false
-      span_id:
-        range: integer
-        required: false
-      source_view_id:
-        range: integer
-        required: false
-      native_address:
-        range: string
-        required: false
-    unique_keys:
-      primary_key:
-        unique_key_slots:
-        - realization_id
-        - release_id
-        - evidence_id
-    annotations:
-      ph:immutability: admitted
-      ph:foreign_keys: '[{"columns":["realization_id","release_id","evidence_id"],"target":"data.evidence.realization_id,release_id,evidence_id"},{"columns":["release_id","observation_id"],"target":"kb.observation.release_id,id"},{"columns":["realization_id","release_id"],"target":"data.realization.realization_id,release_id"},{"columns":["source_view_id"],"target":"kb.source_view.id"}]'
-      ph:checks: '["(rendition_id IS NOT NULL AND source_view_id IS NULL AND native_address
-        IS NULL) OR (rendition_id IS NULL AND span_id IS NULL AND source_view_id IS
-        NOT NULL AND native_address IS NOT NULL)"]'
-  occurrence_establishment:
-    in_subset:
-    - data
-    attributes:
-      realization_id:
-        range: string
-        required: true
-      release_id:
-        range: string
-        required: true
-      occurrence_id:
-        range: string
-        required: true
-      establishment:
-        range: string
-        required: true
-    unique_keys:
-      primary_key:
-        unique_key_slots:
-        - realization_id
-        - release_id
-        - occurrence_id
-    annotations:
-      ph:immutability: admitted
-      ph:foreign_keys: '[{"columns": ["realization_id", "release_id", "occurrence_id"],
-        "target": "data.occurrence.realization_id,release_id,occurrence_id"}, {"columns":
-        ["realization_id", "release_id"], "target": "data.realization.realization_id,release_id"}]'
-      ph:checks: '["establishment IN (''stated'',''derived'',''agent_asserted'')"]'
-  assessment:
-    in_subset:
-    - data
-    attributes:
-      realization_id:
-        range: string
-        required: true
-      release_id:
-        range: string
-        required: true
-      assessment_id:
-        range: string
-        required: true
-      fact_id:
-        range: string
-        required: false
-      occurrence_id:
-        range: string
-        required: false
-      operation_id:
-        range: string
-        required: true
-      operation_version:
-        range: string
-        required: true
-      outcome:
-        range: string
-        required: true
-      confidence:
-        range: exact_numeric
-        required: false
-      reason:
-        range: string
-        required: false
-      uncertainty:
-        range: string
-        required: false
-      counterpart_fact_id:
-        range: string
-        required: false
-      counterpart_occurrence_id:
-        range: string
-        required: false
-      context_value_id:
-        range: string
-        required: false
-      comparison_tier:
-        range: string
-        required: false
-      semantic_reason: {range: json_payload}
-    unique_keys:
-      primary_key:
-        unique_key_slots:
-        - realization_id
-        - release_id
-        - assessment_id
-    annotations:
-      ph:immutability: admitted
-      ph:foreign_keys: '[{"columns": ["realization_id", "release_id", "fact_id"], "target": "data.fact.realization_id,release_id,fact_id"}, {"columns": ["realization_id", "release_id", "occurrence_id"], "target": "data.occurrence.realization_id,release_id,occurrence_id"}, {"columns": ["realization_id", "release_id"], "target": "data.realization.realization_id,release_id"}, {"columns": ["realization_id", "release_id", "counterpart_fact_id"], "target": "data.fact.realization_id,release_id,fact_id"}, {"columns": ["realization_id", "release_id", "counterpart_occurrence_id"], "target": "data.occurrence.realization_id,release_id,occurrence_id"}, {"columns": ["realization_id", "release_id", "context_value_id"], "target": "data.typed_value.realization_id,release_id,value_id"}]'
-      ph:checks: '["(fact_id IS NULL) <> (occurrence_id IS NULL)", "confidence IS NULL OR (confidence >= 0 AND confidence <= 1)", "(counterpart_fact_id IS NULL)=(counterpart_occurrence_id IS NULL)"]'
-  task_result:
-    in_subset:
-    - ops
-    attributes:
-      task_id:
-        range: integer
-        required: true
-      release_id:
-        required: true
-      body:
-        range: json_payload
-        required: true
-    unique_keys:
-      primary_key:
-        unique_key_slots:
-        - task_id
-    annotations:
-      ph:foreign_keys: '[{"columns": ["task_id", "release_id"], "target": "ops.task.id,release_id"}]'
-
-  observation_input:
-    in_subset:
-    - kb
-    attributes:
-      release_id:
-        range: string
-        required: true
-      observation_id:
-        range: integer
-        required: true
-      position:
-        range: integer
-        required: true
-      source_observation_key:
-        range: string
-        required: true
-      role:
-        range: string
-        required: true
-    unique_keys:
-      primary_key:
-        unique_key_slots:
-        - observation_id
-        - position
-    annotations:
-      ph:foreign_keys: '[{"columns": ["release_id", "observation_id"], "target": "kb.observation.release_id,id"},
-        {"columns": ["release_id", "source_observation_key"], "target": "kb.observation.release_id,observation_key"}]'
-      ph:checks: '["position >= 0", "role <> ''''"]'
-  entity_input:
-    in_subset:
-    - data
-    attributes:
-      realization_id:
-        required: true
-      release_id:
-        required: true
-      entity_id:
-        required: true
-      input_realization_id:
-        required: true
-      input_data_revision:
-        range: integer
-        required: true
-      input_entity_id:
-        required: true
-      run_id:
-        range: integer
-        required: true
-    unique_keys:
-      primary_key:
-        unique_key_slots:
-        - realization_id
-        - release_id
-        - entity_id
-    annotations:
-      ph:immutability: admitted
-      ph:foreign_keys: '[{"columns":["realization_id","release_id","entity_id"],"target":"data.entity.realization_id,release_id,entity_id"},{"columns":["input_realization_id","release_id","input_entity_id"],"target":"data.entity.realization_id,release_id,entity_id"},{"columns":["run_id"],"target":"ops.run.id"},{"columns":["realization_id","release_id"],"target":"data.realization.realization_id,release_id"}]'
-      ph:checks: '["input_data_revision >= 0", "realization_id <> input_realization_id"]'
-  fact_input:
-    in_subset:
-    - data
-    attributes:
-      realization_id:
-        required: true
-      release_id:
-        required: true
-      fact_id:
-        required: true
-      input_realization_id:
-        required: true
-      input_data_revision:
-        range: integer
-        required: true
-      input_fact_id:
-        required: true
-      run_id:
-        range: integer
-        required: true
-    unique_keys:
-      primary_key:
-        unique_key_slots:
-        - realization_id
-        - release_id
-        - fact_id
-    annotations:
-      ph:immutability: admitted
-      ph:foreign_keys: '[{"columns":["realization_id","release_id","fact_id"],"target":"data.fact.realization_id,release_id,fact_id"},{"columns":["input_realization_id","release_id","input_fact_id"],"target":"data.fact.realization_id,release_id,fact_id"},{"columns":["run_id"],"target":"ops.run.id"},{"columns":["realization_id","release_id"],"target":"data.realization.realization_id,release_id"}]'
-      ph:checks: '["input_data_revision >= 0", "realization_id <> input_realization_id"]'
-  entity_source:
-    in_subset: [data]
-    attributes:
-      realization_id: {range: string, required: true}
-      release_id: {range: string, required: true}
-      entity_id: {range: string, required: true}
-      observation_id: {range: integer, required: true}
-      local_id: {range: string, required: true}
-    unique_keys:
-      primary_key:
-        unique_key_slots: [realization_id, release_id, entity_id, observation_id, local_id]
-      declaration:
-        unique_key_slots: [realization_id, release_id, observation_id, local_id]
-    annotations:
-      ph:immutability: admitted
-      ph:foreign_keys: '[{"columns": ["realization_id", "release_id"], "target": "data.realization.realization_id,release_id"}, {"columns": ["realization_id", "release_id", "entity_id"], "target": "data.entity.realization_id,release_id,entity_id"}, {"columns": ["release_id", "observation_id"], "target": "kb.observation.release_id,id"}]'
-  entity_resolution:
-    in_subset: [data]
-    attributes:
-      realization_id: {range: string, required: true}
-      release_id: {range: string, required: true}
-      observation_id: {range: integer, required: true}
-      local_id: {range: string, required: true}
-      entity_id: {range: string, required: true}
-      basis: {range: string, required: true}
-      outcome: {range: string, required: true}
-      candidates: {range: string, required: true}
-      key_policy: {range: string, required: true}
-      dependencies: {range: string, required: true}
-      reason: {range: string, required: true}
-      operation_id: {range: string, required: true}
-      operation_version: {range: string, required: true}
-    unique_keys:
-      primary_key:
-        unique_key_slots: [realization_id, release_id, observation_id, local_id]
-    annotations:
-      ph:immutability: admitted
-      ph:foreign_keys: '[{"columns": ["realization_id", "release_id", "entity_id"], "target": "data.entity.realization_id,release_id,entity_id"}, {"columns": ["release_id", "observation_id"], "target": "kb.observation.release_id,id"}]'
-      ph:checks: '["basis IN (''declared_key'', ''global_label'', ''source_local'')", "outcome IN (''resolved'', ''ambiguous_anchor'', ''incomplete_key'', ''ungrounded_cycle'')"]'
-  scientific_representative:
-    in_subset: [data]
-    attributes:
-      realization_id: {range: string, required: true}
-      release_id: {range: string, required: true}
-      fact_id: {range: string, required: true}
-      representative_fact_id: {range: string, required: true}
-      policy_id: {range: string, required: true}
-      component_id: {range: string, required: true}
-    unique_keys:
-      primary_key:
-        unique_key_slots: [realization_id, release_id, fact_id]
-    annotations:
-      ph:immutability: admitted
-      ph:foreign_keys: '[{"columns": ["realization_id", "release_id", "fact_id"], "target": "data.fact.realization_id,release_id,fact_id"}, {"columns": ["realization_id", "release_id", "representative_fact_id"], "target": "data.fact.realization_id,release_id,fact_id"}]'
-  alternative_group:
-    in_subset: [data]
-    attributes:
-      realization_id: {range: string, required: true}
-      release_id: {range: string, required: true}
-      group_id: {range: string, required: true}
-      reason: {range: string, required: true}
-      operation_id: {range: string, required: true}
-      operation_version: {range: string, required: true}
-    unique_keys:
-      primary_key:
-        unique_key_slots: [realization_id, release_id, group_id]
-    annotations:
-      ph:immutability: admitted
-      ph:foreign_keys: '[{"columns": ["realization_id", "release_id"], "target": "data.realization.realization_id,release_id"}]'
-      ph:checks: '["length(operation_id) > 0", "length(operation_version) > 0"]'
-  alternative_member:
-    in_subset: [data]
-    attributes:
-      realization_id: {range: string, required: true}
-      release_id: {range: string, required: true}
-      group_id: {range: string, required: true}
-      fact_id: {range: string, required: true}
-    unique_keys:
-      primary_key:
-        unique_key_slots: [realization_id, release_id, group_id, fact_id]
-    annotations:
-      ph:immutability: admitted
-      ph:foreign_keys: '[{"columns": ["realization_id", "release_id"], "target": "data.realization.realization_id,release_id"}, {"columns": ["realization_id", "release_id", "group_id"], "target": "data.alternative_group.realization_id,release_id,group_id"}, {"columns": ["realization_id", "release_id", "fact_id"], "target": "data.fact.realization_id,release_id,fact_id"}]'
-
   conditional_rule:
     in_subset:
     - sem
@@ -1927,9 +592,9 @@ classes:
     annotations:
       ph:immutability: intrinsic
       ph:archive_role: projection
-      ph:foreign_keys: '[{"columns": ["release_id"], "target": "sem.release.release_id"}, {"columns": ["release_id", "class_id"], "target": "sem.class_definition.release_id,class_id"}]'
+      ph:foreign_keys: '[{"columns": ["release_id"], "target": "sem.release.release_id"},
+        {"columns": ["release_id", "class_id"], "target": "sem.class_definition.release_id,class_id"}]'
       ph:checks: '["scope IN (''shape'',''accepted_value'')"]'
-
   conditional_atom:
     in_subset:
     - sem
@@ -1966,535 +631,96 @@ classes:
       ph:immutability: intrinsic
       ph:archive_role: projection
       ph:foreign_keys: '[{"columns": ["release_id", "rule_id"], "target": "sem.conditional_rule.release_id,rule_id"}]'
-      ph:checks: '["branch IN (''if'',''then'',''else'')", "position>=0", "presence IN (''present'',''absent'',''optional'')", "choices IS NULL OR choices=''null''::jsonb OR jsonb_typeof(choices)=''array''"]'
-
-  completed_result:
-    in_subset:
-    - ops
-    attributes:
-      run_id:
-        range: integer
-        required: true
-      release_id:
-        range: string
-        required: true
-      output_realization_id:
-        range: string
-        required: true
-      cut_id:
-        range: integer
-        required: true
-      batch_id:
-        range: string
-        required: true
-      dependency_digest:
-        range: string
-        required: true
-      source_receipts:
-        range: json_payload
-        required: true
-      proof_receipts:
-        range: json_payload
-        required: true
-    unique_keys:
-      primary_key:
-        unique_key_slots:
-        - run_id
-      unique_output:
-        unique_key_slots: [release_id, output_realization_id]
-    annotations:
-      ph:foreign_keys: '[{"columns": ["run_id"], "target": "ops.run.id"}, {"columns": ["release_id", "output_realization_id"], "target": "data.realization.release_id,realization_id"}, {"columns": ["release_id", "output_realization_id", "batch_id"], "target": "data.batch.release_id,realization_id,batch_id"}, {"columns": ["cut_id"], "target": "ops.input_cut.id"}]'
-      ph:checks: '[]'
-
-  publication_intent:
-    in_subset:
-    - data
-    attributes:
-      release_id: {range: string, required: true}
-      realization_id: {range: string, required: true}
-      batch_id: {range: string, required: true}
-      source_release_id: {range: string, required: true}
-      source_realization_id: {range: string, required: true}
-      source_revision: {range: integer, required: true}
-      source_capture_id: {range: string, required: true}
-      operation_id: {range: string, required: true}
-      projection_id: {range: string, required: true}
-    unique_keys:
-      primary_key:
-        unique_key_slots: [release_id, realization_id, batch_id]
-    annotations:
-      ph:immutability: admitted
-      ph:foreign_keys: '[{"columns": ["release_id", "realization_id", "batch_id"], "target": "data.batch.release_id,realization_id,batch_id"}, {"columns": ["source_release_id", "source_realization_id"], "target": "data.realization.release_id,realization_id"}]'
-      ph:checks: '["source_revision>=0", "source_capture_id<>'''' AND operation_id<>'''' AND projection_id<>''''"]'
-
+      ph:checks: '["branch IN (''if'',''then'',''else'')", "position>=0", "presence
+        IN (''present'',''absent'',''optional'')", "choices IS NULL OR choices=''null''::jsonb
+        OR jsonb_typeof(choices)=''array''"]'
   metric_definition:
-    in_subset: [sem]
-    attributes:
-      release_id: {range: string, required: true}
-      metric_id: {range: string, required: true}
-      value_type: {range: string, required: true}
-      subject_kind: {range: string, required: true}
-      detail_schema: {range: string, required: true}
-      description: {range: string, required: true}
-    unique_keys:
-      primary_key:
-        unique_key_slots: [release_id, metric_id]
-    annotations:
-      ph:immutability: intrinsic
-      ph:archive_role: projection
-      ph:foreign_keys: '[{"columns":["release_id"],"target":"sem.release.release_id"}]'
-
-  identity_exclusion:
-    in_subset: [data]
-    attributes:
-      realization_id: {range: string, required: true}
-      release_id: {range: string, required: true}
-      exclusion_id: {range: string, required: true}
-      observation_id: {range: integer, required: true}
-      local_id: {range: string, required: true}
-      left_kind: {range: string, required: true}
-      left_ref: {range: string, required: true}
-      right_kind: {range: string, required: true}
-      right_ref: {range: string, required: true}
-      left_entity_id: {range: string, required: true}
-      right_entity_id: {range: string, required: true}
-      reason: {range: string, required: true}
-      operation_id: {range: string, required: true}
-      operation_version: {range: string, required: true}
-    unique_keys:
-      primary_key:
-        unique_key_slots: [realization_id, release_id, exclusion_id]
-      declaration:
-        unique_key_slots: [realization_id, release_id, observation_id, local_id]
-    annotations:
-      ph:immutability: admitted
-      ph:foreign_keys: '[{"columns": ["realization_id", "release_id", "left_entity_id"], "target": "data.entity.realization_id,release_id,entity_id"}, {"columns": ["realization_id", "release_id", "right_entity_id"], "target": "data.entity.realization_id,release_id,entity_id"}, {"columns": ["release_id", "observation_id"], "target": "kb.observation.release_id,id"}]'
-      ph:checks: '["left_entity_id <> right_entity_id", "left_kind IN (''local'',''known'')", "right_kind IN (''local'',''known'')"]'
-  identity_exclusion_evidence:
-    in_subset: [data]
-    attributes:
-      realization_id: {range: string, required: true}
-      release_id: {range: string, required: true}
-      exclusion_id: {range: string, required: true}
-      evidence_id: {range: string, required: true}
-    unique_keys:
-      primary_key:
-        unique_key_slots: [realization_id, release_id, exclusion_id, evidence_id]
-    annotations:
-      ph:immutability: admitted
-      ph:foreign_keys: '[{"columns": ["realization_id", "release_id", "exclusion_id"], "target": "data.identity_exclusion.realization_id,release_id,exclusion_id"}, {"columns": ["realization_id", "release_id", "evidence_id"], "target": "data.evidence.realization_id,release_id,evidence_id"}]'
-
-  reference_set:
     in_subset:
-    - eval
+    - sem
     attributes:
-      id:
-        range: integer
-        required: true
-        annotations:
-          ph:identity: 'true'
-      project_id:
-        range: string
-        required: true
       release_id:
         range: string
         required: true
-      source_run_id:
-        range: integer
-        required: true
-      label:
+      metric_id:
         range: string
         required: true
-      split:
+      value_type:
         range: string
         required: true
-      guideline:
+      subject_kind:
         range: string
         required: true
-      sampling:
-        range: json_payload
-        required: true
-    unique_keys:
-      primary_key:
-        unique_key_slots:
-        - id
-      unique_0:
-        unique_key_slots:
-        - project_id
-        - label
-        - split
-    annotations:
-      ph:read_roles: '["corpus_sem_evaluator"]'
-      ph:foreign_keys: '[{"columns": ["project_id"], "target": "data.project.project_id"},
-        {"columns": ["release_id"], "target": "sem.release.release_id"}, {"columns":
-        ["source_run_id"], "target": "ops.run.id"}]'
-      ph:checks: '["split IN (''dev'',''test'')"]'
-
-  reference_unit:
-    in_subset:
-    - eval
-    attributes:
-      id:
-        range: integer
-        required: true
-        annotations:
-          ph:identity: 'true'
-      set_id:
-        range: integer
-        required: true
-      rendition_id:
-        range: integer
-        required: false
-      unit_key:
+      detail_schema:
         range: string
         required: true
-      context:
-        range: json_payload
-        required: true
-      source_view_id:
-        range: integer
-        required: false
-      projection_digest:
-        range: string
-        required: false
-    unique_keys:
-      primary_key:
-        unique_key_slots:
-        - id
-      unique_0:
-        unique_key_slots:
-        - set_id
-        - unit_key
-    annotations:
-      ph:read_roles: '["corpus_sem_evaluator"]'
-      ph:foreign_keys: '[{"columns":["set_id"],"target":"eval.reference_set.id"},{"columns":["source_view_id"],"target":"kb.source_view.id"}]'
-      ph:checks: '["(rendition_id IS NOT NULL AND source_view_id IS NULL AND projection_digest
-        IS NULL) OR (rendition_id IS NULL AND source_view_id IS NOT NULL AND projection_digest
-        IS NOT NULL)"]'
-  reference_pass:
-    in_subset:
-    - eval
-    attributes:
-      id:
-        range: integer
-        required: true
-        annotations:
-          ph:identity: 'true'
-      unit_id:
-        range: integer
-        required: true
-      pass_kind:
-        range: string
-        required: true
-      actor:
-        range: string
-        required: true
-      authored:
-        range: bytes
-        required: true
-      content_digest:
+      description:
         range: string
         required: true
     unique_keys:
       primary_key:
         unique_key_slots:
-        - id
-    annotations:
-      ph:read_roles: '["corpus_sem_evaluator"]'
-      ph:foreign_keys: '[{"columns": ["unit_id"], "target": "eval.reference_unit.id"}]'
-      ph:checks: '["pass_kind IN (''A'',''B'',''C'')"]'
-
-  reference_frame:
-    in_subset:
-    - eval
-    attributes:
-      id:
-        range: integer
-        required: true
-        annotations:
-          ph:identity: 'true'
-      pass_id:
-        range: integer
-        required: true
-      version:
-        range: integer
-        required: true
-      rendition_id:
-        range: integer
-        required: false
-      rendition_digest:
-        range: string
-        required: false
-      frame:
-        range: json_payload
-        required: true
-      parent_id:
-        range: integer
-        required: false
-      source_view_id:
-        range: integer
-        required: false
-      projection_digest:
-        range: string
-        required: false
-      source_frame:
-        range: json_payload
-        required: false
-    unique_keys:
-      primary_key:
-        unique_key_slots:
-        - id
-      unique_0:
-        unique_key_slots:
-        - pass_id
-        - version
-    annotations:
-      ph:read_roles: '["corpus_sem_evaluator"]'
-      ph:foreign_keys: '[{"columns":["pass_id"],"target":"eval.reference_pass.id"},{"columns":["parent_id"],"target":"eval.reference_frame.id"},{"columns":["source_view_id"],"target":"kb.source_view.id"}]'
-      ph:checks: '["version > 0", "(rendition_id IS NOT NULL AND source_view_id IS NULL
-        AND projection_digest IS NULL) OR (rendition_id IS NULL AND source_view_id IS
-        NOT NULL AND projection_digest IS NOT NULL)"]'
-  reference_item:
-    in_subset:
-    - eval
-    attributes:
-      id:
-        range: integer
-        required: true
-        annotations:
-          ph:identity: 'true'
-      pass_id:
-        range: integer
-        required: true
-      frame_id:
-        range: integer
-        required: true
-      item_kind:
-        range: string
-        required: true
-      local_ref:
-        range: string
-        required: true
-      payload:
-        range: json_payload
-        required: true
-    unique_keys:
-      primary_key:
-        unique_key_slots:
-        - id
-      unique_0:
-        unique_key_slots:
-        - frame_id
-        - item_kind
-        - local_ref
-    annotations:
-      ph:read_roles: '["corpus_sem_evaluator"]'
-      ph:foreign_keys: '[{"columns": ["pass_id"], "target": "eval.reference_pass.id"},
-        {"columns": ["frame_id"], "target": "eval.reference_frame.id"}]'
-      ph:checks: '[]'
-
-  reference_evaluation:
-    in_subset:
-    - eval
-    attributes:
-      id:
-        range: integer
-        required: true
-        annotations:
-          ph:identity: 'true'
-      project_id:
-        range: string
-        required: true
-      run_id:
-        range: integer
-        required: true
-      set_id:
-        range: integer
-        required: true
-      reference_snapshot:
-        range: json_payload
-        required: true
-      result:
-        range: json_payload
-        required: true
-      content_digest:
-        range: string
-        required: true
-    unique_keys:
-      primary_key:
-        unique_key_slots:
-        - id
-    annotations:
-      ph:read_roles: '["corpus_sem_evaluator"]'
-      ph:foreign_keys: '[{"columns": ["project_id"], "target": "data.project.project_id"},
-        {"columns": ["run_id"], "target": "ops.completed_result.run_id"}, {"columns":
-        ["set_id"], "target": "eval.reference_set.id"}]'
-      ph:checks: '[]'
-
-  operation_event_fit:
-    in_subset: [eval]
-    description: Protected immutable operation-event development frame, labels and numerical diagnostics; parameter-only owned reads never expose judgments.
-    attributes:
-      id:
-        range: integer
-        required: true
-        annotations: {ph:identity: 'true'}
-      project_id: {range: string, required: true}
-      evaluation_id: {range: integer, required: true}
-      run_id: {range: integer, required: true}
-      cut_id: {range: integer, required: true}
-      release_id: {range: string, required: true}
-      set_id: {range: integer, required: true}
-      source_frame_digest: {range: string, required: true}
-      reference_snapshot: {range: json_payload, required: true}
-      frame: {range: json_payload, required: true}
-      result: {range: json_payload, required: true}
-      content_digest: {range: string, required: true}
-    unique_keys:
-      primary_key: {unique_key_slots: [id]}
-    annotations:
-      ph:immutability: immutable
-      ph:read_roles: '["corpus_sem_evaluator"]'
-      ph:foreign_keys: '[{"columns":["project_id"],"target":"data.project.project_id"},{"columns":["evaluation_id"],"target":"eval.reference_evaluation.id"},{"columns":["run_id"],"target":"ops.completed_result.run_id"},{"columns":["cut_id"],"target":"ops.input_cut.id"},{"columns":["release_id"],"target":"sem.release.release_id"},{"columns":["set_id"],"target":"eval.reference_set.id"}]'
-      ph:checks: '["content_digest ~ ''^[0-9a-f]{64}$''", "source_frame_digest ~ ''^[0-9a-f]{64}$''"]'
-
-  split_decision:
-    in_subset: [eval]
-    attributes:
-      decision_id: {range: string, required: true}
-      project_id: {range: string, required: true}
-      release_id: {range: string, required: true}
-      intent: {range: json_payload, required: true}
-      digest: {range: string, required: true}
-    unique_keys:
-      primary_key: {unique_key_slots: [decision_id]}
-    annotations:
-      ph:immutability: intrinsic
-      ph:read_roles: '["corpus_sem_evaluator"]'
-      ph:foreign_keys: '[{"columns": ["project_id"], "target": "data.project.project_id"}, {"columns": ["release_id"], "target": "sem.release.release_id"}]'
-
-  document_split:
-    in_subset:
-    - eval
-    attributes:
-      id:
-        range: integer
-        required: true
-        annotations:
-          ph:identity: 'true'
-      project_id:
-        range: string
-        required: true
-      source_uri:
-        range: string
-        required: true
-      split:
-        range: string
-        required: true
-      decision_id: {range: string}
-      reason: {range: string}
-    unique_keys:
-      primary_key:
-        unique_key_slots:
-        - id
-      unique_0:
-        unique_key_slots:
-        - project_id
-        - source_uri
-    annotations:
-      ph:read_roles: '["corpus_sem_evaluator"]'
-      ph:foreign_keys: '[{"columns": ["project_id"], "target": "data.project.project_id"}, {"columns": ["decision_id"], "target": "eval.split_decision.decision_id"}]'
-      ph:checks: '["split IN (''dev'',''test'',''reserved'')"]'
-
-  execution_operation:
-    in_subset: [sem]
-    attributes:
-      release_id: {range: string, required: true}
-      operation_id: {range: string, required: true}
-      implementation_id: {range: string, required: true}
-      implementation_version: {range: string, required: true}
-    unique_keys:
-      primary_key: {unique_key_slots: [release_id, operation_id]}
+        - release_id
+        - metric_id
     annotations:
       ph:immutability: intrinsic
       ph:archive_role: projection
       ph:foreign_keys: '[{"columns":["release_id"],"target":"sem.release.release_id"}]'
-  execution_transition:
-    in_subset: [sem]
-    attributes:
-      release_id: {range: string, required: true}
-      transition_id: {range: string, required: true}
-      operation_id: {range: string, required: true}
-      lifecycle: {range: string, required: true}
-    unique_keys:
-      primary_key: {unique_key_slots: [release_id, transition_id]}
-    annotations:
-      ph:immutability: intrinsic
-      ph:archive_role: projection
-      ph:foreign_keys: '[{"columns":["release_id","operation_id"],"target":"sem.execution_operation.release_id,operation_id"}]'
-  execution_edge:
-    in_subset: [sem]
-    attributes:
-      release_id: {range: string, required: true}
-      transition_id: {range: string, required: true}
-      prior_state: {range: string, required: true}
-      result_state: {range: string, required: true}
-    unique_keys:
-      primary_key: {unique_key_slots: [release_id, transition_id, prior_state, result_state]}
-    annotations:
-      ph:immutability: intrinsic
-      ph:archive_role: projection
-      ph:foreign_keys: '[{"columns":["release_id","transition_id"],"target":"sem.execution_transition.release_id,transition_id"}]'
-  operation_effect:
-    in_subset: [sem]
-    attributes:
-      release_id: {range: string, required: true}
-      operation_id: {range: string, required: true}
-      effect_id: {range: string, required: true}
-      effect_version: {range: string, required: true}
-    unique_keys:
-      primary_key: {unique_key_slots: [release_id, operation_id, effect_id]}
-    annotations:
-      ph:immutability: intrinsic
-      ph:archive_role: projection
-      ph:foreign_keys: '[{"columns":["release_id","operation_id"],"target":"sem.execution_operation.release_id,operation_id"}]'
-  transition_effect:
-    in_subset: [sem]
-    attributes:
-      release_id: {range: string, required: true}
-      transition_id: {range: string, required: true}
-      effect_id: {range: string, required: true}
-      effect_version: {range: string, required: true}
-    unique_keys:
-      primary_key: {unique_key_slots: [release_id, transition_id, effect_id]}
-    annotations:
-      ph:immutability: intrinsic
-      ph:archive_role: projection
-      ph:foreign_keys: '[{"columns":["release_id","transition_id"],"target":"sem.execution_transition.release_id,transition_id"}]'
   operation_property_role:
-    in_subset: [sem]
+    in_subset:
+    - sem
     attributes:
-      release_id: {range: string, required: true}
-      class_id: {range: string, required: true}
-      property_id: {range: string, required: true}
-      role: {range: string, required: true}
+      release_id:
+        range: string
+        required: true
+      class_id:
+        range: string
+        required: true
+      property_id:
+        range: string
+        required: true
+      role:
+        range: string
+        required: true
     unique_keys:
-      primary_key: {unique_key_slots: [release_id, class_id, property_id, role]}
+      primary_key:
+        unique_key_slots:
+        - release_id
+        - class_id
+        - property_id
+        - role
     annotations:
       ph:immutability: intrinsic
       ph:archive_role: projection
       ph:foreign_keys: '[{"columns":["release_id","class_id","property_id"],"target":"sem.property_applicability.release_id,class_id,property_id"}]'
   scientific_decision_rule:
-    in_subset: [sem]
+    in_subset:
+    - sem
     attributes:
-      release_id: {range: string, required: true}
-      policy_id: {range: string, required: true}
-      evidence_tier: {range: string, required: true}
-      agreement: {range: string, required: true}
-      decision: {range: string, required: true}
-      decision_tier: {range: string, required: true}
+      release_id:
+        range: string
+        required: true
+      policy_id:
+        range: string
+        required: true
+      evidence_tier:
+        range: string
+        required: true
+      agreement:
+        range: string
+        required: true
+      decision:
+        range: string
+        required: true
+      decision_tier:
+        range: string
+        required: true
     unique_keys:
-      primary_key: {unique_key_slots: [release_id, policy_id, evidence_tier, agreement]}
+      primary_key:
+        unique_key_slots:
+        - release_id
+        - policy_id
+        - evidence_tier
+        - agreement
     annotations:
       ph:immutability: intrinsic
       ph:archive_role: projection
@@ -2545,300 +771,6 @@ classes:
       ph:foreign_keys: '[{"columns": ["task_id", "release_id"], "target": "ops.task.id,release_id"},
         {"columns": ["artifact_digest"], "target": "kb.source_artifact.artifact_digest"},
         {"columns": ["recipe_digest"], "target": "kb.source_artifact.artifact_digest"}]'
-  source_view:
-    in_subset:
-    - kb
-    attributes:
-      analysis_eligible: {range: boolean, required: true}
-      id:
-        range: integer
-        required: true
-        annotations:
-          ph:python_type: "corpus_structure.semantic.identifiers.SourceViewId"
-          ph:identity: 'true'
-      key:
-        range: string
-        required: true
-      document_id:
-        range: integer
-        required: true
-      release_id:
-        range: string
-        required: true
-      native_task_id:
-        range: integer
-        required: true
-      native_product_key:
-        range: string
-        required: true
-      native_content_digest:
-        range: string
-        required: true
-      native_build_id: {range: string, required: true}
-      native_revision_id: {range: string, required: true}
-      section_pointer:
-        range: string
-        required: true
-      membership:
-        range: string
-        required: true
-      projection_digest:
-        range: string
-        required: true
-      recipe_digest:
-        range: string
-        required: true
-      projection:
-        range: json_payload
-        required: true
-    unique_keys:
-      primary_key:
-        unique_key_slots:
-        - id
-      unique_0:
-        unique_key_slots:
-        - key
-        - release_id
-      unique_1:
-        unique_key_slots:
-        - id
-        - release_id
-    annotations:
-      ph:immutability: immutable
-      ph:foreign_keys: '[{"columns": ["document_id"], "target": "kb.document.id"}, {"columns":
-        ["release_id"], "target": "sem.release.release_id"}, {"columns": ["native_task_id",
-        "native_product_key", "native_content_digest"], "target": "ops.pdf_product.task_id,product_key,content_digest"},
-        {"columns": ["native_build_id", "native_task_id", "native_product_key", "native_content_digest"], "target": "ops.pdf_published_revision.build_id,task_id,product_key,logical_digest"}, {"columns": ["native_build_id", "native_revision_id", "section_pointer"], "target": "kb.pdf_record_access.product_id,revision_id,pointer"}, {"columns": ["recipe_digest"],
-        "target": "kb.source_artifact.artifact_digest"}]'
-      ph:checks: '["membership IN (''direct'',''descendants'')", "key <> ''''", "native_build_id = native_revision_id"]'
-      ph:indexes: '[["native_task_id", "native_product_key", "section_pointer"]]'
-  run_source_view:
-    in_subset:
-    - ops
-    attributes:
-      run_id:
-        range: integer
-        required: true
-      source_view_id:
-        range: integer
-        required: true
-      supersedes_source_view_id:
-        range: integer
-        required: false
-      position:
-        range: integer
-        required: true
-    unique_keys:
-      primary_key:
-        unique_key_slots:
-        - run_id
-        - source_view_id
-    annotations:
-      ph:immutability: immutable
-      ph:foreign_keys: '[{"columns": ["run_id"], "target": "ops.run.id"}, {"columns":
-        ["source_view_id"], "target": "kb.source_view.id"}, {"columns": ["supersedes_source_view_id"], "target": "kb.source_view.id"}]'
-      ph:checks: '["position >= 0"]'
-      ph:indexes: '[["run_id", "position", "source_view_id"]]'
-  native_source_frame:
-    in_subset:
-    - ops
-    attributes:
-      task_id:
-        range: integer
-        required: true
-      packet_hash:
-        range: string
-        required: true
-      unit_ref:
-        range: string
-        required: true
-      source_view_id:
-        range: integer
-        required: true
-      product_task_id:
-        range: integer
-        required: true
-      product_key:
-        range: string
-        required: true
-      product_digest:
-        range: string
-        required: true
-      projection_digest:
-        range: string
-        required: true
-      recipe_digest:
-        range: string
-        required: true
-      context_json:
-        range: json_payload
-        required: true
-      source_frame:
-        range: json_payload
-        required: false
-    unique_keys:
-      primary_key:
-        unique_key_slots:
-        - task_id
-    annotations:
-      ph:immutability: immutable
-      ph:foreign_keys: '[{"columns": ["task_id"], "target": "ops.task.id"}, {"columns":
-        ["source_view_id"], "target": "kb.source_view.id"}, {"columns": ["product_task_id",
-        "product_key", "product_digest"], "target": "ops.pdf_product.task_id,product_key,content_digest"}]'
-      ph:checks: '[]'
-      ph:indexes: '[]'
-  native_source_frame_source:
-    in_subset:
-    - ops
-    attributes:
-      task_id:
-        range: integer
-        required: true
-      unit_ref:
-        range: string
-        required: true
-      source_view_id:
-        range: integer
-        required: true
-      product_task_id:
-        range: integer
-        required: true
-      product_key:
-        range: string
-        required: true
-      product_digest:
-        range: string
-        required: true
-      projection_digest:
-        range: string
-        required: true
-      recipe_digest:
-        range: string
-        required: true
-      section_pointer:
-        range: string
-        required: true
-      membership:
-        range: string
-        required: true
-      role:
-        range: string
-        required: true
-      context_json:
-        range: json_payload
-        required: true
-    unique_keys:
-      primary_key:
-        unique_key_slots:
-        - task_id
-        - source_view_id
-    annotations:
-      ph:immutability: immutable
-      ph:foreign_keys: '[{"columns": ["task_id"], "target": "ops.native_source_frame.task_id"}, {"columns":
-        ["source_view_id"], "target": "kb.source_view.id"}, {"columns": ["product_task_id",
-        "product_key", "product_digest"], "target": "ops.pdf_product.task_id,product_key,content_digest"}]'
-      ph:checks: '["role IN (''primary'', ''ancestor_context'')", "membership IN (''direct'', ''descendants'')"]'
-      ph:indexes: '[]'
-  native_source_frame_sentence:
-    in_subset:
-    - ops
-    attributes:
-      task_id:
-        range: integer
-        required: true
-      sentence_id:
-        range: string
-        required: true
-      locator:
-        range: string
-        required: true
-      start_offset:
-        range: integer
-        required: true
-      end_offset:
-        range: integer
-        required: true
-      source_view_id:
-        range: integer
-        required: true
-    unique_keys:
-      primary_key:
-        unique_key_slots:
-        - task_id
-        - sentence_id
-    annotations:
-      ph:immutability: immutable
-      ph:foreign_keys: '[{"columns": ["task_id"], "target": "ops.native_source_frame.task_id"}, {"columns": ["task_id", "source_view_id"], "target": "ops.native_source_frame_source.task_id,source_view_id"}]'
-      ph:checks: '["start_offset >= 0", "end_offset > start_offset"]'
-      ph:indexes: '[]'
-  native_region_artifact:
-    in_subset:
-    - ops
-    attributes:
-      task_id:
-        range: integer
-        required: true
-      native_task_id:
-        range: integer
-        required: true
-      native_product_key:
-        range: string
-        required: true
-      native_content_digest:
-        range: string
-        required: true
-      native_build_id: {range: string, required: true}
-      native_revision_id: {range: string, required: true}
-      pointer:
-        range: string
-        required: true
-      region_index:
-        range: integer
-        required: true
-      recipe_digest:
-        range: string
-        required: true
-      artifact_digest:
-        range: string
-        required: true
-    unique_keys:
-      primary_key:
-        unique_key_slots:
-        - task_id
-    annotations:
-      ph:immutability: immutable
-      ph:foreign_keys: '[{"columns": ["task_id"], "target": "ops.task.id"}, {"columns":
-        ["native_task_id", "native_product_key", "native_content_digest"], "target":
-        "ops.pdf_product.task_id,product_key,content_digest"}, {"columns": ["native_build_id", "native_task_id", "native_product_key", "native_content_digest"], "target": "ops.pdf_published_revision.build_id,task_id,product_key,logical_digest"}, {"columns": ["native_build_id", "native_revision_id", "pointer", "region_index"], "target": "kb.pdf_record_region.product_id,revision_id,pointer,region_index"}, {"columns":
-        ["recipe_digest"], "target": "kb.source_artifact.artifact_digest"}, {"columns":
-        ["artifact_digest"], "target": "kb.source_artifact.artifact_digest"}]'
-      ph:checks: '["native_build_id = native_revision_id"]'
-  task_dependency:
-    in_subset:
-    - ops
-    description: A declared source method prerequisite between real immutable source-view
-      task invocations.
-    attributes:
-      task_id:
-        range: integer
-        required: true
-      dependency_task_id:
-        range: integer
-        required: true
-      kind:
-        range: string
-        required: true
-    unique_keys:
-      primary_key:
-        unique_key_slots:
-        - task_id
-        - dependency_task_id
-    annotations:
-      ph:immutability: immutable
-      ph:foreign_keys: '[{"columns": ["task_id"], "target": "ops.task.id"}, {"columns":
-        ["dependency_task_id"], "target": "ops.task.id"}]'
-      ph:checks: '["kind IN (''ancestor_source_view'',''source_view_interpretation'',''source_view_product'')", "task_id<>dependency_task_id"]'
-      ph:indexes: '[["dependency_task_id"]]'
   pdf_product:
     in_subset:
     - ops
@@ -2849,13 +781,13 @@ classes:
       product_key:
         range: string
         required: true
-        annotations: {ph:python_type: "corpus_structure.semantic.identifiers.ProductKey"}
-
+        annotations:
+          ph:python_type: corpus_structure.semantic.identifiers.ProductKey
       content_digest:
         range: string
         required: true
-        annotations: {ph:python_type: "corpus_structure.semantic.identifiers.ContentDigest"}
-
+        annotations:
+          ph:python_type: corpus_structure.semantic.identifiers.ContentDigest
       kind:
         range: string
         required: true
@@ -2882,8 +814,9 @@ classes:
       ph:immutability: immutable
       ph:foreign_keys: '[{"columns": ["task_id", "release_id"], "target": "ops.source_build.task_id,release_id"},
         {"columns": ["artifact_digest"], "target": "kb.source_artifact.artifact_digest"}]'
-      ph:checks: '["kind IN (''native'',''recognition_observation'',''integrated'')", "product_key <> ''''", "content_digest
-        ~ ''^[0-9a-f]{64}$''", "contract_digest ~ ''^[0-9a-f]{64}$''"]'
+      ph:checks: '["kind IN (''native'',''recognition_observation'',''integrated'')",
+        "product_key <> ''''", "content_digest ~ ''^[0-9a-f]{64}$''", "contract_digest
+        ~ ''^[0-9a-f]{64}$''"]'
   pdf_product_body:
     in_subset:
     - ops
@@ -2954,7 +887,8 @@ classes:
     annotations:
       ph:immutability: immutable
       ph:foreign_keys: '[{"columns": ["task_id", "product_key"], "target": "ops.pdf_product.task_id,product_key"},
-        {"columns": ["input_task_id", "input_product_key", "input_content_digest"], "target": "ops.pdf_product.task_id,product_key,content_digest"}]'
+        {"columns": ["input_task_id", "input_product_key", "input_content_digest"],
+        "target": "ops.pdf_product.task_id,product_key,content_digest"}]'
       ph:checks: '["input_index >= 0", "role IN (''structural'',''recognition'',''alternative'',''policy_input'')",
         "task_id <> input_task_id OR product_key <> input_product_key"]'
       ph:indexes: '[["input_task_id", "input_product_key", "task_id", "product_key"]]'
@@ -2983,7 +917,9 @@ classes:
       body:
         range: json_payload
         required: true
-      pointer: {range: string, required: false}
+      pointer:
+        range: string
+        required: false
     unique_keys:
       primary_key:
         unique_key_slots:
@@ -3065,11 +1001,14 @@ classes:
         - endpoint_index
     annotations:
       ph:immutability: immutable
-      ph:foreign_keys: '[{"columns": ["task_id", "product_key", "relation_id"], "target": "kb.pdf_relation.task_id,product_key,relation_id"},
-        {"columns": ["target_task_id", "target_product_key", "target_content_digest"], "target": "ops.pdf_product.task_id,product_key,content_digest"},
-        {"columns": ["target_task_id", "target_product_key", "occurrence_id"], "target": "kb.pdf_occurrence.task_id,product_key,occurrence_id"}]'
+      ph:foreign_keys: '[{"columns": ["task_id", "product_key", "relation_id"], "target":
+        "kb.pdf_relation.task_id,product_key,relation_id"}, {"columns": ["target_task_id",
+        "target_product_key", "target_content_digest"], "target": "ops.pdf_product.task_id,product_key,content_digest"},
+        {"columns": ["target_task_id", "target_product_key", "occurrence_id"], "target":
+        "kb.pdf_occurrence.task_id,product_key,occurrence_id"}]'
       ph:checks: '["endpoint_index >= 0", "role IN (''input'',''output'',''alternative'',''evidence'')"]'
-      ph:indexes: '[["target_task_id", "target_product_key", "occurrence_id", "task_id", "product_key"]]'
+      ph:indexes: '[["target_task_id", "target_product_key", "occurrence_id", "task_id",
+        "product_key"]]'
   pdf_product_coverage:
     in_subset:
     - kb
@@ -3096,112 +1035,185 @@ classes:
       ph:immutability: immutable
       ph:foreign_keys: '[{"columns": ["task_id", "product_key"], "target": "ops.pdf_product.task_id,product_key"}]'
       ph:checks: '["coverage_id <> ''''"]'
-
   pdf_product_artifact:
-    in_subset: [ops]
+    in_subset:
+    - ops
     attributes:
-      task_id: {range: integer, required: true}
-      product_key: {range: string, required: true}
-      artifact_digest: {range: string, required: true}
+      task_id:
+        range: integer
+        required: true
+      product_key:
+        range: string
+        required: true
+      artifact_digest:
+        range: string
+        required: true
     unique_keys:
-      primary_key: {unique_key_slots: [task_id, product_key, artifact_digest]}
+      primary_key:
+        unique_key_slots:
+        - task_id
+        - product_key
+        - artifact_digest
     annotations:
       ph:immutability: immutable
       ph:foreign_keys: '[{"columns":["task_id","product_key"],"target":"ops.pdf_product.task_id,product_key"},{"columns":["artifact_digest"],"target":"kb.source_artifact.artifact_digest"}]'
-
   pdf_visual_index:
-    in_subset: [ops]
+    in_subset:
+    - ops
     attributes:
-      task_id: {range: integer, required: true}
-      product_key: {range: string, required: true}
-      artifact_digest: {range: string, required: true}
-      row_count: {range: integer, required: true}
+      task_id:
+        range: integer
+        required: true
+      product_key:
+        range: string
+        required: true
+      artifact_digest:
+        range: string
+        required: true
+      row_count:
+        range: integer
+        required: true
     unique_keys:
-      primary_key: {unique_key_slots: [task_id, product_key, artifact_digest]}
+      primary_key:
+        unique_key_slots:
+        - task_id
+        - product_key
+        - artifact_digest
     annotations:
       ph:immutability: immutable
       ph:foreign_keys: '[{"columns":["task_id","product_key","artifact_digest"],"target":"ops.pdf_product_artifact.task_id,product_key,artifact_digest"}]'
       ph:checks: '["row_count BETWEEN 0 AND 10000"]'
-
   pdf_visual_locator:
-    in_subset: [kb]
+    in_subset:
+    - kb
     attributes:
-      task_id: {range: integer, required: true}
-      product_key: {range: string, required: true}
-      artifact_digest: {range: string, required: true}
-      occurrence_id: {range: string, required: true}
-      ordinal: {range: integer, required: true}
-      kind: {range: string, required: true}
-      parent_id: {range: string}
-      body: {range: json_payload, required: true}
+      task_id:
+        range: integer
+        required: true
+      product_key:
+        range: string
+        required: true
+      artifact_digest:
+        range: string
+        required: true
+      occurrence_id:
+        range: string
+        required: true
+      ordinal:
+        range: integer
+        required: true
+      kind:
+        range: string
+        required: true
+      parent_id:
+        range: string
+      body:
+        range: json_payload
+        required: true
       artifact_scope:
         range: integer_range
         required: true
         annotations:
-          ph:computed: "int8range(task_id, task_id, '[]')"
+          ph:computed: int8range(task_id, task_id, '[]')
       source_x:
         range: numeric_range
         annotations:
-          ph:computed: >-
-            CASE WHEN body -> 'source_region' ->> 'left' IS NOT NULL
-                  AND body -> 'source_region' ->> 'right' IS NOT NULL
-                 THEN numrange((body -> 'source_region' ->> 'left')::numeric,
-                               (body -> 'source_region' ->> 'right')::numeric, '[)') END
+          ph:computed: "CASE WHEN body -> 'source_region' ->> 'left' IS NOT NULL\n\
+            \      AND body -> 'source_region' ->> 'right' IS NOT NULL\n     THEN\
+            \ numrange((body -> 'source_region' ->> 'left')::numeric,\n          \
+            \         (body -> 'source_region' ->> 'right')::numeric, '[)') END"
       source_y:
         range: numeric_range
         annotations:
-          ph:computed: >-
-            CASE WHEN body -> 'source_region' ->> 'top' IS NOT NULL
-                  AND body -> 'source_region' ->> 'bottom' IS NOT NULL
-                 THEN numrange((body -> 'source_region' ->> 'top')::numeric,
-                               (body -> 'source_region' ->> 'bottom')::numeric, '[)') END
+          ph:computed: "CASE WHEN body -> 'source_region' ->> 'top' IS NOT NULL\n\
+            \      AND body -> 'source_region' ->> 'bottom' IS NOT NULL\n     THEN\
+            \ numrange((body -> 'source_region' ->> 'top')::numeric,\n           \
+            \        (body -> 'source_region' ->> 'bottom')::numeric, '[)') END"
     unique_keys:
-      primary_key: {unique_key_slots: [task_id, product_key, artifact_digest, occurrence_id]}
-      unique_0: {unique_key_slots: [task_id, product_key, artifact_digest, ordinal]}
+      primary_key:
+        unique_key_slots:
+        - task_id
+        - product_key
+        - artifact_digest
+        - occurrence_id
+      unique_0:
+        unique_key_slots:
+        - task_id
+        - product_key
+        - artifact_digest
+        - ordinal
     annotations:
       ph:immutability: immutable
       ph:foreign_keys: '[{"columns":["task_id","product_key","artifact_digest"],"target":"ops.pdf_visual_index.task_id,product_key,artifact_digest"}]'
-      ph:indexes: >-
-        [["task_id","product_key","artifact_digest","kind","ordinal"],
-         ["task_id","product_key","artifact_digest","parent_id","ordinal"],
-         {"name":"ix_pdf_visual_locator_artifact_region","columns":["artifact_scope","source_x","source_y"],
-          "using":"gist","where":"source_x IS NOT NULL AND source_y IS NOT NULL"}]
+      ph:indexes: "[[\"task_id\",\"product_key\",\"artifact_digest\",\"kind\",\"ordinal\"\
+        ],\n [\"task_id\",\"product_key\",\"artifact_digest\",\"parent_id\",\"ordinal\"\
+        ],\n {\"name\":\"ix_pdf_visual_locator_artifact_region\",\"columns\":[\"artifact_scope\"\
+        ,\"source_x\",\"source_y\"],\n  \"using\":\"gist\",\"where\":\"source_x IS\
+        \ NOT NULL AND source_y IS NOT NULL\"}]"
       ph:checks: '["ordinal > 0", "occurrence_id <> ''''"]'
-
   pdf_visual_cell:
-    in_subset: [kb]
+    in_subset:
+    - kb
     attributes:
-      task_id: {range: integer, required: true}
-      product_key: {range: string, required: true}
-      artifact_digest: {range: string, required: true}
-      occurrence_id: {range: string, required: true}
-      cell_index: {range: integer, required: true}
-      group_id: {range: string}
+      task_id:
+        range: integer
+        required: true
+      product_key:
+        range: string
+        required: true
+      artifact_digest:
+        range: string
+        required: true
+      occurrence_id:
+        range: string
+        required: true
+      cell_index:
+        range: integer
+        required: true
+      group_id:
+        range: string
     unique_keys:
-      primary_key: {unique_key_slots: [task_id, product_key, artifact_digest, occurrence_id, cell_index]}
+      primary_key:
+        unique_key_slots:
+        - task_id
+        - product_key
+        - artifact_digest
+        - occurrence_id
+        - cell_index
     annotations:
       ph:immutability: immutable
       ph:foreign_keys: '[{"columns":["task_id","product_key","artifact_digest","occurrence_id"],"target":"kb.pdf_visual_locator.task_id,product_key,artifact_digest,occurrence_id"}]'
       ph:checks: '["cell_index >= 0"]'
-
   pdf_mapping_report:
-    in_subset: [kb]
+    in_subset:
+    - kb
     attributes:
-      task_id: {range: integer, required: true}
-      product_key: {range: string, required: true}
-      report_index: {range: integer, required: true}
-      input_index: {range: integer, required: true}
-      body: {range: json_payload, required: true}
+      task_id:
+        range: integer
+        required: true
+      product_key:
+        range: string
+        required: true
+      report_index:
+        range: integer
+        required: true
+      input_index:
+        range: integer
+        required: true
+      body:
+        range: json_payload
+        required: true
     unique_keys:
       primary_key:
-        unique_key_slots: [task_id, product_key, report_index]
+        unique_key_slots:
+        - task_id
+        - product_key
+        - report_index
     annotations:
       ph:immutability: immutable
       ph:foreign_keys: '[{"columns":["task_id","product_key","input_index"],"target":"ops.pdf_product_input.task_id,product_key,input_index"}]'
       ph:checks: '["report_index >= 0", "input_index >= 0"]'
       ph:indexes: '[["task_id", "product_key", "input_index", "report_index"]]'
-
-  # PDF-18 private record foundations; inherited fields are owned by pdf-records.yaml.
   pdf_record_document:
     is_a: PdfRecordDocument
     in_subset:
@@ -3324,7 +1336,6 @@ classes:
       ph:foreign_keys: '[{"columns": ["product_id", "revision_id", "stream_id"], "target":
         "ops.pdf_artifact_stream.product_id,revision_id,stream_id"}]'
       ph:read_roles: '[]'
-
   pdf_stage_build:
     is_a: PdfStageBuild
     in_subset:
@@ -3470,7 +1481,6 @@ classes:
         <= 65536", "sha256_digest = encode(sha256(body),''hex'')", "product_id = revision_id"]'
       ph:foreign_keys: '[{"columns": ["product_id"], "target": "ops.pdf_stage_build.build_id"}]'
       ph:read_roles: '[]'
-
   pdf_frozen_build:
     is_a: PdfFrozenBuild
     in_subset:
@@ -3485,15 +1495,23 @@ classes:
       ph:foreign_keys: '[{"columns": ["build_id"], "target": "ops.pdf_stage_build.build_id"}]'
   pdf_validation_check:
     is_a: PdfValidationCheck
-    in_subset: [ops]
+    in_subset:
+    - ops
     unique_keys:
-      primary_key: {unique_key_slots: [build_id, attempt, holder, check_name]}
+      primary_key:
+        unique_key_slots:
+        - build_id
+        - attempt
+        - holder
+        - check_name
     annotations:
       ph:immutability: immutable
       ph:read_roles: '[]'
       ph:foreign_keys: '[{"columns":["build_id"],"target":"ops.pdf_stage_build.build_id"},
         {"columns":["predecessor_build_id"],"target":"ops.pdf_published_revision.build_id"}]'
-      ph:checks: '["check_name IN (''seal'', ''inventory'', ''access'', ''identity'', ''projection'')", "CASE WHEN check_name IN (''identity'', ''projection'') THEN result_digest ~ ''^[0-9a-f]{64}$'' ELSE result_digest = '''' END"]'
+      ph:checks: '["check_name IN (''seal'', ''inventory'', ''access'', ''identity'',
+        ''projection'')", "CASE WHEN check_name IN (''identity'', ''projection'')
+        THEN result_digest ~ ''^[0-9a-f]{64}$'' ELSE result_digest = '''' END"]'
   pdf_build_validation:
     is_a: PdfBuildValidation
     in_subset:
@@ -3507,8 +1525,9 @@ classes:
     annotations:
       ph:immutability: immutable
       ph:read_roles: '[]'
-      ph:foreign_keys: '[{"columns": ["build_id"], "target": "ops.pdf_stage_build.build_id"}, {"columns":
-        ["build_id", "frozen_digest", "native_contract_digest"], "target": "ops.pdf_native_validation.build_id,frozen_digest,contract_digest"}]'
+      ph:foreign_keys: '[{"columns": ["build_id"], "target": "ops.pdf_stage_build.build_id"},
+        {"columns": ["build_id", "frozen_digest", "native_contract_digest"], "target":
+        "ops.pdf_native_validation.build_id,frozen_digest,contract_digest"}]'
   pdf_published_revision:
     is_a: PdfPublishedRevision
     in_subset:
@@ -3523,7 +1542,11 @@ classes:
         - product_key
         - logical_digest
       unique_1:
-        unique_key_slots: [build_id, task_id, product_key, logical_digest]
+        unique_key_slots:
+        - build_id
+        - task_id
+        - product_key
+        - logical_digest
     annotations:
       ph:immutability: immutable
       ph:read_roles: '[]'
@@ -3544,8 +1567,8 @@ classes:
       ph:indexes: '[["product_id","revision_id","family","ordinal","local_id"]]'
       ph:read_roles: '[]'
       ph:foreign_keys: '[{"columns": ["product_id"], "target": "ops.pdf_stage_build.build_id"}]'
-      ph:checks: '["product_id = revision_id", "octet_length(body::text) <= 65536", "jsonb_typeof(body)
-        = ''object''"]'
+      ph:checks: '["product_id = revision_id", "octet_length(body::text) <= 65536",
+        "jsonb_typeof(body) = ''object''"]'
   pdf_stage_endpoint:
     is_a: PdfRecordEndpoint
     in_subset:
@@ -3578,8 +1601,8 @@ classes:
       ph:indexes: '[["product_id","revision_id","family","ordinal","local_id"]]'
       ph:read_roles: '[]'
       ph:foreign_keys: '[{"columns": ["product_id"], "target": "ops.pdf_stage_build.build_id"}]'
-      ph:checks: '["product_id = revision_id", "octet_length(body::text) <= 65536", "jsonb_typeof(body)
-        = ''object''"]'
+      ph:checks: '["product_id = revision_id", "octet_length(body::text) <= 65536",
+        "jsonb_typeof(body) = ''object''"]'
   pdf_record_endpoint:
     is_a: PdfRecordEndpoint
     in_subset:
@@ -3596,7 +1619,6 @@ classes:
       ph:read_roles: '[]'
       ph:foreign_keys: '[{"columns": ["product_id"], "target": "ops.pdf_stage_build.build_id"}]'
       ph:checks: '["product_id = revision_id", "ordinal >= 0"]'
-
   pdf_stage_companion_field:
     is_a: PdfRecordCompanionField
     in_subset:
@@ -3613,8 +1635,14 @@ classes:
       ph:immutability: immutable
       ph:read_roles: '[]'
       ph:indexes: '[["product_id","revision_id","stream_id"]]'
-      ph:foreign_keys: '[{"columns": ["product_id", "revision_id", "family", "local_id"], "target": "ops.pdf_stage_companion.product_id,revision_id,family,local_id"}, {"columns": ["product_id", "revision_id", "stream_id"], "target": "ops.pdf_stage_artifact_stream.product_id,revision_id,stream_id"}]'
-      ph:checks: '["product_id = revision_id", "(family = ''native_metadata'' AND field_name = ''value'' AND scalar_kind = ''y'') OR (family = ''occurrence'' AND field_name = ''text'' AND scalar_kind = ''s'') OR (family = ''relation'' AND ((field_name = ''endpoints'' AND scalar_kind = ''y'') OR (field_name = ''evidence'' AND scalar_kind = ''s'')))"]'
+      ph:foreign_keys: '[{"columns": ["product_id", "revision_id", "family", "local_id"],
+        "target": "ops.pdf_stage_companion.product_id,revision_id,family,local_id"},
+        {"columns": ["product_id", "revision_id", "stream_id"], "target": "ops.pdf_stage_artifact_stream.product_id,revision_id,stream_id"}]'
+      ph:checks: '["product_id = revision_id", "(family = ''native_metadata'' AND
+        field_name = ''value'' AND scalar_kind = ''y'') OR (family = ''occurrence''
+        AND field_name = ''text'' AND scalar_kind = ''s'') OR (family = ''relation''
+        AND ((field_name = ''endpoints'' AND scalar_kind = ''y'') OR (field_name =
+        ''evidence'' AND scalar_kind = ''s'')))"]'
   pdf_record_companion_field:
     is_a: PdfRecordCompanionField
     in_subset:
@@ -3631,8 +1659,14 @@ classes:
       ph:immutability: immutable
       ph:read_roles: '[]'
       ph:indexes: '[["product_id","revision_id","stream_id"]]'
-      ph:foreign_keys: '[{"columns": ["product_id", "revision_id", "family", "local_id"], "target": "kb.pdf_record_companion.product_id,revision_id,family,local_id"}, {"columns": ["product_id", "revision_id", "stream_id"], "target": "ops.pdf_artifact_stream.product_id,revision_id,stream_id"}]'
-      ph:checks: '["product_id = revision_id", "(family = ''native_metadata'' AND field_name = ''value'' AND scalar_kind = ''y'') OR (family = ''occurrence'' AND field_name = ''text'' AND scalar_kind = ''s'') OR (family = ''relation'' AND ((field_name = ''endpoints'' AND scalar_kind = ''y'') OR (field_name = ''evidence'' AND scalar_kind = ''s'')))"]'
+      ph:foreign_keys: '[{"columns": ["product_id", "revision_id", "family", "local_id"],
+        "target": "kb.pdf_record_companion.product_id,revision_id,family,local_id"},
+        {"columns": ["product_id", "revision_id", "stream_id"], "target": "ops.pdf_artifact_stream.product_id,revision_id,stream_id"}]'
+      ph:checks: '["product_id = revision_id", "(family = ''native_metadata'' AND
+        field_name = ''value'' AND scalar_kind = ''y'') OR (family = ''occurrence''
+        AND field_name = ''text'' AND scalar_kind = ''s'') OR (family = ''relation''
+        AND ((field_name = ''endpoints'' AND scalar_kind = ''y'') OR (field_name =
+        ''evidence'' AND scalar_kind = ''s'')))"]'
   pdf_record_access:
     is_a: PdfRecordAccess
     in_subset:
@@ -3662,956 +1696,30 @@ classes:
       ph:immutability: immutable
       ph:read_roles: '[]'
       ph:foreign_keys: '[{"columns": ["product_id"], "target": "ops.pdf_stage_build.build_id"}]'
-
   pdf_stage_recipe:
     is_a: PdfStageRecipe
-    in_subset: [ops]
+    in_subset:
+    - ops
     unique_keys:
-      primary_key: {unique_key_slots: [task_id, stage_recipe_digest]}
+      primary_key:
+        unique_key_slots:
+        - task_id
+        - stage_recipe_digest
     annotations:
       ph:immutability: immutable
       ph:read_roles: '[]'
       ph:foreign_keys: '[{"columns":["task_id"],"target":"ops.task.id"},{"columns":["stage_recipe_digest"],"target":"kb.source_artifact.artifact_digest"},{"columns":["root_recipe_digest"],"target":"kb.source_artifact.artifact_digest"}]'
-
   pdf_native_validation:
     is_a: PdfNativeValidationOutcome
-    in_subset: [ops]
+    in_subset:
+    - ops
     unique_keys:
-      primary_key: {unique_key_slots: [build_id, frozen_digest, contract_digest]}
+      primary_key:
+        unique_key_slots:
+        - build_id
+        - frozen_digest
+        - contract_digest
     annotations:
       ph:immutability: immutable
       ph:read_roles: '[]'
       ph:foreign_keys: '[{"columns":["build_id"],"target":"ops.pdf_stage_build.build_id"}]'
-
-  # Finite source-record projection. Semantic roles come from the prepared release.
-  record_report:
-    in_subset: [data]
-    attributes:
-      realization_id: {range: string, required: true}
-      release_id: {range: string, required: true}
-      selected_task_id: {range: integer, required: true}
-      origin_task_id: {range: integer, required: true}
-      cut_id: {range: integer, required: true}
-      source: {range: string, required: true}
-      outcome: {range: string, required: true}
-      records_present: {range: boolean, required: true}
-    unique_keys:
-      primary_key: {unique_key_slots: [realization_id, release_id, selected_task_id]}
-    annotations:
-      ph:immutability: admitted
-      ph:foreign_keys: '[{"columns": ["realization_id", "release_id"], "target": "data.realization.realization_id,release_id"}, {"columns": ["selected_task_id"], "target": "ops.task.id"}, {"columns": ["origin_task_id"], "target": "ops.task.id"}, {"columns": ["cut_id"], "target": "ops.input_cut.id"}]'
-  source_record:
-    in_subset: [data]
-    attributes:
-      realization_id: {range: string, required: true}
-      release_id: {range: string, required: true}
-      record_id: {range: string, required: true}
-      interpretation_id: {range: string, required: true}
-      contract: {range: string, required: true}
-      family: {range: string, required: true}
-      occurrence_recipe: {range: string, required: true}
-      source: {range: string, required: true}
-      native_product_task_id: {range: integer, required: true}
-      product_key: {range: string, required: true}
-      product_digest: {range: string, required: true}
-      projection_digest: {range: string, required: true}
-      recipe_digest: {range: string, required: true}
-      source_view_id: {range: integer, required: false}
-      standing: {range: string, required: true}
-      policy_version: {range: string, required: true}
-      evidence_sets_present: {range: boolean, required: true}
-      computation_dependencies_present: {range: boolean, required: true}
-      assertion_members_present: {range: boolean, required: true}
-    unique_keys:
-      primary_key: {unique_key_slots: [realization_id, release_id, record_id, interpretation_id]}
-    annotations:
-      ph:immutability: admitted
-      ph:foreign_keys: '[{"columns": ["realization_id", "release_id"], "target": "data.realization.realization_id,release_id"}]'
-  record_report_member:
-    in_subset: [data]
-    attributes:
-      realization_id: {range: string, required: true}
-      release_id: {range: string, required: true}
-      selected_task_id: {range: integer, required: true}
-      position: {range: integer, required: true}
-      record_id: {range: string, required: true}
-      interpretation_id: {range: string, required: true}
-    unique_keys:
-      primary_key: {unique_key_slots: [realization_id, release_id, selected_task_id, position]}
-    annotations:
-      ph:immutability: admitted
-      ph:foreign_keys: '[{"columns": ["realization_id", "release_id"], "target": "data.realization.realization_id,release_id"}, {"columns": ["realization_id", "release_id", "record_id", "interpretation_id"], "target": "data.source_record.realization_id,release_id,record_id,interpretation_id"}, {"columns": ["realization_id", "release_id", "selected_task_id"], "target": "data.record_report.realization_id,release_id,selected_task_id"}]'
-      ph:checks: '["position >= 0"]'
-  record_field:
-    in_subset: [data]
-    attributes:
-      realization_id: {range: string, required: true}
-      release_id: {range: string, required: true}
-      record_id: {range: string, required: true}
-      interpretation_id: {range: string, required: true}
-      role: {range: string, required: true}
-      position: {range: integer, required: true}
-      kind: {range: string, required: true}
-      state: {range: string, required: true}
-      meaning_changing: {range: boolean, required: true}
-      evidence_status: {range: string, required: true}
-      value_kind: {range: string, required: false}
-      text_value: {range: string, required: false}
-      decimal_lexical: {range: string, required: false}
-      classification: {range: string, required: false}
-      native_pointer: {range: string, required: false}
-      original: {range: string, required: false}
-      original_pieces_present: {range: boolean, required: true}
-      evidence_sets_present: {range: boolean, required: true}
-      alternatives_present: {range: boolean, required: true}
-      premises_present: {range: boolean, required: true}
-      reason: {range: string, required: false}
-      policy: {range: string, required: false}
-      rule: {range: string, required: false}
-    unique_keys:
-      primary_key: {unique_key_slots: [realization_id, release_id, record_id, interpretation_id, role]}
-    annotations:
-      ph:immutability: admitted
-      ph:foreign_keys: '[{"columns": ["realization_id", "release_id"], "target": "data.realization.realization_id,release_id"}, {"columns": ["realization_id", "release_id", "record_id", "interpretation_id"], "target": "data.source_record.realization_id,release_id,record_id,interpretation_id"}]'
-      ph:checks: '["position >= 0"]'
-  record_field_piece:
-    in_subset: [data]
-    attributes:
-      realization_id: {range: string, required: true}
-      release_id: {range: string, required: true}
-      record_id: {range: string, required: true}
-      interpretation_id: {range: string, required: true}
-      role: {range: string, required: true}
-      position: {range: integer, required: true}
-      original_piece: {range: string, required: false}
-      value_piece: {range: string, required: false}
-    unique_keys:
-      primary_key: {unique_key_slots: [realization_id, release_id, record_id, interpretation_id, role, position]}
-    annotations:
-      ph:immutability: admitted
-      ph:foreign_keys: '[{"columns": ["realization_id", "release_id"], "target": "data.realization.realization_id,release_id"}, {"columns": ["realization_id", "release_id", "record_id", "interpretation_id", "role"], "target": "data.record_field.realization_id,release_id,record_id,interpretation_id,role"}]'
-      ph:checks: '["position >= 0"]'
-  record_alternative:
-    in_subset: [data]
-    attributes:
-      realization_id: {range: string, required: true}
-      release_id: {range: string, required: true}
-      record_id: {range: string, required: true}
-      interpretation_id: {range: string, required: true}
-      role: {range: string, required: true}
-      alternative_id: {range: string, required: true}
-      position: {range: integer, required: true}
-      value_kind: {range: string, required: true}
-      text_value: {range: string, required: false}
-      decimal_lexical: {range: string, required: false}
-      classification: {range: string, required: false}
-      native_pointer: {range: string, required: false}
-      evidence_sets_present: {range: boolean, required: true}
-      reason: {range: string, required: true}
-    unique_keys:
-      primary_key: {unique_key_slots: [realization_id, release_id, record_id, interpretation_id, role, alternative_id]}
-    annotations:
-      ph:immutability: admitted
-      ph:foreign_keys: '[{"columns": ["realization_id", "release_id"], "target": "data.realization.realization_id,release_id"}, {"columns": ["realization_id", "release_id", "record_id", "interpretation_id", "role"], "target": "data.record_field.realization_id,release_id,record_id,interpretation_id,role"}]'
-      ph:checks: '["position >= 0"]'
-  record_alternative_piece:
-    in_subset: [data]
-    attributes:
-      realization_id: {range: string, required: true}
-      release_id: {range: string, required: true}
-      record_id: {range: string, required: true}
-      interpretation_id: {range: string, required: true}
-      role: {range: string, required: true}
-      alternative_id: {range: string, required: true}
-      position: {range: integer, required: true}
-      value_piece: {range: string, required: true}
-    unique_keys:
-      primary_key: {unique_key_slots: [realization_id, release_id, record_id, interpretation_id, role, alternative_id, position]}
-    annotations:
-      ph:immutability: admitted
-      ph:foreign_keys: '[{"columns": ["realization_id", "release_id"], "target": "data.realization.realization_id,release_id"}, {"columns": ["realization_id", "release_id", "record_id", "interpretation_id", "role", "alternative_id"], "target": "data.record_alternative.realization_id,release_id,record_id,interpretation_id,role,alternative_id"}]'
-      ph:checks: '["position >= 0"]'
-  record_anchor:
-    in_subset: [data]
-    attributes:
-      realization_id: {range: string, required: true}
-      release_id: {range: string, required: true}
-      record_id: {range: string, required: true}
-      interpretation_id: {range: string, required: true}
-      anchor_id: {range: string, required: true}
-      position: {range: integer, required: true}
-      source: {range: string, required: true}
-      native_product_task_id: {range: integer, required: true}
-      product_key: {range: string, required: true}
-      product_digest: {range: string, required: true}
-      projection_digest: {range: string, required: true}
-      recipe_digest: {range: string, required: true}
-      source_view_id: {range: integer, required: false}
-      space: {range: string, required: true}
-      pointer: {range: string, required: true}
-      precision: {range: string, required: true}
-      start: {range: integer, required: false}
-      end: {range: integer, required: false}
-      source_piece: {range: string, required: false}
-      binding_version: {range: integer, required: false}
-      binding_relationship: {range: string, required: false}
-      binding_policy: {range: string, required: false}
-      recognition_selected_occurrence_id: {range: string, required: false}
-      recognition_task_id: {range: integer, required: false}
-      recognition_product_key: {range: string, required: false}
-      recognition_content_digest: {range: string, required: false}
-      recognition_occurrence_id: {range: string, required: false}
-      recognition_relation_id: {range: string, required: false}
-      recognition_endpoint_role: {range: string, required: false}
-      recognition_relation_kind: {range: string, required: false}
-      recognition_relation_outcome: {range: string, required: false}
-      recognition_provider_occurrence_json: {range: string, required: false}
-      recognition_observation_json: {range: string, required: false}
-    unique_keys:
-      primary_key: {unique_key_slots: [realization_id, release_id, record_id, interpretation_id, anchor_id]}
-    annotations:
-      ph:immutability: admitted
-      ph:foreign_keys: '[{"columns": ["realization_id", "release_id"], "target": "data.realization.realization_id,release_id"}, {"columns": ["realization_id", "release_id", "record_id", "interpretation_id"], "target": "data.source_record.realization_id,release_id,record_id,interpretation_id"}]'
-      ph:checks: '["position >= 0"]'
-  record_occurrence_anchor:
-    in_subset: [data]
-    attributes:
-      realization_id: {range: string, required: true}
-      release_id: {range: string, required: true}
-      record_id: {range: string, required: true}
-      interpretation_id: {range: string, required: true}
-      position: {range: integer, required: true}
-      anchor_id: {range: string, required: true}
-    unique_keys:
-      primary_key: {unique_key_slots: [realization_id, release_id, record_id, interpretation_id, position]}
-    annotations:
-      ph:immutability: admitted
-      ph:foreign_keys: '[{"columns": ["realization_id", "release_id"], "target": "data.realization.realization_id,release_id"}, {"columns": ["realization_id", "release_id", "record_id", "interpretation_id"], "target": "data.source_record.realization_id,release_id,record_id,interpretation_id"}, {"columns": ["realization_id", "release_id", "record_id", "interpretation_id", "anchor_id"], "target": "data.record_anchor.realization_id,release_id,record_id,interpretation_id,anchor_id"}]'
-      ph:checks: '["position >= 0"]'
-  record_evidence_set:
-    in_subset: [data]
-    attributes:
-      realization_id: {range: string, required: true}
-      release_id: {range: string, required: true}
-      record_id: {range: string, required: true}
-      interpretation_id: {range: string, required: true}
-      set_id: {range: string, required: true}
-      position: {range: integer, required: true}
-      role: {range: string, required: true}
-      ordering: {range: string, required: true}
-      usage: {range: string, required: true}
-    unique_keys:
-      primary_key: {unique_key_slots: [realization_id, release_id, record_id, interpretation_id, set_id]}
-    annotations:
-      ph:immutability: admitted
-      ph:foreign_keys: '[{"columns": ["realization_id", "release_id"], "target": "data.realization.realization_id,release_id"}, {"columns": ["realization_id", "release_id", "record_id", "interpretation_id"], "target": "data.source_record.realization_id,release_id,record_id,interpretation_id"}, {"columns": ["realization_id", "release_id", "record_id", "interpretation_id", "role"], "target": "data.record_field.realization_id,release_id,record_id,interpretation_id,role"}]'
-      ph:checks: '["position >= 0"]'
-  record_evidence_member:
-    in_subset: [data]
-    attributes:
-      realization_id: {range: string, required: true}
-      release_id: {range: string, required: true}
-      record_id: {range: string, required: true}
-      interpretation_id: {range: string, required: true}
-      set_id: {range: string, required: true}
-      position: {range: integer, required: true}
-      anchor_id: {range: string, required: true}
-    unique_keys:
-      primary_key: {unique_key_slots: [realization_id, release_id, record_id, interpretation_id, set_id, position]}
-    annotations:
-      ph:immutability: admitted
-      ph:foreign_keys: '[{"columns": ["realization_id", "release_id"], "target": "data.realization.realization_id,release_id"}, {"columns": ["realization_id", "release_id", "record_id", "interpretation_id", "set_id"], "target": "data.record_evidence_set.realization_id,release_id,record_id,interpretation_id,set_id"}, {"columns": ["realization_id", "release_id", "record_id", "interpretation_id", "anchor_id"], "target": "data.record_anchor.realization_id,release_id,record_id,interpretation_id,anchor_id"}]'
-      ph:checks: '["position >= 0"]'
-  record_field_evidence:
-    in_subset: [data]
-    attributes:
-      realization_id: {range: string, required: true}
-      release_id: {range: string, required: true}
-      record_id: {range: string, required: true}
-      interpretation_id: {range: string, required: true}
-      role: {range: string, required: true}
-      position: {range: integer, required: true}
-      set_id: {range: string, required: true}
-    unique_keys:
-      primary_key: {unique_key_slots: [realization_id, release_id, record_id, interpretation_id, role, position]}
-    annotations:
-      ph:immutability: admitted
-      ph:foreign_keys: '[{"columns": ["realization_id", "release_id"], "target": "data.realization.realization_id,release_id"}, {"columns": ["realization_id", "release_id", "record_id", "interpretation_id", "role"], "target": "data.record_field.realization_id,release_id,record_id,interpretation_id,role"}, {"columns": ["realization_id", "release_id", "record_id", "interpretation_id", "set_id"], "target": "data.record_evidence_set.realization_id,release_id,record_id,interpretation_id,set_id"}]'
-      ph:checks: '["position >= 0"]'
-  record_alternative_evidence:
-    in_subset: [data]
-    attributes:
-      realization_id: {range: string, required: true}
-      release_id: {range: string, required: true}
-      record_id: {range: string, required: true}
-      interpretation_id: {range: string, required: true}
-      role: {range: string, required: true}
-      alternative_id: {range: string, required: true}
-      position: {range: integer, required: true}
-      set_id: {range: string, required: true}
-    unique_keys:
-      primary_key: {unique_key_slots: [realization_id, release_id, record_id, interpretation_id, role, alternative_id, position]}
-    annotations:
-      ph:immutability: admitted
-      ph:foreign_keys: '[{"columns": ["realization_id", "release_id"], "target": "data.realization.realization_id,release_id"}, {"columns": ["realization_id", "release_id", "record_id", "interpretation_id", "role", "alternative_id"], "target": "data.record_alternative.realization_id,release_id,record_id,interpretation_id,role,alternative_id"}, {"columns": ["realization_id", "release_id", "record_id", "interpretation_id", "set_id"], "target": "data.record_evidence_set.realization_id,release_id,record_id,interpretation_id,set_id"}]'
-      ph:checks: '["position >= 0"]'
-  record_premise:
-    in_subset: [data]
-    attributes:
-      realization_id: {range: string, required: true}
-      release_id: {range: string, required: true}
-      record_id: {range: string, required: true}
-      interpretation_id: {range: string, required: true}
-      role: {range: string, required: true}
-      position: {range: integer, required: true}
-      premise_role: {range: string, required: true}
-    unique_keys:
-      primary_key: {unique_key_slots: [realization_id, release_id, record_id, interpretation_id, role, position]}
-    annotations:
-      ph:immutability: admitted
-      ph:foreign_keys: '[{"columns": ["realization_id", "release_id"], "target": "data.realization.realization_id,release_id"}, {"columns": ["realization_id", "release_id", "record_id", "interpretation_id", "role"], "target": "data.record_field.realization_id,release_id,record_id,interpretation_id,role"}, {"columns": ["realization_id", "release_id", "record_id", "interpretation_id", "premise_role"], "target": "data.record_field.realization_id,release_id,record_id,interpretation_id,role"}]'
-      ph:checks: '["position >= 0"]'
-  record_dependency:
-    in_subset: [data]
-    attributes:
-      realization_id: {range: string, required: true}
-      release_id: {range: string, required: true}
-      record_id: {range: string, required: true}
-      interpretation_id: {range: string, required: true}
-      position: {range: integer, required: true}
-      dependency: {range: string, required: true}
-    unique_keys:
-      primary_key: {unique_key_slots: [realization_id, release_id, record_id, interpretation_id, position]}
-    annotations:
-      ph:immutability: admitted
-      ph:foreign_keys: '[{"columns": ["realization_id", "release_id"], "target": "data.realization.realization_id,release_id"}, {"columns": ["realization_id", "release_id", "record_id", "interpretation_id"], "target": "data.source_record.realization_id,release_id,record_id,interpretation_id"}]'
-      ph:checks: '["position >= 0"]'
-  record_private_assertion:
-    in_subset: [data]
-    attributes:
-      realization_id: {range: string, required: true}
-      release_id: {range: string, required: true}
-      record_id: {range: string, required: true}
-      interpretation_id: {range: string, required: true}
-      position: {range: integer, required: true}
-      assertion_ref: {range: string, required: true}
-    unique_keys:
-      primary_key: {unique_key_slots: [realization_id, release_id, record_id, interpretation_id, position]}
-    annotations:
-      ph:immutability: admitted
-      ph:foreign_keys: '[{"columns": ["realization_id", "release_id"], "target": "data.realization.realization_id,release_id"}, {"columns": ["realization_id", "release_id", "record_id", "interpretation_id"], "target": "data.source_record.realization_id,release_id,record_id,interpretation_id"}]'
-      ph:checks: '["position >= 0"]'
-  record_admission:
-    in_subset: [data]
-    attributes:
-      realization_id: {range: string, required: true}
-      release_id: {range: string, required: true}
-      record_id: {range: string, required: true}
-      interpretation_id: {range: string, required: true}
-      decision: {range: string, required: true}
-      policy_id: {range: string, required: true}
-      policy_version: {range: string, required: true}
-      calibration: {range: string, required: true}
-      reason: {range: string, required: true}
-      instance_digest: {range: string, required: false}
-      evaluation_id: {range: integer, required: false}
-      evaluation_digest: {range: string, required: false}
-      probability_lexical: {range: string, required: false}
-      binding_json: {range: string, required: false}
-    unique_keys:
-      primary_key: {unique_key_slots: [realization_id, release_id, record_id, interpretation_id]}
-    annotations:
-      ph:immutability: admitted
-      ph:foreign_keys: '[{"columns": ["realization_id", "release_id"], "target": "data.realization.realization_id,release_id"}, {"columns": ["realization_id", "release_id", "record_id", "interpretation_id"], "target": "data.source_record.realization_id,release_id,record_id,interpretation_id"}]'
-  record_assertion:
-    in_subset: [data]
-    attributes:
-      realization_id: {range: string, required: true}
-      release_id: {range: string, required: true}
-      record_id: {range: string, required: true}
-      interpretation_id: {range: string, required: true}
-      role: {range: string, required: true}
-      reading_id: {range: string, required: true}
-      fact_id: {range: string, required: true}
-      occurrence_id: {range: string, required: true}
-    unique_keys:
-      primary_key: {unique_key_slots: [realization_id, release_id, record_id, interpretation_id, role]}
-    annotations:
-      ph:immutability: admitted
-      ph:foreign_keys: '[{"columns": ["realization_id", "release_id"], "target": "data.realization.realization_id,release_id"}, {"columns": ["realization_id", "release_id", "record_id", "interpretation_id"], "target": "data.source_record.realization_id,release_id,record_id,interpretation_id"}, {"columns": ["realization_id", "release_id", "fact_id"], "target": "data.fact.realization_id,release_id,fact_id"}, {"columns": ["realization_id", "release_id", "occurrence_id"], "target": "data.occurrence.realization_id,release_id,occurrence_id"}, {"columns": ["realization_id", "release_id", "reading_id"], "target": "data.entity.realization_id,release_id,entity_id"}, {"columns": ["realization_id", "release_id", "record_id", "interpretation_id", "role"], "target": "data.record_field.realization_id,release_id,record_id,interpretation_id,role"}]'
-
-  record_assertion_support:
-    in_subset: [data]
-    attributes:
-      realization_id: {range: string, required: true}
-      release_id: {range: string, required: true}
-      origin_task_id: {range: integer, required: true}
-      record_id: {range: string, required: true}
-      interpretation_id: {range: string, required: true}
-      role: {range: string, required: true}
-      set_id: {range: string, required: true}
-      anchor_id: {range: string, required: true}
-      evidence_id: {range: string, required: true}
-      occurrence_id: {range: string, required: true}
-    unique_keys:
-      primary_key: {unique_key_slots: [realization_id, release_id, record_id, interpretation_id, role, set_id, anchor_id]}
-    annotations:
-      ph:immutability: admitted
-      ph:foreign_keys: '[{"columns":["origin_task_id"],"target":"ops.task.id"},{"columns":["realization_id","release_id","record_id","interpretation_id","role"],"target":"data.record_assertion.realization_id,release_id,record_id,interpretation_id,role"},{"columns":["realization_id","release_id","evidence_id"],"target":"data.evidence.realization_id,release_id,evidence_id"},{"columns":["realization_id","release_id","occurrence_id"],"target":"data.occurrence.realization_id,release_id,occurrence_id"}]'
-
-  reference_origin_group:
-    in_subset:
-    - eval
-    attributes:
-      project_id:
-        range: string
-        required: true
-      origin_group:
-        range: string
-        required: true
-      partition:
-        range: string
-        required: true
-      provenance:
-        range: json_payload
-        required: true
-    unique_keys:
-      primary_key:
-        unique_key_slots:
-        - project_id
-        - origin_group
-    annotations:
-      ph:immutability: intrinsic
-      ph:read_roles: '["corpus_sem_evaluator"]'
-      ph:foreign_keys: '[{"columns":["project_id"],"target":"data.project.project_id"}]'
-      ph:checks: '["partition IN (''development'',''feature_fit'',''final_event_calibration'',''final_assessment'')", "origin_group <> ''''", "jsonb_typeof(provenance)=''object'' AND provenance<>''{}''::jsonb"]'
-  reference_origin_source:
-    in_subset:
-    - eval
-    attributes:
-      project_id:
-        range: string
-        required: true
-      source_uri:
-        range: string
-        required: true
-      origin_group:
-        range: string
-        required: true
-    unique_keys:
-      primary_key:
-        unique_key_slots:
-        - project_id
-        - source_uri
-    annotations:
-      ph:immutability: intrinsic
-      ph:read_roles: '["corpus_sem_evaluator"]'
-      ph:foreign_keys: '[{"columns":["project_id","origin_group"],"target":"eval.reference_origin_group.project_id,origin_group"}]'
-
-  source_contribution_operation:
-    in_subset:
-    - kb
-    description: Private contribution index; immutable details remain once in the sealed
-      task envelope.
-    attributes:
-      task_id:
-        range: integer
-        required: true
-      release_id:
-        range: string
-        required: true
-      operation_key:
-        range: string
-        required: true
-      position:
-        range: integer
-        required: true
-      question:
-        range: string
-        required: true
-      operation_version:
-        range: string
-        required: true
-      outcome:
-        range: string
-        required: true
-      inspected_count:
-        range: integer
-        required: true
-      emitted_count:
-        range: integer
-        required: true
-      report_digest:
-        range: string
-    unique_keys:
-      primary_key:
-        unique_key_slots:
-        - task_id
-        - operation_key
-    annotations:
-      ph:immutability: immutable
-      ph:foreign_keys: '[{"columns": ["task_id", "release_id"], "target": "ops.task.id,release_id"}]'
-      ph:indexes: '[["release_id", "question", "operation_version"]]'
-  source_contribution:
-    in_subset:
-    - kb
-    description: Private contribution index; immutable details remain once in the sealed
-      task envelope.
-    attributes:
-      task_id:
-        range: integer
-        required: true
-      release_id:
-        range: string
-        required: true
-      contribution_id:
-        range: string
-        required: true
-      position:
-        range: integer
-        required: true
-      operation_key:
-        range: string
-        required: true
-      kind:
-        range: string
-        required: true
-      semantic_type:
-        range: string
-        required: true
-      source_view_id:
-        range: integer
-        required: true
-      occurrence_id:
-        range: string
-      disposition:
-        range: string
-        required: true
-      standing:
-        range: string
-        required: true
-      score_state:
-        range: string
-        required: true
-    unique_keys:
-      primary_key:
-        unique_key_slots:
-        - task_id
-        - contribution_id
-    annotations:
-      ph:immutability: immutable
-      ph:foreign_keys: '[{"columns": ["task_id", "release_id"], "target": "ops.task.id,release_id"},
-        {"columns": ["task_id", "operation_key"], "target": "kb.source_contribution_operation.task_id,operation_key"},
-        {"columns": ["source_view_id"], "target": "kb.source_view.id"}]'
-      ph:indexes: '[["source_view_id", "kind"], ["operation_key"], ["occurrence_id"],
-        ["release_id", "kind", "semantic_type"]]'
-  source_contribution_endpoint:
-    in_subset:
-    - kb
-    description: Private contribution index; immutable details remain once in the sealed
-      task envelope.
-    attributes:
-      task_id:
-        range: integer
-        required: true
-      contribution_id:
-        range: string
-        required: true
-      position:
-        range: integer
-        required: true
-      role:
-        range: string
-        required: true
-      endpoint_id:
-        range: string
-        required: true
-    unique_keys:
-      primary_key:
-        unique_key_slots:
-        - task_id
-        - contribution_id
-        - position
-    annotations:
-      ph:immutability: immutable
-      ph:foreign_keys: '[{"columns": ["task_id", "contribution_id"], "target": "kb.source_contribution.task_id,contribution_id"},
-        {"columns": ["task_id", "endpoint_id"], "target": "kb.source_contribution.task_id,contribution_id"}]'
-      ph:indexes: '[["task_id", "endpoint_id"]]'
-
-  source_contribution_anchor:
-    in_subset:
-    - kb
-    description: Finite private source address index for selected native scopes before
-      evidence hydration.
-    attributes:
-      task_id:
-        range: integer
-        required: true
-      contribution_id:
-        range: string
-        required: true
-      position:
-        range: integer
-        required: true
-      anchor_id:
-        range: string
-        required: true
-      source_view_id:
-        range: integer
-        required: true
-      pointer:
-        range: string
-        required: true
-      space:
-        range: string
-        required: true
-      precision:
-        range: string
-        required: true
-      start:
-        range: integer
-      end:
-        range: integer
-    unique_keys:
-      primary_key:
-        unique_key_slots:
-        - task_id
-        - contribution_id
-        - position
-    annotations:
-      ph:immutability: immutable
-      ph:foreign_keys: '[{"columns": ["task_id", "contribution_id"], "target": "kb.source_contribution.task_id,contribution_id"},
-        {"columns": ["source_view_id"], "target": "kb.source_view.id"}]'
-      ph:indexes: '[["source_view_id", "pointer", "space", "start", "end"], ["anchor_id"]]'
-
-  local_assertion:
-    in_subset: [data]
-    description: Independently admitted local source claim; no domain membership or scientific truth.
-    attributes:
-      realization_id: {required: true}
-      release_id: {required: true}
-      assertion_id: {required: true}
-      claim_id: {required: true}
-      selected_task_id: {range: integer, required: true}
-      origin_task_id: {range: integer, required: true}
-      cut_id: {range: integer, required: true}
-      contribution_id: {required: true}
-      operation_key: {required: true}
-      operation_version: {required: true}
-      event: {required: true}
-      policy_id: {required: true}
-      policy_version: {required: true}
-      basis: {required: true}
-      source: {required: true}
-      occurrence_id: {required: true}
-      anchors_json: {required: true}
-      literal_pieces_json: {required: true}
-    unique_keys:
-      primary_key: {unique_key_slots: [realization_id, release_id, assertion_id]}
-    annotations:
-      ph:immutability: admitted
-      ph:foreign_keys: '[{"columns":["realization_id","release_id"],"target":"data.realization.realization_id,release_id"},{"columns":["origin_task_id","contribution_id"],"target":"kb.source_contribution.task_id,contribution_id"},{"columns":["selected_task_id"],"target":"ops.task.id"},{"columns":["cut_id"],"target":"ops.input_cut.id"}]'
-  local_semantic_assertion:
-    in_subset: [data]
-    description: Independently adjudicated exact local denotation; no canonical identity or scientific truth.
-    attributes:
-      realization_id: {required: true}
-      release_id: {required: true}
-      assertion_id: {required: true}
-      claim_id: {required: true}
-      selected_task_id: {range: integer, required: true}
-      origin_task_id: {range: integer, required: true}
-      cut_id: {range: integer, required: true}
-      contribution_id: {required: true}
-      operation_key: {required: true}
-      operation_version: {required: true}
-      operation_question: {required: true}
-      policy_id: {required: true}
-      policy_version: {required: true}
-      source: {required: true}
-      occurrence_id: {required: true}
-      evaluation_id: {range: integer, required: true}
-      evaluation_digest: {required: true}
-      unit_id: {range: integer, required: true}
-      pass_id: {range: integer, required: true}
-      frame_id: {range: integer, required: true}
-      case_id: {required: true}
-      facet: {required: true}
-      rubric_version: {required: true}
-      context_policy: {required: true}
-      statement_json: {required: true}
-      anchors_json: {required: true}
-    unique_keys:
-      primary_key: {unique_key_slots: [realization_id, release_id, assertion_id]}
-    annotations:
-      ph:immutability: admitted
-      ph:foreign_keys: '[{"columns":["realization_id","release_id"],"target":"data.realization.realization_id,release_id"},{"columns":["origin_task_id","contribution_id"],"target":"kb.source_contribution.task_id,contribution_id"},{"columns":["selected_task_id"],"target":"ops.task.id"},{"columns":["cut_id"],"target":"ops.input_cut.id"},{"columns":["evaluation_id"],"target":"eval.reference_evaluation.id"}]'
-  contextual_profile:
-    in_subset: [kb]
-    attributes:
-      task_id: {range: integer, required: true}
-      profile_id: {required: true}
-      dimension: {range: integer, required: true}
-      detail: {range: json_payload, required: true}
-    unique_keys:
-      primary_key: {unique_key_slots: [task_id, profile_id]}
-    annotations:
-      ph:immutability: immutable
-      ph:foreign_keys: '[{"columns": ["task_id"], "target": "ops.task.id"}]'
-      ph:checks: '["dimension > 0 AND dimension <= 16000"]'
-  contextual_vector:
-    in_subset: [kb]
-    attributes:
-      task_id: {range: integer, required: true}
-      vector_id: {required: true}
-      object_id: {required: true}
-      source_binding: {required: true}
-      profile_id: {required: true}
-      input_digest: {required: true}
-      vector: {range: contextual_vector_value, required: true}
-    unique_keys:
-      primary_key: {unique_key_slots: [task_id, vector_id]}
-    annotations:
-      ph:immutability: immutable
-      ph:foreign_keys: '[{"columns": ["task_id", "profile_id"], "target": "kb.contextual_profile.task_id,profile_id"}]'
-  contextual_inventory:
-    in_subset: [kb]
-    attributes:
-      task_id: {range: integer, required: true}
-      inventory_id: {required: true}
-      detail: {range: json_payload, required: true}
-    unique_keys:
-      primary_key: {unique_key_slots: [task_id, inventory_id]}
-    annotations:
-      ph:immutability: immutable
-      ph:foreign_keys: '[{"columns": ["task_id"], "target": "ops.task.id"}]'
-  contextual_target_vector:
-    in_subset: [kb]
-    attributes:
-      task_id: {range: integer, required: true}
-      inventory_id: {required: true}
-      profile_id: {required: true}
-      target_id: {required: true}
-      vector_id: {required: true}
-      search_text: {required: true}
-      exact_forms: {multivalued: true, required: true}
-      vector: {range: contextual_vector_value, required: true}
-    unique_keys:
-      primary_key: {unique_key_slots: [task_id, inventory_id, profile_id, target_id]}
-    annotations:
-      ph:immutability: immutable
-      ph:foreign_keys: '[{"columns": ["task_id", "inventory_id"], "target": "kb.contextual_inventory.task_id,inventory_id"}, {"columns": ["task_id", "vector_id"], "target": "kb.contextual_vector.task_id,vector_id"}]'
-
-  review_exposure:
-    in_subset: [eval]
-    attributes:
-      id: {range: integer, required: true, annotations: {ph:identity: 'true'}}
-      project_id: {required: true}
-      set_id: {range: integer, required: false}
-      group_set_id: {range: integer, required: false}
-      partition: {required: true}
-      pass_snapshot: {range: json_payload, required: true}
-      purpose: {required: true}
-      recipient_class: {required: true}
-      authorization_basis: {required: false}
-      creator_xact_id: {required: false}
-      exposed_at: {required: true}
-    unique_keys:
-      primary_key: {unique_key_slots: [id]}
-    annotations:
-      ph:immutability: intrinsic
-      ph:read_roles: '["corpus_sem_evaluator"]'
-      ph:foreign_keys: '[{"columns":["project_id"],"target":"data.project.project_id"},{"columns":["set_id"],"target":"eval.reference_set.id"},{"columns":["group_set_id"],"target":"eval.structural_reference_set.id"}]'
-      ph:checks: '["partition IN (''development'',''feature_fit'')", "partition <> ''feature_fit'' OR (authorization_basis IS NOT NULL AND length(btrim(authorization_basis)) > 0)", "(set_id IS NULL) <> (group_set_id IS NULL)"]'
-
-  structural_reference_set:
-    in_subset: [eval]
-    attributes:
-      id: {range: integer, required: true, annotations: {ph:identity: 'true'}}
-      project_id: {required: true}
-      release_id: {required: true}
-      frame: {range: json_payload, required: true}
-      frame_digest: {required: true}
-    unique_keys:
-      primary_key: {unique_key_slots: [id]}
-    annotations:
-      ph:immutability: intrinsic
-      ph:read_roles: '["corpus_sem_evaluator"]'
-      ph:foreign_keys: '[{"columns":["project_id"],"target":"data.project.project_id"},{"columns":["release_id"],"target":"sem.release.release_id"}]'
-
-  structural_reference_pass:
-    in_subset: [eval]
-    attributes:
-      id: {range: integer, required: true, annotations: {ph:identity: 'true'}}
-      set_id: {range: integer, required: true}
-      pass_kind: {required: true}
-      actor: {required: true}
-      authored: {range: bytes, required: true}
-      content_digest: {required: true}
-      parents: {range: json_payload, required: true}
-    unique_keys:
-      primary_key: {unique_key_slots: [id]}
-    annotations:
-      ph:immutability: intrinsic
-      ph:read_roles: '["corpus_sem_evaluator"]'
-      ph:foreign_keys: '[{"columns":["set_id"],"target":"eval.structural_reference_set.id"}]'
-      ph:checks: '["pass_kind IN (''A'',''B'',''C'')"]'
-
-  structural_assertion:
-    in_subset:
-    - data
-    description: Independently adjudicated full structural statement; dossier assembly does not certify
-      member truth.
-    attributes:
-      realization_id:
-        required: true
-      release_id:
-        required: true
-      assertion_id:
-        required: true
-      claim_id:
-        required: true
-      product_id:
-        required: true
-      product_kind:
-        required: true
-      policy_id:
-        required: true
-      policy_version:
-        required: true
-      c_content_digest:
-        required: true
-      frame_digest:
-        required: true
-      case_id:
-        required: true
-      statement_json:
-        required: true
-      sources_json:
-        required: true
-      selected_task_id:
-        range: integer
-        required: true
-      origin_task_id:
-        range: integer
-        required: true
-      cut_id:
-        range: integer
-        required: true
-      set_id:
-        range: integer
-        required: true
-      c_pass_id:
-        range: integer
-        required: true
-    unique_keys:
-      primary_key:
-        unique_key_slots:
-        - realization_id
-        - release_id
-        - assertion_id
-    annotations:
-      ph:immutability: admitted
-      ph:foreign_keys: '[{"columns":["realization_id","release_id"],"target":"data.realization.realization_id,release_id"},{"columns":["origin_task_id"],"target":"ops.task.id"},{"columns":["selected_task_id"],"target":"ops.task.id"},{"columns":["cut_id"],"target":"ops.input_cut.id"},{"columns":["set_id"],"target":"eval.structural_reference_set.id"},{"columns":["c_pass_id"],"target":"eval.structural_reference_pass.id"}]'
-
-  terminology_interpretation_field:
-    in_subset:
-    - kb
-    description: Compact derived interpretation index; full reviewed payload remains
-      once in the sealed contribution.
-    attributes:
-      task_id: &id001
-        range: integer
-        required: true
-      contribution_id: &id002
-        range: string
-        required: true
-      source_run_id: &id003
-        range: integer
-        required: true
-      source_cut_id: &id004
-        range: integer
-        required: true
-      source_release_id: &id005
-        range: string
-        required: true
-      realization_id: &id006
-        range: string
-        required: true
-      data_revision: &id007
-        range: integer
-        required: true
-      record_id: &id008
-        range: string
-        required: true
-      interpretation_id: &id009
-        range: string
-        required: true
-      vocabulary_release: &id010
-        range: string
-        required: true
-      metadata_digest: &id011
-        range: string
-        required: true
-      outcome: &id012
-        range: string
-        required: true
-      field:
-        required: true
-        range: string
-      selected_value:
-        range: string
-      meaning:
-        range: string
-      mapping_predicate:
-        range: string
-      mapping_direction:
-        range: string
-    unique_keys:
-      primary_key:
-        unique_key_slots:
-        - task_id
-        - contribution_id
-        - field
-    annotations:
-      ph:immutability: immutable
-      ph:foreign_keys: '[{"columns": ["task_id", "contribution_id"], "target": "kb.source_contribution.task_id,contribution_id"}]'
-      ph:indexes: '[["source_run_id", "source_cut_id", "record_id", "interpretation_id"],
-        ["vocabulary_release"], ["field", "selected_value", "outcome"]]'
-  measurement_interpretation:
-    in_subset:
-    - kb
-    description: Compact derived interpretation index; full reviewed payload remains
-      once in the sealed contribution.
-    attributes:
-      task_id: *id001
-      contribution_id: *id002
-      source_run_id: *id003
-      source_cut_id: *id004
-      source_release_id: *id005
-      realization_id: *id006
-      data_revision: *id007
-      record_id: *id008
-      interpretation_id: *id009
-      vocabulary_release: *id010
-      metadata_digest: *id011
-      outcome: *id012
-      unit:
-        range: string
-      quantity_kind:
-        range: string
-      basis_status:
-        required: true
-        range: string
-      basis:
-        range: string
-    unique_keys:
-      primary_key:
-        unique_key_slots:
-        - task_id
-        - contribution_id
-    annotations:
-      ph:immutability: immutable
-      ph:foreign_keys: '[{"columns": ["task_id", "contribution_id"], "target": "kb.source_contribution.task_id,contribution_id"}]'
-      ph:indexes: '[["source_run_id", "source_cut_id", "record_id", "interpretation_id"],
-        ["vocabulary_release"], ["quantity_kind", "unit", "outcome"]]'
