@@ -1,5 +1,5 @@
 CREATE OR REPLACE FUNCTION data.require_execution_release(r text) RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $admission$
-DECLARE expected jsonb; spec jsonb; owner_name text; invalid_inference boolean;
+DECLARE expected jsonb; spec jsonb; owner_name text; invalid_inference boolean; json_value_classes text[];
 BEGIN
  -- {finalized_release}
  PERFORM sem.require_execution_projection(r);
@@ -38,9 +38,34 @@ BEGIN
       OR convert_from(a.content,'UTF8')::jsonb->>'release_id' IS DISTINCT FROM r
       OR convert_from(a.content,'UTF8')::jsonb->>'physical_id' IS DISTINCT FROM expected->>'physical_id')) THEN
    RAISE EXCEPTION 'required authored SQL lacks exact current physical admission' USING ERRCODE='23514'; END IF;
+ -- A current DDO kind's shape is checked by its exact captured body schema.
+ -- Its LinkML class is not thereby a promise of graph-regex enforcement.
+ -- Use only actually projected class kinds, not every class in the model.
+ WITH RECURSIVE archived AS (
+  SELECT convert_from(native.content,'UTF8')::jsonb projection,convert_from(model.content,'UTF8')::jsonb model
+  FROM sem.artifact native JOIN sem.artifact model ON model.release_id=native.release_id
+  AND model.artifact_name='data_operations.json'
+  WHERE native.release_id=r AND native.artifact_name='data_operation_native_definitions.json'
+  AND convert_from(native.content,'UTF8')::jsonb->>'model_digest'=encode(sha256(model.content),'hex')
+  AND convert_from(native.content,'UTF8')::jsonb->>'native_digest'=sem.data_operation_native_descriptor()->>'source_digest'
+ ), roots AS (
+  SELECT c.class_id FROM archived
+  CROSS JOIN LATERAL jsonb_array_elements(archived.projection->'kinds') projected
+  JOIN sem.class_definition c ON c.release_id=r AND c.class_id=projected->>'kind'
+  WHERE EXISTS(SELECT FROM jsonb_array_elements(archived.model->'kinds') declared
+   WHERE declared->>'semantic_id'=c.class_id AND declared->>'category'='class')
+ ), edges AS (
+  SELECT pa.class_id source,c.class_id target FROM sem.property_applicability pa
+  JOIN sem.class_definition c ON c.release_id=pa.release_id AND c.name=pa.range_name
+  WHERE pa.release_id=r AND coalesce((pa.constraints->>'inlined')::boolean,false)
+  UNION SELECT class_id,ancestor_id FROM sem.class_hierarchy WHERE release_id=r
+ ), owned(class_id) AS (
+  SELECT class_id FROM roots UNION SELECT edges.target FROM owned JOIN edges ON edges.source=owned.class_id
+ ) SELECT coalesce(array_agg(class_id),ARRAY[]::text[]) INTO json_value_classes FROM owned;
  IF EXISTS(SELECT FROM sem.property_applicability pa WHERE pa.release_id=r AND
-    (pa.constraint_scope NOT IN ('shape','accepted_value') OR pa.constraints->>'pattern' IS NOT NULL
-     OR COALESCE(pa.constraints->'patterns','[]'::jsonb) NOT IN ('[]'::jsonb,'null'::jsonb))) THEN
+    (pa.constraint_scope NOT IN ('shape','accepted_value') OR
+     ((pa.constraints->>'pattern' IS NOT NULL OR COALESCE(pa.constraints->'patterns','[]'::jsonb) NOT IN ('[]'::jsonb,'null'::jsonb))
+      AND NOT (pa.constraint_scope='shape' AND pa.class_id=ANY(json_value_classes))))) THEN
    RAISE EXCEPTION 'unsupported required native constraint scope or pattern' USING ERRCODE='23514'; END IF;
  IF NOT EXISTS(SELECT FROM sem.release WHERE release_id=r AND profile='semantic-2') THEN
   RAISE EXCEPTION 'execution requires a current composed release' USING ERRCODE='23514'; END IF;

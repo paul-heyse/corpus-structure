@@ -3,6 +3,15 @@
 CREATE OR REPLACE FUNCTION data.validate_state(r text,z text) RETURNS void
 LANGUAGE plpgsql STABLE SET search_path=pg_catalog,pg_temp AS $fn$
 BEGIN
+ -- DDO JSON-shape admission does not grant graph constraint support. A class
+ -- used in the graph must still satisfy the graph engine's actual capabilities,
+ -- even when the same declaration also owns a separately validated JSON kind.
+ IF EXISTS(SELECT FROM sem.property_applicability pa WHERE pa.release_id=r
+  AND (pa.constraint_scope NOT IN ('shape','accepted_value') OR pa.constraints->>'pattern' IS NOT NULL
+   OR coalesce(pa.constraints->'patterns','[]'::jsonb) NOT IN ('[]'::jsonb,'null'::jsonb))
+  AND (EXISTS(SELECT FROM data.membership m WHERE m.release_id=r AND m.realization_id=z AND m.class_id=pa.class_id)
+   OR EXISTS(SELECT FROM data.typed_value v WHERE v.release_id=r AND v.realization_id=z AND v.datatype=pa.class_id))) THEN
+  RAISE EXCEPTION 'unsupported required native graph constraint scope or pattern' USING ERRCODE='23514'; END IF;
  PERFORM data.validate_pre_contract_state(r,z);
  PERFORM data.validate_conditions(r,z);
  PERFORM data.validate_identity_exclusions(r,z);
