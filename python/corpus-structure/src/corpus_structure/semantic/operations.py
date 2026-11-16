@@ -20,7 +20,6 @@ from sqlalchemy.sql import ColumnElement
 from corpus_structure.core.method import (
     MeasurementView,
     Method,
-    Reader,
     SourceObservationReference,
     SourceViewRef,
     UnitResult,

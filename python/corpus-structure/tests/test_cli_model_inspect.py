@@ -939,8 +939,10 @@ def test_candidate_summary_counts_exact_retained_upgrade_without_execution(
     assert ordinary["source"] == "native_candidate.py:upgrade"
     assert ordinary["source_sha256"] == sha256(source).hexdigest()
     assert ordinary["items"][0] == {
-        "ordinal": 1, "upgrade_statement_ordinal": 2 if envelope == 1 else 3,
-        "language": "python", "text": "with owned_operation():\n        op.drop_constraint('old')",
+        "ordinal": 1,
+        "upgrade_statement_ordinal": 2 if envelope == 1 else 3,
+        "language": "python",
+        "text": "with owned_operation():\n        op.drop_constraint('old')",
     }
     second = CliRunner().invoke(app, [*ordinary_args, "--after", "1", "--json"])
     assert second.exit_code == 0, second.output

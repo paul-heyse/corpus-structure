@@ -1004,9 +1004,11 @@ def _candidate_operation_counts(
         state_ = json.loads(products["native_operations.json"])
         native = len(native_operation_payloads(state_))
         privilege = len(state_.get("operations", ())) - native
-        ordinary = len(ordinary_upgrade_statements(
-            products["native_candidate.py"], native=native, privilege=privilege
-        ))
+        ordinary = len(
+            ordinary_upgrade_statements(
+                products["native_candidate.py"], native=native, privilege=privilege
+            )
+        )
     except SyntaxError, ValueError, TypeError:
         return None, "retained authoring products cannot supply operation counts"
     return CandidateOperationCounts(native=native, privilege=privilege, ordinary=ordinary), None
@@ -1014,13 +1016,18 @@ def _candidate_operation_counts(
 
 def _ordinary_operations_view(report):
     content: list[Text | Syntax] = [
-        Text(report.basis), Text(f"{report.total} ordinary upgrade operations")
+        Text(report.basis),
+        Text(f"{report.total} ordinary upgrade operations"),
     ]
     for item in report.items:
-        content.extend((
-            Text(f"Ordinary {item.ordinal} · upgrade statement {item.upgrade_statement_ordinal}"),
-            Syntax(safe_text(item.text), item.language, word_wrap=True),
-        ))
+        content.extend(
+            (
+                Text(
+                    f"Ordinary {item.ordinal} · upgrade statement {item.upgrade_statement_ordinal}"
+                ),
+                Syntax(safe_text(item.text), item.language, word_wrap=True),
+            )
+        )
     if report.next_after is not None:
         content.append(Text(f"Continue with --after {report.next_after}"))
     return Group(*content)
@@ -1078,7 +1085,9 @@ def inspect_candidate(
     candidate_id: Annotated[str, typer.Argument(metavar="CANDIDATE_ID")],
     view: Annotated[
         Literal["summary", "operations", "ordinary", "sql", "contract"],
-        typer.Option(help="Select summary, native operations, ordinary Alembic/Python, SQL changes or contract."),
+        typer.Option(
+            help="Select summary, native operations, ordinary Alembic/Python, SQL changes or contract."
+        ),
     ] = "summary",
     after: Annotated[
         int,
@@ -1209,20 +1218,34 @@ def inspect_candidate(
                         with os.fdopen(fd, "rb") as stream:
                             raw = stream.read()
                         if sha256(raw).hexdigest() != binding.hashes.get(name):
-                            raise ResultError("frozen authoring product differs from candidate binding")
+                            raise ResultError(
+                                "frozen authoring product differs from candidate binding"
+                            )
                         products[name] = raw
                 frozen = json.loads(products["native_operations.json"])
                 native = len(native_operation_payloads(frozen))
                 emit(
                     explain_ordinary_operations(
-                        products["native_candidate.py"], candidate_id,
-                        native=native, privilege=len(frozen["operations"]) - native,
-                        after=after, limit=limit,
-                        binding=binding.model_dump(mode="json", include={
-                            "revision", "predecessor", "target", "target_profile", "target_identity", "hashes",
-                        }),
+                        products["native_candidate.py"],
+                        candidate_id,
+                        native=native,
+                        privilege=len(frozen["operations"]) - native,
+                        after=after,
+                        limit=limit,
+                        binding=binding.model_dump(
+                            mode="json",
+                            include={
+                                "revision",
+                                "predecessor",
+                                "target",
+                                "target_profile",
+                                "target_identity",
+                                "hashes",
+                            },
+                        ),
                     ),
-                    json=json_, render=_ordinary_operations_view,
+                    json=json_,
+                    render=_ordinary_operations_view,
                 )
                 return
             if view == "operations":

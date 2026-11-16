@@ -21,7 +21,9 @@ def test_source_discovery_reuses_exact_owned_schema_through_current_policy_compo
     from corpus_structure.semantic.prepare import _view
 
     core = Path(__file__).parents[2] / "src/corpus_structure/model/semantic/core.yaml"
-    bundle = record_policy_inputs(SourceBundle("core", (SourceArtifact("core", core.read_bytes()),)))
+    bundle = record_policy_inputs(
+        SourceBundle("core", (SourceArtifact("core", core.read_bytes()),))
+    )
     repeated = source_discovery_inputs(bundle)
     assert repeated == bundle
     assert repeated.root == "data_operation_record_policy_scope_root"
@@ -31,13 +33,30 @@ def test_source_discovery_reuses_exact_owned_schema_through_current_policy_compo
 def test_source_discovery_refuses_changed_owned_module_and_reserved_root():
     base = SourceBundle("core", (SourceArtifact("core", b"id: urn:core\nname: core\n"),))
     with pytest.raises(ValueError, match="differs from its acquired owner"):
-        source_discovery_inputs(SourceBundle(base.root, (*base.sources, SourceArtifact(
-            "data_operation_source_discovery", b"id: urn:changed\nname: changed\n"
-        ))))
+        source_discovery_inputs(
+            SourceBundle(
+                base.root,
+                (
+                    *base.sources,
+                    SourceArtifact(
+                        "data_operation_source_discovery", b"id: urn:changed\nname: changed\n"
+                    ),
+                ),
+            )
+        )
     with pytest.raises(ValueError, match="reserved schema names"):
-        source_discovery_inputs(SourceBundle(base.root, (*base.sources, SourceArtifact(
-            "data_operation_source_discovery_root", b"id: urn:reserved\nname: reserved\n"
-        ))))
+        source_discovery_inputs(
+            SourceBundle(
+                base.root,
+                (
+                    *base.sources,
+                    SourceArtifact(
+                        "data_operation_source_discovery_root",
+                        b"id: urn:reserved\nname: reserved\n",
+                    ),
+                ),
+            )
+        )
 
 
 @pytest.fixture(scope="module")

@@ -1493,6 +1493,7 @@ def test_evaluator_retires_own_failed_attempt_without_granting_writer_private_ac
                     },
                 )
             )
+        assert owned["state"] == "claimed"
         payload = {
             **{
                 name: owned[name]
@@ -1517,6 +1518,7 @@ def test_evaluator_retires_own_failed_attempt_without_granting_writer_private_ac
             repeated = storage.release_data_attempt(
                 typing_cast(WireReleaseDataAttemptRequest, payload)
             )
+            assert repeated["state"] == "released"
             assert repeated["failure_id"] == released["failure_id"] and repeated["replayed"] is True
     finally:
         writer.dispose()

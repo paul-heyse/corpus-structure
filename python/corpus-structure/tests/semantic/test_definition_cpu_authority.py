@@ -158,17 +158,23 @@ def test_definition_wrappers_bind_actual_values_parameters_and_support_before_di
     descriptor = PythonCPUDescriptor(
         tuple((source.module, source.filename, source.content) for source in sources.sources),
         kernel.__module__ + "." + kernel.__qualname__,
-        (), verification="prepared-kernel", control_parameter="check_active",
-        prepared_parameter="prepared", prepared_release_id=prepared_workflow.release_id,
+        (),
+        verification="prepared-kernel",
+        control_parameter="check_active",
+        prepared_parameter="prepared",
+        prepared_release_id=prepared_workflow.release_id,
     )
     signature = inspect.signature(kernel, eval_str=True)
 
     def invoke(*args, **kwargs):
         bound = signature.bind(*args, **kwargs)
-        return json.loads(execute_python_call(
-            descriptor.packet(bound.arguments, signature), lambda: None,
-            prepared_releases={prepared_workflow.release_id: prepared_workflow},
-        ))
+        return json.loads(
+            execute_python_call(
+                descriptor.packet(bound.arguments, signature),
+                lambda: None,
+                prepared_releases={prepared_workflow.release_id: prepared_workflow},
+            )
+        )
 
     reply = invoke(
         arguments, roles, context, basis, prepared=prepared_workflow, check_active=lambda: None

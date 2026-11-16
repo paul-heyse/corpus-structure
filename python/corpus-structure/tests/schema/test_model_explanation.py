@@ -319,17 +319,27 @@ def test_ordinary_operation_source_preserves_complete_text_order_and_known_popul
     first = explain_ordinary_operations(source, "candidate", native=1, privilege=1, limit=1)
     assert first.total == 2 and first.next_after == 1
     assert first.items[0].upgrade_statement_ordinal == 3
-    assert first.items[0].text == "if unknown_runtime_condition():\n        op.execute(arbitrary_python())"
+    assert (
+        first.items[0].text
+        == "if unknown_runtime_condition():\n        op.execute(arbitrary_python())"
+    )
     assert first.items[0].language == "python"
     second = explain_ordinary_operations(source, "candidate", native=1, privilege=1, after=1)
     assert second.items[0].text == f"op.owned_sql('publisher', {literal!r})"
     assert second.source_sha256 == sha256(source).hexdigest()
     assert second.next_after is None
-    assert not explain_ordinary_operations(source, "candidate", native=1, privilege=1, after=2).items
+    assert not explain_ordinary_operations(
+        source, "candidate", native=1, privilege=1, after=2
+    ).items
     with pytest.raises(ValueError, match="serialized operation inventory"):
         explain_ordinary_operations(source, "candidate", native=0, privilege=1)
     with pytest.raises(ValueError, match="page selection"):
         explain_ordinary_operations(source, "candidate", native=1, privilege=1, after=3)
     with pytest.raises(ValueError, match="byte bound"):
-        explain_ordinary_operations(source.replace(literal.encode(), (literal * 4).encode()),
-                                    "candidate", native=1, privilege=1, after=1)
+        explain_ordinary_operations(
+            source.replace(literal.encode(), (literal * 4).encode()),
+            "candidate",
+            native=1,
+            privilege=1,
+            after=1,
+        )

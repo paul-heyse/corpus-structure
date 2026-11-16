@@ -390,17 +390,27 @@ def _private_build_factory(
 
 
 @pytest.fixture
-def create_private_build(commit_db_engine, commit_writer_engine, commit_admitter_engine, tmp_path, request):
+def create_private_build(
+    commit_db_engine, commit_writer_engine, commit_admitter_engine, tmp_path, request
+):
     return _private_build_factory(
-        commit_db_engine, commit_writer_engine, tmp_path, request,
+        commit_db_engine,
+        commit_writer_engine,
+        tmp_path,
+        request,
         admission_engine=commit_admitter_engine,
     )
 
 
 @pytest.fixture
-def private_build(commit_db_engine, commit_writer_engine, commit_admitter_engine, tmp_path, request):
+def private_build(
+    commit_db_engine, commit_writer_engine, commit_admitter_engine, tmp_path, request
+):
     return _private_build_factory(
-        commit_db_engine, commit_writer_engine, tmp_path, request,
+        commit_db_engine,
+        commit_writer_engine,
+        tmp_path,
+        request,
         admission_engine=commit_admitter_engine,
     )()
 

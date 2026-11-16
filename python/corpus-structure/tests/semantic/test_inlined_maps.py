@@ -67,22 +67,43 @@ def test_map_order_preserves_typed_qualification_identity():
         "shape": {"key": "shape", "value": Decimal("3.00")},
     }
     first: dict[str, object] = {
-        "modality": "asserted", "polarity": True, "parameters": parameters,
+        "modality": "asserted",
+        "polarity": True,
+        "parameters": parameters,
     }
     second = {**first, "parameters": dict(reversed(tuple(parameters.items())))}
     assert prepared.fact_identity(
-        "identity:scope", "subject", "https://example.org/label", "report", first,
+        "identity:scope",
+        "subject",
+        "https://example.org/label",
+        "report",
+        first,
         qualification_class="MappedQualification",
     ) == prepared.fact_identity(
-        "identity:scope", "subject", "https://example.org/label", "report", second,
+        "identity:scope",
+        "subject",
+        "https://example.org/label",
+        "report",
+        second,
         qualification_class="MappedQualification",
     )
-    changed = {**first, "parameters": {**parameters, "scale": {"key": "scale", "value": Decimal("4")}}}
+    changed = {
+        **first,
+        "parameters": {**parameters, "scale": {"key": "scale", "value": Decimal("4")}},
+    }
     assert prepared.fact_identity(
-        "identity:scope", "subject", "https://example.org/label", "report", first,
+        "identity:scope",
+        "subject",
+        "https://example.org/label",
+        "report",
+        first,
         qualification_class="MappedQualification",
     ) != prepared.fact_identity(
-        "identity:scope", "subject", "https://example.org/label", "report", changed,
+        "identity:scope",
+        "subject",
+        "https://example.org/label",
+        "report",
+        changed,
         qualification_class="MappedQualification",
     )
 
@@ -90,12 +111,21 @@ def test_map_order_preserves_typed_qualification_identity():
 def test_distinct_semantic_scope_keeps_distinct_qualification_identity():
     prepared = prepare_release(inputs())
     first: dict[str, object] = {
-        "modality": "asserted", "polarity": True,
+        "modality": "asserted",
+        "polarity": True,
         "scope": {"extent": "section", "locator": "page#one"},
     }
     second = {**first, "scope": {"extent": "section", "locator": "page#two"}}
     assert prepared.fact_identity(
-        "identity:scope", "subject", "https://example.org/label", "same", first,
+        "identity:scope",
+        "subject",
+        "https://example.org/label",
+        "same",
+        first,
     ) != prepared.fact_identity(
-        "identity:scope", "subject", "https://example.org/label", "same", second,
+        "identity:scope",
+        "subject",
+        "https://example.org/label",
+        "same",
+        second,
     )

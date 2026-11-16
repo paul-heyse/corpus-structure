@@ -152,29 +152,40 @@ def ordinary_upgrade_statements(raw: bytes, *, native: int, privilege: int):
 
     source = raw.decode("utf-8")
     upgrades = [
-        node for node in ast.parse(source).body
+        node
+        for node in ast.parse(source).body
         if isinstance(node, ast.FunctionDef) and node.name == "upgrade"
     ]
     if len(upgrades) != 1:
         raise ValueError("retained rendering requires exactly one upgrade function")
     commands = [
-        node for node in upgrades[0].body
+        node
+        for node in upgrades[0].body
         if not isinstance(node, ast.Pass)
-        and not (isinstance(node, ast.Expr) and isinstance(node.value, ast.Constant)
-                 and isinstance(node.value.value, str))
+        and not (
+            isinstance(node, ast.Expr)
+            and isinstance(node.value, ast.Constant)
+            and isinstance(node.value.value, str)
+        )
     ]
 
     def category(node):
-        if (isinstance(node, ast.Expr) and isinstance(node.value, ast.Call)
+        if (
+            isinstance(node, ast.Expr)
+            and isinstance(node.value, ast.Call)
             and isinstance(node.value.func, ast.Attribute)
             and isinstance(node.value.func.value, ast.Name)
-            and node.value.func.value.id == "op"):
+            and node.value.func.value.id == "op"
+        ):
             return node.value.func.attr
         return None
 
-    if (sum(category(node) == "native_transition" for node in commands) != native
-        or sum(category(node) == "privilege_transition" for node in commands) != privilege):
+    if (
+        sum(category(node) == "native_transition" for node in commands) != native
+        or sum(category(node) == "privilege_transition" for node in commands) != privilege
+    ):
         raise ValueError("retained rendering differs from its serialized operation inventory")
+
     def segment(node):
         text = ast.get_source_segment(source, node)
         if text is None:
@@ -189,23 +200,35 @@ def ordinary_upgrade_statements(raw: bytes, *, native: int, privilege: int):
 
 
 def explain_ordinary_operations(
-    raw: bytes, candidate_id: str, *, native: int, privilege: int,
-    after: int = 0, limit: int = 20, binding=None,
+    raw: bytes,
+    candidate_id: str,
+    *,
+    native: int,
+    privilege: int,
+    after: int = 0,
+    limit: int = 20,
+    binding=None,
 ):
     from hashlib import sha256
 
     operations = ordinary_upgrade_statements(raw, native=native, privilege=privilege)
-    if (type(after) is not int or not 0 <= after <= len(operations)
-        or type(limit) is not int or not 1 <= limit <= 100):
+    if (
+        type(after) is not int
+        or not 0 <= after <= len(operations)
+        or type(limit) is not int
+        or not 1 <= limit <= 100
+    ):
         raise ValueError("invalid ordinary operation page selection")
     page = OrdinaryOperationPage(
-        candidate_id=candidate_id, binding=binding or {}, source_sha256=sha256(raw).hexdigest(),
+        candidate_id=candidate_id,
+        binding=binding or {},
+        source_sha256=sha256(raw).hexdigest(),
         total=len(operations),
         items=tuple(
             OrdinaryOperationExplanation(
                 ordinal=index, upgrade_statement_ordinal=ordinal, text=text
             )
-            for index, (ordinal, text) in enumerate(operations[after:after + limit], after + 1)
+            for index, (ordinal, text) in enumerate(operations[after : after + limit], after + 1)
         ),
         next_after=after + limit if after + limit < len(operations) else None,
     )

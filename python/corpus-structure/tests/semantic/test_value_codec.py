@@ -37,9 +37,7 @@ def test_observed_decimal_scale_is_not_fact_meaning():
 def test_equivalent_instants_share_meaning_without_erasing_observed_offsets():
     local = datetime(2026, 10, 29, 12, tzinfo=timezone(timedelta(hours=2)))
     utc = datetime(2026, 10, 29, 10, tzinfo=UTC)
-    assert value_meaning(local) == value_meaning(utc) == [
-        "datetime", "2026-10-29T10:00:00+00:00"
-    ]
+    assert value_meaning(local) == value_meaning(utc) == ["datetime", "2026-10-29T10:00:00+00:00"]
     assert fact_key("r", "z", "s", "p", local, {}) == fact_key("r", "z", "s", "p", utc, {})
     assert observed_representation(local) == ["datetime-report", "2026-10-29T12:00:00+02:00"]
     assert observed_representation(utc) == ["datetime-report", "2026-10-29T10:00:00+00:00"]
