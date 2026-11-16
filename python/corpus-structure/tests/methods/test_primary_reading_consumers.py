@@ -218,14 +218,14 @@ def test_optional_native_columns_do_not_taint_independent_source_reading_coverag
     assert primary.native is not None
     native = json.loads(primary.native.content)
     assert native["outcome"] == "partial"
-    coverage = {row.family: row for row in primary.construction.value.coverage}
+    coverage = {row["family"]: row for row in json.loads(primary.construction.content)["coverage"]}
     source_readings = coverage["construction.source_readings"]
     if polarity is None:
-        assert source_readings.outcome == "partial"
-        assert all(row.outcome not in {"complete", "empty"} for name, row in coverage.items()
+        assert source_readings["outcome"] == "partial"
+        assert all(row["outcome"] not in {"complete", "empty"} for name, row in coverage.items()
                    if name in {"construction.predication", "construction.embedding"})
         return
-    assert source_readings.outcome == "complete" and not source_readings.unexamined
+    assert source_readings["outcome"] == "complete" and not source_readings["unexamined"]
     inventory = primary.construction.inventory()
     terms = {row["local_id"]: row for row in inventory["terms"]}
     source_frames = [row for row in inventory["terms"] if row["kind"] == "predicate"

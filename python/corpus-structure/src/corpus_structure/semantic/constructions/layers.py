@@ -75,10 +75,6 @@ class ConstructionLayer:
         self.operation = {
             **operation,
             "produced_families": list(self.families),
-            "outcomes": ["complete", "partial", "failed"],
-            "preconditions": ["exact-source-projection", "protected-whole-atoms"],
-            "effects": ["retain-packed-primary-interpretation"],
-            "result_determinants": ["runtime", "grammar", "configuration", "input", "context"],
         }
         self.occurrences: dict[str, dict[str, Any]] = {}
         self.annotations: dict[str, dict[str, Any]] = {}
