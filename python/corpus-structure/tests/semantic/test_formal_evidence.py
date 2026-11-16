@@ -9,9 +9,8 @@ from corpus_structure.semantic.formal_evidence import (
     decimal_value,
     nominate_fields,
 )
-from corpus_structure.semantic.math_context import acquire_analysis_context_profile
-from corpus_structure.semantic.structural_parsing import parse_comparison_literal, parse_threshold
 from corpus_structure.semantic.formal_products import FormalEvidenceOptions, FormalEvidenceProduct
+from corpus_structure.semantic.structural_parsing import parse_comparison_literal, parse_threshold
 from semantic.formal_products_support import profile as profile
 from semantic.formal_products_support import selected_rows
 
@@ -84,7 +83,14 @@ def test_examined_nomination_is_independent_of_zero_recognized_fields(profile):
         assert (
             coverage["eligible"]
             == coverage["examined"]
-            == [dict(projection=layer.value.source.projection, native_pointer="#/texts/0", start=0, end=9)]
+            == [
+                dict(
+                    projection=layer.value.source.projection,
+                    native_pointer="#/texts/0",
+                    start=0,
+                    end=9,
+                )
+            ]
         )
         if coverage["family"] != "formal.lexical":
             assert coverage["outcome"] == "empty"
@@ -207,8 +213,10 @@ def test_recognized_formula_interior_never_claims_original_pdf_characters(profil
         "to_sympy",
         lambda *args, **kwargs: pytest.fail("syntax requested native algebra"),
     )
-    view = selected_rows(profile,
-        ("x plus x", "formula", "x+x", "succeeded"), ("x plus x", "formula", "x+x", "succeeded")
+    view = selected_rows(
+        profile,
+        ("x plus x", "formula", "x+x", "succeeded"),
+        ("x plus x", "formula", "x+x", "succeeded"),
     )
     layer = profile.run(view, FormalEvidenceOptions())
     formulas = roots(layer, "formal.math", "recognized_latex")
@@ -283,7 +291,9 @@ def test_ordinary_retained_annotation_read_preserves_formal_fields_without_parsi
 
 
 def test_failed_recognition_and_deadline_preserve_input_and_lexical_siblings(profile, monkeypatch):
-    unavailable = profile.run(selected_rows(profile, ("bad source", "formula", "", "failed")), FormalEvidenceOptions())
+    unavailable = profile.run(
+        selected_rows(profile, ("bad source", "formula", "", "failed")), FormalEvidenceOptions()
+    )
     assert (
         roots(unavailable, "formal.math", "recognized_latex")[0]["formal_input"]["diagnostic"][
             "category"
@@ -297,7 +307,9 @@ def test_failed_recognition_and_deadline_preserve_input_and_lexical_siblings(pro
             latex, start, ParseOutcome.FAILED, failure=math_grammar.Failure("timeout", "Timeout")
         ),
     )
-    timed_out = profile.run(selected_rows(profile, ("original", "formula", "x+x", "succeeded")), FormalEvidenceOptions())
+    timed_out = profile.run(
+        selected_rows(profile, ("original", "formula", "x+x", "succeeded")), FormalEvidenceOptions()
+    )
     formal = roots(timed_out, "formal.math", "recognized_latex")[0]["formal_input"]
     assert formal["text"] == "x+x" and formal["original_text"] == "original"
     assert formal["syntax_outcome"] == "failed" and formal["diagnostic"]["category"] == "timeout"
@@ -358,7 +370,10 @@ def test_formal_ambiguity_uses_direct_shared_dag_and_bounded_callbacks(profile, 
 
 
 def test_unsupported_formal_callback_retains_native_syntax_as_unknown(profile):
-    layer = profile.run(selected_rows(profile, ("original", "formula", r"\sqrt{x}", "succeeded")), FormalEvidenceOptions())
+    layer = profile.run(
+        selected_rows(profile, ("original", "formula", r"\sqrt{x}", "succeeded")),
+        FormalEvidenceOptions(),
+    )
     formal = roots(layer, "formal.math", "recognized_latex")[0]["formal_input"]
     assert formal["syntax_outcome"] == "complete"
     assert formal["interpretation_outcome"] == "unresolved"
@@ -368,12 +383,16 @@ def test_unsupported_formal_callback_retains_native_syntax_as_unknown(profile):
     ]
     assert unsupported and all(term["status"] == "unknown" for term in unsupported)
     assert any(
-        annotation["native_label"] == "square_root" for annotation in layer.inventory()["annotations"]
+        annotation["native_label"] == "square_root"
+        for annotation in layer.inventory()["annotations"]
     )
 
 
 def test_canonical_symbols_retain_qualified_subscript_parent_and_derivation(profile):
-    layer = profile.run(selected_rows(profile, ("original", "formula", r"\sigma_{X_1} + \mu_i", "succeeded")), FormalEvidenceOptions(math_start="formula"))
+    layer = profile.run(
+        selected_rows(profile, ("original", "formula", r"\sigma_{X_1} + \mu_i", "succeeded")),
+        FormalEvidenceOptions(math_start="formula"),
+    )
     recognized_root = roots(layer, "formal.math", "recognized_latex")[0]["local_id"]
     symbols = {
         annotation["local_id"]: annotation
@@ -401,7 +420,9 @@ def test_canonical_symbols_retain_qualified_subscript_parent_and_derivation(prof
         ("i", 19, 20, r"\mu_i"),
     ]
     assert (
-        FormalEvidenceProduct(layer.content, profile.prepared, profile.model).inventory()["annotations"]
+        FormalEvidenceProduct(layer.content, profile.prepared, profile.model).inventory()[
+            "annotations"
+        ]
         == layer.inventory()["annotations"]
     )
 
@@ -419,10 +440,6 @@ def test_decimal_normalization_is_exact_and_does_not_expand_large_exponents(surf
     assert decimal_value(surface) == expected
 
 
-
-
-
-
 def test_current_formal_macros_are_explicit_inputs_under_the_acquired_grammar(profile):
     from corpus_structure.core.evidence import MacroDef
     from corpus_structure.semantic.formal_evidence import grammar_identity, macro_identity
@@ -434,17 +451,13 @@ def test_current_formal_macros_are_explicit_inputs_under_the_acquired_grammar(pr
     assert inp["macro_identity"] == macro_identity(macros) != "none"
     assert inp["grammar"] == "formal-math"
     assert profile.grammar == grammar_identity()
-    changed = profile.run(view, FormalEvidenceOptions(macros={"\\RR": MacroDef(body="\\mathbb{Z}")}))
+    changed = profile.run(
+        view, FormalEvidenceOptions(macros={"\\RR": MacroDef(body="\\mathbb{Z}")})
+    )
     other = roots(changed, "formal.math", "recognized_latex")[0]["formal_input"]
     assert other["macro_identity"] != inp["macro_identity"]
     assert other["grammar"] == inp["grammar"]
     assert inp["syntax_outcome"] == "complete"
-
-
-
-
-
-
 
 
 def test_private_native_choice_factoring_preserves_correlated_pairs_and_shared_children():

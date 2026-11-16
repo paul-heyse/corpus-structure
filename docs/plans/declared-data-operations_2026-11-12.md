@@ -103,8 +103,28 @@ typed cuts rather than narrowing a pinned acquisition. Original stale PDF transp
 fixture and read-scope failures remain retained. This establishes that controlled native journey,
 not linguistic accuracy, the remaining artifact/event consumers or final-source provider coverage.
 Current PDF transport digests were regenerated through their existing generator; native custody
-guards remain strict. The remaining real CLI inspection mismatch and actual archive-query controls
-are under repair at their owners; no archive compatibility facade is restored.
+guards remain strict. Release inspection now compares `to_jsonb(kind.*)` with archived contracts;
+the old expression resolved the same-named text column. Eight actual archive controls and16 pure
+inspection controls passed at worker source. Frozen successor `semantic_ddo_inspection_rows`,
+registered `343da6870`, deployed on the owned stage with result `eb242dfb66554ed4987724f9d5fa2079`;
+maintenance status independently confirms revision=head. Its10 native transitions preserve owners
+and privileges, with no ordinary operations. Actual post-successor CLI/native qualification is
+running; no archive compatibility facade is restored.
+
+Canonical observations and characterization now own current product/member references directly;
+the redundant record schema projector, old pin branches and unused record_bindings input option
+are removed. Explicit supplied schema bytes are reused or refused on conflict, never silently
+rewritten. Final worker source comparison found all97 native source hashes unchanged for that
+slice; focused strict custody/augmentation26 passed `468b2e3e9d5b41b09ecf0a4a3cafd55f`.
+Current compiler/native authoring/identity controls152 passed
+`a759a79c2ae248a69cddbd7a48706482`. Whole-project typing
+`0c8c1ff9ae4347b199ab46fe8f129d78` still fails remaining obsolete runtime/test imports; their
+migration/retirement is assigned. Documentation publication `266f0e09581142bbac4d0d94b678f5bf`
+passed1300 pages after historical source links were repaired; this grants no product qualification.
+Artifact/event retries `0e299d0d051d4d4f9930d818c5906721` and
+`5cbee57fe7c44b2dbab48fa9975b50be` failed exact prepared-resource custody/imports after PDF helper
+integration. Captured PDF dependency closure and stable-source retries remain required; native
+or recipe guards will not be relaxed.
 
 ## Integrated execution · 2026-11-15
 

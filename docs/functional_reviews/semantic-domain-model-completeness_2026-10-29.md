@@ -80,7 +80,7 @@ Paths below name the source locations inspected, not new authorities.
 | S9 | [Publication](../../python/corpus-structure/src/corpus_structure/semantic/publication.py), typed rows/batches and one retry owner; [current frozen transport](../../python/corpus-structure/semantic_alembic/versions/semantic_0021_transport.sql) |
 | S10 | [Ontology projection](../../python/corpus-structure/src/corpus_structure/semantic/ontology.py), scoped generation at 122–234, qualified assertions at 357, validation at 398 |
 | S11 | [Inference (historical source)](../README.md#historical-recovery), snapshot/finite closure; [native grounding](../../python/corpus-structure/semantic_alembic/versions/semantic_0007_inference.sql) |
-| S12 | [Analytics (historical source)](../README.md#historical-recovery), packet/snapshot and AnalysisScope at 313–466; [Arrow publication](../../python/corpus-structure/src/corpus_structure/semantic/arrow_publication.py) |
+| S12 | [Analytics (historical source)](../README.md#historical-recovery), packet/snapshot and AnalysisScope at 313–466; [Arrow publication (historical source)](../README.md#historical-recovery) |
 | S13 | [Source reports](../../python/corpus-structure/src/corpus_structure/model/semantic/observations.yaml), [query contracts](../../python/corpus-structure/src/corpus_structure/semantic/query.py), source-run adapter (`orchestrate/semantic.py`) |
 | S14 | [Scientific rule input (historical source)](../README.md#historical-recovery), ReleasedRulesPolicy; [authored SQL admission](../../python/corpus-structure/src/corpus_structure/semantic/authored_sql.py) |
 

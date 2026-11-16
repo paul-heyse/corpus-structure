@@ -78,6 +78,31 @@ No application release, activation, historical conversion or default development
 has occurred. Actual current artifact, contextual, selected annotation and event/record journeys
 are executing on isolated native hosts; their qualification is separate from this installation.
 
+## Inspection-row successor · 2026-11-16
+
+**passed:** preview `6353eb145db84f43b996bd6172b31540`, exact apply
+`e07570c3a11b43268e12a415e446647a`, rollback-only candidate
+`01c917cdde944829a8d1c35fa5b025e5`, registration `4b0fc2f8d6ce4202bd1abf58a85c087f`
+and stage deployment `eb242dfb66554ed4987724f9d5fa2079`. The
+[successor request](inspection-successor.yaml) binds predecessor `semantic_ddo_current_root`.
+Registration committed as `343da6870`; the exact frozen successor is `semantic_ddo_inspection_rows`.
+The first preview `bf845c082dd24645a1dbec1570440abf` refused an invalid SQLAlchemy-style route;
+corrected commands use the required libpq URL. No database effect followed that refusal.
+
+Actual release inspection exposed PostgreSQL alias/column ambiguity: `to_jsonb(kind)` read the
+text column named `kind`, whereas `to_jsonb(kind.*)` reads the entire contract row. Independent
+read-only comparison `c4af2b98441344d0846f8214dc6c062a` established exact correspondence for all63
+archived eight-field contracts before the fix; eight actual archive controls passed
+`84c38ed0b7e043c1901ec272ad02de21` and16 pure inspection controls passed
+`9849c7971a9740fc8ee02e200adbaa01`. Original inspection failures remain retained.
+
+Review paged all10 native transitions and their textual changes: one inspection body, eight native
+digest/descriptor recustody bodies, and the enclosing execution catalog descriptor. There are no
+ordinary operations, owner changes or ACL changes. Full-row equality and native source custody
+remain strict. The registered root was not edited. A separate maintenance status reacquired stage
+OID130661481/system7701811359771751232 with revision=head=`semantic_ddo_inspection_rows`.
+Current actual CLI/native qualification is running; installation alone does not close it.
+
 ## Acceptance still required
 
 - Preserve exact registered root custody and qualify any required native successor discovered by

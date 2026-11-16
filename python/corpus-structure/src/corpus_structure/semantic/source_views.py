@@ -8,7 +8,7 @@ from functools import cached_property
 from hashlib import sha256
 from typing import TYPE_CHECKING, Any
 
-from sqlalchemy import Connection, Text, and_, func, select, text
+from sqlalchemy import Connection, Text, and_, func, select
 from sqlalchemy.dialects.postgresql import aggregate_order_by, array
 
 from corpus_structure.core.method import SourceViewDraft, SourceViewRef

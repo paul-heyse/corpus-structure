@@ -467,7 +467,7 @@ Installed boundary sources: `/usr/share/postgresql/18/extension/pgtap--1.3.4.sql
 [plugin]: ../../scripts/qualification_plugin.py
 [runner]: ../../scripts/test_receipts.py
 [receipt-tests]: ../../tests/scripts/test_test_receipts.py
-[assessment-tests]: ../../python/corpus-structure/tests/evaluate/test_operation_assessment.py
+[assessment-tests]: ../README.md#historical-recovery
 [P]: ../libraries/analytical_infrastructure/pytest.md
 [X]: ../libraries/analytical_infrastructure/pytest-xdist.md
 [D]: <../libraries/postgresql/pgTAP, pg_prove, and pg_virtualenv.md>

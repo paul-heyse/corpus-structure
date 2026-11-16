@@ -305,7 +305,9 @@ def test_schema_derive_existing_directory_refuses_before_prepare(cli, tmp_path):
 
 
 @pytest.mark.parametrize("ddo_kernel", [STORAGE], indirect=True)
-def test_actual_database_check_preserves_native_admission_diagnostic(cli, ddo_kernel, native_settings):
+def test_actual_database_check_preserves_native_admission_diagnostic(
+    cli, ddo_kernel, native_settings
+):
     """Current reader checks actual admitted contracts; posture tampering still refuses."""
     from hashlib import sha256
 
@@ -340,12 +342,18 @@ def test_actual_database_check_preserves_native_admission_diagnostic(cli, ddo_ke
     args = ("db", "check", "--release", prepared.release_id, "--json")
     expected_kinds = read_native_definition_projection(prepared)["kinds"]
     with kernel.engine.begin() as connection:
-        physical_kinds = connection.execute(
-            text("SELECT contract.* FROM sem.data_kind_contract contract "
-                 "JOIN sem.data_kind_release membership USING(kind_contract) "
-                 "WHERE membership.release_id=:release"),
-            {"release": prepared.release_id},
-        ).mappings().all()
+        physical_kinds = (
+            connection.execute(
+                text(
+                    "SELECT contract.* FROM sem.data_kind_contract contract "
+                    "JOIN sem.data_kind_release membership USING(kind_contract) "
+                    "WHERE membership.release_id=:release"
+                ),
+                {"release": prepared.release_id},
+            )
+            .mappings()
+            .all()
+        )
     assert {row["kind_contract"]: dict(row) for row in physical_kinds} == {
         row["kind_contract"]: row for row in expected_kinds
     }
