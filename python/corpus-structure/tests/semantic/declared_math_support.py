@@ -41,8 +41,16 @@ def math_profile(tmp_path_factory):
 
     configuration = SentenceConfig(exclude=("ner",))
     selection = NativeSelection(
-        NativeProfile("spacy", {"controlled": "unadmitted-schema"}, {},
-                      configuration.model_dump(mode="json"), "float32", "cupy", 4, 1),
+        NativeProfile(
+            "spacy",
+            {"controlled": "unadmitted-schema"},
+            {},
+            configuration.model_dump(mode="json"),
+            "float32",
+            "cupy",
+            4,
+            1,
+        ),
         tmp_path_factory.mktemp("math-sentence-custody"),
     )
 
@@ -50,9 +58,11 @@ def math_profile(tmp_path_factory):
         SourceBundle("core", (SourceArtifact("core", core.read_bytes()),))
     )
     captured = combine_primary_sources(
-        formal_operation_sources(), math_operation_sources(), characterization_operation_sources(
+        formal_operation_sources(),
+        math_operation_sources(),
+        characterization_operation_sources(
             sentence_configuration=configuration, sentence_selection=selection
-        )
+        ),
     )
     dependencies = data_operation_dependencies(
         ResolvedDependencies(), (math_operation_declarations(),), captured

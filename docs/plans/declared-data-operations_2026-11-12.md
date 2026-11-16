@@ -276,6 +276,31 @@ found all29 original registrations at28 existing local paths with exact recorded
 provides a regeneration basis; no generated/protected bodies were read and no development mutation
 occurred. Actual faithful registration, recovery/fencing and current regeneration remain required.
 
+Actual matching-head binding23 passed `117ba91a2f5c4eb6bff9427dfe648607`, preserving pinned reuse
+and the full role/context/support controls. Fresh artifact `28fa88dff2e246a5b2cb95c99c18580c` and
+event-positive `7b61a27e0d5b47b4ba9e1a4563232024` instead failed incomplete navigation/empty
+definition components. Declared Construction had optional sentence annotations and could publish
+before their producer. It now requires the actual retained Sentence input and captures the caller's
+explicit profile/selection; primary composition reuses its already captured dependency. The direct
+library partial path remains honest. Focused19 controls passed15 in `d461fca84402451892a67588b3fab90b`
+and four repaired counterparts in `e653a1360d8b4f569e09382f227dc2ea`. Genuine native consumers remain
+required; those pure/CPU controls confer no provider standing.
+
+Fresh protected-record `078598f2bb54463592a50ee013466dd7` passed complete Python source-context
+equality but failed the native family check. That check incorrectly required a complete logical
+field-family class to also be an operation body/member kind. Grade and policy issuance now use one
+private finalized-effective-model class-contract query, preserving exact class/domain/owner/key and
+producer release. No general projection of unused logical kinds is introduced. Four focused controls
+passed `51417eec86aa4fe19c1d0be22e90a24d`; native successor capture and actual grade/fitting remain open.
+
+Orphan characterization readers and raw realization/EAV publication/consolidation/record-assertion
+modules, their closed SQL call bodies and mechanism fixtures are retired. Current rich full-family
+lowering, source completion validators and live demand contributions remain. Independent five-family
+role counts, nonpresent states and exact Decimal criteria stay with current scientific owners; native
+atomicity/custody qualification remains required. Project initialization now consumes explicit pack
+`originals.yaml`, eliminating retired ingest-method configuration as its source inventory. Ten focused
+current registration/retained-fact/path controls passed `b923bd023a134b63807930baac7fbeb1`.
+
 Remaining execution: finish obsolete operation/publication/source-view/runtime caller closure;
 qualify the actual artifact, event, PDF, protected record and large application routes; settle
 current typing; verify recovery and adopt the current development target; then run the complete

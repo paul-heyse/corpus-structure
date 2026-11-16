@@ -259,8 +259,11 @@ def construction_configuration(options=None):
 
 
 def construction_operation_sources(
-    *, include_dependencies=True, construction_options=None,
-    sentence_configuration=None, sentence_selection=None,
+    *,
+    include_dependencies=True,
+    construction_options=None,
+    sentence_configuration=None,
+    sentence_selection=None,
 ) -> PythonSourceCollection:
     own = _operation_sources("construction_characterization", "construction")
     own = replace(
@@ -286,8 +289,11 @@ def construction_operation_sources(
 
 
 def contextual_operation_sources(
-    *, include_dependencies=True, construction_options=None,
-    sentence_configuration=None, sentence_selection=None,
+    *,
+    include_dependencies=True,
+    construction_options=None,
+    sentence_configuration=None,
+    sentence_selection=None,
 ) -> PythonSourceCollection:
     own = _operation_sources("contextual_interpretation", "contextual")
     if not include_dependencies:
@@ -299,7 +305,8 @@ def contextual_operation_sources(
             construction_options=construction_options,
             sentence_configuration=sentence_configuration,
             sentence_selection=sentence_selection,
-        ), own
+        ),
+        own,
     )
 
 
@@ -308,8 +315,11 @@ def document_view_operation_sources(*, include_dependencies=True) -> PythonSourc
 
 
 def characterization_operation_sources(
-    *, construction_options=None, include_dependencies=True,
-    sentence_configuration=None, sentence_selection=None,
+    *,
+    construction_options=None,
+    include_dependencies=True,
+    sentence_configuration=None,
+    sentence_selection=None,
 ) -> PythonSourceCollection:
     collections = (
         construction_operation_sources(

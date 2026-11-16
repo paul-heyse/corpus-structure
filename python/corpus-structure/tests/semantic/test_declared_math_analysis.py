@@ -297,8 +297,16 @@ def test_analysis_operations_compile_with_explicit_weak_and_contextual_dependenc
 
     configuration = SentenceConfig(exclude=("ner",))
     selection = NativeSelection(
-        NativeProfile("spacy", {"controlled": "unadmitted-schema"}, {},
-                      configuration.model_dump(mode="json"), "float32", "cupy", 4, 1),
+        NativeProfile(
+            "spacy",
+            {"controlled": "unadmitted-schema"},
+            {},
+            configuration.model_dump(mode="json"),
+            "float32",
+            "cupy",
+            4,
+            1,
+        ),
         tmp_path,
     )
 
@@ -308,8 +316,9 @@ def test_analysis_operations_compile_with_explicit_weak_and_contextual_dependenc
     )
     sources = combine_primary_sources(
         formal_operation_sources(),
-        characterization_operation_sources(sentence_configuration=configuration,
-                                           sentence_selection=selection),
+        characterization_operation_sources(
+            sentence_configuration=configuration, sentence_selection=selection
+        ),
         math_operation_sources(),
         math_analysis_operation_sources(),
     )

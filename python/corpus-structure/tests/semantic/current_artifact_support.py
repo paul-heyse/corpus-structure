@@ -40,7 +40,7 @@ def artifact_recipe(directory):
         sources,
         construction_operation_sources(
             sentence_configuration=SentenceConfig(exclude=("ner",)),
-            construction_options=load_construction_options(ROOT / "domains/statistics")
+            construction_options=load_construction_options(ROOT / "domains/statistics"),
         ),
         predicate_operation_sources(),
         scoped_operation_sources(),

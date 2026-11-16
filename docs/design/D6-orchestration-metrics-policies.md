@@ -66,6 +66,12 @@ wrong-header/member and revoked-support controls are owned by the DDO coordinato
 
 ## Final characterization policy and retained recovery
 
+**Implemented; focused controls Tested · 2026-11-16.** Project initialization reads each pack's
+explicit `originals.yaml` inventory or authenticates explicitly supplied retained original facts.
+The inventory names local PDF paths independently of executable configurations. It is validated
+before project effects, including distinct paths and corpus containment. Retained original facts
+keep their authenticated bytes and descriptor without rewriting custody from a changed local file.
+
 **Implemented; focused controls Tested2026-11-12; combined qualification open.** Shared application
 requests explicitly select default analysis, retained-view analysis, capture/enrichment, M1 or a
 configured graph. Graph/registry injection does not select intent. Complete-input validation precedes

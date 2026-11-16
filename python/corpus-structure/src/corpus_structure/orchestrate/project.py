@@ -1,8 +1,9 @@
 """Register immutable source originals without constructing an execution registry."""
 
 from pathlib import Path
+from typing import Annotated
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import Connection
 
 from corpus_structure.semantic.data_operation_support import OriginalDocumentRef
@@ -17,6 +18,14 @@ class SourceProjectReport(BaseModel):
     project: str
     release_id: str
     documents: int
+
+
+class OriginalInventory(BaseModel):
+    """A source pack's explicit local originals, independent of execution recipes."""
+
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    originals: list[Annotated[str, Field(min_length=1)]] = Field(min_length=1)
 
 
 def init_bound_project(
@@ -72,18 +81,12 @@ def init_bound_project(
             paths.append(reference.document_key)
     else:
         pack = (domains or DOMAINS) / domain
-        inventory = yaml.safe_load((pack / "methods.yaml").read_text())
-        configurations = inventory.get("configs", {})
-        paths = []
-        for owner in ("ingest.pdf", "ingest.pdf_integrated"):
-            for configuration in configurations.get(owner, {}).values():
-                values = configuration.get("originals", ())
-                if not isinstance(values, (list, tuple)) or any(
-                    not isinstance(value, str) or not value for value in values
-                ):
-                    raise ProjectError("PDF inventory requires exact original paths")
-                paths.extend(values)
-        paths = list(dict.fromkeys(paths))
+        inventory = OriginalInventory.model_validate(
+            yaml.safe_load((pack / "originals.yaml").read_text())
+        )
+        paths = inventory.originals
+        if len(set(paths)) != len(paths):
+            raise ProjectError("PDF inventory requires distinct exact original paths")
     if not paths:
         raise ProjectError("source pack declares no PDF originals")
     root = corpus.resolve()

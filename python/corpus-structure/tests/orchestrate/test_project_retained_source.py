@@ -26,9 +26,7 @@ def initialization(monkeypatch, tmp_path):
     original.write_bytes(raw)
     domain = tmp_path / "domains/statistics"
     domain.mkdir(parents=True)
-    (domain / "methods.yaml").write_text(
-        "configs:\n  ingest.pdf:\n    default:\n      originals: [grinstead_snell/book.pdf]\n"
-    )
+    (domain / "originals.yaml").write_text("originals: [grinstead_snell/book.pdf]\n")
     reference = OriginalDocumentRef(
         kind="original-document",
         project_id="grinstead",
@@ -152,6 +150,25 @@ def test_unpinned_initialization_registers_configured_original_bytes(initializat
     assert registered["original"] == f.raw and registered["original_path"] == str(
         f.original.resolve()
     )
+
+
+@pytest.mark.parametrize(
+    "originals,reason",
+    [
+        (["grinstead_snell/book.pdf", "grinstead_snell/book.pdf"], "distinct"),
+        (["../outside.pdf"], "within"),
+        (["grinstead_snell/book.txt"], "within"),
+    ],
+)
+def test_invalid_inventory_refuses_before_project_effects(initialization, originals, reason):
+    import yaml
+
+    f = initialization
+    (f.domains / "statistics/originals.yaml").write_text(yaml.safe_dump({"originals": originals}))
+    with pytest.raises(project.ProjectError, match=reason):
+        invoke(f)
+    f.initialized.assert_not_called()
+    f.registered.assert_not_called()
 
 
 def test_project_init_cli_uses_current_source_context_without_realization(

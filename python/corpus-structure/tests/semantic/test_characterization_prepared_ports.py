@@ -44,8 +44,16 @@ def acquired(tmp_path_factory):
 
     configuration = SentenceConfig(exclude=("ner",))
     selection = NativeSelection(
-        NativeProfile("spacy", {"controlled": "unadmitted-schema"}, {},
-                      configuration.model_dump(mode="json"), "float32", "cupy", 4, 1),
+        NativeProfile(
+            "spacy",
+            {"controlled": "unadmitted-schema"},
+            {},
+            configuration.model_dump(mode="json"),
+            "float32",
+            "cupy",
+            4,
+            1,
+        ),
         tmp_path_factory.mktemp("controlled-sentence-custody"),
     )
     core = Path(__file__).parents[2] / "src/corpus_structure/model/semantic/core.yaml"
@@ -54,8 +62,9 @@ def acquired(tmp_path_factory):
     )
     collections = (
         formal_operation_sources(),
-        construction_operation_sources(sentence_configuration=configuration,
-                                       sentence_selection=selection),
+        construction_operation_sources(
+            sentence_configuration=configuration, sentence_selection=selection
+        ),
         contextual_operation_sources(include_dependencies=False),
     )
     from corpus_structure.semantic.primary_operations import combine_primary_sources
@@ -124,7 +133,8 @@ def values(port, **provided):
 
 
 def test_acquired_construction_kernel_runs_real_parser_in_child_and_preserves_typed_packets(
-    acquired, monkeypatch,
+    acquired,
+    monkeypatch,
 ):
     from corpus_structure.core.execution_policy import CharacterizationExecutionPolicy
     from corpus_structure.core.work import drive_prepared_work
@@ -164,32 +174,52 @@ def test_acquired_construction_kernel_runs_real_parser_in_child_and_preserves_ty
     monkeypatch.setattr(annotation_owner, "pipeline", lambda *_: nlp)
     configuration = SentenceConfig(exclude=("ner",))
     coordinate = source.value["source"]
-    pin = DeclaredRecordSource(coordinate["document"], coordinate["projection"],
-                              coordinate["section_pointer"], coordinate["membership"],
-                              _publication_context(source), "unadmitted:source", None,
-                              "unadmitted:source-kind")
+    pin = DeclaredRecordSource(
+        coordinate["document"],
+        coordinate["projection"],
+        coordinate["section_pointer"],
+        coordinate["membership"],
+        _publication_context(source),
+        "unadmitted:source",
+        None,
+        "unadmitted:source-kind",
+    )
     (block,), coverage = _blocks(source)
     layout = prepare_layout(nlp, block.block, start=block.start)
     doc = make_doc(nlp, block.block, layout, start=block.start)
     for index, token in enumerate(doc):
         token.is_sent_start = index == 0
     detached = _detach_annotation_block(
-        source.value, block, layout, doc, DeclaredSourcePin(canonical_bytes(pin.pin()).decode()),
-        configuration, "unadmitted:controlled-lexical-columns",
+        source.value,
+        block,
+        layout,
+        doc,
+        DeclaredSourcePin(canonical_bytes(pin.pin()).decode()),
+        configuration,
+        "unadmitted:controlled-lexical-columns",
     )
-    columns = dict(block_id=block.block_id, start=block.start, end=block.end,
-                   attributes={row["attribute"]: row["status"]
-                               for row in detached["annotation"]["availability"]})
+    columns = dict(
+        block_id=block.block_id,
+        start=block.start,
+        end=block.end,
+        attributes={
+            row["attribute"]: row["status"] for row in detached["annotation"]["availability"]
+        },
+    )
     annotations = dict(
-        source=source.value["source"], selectors=source.value["selectors"],
-        outcome="partial", blocks=[detached], block_coverage=coverage,
+        source=source.value["source"],
+        selectors=source.value["selectors"],
+        outcome="partial",
+        blocks=[detached],
+        block_coverage=coverage,
         coverage=spacy_family_coverage(source.value, coverage, [columns]),
         configuration=configuration.model_dump(mode="json"),
         execution_profile="unadmitted:controlled-lexical-columns",
     )
     annotations["members"] = source_annotation_packets(prepared, model, annotations)
-    native = validate_source_annotations(prepared, model, annotations, source,
-                                         subject_context=_publication_context(source))
+    native = validate_source_annotations(
+        prepared, model, annotations, source, subject_context=_publication_context(source)
+    )
     inputs = values(port, source=source.value, formal=(primary,), sentences=native)
     expected = port.invoke_python(inputs)
     cpu = CPUExecutionScope(

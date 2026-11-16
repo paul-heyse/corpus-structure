@@ -57,7 +57,8 @@ def characterization_recipe(directory, *, construction_options=None):
     sources = combine_primary_sources(
         current,
         construction_operation_sources(
-            construction_options=construction_options, sentence_configuration=SentenceConfig(exclude=("ner",))
+            construction_options=construction_options,
+            sentence_configuration=SentenceConfig(exclude=("ner",)),
         ),
         document_view_operation_sources(),
     )
