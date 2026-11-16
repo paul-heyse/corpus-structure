@@ -34,7 +34,6 @@ from corpus_structure.core.vocab import TaskUnitType
 
 from ._operation_ids import CompletionReceiptProtocol as CompletionReceiptProtocol
 from ._operation_ids import CompletionResultTransaction as CompletionResultTransaction
-from ._operation_ids import CutId as CutId
 from ._operation_ids import MethodConfigId as MethodConfigId
 from ._operation_ids import MethodId as MethodId
 from ._operation_ids import ProjectId as ProjectId
@@ -1124,78 +1123,6 @@ def lock_complete_unit_run(
     _native_result = conn.execute(_statement)
     with native_result_scope("complete_unit", "LockedRunIdentity"):
         return _lock_complete_unit_run_result(_native_result.one())
-
-
-CAPTURE_CUT_CONTRACT_DIGEST = "8dd71c6d97fda8c2300fe445549a559012156d4514611b0d3d9d00897fb8e779"
-
-
-class _capture_cutRequest(OperationResult):
-    run_id: Annotated[RunId, Field(ge=RunId(-9223372036854775808), le=RunId(9223372036854775807))]
-    name: str
-    final: bool = False
-
-
-_capture_cut_function = func.ops.capture_cut(
-    bindparam("run_id", type_=BigInteger()),
-    bindparam("name", type_=Text()),
-    bindparam("final", type_=Boolean()),
-    type_=BigInteger(),
-)
-_capture_cut_statement = select(_capture_cut_function)
-
-
-def prepare_capture_cut(
-    *,
-    run_id: RunId,
-    name: str,
-    final: bool = False,
-    projection_context: PreparedRelease | None = None,
-) -> Select[int]:
-    _request = _capture_cutRequest(
-        run_id=run_id,
-        name=name,
-        final=final,
-    )
-    if projection_context is not None:
-        require_call_context(
-            projection_context, "capture_cut", "capture_cut", CAPTURE_CUT_CONTRACT_DIGEST
-        )
-    return _capture_cut_statement.params(
-        **{
-            "run_id": _request.run_id,
-            "name": _request.name,
-            "final": _request.final,
-        }
-    )
-
-
-_capture_cut_adapter = TypeAdapter(CutId)
-
-
-def materialize_capture_cut(row: tuple[int]) -> CutId:
-    with native_result_scope("capture_cut", "capture_cut", "cut_id"):
-        checked = _capture_cut_adapter.validate_python(row[0], strict=True)
-        return checked
-
-
-def capture_cut(
-    conn: Connection,
-    *,
-    run_id: RunId,
-    name: str,
-    final: bool = False,
-    projection_context: PreparedRelease | None = None,
-) -> CutId:
-    _statement = prepare_capture_cut(
-        run_id=run_id,
-        name=name,
-        final=final,
-        projection_context=projection_context,
-    )
-    _native_result = conn.execute(_statement)
-    with native_result_scope("capture_cut", "capture_cut"):
-        row = _native_result.one()
-        return materialize_capture_cut(row)
 
 
 PUBLISH_SOURCE_VIEW_CONTRACT_DIGEST = (

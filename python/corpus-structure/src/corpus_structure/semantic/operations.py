@@ -22,7 +22,6 @@ from corpus_structure.core.method import (
 )
 
 from ._operation_ids import (
-    CutId,
     MethodConfigId,
     RunId,
     TaskAttempt,
@@ -541,11 +540,6 @@ def complete_task(
     )
     return completion
 
-
-def seal_cut(conn: Connection, run_id: RunId, name: str, *, final: bool = False) -> CutId:
-    from ._operation_calls import capture_cut as invoke
-
-    return invoke(conn, run_id=run_id, name=name, final=final)
 
 
 @dataclass(frozen=True)
