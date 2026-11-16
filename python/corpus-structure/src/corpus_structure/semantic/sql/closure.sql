@@ -256,12 +256,6 @@ BEGIN
  RAISE EXCEPTION 'evidence requires current SourceView custody' USING ERRCODE='23514';
 END $fn$;
 
-CREATE OR REPLACE FUNCTION data.end_stage() RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $body$
-BEGIN
-{transport_disposal}
-END
-$body$;
-
 CREATE OR REPLACE FUNCTION data.validate_occurrence_context(r text,z text) RETURNS void
 LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $fn$
 DECLARE o data.occurrence; context data.occurrence_context; observation kb.observation;

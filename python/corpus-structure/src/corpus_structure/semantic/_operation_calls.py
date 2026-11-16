@@ -1378,41 +1378,6 @@ def collect_original_artifact(result: Result[bytes]) -> bytes | None:
         return None if row is None else materialize_original_artifact(row)
 
 
-END_STAGE_CONTRACT_DIGEST = "be2ed48ff0b1ba51031151e2a7e00748e40fdcc637730014c51cbfa9b9307c8f"
-
-
-class _end_stageRequest(OperationResult):
-    pass
-
-
-_end_stage_function = func.data.end_stage()
-_end_stage_statement = select(_end_stage_function)
-
-
-def prepare_end_stage(
-    *,
-    projection_context: PreparedRelease | None = None,
-) -> Select[None]:
-    _request = _end_stageRequest()
-    if projection_context is not None:
-        require_call_context(projection_context, "evaluate", "end_stage", END_STAGE_CONTRACT_DIGEST)
-    return _end_stage_statement.params(**{})
-
-
-def end_stage(
-    conn: Connection,
-    *,
-    projection_context: PreparedRelease | None = None,
-) -> None:
-    _statement = prepare_end_stage(
-        projection_context=projection_context,
-    )
-    _native_result = conn.execute(_statement)
-    with native_result_scope("evaluate", "end_stage"):
-        _native_result.scalar_one()
-    return None
-
-
 BEGIN_STAGE_CONTRACT_DIGEST = "88805f7746ca9d88171157e2677a99bc59c3a25c1726e5afb223eed8bd60dd37"
 
 

@@ -175,8 +175,9 @@ qualification, not a claim that the unrestricted default whole-repository comman
 Reuse `python/corpus-structure/tests/semantic/` native lifecycle and scenario helpers and existing
 orchestration, recognition, intervene, serving and evaluator consumers. Exact focused starting
 routes include `uv run pytest python/corpus-structure/tests/semantic/test_native_inventory.py
-python/corpus-structure/tests/semantic/test_record_migration_native.py` for the I04/AC13 seam,
-with migration/admission nodes selected for the confirmed predecessor; native99/100 coverage is
+python/corpus-structure/tests/semantic/test_data_operation_storage_posture_native.py` for current
+product/episode ownership, raw-purpose privileges and immutable statement guards. The former
+record-table/staging test is retired; select migration/admission nodes for the confirmed predecessor; native99/100 coverage is
 not inferred from these two names. Extend actual journey tests such as
 `test_pdf_native_consumer_journey.py`, existing CLI/MCP/export tests and new ordinary-answer
 cases where their contracts change. Inventory the actual names and application commands at
