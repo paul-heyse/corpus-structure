@@ -56,7 +56,11 @@ def proposal_inputs(
     """Archive model-facing boundaries with the exact candidate vocabulary."""
     from .observations import observation_inputs
 
-    bundle = observation_inputs(bundle, model_content=observation_content, profile=profile)
+    existing = next((source for source in bundle.sources if source.name == "observations"), None)
+    if existing is None:
+        bundle = observation_inputs(bundle, model_content=observation_content, profile=profile)
+    elif observation_content is not None and existing.content != observation_content:
+        raise ValueError("reserved observation module name already supplied with another meaning")
     if {source.name for source in bundle.sources} & {"agent", "agent-root"}:
         raise ValueError("reserved agent module name already supplied")
     from .prepare import preview_schema

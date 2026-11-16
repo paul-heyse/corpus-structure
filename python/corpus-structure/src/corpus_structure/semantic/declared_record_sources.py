@@ -1,19 +1,16 @@
-"""Declared original-relative record pins and their selected schema projection."""
+"""Declared original-relative record pins and immutable native source frames."""
 
 from __future__ import annotations
 
 from copy import deepcopy
 from dataclasses import dataclass, field
 from functools import cached_property
-from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-import yaml
 from pydantic import JsonValue
 
 from .data_operation_model import BoundRoleMember, SubjectContext, json_context_meaning
 from .identity import canonical_bytes
-from .types import SourceArtifact, SourceBundle
 
 if TYPE_CHECKING:
     from .proposals import ProposalSentence
@@ -78,90 +75,6 @@ class DeclaredRecordSource:
         }
 
 
-def declared_record_inputs(bundle: SourceBundle) -> SourceBundle:
-    """Project the existing record model at the selected declared-source boundary.
-
-    Legacy/default and frozen observation artifacts retain their exact pin contract.
-    A target release receives a different pin shape and consequently a different
-    kind contract. No caller edits a parallel record schema or weakens old fields.
-    """
-    from .data_product_reference import reference_inputs
-
-    bundle = reference_inputs(bundle)
-    canonical = (Path(__file__).parents[1] / "model/semantic/observations.yaml").read_bytes()
-    supplied = next(
-        (item.content for item in bundle.sources if item.name == "observations"), canonical
-    )
-    from .observations import observation_inputs
-
-    module = yaml.safe_load(supplied)
-    prior = module["classes"]["RecordSourcePin"]["attributes"]
-    canonical_attributes = yaml.safe_load(canonical)["classes"]["RecordSourcePin"]["attributes"]
-    module["classes"]["RecordSourcePin"]["description"] = (
-        "Declared semantic source/member and original-relative coordinates with complete context; "
-        "task, run and source-view row identities are not source meaning."
-    )
-    module["classes"]["RecordSourcePin"]["attributes"] = {
-        name: {"range": "string", **({"required": True} if name != "source_member" else {})}
-        for name in (
-            "source",
-            "subject",
-            "subject_definition",
-            "document",
-            "projection_digest",
-            "section_pointer",
-            "membership",
-            "project_id",
-            "original_source",
-            "analyzed_scope_meaning",
-            "source_product",
-            "source_member",
-            "kind_contract",
-        )
-    }
-    module["classes"]["RecordSourcePin"]["attributes"]["format"] = {
-        "range": "string",
-        "required": True,
-        "equals_string": "declared-native-source-v1",
-    }
-    module["classes"]["RecordSourcePin"]["attributes"]["projection_digest"]["pattern"] = (
-        "^[0-9a-f]{64}$"
-    )
-    if prior not in (canonical_attributes, module["classes"]["RecordSourcePin"]["attributes"]):
-        raise ValueError("declared record projection refuses an independently changed source pin")
-
-    def governed_references(value):
-        if isinstance(value, dict):
-            return {
-                key: (
-                    "DdoSemanticMemberReference"
-                    if key == "range" and item == "CharacterizationQualifiedReference"
-                    else governed_references(item)
-                )
-                for key, item in value.items()
-            }
-        if isinstance(value, list):
-            return [governed_references(item) for item in value]
-        return value
-
-    projected = governed_references(module)
-    if not isinstance(projected, dict) or not isinstance(projected.get("classes"), dict):
-        raise ValueError("declared record projection requires a schema object with class mappings")
-    module = projected
-    operations = module["classes"]["SourceContributionOperation"]["attributes"]
-    primary = operations.pop("primary_layers", operations.get("primary_products", None))
-    if primary is None:
-        raise ValueError("declared record operation lacks its original primary reference contract")
-    operations["primary_products"] = {**primary, "range": "DdoSemanticProductReference"}
-    content = yaml.safe_dump(module, sort_keys=True).encode()
-    names = {item.name for item in bundle.sources}
-    if "observations" in names:
-        sources = tuple(
-            SourceArtifact(item.name, content) if item.name == "observations" else item
-            for item in bundle.sources
-        )
-        return SourceBundle(bundle.root, sources)
-    return observation_inputs(bundle, model_content=content)
 
 
 @dataclass(frozen=True)

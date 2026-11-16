@@ -9,29 +9,6 @@ types:
     base: float
     uri: http://www.w3.org/2001/XMLSchema#double
 classes:
-  CharacterizationProductReference:
-    is_a: SourceRecordProduct
-    attributes:
-      task_id:
-        required: true
-        range: integer
-        minimum_value: 1
-      product_key: &id001
-        required: true
-        pattern: ^.+$
-      content_digest:
-        required: true
-        pattern: ^[0-9a-f]{64}$
-    class_uri: https://corpus-structure.dev/semantic/characterization/CharacterizationProductReference
-  CharacterizationQualifiedReference:
-    is_a: SourceRecordProduct
-    attributes:
-      layer:
-        range: CharacterizationProductReference
-        inlined: true
-        required: true
-      local_id: *id001
-    class_uri: https://corpus-structure.dev/semantic/characterization/CharacterizationQualifiedReference
   ArtifactCitation:
     is_a: SourceRecordProduct
     attributes:
@@ -121,7 +98,7 @@ classes:
   ArtifactNomination:
     is_a: SourceRecordProduct
     attributes:
-      primary_node: {range: CharacterizationQualifiedReference, inlined: true}
+      primary_node: {range: DdoSemanticMemberReference, inlined: true}
       left: {required: true}
       right: {required: true}
       kind: {required: true, equals_string: artifact_reference_target}
@@ -150,7 +127,7 @@ classes:
   ArtifactReferenceDesignator:
     is_a: SourceRecordProduct
     attributes:
-      primary_node: {range: CharacterizationQualifiedReference, inlined: true}
+      primary_node: {range: DdoSemanticMemberReference, inlined: true}
       target_code: {required: true}
       target_numbering: {required: true}
       cue: {range: ArtifactAliasOccurrence, required: true, inlined: true}
@@ -163,14 +140,14 @@ classes:
   ArtifactDeclaredEndpoint:
     is_a: SourceRecordProduct
     attributes:
-      work_primary_node: {range: CharacterizationQualifiedReference, inlined: true}
+      work_primary_node: {range: DdoSemanticMemberReference, inlined: true}
       record_id: {required: true}
       citation: {range: ArtifactCitation, required: true, inlined: true}
       work_cue: {range: ArtifactCitation, inlined: true}
   ArtifactDeclaredRelationship:
     is_a: SourceRecordProduct
     attributes:
-      primary_node: {range: CharacterizationQualifiedReference, inlined: true}
+      primary_node: {range: DdoSemanticMemberReference, inlined: true}
       kind: {required: true, pattern: '^(reference|same_lineage|supersedes)$'}
       source_id: {required: true}
       origin: {range: ArtifactCitation, required: true, inlined: true}
@@ -179,7 +156,7 @@ classes:
   ArtifactRecord:
     is_a: SourceRecordProduct
     attributes:
-      primary_node: {range: CharacterizationQualifiedReference, inlined: true}
+      primary_node: {range: DdoSemanticMemberReference, inlined: true}
       contribution_id:
         range: string
         required: true
@@ -241,7 +218,7 @@ classes:
   SourceArtifactOccurrence:
     is_a: SourceRecordProduct
     attributes:
-      primary_node: {range: CharacterizationQualifiedReference, inlined: true}
+      primary_node: {range: DdoSemanticMemberReference, inlined: true}
       protocol:
         equals_string: source-artifact-occurrence-2
       artifact_kind:
@@ -500,7 +477,7 @@ classes:
     is_a: SourceRecordProduct
     description: One attributed semantic question under a shared invocation, including zero-output questions.
     attributes:
-      primary_layers: {range: CharacterizationProductReference, inlined: true, multivalued: true}
+      primary_products: {range: DdoSemanticProductReference, inlined: true, multivalued: true}
       operation_key: {required: true}
       question: {required: true}
       contextual_enrichment: {range: ContextualEnrichmentReport, inlined: true}
@@ -721,8 +698,8 @@ classes:
       attachment_contribution_id: {required: true}
       target_contribution_id: {required: true}
       attachment_kind: {required: true}
-      primary_node: {range: CharacterizationQualifiedReference, inlined: true}
-      primary_choices: {range: CharacterizationQualifiedReference, inlined: true, multivalued: true}
+      primary_node: {range: DdoSemanticMemberReference, inlined: true}
+      primary_choices: {range: DdoSemanticMemberReference, inlined: true, multivalued: true}
   PredicateProjectedExtent:
     is_a: SourceRecordProduct
     attributes:
@@ -731,8 +708,8 @@ classes:
   PredicateFrameMember:
     is_a: SourceRecordProduct
     attributes:
-      primary_node: {range: CharacterizationQualifiedReference, inlined: true}
-      primary_choices: {range: CharacterizationQualifiedReference, inlined: true, multivalued: true}
+      primary_node: {range: DdoSemanticMemberReference, inlined: true}
+      primary_choices: {range: DdoSemanticMemberReference, inlined: true, multivalued: true}
       contribution: {required: true}
       role: {required: true, pattern: '^(predicate|focus|actor|subject|object|complement|marker)$'}
       token_indices: {range: integer, minimum_value: 0, multivalued: true, required: true, minimum_cardinality: 1}
@@ -753,8 +730,8 @@ classes:
     is_a: WitnessedComponent
     description: Neutral predicate and source-coordinate focus with grammatical role members.
     attributes:
-      primary_node: {range: CharacterizationQualifiedReference, inlined: true}
-      primary_choices: {range: CharacterizationQualifiedReference, inlined: true, multivalued: true}
+      primary_node: {range: DdoSemanticMemberReference, inlined: true}
+      primary_choices: {range: DdoSemanticMemberReference, inlined: true, multivalued: true}
       kind: {equals_string: predicate_frame}
       annotation: {required: true, pattern: '^annotation:[0-9a-f]{64}$'}
       block: {required: true}
@@ -768,9 +745,9 @@ classes:
     is_a: WitnessedComponent
     description: Exact linguistic qualifier evidence with candidate predicate heads, independently of an attachment.
     attributes:
-      primary_node: {range: CharacterizationQualifiedReference, inlined: true}
-      primary_choices: {range: CharacterizationQualifiedReference, inlined: true, multivalued: true}
-      primary_marker: {range: CharacterizationQualifiedReference, inlined: true}
+      primary_node: {range: DdoSemanticMemberReference, inlined: true}
+      primary_choices: {range: DdoSemanticMemberReference, inlined: true, multivalued: true}
+      primary_marker: {range: DdoSemanticMemberReference, inlined: true}
       kind: {equals_string: predicate_cue}
       annotation: {required: true, pattern: '^annotation:[0-9a-f]{64}$'}
       block: {required: true}
@@ -790,8 +767,8 @@ classes:
     is_a: WitnessedComponent
     description: Deterministic private interpretation of one retained neutral frame.
     attributes:
-      primary_node: {range: CharacterizationQualifiedReference, inlined: true}
-      primary_choices: {range: CharacterizationQualifiedReference, inlined: true, multivalued: true}
+      primary_node: {range: DdoSemanticMemberReference, inlined: true}
+      primary_choices: {range: DdoSemanticMemberReference, inlined: true, multivalued: true}
       kind: {equals_string: predicate_reading}
       frame: {required: true}
       reading: {required: true, pattern: '^(definition|explanation|reference|prescribed_action|described_process|assumption_restriction|example|unresolved)$'}
@@ -807,9 +784,9 @@ classes:
     is_a: WitnessedComponent
     description: Located qualifier with one source-owned predicate host. Logical lowering is optional.
     attributes:
-      primary_condition_parts: {range: CharacterizationQualifiedReference, inlined: true, multivalued: true}
-      primary_node: {range: CharacterizationQualifiedReference, inlined: true}
-      primary_choices: {range: CharacterizationQualifiedReference, inlined: true, multivalued: true}
+      primary_condition_parts: {range: DdoSemanticMemberReference, inlined: true, multivalued: true}
+      primary_node: {range: DdoSemanticMemberReference, inlined: true}
+      primary_choices: {range: DdoSemanticMemberReference, inlined: true, multivalued: true}
       kind: {equals_string: predicate_qualifier}
       qualifier_contribution_id: {required: true}
       host_contribution_id: {required: true}
@@ -891,15 +868,23 @@ classes:
       kind: {equals_string: native_location}
       pointer: {required: true}
   RecordSourcePin:
-    is_a: SourceRecordProduct
     attributes:
-      source: {required: true}
-      native_product_task_id: {range: integer, minimum_value: 1, required: true}
-      product_key: {required: true}
-      product_digest: {required: true, pattern: '^[0-9a-f]{64}$'}
-      projection_digest: {required: true, pattern: '^[0-9a-f]{64}$'}
-      recipe_digest: {required: true, pattern: '^[0-9a-f]{64}$'}
-      source_view_id: {range: integer, minimum_value: 1}
+      analyzed_scope_meaning: {range: string, required: true}
+      document: {range: string, required: true}
+      format: {equals_string: declared-native-source-v1, range: string, required: true}
+      kind_contract: {range: string, required: true}
+      membership: {range: string, required: true}
+      original_source: {range: string, required: true}
+      project_id: {range: string, required: true}
+      projection_digest: {pattern: '^[0-9a-f]{64}$', range: string, required: true}
+      section_pointer: {range: string, required: true}
+      source: {range: string, required: true}
+      source_member: {range: string}
+      source_product: {range: string, required: true}
+      subject: {range: string, required: true}
+      subject_definition: {range: string, required: true}
+    description: Declared semantic source/member and original-relative coordinates with complete context; task, run and source-view row identities are not source meaning.
+    is_a: SourceRecordProduct
   RecordContextGap:
     is_a: SourceRecordProduct
     description: Model-coordinate diagnostic only; never a source locator or quote.
@@ -1370,8 +1355,8 @@ classes:
       unit: {}
       basis: {}
       basis_evidence: {range: LocatedDefinitionSpan, inlined: true}
-      primary_formal: {range: CharacterizationQualifiedReference, inlined: true}
-      primary_basis: {range: CharacterizationQualifiedReference, inlined: true}
+      primary_formal: {range: DdoSemanticMemberReference, inlined: true}
+      primary_basis: {range: DdoSemanticMemberReference, inlined: true}
   StructuralPublicTypedPremise:
     attributes:
       span: {range: StructuralPublicCitation, required: true, inlined: true}
@@ -1422,7 +1407,7 @@ classes:
       literal: {range: ComparisonLiteral, inlined: true}
       condition: {range: SourceValue, inlined: true}
       typed: {range: TypedPremise, inlined: true}
-      primary_formal: {range: CharacterizationQualifiedReference, inlined: true}
+      primary_formal: {range: DdoSemanticMemberReference, inlined: true}
       dimension:
         required: true
         range: StructuralClauseFieldDimensionValue
@@ -1448,7 +1433,7 @@ classes:
       grouping: {range: StructuralFieldGrouping}
       members: {range: ClauseField, multivalued: true, inlined: true, inlined_as_list: true}
       witnesses: {range: LocatedDefinitionSpan, multivalued: true, inlined: true, inlined_as_list: true}
-      primary_witnesses: {range: CharacterizationQualifiedReference, multivalued: true, inlined: true}
+      primary_witnesses: {range: DdoSemanticMemberReference, multivalued: true, inlined: true}
   RevisionSuccession:
     is_a: SourceRecordProduct
     attributes:
@@ -1456,7 +1441,7 @@ classes:
       newer_id: {required: true}
       evidence: {range: LocatedDefinitionSpan, required: true, inlined: true}
       older_evidence: {range: LocatedDefinitionSpan, required: true, inlined: true}
-      primary_witnesses: {range: CharacterizationQualifiedReference, multivalued: true, inlined: true}
+      primary_witnesses: {range: DdoSemanticMemberReference, multivalued: true, inlined: true}
   StructuralPublicRevisionSuccession:
     attributes:
       older: {range: StructuralPublicCitation, required: true, inlined: true}
@@ -1532,8 +1517,8 @@ classes:
       variant: {required: true}
       nodes: {required: true, range: integer, minimum_value: 0, multivalued: true, minimum_cardinality: 1}
       label_nodes: {range: integer, minimum_value: 0, multivalued: true}
-      primary_match: {range: CharacterizationQualifiedReference, inlined: true}
-      primary_scope: {range: CharacterizationQualifiedReference, multivalued: true, inlined: true}
+      primary_match: {range: DdoSemanticMemberReference, inlined: true}
+      primary_scope: {range: DdoSemanticMemberReference, multivalued: true, inlined: true}
   DeclarationChainBinding:
     is_a: SourceRecordProduct
     attributes:
@@ -1545,7 +1530,7 @@ classes:
     attributes:
       version: {required: true, pattern: '^definition-declaration-chain-[12]$'}
       parser: {range: RetainedContributionRef, inlined: true}
-      primary_evidence: {range: CharacterizationQualifiedReference, multivalued: true, inlined: true}
+      primary_evidence: {range: DdoSemanticMemberReference, multivalued: true, inlined: true}
       scope_digest: {required: true, pattern: '^[0-9a-f]{64}$'}
       label: {required: true, range: LocatedDefinitionSpan, inlined: true}
       bindings: {required: true, range: DeclarationChainBinding, inlined: true, multivalued: true, minimum_cardinality: 1, maximum_cardinality: 4}
@@ -1614,8 +1599,8 @@ classes:
       presentation: {range: ClauseModelLabel, inlined: true, multivalued: true}
       disposition: {required: true, pattern: '^(observed|withheld|failed)$'}
       reason: {required: true}
-      primary_functions: {range: CharacterizationQualifiedReference, multivalued: true, inlined: true}
-      primary_context: {range: CharacterizationQualifiedReference, multivalued: true, inlined: true}
+      primary_functions: {range: DdoSemanticMemberReference, multivalued: true, inlined: true}
+      primary_context: {range: DdoSemanticMemberReference, multivalued: true, inlined: true}
   ClauseClassificationProduct:
     is_a: SourceRecordProduct
     attributes:

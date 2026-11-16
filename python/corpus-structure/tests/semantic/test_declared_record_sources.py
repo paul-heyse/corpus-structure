@@ -1,5 +1,6 @@
 """Independent original-relative pin expectations; no producer or native-admission claim."""
 
+from corpus_structure.semantic.observations import observation_inputs
 from dataclasses import replace
 from pathlib import Path
 
@@ -10,7 +11,6 @@ from corpus_structure.semantic.data_operation_compilation import compile_data_op
 from corpus_structure.semantic.data_operation_model import SubjectContext
 from corpus_structure.semantic.declared_record_sources import (
     DeclaredRecordSource,
-    declared_record_inputs,
 )
 from corpus_structure.semantic.types import SourceArtifact, SourceBundle
 
@@ -53,43 +53,27 @@ def test_declared_record_pin_has_exact_original_coordinates_without_task_or_view
     assert address(b'{"page":true}').pin() != pin
 
 
-def test_declared_projection_retains_old_artifact_and_governs_source_and_primary_addresses():
+def test_canonical_observation_schema_governs_source_and_primary_addresses():
     root = Path(__file__).resolve().parents[2] / "src/corpus_structure/model/semantic"
     raw = (root / "observations.yaml").read_bytes()
-    bundle = SourceBundle("observations", (SourceArtifact("observations", raw),))
-    projected = declared_record_inputs(bundle)
-    old = yaml.safe_load(raw)
-    new = yaml.safe_load(projected.sources[0].content)
-    assert bundle.sources[0].content == raw
-    assert "native_product_task_id" in old["classes"]["RecordSourcePin"]["attributes"]
-    assert "native_product_task_id" not in new["classes"]["RecordSourcePin"]["attributes"]
-    for required in (
-        "document",
-        "source_product",
-        "kind_contract",
-        "project_id",
-        "analyzed_scope_meaning",
-    ):
-        assert new["classes"]["RecordSourcePin"]["attributes"][required]["required"]
-    old["classes"].pop("RecordSourcePin")
-    new["classes"].pop("RecordSourcePin")
-    assert (
-        new["classes"]["PredicateFrameComponent"]["attributes"]["primary_node"]["range"]
-        == "DdoSemanticMemberReference"
-    )
-    assert (
-        old["classes"]["PredicateFrameComponent"]["attributes"]["primary_node"]["range"]
-        == "CharacterizationQualifiedReference"
-    )
-    assert "primary_layers" not in new["classes"]["SourceContributionOperation"]["attributes"]
-    assert (
-        new["classes"]["SourceContributionOperation"]["attributes"]["primary_products"]["range"]
-        == "DdoSemanticProductReference"
-    )
-    assert declared_record_inputs(projected).sources == projected.sources
+    bundle = SourceBundle("core", (SourceArtifact("core", (root / "core.yaml").read_bytes()),))
+    current = observation_inputs(bundle)
+    supplied = next(item.content for item in current.sources if item.name == "observations")
+    assert supplied == raw
+    model = yaml.safe_load(supplied)
+    pin = model["classes"]["RecordSourcePin"]["attributes"]
+    assert not {"native_product_task_id", "source_view_id", "product_key", "recipe_digest"} & pin.keys()
+    for required in ("document", "source_product", "kind_contract", "project_id", "analyzed_scope_meaning"):
+        assert pin[required]["required"]
+    assert model["classes"]["PredicateFrameComponent"]["attributes"]["primary_node"]["range"] == "DdoSemanticMemberReference"
+    operation = model["classes"]["SourceContributionOperation"]["attributes"]
+    assert "primary_layers" not in operation
+    assert operation["primary_products"]["range"] == "DdoSemanticProductReference"
+    assert {"data_operation_references", "observations"} <= {item.name for item in current.sources}
+    assert observation_inputs(current) == current
 
 
-def test_declared_projection_refuses_independent_pin_override():
+def test_canonical_observations_refuse_independent_pin_override():
     root = Path(__file__).resolve().parents[2] / "src/corpus_structure/model/semantic"
     module = yaml.safe_load((root / "observations.yaml").read_bytes())
     module["classes"]["RecordSourcePin"]["attributes"]["unexpected"] = {"required": True}
@@ -97,7 +81,7 @@ def test_declared_projection_refuses_independent_pin_override():
         "observations", (SourceArtifact("observations", yaml.safe_dump(module).encode()),)
     )
     with pytest.raises(ValueError, match="independently changed"):
-        declared_record_inputs(bundle)
+        observation_inputs(bundle)
 
 
 def test_declared_member_maps_literal_spans_without_a_physical_view_or_task():
@@ -116,7 +100,7 @@ def test_declared_member_maps_literal_spans_without_a_physical_view_or_task():
 
     root = Path(__file__).resolve().parents[2] / "src/corpus_structure/model/semantic"
     prepared = prepare_release(
-        declared_record_inputs(
+        observation_inputs(
             source_product_inputs(
                 SourceBundle("core", (SourceArtifact("core", (root / "core.yaml").read_bytes()),))
             )
@@ -211,7 +195,7 @@ def test_declared_literal_record_assembly_preserves_semantic_member_pin():
             SourceArtifact("semantic_core", (root / "core.yaml").read_bytes()),
         ),
     )
-    bundle = declared_record_inputs(source_product_inputs(bundle))
+    bundle = observation_inputs(source_product_inputs(bundle))
     prepared = prepare_release(bundle)
     model = compile_data_operations(bundle)
     text = "A valve opens."
@@ -289,7 +273,7 @@ def test_candidate_preparation_accepts_explicit_declared_frame_without_view_refe
 
     root = Path(__file__).resolve().parents[2] / "src/corpus_structure/model/semantic"
     prepared = prepare_release(
-        declared_record_inputs(
+        observation_inputs(
             source_product_inputs(
                 SourceBundle("core", (SourceArtifact("core", (root / "core.yaml").read_bytes()),))
             )
@@ -356,7 +340,7 @@ def test_declared_formula_occurrence_keeps_original_member_address_without_conve
 
     root = Path(__file__).resolve().parents[2] / "src/corpus_structure/model/semantic"
     prepared = prepare_release(
-        declared_record_inputs(
+        observation_inputs(
             source_product_inputs(
                 SourceBundle("core", (SourceArtifact("core", (root / "core.yaml").read_bytes()),))
             )
@@ -435,7 +419,7 @@ def test_declared_related_context_selects_only_closed_native_link_members():
 
     root = Path(__file__).resolve().parents[2] / "src/corpus_structure/model/semantic"
     prepared = prepare_release(
-        declared_record_inputs(
+        observation_inputs(
             source_product_inputs(
                 SourceBundle("core", (SourceArtifact("core", (root / "core.yaml").read_bytes()),))
             )

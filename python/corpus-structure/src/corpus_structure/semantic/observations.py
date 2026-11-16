@@ -31,37 +31,49 @@ def observation_inputs(
     model_content: bytes | None = None,
     profile: PreparationProfile | None = None,
 ) -> SourceBundle:
-    """Include the source-report module through archived, hashed release preparation."""
+    """Compose the canonical current report and semantic reference schemas explicitly.
+
+    Supplied report bytes remain supplied bytes. Reserved pin/reference contracts
+    retain their current meaning; unrelated class changes are not overwritten by
+    a second schema projection.
+    """
+    from .data_product_reference import reference_inputs
+
     names = {source.name for source in bundle.sources}
-    content = _MODEL.read_bytes() if model_content is None else model_content
+    module = next((source for source in bundle.sources if source.name == "observations"), None)
+    if module is not None and model_content is not None and module.content != model_content:
+        raise ValueError("reserved observation module name already supplied with another meaning")
+    canonical = _MODEL.read_bytes()
+    content = (module.content if module is not None else canonical) if model_content is None else model_content
+    expected = yaml.safe_load(canonical)["classes"]
+    supplied = yaml.safe_load(content)
+    classes = supplied.get("classes", {}) if isinstance(supplied, dict) else {}
+    if classes.get("RecordSourcePin") != expected["RecordSourcePin"]:
+        raise ValueError("observation inputs refuse an independently changed current source pin")
+    operations = classes.get("SourceContributionOperation", {}).get("attributes", {})
+    if ("primary_layers" in operations or operations.get("primary_products") != expected["SourceContributionOperation"]["attributes"]["primary_products"]
+        or any(name in classes for name in ("CharacterizationProductReference", "CharacterizationQualifiedReference"))):
+        raise ValueError("observation inputs require current semantic product/member references")
     if names & {"observations", "observation-root"}:
         from .prepare import _view
 
-        module = next((source for source in bundle.sources if source.name == "observations"), None)
-        if (
-            module is not None
-            and module.content == content
-            and "SourceObservation" in _view(bundle, profile).all_classes()
-        ):
-            return bundle
-        raise ValueError("reserved observation module name already supplied with another meaning")
-    return SourceBundle(
-        "observation-root",
-        (
-            *bundle.sources,
-            SourceArtifact("observations", content),
-            SourceArtifact(
-                "observation-root",
-                yaml.safe_dump(
-                    {
-                        "id": "https://corpus-structure.dev/semantic/observation-root",
-                        "name": "semantic_observation_root",
-                        "imports": [bundle.root, "observations"],
-                    }
-                ).encode(),
-            ),
-        ),
-    )
+        if (module is None or module.content != content
+            or "SourceObservation" not in _view(bundle, profile).all_classes()):
+            raise ValueError("reserved observation module name already supplied with another meaning")
+        current = bundle
+    else:
+        current = SourceBundle(
+            "observation-root",
+            (*bundle.sources, SourceArtifact("observations", content), SourceArtifact(
+                "observation-root", yaml.safe_dump(dict(
+                    id="https://corpus-structure.dev/semantic/observation-root",
+                    name="semantic_observation_root", imports=[bundle.root, "observations"],
+                )).encode(),
+            )),
+        )
+    # The report ancestor is present before reference composition, so the existing
+    # reference owner can complete its dependency without recursive acquisition.
+    return reference_inputs(current)
 
 
 def prepare_source_inputs(
@@ -88,12 +100,17 @@ def prepare_source_inputs(
             selected_dependencies, content=characterization_question_content
         )
 
+    existing = next((source for source in bundle.sources if source.name == "observations"), None)
+    if existing is None:
+        current = observation_inputs(bundle, model_content=model_content, profile=profile)
+    else:
+        if model_content is not None and existing.content != model_content:
+            raise ValueError("reserved observation module name already supplied with another meaning")
+        # Augmentation preserves the explicitly supplied schema authority; it
+        # does not reacquire a default merely to compose additional modules.
+        current = bundle
     return (
-        characterization_inputs(
-            observation_inputs(bundle, model_content=model_content, profile=profile),
-            model_content=characterization_content,
-            profile=profile,
-        ),
+        characterization_inputs(current, model_content=characterization_content, profile=profile),
         selected_dependencies,
     )
 

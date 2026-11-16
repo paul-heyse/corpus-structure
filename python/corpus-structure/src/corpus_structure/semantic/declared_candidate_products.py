@@ -7,7 +7,6 @@ import yaml
 
 from .data_operation_json import json_bytes, json_loads
 from .data_operation_model import json_context_meaning
-from .declared_record_sources import declared_record_inputs
 from .identity import canonical_bytes
 from .source_products import source_product_inputs
 from .types import SourceArtifact, SourceBundle
@@ -16,10 +15,10 @@ _MODEL = Path(__file__).parents[1] / "model/semantic/data-operation-candidate-in
 
 
 def candidate_inspection_inputs(bundle):
-    """Compose the shared nominal source/member contract, preserving old archives."""
+    """Compose the shared current source/member contract."""
     from .source_discovery import source_discovery_inputs
 
-    bundle = declared_record_inputs(source_product_inputs(bundle))
+    bundle = source_product_inputs(bundle)
     if "data_operation_source_discovery" not in {source.name for source in bundle.sources}:
         bundle = source_discovery_inputs(bundle)
     name, root = "data_operation_candidate_inspection", "data_operation_candidate_inspection_root"

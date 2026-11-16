@@ -74,9 +74,7 @@ def _basis_projection(content: bytes, characterization: bytes) -> bytes:
         if isinstance(value, dict):
             return {
                 key: (
-                    "DdoSemanticMemberReference"
-                    if key == "range" and item == "CharacterizationQualifiedReference"
-                    else target(item)
+                    target(item)
                     if key == "range" and item in family
                     else retarget(item)
                 )

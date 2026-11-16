@@ -2,23 +2,22 @@
 
 import json
 from functools import cache
-from hashlib import sha256
 from pathlib import Path
 
 from corpus_structure.methods.gliner import GlinerPreparation, GlinerReport
 from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
-from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.observations import observation_inputs
-from corpus_structure.semantic.product_reference import ProductReference
-from corpus_structure.semantic.proposals import NativeFrameSource
-from corpus_structure.semantic.source_contexts import NativeSourceContext, SourceSlice
+from corpus_structure.semantic.source_contexts import NativeSourceContext, PreparedNativeSources, source_slice
+from corpus_structure.semantic.source_products import FrozenNativeSource, source_product_inputs
+from corpus_structure.semantic.declared_record_sources import DeclaredNativeFrameSource
+from corpus_structure.semantic.data_operation_model import BoundRoleMember
 
 ROOT = Path(__file__).resolve().parents[4]
 
 
 @cache
 def bundle():
-    return observation_inputs(
+    return source_product_inputs(observation_inputs(
         SourceBundle(
             "statistics_semantic",
             (
@@ -39,7 +38,7 @@ def bundle():
                 ),
             ),
         )
-    )
+    ))
 
 
 @cache
@@ -64,33 +63,18 @@ def source(text, *, identity=1, pieces=None, items=None, ancestors=("#/groups/1"
             source_field="text",
         )
     ]
-    items = items or [dict(self_ref=f"#/texts/{identity}", text=text)]
-    native = dict(
-        pieces=pieces,
-        items=items,
-        ancestors=[dict(self_ref=pointer) for pointer in ancestors],
-        health={"inline_coverage": "unknown"},
+    items = items or [dict(label='text', self_ref=f"#/texts/{identity}", text=text)]
+    native = FrozenNativeSource.from_projection(
+        release(), document="document:record-fixture", section_pointer="#/groups/1", membership="direct",
+        text=text, pieces=pieces, items=items,
+        ancestors=[dict(label='group', self_ref=pointer) for pointer in ancestors],
     )
-    projection = dict(
-        text=text,
-        pieces=pieces,
-        items=[item["self_ref"] for item in items],
-        ancestors=list(ancestors),
-        health=native["health"],
+    member = BoundRoleMember(
+        f"product:record-source:{identity}", "kind:native-source", f"subject:section:{identity}",
+        "document:record-fixture", b"{}", b"{}", (), b"{}", member=f"member:section:{identity}",
+        subject_definition="original-source-view", support_references=(),
     )
-    return NativeFrameSource(
-        f"unit:{identity}",
-        text,
-        (),
-        identity,
-        ProductReference(17, "integrated", "a" * 64),
-        "#/groups/1",
-        "direct",
-        sha256(canonical_bytes(projection)).hexdigest(),
-        "c" * 64,
-        canonical_bytes(native).decode(),
-        version=3,
-    )
+    return DeclaredNativeFrameSource.acquire(release(), native.value, member, project="project:record-fixture")
 
 
 def context(text, **kwargs):
@@ -98,10 +82,11 @@ def context(text, **kwargs):
     return NativeSourceContext(
         primary,
         (),
-        (SourceSlice(primary.source_view_id, 0, len(text)),),
+        (source_slice(primary, 0, len(text)),),
         "independent reading",
         "test-policy",
         "explicit source selection",
+        version=2, preparation=PreparedNativeSources((primary,)),
     )
 
 

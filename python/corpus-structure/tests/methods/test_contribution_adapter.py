@@ -18,10 +18,11 @@ from corpus_structure.methods.record_assembly import NativeRecordGroup, RoleInpu
 from corpus_structure.methods.record_packs import family_pack
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.observations import source_python
-from corpus_structure.semantic.proposals import NativeFrameSource
+from corpus_structure.semantic.declared_record_sources import DeclaredNativeFrameSource
 from corpus_structure.semantic.source_contexts import (
     NativeSourceContext,
-    SourceSlice,
+    PreparedNativeSources,
+    source_slice,
     SyntheticText,
 )
 from methods.record_assembly_support import context, release, report, source, span
@@ -96,7 +97,7 @@ def test_forward_typed_population_and_limited_operations_are_preserved_without_r
     )
     assert canonical_bytes(copied.coordinate_texts) == canonical_bytes(batch.coordinate_texts)
     assert isinstance(copied.contributions[-1]["value"]["fields"], tuple)
-    assert isinstance(ctx.primary, NativeFrameSource)
+    assert isinstance(ctx.primary, DeclaredNativeFrameSource)
     bound = bind_result(
         release(),
         source=ctx.primary.unit_ref,
@@ -106,7 +107,7 @@ def test_forward_typed_population_and_limited_operations_are_preserved_without_r
         input_hash="fixture",
         invocation_key="fixture",
         result=UnitResult(
-            ref=UnitRef(TaskUnitType.SOURCE_VIEW, ctx.primary.source_view_id, ctx.primary.unit_ref),
+            ref=UnitRef(TaskUnitType.DOCUMENT, 1, ctx.primary.source_key),
             outcome=ObservationOutcome.PRODUCED,
             contributions=copied.contributions,
             contribution_operations=copied.operations,
@@ -212,7 +213,7 @@ def test_captured_native_header_association_is_independent_of_value_presence(bla
         value + "mean",
         pieces=pieces,
         items=[
-            dict(
+            dict(label='table',
                 self_ref="#/tables/0", data=dict(table_cells=[dict(text=value), dict(text="mean")])
             )
         ],
@@ -474,19 +475,20 @@ def test_synthetic_gap_never_becomes_continuous_quote():
             dict(kind="native_text", item_ref="#/texts/1", start=0, end=3, source_field="text"),
             dict(kind="native_text", item_ref="#/texts/2", start=3, end=6, source_field="text"),
         ],
-        items=[dict(self_ref="#/texts/1", text="one"), dict(self_ref="#/texts/2", text="two")],
+        items=[dict(label='text', self_ref="#/texts/1", text="one"), dict(label='text', self_ref="#/texts/2", text="two")],
     )
     ctx = NativeSourceContext(
         primary,
         (),
         (
-            SourceSlice(1, 0, 3),
+            source_slice(primary, 0, 3),
             SyntheticText(" ", "model separator"),
-            SourceSlice(1, 3, 6),
+            source_slice(primary, 3, 6),
         ),
         "definition",
         "test-policy",
         "explicit pieces",
+        version=2, preparation=PreparedNativeSources((primary,)),
     )
     pack = definition_pack()
     native = report(ctx, pack, "definition", [{"term": span(0, 7, "one two")}])
@@ -501,7 +503,7 @@ def test_multi_piece_native_evidence_preserves_real_order():
             dict(kind="native_text", item_ref="#/texts/1", start=0, end=3, source_field="text"),
             dict(kind="native_text", item_ref="#/texts/2", start=3, end=6, source_field="text"),
         ],
-        items=[dict(self_ref="#/texts/1", text="one"), dict(self_ref="#/texts/2", text="two")],
+        items=[dict(label='text', self_ref="#/texts/1", text="one"), dict(label='text', self_ref="#/texts/2", text="two")],
     )
     pack = definition_pack()
     batch = adapt_report(
@@ -520,17 +522,22 @@ def test_multi_piece_native_evidence_preserves_real_order():
     ]
 
 
-def test_views_share_physical_occurrence_without_merging_observations():
-    ctx, pack = context("term"), definition_pack()
-    wider = context(
-        "Xterm",
-        identity=2,
+def test_contexts_share_governed_source_occurrence_without_merging_observations():
+    pack = definition_pack()
+    primary = source(
+        "Xterm", identity=2,
         pieces=[
             dict(kind="native_text", item_ref="#/texts/2", start=0, end=1, source_field="text"),
             dict(kind="native_text", item_ref="#/texts/1", start=1, end=5, source_field="text"),
         ],
-        items=[dict(self_ref="#/texts/2", text="X"), dict(self_ref="#/texts/1", text="term")],
+        items=[dict(label="text", self_ref="#/texts/2", text="X"), dict(label="text", self_ref="#/texts/1", text="term")],
     )
+    def selected(start):
+        return NativeSourceContext(
+            primary, (), (source_slice(primary, start, 5),), "independent reading", "test-policy", "explicit source selection",
+            version=2, preparation=PreparedNativeSources((primary,)),
+        )
+    ctx, wider = selected(1), selected(0)
     a = adapt_report(
         report(ctx, pack, "definition", [{"term": span(0, 4, "term")}]),
         ctx,
@@ -606,24 +613,6 @@ def test_zero_output_and_unsupported_top_level_shape_have_population_rows():
     assert bad.operations[0]["report_digest"] == sha256(native.raw_json.encode()).hexdigest()
 
 
-def test_captured_recognition_retains_distinct_coordinate_space_and_binding():
-    from semantic.captured_source_contexts_support import prepared_context
-
-    ctx, captured = prepared_context(text="term", with_native=False)
-    pack = definition_pack()
-    batch = adapt_report(
-        report(ctx, pack, "definition", [{"term": span(0, 4, "term")}]),
-        ctx,
-        pack=pack,
-        item_key="captured",
-    )
-    (row,) = proposals(batch, "definition.term")
-    (anchor,) = row["anchors"]
-    assert anchor["space"] == "captured_recognition"
-    assert anchor["recognition"] == dict(captured.recognition)
-    assert anchor["binding"]["relationship"] == "primary"
-    assert anchor["source_piece"] == "term"
-    assert batch.coordinate_texts[0]["text"] == "term"
 
 
 def test_adapter_batch_uses_released_binding_and_authentic_source_coordinates():
@@ -668,7 +657,7 @@ def test_table_attachment_is_separate_candidate_with_exact_closed_endpoints():
             ),
         ],
         items=[
-            dict(
+            dict(label='table',
                 self_ref="#/tables/0",
                 data=dict(
                     table_cells=[
@@ -810,8 +799,8 @@ def test_actual_blank_native_cell_retains_inspection_subject_without_text_occurr
     ctx = context(
         "context",
         items=[
-            dict(self_ref="#/texts/1", text="context"),
-            dict(self_ref="#/tables/0", data=dict(table_cells=[dict(text="")])),
+            dict(label='text', self_ref="#/texts/1", text="context"),
+            dict(label='table', self_ref="#/tables/0", data=dict(table_cells=[dict(text="")])),
         ],
     )
     groups = native_table_groups(

@@ -31,7 +31,7 @@ classes:
         minimum_value: 1
       key: *id001
       base_document:
-        range: CharacterizationProductReference
+        range: DdoSemanticProductReference
         inlined: true
         required: true
       section_pointer: *id001
@@ -80,7 +80,7 @@ classes:
         required: true
         minimum_cardinality: 1
       required_layers:
-        range: CharacterizationProductReference
+        range: DdoSemanticProductReference
         inlined: true
         multivalued: true
       preconditions:
@@ -172,7 +172,7 @@ classes:
         range: CharacterizationModelAnswer
         inlined: true
       required_external_choices:
-        range: CharacterizationQualifiedReference
+        range: DdoSemanticMemberReference
         inlined: true
         multivalued: true
       native_token:
@@ -212,7 +212,7 @@ classes:
         range: string
         multivalued: true
       external_premises:
-        range: CharacterizationQualifiedReference
+        range: DdoSemanticMemberReference
         inlined: true
         multivalued: true
       family:
@@ -225,7 +225,7 @@ classes:
         range: string
         multivalued: true
       required_external_choices:
-        range: CharacterizationQualifiedReference
+        range: DdoSemanticMemberReference
         inlined: true
         multivalued: true
       local_id: *id001
@@ -251,7 +251,7 @@ classes:
         required: true
         pattern: ^\S+$
       external_premises:
-        range: CharacterizationQualifiedReference
+        range: DdoSemanticMemberReference
         inlined: true
         multivalued: true
   CharacterizationAttachmentBasis:
@@ -276,7 +276,7 @@ classes:
         range: string
         pattern: ^.+$
       required_external_choices:
-        range: CharacterizationQualifiedReference
+        range: DdoSemanticMemberReference
         inlined: true
         multivalued: true
       kind:
@@ -295,7 +295,7 @@ classes:
         range: string
         multivalued: true
       external_premises:
-        range: CharacterizationQualifiedReference
+        range: DdoSemanticMemberReference
         inlined: true
         multivalued: true
   CharacterizationNativeBasis:
@@ -335,7 +335,7 @@ classes:
         range: string
         multivalued: true
       required_external_choices:
-        range: CharacterizationQualifiedReference
+        range: DdoSemanticMemberReference
         inlined: true
         multivalued: true
       local_id: *id001
@@ -380,7 +380,7 @@ classes:
     is_a: SourceRecordProduct
     attributes:
       required_external_choices:
-        range: CharacterizationQualifiedReference
+        range: DdoSemanticMemberReference
         inlined: true
         multivalued: true
       local_id: *id001
@@ -416,14 +416,14 @@ classes:
         required: true
         pattern: ^\S+$
       external_premises:
-        range: CharacterizationQualifiedReference
+        range: DdoSemanticMemberReference
         inlined: true
         multivalued: true
   CharacterizationChoiceMember:
     is_a: SourceRecordProduct
     attributes:
       required_external_choices:
-        range: CharacterizationQualifiedReference
+        range: DdoSemanticMemberReference
         inlined: true
         multivalued: true
       local_id: *id001
@@ -439,7 +439,7 @@ classes:
         inlined: true
         multivalued: true
       external_premises:
-        range: CharacterizationQualifiedReference
+        range: DdoSemanticMemberReference
         inlined: true
         multivalued: true
   CharacterizationChoiceGroup:
@@ -494,7 +494,7 @@ classes:
         required: true
         equals_string: characterization-layer-v1
       base_document:
-        range: CharacterizationProductReference
+        range: DdoSemanticProductReference
         inlined: true
         required: true
       release_id: *id001
@@ -510,7 +510,7 @@ classes:
         required: true
         pattern: ^(complete|partial|failed)$
       dependencies:
-        range: CharacterizationProductReference
+        range: DdoSemanticProductReference
         inlined: true
         multivalued: true
       occurrences:
@@ -550,7 +550,7 @@ classes:
         required: true
         equals_string: enriched-document-view-v1
       base_document:
-        range: CharacterizationProductReference
+        range: DdoSemanticProductReference
         inlined: true
         required: true
       release_id: *id001
@@ -559,11 +559,11 @@ classes:
         inlined: true
         required: true
       layers:
-        range: CharacterizationProductReference
+        range: DdoSemanticProductReference
         inlined: true
         multivalued: true
       active_layers:
-        range: CharacterizationProductReference
+        range: DdoSemanticProductReference
         inlined: true
         multivalued: true
       profile: *id001
@@ -1136,7 +1136,7 @@ classes:
         range: string
         pattern: ^(resolved|unresolved|unavailable|not_applicable)$
       antecedent_members:
-        range: CharacterizationQualifiedReference
+        range: DdoSemanticMemberReference
         inlined: true
         multivalued: true
       antecedent_reason:
@@ -1148,14 +1148,14 @@ classes:
         range: string
         required: true
       head:
-        range: CharacterizationQualifiedReference
+        range: DdoSemanticMemberReference
         required: true
         inlined: true
       expansion:
         range: string
         required: true
       members:
-        range: CharacterizationQualifiedReference
+        range: DdoSemanticMemberReference
         inlined: true
         multivalued: true
       status:
@@ -1183,11 +1183,11 @@ classes:
         required: true
         pattern: ^[0-9a-f]{64}$
       native_container:
-        range: CharacterizationQualifiedReference
+        range: DdoSemanticMemberReference
         required: true
         inlined: true
       nodes:
-        range: CharacterizationQualifiedReference
+        range: DdoSemanticMemberReference
         inlined: true
         multivalued: true
       piece_indices:
@@ -1220,7 +1220,7 @@ classes:
     attributes:
       name: {range: string, required: true, pattern: '^.+$'}
       index: {range: integer, required: true, minimum_value: 0}
-      native_node: {range: CharacterizationQualifiedReference, required: true, inlined: true}
+      native_node: {range: DdoSemanticMemberReference, required: true, inlined: true}
   CharacterizationNavigationLabel:
     is_a: SourceRecordProduct
     attributes:

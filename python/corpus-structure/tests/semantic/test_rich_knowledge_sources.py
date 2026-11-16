@@ -209,9 +209,9 @@ def test_rich_policy_refs_resolve_exact_captured_profile_and_checked_kind_owners
 
 def test_rich_augmentation_preserves_exact_captured_current_observations(monkeypatch):
     from corpus_structure.semantic import observations, prepare_release
-    from corpus_structure.semantic.declared_record_sources import declared_record_inputs
+    from corpus_structure.semantic.observations import observation_inputs
 
-    current = declared_record_inputs(release_inputs()[0])
+    current = observation_inputs(release_inputs()[0])
     captured = next(source.content for source in current.sources if source.name == "observations")
     assert b"declared-native-source-v1" in captured
     # This acquisition already has its actual schema authority. Reopening an

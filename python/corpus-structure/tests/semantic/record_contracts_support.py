@@ -25,15 +25,15 @@ ROOT = Path(__file__).resolve().parents[4]
 MODEL = ROOT / "python/corpus-structure/src/corpus_structure/model/semantic"
 
 
-PIN = {
-    "source": "source:table",
-    "native_product_task_id": 23,
-    "product_key": "organized",
-    "product_digest": "a" * 64,
-    "projection_digest": "b" * 64,
-    "recipe_digest": "c" * 64,
-    "source_view_id": 7,
-}
+from corpus_structure.semantic.declared_record_sources import DeclaredRecordSource
+from corpus_structure.semantic.data_operation_model import SubjectContext
+
+PIN = DeclaredRecordSource(
+    "document:table", "b" * 64, "#/", "descendants",
+    SubjectContext("project:table", "subject:table", "document:table", b"{}", subject_definition="original-source-view"),
+    "product:table", "member:table", "kind:source",
+).pin()
+
 
 
 @cache

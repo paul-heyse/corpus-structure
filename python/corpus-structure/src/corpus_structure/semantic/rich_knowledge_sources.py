@@ -153,7 +153,7 @@ def rich_knowledge_schema_inputs(
         raise ValueError("rich knowledge contracts already declared")
     # An existing immutable observation module is the semantic source owner.
     # Maintained record/source capsules may already carry the current pin
-    # projection; adding rich routes must not acquire a second installed meaning.
+    # contract; adding rich routes must not acquire a second installed meaning.
     observation_content = next(
         (source.content for source in bundle.sources if source.name == "observations"), None
     )

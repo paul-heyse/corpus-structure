@@ -49,9 +49,7 @@ _MODEL = Path(__file__).resolve().parents[1] / "model/semantic/data-operation-se
 def sentence_product_inputs(
     bundle: SourceBundle, *, profile: PreparationProfile | None = None
 ) -> SourceBundle:
-    from .declared_record_sources import declared_record_inputs
-
-    bundle = declared_record_inputs(source_product_inputs(bundle, profile=profile))
+    bundle = source_product_inputs(bundle, profile=profile)
     names = {source.name for source in bundle.sources}
     if names & {"data_operation_sentences", "data_operation_sentences_root"}:
         raise ValueError("sentence profile uses reserved source schema names")

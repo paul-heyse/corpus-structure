@@ -102,8 +102,9 @@ def _identity(kind: str, value: Any) -> str:
 
 
 def _pin(pin: Mapping[str, Any]) -> dict[str, Any]:
-    # Native sequence IDs locate custody; source/product/projection determine meaning.
-    return {key: value for key, value in pin.items() if key != "source_view_id"}
+    if pin.get("format") != "declared-native-source-v1":
+        raise ValueError("record identity requires a current original-relative source pin")
+    return dict(pin)
 
 
 def anchor_identity(anchor: Mapping[str, Any]) -> str:
@@ -191,6 +192,8 @@ def _text_key(pin, space, pointer, recognition=None):
 
 def validate_anchor_binding(anchor, primary_pin):
     """Released v2 meanings; persisted custody remains the ingress owner's obligation."""
+    _pin(primary_pin)
+    _pin(anchor["pin"])
     binding = anchor.get("binding")
     if binding is None:
         if anchor["pin"] != primary_pin or anchor["space"] == "captured_recognition":
@@ -204,10 +207,7 @@ def validate_anchor_binding(anchor, primary_pin):
             if anchor["pin"] != primary_pin:
                 raise ValueError("primary source binding differs from record pin")
         elif binding["relationship"] == "selected_context":
-            if primary_pin.get("format") == "declared-native-source-v1":
-                keys = ("format", "document", "original_source", "project_id")
-            else:
-                keys = ("native_product_task_id", "product_key", "product_digest")
+            keys = ("format", "document", "original_source", "project_id")
             if any(anchor["pin"].get(key) != primary_pin[key] for key in keys):
                 raise ValueError("related selected context requires the same native product")
         else:

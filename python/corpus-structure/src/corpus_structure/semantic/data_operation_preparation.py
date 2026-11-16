@@ -111,7 +111,6 @@ class DataOperationInputs(BaseModel):
     dependencies: tuple[NamedInput, ...] = ()
     python: PythonInputs | None = None
     source_bindings: bool = False
-    record_bindings: bool = False
     pdf_contracts: bool = False
     protected_references: bool = False
     protected_record_policy: bool = False
@@ -159,12 +158,6 @@ def acquire_data_operation_inputs(
         from .source_products import source_product_inputs
 
         bundle = source_product_inputs(bundle)
-    if declared.record_bindings:
-        if not declared.source_bindings:
-            raise ValueError("declared record bindings require the selected native source contract")
-        from .declared_record_sources import declared_record_inputs
-
-        bundle = declared_record_inputs(bundle)
     python = declared.python
     sources = (
         None

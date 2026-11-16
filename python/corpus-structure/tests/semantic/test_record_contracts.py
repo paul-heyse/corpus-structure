@@ -135,20 +135,10 @@ def test_binding_preserves_record_memberships_and_retry_identity():
     )
     product = bind_result(prepared, **kwargs, model=record_model()).model_dump(mode="python")
     assert product["records"][0]["record_id"] == record["record_id"]
-    # Operational retry/sequence positions are not source occurrence meaning.
+    # Source meaning uses current governed members, never physical view aliases.
     moved = deepcopy(record)
-    moved["pin"]["source_view_id"] = 81
-    for row in moved["anchors"]:
-        row["pin"]["source_view_id"] = 81
-    assert (
-        record_identity(record_family_contract(record_model(), moved["contract"]), moved)
-        == record["record_id"]
-    )
-    moved["pin"]["recipe_digest"] = "d" * 64
-    assert (
-        record_identity(record_family_contract(record_model(), moved["contract"]), moved)
-        != record["record_id"]
-    )
+    moved["pin"].update(source='["product:another","member:table"]', source_product="product:another")
+    assert record_identity(record_family_contract(record_model(), moved["contract"]), moved) != record["record_id"]
     kwargs["result"] = UnitResult(
         ref=UnitRef(TaskUnitType.SOURCE_VIEW, 7, "view"), outcome=ObservationOutcome.EMPTY
     )
@@ -212,9 +202,9 @@ def test_occurrence_identity_consumes_family_contract_and_keeps_reading_interpre
         (lambda row: row.update(contract="SourceObject"), "released family"),
         (lambda row: row.update(occurrence_recipe="unsupported-2"), "family/occurrence recipe"),
         (lambda row: row["anchors"][2].update(end=8), "anchor identity"),
-        (lambda row: row["pin"].update(product_digest="d" * 64), "source pin"),
-        (lambda row: row["pin"].update(recipe_digest="not-a-digest"), "pattern"),
-        (lambda row: row["pin"].update(native_product_task_id=0), "greater than or equal"),
+        (lambda row: row["pin"].update(projection_digest="d" * 64), "source pin"),
+        (lambda row: row["pin"].update(projection_digest="not-a-digest"), "pattern"),
+        (lambda row: row["pin"].update(source_product=0), "string"),
         (lambda row: row["fields"][4].update(original="13"), "original source spelling"),
         (
             lambda row: row["fields"][4].update(value={"kind": "decimal", "lexical": "NaN"}),
