@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from sqlalchemy import select
+from sqlalchemy import Connection, select
 
 from corpus_structure.semantic.data_operation_service import (
     DemandDiscoverySelection,
@@ -24,7 +24,44 @@ from .source_request import (
     SourceRunRequest,
 )
 
-CommandError = SourceRequestError
+
+def resolve_source_domain(
+    conn: Connection,
+    project_id: str,
+    release_id: str,
+    domain: str | None,
+    *,
+    domains: Path | None = None,
+) -> str:
+    """Resolve a source pack from the release's archived module identities."""
+    import json
+
+    import yaml
+
+    from corpus_structure.schema.pack import DOMAINS
+    from corpus_structure.semantic.releases import open_release
+
+    try:
+        archive = json.loads(open_release(conn, release_id).manifest)
+    except KeyError as error:
+        raise SourceRequestError("selected release has no archived executable pack") from error
+    modules = {name for name, _ in archive["sources"]}
+    candidates = []
+    for path in sorted((domains or DOMAINS).glob("*/semantic.yaml")):
+        if domain is not None and path.parent.name != domain:
+            continue
+        declaration = yaml.safe_load(path.read_bytes())
+        if isinstance(declaration, dict) and declaration.get("name") in modules:
+            candidates.append(path.parent.name)
+    if len(candidates) == 1:
+        return candidates[0]
+    if candidates:
+        raise SourceRequestError(
+            f"project {project_id!r} has multiple bound packs; select --domain"
+        )
+    raise SourceRequestError(
+        f"project {project_id!r} has no matching executable pack for this release"
+    )
 
 
 def _default_profile_selections(model, targets, supplied):
@@ -78,7 +115,6 @@ def prepare_source_demand(
     from corpus_structure.semantic.primary_operations import primary_operation_targets
     from corpus_structure.semantic.releases import load_release
 
-    from .commands import resolve_source_domain
     from .slices import records
 
     prepared = load_release(connection, request.release_id) if prepared is None else prepared

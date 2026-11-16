@@ -9,7 +9,6 @@ projection and synthetic consumers move to declared consolidation.
 from __future__ import annotations
 
 from datetime import datetime
-from pathlib import Path
 from typing import Literal
 
 from pydantic import BaseModel, Field, JsonValue
@@ -20,8 +19,6 @@ from corpus_structure.settings import AnalyticsSettings
 
 from .source_progress import SourceOperationProgress, read_source_operation_progress
 from .source_request import SourceRequestError
-
-CommandError = SourceRequestError
 
 
 class StageCount(BaseModel):
@@ -64,41 +61,6 @@ class StatusReport(BaseModel):
     settings: dict[str, str] = {}
 
 
-def resolve_source_domain(
-    conn: Connection,
-    project_id: str,
-    release_id: str,
-    domain: str | None,
-    *,
-    domains: Path | None = None,
-) -> str:
-    """Resolve a source pack from the release's archived module identities."""
-    import json
-
-    import yaml
-
-    from corpus_structure.schema.pack import DOMAINS
-    from corpus_structure.semantic.releases import open_release
-
-    try:
-        archive = json.loads(open_release(conn, release_id).manifest)
-    except KeyError as error:
-        raise CommandError("selected release has no archived executable pack") from error
-    modules = {name for name, _ in archive["sources"]}
-    candidates = []
-    for path in sorted((domains or DOMAINS).glob("*/semantic.yaml")):
-        if domain is not None and path.parent.name != domain:
-            continue
-        declaration = yaml.safe_load(path.read_bytes())
-        if isinstance(declaration, dict) and declaration.get("name") in modules:
-            candidates.append(path.parent.name)
-    if len(candidates) == 1:
-        return candidates[0]
-    if candidates:
-        raise CommandError(f"project {project_id!r} has multiple bound packs; select --domain")
-    raise CommandError(f"project {project_id!r} has no matching executable pack for this release")
-
-
 def _bound_run_id(conn: Connection, run_id: int | None, project_id: str | None) -> int | None:
     from sqlalchemy import select
 
@@ -112,7 +74,7 @@ def _bound_run_id(conn: Connection, run_id: int | None, project_id: str | None) 
         query = query.where(runs.c.project_id == project_id)
     found = conn.execute(query.order_by(runs.c.id.desc()).limit(1)).scalar_one_or_none()
     if found is None and run_id is not None:
-        raise CommandError(f"no semantic run {run_id} in the selected project")
+        raise SourceRequestError(f"no semantic run {run_id} in the selected project")
     return found
 
 

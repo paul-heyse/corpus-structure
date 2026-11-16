@@ -1,0 +1,130 @@
+{
+  "retire": [
+    {
+      "kind": "function",
+      "schema": "ops",
+      "name": "retain_original_document",
+      "arguments": [
+        "text",
+        "bigint",
+        "bytea"
+      ],
+      "relation": null
+    },
+    {
+      "kind": "function",
+      "schema": "eval",
+      "name": "review_history_preflight",
+      "arguments": [
+        "text",
+        "bigint",
+        "boolean",
+        "bigint",
+        "bigint"
+      ],
+      "relation": null
+    },
+    {
+      "kind": "function",
+      "schema": "eval",
+      "name": "operation_review_history_bounded",
+      "arguments": [
+        "text",
+        "bigint",
+        "bigint",
+        "bigint",
+        "bigint"
+      ],
+      "relation": null
+    },
+    {
+      "kind": "function",
+      "schema": "eval",
+      "name": "structural_review_history_bounded",
+      "arguments": [
+        "text",
+        "bigint",
+        "bigint",
+        "bigint",
+        "bigint"
+      ],
+      "relation": null
+    },
+    {
+      "kind": "function",
+      "schema": "eval",
+      "name": "operation_review_history",
+      "arguments": [
+        "text",
+        "bigint",
+        "bigint"
+      ],
+      "relation": null
+    },
+    {
+      "kind": "function",
+      "schema": "eval",
+      "name": "structural_review_history",
+      "arguments": [
+        "text",
+        "bigint",
+        "bigint"
+      ],
+      "relation": null
+    },
+    {
+      "kind": "function",
+      "schema": "eval",
+      "name": "record_review_exposure",
+      "arguments": [
+        "text",
+        "bigint",
+        "text",
+        "text"
+      ],
+      "relation": null
+    },
+    {
+      "kind": "function",
+      "schema": "eval",
+      "name": "record_feature_fit_review_exposure",
+      "arguments": [
+        "text",
+        "bigint",
+        "text",
+        "text",
+        "text"
+      ],
+      "relation": null
+    },
+    {
+      "kind": "function",
+      "schema": "eval",
+      "name": "record_structural_review_exposure",
+      "arguments": [
+        "text",
+        "bigint",
+        "text",
+        "text"
+      ],
+      "relation": null
+    }
+  ],
+  "recreate": [],
+  "baseline": "HEAD",
+  "core": null,
+  "system": null,
+  "physical": null,
+  "change": null,
+  "archive_release": null,
+  "packs": [
+    "statistics"
+  ],
+  "data_operations": null,
+  "native_predecessor": "semantic_ddo_domain_v8",
+  "native_revision": "semantic_ddo_domain_v9",
+  "deployment": false,
+  "deployment_profile": null,
+  "source_migrations": [],
+  "data_steps": []
+}

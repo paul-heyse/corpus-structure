@@ -164,8 +164,15 @@ before claiming native closure. Frozen v8 is unchanged.
 The obsolete retained-review/golden/eval CLI adapters and11-module legacy internal review/export/
 replay cluster are deleted. Independent scientific expectations now live with actual producer/
 reader controls; no compatibility decoder replaces the cluster. Current selected archives and
-selected evaluation remain. A now-orphaned review-assessment Python/native pair is under bounded
-retirement investigation; shared current characterization scientific kernels still have consumers.
+selected evaluation remain. The closed replay retirement cohort had146passed/52failed at its worker source;51 editable-source
+prerequisite refusals subsequently **passed** on coherent main, `707a6b19c57f4701a4d8fa69ab7638a5`.
+The remaining stale named-registry expectation is replaced by an actual budget control,1 **passed**
+`ee124f6215bd4fab84742df4317c188f`. Source choice/CLI31 **passed**
+`28c408bc0cee42faa87df5b5ea7ab48c`; current pack resolution no longer imports legacy run commands
+or an exception compatibility alias. Eight orphaned review-history/exposure native functions and
+their Python reader are being retired; two old structural reference functions remain with real
+fixture callers until their current counterparts qualify. Shared characterization scientific
+kernels still have consumers.
 
 ## Current state and execution order
 

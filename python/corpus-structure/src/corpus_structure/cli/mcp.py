@@ -72,7 +72,7 @@ def direct(
     from corpus_structure.cli import orchestrate
     from corpus_structure.intervene.directions import record_direction
     from corpus_structure.intervene.service import ToolFailure
-    from corpus_structure.orchestrate.commands import CommandError
+    from corpus_structure.orchestrate.source_request import SourceRequestError
 
     try:
         with orchestrate.ENGINE(state(ctx).settings()) as engine:
@@ -83,7 +83,7 @@ def direct(
                 actor="human:operator",
                 project=project or state(ctx).settings().runtime.default_project,
             )
-    except (ToolFailure, CommandError) as error:
+    except (ToolFailure, SourceRequestError) as error:
         stderr_console().print(f"refused: {error}")
         raise typer.Exit(code=1) from None
     emit(report, json=json)
