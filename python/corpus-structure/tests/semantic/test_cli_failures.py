@@ -8,6 +8,7 @@ from types import SimpleNamespace
 
 import psycopg
 import pytest
+from conftest import settings_for_native_clone
 from sqlalchemy.exc import DBAPIError
 
 from semantic.data_operation_kernel_support import STORAGE
@@ -304,7 +305,7 @@ def test_schema_derive_existing_directory_refuses_before_prepare(cli, tmp_path):
 
 
 @pytest.mark.parametrize("ddo_kernel", [STORAGE], indirect=True)
-def test_actual_database_check_preserves_native_admission_diagnostic(cli, ddo_kernel):
+def test_actual_database_check_preserves_native_admission_diagnostic(cli, ddo_kernel, native_settings):
     """Current reader checks actual admitted contracts; posture tampering still refuses."""
     from hashlib import sha256
 
@@ -313,17 +314,12 @@ def test_actual_database_check_preserves_native_admission_diagnostic(cli, ddo_ke
     from corpus_structure.semantic.native_definition_projection import (
         read_native_definition_projection,
     )
-    from corpus_structure.settings import Settings
 
     kernel = ddo_kernel
     prepared = kernel.prepared
-    settings = Settings(
-        database={
-            "url": kernel.engine.url.set(drivername="postgresql").render_as_string(
-                hide_password=False
-            )
-        }
-    )
+    database = kernel.engine.url.database
+    assert database is not None
+    settings = settings_for_native_clone(native_settings, database, "read")
     with kernel.purpose("read").begin() as connection:
         assert (
             connection.scalar(
@@ -342,6 +338,17 @@ def test_actual_database_check_preserves_native_admission_diagnostic(cli, ddo_ke
             is False
         )
     args = ("db", "check", "--release", prepared.release_id, "--json")
+    expected_kinds = read_native_definition_projection(prepared)["kinds"]
+    with kernel.engine.begin() as connection:
+        physical_kinds = connection.execute(
+            text("SELECT contract.* FROM sem.data_kind_contract contract "
+                 "JOIN sem.data_kind_release membership USING(kind_contract) "
+                 "WHERE membership.release_id=:release"),
+            {"release": prepared.release_id},
+        ).mappings().all()
+    assert {row["kind_contract"]: dict(row) for row in physical_kinds} == {
+        row["kind_contract"]: row for row in expected_kinds
+    }
     checked = cli(*args, settings=lambda: settings)
     assert checked.exit_code == 0, checked.output
     report = json.loads(checked.stdout)
@@ -366,26 +373,20 @@ def test_actual_database_check_preserves_native_admission_diagnostic(cli, ddo_ke
             )
 
 
+@pytest.mark.parametrize("ddo_kernel", [STORAGE], indirect=True)
 @pytest.mark.parametrize("route", ["schema", "db_check"])
 @pytest.mark.parametrize("kind", ["serialization", "fencing", "unknown", "bug"])
 def test_actual_archive_query_failure_reaches_cli_unchanged(
-    cli, commit_db_engine, commit_reader_engine, route, kind
+    cli, ddo_kernel, native_settings, route, kind
 ):
     from sqlalchemy import Engine, event
 
     from corpus_structure.core.db.store import FENCING_CONSTRAINT
-    from corpus_structure.settings import Settings
-    from semantic.releases_support import stage
 
-    with commit_db_engine.begin() as conn:
-        _, _, _, prepared = stage(conn)
-    settings = Settings(
-        database={
-            "url": commit_reader_engine.url.set(drivername="postgresql").render_as_string(
-                hide_password=False
-            )
-        }
-    )
+    prepared = ddo_kernel.prepared
+    database = ddo_kernel.engine.url.database
+    assert database is not None
+    settings = settings_for_native_clone(native_settings, database, "read")
     if kind == "serialization":
         failure = DBAPIError(None, None, psycopg.errors.SerializationFailure("serialization"))
     elif kind == "fencing":

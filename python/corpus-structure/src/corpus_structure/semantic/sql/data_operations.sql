@@ -18,7 +18,7 @@ BEGIN
  RAISE EXCEPTION 'read-only inspection native source correspondence differs' USING ERRCODE='23514'; END IF;
  IF EXISTS(WITH expected AS (
  SELECT value->>'kind_contract' AS key,value AS body FROM jsonb_array_elements(projection->'kinds')),
- actual AS (SELECT kind.kind_contract AS key,to_jsonb(kind) AS body FROM sem.data_kind_contract kind
+ actual AS (SELECT kind.kind_contract AS key,to_jsonb(kind.*) AS body FROM sem.data_kind_contract kind
  JOIN sem.data_kind_release membership ON membership.kind_contract=kind.kind_contract WHERE membership.release_id=p->>'release_id')
  SELECT FROM expected FULL JOIN actual USING(key) WHERE expected.body IS DISTINCT FROM actual.body) THEN
  RAISE EXCEPTION 'read-only inspection admitted kind rowset differs from archived contracts' USING ERRCODE='23514'; END IF;

@@ -144,7 +144,7 @@ def test_actual_db_check_adapter_uses_read_inspection_and_reports_current_contra
     from corpus_structure.semantic import (
         data_operation_admission,
         execution_admission,
-        query,
+        read_snapshot,
         releases,
         runtime,
         storage_target,
@@ -191,7 +191,7 @@ def test_actual_db_check_adapter_uses_read_inspection_and_reports_current_contra
         purpose="read",
     )
     monkeypatch.setattr(runtime, "open_runtime_engine", engine)
-    monkeypatch.setattr(query, "read_snapshot", snapshot)
+    monkeypatch.setattr(read_snapshot, "read_snapshot", snapshot)
     monkeypatch.setattr(releases, "open_release", lambda conn, release: inspected_prepared)
     monkeypatch.setattr(storage_target, "acquired_target", lambda conn, *, purpose: target)
     monkeypatch.setattr(execution_admission, "admit_execution_release", forbidden)
