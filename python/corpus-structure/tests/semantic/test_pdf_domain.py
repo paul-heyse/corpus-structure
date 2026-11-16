@@ -256,3 +256,13 @@ def test_current_call_context_refuses_substitution_without_legacy_catalog_fallba
         )
     with pytest.raises(SemanticRefusal, match="correspondence"):
         require_call_context(prepared, operation, variant, digest)
+
+
+def test_unsupported_pdf_consumer_read_profile_refuses_before_capture(domain, tmp_path):
+    from corpus_structure.semantic.pdf_contracts import prepare_pdf_context
+    from semantic.pdf_domain_support import altered_domain
+
+    changed = altered_domain(domain, read_version="not-qualified")
+    with pytest.raises(ValueError, match="read ABI is unsupported"):
+        prepare_pdf_context(_boundary(domain.schema), changed)
+    assert not (tmp_path / "capture").exists()

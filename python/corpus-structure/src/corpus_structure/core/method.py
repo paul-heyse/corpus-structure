@@ -55,7 +55,6 @@ if typing.TYPE_CHECKING:
 
     from corpus_structure.ingest.pdf import PdfRecipe
     from corpus_structure.ingest.pdf_assets import PreparedPdfAssets
-    from corpus_structure.ingest.pdf_candidate_source import CandidatePageSource
     from corpus_structure.semantic.characterization import (
         EnrichedDocumentView,
         LayerManifest,
@@ -370,14 +369,6 @@ class Reader(Protocol):
         artifacts: tuple[bytes, ...] = (),
         native_schema: bytes | None = None,
     ) -> PreparedIntegratedPdfProduct: ...
-
-    def native_document(
-        self, reference: ProductReference, *, include_candidate_pages: bool = True
-    ) -> PreparedPdfProduct: ...
-
-    def capture_pdf_candidates(
-        self, reference: ProductReference, directory: Path
-    ) -> CandidatePageSource: ...
 
     def source_observations(
         self, source_view_id: int, method: str, kind: str
