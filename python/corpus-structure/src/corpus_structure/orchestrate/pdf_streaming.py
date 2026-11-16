@@ -7,11 +7,11 @@ transactions own database connections; no connection enters native computation.
 
 from __future__ import annotations
 
-from collections.abc import Callable, Generator, Iterable, Iterator, Mapping
-from contextlib import AbstractContextManager, ExitStack, closing, contextmanager, nullcontext
+from collections.abc import Callable, Generator, Iterable, Mapping
+from contextlib import ExitStack, closing, contextmanager, nullcontext
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Literal, Protocol
+from typing import TYPE_CHECKING, Any, Literal
 
 import pyarrow as pa
 from sqlalchemy import Connection, Engine
@@ -37,12 +37,6 @@ if TYPE_CHECKING:
 class PdfStageBatch:
     replay_key: str
     relations: Mapping[str, Iterable[pa.RecordBatch] | pa.RecordBatchReader]
-
-
-class PrivatePdfProducer(Protocol):
-    def __call__(
-        self, build: PdfBuildRef, check_active: Callable[[], None], /
-    ) -> AbstractContextManager[Iterator[PdfStageBatch]]: ...
 
 
 @contextmanager
@@ -118,75 +112,6 @@ def adopt_pdf_companions(
         pending.append(row)
         size += row_size
     flush()
-
-
-def run_private_pdf_build(
-    engine: Engine,
-    claim: OwnedClaim,
-    holder: str,
-    *,
-    source_digest: str,
-    recipe_digest: str,
-    schema_digest: str,
-    replay_key: str,
-    producer: PrivatePdfProducer,
-    on_adopted: Callable[[PdfStageReceipt], None] | None = None,
-    cancellation: BorrowerCancellation | None = None,
-    owned_check: Callable[[], None] | None = None,
-) -> PdfBuildRef:
-    """Adopt bounded producer batches under existing fences, leaving the build private.
-
-    Failure retains already committed progress. Explicit resume/abandon is owned
-    by the protected staging API, never implicit conversion or terminal UnitResult.
-    A callback failure propagates after commit; retry observes the same receipt.
-    """
-    from corpus_structure.semantic.pdf_staging import adopt_pdf_batch, begin_pdf_build
-
-    cancellation = cancellation or BorrowerCancellation()
-    with (
-        maintained_claims(engine, [claim], holder)
-        if owned_check is None
-        else nullcontext(owned_check)
-    ) as check_claim_active:
-
-        def check_active():
-            cancellation.check_active()
-            check_claim_active()
-
-        check_active()
-        with _pdf_transaction(engine, cancellation) as connection:
-            build = begin_pdf_build(
-                connection,
-                task_id=claim.task_id,
-                attempt=claim.attempt,
-                holder=holder,
-                source_digest=source_digest,
-                recipe_digest=recipe_digest,
-                schema_digest=schema_digest,
-                replay_key=replay_key,
-            )
-            from corpus_structure.semantic.pdf_domain import require_pdf_database_action
-
-            require_pdf_database_action(connection, build.release_id, "stage_pdf_producer")
-        with producer(build, check_active) as batches:
-            for batch in batches:
-                check_active()
-                with ExitStack() as readers:
-                    for relation in batch.relations.values():
-                        if isinstance(relation, pa.RecordBatchReader):
-                            readers.callback(relation.close)
-                    with _pdf_transaction(engine, cancellation) as connection:
-                        receipt = adopt_pdf_batch(
-                            connection,
-                            build,
-                            batch.replay_key,
-                            batch.relations,
-                            cancellation=cancellation,
-                        )
-                if on_adopted is not None:
-                    on_adopted(receipt)
-        check_active()
-    return build
 
 
 def ipc_replay_batches(
@@ -536,57 +461,6 @@ def run_private_native_pdf_build(
                 worker.close()
             owner.close()
     return build
-
-
-def replay_private_pdf_build(
-    engine: Engine,
-    build: PdfBuildRef,
-    claim: OwnedClaim,
-    holder: str,
-    replays: Iterable[PdfReplayRef],
-    *,
-    on_adopted: Callable[[PdfStageReceipt], None] | None = None,
-    cancellation: BorrowerCancellation | None = None,
-    owned_check: Callable[[], None] | None = None,
-) -> PdfBuildRef:
-    """Explicitly resume exact durable IPC output without invoking recognition again."""
-    from corpus_structure.semantic.pdf_domain import require_pdf_database_action
-    from corpus_structure.semantic.pdf_staging import adopt_pdf_batch, resume_pdf_build
-
-    cancellation = cancellation or BorrowerCancellation()
-    if build.task_id != claim.task_id or build.release_id != claim.release_id:
-        raise ValueError("private PDF replay task/release differs from original build")
-    with (
-        maintained_claims(engine, [claim], holder)
-        if owned_check is None
-        else nullcontext(owned_check)
-    ) as check_claim_active:
-
-        def check_active():
-            cancellation.check_active()
-            check_claim_active()
-
-        with _pdf_transaction(engine, cancellation) as connection:
-            require_pdf_database_action(connection, build.release_id, "stage_pdf_producer")
-            resumed = resume_pdf_build(connection, build, attempt=claim.attempt, holder=holder)
-        batches = ipc_replay_batches(replays, check_active)
-        try:
-            for batch in batches:
-                check_active()
-                with _pdf_transaction(engine, cancellation) as connection:
-                    receipt = adopt_pdf_batch(
-                        connection,
-                        resumed,
-                        batch.replay_key,
-                        batch.relations,
-                        cancellation=cancellation,
-                    )
-                if on_adopted is not None:
-                    on_adopted(receipt)
-        finally:
-            batches.close()
-        check_active()
-    return resumed
 
 
 def publish_pdf_record_draft(

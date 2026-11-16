@@ -9,36 +9,19 @@ from unittest.mock import MagicMock
 import psycopg
 import pyarrow as pa
 import pytest
-from corpus_structure.semantic.operation_results import (
-    ClaimedTask,
-    MethodConfigId,
-    ReleaseId,
-    RunId,
-    TaskAttempt,
-    TaskId,
-)
 from sqlalchemy import Engine
 
-from corpus_structure.core.vocab import TaskUnitType
 from corpus_structure.orchestrate import pdf_streaming as execution
 from corpus_structure.semantic import pdf_staging
 
 
 def claim():
-    return ClaimedTask(
-        task_id=TaskId(1),
-        run_id=RunId(1),
-        release_id=ReleaseId("r"),
-        method_config_id=MethodConfigId(1),
-        unit_type=TaskUnitType.DOCUMENT,
-        unit_id=1,
-        unit_key=None,
-        packet_hash=None,
-        attempt=TaskAttempt(1),
+    return SimpleNamespace(
+        task_id=1,
+        release_id="r",
+        attempt=1,
         holder="owner",
         deadline=datetime.now(UTC) + timedelta(minutes=10),
-        invocation_key="i",
-        held_progress=None,
     )
 
 
@@ -66,91 +49,6 @@ class Transactions:
             self.commits += 1
         finally:
             self.active -= 1
-
-
-@pytest.mark.parametrize("fail_after_adoption", [False, True])
-def test_private_parent_owns_transactions_and_settles_producer(monkeypatch, fail_after_adoption):
-    engine = Transactions()
-    build = pdf_staging.PdfBuildRef(
-        "b",
-        pdf_staging.TaskId(1),
-        pdf_staging.TaskAttempt(1),
-        "owner",
-        pdf_staging.ReleaseId("r"),
-        "a" * 64,
-        "b" * 64,
-        "c" * 64,
-    )
-    events = []
-    schema = pa.schema([("value", pa.int64())])
-    reader = pa.RecordBatchReader.from_batches(schema, [pa.record_batch([[7]], schema=schema)])
-
-    @contextmanager
-    def maintained(*args):
-        events.append("claim")
-        try:
-            yield lambda: events.append("check")
-        finally:
-            events.append("claim_closed")
-
-    def begin(connection, **kwargs):
-        assert engine.active == 1
-        assert kwargs["attempt"] == 1 and kwargs["source_digest"] == "a" * 64
-        return build
-
-    def adopt(connection, actual, key, relations, *, cancellation):
-        assert cancellation is not None
-        assert cancellation._driver is engine.driver
-        assert engine.active == 1 and actual is build and key == "batch-1"
-        assert next(iter(relations["native"])).column(0).to_pylist() == [7]
-        return pdf_staging.PdfStageReceipt("b", key, "d" * 64, 1)
-
-    @contextmanager
-    def producer(actual, check_active):
-        assert actual is build and engine.active == 0
-        try:
-            yield iter([execution.PdfStageBatch("batch-1", {"native": reader})])
-        finally:
-            assert engine.active == 0
-            events.append("producer_closed")
-
-    def adopted(receipt):
-        assert engine.active == 0 and engine.commits == 2
-        events.append("adopted")
-        if fail_after_adoption:
-            raise RuntimeError("consumer failed after durable adoption")
-
-    from corpus_structure.semantic import contracts
-
-    def guard(connection, release_id, operation):
-        assert engine.active == 1 and release_id == "r" and operation == "stage_pdf_producer"
-
-    monkeypatch.setattr(contracts, "require_database_operation", guard)
-    monkeypatch.setattr(execution, "maintained_claims", maintained)
-    monkeypatch.setattr(pdf_staging, "begin_pdf_build", begin)
-    monkeypatch.setattr(pdf_staging, "adopt_pdf_batch", adopt)
-
-    def run():
-        return execution.run_private_pdf_build(
-            cast(Engine, engine),
-            claim(),
-            "owner",
-            source_digest="a" * 64,
-            recipe_digest="b" * 64,
-            schema_digest="c" * 64,
-            replay_key="start",
-            producer=producer,
-            on_adopted=adopted,
-        )
-
-    if fail_after_adoption:
-        with pytest.raises(RuntimeError, match="consumer failed"):
-            run()
-    else:
-        assert run() is build
-    assert events[-1] == "claim_closed"
-    assert events.index("producer_closed") < events.index("claim_closed")
-    assert engine.active == 0 and engine.commits == 2
 
 
 def test_ipc_replay_uses_physical_retry_keys_and_preserves_batch_order(tmp_path):
@@ -192,7 +90,7 @@ def test_native_parent_settles_borrowers_before_claim_maintenance_ends(
     monkeypatch, tmp_path, device, ocr_device, required, failure
 ):
     from corpus_structure.ingest import pdf_capacity, pdf_stream_types, pdf_worker
-    from corpus_structure.semantic import contracts, pdf_contracts
+    from corpus_structure.semantic import pdf_domain, pdf_contracts
     from corpus_structure.semantic.pdf_payloads import prepare_payload_family, schema_load
 
     engine = Transactions()
@@ -276,11 +174,10 @@ def test_native_parent_settles_borrowers_before_claim_maintenance_ends(
         "suspend_resident_nemotron",
         lambda *a, **kw: handoff(*a, **kw, policy="resident"),
     )
-    monkeypatch.setattr(execution, "maintained_claims", maintained)
     monkeypatch.setattr(pdf_stream_types.OwnedPdfSource, "acquire", lambda *args, **kwargs: Owner())
     monkeypatch.setattr(pdf_worker, "PdfWorker", Worker)
     monkeypatch.setattr(pdf_staging, "begin_pdf_build", lambda *args, **kwargs: build)
-    monkeypatch.setattr(contracts, "require_database_operation", lambda *args: None)
+    monkeypatch.setattr(pdf_domain, "require_pdf_database_action", lambda *args: None)
 
     def task_context(connection, task_id):
         assert connection is engine and engine.active == 1 and active[0]
@@ -326,20 +223,22 @@ def test_native_parent_settles_borrowers_before_claim_maintenance_ends(
     )
 
     def run():
-        return execution.run_private_native_pdf_build(
-            cast(Engine, engine),
-            claim(),
-            "owner",
-            original=tmp_path / "source.pdf",
-            recipe=recipe,
-            assets=None,
-            directory=tmp_path,
-            source_digest="a" * 64,
-            schema_digest="c" * 64,
-            replay_key="start",
-            nemotron_endpoint=endpoint,
-            require_nemotron_handoff=required,
-        )
+        with maintained() as check_active:
+            return execution.run_private_native_pdf_build(
+                cast(Engine, engine),
+                claim(),
+                "owner",
+                original=tmp_path / "source.pdf",
+                recipe=recipe,
+                assets=None,
+                directory=tmp_path,
+                source_digest="a" * 64,
+                schema_digest="c" * 64,
+                replay_key="start",
+                nemotron_endpoint=endpoint,
+                require_nemotron_handoff=required,
+                owned_check=check_active,
+            )
 
     if failure is None:
         assert run() is build
