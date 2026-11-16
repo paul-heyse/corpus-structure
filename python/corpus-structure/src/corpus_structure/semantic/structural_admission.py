@@ -14,7 +14,7 @@ from typing import Any
 
 from .identity import canonical_bytes
 from .refusals import SemanticRefusal
-from .structural_products import DeclaredStructuralProductReport, StructuralProductReport
+from .structural_products import DeclaredStructuralProductReport
 
 POLICIES = {
     "definition_applicability": "independent-witnessed-applicability-1",
@@ -26,10 +26,10 @@ POLICIES = {
 
 
 def structural_statement(
-    report: StructuralProductReport | DeclaredStructuralProductReport,
+    report: DeclaredStructuralProductReport,
     component_id: str | None = None,
 ) -> dict[str, Any]:
-    """Project complete meaning and physical citations, without derivation aliases."""
+    """Project complete meaning with exact current source citations."""
     if report.kind not in POLICIES:
         raise SemanticRefusal(f"No public structural policy for private {report.kind} reports")
     refs = {s.identity: s.model_dump(mode="json", exclude_none=True) for s in report.inputs.sources}
@@ -37,19 +37,7 @@ def structural_statement(
 
     def citation(identifier: str):
         passage = passages[identifier]
-        source = {
-            k: v
-            for k, v in refs[passage.source_ref].items()
-            if k
-            not in {
-                "run_id",
-                "cut_id",
-                "release_id",
-                "result_revision",
-                "source_view_id",
-                "native_task_id",
-            }
-        }
+        source = refs[passage.source_ref]
         return {
             "source": source,
             **passage.model_dump(

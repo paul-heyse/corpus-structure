@@ -386,28 +386,6 @@ def bind_result(
         )
         payload["contribution_operations"] = operations
         payload["contributions"] = contributions
-    if result.structural_product is not None:
-        if result.ref.unit_type.value != "run" or result.outcome.value != "produced":
-            raise ValueError("structural products require a produced RUN result")
-        from .structural_products import StructuralProductReport
-
-        structural = StructuralProductReport.model_validate(result.structural_product).model_dump(
-            mode="python", exclude_none=True
-        )
-        if "comparison" in structural:
-            for dimension in structural["comparison"]["dimensions"]:
-                for side in ("left_group", "right_group"):
-                    for member in dimension.get(side, {}).get("members", ()):
-                        if "condition" in member:
-                            member["condition"] = source_value(source_python(member["condition"]))
-        # Normalize the declared subtree once. The handwritten model above owns
-        # source/variant closure; the codec round trip owns canonical source values.
-        # Outer validation still establishes enclosing constraints and source fields.
-        payload["structural_product"] = prepared.property_adapter(
-            "SourceObservationBatch", "structural_product"
-        ).validate_json(
-            canonical_bytes(structural), strict=True, context={"validation_purpose": "structural"}
-        )
     for measurement in result.measurements:
         validate_measurement(prepared, measurement)
     payload["measurements"] = tuple(

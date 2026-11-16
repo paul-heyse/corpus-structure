@@ -358,7 +358,6 @@ class UnitResult:
     contribution_operations: tuple[Mapping[str, Any], ...] | None = None
     contributions: tuple[Mapping[str, Any], ...] | None = None
     contribution_coordinate_texts: tuple[Mapping[str, Any], ...] = ()
-    structural_product: Mapping[str, Any] | None = None
 
     def __post_init__(self) -> None:
         match self.outcome:
@@ -368,7 +367,6 @@ class UnitResult:
                         self.observations
                         or self.records
                         or self.contributions
-                        or self.structural_product
                     )
                     and self.error is None
                 )
@@ -377,7 +375,6 @@ class UnitResult:
                     not self.observations
                     and not self.records
                     and not self.contributions
-                    and self.structural_product is None
                     and self.error is None
                 )
             case ObservationOutcome.FAILED:
@@ -385,7 +382,6 @@ class UnitResult:
                     not self.observations
                     and not self.records
                     and not self.contributions
-                    and self.structural_product is None
                     and not self.measurements
                     and bool(self.error)
                 )

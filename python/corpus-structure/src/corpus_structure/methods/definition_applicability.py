@@ -20,20 +20,20 @@ from corpus_structure.methods.predicate_frames import (
     PredicateFrameResult,
     interpretation_recipe,
 )
-from corpus_structure.semantic.contextual_links import RetainedRelationshipDecisionRef
+from corpus_structure.semantic.declared_structural_references import DeclaredRelationshipRef
 from corpus_structure.semantic.structural_products import (
     ApplicabilityPremise,
-    DefinitionBasisWitness,
+    DeclaredDefinitionBasisWitness,
     DefinitionOutcome,
     DefinitionRoleCandidate,
-    LocatedDefinitionComponent,
+    DeclaredLocatedDefinitionComponent,
     LocatedDefinitionSpan,
-    RetainedComponentRef,
-    StructuralDefinitionReading,
-    StructuralInput,
+    DeclaredComponentRef,
+    DeclaredStructuralDefinitionReading,
+    DeclaredStructuralInput,
     StructuralPassage,
     StructuralValue,
-    definition_component,
+    declared_definition_component,
 )
 
 
@@ -41,7 +41,7 @@ class DefinitionComponentsConfig(StructuralValue):
     native_execution_profile: dict[str, Any] | None = Field(
         default=None, exclude_if=lambda value: value is None
     )
-    inputs: StructuralInput | None = None
+    inputs: DeclaredStructuralInput | None = None
     structural_input_digest: str | None = None
     target_ids: tuple[str, ...] = ()
     profile: GlinerProfile | None = None
@@ -170,8 +170,8 @@ def decode_definition_components(
     cfg: LocatedDefinitionQuestion,
     *,
     candidate_errors: list[dict[str, JsonValue]] | None = None,
-    component_factory: Callable[..., Any] = definition_component,
-) -> tuple[LocatedDefinitionComponent, ...]:
+    component_factory: Callable[..., Any] = declared_definition_component,
+) -> tuple[DeclaredLocatedDefinitionComponent, ...]:
     """Require both independently located endpoint roles and a returned attachment.
 
     Equal strings never reconcile endpoints; the complete source interval does.
@@ -470,9 +470,9 @@ def components_from_named_matches(
     term_role: str,
     content_role: str,
     antecedents: Mapping[AnnotationRuleMatch, LocatedDefinitionSpan] | None = None,
-    witnesses: Mapping[AnnotationRuleMatch, DefinitionBasisWitness] | None = None,
-    component_factory: Callable[..., Any] = definition_component,
-) -> tuple[LocatedDefinitionComponent, ...]:
+    witnesses: Mapping[AnnotationRuleMatch, DeclaredDefinitionBasisWitness] | None = None,
+    component_factory: Callable[..., Any] = declared_definition_component,
+) -> tuple[DeclaredLocatedDefinitionComponent, ...]:
     """Consume WCE03 named role expansions; never infer a role from node order.
 
     Only exact contiguous available roles can form this attachment. Raw matches,
@@ -562,9 +562,9 @@ def components_from_following_display(
     *,
     scopes: Mapping[AnnotationRuleMatch, DefinitionScope],
     term_role: str,
-    witnesses: Mapping[AnnotationRuleMatch, DefinitionBasisWitness] | None = None,
-    component_factory: Callable[..., Any] = definition_component,
-) -> tuple[LocatedDefinitionComponent, ...]:
+    witnesses: Mapping[AnnotationRuleMatch, DeclaredDefinitionBasisWitness] | None = None,
+    component_factory: Callable[..., Any] = declared_definition_component,
+) -> tuple[DeclaredLocatedDefinitionComponent, ...]:
     """Join an explicit named following-content cue to its adjacent native display.
 
     Source-owned display geometry supplies the defining element, not a model score.
@@ -708,9 +708,9 @@ def definition_windows(passage: StructuralPassage, cfg: LocatedDefinitionQuestio
 
 class ApplicabilityCandidate(StructuralValue):
     target_id: str = Field(min_length=1)
-    reference: RetainedComponentRef
-    link_ref: RetainedRelationshipDecisionRef
-    component: LocatedDefinitionComponent
+    reference: DeclaredComponentRef
+    link_ref: DeclaredRelationshipRef
+    component: DeclaredLocatedDefinitionComponent
     premises: tuple[ApplicabilityPremise, ...] = Field(min_length=1)
 
     @model_validator(mode="after")
@@ -721,10 +721,10 @@ class ApplicabilityCandidate(StructuralValue):
 
 
 class DefinitionApplicabilityConfig(StructuralValue):
-    inputs: StructuralInput | None = None
+    inputs: DeclaredStructuralInput | None = None
     structural_input_digest: str | None = None
     usage_id: str | None = None
-    selection_refs: tuple[RetainedRelationshipDecisionRef, ...] = ()
+    selection_refs: tuple[DeclaredRelationshipRef, ...] = ()
     applicability_scope: Literal["contextual_usage", "defining_occurrence"] = "contextual_usage"
 
     @model_validator(mode="after")
@@ -762,16 +762,16 @@ def is_defining_occurrence(inputs, usage, component, relation):
 
 
 def assess_applicability(
-    inputs: StructuralInput,
+    inputs: DeclaredStructuralInput,
     usage_id: str,
     candidate: ApplicabilityCandidate,
     *,
     defining_occurrence: bool = False,
-) -> StructuralDefinitionReading:
+) -> DeclaredStructuralDefinitionReading:
     assessment = applicability_assessment(
         inputs, usage_id, candidate, defining_occurrence=defining_occurrence
     )
-    return StructuralDefinitionReading(
+    return DeclaredStructuralDefinitionReading(
         target_id=candidate.target_id,
         component_ref=candidate.reference,
         link_ref=candidate.link_ref,

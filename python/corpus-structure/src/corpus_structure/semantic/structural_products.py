@@ -14,7 +14,6 @@ from pydantic import ConfigDict, Field, JsonValue, TypeAdapter, model_validator
 from .artifact_identity import (
     ArtifactAliasSpan,
     ArtifactCitation,
-    ArtifactIdentityProduct,
     ArtifactPair,
     ArtifactPairKey,
     ArtifactReferenceResolution,
@@ -25,8 +24,6 @@ from .artifact_identity import (
     artifact_nomination_invariants,
     source_artifact_invariants,
 )
-from .characterization import AnnotationReference
-from .contextual_links import RetainedRelationshipDecisionRef
 from .declared_structural_references import (
     DeclaredComponentRef,
     DeclaredContributionRef,
@@ -36,7 +33,6 @@ from .declared_structural_references import (
     DeclaredStructuralSource,
 )
 from .identity import canonical_bytes
-from .retained_contributions import RetainedContributionRef
 from .structural_base import StructuralValue
 
 Positive = Annotated[int, Field(strict=True, gt=0)]
@@ -68,21 +64,6 @@ DIMENSIONS: tuple[Dimension, ...] = (
 )
 
 
-class ExternalSourceRef(StructuralValue):
-    project_id: Nonempty
-    run_id: Positive
-    cut_id: Positive
-    release_id: Nonempty
-    result_revision: Annotated[int, Field(strict=True, ge=0)]
-    source_view_id: Positive
-    native_task_id: Positive
-    native_product_key: Nonempty
-    native_content_digest: Digest
-    projection_digest: Digest
-    recipe_digest: Digest
-    coordinate_version: Literal[2, 3]
-
-
 class StructuralPassage(StructuralValue):
     passage_id: Nonempty
     source_ref: Nonempty
@@ -105,87 +86,6 @@ class StructuralExclusion(StructuralValue):
     right: Nonempty
 
 
-class StructuralInput(StructuralValue):
-    question: Nonempty
-    scope: Nonempty
-    inventory_id: Nonempty
-    policy_id: Nonempty
-    sources: tuple[ExternalSourceRef | DeclaredStructuralSource, ...] = Field(min_length=1)
-    passages: tuple[StructuralPassage, ...] = Field(min_length=1)
-    dependencies: tuple[Nonempty, ...] = Field(min_length=1)
-    exclusions: tuple[StructuralExclusion, ...] = ()
-    coverage_limits: tuple[Nonempty, ...] = ()
-
-    @model_validator(mode="after")
-    def closure(self) -> Self:
-        refs = {s.identity for s in self.sources}
-        if len(refs) != len(self.sources):
-            raise ValueError("duplicate original source reference")
-        if len({p.passage_id for p in self.passages}) != len(self.passages):
-            raise ValueError("duplicate passage identity")
-        if any(p.source_ref not in refs for p in self.passages):
-            raise ValueError("passage refers outside declared original sources")
-        if len(set(self.dependencies)) != len(self.dependencies):
-            raise ValueError("duplicate computational dependency")
-        return self
-
-
-def legacy_structural_sources(inputs: StructuralInput) -> tuple[ExternalSourceRef, ...]:
-    """Narrow actual task-addressed inputs at historical replay/export boundaries.
-
-    Return the same references, without decoding or manufacturing legacy custody
-    for a declared semantic source. Current declared consumers use their native
-    product/member context directly and do not call this task-based reader view.
-    """
-    sources = []
-    for source in inputs.sources:
-        if not isinstance(source, ExternalSourceRef):
-            raise ValueError("task-based structural replay requires original legacy source custody")
-        sources.append(source)
-    return tuple(sources)
-
-
-class RetainedComponentRef(StructuralValue):
-    product_id: Nonempty
-    component_id: Digest
-    operation_id: Nonempty
-    operation_version: Nonempty
-    project_id: Nonempty
-    run_id: Positive
-    cut_id: Positive
-    release_id: Nonempty
-    result_revision: Annotated[int, Field(strict=True, ge=0)]
-    selected_task_id: Positive
-    origin_task_id: Positive
-    runtime_fingerprint: Nonempty
-    dependencies: tuple[Nonempty, ...] = Field(min_length=1)
-
-    @model_validator(mode="after")
-    def unique_dependencies(self) -> Self:
-        if len(set(self.dependencies)) != len(self.dependencies):
-            raise ValueError("duplicate component dependency")
-        return self
-
-
-class RetainedStructuralRef(StructuralValue):
-    product_id: Nonempty
-    project_id: Nonempty
-    run_id: Positive
-    cut_id: Positive
-    release_id: Nonempty
-    result_revision: Annotated[int, Field(strict=True, ge=0)]
-    selected_task_id: Positive
-    origin_task_id: Positive
-    runtime_fingerprint: Nonempty
-
-
-class RetainedDefinitionRoleRef(StructuralValue):
-    report: RetainedStructuralRef | DeclaredStructuralRef
-    role: Literal["term", "content"]
-    envelope: Digest
-    index: Annotated[int, Field(strict=True, ge=0)]
-
-
 class LocatedDefinitionSpan(StructuralValue):
     passage_id: Nonempty
     start: Annotated[int, Field(strict=True, ge=0)]
@@ -202,92 +102,10 @@ class LocatedDefinitionSpan(StructuralValue):
 DefinitionInterpretation = Literal["definition", "explanation", "unresolved"]
 
 
-class DefinitionBasisWitness(StructuralValue):
-    """The original selected annotation block and matched rule assignment."""
-
-    annotation_task_id: Positive
-    block_id: Nonempty
-    dependency_digest: Digest
-    rule: Nonempty
-    variant: Nonempty
-    nodes: tuple[Annotated[int, Field(strict=True, ge=0)], ...] = Field(min_length=1)
-    label_nodes: tuple[Annotated[int, Field(strict=True, ge=0)], ...] | None = None
-    primary_match: AnnotationReference | None = Field(
-        default=None, exclude_if=lambda value: value is None
-    )
-    primary_scope: tuple[AnnotationReference, ...] = Field(
-        default=(), exclude_if=lambda value: not value
-    )
-
-
 class DeclarationChainBinding(StructuralValue):
     frame: Nonempty
     subject_token: Annotated[int, Field(strict=True, ge=0)]
     use_token: Annotated[int, Field(strict=True, ge=0)]
-
-
-class DeclarationChainWitness(StructuralValue):
-    """One retained HanLP role population and its exact local declaration bindings."""
-
-    version: Literal["definition-declaration-chain-1", "definition-declaration-chain-2"]
-    parser: RetainedContributionRef | DeclaredContributionRef | None = Field(
-        default=None, exclude_if=lambda value: value is None
-    )
-    primary_evidence: tuple[AnnotationReference, ...] = Field(
-        default=(), exclude_if=lambda value: not value
-    )
-    scope_digest: Digest
-    label: LocatedDefinitionSpan
-    bindings: tuple[DeclarationChainBinding, ...] = Field(min_length=1, max_length=4)
-    construction_frame: Nonempty
-    construction_subject_token: Annotated[int, Field(strict=True, ge=0)]
-    naming_frame: Nonempty
-    naming_antecedent_token: Annotated[int, Field(strict=True, ge=0)]
-
-    @model_validator(mode="after")
-    def distinct_roles(self) -> Self:
-        if (
-            self.version == "definition-declaration-chain-2"
-            and (self.parser is not None or not self.primary_evidence)
-        ) or (
-            self.version == "definition-declaration-chain-1"
-            and (self.parser is None or self.primary_evidence)
-        ):
-            raise ValueError(
-                "declaration witness requires its exact archived or primary evidence route"
-            )
-        return _declaration_role_invariants(self)
-
-
-class LocatedDefinitionComponent(StructuralValue):
-    component_id: Digest
-    term: LocatedDefinitionSpan
-    content: LocatedDefinitionSpan
-    interpretation: DefinitionInterpretation
-    basis: Literal[
-        "matched_cue",
-        "native_geometry",
-        "declaration_chain",
-        "model_reading",
-        "unqualified",
-    ]
-    witness: DefinitionBasisWitness | None = None
-    declaration_chain: DeclarationChainWitness | None = Field(
-        default=None, exclude_if=lambda value: value is None
-    )
-    scope: Nonempty
-    effective_version: str | None = None
-    alternatives: tuple[Nonempty, ...] = ()
-    evidence: tuple[Nonempty, ...] = Field(min_length=1)
-    reason: Nonempty
-
-    @model_validator(mode="after")
-    def bound_identity(self) -> Self:
-        return _definition_component_invariants(self)
-
-
-def definition_component(**meaning) -> LocatedDefinitionComponent:
-    return _make_definition_component(LocatedDefinitionComponent, meaning)
 
 
 def _make_definition_component(value_type, meaning):
@@ -330,49 +148,10 @@ class DefinitionRoleCandidate(StructuralValue):
         return self
 
 
-class DefinitionComponentsProduct(StructuralValue):
-    components: tuple[LocatedDefinitionComponent, ...]
-    stages: tuple[DefinitionStage, ...]
-    role_candidates: tuple[DefinitionRoleCandidate, ...] | None = None
-
-    @model_validator(mode="after")
-    def unique_components(self) -> Self:
-        return _definition_components_invariants(self)
-
-
-class ClauseFocusSelection(StructuralValue):
-    passage_id: Nonempty
-    frame: RetainedContributionRef | DeclaredContributionRef
-
-
 class ClauseModelLabel(StructuralValue):
     label: Nonempty
     score: Annotated[float, Field(ge=0, le=1, allow_inf_nan=False)] | None = None
     accepted: bool
-
-
-class ClauseModelReading(StructuralValue):
-    selection: ClauseFocusSelection
-    focus: LocatedDefinitionSpan
-    preceding: LocatedDefinitionSpan | None = None
-    following: LocatedDefinitionSpan | None = None
-    context_digest: Digest
-    envelope: Nonempty | None = None
-    function: tuple[ClauseModelLabel, ...] = ()
-    presentation: tuple[ClauseModelLabel, ...] = ()
-    disposition: Literal["observed", "withheld", "failed"]
-    reason: Nonempty
-    primary_functions: tuple[AnnotationReference, ...] = Field(
-        default=(), exclude_if=lambda value: not value
-    )
-    primary_context: tuple[AnnotationReference, ...] = Field(
-        default=(), exclude_if=lambda value: not value
-    )
-
-
-class ClauseClassificationProduct(StructuralValue):
-    context_policy: Literal["exact_focus", "adjacent_sentences"]
-    readings: tuple[ClauseModelReading, ...]
 
 
 class ApplicabilityPremise(StructuralValue):
@@ -390,60 +169,6 @@ DefinitionOutcome = Literal[
     "incompatible",
     "unresolved",
 ]
-
-
-class StructuralDefinitionReading(StructuralValue):
-    target_id: Nonempty
-    component_ref: RetainedComponentRef | DeclaredComponentRef
-    link_ref: RetainedRelationshipDecisionRef | DeclaredRelationshipRef
-    component: LocatedDefinitionComponent
-    outcome: DefinitionOutcome
-    evidence: tuple[Nonempty, ...] = Field(min_length=1)
-    premises: tuple[ApplicabilityPremise, ...] = Field(min_length=1)
-    reason: Nonempty
-
-    @model_validator(mode="after")
-    def supported_premises(self) -> Self:
-        return _definition_reading_invariants(self)
-
-
-class DefinitionProduct(StructuralValue):
-    usage_id: Nonempty
-    candidate_list_id: Nonempty
-    eligible_targets: tuple[Nonempty, ...]
-    candidate_targets: tuple[Nonempty, ...]
-    readings: tuple[StructuralDefinitionReading, ...]
-    inventory_coverage: Literal["declared_selection", "known_gap"] = "declared_selection"
-    retrieval_diagnosis: Literal["not_independently_assessed"] = "not_independently_assessed"
-
-    @model_validator(mode="after")
-    def membership(self) -> Self:
-        return _definition_membership_invariants(self)
-
-
-class TypedPremise(StructuralValue):
-    """Exact source field and a separately qualified numerical reading."""
-
-    span: LocatedDefinitionSpan
-    grammar: Nonempty
-    state: Literal["parsed", "unsupported", "ambiguous"]
-    value: str | None = None
-    comparator: Literal[">", ">=", "<", "<=", "="] | None = None
-    quantity: str | None = None
-    unit: str | None = None
-    basis: str | None = None
-    basis_evidence: LocatedDefinitionSpan | None = None
-
-    primary_formal: AnnotationReference | None = Field(
-        default=None, exclude_if=lambda value: value is None
-    )
-    primary_basis: AnnotationReference | None = Field(
-        default=None, exclude_if=lambda value: value is None
-    )
-
-    @model_validator(mode="after")
-    def faithful_values(self) -> Self:
-        return _typed_premise_invariants(self)
 
 
 class TriggerInterval(StructuralValue):
@@ -472,26 +197,6 @@ class TriggerInterval(StructuralValue):
         except InvalidOperation as error:
             raise ValueError("invalid decimal endpoint") from error
         return self
-
-
-class ClauseField(StructuralValue):
-    dimension: Dimension
-    lexical_value: Nonempty
-    evidence: tuple[Nonempty, ...] = Field(min_length=1)
-    typed: TypedPremise | None = None
-    span: LocatedDefinitionSpan | None = None
-    spans: tuple[LocatedDefinitionSpan, ...] | None = None
-    contribution_id: Nonempty | None = None
-    literal: ComparisonLiteral | None = None
-    condition: dict[str, Any] | None = None
-
-    primary_formal: AnnotationReference | None = Field(
-        default=None, exclude_if=lambda value: value is None
-    )
-
-    @model_validator(mode="after")
-    def formal_source(self) -> Self:
-        return _clause_field_invariants(self)
 
 
 class ComparisonLiteral(StructuralValue):
@@ -538,88 +243,10 @@ class ComparisonLiteral(StructuralValue):
         return self
 
 
-class ClauseFieldGroup(StructuralValue):
-    state: Literal["absent", "empty", "present", "unresolved"]
-    grouping: Literal["singleton", "conjunction", "disjunction", "unresolved"] | None = None
-    members: tuple[ClauseField, ...] = ()
-    witnesses: tuple[LocatedDefinitionSpan, ...] = ()
-
-    primary_witnesses: tuple[AnnotationReference, ...] = Field(
-        default=(), exclude_if=lambda value: not value
-    )
-
-    @model_validator(mode="after")
-    def complete(self) -> Self:
-        return _clause_group_invariants(self)
-
-
-class ClauseReading(StructuralValue):
-    passage_id: Nonempty
-    fields: tuple[ClauseField, ...] = ()
-    groups: dict[Dimension, ClauseFieldGroup] | None = None
-    focus: LocatedDefinitionSpan | None = None
-
-    @model_validator(mode="after")
-    def dimensions(self) -> Self:
-        return _clause_reading_invariants(self)
-
-
 class ComparisonMemberDecision(StructuralValue):
     left_index: int = Field(ge=0)
     right_index: int = Field(ge=0)
     outcome: Literal["equivalent", "different"]
-
-
-class DimensionComparison(StructuralValue):
-    dimension: Dimension
-    outcome: Literal[
-        "same_lexical_value", "different_lexical_value", "unknown", "incompatible_applicability"
-    ]
-    left: ClauseField | None = None
-    right: ClauseField | None = None
-    left_group: ClauseFieldGroup | None = None
-    right_group: ClauseFieldGroup | None = None
-    grouping_outcome: Literal["same", "different", "unresolved"] | None = None
-    member_comparisons: tuple[ComparisonMemberDecision, ...] | None = None
-    typed_outcome: Literal["equivalent", "different", "unknown", "unsupported", "ambiguous"] = (
-        "unknown"
-    )
-    removed_interval: TriggerInterval | None = None
-    added_interval: TriggerInterval | None = None
-    assumptions: tuple[Nonempty, ...] = ()
-    reason: Nonempty = "No source-qualified typed comparison has been established."
-
-
-class RevisionSuccession(StructuralValue):
-    older_id: Nonempty
-    newer_id: Nonempty
-    evidence: LocatedDefinitionSpan
-    older_evidence: LocatedDefinitionSpan
-
-    primary_witnesses: tuple[AnnotationReference, ...] = Field(
-        default=(), exclude_if=lambda value: not value
-    )
-
-
-class ComparisonProduct(StructuralValue):
-    left_id: Nonempty
-    right_id: Nonempty
-    dimensions: tuple[DimensionComparison, ...]
-    left_reading: RetainedContributionRef | DeclaredContributionRef | None = None
-    right_reading: RetainedContributionRef | DeclaredContributionRef | None = None
-    left_focus: LocatedDefinitionSpan | None = None
-    right_focus: LocatedDefinitionSpan | None = None
-    equivalence: Literal["not_asserted"] = "not_asserted"
-    identity_standing: Literal["not_asserted"] = "not_asserted"
-    applicability: Literal[
-        "co_applicable", "successive_revisions", "differently_scoped", "unestablished"
-    ] = "unestablished"
-    applicability_reason: Nonempty = "No complete applicability premises have been established."
-    succession: RevisionSuccession | None = None
-
-    @model_validator(mode="after")
-    def succession_custody(self) -> Self:
-        return _comparison_product_invariants(self)
 
 
 MemberRole = Literal[
@@ -650,68 +277,6 @@ class DossierDependency(StructuralValue):
     prerequisite: tuple[DossierContributionCitation, ...] = Field(min_length=1)
 
 
-class DossierComparisonSelection(StructuralValue):
-    comparison_product_id: Nonempty
-    side: Literal["left", "right"]
-    relationship_ref: RetainedRelationshipDecisionRef | DeclaredRelationshipRef
-    applicability_ref: RetainedStructuralRef | DeclaredStructuralRef | None = Field(
-        default=None, exclude_if=lambda value: value is None
-    )
-    conflict_passage_id: Nonempty | None = Field(
-        default=None, exclude_if=lambda value: value is None
-    )
-
-
-class DossierComparisonBinding(StructuralValue):
-    comparison_ref: RetainedStructuralRef | DeclaredStructuralRef
-    side: Literal["left", "right"]
-    relationship_ref: RetainedRelationshipDecisionRef | DeclaredRelationshipRef
-    relationship: Literal["denotes", "defined-by", "specializes"]
-    root: RetainedComponentRef | DeclaredComponentRef
-    source: ExternalSourceRef | DeclaredStructuralSource
-    citation: LocatedDefinitionSpan
-    occurrence: tuple[LocatedDefinitionSpan, ...] = Field(min_length=1)
-    comparison: ComparisonProduct
-    opposite_source: ExternalSourceRef | DeclaredStructuralSource
-    opposite_citation: LocatedDefinitionSpan
-    applicability_ref: RetainedStructuralRef | DeclaredStructuralRef | None = Field(
-        default=None, exclude_if=lambda value: value is None
-    )
-    conflict_evidence: LocatedDefinitionSpan | None = Field(
-        default=None, exclude_if=lambda value: value is None
-    )
-
-    @model_validator(mode="after")
-    def sides(self) -> Self:
-        return _dossier_binding_invariants(self)
-
-
-class DossierMember(StructuralValue):
-    member_id: Nonempty
-    passage_id: Nonempty
-    citation: LocatedDefinitionSpan
-    role: MemberRole
-    sense: Nonempty
-    scope: Nonempty
-    effective_version: str | None = None
-    relation_product_id: Nonempty
-    definition_interpretation: DefinitionInterpretation | None = None
-    applicability_outcome: DefinitionOutcome | None = None
-    comparison_binding: DossierComparisonBinding | None = None
-    contribution_ref: RetainedContributionRef | DeclaredContributionRef | None = None
-    contribution_citations: tuple[DossierContributionCitation, ...] | None = None
-    semantic_dependency: DossierDependency | None = None
-    computation_dependencies: tuple[Nonempty, ...] | None = None
-    qualification: Literal[
-        "proposed", "independently_supported", "ambiguous", "rejected", "unsupported"
-    ] = "proposed"
-    assessment_id: str | None = None
-
-    @model_validator(mode="after")
-    def assessment(self) -> Self:
-        return _dossier_member_invariants(self)
-
-
 class DossierFacet(StructuralValue):
     definition_interpretation: DefinitionInterpretation | None = None
     applicability_outcome: DefinitionOutcome | None = None
@@ -736,76 +301,34 @@ class DossierRepresentation(StructuralValue):
     facet_digest: Digest
 
 
-class DossierProduct(StructuralValue):
-    root_id: Nonempty
-    root_component: RetainedComponentRef | DeclaredComponentRef | None = None
-    members: tuple[DossierMember, ...]
-    predecessors: tuple[RetainedStructuralRef | DeclaredStructuralRef, ...] = ()
-    contribution_predecessors: tuple[RetainedContributionRef | DeclaredContributionRef, ...] = ()
-    comparison_selections: tuple[DossierComparisonSelection, ...] = Field(
-        default=(), exclude_if=lambda value: not value
-    )
-    representatives: tuple[Nonempty, ...]
-    missing_sections: tuple[MemberRole, ...]
-    supported_facets: tuple[DossierFacet, ...] = ()
-    representation: DossierRepresentation
-    membership_completeness: Literal["declared_selection"] = "declared_selection"
-
-    @model_validator(mode="after")
-    def membership(self) -> Self:
-        return _dossier_product_invariants(self)
-
-
 class ConditionRoleCitation(StructuralValue):
     source_pointer: Nonempty
     span: LocatedDefinitionSpan
 
 
-class ConditionQualificationProduct(StructuralValue):
-    relation: Literal["condition", "assumption"]
-    attachment: RetainedContributionRef | DeclaredContributionRef
-    effective_version: Nonempty | None = Field(default=None, exclude_if=lambda value: value is None)
-    qualifier: tuple[ConditionRoleCitation, ...] = Field(min_length=1)
-    host_predicate: tuple[ConditionRoleCitation, ...] = Field(min_length=1)
-
-
-class StructuralProductReport(StructuralValue):
-    version: Literal["structural-product-3"] = "structural-product-3"
-    kind: Literal[
-        "definition_components",
-        "definition_applicability",
-        "qualified_comparison",
-        "dossier",
-        "artifact_identity",
-        "clause_classification",
-        "condition_qualification",
-    ]
-    inputs: StructuralInput
-    standing: Literal["private_proposal"] = "private_proposal"
-    definition_components: DefinitionComponentsProduct | None = None
-    definition: DefinitionProduct | None = None
-    comparison: ComparisonProduct | None = None
-    dossier: DossierProduct | None = None
-    artifact_identity: ArtifactIdentityProduct | None = None
-    clause_classification: ClauseClassificationProduct | None = None
-    condition_qualification: ConditionQualificationProduct | None = Field(
-        default=None, exclude_if=lambda value: value is None
-    )
+class DeclaredStructuralInput(StructuralValue):
+    question: Nonempty
+    scope: Nonempty
+    inventory_id: Nonempty
+    policy_id: Nonempty
+    sources: tuple[DeclaredStructuralSource, ...] = Field(min_length=1)
+    passages: tuple[StructuralPassage, ...] = Field(min_length=1)
+    dependencies: tuple[Nonempty, ...] = Field(min_length=1)
+    exclusions: tuple[StructuralExclusion, ...] = ()
+    coverage_limits: tuple[Nonempty, ...] = ()
 
     @model_validator(mode="after")
     def closure(self) -> Self:
-        return _structural_report_invariants(self)
-
-    @property
-    def product_id(self) -> str:
-        return (
-            "structural:"
-            + sha256(canonical_bytes(self.model_dump(mode="json", exclude_none=True))).hexdigest()
-        )
-
-
-class DeclaredStructuralInput(StructuralInput):
-    sources: tuple[DeclaredStructuralSource, ...] = Field(min_length=1)
+        refs = {s.identity for s in self.sources}
+        if len(refs) != len(self.sources):
+            raise ValueError("duplicate original source reference")
+        if len({p.passage_id for p in self.passages}) != len(self.passages):
+            raise ValueError("duplicate passage identity")
+        if any(p.source_ref not in refs for p in self.passages):
+            raise ValueError("passage refers outside declared original sources")
+        if len(set(self.dependencies)) != len(self.dependencies):
+            raise ValueError("duplicate computational dependency")
+        return self
 
 
 class DeclaredTypedPremise(StructuralValue):
@@ -1009,8 +532,12 @@ class DeclaredDossierProduct(StructuralValue):
         return _dossier_product_invariants(self, selection_type=DeclaredDossierComparisonSelection)
 
 
-class DeclaredConditionQualificationProduct(ConditionQualificationProduct):
+class DeclaredConditionQualificationProduct(StructuralValue):
+    relation: Literal["condition", "assumption"]
     attachment: DeclaredContributionRef
+    effective_version: Nonempty | None = Field(default=None, exclude_if=lambda value: value is None)
+    qualifier: tuple[ConditionRoleCitation, ...] = Field(min_length=1)
+    host_predicate: tuple[ConditionRoleCitation, ...] = Field(min_length=1)
 
 
 class DeclaredPrimaryReference(StructuralValue):
@@ -1770,20 +1297,10 @@ _DECLARED_STRUCTURAL_REPORT = TypeAdapter(DeclaredStructuralReport)
 
 
 def read_structural_product_report(value):
-    """Select the exact target or sealed historical report protocol from source addresses."""
-    if isinstance(value, (DeclaredStructuralProductReport, StructuralProductReport)):
+    """Read the declared discriminated report without task/run protocol alternatives."""
+    if isinstance(value, DeclaredStructuralProductReport):
         return value
-    sources = value["inputs"]["sources"]
-    declared = [
-        isinstance(source, DeclaredStructuralSource)
-        or (isinstance(source, dict) and source.get("format") == "declared-native-source-v1")
-        for source in sources
-    ]
-    if any(declared):
-        if not all(declared):
-            raise ValueError("structural report cannot mix target and historical source protocols")
-        return _DECLARED_STRUCTURAL_REPORT.validate_python(value)
-    return StructuralProductReport.model_validate(value)
+    return _DECLARED_STRUCTURAL_REPORT.validate_python(value)
 
 
 def _typed_premise_invariants(value: Any) -> Any:
@@ -1948,7 +1465,7 @@ def _dossier_member_invariants(value: Any) -> Any:
     return value
 
 
-def _dossier_product_invariants(value: Any, *, selection_type=DossierComparisonSelection) -> Any:
+def _dossier_product_invariants(value: Any, *, selection_type=DeclaredDossierComparisonSelection) -> Any:
     if value.root_component is not None and (
         value.root_id != value.root_component.component_id
         or not any(p.product_id == value.root_component.product_id for p in value.predecessors)
