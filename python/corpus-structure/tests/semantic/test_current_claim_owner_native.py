@@ -11,12 +11,15 @@ from typing import cast
 import psycopg
 import pytest
 from sqlalchemy import text
+from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.orchestrate.data_operations import NativeRequestClaim
 from corpus_structure.semantic._data_operation_wire import (
     WirePublishDataDerivationRequest,
+    WireReadDemandResultRequest,
     WireRenewDataRequestRequest,
     WireRetainDataCompletionIntentRequest,
+    WireRevokeDataSupportRequest,
 )
 from corpus_structure.semantic.claim_lifetime import (
     ClaimFenceLost,
@@ -26,7 +29,7 @@ from corpus_structure.semantic.claim_lifetime import (
     maintained_claims,
 )
 from corpus_structure.semantic.data_operation_storage import DataOperationStorage
-from semantic.data_operation_demand_support import attach, claim, retain
+from semantic.data_operation_demand_support import attach, claim, publish, retain
 from semantic.data_operation_kernel_support import STORAGE
 
 pytestmark = pytest.mark.parametrize("ddo_kernel", [STORAGE], indirect=True, ids=["storage"])
@@ -115,6 +118,57 @@ def test_current_dynamic_owner_renews_retains_and_publishes_exact_native_request
         assert isinstance(published, dict)
         assert published["derivation_id"]
         assert not owner.active
+
+
+def test_selected_cut_allows_lease_renewal_but_still_fences_revocation(ddo_kernel):
+    # A genuine published sibling makes this runtime a valid withdrawal target.
+    _, _, _, sibling = attach(ddo_kernel, subject="published:renewal-control")
+    sibling_fence = claim(ddo_kernel, sibling)
+    publish(ddo_kernel, sibling_fence, retain(ddo_kernel, sibling_fence))
+    demand, _, _, attached = attach(ddo_kernel, subject="live:renewal-control")
+    fence = claim(ddo_kernel, attached, seconds=120)
+    withdrawal = cast(
+        WireRevokeDataSupportRequest,
+        dict(
+            project_id="ddo-test",
+            original_source="source:test",
+            selector_kind="runtime",
+            selector=ddo_kernel["runtime"],
+            reason="actual renewal/cut withdrawal control",
+        ),
+    )
+    with ddo_kernel["engine"].begin() as reader:
+        cut = DataOperationStorage(reader).read_demand_result(
+            cast(WireReadDemandResultRequest, {"demand_id": demand["demand_id"], "limit": 1})
+        )
+        with ddo_kernel["engine"].begin() as renewal:
+            renewal.exec_driver_sql("SET LOCAL lock_timeout='500ms'")
+            renewed = DataOperationStorage(renewal).renew_data_request(
+                cast(WireRenewDataRequestRequest, {**fence, "lease_seconds": 120})
+            )
+        assert renewed["state"] == "renewed"
+        assert {key: value for key, value in renewed["trust_snapshot"].items() if value} == cut[
+            "trust_snapshot"
+        ]
+        # Withdrawal must wait for the actual selected-cut trust locks.
+        with pytest.raises(DBAPIError) as blocked, ddo_kernel["engine"].begin() as revoker:
+            revoker.exec_driver_sql("SET LOCAL lock_timeout='100ms'")
+            DataOperationStorage(revoker).revoke_data_support(withdrawal)
+        assert isinstance(blocked.value.orig, psycopg.errors.LockNotAvailable)
+    with ddo_kernel["engine"].begin() as revoker:
+        DataOperationStorage(revoker).revoke_data_support(withdrawal)
+    with ddo_kernel["engine"].begin() as renewal:
+        lost = DataOperationStorage(renewal).renew_data_request(
+            cast(WireRenewDataRequestRequest, {**fence, "lease_seconds": 120})
+        )
+        assert lost == {**fence, "state": "lost", "reason": "revoked"}
+        stale = DataOperationStorage(renewal).renew_data_request(
+            cast(
+                WireRenewDataRequestRequest,
+                {**fence, "holder": "stale-holder", "lease_seconds": 120},
+            )
+        )
+        assert stale == {**fence, "holder": "stale-holder", "state": "lost", "reason": "fence"}
 
 
 def test_current_lost_commit_response_replays_one_real_publication_before_retiring(ddo_kernel):

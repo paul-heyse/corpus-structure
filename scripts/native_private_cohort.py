@@ -131,6 +131,9 @@ def private_command(
         "-o",
         "max_locks_per_transaction=1024",
         "-o",
+        # Match the deployed short-query/bulk-write policy in corpus.conf.
+        "jit=off",
+        "-o",
         "log_parameter_max_length=0",
         "-o",
         "log_parameter_max_length_on_error=0",

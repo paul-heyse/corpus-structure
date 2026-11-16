@@ -1531,10 +1531,11 @@ def test_native_request_renewal_uses_exact_runless_fence_and_does_not_shorten_le
     fence = claim(ddo_kernel, attached)
     with ddo_kernel["engine"].begin() as connection:
         before = connection.execute(
-            text("SELECT run_id,lease_until FROM ops.task WHERE id=:task"),
+            text("SELECT data_request_id,data_generation,lease_until FROM ops.task WHERE id=:task"),
             {"task": fence["task_id"]},
         ).one()
-        assert before.run_id is None
+        assert before.data_request_id == fence["request_id"]
+        assert before.data_generation == fence["generation"]
         renewed = DataOperationStorage(connection).renew_data_request(
             typing_cast(WireRenewDataRequestRequest, {**fence, "lease_seconds": 1})
         )

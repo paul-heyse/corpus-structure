@@ -189,6 +189,20 @@ BEGIN
  END LOOP;
  RETURN snapshot;
 END $$;
+-- A live reader holds shared trust locks while detaching a selected cut. Renewal
+-- needs the same revocation barrier, not exclusion from that reader. Request and
+-- task rows are still locked independently before the physical lease is changed.
+CREATE OR REPLACE FUNCTION ops.ddo_lock_renewal_support(project text,source text,support jsonb) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
+DECLARE scope_key text; snapshot jsonb:='{}'; e bigint;
+BEGIN
+ FOR scope_key IN __DDO_CORE_LOCK_SUPPORT_SCOPES__ LOOP
+ INSERT INTO ops.data_trust_scope(scope,project_id,epoch) VALUES(scope_key,project,0) ON CONFLICT DO NOTHING;
+ SELECT epoch INTO e FROM ops.data_trust_scope WHERE scope=scope_key FOR SHARE;
+ snapshot:=snapshot||jsonb_build_object(scope_key,e);
+ END LOOP;
+ RETURN snapshot;
+END $$;
 -- Completion must lock the union once in canonical order. A grade's retained
 -- census includes failed and zero-output producers beyond bound product support.
 CREATE OR REPLACE FUNCTION ops.ddo_lock_completion_support(r ops.data_request,completion jsonb) RETURNS jsonb
@@ -810,10 +824,22 @@ BEGIN
  IF (mv ? 'support_episodes' AND NOT roledef->'identity_requirements' ? 'episode')
  OR (mv ? 'original_sources' AND NOT roledef->'identity_requirements' ? 'original-source') THEN RAISE EXCEPTION 'unrequested support identity cannot salt semantic input'; END IF;
  IF roledef->>'collection'<>'sequence' AND mv->'position' IS DISTINCT FROM 'null'::jsonb THEN RAISE EXCEPTION 'nonsequence position is not a semantic determinant'; END IF;
- SELECT value INTO STRICT item FROM jsonb_array_elements(b->'inputs') i WHERE i->>'role'=roledef->>'name' AND i->>'product_id'=mv->>'product' AND i->>'member_id' IS NOT DISTINCT FROM mv->>'member'
+ SELECT value INTO item FROM jsonb_array_elements(b->'inputs') i WHERE i->>'role'=roledef->>'name' AND i->>'product_id'=mv->>'product' AND i->>'member_id' IS NOT DISTINCT FROM mv->>'member'
  AND i->>'multiplicity'=mv->>'multiplicity' AND (roledef->>'collection'<>'sequence' OR i->>'position' IS NOT DISTINCT FROM mv->>'position')
  AND (NOT roledef->'identity_requirements' ? 'episode' OR coalesce(mv->'support_episodes','[]'::jsonb)=ops.ddo_input_support_episodes(b,roledef->>'name',i->'position',i->>'product_id',i->>'member_id'))
  ORDER BY (i->>'position')::integer LIMIT 1;
+ IF NOT FOUND THEN
+ RAISE EXCEPTION 'semantic binding has no exact native manifest member for role %',roledef->>'name'
+ USING ERRCODE='23514',DETAIL=jsonb_build_object(
+ 'collection',roledef->>'collection','multiplicity',mv->'multiplicity','position',mv->'position',
+ 'candidates',(SELECT coalesce(jsonb_agg(jsonb_build_object(
+ 'multiplicity',candidate->'multiplicity','position',candidate->'position',
+ 'episodes_match',coalesce(mv->'support_episodes','[]'::jsonb)=ops.ddo_input_support_episodes(
+ b,roledef->>'name',candidate->'position',candidate->>'product_id',candidate->>'member_id'))),'[]'::jsonb)
+ FROM (SELECT i AS candidate FROM jsonb_array_elements(b->'inputs') i
+ WHERE i->>'role'=roledef->>'name' AND i->>'product_id'=mv->>'product'
+ AND i->>'member_id' IS NOT DISTINCT FROM mv->>'member' LIMIT 3) candidates))::text;
+ END IF;
  IF (SELECT count(*) FROM jsonb_array_elements(rv->'value') other WHERE (other->>'product',other->>'member',other->>'multiplicity') IS NOT DISTINCT FROM (mv->>'product',mv->>'member',mv->>'multiplicity') AND (roledef->>'collection'<>'sequence' OR other->>'position' IS NOT DISTINCT FROM mv->>'position') AND (NOT roledef->'identity_requirements' ? 'episode' OR other->'support_episodes' IS NOT DISTINCT FROM mv->'support_episodes')) <>
  (SELECT count(*) FROM jsonb_array_elements(b->'inputs') actual WHERE actual->>'role'=roledef->>'name' AND (actual->>'product_id',actual->>'member_id',actual->>'multiplicity') IS NOT DISTINCT FROM (mv->>'product',mv->>'member',mv->>'multiplicity') AND (roledef->>'collection'<>'sequence' OR actual->>'position' IS NOT DISTINCT FROM mv->>'position') AND (NOT roledef->'identity_requirements' ? 'episode' OR coalesce(mv->'support_episodes','[]'::jsonb)=ops.ddo_input_support_episodes(b,roledef->>'name',actual->'position',actual->>'product_id',actual->>'member_id'))) THEN RAISE EXCEPTION 'semantic member occurrence counts differ from native manifest'; END IF;
  SELECT * INTO STRICT x FROM kb.data_product WHERE id=item->>'product_id';
@@ -1020,7 +1046,7 @@ BEGIN
  OR (p->>'generation')::integer<1 OR (p->>'attempt')::integer<1 OR (p->>'task_id')::bigint<1 THEN RAISE EXCEPTION 'invalid request attempt/holder/lease'; END IF;
  SELECT * INTO STRICT r FROM ops.data_request WHERE id=p->>'request_id';
  PERFORM ops.ddo_authorize_request(r);
- snapshot:=ops.ddo_lock_support(r.project_id,r.original_source,r.binding->'support');
+ snapshot:=ops.ddo_lock_renewal_support(r.project_id,r.original_source,r.binding->'support');
  SELECT * INTO STRICT r FROM ops.data_request WHERE id=r.id FOR UPDATE;
  SELECT * INTO t FROM ops.task WHERE id=r.live_task_id FOR UPDATE;
  IF NOT ops.ddo_request_useful(r) THEN RETURN ops.ddo_lost_attempt(p,CASE WHEN t.status IN ('done','empty','failed') THEN 'fence' ELSE 'cancelled' END); END IF;

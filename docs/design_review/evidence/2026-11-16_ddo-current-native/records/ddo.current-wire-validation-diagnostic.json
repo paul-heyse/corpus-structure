@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "id": "ddo.current-wire-validation-diagnostic",
+  "title": "Isolated installed wire schema validation versus unresolved native read latency",
+  "group": "declared-data-operations",
+  "package": "DDO-12",
+  "finalized": "2026-11-16",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Does isolated native wire schema preparation itself account for the observed seconds-long completed demand reads?",
+  "answers": [
+    "DDO-06",
+    "DDO-12"
+  ],
+  "method": "Read-only exact-stage/OID/system check; authenticate the registered wire body against installed pg_proc; call the existing pg_jsonschema validator on tiny and installed read input/output schemas with a controlled null instance. No business data, demands, source or answers are read. Three diagnostic samples per schema, not a throughput or accuracy campaign.",
+  "commands": [
+    "CORPUS_DDO_DIAGNOSTIC_URL=postgresql:///corpus_structure_ddo_stage?host=/var/run/postgresql&port=5434 uv run python docs/design_review/evidence/2026-11-16_ddo-current-native/wire-validation-diagnostic.py"
+  ],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "wire-validation-diagnostic.py",
+      "role": "Exact bounded read-only diagnostic source",
+      "sha256": "8b22aca58fabe7865d5ed8311a494128b72e08070f37b530992c76d464a63bf8"
+    },
+    {
+      "path": "wire-validation-diagnostic.final.json",
+      "role": "Final diagnostic results on installed stage with JIT off",
+      "sha256": "a8d77e6280d7c823001e535224e21df2eda1179529282226fd908950ccfeed16"
+    }
+  ],
+  "depends_on": [],
+  "results": [],
+  "outcome": "partial",
+  "conclusion": "The isolated installed read input/output schemas validate the controlled null instance in milliseconds on this stage; this does not support standalone schema preparation as the seconds-long latency source in this context. Full nonempty-page validation, nested native SQL and JIT causation remain unresolved. The temporary test host used default JIT on while the deployment policy disables it; profile alignment and actual matching-source retries remain required. This is not native consumer or provider qualification.",
+  "consumed_by": [
+    "DDO-06",
+    "DDO-12"
+  ]
+}

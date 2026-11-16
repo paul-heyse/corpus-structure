@@ -1,0 +1,41 @@
+{
+  "database": "corpus_structure_ddo_stage",
+  "oid": 130661481,
+  "system": "7701811359771751232",
+  "jit": "off",
+  "pg_jsonschema": "0.3.4",
+  "registered_wire_sha256": "98faa516596dc4eddeb2454dfbd1d9212dbd889b717869f0236f18fdd011e6e3",
+  "scope": "pure schema preparation/invalid-null check; no demand or source reads",
+  "results": [
+    {
+      "name": "tiny",
+      "schema_bytes": 15,
+      "seconds": [
+        0.0018179269973188639,
+        6.329199823085219e-05,
+        2.418000076431781e-05
+      ],
+      "result": true
+    },
+    {
+      "name": "read_input",
+      "schema_bytes": 10766,
+      "seconds": [
+        0.0014794159942539409,
+        0.0005644079938065261,
+        0.0005778780032414943
+      ],
+      "result": false
+    },
+    {
+      "name": "read_output",
+      "schema_bytes": 41934,
+      "seconds": [
+        0.0019105800020042807,
+        0.0015997300070011988,
+        0.0015943000034894794
+      ],
+      "result": false
+    }
+  ]
+}

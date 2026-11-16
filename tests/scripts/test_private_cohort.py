@@ -70,6 +70,7 @@ def test_one_explicit_postgresql18_wrapper_owns_the_whole_selection(tmp_path):
     )
     assert command[:5] == ["/usr/bin/pg_virtualenv", "-v", "18", "-t", "-c"]
     assert command.count("/usr/bin/pg_virtualenv") == 1
+    assert "jit=off" in command
     assert "PGPORT" not in environment
     request = json.loads((tmp_path / "private-cohort.request.json").read_text())
     assert request["port"] not in {5432, 5434}
