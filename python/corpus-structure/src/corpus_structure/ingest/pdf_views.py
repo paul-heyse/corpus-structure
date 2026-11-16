@@ -17,6 +17,9 @@ class PdfSourceViewsFamily:
             "identifier_kind": "string",
             "scope": "original-document",
         },
+        "subject_definitions": [
+            {"id": "original-source-view", "identifier_kind": "string", "scope": "original-source"}
+        ],
         "discovery_relation": "role-associated",
         "context": ["original-source", "actual-sealed-pdf", "frozen-relative-section-selection"],
         "entrypoints": ["run"],

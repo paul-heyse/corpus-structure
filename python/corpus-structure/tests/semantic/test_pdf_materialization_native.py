@@ -15,7 +15,6 @@ from corpus_structure.semantic.product_reference import ProductReference
 from corpus_structure.semantic.refusals import ReadLimit
 from semantic.data_operation_kernel_support import Kernel
 from semantic.data_operation_original_support import OriginalSeedRecipe
-from semantic.native_record_fixtures import RecordSourceRecipe
 from semantic.test_pdf_transform_demand_native import ROOT, _pdf_recipe
 
 
@@ -79,7 +78,7 @@ def test_exact_pdf_materialization_bound_admits_small_source_and_refuses_before_
         return PdfStreamReply("success", (), self.recipe.to_bytes(), (), records + occurrences)
 
     monkeypatch.setattr(pdf_worker.PdfWorker, "stream", controlled_stream)
-    recipe = OriginalSeedRecipe(RecordSourceRecipe(), _pdf_recipe(tmp_path))
+    recipe = OriginalSeedRecipe(_pdf_recipe(tmp_path))
     with scenario_seeds.commit_clone(recipe) as clone:
         kernel = Kernel(
             clone.admin,
@@ -88,16 +87,12 @@ def test_exact_pdf_materialization_bound_admits_small_source_and_refuses_before_
             recipe.target,
             clone,
         )
-        document = table("kb.document")
-        with clone.admin.connect() as connection:
-            document_key = connection.execute(
-                select(document.c.key).where(document.c.id == clone.stage.source.document)
-            ).scalar_one()
+        selected_original = clone.stage.original
         with kernel.purpose("write").begin() as connection:
             original = acquire_original_document_selection(
                 connection,
-                project_id=clone.stage.source.project_id,
-                document_key=document_key,
+                project_id=selected_original.reference.project_id,
+                document_key=selected_original.reference.document_key,
             )
             intent = freeze_demand(
                 kernel.model,
@@ -109,7 +104,7 @@ def test_exact_pdf_materialization_bound_admits_small_source_and_refuses_before_
             )
             demand = DemandPlanner(kernel.model, DataOperationStorage(connection)).register(
                 intent,
-                project=clone.stage.source.project_id,
+                project=selected_original.reference.project_id,
                 release=kernel.prepared.release_id,
                 runtime=kernel.runtime,
             )["demand_id"]
@@ -151,9 +146,18 @@ def test_exact_pdf_materialization_bound_admits_small_source_and_refuses_before_
                 .mappings()
                 .one()
             )
-            assert context["run_id"] is None
+            assert "run_id" not in context
             assert context["request_id"] is not None
-            assert context["document_id"] == clone.stage.source.document
+            documents = table("kb.document")
+            actual_original = connection.execute(
+                select(documents.c.project_id, documents.c.key, documents.c.content_hash)
+                .where(documents.c.id == context["document_id"])
+            ).one()
+            assert tuple(actual_original) == (
+                selected_original.reference.project_id,
+                selected_original.reference.document_key,
+                selected_original.reference.content_hash,
+            )
             request_demand = connection.scalar(
                 text("SELECT demand_id FROM ops.demand_use WHERE request_id=:request LIMIT 1"),
                 {"request": context["request_id"]},

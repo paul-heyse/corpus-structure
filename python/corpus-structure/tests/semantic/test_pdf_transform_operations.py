@@ -211,3 +211,53 @@ def test_pdf_reader_materialization_checkpoint_observes_actual_request_cancellat
     with pytest.raises(InterruptedError, match="request lease ended"):
         reader._check_active()
     assert calls == ["request"]
+
+
+def test_pdf_only_modes_declare_their_actual_source_member_contexts(tmp_path):
+    """No downstream language consumer may supply discovery's missing subject meaning."""
+    from corpus_structure.semantic.data_operation_ports import PortRefusal, project_product_members
+    from corpus_structure.semantic.source_discovery import selected_source_population
+    from corpus_structure.semantic.source_products import FrozenNativeSource
+    from semantic.data_operation_kernel_support import prepare_kernel
+    from semantic.test_pdf_transform_demand_native import _pdf_recipe
+
+    profile = prepare_kernel(_pdf_recipe(tmp_path))
+    assert not any(name.startswith("text.") for name in (op.semantic_id for op in profile.model.operations))
+    definition = profile.model.subject_definition("original-source-view")
+    assert definition.scope == "original-source"
+    assert next(k.name for k in profile.model.kinds if k.semantic_id == definition.identifier_kind) == "string"
+    value = FrozenNativeSource.from_projection(
+        profile.prepared,
+        document="independent-original",
+        section_pointer="#/texts/0",
+        membership="direct",
+        text="literal selected source",
+        pieces=[
+            dict(kind="native_text", start=0, end=23, item_ref="#/texts/0", source_field="text")
+        ],
+        items=[dict(self_ref="#/texts/0", label="text", text="literal selected source")],
+    ).value
+    selected_kind = profile.prepared.index.definitions["DdoSelectedNativeSource"].iri
+    kind_contract = next(
+        identity.key for identity in profile.model.identities
+        if identity.domain == "kind" and identity.owner == selected_kind
+    )
+    population = selected_source_population(
+        {"document": "independent-original"}, (value,), complete=True, kind_contract=kind_contract
+    )
+    for operation_id in (
+        "source.pdf_organized_views/discovery",
+        "source.pdf_enriched_views/discovery",
+        "source.pdf_integrated_views/discovery",
+    ):
+        operation = profile.model.operation(operation_id)
+        kind = next(role.kind for role in operation.roles if role.direction == "output")
+        (encoded,) = project_product_members(profile.model, kind, population)
+        member = json.loads(encoded)
+        assert member["context"]["subject_definition"] == "original-source-view"
+        assert member["context"]["original_source"] == "independent-original"
+        assert member["context"]["subject"] == population["members"][0]["context"]["subject"]
+        assert member["context"]["analyzed_scope"] == population["members"][0]["context"]["analyzed_scope"]
+        invalid = {**population, "members": [{**population["members"][0], "context": {**population["members"][0]["context"], "original_source": None}}]}
+        with pytest.raises(PortRefusal, match="original"):
+            project_product_members(profile.model, kind, invalid)

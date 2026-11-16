@@ -63,8 +63,9 @@ from corpus_structure.semantic.primary_operations import combine_primary_sources
 from corpus_structure.semantic.source_discovery import source_discovery_inputs
 from semantic.data_operation_kernel_support import CapturedKernelInputs, Kernel, KernelRecipe
 from semantic.data_operation_original_support import OriginalSeedRecipe
-from semantic.native_record_fixtures import RecordSourceRecipe
-from semantic.pdf_integration_support import IMAGE
+from conftest import settings_for_native_clone
+from corpus_structure.semantic.runtime import open_runtime_engine
+from semantic.pdf_native_source_support import IMAGE
 
 ROOT = Path(__file__).resolve().parents[4]
 
@@ -157,7 +158,7 @@ def _pdf_recipe(directory):
 
 
 def test_native_organization_enrichment_and_integration_keep_real_receipts_and_exact_resume(
-    scenario_seeds, tmp_path, monkeypatch
+    scenario_seeds, tmp_path, monkeypatch, native_settings
 ):
     from docling_core.types.doc import (
         BoundingBox,
@@ -279,7 +280,7 @@ def test_native_organization_enrichment_and_integration_keep_real_receipts_and_e
     monkeypatch.setattr(
         pdf_recognition.RecognitionWorker, "_recognize_pages", ControlledRecognition.recognize_pages
     )
-    recipe = OriginalSeedRecipe(RecordSourceRecipe(), _pdf_recipe(tmp_path))
+    recipe = OriginalSeedRecipe(_pdf_recipe(tmp_path))
     with scenario_seeds.commit_clone(recipe) as clone:
         kernel = Kernel(
             clone.admin,
@@ -288,13 +289,83 @@ def test_native_organization_enrichment_and_integration_keep_real_receipts_and_e
             recipe.target,
             clone,
         )
-        document = table("kb.document")
-        with clone.admin.connect() as connection:
-            original = connection.execute(
-                select(document.c.key, document.c.content_hash).where(
-                    document.c.id == clone.stage.source.document
+        original = clone.stage.original.reference
+        from psycopg import Error as NativePgError
+
+        from corpus_structure.semantic import _pdf_native_calls as pdf_calls
+        from corpus_structure.semantic import pdf_integrated
+        from corpus_structure.semantic.identifiers import TaskAttempt, TaskId
+        from corpus_structure.semantic.identity import canonical_bytes
+
+        store_observation = pdf_integrated.store_pdf_observation
+        rejected_observations = []
+        valid_observations = []
+
+        def checked_observation(connection, *, task_id, attempt, holder, product, context=None):
+            value = product.values()
+            variants = (
+                "wrong-original", "missing-image", "missing-recipe", "wrong-image-size",
+                "health", "usage", "unknown-transform", "late-coverage", "attempt", "holder",
+            )
+            for variant in variants:
+                forged = deepcopy(value)
+                forged["product_key"] = "native-refusal-" + variant
+                artifacts = product.artifacts
+                selected_attempt, selected_holder = attempt, holder
+                if variant == "wrong-original":
+                    forged["artifact_digest"] = "f" * 64
+                elif variant in {"missing-image", "missing-recipe"}:
+                    missing = (
+                        value["observation"]["image"]["artifact_digest"]
+                        if variant == "missing-image" else value["recipe_digest"]
+                    )
+                    artifacts = tuple(blob for blob in artifacts if sha256(blob).hexdigest() != missing)
+                elif variant == "wrong-image-size":
+                    forged["observation"]["image"]["width"] += 1
+                elif variant == "health":
+                    forged["health"]["execution_outcome"] = (
+                        "failed" if value["observation"]["outcome"] != "failed" else "unknown"
+                    )
+                elif variant == "usage":
+                    forged["observation"]["usage_availability"] = "available"
+                    forged["observation"].pop("usage_json", None)
+                elif variant == "unknown-transform":
+                    forged["observation"]["image"]["transform"] = {
+                        "status": "unknown", "normalization": "unknown",
+                        "source_space": "pdf_points", "target_space": "submitted_pixels",
+                        "affine": [1, 0, 0, 1, 0, 0],
+                    }
+                elif variant == "late-coverage":
+                    forged["coverage"][0]["supports"] = [
+                        {"input_index": len(value["inputs"]) + 99, "coverage_id": "absent-parent"}
+                    ]
+                elif variant == "attempt":
+                    selected_attempt += 1
+                else:
+                    selected_holder = holder + "-foreign"
+                with pytest.raises(DBAPIError) as refused, connection.begin_nested():
+                    pdf_calls.publish_pdf_observation(
+                        connection,
+                        task_id=TaskId(task_id),
+                        attempt=TaskAttempt(selected_attempt),
+                        holder=selected_holder,
+                        contract_digest=product.contract_digest,
+                        payload=canonical_bytes(forged),
+                        artifacts=artifacts,
+                        projection_context=kernel.prepared,
+                    )
+                assert isinstance(refused.value.orig, NativePgError)
+                assert refused.value.orig.sqlstate == (
+                    "P0004" if variant in {"attempt", "holder"} else "23514"
                 )
-            ).one()
+                rejected_observations.append((task_id, forged["product_key"]))
+            arguments = dict(task_id=task_id, attempt=attempt, holder=holder, product=product, context=context)
+            digest = store_observation(connection, **arguments)
+            assert store_observation(connection, **arguments) == digest
+            valid_observations.append((task_id, value["product_key"], digest))
+            return digest
+
+        monkeypatch.setattr(pdf_integrated, "store_pdf_observation", checked_observation)
         targets = (
             "source.pdf_organized_views/discovery",
             "source.pdf_enriched_views/discovery",
@@ -302,13 +373,13 @@ def test_native_organization_enrichment_and_integration_keep_real_receipts_and_e
         )
         source_options = {"sections": ["1 Controlled"], "membership": "descendants"}
         request = SourceRunRequest(
-            project_id=clone.stage.source.project_id,
+            project_id=original.project_id,
             release_id=kernel.prepared.release_id,
             runtime_id=kernel.runtime,
             domain="toy",
             workflow="capture",
             selection=WholeDocument(),
-            documents=(original.key,),
+            documents=(original.document_key,),
             pdf_mode="integrated",
             recognition_pages=(1,),
             targets=targets,
@@ -320,13 +391,19 @@ def test_native_organization_enrichment_and_integration_keep_real_receipts_and_e
                 DemandOperationSelection(operation=targets[1], parameters=source_options),
             ),
         )
-        result = run_source_operation(
-            kernel.purpose("write"),
-            request,
-            MethodSettings(data_dir=tmp_path, model_cache=tmp_path),
-            source_root=ROOT,
-            admission_engine=kernel.purpose("admit"),
-        )
+        with open_runtime_engine(
+            settings_for_native_clone(native_settings, clone.admin.url.database),
+            "current-pdf-transform",
+            purpose="write",
+            max_size=6,
+        ) as engine:
+            result = run_source_operation(
+                engine,
+                request,
+                MethodSettings(data_dir=tmp_path, model_cache=tmp_path),
+                source_root=ROOT,
+                admission_engine=kernel.purpose("admit"),
+            )
         with clone.admin.connect() as connection:
             snapshot = read_data_demand(connection, result.demand_id, view="products")
         obligations = {row["obligation_id"]: row for row in snapshot["obligations"]}
@@ -354,7 +431,7 @@ def test_native_organization_enrichment_and_integration_keep_real_receipts_and_e
             output = products[operation]["result"]
             assert (
                 output["source_digest"] == original.content_hash
-                and output["document"] == original.key
+                and output["document"] == original.document_key
             )
             assert output["kind"] == ("integrated" if operation == effects[2] else "native")
             assert not {"run_id", "task_id", "source_view_id"} & output.keys()
@@ -375,7 +452,10 @@ def test_native_organization_enrichment_and_integration_keep_real_receipts_and_e
                             intents.c.producer_task_id,
                             intents.c.producer_attempt,
                             intents.c.producer_holder,
-                            tasks.c.run_id,
+                            tasks.c.data_request_id,
+                            intents.c.request_id,
+                            tasks.c.data_generation,
+                            intents.c.generation,
                         )
                         .join_from(
                             intents,
@@ -388,7 +468,8 @@ def test_native_organization_enrichment_and_integration_keep_real_receipts_and_e
                     .mappings()
                     .one()
                 )
-                assert retained["run_id"] is None
+                assert retained["data_request_id"] == retained["request_id"]
+                assert retained["data_generation"] == retained["generation"]
                 (receipt,) = retained["payload"]["execution_evidence"]["pdf_receipts"]
                 assert receipt["publication"]["task_id"] == retained["producer_task_id"]
                 receipts.append((receipt, retained))
@@ -428,6 +509,27 @@ def test_native_organization_enrichment_and_integration_keep_real_receipts_and_e
                             "holder": retained["producer_holder"],
                         },
                     )
+        assert valid_observations and len(rejected_observations) == 10 * len(valid_observations)
+        with clone.admin.connect() as connection:
+            for task_id, key in rejected_observations:
+                for relation in ("ops.pdf_product", "ops.pdf_product_body", "ops.pdf_product_artifact", "ops.pdf_product_input"):
+                    assert connection.scalar(
+                        text("SELECT count(*) FROM " + relation + " WHERE task_id=:task AND product_key=:key"),
+                        {"task": task_id, "key": key},
+                    ) == 0
+            for task_id, key, digest in valid_observations:
+                retained = connection.execute(
+                    text("SELECT p.content_digest, encode(sha256(b.payload),'hex'), b.recipe_digest "
+                         "FROM ops.pdf_product p JOIN ops.pdf_product_body b "
+                         "USING(task_id,product_key) WHERE p.task_id=:task AND p.product_key=:key"),
+                    {"task": task_id, "key": key},
+                ).one()
+                assert retained[0] == retained[1] == digest
+                assert connection.scalar(
+                    text("SELECT count(*) FROM ops.pdf_product_artifact WHERE task_id=:task "
+                         "AND product_key=:key AND artifact_digest=:recipe"),
+                    {"task": task_id, "key": key, "recipe": retained[2]},
+                ) == 1
         before = tuple(calls)
         resumed = execute_data_demand(
             kernel.purpose("write"),
