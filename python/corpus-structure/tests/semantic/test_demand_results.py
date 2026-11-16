@@ -927,3 +927,35 @@ def test_detached_reuse_keeps_original_episode_and_checks_target_recipe(validate
         verify_detached_result(
             native, records=records, wire_schema={}, validate_closure=validate_closure
         )
+
+
+@pytest.mark.parametrize("validate_closure", [True, False])
+def test_detached_pending_request_does_not_require_or_invent_producing_custody(validate_closure):
+    from corpus_structure.semantic.demand_results import verify_detached_result
+
+    native, records = _detached_closure()
+    native["uses"][0].update(derivation_id=None, fate="waiting", products=[])
+    records = [
+        row
+        for row in records
+        if row["relation"]
+        not in {
+            "ops.data_derivation",
+            "ops.data_derivation_output",
+            "ops.data_completion_intent",
+            "ops.data_publication_receipt",
+        }
+    ]
+    retained = next(row["record"] for row in records if row["relation"] == "ops.demand_use")
+    retained["derivation_id"] = None
+    checked = verify_detached_result(
+        native, records=records, wire_schema={}, validate_closure=validate_closure
+    )
+    assert checked.record["uses"][0]["derivation_id"] is None
+    assert checked.record["uses"][0]["products"] == []
+    request = next(row["record"] for row in records if row["relation"] == "ops.data_request")
+    request["replicate"] = "unsupported-fresh-replication"
+    with pytest.raises(ValueError, match="replicate"):
+        verify_detached_result(
+            native, records=records, wire_schema={}, validate_closure=validate_closure
+        )

@@ -63,7 +63,6 @@ class SelectedRecordIndex:
         )
         for fields in (
             ("id",),
-            ("request_id",),
             ("kind_contract",),
             ("product_id", "member_id"),
             ("derivation_id", "role", "position"),

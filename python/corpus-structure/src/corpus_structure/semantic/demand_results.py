@@ -21,7 +21,7 @@ from .data_operation_identity import (
     semantic_value,
 )
 from .data_operation_json import json_bytes, wire_json_loads
-from .data_operation_model import SubjectContext
+from .data_operation_model import SubjectContext, validate_replicate_selection
 
 if TYPE_CHECKING:
     from ._data_operation_wire import WireReadDemandResultRequest
@@ -528,17 +528,13 @@ def verify_detached_result(
             expected = definitions.get(key)
             if expected is None or value != {name: expected[name] for name in stored_fields}:
                 raise ValueError("detached operation differs from its captured release contract")
+    target_definitions = actual_definitions if definitions is None else definitions
     requests = row_map("ops.data_request", "id")
     episodes = row_map("ops.data_derivation", "id")
     if validate_closure:
-        from .data_operation_model import validate_replicate_selection
-
         # Request placement and its active generation are mutable and deliberately
         # absent from the public projection. Each immutable episode owns the
         # producing release/runtime/recipe used to validate that request's meaning.
-        for request in requests.values():
-            if next(rows_for("ops.data_derivation", request_id=request["id"]), None) is None:
-                raise ValueError("detached immutable producing episode is missing from request support closure")
         for episode in episodes.values():
             if (
                 runtimes is not None
@@ -864,12 +860,21 @@ def verify_detached_result(
                 )
                 if episode["request_id"] != retained["request_id"]:
                     raise ValueError("detached selected episode names another semantic request")
+                definition = actual_definitions[episode["release_id"], request["operation_id"]]
             else:
-                # A shared request can also have an unsettled selected use. Its
-                # semantic context still comes from an authentic original episode,
-                # not the request's undisclosed current placement.
-                episode = next(rows_for("ops.data_derivation", request_id=request["id"]))
-            definition = actual_definitions[episode["release_id"], request["operation_id"]]
+                # A pending request has semantic selection, not producing custody.
+                # Check that meaning against its captured target definition without
+                # borrowing a historical generation's execution basis.
+                definition = required(
+                    target_definitions,
+                    (record["release_id"], request["operation_id"]),
+                    "pending request target definition",
+                )
+                validate_replicate_selection(
+                    definition["support_contract"]["replicate_policy"],
+                    request["replicate"],
+                    owner=request["operation_id"],
+                )
             context = SubjectContext(
                 request["project_id"],
                 request["subject"],
@@ -911,16 +916,21 @@ def verify_detached_result(
         if request is not None:
             # Every page keeps target admission separate from original production;
             # transitive support uses above retain their own producing contracts.
-            episode = (
-                episodes[use["derivation_id"]]
-                if use["derivation_id"] is not None
-                else next(rows_for("ops.data_derivation", request_id=request["id"]))
-            )
-            definition = actual_definitions[episode["release_id"], request["operation_id"]]
-            target_definitions = actual_definitions if definitions is None else definitions
             target = target_definitions.get((record["release_id"], request["operation_id"]))
             if target is None or target["recipe"] != request["recipe"]:
                 raise ValueError("detached selected recipe is not admitted by its target release")
+            definition = (
+                actual_definitions[
+                    episodes[use["derivation_id"]]["release_id"], request["operation_id"]
+                ]
+                if use["derivation_id"] is not None
+                else target
+            )
+            validate_replicate_selection(
+                target["support_contract"]["replicate_policy"],
+                request["replicate"],
+                owner=request["operation_id"],
+            )
             checked_context(
                 SubjectContext(
                     request["project_id"],
