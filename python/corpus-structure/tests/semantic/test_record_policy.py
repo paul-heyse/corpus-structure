@@ -360,35 +360,15 @@ def policy_for_reading(prepared, row):
 
 @pytest.mark.parametrize("state", ["unstated", "inapplicable"])
 def test_nonpresent_literal_inspection_scope_supports_complete_candidate_lowering(state):
-    from semantic.record_assertions_support import inputs, lower, record, seal
+    from corpus_structure.semantic.record_contracts import interpretation_identity
+    from corpus_structure.semantic.rich_record_readings import rich_reading_value
+    from semantic.rich_record_readings_support import current, inspected_reading
 
-    overrides = {
-        role: {
-            "state": "present",
-            "value": {"kind": "native_location", "pointer": "#/inspected/" + role},
-        }
-        for role in ("table", "cell")
-    }
-    overrides.update(
-        {
-            role: {
-                "state": "present",
-                "pieces": text,
-                "original": text,
-                "value": {"kind": "text", "text": text},
-            }
-            for role, text in (
-                ("row_label", "Group A"),
-                ("header_path", "Count"),
-                ("cell_value", "12"),
-            )
-        }
-    )
-    row = record(overrides=overrides)
+    row, coordinates = inspected_reading("table")
     caption = next(field for field in row["fields"] if field["role"] == "caption")
     caption["state"] = state
-    seal(row)
-    prepared = inputs()[2]
+    row["interpretation_id"] = interpretation_identity(row)
+    prepared, model = current()
     instance = policy_for_reading(prepared, row)
     proposal = assess_record_admission(
         prepared,
@@ -401,10 +381,14 @@ def test_nonpresent_literal_inspection_scope_supports_complete_candidate_lowerin
     assert proposal.blockers == ()
     assert proposal.eligible_for_native_validation
     assert proposal.standing == "candidate"
-    lowered = lower(row)
-    assert lowered.diagnostics == ()
-    assert len(lowered.assertions) == 8
-    assert lowered.batch.selection == ()
+    lowered = rich_reading_value(prepared, model, row, coordinate_texts=coordinates)
+    assert lowered.class_name == "TableAssertionReading"
+    assert set(lowered.fields) == {
+        "table", "cell", "row_label", "header_path", "cell_value", "note", "unit", "caption"
+    }
+    assert lowered.fields["caption"]["state"] == state
+    assert row["standing"] == "candidate"
+    assert not hasattr(lowered, "fact_id")
     # A present literal still needs exact value evidence, unlike the inspected absence.
     cell_value = next(field for field in row["fields"] if field["role"] == "cell_value")
     value_set = next(item for item in row["evidence_sets"] if item["role"] == "cell_value")
@@ -426,30 +410,10 @@ def test_nonpresent_literal_inspection_scope_supports_complete_candidate_lowerin
 
 
 def test_supplemental_transformed_role_requires_its_own_located_support():
-    from semantic.record_assertions_support import inputs, record
+    from semantic.rich_record_readings_support import current, inspected_reading
 
-    overrides = {
-        role: {
-            "state": "present",
-            "pieces": text,
-            "original": text,
-            "value": {"kind": "text", "text": text},
-        }
-        for role, text in (("referent", "bottle"), ("property", "volume"))
-    }
-    overrides["original_value"] = {
-        "state": "present",
-        "pieces": "12",
-        "original": "12",
-        "value": {"kind": "decimal", "lexical": "12"},
-    }
-    overrides["value_role"] = {
-        "state": "present",
-        "pieces": "average",
-        "value": {"kind": "measurement_value_role", "label": "mean"},
-    }
-    row = record("MeasurementRecordFields", overrides=overrides)
-    prepared = inputs()[2]
+    row, _coordinates = inspected_reading("measurement")
+    prepared, _model = current()
     instance = policy_for_reading(prepared, row)
     supported = assess_record_admission(
         prepared,
