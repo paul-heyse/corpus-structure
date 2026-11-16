@@ -4,16 +4,11 @@ from types import SimpleNamespace
 from typing import Any
 
 import pytest
-import spacy
-from annotation_support import item
 
-from corpus_structure.ingest import annotations
 from corpus_structure.ingest.annotations import annotate
-from corpus_structure.ingest.sentences import Block
 from corpus_structure.methods.native_evidence_layers import (
     SPACY_FAMILIES,
     NativeEvidenceBuilder,
-    retained_spacy_docs,
 )
 from corpus_structure.semantic.characterization import (
     decode_layer,
@@ -143,38 +138,6 @@ def test_malformed_head_retains_independent_valid_native_siblings(native_source,
         coverage["hanlp." + name]["outcome"] == "complete"
         for name in {"srl", "constituency", "dependency"} - {head}
     )
-
-
-def test_restored_spacy_docs_need_no_pipeline_and_preserve_exact_whitespace(
-    native_source, prepared, monkeypatch
-):
-    controlled, request, _, view, _, _, _ = native_source
-    text = " X  X\né x+y [3]."
-    request = item(controlled, text, start=0, block=Block(text, ((8, 11),), (), ((12, 15),)))
-    (product,) = annotate([request])
-    view = SimpleNamespace(
-        ref=view.ref, text=text, pieces=[p.to_wire() for p in request.native_pieces]
-    )
-    builder, _ = builder_for(native_source, full=False)
-    # Use a new layer with only this whole block.
-    builder = NativeEvidenceBuilder(
-        builder.base,
-        builder.scope,
-        builder.operation,
-        profile="spacy_only",
-        families=SPACY_FAMILIES,
-    )
-    builder.spacy(view, product, "spacy")
-    metadata(builder)
-    report = builder.finish(prepared)
-    monkeypatch.setattr(
-        annotations, "pipeline", lambda _: pytest.fail("retained replay invoked native model")
-    )
-    (doc,) = retained_spacy_docs(report, {view.ref.id: view}, spacy.blank("en").vocab).values()
-    assert doc.text == text
-    assert [(t.idx, t.text) for t in doc if t.text == "X"] == [(1, "X"), (4, "X")]
-    assert [t.dep_ for t in doc] == ["ROOT", *(["dep"] * (len(doc) - 1))]
-    assert [t.head.i for t in doc] == [0] * len(doc)
 
 
 def test_optional_spacy_columns_retain_independent_available_families(native_source, prepared):

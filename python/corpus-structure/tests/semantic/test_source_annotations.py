@@ -68,11 +68,11 @@ def acquired(tmp_path_factory):
 
 
 @pytest.fixture
-def detached(acquired, monkeypatch):
+def detached(acquired, monkeypatch, request):
     prepared, model, configuration, selection = acquired
     nlp = spacy.blank("en")
     monkeypatch.setattr(annotations, "pipeline", lambda _configuration: nlp)
-    text = "A valve opens."
+    text = getattr(request, "param", "A valve opens.")
     source = FrozenNativeSource.from_projection(
         prepared,
         document="document:one",
@@ -113,6 +113,17 @@ def detached(acquired, monkeypatch):
     doc = make_doc(nlp, block.block, layout, start=block.start)
     for index, token in enumerate(doc):
         token.is_sent_start = index == 0
+    if hasattr(request, "param"):
+        # Controlled native columns, with no model or linguistic accuracy claim.
+        from spacy.tokens import MorphAnalysis
+
+        for token in doc:
+            token.lemma_ = f"lemma:{token.i}"
+            token.pos_ = "VERB"
+            token.tag_ = "VB"
+            token.morph = MorphAnalysis(doc.vocab, "VerbForm=Fin")
+            token.dep_ = "ROOT" if token.i == 0 else "dep"
+            token.head = doc[0]
     detached = _detach_annotation_block(
         source.value, block, layout, doc, pin, configuration, selection.native.fingerprint
     )
@@ -300,3 +311,26 @@ def test_annotation_consumer_refuses_equal_source_body_from_another_selected_car
     ).mapping
     with pytest.raises(ValueError, match="different selected source carrier"):
         maverick_input(source, product, foreign, block, mapping)
+
+
+@pytest.mark.parametrize("detached", [" X  X\né x+y [3]."], indirect=True)
+def test_current_native_columns_restore_whole_doc_without_pipeline_and_preserve_whitespace(
+    acquired, detached, monkeypatch
+):
+    from corpus_structure.ingest.annotation_views import annotation_view
+    from corpus_structure.semantic.sentence_products import retained_source_annotation_products
+
+    prepared, model, configuration, _selection = acquired
+    source, value = detached
+    native = validate_source_annotations(prepared, model, value, source, configuration=configuration)
+    monkeypatch.setattr(
+        annotations, "pipeline", lambda *_: pytest.fail("retained replay invoked native model")
+    )
+    (product,) = retained_source_annotation_products(source, native)
+    restored = annotation_view(product, source.value["text"], spacy.blank("en").vocab)
+    assert restored.doc.text == " X  X\né x+y [3]."
+    assert [(t.idx, t.text) for t in restored.doc if t.text == "X"] == [(1, "X"), (4, "X")]
+    assert [t.dep_ for t in restored.doc] == ["ROOT", *(["dep"] * (len(restored.doc) - 1))]
+    assert [t.head.i for t in restored.doc] == [0] * len(restored.doc)
+    assert [t.lemma_ for t in restored.doc] == [f"lemma:{i}" for i in range(len(restored.doc))]
+    assert all(t.morph.to_dict() == {"VerbForm": "Fin"} for t in restored.doc)

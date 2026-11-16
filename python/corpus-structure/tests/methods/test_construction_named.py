@@ -4,100 +4,43 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
-from annotation_support import ControlledPipeline, item
 
-from corpus_structure.ingest import annotations
-from corpus_structure.ingest.annotations import annotate
-from corpus_structure.methods.annotation_rules import (
-    AnnotationRule,
-    PreparedAnnotationRules,
-    RoleBinding,
-)
-from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
-from corpus_structure.semantic.characterization import characterization_inputs
-from corpus_structure.semantic.constructions.layers import ConstructionLayer
-from corpus_structure.semantic.constructions.named import (
-    NAMED_FAMILY,
-    RetainedNamedRules,
-    populate_named,
-)
+from corpus_structure.ingest.sentences import SentenceConfig
+from corpus_structure.methods.annotation_rules import AnnotationRule, PreparedAnnotationRules, RoleBinding
+from corpus_structure.methods.native_profiles import NativeProfile, NativeSelection
+from corpus_structure.semantic.construction_products import ConstructionOptions
+from corpus_structure.semantic.constructions.declared_named import DeclaredNamedRules
+from corpus_structure.semantic.constructions.named import rule_identity
 from corpus_structure.semantic.constructions.named_nominations import naming_nomination
-from corpus_structure.semantic.source_contexts import NativeSourcePin
+from corpus_structure.semantic.formal_products import FormalEvidenceOptions
+from corpus_structure.semantic.sentence_products import retained_source_annotation_products, validate_source_annotations
+from semantic.test_construction_products import profiles as profiles, _publication_context
+from semantic.test_source_annotations import detached as detached
 
 
 @pytest.fixture(scope="module")
-def prepared():
-    core = Path(__file__).parents[2] / "src/corpus_structure/model/semantic/core.yaml"
-    return prepare_release(
-        characterization_inputs(SourceBundle("core", (SourceArtifact("core", core.read_bytes()),)))
+def acquired(profiles):
+    _, construction = profiles
+    configuration = SentenceConfig(exclude=("ner",))
+    selection = NativeSelection(
+        NativeProfile("spacy", {"fixture": "controlled-columns"}, {},
+                      configuration.model_dump(mode="json"), "float32", "cupy"), Path(".")
     )
+    return construction.prepared, construction.model, configuration, selection
 
 
+@pytest.mark.parametrize("detached", ["X X é."], indirect=True)
 def test_named_rules_execute_upstream_once_and_replay_exact_roles_without_nlp(
-    prepared, monkeypatch
+    profiles, acquired, detached, monkeypatch
 ):
-    controlled = ControlledPipeline()
-    monkeypatch.setattr(annotations, "pipeline", lambda _: controlled)
-    request = item(controlled, "X X é.", start=0)
-    (product,) = annotate([request])
-    pin = product.source
-    assert isinstance(pin, NativeSourcePin)
-    view = SimpleNamespace(
-        ref=SimpleNamespace(
-            id=pin.source_view_id,
-            key=pin.unit_ref,
-            native_product=pin.native_product,
-            projection_digest=pin.projection_digest,
-            recipe_digest=pin.recipe_digest,
-            section_pointer=pin.section_pointer,
-            membership=pin.membership,
-        ),
-        text=request.block.text,
-        pieces=[p.to_wire() for p in request.native_pieces],
-        items=[dict(self_ref="#/texts/1", label="text")],
-        ancestors=[],
-        health={},
-        integrated_context=None,
+    formal, construction = profiles
+    prepared, model, configuration, _selection = acquired
+    source, value = detached
+    context = _publication_context(source)
+    retained = validate_source_annotations(
+        prepared, model, value, source, configuration=configuration, subject_context=context
     )
-    scope = dict(
-        source_view_ids=[pin.source_view_id],
-        source_views=[
-            dict(
-                source_view_id=pin.source_view_id,
-                key=pin.unit_ref,
-                base_document=pin.native_product.values(),
-                section_pointer=pin.section_pointer,
-                membership=pin.membership,
-                projection_digest=pin.projection_digest,
-                recipe_digest=pin.recipe_digest,
-            )
-        ],
-        profile="named-rules",
-        selectors=[dict(projection=pin.projection_digest, start=0, end=len(view.text))],
-    )
-    operation = dict(
-        key="text.native_evidence",
-        version="1",
-        runtime="fixture",
-        model="native",
-        grammar="none",
-        configuration="cfg",
-        input="input",
-        context="source",
-    )
-    from methods.primary_native_fixture import primary_native_layer
-
-    retained, npin = primary_native_layer(
-        pin.native_product.values(),
-        scope,
-        operation,
-        prepared,
-        ((view, product),),
-        configuration=controlled.config.to_str(),
-        digest="derived",
-        reference=101,
-        execution=controlled.selection().native,
-    )
+    (product,) = retained_source_annotation_products(source, retained)
     rules = (
         AnnotationRule(
             rule="repeat",
@@ -128,17 +71,11 @@ def test_named_rules_execute_upstream_once_and_replay_exact_roles_without_nlp(
             bindings={"person": RoleBinding(node="match")},
         ),
     )
-    layer = ConstructionLayer(
-        pin.native_product.values(),
-        scope,
-        dict(operation, key="text.constructions"),
-        families=(NAMED_FAMILY,),
+    primary = formal.run(source, FormalEvidenceOptions(), subject_context=context)
+    produced = construction.run(
+        source, (primary,), ConstructionOptions(annotation_rules=rules),
+        sentences=retained, subject_context=context,
     )
-    populate_named(
-        layer, view, npin, retained, PreparedAnnotationRules(controlled.vocab, rules=rules)
-    )
-    produced = layer.finish(prepared, dependencies={npin: retained})
-    cpin = produced.reference(102)
     monkeypatch.setattr(
         PreparedAnnotationRules, "match", lambda *_: pytest.fail("consumer reran matching")
     )
@@ -146,13 +83,13 @@ def test_named_rules_execute_upstream_once_and_replay_exact_roles_without_nlp(
         "corpus_structure.semantic.constructions.named.annotation_view",
         lambda *_args, **_kw: pytest.fail("consumer rebuilt native Doc"),
     )
-    result = RetainedNamedRules({npin: retained, cpin: produced}).match(product, rules=rules)
-    assert result.availability == (
+    result, references, _nominations, identities = DeclaredNamedRules((produced,), retained).decode(product)
+    assert set(result.availability) == {
         ("repeat", "two", "available"),
         ("term", "each", "available"),
         ("missing", "zero", "available"),
         ("ner", "unavailable", "unavailable"),
-    )
+    }
     repeated = next(m for m in result.matches if m.rule == "repeat")
     assert repeated.nodes == (0, 1)
     assert repeated.extents == ((0, 1), (2, 3))
@@ -162,8 +99,9 @@ def test_named_rules_execute_upstream_once_and_replay_exact_roles_without_nlp(
     assert len([m for m in result.matches if m.rule == "term"]) == 2
     assert not any(m.rule in {"missing", "ner"} for m in result.matches)
     changed = rules[0].model_copy(update={"pattern": [{"TEXT": "Y"}]})
-    with pytest.raises(ValueError, match="not produced"):
-        RetainedNamedRules({npin: retained, cpin: produced}).match(product, rules=(changed,))
+    assert identities[("repeat", "two")] == rule_identity(rules[0])
+    assert identities[("repeat", "two")] != rule_identity(changed)
+    assert all(ref.product_id == produced.semantic_id for ref in references.values())
 
 
 @pytest.mark.parametrize(

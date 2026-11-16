@@ -6,12 +6,9 @@ This module supplies only kernels still consumed by retained layer readers/produ
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Mapping
+from collections.abc import Mapping
 from hashlib import sha256
 from typing import Any
-
-from corpus_structure.core.method import UnitRef
-from corpus_structure.core.vocab import TaskUnitType
 
 from .native_evidence_layers import NativeEvidenceBuilder, digest
 
@@ -107,18 +104,3 @@ def _artifacts(startup: Mapping[str, Any]) -> list[dict[str, Any]]:
         if name.endswith("_sha256")
     )
     return rows
-
-
-def _one_selected_document(documents):
-    documents = set(documents)
-    if len(documents) != 1:
-        raise ValueError("native evidence requires one document")
-    return next(iter(documents))
-
-
-def select_document_scope(run, base, scope) -> Iterable[UnitRef]:
-    refs = [run.reader.source_view_ref(identity) for identity in scope["source_view_ids"]]
-    if not refs or any(ref is None or ref.native_product != base for ref in refs):
-        raise ValueError("native evidence source is outside the run's selected base document")
-    document = _one_selected_document(ref.document_id for ref in refs if ref is not None)
-    return (UnitRef(TaskUnitType.DOCUMENT, document),)
