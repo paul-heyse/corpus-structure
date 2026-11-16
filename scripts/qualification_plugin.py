@@ -276,16 +276,16 @@ def pytest_runtest_teardown(item: pytest.Item) -> Generator[None, Any, Any]:
 def pytest_runtest_makereport(
     item: pytest.Item, call: pytest.CallInfo[None]
 ) -> Generator[None, pytest.TestReport, pytest.TestReport]:
+    error = call.excinfo.value if call.excinfo is not None else None
+    grouped = _exception_group_messages(error) if isinstance(error, BaseExceptionGroup) else None
     report = yield
     if call.excinfo is not None:
         # Import lazily: pure test collection never acquires application/native settings.
         from test_prerequisites import PrerequisiteUnavailable
 
         error = call.excinfo.value
-        if isinstance(error, BaseExceptionGroup):
-            report.user_properties.append(
-                ("qualification_exception_group", _exception_group_messages(error))
-            )
+        if grouped is not None:
+            report.user_properties.append(("qualification_exception_group", grouped))
         if isinstance(error, PrerequisiteUnavailable):
             report.user_properties.extend(
                 [
@@ -297,14 +297,15 @@ def pytest_runtest_makereport(
 
 
 def _exception_group_messages(error: BaseExceptionGroup) -> dict[str, Any]:
-    """Capture native group/cause messages, without rendered frames, SQL or locals."""
+    """Capture native messages and frame coordinates, without source, SQL or locals."""
     entries = []
     seen = set()
     omitted = 0
     remaining = 16384
+    frame_remaining = 16384
 
     def visit(value: BaseException, path: str, depth: int) -> None:
-        nonlocal omitted, remaining
+        nonlocal omitted, remaining, frame_remaining
         if id(value) in seen:
             return
         seen.add(id(value))
@@ -322,16 +323,45 @@ def _exception_group_messages(error: BaseExceptionGroup) -> dict[str, Any]:
         except UnicodeError:
             message = "exception message encoding unavailable"
             omitted += 1
-        if len(message) > remaining:
+        message_size = len(json.dumps(message).encode())
+        if message_size > remaining:
             message = "exception message exceeds capture limit"
             omitted += 1
         else:
-            remaining -= len(message)
+            remaining -= message_size
+        # Keep the innermost four actual frame coordinates. ExceptionGroup's
+        # rendered traceback does not expose these as structured pytest entries.
+        # Never retain a frame, locals or source lines in the serialized report.
+        frames = []
+        native = value.__traceback__
+        visited = 0
+        while native is not None and visited < 256:
+            frames.append(
+                dict(
+                    path=native.tb_frame.f_code.co_filename,
+                    lineno=native.tb_lineno,
+                    function=native.tb_frame.f_code.co_name,
+                )
+            )
+            frames = frames[-4:]
+            native = native.tb_next
+            visited += 1
+        if native is not None:
+            omitted += 1
+        captured_frames = []
+        for frame in frames:
+            size = len(json.dumps(frame).encode())
+            if size > frame_remaining:
+                omitted += 1
+                continue
+            frame_remaining -= size
+            captured_frames.append(frame)
         entries.append(
             dict(
                 path=path,
                 type=type(value).__module__ + "." + type(value).__qualname__,
                 message=message,
+                traceback=captured_frames,
             )
         )
         if isinstance(value, BaseExceptionGroup):
@@ -343,7 +373,7 @@ def _exception_group_messages(error: BaseExceptionGroup) -> dict[str, Any]:
             visit(value.__context__, path + ".__context__", depth + 1)
 
     visit(error, "$", 0)
-    return dict(version=1, entries=entries, omitted=omitted)
+    return dict(version=2, entries=entries, omitted=omitted)
 
 
 def pytest_runtest_logfinish(nodeid: str, location: object) -> None:

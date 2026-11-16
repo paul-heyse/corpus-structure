@@ -107,7 +107,7 @@ class UnresolvedCoverage(CoverageSummary):
 class NativePytestLocation(BaseModel):
     model_config = ConfigDict(extra="forbid")
     native_path: str
-    role: Literal["reprcrash", "reprfileloc"]
+    role: Literal["reprcrash", "reprfileloc", "exception_frame"]
     path: str | None
     lineno: int | None
     message: str | None
@@ -126,11 +126,11 @@ class NativePytestOmission(BaseModel):
 
 
 class NativePytestTraceback(BaseModel):
-    """Recorded pytest file locations, distinct from live exception observations."""
+    """Recorded native/pytest coordinates, without source text or live frames."""
 
     model_config = ConfigDict(extra="forbid")
     version: Literal[1] = 1
-    format: Literal["pytest_report_longrepr"]
+    format: Literal["pytest_report_longrepr", "pytest_report_longrepr_and_group_capture"]
     scope: Literal["structured_file_locations_and_chain_descriptions"]
     availability: Literal["available", "partial", "unavailable"]
     locations: list[NativePytestLocation]

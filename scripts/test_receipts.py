@@ -1504,7 +1504,7 @@ def _failure_diagnostic(report: dict[str, Any]) -> dict[str, Any]:
         if (
             key == "qualification_exception_group"
             and isinstance(value, dict)
-            and value.get("version") == 1
+            and value.get("version") in {1, 2}
         ):
             entries = value.get("entries", [])
             if (
@@ -1686,12 +1686,45 @@ def _native_traceback(report: dict[str, Any]) -> dict[str, Any]:
         if len(entries) > _NATIVE_LOCATION_LIMIT:
             omit(path + ".reprentries", "native entry traversal limit")
 
+    for key, capture in report.get("user_properties", []):
+        if (
+            key != "qualification_exception_group"
+            or not isinstance(capture, dict)
+            or capture.get("version") != 2
+        ):
+            continue
+        selected["format"] = "pytest_report_longrepr_and_group_capture"
+        entries = capture.get("entries")
+        if not isinstance(entries, list):
+            omit("$.qualification_exception_group", "native group entries unavailable")
+            continue
+        for index, entry in enumerate(entries[:32]):
+            path = f"$.qualification_exception_group.entries[{index}]"
+            if not isinstance(entry, dict) or not isinstance(entry.get("traceback"), list):
+                omit(path, "native group frame coordinates unavailable")
+                continue
+            for ordinal, frame in enumerate(entry["traceback"][:4]):
+                frame_path = path + f".traceback[{ordinal}]"
+                if not isinstance(frame, dict):
+                    omit(frame_path, "native group frame unavailable")
+                    continue
+                function = string(frame.get("function"), frame_path + ".function")
+                location(
+                    {**frame, "message": "in " + function if function is not None else None},
+                    frame_path,
+                    "exception_frame",
+                )
+        if capture.get("omitted"):
+            omit("$.qualification_exception_group", "native group capture omitted observations")
+
     representation = report.get("longrepr")
     if not isinstance(representation, dict):
         omit(
             "$.longrepr",
             "structured native representation unavailable; rendered text is not parsed",
         )
+        if selected["locations"]:
+            selected["availability"] = "partial"
         return selected
     location(representation.get("reprcrash"), "$.longrepr.reprcrash", "reprcrash")
     traceback(representation.get("reprtraceback"), "$.longrepr.reprtraceback")

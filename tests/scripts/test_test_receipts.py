@@ -584,6 +584,11 @@ def test_real_grouped_failure_keeps_native_children_and_cause_without_rendered_d
     assert "$.exceptions[0].exceptions[0]: builtins.RuntimeError: cleanup failed" in diagnostic
     assert "builtins.ValueError: original producer refusal" in diagnostic
     assert "SQL and parameters withheld" not in diagnostic
+    native = _native_traceback(report)
+    assert native["format"] == "pytest_report_longrepr_and_group_capture"
+    captured_frames = [row for row in native["locations"] if row["role"] == "exception_frame"]
+    assert any(row["message"] == "in test_case" and row["lineno"] == 3 for row in captured_frames)
+    assert "SQL and parameters withheld" not in json.dumps(captured_frames)
 
 
 def test_grouped_failure_capture_bounds_omit_whole_messages_without_clipping():
