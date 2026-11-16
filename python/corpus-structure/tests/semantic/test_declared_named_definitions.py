@@ -149,7 +149,8 @@ def test_declared_named_reader_keeps_actual_member_origin_and_original_role_algo
 
 
 @pytest.mark.parametrize(
-    "mutation", ["native-product", "native-block", "token-position", "availability"]
+    "mutation",
+    ["native-product", "native-block", "token-position", "availability", "source", "scope"],
 )
 def test_declared_named_reader_refuses_wrong_native_members_and_unperformed_variant(mutation):
     import json
@@ -164,12 +165,32 @@ def test_declared_named_reader_refuses_wrong_native_members_and_unperformed_vari
     elif mutation == "token-position":
         match["nodes"][0]["member_id"] = "token-0"
         product.tokens = (SimpleNamespace(start=100, end=102, sentence=0), *product.tokens[1:])
-    else:
+    elif mutation == "availability":
         body["members"] = body["members"][1:]
+    elif mutation == "source":
+        body["source"] = {"document": "another-book"}
+    else:
+        body["selectors"] = [{"scope": "another-block"}]
     with pytest.raises(ValueError):
         DeclaredNamedRules(
             (CharacterizationSnapshot(primary.semantic_id, canonical_bytes(body)),), native
         ).decode(product)
+
+
+@pytest.mark.parametrize("state", ["available", "unavailable", None])
+def test_examined_empty_named_variant_remains_distinct_from_unavailable_or_unperformed(state):
+    import json
+
+    _, native, primary, product = population()
+    body = json.loads(primary.content)
+    body["members"] = body["members"][:1] if state is not None else []
+    if state is not None:
+        body["members"][0]["body"]["named_match"]["status"] = state
+    result, references, nominations, _ = DeclaredNamedRules(
+        (CharacterizationSnapshot(primary.semantic_id, canonical_bytes(body)),), native
+    ).decode(product)
+    assert result.matches == () and references == {} and nominations == {}
+    assert result.availability == (() if state is None else (("defining", "active_as", state),))
 
 
 def test_named_definition_acquisition_compiles_without_model_provider_dependencies(tmp_path):

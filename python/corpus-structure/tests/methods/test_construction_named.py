@@ -166,9 +166,17 @@ def test_named_rules_execute_upstream_once_and_replay_exact_roles_without_nlp(
         RetainedNamedRules({npin: retained, cpin: produced}).match(product, rules=(changed,))
 
 
-@pytest.mark.parametrize("article,status", [("the", "resolved"), ("a", "unresolved")])
+@pytest.mark.parametrize(
+    "article,status,scenario",
+    [
+        ("the", "resolved", "unique"),
+        ("a", "unresolved", "indefinite"),
+        ("the", "unresolved", "competing"),
+        ("the", "unresolved", "separate_piece"),
+    ],
+)
 def test_primary_naming_nomination_retains_exact_antecedent_and_prior_sentence_context(
-    article, status
+    article, status, scenario
 ):
     from spacy.lang.en import English
     from spacy.tokens import Doc
@@ -230,8 +238,15 @@ def test_primary_naming_nomination_retains_exact_antecedent_and_prior_sentence_c
         "NOUN",
         "PUNCT",
     ]
+    if scenario == "competing":
+        # The authored dependency columns contain two identical restricted
+        # nominal signatures; choosing the first equal wording is invalid.
+        words[6:8] = ["function", "f"]
+        heads[6:8] = [2, 6]
+        deps[6:8] = ["conj", "appos"]
+        pos[6:8] = ["NOUN", "NOUN"]
     morphs = [
-        "VerbForm=Fin" if i in {0, 7} else "Number=Sing" if p == "NOUN" else ""
+        "VerbForm=Fin" if p == "VERB" and i in {0, 7} else "Number=Sing" if p == "NOUN" else ""
         for i, p in enumerate(pos)
     ]
     doc = Doc(
@@ -245,7 +260,12 @@ def test_primary_naming_nomination_retains_exact_antecedent_and_prior_sentence_c
         morphs=morphs,
     )
     tokens = tuple(
-        SimpleNamespace(start=t.idx, end=t.idx + len(t.text), piece_indices=(0,)) for t in doc
+        SimpleNamespace(
+            start=t.idx,
+            end=t.idx + len(t.text),
+            piece_indices=(1 if scenario == "separate_piece" and t.i >= 9 else 0,),
+        )
+        for t in doc
     )
     product = SimpleNamespace(
         tokens=tokens,

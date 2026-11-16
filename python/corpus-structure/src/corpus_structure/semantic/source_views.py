@@ -14,13 +14,11 @@ from corpus_structure.core.method import SourceViewDraft, SourceViewRef
 
 from .identity import canonical_bytes
 from .metadata import table
-from .product_reference import ProductReference
 
 if TYPE_CHECKING:
     from corpus_structure.ingest.sentences import SentenceConfig, TextLayout
     from corpus_structure.methods.math.native_topology import NativeTopology
 
-    from .types import PreparedRelease
 
 
 @dataclass(frozen=True)
@@ -84,128 +82,6 @@ class PreparedSourceView:
         if self.integrated_context is not None:
             value["integrated_context_json"] = canonical_bytes(self.integrated_context).decode()
         return value
-
-
-def _ref(row) -> SourceViewRef:
-    return SourceViewRef(
-        row["id"],
-        row["key"],
-        row["document_id"],
-        ProductReference(
-            row["native_task_id"], row["native_product_key"], row["native_content_digest"]
-        ),
-        row["section_pointer"],
-        row["membership"],
-        row["projection_digest"],
-        row["recipe_digest"],
-        row["analysis_eligible"],
-    )
-
-
-def selected_source_views(
-    conn: Connection, run_id: int, *, read_budget: Any = None, source_view_id: int | None = None
-) -> tuple[SourceViewRef, ...]:
-    view, selection = table("kb.source_view"), table("ops.run_source_view")
-    newer = selection.alias("newer")
-    statement = (
-        select(
-            *(
-                view.c[name]
-                for name in (
-                    "id",
-                    "key",
-                    "document_id",
-                    "native_task_id",
-                    "native_product_key",
-                    "native_content_digest",
-                    "section_pointer",
-                    "membership",
-                    "projection_digest",
-                    "recipe_digest",
-                    "analysis_eligible",
-                )
-            )
-        )
-        .join(selection, selection.c.source_view_id == view.c.id)
-        .where(
-            selection.c.run_id == run_id,
-            ~select(newer.c.source_view_id)
-            .where(newer.c.run_id == run_id, newer.c.supersedes_source_view_id == view.c.id)
-            .exists(),
-        )
-        .order_by(selection.c.position, view.c.id)
-    )
-    if source_view_id is not None:
-        statement = statement.where(view.c.id == source_view_id)
-    if read_budget is not None:
-        read_budget.preflight(conn, statement)
-    refs = []
-    for row in conn.execute(statement).mappings():
-        if read_budget is not None:
-            read_budget.value(dict(row))
-        refs.append(_ref(row))
-    return tuple(refs)
-
-
-def load_source_view(
-    conn: Connection,
-    source_view_id: int,
-    *,
-    analysis: bool = True,
-    analysis_context: PreparedRelease | None = None,
-    read_budget: Any = None,
-) -> PreparedSourceView:
-    """Keep original source custody and bind new analysis to its consuming release."""
-    views = table("kb.source_view")
-    statement = select(views).where(views.c.id == source_view_id)
-    if read_budget is not None:
-        read_budget.preflight(conn, statement)
-    row = conn.execute(statement).mappings().one()
-    reference = _ref(row)
-    projection = row["projection"]
-    if read_budget is not None:
-        read_budget.value(projection)
-    pointers = tuple(dict.fromkeys([*projection["items"], *projection["ancestors"]]))
-    from .pdf_record_reader import published_record_reader
-    from .published_document import PublishedDocumentBinding
-    from .releases import open_release
-
-    projection_context = open_release(conn, row["release_id"])
-    budget_options = {} if read_budget is None else {"read_budget": read_budget}
-    reader = published_record_reader(
-        conn, reference.native_product, projection_context=projection_context, **budget_options
-    )
-    if reader is None:
-        raise ValueError("current source view has no published record binding")
-    binding = PublishedDocumentBinding.from_revision(reference.native_product, reader.revision)
-    binding.require_placement(row)
-    native = reader.selected_native_items(pointers)
-    from .analysis_contracts import prepare_text_policy
-
-    policy = prepare_text_policy(analysis_context or projection_context) if analysis else None
-    from .pdf_storage import integrated_source_context
-
-    integrated = integrated_source_context(
-        conn,
-        task_id=reference.native_product.task_id,
-        product_key=reference.native_product.product_key,
-        content_digest=reference.native_product.content_digest,
-        pointers=projection["items"],
-        section_pointer=reference.section_pointer,
-        membership=reference.membership,
-        **budget_options,
-    )
-    return PreparedSourceView(
-        reference,
-        projection["text"],
-        tuple(projection["pieces"]),
-        tuple(native[p] for p in projection["items"]),
-        tuple(native[p] for p in projection["ancestors"]),
-        projection["health"],
-        policy,
-        analysis,
-        integrated,
-    )
 
 
 def store_source_view(

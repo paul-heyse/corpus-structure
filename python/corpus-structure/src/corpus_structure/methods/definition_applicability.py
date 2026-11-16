@@ -8,9 +8,7 @@ independent assessment or publication standing.
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping
-from dataclasses import asdict, dataclass
-from hashlib import sha256
-from itertools import pairwise
+from dataclasses import dataclass
 from typing import Any, Literal, Protocol, Self
 
 from pydantic import Field, JsonValue, model_validator
@@ -21,10 +19,8 @@ from corpus_structure.methods.predicate_frames import (
     FrameCue,
     PredicateFrameResult,
     interpretation_recipe,
-    predicate_frames,
 )
 from corpus_structure.semantic.contextual_links import RetainedRelationshipDecisionRef
-from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.structural_products import (
     ApplicabilityPremise,
     DefinitionBasisWitness,
@@ -667,191 +663,6 @@ def components_from_following_display(
             )
             break
     return tuple(found)
-
-
-@dataclass(frozen=True)
-class NamedDefinitionResult:
-    components: tuple[LocatedDefinitionComponent, ...]
-    available: bool
-    operations: tuple[dict[str, Any], ...]
-    reason: str
-
-
-def retained_annotation_components(
-    reader, inputs, passage, cfg, *, retained=None, witness_policy: Mapping[str, Any]
-):
-    from corpus_structure.ingest.annotations import AnnotationProfile
-    from corpus_structure.ingest.sentences import SentenceConfig
-    from corpus_structure.semantic.constructions.named import RetainedNamedRules
-
-    if retained is None:
-        retained = reader.structural_source_annotations(
-            inputs, passage.source_ref, AnnotationProfile(SentenceConfig(exclude=("ner",)))
-        )
-    frame, products, errors = retained.source, retained.annotations, retained.errors
-    if errors:
-        return NamedDefinitionResult((), False, (), "; ".join(errors))
-    layers = {
-        pin: report
-        for product in products
-        for pin, report in getattr(product, "primary_layers", {}).items()
-    }
-    if not layers:
-        return NamedDefinitionResult(
-            (), False, (), "Exact retained primary named-rule inputs are unavailable."
-        )
-    named = RetainedNamedRules(layers)
-    qualified_rules = (
-        witness_policy.get("rules", {})
-        if witness_policy.get("scope") == _DEFINITION_SCOPE["version"]
-        and cfg.term_role == witness_policy.get("term_role")
-        and cfg.content_role == witness_policy.get("content_role")
-        else {}
-    )
-    reviewed = {
-        (rule.rule, rule.variant)
-        for rule in cfg.annotation_rules
-        if qualified_rules.get(f"{rule.rule}/{rule.variant}")
-        == sha256(canonical_bytes(rule.model_dump(mode="json"))).hexdigest()
-    }
-    found, operations = [], []
-    display_spans = tuple(
-        span
-        for product in products
-        for span in product.display_spans
-        if passage.start <= span[0] < span[1] <= passage.end
-    )
-    for product in products:
-        if product.block_start >= passage.end or product.block_end <= passage.start:
-            continue
-        try:
-            result = named.match(product, rules=cfg.annotation_rules)
-            references = named.references(product, rules=cfg.annotation_rules)
-            nominations = named.nominations(product, rules=cfg.annotation_rules)
-        except ValueError as error:
-            return NamedDefinitionResult((), False, tuple(operations), str(error))
-        matches = tuple(
-            match
-            for match in result.matches
-            if all(passage.start <= start < end <= passage.end for start, end in match.extents)
-        )
-        scopes = (
-            definition_scopes(
-                matches, predicate_frames(frame.text, (product,)), content_role=cfg.content_role
-            )
-            if matches
-            else {}
-        )
-        antecedents = {}
-        for match in matches:
-            nomination = nominations.get(match, {}).get(cfg.content_role)
-            if (
-                nomination is None
-                or nomination.status != "resolved"
-                or not nomination.antecedent_extents
-            ):
-                continue
-            extents = nomination.antecedent_extents
-            first, last = extents[0][0], extents[-1][1]
-            if (
-                nomination.context_start is not None
-                and passage.start <= nomination.context_start <= first < last <= passage.end
-                and all(a <= b for (_x, a), (b, _y) in pairwise(extents))
-            ):
-                antecedents[match] = LocatedDefinitionSpan(
-                    passage_id=passage.passage_id,
-                    start=first,
-                    end=last,
-                    text=passage.text[first - passage.start : last - passage.start],
-                )
-        for rule, variant, state in result.availability:
-            selected = [
-                match for match in matches if (match.rule, match.variant) == (rule, variant)
-            ]
-            operations.append(
-                dict(
-                    passage_id=passage.passage_id,
-                    source_ref=passage.source_ref,
-                    annotation_task_id=retained.annotation_task_id,
-                    block_id=product.block_id,
-                    dependency_digest=product.dependency_digest,
-                    rule=rule,
-                    variant=variant,
-                    availability=state,
-                    matched_count=len(selected),
-                    matches=[
-                        dict(
-                            nodes=match.nodes,
-                            roles=[asdict(role) for role in match.roles],
-                            definition_scope=asdict(scopes[match]) if match in scopes else None,
-                            **(
-                                {"content_antecedent": antecedents[match].model_dump(mode="json")}
-                                if match in antecedents
-                                else {}
-                            ),
-                        )
-                        for match in selected
-                    ],
-                )
-            )
-        complete_witness_columns = {
-            column.attribute for column in product.availability if column.status == "complete"
-        } >= _WITNESS_COLUMNS
-        witnesses = {
-            match: DefinitionBasisWitness(
-                annotation_task_id=retained.annotation_task_id,
-                block_id=product.block_id,
-                dependency_digest=product.dependency_digest,
-                rule=match.rule,
-                variant=match.variant,
-                nodes=match.nodes,
-                primary_match=references[match],
-                primary_scope=scopes[match].primary_scope,
-            )
-            for match in matches
-            if retained.annotation_task_id is not None
-            and complete_witness_columns
-            and (match.rule, match.variant) in reviewed
-            and match in scopes
-            and scopes[match].primary_scope
-            and (
-                cfg.content_role not in nominations.get(match, {})
-                or nominations[match][cfg.content_role].demonstrative is False
-            )
-        }
-        found.extend(
-            components_from_named_matches(
-                passage,
-                matches,
-                scopes=scopes,
-                term_role=cfg.term_role,
-                content_role=cfg.content_role,
-                antecedents=antecedents,
-                witnesses=witnesses,
-            )
-        )
-        found.extend(
-            components_from_following_display(
-                passage,
-                matches,
-                display_spans,
-                scopes=scopes,
-                term_role=cfg.term_role,
-                witnesses=witnesses,
-            )
-        )
-    available = any(operation["availability"] == "available" for operation in operations)
-    return NamedDefinitionResult(
-        tuple(found),
-        available,
-        tuple(operations),
-        "Exact retained primary named-rule assignments projected onto the selected domain passage."
-        if available
-        else (
-            "No selected retained linguistic rule operation is executable; "
-            "no source absence is established."
-        ),
-    )
 
 
 _DEFINITION_WINDOW_CHARS = 1536
