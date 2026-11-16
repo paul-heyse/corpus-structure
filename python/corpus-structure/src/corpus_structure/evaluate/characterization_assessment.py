@@ -16,6 +16,7 @@ from typing import Any
 
 from corpus_structure.semantic.assessment_graph_contract import (
     ASSESSMENT_COLLECTIONS,
+    ASSESSMENT_NATIVE_COLLECTIONS,
     ASSESSMENT_NODE_KINDS,
     ASSESSMENT_RELATION_KINDS,
 )
@@ -96,6 +97,10 @@ _SEMANTIC_FIELDS = {
     "choices": {"collection", "compatibility", "family"},
     "choice_member": {"collection"},
     "named_binding": {"collection", "role", "demonstrative", "antecedent_status", "status"},
+    **{
+        kind: {"collection", "record_type", "block_id", "ordinal", "start", "end"}
+        for kind in ASSESSMENT_NATIVE_COLLECTIONS
+    },
     "coverage": {
         "collection",
         "family",
@@ -365,10 +370,13 @@ class LayerProjection:
     def layer(self, pin):
         key = pin_key(pin)
         if key not in self.layers:
-            body = self.load(pin)
+            try:
+                body = self.load(pin)
+            except KeyError as error:
+                raise ReferenceError("graph witness product is absent from selected closure") from error
             self.layers[key] = body
             index = {}
-            for collection in COLLECTIONS:
+            for collection in (*COLLECTIONS, *ASSESSMENT_NATIVE_COLLECTIONS):
                 for row in body.get(collection, ()):
                     local = (
                         "@coverage:" + row["family"]
@@ -389,6 +397,53 @@ class LayerProjection:
                             self.choice_groups[(*key, member["local_id"])] = row["local_id"]
             self.indexes[key] = index
         return self.layers[key]
+
+    def native_block(self, owner, reference):
+        """Resolve a physical native block through its declared semantic packet."""
+        from corpus_structure.semantic.sentence_products import _id
+
+        if (
+            not isinstance(reference, Mapping)
+            or set(reference) != {"product_id", "block_id"}
+            or not isinstance(reference["block_id"], str)
+            or not reference["block_id"]
+        ):
+            raise ReferenceError("native block witness requires its typed physical block reference")
+        pin = {"product_id": reference["product_id"]}
+        pin_key(pin)
+        source = self.layer(owner)
+        if pin not in source.get("dependencies", ()):
+            raise ReferenceError("native block witness is outside declared product dependencies")
+        native = self.layer(pin)
+        if (
+            not {"source", "selectors"} <= source.keys()
+            or not {"source", "selectors"} <= native.keys()
+            or source["source"] != native["source"]
+            or source["selectors"] != native["selectors"]
+        ):
+            raise ReferenceError("native block witness changes original source or analyzed scope")
+        blocks = [
+            row for row in native.get("native_block", ())
+            if row["block_id"] == reference["block_id"]
+        ]
+        if len(blocks) != 1:
+            raise ReferenceError("native block witness lacks one exact declared block member")
+        (block,) = blocks
+        if block["local_id"] != _id(
+            native["source"], "block", block["block_id"], block["start"], block["end"]
+        ):
+            raise ReferenceError("native block witness changes its declared member identity")
+        return pin, block
+
+    def named_token(self, reference, pin, block):
+        target_pin, identifier = _graph_member(reference)
+        if target_pin != pin:
+            raise ReferenceError("named token witness leaves its original native product")
+        self.layer(target_pin)
+        pair = self.indexes[pin_key(target_pin)].get(identifier)
+        if pair is None or pair[0] != "native_token" or pair[1]["block_id"] != block["block_id"]:
+            raise ReferenceError("named token witness leaves its exact declared native block")
+        return target_pin, identifier
 
     def project(self, output, *, include_graph=True):
         output_key(output)
@@ -475,13 +530,14 @@ class LayerProjection:
                     for position, target in enumerate(data):
                         target_pin, target_member = _graph_member(target)
                         edge(name, target_member, target_pin, position=position)
-                elif name == "head" and collection == "named_binding":
-                    target_pin, target_member = _graph_member(data)
-                    edge(name, target_member, target_pin)
-                elif name in {"members", "antecedent_members"} and collection == "named_binding":
-                    for position, target in enumerate(data):
-                        target_pin, target_member = _graph_member(target)
-                        edge(name, target_member, target_pin, position=position)
+                elif name in {"head", "members", "antecedent_members"} and collection == "named_binding":
+                    match = self.indexes[key][identity[1]][1]["named_match"]
+                    native_pin, block = self.native_block(current_pin, match["native_container"])
+                    targets = ((None, data),) if name == "head" else enumerate(data)
+                    for position, target in targets:
+                        target_pin, target_member = self.named_token(target, native_pin, block)
+                        fields = {} if position is None else {"position": position}
+                        edge(name, target_member, target_pin, **fields)
                 elif name in {"native_token", "native_mention", "native_edu"} and witness_closure:
                     detail = dict(data)
                     for field in ("container", "sentence"):
@@ -492,19 +548,13 @@ class LayerProjection:
                 elif name == "named_match":
                     match = dict(data)
                     container = match.pop("native_container", None)
-                    if container is not None:
-                        edge(
-                            "named_match.native_container",
-                            _graph_member(container)[1],
-                            _graph_member(container)[0],
-                        )
+                    if container is None:
+                        raise ReferenceError("named witness lacks its actual native block reference")
+                    native_pin, block = self.native_block(current_pin, container)
+                    edge("named_match.native_container", block["local_id"], native_pin)
                     for position, target in enumerate(match.pop("nodes", ())):
-                        edge(
-                            "named_match.nodes",
-                            _graph_member(target)[1],
-                            _graph_member(target)[0],
-                            position=position,
-                        )
+                        target_pin, target_member = self.named_token(target, native_pin, block)
+                        edge("named_match.nodes", target_member, target_pin, position=position)
                     for position, _ in enumerate(match.pop("bindings", ())):
                         edge(
                             "named_match.binding",
