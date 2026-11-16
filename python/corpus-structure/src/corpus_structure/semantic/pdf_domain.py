@@ -23,16 +23,6 @@ def _pdf_action(operation: str, owner: str, symbol: str) -> bool:
     return (
         owner.startswith(("semantic.pdf_", "ingest.pdf"))
         or owner == "orchestrate.pdf_streaming"
-        # This genuine shared reader owns the existing PDF projection/context calls.
-        or (
-            owner == "semantic.source_views"
-            and {
-                "read_native_source": "read_native_source",
-                "read_source_view": "load_source_view",
-                "publish_source_view": "store_source_view",
-            }.get(operation)
-            == symbol
-        )
     )
 
 

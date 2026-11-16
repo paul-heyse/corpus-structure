@@ -37,6 +37,18 @@ def model(domain):
 
 
 def test_pdf_domain_projects_real_actions_and_native_schema_without_legacy_execution(domain):
+    read = domain.require_operation("read_native_source")
+    assert read["implementation"] == {
+        "owner": "semantic.pdf_record_reader",
+        "symbol": "published_record_reader",
+        "version": "1",
+    }
+    legacy = json.loads(domain.content)
+    legacy["actions"]["read_native_source"]["implementation"].update(
+        owner="semantic.source_views", symbol="read_native_source"
+    )
+    with pytest.raises(ValueError, match="foreign or relabeled owner"):
+        PdfDomainContract(canonical_bytes(legacy), domain.sources)
     action = domain.require_operation("retain_pdf_original")
     assert action["implementation"]["owner"] == "semantic.pdf_contracts"
     action = domain.require_operation("begin_pdf_build")

@@ -647,8 +647,8 @@ actions:
     symbol: ops.read_pdf_selected_source_events
   id: read_native_source
   implementation:
-    owner: semantic.source_views
-    symbol: read_native_source
+    owner: semantic.pdf_record_reader
+    symbol: published_record_reader
     version: '1'
   outcomes:
   - source_ready
