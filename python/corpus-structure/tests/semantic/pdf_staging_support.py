@@ -75,8 +75,8 @@ class _PdfRequest:
 class _PrivatePdfBuildFactory:
     project_id = _PROJECT
 
-    def __init__(self, kernel: Kernel, writer, original: bytes, recipe: bytes, key: str):
-        self.kernel, self.writer = kernel, writer
+    def __init__(self, kernel: Kernel, writer, admitter, original: bytes, recipe: bytes, key: str):
+        self.kernel, self.writer, self.admitter = kernel, writer, admitter
         self.original, self.recipe, self.key = original, recipe, key
         self.requests: dict[str, _PdfRequest] = {}
 
@@ -214,7 +214,7 @@ class _PrivatePdfBuildFactory:
             self.writer,
             demand,
             source_root=ROOT,
-            admission_engine=self.kernel.engine,
+            admission_engine=self.admitter,
             project_id=_PROJECT,
             database_capacity=6,
         )
@@ -312,6 +312,7 @@ def _private_build_factory(
     tmp_path,
     request,
     *,
+    admission_engine,
     kernel_recipe=None,
     source_kind=None,
 ):
@@ -381,6 +382,7 @@ def _private_build_factory(
     return _PrivatePdfBuildFactory(
         kernel,
         commit_writer_engine,
+        admission_engine,
         original,
         recipe_bytes,
         document_key(_PROJECT, "file:pdf-stage", sha256(original).hexdigest()),
@@ -388,13 +390,19 @@ def _private_build_factory(
 
 
 @pytest.fixture
-def create_private_build(commit_db_engine, commit_writer_engine, tmp_path, request):
-    return _private_build_factory(commit_db_engine, commit_writer_engine, tmp_path, request)
+def create_private_build(commit_db_engine, commit_writer_engine, commit_admitter_engine, tmp_path, request):
+    return _private_build_factory(
+        commit_db_engine, commit_writer_engine, tmp_path, request,
+        admission_engine=commit_admitter_engine,
+    )
 
 
 @pytest.fixture
-def private_build(commit_db_engine, commit_writer_engine, tmp_path, request):
-    return _private_build_factory(commit_db_engine, commit_writer_engine, tmp_path, request)()
+def private_build(commit_db_engine, commit_writer_engine, commit_admitter_engine, tmp_path, request):
+    return _private_build_factory(
+        commit_db_engine, commit_writer_engine, tmp_path, request,
+        admission_engine=commit_admitter_engine,
+    )()
 
 
 def native_batch(build, text_value="first"):

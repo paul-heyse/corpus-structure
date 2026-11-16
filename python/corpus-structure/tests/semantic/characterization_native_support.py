@@ -148,7 +148,7 @@ class CurrentCharacterization:
             self.factory.writer,
             demand,
             source_root=ROOT,
-            admission_engine=self.kernel.engine,
+            admission_engine=self.factory.admitter,
             project_id=self.factory.project_id,
             database_capacity=6,
             policy=policy or CharacterizationExecutionPolicy(workers=1, max_submissions=1),
@@ -211,6 +211,7 @@ def characterization_source(
     commit_db_engine,
     commit_writer_engine,
     commit_reader_engine,
+    commit_admitter_engine,
     tmp_path,
     request,
 ):
@@ -219,6 +220,7 @@ def characterization_source(
         commit_writer_engine,
         tmp_path,
         request,
+        admission_engine=commit_admitter_engine,
         kernel_recipe=current_characterization_recipe,
         source_kind="characterization_pdf",
     )
