@@ -173,13 +173,16 @@ BEGIN
  AND request_id=episode.request_id AND generation=episode.generation;
  evidence:=intent.payload->'execution_evidence';
  IF (intent.producer_task_id,intent.producer_attempt,intent.runtime_id) IS DISTINCT FROM
- (episode.producer_task_id,episode.producer_attempt,episode.runtime_id)
- OR evidence->>'request_id' IS DISTINCT FROM episode.request_id
+ (episode.producer_task_id,episode.producer_attempt,episode.runtime_id) THEN RETURN false; END IF;
+ -- Native scoring is recomputed and sealed by the completion guard. Its actual
+ -- task/runtime fences are the immutable intent columns, not a labelled thread
+ -- result or a manufactured CPU execution envelope.
+ IF r.operation_id<>'retrieve.contextual_scores/declared' AND (evidence->>'request_id' IS DISTINCT FROM episode.request_id
  OR (evidence->>'generation')::integer IS DISTINCT FROM episode.generation
  OR (evidence->>'task_id')::bigint IS DISTINCT FROM intent.producer_task_id
  OR (evidence->>'attempt')::integer IS DISTINCT FROM intent.producer_attempt
  OR evidence->>'holder' IS DISTINCT FROM intent.producer_holder
- OR evidence->>'runtime_id' IS DISTINCT FROM intent.runtime_id THEN RETURN false; END IF;
+ OR evidence->>'runtime_id' IS DISTINCT FROM intent.runtime_id) THEN RETURN false; END IF;
  -- A later generation may rebind the request. Producer checking below uses the
  -- sealed episode's release/runtime/recipe and never today's input binding.
  r.release_id:=episode.release_id; r.runtime_id:=episode.runtime_id;
