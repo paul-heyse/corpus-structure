@@ -413,6 +413,7 @@ classes:
       page: {range: integer, required: true}
   Context:
     attributes:
+      subject_definition: {range: string, required: true}
       subject: {range: string, required: true}
       original_source: {range: string, required: true}
       analyzed_scope: {range: Scope, required: true, inlined: true}
@@ -518,7 +519,12 @@ def _original_recipe(*, pdf_capability):
         "execution:original-pdf" if pdf_capability else "execution:original-document"
     )
     operation = source_declaration()
-    operation.update(id="urn:original-fact-test:consume", behavior="source-value-consumer-v1")
+    operation.update(
+        id="urn:original-fact-test:consume",
+        behavior="source-value-consumer-v1",
+        subject="original-document",
+        subject_definition={"id": "original-document", "identifier_kind": "string", "scope": "original-document"},
+    )
     operation["roles"][0].update(maximum=1, collection="scalar")
     if pdf_capability:
         from corpus_structure.semantic.pdf_domain import CONTRACT, HELPER_CONTRACT, pdf_helper_asset

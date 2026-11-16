@@ -130,6 +130,7 @@ class CurrentPdfSource:
     demand_id: str
     document_key: str
     original: bytes
+    sections: tuple[str, ...]
 
     def publication(self, connection):
         from corpus_structure.serve.selected_pdf import SelectedPdfSourceReference
@@ -337,7 +338,7 @@ def _current_pdf_source(
             database_capacity=6,
         )
         assert result.receipt_count == 2
-        yield CurrentPdfSource(kernel, demand, key, original)
+        yield CurrentPdfSource(kernel, demand, key, original, tuple(sections))
 
 
 @pytest.fixture
@@ -497,9 +498,13 @@ def current_consumer_request(source, kernel, targets, *, discover=False):
     selections = _default_profile_selections(kernel.model, targets, {})
     original_sources, discovery = {}, ()
     if discover:
-        producer = "source.selected_views/discovery"
+        # Follow the actual source frontdoor: this demand discovers the explicitly
+        # chosen PDF sections. Retained-view discovery alone cannot import another
+        # demand's unpinned view publications.
+        producer = "source.pdf_views/discovery"
         selections[producer] = DemandOperationSelection(
-            operation=producer, parameters={"complete": True}
+            operation=producer,
+            parameters={"sections": list(source.sections), "membership": "descendants"},
         )
         graph = kernel.model.projection_graph(
             "selected-dependencies",
@@ -507,8 +512,8 @@ def current_consumer_request(source, kernel, targets, *, discover=False):
                 (name, value.selected_dependencies) for name, value in selections.items()
             ),
         )
-        required = set(targets)
-        for target in targets:
+        required = set(targets) | {producer}
+        for target in tuple(required):
             required.update(graph.closure((target,)))
         relations = tuple(
             relation

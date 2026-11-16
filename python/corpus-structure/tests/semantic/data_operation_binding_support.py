@@ -579,7 +579,7 @@ def discover(
                 "doc",
                 root["original_source"],
                 canonical_bytes(root["analyzed_scope"]),
-                subject_definition="document",
+                subject_definition=ddo_kernel["model"].operation("urn:discover").subject,
             ),
         )
         attached = storage.attach_data_request(
@@ -612,7 +612,9 @@ def discover(
         {
             "member_id": f"m{value}",
             "kind_contract": sample_kind,
-            "context": (
+            "context": {
+                "subject_definition": ddo_kernel["model"].operation("urn:child").subject,
+                **(
                 member_body_contexts[position]
                 if member_body_contexts is not None
                 else member_contexts[position]
@@ -622,7 +624,8 @@ def discover(
                     "original_source": "source:test",
                     "analyzed_scope": scope,
                 }
-            ),
+                ),
+            },
             "body": {"value": value, "document_subject": "doc"},
         }
         for position, value in enumerate(values)
@@ -653,7 +656,10 @@ def discover(
                                     "members": [
                                         {
                                             **packet,
-                                            "context": member_contexts[position]
+                                            "context": {
+                                                "subject_definition": ddo_kernel["model"].operation("urn:child").subject,
+                                                **member_contexts[position],
+                                            }
                                             if member_contexts is not None
                                             else packet["context"],
                                             "body": semantic_value(packet["body"]),

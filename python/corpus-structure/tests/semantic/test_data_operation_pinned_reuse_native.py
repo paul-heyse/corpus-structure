@@ -184,7 +184,7 @@ def test_native_explicit_retained_pin_crosses_demands_without_hidden_production(
                 "trust": json.dumps(snapshot["trust_snapshot"]),
                 "read": snapshot["read_id"],
                 "subject": "focus:A",
-                "source": "source:A",
+                "source": json.dumps("source:A"),
                 "scope": '{"focus":true}',
             },
         )

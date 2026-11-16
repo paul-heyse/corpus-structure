@@ -113,7 +113,7 @@ def produce_source_reports(source, kernel, target, *, text):
         "https://corpus-structure.dev/semantic/data-operation-source/DdoSelectedNativeSource",
         "kind",
     ]
-    (original,) = [
+    originals = [
         item
         for item in products
         if item.row["kind_contract"] == contract
@@ -121,6 +121,12 @@ def produce_source_reports(source, kernel, target, *, text):
         and item.body["source"]["section_pointer"] == "#/groups/0"
         and item.body["source"]["membership"] == "descendants"
     ]
+    assert len(originals) == 1, [
+        (item.row["kind_contract"], item.body.get("source", {}).get("section_pointer"), item.body.get("text", "")[:80])
+        for item in products
+        if isinstance(item.body, dict)
+    ]
+    (original,) = originals
     return retained, original, products, pending
 
 

@@ -212,4 +212,4 @@ def companion_source(source, directory, monkeypatch, rows):
         database_capacity=6,
     )
     assert result.receipt_count == 2
-    return CurrentPdfSource(kernel, retained["demand_id"], key, original)
+    return CurrentPdfSource(kernel, retained["demand_id"], key, original, ())
