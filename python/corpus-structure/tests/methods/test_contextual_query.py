@@ -10,12 +10,16 @@ from corpus_structure.methods.contextual_embeddings import (
     ContextInput,
     render_context,
 )
-from corpus_structure.methods.contextual_query import (DeclaredQueryContextBinding, DeclaredQueryContextSelection, resolve_query_contexts)
-from corpus_structure.semantic.declared_formal_readings import DeclaredFormalInventory
-from corpus_structure.semantic.data_product_reference import DataProductReference
-from corpus_structure.semantic.source_contexts import PreparedNativeSources
+from corpus_structure.methods.contextual_query import (
+    DeclaredQueryContextBinding,
+    DeclaredQueryContextSelection,
+    resolve_query_contexts,
+)
 from corpus_structure.semantic.contributions import occurrence_identity
+from corpus_structure.semantic.data_product_reference import DataProductReference
+from corpus_structure.semantic.declared_formal_readings import DeclaredFormalInventory
 from corpus_structure.semantic.identity import canonical_bytes
+from corpus_structure.semantic.source_contexts import PreparedNativeSources
 from methods.contextual_query_support import (
     POINTER as POINTER,
 )
@@ -40,9 +44,15 @@ def resolve(recipe, layers, reference, focal, *, frame=None, pointer=POINTER):
     frame = frame or source()
     focal_anchor = anchor(focal, frame=frame, pointer=pointer)
     occurrence = occurrence_identity((focal_anchor,))
-    selection = DeclaredQueryContextSelection(recipe, (DeclaredQueryContextBinding(occurrence, reference),))
+    selection = DeclaredQueryContextSelection(
+        recipe, (DeclaredQueryContextBinding(occurrence, reference),)
+    )
     return resolve_query_contexts(
-        selection, layers, [dict(occurrence_id=occurrence, anchors=[focal_anchor])], frame, preparation=PreparedNativeSources((frame,))
+        selection,
+        layers,
+        [dict(occurrence_id=occurrence, anchors=[focal_anchor])],
+        frame,
+        preparation=PreparedNativeSources((frame,)),
     )[occurrence]
 
 

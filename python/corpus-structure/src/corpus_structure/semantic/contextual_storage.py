@@ -8,8 +8,16 @@ from typing import Any
 
 from pydantic import TypeAdapter
 
-from corpus_structure.methods.contextual_embeddings import EncodedVector, numeric_identity, validate_vector
-from corpus_structure.semantic.contextual_retrieval import CandidateList, FrozenInventory, TargetRepresentation
+from corpus_structure.methods.contextual_embeddings import (
+    EncodedVector,
+    numeric_identity,
+    validate_vector,
+)
+from corpus_structure.semantic.contextual_retrieval import (
+    CandidateList,
+    FrozenInventory,
+    TargetRepresentation,
+)
 
 
 @dataclass(frozen=True)

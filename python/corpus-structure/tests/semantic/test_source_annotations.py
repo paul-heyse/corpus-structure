@@ -26,9 +26,9 @@ from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.sentence_products import (
     _blocks,
     _detach_annotation_block,
-    source_annotation_packets,
     sentence_operation_sources,
     sentence_product_inputs,
+    source_annotation_packets,
     source_annotation_rows,
     spacy_family_coverage,
     validate_source_annotations,
@@ -181,10 +181,14 @@ def test_one_annotation_population_preserves_existing_payload_and_compact_manife
     assert product.value.model_dump(mode="json")["outcome"] == "partial"
     kinds = [packet["body"]["record_type"] for packet in value["members"]]
     assert {kind: kinds.count(kind) for kind in set(kinds)} == {
-        "native_block": 1, "native_token": 4, "native_sentence": 1, "manifest": 1,
+        "native_block": 1,
+        "native_token": 4,
+        "native_sentence": 1,
+        "manifest": 1,
     }
-    manifest = next(packet for packet in value["members"]
-                    if packet["body"]["record_type"] == "manifest")
+    manifest = next(
+        packet for packet in value["members"] if packet["body"]["record_type"] == "manifest"
+    )
     assert set(manifest["body"]) == {
         "record_type",
         "source",
@@ -327,7 +331,9 @@ def test_current_native_columns_restore_whole_doc_without_pipeline_and_preserve_
 
     prepared, model, configuration, _selection = acquired
     source, value = detached
-    native = validate_source_annotations(prepared, model, value, source, configuration=configuration)
+    native = validate_source_annotations(
+        prepared, model, value, source, configuration=configuration
+    )
     monkeypatch.setattr(
         annotations, "pipeline", lambda *_: pytest.fail("retained replay invoked native model")
     )

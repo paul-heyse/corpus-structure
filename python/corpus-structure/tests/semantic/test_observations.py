@@ -9,8 +9,8 @@ from pydantic import BaseModel
 
 from corpus_structure.core.method import ObservationDraft, UnitRef, UnitResult
 from corpus_structure.core.vocab import ObservationKind, ObservationOutcome, TaskUnitType
-from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic import PreparedRelease, SourceArtifact, SourceBundle, prepare_release
+from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.observations import (
     bind_result,
     observation_inputs,
@@ -275,23 +275,40 @@ def test_nested_released_schema_uses_each_exact_release_constraint():
     def boundary(minimum):
         schema = yaml.safe_load((model_path / "observations.yaml").read_bytes())
         schema["classes"]["DmcNestedDetail"] = {
-            "attributes": {"values": {"range": "integer", "multivalued": True,
-                "required": True, "minimum_value": minimum}}
+            "attributes": {
+                "values": {
+                    "range": "integer",
+                    "multivalued": True,
+                    "required": True,
+                    "minimum_value": minimum,
+                }
+            }
         }
         schema["classes"]["DmcContainer"] = {
-            "attributes": {"extension": {"range": "DmcNestedDetail", "inlined": True,
-                "required": True}}
+            "attributes": {
+                "extension": {"range": "DmcNestedDetail", "inlined": True, "required": True}
+            }
         }
-        bundle = SourceBundle("core", (SourceArtifact("core", (model_path / "core.yaml").read_bytes()),))
-        return prepare_release(observation_inputs(bundle, model_content=yaml.safe_dump(schema).encode()))
+        bundle = SourceBundle(
+            "core", (SourceArtifact("core", (model_path / "core.yaml").read_bytes()),)
+        )
+        return prepare_release(
+            observation_inputs(bundle, model_content=yaml.safe_dump(schema).encode())
+        )
 
     looser, stricter = boundary(2), boundary(5)
     value = {"extension": {"values": [3]}}
-    assert looser.validate_json("DmcContainer", canonical_bytes(value)).model_dump(mode="python")["extension"]["values"] == (3,)
+    assert looser.validate_json("DmcContainer", canonical_bytes(value)).model_dump(mode="python")[
+        "extension"
+    ]["values"] == (3,)
     with pytest.raises(ValidationError) as failure:
         stricter.validate_json("DmcContainer", canonical_bytes(value))
     assert failure.value.errors()[0]["loc"] == ("extension", "values", 0)
     value["extension"]["values"] = [7]
-    assert stricter.validate_json("DmcContainer", canonical_bytes(value)).model_dump(mode="python")["extension"]["values"] == (7,)
+    assert stricter.validate_json("DmcContainer", canonical_bytes(value)).model_dump(mode="python")[
+        "extension"
+    ]["values"] == (7,)
     value["extension"]["values"] = [3]
-    assert looser.validate_json("DmcContainer", canonical_bytes(value)).model_dump(mode="python")["extension"]["values"] == (3,)
+    assert looser.validate_json("DmcContainer", canonical_bytes(value)).model_dump(mode="python")[
+        "extension"
+    ]["values"] == (3,)

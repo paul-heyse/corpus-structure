@@ -3,20 +3,18 @@
 import pytest
 
 from corpus_structure.methods.structural_products import _literal_reading, _threshold_inventory
+from corpus_structure.semantic.declared_structural_references import DeclaredStructuralSource
+from corpus_structure.semantic.formal_products import FormalEvidenceOptions, FrozenFormalSource
 from corpus_structure.semantic.formal_readings import (
     FormalSourceReadings,
     coordination_reading,
     formal_field_readings,
     lexical_fact_readings,
 )
-from corpus_structure.semantic.structural_products import LocatedDefinitionSpan
-from corpus_structure.semantic.declared_structural_references import DeclaredStructuralSource
-from corpus_structure.semantic.formal_products import FormalEvidenceOptions, FrozenFormalSource
 from corpus_structure.semantic.identity import canonical_bytes
-from corpus_structure.semantic.structural_products import StructuralPassage
+from corpus_structure.semantic.structural_products import LocatedDefinitionSpan, StructuralPassage
 from semantic.formal_products_support import profile as profile
-from semantic.formal_products_support import selected_rows, publication_context
-
+from semantic.formal_products_support import publication_context, selected_rows
 
 
 def case(profile, text):
@@ -25,27 +23,42 @@ def case(profile, text):
     from corpus_structure.semantic.source_products import source_subject
 
     source = selected_rows(profile, (text, "text", "", ""))
-    product = profile.run(source, FormalEvidenceOptions(), subject_context=publication_context(source))
+    product = profile.run(
+        source, FormalEvidenceOptions(), subject_context=publication_context(source)
+    )
     selected = source.value
     coordinate = selected["source"]
     address = DeclaredStructuralSource(
         source=canonical_bytes(["fixture:formal-source", None]).decode(),
-        source_product="fixture:formal-source", kind_contract="kind:fixture-source",
-        subject=source_subject(coordinate), subject_definition="original-source-view",
-        document=coordinate["document"], original_source=coordinate["document"],
+        source_product="fixture:formal-source",
+        kind_contract="kind:fixture-source",
+        subject=source_subject(coordinate),
+        subject_definition="original-source-view",
+        document=coordinate["document"],
+        original_source=coordinate["document"],
         projection_digest=coordinate["projection"],
-        section_pointer=coordinate["section_pointer"], membership=coordinate["membership"],
-        project_id="fixture:formal", analyzed_scope_meaning=json_context_meaning(canonical_bytes(
-            dict(source=coordinate, selectors=selected["selectors"])
-        )).decode(),
+        section_pointer=coordinate["section_pointer"],
+        membership=coordinate["membership"],
+        project_id="fixture:formal",
+        analyzed_scope_meaning=json_context_meaning(
+            canonical_bytes(dict(source=coordinate, selectors=selected["selectors"]))
+        ).decode(),
     )
-    passage = StructuralPassage(passage_id="p", source_ref=address.identity,
-                               start=0, end=len(text), text=text, scope="fixture")
+    passage = StructuralPassage(
+        passage_id="p",
+        source_ref=address.identity,
+        start=0,
+        end=len(text),
+        text=text,
+        scope="fixture",
+    )
     readings = FormalSourceReadings.from_products((product,), source)
     return source, product, address, passage, readings
 
 
-def test_whole_normalized_fields_and_lexical_basis_are_consumed_without_parsing(profile, monkeypatch):
+def test_whole_normalized_fields_and_lexical_basis_are_consumed_without_parsing(
+    profile, monkeypatch
+):
     from corpus_structure.semantic import formal_evidence, structural_parsing
 
     text = (
@@ -98,7 +111,9 @@ def test_distinct_examined_scopes_and_invalid_domains_do_not_become_known_absenc
     narrowed = native.value
     narrowed["selectors"] = [dict(projection=source.projection_digest, start=0, end=8)]
     selected = FrozenFormalSource.acquire(profile.prepared, narrowed)
-    other = profile.run(selected, FormalEvidenceOptions(), subject_context=publication_context(selected))
+    other = profile.run(
+        selected, FormalEvidenceOptions(), subject_context=publication_context(selected)
+    )
     assert other.content != product.content
     rival = FormalSourceReadings.from_products((product, other), native)
     fields, complete = formal_field_readings(
@@ -112,12 +127,14 @@ def test_distinct_examined_scopes_and_invalid_domains_do_not_become_known_absenc
     )
     assert fields == () and not complete
     with pytest.raises(ValueError, match="another original source"):
-        _threshold_inventory(passage, source.model_copy(update=dict(projection_digest="d" * 64)), primary)
+        _threshold_inventory(
+            passage, source.model_copy(update=dict(projection_digest="d" * 64)), primary
+        )
 
 
 def test_revision_identifiers_and_exception_marker_retain_named_source_members(profile):
     text = "Clause policy.\nRevision R2 supersedes revision R1.\nNo exceptions."
-    _native, _product, source, passage, layers = case(profile, text)
+    _native, _product, _source, passage, layers = case(profile, text)
     (fact,) = lexical_fact_readings(
         layers, layers.source, kind="formal.revision_succession", start=0, end=len(text)
     )
@@ -161,7 +178,9 @@ def test_revision_identifiers_and_exception_marker_retain_named_source_members(p
         ("Identifier: " + "A" * 245, None),
     ],
 )
-def test_comparison_projection_preserves_existing_numeric_and_source_size_bounds(profile, surface, expected):
+def test_comparison_projection_preserves_existing_numeric_and_source_size_bounds(
+    profile, surface, expected
+):
     _native, _product, source, passage, primary = case(profile, surface)
     literal, reference = _literal_reading(passage, source, primary)
     assert (literal.model_dump(mode="json", exclude_none=True) if literal else None) == expected
@@ -170,7 +189,6 @@ def test_comparison_projection_preserves_existing_numeric_and_source_size_bounds
 
 @pytest.mark.parametrize("surface", ["1e1000000", "1e-1000000"])
 def test_comparison_refusal_preserves_exact_large_and_tiny_primary_facts(profile, surface):
-    from corpus_structure.semantic.identity import canonical_bytes
     from corpus_structure.semantic.structural_products import ComparisonLiteral
 
     spelling = f"Quantity: {surface} kg"

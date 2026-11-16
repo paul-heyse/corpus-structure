@@ -22,7 +22,12 @@ from corpus_structure.methods.m1_source import (
 )
 
 from .data_operation_json import json_bytes
-from .data_operation_model import BoundRoleMember, EffectiveDataOperationModel, ResolvedRoleBinding, SubjectContext
+from .data_operation_model import (
+    BoundRoleMember,
+    EffectiveDataOperationModel,
+    ResolvedRoleBinding,
+    SubjectContext,
+)
 from .declared_contexts import DeclaredContextPopulation
 from .declared_record_sources import DeclaredNativeFrameSource
 from .identity import canonical_bytes
@@ -32,8 +37,8 @@ _MODEL = Path(__file__).parents[1] / "model/semantic/data-operation-candidate-in
 
 
 def m1_operation_inputs(bundle):
-    from .declared_candidate_products import candidate_inspection_inputs
     from .construction_products import construction_product_inputs
+    from .declared_candidate_products import candidate_inspection_inputs
 
     if "data_operation_constructions" not in {source.name for source in bundle.sources}:
         bundle = construction_product_inputs(bundle)
@@ -140,8 +145,8 @@ def m1_operation_sources(
     )
     if not include_dependencies:
         return own
-    from .primary_operations import combine_primary_sources
     from .characterization_ports import construction_operation_sources
+    from .primary_operations import combine_primary_sources
     from .source_discovery import source_discovery_operation_sources
 
     return combine_primary_sources(
@@ -219,6 +224,7 @@ class PreparedM1Inputs:
             source_annotation_rows(checked), source=frame, profile=profile
         )
         from corpus_structure.methods.predicate_frames import prepare_predicate_readings
+
         from .construction_products import CharacterizationSnapshot
         from .enriched_document_products import RetainedCharacterizationProduct
 
@@ -226,11 +232,15 @@ class PreparedM1Inputs:
         if member.member is not None or member.multiplicity != 1:
             raise ValueError("M1 predicate input requires one actual whole construction product")
         retained = RetainedCharacterizationProduct.acquire(
-            self.prepared, self.model,
+            self.prepared,
+            self.model,
             self.prepared.index.definitions["DdoPrimaryConstructionProduct"].iri,
             canonical_bytes(construction),
             subject_context=SubjectContext(
-                self.project, member.subject, member.original_source, member.analyzed_scope,
+                self.project,
+                member.subject,
+                member.original_source,
+                member.analyzed_scope,
                 subject_definition=member.subject_definition,
             ),
         )
@@ -313,7 +323,11 @@ def execute_m1_kernel(
         project,
         check_active,
     )
-    return (yield from M1SourceCandidatesOperation(profile).run(primary, annotations, construction, sources))
+    return (
+        yield from M1SourceCandidatesOperation(profile).run(
+            primary, annotations, construction, sources
+        )
+    )
 
 
 def candidate_report(prepared, model, product, primary, context):
@@ -493,7 +507,9 @@ class M1InvocationPlan:
         if len(selected) != 1:
             raise ValueError("M1 requires its one already hydrated governing producer selection")
         obligation, _ = selected[0]
-        primary, annotations, construction, selected_sources = execution_owner.consumer_results[obligation]
+        primary, annotations, construction, selected_sources = execution_owner.consumer_results[
+            obligation
+        ]
         role = next(role for role in binding.roles if role.role == "sources")
         if tuple(value.member for value in selected_sources) != role.members:
             raise ValueError("M1 native selector changed the exact source population")

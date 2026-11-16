@@ -58,7 +58,9 @@ def _native_table_projection(cells, *, caption=None, note=None):
         if text:
             pointer = f"#/texts/{role}"
             table[role] = [{"$ref": pointer}]
-            nodes.append(dict(self_ref=pointer, label="caption" if role == "captions" else "text", text=text))
+            nodes.append(
+                dict(self_ref=pointer, label="caption" if role == "captions" else "text", text=text)
+            )
             chunks.append((pointer, None, text))
     pieces, texts, offset = [], [], 0
     for pointer, index, text in chunks:
@@ -72,7 +74,11 @@ def _native_table_projection(cells, *, caption=None, note=None):
                 item_ref=pointer,
                 start=offset,
                 end=offset + len(text),
-                **(dict(cell_index=index, source_field="cell_text") if index is not None else dict(source_field="text")),
+                **(
+                    dict(cell_index=index, source_field="cell_text")
+                    if index is not None
+                    else dict(source_field="text")
+                ),
             )
         )
         texts.append(text)

@@ -12,12 +12,7 @@ from corpus_structure.semantic.declared_formal_readings import DeclaredFormalInv
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.record_contracts import anchor_identity
 from corpus_structure.semantic.source_contexts import PreparedNativeSources, record_source_pin
-
-from methods.contextual_query_support import TEXT, POINTER, source, primary
-
-
-
-
+from methods.contextual_query_support import POINTER, TEXT, primary, source
 
 
 def resolve(recipe, layers, reference, focal, frame):

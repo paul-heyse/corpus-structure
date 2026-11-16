@@ -475,9 +475,7 @@ class NativeSourceContext:
     version: int = 1
     preparation: PreparedNativeSources | None = field(default=None, repr=False, compare=False)
     text: str = field(init=False)
-    intervals: tuple[SourceInterval | SyntheticInterval, ...] = field(
-        init=False
-    )
+    intervals: tuple[SourceInterval | SyntheticInterval, ...] = field(init=False)
     dependency_digest: str = field(init=False)
     _native_sources: Mapping[int | str, PreparedNativeSource] = field(
         init=False, repr=False, compare=False
@@ -496,8 +494,7 @@ class NativeSourceContext:
         if not all(value.strip() for value in (self.purpose, self.policy, self.terminal_reason)):
             raise ContextRefused("context requires purpose, policy and terminal reason")
         if any(
-            not isinstance(value, tuple)
-            for value in (self.related, self.pieces, self.retrievals)
+            not isinstance(value, tuple) for value in (self.related, self.pieces, self.retrievals)
         ):
             raise ContextRefused("context inputs must be immutable tuples")
         if any(
@@ -568,9 +565,7 @@ class NativeSourceContext:
         consumed: set[int] = set()
         position = 0
 
-        def append(
-            text: str, interval: SourceInterval | SyntheticInterval
-        ) -> None:
+        def append(text: str, interval: SourceInterval | SyntheticInterval) -> None:
             nonlocal position
             if position + len(text) > self.max_chars or len(intervals) >= self.max_pieces:
                 raise ContextRefused("serialized context character or interval bound exceeded")
@@ -620,9 +615,7 @@ class NativeSourceContext:
                         native.get("source_field"),
                     )
                 append(text, interval)
-        if consumed != set(by_id) or not any(
-            isinstance(row, SourceInterval) for row in intervals
-        ):
+        if consumed != set(by_id) or not any(isinstance(row, SourceInterval) for row in intervals):
             raise ContextRefused("each selected source must be consumed with source evidence")
         object.__setattr__(self, "text", "".join(chunks))
         object.__setattr__(self, "intervals", tuple(intervals))

@@ -19,7 +19,7 @@ from corpus_structure.semantic.m1_products import (
     m1_profile_assets,
 )
 from corpus_structure.semantic.source_products import FrozenNativeSource, source_subject
-from corpus_structure.semantic.types import SourceArtifact, SourceBundle, PreparationProfile
+from corpus_structure.semantic.types import PreparationProfile, SourceArtifact, SourceBundle
 
 ROOT = Path(__file__).resolve().parents[4]
 
@@ -51,20 +51,31 @@ def configuration():
     return M1Config.model_validate(candidate_configuration(ROOT / "domains/statistics", "default"))
 
 
-
 def _sources():
     """Capture controlled provider metadata only; never acquire an executable model."""
     from corpus_structure.methods.native_profiles import NativeProfile, NativeSelection
 
     config = configuration()
     selected = NativeSelection(
-        NativeProfile("spacy", {"fixture": "preparation"}, {},
-                      config.sentences.model_dump(mode="json"), "float32", "cupy"), Path(".")
+        NativeProfile(
+            "spacy",
+            {"fixture": "preparation"},
+            {},
+            config.sentences.model_dump(mode="json"),
+            "float32",
+            "cupy",
+        ),
+        Path("."),
     )
-    return m1_operation_sources(config, record_schemas=record_schemas(), sentence_selection=selected)
+    return m1_operation_sources(
+        config, record_schemas=record_schemas(), sentence_selection=selected
+    )
+
 
 def test_empty_m1_inspection_has_successful_typed_report_and_exact_denominator():
-    prepared = prepare_release(m1_operation_inputs(record_schemas()), profile=PreparationProfile(version="semantic-2"))
+    prepared = prepare_release(
+        m1_operation_inputs(record_schemas()), profile=PreparationProfile(version="semantic-2")
+    )
     source = FrozenNativeSource.from_projection(
         prepared,
         document="original:doc",
@@ -145,7 +156,10 @@ def test_actual_m1_producer_captures_selection_witnesses_and_single_stored_membe
     assert model.subject_definition(operation.subject).scope == "original-source"
     assert operation.consumer_selection is not None
     assert {role.name for role in operation.roles if role.direction == "input"} == {
-        "primary", "annotations", "construction", "sources",
+        "primary",
+        "annotations",
+        "construction",
+        "sources",
     }
     assert (
         operation.consumer_selection.entrypoint
@@ -546,7 +560,9 @@ def test_m1_scoped_source_and_direct_context_cannot_inspect_unselected_original_
         source_slice,
     )
 
-    prepared = prepare_release(m1_operation_inputs(record_schemas()), profile=PreparationProfile(version="semantic-2"))
+    prepared = prepare_release(
+        m1_operation_inputs(record_schemas()), profile=PreparationProfile(version="semantic-2")
+    )
     base = FrozenNativeSource.from_projection(
         prepared,
         document="original:scope",
@@ -626,7 +642,9 @@ def test_related_m1_context_consumes_only_related_members_own_selected_span():
     from corpus_structure.semantic.m1_products import NativeCandidateData
     from corpus_structure.semantic.source_contexts import PreparedNativeSources
 
-    prepared = prepare_release(m1_operation_inputs(record_schemas()), profile=PreparationProfile(version="semantic-2"))
+    prepared = prepare_release(
+        m1_operation_inputs(record_schemas()), profile=PreparationProfile(version="semantic-2")
+    )
     primary = FrozenNativeSource.from_projection(
         prepared,
         document="original:related",

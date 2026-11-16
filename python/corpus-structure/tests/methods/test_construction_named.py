@@ -4,18 +4,26 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+from semantic.test_construction_products import _publication_context
+from semantic.test_construction_products import profiles as profiles
+from semantic.test_source_annotations import detached as detached
 
 from corpus_structure.ingest.sentences import SentenceConfig
-from corpus_structure.methods.annotation_rules import AnnotationRule, PreparedAnnotationRules, RoleBinding
+from corpus_structure.methods.annotation_rules import (
+    AnnotationRule,
+    PreparedAnnotationRules,
+    RoleBinding,
+)
 from corpus_structure.methods.native_profiles import NativeProfile, NativeSelection
 from corpus_structure.semantic.construction_products import ConstructionOptions
 from corpus_structure.semantic.constructions.declared_named import DeclaredNamedRules
 from corpus_structure.semantic.constructions.named import rule_identity
 from corpus_structure.semantic.constructions.named_nominations import naming_nomination
 from corpus_structure.semantic.formal_products import FormalEvidenceOptions
-from corpus_structure.semantic.sentence_products import retained_source_annotation_products, validate_source_annotations
-from semantic.test_construction_products import profiles as profiles, _publication_context
-from semantic.test_source_annotations import detached as detached
+from corpus_structure.semantic.sentence_products import (
+    retained_source_annotation_products,
+    validate_source_annotations,
+)
 
 
 @pytest.fixture(scope="module")
@@ -23,8 +31,15 @@ def acquired(profiles):
     _, construction = profiles
     configuration = SentenceConfig(exclude=("ner",))
     selection = NativeSelection(
-        NativeProfile("spacy", {"fixture": "controlled-columns"}, {},
-                      configuration.model_dump(mode="json"), "float32", "cupy"), Path(".")
+        NativeProfile(
+            "spacy",
+            {"fixture": "controlled-columns"},
+            {},
+            configuration.model_dump(mode="json"),
+            "float32",
+            "cupy",
+        ),
+        Path("."),
     )
     return construction.prepared, construction.model, configuration, selection
 
@@ -73,8 +88,11 @@ def test_named_rules_execute_upstream_once_and_replay_exact_roles_without_nlp(
     )
     primary = formal.run(source, FormalEvidenceOptions(), subject_context=context)
     produced = construction.run(
-        source, (primary,), ConstructionOptions(annotation_rules=rules),
-        sentences=retained, subject_context=context,
+        source,
+        (primary,),
+        ConstructionOptions(annotation_rules=rules),
+        sentences=retained,
+        subject_context=context,
     )
     monkeypatch.setattr(
         PreparedAnnotationRules, "match", lambda *_: pytest.fail("consumer reran matching")
@@ -83,7 +101,9 @@ def test_named_rules_execute_upstream_once_and_replay_exact_roles_without_nlp(
         "corpus_structure.semantic.constructions.named.annotation_view",
         lambda *_args, **_kw: pytest.fail("consumer rebuilt native Doc"),
     )
-    result, references, _nominations, identities = DeclaredNamedRules((produced,), retained).decode(product)
+    result, references, _nominations, identities = DeclaredNamedRules((produced,), retained).decode(
+        product
+    )
     assert set(result.availability) == {
         ("repeat", "two", "available"),
         ("term", "each", "available"),

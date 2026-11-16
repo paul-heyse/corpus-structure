@@ -412,7 +412,10 @@ def plan_candidates(
 
     packs = configured_pack_variants(prepared, cfg, generic_role_guidance=generic_role_guidance)
     assertion_qualification = AssertionQualification(
-        prepared_source.source, prepared_source.annotations, view.pieces, view.items,
+        prepared_source.source,
+        prepared_source.annotations,
+        view.pieces,
+        view.items,
         primary_products=primary_products,
     )
     details: dict[str, Any] = dict(

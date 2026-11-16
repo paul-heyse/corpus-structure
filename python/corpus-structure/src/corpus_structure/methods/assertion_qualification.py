@@ -7,7 +7,10 @@ from itertools import pairwise
 from typing import Any
 
 from corpus_structure.ingest.annotations import AnnotationProduct, SentenceAnnotation
-from corpus_structure.semantic.declared_record_sources import DeclaredNativeFrameSource, DeclaredSourcePin
+from corpus_structure.semantic.declared_record_sources import (
+    DeclaredNativeFrameSource,
+    DeclaredSourcePin,
+)
 from corpus_structure.semantic.source_contexts import (
     ContextRefused,
     NativeSourceContext,
@@ -148,10 +151,14 @@ class AssertionQualification:
             return None
         (block,) = blocks
         if block.block_id not in self._results:
-            layout = source_layout(block, self._source.text, self._pieces, self._items, primary_products=self._primary)
+            layout = source_layout(
+                block, self._source.text, self._pieces, self._items, primary_products=self._primary
+            )
             self._results[block.block_id] = (
                 layout,
-                predicate_frames(self._source.text, (block,), layout=layout, primary_products=self._primary),
+                predicate_frames(
+                    self._source.text, (block,), layout=layout, primary_products=self._primary
+                ),
             )
         layout, result = self._results[block.block_id]
         if result.issues:

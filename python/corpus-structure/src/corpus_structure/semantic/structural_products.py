@@ -800,11 +800,7 @@ class StructuralProductReport(StructuralValue):
     def product_id(self) -> str:
         return (
             "structural:"
-            + sha256(
-                canonical_bytes(
-                    self.model_dump(mode="json", exclude_none=True)
-                )
-            ).hexdigest()
+            + sha256(canonical_bytes(self.model_dump(mode="json", exclude_none=True))).hexdigest()
         )
 
 

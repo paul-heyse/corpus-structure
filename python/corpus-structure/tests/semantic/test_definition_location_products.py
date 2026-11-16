@@ -240,13 +240,21 @@ def test_declared_definition_location_refuses_unbound_source_span_or_selection(p
 def test_current_component_target_keeps_source_meaning_and_refuses_invented_original(prepared):
     from corpus_structure.semantic.contextual_target_products import component_target_population
 
-    frame, report, component, reference = population(prepared)
-    selected = component_target_population(report.model_dump(mode="python"), original_source=frame.pin.values()["original_source"], kind_contract="kind:target")
+    frame, report, component, _reference = population(prepared)
+    selected = component_target_population(
+        report.model_dump(mode="python"),
+        original_source=frame.pin.values()["original_source"],
+        kind_contract="kind:target",
+    )
     (packet,) = selected["members"]
     descriptor = source_python(packet["body"]["descriptor"])
     meaning = source_python(packet["body"]["semantic_target"])
     assert descriptor["target_id"] == component.component_id
-    assert (descriptor["label"], descriptor["description"], descriptor["type_name"]) == ("term", "def", "definition")
+    assert (descriptor["label"], descriptor["description"], descriptor["type_name"]) == (
+        "term",
+        "def",
+        "definition",
+    )
     assert packet["context"]["original_source"] == "original:doc"
     assert packet["body"]["original_source"] == "original:doc"
     assert meaning["term"]["source"]["source_product"] == "product:source"
@@ -254,4 +262,8 @@ def test_current_component_target_keeps_source_meaning_and_refuses_invented_orig
     assert meaning["term"]["span"]["text"] == "term"
     assert meaning["content"]["span"]["text"] == "def"
     with pytest.raises(ValueError, match="actual original source"):
-        component_target_population(report.model_dump(mode="python"), original_source="another-query-document", kind_contract="kind:target")
+        component_target_population(
+            report.model_dump(mode="python"),
+            original_source="another-query-document",
+            kind_contract="kind:target",
+        )

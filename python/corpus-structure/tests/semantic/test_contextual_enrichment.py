@@ -298,17 +298,35 @@ def test_interpretation_inventory_preserves_equal_labels_and_exact_rank():
         "candidate_lists": [asdict(candidate_list)],
     }
     anchors = ({"pointer": "#/texts/1", "start": 0, "end": 6},)
-    selected = project_interpretation_candidates(report["candidate_lists"][0], report["inventories"][0], candidate_list.list_id, "occ", anchors)
+    selected = project_interpretation_candidates(
+        report["candidate_lists"][0],
+        report["inventories"][0],
+        candidate_list.list_id,
+        "occ",
+        anchors,
+    )
     assert selected.anchors == anchors
     assert [(t.target_id, t.label, t.rank) for t in selected.targets] == [
         ("b", "normal", 1),
         ("a", "normal", 2),
     ]
     with pytest.raises(ValueError, match="selected occurrence"):
-        project_interpretation_candidates(report["candidate_lists"][0], report["inventories"][0], candidate_list.list_id, "different-occ", anchors)
+        project_interpretation_candidates(
+            report["candidate_lists"][0],
+            report["inventories"][0],
+            candidate_list.list_id,
+            "different-occ",
+            anchors,
+        )
     report["candidate_lists"][0]["candidates"][0]["target_id"] = "foreign"
     with pytest.raises(ValueError, match="identity differs"):
-        project_interpretation_candidates(report["candidate_lists"][0], report["inventories"][0], candidate_list.list_id, "occ", anchors)
+        project_interpretation_candidates(
+            report["candidate_lists"][0],
+            report["inventories"][0],
+            candidate_list.list_id,
+            "occ",
+            anchors,
+        )
 
 
 def test_profile_versions_and_curated_descriptor_reuse_boundaries():
@@ -427,22 +445,35 @@ def test_current_product_replays_complete_constraints_witnesses_and_selected_edg
         witnesses=(witness("supported"), witness("refused", "b", support_state="unsupported")),
     )
     from corpus_structure.semantic.contextual_operations import (
-        ContextualRetrievalInputs, finish_contextual_retrieval, contextual_relationship_binding,
+        ContextualRetrievalInputs,
+        contextual_relationship_binding,
+        finish_contextual_retrieval,
     )
     from corpus_structure.semantic.observations import source_python
 
-    inputs = ContextualRetrievalInputs(inv, E5, vectors[0], None, decision.constraints, decision.witnesses, frozenset())
-    report = finish_contextual_retrieval(inputs, candidate_list, {"source_pin": {"source": "source"}, "anchors": []})
+    inputs = ContextualRetrievalInputs(
+        inv, E5, vectors[0], None, decision.constraints, decision.witnesses, frozenset()
+    )
+    report = finish_contextual_retrieval(
+        inputs, candidate_list, {"source_pin": {"source": "source"}, "anchors": []}
+    )
     stored = source_python(report["relationship_decision"])
     assert {w["witness_id"] for w in stored["witnesses"]} == {"supported", "refused"}
     assert stored["selected_edges"][0]["member_target_ids"] == ["a"]
     assert "alternatives" not in stored
-    selected = contextual_relationship_binding(report, decision_id=decision.decision_id, edge_id=decision.selected_edges[0].edge_id)
+    selected = contextual_relationship_binding(
+        report, decision_id=decision.decision_id, edge_id=decision.selected_edges[0].edge_id
+    )
     assert selected.edge.member_target_ids == ("a",)
     stored["selected_edges"] = []
     from corpus_structure.semantic.observations import source_value
+
     with pytest.raises(ValueError, match="exact retained identity"):
-        contextual_relationship_binding(dict(report, relationship_decision=source_value(stored)), decision_id=decision.decision_id, edge_id=decision.selected_edges[0].edge_id)
+        contextual_relationship_binding(
+            dict(report, relationship_decision=source_value(stored)),
+            decision_id=decision.decision_id,
+            edge_id=decision.selected_edges[0].edge_id,
+        )
 
 
 def test_same_source_meaning_different_producer_bases_corroborate_one_edge():

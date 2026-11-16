@@ -223,7 +223,6 @@ def test_condition_host_preserves_located_parts_after_declaration_refusal(
         assert isinstance(detail, str) and reason in detail
 
 
-
 @pytest.mark.parametrize("predicate_version", ["4", "5"])
 def test_selected_action_preserves_wholly_clipped_role_without_an_anchor(predicate_version):
     from corpus_structure.ingest.annotations import AnnotationProfile

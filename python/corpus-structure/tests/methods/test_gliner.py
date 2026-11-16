@@ -134,7 +134,10 @@ def test_profile_identity_and_artifact_mismatch(profile):
 @pytest.fixture
 def source_context():
     from corpus_structure.semantic.source_contexts import (
-        NativeSourceContext, PreparedNativeSources, SyntheticText, source_slice,
+        NativeSourceContext,
+        PreparedNativeSources,
+        SyntheticText,
+        source_slice,
     )
     from methods.record_assembly_support import source
 

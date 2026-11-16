@@ -16,8 +16,6 @@ from corpus_structure.methods.gliner import GlinerPack, GlinerRefused
 from corpus_structure.methods.m1_source import _retained_report
 from corpus_structure.methods.record_assembly import NativeRecordGroup, RoleInput, assemble_records
 from corpus_structure.methods.record_packs import family_pack
-from corpus_structure.semantic.declared_record_sources import DeclaredNativeFrameSource
-from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.observations import source_python
 from corpus_structure.semantic.source_contexts import (
     NativeSourceContext,
@@ -35,7 +33,9 @@ def definition_pack():
 
 def test_current_binding_preserves_typed_population_and_separate_limited_operation():
     from corpus_structure.semantic.contributions import (
-        bind_contributions, contribution_identity, operation_identity,
+        bind_contributions,
+        contribution_identity,
+        operation_identity,
     )
     from corpus_structure.semantic.observations import source_value
 
@@ -73,19 +73,24 @@ def test_current_binding_preserves_typed_population_and_separate_limited_operati
         computation_dependencies=("source:fixture",),
     )
     limited["operation_key"] = operation_identity(limited)
-    combined = ContributionBatch.combine((
-        ContributionBatch((operation,), (*batch.contributions, *extra), batch.coordinate_texts),
-        ContributionBatch((limited,), (), ()),
-    ))
+    combined = ContributionBatch.combine(
+        (
+            ContributionBatch((operation,), (*batch.contributions, *extra), batch.coordinate_texts),
+            ContributionBatch((limited,), (), ()),
+        )
+    )
     operations, contributions = bind_contributions(
-        release(), source=ctx.primary.unit_ref,
+        release(),
+        source=ctx.primary.unit_ref,
         operations=combined.operations,
         contributions=combined.contributions,
         coordinate_texts=combined.coordinate_texts,
     )
     assert len(contributions) == len(batch.contributions) + 3
     assert {row["semantic_type"] for row in contributions} >= {
-        "attribute.role", "source_rule.fixture", "math.syntax",
+        "attribute.role",
+        "source_rule.fixture",
+        "math.syntax",
     }
     assert contributions[-1]["value"] == extra[-1]["value"]
     assert isinstance(contributions[-1]["value"]["fields"], tuple)

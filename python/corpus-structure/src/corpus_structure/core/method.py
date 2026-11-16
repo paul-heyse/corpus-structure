@@ -471,6 +471,7 @@ class ObservationDraft[P: BaseModel]:
             if extent is not None and not 0 <= extent[0] < extent[1]:
                 raise ValueError("native observation extent is empty or reversed")
 
+
 @dataclass(frozen=True, slots=True, kw_only=True)
 class MeasurementDraft:
     """One measurement a method returns (`ops.measurement`: metric, scope, value, detail)."""

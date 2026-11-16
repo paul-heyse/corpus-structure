@@ -2,7 +2,9 @@
 
 from corpus_structure.methods.pm2_source import PM2SourceMap, SourceMapSegment
 from corpus_structure.semantic.source_contexts import (
-    NativeSourceContext, PreparedNativeSources, source_slice,
+    NativeSourceContext,
+    PreparedNativeSources,
+    source_slice,
 )
 from methods.record_assembly_support import source
 
@@ -34,8 +36,14 @@ def source_context(fields, *, identity=1, policy="test-layout"):
         text += selected
     primary = source(text, identity=identity, pieces=pieces, items=items, ancestors=())
     return NativeSourceContext(
-        primary, (), (source_slice(primary, 0, len(text)),), "exact read", policy, "selected",
-        version=2, preparation=PreparedNativeSources((primary,)),
+        primary,
+        (),
+        (source_slice(primary, 0, len(text)),),
+        "exact read",
+        policy,
+        "selected",
+        version=2,
+        preparation=PreparedNativeSources((primary,)),
     )
 
 

@@ -318,8 +318,12 @@ def test_dense_native_table_targets_every_data_cell_once_with_complete_bounded_p
         (frame,), canonical_bytes({"fixture": "complete single-source native inventory"})
     )
     prepared = prep.prepare_source(
-        view, source_frame=frame, context_population=population,
-        persisted_annotations=(), max_chars=256, max_pieces=64,
+        view,
+        source_frame=frame,
+        context_population=population,
+        persisted_annotations=(),
+        max_chars=256,
+        max_pieces=64,
     )
     selected = [s for s in prepared.selections if s.families == ("table",)]
     assert len(selected) == 30

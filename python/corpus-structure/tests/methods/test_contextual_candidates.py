@@ -1,12 +1,13 @@
 """Independent source/role criteria for the actual current occurrence projection."""
 
 from typing import Any
+
 import pytest
+
 from corpus_structure.methods.contextual_candidates import retained_occurrences
 from corpus_structure.semantic.contributions import contribution_identity, occurrence_identity
 from corpus_structure.semantic.observations import source_python
 from corpus_structure.semantic.record_contracts import anchor_identity
-
 from methods.contextual_query_support import source
 
 PIN = source("Mean is average.").pin.values()

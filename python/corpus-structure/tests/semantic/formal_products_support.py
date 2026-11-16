@@ -144,13 +144,15 @@ def selected_rows(profile, *rows):
 
 
 def publication_context(source):
-    from corpus_structure.semantic.identity import canonical_bytes
     from corpus_structure.semantic.data_operation_model import SubjectContext
+    from corpus_structure.semantic.identity import canonical_bytes
     from corpus_structure.semantic.source_products import source_subject
 
     value = source.value
     return SubjectContext(
-        "fixture:formal", source_subject(value["source"]), value["source"]["document"],
+        "fixture:formal",
+        source_subject(value["source"]),
+        value["source"]["document"],
         canonical_bytes(dict(source=value["source"], selectors=value["selectors"])),
         subject_definition="original-source-view",
     )

@@ -292,4 +292,7 @@ def test_curated_target_validator_bytes_belong_to_actual_retrieval_assets(monkey
     monkeypatch.setattr(Path, "read_bytes", changed_validator)
     changed = owner.contextual_retrieval_assets()
     assert changed.digest != original.digest
-    assert bytes.fromhex(dict(json.loads(changed.content)["files"])["semantic/contextual_registry.py"]) == actual + b"\n# independently changed validator source\n"
+    assert (
+        bytes.fromhex(dict(json.loads(changed.content)["files"])["semantic/contextual_registry.py"])
+        == actual + b"\n# independently changed validator source\n"
+    )

@@ -17,11 +17,11 @@ from sqlalchemy import Column, Connection, MetaData, Table, select, text
 from sqlalchemy.dialects.postgresql import JSONB
 
 from corpus_structure.core.method import (
+    METHOD_SOURCE,
     ArtifactRef,
     ConfigRef,
     Digest,
     MethodSettings,
-    METHOD_SOURCE,
     ObservationDraft,
     PackSection,
     Resources,

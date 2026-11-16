@@ -1,13 +1,13 @@
 """Current composition preserves exact products, source selection and weak coverage."""
 
 import pytest
+from semantic.formal_products_support import selected
+from semantic.test_construction_products import _publication_context
+from semantic.test_construction_products import profiles as profiles
 
 from corpus_structure.semantic.data_product_reference import DataProductReference
 from corpus_structure.semantic.enriched_document_products import compose_enriched_document
 from corpus_structure.semantic.formal_products import FormalEvidenceOptions
-from semantic.formal_products_support import selected
-from semantic.test_construction_products import _publication_context
-from semantic.test_construction_products import profiles as profiles
 
 
 def test_source_only_view_preserves_source_without_analytical_coverage(profiles):
@@ -41,10 +41,16 @@ def test_retained_dependency_is_not_an_active_interpretation_or_relabelled_produ
         active=(DataProductReference(symbolic.semantic_id),),
         subject_context=_publication_context(source, document=True),
     ).value.model_dump(mode="json", exclude_unset=True)
-    assert result["products"] == [DataProductReference(primary.semantic_id).values(), DataProductReference(symbolic.semantic_id).values()]
+    assert result["products"] == [
+        DataProductReference(primary.semantic_id).values(),
+        DataProductReference(symbolic.semantic_id).values(),
+    ]
     assert result["active"] == [DataProductReference(symbolic.semantic_id).values()]
     assert result["coverage"]
-    assert all(row["products"] == [DataProductReference(symbolic.semantic_id).values()] for row in result["coverage"])
+    assert all(
+        row["products"] == [DataProductReference(symbolic.semantic_id).values()]
+        for row in result["coverage"]
+    )
     assert (primary.content, primary.semantic_id, primary.prepared) == original
     assert primary.prepared is original[2]
     for active in (
@@ -53,18 +59,30 @@ def test_retained_dependency_is_not_an_active_interpretation_or_relabelled_produ
     ):
         with pytest.raises(ValueError, match="exact subset"):
             compose_enriched_document(
-                construction.prepared, construction.model, (source,), (primary, symbolic),
-                active=active, subject_context=_publication_context(source, document=True),
+                construction.prepared,
+                construction.model,
+                (source,),
+                (primary, symbolic),
+                active=active,
+                subject_context=_publication_context(source, document=True),
             )
     with pytest.raises(ValueError, match="exact selected dependency"):
         compose_enriched_document(
-            construction.prepared, construction.model, (source,), (symbolic,),
-            active=(DataProductReference(symbolic.semantic_id),), subject_context=_publication_context(source, document=True),
+            construction.prepared,
+            construction.model,
+            (source,),
+            (symbolic,),
+            active=(DataProductReference(symbolic.semantic_id),),
+            subject_context=_publication_context(source, document=True),
         )
     with pytest.raises(ValueError, match="source-only"):
         compose_enriched_document(
-            construction.prepared, construction.model, (source,), (primary,),
-            profile="source_only", subject_context=_publication_context(source, document=True),
+            construction.prepared,
+            construction.model,
+            (source,),
+            (primary,),
+            profile="source_only",
+            subject_context=_publication_context(source, document=True),
         )
 
 
@@ -72,9 +90,15 @@ def test_composition_refuses_an_actual_product_from_an_unselected_source(profile
     formal, construction = profiles
     source = selected(formal, "All samples are finite.")
     other = selected(formal, "Every trial succeeds.")
-    product = formal.run(other, FormalEvidenceOptions(), subject_context=_publication_context(other))
+    product = formal.run(
+        other, FormalEvidenceOptions(), subject_context=_publication_context(other)
+    )
     with pytest.raises(ValueError, match="no retained original source coordinate"):
         compose_enriched_document(
-            construction.prepared, construction.model, (source,), (product,),
-            active=(DataProductReference(product.semantic_id),), subject_context=_publication_context(source, document=True),
+            construction.prepared,
+            construction.model,
+            (source,),
+            (product,),
+            active=(DataProductReference(product.semantic_id),),
+            subject_context=_publication_context(source, document=True),
         )

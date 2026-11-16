@@ -830,7 +830,12 @@ class M1SourceCandidatesOperation:
     def select_hydrated(self, inputs):
         if inputs.selection.binding.operation != self.__data_operation__["id"]:
             raise ValueError("M1 selection belongs to another governing producer")
-        return inputs.one("primary"), inputs.one("annotations"), inputs.one("construction"), inputs.role("sources")
+        return (
+            inputs.one("primary"),
+            inputs.one("annotations"),
+            inputs.one("construction"),
+            inputs.role("sources"),
+        )
 
     def run(
         self, primary: dict, annotations: dict, construction: dict, sources: tuple[dict, ...]

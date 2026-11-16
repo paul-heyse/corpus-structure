@@ -3,9 +3,15 @@
 from copy import deepcopy
 
 from corpus_structure.semantic.data_operation_model import SubjectContext
-from corpus_structure.semantic.data_product_reference import DataProductMemberReference, DataProductReference
+from corpus_structure.semantic.data_product_reference import (
+    DataProductMemberReference,
+    DataProductReference,
+)
 from corpus_structure.semantic.declared_formal_readings import DeclaredFormalInventory
-from corpus_structure.semantic.declared_record_sources import DeclaredNativeFrameSource, DeclaredRecordSource
+from corpus_structure.semantic.declared_record_sources import (
+    DeclaredNativeFrameSource,
+    DeclaredRecordSource,
+)
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.record_contracts import anchor_identity
 from corpus_structure.semantic.source_contexts import record_source_pin
@@ -116,7 +122,8 @@ def frame_layer(*, frame=None):
         ],
     )
     return primary(
-        frame or source(), root,
+        frame or source(),
+        root,
         [
             dict(local_id="predicate", literals=["approves"], status="interpreted"),
             dict(local_id="object", literals=["the request"], status="interpreted"),

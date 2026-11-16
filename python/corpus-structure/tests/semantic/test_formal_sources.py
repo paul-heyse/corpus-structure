@@ -3,21 +3,22 @@
 import pytest
 
 from corpus_structure.methods.inline_formula_occurrences import inline_equations, inline_symbols
-from corpus_structure.semantic.formal_products import FormalEvidenceOptions
 from corpus_structure.semantic.declared_formal_readings import declared_formal_layers
+from corpus_structure.semantic.formal_products import FormalEvidenceOptions
 from corpus_structure.semantic.formal_sources import (
     NORMALIZATION_RECIPE,
     mapped_formal_extents,
     normalize_inline_equation,
 )
 from semantic.formal_products_support import profile as profile
-from semantic.formal_products_support import selected_rows, publication_context
+from semantic.formal_products_support import publication_context, selected_rows
 
 
 def case(profile, text="Z using the equation X = σZ + µ.", **options):  # noqa: RUF001 - literal mathematical sigma
     view = selected_rows(profile, (text, "text", "", ""))
-    layer = profile.run(view, FormalEvidenceOptions(**options),
-                        subject_context=publication_context(view))
+    layer = profile.run(
+        view, FormalEvidenceOptions(**options), subject_context=publication_context(view)
+    )
     return view, layer, declared_formal_layers((layer,), view)
 
 
@@ -75,11 +76,15 @@ def test_retained_inline_reader_maps_unicode_and_second_equal_word_without_infer
     )
     (equation,) = equations(view, layers)
     symbols, outcome = inline_symbols(
-        view.value["text"], equation, primary_layers=layers, projection=view.value["source"]["projection"]
+        view.value["text"],
+        equation,
+        primary_layers=layers,
+        projection=view.value["source"]["projection"],
     )
     assert outcome == "parsed"
     assert [
-        (symbol.start, symbol.end, view.value["text"][symbol.start : symbol.end]) for symbol in symbols
+        (symbol.start, symbol.end, view.value["text"][symbol.start : symbol.end])
+        for symbol in symbols
     ] == [
         (21, 22, "X"),
         (25, 26, "σ"),  # noqa: RUF001 - literal mathematical sigma
@@ -128,7 +133,10 @@ def test_reader_selection_requires_actual_nomination_support_and_explicit_primar
     assert equations(view, layers, [("clipped", 21, 31, None)]) == ()
     (equation,) = equations(view, layers)
     assert inline_symbols(view.value["text"], equation) == ((), "unsupported")
-    assert tuple(inline_equations(view.value["text"], view.value["pieces"], {}, None, max_chars=2048)) == ()
+    assert (
+        tuple(inline_equations(view.value["text"], view.value["pieces"], {}, None, max_chars=2048))
+        == ()
+    )
 
 
 @pytest.mark.parametrize(
@@ -139,12 +147,13 @@ def test_reader_selection_requires_actual_nomination_support_and_explicit_primar
         ("using the equation X = σZ + µ", 2048, "unsupported"),  # noqa: RUF001 - literal mathematical sigma
     ],
 )
-def test_nomination_failure_is_retained_and_not_retried_in_consumer(
-    profile, text, bound, expected
-):
+def test_nomination_failure_is_retained_and_not_retried_in_consumer(profile, text, bound, expected):
     view, _layer, layers = case(profile, text, max_inline_chars=bound)
     (equation,) = equations(view, layers)
     assert equation.status == expected
     assert inline_symbols(
-        view.value["text"], equation, primary_layers=layers, projection=view.value["source"]["projection"]
+        view.value["text"],
+        equation,
+        primary_layers=layers,
+        projection=view.value["source"]["projection"],
     ) == ((), expected)
