@@ -671,6 +671,7 @@ class DemandPlanner:
                 source_sets=read_source_sets(source_sets),
                 original_source=obligation["original_source"],
                 discovery_roles=tuple(discovery_roles.items()),
+                replicate=operation["replicate"],
             )
             # Compile once without witnesses to obtain the shared AST's active
             # role/population associations, including its frozen branch choices.
@@ -921,7 +922,6 @@ class DemandPlanner:
                     }
                 ),
                 execution_profile=frozen["execution_profile"],
-                replicate=operation["replicate"],
             )
             request, admission = project_operation_binding(self.model, resolved)
             inputs, support, population_refs = [], [], []

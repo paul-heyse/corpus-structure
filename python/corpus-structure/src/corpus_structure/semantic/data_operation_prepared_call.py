@@ -8,7 +8,7 @@ from dataclasses import dataclass, field, replace
 from typing import Any
 
 from .data_operation_model import EffectiveDataOperationModel, EffectiveOperation
-from .data_operation_ports import PortCompletion, PortRefusal, ResolvedPythonPort
+from .data_operation_ports import BatchPortCompletion, PortCompletion, PortRefusal, ResolvedPythonPort, logical_batch_signature
 from .data_operation_prepared_products import verify_prepared_product
 from .python_operation_sources import PythonSourceCollection
 from .types import SourceArtifact
@@ -22,6 +22,13 @@ class PreparedCallResult:
     outcome: str | None = None
     provider_execution_evidence: bytes | None = None
     cpu_execution_reply: bytes | None = None
+
+
+@dataclass(frozen=True)
+class PreparedBatchCallResult:
+    """One original whole CPU reply/receipt, never independently minted member receipts."""
+    content: bytes
+    cpu_execution_evidence: bytes
 
 
 @dataclass
@@ -59,14 +66,17 @@ class PreparedOriginalCallPort:
             and self.operation.capabilities.preparation == "native-publication"
             and bool(self.operation.effects)
         )
-        if self.operation.capabilities.forms != ("scalar",) or (
+        if self.operation.capabilities.forms not in (("scalar",), ("batch",)) or (
             self.operation.effects and not native_publication
         ):
             raise PortRefusal(
-                "prepared original-call adapter requires a scalar computation or native publication command"
+                "prepared original-call adapter requires an explicit scalar/batch computation or native publication command"
             )
         if self.operation.capabilities.preparation == "none":
             raise PortRefusal("prepared original-call adapter requires declared preparation")
+        batch = self.operation.capabilities.forms == ("batch",)
+        if batch and (self.operation.effects or not self.retain_cpu_reply):
+            raise PortRefusal("prepared batch requires effect-free computation and its original whole CPU authority reply")
         signature = inspect.signature(self.original, eval_str=True)
         surface = self.operation.callable_surfaces
         if len(surface) != 1:
@@ -96,6 +106,7 @@ class PreparedOriginalCallPort:
             signature,
             self.authorize,
             self._verify,
+            logical_batch_signature(signature) if batch else None,
         )
         self._verify()
 
@@ -105,7 +116,7 @@ class PreparedOriginalCallPort:
 
     @property
     def logical_signature(self):
-        return self._port.signature
+        return self._port.logical_signature or self._port.signature
 
     def _verify(self):
         verify_prepared_product(
@@ -190,6 +201,8 @@ class PreparedOriginalCallPort:
         )
 
     def plan_python(self, values, *, binding=None, check_active=lambda: None, execution_owner):
+        if self.operation.capabilities.forms != ("scalar",):
+            raise PortRefusal("prepared batch requires explicit member invocation")
         check_active()
         self._verify()
         arguments = self._port._arguments(
@@ -238,3 +251,35 @@ class PreparedOriginalCallPort:
         return self._port._complete(
             result, self.completion_type or self._port.signature.return_annotation
         )
+
+    def plan_batch_python(self, members, *, check_active=lambda: None, execution_owner):
+        import json
+        from .data_operation_cpu_basis import cpu_authority_batch_values, cpu_input_basis_from_binding
+
+        if self.operation.capabilities.forms != ("batch",):
+            raise PortRefusal("prepared scalar cannot accept a batch invocation")
+        members = tuple(members)
+        if not members or len({member.member for member in members}) != len(members):
+            raise PortRefusal("prepared batch requires distinct ordered logical members")
+        self._verify()
+        expected = []
+        roles = {role.name: role for role in self.operation.roles if role.direction == "input"}
+        for member in members:
+            if member.binding is None or member.producer is None:
+                raise PortRefusal("prepared CPU batch requires its actual binding and original native producer")
+            arguments = self._port._arguments(member.values, route="python", binding=member.binding,
+                signature=self.logical_signature)
+            bodies = {name: (arguments.arguments[role.parameter],) if role.collection == "scalar"
+                else tuple(arguments.arguments[role.parameter]) for name, role in roles.items()}
+            expected.append(dict(member=member.member, producer=json.loads(member.producer),
+                input_basis=cpu_input_basis_from_binding(self.identity.recipe, member.binding, bodies)))
+        result = yield from self.physical_plan(tuple(expected), check_active=check_active, execution_owner=execution_owner)
+        if not isinstance(result, PreparedBatchCallResult):
+            raise PortRefusal("prepared batch requires its actual whole reply/receipt")
+        values = cpu_authority_batch_values(result.content, expected_members=expected)
+        check_active()
+        self._verify()
+        return BatchPortCompletion(tuple((member.member, replace(
+            self._port._complete(value, self.completion_type or self.logical_signature.return_annotation),
+            cpu_execution_evidence=result.cpu_execution_evidence, cpu_execution_reply=result.content,
+        )) for member, value in zip(members, values, strict=True)))

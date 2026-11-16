@@ -129,7 +129,7 @@ def actual_cpu_fit(fit_basis):
         eligibility="controlled-input-eligibility",
         admission_evidence=(),
         subject_context=context,
-    )
+    replicate=None)
     basis = cpu_input_basis_from_binding("recipe:controlled-cpu-fit", binding, values)
     sources = record_policy_operation_sources()
     descriptor = PythonCPUDescriptor(
@@ -232,7 +232,7 @@ def authority_connection(cpu_basis_connection, actual_cpu_fit):
             implementation_revision="controlled-input-definition",
             input_roles=[],
             output_roles=[],
-            support_contract={},
+            support_contract={"capabilities": {"forms": ["scalar"]}},
         )
     )
     inputs = []
@@ -269,7 +269,7 @@ def authority_connection(cpu_basis_connection, actual_cpu_fit):
         "release_id": "controlled-input-release",
         "operation_id": "record_policy.fit",
         "recipe": "recipe:controlled-cpu-fit",
-        "binding": {"inputs": inputs, "support": []},
+        "binding": {"inputs": inputs, "support": [], "parameters": semantic_value({"parameters": {}, "replicate": None})},
     }
     return connection, request
 
@@ -279,6 +279,10 @@ def completion(actual, *, reply=None):
     # native task fence, publication receipt, or NativeExecutionEvidence instance.
     reply = actual.reply if reply is None else reply
     return {
+        "inputs": [dict(role=role.role, position=member.position, multiplicity=member.multiplicity,
+            product_id=member.product, member_id=member.member)
+            for role in actual.binding.roles for member in role.members],
+        "support": [],
         "execution_evidence": {
             "cpu_receipts": [reply.execution_receipt.record()],
             "cpu_replies": [reply.content.decode()],
@@ -317,6 +321,19 @@ def test_actual_numerical_worker_reply_matches_original_digest_and_exact_native_
     assert basis == actual_cpu_fit.basis
     scope = dict(dict(basis[1])["context"][1])["analyzed_scope"]
     assert scope == ["mapping", [["fraction", ["decimal", "0.123456789123456789"]]]]
+
+
+@pytest.mark.parametrize("parameters", [{"selected": None}, {"selected": 1},
+    {"selected": 1.0}, {"selected": Decimal("1")},
+    {"selected": Decimal("0.12345678901234567890123456789")}])
+def test_changed_parameters_cannot_reuse_original_worker_reply_with_same_roles_context(
+    authority_connection, actual_cpu_fit, parameters
+):
+    connection, request = authority_connection
+    different = deepcopy(request)
+    different["binding"]["parameters"] = semantic_value({"parameters": parameters, "replicate": None})
+    with pytest.raises(DBAPIError, match="exact native input basis"), connection.begin_nested():
+        native_output(connection, different, completion(actual_cpu_fit))
 
 
 def test_actual_scalar_worker_preserves_signed_zero_and_decimal_through_native_reply(

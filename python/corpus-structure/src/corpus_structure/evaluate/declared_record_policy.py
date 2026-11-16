@@ -841,7 +841,7 @@ def _record_cpu_inputs(
     from corpus_structure.semantic.data_operation_identity import decode_semantic_value
 
     basis = decode_semantic_value(input_basis)
-    if not isinstance(basis, dict) or basis.get("version") != "cpu-input-basis-1":
+    if not isinstance(basis, dict) or basis.get("version") != "cpu-input-basis-2":
         raise SemanticRefusal("record CPU computation requires its exact typed input basis")
     grouped = {name: [] for name in (*scalar_roles, *set_roles)}
     for role in basis["roles"]:

@@ -195,6 +195,7 @@ class PythonBatchMember:
     member: str
     values: tuple[PythonRoleValue, ...]
     binding: BindingResult | None = None
+    producer: bytes | None = None
 
 
 @dataclass(frozen=True)
@@ -207,6 +208,20 @@ class JSONBatchMember:
 @dataclass(frozen=True)
 class BatchPortCompletion:
     members: tuple[tuple[str, PortCompletion], ...]
+
+
+def logical_batch_signature(signature):
+    """One explicit tuple population corresponds to one logical argument/result."""
+    def element(annotation):
+        args = get_args(annotation)
+        if get_origin(annotation) is not tuple or len(args) != 2 or args[1] is not Ellipsis:
+            raise PortRefusal("native batch fields require tuple[T, ...] annotations")
+        return args[0]
+
+    if any(parameter.default is not inspect.Parameter.empty for parameter in signature.parameters.values()):
+        raise PortRefusal("native batch callable defaults require explicit per-member correspondence")
+    return signature.replace(parameters=[parameter.replace(annotation=element(parameter.annotation))
+        for parameter in signature.parameters.values()], return_annotation=element(signature.return_annotation))
 
 
 def project_product_members(
@@ -1041,23 +1056,7 @@ def resolve_python_port(
     signature = inspect.signature(function, eval_str=True)
     logical_signature = None
     if selected.capabilities.forms == ("batch",):
-
-        def element(annotation):
-            args = get_args(annotation)
-            if get_origin(annotation) is not tuple or len(args) != 2 or args[1] is not Ellipsis:
-                raise PortRefusal("native batch fields require tuple[T, ...] annotations")
-            return args[0]
-
-        if any(p.default is not inspect.Parameter.empty for p in signature.parameters.values()):
-            raise PortRefusal(
-                "native batch callable defaults require explicit per-member correspondence"
-            )
-        logical_signature = signature.replace(
-            parameters=[
-                p.replace(annotation=element(p.annotation)) for p in signature.parameters.values()
-            ],
-            return_annotation=element(signature.return_annotation),
-        )
+        logical_signature = logical_batch_signature(signature)
     logical_return = (logical_signature or signature).return_annotation
     if selected.capabilities.forms == ("stream",):
         arguments = get_args(logical_return)

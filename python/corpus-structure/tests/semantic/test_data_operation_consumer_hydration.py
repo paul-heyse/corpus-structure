@@ -128,7 +128,7 @@ def hydration_case(monkeypatch, native_rollback):
             subject_context=SubjectContext(
                 "project", "root", "original:one", b"{}", subject_definition="document"
             ),
-        )
+        replicate=None)
         return hydrate_consumer_selection(
             connection,
             model,

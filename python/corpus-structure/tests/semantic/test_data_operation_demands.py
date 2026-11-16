@@ -247,6 +247,7 @@ def test_resume_preserves_exact_completion_observation_separate_from_frontier(st
         "demand_id": "demand:one",
         "operation_id": "op:result",
         "subject": "document:one",
+        "subject_definition": "document",
         "original_source": "source:one",
         "analyzed_scope": {"whole": True},
         "parameters": {},
@@ -382,7 +383,7 @@ def test_ready_request_retains_native_execution_disposition(native, expected):
         "definition:one",
         "eligibility:one",
         (),
-    )
+    replicate=None)
 
     def request():
         return ReadyDataRequest(

@@ -366,7 +366,7 @@ def test_postgresql_full_binding_result_preserves_selected_facts(storage, facet,
         admission_evidence=(b'{"trust":"pinned"}',),
         source_sets=b"{}",
         subject_context=None,
-    )
+    replicate=None)
 
 
 def test_join_distinct_sequence_order_and_cardinality_are_sql(storage):

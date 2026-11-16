@@ -79,6 +79,7 @@ def cpu_basis_connection(semantic_bare_engine):
                 {
                     "ddo_normalize",
                     "ddo_json_meaning",
+                    "ddo_field",
                     "ddo_operation_subject",
                     "ddo_digest",
                     "ddo_cpu_reply_value",
@@ -193,18 +194,21 @@ def test_basis_reads_exact_products_contexts_and_origin_support_sets(cpu_basis_c
         for row in rows
         for reference in row["support"]
     ]
+    parameters = {"selected": Decimal("0.1234567890123456789"), "present_null": None}
     request = {
         **context,
         "release_id": "release:actual",
         "operation_id": "rich.admit",
         "recipe": "recipe:actual",
-        "binding": {"inputs": inputs, "support": [*supports, supports[0]]},
+        "binding": {"inputs": inputs, "support": [*supports, supports[0]], "parameters": semantic_value({"parameters": parameters, "replicate": None})},
     }
     expected = {
-        "version": "cpu-input-basis-1",
+        "version": "cpu-input-basis-2",
         "recipe": "recipe:actual",
         "context": context,
         "roles": sorted(rows, key=lambda row: row["product_id"]),
+        "parameters": {"selected": Decimal("0.1234567890123456789"), "present_null": None},
+        "replicate": None,
     }
     actual = connection.scalar(
         text(
@@ -239,4 +243,4 @@ def test_basis_reads_exact_products_contexts_and_origin_support_sets(cpu_basis_c
         )
         for row in rows
     )
-    assert cpu_input_basis("recipe:actual", subject(context), processed) == semantic_value(expected)
+    assert cpu_input_basis("recipe:actual", subject(context), processed, parameters=json_bytes(semantic_value(parameters)), replicate=None) == semantic_value(expected)

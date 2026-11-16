@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date, datetime
 from decimal import Decimal
 from enum import Enum
@@ -147,6 +147,7 @@ class BindingResult:
     admission_evidence: tuple[bytes, ...]
     source_sets: bytes = b"{}"
     subject_context: SubjectContext | None = None
+    replicate: str | None = field(kw_only=True)
 
     @property
     def sufficient(self) -> bool:
@@ -160,7 +161,6 @@ class BindingResult:
         authorization: bytes,
         trust_evidence: bytes,
         execution_profile: str,
-        replicate: str | None = None,
     ) -> ResolvedOperationBinding:
         if self.subject_context is not None and self.subject_context != subject_context:
             raise ValueError("resolved context differs from acquired binding context")
@@ -175,7 +175,7 @@ class BindingResult:
             authorization,
             trust_evidence,
             execution_profile,
-            replicate,
+            self.replicate,
             self.source_sets,
             subject_context=subject_context,
         )
@@ -208,6 +208,7 @@ class CompiledBinding:
     original_source: str | _UnqualifiedSource | None = _UNQUALIFIED_SOURCE
     subject_context: SubjectContext | None = None
     population_projections: tuple[tuple[str, Literal["member", "qualified-context"]], ...] = ()
+    replicate: str | None = None
 
 
 def _decode_value(content: bytes) -> Any:
@@ -415,6 +416,7 @@ def compile_binding(
     original_source: str | _UnqualifiedSource | None = _UNQUALIFIED_SOURCE,
     subject_context: SubjectContext | None = None,
     discovery_roles: tuple[tuple[str, str], ...] = (),
+    replicate: str | None = None,
 ) -> CompiledBinding:
     """Pin a frozen demand and lower every supported expression to Core SQL.
 
@@ -556,6 +558,7 @@ def compile_binding(
             tuple(sorted(role_populations.items())),
             subject_context=subject_context,
             population_projections=tuple(sorted(role_projections.items())),
+            replicate=replicate,
         )
     accepted_kinds = input_kind_contracts(model, (role.kind for role in roles.values()))
     anchor = select(literal(subject).label("subject")).subquery("binding_subject")
@@ -1265,6 +1268,7 @@ def compile_binding(
         original_source,
         subject_context,
         tuple(sorted(role_projections.items())),
+        replicate=replicate,
     )
 
 
@@ -1528,6 +1532,7 @@ def decode_binding_rows(
         compiled.admission_evidence,
         compiled.source_sets,
         compiled.subject_context,
+        replicate=compiled.replicate,
     )
 
 

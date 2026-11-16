@@ -117,7 +117,7 @@ def bound_inputs(model, operation, values, context):
         eligibility="unadmitted:controlled-input-eligibility",
         admission_evidence=(),
         subject_context=context,
-    )
+    replicate=None)
     recipe = next(
         item.key for item in model.identities if item.owner == operation and item.domain == "recipe"
     )

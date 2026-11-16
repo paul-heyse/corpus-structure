@@ -105,7 +105,7 @@ def authored_inputs(scientific, values):
         for item in model.identities
         if item.domain == "recipe" and item.owner == "rich.consolidate"
     )
-    return prepared, model, RichKernelInputs(recipe, context, roles)
+    return prepared, model, RichKernelInputs(recipe, context, roles, parameters=b'["mapping",[]]', replicate=None)
 
 
 def test_actual_authored_proposition_is_evaluated_and_selected_with_real_authored_origin(

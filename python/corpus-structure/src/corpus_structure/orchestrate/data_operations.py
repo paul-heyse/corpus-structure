@@ -1000,8 +1000,9 @@ class NativeDemandExecutor:
                         answer = yield from physical.relay(
                             pending[0][4].plan_batch_python(
                                 tuple(
-                                    PythonBatchMember(member, inputs, item.binding_result)
-                                    for member, item, _, inputs, _ in pending
+                                    PythonBatchMember(member, inputs, item.binding_result,
+                                        producer=json_bytes(claim.fence))
+                                    for member, item, claim, inputs, _ in pending
                                 ),
                                 check_active=lambda: _check_batch_active(
                                     owner, tuple(row[2] for row in pending)
