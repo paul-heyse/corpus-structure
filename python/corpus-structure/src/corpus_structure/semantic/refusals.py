@@ -30,6 +30,10 @@ class ReadLimit(SemanticRefusal):
         super().__init__(message)
 
 
+class ReferenceError(ValueError):
+    """A reference is incomplete, stale or belongs to another immutable binding."""
+
+
 class OperationConflict(ValueError):
     """Immutable input identity changed or a task/pass fence was lost."""
 

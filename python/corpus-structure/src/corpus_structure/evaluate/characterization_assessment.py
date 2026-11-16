@@ -20,7 +20,7 @@ from corpus_structure.semantic.assessment_graph_contract import (
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.product_reference import ProductReference
 
-from .semantic import ReferenceError
+from corpus_structure.semantic.refusals import ReferenceError
 
 
 class WitnessGraphBudgetExceeded(ReferenceError):
