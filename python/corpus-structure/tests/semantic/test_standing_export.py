@@ -5,9 +5,9 @@ import json
 import pyarrow as pa
 import pyarrow.parquet as pq
 import pytest
+from corpus_structure.semantic.contracts import execution_payload
 
 from corpus_structure.semantic.analytics import CapturedPacket, compile_projection
-from corpus_structure.semantic.contracts import execution_payload
 from corpus_structure.semantic.query import SnapshotBinding
 from corpus_structure.serve.export import export_packet
 

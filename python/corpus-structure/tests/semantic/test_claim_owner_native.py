@@ -8,12 +8,12 @@ from types import SimpleNamespace
 
 import psycopg
 import pytest
+from corpus_structure.semantic.operation_results import CompletionResult
 from pydantic import BaseModel
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.semantic import claim_lifetime
-from corpus_structure.semantic.operation_results import CompletionResult
 from corpus_structure.semantic.operations import (
     OperationBinding,
     OperationConflict,

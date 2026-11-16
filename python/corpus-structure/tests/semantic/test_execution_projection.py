@@ -62,11 +62,11 @@ def test_changed_effect_requirements_refuse_before_authoring(change):
     from dataclasses import replace
 
     import yaml
-
     from corpus_structure.semantic.contracts import (
         compile_execution_model,
         trusted_execution_inputs,
     )
+
     from corpus_structure.semantic.types import PreparationError, SourceArtifact
 
     inputs = trusted_execution_inputs()
@@ -191,11 +191,11 @@ def test_candidate_edge_rows_change_native_answer_without_replacing_guard(
     from dataclasses import replace
 
     import yaml
+    from corpus_structure.semantic.contracts import trusted_execution_inputs
     from sqlalchemy.exc import DBAPIError
 
     from corpus_structure.semantic import PreparationProfile, ResolvedDependencies, prepare_release
     from corpus_structure.semantic.composed import composed_dependencies
-    from corpus_structure.semantic.contracts import trusted_execution_inputs
     from corpus_structure.semantic.releases import persist_release
     from corpus_structure.semantic.types import SourceArtifact
     from semantic.execution_release_support import bundle as _bundle

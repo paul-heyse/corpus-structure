@@ -1,6 +1,6 @@
 # Declared data operations — total governing model
 
-**Status · 2026-11-16: DDO-00–11 execution in progress. Current effective interpretation is v8. The97-relation target and normal native-only lifecycle are integrated with bounded private controls; registered root, consumer integration and verified development adoption remain incomplete. Complete legacy retirement and DDO-12 assembled qualification remain open. No persistent deployment or conversion.**
+**Status · 2026-11-16: DDO-00–11 execution in progress. Current effective interpretation is v8. The97-relation target and normal native-only lifecycle are integrated with bounded private controls; the current root is registered and installed on the owned stage; consumer integration and verified development adoption remain incomplete. Complete legacy retirement and DDO-12 assembled qualification remain open. The working development database is unchanged.**
 
 This coordinator is the sole owner of package readiness, source-qualified recommendation disposition,
 F/CA findings and preparation questions. Technical companions own contracts; dated sections below
@@ -14,8 +14,8 @@ Core3.3/heuristics/code-intelligence1.4/test-assessment1.2/binding apply. No bro
 
 **Implemented; bounded Tested.** The97-relation physical declaration and maintained PDF actions now
 own the normal metadata basis. Current `native_authoring` and `native_admission` own generic frozen
-state/catalog contracts; the normal Alembic location is `target_alembic`. There is not yet a
-registered current root, so initialization must refuse rather than replay the historical series.
+state/catalog contracts; the normal Alembic location is `target_alembic`. The registered
+`semantic_ddo_current_root` now supplies current initialization; historical replay is unsupported.
 [ADR-0118](../adr/0118-current-target-installation.md) selects one current root and exact frozen
 successors, including a native-only lifecycle with no fabricated application release. The
 unregistered [v10 preparation](../design_review/evidence/2026-11-15_ddo-v10-native/README.md) is
@@ -75,8 +75,14 @@ No persistent install/adoption follows from rollback-only authoring. The
 [current-root evidence](../design_review/evidence/2026-11-16_ddo-current-native/README.md)
 retains the exact stage/request and acceptance boundary.
 
-I09 remains open for the corrected candidate/register/deploy, a registered current root,
-current fixture baseline, full supported consumer readiness, recovery/fencing and adoption.
+Corrected native-only preview/apply/candidate/register/deploy passed with the exact stage binding:
+`9924b10ed5a84fa486c7717b2d2626be`, `df2987139e0e47079d53ae546cfc4fdc`,
+`f93ca97b64c840c69ccb8b92bfe4be93`, `b7f0e7946ccd4867bd10883cc3a41ade`,
+`797c62ed148c4527a95861fb23daa274`. Root `semantic_ddo_current_root` is registered at `280a73976`
+and installed/verified only on owned stage OID130661481. Separate actual maintenance status reads
+revision=head with the original stage/system identity. This closes that installation prerequisite;
+I09 remains open for the current fixture baseline, full supported consumer readiness,
+recovery/fencing and development adoption.
 I02/I04/I05/I06 retain common authority, source/body/lineage and native/provider integration.
 DDO-12 remains open for the final-source functional/provider/fault/nonfunctional union.
 

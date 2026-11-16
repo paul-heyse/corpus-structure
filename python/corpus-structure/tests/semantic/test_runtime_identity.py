@@ -4,14 +4,14 @@ import json
 from dataclasses import replace
 
 import pytest
-
-from corpus_structure.semantic.composed import composed_dependencies
 from corpus_structure.semantic.contracts import (
     analysis_implementation_inputs,
     compile_execution_model,
     semantic_implementation_inputs,
     trusted_execution_inputs,
 )
+
+from corpus_structure.semantic.composed import composed_dependencies
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.prepare import prepare_release
 from corpus_structure.semantic.runtime_bindings import (

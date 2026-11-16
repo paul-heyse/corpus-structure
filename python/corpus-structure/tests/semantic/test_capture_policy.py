@@ -4,8 +4,8 @@ from dataclasses import replace
 
 import pytest
 import yaml
-
 from corpus_structure.semantic.contracts import compile_execution_model, trusted_execution_inputs
+
 from corpus_structure.semantic.types import PreparationError
 
 

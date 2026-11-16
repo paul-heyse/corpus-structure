@@ -131,9 +131,10 @@ def primary_layers(view, prepared, *, binders=None, rules=(), macros=None, task_
 
 @cache
 def pure_source_release() -> PreparedRelease:
+    from corpus_structure.semantic.contracts import trusted_execution_inputs
+
     from corpus_structure.semantic import PreparationProfile, ResolvedDependencies, prepare_release
     from corpus_structure.semantic.composed import composed_dependencies
-    from corpus_structure.semantic.contracts import trusted_execution_inputs
 
     inputs = trusted_execution_inputs()
     return prepare_release(

@@ -6,11 +6,11 @@ from unittest.mock import MagicMock
 
 import psycopg
 import pytest
+from corpus_structure.semantic.contracts import compile_execution_model, trusted_execution_inputs
 from sqlalchemy import Connection
 
 from corpus_structure.ingest.sentences import SentenceConfig
 from corpus_structure.semantic import analysis_contracts, releases, source_views
-from corpus_structure.semantic.contracts import compile_execution_model, trusted_execution_inputs
 from corpus_structure.semantic.operations import BoundReader, OperationConflict
 from corpus_structure.semantic.prepare import prepare_release
 from corpus_structure.semantic.types import PreparationError, RegistryRow

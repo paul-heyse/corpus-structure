@@ -9,11 +9,6 @@ from unittest.mock import MagicMock
 import psycopg
 import pyarrow as pa
 import pytest
-from sqlalchemy import Engine
-
-from corpus_structure.core.vocab import TaskUnitType
-from corpus_structure.orchestrate import pdf_streaming as execution
-from corpus_structure.semantic import pdf_staging
 from corpus_structure.semantic.operation_results import (
     ClaimedTask,
     MethodConfigId,
@@ -22,6 +17,11 @@ from corpus_structure.semantic.operation_results import (
     TaskAttempt,
     TaskId,
 )
+from sqlalchemy import Engine
+
+from corpus_structure.core.vocab import TaskUnitType
+from corpus_structure.orchestrate import pdf_streaming as execution
+from corpus_structure.semantic import pdf_staging
 
 
 def claim():

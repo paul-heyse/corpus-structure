@@ -109,8 +109,12 @@ def test_corrupt_current_archive_refuses_even_with_recomputed_digest(commit_db_e
 def test_current_native_admission_refuses_unimplemented_graph_scope(commit_db_engine, scope):
     with commit_db_engine.begin() as connection:
         *_, prepared = _stage(connection, scope=scope)
-        with pytest.raises(
-            ExecutionAdmissionError, match="unsupported required native constraint scope or pattern"
+        with (
+            pytest.raises(
+                ExecutionAdmissionError,
+                match="unsupported required native constraint scope or pattern",
+            ),
+            connection.begin_nested(),
         ):
             admit_data_operation_release(connection, prepared)
         definitions = table("sem.data_operation_definition")

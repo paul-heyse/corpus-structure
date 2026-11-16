@@ -5,6 +5,7 @@ from __future__ import annotations
 from types import MappingProxyType
 
 import pyarrow as pa
+from corpus_structure.semantic.contracts import execution_payload
 
 from corpus_structure.semantic import (
     PreparationProfile,
@@ -15,7 +16,6 @@ from corpus_structure.semantic import (
 from corpus_structure.semantic.analytical_profile import analytical_inputs
 from corpus_structure.semantic.analytics import AnalyticalPacket, compile_projection
 from corpus_structure.semantic.composed import composed_dependencies
-from corpus_structure.semantic.contracts import execution_payload
 from corpus_structure.semantic.query import SnapshotBinding
 
 

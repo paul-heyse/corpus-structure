@@ -4,10 +4,10 @@ import json
 from dataclasses import replace
 
 import pytest
+from corpus_structure.semantic.operation_results import validate_result_dimension
 from pydantic import ValidationError
 
 from corpus_structure.semantic.identity import canonical_bytes
-from corpus_structure.semantic.operation_results import validate_result_dimension
 from corpus_structure.semantic.types import RegistryRow
 from semantic.proposals_support import prepared
 

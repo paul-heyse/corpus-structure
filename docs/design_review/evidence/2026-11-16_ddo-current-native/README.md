@@ -10,8 +10,8 @@ application/provider qualification by preparing or installing infrastructure.
 
 The existing `corpus_structure_dev` remains PostgreSQL18.7 on dedicated5434, database OID25921445,
 system7701811359771751232, installed `semantic_bep_located_v2`; maintenance status reacquired this
-identity on2026-11-16. No reset, rename, persistent native deployment, activation or data conversion
-has occurred. Current checkout has no registered native root. Historical frozen files remain
+identity on2026-11-16. That development database has had no reset, rename, native deployment,
+activation or data conversion. The current root is registered and installed only on the owned stage. Historical frozen files remain
 unchanged and are not a selectable current install route. The unregistered
 [v10 preparation](../2026-11-15_ddo-v10-native/README.md) is superseded.
 
@@ -20,8 +20,8 @@ readiness before development adoption. Creation-only installation preserves its 
 acknowledged token/OID/owner and target identity. Existing creation ownership, model preview,
 rollback-only candidate, inspection, registration and deployment mechanisms supply custody.
 No application release, capsule or admission claim is fabricated for native-only installation.
-The native request is prepared after final shared source integration; source changes require a
-fresh reviewed preview. Actual commands and outcomes are recorded below as they settle.
+The native request captures shared source integration; later native source changes require a
+fresh reviewed successor. Actual commands and outcomes are recorded below as they settle.
 
 ## Empty authoring stage · 2026-11-16
 
@@ -55,10 +55,33 @@ original release/runtime/recipe/generation and exact intent request/task/attempt
 including original inputs/support when rechecking the fit. No persistent installation occurred.
 A fresh reviewed preview/candidate must capture that correction before registration.
 
+## Registered root and stage installation · 2026-11-16
+
+**passed:** corrected preview `9924b10ed5a84fa486c7717b2d2626be`, exact apply
+`df2987139e0e47079d53ae546cfc4fdc`, rollback-only candidate
+`f93ca97b64c840c69ccb8b92bfe4be93`, registration `b7f0e7946ccd4867bd10883cc3a41ade`
+and deployment `797c62ed148c4527a95861fb23daa274`, using `ci model change` on the explicit stage
+URL. Registration committed as `280a73976`; the frozen revision is `semantic_ddo_current_root`.
+
+Candidate operation inspection paged all594 transitions:382 functions,107 triggers,4 views,
+97 table privilege normalizations and4 schema privilege normalizations. No PUBLIC ACL transitions
+were present. The124 ordinary installation operations create the canonical target. Exact frozen
+SQL, state/catalog descriptor and admission bytes are retained under
+`python/corpus-structure/target_alembic/versions/semantic_ddo_current_root*`; registered bytes must
+remain unchanged. Current root formatting excludes frozen wrappers, as it already excludes the
+historical series; lint still checks them.
+
+The normal deploy command applied and verified the installation. A separate actual
+`ci db status --maintenance --json` reacquired the same OID130661481/system7701811359771751232,
+principal `paul`, readable/present migration table and revision=head=`semantic_ddo_current_root`.
+No application release, activation, historical conversion or default development-target change
+has occurred. Actual current artifact, contextual, selected annotation and event/record journeys
+are executing on isolated native hosts; their qualification is separate from this installation.
+
 ## Acceptance still required
 
-- Final-source current root candidate, reviewed exact physical/native/ACL delta, registration and
-  normal installation, including canonical guarded-path catalog/type comparisons.
+- Preserve exact registered root custody and qualify any required native successor discovered by
+  actual application consumers; frozen source is never patched in place.
 - Actual current source/runtime/archive/application consumers and their private/ordinary
   visibility, refusal, concurrency and scientific controls. Controlled inference establishes only
   its stated execution, not provider accuracy or independent scientific standing.

@@ -3,8 +3,8 @@
 from dataclasses import replace
 
 import yaml
-
 from corpus_structure.semantic.contracts import trusted_execution_inputs
+
 from corpus_structure.semantic.types import SourceArtifact
 
 # Test producers are named fixtures, never a production wildcard or inferred output list.

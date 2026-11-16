@@ -96,8 +96,8 @@ ignore = ["E501"]
 "python/corpus-structure/alembic/versions/0001_initial_schema.py" = ["RUF100"]
 
 [tool.ruff.format]
-# Frozen migration bytes are historical inputs; format prospective wrappers before freezing.
-exclude = ["python/corpus-structure/semantic_alembic/versions/*.py", "python/corpus-structure/alembic/versions/0001_initial_schema.py"]
+# Frozen migration bytes are registered inputs; format changes belong before candidate freezing.
+exclude = ["python/corpus-structure/semantic_alembic/versions/*.py", "python/corpus-structure/target_alembic/versions/*.py", "python/corpus-structure/alembic/versions/0001_initial_schema.py"]
 
 [tool.pyrefly]
 python-version = "3.14"

@@ -117,10 +117,10 @@ def publish_controlled_pdf_views(
     """Retain authored sections; a supplied claim leaves terminal settlement with its owner."""
     from tempfile import TemporaryDirectory
 
+    from corpus_structure.semantic.operation_results import MethodConfigId, RunId
     from semantic.native_record_fixtures import publish_native_record_fixture
 
     from corpus_structure.ingest.pdf_section_views import published_section_drafts
-    from corpus_structure.semantic.operation_results import MethodConfigId, RunId
     from corpus_structure.semantic.pdf_record_reader import published_record_reader
     from corpus_structure.semantic.product_reference import ProductReference
     from corpus_structure.semantic.source_views import load_source_view, store_source_view

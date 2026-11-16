@@ -5,14 +5,14 @@ from types import SimpleNamespace
 
 import psycopg
 import pytest
+from corpus_structure.semantic.contracts import bound_execution_model
+from corpus_structure.semantic.operation_results import MethodConfigId, RunId
 from pydantic import BaseModel
 from sqlalchemy import select, text
 from sqlalchemy.exc import DBAPIError
 
-from corpus_structure.semantic.contracts import bound_execution_model
 from corpus_structure.semantic.invariant_failures import classify_invariant_failure
 from corpus_structure.semantic.metadata import table
-from corpus_structure.semantic.operation_results import MethodConfigId, RunId
 from corpus_structure.semantic.operations import (
     OperationBinding,
     claim_tasks,

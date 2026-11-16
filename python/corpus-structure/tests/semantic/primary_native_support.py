@@ -232,10 +232,11 @@ def bind_primary_agent_run(
     """Freeze real primary pins before authoring an agent run over the original views."""
     import json
 
+    from corpus_structure.semantic.operation_results import RunId
+
     from corpus_structure.semantic._operation_calls import select_source_view
     from corpus_structure.semantic._operation_ids import SourceViewId
     from corpus_structure.semantic.identity import canonical_bytes
-    from corpus_structure.semantic.operation_results import RunId
     from corpus_structure.semantic.operations import OperationBinding, create_run
 
     runs = table("ops.run")

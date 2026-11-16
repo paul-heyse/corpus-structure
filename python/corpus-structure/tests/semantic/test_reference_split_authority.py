@@ -5,6 +5,11 @@ from dataclasses import replace
 
 import pytest
 import yaml
+from corpus_structure.semantic.contracts import (
+    bound_execution_model,
+    compile_execution_model,
+    trusted_execution_inputs,
+)
 
 from corpus_structure.semantic import (
     PreparationError,
@@ -16,11 +21,6 @@ from corpus_structure.semantic import (
 )
 from corpus_structure.semantic.archive_reader import reconstruct_release
 from corpus_structure.semantic.composed import composed_dependencies
-from corpus_structure.semantic.contracts import (
-    bound_execution_model,
-    compile_execution_model,
-    trusted_execution_inputs,
-)
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.releases import _products
 

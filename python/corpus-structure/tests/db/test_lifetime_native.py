@@ -7,6 +7,14 @@ from time import monotonic, sleep
 
 import psycopg
 import pytest
+from corpus_structure.semantic.operation_results import (
+    ClaimedTask,
+    MethodConfigId,
+    ReleaseId,
+    RunId,
+    TaskAttempt,
+    TaskId,
+)
 from db_store_support import settings_for
 from psycopg_pool import PoolTimeout
 from sqlalchemy import text
@@ -21,14 +29,6 @@ from corpus_structure.core.db.store import (
 )
 from corpus_structure.core.vocab import TaskUnitType
 from corpus_structure.semantic import claim_lifetime, publication
-from corpus_structure.semantic.operation_results import (
-    ClaimedTask,
-    MethodConfigId,
-    ReleaseId,
-    RunId,
-    TaskAttempt,
-    TaskId,
-)
 from corpus_structure.semantic.publication import PublicationBatch
 from corpus_structure.settings import DatabaseSettings
 
