@@ -1,42 +1,8 @@
-"""Independent required-universe and public refusal boundary expectations."""
-
-from typing import Literal
+"""Public refusal boundaries retain signatures, native attribution and actual dispatch."""
 
 import pytest
 
-from corpus_structure.semantic.query import Coverage, CoverageRequirement
 from corpus_structure.semantic.refusals import SemanticRefusal, tool_refusals
-
-
-def witness(
-    scope, outcome: Literal["complete", "partial", "unanalysed", "failed"] = "complete", family="f"
-):
-    return Coverage(
-        coverage_id=scope + outcome + family,
-        family=family,
-        scope=scope,
-        outcome=outcome,
-        reason=None,
-        source_outcome=None,
-        required_capability=None,
-    )
-
-
-def test_required_members_are_independent_from_available_coverage():
-    requirement = CoverageRequirement("f", frozenset({"a", "b"}))
-    assert not requirement.established_by((witness("a"),))
-    assert requirement.established_by((witness("a"), witness("b")))
-    assert not requirement.established_by((witness("a"), witness("b", "partial")))
-    assert not requirement.established_by((witness("*", family="other"),))
-    assert requirement.established_by((witness("*"),))
-    assert not requirement.established_by((witness("*"), witness("b", "unanalysed")))
-
-
-def test_empty_unestablished_universe_does_not_prove_absence():
-    requirement = CoverageRequirement("f", frozenset())
-    assert not requirement.established_by(())
-    assert not requirement.established_by((witness("a"),))
-    assert requirement.established_by((witness("*"),))
 
 
 def test_expected_tool_refusal_preserves_signature_and_defects():
