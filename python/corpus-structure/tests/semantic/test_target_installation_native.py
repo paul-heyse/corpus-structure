@@ -261,13 +261,47 @@ def test_actual_fresh_target_authoring_render_replay_install_and_acl(
     native_settings,
     fresh_target_epoch,
     tmp_path,
+    monkeypatch,
 ):
+    from corpus_structure.semantic import migrations
+    from corpus_structure.semantic.execution_admission import (
+        ExecutionAdmissionError,
+        require_archive_fence,
+    )
+
     engine = semantic_bare_engine
     target, authoring, _, admission, revision, location = install_target_root(
         engine,
         fresh_target_epoch,
         tmp_path,
     )
+    # Resolve this genuinely registered immutable root. A reader must not need
+    # access to the maintenance-only Alembic table to authenticate its contract.
+    monkeypatch.setattr(migrations, "ALEMBIC_DIR", location)
+    admitter = principal_engine(native_settings, "admit", engine.url.database)
+    try:
+        with admitter.begin() as connection:
+            require_archive_fence(connection)
+        with engine.begin() as connection:
+            selected = next(
+                item for item in authoring.desired if item.identity.name == "read_demand_result"
+            )
+            with native_owner(connection, selected.catalog["owner"]):
+                connection.exec_driver_sql(
+                    "GRANT EXECUTE ON FUNCTION " + selected.identity.qualified + " TO PUBLIC"
+                )
+        try:
+            with admitter.begin() as connection:
+                with pytest.raises(ExecutionAdmissionError, match="native deployment catalog differs"):
+                    require_archive_fence(connection)
+        finally:
+            with engine.begin() as connection:
+                with native_owner(connection, selected.catalog["owner"]):
+                    connection.exec_driver_sql(
+                        "REVOKE EXECUTE ON FUNCTION " + selected.identity.qualified + " FROM PUBLIC"
+                    )
+    finally:
+        admitter.dispose()
     with engine.begin() as connection:
         # These historical kernel identities are intentionally absent. If such
         # an identity exists with a forbidden application grant, the same guard
