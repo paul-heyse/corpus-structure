@@ -87,13 +87,19 @@ def _protocol_content(sources: tuple[SourceArtifact, ...] | None) -> bytes:
         content = canonical_bytes(document)
     if "read_selected_feature_fit_frame_result" in document.get("definitions", {}):
         from .record_policy_native import (
-            EVENT_FRAME_SCHEMA_SOURCE, GRADE_SCHEMA_SOURCE,
-            operation_event_frame_schema, record_policy_grade_schema,
+            EVENT_FRAME_SCHEMA_SOURCE,
+            GRADE_SCHEMA_SOURCE,
+            operation_event_frame_schema,
+            record_policy_grade_schema,
         )
 
         for source_name, factory, root in (
             (GRADE_SCHEMA_SOURCE, record_policy_grade_schema, "selected_record_grade"),
-            (EVENT_FRAME_SCHEMA_SOURCE, operation_event_frame_schema, "selected_operation_event_frame"),
+            (
+                EVENT_FRAME_SCHEMA_SOURCE,
+                operation_event_frame_schema,
+                "selected_operation_event_frame",
+            ),
         ):
             if sources is None:
                 captured = factory()
@@ -105,7 +111,9 @@ def _protocol_content(sources: tuple[SourceArtifact, ...] | None) -> bytes:
             extension = checked_json_schema(json.loads(captured))
             definitions = dict(extension.get("definitions", {}))
             definitions[root] = {
-                key: value for key, value in extension.items() if key not in {"definitions", "$schema"}
+                key: value
+                for key, value in extension.items()
+                if key not in {"definitions", "$schema"}
             }
             if definitions.keys() & document["definitions"].keys():
                 raise ValueError("fit frame definition collides with native protocol")

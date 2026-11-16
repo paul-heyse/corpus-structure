@@ -2,7 +2,9 @@
 
 GRADE_SCHEMA_SOURCE = "native/data-operation-record-grade.schema.json"
 EVENT_FRAME_SCHEMA_SOURCE = "native/data-operation-operation-event-frame.schema.json"
-EVENT_FRAME_KIND = "https://corpus-structure.dev/semantic/operation-events/protected/DdoOperationEventFrame"
+EVENT_FRAME_KIND = (
+    "https://corpus-structure.dev/semantic/operation-events/protected/DdoOperationEventFrame"
+)
 EVENT_FRAME_OPERATION = "operation_event.frame"
 EVENT_FRAME_FACTORY = "corpus_structure.methods.operation_events.OperationEventFrame.acquire_port"
 

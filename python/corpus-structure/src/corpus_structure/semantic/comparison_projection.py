@@ -12,7 +12,6 @@ from pydantic.dataclasses import dataclass
 
 from .identity import canonical_bytes
 from .types import (
-    READABLE_COMPILER_VERSIONS,
     SEMANTIC_COMPILER_VERSION,
     ClassDefinition,
     Diagnostic,
@@ -50,7 +49,7 @@ class PredicateProjection:
 @dataclass(frozen=True, config=ConfigDict(extra="forbid"))
 class ComparisonProjection:
     abi: Literal["comparison-projection-1"]
-    compiler_version: Literal["14", "15", "16", "17", "18", "19", "20", "21", "22"]
+    compiler_version: Literal["22"]
     operation: Literal["scientific_policy"]
     default: Literal["non-provenance-qualification-is-context-v1"]
     qualifications: tuple[QualificationProjection, ...]
@@ -231,7 +230,7 @@ def _read_projection(
 def comparison_projection(prepared: PreparedRelease):
     compiler = json.loads(prepared.manifest)["profile"]["compiler_version"]
     artifacts = [a for a in prepared.artifacts if a.kind == ARTIFACT]
-    if compiler in READABLE_COMPILER_VERSIONS:
+    if compiler == SEMANTIC_COMPILER_VERSION:
         if len(artifacts) != 1:
             raise ValueError(
                 f"compiler-{compiler} comparison requires its exact resolved projection"

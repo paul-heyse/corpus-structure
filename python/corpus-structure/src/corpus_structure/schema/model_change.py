@@ -377,7 +377,9 @@ def prepare_preview(
             raise model.ModelError(["native revision conflicts with the declared model change"])
         if bool(native) != bool(migration or request.native_revision):
             raise model.ModelError(
-                ["a native change requires an Alembic revision; None predecessor explicitly requests an empty root"]
+                [
+                    "a native change requires an Alembic revision; None predecessor explicitly requests an empty root"
+                ]
             )
         if model.revision(old).content_hash == revision.content_hash and request.change is None:
             problems = model.check(new) + model.check_log(
@@ -429,7 +431,9 @@ def prepare_preview(
             path = (migration_directory / name).as_posix()
             current[path] = _read(root, path)
             if current[path] is None:
-                raise model.ModelError(["native preview requires its current migration environment: " + path])
+                raise model.ModelError(
+                    ["native preview requires its current migration environment: " + path]
+                )
     for migration in migrations:
         for path, digest in migration.inputs.items():
             content = _read(root, path)

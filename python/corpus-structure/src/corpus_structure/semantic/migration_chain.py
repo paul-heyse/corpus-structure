@@ -76,7 +76,11 @@ def registered_base(location: Path, acquired: str | None, predecessor: str) -> N
         pending.append(current)
         path, fields = declarations[current]
         parent = fields.get("down_revision")
-        if (parent is not None and not isinstance(parent, str)) or fields.get("depends_on") or fields.get("branch_labels"):
+        if (
+            (parent is not None and not isinstance(parent, str))
+            or fields.get("depends_on")
+            or fields.get("branch_labels")
+        ):
             raise SemanticRefusal("native authoring requires a linear frozen forward chain")
         for kind in ("UPGRADE", "STATE", "ADMISSION"):
             name, digest = fields.get(f"NATIVE_{kind}_FILE"), fields.get(f"NATIVE_{kind}_SHA256")

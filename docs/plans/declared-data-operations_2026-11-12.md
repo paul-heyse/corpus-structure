@@ -1,6 +1,6 @@
 # Declared data operations — total governing model
 
-**Status · 2026-11-16: DDO-00–11 execution in progress. Current effective interpretation is v8. The97-relation target is canonical; its normal native-only installation lifecycle, registered root, consumer integration and verified development adoption remain incomplete. Complete legacy retirement and DDO-12 assembled qualification remain open. No persistent deployment or conversion.**
+**Status · 2026-11-16: DDO-00–11 execution in progress. Current effective interpretation is v8. The97-relation target and normal native-only lifecycle are integrated with bounded private controls; registered root, consumer integration and verified development adoption remain incomplete. Complete legacy retirement and DDO-12 assembled qualification remain open. No persistent deployment or conversion.**
 
 This coordinator is the sole owner of package readiness, source-qualified recommendation disposition,
 F/CA findings and preparation questions. Technical companions own contracts; dated sections below
@@ -31,9 +31,28 @@ not the normal lifecycle, application consumers, adoption or provider qualificat
 Current activation calls checked DDO admission directly. Frozen descriptor/body/catalog custody
 replaces historical realization-trigger hashes and selected-fact assumptions. Current admission,
 installation and archive-bootstrap Python controls35 passed `9edb781c7f4e4402b2e65b751783a06a`.
-Typing `88f63bc01d4f435eaeff05c66ca15572` failed only in the historical PostgreSQL capability test's
-two removed trigger-hash expectations; current native/catalog counterparts are assigned. A real
-admitter-principal archive-fence positive and catalog-drift refusal remain required.
+Typing `88f63bc01d4f435eaeff05c66ca15572` failed in the historical PostgreSQL capability test's
+two removed trigger-hash expectations; current native/catalog counterparts are assigned.
+
+The real admitter fence first failed `4f5eedf4f27a4129b8c912f058d59522`: ambient authoring
+deparsing recorded an unqualified vector result while the enforcing guard excludes public from its
+search path. Canonical catalog observation, argument/result/default descriptions and source inventory
+now use the actual guarded path; privileged checks are preserved. Integrated fresh/admitter/catalog2
+passed `2d476e22f58b4d45be7905178347d79e`, including the real PUBLIC ACL drift refusal and the captured
+definition completion/currentness hooks. Native-only managed preview/apply/candidate/inspection/
+registration/deploy2 passed at worker source `66aa1e4f347e4f85bf155105158c0f27`, including env/frozen
+artifact/catalog drift refusals and no fabricated release or ordinary-purpose admission. The normal
+route is integrated; its final-source qualification and registered application root remain open.
+
+Compiler14–21 reading, inspection/vocabulary v1 fallbacks and unfinalized archive reconstruction are
+removed; source regeneration uses current compiler22 and normal archive opening requires protected
+finalization. The old run-based structural/journey/gap/dossier reader tails are removed in favor of
+the actual selected implementations. Independent citation expectations consume the current member
+projection. Current fixture helpers verify installed frozen custody rather than authoring DDL.
+Original CPU definition body/source/target lineage is captured and guarded at retention/publication.
+Scoped Python120 had119passed/1stale generated-protocol source hash, `be1a768719b8442ea1d251a9341503a3`;
+current generation and exact retry are required. Scientific artifact registered-native scenarios
+still need their current-DDO counterpart; their expectations must survive reader retirement.
 
 [ADR-0117](../adr/0117-current-operation-event-fitting.md) retains the existing numerical fitter
 with genuine selected report/component frames, independent C labels and finite safe parameter

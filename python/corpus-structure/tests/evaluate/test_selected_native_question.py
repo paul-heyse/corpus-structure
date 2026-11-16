@@ -4,17 +4,25 @@ from copy import deepcopy
 
 import pytest
 from pydantic import ValidationError
+from semantic.test_selected_references import reference_body
 
 from corpus_structure.evaluate.native_scoring import SelectedNativeScoringQuestion
 from corpus_structure.evaluate.selected_references import _reference_invariants
 from corpus_structure.semantic.observations import source_value
-from semantic.test_selected_references import reference_body
 
 
 def question():
-    return dict(projection="a" * 64, start=7, end=16,
-                reference=dict(kind="tokenization", text="Ada acts.",
-                               words=["Ada", "acts", "."], spaces=[True, False, False]))
+    return dict(
+        projection="a" * 64,
+        start=7,
+        end=16,
+        reference=dict(
+            kind="tokenization",
+            text="Ada acts.",
+            words=["Ada", "acts", "."],
+            spaces=[True, False, False],
+        ),
+    )
 
 
 def test_whole_block_native_question_requires_exact_extent_and_native_scheme():

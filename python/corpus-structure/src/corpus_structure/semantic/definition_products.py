@@ -56,10 +56,7 @@ def definition_profile_assets():
                         name,
                         (
                             admitted_operation_module_meaning((_ROOT / name).read_bytes()).hex()
-                            if name
-                            in (
-                                "methods/definition_declared.py",
-                                                        )
+                            if name in ("methods/definition_declared.py",)
                             else (_ROOT / name).read_bytes().hex()
                         ),
                     )
@@ -83,8 +80,8 @@ def definition_operation_sources():
             for name in (
                 "methods/definition_declared.py",
                 "semantic/definition_products.py",
-                                        "methods/definition_applicability.py",
-                                                                "semantic/data_operation_prepared_call.py",
+                "methods/definition_applicability.py",
+                "semantic/data_operation_prepared_call.py",
             )
         ),
         boundary_contracts=(definition_profile_assets(),),
@@ -247,18 +244,42 @@ def execute_definition_declaration(
     )
 
 
-def definition_kernel(arguments: dict, roles: tuple[ResolvedRoleBinding, ...], context: SubjectContext,
-    input_basis: list, *, prepared: PreparedRelease, check_active: Callable[[], None]) -> dict:
+def definition_kernel(
+    arguments: dict,
+    roles: tuple[ResolvedRoleBinding, ...],
+    context: SubjectContext,
+    input_basis: list,
+    *,
+    prepared: PreparedRelease,
+    check_active: Callable[[], None],
+) -> dict:
     from corpus_structure.methods.definition_declared import DefinitionDeclarationOperation
+
     from .data_operation_cpu_basis import cpu_authority_reply, require_consumed_cpu_basis
     from .data_operation_identity import semantic_value
+
     names = {role.role for role in roles}
-    if names != {"source", "syntax", "hanlp"} or any(role.state != "present" or not role.members for role in roles):
+    if names != {"source", "syntax", "hanlp"} or any(
+        role.state != "present" or not role.members for role in roles
+    ):
         raise ValueError("definition declaration requires its exact original input population")
-    require_consumed_cpu_basis(input_basis, context, roles,
-        {role.role: (arguments[role.role],) if role.role == "source" else tuple(arguments[role.role]) for role in roles},
-        parameters=canonical_bytes(semantic_value({name: value for name, value in arguments.items() if name not in names})))
-    result = DefinitionDeclarationOperation(PreparedDefinitionInputs(prepared, roles, context, check_active)).run(**arguments)
+    require_consumed_cpu_basis(
+        input_basis,
+        context,
+        roles,
+        {
+            role.role: (arguments[role.role],)
+            if role.role == "source"
+            else tuple(arguments[role.role])
+            for role in roles
+        },
+        parameters=canonical_bytes(
+            semantic_value({name: value for name, value in arguments.items() if name not in names})
+        ),
+    )
+    result = DefinitionDeclarationOperation(
+        PreparedDefinitionInputs(prepared, roles, context, check_active)
+    ).run(**arguments)
     return cpu_authority_reply(input_basis, result)
 
 
@@ -285,10 +306,18 @@ class DefinitionCallPlan:
             check_active=check_active,
         )
         from .data_operation_cpu_basis import cpu_input_basis_from_binding
+
         collections = {role.name: role.collection for role in self.port.operation.roles}
-        values["input_basis"] = cpu_input_basis_from_binding(self.port.operation.recipe, binding,
-            {role.role: (arguments.arguments[role.role],) if collections[role.role] == "scalar"
-                else tuple(arguments.arguments[role.role]) for role in binding.roles})
+        values["input_basis"] = cpu_input_basis_from_binding(
+            self.port.operation.recipe,
+            binding,
+            {
+                role.role: (arguments.arguments[role.role],)
+                if collections[role.role] == "scalar"
+                else tuple(arguments.arguments[role.role])
+                for role in binding.roles
+            },
+        )
         bound = signature.bind(**values)
         captured = definition_operation_sources()
         return (

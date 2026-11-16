@@ -96,8 +96,10 @@ def defining_text_feature_values(
     Extents are passage-relative (start, end, union character length). This numeric
     function grants neither source custody nor linguistic correctness.
     """
-    if not body or any(not 0 <= start < end <= len(body) or not 0 < length <= end - start
-                       for start, end, length in (term_extent, content_extent)):
+    if not body or any(
+        not 0 <= start < end <= len(body) or not 0 < length <= end - start
+        for start, end, length in (term_extent, content_extent)
+    ):
         raise ValueError("defining-text features require exact nonempty passage extents")
     t0, t1, term_length = term_extent
     c0, c1, content_length = content_extent

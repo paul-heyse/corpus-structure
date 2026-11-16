@@ -1,4 +1,4 @@
-"""Versioned reader, runtime and cache controls with independent historical artifacts."""
+"""Current reader, exact runtime and finalized archive cache controls."""
 
 from __future__ import annotations
 
@@ -8,9 +8,10 @@ import pytest
 from pydantic import AfterValidator, TypeAdapter, ValidationError
 
 from corpus_structure.semantic import determinants
+from corpus_structure.semantic.types import SEMANTIC_COMPILER_VERSION
 
 
-@pytest.mark.parametrize("compiler", ["14"])
+@pytest.mark.parametrize("compiler", [SEMANTIC_COMPILER_VERSION])
 @pytest.mark.parametrize("changed", ["pydantic", "pydantic-core", "python", "jsonschema", "cattrs"])
 def test_runtime_compatibility_is_explicit_not_schema_equivalence(monkeypatch, compiler, changed):
     # These validators export exactly the same schema, but disagree on acceptance.
@@ -39,7 +40,9 @@ def test_runtime_compatibility_is_explicit_not_schema_equivalence(monkeypatch, c
     assert not determinants.boundary_compatible(recorded, compiler)
 
 
-@pytest.mark.parametrize("compiler", ["10", "11", "12", "13", "future"])
+@pytest.mark.parametrize(
+    "compiler", ["10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "future"]
+)
 def test_retired_or_unknown_boundary_compilers_refuse_even_with_current_versions(compiler):
     recorded = {
         name: determinants.determinant_version(name) for name in determinants.BOUNDARY_LIBRARIES
@@ -195,7 +198,7 @@ def test_cold_open_changed_header_refuses_without_publishing_cache(commit_db_eng
         assert releases.open_release(conn, prepared.release_id).release_id == prepared.release_id
 
 
-def test_unfinalized_archive_keeps_full_checks_without_cache(commit_db_engine, monkeypatch):
+def test_unfinalized_archive_refuses_without_cache(commit_db_engine):
     from sqlalchemy import delete
 
     from corpus_structure.semantic import archive_reader, releases
@@ -210,18 +213,8 @@ def test_unfinalized_archive_keeps_full_checks_without_cache(commit_db_engine, m
             conn.execute(delete(finalized).where(finalized.c.release_id == prepared.release_id))
         with archive_reader._CACHE_LOCK:
             archive_reader._OPEN_CACHE.pop(conn.engine, None)
-        compared = []
-        original = releases._compare_rows
-
-        def compare(connection, name, release_id, rows):
-            compared.append(name)
-            return original(connection, name, release_id, rows)
-
-        monkeypatch.setattr(releases, "_compare_rows", compare)
-        one = releases.open_release(conn, prepared.release_id)
-        two = releases.open_release(conn, prepared.release_id)
-        assert one is not two
-        assert compared
+        with pytest.raises(releases.ReleaseConflict, match="protected finalization"):
+            releases.open_release(conn, prepared.release_id)
         with archive_reader._CACHE_LOCK:
             assert not archive_reader._OPEN_CACHE.get(conn.engine)
 

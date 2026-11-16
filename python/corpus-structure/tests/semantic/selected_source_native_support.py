@@ -1,8 +1,6 @@
 """Shared controlled inputs and builders for selected source native support."""
 
 import pyarrow as pa
-from alembic.migration import MigrationContext
-from alembic.operations import Operations
 from docling_core.types.doc import (
     ContentLayer,
     DocItemLabel,
@@ -13,8 +11,7 @@ from docling_core.types.doc import (
 )
 
 from corpus_structure.ingest.pdf_streaming import PdfStreamSpool, StreamingPdfResult
-from corpus_structure.semantic.native_candidate import prepare_series_candidate
-from corpus_structure.semantic.native_objects import admit_native
+from corpus_structure.semantic.execution_admission import verify_deployment_catalog
 from corpus_structure.semantic.pdf_publication import (
     adopt_pdf_companion_batch,
     freeze_pdf_build,
@@ -26,12 +23,9 @@ from corpus_structure.semantic.pdf_staging import adopt_pdf_batch
 
 
 def deploy_selected(engine):
-    with engine.begin() as conn:
-        script, authoring = prepare_series_candidate(conn, owned_authoring=True)
-        assert script.upgrade_ops is not None
-        for operation in script.upgrade_ops.ops:
-            Operations(MigrationContext.configure(conn)).invoke(operation)
-        admit_native(conn, authoring.desired)
+    """Require the installed current root/successor; fixture reads do not author DDL."""
+    with engine.begin() as connection:
+        verify_deployment_catalog(connection)
 
 
 def publish_selected(

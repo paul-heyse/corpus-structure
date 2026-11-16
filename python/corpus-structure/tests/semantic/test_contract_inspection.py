@@ -97,26 +97,18 @@ def test_structural_validation_uses_selected_release_and_keeps_input_location():
     assert passed["validation_report"]["complete"]
 
 
-def test_missing_old_detail_never_means_missing_effective_constraint():
+def test_missing_detail_is_corrupt_without_removing_effective_constraint():
     prepared = release()
-    old = replace(
+    incomplete = replace(
         prepared,
         artifacts=tuple(
             a for a in prepared.artifacts if a.kind != "inspection/effective-model.json"
         ),
     )
-    # An old producing compiler, not a compiler20 malformed product.
-    import json
-
-    manifest = json.loads(old.manifest)
-    manifest["profile"]["compiler_version"] = "19"
-    from corpus_structure.semantic.identity import canonical_bytes
-
-    old = replace(old, manifest=canonical_bytes(manifest))
-    value = inspect_contract(old, "property", "Base", property="value", view="detail").model_dump(
-        mode="json"
-    )
-    assert value["detail_status"] == "unavailable"
+    value = inspect_contract(
+        incomplete, "property", "Base", property="value", view="detail"
+    ).model_dump(mode="json")
+    assert value["detail_status"] == "corrupt"
     assert value["entries"][0]["minimum"] == "3"
 
 
@@ -142,7 +134,7 @@ def test_cli_and_mcp_share_explicit_release_read_only_result(monkeypatch, cli):
     from fastmcp import Client
 
     from corpus_structure.intervene.semantic_server import build_retained_reader_server
-    from corpus_structure.semantic import query, releases, runtime
+    from corpus_structure.semantic import read_snapshot, releases, runtime
 
     prepared = release()
     purposes = []
@@ -152,7 +144,7 @@ def test_cli_and_mcp_share_explicit_release_read_only_result(monkeypatch, cli):
         return nullcontext(object())
 
     monkeypatch.setattr(runtime, "open_runtime_engine", engine)
-    monkeypatch.setattr(query, "read_snapshot", lambda engine: nullcontext(object()))
+    monkeypatch.setattr(read_snapshot, "read_snapshot", lambda engine: nullcontext(object()))
 
     def open_selected(conn, selected):
         assert selected == prepared.release_id
@@ -292,13 +284,13 @@ def test_mcp_optional_presentation_failure_preserves_native_report(monkeypatch, 
     from fastmcp import Client
 
     from corpus_structure.intervene.semantic_server import build_retained_reader_server
-    from corpus_structure.semantic import query, releases, runtime
+    from corpus_structure.semantic import read_snapshot, releases, runtime
 
     prepared = release()
     monkeypatch.setattr(
         runtime, "open_runtime_engine", lambda *args, **kwargs: nullcontext(object())
     )
-    monkeypatch.setattr(query, "read_snapshot", lambda engine: nullcontext(object()))
+    monkeypatch.setattr(read_snapshot, "read_snapshot", lambda engine: nullcontext(object()))
     monkeypatch.setattr(releases, "open_release", lambda *args: prepared)
     expected = inspect_contract(
         prepared,

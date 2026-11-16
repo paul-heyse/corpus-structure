@@ -229,13 +229,9 @@ def prepare_inspection(
 def _decode_inspection(prepared: PreparedRelease) -> dict[str, Any]:
     artifact = next((item for item in prepared.artifacts if item.kind == ARTIFACT), None)
     if artifact is None:
-        compiler = json.loads(prepared.manifest)["profile"]["compiler_version"]
-        legacy = int(compiler) < 20
         return {
-            "status": "unavailable" if legacy else "corrupt",
-            "reason": "detail unavailable in this archive"
-            if legacy
-            else "required inspection artifact is missing",
+            "status": "corrupt",
+            "reason": "required inspection artifact is missing",
             "artifact_digest": None,
             "classes": {},
         }
@@ -244,15 +240,10 @@ def _decode_inspection(prepared: PreparedRelease) -> dict[str, Any]:
         body = json.loads(artifact.content)
         if not isinstance(body, dict) or type(body.get("version")) is not int:
             raise ValueError("invalid inspection header")
-        if body["version"] not in {1, 2}:
+        if body["version"] != 2:
             return dict(base, status="unsupported", reason="unsupported inspection payload version")
         if (
-            set(body)
-            != (
-                {"version", "sources", "classes", "enums"}
-                if body["version"] == 2
-                else {"version", "sources", "classes"}
-            )
+            set(body) != {"version", "sources", "classes", "enums"}
             or not isinstance(body["sources"], dict)
             or not isinstance(body["classes"], dict)
         ):
@@ -313,35 +304,34 @@ def _decode_inspection(prepared: PreparedRelease) -> dict[str, Any]:
                 source = body["sources"][record["module"]]
                 if record["source_digest"] != source["source_digest"]:
                     raise ValueError("contributor source digest differs")
-        if body["version"] == 2:
-            if not isinstance(body["enums"], dict) or set(body["enums"]) != {
-                v.enum for v in prepared.vocabularies
-            }:
-                raise ValueError("inspection enum universe differs")
-            for item in body["enums"].values():
+        if not isinstance(body["enums"], dict) or set(body["enums"]) != {
+            v.enum for v in prepared.vocabularies
+        }:
+            raise ValueError("inspection enum universe differs")
+        for item in body["enums"].values():
+            if (
+                not isinstance(item, dict)
+                or set(item) != {"contributors"}
+                or not isinstance(item["contributors"], list)
+            ):
+                raise ValueError("invalid enum locator")
+            for record in item["contributors"]:
                 if (
-                    not isinstance(item, dict)
-                    or set(item) != {"contributors"}
-                    or not isinstance(item["contributors"], list)
+                    set(record) != {"module", "path", "source_digest", "role", "declaration"}
+                    or record["source_digest"] != manifest_sources[record["module"]]
+                    or not isinstance(record["declaration"], dict)
+                    or not all(
+                        isinstance(record[key], str)
+                        for key in ("module", "path", "source_digest", "role")
+                    )
                 ):
-                    raise ValueError("invalid enum locator")
-                for record in item["contributors"]:
-                    if (
-                        set(record) != {"module", "path", "source_digest", "role", "declaration"}
-                        or record["source_digest"] != manifest_sources[record["module"]]
-                        or not isinstance(record["declaration"], dict)
-                        or not all(
-                            isinstance(record[key], str)
-                            for key in ("module", "path", "source_digest", "role")
-                        )
-                    ):
-                        raise ValueError("invalid enum contributor")
+                    raise ValueError("invalid enum contributor")
         return dict(
             body,
             status="available",
             reason=None,
             artifact_digest=artifact.digest,
-            enum_detail_status="available" if body["version"] == 2 else "unavailable",
+            enum_detail_status="available",
         )
     except (ValueError, TypeError, KeyError, AttributeError) as exc:
         return dict(base, status="corrupt", reason=f"invalid inspection detail: {exc}")

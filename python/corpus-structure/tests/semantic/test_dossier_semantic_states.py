@@ -248,17 +248,9 @@ def test_native_dossier_and_public_projection_preserve_literal_semantic_states(
                 dict(r=report.model_dump_json(exclude_none=True)),
             )
             assert public == structural_statement(report)
-            from corpus_structure.serve.structural_products import _DOSSIER_SLICE_SQL
+            from corpus_structure.serve.structural_products import dossier_member_page
 
-            page_sql = _DOSSIER_SLICE_SQL.replace(
-                "SELECT body->'structural_product' report FROM ops.task_result "
-                "WHERE task_id=:origin_id",
-                "SELECT CAST(:report AS jsonb) report",
-            ).replace("{projection}", "body")
-            page = conn.scalar(
-                text(page_sql),
-                dict(report=report.model_dump_json(exclude_none=True), offset=0, end_offset=12),
-            )
+            page = dossier_member_page(report, population="display", offset=0, limit=12)
             roles.update((m.get("definition_interpretation"), m["role"]) for m in page["members"])
             outcomes.update(
                 m["applicability_outcome"]

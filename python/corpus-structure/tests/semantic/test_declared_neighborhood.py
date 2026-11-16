@@ -1,7 +1,5 @@
 """Independent membership expectations for the genuine native mutual neighborhood."""
 
-from corpus_structure.semantic.declared_structural_calls import structural_operation_declarations
-
 from dataclasses import asdict
 from pathlib import Path
 
@@ -21,6 +19,7 @@ from corpus_structure.semantic.contextual_operations import (
 )
 from corpus_structure.semantic.contextual_retrieval import freeze_inventory, target_representation
 from corpus_structure.semantic.data_operation_compilation import compile_data_operations
+from corpus_structure.semantic.declared_structural_calls import structural_operation_declarations
 from corpus_structure.semantic.observations import source_python, source_value
 from corpus_structure.semantic.types import SourceArtifact, SourceBundle
 from corpus_structure.serve.selected_neighborhood import neighborhood_projection
@@ -59,7 +58,10 @@ def test_neighborhood_has_distinct_kind_factory_policy_and_exact_native_asset():
         contextual_inputs(
             SourceBundle("core", (SourceArtifact("core", (root / "core.yaml").read_bytes()),))
         ),
-        declarations=(contextual_operation_declarations(), structural_operation_declarations(),),
+        declarations=(
+            contextual_operation_declarations(),
+            structural_operation_declarations(),
+        ),
         python_sources=contextual_operation_sources(),
     )
     operation = model.operation("retrieve.contextual_neighborhood/declared")

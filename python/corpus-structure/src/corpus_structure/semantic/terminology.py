@@ -340,16 +340,12 @@ def decode_vocabulary_metadata(prepared) -> dict:
     )
     artifact = next((a for a in prepared.artifacts if a.kind == ARTIFACT), None)
     if artifact is None:
-        if int(json.loads(prepared.manifest)["profile"]["compiler_version"]) >= 21:
-            return dict(
-                base, status="corrupt", reason="required vocabulary metadata product missing"
-            )
-        return base
+        return dict(base, status="corrupt", reason="required vocabulary metadata product missing")
     try:
         body = json.loads(artifact.content)
         if type(body.get("version")) is not int:
             raise ValueError("invalid vocabulary metadata version type")
-        if body["version"] not in (1, 2):
+        if body["version"] != 2:
             return dict(
                 base, status="unsupported", reason="unsupported vocabulary metadata version"
             )
@@ -361,7 +357,7 @@ def decode_vocabulary_metadata(prepared) -> dict:
             raise ValueError("invalid vocabulary metadata root")
         dependencies = dict(json.loads(prepared.manifest)["dependencies"])
         for source, profile in body["sources"].items():
-            if source == "valuesets_units" and body["version"] == 2:
+            if source == "valuesets_units":
                 if (
                     profile.get("version") != "0.4.2"
                     or profile.get("status") != "DRAFT"

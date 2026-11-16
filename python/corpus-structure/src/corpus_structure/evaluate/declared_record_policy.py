@@ -600,7 +600,9 @@ def reacquire_record_feature_grade(
     ):
         raise SemanticRefusal("fitter selection differs from the original acquired cut bytes")
     values = selection.model_dump(mode="python", exclude={"cut_canonical_json"})
-    result = read_selected_feature_fit_frame(connection, variant="record-feature-grade", cut=cut, **values)
+    result = read_selected_feature_fit_frame(
+        connection, variant="record-feature-grade", cut=cut, **values
+    )
     if (result["product_id"], result["derivation_id"]) != (
         selection.product_id,
         selection.derivation_id,

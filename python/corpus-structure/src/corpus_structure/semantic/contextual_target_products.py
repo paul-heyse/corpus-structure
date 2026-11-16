@@ -115,7 +115,9 @@ def component_target_population(report, *, original_source, kind_contract):
         raise ValueError("component targets require their actual original source")
     targets, meanings = [], {}
     for component in selected.definition_components.components:
-        target, meaning = component_target_values(selected, component, original_source=original_source)
+        target, meaning = component_target_values(
+            selected, component, original_source=original_source
+        )
         targets.append(target)
         meanings[component.component_id] = meaning
     return target_population(
@@ -132,24 +134,42 @@ def component_target_values(report, component, *, original_source):
     The selected report address remains custody, independently authenticated through
     original native support. It is not part of numerical target identity.
     """
-    if not original_source or any(pin.original_source != original_source for pin in report.sources_input):
+    if not original_source or any(
+        pin.original_source != original_source for pin in report.sources_input
+    ):
         raise ValueError("component target differs from its actual original source")
     passages = {value.passage_id: value for value in report.inputs.passages}
     sources = {value.identity: value for value in report.inputs.sources}
     term, content = component.term, component.content
     source = passages[term.passage_id].source_ref
     meaning = {
-        "term": {"source": sources[source].model_dump(mode="json"),
-            "passage": passages[term.passage_id].model_dump(mode="json"), "span": term.model_dump(mode="json")},
-        "content": {"source": sources[passages[content.passage_id].source_ref].model_dump(mode="json"),
-            "passage": passages[content.passage_id].model_dump(mode="json"), "span": content.model_dump(mode="json")},
-        "interpretation": component.interpretation, "scope": component.scope,
+        "term": {
+            "source": sources[source].model_dump(mode="json"),
+            "passage": passages[term.passage_id].model_dump(mode="json"),
+            "span": term.model_dump(mode="json"),
+        },
+        "content": {
+            "source": sources[passages[content.passage_id].source_ref].model_dump(mode="json"),
+            "passage": passages[content.passage_id].model_dump(mode="json"),
+            "span": content.model_dump(mode="json"),
+        },
+        "interpretation": component.interpretation,
+        "scope": component.scope,
         "effective_version": component.effective_version,
     }
-    binding = identity("declared-definition-target-source", [original_source, source,
-        term.model_dump(mode="json"), content.model_dump(mode="json")])
-    return target_representation(component.component_id, binding, term.text, content.text,
-        type_name="definition", scope=component.scope, effective_version=component.effective_version), meaning
+    binding = identity(
+        "declared-definition-target-source",
+        [original_source, source, term.model_dump(mode="json"), content.model_dump(mode="json")],
+    )
+    return target_representation(
+        component.component_id,
+        binding,
+        term.text,
+        content.text,
+        type_name="definition",
+        scope=component.scope,
+        effective_version=component.effective_version,
+    ), meaning
 
 
 def materialize_target(target, *, context):

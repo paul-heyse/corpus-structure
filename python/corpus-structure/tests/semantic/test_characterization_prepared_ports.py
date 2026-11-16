@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from corpus_structure.semantic.declared_structural_calls import structural_operation_declarations
-
 import json
 import os
 from dataclasses import asdict
@@ -27,6 +25,7 @@ from corpus_structure.semantic.data_operation_admission import (
     bound_data_operation_model,
 )
 from corpus_structure.semantic.data_operation_ports import PythonRoleValue, python_port_identity
+from corpus_structure.semantic.declared_structural_calls import structural_operation_declarations
 from corpus_structure.semantic.formal_evidence import grammar_identity
 from corpus_structure.semantic.formal_products import (
     FormalEvidenceOptions,
@@ -56,7 +55,10 @@ def acquired():
         bundle,
         data_operation_dependencies(
             ResolvedDependencies(),
-            declarations=(contextual_operation_declarations(), structural_operation_declarations(),),
+            declarations=(
+                contextual_operation_declarations(),
+                structural_operation_declarations(),
+            ),
             python_sources=sources,
         ),
         PreparationProfile(version="semantic-2"),

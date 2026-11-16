@@ -4,9 +4,9 @@ The model is a real small untrained BERT/mean-pooling implementation. It exercis
 captured assets, tokenizer and owned CPU execution; it is not provider evidence.
 """
 
-from corpus_structure.semantic.declared_structural_calls import structural_operation_declarations
-
 from hashlib import sha256
+
+from corpus_structure.semantic.declared_structural_calls import structural_operation_declarations
 
 
 def controlled_encoder(directory):
@@ -145,7 +145,12 @@ def contextual_recipe(directory, selection):
             captured.dependencies.vocabularies,
             captured.dependencies.ontology_sources,
         ),
-        (*declarations, contextual_encoder_declarations(), contextual_operation_declarations(), structural_operation_declarations()),
+        (
+            *declarations,
+            contextual_encoder_declarations(),
+            contextual_operation_declarations(),
+            structural_operation_declarations(),
+        ),
         sources,
     )
     return KernelRecipe(
@@ -163,15 +168,24 @@ def contextual_recipe(directory, selection):
 
 def contextual_workflow_recipe(directory, selection):
     """Compose the actual definition consumer and the separate finite source matcher."""
-    from corpus_structure.semantic.composed import data_operation_dependencies, read_data_operation_inputs
-    from corpus_structure.semantic.contextual_encoder import contextual_encoder_declarations, contextual_encoder_operation_sources
+    from corpus_structure.semantic.composed import (
+        data_operation_dependencies,
+        read_data_operation_inputs,
+    )
+    from corpus_structure.semantic.contextual_encoder import (
+        contextual_encoder_declarations,
+        contextual_encoder_operation_sources,
+    )
     from corpus_structure.semantic.contextual_operations import contextual_operation_declarations
-    from corpus_structure.semantic.definition_applicability_products import applicability_inputs, applicability_operation_sources
+    from corpus_structure.semantic.definition_applicability_products import (
+        applicability_inputs,
+        applicability_operation_sources,
+    )
     from corpus_structure.semantic.primary_operations import combine_primary_sources
     from corpus_structure.semantic.types import ResolvedDependencies
     from semantic.contextual_native_fixture import operation_sources
-    from semantic.data_operation_kernel_support import CapturedKernelInputs, KernelRecipe
     from semantic.current_pdf_source_support import current_pdf_recipe
+    from semantic.data_operation_kernel_support import CapturedKernelInputs, KernelRecipe
 
     base = current_pdf_recipe(directory)
     captured = base.captured_inputs
@@ -180,14 +194,40 @@ def contextual_workflow_recipe(directory, selection):
     assert acquired is not None and acquired[1] is not None
     declarations, sources = acquired
     assert sources is not None
-    dependencies = data_operation_dependencies(ResolvedDependencies(tuple(row
-        for row in captured.dependencies.artifacts if not row.name.startswith("data-operations/")),
-        captured.dependencies.vocabularies, captured.dependencies.ontology_sources),
-        (*declarations, contextual_encoder_declarations(), contextual_operation_declarations(), structural_operation_declarations()),
-        combine_primary_sources(sources, contextual_encoder_operation_sources(selection), operation_sources(), applicability_operation_sources()))
-    return KernelRecipe("current-contextual-definition-workflow", "", None, "", project_id=None,
-        execution_profile="source-native", captured_inputs=CapturedKernelInputs(
-            applicability_inputs(captured.bundle), dependencies, captured.profile))
+    dependencies = data_operation_dependencies(
+        ResolvedDependencies(
+            tuple(
+                row
+                for row in captured.dependencies.artifacts
+                if not row.name.startswith("data-operations/")
+            ),
+            captured.dependencies.vocabularies,
+            captured.dependencies.ontology_sources,
+        ),
+        (
+            *declarations,
+            contextual_encoder_declarations(),
+            contextual_operation_declarations(),
+            structural_operation_declarations(),
+        ),
+        combine_primary_sources(
+            sources,
+            contextual_encoder_operation_sources(selection),
+            operation_sources(),
+            applicability_operation_sources(),
+        ),
+    )
+    return KernelRecipe(
+        "current-contextual-definition-workflow",
+        "",
+        None,
+        "",
+        project_id=None,
+        execution_profile="source-native",
+        captured_inputs=CapturedKernelInputs(
+            applicability_inputs(captured.bundle), dependencies, captured.profile
+        ),
+    )
 
 
 def run_intent(kernel, intent):
@@ -242,7 +282,10 @@ def target_intent(kernel, names, *, replicate, discovery_only=False, targets=Non
         "curated-targets",
         dict(
             targets=source_value(
-                [value.model_dump(mode="python") for value in (registry_targets(names) if targets is None else targets)]
+                [
+                    value.model_dump(mode="python")
+                    for value in (registry_targets(names) if targets is None else targets)
+                ]
             )
         ),
         kind_contract=kind,
@@ -283,7 +326,9 @@ def inventory_intent(kernel, query, names, *, targets=None, effective_version=No
     from corpus_structure.semantic.data_operation_support import authored_fact_selection
     from corpus_structure.semantic.observations import source_value
 
-    registry, representations = registry_input(registry_targets(names) if targets is None else targets)
+    registry, representations = registry_input(
+        registry_targets(names) if targets is None else targets
+    )
     selected = authored_fact_selection(
         "contextual-inventory",
         dict(
@@ -379,11 +424,22 @@ def retrieval_intent(kernel, selection, *, budget):
     )
 
 
-def witnessed_retrieval_intent(kernel, selection, query_demand, query, *, hypotheses, budget,
-    relations=("denotes",), cues=None, constraints=None):
+def witnessed_retrieval_intent(
+    kernel,
+    selection,
+    query_demand,
+    query,
+    *,
+    hypotheses,
+    budget,
+    relations=("denotes",),
+    cues=None,
+    constraints=None,
+):
     """Actual admitted author assertions and exact selected source cues, never inference claims."""
     from corpus_structure.semantic.contextual_selection import (
-        ContextualSelectedProduct, acquire_contextual_witness_selection,
+        ContextualSelectedProduct,
+        acquire_contextual_witness_selection,
         freeze_contextual_witnessed_retrieval_demand,
     )
     from corpus_structure.semantic.data_operation_support import authored_fact_selection
@@ -392,24 +448,57 @@ def witnessed_retrieval_intent(kernel, selection, query_demand, query, *, hypoth
 
     carrier = query.body["carrier"]
     with kernel.purpose("read").begin() as connection:
-        selected = acquire_contextual_witness_selection(connection, selection, project_id=PROJECT,
+        selected = acquire_contextual_witness_selection(
+            connection,
+            selection,
+            project_id=PROJECT,
             query=ContextualSelectedProduct(query_demand, query.row["product_id"]),
-            cues=(carrier,) if cues is None else cues)
+            cues=(carrier,) if cues is None else cues,
+        )
     author = "controlled contextual test author"
-    assertions = authored_fact_selection("contextual-authored-hypotheses",
+    assertions = authored_fact_selection(
+        "contextual-authored-hypotheses",
         dict(author_assertion=author, hypotheses=hypotheses),
         kind_contract=kernel.identities[
-            "https://corpus-structure.dev/semantic/data-operation-contextual/DdoContextualWitnessHypotheses", "kind"],
-        context=selection.query_context, author=author,
-        selection_id="explicit-private-source-relationship-hypotheses")
-    policy = authored_fact_selection("contextual-policy",
-        dict(budget=budget, channel_budget=32, constraints=source_value([
-            dict(constraint_id="source-relationship", relation_kinds=list(relations),
-                occurrence_role="mention", target_role="concept", multiplicity="one")] if constraints is None else constraints),
-            exclusions=source_value([])),
+            "https://corpus-structure.dev/semantic/data-operation-contextual/DdoContextualWitnessHypotheses",
+            "kind",
+        ],
+        context=selection.query_context,
+        author=author,
+        selection_id="explicit-private-source-relationship-hypotheses",
+    )
+    policy = authored_fact_selection(
+        "contextual-policy",
+        dict(
+            budget=budget,
+            channel_budget=32,
+            constraints=source_value(
+                [
+                    dict(
+                        constraint_id="source-relationship",
+                        relation_kinds=list(relations),
+                        occurrence_role="mention",
+                        target_role="concept",
+                        multiplicity="one",
+                    )
+                ]
+                if constraints is None
+                else constraints
+            ),
+            exclusions=source_value([]),
+        ),
         kind_contract=kernel.identities[
-            "https://corpus-structure.dev/semantic/data-operation-contextual/DdoContextualRetrievalPolicy", "kind"],
-        context=selection.query_context, author=author, selection_id="explicit-source-relationship-constraints")
-    return freeze_contextual_witnessed_retrieval_demand(kernel.model, selected,
+            "https://corpus-structure.dev/semantic/data-operation-contextual/DdoContextualRetrievalPolicy",
+            "kind",
+        ],
+        context=selection.query_context,
+        author=author,
+        selection_id="explicit-source-relationship-constraints",
+    )
+    return freeze_contextual_witnessed_retrieval_demand(
+        kernel.model,
+        selected,
         inference="explicit-private-authored-source-cue-binding",
-        execution_profile=kernel.recipe.execution_profile, original_sources=(assertions, policy))
+        execution_profile=kernel.recipe.execution_profile,
+        original_sources=(assertions, policy),
+    )

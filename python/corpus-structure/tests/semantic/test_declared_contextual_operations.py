@@ -1,7 +1,5 @@
 """Exact native ranking and current consumers over explicitly retained vector facts."""
 
-from corpus_structure.semantic.declared_structural_calls import structural_operation_declarations
-
 from dataclasses import asdict
 from pathlib import Path
 
@@ -19,6 +17,7 @@ from corpus_structure.semantic.contextual_operations import (
 from corpus_structure.semantic.contextual_retrieval import freeze_inventory, target_representation
 from corpus_structure.semantic.contextual_storage import lexical_target_rows
 from corpus_structure.semantic.data_operation_compilation import compile_data_operations
+from corpus_structure.semantic.declared_structural_calls import structural_operation_declarations
 from corpus_structure.semantic.observations import source_python, source_value
 from corpus_structure.semantic.types import SourceArtifact, SourceBundle
 
@@ -101,7 +100,10 @@ def test_contextual_retrieval_captures_factory_and_source_witness():
     )
     model = compile_data_operations(
         bundle,
-        declarations=(contextual_operation_declarations(), structural_operation_declarations(),),
+        declarations=(
+            contextual_operation_declarations(),
+            structural_operation_declarations(),
+        ),
         python_sources=contextual_operation_sources(),
     )
     operation = model.operation("retrieve.contextual/declared")

@@ -57,7 +57,7 @@ class AlignmentFixture:
         )
         return PreparedRelease(
             "fixture:alignment",
-            b'{"profile":{"version":"semantic-2","compiler_version":"14"}}',
+            b'{"profile":{"version":"semantic-2","compiler_version":"22"}}',
             self.definitions,
             (),
             self.registry_rows,
@@ -682,7 +682,6 @@ def admitted_scientific_model():
         SourceBundle,
         prepare_release,
     )
-    from corpus_structure.semantic.composed import composed_dependencies
     from corpus_structure.semantic.determinants import SCIENTIFIC_LIBRARIES, determinant_version
     from corpus_structure.semantic.identity import canonical_bytes
     from corpus_structure.semantic.scientific_evidence import (
@@ -723,8 +722,8 @@ classes:
                 SourceArtifact("semantic_core", core.read_bytes()),
             ),
         ),
-        composed_dependencies(ResolvedDependencies()),
-        PreparationProfile(version="semantic-2"),
+        ResolvedDependencies(),
+        PreparationProfile(),
     )
     manifest = json.loads(model.manifest)
     manifest["libraries"].update({name: determinant_version(name) for name in SCIENTIFIC_LIBRARIES})

@@ -1,7 +1,5 @@
 """Real target discovery/materialization; never claims encoder/provider execution."""
 
-from corpus_structure.semantic.declared_structural_calls import structural_operation_declarations
-
 from pathlib import Path
 
 import pytest
@@ -29,6 +27,7 @@ from corpus_structure.semantic.data_operation_model import SubjectContext
 from corpus_structure.semantic.data_operation_service import execute_data_demand
 from corpus_structure.semantic.data_operation_storage import DataOperationStorage
 from corpus_structure.semantic.data_operation_support import authored_fact_selection
+from corpus_structure.semantic.declared_structural_calls import structural_operation_declarations
 from corpus_structure.semantic.demand_results import selected_record_index
 from corpus_structure.semantic.observations import source_value
 from corpus_structure.semantic.types import (
@@ -71,7 +70,11 @@ def contextual_target_kernel(tmp_path, scenario_seeds):
     )
     dependencies = data_operation_dependencies(
         ResolvedDependencies(),
-        declarations=(contextual_encoder_declarations(), contextual_operation_declarations(), structural_operation_declarations()),
+        declarations=(
+            contextual_encoder_declarations(),
+            contextual_operation_declarations(),
+            structural_operation_declarations(),
+        ),
         python_sources=contextual_encoder_operation_sources(selection),
     )
     recipe = KernelRecipe(

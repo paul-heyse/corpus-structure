@@ -104,13 +104,24 @@ def cpu_input_basis_from_binding(
     """Pair actual consumed values with their existing selected headers and support."""
     if not binding.sufficient or binding.subject_context is None:
         raise ValueError("CPU authority basis requires its sufficient native binding")
-    return cpu_input_basis_from_roles(recipe, binding.subject_context, binding.roles, bodies_by_role,
-        parameters=binding.parameters, replicate=binding.replicate)
+    return cpu_input_basis_from_roles(
+        recipe,
+        binding.subject_context,
+        binding.roles,
+        bodies_by_role,
+        parameters=binding.parameters,
+        replicate=binding.replicate,
+    )
 
 
 def cpu_input_basis_from_roles(
-    recipe: str, context: SubjectContext, selected_roles: tuple[ResolvedRoleBinding, ...],
-    bodies_by_role: Mapping[str, tuple[Any, ...]], *, parameters: bytes, replicate: str | None,
+    recipe: str,
+    context: SubjectContext,
+    selected_roles: tuple[ResolvedRoleBinding, ...],
+    bodies_by_role: Mapping[str, tuple[Any, ...]],
+    *,
+    parameters: bytes,
+    replicate: str | None,
 ) -> list:
     """Pair actual role values with complete headers, shared by parent and CPU consumer."""
     roles = []
@@ -153,14 +164,24 @@ def cpu_input_basis_from_roles(
 
 
 def require_consumed_cpu_basis(
-    input_basis: list, context: SubjectContext, roles: tuple[ResolvedRoleBinding, ...],
-    bodies_by_role: Mapping[str, tuple[Any, ...]], *, parameters: bytes,
+    input_basis: list,
+    context: SubjectContext,
+    roles: tuple[ResolvedRoleBinding, ...],
+    bodies_by_role: Mapping[str, tuple[Any, ...]],
+    *,
+    parameters: bytes,
 ) -> None:
     """Check actual consumed headers, bodies and parameters against the native basis."""
     _require_current_basis(input_basis)
     supplied = decode_semantic_value(input_basis)
-    expected = cpu_input_basis_from_roles(supplied["recipe"], context, roles, bodies_by_role,
-        parameters=parameters, replicate=supplied["replicate"])
+    expected = cpu_input_basis_from_roles(
+        supplied["recipe"],
+        context,
+        roles,
+        bodies_by_role,
+        parameters=parameters,
+        replicate=supplied["replicate"],
+    )
     if canonical_bytes(expected) != canonical_bytes(input_basis):
         raise ValueError("CPU arguments differ from their actual exact input basis")
 

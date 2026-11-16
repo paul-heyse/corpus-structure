@@ -153,13 +153,22 @@ def test_fit_transport_restores_signed_zero_from_authenticated_canonical_frame(m
 
 def test_fit_transport_rejects_unknown_variant_before_native_call(monkeypatch):
     cut = selection()
+
     def unexpected(*args):
         pytest.fail("unknown variant reached native transport")
+
     monkeypatch.setattr(DataOperationStorage, "read_selected_feature_fit_frame", unexpected)
     with pytest.raises(ValueError, match="variant"):
         read_selected_feature_fit_frame(
-            object(), variant="unrestricted-frame", project_id="project:one",
-            demand_id="demand:one", read_id="read:one", use_id="use:grade",
-            product_id="product:grade", derivation_id="derivation:grade",
-            expected_cut=cut.identity, frame_digest="a"*64, cut=cut,
+            object(),
+            variant="unrestricted-frame",
+            project_id="project:one",
+            demand_id="demand:one",
+            read_id="read:one",
+            use_id="use:grade",
+            product_id="product:grade",
+            derivation_id="derivation:grade",
+            expected_cut=cut.identity,
+            frame_digest="a" * 64,
+            cut=cut,
         )

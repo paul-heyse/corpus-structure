@@ -44,6 +44,7 @@ def native_protocol_sources(
 ) -> tuple[SourceArtifact, ...]:
     from .authority_leaf import NativeAuthorityLeaf
     from .contextual_admission_native import contextual_admission_native_sql
+    from .contextual_definition_native import contextual_definition_native_sql
     from .contextual_scoring_native import contextual_scoring_native_sql
     from .contextual_witness_native import contextual_witness_native_sql
     from .data_operation_binding_native import binding_native_sources
@@ -57,6 +58,7 @@ def native_protocol_sources(
         original_support_reference_schema,
     )
     from .data_operation_wire_native import wire_native_sources
+    from .definition_admission_native import definition_admission_native_sql
     from .execution_evidence_leaf import (
         execution_evidence_leaf_native_sql,
         execution_evidence_leaf_schema,
@@ -115,6 +117,22 @@ def native_protocol_sources(
         SourceArtifact(
             "native/data-operation-cpu-basis.py",
             Path(__file__).with_name("data_operation_cpu_basis.py").read_bytes(),
+        ),
+        SourceArtifact(
+            "native/data-operation-definition-admission.sql",
+            definition_admission_native_sql().encode(),
+        ),
+        SourceArtifact(
+            "native/data-operation-definition-admission.py",
+            Path(__file__).with_name("definition_admission_native.py").read_bytes(),
+        ),
+        SourceArtifact(
+            "native/data-operation-contextual-definition.sql",
+            contextual_definition_native_sql().encode(),
+        ),
+        SourceArtifact(
+            "native/data-operation-contextual-definition.py",
+            Path(__file__).with_name("contextual_definition_native.py").read_bytes(),
         ),
         SourceArtifact(
             "native/data-operation-contextual-admission.sql",
@@ -192,7 +210,10 @@ def native_protocol_sources(
         SourceArtifact(EVENT_FRAME_SCHEMA_SOURCE, operation_event_frame_schema()),
         SourceArtifact(
             "native/data-operation-operation-events.py",
-            Path(__file__).parents[1].joinpath("evaluate/selected_operation_events.py").read_bytes(),
+            Path(__file__)
+            .parents[1]
+            .joinpath("evaluate/selected_operation_events.py")
+            .read_bytes(),
         ),
         SourceArtifact(
             "native/data-operation-record-grade.py",
@@ -301,6 +322,8 @@ def native_protocol_sources(
 
 def _captured(sources) -> dict[str, bytes]:
     result = {source.name: source.content for source in sources}
+    if len(result) != len(sources):
+        raise ValueError("duplicate captured native protocol source")
     required = {
         "native/data-operation-protocol.yaml",
         "native/data-operations.sql",
@@ -318,6 +341,10 @@ def _captured(sources) -> dict[str, bytes]:
         "native/data-operation-record-grade-native.sql",
         "native/data-operation-cpu-basis.sql",
         "native/data-operation-cpu-basis.py",
+        "native/data-operation-definition-admission.sql",
+        "native/data-operation-definition-admission.py",
+        "native/data-operation-contextual-definition.sql",
+        "native/data-operation-contextual-definition.py",
         "native/data-operation-contextual-admission.sql",
         "native/data-operation-contextual-admission.py",
         "native/data-operation-contextual-scoring.sql",
@@ -348,60 +375,31 @@ def _captured(sources) -> dict[str, bytes]:
         "native/data-operation-authority-leaf.json",
         "native/data-operation-authority-leaf.py",
     }
-    if b"original_document_contracts" in result.get("native/data-operation-source-native.py", b""):
-        required.update(
-            {
-                "native/source-admission-calls.json",
-                "native/original-document-contracts.py",
-                "native/original-documents.py",
-                "native/source-originals.sql",
-            }
-        )
-    if b"corpus_structure.semantic.identifiers." in result.get(
-        "native/data-operation-wire-types.yaml", b""
-    ):
-        required.add("native/identifiers.py")
-    if b"native_call_contracts" in result.get("native/data-operation-storage.py", b""):
-        required.add("native/native-call-contracts.py")
-    if b"data_operation_kind_refinements" in result.get("native/data-operation-storage.py", b""):
-        required.add("native/data-operation-kind-refinements.py")
-    # Retained predecessor sources keep their original interpretation. Once the
-    # captured nominal helpers delegate topology, that complete local closure is
-    # mandatory; current imports cannot be substituted while rendering an archive.
-    nominal_sources = (
-        result.get("native/data-operation-member-contracts.py", b""),
-        result.get("native/data-operation-kind-refinements.py", b""),
+    required.update(
+        {
+            "native/source-admission-calls.json",
+            "native/original-document-contracts.py",
+            "native/original-documents.py",
+            "native/source-originals.sql",
+            "native/identifiers.py",
+            "native/native-call-contracts.py",
+            "native/data-operation-kind-refinements.py",
+            "native/data-operation-graph-topology.py",
+            "native/data-operation-graph-runtime.py",
+            "native/data-operation-graph-execution.json",
+            "native/data-operation-protocol.py",
+            "native/data-operation-recordable-fates.sql",
+            "native/data-operation-original-support-reference.json",
+            "native/data-operation-json.py",
+            "native/data-operation-projections.py",
+            "native/data-operation-projections.json",
+            "native/data-operation-provider-profiles.py",
+            "native/data-operation-external.sql",
+        }
     )
-    if any(
-        b".graph_topology import" in source or b".graph_runtime import" in source
-        for source in nominal_sources
-    ):
-        required.update(
-            {
-                "native/data-operation-graph-topology.py",
-                "native/data-operation-graph-runtime.py",
-                "native/data-operation-graph-execution.json",
-            }
-        )
-    if b"__DDO_RECORDABLE_FATES__" in result.get("native/data-operations.sql", b""):
-        required.update(
-            {"native/data-operation-protocol.py", "native/data-operation-recordable-fates.sql"}
-        )
-    if b"admit_original_document_asset" in result.get("native/data-operation-protocol.yaml", b""):
-        required.add("native/data-operation-original-support-reference.json")
-    if b".data_operation_json import" in result.get("native/data-operation-wire.py", b""):
-        required.add("native/data-operation-json.py")
-    if b"__DDO_CORE_" in result.get("native/data-operations.sql", b""):
-        required.update(
-            {
-                "native/data-operation-projections.py",
-                "native/data-operation-projections.json",
-                "native/data-operation-provider-profiles.py",
-            }
-        )
     if not required <= result.keys():
         raise ValueError("target correspondence requires captured native protocol and SQL")
-    if b"__DDO_CORE_" in result["native/data-operations.sql"] and (
+    if (
         result.get("native/projection-physical/data-operation-native.yaml")
         != result["native/data-operation-protocol.yaml"]
         or result.get("native/projection-physical/data-operation-physical.yaml")
@@ -480,6 +478,8 @@ def native_sql(sources=None) -> str:
             # SQL-language structural helpers resolve the tagged-value functions
             # when created. Install the shared kernel before these dependents.
             "native/data-operations.sql",
+            "native/data-operation-definition-admission.sql",
+            "native/data-operation-contextual-definition.sql",
             "native/data-operation-contextual-scoring.sql",
             "native/data-operation-contextual-witness.sql",
             "native/data-operation-contextual-admission.sql",
@@ -490,7 +490,7 @@ def native_sql(sources=None) -> str:
             "native/data-operation-rich-admission.sql",
         )
     )
-    sql += "\n" + bodies.get("native/data-operation-external.sql", b"").decode()
+    sql += "\n" + bodies["native/data-operation-external.sql"].decode()
     # Every private completion guard attests the same captured native kernel.
     sql = sql.replace("__DDO_SOURCE_DIGEST__", native_source_digest(captured))
     if "__DDO_SUBJECT_SCOPES__" in sql:

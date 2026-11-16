@@ -80,9 +80,9 @@ def determinant_version(name: str) -> str:
 
 
 def boundary_compatible(recorded: dict[str, str], compiler: str) -> bool:
-    from .types import READABLE_COMPILER_VERSIONS
+    from .types import SEMANTIC_COMPILER_VERSION
 
-    return compiler in READABLE_COMPILER_VERSIONS and all(
+    return compiler == SEMANTIC_COMPILER_VERSION and all(
         recorded.get(name) == determinant_version(name) for name in BOUNDARY_LIBRARIES
     )
 

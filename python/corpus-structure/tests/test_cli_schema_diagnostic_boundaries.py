@@ -34,12 +34,12 @@ def test_success_survives_optional_publication_failure(
     cli, tmp_path, monkeypatch, toy_preparation, command
 ):
     from corpus_structure.cli import diagnostic_artifacts
-    from corpus_structure.semantic import query, releases, runtime
+    from corpus_structure.semantic import read_snapshot, releases, runtime
 
     prepared = prepared_route(monkeypatch, toy_preparation)
     if command == "released-check":
         monkeypatch.setattr(runtime, "open_runtime_engine", lambda *a, **k: nullcontext(object()))
-        monkeypatch.setattr(query, "read_snapshot", lambda engine: nullcontext(object()))
+        monkeypatch.setattr(read_snapshot, "read_snapshot", lambda engine: nullcontext(object()))
         monkeypatch.setattr(releases, "verify_release", lambda conn, release: prepared)
         arguments = ["schema", "check", "--release", prepared.release_id]
     else:

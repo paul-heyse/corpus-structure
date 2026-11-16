@@ -15,10 +15,11 @@ def test_native_only_current_root_preview_register_deploy_and_refusals(
     cli, semantic_bare_engine, native_settings, model_checkout, monkeypatch
 ):
     from typer.testing import CliRunner
-    from corpus_structure.cli.app import app
-    from corpus_structure.cli.output import CliState
+
     from corpus_structure.cli import recipes
+    from corpus_structure.cli.app import app
     from corpus_structure.cli.managed import ResultStore
+    from corpus_structure.cli.output import CliState
     from corpus_structure.schema import generate, preparation
     from corpus_structure.schema.model_deployment import Candidate
     from corpus_structure.semantic import migrations, runtime
@@ -36,8 +37,19 @@ def test_native_only_current_root_preview_register_deploy_and_refusals(
         )
     subprocess.run(["git", "-C", str(root), "add", "."], check=True)
     subprocess.run(
-        ["git", "-C", str(root), "-c", "user.name=Fixture", "-c", "user.email=fixture@example.test",
-         "commit", "-qm", "current native source basis"], check=True,
+        [
+            "git",
+            "-C",
+            str(root),
+            "-c",
+            "user.name=Fixture",
+            "-c",
+            "user.email=fixture@example.test",
+            "commit",
+            "-qm",
+            "current native source basis",
+        ],
+        check=True,
     )
     location = root / preparation.PACKAGE_PATH.parents[1] / "target_alembic"
     monkeypatch.setattr(migrations, "ALEMBIC_DIR", location)
@@ -49,14 +61,20 @@ def test_native_only_current_root_preview_register_deploy_and_refusals(
     runner = CliRunner()
 
     def run(*args, **kwargs):
-        return runner.invoke(app, ["model", "change", *args, "--json"],
-                             obj=CliState(settings_factory=lambda: settings), **kwargs)
+        return runner.invoke(
+            app,
+            ["model", "change", *args, "--json"],
+            obj=CliState(settings_factory=lambda: settings),
+            **kwargs,
+        )
 
     def success(result):
         assert result.exit_code == 0, result.output
         return json.loads(result.stdout)
 
-    staged = success(run("preview", "-", input=yaml.safe_dump({"native_revision": "current_root_control"})))
+    staged = success(
+        run("preview", "-", input=yaml.safe_dump({"native_revision": "current_root_control"}))
+    )
     preview_id = staged["result_id"]
     success(run("apply", preview_id))
     candidate = success(run("candidate", preview_id))
@@ -65,7 +83,12 @@ def test_native_only_current_root_preview_register_deploy_and_refusals(
     binding = Candidate.model_validate_json(store.read_artifact(candidate_id, "deployment"))
     assert binding.revision == "current_root_control" and binding.predecessor is None
     assert binding.release is None
-    assert binding.release_manifest_sha256 is binding.release_artifacts_sha256 is binding.inspection_sha256 is None
+    assert (
+        binding.release_manifest_sha256
+        is binding.release_artifacts_sha256
+        is binding.inspection_sha256
+        is None
+    )
     assert "inspection" not in store.show(candidate_id).artifacts
     assert b"down_revision = None" in store.read_artifact(candidate_id, "wrapper")
     for view in ("operations", "sql"):
@@ -89,7 +112,9 @@ def test_native_only_current_root_preview_register_deploy_and_refusals(
 
     from alembic.script import ScriptDirectory
 
-    revision = ScriptDirectory.from_config(migrations.alembic_config()).get_revision(binding.revision)
+    revision = ScriptDirectory.from_config(migrations.alembic_config()).get_revision(
+        binding.revision
+    )
     state = location / "versions" / revision.module.NATIVE_STATE_FILE
     original_state = state.read_bytes()
     state.write_bytes(original_state + b" ")
@@ -122,7 +147,9 @@ def test_native_only_current_root_preview_register_deploy_and_refusals(
 
         with connection.begin_nested() as damaged:
             with native_owner(connection, "corpus_sem_publisher"):
-                connection.exec_driver_sql("ALTER FUNCTION data.execution_contract_descriptor() COST 900")
+                connection.exec_driver_sql(
+                    "ALTER FUNCTION data.execution_contract_descriptor() COST 900"
+                )
             with pytest.raises(ExecutionAdmissionError):
                 verify_deployment_catalog(connection)
             damaged.rollback()

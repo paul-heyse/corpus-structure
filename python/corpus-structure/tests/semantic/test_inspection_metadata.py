@@ -114,15 +114,12 @@ def test_missing_and_invalid_detail_does_not_reprepare_or_remove_effective_facts
     absent = tuple(a for a in prepared.artifacts if a.kind != ARTIFACT)
     current_missing = replace(prepared, artifacts=absent)
     assert get_inspection(current_missing)["status"] == "corrupt"
-    manifest = json.loads(prepared.manifest)
-    manifest["profile"]["compiler_version"] = "19"
-    older = replace(prepared, manifest=json.dumps(manifest).encode(), artifacts=absent)
-    assert get_inspection(older)["status"] == "unavailable"
-    assert older.definitions == prepared.definitions
+    assert current_missing.definitions == prepared.definitions
     for payload, expected in [
         (b"{", "corrupt"),
         (b'{"version":3}', "unsupported"),
-        (b'{"version":1,"sources":{},"classes":{}}', "corrupt"),
+        (b'{"version":1,"sources":{},"classes":{}}', "unsupported"),
+        (b'{"version":2,"sources":{},"classes":{},"enums":{}}', "corrupt"),
     ]:
         release = replace(prepared, artifacts=(*absent, PreparedArtifact(ARTIFACT, payload)))
         assert get_inspection(release)["status"] == expected
@@ -202,7 +199,7 @@ def test_local_attribute_marks_unused_reusable_slot_as_shadowed():
     assert global_slot["role"] == "shadowed_declaration"
 
 
-def test_enum_locators_and_v1_class_detail_remain_available():
+def test_enum_locators_are_current_and_v1_payload_refuses():
     import json
     from dataclasses import replace
 
@@ -223,8 +220,7 @@ def test_enum_locators_and_v1_class_detail_remain_available():
             for a in prepared.artifacts
         ),
     )
-    assert get_inspection(old)["status"] == "available"
-    assert get_inspection(old)["enum_detail_status"] == "unavailable"
+    assert get_inspection(old)["status"] == "unsupported"
 
 
 def test_enum_member_locator_retains_exact_source_path_and_meaning():

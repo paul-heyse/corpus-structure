@@ -6,7 +6,7 @@ it does not depend on contextual numerical/source factory acquisition.
 
 
 def definition_admission_native_sql() -> str:
-    return r'''
+    return r"""
 CREATE OR REPLACE FUNCTION ops.ddo_definition_source_reference(selected_input jsonb)
 RETURNS jsonb LANGUAGE sql IMMUTABLE STRICT SET search_path=pg_catalog,pg_temp AS $definition$
  SELECT jsonb_build_object('product_id',data.ddo_field(selected_input,'product_id')->>1,
@@ -143,4 +143,4 @@ END $definition$;
 REVOKE ALL ON FUNCTION ops.ddo_definition_source_reference(jsonb),ops.ddo_definition_component_basis(jsonb),
  ops.ddo_require_definition_producer(ops.data_request,jsonb),
  ops.ddo_require_definition_completion(ops.data_request,jsonb),ops.ddo_definition_dependencies_valid(text) FROM PUBLIC;
-'''
+"""

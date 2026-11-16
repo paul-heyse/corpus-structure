@@ -235,24 +235,57 @@ def execute_definition_components(receiver, source, observation, candidates):
     )
 
 
-def _component_authority_kernel(arguments, roles, context, input_basis, *, prepared, check_active, named):
+def _component_authority_kernel(
+    arguments, roles, context, input_basis, *, prepared, check_active, named
+):
     from .data_operation_cpu_basis import cpu_authority_reply, require_consumed_cpu_basis
     from .data_operation_identity import semantic_value
+
     names = {role.role for role in roles}
-    expected_names = {"source", "annotations", "constructions"} if named else {"source", "observation", "candidates"}
-    if names != expected_names or any(role.state != "present" or len(role.members) != 1 for role in roles):
-        raise ValueError("definition component authority requires its exact scalar input population")
-    require_consumed_cpu_basis(input_basis, context, roles,
-        {name: (arguments[name],) for name in names}, parameters=canonical_bytes(semantic_value(
-            {key: value for key, value in arguments.items() if key not in names})))
+    expected_names = (
+        {"source", "annotations", "constructions"}
+        if named
+        else {"source", "observation", "candidates"}
+    )
+    if names != expected_names or any(
+        role.state != "present" or len(role.members) != 1 for role in roles
+    ):
+        raise ValueError(
+            "definition component authority requires its exact scalar input population"
+        )
+    require_consumed_cpu_basis(
+        input_basis,
+        context,
+        roles,
+        {name: (arguments[name],) for name in names},
+        parameters=canonical_bytes(
+            semantic_value({key: value for key, value in arguments.items() if key not in names})
+        ),
+    )
     kernel = project_named_definition_components if named else project_definition_components
-    return cpu_authority_reply(input_basis, kernel(prepared, roles, context, **arguments, check_active=check_active))
+    return cpu_authority_reply(
+        input_basis, kernel(prepared, roles, context, **arguments, check_active=check_active)
+    )
 
 
-def definition_components_kernel(arguments: dict, roles: tuple, context: Any,
-    input_basis: list, *, prepared: Any, check_active: Any) -> dict:
-    return _component_authority_kernel(arguments, roles, context, input_basis,
-        prepared=prepared, check_active=check_active, named=False)
+def definition_components_kernel(
+    arguments: dict,
+    roles: tuple,
+    context: Any,
+    input_basis: list,
+    *,
+    prepared: Any,
+    check_active: Any,
+) -> dict:
+    return _component_authority_kernel(
+        arguments,
+        roles,
+        context,
+        input_basis,
+        prepared=prepared,
+        check_active=check_active,
+        named=False,
+    )
 
 
 @dataclass
@@ -270,13 +303,17 @@ class DefinitionComponentsCallPlan:
         if binding is None or binding.subject_context is None:
             raise ValueError("definition components require their exact qualified binding")
         from .data_operation_cpu_basis import cpu_input_basis_from_binding
+
         signature = inspect.signature(self.kernel, eval_str=True)
         bound = signature.bind(
             arguments=arguments.arguments,
             roles=binding.roles,
             context=binding.subject_context,
-            input_basis=cpu_input_basis_from_binding(self.port.operation.recipe, binding,
-                {role.role: (arguments.arguments[role.role],) for role in binding.roles}),
+            input_basis=cpu_input_basis_from_binding(
+                self.port.operation.recipe,
+                binding,
+                {role.role: (arguments.arguments[role.role],) for role in binding.roles},
+            ),
             prepared=self.prepared,
             check_active=check_active,
         )
@@ -603,7 +640,21 @@ def execute_named_definition_components(receiver, source, annotations, construct
     )
 
 
-def named_definition_components_kernel(arguments: dict, roles: tuple, context: Any,
-    input_basis: list, *, prepared: Any, check_active: Any) -> dict:
-    return _component_authority_kernel(arguments, roles, context, input_basis,
-        prepared=prepared, check_active=check_active, named=True)
+def named_definition_components_kernel(
+    arguments: dict,
+    roles: tuple,
+    context: Any,
+    input_basis: list,
+    *,
+    prepared: Any,
+    check_active: Any,
+) -> dict:
+    return _component_authority_kernel(
+        arguments,
+        roles,
+        context,
+        input_basis,
+        prepared=prepared,
+        check_active=check_active,
+        named=True,
+    )

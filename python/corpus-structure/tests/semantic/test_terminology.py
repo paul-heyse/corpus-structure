@@ -84,7 +84,7 @@ def test_selected_fields_and_mathematical_moments(terminology_release):
         )
 
 
-def test_metadata_opens_without_ontology_and_retains_unavailable_old_detail(
+def test_metadata_opens_without_ontology_and_refuses_missing_detail(
     terminology_release, monkeypatch
 ):
     def forbidden(*args, **kwargs):
@@ -97,15 +97,10 @@ def test_metadata_opens_without_ontology_and_retains_unavailable_old_detail(
         artifacts=tuple(a for a in terminology_release.artifacts if a.kind != ARTIFACT),
     )
     assert decode_vocabulary_metadata(old)["status"] == "corrupt"
-    manifest = json.loads(old.manifest)
-    manifest["profile"]["compiler_version"] = "20"
-    assert (
-        decode_vocabulary_metadata(replace(old, manifest=canonical_bytes(manifest)))["status"]
-        == "unavailable"
-    )
     for replacement, status in (
         ({"version": 99}, "unsupported"),
-        ({"version": 1}, "corrupt"),
+        ({"version": 1}, "unsupported"),
+        ({"version": 2}, "corrupt"),
         ({"version": True}, "corrupt"),
     ):
         changed = replace(

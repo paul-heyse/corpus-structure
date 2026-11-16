@@ -10,7 +10,6 @@ from .metadata import metadata
 # Operation selection only; every field, type and optionality comes from the model.
 TYPED_RELATIONS = (
     "sem.runtime_binding",
-    "data.occurrence",
     "ops.pdf_stage_document",
     "ops.pdf_stage_native",
     "ops.pdf_stage_membership",

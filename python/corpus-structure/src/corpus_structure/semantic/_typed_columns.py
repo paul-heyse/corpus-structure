@@ -7,13 +7,12 @@ from typing import Literal, Protocol, cast
 from pydantic import JsonValue
 from sqlalchemy import Column, Named, TypedColumns
 
-from .identifiers import RealizationId as RealizationId
 from .identifiers import ReleaseId as ReleaseId
 from .identifiers import RuntimeId as RuntimeId
 from .metadata import table
 
-PHYSICAL_MODEL_ID = "physical:68f0e482cd328208a00d31b96cfc0234478f99baa8834e05a8f2f91ca5670e8e"
-TYPE_MODEL_ID = "3756161391ae8a82e268cee28720a144415c80e2b855d63f75bd7fa192d1bb20"
+PHYSICAL_MODEL_ID = "physical:ef74912e52f5486b8848217183c08c304a4d3d4bcf27577413239f078b54c9a0"
+TYPE_MODEL_ID = "d10730e927648f7fa2bbd1b6c791cc08ddd00ffd6e31837f5c38a5a521fb7c53"
 
 
 class SemRuntimeBindingColumns(TypedColumns):
@@ -32,34 +31,6 @@ class SemRuntimeBindingColumnsSet(Protocol):
 
 sem_runtime_binding = table("sem.runtime_binding").with_cols(SemRuntimeBindingColumns)
 sem_runtime_binding_columns = cast(SemRuntimeBindingColumnsSet, sem_runtime_binding.c)
-
-
-class DataOccurrenceColumns(TypedColumns):
-    realization_id: Named[RealizationId]
-    release_id: Named[ReleaseId]
-    occurrence_id: Named[str]
-    fact_id: Named[str]
-    source: Named[str]
-    item: Named[str]
-    batch_id: Named[str]
-    report_object_value_id: Named[str]
-    report_qualification_value_id: Named[str | None]
-
-
-class DataOccurrenceColumnsSet(Protocol):
-    realization_id: Column[RealizationId]
-    release_id: Column[ReleaseId]
-    occurrence_id: Column[str]
-    fact_id: Column[str]
-    source: Column[str]
-    item: Column[str]
-    batch_id: Column[str]
-    report_object_value_id: Column[str]
-    report_qualification_value_id: Column[str | None]
-
-
-data_occurrence = table("data.occurrence").with_cols(DataOccurrenceColumns)
-data_occurrence_columns = cast(DataOccurrenceColumnsSet, data_occurrence.c)
 
 
 class OpsPdfStageDocumentColumns(TypedColumns):

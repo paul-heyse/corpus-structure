@@ -79,9 +79,9 @@ def reconstruct_release(
         if "conditional_rules.json" in artifact_map
         else {}
     )
-    from .types import READABLE_COMPILER_VERSIONS
+    from .types import SEMANTIC_COMPILER_VERSION
 
-    if profile.compiler_version not in READABLE_COMPILER_VERSIONS:
+    if profile.compiler_version != SEMANTIC_COMPILER_VERSION:
         raise ValueError(f"unsupported archived compiler {profile.compiler_version}")
     recipe = json.loads(artifact_map["boundary_recipe.json"].content)
     if (
@@ -362,8 +362,6 @@ def open_archived_release(conn: Any, release_id: str) -> PreparedRelease:
 
     from .releases import (
         ReleaseConflict,
-        _compare_rows,
-        _projection_rows,
         _table,
     )
 
@@ -371,18 +369,19 @@ def open_archived_release(conn: Any, release_id: str) -> PreparedRelease:
     if header is None:
         raise KeyError(release_id)
     finalized_digest = header.finalized_digest
+    if finalized_digest != header.content_digest:
+        raise ReleaseConflict("archive lacks matching protected finalization")
     from .determinants import BOUNDARY_LIBRARIES, determinant_version
 
     runtime = tuple(
         (name, determinant_version(name)) for name in (*BOUNDARY_LIBRARIES, "linkml-runtime")
     )
     cache_key = (tuple(header), runtime)
-    if finalized_digest == header.content_digest:
-        with _CACHE_LOCK:
-            cache = _OPEN_CACHE.get(conn.engine)
-            if cache is not None and cache_key in cache:
-                cache.move_to_end(cache_key)
-                return cache[cache_key]
+    with _CACHE_LOCK:
+        cache = _OPEN_CACHE.get(conn.engine)
+        if cache is not None and cache_key in cache:
+            cache.move_to_end(cache_key)
+            return cache[cache_key]
     relation = _table("sem.release")
     row = (
         conn.execute(select(relation).where(relation.c.release_id == release_id))
@@ -403,25 +402,19 @@ def open_archived_release(conn: Any, release_id: str) -> PreparedRelease:
             conn.execute(select(inputs).where(inputs.c.release_id == release_id)).mappings(),
             conn.execute(select(artifacts).where(artifacts.c.release_id == release_id)).mappings(),
         )
-        if finalized_digest != row["content_digest"]:
-            # Required historical archives without protected finalization retain the
-            # complete snapshot coherence path; they never populate the cache.
-            for name, expected_rows in _projection_rows(prepared).items():
-                _compare_rows(conn, name, release_id, expected_rows)
-        else:
-            observed = _archive_header(conn, release_id)
-            if observed is None or tuple(observed) != tuple(header):
-                raise ReleaseConflict("archive header changed during opening")
-            with _CACHE_LOCK:
-                cache = _OPEN_CACHE.setdefault(conn.engine, OrderedDict())
-                if cache_key in cache:
-                    # A concurrent cold opener may already have published this owner.
-                    cache.move_to_end(cache_key)
-                    return cache[cache_key]
-                cache[cache_key] = prepared
+        observed = _archive_header(conn, release_id)
+        if observed is None or tuple(observed) != tuple(header):
+            raise ReleaseConflict("archive header changed during opening")
+        with _CACHE_LOCK:
+            cache = _OPEN_CACHE.setdefault(conn.engine, OrderedDict())
+            if cache_key in cache:
+                # A concurrent cold opener may already have published this owner.
                 cache.move_to_end(cache_key)
-                while len(cache) > 8:
-                    cache.popitem(last=False)
+                return cache[cache_key]
+            cache[cache_key] = prepared
+            cache.move_to_end(cache_key)
+            while len(cache) > 8:
+                cache.popitem(last=False)
         return prepared
     except ReleaseConflict:
         raise

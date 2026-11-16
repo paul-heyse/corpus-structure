@@ -2,7 +2,7 @@
 
 
 def contextual_definition_native_sql() -> str:
-    return r'''
+    return r"""
 CREATE OR REPLACE FUNCTION ops.ddo_contextual_origin_basis(selected_input jsonb,operation_name text)
 RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $definition$
 DECLARE episode ops.data_derivation; request ops.data_request; intent ops.data_completion_intent;
@@ -65,4 +65,4 @@ BEGIN
 END $definition$;
 REVOKE ALL ON FUNCTION ops.ddo_contextual_origin_basis(jsonb,text),
  ops.ddo_require_contextual_definition_lineage(ops.data_request,jsonb) FROM PUBLIC;
-'''
+"""

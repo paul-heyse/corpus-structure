@@ -291,15 +291,19 @@ def test_actual_fresh_target_authoring_render_replay_install_and_acl(
                     "GRANT EXECUTE ON FUNCTION " + selected.identity.qualified + " TO PUBLIC"
                 )
         try:
-            with admitter.begin() as connection:
-                with pytest.raises(ExecutionAdmissionError, match="native deployment catalog differs"):
-                    require_archive_fence(connection)
+            with (
+                admitter.begin() as connection,
+                pytest.raises(ExecutionAdmissionError, match="native deployment catalog differs"),
+            ):
+                require_archive_fence(connection)
         finally:
-            with engine.begin() as connection:
-                with native_owner(connection, selected.catalog["owner"]):
-                    connection.exec_driver_sql(
-                        "REVOKE EXECUTE ON FUNCTION " + selected.identity.qualified + " FROM PUBLIC"
-                    )
+            with (
+                engine.begin() as connection,
+                native_owner(connection, selected.catalog["owner"]),
+            ):
+                connection.exec_driver_sql(
+                    "REVOKE EXECUTE ON FUNCTION " + selected.identity.qualified + " FROM PUBLIC"
+                )
     finally:
         admitter.dispose()
     with engine.begin() as connection:

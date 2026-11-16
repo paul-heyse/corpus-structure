@@ -540,7 +540,11 @@ def _preview_guidance(
                     return EffectGuidance(
                         action_detail="the candidate requires an exact target binding"
                     )
-                conditions = ["verify the prepared release identity and artifacts"] if staged.effects.admission else []
+                conditions = (
+                    ["verify the prepared release identity and artifacts"]
+                    if staged.effects.admission
+                    else []
+                )
                 if staged.effects.native:
                     conditions.append("verify the bound development target and native predecessor")
                 return EffectGuidance(
@@ -1222,7 +1226,12 @@ def inspect_candidate(
                             action_conditions=(
                                 "verify the configured and acquired target",
                                 "verify purpose roles and the applicable native predecessor",
-                            ) + (("verify the prepared release identity and artifacts",) if binding.release is not None else ()),
+                            )
+                            + (
+                                ("verify the prepared release identity and artifacts",)
+                                if binding.release is not None
+                                else ()
+                            ),
                         )
             except (ModelError, ResultError, OSError, RecipeError) as error:
                 if status == "unverified":
@@ -1410,7 +1419,9 @@ def preview(
                     physical_sources = physical_release_sources(root, bound.physical)
                     if physical_sources is not None:
                         physical_id = physical_sources_id(physical_sources)
-                if bound.archive_release or (target is not None and (bound.packs or bound.data_operations)):
+                if bound.archive_release or (
+                    target is not None and (bound.packs or bound.data_operations)
+                ):
                     from corpus_structure.schema.physical import physical_sources_id
 
                     physical_sources = physical_release_sources(root, bound.physical)
@@ -1580,10 +1591,7 @@ def apply(
             native = None
             acquired: StorageTarget | None = None
             if staged.effects.native:
-                if (
-                    not staged.authoring_target
-                    or staged.authoring_identity is None
-                ):
+                if not staged.authoring_target or staged.authoring_identity is None:
                     raise ModelError(["preview lacks the bound development authoring target"])
 
                 @contextmanager
@@ -1745,7 +1753,9 @@ def candidate(
                     sql_inputs = None
                     if staged.effects.admission:
                         release_inputs = _prepare_release(
-                            root, staged.request.packs, data_operations=staged.request.data_operations
+                            root,
+                            staged.request.packs,
+                            data_operations=staged.request.data_operations,
                         )
                         bundle, dependencies, profile, prepared = release_inputs
                         staged.verify_release(prepared)
@@ -1934,8 +1944,8 @@ def deploy(
     from corpus_structure.schema.model_deployment import Candidate, deploy_candidate
     from corpus_structure.schema.preparation import writer_lock
     from corpus_structure.semantic.authored_sql import SQLAdmissionError
-    from corpus_structure.semantic.migrations import MigrationPredecessorError
     from corpus_structure.semantic.execution_admission import ExecutionAdmissionError
+    from corpus_structure.semantic.migrations import MigrationPredecessorError
     from corpus_structure.semantic.refusals import SemanticRefusal
     from corpus_structure.semantic.releases import ReleaseConflict
 
@@ -1960,8 +1970,12 @@ def deploy(
             root = checkout(ctx)
             with writer_lock(root):
                 model_stage(result, "prepare bound release")
-                deployment = None if binding.release is None else _prepare_release(
-                    root, binding.packs, data_operations=binding.data_operations
+                deployment = (
+                    None
+                    if binding.release is None
+                    else _prepare_release(
+                        root, binding.packs, data_operations=binding.data_operations
+                    )
                 )
 
                 def report(effect: str) -> None:

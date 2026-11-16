@@ -288,6 +288,7 @@ def primary_operation_inputs(
             structural_operation_declarations,
             structural_operation_sources,
         )
+        from .definition_applicability_products import applicability_operation_sources
         from .definition_component_products import (
             definition_component_inputs,
             definition_component_operation_sources,
@@ -297,7 +298,6 @@ def primary_operation_inputs(
             definition_location_operation_sources,
         )
         from .definition_products import definition_inputs, definition_operation_sources
-        from .definition_applicability_products import applicability_operation_sources
         from .dossier_products import dossier_inputs, dossier_operation_sources
         from .finite_interpretation_products import (
             finite_interpretation_declarations,
@@ -381,7 +381,12 @@ def primary_operation_inputs(
         declarations = (*declarations, contextual_encoder_declarations())
         if not downstream:
             from .declared_structural_calls import structural_operation_declarations
-            declarations = (*declarations, contextual_operation_declarations(), structural_operation_declarations())
+
+            declarations = (
+                *declarations,
+                contextual_operation_declarations(),
+                structural_operation_declarations(),
+            )
         collections = (
             *collections,
             contextual_encoder_operation_sources(

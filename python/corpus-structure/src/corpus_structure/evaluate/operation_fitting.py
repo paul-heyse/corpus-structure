@@ -142,7 +142,6 @@ class OperationEventFrame(EventContract):
                 raise ValueError("unavailable events must be distinct from scored events")
         return self
 
-
     @property
     def fit_digest(self) -> str:
         """Legacy frame identity remains owned here until its actual callers retire."""

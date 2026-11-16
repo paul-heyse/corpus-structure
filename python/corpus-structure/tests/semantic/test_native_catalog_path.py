@@ -11,7 +11,9 @@ from corpus_structure.semantic.native_objects import (
 )
 
 
-def test_extension_type_signature_result_and_defaults_are_guard_path_canonical(semantic_bare_engine):
+def test_extension_type_signature_result_and_defaults_are_guard_path_canonical(
+    semantic_bare_engine,
+):
     from alembic.migration import MigrationContext
     from alembic.operations import Operations
 
@@ -19,7 +21,9 @@ def test_extension_type_signature_result_and_defaults_are_guard_path_canonical(s
 
     with semantic_bare_engine.begin() as connection:
         connection.exec_driver_sql("CREATE SCHEMA catalog_path_control")
-        connection.exec_driver_sql("GRANT USAGE,CREATE ON SCHEMA catalog_path_control TO corpus_sem_publisher")
+        connection.exec_driver_sql(
+            "GRANT USAGE,CREATE ON SCHEMA catalog_path_control TO corpus_sem_publisher"
+        )
         connection.exec_driver_sql("SET LOCAL search_path=pg_catalog,public")
         definition = definition_from_sql(
             connection,
@@ -30,7 +34,7 @@ def test_extension_type_signature_result_and_defaults_are_guard_path_canonical(s
         )
         assert definition.identity.arguments == ("public.vector",)
         authoring = prepare_native_authoring(connection, (definition,), owned_authoring=True)
-        item, = authoring.desired
+        (item,) = authoring.desired
         assert item.catalog["result_type"] == item.catalog["result"] == "public.vector"
         assert item.catalog["arguments"] == "p public.vector DEFAULT '[1,2]'::public.vector"
         assert item.catalog["defaults"] == "'[1,2]'::public.vector"
@@ -54,7 +58,11 @@ def test_extension_type_signature_result_and_defaults_are_guard_path_canonical(s
             native_objects=authoring.desired,
         )
         descriptor = literal_json_descriptor(admission, "data.execution_contract_descriptor")
-        entries = [entry for entry in descriptor["functions"] if entry["signature"].startswith("catalog_path_control.")]
+        entries = [
+            entry
+            for entry in descriptor["functions"]
+            if entry["signature"].startswith("catalog_path_control.")
+        ]
         assert len(entries) == 1
         assert entries[0]["signature"] == "catalog_path_control.vector_identity(public.vector)"
         assert entries[0]["result"] == "public.vector"
@@ -65,4 +73,6 @@ def test_extension_type_signature_result_and_defaults_are_guard_path_canonical(s
             admit_native(connection, authoring.desired)
             assert connection.scalar(text("SELECT current_setting('search_path')")) == path
         with native_owner(connection, "corpus_sem_publisher"):
-            execute_native_sql(connection, "DROP FUNCTION catalog_path_control.vector_identity(public.vector)")
+            execute_native_sql(
+                connection, "DROP FUNCTION catalog_path_control.vector_identity(public.vector)"
+            )

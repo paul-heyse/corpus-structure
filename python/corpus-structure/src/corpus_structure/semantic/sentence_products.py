@@ -255,7 +255,12 @@ def source_annotation_packets(prepared, model, value):
     )
     contracts = {
         name: manifest_contract(prepared, model, name)
-        for name in ("DdoNativeBlock", "DdoNativeToken", "DdoNativeSentence", "DdoSourceAnnotationManifest")
+        for name in (
+            "DdoNativeBlock",
+            "DdoNativeToken",
+            "DdoNativeSentence",
+            "DdoSourceAnnotationManifest",
+        )
     }
     packets = []
     for ordinal, block in enumerate(value["blocks"]):
@@ -268,8 +273,12 @@ def source_annotation_packets(prepared, model, value):
                 kind_contract=contracts["DdoNativeBlock"],
                 context=context,
                 body=dict(
-                    record_type="native_block", local_id=identifier,
-                    block_id=annotation["block_id"], ordinal=ordinal, start=start, end=end,
+                    record_type="native_block",
+                    local_id=identifier,
+                    block_id=annotation["block_id"],
+                    ordinal=ordinal,
+                    start=start,
+                    end=end,
                 ),
             )
         )

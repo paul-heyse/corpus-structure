@@ -40,7 +40,9 @@ def nominal_profile(nominal_schema):
     """Schema-only membership checks require no acquired provider or execution claim."""
     bundle, prepared = nominal_schema
     model = compile_data_operations(
-        schema=bundle, definitions=prepared.definitions, vocabularies=prepared.vocabularies,
+        schema=bundle,
+        definitions=prepared.definitions,
+        vocabularies=prepared.vocabularies,
     )
     return SimpleNamespace(prepared=prepared, model=model)
 
@@ -425,7 +427,12 @@ def test_sentence_members_derive_from_actual_nominal_body_graph(nominal_profile)
     container = profile.prepared.index.definitions["DdoSourceAnnotations"].iri
     expected = {
         profile.prepared.index.definitions[name].iri
-        for name in ("DdoNativeBlock", "DdoNativeToken", "DdoNativeSentence", "DdoSourceAnnotationManifest")
+        for name in (
+            "DdoNativeBlock",
+            "DdoNativeToken",
+            "DdoNativeSentence",
+            "DdoSourceAnnotationManifest",
+        )
     }
     assert set(derive_member_kinds(profile.model, container)) == expected
 
@@ -770,19 +777,37 @@ def test_native_whole_blocks_have_their_own_exact_member_population(nominal_prof
     profile = nominal_profile
     source = selected(profile)
     value = dict(
-        source=source.value["source"], selectors=source.value["selectors"],
-        outcome="partial", coverage=[],
-        blocks=[dict(annotation=dict(block_id="#/texts/0", block_start=0,
-                                     block_end=len(source.value["text"]), tokens=[], sentences=[]),
-                     lexemes=[])],
+        source=source.value["source"],
+        selectors=source.value["selectors"],
+        outcome="partial",
+        coverage=[],
+        blocks=[
+            dict(
+                annotation=dict(
+                    block_id="#/texts/0",
+                    block_start=0,
+                    block_end=len(source.value["text"]),
+                    tokens=[],
+                    sentences=[],
+                ),
+                lexemes=[],
+            )
+        ],
     )
     packets = source_annotation_packets(profile.prepared, profile.model, value)
     (block,) = [row for row in packets if row["body"]["record_type"] == "native_block"]
-    assert block["body"] == dict(record_type="native_block", local_id=block["member_id"],
-                                 block_id="#/texts/0", ordinal=0, start=0,
-                                 end=len(source.value["text"]))
+    assert block["body"] == dict(
+        record_type="native_block",
+        local_id=block["member_id"],
+        block_id="#/texts/0",
+        ordinal=0,
+        start=0,
+        end=len(source.value["text"]),
+    )
     assert block["kind_contract"] == next(
-        item.key for item in profile.model.identities if item.domain == "kind"
+        item.key
+        for item in profile.model.identities
+        if item.domain == "kind"
         and item.owner == profile.prepared.index.definitions["DdoNativeBlock"].iri
     )
     assert block["context"]["analyzed_scope"] == dict(

@@ -234,17 +234,20 @@ semantic release; declared interpretation/contract changes retain their explicit
 
 > Decision: [ADR-0063](../adr/0063-semantic-runtime-identity.md)
 
-**Implemented; selected AC scope Tested2026-11-04.**
-`semantic.types.SEMANTIC_COMPILER_VERSION` declares the sole current producing compiler;
-`READABLE_COMPILER_VERSIONS` declares supported immutable product reading. Native execution
-projection admission requires the current compiler and exact implementation binding. Product
+**Implemented; current-only reader qualification open,2026-11-16.**
+`semantic.types.SEMANTIC_COMPILER_VERSION` declares the sole producing and readable compiler.
+Historical compiler14–21 readers and inspection/vocabulary payload fallbacks are removed under
+ADR-0109's current-only target. Database archive opening requires matching protected finalization;
+it does not reconstruct an unfinalized historical archive through projection-row comparisons.
+Native execution projection admission requires the current compiler and exact implementation binding. Product
 reading does not reconstruct with today's compiler or authorize archived-runtime execution.
 Rule-value, ordinary-answer, continuation and export ABIs retain their own explicit versions;
 a compiler number alone does not establish their compatibility. AC13 owns the coherent forward
 transition and final applicability evidence. Older numbered compiler descriptions below record
 their dated realization only and do not select a competing present runtime.
 
-The current producing semantic compiler is 22; immutable product readers cover 14–22. Execution
+The current producing and readable semantic compiler is22. Historical bytes remain evidence;
+their sources can be regenerated on the current basis without claiming identical judgments. Execution
 compiler28, RuleValue ABI2 and query coverage recipe4 are separate contracts. The exact recognized
 coverage recipe3 retains its historical producer universe. Native source inspection/search use
 request/cursor version4; incompatible old requests and query bindings refuse. These version

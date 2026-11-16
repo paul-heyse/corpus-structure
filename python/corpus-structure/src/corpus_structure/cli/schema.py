@@ -460,8 +460,10 @@ def author_native_candidate(
         verify_target,
     )
     from corpus_structure.semantic.target_installation import (
-        capture_target_installation, prepare_target_candidate,
-        prepare_target_successor, require_empty_target,
+        capture_target_installation,
+        prepare_target_candidate,
+        prepare_target_successor,
+        require_empty_target,
     )
 
     source = make_url(settings.database.url)
@@ -532,13 +534,21 @@ def author_native_candidate(
                 raise SemanticRefusal("native authoring predecessor differs from the preview")
             if predecessor is None:
                 if retire or recreate:
-                    raise NativeAuthoringError("fresh root has no predecessor effects to retire or recreate")
-                script, authoring = prepare_target_candidate(conn, installation, owned_authoring=True)
+                    raise NativeAuthoringError(
+                        "fresh root has no predecessor effects to retire or recreate"
+                    )
+                script, authoring = prepare_target_candidate(
+                    conn, installation, owned_authoring=True
+                )
             else:
                 frozen = current_native_state(conn)
                 script, authoring = prepare_target_successor(
-                    conn, installation, predecessor=frozen, retire=retire,
-                    recreate=recreate, owned_authoring=True,
+                    conn,
+                    installation,
+                    predecessor=frozen,
+                    retire=retire,
+                    recreate=recreate,
+                    owned_authoring=True,
                 )
             upgrade_ops = script.upgrade_ops
             if upgrade_ops is None:
@@ -547,6 +557,7 @@ def author_native_candidate(
                 PrivilegeTransitionOp,
                 operation_record,
             )
+
             native = [
                 item
                 for item in upgrade_ops.ops
@@ -636,9 +647,13 @@ def native_candidate_(
             help="Rollback-only authoring database; defaults to the configured target.",
         ),
     ] = None,
-    expected_predecessor: Annotated[str | None, typer.Option(
-        "--expected-predecessor", help="Exact installed current revision; omit for an explicitly empty root.",
-    )] = None,
+    expected_predecessor: Annotated[
+        str | None,
+        typer.Option(
+            "--expected-predecessor",
+            help="Exact installed current revision; omit for an explicitly empty root.",
+        ),
+    ] = None,
     intent: Annotated[
         Path | None, typer.Option(help="YAML retirement and recreation declaration.")
     ] = None,

@@ -77,10 +77,18 @@ class Candidate(BaseModel):
     @model_validator(mode="after")
     def native_only_has_no_release_claims(self):
         if self.release is None:
-            if self.release_manifest_sha256 is not None or self.release_artifacts_sha256 is not None or self.inspection_sha256 is not None:
-                raise ValueError("a native-only candidate cannot carry release hashes or an application inspection capsule")
+            if (
+                self.release_manifest_sha256 is not None
+                or self.release_artifacts_sha256 is not None
+                or self.inspection_sha256 is not None
+            ):
+                raise ValueError(
+                    "a native-only candidate cannot carry release hashes or an application inspection capsule"
+                )
             if self.packs or self.data_operations is not None or self.revision is None:
-                raise ValueError("a native-only candidate requires a native revision and no application release inputs")
+                raise ValueError(
+                    "a native-only candidate requires a native revision and no application release inputs"
+                )
         return self
 
     @classmethod
@@ -101,8 +109,16 @@ class Candidate(BaseModel):
                 ["candidate requires a deployment target and matching native authoring binding"]
             )
         if prepared is None:
-            if not preview.effects.native or preview.effects.admission or preview.local_release is not None or preview.release_manifest_sha256 is not None or preview.release_artifacts_sha256 is not None:
-                raise ModelError(["native-only candidate differs from the reviewed release-free preview"])
+            if (
+                not preview.effects.native
+                or preview.effects.admission
+                or preview.local_release is not None
+                or preview.release_manifest_sha256 is not None
+                or preview.release_artifacts_sha256 is not None
+            ):
+                raise ModelError(
+                    ["native-only candidate differs from the reviewed release-free preview"]
+                )
         else:
             preview.verify_release(prepared)
         binding = cls(
@@ -646,12 +662,12 @@ def deploy_candidate(
         analyze_release_sql,
         prepare_release_sql,
     )
+    from corpus_structure.semantic.data_operation_admission import admit_data_operation_release
     from corpus_structure.semantic.execution_admission import (
         require_frozen_native_revision,
         verify_deployment_catalog,
     )
     from corpus_structure.semantic.migrations import current_revision, migration_fence, upgrade
-    from corpus_structure.semantic.data_operation_admission import admit_data_operation_release
     from corpus_structure.semantic.releases import open_release, persist_release
     from corpus_structure.semantic.runtime import open_runtime_engine
 
@@ -669,7 +685,8 @@ def deploy_candidate(
             raise ModelError(["release candidate requires its exact application inputs"])
         bundle, deps, profile, prepared = deployment
         verify_release_products(
-            prepared, release=binding.release,
+            prepared,
+            release=binding.release,
             manifest_sha256=binding.release_manifest_sha256,
             artifacts_sha256=binding.release_artifacts_sha256,
             binding="the candidate",
@@ -713,7 +730,9 @@ def deploy_candidate(
                 observed = current_revision(recovery)
                 if observed is None:
                     if starting_revision is None:
-                        from corpus_structure.semantic.target_installation import require_empty_target
+                        from corpus_structure.semantic.target_installation import (
+                            require_empty_target,
+                        )
 
                         require_empty_target(recovery)
                         return False
@@ -724,9 +743,13 @@ def deploy_candidate(
                 return observed == binding.revision
 
         def open_purpose_routes():
-            admission = purpose_routes.enter_context(open_runtime_engine(destination, "ci-model-admit", purpose="admit"))
+            admission = purpose_routes.enter_context(
+                open_runtime_engine(destination, "ci-model-admit", purpose="admit")
+            )
             writer = purpose_routes.enter_context(_deployment_connection(admission))
-            reader = purpose_routes.enter_context(open_runtime_engine(destination, "ci-model-verify", purpose="read"))
+            reader = purpose_routes.enter_context(
+                open_runtime_engine(destination, "ci-model-verify", purpose="read")
+            )
             with writer.begin(), _deployment_connection(reader) as check, check.begin():
                 verify(writer, "admit")
                 verify(check, "read")

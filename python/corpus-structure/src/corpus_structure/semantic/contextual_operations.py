@@ -151,8 +151,7 @@ def contextual_operation_declarations():
                     NeighborhoodNumericalPolicy.model_json_schema(),
                     namespace="urn:corpus:kind:contextual-neighborhood:",
                     root_name="NumericalPolicy",
-                )
-,
+                ),
             }
         ),
     )

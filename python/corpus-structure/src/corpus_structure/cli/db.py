@@ -123,9 +123,12 @@ def _migrate(
     from sqlalchemy import text
 
     from corpus_structure.semantic import migrations
+
     head = migrations.head_revision()
     if head is None:
-        raise DbRefused("no current native root is registered; prepare and register a native revision first")
+        raise DbRefused(
+            "no current native root is registered; prepare and register a native revision first"
+        )
     with engine.begin() as conn:
         legacy = conn.execute(
             text(
@@ -142,11 +145,11 @@ def _migrate(
                 "use ci model change deploy for bound deployment; "
                 "database recovery requires --expected-predecessor"
             )
-        applied = migrations.upgrade(
-            conn, head, expected_predecessor=expected_predecessor
-        )
+        applied = migrations.upgrade(conn, head, expected_predecessor=expected_predecessor)
         current = migrations.current_revision(conn)
-        physical_id = conn.scalar(text("SELECT data.execution_contract_descriptor()->>'physical_id'"))
+        physical_id = conn.scalar(
+            text("SELECT data.execution_contract_descriptor()->>'physical_id'")
+        )
     return DbReport(
         database=name,
         created=created,
@@ -180,13 +183,20 @@ def _run(
     try:
         with failure_boundary(
             json_,
-            expected=(DbRefused, ExtensionVersionMismatch, MigrationPredecessorError, NativeAuthoringError),
+            expected=(
+                DbRefused,
+                ExtensionVersionMismatch,
+                MigrationPredecessorError,
+                NativeAuthoringError,
+            ),
             report_expected_validation=False,
         ):
             from corpus_structure.semantic.migrations import head_revision
 
             if not creation_only and head_revision() is None:
-                raise DbRefused("no current native root is registered; use init --creation-only for a new empty authoring stage")
+                raise DbRefused(
+                    "no current native root is registered; use init --creation-only for a new empty authoring stage"
+                )
             created = (
                 _create(admin, name, settings.database.template, creation_token)
                 if create
@@ -199,8 +209,14 @@ def _run(
                     raise DbRefused("creation-only bootstrap requires a new database")
                 with engine.begin() as conn:
                     require_empty_target(conn)
-                report = DbReport(database=name, created=True, revision=None,
-                                  head=head_revision(), model_revision=None, applied=[])
+                report = DbReport(
+                    database=name,
+                    created=True,
+                    revision=None,
+                    head=head_revision(),
+                    model_revision=None,
+                    applied=[],
+                )
             else:
                 report = _migrate(engine, name, created, expected_predecessor=expected_predecessor)
     finally:
@@ -216,7 +232,11 @@ def init(
     creation_token: str | None = typer.Option(
         None, "--creation-token", help="Require a new database and acknowledge its disposal owner."
     ),
-    creation_only: bool = typer.Option(False, "--creation-only", help="Create an empty owned authoring stage without installing a native revision."),
+    creation_only: bool = typer.Option(
+        False,
+        "--creation-only",
+        help="Create an empty owned authoring stage without installing a native revision.",
+    ),
 ) -> None:
     """Create the database from the template, check it and upgrade it to head."""
     _run(ctx, json_, create=True, creation_token=creation_token, creation_only=creation_only)

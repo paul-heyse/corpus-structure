@@ -1,7 +1,5 @@
 """Owned CPU encoder controls; controlled models establish no provider qualification."""
 
-from corpus_structure.semantic.declared_structural_calls import structural_operation_declarations
-
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -17,6 +15,7 @@ from corpus_structure.semantic.contextual_operations import (
     contextual_inputs,
     contextual_operation_declarations,
 )
+from corpus_structure.semantic.declared_structural_calls import structural_operation_declarations
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.types import SourceArtifact, SourceBundle
 
@@ -100,7 +99,11 @@ def test_contextual_encoder_captures_cpu_acquisition_and_closed_source_factory(t
         bundle,
         data_operation_dependencies(
             ResolvedDependencies(),
-            declarations=(contextual_encoder_declarations(), contextual_operation_declarations(), structural_operation_declarations()),
+            declarations=(
+                contextual_encoder_declarations(),
+                contextual_operation_declarations(),
+                structural_operation_declarations(),
+            ),
             python_sources=sources,
         ),
         PreparationProfile(version="semantic-2"),

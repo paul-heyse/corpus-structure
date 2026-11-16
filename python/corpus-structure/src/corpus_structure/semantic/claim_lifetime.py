@@ -25,12 +25,11 @@ from corpus_structure.core.db.store import (
 )
 from corpus_structure.settings import DatabaseSettings
 
-from .operations import renew_claim
 from .refusals import OperationConflict
 
 
 class OwnedClaim(Protocol):
-    """Physical fence shared by legacy tasks and native request generations."""
+    """Physical fence retained by current native request generations."""
 
     @property
     def task_id(self) -> int: ...
@@ -263,6 +262,8 @@ def maintained_claims(
     """
     if interval <= 0:
         raise ValueError("claim renewal interval must be positive")
+    if claims and renew is None:
+        raise ValueError("claim maintenance requires its actual renewal callback")
     database = database or getattr(engine, "_corpus_database_settings", None) or DatabaseSettings()
     cancellation = BorrowerCancellation(timeout=database.cancel_request_timeout_seconds)
     stop = Event()
@@ -327,17 +328,11 @@ def maintained_claims(
                                     statement_timeout_seconds=database.renewal_statement_timeout_seconds,
                                 )
                                 cancellation.check_active()
-                                if renew_owned_claim is not None:
-                                    renew_owned_claim(conn, claim)
-                                else:
-                                    from .identifiers import TaskAttempt, TaskId
-
-                                    renew_claim(
-                                        conn,
-                                        task_id=TaskId(claim.task_id),
-                                        attempt=TaskAttempt(claim.attempt),
-                                        holder=holder,
+                                if renew_owned_claim is None:
+                                    raise ValueError(
+                                        "claim maintenance requires its actual renewal callback"
                                     )
+                                renew_owned_claim(conn, claim)
                                 cancellation.check_active()
                             except BaseException as error:
                                 try:

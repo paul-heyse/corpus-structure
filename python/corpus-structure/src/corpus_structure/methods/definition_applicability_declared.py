@@ -396,7 +396,9 @@ class DefinitionApplicabilityOperation:
 
     @staticmethod
     def acquire_port(prepared, model, operation, *, identity, authorize, custody, sources):
-        from corpus_structure.semantic.definition_applicability_products import resolve_applicability_port
+        from corpus_structure.semantic.definition_applicability_products import (
+            resolve_applicability_port,
+        )
 
         return resolve_applicability_port(
             prepared,

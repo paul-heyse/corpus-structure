@@ -1,7 +1,5 @@
 """Independent score codec/ranking controls; controlled rows carry no native standing."""
 
-from corpus_structure.semantic.declared_structural_calls import structural_operation_declarations
-
 import struct
 from copy import deepcopy
 from types import SimpleNamespace
@@ -11,6 +9,7 @@ import pytest
 from corpus_structure.semantic.contextual_numerics import default_retrieval_numerics
 from corpus_structure.semantic.contextual_operations import prepare_contextual_retrieval
 from corpus_structure.semantic.contextual_scores import candidates_from_scores, score_product
+from corpus_structure.semantic.declared_structural_calls import structural_operation_declarations
 from corpus_structure.semantic.observations import source_python, source_value
 from semantic.test_declared_contextual_operations import inputs
 
@@ -161,7 +160,10 @@ def test_score_product_is_valid_under_its_current_nominal_contract():
         contextual_inputs(SourceBundle("core", (SourceArtifact("core", core.read_bytes()),))),
         data_operation_dependencies(
             ResolvedDependencies(),
-            declarations=(contextual_operation_declarations(), structural_operation_declarations(),),
+            declarations=(
+                contextual_operation_declarations(),
+                structural_operation_declarations(),
+            ),
             python_sources=contextual_operation_sources(),
         ),
         PreparationProfile(version="semantic-2"),

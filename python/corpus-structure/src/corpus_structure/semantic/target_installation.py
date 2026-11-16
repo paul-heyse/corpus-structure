@@ -191,7 +191,9 @@ def target_native_definitions(connection, installation: TargetInstallation):
                     item.content.decode()
                     for item in installation.authoring_inputs.sources
                     if item.name == "authoring/scientific-layout.sql"
-                ) if filename == "scientific_layout.sql" else sql.joinpath(filename).read_text(),
+                )
+                if filename == "scientific_layout.sql"
+                else sql.joinpath(filename).read_text(),
                 name=name,
                 schema=schema,
                 source="target-current:" + filename,

@@ -259,16 +259,9 @@ def test_native_source_member_replay_preserves_all_endpoint_citations(commit_db_
         assert replay_public == public == structural_statement(replay)
         assert len(public["dossier"]["members"][0]["endpoint_citations"]) == 2
         assert public["dossier"]["admission_scope"] == "membership_assembly_not_member_truth"
-        from corpus_structure.serve.structural_products import _DOSSIER_SLICE_SQL
+        from corpus_structure.serve.structural_products import dossier_member_page
 
-        page_sql = _DOSSIER_SLICE_SQL.replace(
-            "SELECT body->'structural_product' report FROM ops.task_result "
-            "WHERE task_id=:origin_id",
-            "SELECT CAST(:report AS jsonb) report",
-        ).replace("{projection}", "body")
-        page = conn.scalar(
-            text(page_sql), dict(report=report.model_dump_json(), offset=0, end_offset=1)
-        )
+        page = dossier_member_page(report, population="display", offset=0, limit=1)
         assert len(page["citations"]) == 2
         assert {c["citation"]["text"] for c in page["citations"]} == {"50", "Probability %"}
 

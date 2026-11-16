@@ -383,14 +383,15 @@ def persist_release(
     # Executable releases additionally retain their declared archive operation.
     if prepared.execution_model_id is not None:
         require_bound_operation(prepared, "archive")
-    if profile.compiler_version == SEMANTIC_COMPILER_VERSION:
-        from .prepare import prepare_release
+    if profile.compiler_version != SEMANTIC_COMPILER_VERSION:
+        raise ReleaseConflict(f"unsupported archive compiler {profile.compiler_version}")
+    from .prepare import prepare_release
 
-        derived = prepare_release(bundle, dependencies, profile)
-        if _archive_bytes(bundle, dependencies, derived) != _archive_bytes(
-            bundle, dependencies, prepared
-        ):
-            raise ReleaseConflict("prepared products differ from exact-source verification")
+    derived = prepare_release(bundle, dependencies, profile)
+    if _archive_bytes(bundle, dependencies, derived) != _archive_bytes(
+        bundle, dependencies, prepared
+    ):
+        raise ReleaseConflict("prepared products differ from exact-source verification")
 
     if prepared.execution_model_id is not None:
         from .execution_admission import require_archive_fence
@@ -550,8 +551,8 @@ def load_release_inputs(
         profile = PreparationProfile(**json.loads(source["profile", "profile"]))
         if profile.compiler_version != SEMANTIC_COMPILER_VERSION:
             raise ReleaseConflict(
-                f"full verification requires historical compiler {profile.compiler_version}; "
-                f"current compiler {SEMANTIC_COMPILER_VERSION} preserves product reading only"
+                f"unsupported archive compiler {profile.compiler_version}; "
+                f"current compiler is {SEMANTIC_COMPILER_VERSION}"
             )
         if len(source) != len(bundle.sources) + len(dependencies.artifacts) + 3:
             raise ReleaseConflict("unexpected archived inputs")

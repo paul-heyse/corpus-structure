@@ -10,20 +10,27 @@ from functools import partial
 import pytest
 from sqlalchemy import text
 
-from corpus_structure.semantic.data_operation_service import DemandOperationSelection
 from corpus_structure.semantic.contextual_selection import ContextualVectorSelection
+from corpus_structure.semantic.data_operation_service import DemandOperationSelection
 from corpus_structure.semantic.data_operation_source_sets import FrozenSourceSet
 from corpus_structure.semantic.observations import source_python, source_value
 from semantic.contextual_native_fixture import COMPONENTS, CUES, TEXT
 from semantic.current_contextual_support import (
-    controlled_encoder, contextual_workflow_recipe, final_selection, retained_products,
-    run_intent, witnessed_retrieval_intent,
+    contextual_workflow_recipe,
+    controlled_encoder,
+    final_selection,
+    retained_products,
+    run_intent,
+    witnessed_retrieval_intent,
 )
 from semantic.current_pdf_source_support import (
-    PROJECT, _current_pdf_source, _section_stream, admit_current_target,
+    PROJECT,
+    _current_pdf_source,
+    _section_stream,
+    admit_current_target,
 )
-from semantic.structural_admission_native_support import Product, execute, request, selected
 from semantic.data_operation_kernel_support import Kernel
+from semantic.structural_admission_native_support import Product, execute, request, selected
 
 APPLICABILITY = "structure.definition_applicability/declared"
 COMPONENT_KIND = "urn:corpus:structural:DeclaredDefinitionComponentsReport"
@@ -49,29 +56,58 @@ class WorkflowCase:
 
 
 def component_request(kernel, original, purpose):
-    return request(kernel, (COMPONENTS,), original.context,
+    return request(
+        kernel,
+        (COMPONENTS,),
+        original.context,
         source_sets=(FrozenSourceSet("fixture-contextual-source", (original.entry(),)),),
-        selections=(DemandOperationSelection(operation=COMPONENTS, parameters={"purpose": purpose}),),
-        inference="controlled-literal-"+purpose+"-definition-inspection")
+        selections=(
+            DemandOperationSelection(operation=COMPONENTS, parameters={"purpose": purpose}),
+        ),
+        inference="controlled-literal-" + purpose + "-definition-inspection",
+    )
 
 
 def component_inventory(kernel, query, population):
     from corpus_structure.semantic.data_operation_demands import RootSubject, freeze_demand
     from corpus_structure.semantic.data_operation_support import authored_fact_selection
+
     assert population.body["complete"] is True
     descriptors = [source_python(row["body"]["descriptor"]) for row in population.body["members"]]
-    meanings = {source_python(row["body"]["descriptor"])["target_id"]:
-        source_python(row["body"]["semantic_target"]) for row in population.body["members"]}
-    inventory = authored_fact_selection("component-target-inventory", dict(
-        source_selection=population.row["product_id"], scope="selected", targets=source_value(descriptors),
-        semantic_targets=source_value(meanings)), kind_contract=kernel.identities[
-            "https://corpus-structure.dev/semantic/data-operation-contextual/DdoContextualTargetSelection", "kind"],
-        context=query.context, author="controlled complete source selection",
-        selection_id="all-observed-finite-definition-components")
-    return freeze_demand(kernel.model, roots=(RootSubject(query.context.subject,
-        query.context.original_source, query.context.analyzed_scope),),
-        targets=("retrieve.contextual_inventory/declared",), original_sources=(inventory,),
-        inference="complete-actual-source-component-inventory", execution_profile=kernel.recipe.execution_profile)
+    meanings = {
+        source_python(row["body"]["descriptor"])["target_id"]: source_python(
+            row["body"]["semantic_target"]
+        )
+        for row in population.body["members"]
+    }
+    inventory = authored_fact_selection(
+        "component-target-inventory",
+        dict(
+            source_selection=population.row["product_id"],
+            scope="selected",
+            targets=source_value(descriptors),
+            semantic_targets=source_value(meanings),
+        ),
+        kind_contract=kernel.identities[
+            "https://corpus-structure.dev/semantic/data-operation-contextual/DdoContextualTargetSelection",
+            "kind",
+        ],
+        context=query.context,
+        author="controlled complete source selection",
+        selection_id="all-observed-finite-definition-components",
+    )
+    return freeze_demand(
+        kernel.model,
+        roots=(
+            RootSubject(
+                query.context.subject, query.context.original_source, query.context.analyzed_scope
+            ),
+        ),
+        targets=("retrieve.contextual_inventory/declared",),
+        original_sources=(inventory,),
+        inference="complete-actual-source-component-inventory",
+        execution_profile=kernel.recipe.execution_profile,
+    )
 
 
 @pytest.fixture(scope="module")
@@ -79,95 +115,237 @@ def current_workflow_case(scenario_seeds, tmp_path_factory):
     from corpus_structure.semantic.contextual_selection import freeze_contextual_target_demand
     from corpus_structure.semantic.data_operation_demands import RootSubject
     from corpus_structure.semantic.demand_results import read_demand_result
+
     directory = tmp_path_factory.mktemp("current-contextual-workflow")
-    with pytest.MonkeyPatch.context() as patch, _current_pdf_source(scenario_seeds, directory, patch,
-        stream=partial(_section_stream, (("1 Definition", TEXT),)), sections=("#/groups/0",)) as source:
-        encoder = controlled_encoder(directory/"encoder")
-        kernel = admit_current_target(source, contextual_workflow_recipe(directory/"recipe", encoder), directory/"consumer")
+    with (
+        pytest.MonkeyPatch.context() as patch,
+        _current_pdf_source(
+            scenario_seeds,
+            directory,
+            patch,
+            stream=partial(_section_stream, (("1 Definition", TEXT),)),
+            sections=("#/groups/0",),
+        ) as source,
+    ):
+        encoder = controlled_encoder(directory / "encoder")
+        kernel = admit_current_target(
+            source,
+            contextual_workflow_recipe(directory / "recipe", encoder),
+            directory / "consumer",
+        )
         with source.kernel.purpose("read").begin() as connection:
             page = read_demand_result(connection, source.demand_id, project_id=PROJECT, limit=1000)
         source_kind = source.kernel.identities[
-            "https://corpus-structure.dev/semantic/data-operation-source/DdoSelectedNativeSource", "kind"]
-        (original,) = [Product(row, row["body"]) for row in page.members()
-            if row["kind_contract"] == source_kind and row["body"]["text"] == TEXT
+            "https://corpus-structure.dev/semantic/data-operation-source/DdoSelectedNativeSource",
+            "kind",
+        ]
+        (original,) = [
+            Product(row, row["body"])
+            for row in page.members()
+            if row["kind_contract"] == source_kind
+            and row["body"]["text"] == TEXT
             and row["body"]["source"]["section_pointer"] == "#/groups/0"
-            and row["body"]["source"]["membership"] == "descendants"]
-        cues_pending = request(kernel, (CUES,), original.context,
+            and row["body"]["source"]["membership"] == "descendants"
+        ]
+        cues_pending = request(
+            kernel,
+            (CUES,),
+            original.context,
             source_sets=(FrozenSourceSet("fixture-contextual-source", (original.entry(),)),),
-            inference="actual-finite-count-source-role-inspection")
+            inference="actual-finite-count-source-role-inspection",
+        )
         cue_retained, _ = execute(kernel, cues_pending)
-        (cue_report,) = selected(kernel, cue_retained["demand_id"], kind=
-            "https://corpus-structure.dev/semantic/data-operation-candidate-inspection/DdoPredicateInspectionReport")
+        (cue_report,) = selected(
+            kernel,
+            cue_retained["demand_id"],
+            kind="https://corpus-structure.dev/semantic/data-operation-candidate-inspection/DdoPredicateInspectionReport",
+        )
         cues = {row["body"]["semantic_type"]: row["body"] for row in cue_report.body["members"]}
         component_retained, _ = execute(kernel, component_request(kernel, original, "meaning"))
         (components,) = selected(kernel, component_retained["demand_id"], kind=COMPONENT_KIND)
         (component,) = components.body["definition_components"]["components"]
-        pending = request(kernel, ("retrieve.contextual_query/declared",), original.context,
-            selections=(DemandOperationSelection(operation="retrieve.contextual_query/declared",
-                replicate="actual-finite-count-query-observations"),), inference="exact-finite-count-query-carriers")
+        pending = request(
+            kernel,
+            ("retrieve.contextual_query/declared",),
+            original.context,
+            selections=(
+                DemandOperationSelection(
+                    operation="retrieve.contextual_query/declared",
+                    replicate="actual-finite-count-query-observations",
+                ),
+            ),
+            inference="exact-finite-count-query-carriers",
+        )
         query_retained, _ = execute(kernel, pending)
         query_demand = query_retained["demand_id"]
         queries = retained_products(kernel, query_demand, "DdoContextualQuery")
 
         def query_for(role):
-            (value,) = [row for row in queries if row.body["carrier"]["contribution_id"] == cues["source_rule."+role]["contribution_id"]]
+            (value,) = [
+                row
+                for row in queries
+                if row.body["carrier"]["contribution_id"]
+                == cues["source_rule." + role]["contribution_id"]
+            ]
             return value
 
         query, unrelated = query_for("subject"), query_for("unrelated")
-        (query_vector,) = [row for row in retained_products(kernel, query_demand, "DdoContextualQueryVector")
+        (query_vector,) = [
+            row
+            for row in retained_products(kernel, query_demand, "DdoContextualQueryVector")
             if row.row["derivation_id"] == query.row["derivation_id"]
-            and row.body["vector"]["vector_id"] == query.body["query_vector_id"]]
-        target_intent = freeze_contextual_target_demand(kernel.model,
-            roots=(RootSubject(original.context.subject, original.context.original_source, original.context.analyzed_scope),),
-            producer="retrieve.contextual_targets/components", replicate="actual-source-backed-count-target-observation",
-            inference="exact-finite-definition-target", execution_profile=kernel.recipe.execution_profile,
-            source_sets=(FrozenSourceSet("contextual-definition-components", (components.entry(),)),))
+            and row.body["vector"]["vector_id"] == query.body["query_vector_id"]
+        ]
+        target_intent = freeze_contextual_target_demand(
+            kernel.model,
+            roots=(
+                RootSubject(
+                    original.context.subject,
+                    original.context.original_source,
+                    original.context.analyzed_scope,
+                ),
+            ),
+            producer="retrieve.contextual_targets/components",
+            replicate="actual-source-backed-count-target-observation",
+            inference="exact-finite-definition-target",
+            execution_profile=kernel.recipe.execution_profile,
+            source_sets=(
+                FrozenSourceSet("contextual-definition-components", (components.entry(),)),
+            ),
+        )
         target_demand, _ = run_intent(kernel, target_intent)
         (population,) = retained_products(kernel, target_demand, "DdoContextualTargetPopulation")
         targets = retained_products(kernel, target_demand, "DdoContextualTargetVector")
         inventory_demand, _ = run_intent(kernel, component_inventory(kernel, query, population))
         (inventory,) = retained_products(kernel, inventory_demand, "DdoContextualInventory")
-        selection = final_selection(kernel, query_demand, query, query_vector, target_demand, targets,
-            inventory_demand, inventory)
+        selection = final_selection(
+            kernel,
+            query_demand,
+            query,
+            query_vector,
+            target_demand,
+            targets,
+            inventory_demand,
+            inventory,
+        )
         carrier = query.body["carrier"]
         object_query = query_for("object")
         object_ref = object_query.body["carrier"]
         relations = ("denotes", "compared-with", "defined-by")
-        assertions = [dict(hypothesis_id="controlled-count:"+relation, target_id=component["component_id"],
-            relation=relation, asserted_basis="explicit_source_cue", cue_refs=[carrier, object_ref]) for relation in relations]
-        constraints = [dict(constraint_id="controlled-count:"+relation, relation_kinds=[relation],
-            occurrence_role="mention", target_role="definition", multiplicity="one") for relation in relations]
-        relationship_demand, _ = run_intent(kernel, witnessed_retrieval_intent(kernel, selection,
-            query_demand, query, hypotheses=assertions, budget=1, relations=relations,
-            cues=(carrier, object_ref), constraints=constraints))
-        (relationship,) = retained_products(kernel, relationship_demand, "DdoContextualWitnessedRetrievalProduct")
-        yield WorkflowCase(kernel, original, components, component["component_id"], cues, query_demand,
-            query, unrelated, query_vector, population, targets, target_demand, selection, relationship_demand, relationship)
+        assertions = [
+            dict(
+                hypothesis_id="controlled-count:" + relation,
+                target_id=component["component_id"],
+                relation=relation,
+                asserted_basis="explicit_source_cue",
+                cue_refs=[carrier, object_ref],
+            )
+            for relation in relations
+        ]
+        constraints = [
+            dict(
+                constraint_id="controlled-count:" + relation,
+                relation_kinds=[relation],
+                occurrence_role="mention",
+                target_role="definition",
+                multiplicity="one",
+            )
+            for relation in relations
+        ]
+        relationship_demand, _ = run_intent(
+            kernel,
+            witnessed_retrieval_intent(
+                kernel,
+                selection,
+                query_demand,
+                query,
+                hypotheses=assertions,
+                budget=1,
+                relations=relations,
+                cues=(carrier, object_ref),
+                constraints=constraints,
+            ),
+        )
+        (relationship,) = retained_products(
+            kernel, relationship_demand, "DdoContextualWitnessedRetrievalProduct"
+        )
+        yield WorkflowCase(
+            kernel,
+            original,
+            components,
+            component["component_id"],
+            cues,
+            query_demand,
+            query,
+            unrelated,
+            query_vector,
+            population,
+            targets,
+            target_demand,
+            selection,
+            relationship_demand,
+            relationship,
+        )
 
 
 def applicability_request(case, *, introduction, components=None):
     decision = source_python(case.relationship.body["relationship_decision"])
     (edge,) = [row for row in decision["selected_edges"] if row["relation"] == "defined-by"]
-    return request(case.kernel, (APPLICABILITY,), case.original.context,
-        source_sets=(FrozenSourceSet("definition-components", ((case.components if components is None else components).entry(),)),
-            FrozenSourceSet("definition-relationships", (case.relationship.entry(),))),
-        selections=(DemandOperationSelection(operation=APPLICABILITY, parameters=dict(component_id=case.component_id,
-            decision_id=decision["decision_id"], edge_id=edge["edge_id"], usage_id="count-usage", start=2, end=7,
-            scope="selected", effective_version="", parent="", defining_occurrence=introduction)),),
-        inference="same-defining-occurrence" if introduction else "unestablished-contextual-transfer")
+    return request(
+        case.kernel,
+        (APPLICABILITY,),
+        case.original.context,
+        source_sets=(
+            FrozenSourceSet(
+                "definition-components",
+                ((case.components if components is None else components).entry(),),
+            ),
+            FrozenSourceSet("definition-relationships", (case.relationship.entry(),)),
+        ),
+        selections=(
+            DemandOperationSelection(
+                operation=APPLICABILITY,
+                parameters=dict(
+                    component_id=case.component_id,
+                    decision_id=decision["decision_id"],
+                    edge_id=edge["edge_id"],
+                    usage_id="count-usage",
+                    start=2,
+                    end=7,
+                    scope="selected",
+                    effective_version="",
+                    parent="",
+                    defining_occurrence=introduction,
+                ),
+            ),
+        ),
+        inference="same-defining-occurrence"
+        if introduction
+        else "unestablished-contextual-transfer",
+    )
 
 
-def test_current_same_span_carriers_keep_original_query_episode_and_qualifying_evidence(current_workflow_case, tmp_path):
+def test_current_same_span_carriers_keep_original_query_episode_and_qualifying_evidence(
+    current_workflow_case, tmp_path
+):
     case = current_workflow_case
-    subject, unrelated, object_ = (case.cue_rows["source_rule."+name] for name in ("subject", "unrelated", "object"))
+    subject, unrelated, object_ = (
+        case.cue_rows["source_rule." + name] for name in ("subject", "unrelated", "object")
+    )
     assert subject["occurrence_id"] == unrelated["occurrence_id"] != object_["occurrence_id"]
     assert case.query.row["product_id"] != case.unrelated_query.row["product_id"]
     assert case.query.body["query_vector_id"] == case.unrelated_query.body["query_vector_id"]
     assert case.query.row["derivation_id"] != case.unrelated_query.row["derivation_id"]
-    assert all(row.row["original_source"] == case.original.row["original_source"] for row in case.targets)
+    assert all(
+        row.row["original_source"] == case.original.row["original_source"] for row in case.targets
+    )
     decision = source_python(case.relationship.body["relationship_decision"])
     assert decision["outcome"] == "selected"
-    assert {row["relation"] for row in decision["selected_edges"]} == {"denotes", "compared-with", "defined-by"}
+    assert {row["relation"] for row in decision["selected_edges"]} == {
+        "denotes",
+        "compared-with",
+        "defined-by",
+    }
     for edge in decision["selected_edges"]:
         (witness,) = edge["witnesses"]
         assert witness["evidence_ids"] == [subject["contribution_id"], object_["contribution_id"]]
@@ -175,11 +353,18 @@ def test_current_same_span_carriers_keep_original_query_episode_and_qualifying_e
         assert witness["support_state"] == "unassessed"
     from corpus_structure.semantic.data_operation_identity import decode_semantic_value
     from corpus_structure.serve.demand_export import export_demand_result, verified_demand_export
-    destination = tmp_path/"selected-private-count-relationships"
+
+    destination = tmp_path / "selected-private-count-relationships"
     with case.kernel.purpose("read").begin() as connection:
-        receipt = export_demand_result(connection, case.relationship_demand, project_id=PROJECT,
-            destination=destination, format="jsonl", scope={"product_ids": [case.relationship.row["product_id"]]},
-            page_rows=1)
+        receipt = export_demand_result(
+            connection,
+            case.relationship_demand,
+            project_id=PROJECT,
+            destination=destination,
+            format="jsonl",
+            scope={"product_ids": [case.relationship.row["product_id"]]},
+            page_rows=1,
+        )
     digest = receipt["manifest_digest"]
     assert isinstance(digest, str)
     with verified_demand_export(destination, manifest_digest=digest) as (manifest, _, _, index):
@@ -187,33 +372,55 @@ def test_current_same_span_carriers_keep_original_query_episode_and_qualifying_e
         detached = decode_semantic_value(product["canonical_body"])
         assert detached["support_state"] == "unassessed"
         assert detached["witness_standing"] == "private_authored_source_binding_hypotheses"
-        assert source_python(detached["relationship_decision"])["selected_edges"] == decision["selected_edges"]
+        assert (
+            source_python(detached["relationship_decision"])["selected_edges"]
+            == decision["selected_edges"]
+        )
         assert manifest["cut"]["scope"]["product_ids"] == [case.relationship.row["product_id"]]
 
 
-@pytest.mark.parametrize("introduction,expected", [(True, "applicable_definition"), (False, "unresolved")])
-def test_current_component_applicability_preserves_independent_transfer_unknowns(current_workflow_case, introduction, expected):
+@pytest.mark.parametrize(
+    "introduction,expected", [(True, "applicable_definition"), (False, "unresolved")]
+)
+def test_current_component_applicability_preserves_independent_transfer_unknowns(
+    current_workflow_case, introduction, expected
+):
     case = current_workflow_case
     retained, _ = execute(case.kernel, applicability_request(case, introduction=introduction))
-    (report,) = selected(case.kernel, retained["demand_id"], kind="urn:corpus:structural:DeclaredDefinitionApplicabilityReport")
+    (report,) = selected(
+        case.kernel,
+        retained["demand_id"],
+        kind="urn:corpus:structural:DeclaredDefinitionApplicabilityReport",
+    )
     (reading,) = report.body["definition"]["readings"]
     assert reading["outcome"] == expected
     assert reading["component_ref"]["product_id"] == case.components.row["product_id"]
     assert reading["link_ref"]["product_id"] == case.relationship.row["product_id"]
     states = {value["dimension"]: value["state"] for value in reading["premises"]}
     assert states["sense"] == states["scope"] == states["version"] == "compatible"
-    assert states["parameterization"] == states["convention"] == ("inapplicable" if introduction else "unknown")
+    assert (
+        states["parameterization"]
+        == states["convention"]
+        == ("inapplicable" if introduction else "unknown")
+    )
 
 
-def test_native_applicability_refuses_same_component_from_a_different_actual_report_origin(current_workflow_case):
+def test_native_applicability_refuses_same_component_from_a_different_actual_report_origin(
+    current_workflow_case,
+):
     from corpus_structure.orchestrate.data_operations import NativeDemandExecutionError
+
     case = current_workflow_case
-    retained, _ = execute(case.kernel, component_request(case.kernel, case.original, "introduction"))
+    retained, _ = execute(
+        case.kernel, component_request(case.kernel, case.original, "introduction")
+    )
     (other,) = selected(case.kernel, retained["demand_id"], kind=COMPONENT_KIND)
     assert other.row["product_id"] != case.components.row["product_id"]
     assert other.body["definition_components"] == case.components.body["definition_components"]
-    counts = text("SELECT (SELECT count(*) FROM ops.data_completion_intent),(SELECT count(*) FROM kb.data_product),"
-        "(SELECT count(*) FROM ops.data_derivation),(SELECT count(*) FROM ops.data_publication_receipt)")
+    counts = text(
+        "SELECT (SELECT count(*) FROM ops.data_completion_intent),(SELECT count(*) FROM kb.data_product),"
+        "(SELECT count(*) FROM ops.data_derivation),(SELECT count(*) FROM ops.data_publication_receipt)"
+    )
     with case.kernel.engine.connect() as connection:
         before = connection.execute(counts).one()
     with pytest.raises(NativeDemandExecutionError):
