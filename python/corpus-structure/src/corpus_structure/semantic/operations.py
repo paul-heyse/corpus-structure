@@ -562,28 +562,11 @@ class PreparedUnitCompletion:
     error: Mapping[str, Any] | None
     envelope: Mapping[str, Any]
     source_views: tuple[Any, ...]
-    characterization_layer: Any = None
-    characterization_view: Any = None
 
     def apply(self, conn: Connection) -> CompletionResult:
         from ._operation_calls import lock_complete_unit_run
         from .source_views import store_source_view
 
-        if self.characterization_layer is not None or self.characterization_view is not None:
-            from .characterization_store import _publish
-
-            wire = _publish(
-                conn,
-                task_id=self.task_id,
-                attempt=self.attempt,
-                holder=self.holder,
-                layer=self.characterization_layer,
-                view=self.characterization_view,
-                cost=self.envelope.get("cost"),
-            )
-            return CompletionResult.model_validate_json(
-                canonical_bytes({key: wire[key] for key in ("transaction", "receipt")})
-            )
         lock_complete_unit_run(conn, run_id=self.run_id)
         tasks = table("ops.task")
         task = (
@@ -638,7 +621,7 @@ def prepare_unit_completion(
     from .contracts import require_bound_operation
 
     require_bound_operation(prepared, "complete_unit")
-    from .observations import bind_result, source_python, source_value
+    from .observations import bind_result, source_python
 
     task_table = table("ops.task")
     task = (
@@ -659,75 +642,6 @@ def prepare_unit_completion(
     )
     if task["attempt"] != attempt or task["claimed_by"] != holder:
         raise OperationConflict("recognizer attempt lost")
-    if result.characterization_layer is not None or result.characterization_view is not None:
-        from .characterization import validate_layer, validate_view
-        from .characterization_store import read_layer
-
-        if (result.ref.unit_key, result.ref.unit_id) != (task["unit_key"], task["unit_id"]):
-            raise OperationConflict("characterization differs from exact producing task unit")
-        layer = result.characterization_layer
-        view = result.characterization_view
-        from .product_reference import ProductReference
-
-        layers = {}
-        releases = {prepared.release_id: prepared}
-        from .releases import open_release
-
-        if layer is None and view is not None:
-            from .characterization import validate_published_view
-            from .characterization_store import read_layer_manifest
-
-            manifests = {
-                ProductReference(**value): read_layer_manifest(
-                    conn, ProductReference(**value), run_id=task["run_id"]
-                )
-                for value in view.payload["layers"]
-            }
-            view = validate_published_view(prepared, view.payload, manifests)
-        else:
-            producing_layer = layer.reference(task_id) if layer is not None else None
-            pending = [
-                ProductReference(**pin)
-                for report in (layer, view)
-                if report is not None
-                for pin in report.payload.get("dependencies" if report is layer else "layers", ())
-                if ProductReference(**pin) != producing_layer
-            ]
-            while pending:
-                reference = pending.pop()
-                if reference in layers:
-                    continue
-                retained = read_layer(conn, reference, run_id=task["run_id"])
-                layers[reference] = retained
-                release_id = retained.payload["release_id"]
-                if release_id not in releases:
-                    releases[release_id] = open_release(conn, release_id)
-                pending.extend(
-                    ProductReference(**pin) for pin in retained.payload.get("dependencies", ())
-                )
-            if layer is not None:
-                layer = validate_layer(
-                    prepared, layer.payload, dependencies=layers, releases=releases
-                )
-                layers[layer.reference(task_id)] = layer
-            if view is not None:
-                view = validate_view(prepared, view.payload, layers, releases=releases)
-        return PreparedUnitCompletion(
-            prepared,
-            task_id,
-            attempt,
-            holder,
-            RunId(task["run_id"]),
-            (),
-            "done",
-            None,
-            {"cost": source_value(result.cost.model_dump(mode="json"))}
-            if result.cost is not None
-            else {},
-            (),
-            layer,
-            view,
-        )
     record_coordinates = ()
     if records is not None:
         from .records import authenticated_coordinate_texts
