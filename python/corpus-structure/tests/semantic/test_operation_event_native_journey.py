@@ -55,160 +55,159 @@ def operation_event_journey(current_pdf_source_factory, tmp_path):
     )
 
     literals = ("We define variance as spread.", "We define mass as inertia.")
-    source = current_pdf_source_factory(tuple(("text", text, text, None) for text in literals))
-    kernel = admit_current_target(source, recipe(tmp_path / "recipe"), tmp_path / "consumer")
-    retained, _, products, _ = produce_source_reports(source, kernel, NAMED, text=literals[0])
-    original_kind = kernel.identities[
-        "https://corpus-structure.dev/semantic/data-operation-source/DdoSelectedNativeSource",
-        "kind",
-    ]
-    originals = tuple(
-        item
-        for item in products
-        if item.row["kind_contract"] == original_kind
-        and item.body["text"] in literals
-        and item.body["source"]["section_pointer"] in {"#/groups/0", "#/groups/1"}
-        and item.body["source"]["membership"] == "descendants"
-    )
-    assert len(originals) == 2
-    reports = tuple(
-        selected_for_source(
-            kernel, products, "urn:corpus:structural:DeclaredDefinitionComponentsReport", original
-        )[0]
-        for original in originals
-    )
-    with kernel.purpose("read").begin() as connection:
-        page = read_demand_result(
-            connection,
-            retained["demand_id"],
-            project_id=PROJECT,
-            limit=1000,
-            scope={"product_ids": [item.row["product_id"] for item in (*originals, *reports)]},
+    with current_pdf_source_factory(tuple(("text", text, text, None) for text in literals)) as source:
+        kernel = admit_current_target(source, recipe(tmp_path / "recipe"), tmp_path / "consumer")
+        retained, _, products, _ = produce_source_reports(source, kernel, NAMED, text=literals[0])
+        original_kind = kernel.identities[
+            "https://corpus-structure.dev/semantic/data-operation-source/DdoSelectedNativeSource",
+            "kind",
+        ]
+        originals = tuple(
+            item
+            for item in products
+            if item.row["kind_contract"] == original_kind
+            and item.body["text"] in literals
+            and item.body["source"]["section_pointer"] in {"#/groups/0", "#/groups/1"}
+            and item.body["source"]["membership"] == "descendants"
         )
-    selection = cut_selection(page)
-    definition = next(
-        item
-        for item in read_native_definition_projection(kernel.prepared)["operations"]
-        if item["operation_id"] == NAMED
-    )
-    judgments = []
-    for number, (original, report) in enumerate(zip(originals, reports, strict=True)):
-        (component,) = report.body["definition_components"]["components"]
-        # Independent literal endpoint checks are separate from assigned C labels.
-        expected = (
-            ("variance", "spread") if original.body["text"] == literals[0] else ("mass", "inertia")
+        assert len(originals) == 2
+        reports = tuple(
+            selected_for_source(
+                kernel, products, "urn:corpus:structural:DeclaredDefinitionComponentsReport", original
+            )[0]
+            for original in originals
         )
-        assert (component["term"]["text"], component["content"]["text"]) == expected
-        selector = SelectedDefinitionEvent(
-            report=report.reference,
-            component_id=component["component_id"],
-            use_id=report.row["use_id"],
-            derivation_id=report.row["derivation_id"],
-            producer_operation=NAMED,
-            producer_revision=definition["implementation_revision"],
-            source=DeclaredStructuralSource.model_validate(source_pin(original)),
-            origin_group=original.row["original_source"],
-        )
-        label = "supported" if number == 0 else "unsupported"
-        judgments.append(
-            IndependentEventJudgment(
-                selection=selector,
-                judgment=label,
-                facets=dict.fromkeys(
-                    (
-                        "attachment_head",
-                        "attachment_tail",
-                        "attachment_direction",
-                        "attachment_scope",
-                    ),
-                    label,
-                ),
+        with kernel.purpose("read").begin() as connection:
+            page = read_demand_result(
+                connection,
+                retained["demand_id"],
+                project_id=PROJECT,
+                limit=1000,
+                scope={"product_ids": [item.row["product_id"] for item in (*originals, *reports)]},
             )
+        selection = cut_selection(page)
+        definition = next(
+            item
+            for item in read_native_definition_projection(kernel.prepared)["operations"]
+            if item["operation_id"] == NAMED
         )
-    question = DdoOperationEventQuestion(
-        reference_name="controlled-output-first-C",
-        author="independent numerical-control author",
-        partition="feature_fit",
-        event="defining_text_attachment_correctness",
-        corpus_id="controlled-current-event-corpus",
-        rubric_version="nce12-attachment-role-direction-scope-2",
-        rubric="Independent head/tail/direction/scope labels, assigned for controlled numerical development; no linguistic accuracy claim.",
-        original_selection=selection,
-        prediction_selection=selection,
-        judgments=tuple(judgments),
-    )
-    fact = authored(
-        kernel,
-        project_context(kernel),
-        "current-event-C",
-        question.model_dump(mode="json"),
-        author=question.author,
-        kind=NAMESPACE + "DdoOperationEventQuestion",
-    )
-    pending = request(
-        kernel,
-        ("operation_event.frame",),
-        project_context(kernel),
-        originals=(fact,),
-        source_sets=(
-            FrozenSourceSet("operation-event-reports", tuple(report.entry() for report in reports)),
-            FrozenSourceSet(
-                "operation-event-sources", tuple(original.entry() for original in originals)
+        judgments = []
+        for number, (original, report) in enumerate(zip(originals, reports, strict=True)):
+            (component,) = report.body["definition_components"]["components"]
+            # Independent literal endpoint checks are separate from assigned C labels.
+            expected = (
+                ("variance", "spread") if original.body["text"] == literals[0] else ("mass", "inertia")
+            )
+            assert (component["term"]["text"], component["content"]["text"]) == expected
+            selector = SelectedDefinitionEvent(
+                report=report.reference,
+                component_id=component["component_id"],
+                use_id=report.row["use_id"],
+                derivation_id=report.row["derivation_id"],
+                producer_operation=NAMED,
+                producer_revision=definition["implementation_revision"],
+                source=DeclaredStructuralSource.model_validate(source_pin(original)),
+                origin_group=original.row["original_source"],
+            )
+            label = "supported" if number == 0 else "unsupported"
+            judgments.append(
+                IndependentEventJudgment(
+                    selection=selector,
+                    judgment=label,
+                    facets=dict.fromkeys(
+                        (
+                            "attachment_head",
+                            "attachment_tail",
+                            "attachment_direction",
+                            "attachment_scope",
+                        ),
+                        label,
+                    ),
+                )
+            )
+        question = DdoOperationEventQuestion(
+            reference_name="controlled-output-first-C",
+            author="independent numerical-control author",
+            partition="feature_fit",
+            event="defining_text_attachment_correctness",
+            corpus_id="controlled-current-event-corpus",
+            rubric_version="nce12-attachment-role-direction-scope-2",
+            rubric="Independent head/tail/direction/scope labels, assigned for controlled numerical development; no linguistic accuracy claim.",
+            original_selection=selection,
+            prediction_selection=selection,
+            judgments=tuple(judgments),
+        )
+        fact = authored(
+            kernel,
+            project_context(kernel),
+            "current-event-C",
+            question.model_dump(mode="json"),
+            author=question.author,
+            kind=NAMESPACE + "DdoOperationEventQuestion",
+        )
+        pending = request(
+            kernel,
+            ("operation_event.frame",),
+            project_context(kernel),
+            originals=(fact,),
+            source_sets=(
+                FrozenSourceSet("operation-event-reports", tuple(report.entry() for report in reports)),
+                FrozenSourceSet(
+                    "operation-event-sources", tuple(original.entry() for original in originals)
+                ),
             ),
-        ),
-        inference="actual-current-event-frame",
-    )
-    framed, execution = execute(kernel, pending, authored=True)
-    assert execution.receipt_count == 1
-    frame_page, (frame_product,) = selected(
-        kernel, framed["demand_id"], NAMESPACE + "DdoOperationEventFrame"
-    )
-    frame = DdoOperationEventFrame.model_validate_json(json_bytes(frame_product.body))
-    spec = DdoOperationEventFitSpecification(
-        frame=SelectedOperationEventFrameSelection(
-            selection=cut_selection(frame_page),
-            use_id=frame_product.row["use_id"],
-            reference=frame_product.reference,
-            derivation_id=frame_product.row["derivation_id"],
-            frame_digest=frame.frame_digest,
-        ),
-        algorithm=OperationEventAlgorithm(),
-    )
-    specification = authored(
-        kernel,
-        project_context(kernel),
-        "current-event-fit-spec",
-        spec.model_dump(mode="json"),
-        author="independent procedure author",
-        kind=NAMESPACE + "DdoOperationEventFitSpecification",
-    )
-    pending = request(
-        kernel,
-        ("operation_event.fit", "operation_event.authorize"),
-        project_context(kernel),
-        originals=(specification,),
-        source_sets=(FrozenSourceSet("operation-event-frames", (frame_product.entry(),)),),
-        inference="actual-current-event-fit-and-issuer",
-    )
-    fitted, execution = execute(kernel, pending, authored=True)
-    assert execution.receipt_count == 2
-    fit_page, (fit_product,) = selected(
-        kernel, fitted["demand_id"], NAMESPACE + "DdoOperationEventFit"
-    )
-    fit = DdoOperationEventFit.model_validate_json(json_bytes(fit_product.body))
-    yield dict(
-        kernel=kernel,
-        originals=originals,
-        reports=reports,
-        frame=frame,
-        frame_product=frame_product,
-        fit=fit,
-        fit_page=fit_page,
-        fitted=fitted,
-        spec=spec,
-        question=question,
-    )
-
+            inference="actual-current-event-frame",
+        )
+        framed, execution = execute(kernel, pending, authored=True)
+        assert execution.receipt_count == 1
+        frame_page, (frame_product,) = selected(
+            kernel, framed["demand_id"], NAMESPACE + "DdoOperationEventFrame"
+        )
+        frame = DdoOperationEventFrame.model_validate_json(json_bytes(frame_product.body))
+        spec = DdoOperationEventFitSpecification(
+            frame=SelectedOperationEventFrameSelection(
+                selection=cut_selection(frame_page),
+                use_id=frame_product.row["use_id"],
+                reference=frame_product.reference,
+                derivation_id=frame_product.row["derivation_id"],
+                frame_digest=frame.frame_digest,
+            ),
+            algorithm=OperationEventAlgorithm(),
+        )
+        specification = authored(
+            kernel,
+            project_context(kernel),
+            "current-event-fit-spec",
+            spec.model_dump(mode="json"),
+            author="independent procedure author",
+            kind=NAMESPACE + "DdoOperationEventFitSpecification",
+        )
+        pending = request(
+            kernel,
+            ("operation_event.fit", "operation_event.authorize"),
+            project_context(kernel),
+            originals=(specification,),
+            source_sets=(FrozenSourceSet("operation-event-frames", (frame_product.entry(),)),),
+            inference="actual-current-event-fit-and-issuer",
+        )
+        fitted, execution = execute(kernel, pending, authored=True)
+        assert execution.receipt_count == 2
+        fit_page, (fit_product,) = selected(
+            kernel, fitted["demand_id"], NAMESPACE + "DdoOperationEventFit"
+        )
+        fit = DdoOperationEventFit.model_validate_json(json_bytes(fit_product.body))
+        yield dict(
+            kernel=kernel,
+            originals=originals,
+            reports=reports,
+            frame=frame,
+            frame_product=frame_product,
+            fit=fit,
+            fit_page=fit_page,
+            fitted=fitted,
+            spec=spec,
+            question=question,
+        )
 
 def test_actual_current_event_fitter_issuer_and_shared_scorer_keep_exact_private_basis(
     operation_event_journey,
