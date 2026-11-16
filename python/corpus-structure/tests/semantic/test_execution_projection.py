@@ -72,44 +72,44 @@ def test_changed_effect_requirements_refuse_before_authoring(change):
     inputs = trusted_execution_inputs()
     compile_execution_model(inputs)
     expected = {
-        "unknown": ("unsupported_effect", "delete_archive"),
-        "moved": ("unsupported_effect_profile", "archive"),
+        "unknown": ("unsupported_effect", "delete_characterization"),
+        "moved": ("unsupported_effect_profile", "publish_characterization"),
         "transition": ("unsupported_effect_profile", "capture_cut"),
-        "version": ("unsupported_effect_profile", "archive"),
-        "effect_version": ("unsupported_effect", "persist_exact_archive"),
-        "binding_only": ("implementation_effects", "archive"),
+        "version": ("unsupported_effect_profile", "publish_characterization"),
+        "effect_version": ("unsupported_effect", "atomic_native_publication"),
+        "binding_only": ("implementation_effects", "publish_characterization"),
         "duplicate": ("duplicate_definition", "effect_definitions"),
-        "unresolved": ("unresolved_contract_reference", "archive"),
+        "unresolved": ("unresolved_contract_reference", "publish_characterization"),
     }[change]
     catalog = yaml.safe_load(inputs.catalog.content)
     operations = {o["id"]: o for o in catalog["operations"]}
     bindings = {b["id"]: b for b in catalog["implementations"]}
     if change == "unknown":
         catalog["effect_definitions"].append(
-            {"id": "delete_archive", "version": "1", "meaning": "delete archived source bytes"}
+            {"id": "delete_characterization", "version": "1", "meaning": "delete published characterization"}
         )
-        operations["archive"]["effects"] = ["delete_archive"]
-        bindings["archive"]["effects"] = ["delete_archive"]
+        operations["publish_characterization"]["effects"] = ["delete_characterization"]
+        bindings["publish_characterization"]["effects"] = ["delete_characterization"]
     elif change == "moved":
-        operations["archive"]["effects"] = ["construct_new_run"]
-        bindings["archive"]["effects"] = ["construct_new_run"]
+        operations["publish_characterization"]["effects"] = ["construct_new_run"]
+        bindings["publish_characterization"]["effects"] = ["construct_new_run"]
     elif change == "transition":
         next(t for t in catalog["transitions"] if t["id"] == "run_final_cut")["effects"] = [
             "immutable_cut"
         ]
     elif change == "version":
-        bindings["archive"]["version"] = "999"
+        bindings["publish_characterization"]["version"] = "999"
     elif change == "effect_version":
-        next(e for e in catalog["effect_definitions"] if e["id"] == "persist_exact_archive")[
+        next(e for e in catalog["effect_definitions"] if e["id"] == "atomic_native_publication")[
             "version"
         ] = "2"
     elif change == "binding_only":
-        bindings["archive"]["effects"] = ["construct_new_run"]
+        bindings["publish_characterization"]["effects"] = ["construct_new_run"]
     elif change == "duplicate":
         catalog["effect_definitions"].append(dict(catalog["effect_definitions"][0]))
     else:
-        operations["archive"]["effects"] = ["unresolved_required_effect"]
-        bindings["archive"]["effects"] = ["unresolved_required_effect"]
+        operations["publish_characterization"]["effects"] = ["unresolved_required_effect"]
+        bindings["publish_characterization"]["effects"] = ["unresolved_required_effect"]
     candidate = replace(
         inputs, catalog=SourceArtifact(inputs.catalog.name, yaml.safe_dump(catalog).encode())
     )
@@ -125,7 +125,7 @@ def test_changed_effect_requirements_refuse_before_authoring(change):
         )
         if change in {"unknown", "effect_version"}:
             full_expected = (
-                "delete_archive" if change == "unknown" else "persist_exact_archive",
+                "delete_characterization" if change == "unknown" else "atomic_native_publication",
                 "owned effect implementation",
                 "None" if change == "unknown" else "'1'",
                 "1" if change == "unknown" else "2",
@@ -150,20 +150,20 @@ def test_changed_effect_requirements_refuse_before_authoring(change):
                 consumer = "semantic.operations:seal_cut"
             else:
                 owned = {
-                    "effects": ("persist_exact_archive",),
-                    "implementation": "archive",
+                    "effects": ("atomic_native_publication",),
+                    "implementation": "publish_characterization",
                     "transitions": {},
                     "version": "1",
                 }
                 changed = {
-                    "implementation": "archive",
+                    "implementation": "publish_characterization",
                     "version": "999" if change == "version" else "1",
                     "effects": ("construct_new_run",)
                     if change == "moved"
-                    else ("persist_exact_archive",),
+                    else ("atomic_native_publication",),
                     "transitions": {},
                 }
-                consumer = "semantic.releases:persist_release"
+                consumer = "semantic.characterization_store:publish_layer"
             full_expected = (
                 expected[1],
                 consumer,

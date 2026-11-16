@@ -3,11 +3,47 @@
 from __future__ import annotations
 
 from pglast import ast
+from pydantic import TypeAdapter
+from sqlalchemy import Connection, Text, bindparam, func, select
 from sqlalchemy.dialects.postgresql import dialect
 
 from .archive_transport import archive_tables, scratch_name
+from .identifiers import ReleaseId
 from .native_objects import definition_from_sql
+from .operation_value_types import native_result_scope
 from .prepared_sql import prepare_sql
+
+_release_id = TypeAdapter(ReleaseId)
+_prepare_archive = select(
+    func.sem.prepare_release_archive(bindparam("release_id", type_=Text()))
+)
+_publish_archive = select(
+    func.sem.publish_release_archive(bindparam("release_id", type_=Text()), type_=Text())
+)
+
+
+def prepare_release_archive(connection: Connection, release_id: ReleaseId) -> None:
+    """Acquire publisher-owned scratch under the installed archive capability.
+
+    Archive bootstrap precedes release admission. Its authority is the captured native
+    function and admitter purpose, rather than an operation inside the release being stored.
+    The caller retains transaction ownership.
+    """
+    bound = _release_id.validate_python(release_id, strict=True)
+    result = connection.execute(_prepare_archive, {"release_id": bound})
+    with native_result_scope("archive", "prepare_release_archive"):
+        result.scalar_one()
+
+
+def publish_release_archive(connection: Connection, release_id: ReleaseId) -> ReleaseId:
+    """Atomically finalize the exact staged archive, preserving native replay refusals."""
+    bound = _release_id.validate_python(release_id, strict=True)
+    result = connection.execute(_publish_archive, {"release_id": bound})
+    with native_result_scope("archive", "publish_release_archive"):
+        row = result.one()
+        with native_result_scope("archive", "publish_release_archive", "release_id"):
+            return _release_id.validate_python(row[0], strict=True)
+
 
 _GUARD = """
 CREATE OR REPLACE FUNCTION sem.require_archive_scratch(p_name text,p_relation regclass)

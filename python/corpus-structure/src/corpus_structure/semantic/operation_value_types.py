@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Any, ClassVar
 from pydantic import BaseModel, ConfigDict, JsonValue, ValidationError
 from sqlalchemy.exc import MultipleResultsFound, NoResultFound
 
-from ._operation_ids import TaskAttempt
+from .identifiers import TaskAttempt
 
 if TYPE_CHECKING:
     from .types import PreparedRelease

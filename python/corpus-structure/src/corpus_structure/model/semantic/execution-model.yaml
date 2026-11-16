@@ -262,7 +262,6 @@ concepts:
   relationships:
   - release_prepared_from
   - archive_preserves
-  - project_selects
   - realization_interprets
 - id: Archive
   family: interpretation
@@ -297,25 +296,7 @@ concepts:
     required: true
     multivalued: false
   relationships:
-  - project_selects
   - realization_interprets
-- id: ActivationToken
-  family: interpretation
-  scope: global
-  meaning: ActivationToken in the transitioned semantic model
-  identity: Explicit scoped identifier and immutable producing binding; no display-label
-    identity
-  attributes:
-  - name: parent
-    range: text
-    required: false
-    multivalued: false
-  - name: generation
-    range: integer
-    required: true
-    multivalued: false
-  relationships:
-  - project_selects
 - id: OperationPolicy
   family: interpretation
   scope: release
@@ -3056,41 +3037,6 @@ relationships:
   reference_scope: execution
   invariants:
   - exact_archive
-- id: project_selects
-  kind: ownership
-  direction: nary
-  endpoints:
-  - role: project
-    concept: Project
-    minimum: 1
-    ordered: false
-    unresolved: false
-    maximum: 1
-  - role: release
-    concept: SemanticRelease
-    minimum: 0
-    ordered: false
-    unresolved: false
-    maximum: 1
-  - role: generation
-    concept: ActivationToken
-    minimum: 0
-    ordered: false
-    unresolved: false
-    maximum: 1
-  cardinality_scope: per subject in the declared bound context
-  identity_kind: ordered_roles
-  identity_roles:
-  - project
-  - release
-  - generation
-  identity_context:
-  - binding
-  qualifications: []
-  multiplicity: set
-  reference_scope: execution
-  invariants:
-  - activation_cas
 - id: realization_interprets
   kind: ownership
   direction: nary
@@ -4903,17 +4849,6 @@ invariants:
   scope: relational
   failure_code: execution.exact_archive
   implementation: reload
-- id: activation_cas
-  meaning: Expected parent and generation change the project pointer atomically
-  subjects:
-  - Project
-  - ActivationToken
-  relationships:
-  - project_selects
-  scope: lifecycle
-  failure_code: execution.activation_cas
-  implementation: activate
-  required_capability: execution.lifecycle.v1
 - id: immutable_binding
   meaning: Run/invocation result-affecting input binding never changes
   subjects:
@@ -5295,60 +5230,6 @@ operations:
   implementation: prepare
   transitions: []
   projections: []
-- id: archive
-  inputs:
-  - SemanticRelease
-  results:
-  - Archive
-  applicability:
-  - exact_archive
-  universe: Exact explicit bound inputs; no ambient latest model
-  effects: &id005
-  - persist_exact_archive
-  outcomes:
-  - applied
-  - replay
-  - conflict
-  outcome_domain: transaction
-  dependencies:
-  - semantic_release
-  - execution_model
-  - input_binding
-  - implementation_version
-  precision: Exact authored/canonical values; no implicit rounding
-  implementation: archive
-  transitions: []
-  projections: []
-  calls:
-  - id: prepare_release_archive
-    symbol: sem.prepare_release_archive
-    parameters:
-    - name: release_id
-      source: physical:sem.release.release_id
-      nullable: false
-      native_parameter: p_release_id
-      semantic_type: ReleaseId
-    result_mode: void
-    result_fields: []
-    cardinality: none
-    ordered: false
-  - id: publish_release_archive
-    symbol: sem.publish_release_archive
-    parameters:
-    - name: release_id
-      source: physical:sem.release.release_id
-      nullable: false
-      native_parameter: p_release_id
-      semantic_type: ReleaseId
-    result_fields:
-    - name: release_id
-      source: physical:sem.release.release_id
-      nullable: false
-      semantic_type: ReleaseId
-    result_mode: scalar
-    cardinality: one
-    ordered: false
-    order_by: []
 - id: reload
   inputs:
   - Archive
@@ -5371,64 +5252,6 @@ operations:
   implementation: reload
   transitions: []
   projections: []
-- id: activate
-  inputs:
-  - Project
-  - SemanticRelease
-  - ActivationToken
-  results:
-  - Project
-  - ActivationToken
-  applicability:
-  - activation_cas
-  universe: Exact explicit bound inputs; no ambient latest model
-  effects: &id007
-  - atomic_parent_generation_cas
-  outcomes:
-  - applied
-  - replay
-  - conflict
-  outcome_domain: transaction
-  dependencies:
-  - semantic_release
-  - execution_model
-  - input_binding
-  - implementation_version
-  precision: Exact authored/canonical values; no implicit rounding
-  implementation: activate
-  transitions: []
-  projections: []
-  calls:
-  - id: activate_release
-    symbol: sem.activate_release
-    parameters:
-    - name: project_id
-      source: physical:data.project.project_id
-      nullable: false
-      native_parameter: p
-      semantic_type: ProjectId
-    - name: release_id
-      source: physical:sem.release.release_id
-      nullable: false
-      native_parameter: r
-      semantic_type: ReleaseId
-    - name: expected_parent
-      source: physical:sem.release.release_id
-      nullable: true
-      native_parameter: parent
-      semantic_type: ReleaseId
-    - name: expected_generation
-      source: physical:data.project.generation
-      nullable: false
-      native_parameter: g
-    result_fields:
-    - name: generation
-      source: physical:data.project.generation
-      nullable: false
-    result_mode: scalar
-    cardinality: one
-    ordered: false
-    order_by: []
 - id: start_run
   inputs:
   - RunBinding
@@ -9323,20 +9146,6 @@ implementations:
   - explicit_outcomes
   effects: *id004
   required_capabilities: []
-- id: archive
-  owner: semantic.releases
-  symbol: persist_release
-  version: '1'
-  placement: core
-  input_concepts:
-  - SemanticRelease
-  result_concepts:
-  - Archive
-  features:
-  - typed_bound_inputs
-  - explicit_outcomes
-  effects: *id005
-  required_capabilities: []
 - id: reload
   owner: semantic.releases
   symbol: load_release
@@ -9351,24 +9160,6 @@ implementations:
   - explicit_outcomes
   effects: *id006
   required_capabilities: []
-- id: activate
-  owner: semantic.releases
-  symbol: activate_release
-  version: '1'
-  placement: core
-  input_concepts:
-  - Project
-  - SemanticRelease
-  - ActivationToken
-  result_concepts:
-  - Project
-  - ActivationToken
-  features:
-  - typed_bound_inputs
-  - explicit_outcomes
-  effects: *id007
-  required_capabilities:
-  - execution.lifecycle.v1
 - id: start_run
   owner: semantic.operations
   symbol: create_run
@@ -12282,9 +12073,6 @@ effect_definitions:
 - id: atomic_native_publication
   version: '1'
   meaning: atomic native publication
-- id: atomic_parent_generation_cas
-  version: '1'
-  meaning: atomic parent generation cas
 - id: atomic_protected_insert
   version: '1'
   meaning: atomic protected insert
@@ -12334,9 +12122,6 @@ effect_definitions:
 - id: own_engine_readers_registrations_scratch
   version: '1'
   meaning: own engine readers registrations scratch
-- id: persist_exact_archive
-  version: '1'
-  meaning: persist exact archive
 - id: persist_typed_source_and_measurement_reports
   version: '1'
   meaning: persist typed source and measurement reports

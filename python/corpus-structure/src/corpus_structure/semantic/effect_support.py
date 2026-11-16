@@ -192,21 +192,9 @@ SUPPORTED_EFFECTS = {
         "transitions": {},
         "version": "1",
     },
-    "activate": {
-        "effects": ("atomic_parent_generation_cas",),
-        "implementation": "activate",
-        "transitions": {},
-        "version": "1",
-    },
     "admit": {
         "effects": (),
         "implementation": "native_admission",
-        "transitions": {},
-        "version": "1",
-    },
-    "archive": {
-        "effects": ("persist_exact_archive",),
-        "implementation": "archive",
         "transitions": {},
         "version": "1",
     },
@@ -454,7 +442,6 @@ SUPPORTED_EFFECTS = {
 SUPPORTED_EFFECT_VERSIONS = {
     "atomic_attempt_holder_deadline_change": "1",
     "atomic_native_publication": "1",
-    "atomic_parent_generation_cas": "1",
     "atomic_protected_insert": "1",
     "atomic_source_proof_result_publication": "1",
     "atomic_terminal_result_and_reports": "1",
@@ -471,7 +458,6 @@ SUPPORTED_EFFECT_VERSIONS = {
     "materialize_same_snapshot_before_source_close": "1",
     "monotone_revision": "1",
     "own_engine_readers_registrations_scratch": "1",
-    "persist_exact_archive": "1",
     "persist_typed_source_and_measurement_reports": "1",
     "preserve_exact_authored_and_context_bytes": "1",
     "preserve_failure_and_cancellation": "1",

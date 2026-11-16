@@ -10,17 +10,20 @@ import json
 from collections.abc import Callable, Mapping
 from dataclasses import asdict, dataclass
 from hashlib import sha256
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Annotated, Any
 
 if TYPE_CHECKING:
     from .authored_sql import AuthoredSQL
 
 import yaml
 from cattrs.errors import BaseValidationError
-from sqlalchemy import Connection, select
+from pydantic import Field, TypeAdapter
+from sqlalchemy import BigInteger, Connection, Text, bindparam, func, select
 
 from .determinants import release_library_versions
+from .identifiers import ProjectId, ReleaseId
 from .identity import canonical_bytes
+from .operation_value_types import OperationResult, native_result_scope
 from .types import (
     SEMANTIC_COMPILER_VERSION,
     PreparationProfile,
@@ -450,8 +453,7 @@ def persist_release(
 
     from sqlalchemy.exc import DBAPIError
 
-    from ._operation_calls import prepare_release_archive, publish_release_archive
-    from ._operation_ids import ReleaseId
+    from .archive_native import prepare_release_archive, publish_release_archive
     from .archive_transport import (
         archive_batches,
         archive_tables,
@@ -464,7 +466,7 @@ def persist_release(
     try:
         with conn.begin_nested():
             release_id = ReleaseId(prepared.release_id)
-            prepare_release_archive(conn, release_id=release_id)
+            prepare_release_archive(conn, release_id)
             for relation in archive_tables():
                 write = archive_write_profile(relation, prepared.release_id)
                 copy_arrow_stream(
@@ -473,7 +475,7 @@ def persist_release(
                     target=("pg_temp", scratch_name(relation)),
                     batches=archive_batches(relation, write, relations[relation.name]),
                 )
-            archived = publish_release_archive(conn, release_id=release_id)
+            archived = publish_release_archive(conn, release_id)
     except DBAPIError as error:
         if getattr(error.orig, "sqlstate", None) in {"23505", "23514"}:
             raise ReleaseConflict(str(error.orig).splitlines()[0]) from error
@@ -607,6 +609,25 @@ def activation_token(conn: Connection, project_id: str) -> ActivationToken:
     return ActivationToken(row.active_release_id, row.generation)
 
 
+class _ActivationRequest(OperationResult):
+    project_id: ProjectId
+    release_id: ReleaseId
+    expected_parent: ReleaseId | None
+    expected_generation: Annotated[int, Field(ge=-(2**63), le=2**63 - 1)]
+
+
+_activate_release = select(
+    func.sem.activate_release(
+        bindparam("project_id", type_=Text()),
+        bindparam("release_id", type_=Text()),
+        bindparam("expected_parent", type_=Text()),
+        bindparam("expected_generation", type_=BigInteger()),
+        type_=BigInteger(),
+    )
+)
+_generation = TypeAdapter(int)
+
+
 def activate_release(
     conn: Connection,
     project_id: str,
@@ -640,17 +661,18 @@ def activate_release(
         admit_release(prepared, connection=conn)
         from sqlalchemy.exc import DBAPIError
 
-        from ._operation_calls import activate_release as invoke
-        from ._operation_ids import ProjectId, ReleaseId
-
         try:
-            generation = invoke(
-                conn,
+            request = _ActivationRequest(
                 project_id=ProjectId(project_id),
                 release_id=ReleaseId(prepared.release_id),
                 expected_parent=None if expected_parent is None else ReleaseId(expected_parent),
                 expected_generation=expected_generation,
             )
+            result = conn.execute(_activate_release, request.model_dump())
+            with native_result_scope("activate", "activate_release"):
+                row = result.one()
+                with native_result_scope("activate", "activate_release", "generation"):
+                    generation = _generation.validate_python(row[0], strict=True)
         except DBAPIError as exc:
             if getattr(exc.orig, "sqlstate", None) == "40001":
                 raise ActivationConflict(
