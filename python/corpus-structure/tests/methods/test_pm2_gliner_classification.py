@@ -10,8 +10,6 @@ from types import SimpleNamespace
 
 import pytest
 
-from corpus_structure.core.method import SourceViewRef, UnitRef
-from corpus_structure.core.vocab import ObservationOutcome, TaskUnitType
 from corpus_structure.methods.gliner import GlinerPack
 from corpus_structure.methods.model_observation import (
     MODEL_OBSERVATION_INPUT,
@@ -25,11 +23,14 @@ from corpus_structure.methods.pm2_gliner_classification import (
     VERSION,
     ClassificationProfile,
     GlinerRefused,
+    authenticated_gliner_report,
     classification_mapping,
     classification_product,
     classification_request,
+    require_classification_request,
 )
-from corpus_structure.methods.pm2_result import pm2_input_digest, pm2_unit_result
+from corpus_structure.methods.pm2_result import pm2_contribution_values, pm2_input_digest
+from corpus_structure.semantic.contributions import operation_identity
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.interpretation_questions import (
     QUESTION_INPUT,
@@ -37,10 +38,7 @@ from corpus_structure.semantic.interpretation_questions import (
     declared_families,
 )
 from corpus_structure.semantic.observations import source_python
-from corpus_structure.semantic.product_reference import ProductReference
-from corpus_structure.semantic.proposals import native_source_frame
 from corpus_structure.semantic.source_contexts import PreparedNativeSources
-from corpus_structure.semantic.source_views import PreparedSourceView
 from corpus_structure.semantic.types import SourceArtifact
 
 
@@ -52,24 +50,10 @@ def case():
             kind="native_text", item_ref="#/texts/0", source_field="text", start=0, end=len(literal)
         ),
     )
-    projection = dict(text=literal, pieces=pieces, items=["#/texts/0"], ancestors=[], health={})
-    view = PreparedSourceView(
-        SourceViewRef(
-            5,
-            "runbook",
-            1,
-            ProductReference(18, "integrated", "a" * 64),
-            "#/groups/1",
-            "direct",
-            sha256(canonical_bytes(projection)).hexdigest(),
-            "b" * 64,
-        ),
-        literal,
-        pieces,
-        (dict(self_ref="#/texts/0", text=literal),),
-        (),
-        {},
-    )
+    from methods.record_assembly_support import source as declared_source
+
+    source = declared_source(literal, pieces=pieces,
+        items=(dict(self_ref="#/texts/0", label="text", text=literal),))
     question = SourceArtifact(
         QUESTION_INPUT,
         canonical_bytes(
@@ -150,14 +134,12 @@ def case():
             ),
         )
     )
-    source = native_source_frame(view, ())
     mapping = classification_mapping(source, (0, len(literal)), PreparedNativeSources((source,)))
     family = declared_families(registry)[FAMILY]
     request = classification_request(
         release_id, family, "purpose", mapping, profile, installed_policy()[0]["inference"]
     )
     return SimpleNamespace(
-        view=view,
         source=source,
         mapping=mapping,
         profile=profile,
@@ -228,24 +210,23 @@ def _reply(case, labels):
     }
 
 
-def _result(case, reply, request=None):
+def _candidate_rows(case, reply, request=None):
     request = request or case.request
+    expected = classification_request(
+        case.prepared.release_id, case.family, request["question_key"], case.mapping,
+        case.profile, installed_policy()[0]["inference"],
+    )
+    require_classification_request(request, expected)
+    product = classification_product(expected, reply["gliner"], case.profile)
     digest = pm2_input_digest(
-        case.mapping, case.profile.startup, request, question=FAMILY, operation_version=VERSION
+        case.mapping, case.profile.startup, expected, question=FAMILY, operation_version=VERSION
     )
-    result = pm2_unit_result(
-        UnitRef(TaskUnitType.SOURCE_VIEW, case.view.ref.id, case.view.ref.key),
-        case.mapping,
-        profile=case.profile.startup,
-        request=request,
-        reply=reply,
-        question=FAMILY,
-        operation_version=VERSION,
-        input_digest=digest,
-        prepared=case.prepared,
+    rows, _, _ = pm2_contribution_values(
+        case.mapping, {}, (product,), prepared=case.prepared, provider="gliner",
+        input_digest=digest, operation_key=operation_identity(FAMILY, VERSION, case.source.source_key, digest),
+        question=FAMILY, parser_operation=False,
     )
-    assert result.outcome == ObservationOutcome.PRODUCED
-    return result, digest
+    return rows
 
 
 @pytest.mark.parametrize(
@@ -272,9 +253,8 @@ def _result(case, reply, request=None):
 def test_managed_choice_keeps_raw_scores_and_release_order(
     case, labels, observed, selected, states
 ):
-    result, _ = _result(case, _reply(case, labels))
-    assert result.contributions is not None
-    (row,) = result.contributions
+    reply = _reply(case, labels)
+    (row,) = _candidate_rows(case, reply)
     assert row["kind"] == "proposal"
     assert row["standing"] == "retained_private"
     assert row["anchors"] == row["members"] == ()
@@ -286,11 +266,8 @@ def test_managed_choice_keeps_raw_scores_and_release_order(
         item["label"]: item["confidence"] for item in labels
     }
     assert "probabilities" not in value["native_answer"]
-    detail = result.parse_detail
-    for key in ("pm2_native", "native", "gliner", "preparation"):
-        assert isinstance(detail, dict)
-        detail = detail[key]
-    assert isinstance(detail, dict) and detail["synthetic_suffix"] == "."
+    native = authenticated_gliner_report(case.request, reply["gliner"], case.profile)
+    assert native.preparation.synthetic_suffix == "."
 
 
 @pytest.mark.parametrize("change", ["question", "source", "choice_order", "profile", "digest"])
@@ -308,7 +285,7 @@ def test_custody_refuses_changed_source_question_order_profile_or_reply(case, ch
     else:
         reply["gliner"]["observation_digest"] = "0" * 64
     with pytest.raises(ValueError, match=r"(unavailable|exact released request|released source)"):
-        _result(case, reply, request)
+        _candidate_rows(case, reply, request)
 
 
 def test_batch_receipt_keeps_exact_member_and_choice_projection(case):

@@ -1,6 +1,7 @@
 """Independently authored symbolic endpoints and structural inheritance boundaries."""
 
 import json
+from typing import Any
 
 from methods.contextual_characterization_support import context_builder, context_product, dipo_reply
 from methods.native_evidence_support import native_source as native_source, profiles
@@ -15,7 +16,7 @@ from corpus_structure.semantic.contextual_characterization import ContextInput, 
 def symbolic_layer(case, *, conflicting=False):
     builder = context_builder(case)
     family = "construction.predication"
-    body = builder.inventory()
+    body: dict[str, Any] = builder.inventory()
     body["coverage"] = [dict(family=family, operation="literal-symbolic-construction", profile="literal-fixture", eligible=case.primary.frame.value["selectors"],
                              examined=case.primary.frame.value["selectors"], unexamined=[],
                              availability="available", outcome="complete")]
@@ -177,7 +178,7 @@ def test_heading_qualifies_actual_list_group_and_quotation_blocks_outside_inheri
     builder = ContextualLayer(source.value["source"], {"selectors": []}, {"key": "fixture"}, context)
     builder.structural()
     builder.hypotheses()
-    body = builder.inventory()
+    body: dict[str, Any] = builder.inventory()
     body["coverage"] = builder.coverage_values()
     inheritance = [r for r in body["roles"] if r["role"] == "heading_context"]
     assert len(inheritance) == 1

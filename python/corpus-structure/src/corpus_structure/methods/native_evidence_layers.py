@@ -2,11 +2,10 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
 from hashlib import sha256
 from typing import Any
 
-from corpus_structure.ingest.annotations import AnnotationProduct
+from corpus_structure.semantic.declared_record_sources import DeclaredNativeFrameSource
 from corpus_structure.semantic.identity import canonical_bytes
 
 
@@ -43,59 +42,16 @@ def digest(value: Any) -> str:
     return sha256(canonical_bytes(value)).hexdigest()
 
 
-def source_identity(view):
-    from corpus_structure.semantic.declared_record_sources import DeclaredNativeFrameSource
-
-    return view.source_key if isinstance(view, DeclaredNativeFrameSource) else view.ref.id
+def source_identity(view: DeclaredNativeFrameSource) -> str:
+    return view.source_key
 
 
-def source_projection(view):
-    from corpus_structure.semantic.declared_record_sources import DeclaredNativeFrameSource
-
-    return (
-        view.projection_digest
-        if isinstance(view, DeclaredNativeFrameSource)
-        else view.ref.projection_digest
-    )
+def source_projection(view: DeclaredNativeFrameSource) -> str:
+    return view.projection_digest
 
 
-def source_selector(view: Any, start: int, end: int, pointer: str | None = None) -> dict[str, Any]:
+def source_selector(view: DeclaredNativeFrameSource, start: int, end: int, pointer: str | None = None) -> dict[str, Any]:
     row = dict(projection=source_projection(view), start=start, end=end)
     if pointer is not None:
         row["native_pointer"] = pointer
     return row
-
-
-def has_selected_native_text(view: Any, selectors: Sequence[Mapping[str, Any]]) -> bool:
-    """Whether selected projected native characters contain language input.
-
-    Item-only formula recognition has independent eligibility in the formal owner.
-    Empty projections and synthetic separators do not become provider requests.
-    """
-    items = {item["self_ref"]: item for item in getattr(view, "items", ())}
-    for piece in view.pieces:
-        if piece["kind"] != "native_text":
-            continue
-        for selector in selectors:
-            if selector["projection"] != source_projection(view):
-                continue
-            pointer = selector.get("native_pointer")
-            current, seen = piece.get("item_ref"), set()
-            while pointer and current and current != pointer and current not in seen:
-                seen.add(current)
-                current = (items.get(current, {}).get("parent") or {}).get("$ref")
-            if pointer and current != pointer:
-                continue
-            start = max(piece["start"], selector.get("start", 0))
-            end = min(piece["end"], selector.get("end", len(view.text)))
-            if start < end and view.text[start:end].strip():
-                return True
-    return False
-
-
-
-
-
-
-
-

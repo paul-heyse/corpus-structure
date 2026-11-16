@@ -20,9 +20,12 @@ from corpus_structure.methods.record_assembly import (
 )
 from corpus_structure.methods.record_packs import family_pack
 from corpus_structure.methods.record_readings import native_model_observations
+from corpus_structure.semantic.declared_contexts import DeclaredContextPopulation
+from corpus_structure.semantic.identity import canonical_bytes
+from corpus_structure.semantic.m1_products import NativeCandidateData
 from corpus_structure.semantic.source_contexts import (
     NativeSourceContext,
-    SourceSlice,
+    source_slice,
     SyntheticText,
 )
 from methods.m1_source_preparation_support import source as view_source
@@ -200,9 +203,9 @@ def test_fragment_bridge_preserves_real_pieces_without_intervening_text():
             dict(kind="native_text", item_ref="#/texts/3", start=15, end=18, source_field="text"),
         ],
         items=[
-            dict(self_ref="#/texts/1", text="T one"),
-            dict(self_ref="#/texts/2", orig=" GENUINE! "),
-            dict(self_ref="#/texts/3", text="two"),
+            dict(self_ref="#/texts/1", label="text", text="T one"),
+            dict(self_ref="#/texts/2", label="text", orig=" GENUINE! "),
+            dict(self_ref="#/texts/3", label="text", text="two"),
         ],
     )
     group = definition_group()
@@ -305,10 +308,11 @@ def test_fragment_order_refuses_reversed_source_serialization_and_synthetic_cros
     ctx = NativeSourceContext(
         base.primary,
         (),
-        (SourceSlice(1, 15, 18), SourceSlice(1, 0, 5)),
+        (source_slice(base.primary, 15, 18), source_slice(base.primary, 0, 5)),
         "reversed fixture",
         "fixture",
         "explicit order refusal control",
+        preparation=base.preparation,
     )
     # Model order is valid; the source coordinate order is unsupported.
     group = dict(term=span(3, 4, "T"), defining_text=[span(0, 3, "two"), span(5, 8, "one")])
@@ -318,10 +322,11 @@ def test_fragment_order_refuses_reversed_source_serialization_and_synthetic_cros
     ctx = NativeSourceContext(
         base.primary,
         (),
-        (SourceSlice(1, 0, 5), SyntheticText(" ", "explicit boundary"), SourceSlice(1, 15, 18)),
+        (source_slice(base.primary, 0, 5), SyntheticText(" ", "explicit boundary"), source_slice(base.primary, 15, 18)),
         "synthetic fixture",
         "fixture",
         "explicit crossing refusal control",
+        preparation=base.preparation,
     )
     result = assemble(
         ctx,
@@ -423,7 +428,7 @@ def test_actual_frozen_definition_fragment_bridge(pieces):
     assert [r["source_reread"][0][4] for r in expected] == [s.text for s in bridged]
 
 
-def test_policy6_prose_reuses_whole_neighborhoods_and_links_both_formula_regions():
+def test_policy6_whole_neighborhoods_preserve_distinct_negative_retrieval_dependencies():
     view = view_source(
         "definition one\nF\nassertion two\nG", labels=("text", "formula", "text", "formula")
     )
@@ -439,7 +444,9 @@ def test_policy6_prose_reuses_whole_neighborhoods_and_links_both_formula_regions
         if p["kind"] == "native_text"
     )
     selected = prep.prepare_source(
-        view, persisted_annotations=annotations, policy=prep.POLICY_V6, max_chars=4096
+        NativeCandidateData.from_frame(view), source_frame=view,
+        context_population=DeclaredContextPopulation((view,), canonical_bytes({"fixture": "complete declared source"})),
+        persisted_annotations=annotations, policy=prep.POLICY_V6, max_chars=4096
     )
     full = [
         (i, s)
@@ -457,20 +464,27 @@ def test_policy6_prose_reuses_whole_neighborhoods_and_links_both_formula_regions
         ).text
         == view.text
     ]
-    assert len(full) == 1  # both formula primaries consume the identical complete window
-    index, request = full[0]
-    ctx = request.context(
-        selected.source, max_chars=4096, max_pieces=64, preparation=selected.preparation
-    )
-    assert ctx.text == view.text and ctx.policy == prep.POLICY_V6
+    assert len(full) == 2
+    # Equal text/pieces do not erase independently scoped negative context reads.
+    assert full[0][1].pieces == full[1][1].pieces
+    assert full[0][1].retrievals != full[1][1].retrievals
+    assert all(request.context(selected.source, max_chars=4096, max_pieces=64,
+        preparation=selected.preparation).policy == prep.POLICY_V6 for _, request in full)
+    indices = {index for index, _ in full}
     formulas = [r for r in selected.regions if r.label == "formula"]
-    assert len(formulas) == 2 and all(index in r.selections for r in formulas)
+    assert len(formulas) == 2
+    assert all(len(indices.intersection(region.selections)) == 1 for region in formulas)
+    assert set().union(*(indices.intersection(region.selections) for region in formulas)) == indices
     assert all(set(prep.PROSE_FAMILIES) <= set(r.families) for r in formulas)
     assert all(s.policy == prep.POLICY_V6 for s in selected.selections)
     old = prep.prepare_source(
-        view, persisted_annotations=annotations, policy=prep.POLICY_V5, max_chars=4096
+        NativeCandidateData.from_frame(view), source_frame=view,
+        context_population=DeclaredContextPopulation((view,), canonical_bytes({"fixture": "complete declared source"})),
+        persisted_annotations=annotations, policy=prep.POLICY_V5, max_chars=4096
     )
-    assert all(not s.pieces for s in old.selections if s.families == prep.PROSE_FAMILIES)
+    assert all(s.context(old.source, max_chars=4096, max_pieces=64,
+        preparation=old.preparation).text != view.text
+        for s in old.selections if s.families == prep.PROSE_FAMILIES)
 
 
 def test_prose_dedup_preserves_failures_and_keeps_distinct_dependencies():
@@ -480,7 +494,7 @@ def test_prose_dedup_preserves_failures_and_keeps_distinct_dependencies():
         2,
         ("formula_context",),
         "formula",
-        pieces=(prep.SourceSlice(7, 0, 10),),
+        pieces=(source_slice(context("0123456789").primary, 0, 10),),
         policy=prep.POLICY_V6,
         local_dispositions=(("#/missing", "resource_limit", "first failure"),),
     )

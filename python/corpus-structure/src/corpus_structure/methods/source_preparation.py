@@ -215,7 +215,7 @@ class ContextSelection:
     missing_roles: tuple[str, ...] = ()
     pieces: tuple[DeclaredSourceSlice | SyntheticText, ...] = ()
     retrievals: tuple[ContextRetrieval, ...] = ()
-    relationships: tuple[tuple[int | str, ContextRelationship, str], ...] = ()
+    relationships: tuple[tuple[str, ContextRelationship, str], ...] = ()
     local_dispositions: tuple[tuple[str, str, str], ...] = ()
     # Actual native links; consumption/limits remain explicit in local_dispositions.
     local_relationships: tuple[tuple[str, ContextRelationship, str], ...] = ()

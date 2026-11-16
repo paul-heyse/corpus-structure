@@ -51,7 +51,10 @@ class NativeCase:
 
     @property
     def words(self):
-        return [row for row in self.primary.native.inventory("token")
+        native = self.primary.native
+        if native is None:
+            raise AssertionError("controlled native fixture requires its supplied annotations")
+        return [row for row in native.inventory("token")
                 if self.primary.source.value["text"][row["start"]:row["end"]].strip()]
 
 

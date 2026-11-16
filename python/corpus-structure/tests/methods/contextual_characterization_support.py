@@ -75,7 +75,7 @@ def context_product(case, *, maverick=None, dipo=None, products=()):
             body=body_identity(checked.model_dump(mode="python", exclude_unset=True)).key,
         ).key
         observed.append(CharacterizationSnapshot(product_id, content))
-    value = contextual_native_values(source, frame, dependencies, *observed,
+    value = contextual_native_values(source, frame, dependencies, observed[0], observed[1],
                                      interpreted_member_contracts(prepared, model), "literal-fixture", lambda: None)
     product = validate_interpreted_product(prepared, model, value, source,
                                            (*dependencies, *observed), product_type=ContextualNativeProduct,

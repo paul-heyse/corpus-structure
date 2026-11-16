@@ -25,9 +25,6 @@ from corpus_structure.methods.pm2_source import (
     map_maverick,
 )
 from corpus_structure.semantic.interpretation_questions import Question, QuestionFamily
-from corpus_structure.semantic.source_contexts import (
-    NativeSourcePin,
-)
 from methods.pm2_source_support import (
     identity_map as identity_map,
 )
@@ -85,7 +82,7 @@ def test_prepared_layout_binds_source_and_supplies_protected_atoms():
         (),
     )
     prepared = AnnotationInput(
-        NativeSourcePin.from_source(context.primary),
+        context.primary.pin,
         "block",
         "paragraph",
         Block(text, (), (), ((0, 3),)),

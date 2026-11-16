@@ -39,12 +39,9 @@ if typing.TYPE_CHECKING:
     from corpus_structure.ingest.pdf_assets import PreparedPdfAssets
     from corpus_structure.semantic.characterization import (
         EnrichedDocumentView,
-        LayerManifest,
         LayerReport,
     )
     from corpus_structure.semantic.product_reference import ProductReference
-    from corpus_structure.semantic.source_views import PreparedSourceView
-    from corpus_structure.semantic.types import PreparedRelease
 
 
 # --- Digests and payload hashes ----------------------------------------------------------------
@@ -248,60 +245,6 @@ class SourceObservationReference:
     def __post_init__(self) -> None:
         if not self.observation_key or not self.role:
             raise ValueError("source reference requires stable observation identity and role")
-
-
-class Reader(Protocol):
-    """What a method reads, already scoped to its run: upstream outputs only through reuse and the
-    run's selected source views."""
-
-    @property
-    def prepared(self) -> PreparedRelease:
-        """The run's archived release: schema and vocabulary authority for source consumers."""
-        ...
-
-    def characterization_release(self, release_id: str) -> PreparedRelease:
-        """Read the immutable original contract of a retained analysis layer."""
-        ...
-
-    def characterization_layers(
-        self, references: Sequence[ProductReference]
-    ) -> Mapping[ProductReference, LayerReport]:
-        """Read exact sealed analysis layers in this run's project without inference."""
-        ...
-
-    def characterization_manifests(
-        self, references: Sequence[ProductReference]
-    ) -> Mapping[ProductReference, LayerManifest]:
-        """Read only authenticated metadata of exact sealed layers, without node hydration."""
-        ...
-
-    def primary_characterization(
-        self, source_view_id: int, *, families: Sequence[str]
-    ) -> Mapping[ProductReference, LayerReport]:
-        """Read only the task's frozen primary selection; refuse incomplete prerequisites."""
-        raise ValueError("this reader does not own a frozen primary characterization selection")
-
-    def source_views(self) -> Sequence[SourceViewRef]: ...
-
-    def source_view_ref(self, source_view_id: int) -> SourceViewRef: ...
-
-    def source_view(self, source_view_id: int) -> PreparedSourceView: ...
-
-    def measurements(self, method: str, metric: str) -> Sequence[MeasurementView]:
-        """Measurements a method wrote, read through reuse."""
-        ...
-
-    def artifact(self, artifact_hash: str) -> bytes:
-        """A compiled artifact's body by its hash (`meta.compiled_artifact`)."""
-        ...
-
-    def guideline(self) -> str:
-        """The run's guideline body."""
-        ...
-
-    def documents(self, originals: Sequence[str]) -> tuple[UnitRef, ...]:
-        """Owned document references under the frozen corpus and original-source selection."""
-        ...
 
 
 # --- Drafts and results ------------------------------------------------------------------------

@@ -1,7 +1,8 @@
 """Complete current contextual inventories retain native source hypotheses."""
 
 import json
-from types import SimpleNamespace
+from dataclasses import replace
+from corpus_structure.semantic.identity import canonical_bytes
 
 import pytest
 
@@ -80,7 +81,7 @@ def test_context_keeps_cross_page_selection_gaps_and_rejects_missing_source_piec
     builder.structural()
     builder.hypotheses()
     assert next(row for row in builder.coverage_values() if row["family"] == "context.reference")["outcome"] == "partial"
-    broken = SimpleNamespace(ref=SimpleNamespace(id=1, projection_digest=frame.projection_digest), text=frame.text, pieces=[])
+    broken = replace(frame, source_content=canonical_bytes(dict(frame.value, pieces=[])).decode())
     with pytest.raises(ValueError, match="not covered"):
         ContextualLayer(frame.value["source"], {"selectors": []}, {"key": "fixture"},
                         ContextInput.build([ContextPart(broken, 0, 3)], []))

@@ -7,7 +7,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from corpus_structure.methods.math.pdf import FormulaOccurrence
+from corpus_structure.methods.math.pdf import DeclaredFormulaOccurrence
 from corpus_structure.methods.record_assembly import (
     OCCURRENCE_POLICY,
     LiteralSpan,
@@ -28,7 +28,8 @@ from corpus_structure.semantic.source_contexts import (
     ContextRelationship,
     NativeSourceContext,
     RelatedNativeSource,
-    SourceSlice,
+    PreparedNativeSources,
+    source_slice,
 )
 from methods.record_assembly_support import context, fields, release, report, source, span
 from methods.record_assembly_support import model as record_model
@@ -295,10 +296,11 @@ def test_related_literal_proposal_cannot_define_primary_occurrence():
     ctx = NativeSourceContext(
         primary,
         (RelatedNativeSource(related, ContextRelationship.DECLARATION, "actual context"),),
-        (SourceSlice(1, 0, 1), SourceSlice(2, 0, 6)),
+        (source_slice(primary, 0, 1), source_slice(related, 0, 6)),
         "reading",
         "policy",
         "explicit",
+        preparation=PreparedNativeSources((primary, related)),
     )
     pack = family_pack(
         release(),
@@ -378,9 +380,9 @@ def test_formula_bindings_use_first_actual_primary_symbol_and_keep_conflicts_alt
                 end=len(text),
             ),
         ],
-        items=[dict(self_ref="#/texts/1", orig="x+x+y"), dict(self_ref="#/texts/2", text=text[5:])],
+        items=[dict(self_ref="#/texts/1", label="formula", orig="x+x+y"), dict(self_ref="#/texts/2", label="text", text=text[5:])],
     )
-    occurrence = FormulaOccurrence("a" * 64, "#/texts/1", "x+x+y", "x+x+y", "succeeded")
+    occurrence = DeclaredFormulaOccurrence(ctx.primary.pin, "#/texts/1", "x+x+y", "x+x+y", "succeeded")
     groups = []
     for symbol_start, symbol, meaning_start, meaning in (
         (6, "x", 14, "mean"),

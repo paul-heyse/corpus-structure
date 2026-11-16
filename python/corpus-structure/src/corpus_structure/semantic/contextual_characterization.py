@@ -46,7 +46,7 @@ REVISION = "contextual-source-hypotheses-1"
 
 @dataclass(frozen=True)
 class ContextPart:
-    view: Any
+    view: DeclaredNativeFrameSource
     start: int
     end: int
 
@@ -219,7 +219,7 @@ class ContextualLayer:
             self.covered[family].extend((dict(selector), status, reason) for selector in selectors)
 
 
-    def occurrence(self, view: Any, start: int, end: int) -> str:
+    def occurrence(self, view: DeclaredNativeFrameSource, start: int, end: int) -> str:
         if not 0 <= start < end <= len(view.text):
             raise ValueError("native extent is outside its source projection")
         extents = []
@@ -260,10 +260,6 @@ class ContextualLayer:
                 text=view.text[a:b],
                 synthetic=synthetic,
             )
-            from corpus_structure.semantic.declared_record_sources import DeclaredNativeFrameSource
-
-            if not isinstance(view, DeclaredNativeFrameSource):
-                extent["source_view_id"] = view.ref.id
             if not synthetic:
                 node = items.get(pointer, {})
                 pages = {
@@ -450,10 +446,6 @@ class ContextualLayer:
             if not all(
                 any(
                     e["projection"] == source_projection(part.view)
-                    and (
-                        isinstance(part.view, DeclaredNativeFrameSource)
-                        or e.get("source_view_id") == part.view.ref.id
-                    )
                     and part.start
                     <= e.get("start", part.start)
                     <= e.get("end", part.end)
