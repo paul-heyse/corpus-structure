@@ -9,9 +9,9 @@ class FiniteInterpretationOperation:
     __data_operation__: ClassVar[dict] = {
         "id": "interpret.finite_candidates",
         "profile": "derivation",
-        "subject": "selected-native-source",
+        "subject": "original-source-view",
         "subject_definition": {
-            "id": "selected-native-source",
+            "id": "original-source-view",
             "identifier_kind": "string",
             "scope": "original-source",
         },

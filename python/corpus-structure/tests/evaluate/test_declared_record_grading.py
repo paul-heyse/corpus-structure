@@ -17,6 +17,21 @@ from corpus_structure.semantic.record_contracts import interpretation_identity
 from corpus_structure.semantic.record_policy import RecordAlgorithm
 
 
+def test_current_record_recipe_preserves_one_source_view_definition(tmp_path):
+    from evaluate.declared_record_native_support import policy_recipe
+
+    from corpus_structure.semantic.data_operation_admission import bound_data_operation_model
+    from corpus_structure.semantic.prepare import prepare_release
+
+    captured = policy_recipe(tmp_path).captured_inputs
+    assert captured is not None
+    prepared = prepare_release(captured.bundle, captured.dependencies, captured.profile)
+    model = bound_data_operation_model(prepared)
+    for operation in ("fixture.record_candidates", "resolve.m1_readings/declared"):
+        assert model.operation(operation).subject == "original-source-view"
+    assert model.subject_definition("original-source-view").scope == "original-source"
+
+
 def inputs(family, source_index=1):
     prepared, model = current()
     independent, row, coordinates = references(family, source_index)
@@ -251,6 +266,7 @@ def test_actual_grade_and_fit_factories_compile_as_closed_project_derivations():
     )
     grade, fit = model.operation("record_policy.grade"), model.operation("record_policy.fit")
     assert grade.subject == fit.subject
+    assert model.operation("resolve.m1_readings/declared").subject == "original-source-view"
     assert all(
         operation.effects == () and operation.profile == "derivation" for operation in (grade, fit)
     )

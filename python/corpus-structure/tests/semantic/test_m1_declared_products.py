@@ -129,6 +129,8 @@ def test_actual_m1_producer_captures_selection_witnesses_and_single_stored_membe
         python_sources=m1_operation_sources(configuration(), record_schemas=record_schemas()),
     )
     operation = model.operation("extract.m1_candidates")
+    assert operation.subject == "original-source-view"
+    assert model.subject_definition(operation.subject).scope == "original-source"
     assert operation.consumer_selection is not None
     assert (
         operation.consumer_selection.entrypoint

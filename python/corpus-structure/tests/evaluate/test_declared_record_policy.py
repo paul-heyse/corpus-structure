@@ -9,6 +9,7 @@ from jsonschema import Draft7Validator
 from corpus_structure.evaluate.declared_record_policy import (
     PROTECTED_NAMESPACE,
     DdoRecordGrade,
+    DdoRecordGradeEvent,
     DdoRecordGradeFrame,
     DdoRecordReferencePass,
     protected_record_policy_kind_declarations,
@@ -38,6 +39,28 @@ def test_grade_preserves_low_scored_events_and_separate_no_output_coverage():
     ):
         with pytest.raises(ValueError, match="canonical bytes or digest"):
             DdoRecordGrade.model_validate({**grade.model_dump(mode="python"), **changes})
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    (
+        ("project_id", "other-project"),
+        ("subject", "other-view"),
+        ("subject_definition", "different-source-definition"),
+        ("original_source", "other-original"),
+        ("analyzed_scope_meaning", '["string","other-scope"]'),
+    ),
+)
+def test_grade_event_requires_complete_source_view_context(field, value):
+    event = grade_frame().events[0]
+    source = event.source.model_copy(update={"subject_definition": "original-source-view"})
+    reading = event.reading.model_copy(update={"subject_definition": "original-source-view"})
+    values = {**event.model_dump(mode="python"), "source": source, "reading": reading}
+    assert DdoRecordGradeEvent.model_validate(values).reading.context == reading.context
+    with pytest.raises(ValueError, match="complete source context"):
+        DdoRecordGradeEvent.model_validate(
+            {**values, "reading": reading.model_copy(update={field: value})}
+        )
 
 
 @pytest.mark.parametrize(

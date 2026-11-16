@@ -168,7 +168,7 @@ def test_current_contextual_native_positive_ranking_source_scope_and_private_sta
     assert product.body["source_pin"] == case.query.body["source_pin"]
     assert product.body["anchors"] == case.query.body["anchors"]
     assert product.body["source_pin"]["subject_definition"] == "original-source-view"
-    assert product.context.subject_definition == "selected-native-source"
+    assert product.context.subject_definition == "original-source-view"
     assert all(value.context.original_source is None for value in case.targets)
     with case.kernel.engine.connect() as connection:
         for role in ("retrieve.contextual_scores/declared", "retrieve.contextual/declared"):

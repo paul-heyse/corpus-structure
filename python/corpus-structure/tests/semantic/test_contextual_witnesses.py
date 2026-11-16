@@ -33,7 +33,7 @@ def witness_case():
         json_bytes(decode_semantic_value(json_loads(pin["analyzed_scope_meaning"]))),
         subject_definition=pin["subject_definition"],
     )
-    context = replace(source_context, subject_definition="selected-native-source")
+    context = source_context
     support = (ComputationalSupportReference(derivation_id="unadmitted:cue-episode"),)
 
     def role(name, product, body, *, member=None, selected=context, evidence=support, position=0):

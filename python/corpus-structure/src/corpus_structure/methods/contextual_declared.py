@@ -12,9 +12,9 @@ class ContextualRetrievalOperation:
     __data_operation__: ClassVar[dict] = {
         "id": "retrieve.contextual/declared",
         "profile": "derivation",
-        "subject": "selected-native-source",
+        "subject": "original-source-view",
         "subject_definition": {
-            "id": "selected-native-source",
+            "id": "original-source-view",
             "identifier_kind": "string",
             "scope": "original-source",
         },
@@ -325,9 +325,9 @@ class ContextualInventoryOperation:
     __data_operation__: ClassVar[dict] = {
         "id": "retrieve.contextual_inventory/declared",
         "profile": "derivation",
-        "subject": "selected-native-source",
+        "subject": "original-source-view",
         "subject_definition": {
-            "id": "selected-native-source",
+            "id": "original-source-view",
             "identifier_kind": "string",
             "scope": "original-source",
         },
@@ -428,9 +428,9 @@ class ContextualNeighborhoodOperation:
     __data_operation__: ClassVar[dict] = {
         "id": "retrieve.contextual_neighborhood/declared",
         "profile": "derivation",
-        "subject": "selected-native-source",
+        "subject": "original-source-view",
         "subject_definition": {
-            "id": "selected-native-source",
+            "id": "original-source-view",
             "identifier_kind": "string",
             "scope": "original-source",
         },

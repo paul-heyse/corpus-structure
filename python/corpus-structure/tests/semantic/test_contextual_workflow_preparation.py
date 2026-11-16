@@ -31,6 +31,27 @@ def test_current_definition_workflow_has_actual_source_and_consumer_contracts(pr
         "components",
         "relationship",
     }
+    for operation in (
+        "retrieve.contextual_query/declared",
+        "retrieve.contextual_query/selected-context",
+        "retrieve.contextual_targets/components",
+        "retrieve.contextual_vectors/selection",
+        "retrieve.contextual_scores/declared",
+        "retrieve.contextual/declared",
+        "retrieve.contextual_inventory/declared",
+        "retrieve.contextual_neighborhood/declared",
+        "retrieve.contextual_witnesses/declared",
+        "retrieve.contextual/with-witnesses",
+    ):
+        assert model.operation(operation).subject == "original-source-view"
+    assert model.subject_definition("original-source-view").scope == "original-source"
+    for operation, subject in (
+        ("retrieve.contextual_targets/curated", "contextual-registry"),
+        ("retrieve.contextual_target/declared", "contextual-target"),
+        ("retrieve.contextual_target_vector/declared", "contextual-target"),
+    ):
+        assert model.operation(operation).subject == subject
+        assert model.subject_definition(subject).scope == "project"
 
 
 def unadmitted_frame(text):

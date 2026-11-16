@@ -183,6 +183,8 @@ def compiled_readings():
 def test_reading_producer_has_closed_factory_and_source_witness():
     model = compiled_readings()
     operation = model.operation("resolve.m1_readings/declared")
+    assert operation.subject == "original-source-view"
+    assert model.subject_definition(operation.subject).scope == "original-source"
     assert operation.capabilities.prepared_factory is not None
     assert len(operation.output_witnesses) == 1
     assert all(value.complete for value in model.implementation_slices)

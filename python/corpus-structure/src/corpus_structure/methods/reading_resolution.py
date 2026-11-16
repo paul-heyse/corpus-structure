@@ -9,9 +9,9 @@ class ReadingResolutionOperation:
     __data_operation__: ClassVar[dict] = {
         "id": "resolve.m1_readings/declared",
         "profile": "derivation",
-        "subject": "selected-native-source",
+        "subject": "original-source-view",
         "subject_definition": {
-            "id": "selected-native-source",
+            "id": "original-source-view",
             "identifier_kind": "string",
             "scope": "original-source",
         },

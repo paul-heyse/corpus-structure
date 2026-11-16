@@ -12,9 +12,9 @@ class ContextualEncodingOperation:
     __data_operation__: ClassVar[dict] = {
         "id": "retrieve.contextual_query/declared",
         "profile": "derivation",
-        "subject": "selected-native-source",
+        "subject": "original-source-view",
         "subject_definition": {
-            "id": "selected-native-source",
+            "id": "original-source-view",
             "identifier_kind": "string",
             "scope": "original-source",
         },
@@ -278,9 +278,9 @@ class SelectedContextEncodingOperation:
     __data_operation__: ClassVar[dict] = {
         "id": "retrieve.contextual_query/selected-context",
         "profile": "derivation",
-        "subject": "selected-native-source",
+        "subject": "original-source-view",
         "subject_definition": {
-            "id": "selected-native-source",
+            "id": "original-source-view",
             "identifier_kind": "string",
             "scope": "original-source",
         },

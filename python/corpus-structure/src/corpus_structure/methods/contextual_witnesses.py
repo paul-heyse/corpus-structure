@@ -10,9 +10,9 @@ class ContextualWitnessOperation:
     __data_operation__: ClassVar[dict] = {
         "id": "retrieve.contextual_witnesses/declared",
         "profile": "derivation",
-        "subject": "selected-native-source",
+        "subject": "original-source-view",
         "subject_definition": {
-            "id": "selected-native-source",
+            "id": "original-source-view",
             "identifier_kind": "string",
             "scope": "original-source",
         },
@@ -234,9 +234,9 @@ class ContextualWitnessedRetrievalOperation:
     __data_operation__: ClassVar[dict] = {
         "id": "retrieve.contextual/with-witnesses",
         "profile": "derivation",
-        "subject": "selected-native-source",
+        "subject": "original-source-view",
         "subject_definition": {
-            "id": "selected-native-source",
+            "id": "original-source-view",
             "identifier_kind": "string",
             "scope": "original-source",
         },

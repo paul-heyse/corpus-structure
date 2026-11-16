@@ -54,6 +54,8 @@ def test_finite_operation_has_captured_factory_and_source_witness():
         python_sources=finite_interpretation_operation_sources(),
     )
     operation = model.operation("interpret.finite_candidates")
+    assert operation.subject == "original-source-view"
+    assert model.subject_definition(operation.subject).scope == "original-source"
     assert operation.capabilities.prepared_factory is not None
     assert len(operation.output_witnesses) == 1
     assert operation.effects == ()
