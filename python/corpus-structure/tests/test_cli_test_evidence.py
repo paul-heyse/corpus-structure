@@ -823,6 +823,56 @@ def test_process_diagnostic_refuses_unbounded_or_external_streams(tmp_path, sour
     assert "unrelated bytes must not be read" not in json.dumps(response)
 
 
+@pytest.mark.parametrize("phase", ["setup", "call", "teardown"])
+@pytest.mark.parametrize("optional", [False, True])
+def test_installed_failures_exposes_required_phase_skips_with_native_reason(
+    tmp_path, phase, optional
+):
+    store = ResultStore(tmp_path / "results")
+    node = "tests/test_provider.py::test_pinned_checkpoint"
+    with store.operation("test", scope={"lane": "ordinary"}) as result:
+        directory = result.directory / "ordinary"
+        _receipt(directory, [node, "tests/test_other.py::test_passed"], fail=False)
+        path = directory / "reportlog.jsonl"
+        reports = [json.loads(line) for line in path.read_text().splitlines()]
+        for report in reports:
+            if report.get("nodeid") == node and report.get("when") == phase:
+                report.update(
+                    outcome="skipped",
+                    longrepr=[
+                        "test_provider.py",
+                        220,
+                        "Skipped: pinned checkpoint is opt-in; password=fixture-secret",
+                    ],
+                    user_properties=[("qualification_optional", True)] if optional else [],
+                )
+        if phase == "setup":
+            reports = [
+                report
+                for report in reports
+                if not (report.get("nodeid") == node and report.get("when") == "call")
+            ]
+        path.write_text("".join(json.dumps(report) + "\n" for report in reports))
+        result.publish("ordinary", directory)
+        result.settle(
+            "passed" if optional else "blocked",
+            lanes={"ordinary": "passed" if optional else "blocked"},
+        )
+    response = json.loads(_run(store, "failures", result.id, "--json").stdout)
+    if optional:
+        assert response["items"] == []
+    else:
+        (item,) = response["items"]
+        assert (item["nodeid"], item["phase"], item["outcome"], item["reason"]) == (
+            node,
+            phase,
+            "blocked",
+            "pytest_skip",
+        )
+        assert "pinned checkpoint is opt-in" in item["diagnostic"]
+        assert "fixture-secret" not in json.dumps(response)
+
+
 def test_observation_journal_is_ancillary_to_test_receipts_coverage_and_retry(tmp_path, cli):
     from contextlib import ExitStack
 

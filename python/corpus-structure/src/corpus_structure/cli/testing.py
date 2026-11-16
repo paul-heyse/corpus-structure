@@ -203,7 +203,7 @@ class FailureEvent(BaseModel):
     nodeid: str
     phase: Phase
     outcome: Literal["failed", "blocked"]
-    reason: Literal["collection_failure", "prerequisite", "pytest_failure"]
+    reason: Literal["collection_failure", "prerequisite", "pytest_failure", "pytest_skip"]
     diagnostic: str | None = None
     diagnostic_truncated: bool = False
     prerequisites: list[MissingPrerequisite] = Field(

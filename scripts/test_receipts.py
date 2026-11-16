@@ -1530,6 +1530,14 @@ def _failure_diagnostic(report: dict[str, Any]) -> dict[str, Any]:
     if isinstance(representation, dict):
         crash = representation.get("reprcrash")
         message = crash.get("message") if isinstance(crash, dict) else None
+    elif (
+        report.get("outcome") == "skipped"
+        and isinstance(representation, (list, tuple))
+        and len(representation) == 3
+        and isinstance(representation[2], str)
+    ):
+        # Pytest's structured skip representation is (path, line, reason).
+        message = representation[2]
     elif isinstance(representation, str):
         # FixtureLookupError and some collection errors are rendered strings with
         # a location footer. Prefer pytest's error lines over that footer, while
@@ -1789,7 +1797,10 @@ def _failure_events(receipt: dict[str, Any]) -> Generator[tuple[dict[str, Any], 
                 report
                 for report in node["reports"]
                 if report.get("outcome") == "failed"
-                or (report.get("outcome") == "skipped" and _failed_prerequisite(report))
+                or (
+                    report.get("outcome") == "skipped"
+                    and (_failed_prerequisite(report) or node["status"] == "blocked")
+                )
             ),
             key=lambda report: (
                 _FAILURE_PHASES.index(report["when"])
@@ -1798,7 +1809,8 @@ def _failure_events(receipt: dict[str, Any]) -> Generator[tuple[dict[str, Any], 
             ),
         ):
             phase = report.get("when")
-            blocked = _failed_prerequisite(report)
+            skipped = report.get("outcome") == "skipped"
+            blocked = skipped or _failed_prerequisite(report)
             prerequisites = _prerequisites(_properties([report])) if blocked else []
             detail = _failure_diagnostic(report)
             if blocked and detail.get("diagnostic") is None:
@@ -1810,7 +1822,11 @@ def _failure_events(receipt: dict[str, Any]) -> Generator[tuple[dict[str, Any], 
                     "nodeid": nodeid,
                     "phase": phase if phase in _FAILURE_PHASES else "unknown",
                     "outcome": "blocked" if blocked else "failed",
-                    "reason": "prerequisite" if blocked else "pytest_failure",
+                    "reason": "pytest_skip"
+                    if skipped and not prerequisites
+                    else "prerequisite"
+                    if blocked
+                    else "pytest_failure",
                     **({"prerequisites": prerequisites} if blocked else {}),
                     **detail,
                 },
