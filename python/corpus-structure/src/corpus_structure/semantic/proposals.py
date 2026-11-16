@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import copy
 import json
-from collections.abc import Mapping, Sequence
+from collections.abc import Mapping
 from dataclasses import dataclass
 from decimal import Decimal
 from pathlib import Path
@@ -184,9 +184,7 @@ def native_frame_entries(
     return entries
 
 
-def native_statement_source(
-    frame: DeclaredProposalFrame, anchor: str
-) -> DeclaredProposalSource:
+def native_statement_source(frame: DeclaredProposalFrame, anchor: str) -> DeclaredProposalSource:
     entries = native_frame_entries(frame)
     if anchor in entries:
         return entries[anchor][0]
@@ -230,14 +228,20 @@ def native_address(
     end: int | None = None,
 ) -> str:
     """Typed native address encoded canonically, never parsed as an HTML locator."""
-    from .declared_record_sources import DeclaredNativeFrameSource
     from .identity import canonical_bytes
 
     value: dict[str, str | int]
     pin = frame.pin.values()
-    value = {name: pin[name] for name in (
-        "source_product", "document", "projection_digest", "section_pointer", "membership"
-    )}
+    value = {
+        name: pin[name]
+        for name in (
+            "source_product",
+            "document",
+            "projection_digest",
+            "section_pointer",
+            "membership",
+        )
+    }
     if "source_member" in pin:
         value["source_member"] = pin["source_member"]
     if pointer is not None:
@@ -749,7 +753,6 @@ class ProposalPacket:
         ).hexdigest()
 
     def parts(self) -> tuple[Part, ...]:
-        from dataclasses import asdict
 
         from .identity import canonical_bytes
 

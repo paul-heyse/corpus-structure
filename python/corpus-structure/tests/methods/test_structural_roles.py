@@ -84,9 +84,11 @@ def test_source_conditions_and_order_are_dependency_cued_not_textual_order():
 def test_missing_dependency_columns_supply_no_role_claims():
     product, primary = annotation(
         "Manager reviews Table.",
-        [("Manager", "NOUN", "nsubj", 1, "NN"),
-         ("reviews", "VERB", "ROOT", 1, "VBZ"),
-         ("Table", "NOUN", "dobj", 1, "NN")],
+        [
+            ("Manager", "NOUN", "nsubj", 1, "NN"),
+            ("reviews", "VERB", "ROOT", 1, "VBZ"),
+            ("Table", "NOUN", "dobj", 1, "NN"),
+        ],
         explicit_products=True,
     )
     missing = replace(product, availability=())

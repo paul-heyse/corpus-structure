@@ -27,6 +27,7 @@ from .identity import canonical_bytes
 from .proposals import native_address
 from .types import PreparedRelease
 
+
 class ContextRefused(ValueError):
     """The supplied request cannot satisfy this supported context contract."""
 
@@ -279,11 +280,7 @@ class PreparedNativeSource:
         object.__setattr__(
             self,
             "dependency_digest",
-            sha256(
-                canonical_bytes(
-                    self.source.record
-                )
-            ).hexdigest(),
+            sha256(canonical_bytes(self.source.record)).hexdigest(),
         )
 
     def selected_pieces(self, start, end):
@@ -372,9 +369,14 @@ class NativeSourceContext:
     _interval_ends: tuple[int, ...] = field(init=False, repr=False, compare=False)
 
     def __post_init__(self) -> None:
-        if (not isinstance(self.primary, DeclaredNativeFrameSource)
-            or self.version != 2 or not isinstance(self.preparation, PreparedNativeSources)):
-            raise ContextRefused("current source context requires its explicit invocation-owned preparation")
+        if (
+            not isinstance(self.primary, DeclaredNativeFrameSource)
+            or self.version != 2
+            or not isinstance(self.preparation, PreparedNativeSources)
+        ):
+            raise ContextRefused(
+                "current source context requires its explicit invocation-owned preparation"
+            )
         if not all(value.strip() for value in (self.purpose, self.policy, self.terminal_reason)):
             raise ContextRefused("context requires purpose, policy and terminal reason")
         if any(
@@ -409,10 +411,16 @@ class NativeSourceContext:
                 raise ContextRefused(
                     "retrieval source pin is stale or contradicts another source pin"
                 )
-        ancestors = tuple(entry.source for entry in self.related
-                          if entry.relationship == ContextRelationship.ANCESTOR)
-        if any(source.section_pointer not in contexts[self.primary.source_key].ancestors
-               or source.membership != "direct" for source in ancestors):
+        ancestors = tuple(
+            entry.source
+            for entry in self.related
+            if entry.relationship == ContextRelationship.ANCESTOR
+        )
+        if any(
+            source.section_pointer not in contexts[self.primary.source_key].ancestors
+            or source.membership != "direct"
+            for source in ancestors
+        ):
             raise ContextRefused("context requires a distinct direct ancestor")
         for result in self.retrievals:
             selected = {
@@ -450,9 +458,7 @@ class NativeSourceContext:
             if not isinstance(piece, DeclaredSourceSlice):
                 raise ContextRefused("unsupported context piece")
             source = by_id.get(piece.source_key)
-            if source is not None and not source.contains_span(
-                piece.start, piece.end
-            ):
+            if source is not None and not source.contains_span(piece.start, piece.end):
                 raise ContextRefused(
                     "context extent is outside its exact selected native source scope"
                 )
@@ -618,8 +624,13 @@ def _source_context(source: DeclaredNativeFrameSource) -> dict:
     from .source_products import native_projection_identity
 
     value = source.value
-    projection = native_projection_identity(source.text, value["pieces"], value["items"],
-        value.get("recognition", ()), value.get("ancestors", ()))
+    projection = native_projection_identity(
+        source.text,
+        value["pieces"],
+        value["items"],
+        value.get("recognition", ()),
+        value.get("ancestors", ()),
+    )
     if projection != source.projection_digest:
         raise ContextRefused("declared native projection differs from its selected source")
     position = 0

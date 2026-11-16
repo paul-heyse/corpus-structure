@@ -389,7 +389,9 @@ def annotation_inputs(
     consumers must account for blocks outside their supported size/selection separately.
     """
     if not isinstance(source_frame, DeclaredNativeFrameSource):
-        raise TypeError("annotation preparation requires its current original-relative source frame")
+        raise TypeError(
+            "annotation preparation requires its current original-relative source frame"
+        )
     if max_annotation_chars < 1:
         raise ValueError("annotation bound must be positive")
     profile = profile or AnnotationProfile()
@@ -503,8 +505,12 @@ def prepare_source(
     """
     from corpus_structure.semantic.declared_contexts import DeclaredContextPopulation
 
-    if not isinstance(source_frame, DeclaredNativeFrameSource) or not isinstance(context_population, DeclaredContextPopulation):
-        raise TypeError("source preparation requires its current frame and declared context population")
+    if not isinstance(source_frame, DeclaredNativeFrameSource) or not isinstance(
+        context_population, DeclaredContextPopulation
+    ):
+        raise TypeError(
+            "source preparation requires its current frame and declared context population"
+        )
     if min(max_chars, max_pieces, max_annotation_chars) < 1:
         raise ValueError("source preparation bounds must be positive")
     if region_pointers is not None:
@@ -562,7 +568,9 @@ def prepare_source(
         except AnnotationUnavailable as error:
             errors.append(str(error))
     if annotations_only:
-        return PreparedCandidateSource(frame, tuple(products), (), (), PreparedNativeSources((frame,)), tuple(errors))
+        return PreparedCandidateSource(
+            frame, tuple(products), (), (), PreparedNativeSources((frame,)), tuple(errors)
+        )
     annotated = {product.block_id: product for product in products}
     piece_lookup = {}
     for index, piece in enumerate(view.pieces):
@@ -716,8 +724,13 @@ def prepare_source(
             RegionDisposition(pointer, label, indices, families, outcome, reason, tuple(chosen))
         )
     selections, related = _widen_contexts(
-        view, frame, selections, context_population=context_population,
-        max_chars=max_chars, max_pieces=max_pieces, check_active=check_active,
+        view,
+        frame,
+        selections,
+        context_population=context_population,
+        max_chars=max_chars,
+        max_pieces=max_pieces,
+        check_active=check_active,
     )
     for index, region in enumerate(regions):
         if region.families != ("formula_context",):
@@ -1182,8 +1195,7 @@ def _widen_contexts(
                 (
                     p
                     for p in selected_pieces
-                    if isinstance(p, DeclaredSourceSlice)
-                    and p.source_key == frame.source_key
+                    if isinstance(p, DeclaredSourceSlice) and p.source_key == frame.source_key
                 ),
                 key=lambda p: p.start,
             ):
@@ -1206,10 +1218,7 @@ def _widen_contexts(
                 )
                 if enclosure is not None:
                     pointer, span, outcome, reason = enclosure
-                    if (
-                        span is not None
-                        and not frame.contains_span(*span)
-                    ):
+                    if span is not None and not frame.contains_span(*span):
                         span = None
                         outcome = RetrievalOutcome.MISSING_SCOPE
                         reason = "whole nearest native enclosure exceeds selected source scope"
@@ -1297,9 +1306,7 @@ def _widen_contexts(
                     local_dispositions.append(
                         (target, "resource_limit", "local context character/piece bound exceeded")
                     )
-            original = (
-                frame.original_key
-            )
+            original = frame.original_key
             scope = f"selected-product:{original}:{request.pointer}"
             remaining = (
                 15 - len(selected_relations) - sum(len(row.candidates) for row in retrievals)
@@ -1347,10 +1354,7 @@ def _widen_contexts(
                         continue
                     start, end = piece["start"], piece["end"]
                     if ranges and (
-                        ranges[-1][1] == start
-                        or (
-                            declared_frame.contains_span(ranges[-1][0], end)
-                        )
+                        ranges[-1][1] == start or (declared_frame.contains_span(ranges[-1][0], end))
                     ):
                         ranges[-1] = (ranges[-1][0], end)
                     else:

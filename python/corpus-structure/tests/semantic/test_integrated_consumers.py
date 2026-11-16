@@ -15,8 +15,12 @@ from corpus_structure.serve.native_source import NativeSourceRequest
 
 def test_transport_pages_preserve_intact_generic_source_and_packet_identity():
     text = "formula context " * 4000
-    frame = ProposalFrame("external:source", text, (ProposalSentence("s1", "external:source#s1", 0, len(text)),))
-    packet = ProposalPacket("release", frame, b"{}", "read exact evidence", b'{"packet_cap_chars":18000}')
+    frame = ProposalFrame(
+        "external:source", text, (ProposalSentence("s1", "external:source#s1", 0, len(text)),)
+    )
+    packet = ProposalPacket(
+        "release", frame, b"{}", "read exact evidence", b'{"packet_cap_chars":18000}'
+    )
     unit = next(part for part in packet.parts() if part.name == "unit")
     assert len(unit.text) > 18000
     assert "".join(packet.part_pages(unit)) == unit.text

@@ -15,8 +15,8 @@ from typing import Any, Literal
 from pydantic import TypeAdapter
 
 from corpus_structure.core.text_structure import source_atoms
-from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.declared_record_sources import DeclaredSourcePin
+from corpus_structure.semantic.identity import canonical_bytes
 
 from .pdf_hierarchy import ProjectedPiece
 from .sentences import (

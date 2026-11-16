@@ -82,7 +82,9 @@ def procedure_frames(text, annotations, *, primary_products=()) -> tuple[Procedu
                         else ((subordinate.start, subordinate.end), (main.start, main.end))
                     )
                     orders.append((first, second))
-            primary_body = primary_inventory(product, primary.primary_ref, primary_products=selected)
+            primary_body = primary_inventory(
+                product, primary.primary_ref, primary_products=selected
+            )
             terms = {term["local_id"]: term for term in primary_body["terms"]}
             clause = next(
                 (

@@ -224,9 +224,11 @@ def test_replay_uses_same_source_layout_and_profile_dependencies(controlled):
     assert first == second
     assert first.dependency_digest == second.dependency_digest
     assert isinstance(request.source, DeclaredSourcePin)
+
     def changed_source(**values):
-        return replace(request.source, content=canonical_bytes(
-            {**request.source.values(), **values}).decode())
+        return replace(
+            request.source, content=canonical_bytes({**request.source.values(), **values}).decode()
+        )
 
     changes = (
         replace(request, source=changed_source(projection_digest="d" * 64)),
@@ -671,7 +673,9 @@ def test_authored_constructive_copula_requires_operation_and_preserves_polarity(
         passage,
         matches,
         scopes=definition_scopes(
-            matches, predicate_frames(frame.text, (product,), primary_products=(primary,)), content_role="defining_content"
+            matches,
+            predicate_frames(frame.text, (product,), primary_products=(primary,)),
+            content_role="defining_content",
         ),
         term_role="defined_term",
         content_role="defining_content",
@@ -699,7 +703,9 @@ def test_constructive_copula_preserves_literal_mean_source_endpoints(controlled)
     from corpus_structure.semantic.structural_products import StructuralPassage
 
     text = "mean - the mean is the sum of the data points divided by the number of data points."
-    request, source, frame, context = selected_item(controlled, text, start=364, block_id="#/texts/1")
+    request, source, frame, context = selected_item(
+        controlled, text, start=364, block_id="#/texts/1"
+    )
     (product,) = annotate((request,))
     heads = (4, 4, 3, 4, 4, 6, 4, 6, 10, 10, 7, 10, 11, 14, 12, 14, 17, 15, 4)
     deps = (
@@ -779,7 +785,9 @@ def test_constructive_copula_preserves_literal_mean_source_endpoints(controlled)
         passage,
         matches,
         scopes=definition_scopes(
-            matches, predicate_frames(frame.text, (product,), primary_products=(primary,)), content_role="defining_content"
+            matches,
+            predicate_frames(frame.text, (product,), primary_products=(primary,)),
+            content_role="defining_content",
         ),
         term_role="defined_term",
         content_role="defining_content",

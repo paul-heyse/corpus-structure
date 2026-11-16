@@ -57,7 +57,11 @@ def annotation(text, specifications, *, source_pin=None, explicit_products=False
     if explicit_products:
         source, frame, context = selected_source(text)
         source_pin = frame.pin
-    profile = AnnotationProfile(execution_profile="unadmitted:controlled-columns") if explicit_products else AnnotationProfile()
+    profile = (
+        AnnotationProfile(execution_profile="unadmitted:controlled-columns")
+        if explicit_products
+        else AnnotationProfile()
+    )
     digest = sha256(text.encode()).hexdigest()
     rows = tuple(
         TokenAnnotation(
@@ -94,7 +98,9 @@ def annotation(text, specifications, *, source_pin=None, explicit_products=False
         block_end=len(text),
         display_spans=(),
         text_digest=digest,
-        native_pieces=(ProjectedPiece("#/texts/0", 0, len(text), "native_text", source_field="text"),),
+        native_pieces=(
+            ProjectedPiece("#/texts/0", 0, len(text), "native_text", source_field="text"),
+        ),
         layout_digest=digest,
         layout_recipe="canonical-token-layout-1",
         profile_recipe=profile.recipe,

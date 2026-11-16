@@ -7,16 +7,16 @@ import pytest
 import spacy
 
 from corpus_structure.methods import source_preparation as prep
-from corpus_structure.semantic.identity import canonical_bytes
-from corpus_structure.semantic.declared_record_sources import DeclaredSourcePin
 from corpus_structure.semantic.declared_contexts import DeclaredContextPopulation
-from methods.m1_source_preparation_support import projection as source_projection
+from corpus_structure.semantic.declared_record_sources import DeclaredSourcePin
+from corpus_structure.semantic.identity import canonical_bytes
 from methods.m1_source_preparation_support import (
     declared_dense_table_source as declared_dense_table_source,
 )
 from methods.m1_source_preparation_support import (
     native_table_source as native_table_source,
 )
+from methods.m1_source_preparation_support import projection as source_projection
 from methods.m1_source_preparation_support import (
     source as source,
 )
@@ -70,7 +70,9 @@ def test_every_native_region_and_unknown_broad_route_are_retained(controlled):
     assert controlled[1].layout.tokens[0].role == "math"
     assert controlled[1].layout.display == ((17, 20),)
     for selection in result.selections:
-        context = selection.context(result.source, preparation=result.preparation, max_chars=4096, max_pieces=64)
+        context = selection.context(
+            result.source, preparation=result.preparation, max_chars=4096, max_pieces=64
+        )
         assert context.text == result.source.text[selection.start : selection.end]
         assert context.primary is result.source
         assert not hasattr(selection, "text")
@@ -115,14 +117,22 @@ def test_native_inline_children_share_one_coherent_context_and_annotation(contro
     nodes = (
         dict(self_ref="#/texts/parent", label="text", children=[{"$ref": "#/groups/inline"}]),
         dict(self_ref="#/groups/inline", label="inline", parent={"$ref": "#/texts/parent"}),
-        dict(self_ref="#/texts/0", label="text", text="Mean is ", parent={"$ref": "#/groups/inline"}),
-        dict(self_ref="#/texts/1", label="text", text="average.", parent={"$ref": "#/groups/inline"}),
+        dict(
+            self_ref="#/texts/0", label="text", text="Mean is ", parent={"$ref": "#/groups/inline"}
+        ),
+        dict(
+            self_ref="#/texts/1", label="text", text="average.", parent={"$ref": "#/groups/inline"}
+        ),
     )
     pieces = (
         dict(kind="native_text", item_ref="#/texts/0", source_field="text", start=0, end=8),
         *((dict(kind="synthetic_separator", start=8, end=9),) if separator else ()),
         dict(
-            kind="native_text", item_ref="#/texts/1", source_field="text", start=8 + len(separator), end=len(text)
+            kind="native_text",
+            item_ref="#/texts/1",
+            source_field="text",
+            start=8 + len(separator),
+            end=len(text),
         ),
     )
     view = source_projection(text, pieces=pieces, items=nodes)
@@ -152,21 +162,53 @@ def test_source_request_refuses_legacy_task_pin_execution_authority():
 
 
 def test_owned_neighbor_context_preserves_current_pins_and_bounded_retrieval(controlled):
-    from corpus_structure.semantic.source_contexts import ContextRelationship, RetrievalOutcome, SyntheticInterval
+    from corpus_structure.semantic.source_contexts import (
+        ContextRelationship,
+        RetrievalOutcome,
+        SyntheticInterval,
+    )
 
-    parent = dict(self_ref="#/groups/1", label="section", children=[
-        {"$ref": "#/texts/0"}, {"$ref": "#/texts/neighbor"}])
-    primary = source_projection("0.4", pieces=[dict(kind="native_text", item_ref="#/texts/0",
-        source_field="text", start=0, end=3)], items=[parent,
-        dict(self_ref="#/texts/0", label="text", text="0.4", parent={"$ref": "#/groups/1"})])
-    neighbor = source_projection("Population mean.", identity=2,
-        pieces=[dict(kind="native_text", item_ref="#/texts/neighbor", source_field="text", start=0, end=16)],
-        items=[dict(self_ref="#/texts/neighbor", label="text", text="Population mean.")])
-    population = DeclaredContextPopulation((primary, neighbor), canonical_bytes({"fixture": "two selected same-original members"}))
+    parent = dict(
+        self_ref="#/groups/1",
+        label="section",
+        children=[{"$ref": "#/texts/0"}, {"$ref": "#/texts/neighbor"}],
+    )
+    primary = source_projection(
+        "0.4",
+        pieces=[
+            dict(kind="native_text", item_ref="#/texts/0", source_field="text", start=0, end=3)
+        ],
+        items=[
+            parent,
+            dict(self_ref="#/texts/0", label="text", text="0.4", parent={"$ref": "#/groups/1"}),
+        ],
+    )
+    neighbor = source_projection(
+        "Population mean.",
+        identity=2,
+        pieces=[
+            dict(
+                kind="native_text",
+                item_ref="#/texts/neighbor",
+                source_field="text",
+                start=0,
+                end=16,
+            )
+        ],
+        items=[dict(self_ref="#/texts/neighbor", label="text", text="Population mean.")],
+    )
+    population = DeclaredContextPopulation(
+        (primary, neighbor), canonical_bytes({"fixture": "two selected same-original members"})
+    )
     result = prepare(primary, population=population)
     selection = result.selections[0]
-    context = selection.context(result.source, related=result.related,
-        preparation=result.preparation, max_chars=4096, max_pieces=64)
+    context = selection.context(
+        result.source,
+        related=result.related,
+        preparation=result.preparation,
+        max_chars=4096,
+        max_pieces=64,
+    )
     assert context.text == "0.4\nPopulation mean."
     assert context.preparation is result.preparation
     assert context.related[0].relationship == ContextRelationship.NEIGHBOR
@@ -181,8 +223,12 @@ def test_owned_neighbor_context_preserves_current_pins_and_bounded_retrieval(con
     assert limited.selections[0].relationships == ()
     changed = replace(selection.retrievals[0], membership_digest="c" * 64)
     changed_context = replace(selection, retrievals=(changed,)).context(
-        result.source, related=result.related, preparation=result.preparation,
-        max_chars=4096, max_pieces=64)
+        result.source,
+        related=result.related,
+        preparation=result.preparation,
+        max_chars=4096,
+        max_pieces=64,
+    )
     assert changed_context.dependency_digest != context.dependency_digest
 
 
@@ -190,8 +236,13 @@ def test_native_table_links_have_missing_scope_and_no_automatic_note_attachment(
     from corpus_structure.semantic.source_contexts import RetrievalOutcome
 
     result = prepare(source("0", labels=("table",)))
-    assert [row.relationship.value for row in result.selections[0].retrievals] == ["caption", "note"]
-    assert [row.outcome for row in result.selections[0].retrievals] == [RetrievalOutcome.MISSING_SCOPE] * 2
+    assert [row.relationship.value for row in result.selections[0].retrievals] == [
+        "caption",
+        "note",
+    ]
+    assert [row.outcome for row in result.selections[0].retrievals] == [
+        RetrievalOutcome.MISSING_SCOPE
+    ] * 2
     assert result.regions[0].families == ("table",)
     assert result.selections[0].missing_roles == ("header_path", "unit", "caption", "note")
 
@@ -412,7 +463,6 @@ def test_rich_header_projection_keeps_child_fields_and_counts_internal_separator
 
 
 def formula_paragraph_source(leading="Let x be a value. ", trailing=" in this scope."):
-    original = source("fixture", labels=("text",))
     chunks = (
         ("#/texts/0", "text", leading),
         ("#/texts/1", "formula", "x=1"),
@@ -472,16 +522,16 @@ def test_formula_consumes_complete_same_primary_paragraph_once_with_exact_occurr
     assert isinstance(evidence, NativeSpanEvidence)
     assert isinstance(evidence.source, DeclaredSourcePin)
     assert (evidence.start, evidence.end, evidence.source) == (
-        formula["start"], formula["end"], view.pin,
+        formula["start"],
+        formula["end"],
+        view.pin,
     )
     assert selection.retrievals[0].relationship == ContextRelationship.ANCESTOR
 
 
 def test_oversized_formula_enclosure_is_partial_and_never_cropped_to_fit():
     view = formula_paragraph_source()
-    prepared = prepare(
-        view, persisted_annotations=(), max_chars=8, max_pieces=64
-    )
+    prepared = prepare(view, persisted_annotations=(), max_chars=8, max_pieces=64)
     selection = next(s for s in prepared.selections if s.families == ("formula_context",))
     assert selection.local_dispositions[0][:2] == ("#/texts/3", "resource_limit")
     context = selection.context(
@@ -506,7 +556,9 @@ def test_formula_never_borrows_foreign_parent_metadata_or_unrelated_equal_prose(
         else node
         for node in view.items
     )
-    view = source_projection(view.text, pieces=view.pieces, items=nodes, ancestors=(foreign["self_ref"],))
+    view = source_projection(
+        view.text, pieces=view.pieces, items=nodes, ancestors=(foreign["self_ref"],)
+    )
     prepared = prepare(view, persisted_annotations=())
     selection = next(s for s in prepared.selections if s.families == ("formula_context",))
     assert selection.local_dispositions[0][:2] == (foreign["self_ref"], "missing_scope")

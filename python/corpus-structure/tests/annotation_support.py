@@ -100,23 +100,32 @@ def selected_item(
 
     pieces = tuple(
         replace(piece, source_field="text")
-        if piece.kind == "native_text" and piece.source_field is None else piece
+        if piece.kind == "native_text" and piece.source_field is None
+        else piece
         for piece in pieces
     )
     complete_text = " " * start + block.text
-    projection = ([dict(kind="synthetic_separator", start=0, end=start)] if start else [])
+    projection = [dict(kind="synthetic_separator", start=0, end=start)] if start else []
     projection.extend(piece.to_wire() for piece in pieces)
     items = {f"#/groups/{identity}": dict(self_ref=f"#/groups/{identity}", label="section")}
     for piece in pieces:
         if piece.kind != "native_text":
             continue
-        row = items.setdefault(piece.item_ref, dict(
-            self_ref=piece.item_ref, label="text", text="", orig="",
-            parent={"$ref": f"#/groups/{identity}"},
-        ))
-        row["text"] += complete_text[piece.start:piece.end]
+        row = items.setdefault(
+            piece.item_ref,
+            dict(
+                self_ref=piece.item_ref,
+                label="text",
+                text="",
+                orig="",
+                parent={"$ref": f"#/groups/{identity}"},
+            ),
+        )
+        row["text"] += complete_text[piece.start : piece.end]
         row["orig"] = row["text"]
-    source, frame, context = selected_source(complete_text, pieces=projection, items=list(items.values()))
+    source, frame, context = selected_source(
+        complete_text, pieces=projection, items=list(items.values())
+    )
     return AnnotationInput(frame.pin, block_id, kind, block, layout, pieces), source, frame, context
 
 

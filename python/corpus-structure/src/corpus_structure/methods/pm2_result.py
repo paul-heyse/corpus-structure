@@ -17,10 +17,10 @@ from corpus_structure.semantic.contributions import (
     operation_identity,
     validate_contribution_semantics,
 )
+from corpus_structure.semantic.declared_record_sources import DeclaredSourceSlice
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.interpretation_questions import ANSWER_READS, declared_families
 from corpus_structure.semantic.observations import source_value
-from corpus_structure.semantic.declared_record_sources import DeclaredSourceSlice
 from corpus_structure.semantic.source_contexts import (
     ContextRefused,
     evidence_anchor,

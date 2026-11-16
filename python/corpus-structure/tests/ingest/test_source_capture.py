@@ -93,9 +93,9 @@ def test_chart_title_and_actual_cells_project_once_with_distinct_source_handles(
         TableData,
         TabularChartMetaField,
     )
+    from methods.m1_source_preparation_support import projection as source_projection
 
     from corpus_structure.semantic.proposals import native_evidence_entries
-    from methods.m1_source_preparation_support import projection as source_projection
 
     document = DoclingDocument(name="Chart fixture")
     section = document.add_group(label=GroupLabel.SECTION, name="Chart section")
@@ -151,9 +151,11 @@ def test_chart_title_and_actual_cells_project_once_with_distinct_source_handles(
         ("chart_cell_text", 2),
     ]
     assert all(piece.item_ref == picture.self_ref for piece in native_pieces)
-    selected = source_projection(projection.text,
+    selected = source_projection(
+        projection.text,
         pieces=tuple(piece.to_wire() for piece in projection.pieces),
-        items=(picture.model_dump(mode="json", by_alias=True),))
+        items=(picture.model_dump(mode="json", by_alias=True),),
+    )
     entries = native_evidence_entries(selected)
     assert [entry.get("cell_index") for entry in entries] == [None, 0, 1, 2]
     assert [entry["text"] for entry in entries] == ["Measured output", "Output", "3", "3"]

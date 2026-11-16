@@ -14,7 +14,13 @@ def source(text="Mean is average.\nX+Y\n12\n?", *, labels=("text", "formula", "t
         nodes.append(dict(self_ref=pointer, label=label, text=chunk))
         if chunk:
             pieces.append(
-                dict(item_ref=pointer, start=offset, end=offset + len(chunk), kind="native_text", source_field="text")
+                dict(
+                    item_ref=pointer,
+                    start=offset,
+                    end=offset + len(chunk),
+                    kind="native_text",
+                    source_field="text",
+                )
             )
             offset += len(chunk)
         if index < len(chunks) - 1:

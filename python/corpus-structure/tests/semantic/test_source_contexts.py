@@ -6,10 +6,12 @@ from typing import Literal, cast
 
 import pytest
 
-from corpus_structure.semantic.declared_proposal_frames import DeclaredProposalFrame, DeclaredProposalSource
+from corpus_structure.semantic.declared_proposal_frames import (
+    DeclaredProposalFrame,
+    DeclaredProposalSource,
+)
 from corpus_structure.semantic.declared_record_sources import DeclaredSourcePin, DeclaredSourceSlice
 from corpus_structure.semantic.identity import canonical_bytes
-from corpus_structure.semantic.source_contexts import PreparedNativeSources
 from corpus_structure.semantic.proposals import (
     ProposalSentence,
     native_address,
@@ -19,6 +21,7 @@ from corpus_structure.semantic.source_contexts import (
     ContextRelationship,
     ContextRetrieval,
     NativeSpanEvidence,
+    PreparedNativeSources,
     RelatedNativeSource,
     RetrievalOutcome,
     SourceInterval,
@@ -26,7 +29,9 @@ from corpus_structure.semantic.source_contexts import (
     SyntheticText,
 )
 from semantic.source_contexts_support import (
-    A, B, C,
+    A,
+    B,
+    C,
 )
 from semantic.source_contexts_support import (
     context as context,
@@ -181,7 +186,8 @@ def test_original_projection_separator_is_synthetic_and_span_crossing_it_refuses
 
 def test_inserted_punctuation_equal_to_source_text_never_becomes_evidence():
     result = context(
-        source(1, "X."), (DeclaredSourceSlice(A, 0, 1), SyntheticText(".", "model terminal punctuation"))
+        source(1, "X."),
+        (DeclaredSourceSlice(A, 0, 1), SyntheticText(".", "model terminal punctuation")),
     )
     assert result.text == "X."
     for start, end in ((1, 2), (0, 2)):
@@ -267,11 +273,17 @@ def test_identity_changes_with_membership_reasons_and_absent_retrieval_scope():
     primary = source(1, "X")
     initial = context(primary, (DeclaredSourceSlice(A, 0, 1),), retrievals=(retrieval(),))
     assert (
-        context(primary, (DeclaredSourceSlice(A, 0, 1),), retrievals=(retrieval(),)).dependency_digest
+        context(
+            primary, (DeclaredSourceSlice(A, 0, 1),), retrievals=(retrieval(),)
+        ).dependency_digest
         == initial.dependency_digest
     )
     changes = (
-        context(source(1, "X", membership="descendants"), (DeclaredSourceSlice(A, 0, 1),), retrievals=(retrieval(),)),
+        context(
+            source(1, "X", membership="descendants"),
+            (DeclaredSourceSlice(A, 0, 1),),
+            retrievals=(retrieval(),),
+        ),
         replace(initial, retrievals=(replace(retrieval(), membership_digest="e" * 64),)),
         replace(initial, retrievals=(replace(retrieval(), reason="estimand missing locally"),)),
         replace(
@@ -299,14 +311,25 @@ def test_changed_candidate_membership_and_exclusions_invalidate_ambiguous_lookup
 def test_relationship_reason_and_individual_kind_pins_participate_in_dependency_identity():
     primary, neighbor = source(1, "X"), source(2, "X")
     entry = RelatedNativeSource(neighbor, ContextRelationship.NEIGHBOR, "antecedent")
-    result = context(primary, (DeclaredSourceSlice(A, 0, 1), DeclaredSourceSlice(B, 0, 1)), related=(entry,))
-    changed_source = replace(neighbor, pin_content=canonical_bytes(
-        {**neighbor.pin.values(), "kind_contract": "kind:another-current-contract"}).decode())
-    changes = (replace(entry, reason="population"),
-               replace(entry, relationship=ContextRelationship.DECLARATION),
-               replace(entry, source=changed_source))
-    assert all(context(primary, result.pieces, related=(changed,)).dependency_digest
-               != result.dependency_digest for changed in changes)
+    result = context(
+        primary, (DeclaredSourceSlice(A, 0, 1), DeclaredSourceSlice(B, 0, 1)), related=(entry,)
+    )
+    changed_source = replace(
+        neighbor,
+        pin_content=canonical_bytes(
+            {**neighbor.pin.values(), "kind_contract": "kind:another-current-contract"}
+        ).decode(),
+    )
+    changes = (
+        replace(entry, reason="population"),
+        replace(entry, relationship=ContextRelationship.DECLARATION),
+        replace(entry, source=changed_source),
+    )
+    assert all(
+        context(primary, result.pieces, related=(changed,)).dependency_digest
+        != result.dependency_digest
+        for changed in changes
+    )
 
 
 def test_selected_retrieval_pin_must_match_the_actual_related_source():
@@ -323,7 +346,14 @@ def test_selected_retrieval_pin_must_match_the_actual_related_source():
         ),
         retrievals=(receipt,),
     )
-    stale = replace(receipt, candidates=(DeclaredSourcePin(canonical_bytes({**pin.values(), "projection_digest": "f" * 64}).decode()),))
+    stale = replace(
+        receipt,
+        candidates=(
+            DeclaredSourcePin(
+                canonical_bytes({**pin.values(), "projection_digest": "f" * 64}).decode()
+            ),
+        ),
+    )
     with pytest.raises(ContextRefused, match="stale"):
         replace(result, retrievals=(stale,))
     with pytest.raises(ContextRefused, match="absent or stale"):
@@ -348,10 +378,18 @@ def test_invalid_retrieval_contract_refuses(kwargs):
 def test_current_proposal_ancestor_rule_and_neighbor_context_remain_distinct():
     primary, neighbor = source(1, "X"), source(2, "X")
     with pytest.raises(ValueError, match="separately pinned direct ancestor"):
-        DeclaredProposalFrame(primary.source_content, primary.pin_content,
-            context_sources=(DeclaredProposalSource(neighbor.source_content, neighbor.pin_content),))
-    result = context(primary, (DeclaredSourceSlice(A, 0, 1), DeclaredSourceSlice(B, 0, 1)),
-        related=(RelatedNativeSource(neighbor, ContextRelationship.NEIGHBOR, "antecedent"),))
+        DeclaredProposalFrame(
+            primary.source_content,
+            primary.pin_content,
+            context_sources=(
+                DeclaredProposalSource(neighbor.source_content, neighbor.pin_content),
+            ),
+        )
+    result = context(
+        primary,
+        (DeclaredSourceSlice(A, 0, 1), DeclaredSourceSlice(B, 0, 1)),
+        related=(RelatedNativeSource(neighbor, ContextRelationship.NEIGHBOR, "antecedent"),),
+    )
     assert result.related[0].relationship == ContextRelationship.NEIGHBOR
     assert json.loads(result.primary.native_context)["ancestors"] == []
 
@@ -379,9 +417,14 @@ def test_explicit_ancestor_relationship_uses_existing_direct_ancestor_rule():
 
 
 def test_stale_projection_and_incompatible_product_refuse():
-    primary, neighbor = source(1, "X"), source(2, "Y")
+    primary = source(1, "X")
     with pytest.raises(ContextRefused, match="selected source"):
-        context(replace(primary, source_content=canonical_bytes({**primary.value, "text": "Z"}).decode()), (DeclaredSourceSlice(A, 0, 1),))
+        context(
+            replace(
+                primary, source_content=canonical_bytes({**primary.value, "text": "Z"}).decode()
+            ),
+            (DeclaredSourceSlice(A, 0, 1),),
+        )
     incompatible = source(2, "Y", document="document:foreign")
     with pytest.raises(ContextRefused, match="same pinned product"):
         context(
@@ -396,7 +439,9 @@ def test_stale_projection_and_incompatible_product_refuse():
 def test_current_frame_validates_qualified_sentence_addresses():
     primary = source(1, "X")
     sentence = ProposalSentence("s1", native_address(primary, start=0, end=1), 0, 1)
-    frame = DeclaredProposalFrame(primary.source_content, primary.pin_content, sentence_values=(sentence,))
+    frame = DeclaredProposalFrame(
+        primary.source_content, primary.pin_content, sentence_values=(sentence,)
+    )
     (anchor,) = context(frame, (DeclaredSourceSlice(A, 0, 1),)).map_span(0, 1)
     assert anchor.locator == sentence.locator
     with pytest.raises(ValueError, match="exact selected source extent"):
@@ -409,9 +454,11 @@ def test_lossy_mapping_other_coordinate_spaces_and_outside_source_ranges_refuse(
     with pytest.raises(ValueError, match="exact original-relative"):
         DeclaredSourceSlice(A, 0, 1, precision=cast(Literal["exact"], "lossy"))
     with pytest.raises(ValueError, match="exact original-relative"):
-        DeclaredSourceSlice(A, 0, 1, coordinate_space=cast(Literal["native_projection"], "model_words"))
+        DeclaredSourceSlice(
+            A, 0, 1, coordinate_space=cast(Literal["native_projection"], "model_words")
+        )
     for piece in (DeclaredSourceSlice(B, 0, 1), DeclaredSourceSlice(A, 0, 2)):
-        with pytest.raises(ContextRefused, match="absent|outside"):
+        with pytest.raises(ContextRefused, match=r"absent|outside"):
             context(source(1, "X"), (piece,))
 
 
@@ -448,13 +495,19 @@ def test_literal_model_text_mismatch_refuses_without_searching_or_normalizing():
 def test_conflicting_candidate_pins_refuse_even_when_candidate_was_not_selected():
     primary = source(1, "X")
     candidate = primary.pin
-    stale = retrieval(candidates=(DeclaredSourcePin(canonical_bytes({**candidate.values(), "membership": "descendants"}).decode()),))
+    stale = retrieval(
+        candidates=(
+            DeclaredSourcePin(
+                canonical_bytes({**candidate.values(), "membership": "descendants"}).decode()
+            ),
+        )
+    )
     with pytest.raises(ContextRefused, match="stale or contradicts"):
         context(primary, (DeclaredSourceSlice(A, 0, 1),), retrievals=(stale,))
 
 
 def test_retrieval_relationship_cannot_silently_relabel_selected_neighbor_as_declaration():
-    primary, neighbor = source(1, "X"), source(2, "Y")
+    primary = source(1, "X")
     receipt = retrieval(
         candidates=(neighbor.pin,),
         selected=(B,),
@@ -474,7 +527,15 @@ def test_current_recognition_outcome_is_retained_in_the_source_projection_identi
     second = source(1, "X X", recognition=(dict(pointer="#/texts/1", outcome="succeeded"),))
     result = context(first, (DeclaredSourceSlice(A, 2, 3),))
     (anchor,) = result.map_span(0, 1, literal="X")
-    assert (anchor.start, anchor.end, anchor.source.values()["projection_digest"]) == (2, 3, first.projection_digest)
+    assert (anchor.start, anchor.end, anchor.source.values()["projection_digest"]) == (
+        2,
+        3,
+        first.projection_digest,
+    )
     assert json.loads(result.primary.native_context)["health"] == {
-        "formula_outcomes": [dict(pointer="#/texts/1", outcome="failed")]}
-    assert context(second, (DeclaredSourceSlice(A, 2, 3),)).dependency_digest != result.dependency_digest
+        "formula_outcomes": [dict(pointer="#/texts/1", outcome="failed")]
+    }
+    assert (
+        context(second, (DeclaredSourceSlice(A, 2, 3),)).dependency_digest
+        != result.dependency_digest
+    )

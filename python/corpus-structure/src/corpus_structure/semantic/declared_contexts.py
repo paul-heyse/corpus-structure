@@ -50,9 +50,7 @@ class DeclaredContextPopulation:
         return cls(sources, role.population_witness)
 
 
-def select_related_context(
-    population, primary, request, *, limit
-) -> SourceContextRead:
+def select_related_context(population, primary, request, *, limit) -> SourceContextRead:
     """Preserve native links/ancestors/order; never infer a semantic attachment."""
     if not isinstance(population, DeclaredContextPopulation) or not isinstance(
         primary, DeclaredNativeFrameSource
