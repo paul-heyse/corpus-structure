@@ -7,7 +7,7 @@ from dataclasses import asdict, dataclass
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, model_validator
-from sqlalchemy import Connection, select
+from sqlalchemy import select
 from sqlalchemy.sql.selectable import FromClause
 
 from corpus_structure.methods.contextual_embeddings import (
@@ -157,91 +157,6 @@ def project_interpretation_candidates(
     )
 
 
-def read_interpretation_candidates(
-    conn: Connection,
-    ref: RetainedCandidateListRef,
-    *,
-    source_pin: Mapping[str, Any],
-    project_id: str,
-    release_id: str,
-) -> InterpretationCandidateSet:
-    """Resolve the exact native carrier and report in the caller's owned read snapshot."""
-    from .contribution_queries import read_source_contributions
-    from .operations import BoundReader
-    from .query import bind_completed_result
-
-    carrier = ref.carrier
-    if (carrier.project_id, carrier.release_id) != (project_id, release_id):
-        raise ValueError("frozen candidate selection belongs to another project or release")
-    session = bind_completed_result(conn, carrier.run_id)
-    if (
-        session.completed_cut_id != carrier.cut_id
-        or session.binding.release_id != release_id
-        or session.binding.data_revision != carrier.result_revision
-    ):
-        raise ValueError("frozen candidate selection differs from completed cut or revision")
-    retained = BoundReader(
-        conn, carrier.run_id, session.prepared, carrier.cut_id, analysis=False
-    ).retained_source_contribution(carrier)
-    rows = [
-        row
-        for row in retained["contributions"]
-        if row["contribution_id"] == carrier.contribution_id
-    ]
-    if len(rows) != 1:
-        raise ValueError("frozen candidate selection has no unique native occurrence carrier")
-    (occurrence,) = rows
-    if (
-        occurrence["operation_key"] != ref.operation_key
-        or occurrence["semantic_type"] != "contextual.located_mention"
-        or occurrence["pin"] != source_pin
-        or not occurrence.get("anchors")
-    ):
-        raise ValueError("frozen candidate carrier differs from exact source or operation")
-    inventory = read_source_contributions(
-        conn,
-        prepared=session.prepared,
-        run_id=carrier.run_id,
-        cut_id=carrier.cut_id,
-        source_view_id=source_pin["source_view_id"],
-        selected_task_id=carrier.selected_task_id,
-        method="retrieve.contextual",
-        operation_key=ref.operation_key,
-        contribution_id=carrier.contribution_id,
-        limit=1,
-        include_details=True,
-    )
-    if len(inventory.operations) != 1 or inventory.more:
-        raise ValueError("frozen candidate operation is unavailable or ambiguous")
-    (operation,) = inventory.operations
-    if (
-        not operation["cut_member"]
-        or operation["origin_task_id"] != carrier.origin_task_id
-        or not operation.get("contextual_enrichment")
-    ):
-        raise ValueError("frozen candidate operation differs from exact producing task")
-    return interpretation_candidates(
-        operation["contextual_enrichment"],
-        ref.list_id,
-        occurrence["occurrence_id"],
-        tuple(occurrence["anchors"]),
-    )
-
-
-@dataclass(frozen=True)
-class VectorReuse:
-    vector_id: str
-    origin_task_id: int
-    origin_runtime_id: str
-    result_digest: str
-
-
-@dataclass(frozen=True)
-class CachedTargetVector:
-    vector: EncodedVector
-    reuse: VectorReuse
-
-
 class SectionCitationResolution(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
     occurrence_id: str = Field(min_length=1)
@@ -278,7 +193,6 @@ def enrichment_report(
     section_source_origin_task_id: int | None = None,
     section_targets: Sequence[SectionHeadingTarget] = (),
     section_resolutions: Sequence[dict] = (),
-    vector_reuse: Sequence[VectorReuse] = (),
 ) -> dict:
     """A typed report payload for SourceContributionOperation.contextual_enrichment.
 
@@ -368,10 +282,6 @@ def enrichment_report(
         )
         if vector.vector_id != expected_id:
             raise ValueError("vector identity differs from input/representation/profile")
-    if len({r.vector_id for r in vector_reuse}) != len(vector_reuse) or any(
-        r.vector_id not in vector_map for r in vector_reuse
-    ):
-        raise ValueError("vector reuse needs distinct retained vector identities")
     inventory_map = {i.inventory_id: i for i in inventories}
     if len(inventory_map) != len(inventories):
         raise ValueError("duplicate contextual inventory")
@@ -468,7 +378,6 @@ def enrichment_report(
             version="contextual-enrichment-2",
             curated_registry_id=curated_registry_id,
             component_targets=tuple(component_targets),
-            vector_reuse=[asdict(r) for r in vector_reuse],
             product_counts=dict(
                 profiles=len(profiles),
                 vectors=len(vectors),
@@ -635,109 +544,3 @@ def transient_vector_relation(
         raw.c.search_text,
         raw.c.exact_forms,
     ).subquery("contextual_vector_inputs")
-
-
-def cached_target_vectors(conn, *, run_id: int, profile_id: str, targets, read_budget=None):
-    """Reuse only original sealed vector observations under the exact same runtime and release."""
-    from sqlalchemy import cast, func, literal, tuple_
-    from sqlalchemy.dialects.postgresql import JSONPATH
-
-    from corpus_structure.semantic.metadata import table
-    from corpus_structure.semantic.pdf_record_reader import PublishedReadBudget
-
-    runs, tasks, vectors, results = map(
-        table, ("ops.run", "ops.task", "kb.contextual_vector", "ops.task_result")
-    )
-    current = conn.execute(
-        select(runs.c.project_id, runs.c.release_id, runs.c.runtime_id).where(runs.c.id == run_id)
-    ).one()
-    if current.runtime_id is None or not targets:
-        return ()
-    expected = {t.target_id: t for t in targets}
-    query = (
-        select(vectors.c.object_id, func.min(vectors.c.task_id).label("task_id"))
-        .join(tasks, tasks.c.id == vectors.c.task_id)
-        .join(runs, runs.c.id == tasks.c.run_id)
-        .where(
-            runs.c.project_id == current.project_id,
-            runs.c.release_id == current.release_id,
-            runs.c.runtime_id == current.runtime_id,
-            tasks.c.status.in_(("done", "empty")),
-            tasks.c.reused_task_id.is_(None),
-            vectors.c.profile_id == profile_id,
-            tuple_(vectors.c.object_id, vectors.c.source_binding).in_(
-                [(t.target_id, t.source_binding) for t in targets]
-            ),
-        )
-        .group_by(vectors.c.object_id)
-    )
-    owners = query.subquery("target_vector_owners")
-    groups = (
-        select(owners.c.task_id, func.array_agg(owners.c.object_id).label("objects"))
-        .group_by(owners.c.task_id)
-        .subquery("owned_cached_objects")
-    )
-    selector = cast(
-        literal(
-            "$.contribution_operations[*].contextual_enrichment.vectors[*] ? "
-            "(@.profile_id == $profile && @.object_id == $objects[*])"
-        ),
-        JSONPATH,
-    )
-    variables = func.jsonb_build_object(
-        "profile", profile_id, "objects", func.to_jsonb(groups.c.objects)
-    )
-    projected = func.jsonb_path_query_array(results.c.body, selector, variables).label("vectors")
-    reused_ids = func.jsonb_path_query_array(
-        results.c.body,
-        cast(
-            literal(
-                "$.contribution_operations[*].contextual_enrichment.vector_reuse[*] ? "
-                "(@.vector_id == $selected[*].vector_id).vector_id"
-            ),
-            JSONPATH,
-        ),
-        func.jsonb_build_object("selected", projected),
-    ).label("reused_ids")
-    body_query = (
-        select(
-            results.c.task_id,
-            projected,
-            reused_ids,
-            func.encode(
-                func.sha256(func.convert_to(func.data.canonical_json(results.c.body), "UTF8")),
-                "hex",
-            ).label("digest"),
-        )
-        .join(groups, groups.c.task_id == results.c.task_id)
-        .order_by(results.c.task_id)
-    )
-    budget = read_budget or PublishedReadBudget(256, 8 * 1024 * 1024)
-    budget.preflight(conn, body_query)
-    found = {}
-    for row in conn.execute(body_query):
-        budget.value(dict(row._mapping))
-        reused = set(row.reused_ids)
-        for raw in row.vectors:
-            target = expected.get(raw["object_id"])
-            if target is None or raw["object_id"] in found or raw["vector_id"] in reused:
-                continue
-            if (
-                raw["profile_id"] != profile_id
-                or raw["source_binding"] != target.source_binding
-                or raw.get("representation_digest") != target.representation_digest
-            ):
-                continue
-            value = EncodedVector(
-                raw["vector_id"],
-                raw["object_id"],
-                raw["source_binding"],
-                raw["profile_id"],
-                raw["input_digest"],
-                tuple(raw["values"]),
-                raw["representation_digest"],
-            )
-            found[raw["object_id"]] = CachedTargetVector(
-                value, VectorReuse(value.vector_id, row.task_id, current.runtime_id, row.digest)
-            )
-    return tuple(found[key] for key in sorted(found))

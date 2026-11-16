@@ -67,7 +67,6 @@ if typing.TYPE_CHECKING:
         FrozenInventory,
         TargetRepresentation,
     )
-    from corpus_structure.semantic.contextual_storage import CachedTargetVector
     from corpus_structure.semantic.pdf_contracts import PreparedPdfContext, PreparedPdfProduct
     from corpus_structure.semantic.pdf_integrated import (
         PreparedIntegratedPdfProduct,
@@ -527,12 +526,6 @@ class SourcePreparationReader(Protocol):
         effective_version: str | None,
     ) -> Mapping[str, Any]:
         """Detach the complete bounded selected heading inventory and its coverage."""
-        ...
-
-    def cached_contextual_vectors(
-        self, *, profile_id: str, targets: Sequence[TargetRepresentation]
-    ) -> tuple[CachedTargetVector, ...]:
-        """Original sealed target vectors with same-runtime producing attribution."""
         ...
 
     def contextual_candidates(

@@ -411,7 +411,6 @@ def test_retained_cross_view_heading_coverage_precedes_exploration(
             "origin_task_id": 1,
         },
         contextual_section_headings=heading_inventory,
-        cached_contextual_vectors=lambda **_: (),
         contextual_candidates=retrieve,
     )
     unit = SimpleNamespace(ref=UnitRef(TaskUnitType.SOURCE_VIEW, source.ref.id, source.ref.key))
@@ -649,7 +648,6 @@ def test_later_operation_failure_preserves_encoder_and_completed_products(monkey
                 "scope": "chapter5",
             }
         },
-        cached_contextual_vectors=lambda **_: (),
         contextual_candidates=retrieve,
     )
     unit = SimpleNamespace(ref=UnitRef(TaskUnitType.SOURCE_VIEW, source.ref.id, source.ref.key))
@@ -1145,7 +1143,6 @@ def test_explicit_cross_view_definition_witness_survives_exploration(
             for t in (wrong, right)
         },
         retained_component_section=retained_component_section,
-        cached_contextual_vectors=lambda **_: (),
         contextual_candidates=retrieve,
         contextual_mutual_neighbors=lambda _: {"directed_ranks": [], "edges": []},
         prepared=SimpleNamespace(release_id="release"),

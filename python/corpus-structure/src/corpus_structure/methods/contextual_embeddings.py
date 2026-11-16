@@ -305,7 +305,6 @@ class EncoderResult:
     inputs: tuple[RenderedInput, ...]
     vectors: tuple[EncodedVector, ...]
     implementation: tuple[tuple[str, str], ...]
-    reused_vector_ids: tuple[str, ...] = ()
     limited_query_ids: tuple[str, ...] = ()
 
 
@@ -379,7 +378,7 @@ def _verify_cpu_artifacts(model_path, observations):
             raise ValueError("resident encoder acquisition changed after verified loading")
 
 
-def _encode_owned_cpu(profile, items, cached_vectors, *, model_path, artifact_hashes, check_active):
+def _encode_owned_cpu(profile, items, *, model_path, artifact_hashes, check_active):
     model, implementation, observations = _owned_cpu_encoder(
         canonical_bytes(profile.semantic_configuration), model_path, artifact_hashes
     )
@@ -400,26 +399,10 @@ def _encode_owned_cpu(profile, items, cached_vectors, *, model_path, artifact_ha
             if item.query_context is None:
                 raise
             limited_queries.append(item.object_id)
-    cached_by_object = {value.object_id: value for value in cached_vectors}
-    reused = {}
-    for i, item in enumerate(rendered):
-        cached = cached_by_object.get(item.object_id)
-        if (
-            item.role == "document"
-            and cached is not None
-            and (
-                cached.source_binding == item.source_binding
-                and cached.profile_id == profile.profile_id
-                and cached.representation_digest == item.representation_digest
-                and cached.input_digest == item.final_input_digest
-            )
-        ):
-            validate_vector(cached.values, profile.dimension)
-            reused[i] = cached.vector_id
     vectors = []
     for role in ("query", "document"):
         check_active()
-        positions = [i for i, item in enumerate(rendered) if item.role == role and i not in reused]
+        positions = [i for i, item in enumerate(rendered) if item.role == role]
         if not positions:
             continue
         encode = model.encode_query if role == "query" else model.encode_document
@@ -464,7 +447,6 @@ def _encode_owned_cpu(profile, items, cached_vectors, *, model_path, artifact_ha
         tuple(rendered),
         tuple(value for _, value in sorted(vectors)),
         implementation,
-        tuple(reused[i] for i in sorted(reused)),
         tuple(limited_queries),
     )
     check_active()
@@ -479,7 +461,6 @@ def encode_contexts(
     cancel: Event | None = None,
     local_files_only: bool = True,
     check_active: Callable[[], None] | None = None,
-    cached_vectors: Sequence[EncodedVector] = (),
     model_path: str | None = None,
     artifact_hashes: tuple[tuple[str, str], ...] = (),
 ) -> EncoderResult:
@@ -489,15 +470,6 @@ def encode_contexts(
     executor or provider lifecycle is created here.
     """
     items = tuple(items)
-    cached_vectors = tuple(cached_vectors)
-    if len(cached_vectors) > profile.max_items or len({v.object_id for v in cached_vectors}) != len(
-        cached_vectors
-    ):
-        raise EncoderLimited(
-            "cached vector population exceeds declared bound or duplicates objects"
-        )
-    for cached in cached_vectors:
-        validate_vector(cached.values, profile.dimension)
     if not items or len(items) > profile.max_items:
         raise EncoderLimited("encoder item bound exceeded or empty request")
     if (
@@ -537,7 +509,6 @@ def encode_contexts(
     return _encode_owned_cpu(
         profile,
         items,
-        cached_vectors,
         model_path=profile.model if model_path is None else model_path,
         artifact_hashes=artifact_hashes,
         check_active=active,

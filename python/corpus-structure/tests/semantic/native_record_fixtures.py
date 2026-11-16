@@ -1431,7 +1431,7 @@ def build_contextual_recipe(recipe, admin, writer, directory, *, purpose_engine=
 register_scenario_builder(ContextualSourceRecipe, build_contextual_recipe)
 
 
-def contextual_result(case, *, cached=(), effective_version=None, competing=False):
+def contextual_result(case, *, effective_version=None, competing=False):
     result = contribution_drafts(case)
     assert result.contributions is not None
     assert result.contribution_operations is not None
@@ -1463,15 +1463,14 @@ def contextual_result(case, *, cached=(), effective_version=None, competing=Fals
     inv = freeze_inventory(
         targets, source_selection=registry_id, scope="chapter5", effective_version=effective_version
     )
-    target_vectors = {item.vector.object_id: item.vector for item in cached}
+    target_vectors = {}
     for index, target in enumerate(targets):
-        if target.target_id not in target_vectors:
-            values = (
-                (1.0, 0.0) if index == 0 else ((0.0, 1.0) if index == 1 else (sqrt(0.5), sqrt(0.5)))
-            )
-            target_vectors[target.target_id] = vector(
-                target.target_id, values, target.representation_digest, target.source_binding
-            )
+        values = (
+            (1.0, 0.0) if index == 0 else ((0.0, 1.0) if index == 1 else (sqrt(0.5), sqrt(0.5)))
+        )
+        target_vectors[target.target_id] = vector(
+            target.target_id, values, target.representation_digest, target.source_binding
+        )
     ranked = sorted(target_vectors.values(), key=lambda v: (-v.values[0], v.object_id))
     lists = fuse_candidates(
         occurrence_id=occurrence_id,
@@ -1508,7 +1507,6 @@ def contextual_result(case, *, cached=(), effective_version=None, competing=Fals
         curated_registry_id=registry_id,
         profiles=(profile,),
         vectors=(query, *target_vectors.values()),
-        vector_reuse=tuple(item.reuse for item in cached),
         inventories=(inv,),
         candidate_lists=(lists,),
         relationship_decisions=(decision,),

@@ -1471,17 +1471,6 @@ class BoundReader:
         )
         return {row[0]: row[1] for row in rows}
 
-    def cached_contextual_vectors(self, *, profile_id, targets):
-        from .contextual_storage import cached_target_vectors
-
-        return cached_target_vectors(
-            self.conn,
-            run_id=self.run_id,
-            profile_id=profile_id,
-            targets=targets,
-            read_budget=self._read_budget,
-        )
-
     def contextual_candidates(
         self,
         *,

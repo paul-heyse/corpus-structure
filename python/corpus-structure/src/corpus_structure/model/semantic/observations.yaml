@@ -1257,13 +1257,6 @@ classes:
       inventories: {range: integer, minimum_value: 0, required: true}
       candidate_lists: {range: integer, minimum_value: 0, required: true}
       relationship_decisions: {range: integer, minimum_value: 0, required: true}
-  ContextualVectorReuse:
-    is_a: SourceRecordProduct
-    attributes:
-      vector_id: {required: true}
-      origin_task_id: {range: integer, minimum_value: 1, required: true}
-      origin_runtime_id: {required: true}
-      result_digest: {required: true, pattern: '^[0-9a-f]{64}$'}
   ExtractedComponentTarget:
     is_a: SourceRecordProduct
     attributes:
@@ -1334,7 +1327,6 @@ classes:
       section_targets: {range: SectionHeadingTarget, inlined: true, multivalued: true}
       section_resolutions: {range: SectionCitationResolution, inlined: true, multivalued: true}
       curated_registry_id: {}
-      vector_reuse: {range: ContextualVectorReuse, multivalued: true, inlined: true}
       product_counts: {range: ContextualProductCounts, inlined: true, required: true}
       version: {required: true, equals_string: contextual-enrichment-2}
       profiles: {range: ContextualProfile, inlined: true, multivalued: true}

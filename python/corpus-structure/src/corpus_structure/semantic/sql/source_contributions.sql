@@ -2244,8 +2244,8 @@ BEGIN
   IF NOT op ? 'contextual_enrichment' THEN CONTINUE; END IF;
   DECLARE report jsonb:=op->'contextual_enrichment'; profile jsonb; vec jsonb; inv jsonb;
    candidate_list jsonb; candidate jsonb; decision jsonb; witness jsonb; target_product jsonb;
-   profile_map jsonb; vector_map jsonb; inventory_map jsonb; list_map jsonb; expected text; expected_candidates jsonb; normalized_target jsonb; channel_report jsonb; expected_hits jsonb; registry_id text; registry_targets jsonb; reuse_row jsonb; reuse_task ops.task; reuse_run ops.run; current_runtime text;
-   reuse_digests jsonb:='{}'; reuse_values jsonb:='{}'; origin_body jsonb; origin_vectors jsonb; meaning_group jsonb; member_id text; expected_meaning jsonb;
+   profile_map jsonb; vector_map jsonb; inventory_map jsonb; list_map jsonb; expected text; expected_candidates jsonb; normalized_target jsonb; channel_report jsonb; expected_hits jsonb; registry_id text; registry_targets jsonb;
+   meaning_group jsonb; member_id text; expected_meaning jsonb;
    contextual_config jsonb; heading_inventory jsonb; heading_targets jsonb; heading_source text;
    heading_row jsonb; heading_ids jsonb; heading_full_hits jsonb; heading_outcome text;
    heading_origin bigint; heading_body jsonb; heading_constraints jsonb; heading_witnesses jsonb;
@@ -2453,35 +2453,6 @@ BEGIN
      OR public.vector_dims((vec->'values')::text::public.vector)<>(profile->>'dimension')::integer
      OR abs(public.vector_norm((vec->'values')::text::public.vector)-1)>0.00001 THEN
      RAISE EXCEPTION 'contextual vector profile/source/value binding differs' USING ERRCODE='23514'; END IF;
-   END LOOP;
-   SELECT runtime_id INTO current_runtime FROM ops.run WHERE id=t.run_id;
-   IF (SELECT count(*)<>count(DISTINCT r->>'vector_id') FROM jsonb_array_elements(COALESCE(report->'vector_reuse','[]')) r) THEN
-    RAISE EXCEPTION 'duplicate vector reuse identity' USING ERRCODE='23514'; END IF;
-   FOR reuse_row IN SELECT value FROM jsonb_array_elements(COALESCE(report->'vector_reuse','[]')) LOOP
-    SELECT * INTO reuse_task FROM ops.task WHERE id=(reuse_row->>'origin_task_id')::bigint;
-    SELECT * INTO reuse_run FROM ops.run WHERE id=reuse_task.run_id;
-    IF reuse_task.id IS NULL OR reuse_task.id>=t.id OR reuse_task.status NOT IN ('done','empty')
-     OR reuse_task.reused_task_id IS NOT NULL OR reuse_task.release_id IS DISTINCT FROM t.release_id
-     OR current_runtime IS NULL OR reuse_run.runtime_id IS DISTINCT FROM current_runtime
-     OR reuse_row->>'origin_runtime_id' IS DISTINCT FROM current_runtime
-     OR NOT EXISTS(SELECT FROM ops.run current_run WHERE current_run.id=t.run_id AND current_run.project_id=reuse_run.project_id)
-     OR NOT vector_map ? (reuse_row->>'vector_id')
-     OR vector_map->(reuse_row->>'vector_id')->>'source_binding'=p_envelope->>'source' THEN
-     RAISE EXCEPTION 'vector reuse differs from original same-runtime/project target observation' USING ERRCODE='23514'; END IF;
-    IF NOT reuse_digests ? reuse_task.id::text THEN
-     SELECT body INTO STRICT origin_body FROM ops.task_result WHERE task_id=reuse_task.id;
-     reuse_digests:=reuse_digests||jsonb_build_object(reuse_task.id::text,
-      encode(sha256(convert_to(data.canonical_json(origin_body),'UTF8')),'hex'));
-     SELECT COALESCE(jsonb_object_agg(vv->>'vector_id',vv),'{}') INTO origin_vectors
-      FROM jsonb_array_elements(origin_body->'contribution_operations') oo,
-       LATERAL jsonb_array_elements(oo->'contextual_enrichment'->'vectors') vv
-      WHERE NOT EXISTS(SELECT FROM jsonb_array_elements(COALESCE(oo->'contextual_enrichment'->'vector_reuse','[]')) rr
-       WHERE rr->>'vector_id'=vv->>'vector_id');
-     reuse_values:=reuse_values||jsonb_build_object(reuse_task.id::text,origin_vectors);
-    END IF;
-    IF reuse_digests->>reuse_task.id::text IS DISTINCT FROM reuse_row->>'result_digest'
-     OR reuse_values->(reuse_task.id::text)->(reuse_row->>'vector_id') IS DISTINCT FROM vector_map->(reuse_row->>'vector_id') THEN
-     RAISE EXCEPTION 'reused vector differs from immutable original report/result' USING ERRCODE='23514'; END IF;
    END LOOP;
    FOR inv IN SELECT value FROM jsonb_array_elements(report->'inventories') LOOP
     IF heading_inventory IS NOT NULL AND (inv->>'source_selection' IS DISTINCT FROM heading_source

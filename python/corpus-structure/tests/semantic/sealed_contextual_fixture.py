@@ -569,7 +569,6 @@ def contextual_fixture_result(
         else "retained_component_private_proposal",
         encoder_implementation=encoded.implementation if encoded else None,
         fresh_vector_count=len(vectors),
-        reused_vector_count=0,
         encoder_inputs=[asdict(item) for item in encoded.inputs] if encoded else [],
     )
     if query_context:

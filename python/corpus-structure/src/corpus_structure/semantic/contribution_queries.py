@@ -160,10 +160,7 @@ def read_source_contributions(
         count_rows = conn.execute(
             text("""
             SELECT r.task_id, c.value->>'operation_key' AS operation_key,
-                   c.value#>'{contextual_enrichment,product_counts}' AS product_counts,
-                   jsonb_array_length(COALESCE(
-                     c.value#>'{contextual_enrichment,vector_reuse}', '[]'::jsonb))
-                     AS reused_vector_count
+                   c.value#>'{contextual_enrichment,product_counts}' AS product_counts
             FROM jsonb_to_recordset(CAST(:selection AS jsonb))
               s(task_id bigint, positions bigint[])
             JOIN ops.task_result r ON r.task_id=s.task_id
@@ -183,7 +180,6 @@ def read_source_contributions(
         counters = {
             (row["task_id"], row["operation_key"]): {
                 "product_counts": row["product_counts"],
-                "reused_vector_count": row["reused_vector_count"],
             }
             for row in count_rows
         }

@@ -215,6 +215,16 @@ def test_changed_registry_reuses_actual_original_target_episodes_and_keeps_profi
             for value in case.targets
         }
     assert original_runtimes == reused_runtimes == {case.kernel.runtime}
+    expanded_inventory_demand, _ = run_intent(case.kernel, inventory_intent(case.kernel, case.query, ("one", "two", "three")))
+    (expanded_inventory,) = retained_products(case.kernel, expanded_inventory_demand, "DdoContextualInventory")
+    assert source_python(expanded_inventory.body["inventory"])["inventory_id"] != source_python(case.inventory.body["inventory"])["inventory_id"]
+    expanded_selection = final_selection(case.kernel, case.query_demand, case.query, case.query_vector,
+        demand, next_targets, expanded_inventory_demand, expanded_inventory)
+    expanded_demand, _ = run_intent(case.kernel, retrieval_intent(case.kernel, expanded_selection, budget=3))
+    (assembly,) = retained_products(case.kernel, expanded_demand, "DdoContextualVectors")
+    assert len(source_python(assembly.body["vectors"])) == 4
+    assert {row["object_id"] for row in source_python(assembly.body["vectors"])} == {
+        "one", "two", "three", case.query.body["occurrence_id"]}
     # A different real prompt/profile has actual separately produced vector observations.
     changed = replace(
         case.encoder, profile=replace(case.encoder.profile, document_prompt="different passage: ")

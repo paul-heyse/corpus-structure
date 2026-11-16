@@ -12,12 +12,10 @@ from corpus_structure.methods.contextual_embeddings import (
     identity,
     numeric_identity,
 )
-from corpus_structure.semantic.contextual_registry import RegistryTarget, registry_input
 from corpus_structure.semantic.contextual_retrieval import (
     retrieve_candidates,
 )
 from corpus_structure.semantic.contextual_storage import (
-    cached_target_vectors,
     eligible_vector_relation,
 )
 from corpus_structure.semantic.metadata import table
@@ -182,56 +180,6 @@ def test_native_contextual_refusal_is_atomic(contextual_atomic_case, corruption)
             bypass(case, conn, raw)
         assert conn.execute(select(table("kb.contextual_vector"))).first() is None
         assert conn.execute(select(table("kb.source_contribution"))).first() is None
-
-
-@pytest.mark.parametrize(
-    "private_source",
-    [RecordSourceRecipe(additional_methods=("private.contextual",))],
-    indirect=True,
-)
-def test_changed_registry_reuses_original_same_runtime_vectors(private_source):
-    first = curated_case(private_source)
-    result, query, original_inventory = contextual_result(first)
-    with first.writer.begin() as conn:
-        complete(first, conn, result)
-    addition = RegistryTarget(
-        target_id="t3",
-        label="99",
-        description="The numeral ninety-nine.",
-        type_name="numeral",
-        parent="numbers",
-    )
-    second = curated_case(private_source, extra_targets=(addition,), config_hash="extended-config")
-    _registry_id, targets = registry_input(second.registry_targets)
-    with second.writer.connect() as conn:
-        cached = cached_target_vectors(
-            conn, run_id=second.run, profile_id=query.profile_id, targets=targets
-        )
-        assert [item.vector.object_id for item in cached] == ["t1", "t2"]
-        assert {item.reuse.origin_task_id for item in cached} == {first.task}
-        assert len({item.reuse.origin_runtime_id for item in cached}) == 1
-        assert (
-            cached_target_vectors(
-                conn, run_id=second.run, profile_id="different-profile", targets=targets
-            )
-            == ()
-        )
-    next_result, _, next_inventory = contextual_result(second, cached=cached)
-    assert original_inventory.inventory_id != next_inventory.inventory_id
-    assert original_inventory.targets[0].representation_digest == targets[0].representation_digest
-    raw = envelope(second, next_result)
-    raw["configuration_hash"] = "extended-config"
-    report = raw["contribution_operations"][0]["contextual_enrichment"]
-    assert report["product_counts"]["vectors"] == 4
-    assert len(report["vector_reuse"]) == 2
-    with second.writer.begin() as conn:
-        bypass(second, conn, raw)
-        assert (
-            conn.scalar(
-                select(table("ops.task").c.status).where(table("ops.task").c.id == second.task)
-            )
-            == "done"
-        )
 
 
 @pytest.mark.parametrize(
