@@ -17,11 +17,44 @@ from corpus_structure.semantic.identity import claim_source_item__data_operation
 from corpus_structure.semantic.python_operation_sources import PythonSource, PythonSourceCollection
 
 
-def test_compiled_factory_is_captured_from_original_static_owner(tmp_path, monkeypatch):
+def capability_metadata(entrypoint):
+    """Retain implementation enforcement on the actual captured test callable."""
     metadata: dict[str, Any] = copy.deepcopy(claim_source_item__data_operation__)
+    claims = [claim for claim in metadata["invariants"] if claim["kind"] == "implementation"]
+    assert len(claims) == 1
+    assert claims[0]["reference"] == "python:corpus_structure.semantic.identity.claim_source_item"
+    claims[0]["reference"] = "python:" + entrypoint
+    return metadata
+
+
+def stream_metadata(tmp_path):
+    # fixture_source owns this captured module and its derive entrypoint.
+    module = "ddo_port_" + tmp_path.name.replace("-", "_")
+    metadata = capability_metadata(module + ".derive")
+    metadata["capabilities"]["forms"] = ["stream"]
+    metadata["opaque"] = [
+        {
+            "reference": "collections.abc.Iterator",
+            "contract": "python-iterator-annotation",
+            "role": "annotation",
+            "content_digest": "a" * 64,
+        }
+    ]
+    metadata["capabilities"]["stream_settlement"] = {
+        "mode": "terminal-atomic",
+        "output_role": "address",
+        "terminal_outcome": "addressed",
+    }
+    output = next(role for role in metadata["roles"] if role["direction"] == "output")
+    output.update(collection="sequence", minimum=0, maximum=None, presence="optional")
+    return metadata
+
+
+def test_compiled_factory_is_captured_from_original_static_owner(tmp_path, monkeypatch):
+    name = "captured_factory_" + tmp_path.name.replace("-", "_")
+    metadata = capability_metadata(name + ".Operation.run")
     metadata["entrypoints"] = ["run"]
     metadata["capabilities"]["prepared_factory"] = "acquire_port"
-    name = "captured_factory_" + tmp_path.name.replace("-", "_")
     source = (
         "class Operation:\n"
         "    def run(self, index: int) -> str: return str(index)\n"
@@ -61,23 +94,7 @@ def test_owned_stream_has_only_terminal_completion_and_spawned_receipt(
     from corpus_structure.semantic.data_operation_ports import PythonRoleValue, resolve_python_port
     from semantic.data_operation_port_support import fixture_source, kind, scope
 
-    metadata: dict[str, Any] = copy.deepcopy(claim_source_item__data_operation__)
-    metadata["capabilities"]["forms"] = ["stream"]
-    metadata["opaque"] = [
-        {
-            "reference": "collections.abc.Iterator",
-            "contract": "python-iterator-annotation",
-            "role": "annotation",
-            "content_digest": "a" * 64,
-        }
-    ]
-    metadata["capabilities"]["stream_settlement"] = {
-        "mode": "terminal-atomic",
-        "output_role": "address",
-        "terminal_outcome": "addressed",
-    }
-    output = next(role for role in metadata["roles"] if role["direction"] == "output")
-    output.update(collection="sequence", minimum=0, maximum=None, presence="optional")
+    metadata = stream_metadata(tmp_path)
     model, sources = fixture_source(
         tmp_path,
         monkeypatch,
@@ -126,6 +143,7 @@ def request_invocation():
             budget=budget,
             nemotron_endpoint=None,
             engine=None,
+            fitter_engine=None,
         )
         invocation = _InvocationExecution(executor, pool)
         invocations.append(invocation)
@@ -196,23 +214,7 @@ def test_invalid_stream_item_cannot_fulfill_its_valid_prefix(tmp_path, monkeypat
     from corpus_structure.semantic.data_operation_ports import PythonRoleValue, resolve_python_port
     from semantic.data_operation_port_support import fixture_source, kind, scope
 
-    metadata: dict[str, Any] = copy.deepcopy(claim_source_item__data_operation__)
-    metadata["capabilities"]["forms"] = ["stream"]
-    metadata["opaque"] = [
-        {
-            "reference": "collections.abc.Iterator",
-            "contract": "python-iterator-annotation",
-            "role": "annotation",
-            "content_digest": "a" * 64,
-        }
-    ]
-    metadata["capabilities"]["stream_settlement"] = {
-        "mode": "terminal-atomic",
-        "output_role": "address",
-        "terminal_outcome": "addressed",
-    }
-    output = next(role for role in metadata["roles"] if role["direction"] == "output")
-    output.update(collection="sequence", minimum=0, maximum=None, presence="optional")
+    metadata = stream_metadata(tmp_path)
     model, sources = fixture_source(
         tmp_path,
         monkeypatch,
@@ -251,23 +253,7 @@ def test_cancelled_hung_pull_retires_the_owned_process_without_fulfilling_prefix
     from corpus_structure.semantic.data_operation_ports import PythonRoleValue, resolve_python_port
     from semantic.data_operation_port_support import fixture_source, kind, scope
 
-    metadata: dict[str, Any] = copy.deepcopy(claim_source_item__data_operation__)
-    metadata["capabilities"]["forms"] = ["stream"]
-    metadata["opaque"] = [
-        {
-            "reference": "collections.abc.Iterator",
-            "contract": "python-iterator-annotation",
-            "role": "annotation",
-            "content_digest": "a" * 64,
-        }
-    ]
-    metadata["capabilities"]["stream_settlement"] = {
-        "mode": "terminal-atomic",
-        "output_role": "address",
-        "terminal_outcome": "addressed",
-    }
-    output = next(role for role in metadata["roles"] if role["direction"] == "output")
-    output.update(collection="sequence", minimum=0, maximum=None, presence="optional")
+    metadata = stream_metadata(tmp_path)
     model, sources = fixture_source(
         tmp_path,
         monkeypatch,
@@ -362,10 +348,10 @@ def test_captured_factory_rejects_rebound_imported_resolver_with_copied_identity
     from corpus_structure.semantic.data_operation_consumers import resolve_prepared_factory
     from corpus_structure.semantic.data_operation_ports import PortRefusal
 
-    metadata: dict[str, Any] = copy.deepcopy(claim_source_item__data_operation__)
+    name = "factory_binding_" + tmp_path.name.replace("-", "_")
+    metadata = capability_metadata(name + ".Operation.run")
     metadata["entrypoints"] = ["run"]
     metadata["capabilities"]["prepared_factory"] = "acquire_port"
-    name = "factory_binding_" + tmp_path.name.replace("-", "_")
     helper_name = name + "_helper"
     helper = (
         "class Port:\n"
