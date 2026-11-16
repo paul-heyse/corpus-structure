@@ -893,7 +893,7 @@ def _reading_dependency(dependencies, pin) -> LayerReport | DeclaredFormalInvent
 
     report: LayerReport | DeclaredFormalInventory | None
     if isinstance(pin, DataProductReference):
-        report = cast(Mapping[DataProductReference, DeclaredFormalInventory], dependencies).get(pin)
+        report = cast("Mapping[DataProductReference, DeclaredFormalInventory]", dependencies).get(pin)
     else:
         report = cast(Mapping[ProductReference, LayerReport], dependencies).get(pin)
     if report is None or _reading_reference(report, pin) != pin:

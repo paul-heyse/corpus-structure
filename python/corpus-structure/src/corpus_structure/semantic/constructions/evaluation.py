@@ -13,11 +13,6 @@ from hashlib import sha256
 from typing import Any
 
 from corpus_structure.semantic.characterization import (
-    AnnotationReference as LegacyMemberReference,
-)
-from corpus_structure.semantic.characterization import (
-    LayerReport,
-    validate_layer,
     validate_reading_choices,
 )
 from corpus_structure.semantic.data_product_reference import (
@@ -28,12 +23,11 @@ from corpus_structure.semantic.data_product_reference import (
 )
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.observations import source_python
-from corpus_structure.semantic.product_reference import ProductReference as LegacyProductPin
 
 from .nodes import identity
 
-type MemberReference = LegacyMemberReference | DataProductMemberReference
-type ProductPin = LegacyProductPin | DataProductReference
+type MemberReference = DataProductMemberReference
+type ProductPin = DataProductReference
 
 
 EVALUATION_REVISION = "primary-contextual-evaluation-1"
@@ -103,30 +97,6 @@ def environment(*, context_layers=(), hypotheses=(), proposals=(), choices=()) -
 
 
 class ContextualEvaluator:
-    def __init__(
-        self,
-        layers: Mapping[LegacyProductPin, LayerReport],
-        *,
-        check_active=lambda: None,
-        max_nodes=20000,
-        symbolic_layers=None,
-    ):
-        bases = set()
-        for pin, report in layers.items():
-            if report.reference(pin.task_id) != pin:
-                raise ValueError("evaluation requires exact retained layer pins")
-            bases.add(report.base_document)
-        if len(bases) != 1:
-            raise ValueError("evaluation requires one immutable source base")
-        self._initialize(
-            layers,
-            {pin: report.payload for pin, report in layers.items()},
-            next(iter(bases)),
-            check_active=check_active,
-            max_nodes=max_nodes,
-            symbolic_layers=symbolic_layers,
-        )
-
     @classmethod
     def from_products(
         cls, source, products, *, check_active=lambda: None, max_nodes=20000, symbolic_products=None
@@ -1301,33 +1271,3 @@ class ContextualEvaluator:
             roles=list(self.roles.values()),
         )
 
-    def payload(self, release_id, scope, operation, roots, env):
-        if not isinstance(self.base, LegacyProductPin):
-            raise ValueError(
-                "source-native evaluator facts require their nominal product projection"
-            )
-        return dict(
-            format="characterization-layer-v1",
-            base_document=self.base.values(),
-            release_id=release_id,
-            source_scope=scope,
-            operation={
-                **operation,
-                "produced_families": list(EVALUATION_FAMILIES),
-                "required_layers": [pin.values() for pin in self.layers],
-                "outcomes": ["complete", "partial", "failed"],
-                "preconditions": ["exact-symbolic-context-and-choice-closure"],
-                "effects": ["retain-primary-contextual-meaning; preserve-private-standing"],
-                "result_determinants": ["runtime", "grammar", "configuration", "input", "context"],
-            },
-            dependencies=[pin.values() for pin in self.layers],
-            **self.facts(scope, operation, roots, env),
-        )
-
-    def finish(self, prepared, scope, operation, roots, env, *, releases=None):
-        return validate_layer(
-            prepared,
-            self.payload(prepared.release_id, scope, operation, roots, env),
-            dependencies=self.layers,
-            releases=releases,
-        )
