@@ -2,7 +2,7 @@
 
 from hashlib import sha256
 
-from semantic.pdf_integration_support import observation
+from semantic.pdf_native_source_support import observation
 
 
 def recognized(source, raw, *, role="A", page=1):

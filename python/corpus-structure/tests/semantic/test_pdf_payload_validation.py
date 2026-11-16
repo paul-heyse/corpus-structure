@@ -10,7 +10,7 @@ from corpus_structure.semantic.pdf_payload_validation import FrozenPayloadStore
 from corpus_structure.semantic.pdf_record_identity import byte_root
 from semantic.pdf_payload_validation_support import captured as captured
 
-from . import pdf_integration_support as integrated_examples
+from . import pdf_native_source_support as integrated_examples
 
 native_source = integrated_examples.native_source
 independent_integrated = integrated_examples.independent_integrated

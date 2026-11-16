@@ -171,7 +171,7 @@ def test_pdf_original_and_native_product_need_no_rendition(
             == sha256(original).hexdigest()
         )
     # Record publication settles before fallible application preparation or terminal completion.
-    from semantic.native_record_fixtures import publish_native_record_fixture
+    from semantic.selected_source_native_support import publish_native_record_fixture
 
     published = publish_native_record_fixture(
         commit_writer_engine,

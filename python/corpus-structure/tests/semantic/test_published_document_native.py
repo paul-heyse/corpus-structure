@@ -13,7 +13,7 @@ from corpus_structure.semantic.pdf_record_reader import published_record_reader
 from corpus_structure.semantic.product_reference import ProductReference
 from corpus_structure.semantic.releases import open_release
 from corpus_structure.semantic.source_products import FrozenNativeSource
-from semantic.native_record_fixtures import publish_native_record_fixture
+from semantic.selected_source_native_support import publish_native_record_fixture
 from semantic.pdf_inline_reports_support import example as inline_report_example
 from semantic.pdf_staging_support import create_private_build as create_private_build
 from semantic.pdf_staging_support import private_build as private_build

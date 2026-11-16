@@ -442,7 +442,7 @@ def test_public_native_writer_checks_word_custody_and_retains_partial(
         )
     from corpus_structure.semantic.pdf_record_reader import published_record_reader
     from corpus_structure.semantic.product_reference import ProductReference
-    from semantic.native_record_fixtures import publish_native_record_fixture
+    from semantic.selected_source_native_support import publish_native_record_fixture
 
     published = publish_native_record_fixture(
         commit_writer_engine,
