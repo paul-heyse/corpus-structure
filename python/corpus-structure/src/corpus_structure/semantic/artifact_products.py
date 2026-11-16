@@ -504,15 +504,27 @@ def artifact_kernel(
     arguments: dict,
     roles: tuple[ResolvedRoleBinding, ...],
     context: SubjectContext,
+    input_basis: list,
     *,
     prepared: PreparedRelease,
     check_active: Callable[[], None],
 ) -> dict:
     from corpus_structure.methods.artifact_identity_declared import ArtifactIdentityOperation
 
-    return ArtifactIdentityOperation(
+    from .data_operation_cpu_basis import cpu_authority_reply, require_consumed_cpu_basis
+    from .data_operation_identity import semantic_value
+
+    names = {role.role for role in roles}
+    if names != {"sources", "constructions", "nominations"}:
+        raise ValueError("artifact computation requires its exact finite input roles")
+    require_consumed_cpu_basis(input_basis, context, roles,
+        {name: tuple(arguments[name]) for name in names},
+        parameters=canonical_bytes(semantic_value({name: value for name, value in arguments.items() if name not in names})))
+
+    result = ArtifactIdentityOperation(
         PreparedArtifactInputs(prepared, roles, context, check_active)
     ).run(**arguments)
+    return cpu_authority_reply(input_basis, result)
 
 
 @dataclass
@@ -529,10 +541,14 @@ class ArtifactCallPlan:
         if binding is None or binding.subject_context is None:
             raise ValueError("artifact call requires its exact qualified binding")
         signature = inspect.signature(artifact_kernel, eval_str=True)
+        from .data_operation_cpu_basis import cpu_input_basis_from_binding
+
         bound = signature.bind(
             arguments=arguments.arguments,
             roles=binding.roles,
             context=binding.subject_context,
+            input_basis=cpu_input_basis_from_binding(self.port.operation.recipe, binding,
+                {role.role: tuple(arguments.arguments[role.role]) for role in binding.roles}),
             prepared=self.prepared,
             check_active=check_active,
         )
@@ -580,6 +596,7 @@ def resolve_artifact_port(prepared, model, operation, *, identity, authorize, cu
             ),
         ),
         requires_prepared_schema=True,
+        retain_cpu_reply=True,
     )
     plan.port = port
     return port
