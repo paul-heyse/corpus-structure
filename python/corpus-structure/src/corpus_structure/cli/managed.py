@@ -698,7 +698,7 @@ class ResultStore:
                     "settlement is unproven; inspect the owning operation and retain this workspace"
                 )
             lane = manifest.stage
-            _require_drained_test_lane(directory / lane, lane)
+            _require_drained_test_lane(directory / lane, lane, recover_private=True)
             from corpus_structure.cli.testing import _supervisor
 
             receipt = directory / lane
@@ -712,9 +712,10 @@ class ResultStore:
             invocation.publish(lane, directory / lane)
             invocation.confirm_settlement()
             invocation.settle(
-                "interrupted",
+                manifest.outcome if manifest.outcome in {"failed", "interrupted"} else "interrupted",
                 next_action=next_action,
                 recovered_lane=lane,
+                prior_settled=manifest.settled,
             )
             return manifest
 
@@ -1030,7 +1031,7 @@ def _deliver_entry(fd: int, destination: Path) -> None:
 _TEST_LANES = ("ordinary", "fault")
 
 
-def _require_drained_test_lane(directory: Path, lane: str) -> None:
+def _require_drained_test_lane(directory: Path, lane: str, *, recover_private: bool = False) -> None:
     try:
         with _directory_fd(directory) as fd:
             invocation = json.loads(_read_file(fd, "invocation.json"))
@@ -1050,8 +1051,17 @@ def _require_drained_test_lane(directory: Path, lane: str) -> None:
                 for name in os.listdir(fd)
                 if name.endswith(".process.json") and name != "runner.process.json"
             )
-            for name in processes:
+            # Validate every other child before the explicit recovery can remove residue.
+            for name in sorted(processes, key=lambda name: name == "private-cohort.process.json"):
                 process = json.loads(_read_file(fd, name))
+                if name == "private-cohort.process.json" and process.get("cleanup_error"):
+                    from corpus_structure.cli.testing import _supervisor
+
+                    args = ("--recover",) if recover_private else ()
+                    process = _supervisor(
+                        "private-temporary", "--receipt-dir", str(directory), *args,
+                        opened={directory: fd},
+                    )
                 cleanup = process.get("owned_group_cleanup") or {}
                 if (
                     not process.get("finished")

@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import errno
+import hashlib
 import json
 import os
 import pwd
 import signal
 import socket
+import stat
 import subprocess
 import sys
 import tempfile
@@ -187,10 +189,9 @@ def stop_private_cohort(
 
 
 def finish_private_temporary(directory: Path, process: dict[str, Any]) -> dict[str, Any]:
-    """Remove only an acknowledged empty owned root; leave uncertain data outside artifacts."""
+    """Remove only an acknowledged owned empty directory tree after settlement."""
     owner_path = directory / "private-host-owner.json"
     owner = json.loads(owner_path.read_text())
-    temporary = Path(owner["temporary"])
     uncertain = bool(
         process.get("cleanup_error")
         or (process.get("owned_group_cleanup") or {}).get("group_present_after_cleanup")
@@ -199,19 +200,159 @@ def finish_private_temporary(directory: Path, process: dict[str, Any]) -> dict[s
     if uncertain:
         outcome = {"state": "retained", "reason": "owned cohort process settlement is unconfirmed"}
     else:
-        identity = temporary.lstat()
-        if temporary.is_symlink() or (identity.st_uid, identity.st_ino) != (
-            owner["uid"],
-            owner["inode"],
-        ):
-            raise ValueError("private PostgreSQL temporary ownership changed")
-        try:
-            temporary.rmdir()
-        except OSError as error:
-            if error.errno not in {errno.ENOTEMPTY, errno.EEXIST}:
-                raise
-            outcome = {"state": "retained", "reason": "pg_virtualenv left owned temporary residue"}
-        else:
-            outcome = {"state": "removed"}
+        outcome = _remove_owned_empty_tree(owner)
     owner_path.write_text(json.dumps({**owner, **outcome}) + "\n")
     return outcome
+
+
+def _remove_owned_empty_tree(owner: dict[str, Any]) -> dict[str, Any]:
+    """Never unlink a file or follow a symlink, including during a directory race."""
+    temporary = Path(owner["temporary"])
+    base = ROOT / "build/tmp/private-postgresql"
+    if temporary.parent != base or base.is_symlink() or base.stat().st_uid != os.getuid():
+        raise ValueError("private PostgreSQL temporary root differs from its owned location")
+    flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
+    with_owner = (owner["uid"], owner["inode"])
+    identity = temporary.lstat()
+    if not stat.S_ISDIR(identity.st_mode) or (identity.st_uid, identity.st_ino) != with_owner or identity.st_uid != os.getuid():
+        raise ValueError("private PostgreSQL temporary ownership changed")
+    root = os.open(temporary, flags)
+    try:
+        if os.fstat(root) != identity:
+            raise ValueError("private PostgreSQL temporary ownership changed")
+
+        def inspect_tree(fd):
+            children = []
+            for name in os.listdir(fd):
+                found = os.stat(name, dir_fd=fd, follow_symlinks=False)
+                if not stat.S_ISDIR(found.st_mode) or found.st_uid != owner["uid"] or found.st_dev != identity.st_dev:
+                    raise ValueError("private temporary residue contains data, a symlink or a foreign directory")
+                child = os.open(name, flags, dir_fd=fd)
+                try:
+                    if os.fstat(child) != found:
+                        raise ValueError("private temporary directory changed during inspection")
+                    children.append((name, found, inspect_tree(child)))
+                finally:
+                    os.close(child)
+            return children
+
+        def remove_tree(fd, children):
+            for name, found, descendants in children:
+                child = os.open(name, flags, dir_fd=fd)
+                try:
+                    actual = os.fstat(child)
+                    if (actual.st_dev, actual.st_ino, actual.st_uid) != (found.st_dev, found.st_ino, found.st_uid):
+                        raise ValueError("private temporary directory changed before removal")
+                    remove_tree(child, descendants)
+                    if os.stat(name, dir_fd=fd, follow_symlinks=False).st_ino != actual.st_ino:
+                        raise ValueError("private temporary directory changed before removal")
+                    os.rmdir(name, dir_fd=fd)
+                finally:
+                    os.close(child)
+
+        try:
+            children = inspect_tree(root)
+            remove_tree(root, children)
+            latest = temporary.lstat()
+            if (latest.st_dev, latest.st_ino, latest.st_uid) != (identity.st_dev, identity.st_ino, identity.st_uid):
+                raise ValueError("private PostgreSQL temporary ownership changed")
+            temporary.rmdir()
+        except (OSError, ValueError) as error:
+            if isinstance(error, OSError) and error.errno not in {errno.ENOTEMPTY, errno.EEXIST, errno.ELOOP, errno.ENOTDIR, errno.ENOENT}:
+                raise
+            return {"state": "retained", "reason": "pg_virtualenv left owned temporary residue"}
+    finally:
+        os.close(root)
+    return {"state": "removed"}
+
+
+_RECOVERY = "private-host-cleanup-recovery.json"
+_RESIDUE_ERROR = "private PostgreSQL ownership remains unconfirmed"
+
+
+def _owned_json_bytes(path: Path) -> bytes:
+    descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
+    with os.fdopen(descriptor, "rb") as stream:
+        identity = os.fstat(stream.fileno())
+        if not stat.S_ISREG(identity.st_mode) or identity.st_uid != os.getuid():
+            raise ValueError("private recovery receipt is not an owned regular file")
+        return stream.read()
+
+
+def _private_recovery_sources(directory: Path):
+    names = {"private-cohort.process.json", "private-host-owner.json", "private-host-child-settlement.json"}
+    names.update(path.name for path in directory.glob("*.process.json"))
+    contents = {name: _owned_json_bytes(directory / name) for name in sorted(names)}
+    decoded = {name: json.loads(value) for name, value in contents.items()}
+    if any(not isinstance(value, dict) for value in decoded.values()):
+        raise ValueError("private recovery receipts must contain objects")
+    return {name: hashlib.sha256(value).hexdigest() for name, value in contents.items()}, decoded
+
+
+def _require_private_drain(original):
+    process = original["private-cohort.process.json"]
+    children = original["private-host-child-settlement.json"]
+    if (process.get("cleanup_error") != _RESIDUE_ERROR or not process.get("finished")
+        or type(process.get("returncode")) is not int
+        or process.get("private_temporary_cleanup", {}).get("reason") != "pg_virtualenv left owned temporary residue"
+        or process.get("owned_group_cleanup", {}).get("group_present_after_cleanup") is not False
+        or process.get("owned_group_cleanup", {}).get("descendants_after_leader_exit") is True
+        or children.get("state") != "settled" or children.get("pending") != {}):
+        raise ValueError("private cohort has no acknowledged temporary-only cleanup failure and drained children")
+    groups = [process.get("owned_group_cleanup", {}).get("group")]
+    if not children.get("owned_groups"):
+        raise ValueError("private cohort child identities are unavailable")
+    recorded = {f"{name}.process.json" for name in children["owned_groups"]}
+    actual = {name for name in original if name.endswith(".process.json")} - {
+        "runner.process.json", "private-cohort.process.json"}
+    if recorded != actual:
+        raise ValueError("private cohort child inventory is incomplete")
+    for name, group in children["owned_groups"].items():
+        child = original[f"{name}.process.json"]
+        cleanup = child.get("owned_group_cleanup", {})
+        if (not child.get("finished") or child.get("cleanup_error")
+            or cleanup.get("group_present_after_cleanup") is not False
+            or cleanup.get("descendants_after_leader_exit") is True or cleanup.get("group") != group):
+            raise ValueError("private cohort child settlement differs from its original process receipt")
+        groups.append(group)
+    if any(type(group) is not int or group <= 0 for group in groups):
+        raise ValueError("private cohort process identities are unavailable")
+    for group in groups:
+        try:
+            os.killpg(group, 0)
+        except ProcessLookupError:
+            continue
+        raise ValueError("private cohort process group is still present or ownership is uncertain")
+
+
+def recovered_private_process(directory: Path, process: dict[str, Any]) -> dict[str, Any]:
+    """Read a validated later cleanup observation; original process facts stay intact."""
+    path = directory / _RECOVERY
+    if not path.exists():
+        return process
+    sources, original = _private_recovery_sources(directory)
+    recovered = json.loads(_owned_json_bytes(path))
+    _require_private_drain(original)
+    if process != original["private-cohort.process.json"]:
+        raise ValueError("private recovery process differs from its original receipt")
+    if recovered.get("sources") != sources or recovered.get("cleanup") != {"state": "removed"} or os.path.lexists(original["private-host-owner.json"]["temporary"]):
+        raise ValueError("private temporary recovery differs from original custody or current absence")
+    return {**process, "cleanup_error": None, "private_temporary_cleanup": recovered["cleanup"],
+        "cleanup_recovery": recovered}
+
+
+def recover_private_temporary(directory: Path) -> dict[str, Any]:
+    """Retry the one acknowledged cleanup; never rewrite the interrupted process receipt."""
+    sources, original = _private_recovery_sources(directory)
+    process = original["private-cohort.process.json"]
+    if (directory / _RECOVERY).exists():
+        return recovered_private_process(directory, process)["cleanup_recovery"]
+    _require_private_drain(original)
+    outcome = _remove_owned_empty_tree(original["private-host-owner.json"])
+    if outcome["state"] != "removed":
+        raise ValueError("private temporary residue remains nonempty or ownership is uncertain")
+    observation = {"sources": sources, "cleanup": outcome, "recovered_at": time.time(),
+        "original_cleanup_error": process["cleanup_error"], "original_interruption": process.get("interruption")}
+    with (directory / _RECOVERY).open("x") as stream:
+        stream.write(json.dumps(observation, indent=2, sort_keys=True) + "\n")
+    return observation

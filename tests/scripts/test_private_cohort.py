@@ -347,3 +347,124 @@ def test_private_child_restores_project_tools_after_creation(monkeypatch):
     assert environment["PATH"] == "/selected/project/tools:/usr/bin"
     assert "PGPORT" not in environment and "PGPASSWORD" not in environment
     assert environment["CORPUS_DATABASE__URL"] == settings.database.url
+
+
+@pytest.fixture
+def owned_private_residue(tmp_path, monkeypatch):
+    import native_private_cohort as owner
+
+    root = tmp_path / "checkout"
+    root.mkdir()
+    monkeypatch.setattr(owner, "ROOT", root)
+    receipt = tmp_path / "receipt"
+    receipt.mkdir()
+    _, environment = private_command(receipt, {"pytest_args": []}, {})
+    temporary = Path(environment["TMPDIR"])
+    return receipt, temporary
+
+
+def test_only_owned_empty_directory_tree_is_removed(owned_private_residue):
+    receipt, temporary = owned_private_residue
+    (temporary / "torchinductor_paul" / "empty").mkdir(parents=True)
+    assert finish_private_temporary(receipt, {"returncode": 0}) == {"state": "removed"}
+    assert not temporary.exists()
+
+
+@pytest.mark.parametrize("residue", ("file", "symlink", "foreign_ack", "active"))
+def test_uncertain_or_nonempty_tree_is_retained_whole(owned_private_residue, residue):
+    receipt, temporary = owned_private_residue
+    empty = temporary / "first_empty"
+    empty.mkdir()
+    process = {"returncode": 0}
+    if residue == "file":
+        (temporary / "data").write_text("must remain")
+    elif residue == "symlink":
+        (temporary / "linked").symlink_to(empty, target_is_directory=True)
+    elif residue == "foreign_ack":
+        path = receipt / "private-host-owner.json"
+        value = json.loads(path.read_text())
+        path.write_text(json.dumps({**value, "uid": os.getuid() + 1}))
+    else:
+        process = {"pid": 42, "returncode": None}
+    if residue == "foreign_ack":
+        with pytest.raises(ValueError, match="ownership changed"):
+            finish_private_temporary(receipt, process)
+    else:
+        assert finish_private_temporary(receipt, process)["state"] == "retained"
+    assert empty.is_dir() and temporary.is_dir()
+    if residue == "file":
+        assert (temporary / "data").read_text() == "must remain"
+    if residue == "symlink":
+        assert (temporary / "linked").is_symlink()
+
+
+def _interrupted_private_receipts(receipt):
+    process = {
+        "finished": 2, "returncode": 130, "interruption": "SIGINT",
+        "cleanup_error": "private PostgreSQL ownership remains unconfirmed",
+        "private_temporary_cleanup": {
+            "state": "retained", "reason": "pg_virtualenv left owned temporary residue"},
+        "owned_group_cleanup": {"group": 101, "group_present_after_cleanup": False},
+    }
+    values = {
+        "private-cohort.process.json": process,
+        "pytest.process.json": {"finished": 1, "returncode": -15,
+            "owned_group_cleanup": {"group": 102, "group_present_after_cleanup": False}},
+        "private-host-child-settlement.json": {
+            "state": "settled", "pending": {}, "owned_groups": {"pytest": 102}},
+    }
+    for name, value in values.items():
+        (receipt / name).write_text(json.dumps(value))
+    return process
+
+
+def test_recovery_preserves_original_interruption_and_receipts(owned_private_residue, monkeypatch):
+    from native_private_cohort import recover_private_temporary, recovered_private_process
+
+    receipt, temporary = owned_private_residue
+    (temporary / "torchinductor_paul").mkdir()
+    process = _interrupted_private_receipts(receipt)
+    before = {path.name: path.read_bytes() for path in receipt.iterdir()}
+    def absent(group, sig):
+        raise ProcessLookupError()
+    monkeypatch.setattr(os, "killpg", absent)
+    recovery = recover_private_temporary(receipt)
+    assert not temporary.exists()
+    assert recovery["original_cleanup_error"] == process["cleanup_error"]
+    assert recovery["original_interruption"] == "SIGINT"
+    assert all((receipt / name).read_bytes() == body for name, body in before.items())
+    current = recovered_private_process(receipt, process)
+    assert current["returncode"] == 130 and current["interruption"] == "SIGINT"
+    assert current["cleanup_error"] is None
+    assert recover_private_temporary(receipt) == recovery
+    classified = classify_receipt(receipt)
+    assert classified["status"] != "passed"
+    assert classified["native_host_process"]["cleanup_recovery"] == recovery
+    changed = json.loads((receipt / "pytest.process.json").read_text())
+    (receipt / "pytest.process.json").write_text(json.dumps({**changed, "finished": 17}))
+    with pytest.raises(ValueError):
+        recovered_private_process(receipt, process)
+
+
+@pytest.mark.parametrize("uncertainty", ("active_group", "pending", "different_child", "data"))
+def test_recovery_refuses_uncertain_settlement_or_nonempty_residue(
+    owned_private_residue, monkeypatch, uncertainty
+):
+    from native_private_cohort import recover_private_temporary
+
+    receipt, temporary = owned_private_residue
+    _interrupted_private_receipts(receipt)
+    def absent(group, sig):
+        raise ProcessLookupError()
+    monkeypatch.setattr(os, "killpg", (lambda group, sig: None) if uncertainty == "active_group" else absent)
+    if uncertainty == "pending":
+        (receipt / "private-host-child-settlement.json").write_text(json.dumps({
+            "state": "pending", "pending": {"pytest": 102}, "owned_groups": {"pytest": 102}}))
+    elif uncertainty == "different_child":
+        (receipt / "pytest.process.json").write_text(json.dumps({"finished": 1,
+            "owned_group_cleanup": {"group": 103, "group_present_after_cleanup": False}}))
+    elif uncertainty == "data":
+        (temporary / "private-data").write_text("retain")
+    with pytest.raises(ValueError):
+        recover_private_temporary(receipt)
+    assert temporary.is_dir() and not (receipt / "private-host-cleanup-recovery.json").exists()

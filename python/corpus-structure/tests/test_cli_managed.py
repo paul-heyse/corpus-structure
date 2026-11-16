@@ -277,3 +277,68 @@ print(result.returncode)
     assert proc.returncode == 0
     assert output.strip() == "143"
     assert (tmp_path / "settled").read_text() == "settled"
+
+
+@pytest.mark.parametrize("outcome", ("failed", "interrupted"))
+def test_recover_private_empty_residue_keeps_original_outcome(tmp_path, monkeypatch, outcome):
+    from corpus_structure.cli import testing
+    from native_private_cohort import (
+        private_command,
+        recover_private_temporary,
+        recovered_private_process,
+    )
+
+    # These are lifecycle receipts for a controlled, actually exited child, not native evidence.
+    child = subprocess.Popen([sys.executable, "-c", "pass"], start_new_session=True)
+    child.wait()
+    cleanup = {"group": child.pid, "group_present_after_cleanup": False}
+    store = ResultStore(tmp_path)
+    with store.operation("test") as result:
+        result.stage("ordinary")
+        result.defer_settlement()
+        lane = result.directory / "ordinary"
+        lane.mkdir()
+        _, environment = private_command(lane, {"pytest_args": []}, {})
+        temporary = Path(environment["TMPDIR"])
+        (temporary / "torchinductor_paul").mkdir()
+        originals = {
+            "invocation.json": {"managed_lane": "ordinary", "argv": ["--out-dir", str(lane)]},
+            "runner.process.json": {"finished": 3, "interruption": "SIGINT"},
+            "classification.json": {"status": "failed"},
+            "pytest.process.json": {"finished": 1, "owned_group_cleanup": cleanup},
+            "private-cohort.process.json": {
+                "finished": 2, "returncode": 130, "interruption": "SIGINT",
+                "owned_group_cleanup": cleanup,
+                "cleanup_error": "private PostgreSQL ownership remains unconfirmed",
+                "private_temporary_cleanup": {
+                    "state": "retained", "reason": "pg_virtualenv left owned temporary residue"}},
+            "private-host-child-settlement.json": {
+                "state": "settled", "pending": {}, "owned_groups": {"pytest": child.pid}},
+        }
+        for name, value in originals.items():
+            (lane / name).write_text(json.dumps(value))
+        result.settle(outcome, original_error="SIGINT and retained temporary residue")
+    before = {path.name: path.read_bytes() for path in lane.iterdir()}
+
+    def supervisor(*args, opened=None):
+        if args[0] == "classify":
+            return {"retryable": True}
+        assert args[:3] == ("private-temporary", "--receipt-dir", str(lane))
+        if "--recover" in args:
+            recover_private_temporary(lane)
+        return recovered_private_process(lane, originals["private-cohort.process.json"])
+
+    monkeypatch.setattr(testing, "_supervisor", supervisor)
+    assert store.collect(apply=False, now=10**12).eligible == []
+    assert temporary.exists()  # Reading/collection must never retry cleanup.
+    recovered = store.recover(result.id)
+    assert recovered.outcome == outcome
+    assert recovered.details["original_error"] == "SIGINT and retained temporary residue"
+    assert recovered.details["next_action"] == f"ci test retry {result.id} --lane ordinary"
+    assert "custody_unsettled" not in recovered.details
+    assert not temporary.exists()
+    assert all((lane / name).read_bytes() == body for name, body in before.items())
+    observation = json.loads((lane / "private-host-cleanup-recovery.json").read_text())
+    assert observation["original_interruption"] == "SIGINT"
+    assert observation["original_cleanup_error"] == originals["private-cohort.process.json"]["cleanup_error"]
+    assert store.recover(result.id).settled == recovered.settled

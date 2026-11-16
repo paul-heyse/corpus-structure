@@ -290,6 +290,22 @@ def test_prerequisite_does_not_hide_teardown_failure(tmp_path: Path) -> None:
         )
     )
     assert result["nodes"]["a"]["status"] == "failed"
+    assert result["status"] == "failed"
+
+
+@pytest.mark.parametrize("session_exit,expected", ((1, "blocked"), (2, "failed"), (3, "failed"), (4, "failed")))
+def test_prerequisite_explains_only_pytest_failure_exit(tmp_path, session_exit, expected):
+    receipt(tmp_path, [report("setup", "failed", user_properties=[
+        ("qualification_prerequisite", "postgresql"),
+        ("qualification_reason", "missing socket"),
+    ]), report("teardown")], selected=("a",), returncode=1)
+    with (tmp_path / "events-controller-12.jsonl").open("a") as output:
+        output.write(json.dumps({"event": "session_finish", "exitstatus": session_exit}) + "\n")
+    result = classify_receipt(tmp_path)
+    assert result["nodes"]["a"]["status"] == "blocked"
+    assert result["process"]["returncode"] == 1
+    assert result["status"] == expected
+    assert bool(result["session_failures"]) is (session_exit != 1)
 
 
 def test_xfail_metadata_is_retained_and_unresolved(tmp_path: Path) -> None:

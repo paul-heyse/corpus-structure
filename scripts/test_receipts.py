@@ -924,6 +924,9 @@ def classify_receipt(directory: Path) -> dict[str, Any]:
     cohort_path = directory / "private-cohort.process.json"
     cohort = read_json(cohort_path) if cohort_path.exists() else {}
     if cohort:
+        from native_private_cohort import recovered_private_process
+
+        cohort = recovered_private_process(directory, cohort)
         errors.extend(_group_cleanup_errors(cohort))
         if cohort.get("interruption") or cohort.get("launch_error"):
             errors.append("private host interrupted or failed to launch")
@@ -932,10 +935,18 @@ def classify_receipt(directory: Path) -> dict[str, Any]:
         ):
             errors.append("private host cohort exited unsuccessfully")
     statuses = [value["status"] for value in nodes.values()]
+    prerequisite_exit = (
+        "blocked" in statuses
+        and all(status in {"passed", "blocked", "inapplicable"} for status in statuses)
+        and any(_failed_prerequisite(report) for node in nodes.values() for report in node["reports"])
+    )
     session_failures = [
         event
         for event in companion
-        if event.get("event") == "session_finish" and event.get("exitstatus") not in (0, 5)
+        if event.get("event") == "session_finish"
+        and event.get("exitstatus") not in (0, 5)
+        # Pytest's raw exit 1 also covers annotated unavailable setup prerequisites.
+        and not (event.get("exitstatus") == 1 and prerequisite_exit)
     ]
     empty_selection = (
         not nodes
@@ -2166,7 +2177,21 @@ def main(argv: list[str] | None = None) -> int:
     validate.add_argument("pytest_args", nargs=argparse.REMAINDER)
     context = sub.add_parser("context")
     context.add_argument("--native-host", choices=("shared", "private"), default="shared")
+    cleanup = sub.add_parser("private-temporary")
+    cleanup.add_argument("--receipt-dir", type=Path, required=True)
+    cleanup.add_argument("--recover", action="store_true")
     args = parser.parse_args(argv)
+    if args.action == "private-temporary":
+        from native_private_cohort import recover_private_temporary, recovered_private_process
+
+        try:
+            if args.recover:
+                recover_private_temporary(args.receipt_dir)
+            process = read_json(args.receipt_dir / "private-cohort.process.json")
+            print(json.dumps(recovered_private_process(args.receipt_dir, process)))
+        except (OSError, ValueError, KeyError, TypeError) as error:
+            parser.error(str(error))
+        return 0
     collection_outcome = None
     if args.action == "context":
         print(json.dumps(invocation_context(args.native_host)))
