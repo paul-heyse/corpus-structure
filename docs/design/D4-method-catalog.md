@@ -34,6 +34,16 @@ Project target/registry subjects and explicitly cross-source focus/cohort subjec
 contracts. Grading still requires exact equality of every source-context field; no alias decoder or
 relaxed native comparison supplies compatibility.
 
+**Implemented source; native/provider qualification pending · 2026-11-16.** M1 assertion
+qualification consumes an explicit scalar Construction product from the same selected original,
+with exact producing-episode support. Its declared dependency reuses the existing Sentence and
+Formal→Construction pipeline. Prepared inputs authenticate the actual construction body/member
+and source/projection/scope before passing retained predicate readings to the qualifier. Polarity,
+modality and cue spans derive from those supplied products; incomplete or shared scope remains
+unknown. No implicit `primary_layers` state, ambient reader or repeated linguistic inference supplies
+this input. Adding this premise changes the M1 recipe and requires fresh application preparation
+and native qualification. The coordinator owns its acceptance.
+
 > Decision: [ADR-0092](../adr/0092-ddo-operation-authority.md)
 
 **Implemented foundation · 2026-11-12; production adoption remains DDO-07/09.**
@@ -98,7 +108,8 @@ SentenceConfig, including nondefault batch and component selections. Retained re
 identity from the recorded NativeProfile; an explicitly different or incomplete request refuses.
 Named rules, navigation, predicate readings and detached witnessed-link replay use that same
 restoration owner. Already processed Docs keep their admitted profile without selecting an ambient
-runtime. Historical records lacking execution metadata remain explicitly unprofiled. The shared
+runtime. Current retained records require captured execution metadata; inert older records confer no
+current profile or native standing. The shared
 restoration source is part of the construction-resource fingerprint, so corrected interpretation
 invalidates derived layers and their downstream exact pins rather than relying on a fresh-run flag.
 Canonical annotation attribute order comes from the direct annotation model. **Implemented;
@@ -1092,19 +1103,21 @@ or with a math token are diagnostics only, not quality measures.
 |---|---|---|---|
 | exact located occurrence; authenticated component or curated target descriptor | source context and profile-specific rendered input | typed contextual vectors and frozen inventory | owned CPU encoder |
 
-**Implemented; bounded provider/native controls Tested,2026-11-06.** Registered
-`retrieve.contextual` consumes authenticated selected occurrence contributions and retained component
-targets, composes owned encoding/PostgreSQL retrieval and retains constraint-governed relationship
-decisions. `locate.definition_terms` projects actual retained term roles under their original source
-closure; this projection does not count as new discovery. Vectors are independently retained derived
-products and require no accepted record. Curated targets remain a separate explicit control.
-General segment example selection remains a separate proposed consumer.
+**Implemented source; current native/provider qualification pending · 2026-11-16.** Declared
+contextual target, encoding, score and retrieval operations consume exact selected semantic products.
+`locate.definition_terms/declared` projects genuine component term/content locations with original
+source/member and complete selected-cut custody; projection is not new discovery. Standalone target
+and query vectors retain their original qualified profile/body/producing episode. Curated RegistryTarget
+descriptors are explicit inputs, and the registry validator's actual defining bytes are captured in
+the existing retrieval asset. No method catalog, task-address reader or report adapter selects these
+inputs. Earlier E5/source controls retain their 2026-11-06 boundary; the DDO coordinator owns current
+qualification. General segment example selection remains a separate proposed consumer.
 
 **Library realization.** Sentence Transformers6.2.0 uses pinned E5-small-v2 (384 dimensions,
 mean pooling, query/passage prefixes) and Qwen3-Embedding-0.6B (1024 dimensions, last-token
 pooling, explicit query instruction) profiles. `methods/contextual_embeddings.py` owns exact
 revisions, actual loaded library identities, FP32/L2 normalization, rendered-input hashes and
-bounded child lifetime. Target vector reuse authenticates the original task/body/runtime and
+bounded child lifetime. Target vector reuse authenticates the original selected body/runtime/producing episode and
 rechecks the actual tokenizer-rendered input. No existing vLLM generation endpoint is repurposed.
 
 ## 6. Encoder extraction
@@ -1435,13 +1448,15 @@ above, not those two.
 |---|---|---|---|
 | authenticated retained source occurrence | actual producer contribution, exact component target inventory and vectors | fixed candidate list, compatible relationship edges and explicit competing alternatives | deterministic + encoder; selected nondefault configuration |
 
-**Implemented; actual bounded E5/source/Reader/export behavior Tested,2026-11-06.** The registered
-`retrieve.contextual/5` consumes actual retained occurrences. Label matches may rank
-candidates. Selecting a relationship requires located producer evidence. `locate.definition_terms/1`
-projects term roles from exact retained component references, preserving their original source
-coordinates; it supplies locations rather than a new independent semantic judgment. Source views
-without an eligible emitted definition stay explicitly unrequested/inapplicable for that route.
-The source corpus and all private components remain visible separately from that selection.
+**Implemented source; current native/provider qualification pending · 2026-11-16.**
+`retrieve.contextual/declared` and its explicit with-witnesses route consume current located query,
+target inventory and score products. Label matches may rank candidates; a selected relationship
+requires its admitted source/cue/query witness binding. `locate.definition_terms/declared` projects
+term roles from exact selected components, retaining original source/member/scope. It adds no
+independent semantic judgment. All three query12 recipes—located frame, referent and discourse
+neighbor—retain qualified semantic inputs. The separate former heading-report extractor and extra
+nominal-comparator display are retired; those old transports confer no current heading or nominal
+inference standing. The source corpus and private components remain visible independently.
 
 Exact aliases, PostgreSQL full-text ranking and exact eligible pgvector cosine are distinct channels.
 Declared RRF and target budgets preserve candidate identities and channel provenance. The current
@@ -1458,14 +1473,14 @@ support. An incorrect original definition can therefore remain an incorrect priv
 Similarity, ranking, a low score or an absent target establishes neither semantic truth nor novelty.
 Exact independent public admission remains with D5.
 
-**Configuration.** Retained source dependency method/semantic types, genuine component references,
-exact source product/projection, scope/version, declared relationship constraints and encoder/
-channel/target budgets are determinants. No manual mention/configuration bridge remains in the
-registered producer. Native completion authenticates source and target custody and replays the
-relationship contract. Source-backed target descriptors are supported through their own authenticated
-bindings. The general method catalog and M1 catalog register term projection; the general catalog also
-registers contextual retrieval. The [WCE coordinator](../plans/witnessed-corpus-enrichment_2026-11-05.md) owns selected
-corpus quality and final qualification; defaults are not activated.
+**Configuration.** Declared role/kind contracts, exact selected component/source/projection/scope,
+authored witness bindings, relationship constraints, numerical policies and encoder/channel/target
+budgets are determinants. Native completion authenticates the original source/target/score custody
+and replays the relationship contract. Current selected-demand APIs and MCP facets expose that same
+basis. Legacy catalog/configuration, integer task/source-view and report-restoration paths are removed
+with their callers. The [DDO coordinator](../plans/declared-data-operations_2026-11-12.md) owns current
+consumer/native/provider acceptance; older WCE measurements keep their original source/profile
+boundary. No default activation follows from source integration.
 
 ### M15 resolve.record_link
 

@@ -150,7 +150,8 @@ The initial supported forms must express these real consumers:
 - Two distinct passages and readings with qualified membership and complete input closure
   (`methods/structural_products.py:1280–1313`).
 - A selected retained occurrence population, with optional exact occurrence/type filters
-  (`methods/contextual_candidates.py:745–769`).
+  (current `methods/contextual_candidates.py::retained_occurrences` and the declared selection in
+  `semantic/contextual_encoder.py`; the former report/catalog selector is retired).
 
 Specialized predicates outside the normal form are named domain operations with typed inputs,
 meaning, output and failure contracts. Their products enter ordinary bindings. They cannot reach
@@ -371,6 +372,14 @@ commits product/member/family projections, authentic derivation/input/output/sup
 receipt and demand fulfillment. Product-body deduplication does not merge authentic episodes or
 make an equal untrusted support path admissible. Conflicting output for an already settled exact
 intent is a conflict; an exact replay returns its existing receipt.
+
+**Implemented source; actual concurrency qualification pending · 2026-11-16.** Lease renewal
+uses shared locks on the same canonical trust-scope closure as selected-cut reads. It still locks
+and checks the exact request/task/generation/attempt/holder/live lease before extension; it cannot
+rehabilitate a withdrawn runtime or stale owner. Withdrawal still requires exclusive scope access,
+and completion/publication retain their existing exclusive authority. The current native control
+must demonstrate renewal beside an open cut, blocked withdrawal until that cut closes, and refusal
+after actual withdrawal. The coordinator owns the failed original and pending captured successor.
 
 Final admission and `revoke_data_support` use the same scoped trust-epoch authority and lock order
 defined by DDO-04. Recheck the epoch after acquiring that authority; a version sampled before a

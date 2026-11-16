@@ -180,7 +180,7 @@ still holds the `_PHRASES` narrowing and private condition, exception, negator a
 lexicons, and still emits `linguistic.predicate_frame` (288) and `linguistic.qualifier_cue`
 (325–356). The TC implementation commit did not touch the file, and the route is live through
 `ci run parsers`. Current readers of those products are
-[contribution composition](../../python/corpus-structure/src/corpus_structure/serve/contribution_composition.py):191–253,
+[contribution composition](https://github.com/paul-heyse/corpus-structure/blob/d456231d079a588be8e11f50ad03997e9d589245/python/corpus-structure/src/corpus_structure/serve/contribution_composition.py):191–253,
 the retained declaration parser in
 [operations](https://github.com/paul-heyse/corpus-structure/blob/784771fcdf389d0fe1738afc753149f384c65bcb/python/corpus-structure/src/corpus_structure/semantic/operations.py):1422,
 source-contribution admission (`source_contributions.sql`:2285) and contextual query (TC-E10).

@@ -146,13 +146,13 @@ recovery/adoption and DDO-12 qualification remain required.
 
 ### Current consumer integration and discovered defects · 2026-11-16
 
-**Implemented; qualification in progress.** The exact current native successor
-`semantic_ddo_consumer_fixes` is registered at `ac8686197` and deployed on the owned stage
-(`e9c5e6ea56254675890cd27ee058d59c`). Separate maintenance observation confirms the same
-OID/system and revision=head. Its reviewed18 native operations restore genuine current PDF
-retention before dependent inputs and give the actual evaluator failed-attempt cleanup authority,
-with existing universe/task/output guards retained. One ordinary operation registers173 physical
-checks without changing table layout. The [native evidence owner](../design_review/evidence/2026-11-16_ddo-current-native/README.md#consumer-publication-and-evaluator-retirement-successor--2026-11-16)
+**Implemented; qualification in progress.** The owned stage retains root and seven exact
+successors through `semantic_ddo_observation_split`, with unchanged OID/system and verified head;
+the detailed lifecycle and later pending source changes are below. Earlier
+`semantic_ddo_consumer_fixes` (`ac8686197`, deployment `e9c5e6ea56254675890cd27ee058d59c`)
+restored genuine current PDF retention and evaluator failed-attempt cleanup through18 reviewed
+native operations, preserving universe/task/output guards. Its one ordinary operation registered173
+physical checks without changing layout. The [native evidence owner](../design_review/evidence/2026-11-16_ddo-current-native/README.md#consumer-publication-and-evaluator-retirement-successor--2026-11-16)
 retains the exact lifecycle and inspection boundary. Development adoption remains open.
 
 Actual six-case consumer cohort `b3d0e284fc7d487ab9c99ff9ec397f1c` **failed**: one spaCy case
@@ -301,7 +301,7 @@ atomicity/custody qualification remains required. Project initialization now con
 `originals.yaml`, eliminating retired ingest-method configuration as its source inventory. Ten focused
 current registration/retained-fact/path controls passed `b923bd023a134b63807930baac7fbeb1`.
 
-Current native lifecycle and source boundary: preview `9f433ceb08144474a95271d876e6ffe8`, exact
+Logical-family native lifecycle and source boundary: preview `9f433ceb08144474a95271d876e6ffe8`, exact
 apply `a4862a8885d246f19f0aa1e532655bf2`, rollback-only candidate
 `a48481284cc4403c8e7e74ab6df34f34`, registration `dbb88829802b46c5acb2fdd0199efdb8`
 and deployment `7b977f0adf634672afd7a1bdefeb6bbc` passed. Root and independent review covered all12
@@ -349,7 +349,34 @@ projection consumes that restored basis; detachment uses native authenticated `{
 with no live re-projection. Missing or ambiguous original basis refuses. A real withdrawal→new
 release/runtime/generation test is collected, not_run; withdrawn old cuts must still refuse.
 Active same-generation cross-release coalescing remains a separate open integration concern.
-Fresh preview/candidate, complete review and actual native execution are required before closure.
+The corrected successor is now registered at `05eb33dc0` and deployed with
+`e995cdcc0fcc495888b00dc0885ad362`: preview `ddef983963194c2b8ad521161318da01`,
+apply `b7a673c15e774210b0017472fad819c9`, candidate `9204d35f8f454aeda3bd43ba052b86f0`,
+registration `edb510e146834c77ae02a8884c082166`. Root and independent review cover all44
+native/two ordinary/zero privilege transitions, complete descriptors and414 source hashes. New
+historical/composite/logical-target helpers are publisher-only; existing ACLs are unchanged, the
+old six-argument publisher is gone, and the configured PL/pgSQL static checks/rendered admission
+passed. Separate maintenance confirms original stage OID/system at head
+`semantic_ddo_observation_split`. Actual fit/event/observation3 **failed**, managed
+`b07d0f2ef784439e89f740f177bd5b43`: observation meaning/settings/custody1 passed; event now
+passes both literal Named-component checks but refuses an exact native binding-manifest match;
+grade preparation blocks renewal at `data_trust_scope FOR UPDATE` (SQLSTATE55P03). Reporting,
+native observation and owned-host cleanup are complete. The implemented renewal-only helper takes
+shared trust locks while preserving request/task/holder/generation/lease fences and the withdrawal
+barrier; publication/admission retain their exclusive locks. An actual concurrent selected-cut,
+renewal, blocked withdrawal and post-withdrawal refusal control is collected, not_run. Binding
+rejection now reports bounded multiplicity/position/episode agreement without changing matching.
+These SQL changes and later canonical retirement require a fresh captured successor before retry.
+
+Read-only owned-host inspection found many completed calls, negligible physical/temp I/O and no
+sampled blocker; it does not establish a single long query or a Cartesian expansion. The private
+host incorrectly used default JIT on whereas `ops/postgresql/corpus.conf` disables it. The harness
+now sets `jit=off`; its26 controls passed `19a97e04e64b4a8db9f463951f3e9c67`, and environment
+doctor passed `2f263f8740454c3d82fbd2c75696cfe4`. Inner JIT causation remains unproven.
+The [read-only wire diagnostic](../design_review/evidence/2026-11-16_ddo-current-native/README.md#bounded-native-read-diagnostic--2026-11-16)
+is partial: installed input/output schemas with a controlled null instance validate in milliseconds
+on the stage. It does not qualify nonempty-page validation, native consumers or an end-to-end
+performance improvement. Corrected-profile actual retries remain required.
 
 [ADR-0119](../adr/0119-pdf-logical-meaning-and-execution-custody.md) accepts one current PDF
 logical-fold/profile correction with typed authenticated input/endpoint meaning, excluding release
@@ -383,10 +410,159 @@ at the archive-only phase. The test now enters actual admission in the same roll
 no production pattern guard changes. Whole types `133947ca049244ccb67c2b782e7757d6` originally failed
 retired callers. Fresh `2c967afef9f4437ea0b8874ec9fb2bba` narrows remaining errors to an obsolete
 Method.tier protocol (removed), authored fixture list annotations (corrected) and the old prepared
-source layout branch (assigned for target closure). Fresh integrated types remain required. ADR lint
+source layout branch (assigned for target closure). The uncalled prepared layout/compiler branch and unconstructed captured-coordinate transport
+are removed; ModelScope now accepts current semantic source members only. Whole types passed
+`69b4896701bc4e099f9891d85e5ac471` on that integrated endpoint. No compatibility facade or
+suppression is restored. ADR lint
 passed `8c66ae70ec82478da11417ddc501cd99`; this is documentation/process evidence only.
 
-Remaining execution: finish obsolete operation/publication/source-view/runtime caller closure;
+Canonical retirement is now model0.6.7, hash
+`a5aa0928c3396114e1e2c369cd1625db12cf90c20872a7dbbb4a5b1e98f94679`, committed `06c7bc8b5`.
+Typed preview `1454bcd0df8b4e999e6c32942d298536` and exact apply
+`173bc583fd9d499694112f4fa8ea7d33` passed; the reviewed patch removes declaration-only RunKind
+and RunStatus and updates generated schema identities without physical changes. Core/schema66
+`1977f6b1c455433684ec143df93b981e` had65passed and one stale version assertion; its corrected
+exact retry passed `7210aaf2972d44f082310029b2c5d99f`. This source still needs native recapture.
+
+The closed contextual report/registry/serve adapter forest is removed (`4f512a44d`), retaining all
+three query12 recipes and their independent source/empty/budget/ambiguity/version/relation criteria.
+I02 boundary: the old separate heading-report extractor and extra HanLP nominal-comparator display
+are retired; current native inference equivalence for those displays is not claimed. Current
+RegistryTarget defining-module bytes are now in the existing captured retrieval asset (`1e6eb0db9`),
+with independent mutation/custody19+1 passed. Affected current CPU recipes require reacquisition.
+The current M1 contract now explicitly selects Construction, with Sentence/Formal prerequisites,
+from the exact original/episode (`7407ca513`); qualification no longer depends on hidden primary
+layer state. Independent16 passed `a96861c5721a4d298a159db7c7c3ceea`; actual M1 remains open.
+Whole types `60c868ae8e5b4953ae0bf4df3687dd65` exposed five old frame/fixture annotations
+at the source/qualifier boundary. Subsequent current-only source closure removes those interfaces;
+whole check `24a704a061af434d8489bcb46d747bea` now exposes139 remaining caller/fixture and narrow
+current typing errors. Its full safe report remains available by managed ID; closure is incomplete,
+without unions or suppressions. The declaration restoration tail is also removed (`0b38f9c34`), preserving
+current product kernels; its current declaration15 passed `1c3e4593e0ff4e5e9956009f536f8d96`.
+
+Current original-relative source contexts, proposal frames and preparation are now canonical-only
+(`f6866bf28`): old NativeFrameSource/NativeProposalFrame/NativeSourcePin/SourceSlice, implicit
+Reader preparation and converters are removed. Callers supply invocation-owned prepared sources
+and exact declared populations. Independent context/source-preparation56 and attributed/capture12
+passed `6b266019178b40e3a03e0b26583c6c4a` / `ab4b59ebaf354d26b0e53b85dbcc38e9`;
+current native protocol98 is unchanged by that slice. Application CPU assets change and must be
+reacquired; remaining primary/formal fixture and restoration closure stays open.
+The orphan sealed primary fixture is deleted (`6dd373176`) after empty incoming census.
+Independent NCE attribution/governor, direct/shared negation and example-vs-numbered-reference
+controls now consume explicit current nominal construction products;3 passed
+`6b030e9fa5ef4aa6b2b9e10c359f462f`. Their controlled columns confer no native/provider standing.
+The old run/LayerReport projection SQL tests are replaced by actual current selected-source,
+sentence/construction/predicate list membership and clipped-role journeys; these native counterparts
+are collected, not_run pending capture. Exact source/projection and partial-role criteria remain.
+
+The current HanLP nominal producer retains raw SRL roles when a group has zero or multiple
+predicate markers, while reporting that family partial; malformed empty groups fail their family
+without discarding valid sibling heads. Independent Unicode/whitespace, constituent/raw-role and
+coverage controls plus the current pure HanLP union10 passed `34842eaec5bd4187a00dad8ef04367fa`
+(`c3b1ce79b`). Initial failures `55bfa55841df4124931f3f0f64f9fdb4` /
+`0c8ded10f1a9498ebfdda60ad12def2f` retain the missing current subject-definition fixture and
+ambiguous-predicate defect. This changes the current CPU asset; actual provider/native publication
+and complete NativeEvidenceBuilder retirement remain open.
+
+The last bounded M1 fixture package is integrated at `6bb3998f4`: current declared frames,
+raw annotations and explicit construction products replace owned Reader/source-view/consume paths
+in its maintained controls. The orphan sealed-primary fixture and old annotation-configuration getter
+are removed. Literal annotation31, constructive6, final M1/configuration8 and current fixture/batching2
+passed at their recorded scopes (`ac30d27d1e854723813d5bdddad3f440`,
+`b128982ff6124d7183f49b3bd78b0a87`, `fc2224125d0d40f9aabe93875dfb64d2`,
+`0d067489c2be4c0e9638a3243a1e6d23`); the24 M1/source-capture identities are collected
+`5b6e90fdf70649bfb5f35fb483d9426f`, provider execution not_run. Root merged-current NCE3
+passed `36710fe157be49ecb0327eb833f291cc` after literal-helper integration. Remaining primary
+restoration, NativeEvidence and scoped/predicate fixture closure is not claimed complete.
+
+Formal source closure is integrated at `d2fd1d362`, including current-only semantic member
+references (`621009da1`), removal of old formal-layer/task-view/math-scope wrappers and preservation
+of current parsing/SPPF kernels. Formal83 resolved77+5+1 through retained originals and exact retries
+(`80a24a14e34a449183c352c0c0a33a9b`, `899b3c06efe6402285c46e848e45229d`,
+`e3be11fe7efa40258e1e4efe60a00ae0`); math-scope6 passed `e74df373c9ed48d0aa4d580a4863e512`.
+Current structural18 resolved17+1 (`60d25c4344ba406597e479a2332b9bcf` /
+`300f7afbefdc41ef9efa286941dc8723`, commit `953c74453`), and dossier9 resolved2+5+2
+(`51aaf47c80c54e6a8668a1ca39d89334`, `89d03a4407f2488582b59ef51f58ef39`,
+`4e413e7ecfb94ec4ba8e29a275728194`, commit `8f93fbe71`). The genuine current dossier invariant
+now compares domain `structural_id` to the relation report ID, keeping the qualified native product
+ID distinct. Old tests had accidentally equated those identifiers. These are bounded pure controls;
+actual current producer/issuer/dossier native journeys remain required.
+
+An incomplete fixture rewrite is preserved at `88b14b190` on
+`ddo-current-source-fixtures-draft`, **not merged**. It changes navigation/scoped helper interfaces,
+M1 source-profile and literal fixture inputs, but latest caller integration is not_run. Do not merge
+it wholesale. Remaining callers include witnessed source links, joined citations, navigation,
+cross-block/scoped/inline-formula controls, artifact identity and named-link coverage; older
+ExternalSourceRef and primary/formal/native/scoped fixtures remain open. Earlier source-profile9
+`6cbebaf1ee674593a6b620d56b6c03f4` predates the unqualified helper rewrite and does not qualify
+the final draft. Its receipts are transferred/root-held/read and the clean worktree is removed;
+the Git branch preserves every draft edit for selective continuation.
+
+Complete selected-input support is integrated at `bf99b60c6`. The live wire requires the full
+canonical `support_derivation_ids` set, replacing the optional singular manifest selector. Each
+input's authentic output support is resolved through shared two-argument helpers; equal
+product/member/position siblings no longer have their episodes unioned. Native frozen-row matching
+requires exact set equality. The broader typed compiler preserves multi-episode tuples, while a
+merged set with no declared row refuses explicitly. PDF/source consumers retain strict singleton
+checks; individual physical support-ledger edges remain singular. CPU basis2 uses the same
+selected references and complete canonical role/support ordering as Python, with no numeric or
+basis-format change. Public payload-function signatures and97 relations remain unchanged.
+The prepared next request explicitly retires both old five-argument helper signatures; new private
+selection/singleton helpers and wire/source/PDF custody must be captured before use.
+
+Pure/source178 and complete-set/wire54 passed `b526c65ae9c24ff9a7a0579422edece8` /
+`4fb1afbc74f6437cac7e34cd73258aa5`. Final bare-schema CPU basis1 passed
+`a2417bb4c48b45cfbdc82be72d7f30f3`; this establishes that SQL vector only, not native admission.
+Earlier dependency-fixture and COLLATE-precedence failures remain held. Actual native42 are
+collected `45c48e2445b14a35abe4e8fe513fe8c7`, execution not_run. Genuine controls cover two
+independent same-value/member/position episodes, full CPU-basis parity, missing/unknown/sibling/
+foreign support and atomic refusals, undeclared merged sets, and real original-reference/identity
+negatives. These replace the old five fabricated SQL-excerpt cases; a mixed authored/computational
+fixture without an actual declared row confers no mixed-native equivalence claim. Whether this
+independent collision caused the actual b07 event failure remains unconfirmed until retry.
+
+**Wrap-up checks and remaining execution · 2026-11-16.** After integration and `just turn-end`,
+`ci check --only lint --json` passed `4482a1fb0dd843f2801cb7bc884a3a1c`; source-context relationship1
+passed `0af5b8a35b2442ea929b73e4a40ae6e1`, and documentation publication passed
+`c687cb174f71457296c2defe912f4ff5`. `ci check --only types --json` failed
+`ca3088c4f98c4930aef25f176d2fc12d`,136 errors/zero warnings. Remaining production errors are in
+old M1 annotation restoration, native evidence, scoped relations, construction evaluation and
+contextual reference unions; remaining test errors are the explicit current-source fixture migration
+population recorded above. No suppression or compatibility adapter is added to make the check pass.
+Full collection, final-source functional/provider/fault/nonfunctional qualification, the next native
+capture/deployment, development recovery/adoption and whole-document execution remain open.
+All agent jobs are settled. Every transferred managed result, including failed originals and
+collection-only receipts, is root-held/read; all agent worktrees are removed. The incomplete
+`ddo-current-source-fixtures-draft` branch remains preserved. No push or new native deployment
+occurred during wrap-up.
+
+The operator requested a wrap-up before further native capture/qualification. Current ready
+source packages are integrated; incomplete drafts are retained in Git when they cannot be merged
+coherently, and worktree cleanup follows receipt transfer and job settlement. Full DDO scope is
+not complete. The NativeEvidenceBuilder provider/LayerReport and contextual fixture retirement
+was investigated but its broad replacement has **not** been implemented. Its current contextual
+inventory consumer must be preserved when the remaining old provider/codec fixtures are migrated.
+No source-only checkpoint qualifies the next native successor, actual provider population,
+development adoption or full DDO-12 union.
+
+Actual six-provider shared-host control passed `533f95b5aa0e4a9eb0aec4c1d6e71de1` via
+`ci test --providers-only --workers 1 --json -- …test_actual_six_provider_host_preserves_population_streams_and_sources`,
+with explicit installed PM2 assets. All six declared providers performed real inference, checked
+native dtype/device/stream identity and source preservation, then retired the owned process group.
+This is host integration, not linguistic accuracy or whole-book qualification; remaining provider
+journeys stay required. Required pytest skips now appear with original phase/native reason in
+`ci test failures`;194 reporting controls passed `ef83d76b078848a2b21e7b39bfd2e9d9`. The previously
+hidden GLiNER opt-in reason is visible in `6af214374d354d6aab1db1a1a49bc685`; opt-in retry
+`a5bf6330d0064a1abdbba5845e45b6bb` found a legacy test pin before inference, now migrated to the
+current source fixture. Actual opt-in exact-occurrence boundary diagnostic then passed
+`729ca8b9b045427bbe89303e1c2ceebd` via `CORPUS_GLINER_DIAGNOSTIC=1 ci test --workers 1
+--json -- …test_native_boundary_diagnostic_observes_and_rescores_exact_occurrence`. It checks
+real native occurrence scoring/reuse and refusal boundaries; no DDO publication or general
+linguistic-accuracy claim follows. Earlier failed/blocked receipts remain unchanged.
+Documentation publication passed `6c5a0787fb524635b1cee84c55020033` after preserving the newly retired contribution citation at its exact last-present Git revision (original failed `25363c43bde748f38bc82ad7a76d6d91`). Earlier publication `9f899beff7fd4a2d9b42460f80dc536f` preserves retired source
+citations at exact Git revisions. Ruff passed `953f96e36818497683a7a66064b1ffdb`.
+
+Remaining execution: finish obsolete core/source-frame/contribution caller closure;
 qualify the actual artifact, event, PDF, protected record and large application routes; settle
 current typing; verify recovery and adopt the current development target; then run the complete
 DDO-12 functional/provider/fault/nonfunctional union on the final source. No package closure follows

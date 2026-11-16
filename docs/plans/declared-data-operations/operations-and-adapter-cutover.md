@@ -36,6 +36,17 @@ qualified raw canonical product, including its kind, logical/schema/recipe/healt
 different valid producing episodes may support that same value. Both actual episode/publication
 references remain retained. Equal original bytes alone never establish that correspondence.
 
+**Exact support selection · accepted target correction,2026-11-16.** Each native input manifest
+carries the complete `support_derivation_ids` set for that selected occurrence. Original/authored
+inputs carry an empty computational set. Computational inputs retain the explicit selected episodes;
+a positional match or equal product/member value cannot union sibling producers into that occurrence.
+The frozen declared binding must admit the exact set. A combined set with no corresponding declared
+candidate refuses rather than choosing its first episode or inventing an aggregation. Finite PDF/source
+consumers that require one producing episode keep an explicit exact-one check. CPU input-basis ordering
+must preserve the same selected-support tie-breaker as Python. Singular support IDs remain legitimate
+on individual physical ledger edges; the obsolete singular input-manifest selector is removed. The
+coordinator owns source integration, pending native capture and genuine episode-collision qualification.
+
 Effect/factory pairs and sealed publisher receipts authenticate real native document products.
 The shared reader admits a conservative aggregate materialization bound before whole native bodies
 or companions cross into Python; cancellation and request credit retain their existing owners.

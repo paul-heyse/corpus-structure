@@ -296,6 +296,75 @@ and candidate must capture these source/descriptor/physical changes. The earlier
 are not approved for registration, and frozen registered files are unchanged. The coordinator owns
 current acceptance; this record establishes preparation custody only.
 
+## Registered PDF split and current logical-profile successor · 2026-11-16
+
+**passed:** fresh preview `ddef983963194c2b8ad521161318da01`, exact apply
+`b7a673c15e774210b0017472fad819c9`, rollback-only candidate
+`9204d35f8f454aeda3bd43ba052b86f0`, registration `edb510e146834c77ae02a8884c082166`
+and deployment `e995cdcc0fcc495888b00dc0885ad362`. The exact four registered files are
+committed at `05eb33dc0`, revision `semantic_ddo_observation_split`, predecessor
+`semantic_ddo_logical_family`. Separate maintenance status reacquired the same stage
+OID130661481/system7701811359771751232 and revision=head. Development is unchanged.
+
+Root and independent review covered all44 native, two ordinary and zero privilege transitions,
+all414 captured source hashes, all three candidate hashes, wrapper and SQL explanation. Candidate
+hashes are `06da722062ef965944eb462de1299fb9960b8ec90a52eaa3fc3791690b8e210a`
+(native candidate), `5f0c8ee22239402054bb3f2b6d2497e94e4437f5f4522416498b8f2d32a3eaf3`
+(operations) and `142e0cbec81f766941ebba4b2c4c09db6a24bd4c0d9299a79701234441536790`
+(admission). Rollback authoring includes the configured PL/pgSQL2.10 static-SQL error checks
+and rendered admission; no separate successful-function-results ledger is claimed.
+
+The successor installs immutable producing-request reconstruction and authenticated historical
+observation receipt/value detachment, first actual runtime attribution, separate observation
+completion/ordinary selected reading, ADR-0119's v3 authenticated logical-target fold, and the
+restricted fit-reader payload envelope. The exact old six-argument publisher is retired; only its
+seven-argument runtime-required replacement is desired. Historical/composite/fold helpers are
+publisher-only, fixed-path and PUBLIC-revoked. The selected observation frontdoor is reader and
+publisher only; the actual writer transports retain their explicit writer grants. Existing function
+ACLs are unchanged. Recreated immutable trigger and validation reader match their original snapshots.
+
+Complete descriptor review found functions383→394 (excluding its own descriptor), captured
+inputs159→161, and exactly one nullable JSONB column added to `ops.pdf_product`. Physical97
+relations,107 triggers, four views,17 indexes,101 privilege policies/readers, physical check source
+`940c9bd736be942589dc680f56daf4b82a4724fa525a1be84e4c18aed5a2cc8f` and scientific layout
+remain. The new physical contract is
+`physical:26c5e15149b8974131c6896d6300db0974dc2b362c5bb71d04c18c5b3fab7dd5`;
+native digest changes21bf…→`5dfed0dc8d9d9fbcd7c79067147536e1d790c6404d3d4b09326158a9472b7357`.
+The captured PDF contract is `eeffe29411bd4b3b4580d291d8fee82af9751bf4469dfc0cb07eba72a5022ba5`.
+Actual consumer qualification and any later source-dependent successor remain separate obligations.
+No persistent application release/runtime/activation or development adoption occurred.
+
+## Bounded native read diagnostic · 2026-11-16
+
+**partial:** [finalized record](records/ddo.current-wire-validation-diagnostic.json), finalization
+`0e0ed7e803534cdbb1c1206e38f270ae`, binds the exact read-only
+[probe](wire-validation-diagnostic.py) and [results](wire-validation-diagnostic.final.json).
+The probe authenticates stage OID/system and installed registered wire body, reads no business
+rows and validates controlled null against tiny and installed input/output schemas. Samples on
+the JIT-off stage are millisecond scale; this does not establish full-page cost, SQL/JIT causation
+or an end-to-end gain. The first path-refusal output and initial successful sample are retained.
+
+Actual native3 `b07d0f2ef784439e89f740f177bd5b43` settled **failed** with complete reporting,
+native observation and cleanup: observation meaning/settings/custody1 passed; event passes both
+literal Named-component checks then refuses binding-manifest matching; grade renewal blocks at
+exclusive trust-scope locks during selected-cut preparation. Source now adds bounded mismatch
+diagnostics and renewal-only shared trust locking, with an actual concurrency control collected,
+not_run until a captured successor. No matching, revocation or holder fence is weakened.
+
+The owned private host used default JIT on while deployment disables it. Private-host construction
+now explicitly selects `jit=off`; harness26 passed `19a97e04e64b4a8db9f463951f3e9c67`, doctor
+passed `2f263f8740454c3d82fbd2c75696cfe4`. Native retries on the corrected profile are still required.
+Canonical model0.6.7 preview/apply passed `1454bcd0df8b4e999e6c32942d298536` /
+`173bc583fd9d499694112f4fa8ea7d33`; current source retirement and SQL need fresh capture.
+
+## Source-only wrap-up · 2026-11-16
+
+The prepared [next request](stable-read-renewal-successor.yaml) is not previewed, authored,
+registered or deployed. Model0.6.7, later source/fixture retirement, renewal trust locking and
+selected-input support changes require coherent recapture and actual qualification. The installed
+stage remains `semantic_ddo_observation_split`; development remains unchanged. Bounded pure
+controls and copied receipts do not establish native source correspondence.
+
 ## Acceptance still required
 
 - Preserve exact registered root custody and qualify any required native successor discovered by

@@ -1,0 +1,13 @@
+# Prepared only: no preview, candidate, registration or deployment performed.
+baseline: HEAD
+native_revision: semantic_ddo_stable_read_renewal
+native_predecessor: semantic_ddo_observation_split
+retire:
+  - kind: function
+    schema: ops
+    name: ddo_input_support_refs
+    arguments: [jsonb, text, jsonb, text, text]
+  - kind: function
+    schema: ops
+    name: ddo_input_support_episodes
+    arguments: [jsonb, text, jsonb, text, text]
