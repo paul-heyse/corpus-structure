@@ -1,7 +1,7 @@
 """Private cross-source products with original custody and explicit semantic limits.
 
 These values are reports, not admission witnesses. Their source references must be
-validated at native task completion; model validation alone grants no authority.
+validated against admitted product context; model validation alone grants no authority.
 """
 
 from __future__ import annotations
@@ -529,7 +529,7 @@ class DeclaredDossierProduct(StructuralValue):
 
     @model_validator(mode="after")
     def membership(self) -> Self:
-        return _dossier_product_invariants(self, selection_type=DeclaredDossierComparisonSelection)
+        return _dossier_product_invariants(self)
 
 
 class DeclaredConditionQualificationProduct(StructuralValue):
@@ -1062,7 +1062,7 @@ def _structural_report_invariants(value: Any) -> Any:
     if value.clause_classification is not None:
         by_id = {p.passage_id: p for p in value.inputs.passages}
         readings = value.clause_classification.readings
-        if isinstance(value.clause_classification, DeclaredClauseClassificationProduct) and any(
+        if any(
             reference.product_id not in value.inputs.dependencies
             or reference.contribution_id not in value.inputs.dependencies
             for reference in value.clause_classification.inspected_frames
@@ -1070,10 +1070,7 @@ def _structural_report_invariants(value: Any) -> Any:
             raise ValueError(
                 "clause inspection lacks its actual retained native frame dependencies"
             )
-        if (
-            not readings
-            and not isinstance(value.clause_classification, DeclaredClauseClassificationProduct)
-        ) or len({r.selection for r in readings}) != len(readings):
+        if len({r.selection for r in readings}) != len(readings):
             raise ValueError("clause classification requires distinct selected focuses")
         for row in readings:
             passage = by_id.get(row.selection.passage_id)
@@ -1114,13 +1111,7 @@ def _structural_report_invariants(value: Any) -> Any:
         for component in value.definition_components.components:
             cited.update(component.evidence)
             chain = component.declaration_chain
-            if (
-                chain is not None
-                and getattr(chain, "parser", None) is not None
-                and chain.parser.contribution_id not in value.inputs.dependencies
-            ):
-                raise ValueError("definition chain lacks its exact parser dependency")
-            if isinstance(chain, DeclaredDeclarationChainWitness) and any(
+            if chain is not None and any(
                 ref.product_id not in value.inputs.dependencies for ref in chain.primary_evidence
             ):
                 raise ValueError("definition chain lacks its exact primary product dependency")
@@ -1420,11 +1411,7 @@ def _dossier_member_invariants(value: Any) -> Any:
         raise ValueError("supported member requires its independent assessment reference")
     if value.comparison_binding is not None and (
         value.contribution_ref is not None
-        or (
-            value.comparison_binding.comparison_ref.structural_id
-            if isinstance(value.comparison_binding.comparison_ref, DeclaredStructuralRef)
-            else value.comparison_binding.comparison_ref.product_id
-        )
+        or value.comparison_binding.comparison_ref.structural_id
         != value.relation_product_id
         or value.comparison_binding.root.component_id != value.sense
         or value.comparison_binding.citation.passage_id != value.passage_id
@@ -1465,7 +1452,7 @@ def _dossier_member_invariants(value: Any) -> Any:
     return value
 
 
-def _dossier_product_invariants(value: Any, *, selection_type=DeclaredDossierComparisonSelection) -> Any:
+def _dossier_product_invariants(value: Any) -> Any:
     if value.root_component is not None and (
         value.root_id != value.root_component.component_id
         or not any(p.product_id == value.root_component.product_id for p in value.predecessors)
@@ -1475,7 +1462,7 @@ def _dossier_product_invariants(value: Any, *, selection_type=DeclaredDossierCom
     if any(
         binding.root != value.root_component
         or binding.comparison_ref not in value.predecessors
-        or selection_type(
+        or DeclaredDossierComparisonSelection(
             comparison_product_id=binding.comparison_ref.product_id,
             side=binding.side,
             relationship_ref=binding.relationship_ref,

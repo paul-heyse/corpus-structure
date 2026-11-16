@@ -13,7 +13,6 @@ from corpus_structure.semantic.constructions.declared_named import DeclaredNamed
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.structural_products import (
     StructuralPassage,
-    declared_definition_component,
 )
 
 
@@ -142,7 +141,6 @@ def test_declared_named_reader_keeps_actual_member_origin_and_original_role_algo
         term_role="defined_term",
         content_role="defining_content",
         witnesses={},
-        component_factory=declared_definition_component,
     )
     assert components[0].term.text == "variance" and components[0].content.text == "spread"
     assert components[0].basis == "unqualified" and components[0].interpretation == "unresolved"

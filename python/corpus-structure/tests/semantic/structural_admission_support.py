@@ -1,64 +1,44 @@
 """Shared controlled inputs and builders for structural admission support."""
 
-from corpus_structure.semantic.contextual_links import RetainedRelationshipDecisionRef
+from corpus_structure.semantic.declared_structural_references import DeclaredRelationshipRef
+from semantic.structural_products_support import input_from_passages, root_references
 from corpus_structure.semantic.structural_products import (
     ApplicabilityPremise,
-    DefinitionProduct,
-    ExternalSourceRef,
+    DeclaredDefinitionProduct,
     LocatedDefinitionSpan,
-    RetainedComponentRef,
-    StructuralDefinitionReading,
-    StructuralInput,
-    StructuralPassage,
-    StructuralProductReport,
-    definition_component,
+    DeclaredStructuralDefinitionReading,
+    DeclaredStructuralProductReport,
+    declared_definition_component,
 )
 
 
-def source():
-    return ExternalSourceRef(
-        project_id="source-project",
-        run_id=1,
-        cut_id=2,
-        release_id="old",
-        result_revision=4,
-        source_view_id=5,
-        native_task_id=6,
-        native_product_key="book",
-        native_content_digest="a" * 64,
-        projection_digest="b" * 64,
-        recipe_digest="c" * 64,
-        coordinate_version=3,
+def inputs():
+    return input_from_passages(
+        (
+            dict(document="admission-original", passage_id="usage", start=0, text="mean"),
+            dict(document="admission-original", passage_id="target", start=5, text="sum/count"),
+        ),
+        question="What defines this usage?",
+        scope="statistics",
     )
 
 
-def inputs():
-    ref = source()
-    return StructuralInput(
-        question="What defines this usage?",
-        scope="statistics",
-        inventory_id="frozen-targets",
-        policy_id="declared-source-1",
-        sources=(ref,),
-        passages=(
-            StructuralPassage(
-                passage_id="usage",
-                source_ref=ref.identity,
-                start=0,
-                end=4,
-                text="mean",
-                scope="statistics",
-            ),
-            StructuralPassage(
-                passage_id="target",
-                source_ref=ref.identity,
-                start=5,
-                end=14,
-                text="sum/count",
-                scope="statistics",
-            ),
-        ),
-        dependencies=("frozen-source-input", "component-product"),
+def source():
+    return inputs().sources[0]
+
+
+def component_reference():
+    return root_references(inputs())[0].model_copy(
+        update=dict(product_id="component-product", component_id=fixture_component().component_id)
+    )
+
+
+def relationship_reference():
+    root = component_reference()
+    return DeclaredRelationshipRef(
+        **{key: value for key, value in root.model_dump().items()
+           if key not in {"component_id", "structural_id"}},
+        edge_id="fixture:definition-edge",
     )
 
 
@@ -67,7 +47,7 @@ def fixture_component():
     span = LocatedDefinitionSpan(
         passage_id=passage.passage_id, start=passage.start, end=passage.end, text=passage.text
     )
-    return definition_component(
+    return declared_definition_component(
         term=span,
         content=span,
         interpretation="definition",
@@ -79,46 +59,19 @@ def fixture_component():
 
 
 def definition():
-    return StructuralProductReport(
+    return DeclaredStructuralProductReport(
         kind="definition_applicability",
         inputs=inputs(),
-        definition=DefinitionProduct(
+        definition=DeclaredDefinitionProduct(
             usage_id="usage",
             candidate_list_id="list1",
             eligible_targets=(fixture_component().component_id,),
             candidate_targets=(fixture_component().component_id,),
             readings=(
-                StructuralDefinitionReading(
+                DeclaredStructuralDefinitionReading(
                     target_id=fixture_component().component_id,
-                    component_ref=RetainedComponentRef(
-                        product_id="component-product",
-                        component_id=fixture_component().component_id,
-                        operation_id="structure.definition_components",
-                        operation_version="1",
-                        project_id="book",
-                        run_id=1,
-                        cut_id=1,
-                        release_id="r",
-                        result_revision=1,
-                        selected_task_id=1,
-                        origin_task_id=1,
-                        runtime_fingerprint="runtime",
-                        dependencies=("source",),
-                    ),
-                    link_ref=RetainedRelationshipDecisionRef(
-                        project_id="book",
-                        run_id=1,
-                        cut_id=1,
-                        release_id="r",
-                        result_revision=1,
-                        selected_task_id=2,
-                        origin_task_id=2,
-                        runtime_fingerprint="runtime",
-                        operation_key="operation",
-                        decision_id="decision",
-                        edge_id="edge",
-                        occurrence_contribution_id="occurrence",
-                    ),
+                    component_ref=component_reference(),
+                    link_ref=relationship_reference(),
                     component=fixture_component(),
                     premises=tuple(
                         ApplicabilityPremise(

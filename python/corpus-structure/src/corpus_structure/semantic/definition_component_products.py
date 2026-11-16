@@ -435,7 +435,6 @@ def project_named_definition_components(
         DeclaredStructuralInputPin,
         DefinitionStage,
         LocatedDefinitionSpan,
-        declared_definition_component,
     )
 
     def member(name):
@@ -564,7 +563,6 @@ def project_named_definition_components(
                 content_role=content_role,
                 antecedents=antecedents,
                 witnesses=witnesses,
-                component_factory=declared_definition_component,
             ),
             *components_from_following_display(
                 passage,
@@ -573,7 +571,6 @@ def project_named_definition_components(
                 scopes=scopes,
                 term_role=term_role,
                 witnesses=witnesses,
-                component_factory=declared_definition_component,
             ),
         )
         found.update((component.component_id, component) for component in components)

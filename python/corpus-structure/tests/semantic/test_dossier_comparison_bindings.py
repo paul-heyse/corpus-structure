@@ -7,6 +7,7 @@ import pytest
 from corpus_structure.methods.structural_products import derive_dossier_members
 from corpus_structure.semantic.structural_products import (
     DeclaredStructuralProductReport,
+    read_structural_product_report,
     declared_definition_component,
 )
 from semantic.dossier_comparison_bindings_support import (
@@ -104,7 +105,7 @@ def test_comparison_root_witness_cannot_bind_another_focus_in_the_same_passage()
     from corpus_structure.methods.structural_products import _comparison_member_roles
 
     value, root, root_ref, reference, payload, selected, relationships = fixture()
-    report = DeclaredStructuralProductReport.model_validate(payload["report"])
+    report = read_structural_product_report(payload["report"])
     assert report.comparison is not None
     left = next(p for p in value.passages if p.passage_id == report.comparison.left_id)
     report = report.model_copy(
@@ -135,7 +136,7 @@ def test_comparison_conflict_requires_exact_applicability_and_both_authored_read
     )
 
     value, root, root_ref, reference, payload, selected, relationships = fixture(exception=False)
-    report = DeclaredStructuralProductReport.model_validate(payload["report"])
+    report = read_structural_product_report(payload["report"])
     assert report.comparison is not None
     left, right = value.passages
     left_focus, right_focus = span(left, "Apply measure"), span(right, "Measure is a control rule")

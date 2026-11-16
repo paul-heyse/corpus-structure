@@ -11,7 +11,6 @@ from hashlib import sha256
 from itertools import pairwise
 from typing import Literal
 
-from pydantic import Field, model_validator
 
 from corpus_structure.semantic.formal_readings import (
     FormalSourceReadings,
@@ -21,31 +20,18 @@ from corpus_structure.semantic.formal_readings import (
     lexical_fact_readings,
 )
 from corpus_structure.semantic.identity import canonical_bytes
-from corpus_structure.semantic.declared_structural_references import DeclaredContributionRef
 from corpus_structure.semantic.structural_products import (
     DIMENSIONS,
     MANDATORY_ROLES,
     DeclaredClauseField,
-    DeclaredClauseFieldGroup,
-    DeclaredClauseReading,
     ComparisonLiteral,
     ComparisonMemberDecision,
-    DeclaredComparisonProduct,
     DeclaredStructuralProductReport,
     Dimension,
     DeclaredDimensionComparison,
-    DeclaredDossierComparisonBinding,
-    DeclaredDossierComparisonSelection,
-    DeclaredDossierMember,
-    DeclaredDossierProduct,
     LocatedDefinitionSpan,
     MemberRole,
-    DeclaredComponentRef,
-    DeclaredStructuralRef,
     DeclaredRevisionSuccession,
-    DeclaredStructuralInput,
-    DeclaredStructuralProductReport,
-    StructuralValue,
 )
 
 
@@ -59,7 +45,9 @@ def _located(passage, text: str, start: int) -> LocatedDefinitionSpan:
 
 
 def _declared_primary(reference):
-    from corpus_structure.semantic.structural_products import DeclaredPrimaryReference
+    from corpus_structure.semantic.structural_products import (
+        DeclaredPrimaryReference,
+    )
 
     return DeclaredPrimaryReference.model_validate(reference.values())
 
@@ -67,18 +55,9 @@ def _declared_primary(reference):
 def _formal_source(primary, source):
     if not isinstance(primary, FormalSourceReadings):
         return source
-    if _target_source(source):
-        if getattr(primary.source, "coordinate", None) != source.coordinate:
-            raise ValueError("formal reading index belongs to another original source")
-    elif primary.source != source:
+    if getattr(primary.source, "coordinate", None) != source.coordinate:
         raise ValueError("formal reading index belongs to another original source")
     return primary.source
-
-
-def _target_source(source):
-    from corpus_structure.semantic.declared_structural_references import DeclaredStructuralSource
-
-    return isinstance(source, DeclaredStructuralSource)
 
 
 def _succession(left, right, *, sources, primary_layers, primary_readings=None):
@@ -96,10 +75,10 @@ def _succession(left, right, *, sources, primary_layers, primary_readings=None):
         or not (left.end <= right.start or right.end <= left.start)
     ):
         return None
-    from corpus_structure.semantic.structural_products import DeclaredRevisionSuccession
+    from corpus_structure.semantic.structural_products import (
+        DeclaredRevisionSuccession,
+    )
 
-    target = _target_source(sources[left.source_ref])
-    succession_type = DeclaredRevisionSuccession if target else DeclaredRevisionSuccession
     lineages = {}
     for passage in (left, right):
         if (primary_readings or {}).get(passage.source_ref, primary_layers) is None:
@@ -149,7 +128,7 @@ def _succession(left, right, *, sources, primary_layers, primary_readings=None):
             ):
                 continue
             witnesses.append(
-                succession_type(
+                DeclaredRevisionSuccession(
                     older_id=older.passage_id,
                     newer_id=newer.passage_id,
                     evidence=_located(newer, fact.text, fact.start - newer.start),
@@ -158,7 +137,7 @@ def _succession(left, right, *, sources, primary_layers, primary_readings=None):
                     ),
                     primary_witnesses=(
                         *(
-                            _declared_primary(value) if target else value
+                            _declared_primary(value)
                             for value in (
                                 declaration.reference,
                                 fact.reference,
@@ -176,7 +155,9 @@ def _difference(left, right):
     """Exact difference of same-direction threshold half-lines."""
     from decimal import Decimal
 
-    from corpus_structure.semantic.structural_products import TriggerInterval
+    from corpus_structure.semantic.structural_products import (
+        TriggerInterval,
+    )
 
     a, b = Decimal(left.value), Decimal(right.value)
     if (
@@ -300,14 +281,9 @@ def compare_clauses(
     from corpus_structure.semantic.structural_products import (
         DeclaredComparisonProduct,
         DeclaredDimensionComparison,
-        DeclaredStructuralInput,
         DeclaredStructuralProductReport,
     )
 
-    target = isinstance(inputs, DeclaredStructuralInput)
-    report_type = DeclaredStructuralProductReport if target else DeclaredStructuralProductReport
-    comparison_type = DeclaredComparisonProduct if target else DeclaredComparisonProduct
-    dimension_type = DeclaredDimensionComparison if target else DeclaredDimensionComparison
     if left.passage_id == right.passage_id:
         raise ValueError("comparison requires distinct original passages")
     passages = {p.passage_id: p for p in inputs.passages}
@@ -406,7 +382,7 @@ def compare_clauses(
                 threshold_consequence = True
                 reason = "Exact threshold consequence only; other rule dimensions remain separate."
         dimensions.append(
-            dimension_type(
+            DeclaredDimensionComparison(
                 dimension=dimension,
                 outcome=lexical,
                 **({"left_group": lg, "right_group": rg} if grouped else {"left": x, "right": y}),
@@ -458,10 +434,10 @@ def compare_clauses(
             "unestablished",
             "Missing or changed applicability dimensions remain material.",
         )
-    return report_type(
+    return DeclaredStructuralProductReport(
         kind="qualified_comparison",
         inputs=inputs,
-        comparison=comparison_type(
+        comparison=DeclaredComparisonProduct(
             left_id=a.passage_id,
             right_id=b.passage_id,
             left_reading=left_reading,
@@ -480,13 +456,10 @@ def _threshold_inventory(passage, source, primary_layers):
     from corpus_structure.semantic.structural_products import (
         DeclaredClauseField,
         DeclaredTypedPremise,
-        DeclaredTypedPremise,
     )
 
     if source is None or primary_layers is None:
         return (), False
-    field_type = DeclaredClauseField if _target_source(source) else DeclaredClauseField
-    premise_type = DeclaredTypedPremise if _target_source(source) else DeclaredTypedPremise
     original = _formal_source(primary_layers, source)
     fields, complete = formal_field_readings(
         primary_layers, original, family="formal.threshold", start=passage.start, end=passage.end
@@ -495,7 +468,7 @@ def _threshold_inventory(passage, source, primary_layers):
         primary_layers, original, start=passage.start, end=passage.end
     )
     basis = bases[0] if len(bases) == 1 else None
-    results: list[DeclaredClauseField | DeclaredClauseField] = []
+    results: list[DeclaredClauseField] = []
     for field in fields:
         if passage.text[field.start - passage.start : field.end - passage.start] != field.text:
             raise ValueError("retained threshold differs from the exact selected passage")
@@ -504,11 +477,11 @@ def _threshold_inventory(passage, source, primary_layers):
             complete = False
             continue
         results.append(
-            field_type(
+            DeclaredClauseField(
                 dimension="threshold_unit",
                 lexical_value=field.text,
                 evidence=(passage.passage_id,),
-                typed=premise_type(
+                typed=DeclaredTypedPremise(
                     span=_located(passage, field.text, field.start - passage.start),
                     grammar=field.grammar,
                     state="parsed",
@@ -516,18 +489,14 @@ def _threshold_inventory(passage, source, primary_layers):
                     comparator=value["comparator"],
                     quantity=value.get("quantity"),
                     unit=value.get("unit"),
-                    primary_formal=_declared_primary(field.reference)
-                    if _target_source(source)
-                    else field.reference,
+                    primary_formal=_declared_primary(field.reference),
                     basis=None if basis is None else basis.value,
                     basis_evidence=None
                     if basis is None
                     else _located(passage, basis.text, basis.start - passage.start),
                     primary_basis=None
                     if basis is None
-                    else _declared_primary(basis.reference)
-                    if _target_source(source)
-                    else basis.reference,
+                    else _declared_primary(basis.reference),
                 ),
             )
         )
@@ -580,7 +549,7 @@ def _literal_reading(span, source, primary_layers):
     try:
         return ComparisonLiteral.model_validate(literal), _declared_primary(
             field.reference
-        ) if _target_source(source) else field.reference
+        )
     except ValueError:
         # Exact primary syntax remains available outside this bounded domain projection.
         return None, None
@@ -611,9 +580,10 @@ def comparison_host_evidence(component, frame, frame_id):
 
 
 def _group_fields(passage, members, incomplete, *, source=None, primary_layers=None):
-    from corpus_structure.semantic.structural_products import DeclaredClauseFieldGroup
+    from corpus_structure.semantic.structural_products import (
+        DeclaredClauseFieldGroup,
+    )
 
-    group_type = DeclaredClauseFieldGroup if _target_source(source) else DeclaredClauseFieldGroup
 
     def extents(member):
         if member.spans is not None:
@@ -628,16 +598,16 @@ def _group_fields(passage, members, incomplete, *, source=None, primary_layers=N
 
     ordered = tuple(sorted(members, key=order))
     if not ordered:
-        return group_type(state="unresolved" if incomplete else "absent")
+        return DeclaredClauseFieldGroup(state="unresolved" if incomplete else "absent")
     if incomplete:
-        return group_type(state="unresolved", grouping="unresolved", members=ordered)
+        return DeclaredClauseFieldGroup(state="unresolved", grouping="unresolved", members=ordered)
     if len(ordered) == 1:
-        return group_type(state="present", grouping="singleton", members=ordered)
+        return DeclaredClauseFieldGroup(state="present", grouping="singleton", members=ordered)
     connectors, facts = [], []
     for left, right in pairwise(ordered):
         left_spans, right_spans = extents(left), extents(right)
         if not left_spans or not right_spans or source is None or primary_layers is None:
-            return group_type(state="present", grouping="unresolved", members=ordered)
+            return DeclaredClauseFieldGroup(state="present", grouping="unresolved", members=ordered)
         fact = coordination_reading(
             primary_layers,
             _formal_source(primary_layers, source),
@@ -645,19 +615,19 @@ def _group_fields(passage, members, incomplete, *, source=None, primary_layers=N
             end=right_spans[0].start,
         )
         if fact is None:
-            return group_type(state="present", grouping="unresolved", members=ordered)
+            return DeclaredClauseFieldGroup(state="present", grouping="unresolved", members=ordered)
         facts.append(fact)
         connectors.append(_located(passage, fact.text, fact.start - passage.start))
     words = {fact.value for fact in facts}
     if len(words) != 1 or not words <= {"and", "or"}:
-        return group_type(state="present", grouping="unresolved", members=ordered)
-    return group_type(
+        return DeclaredClauseFieldGroup(state="present", grouping="unresolved", members=ordered)
+    return DeclaredClauseFieldGroup(
         state="present",
         grouping="conjunction" if words == {"and"} else "disjunction",
         members=ordered,
         witnesses=tuple(connectors),
         primary_witnesses=tuple(
-            _declared_primary(fact.reference) if _target_source(source) else fact.reference
+            _declared_primary(fact.reference)
             for fact in facts
         ),
     )
@@ -673,10 +643,6 @@ def read_retained_clause(
         DeclaredClauseReading,
     )
 
-    target = _target_source(source)
-    field_type = DeclaredClauseField if target else DeclaredClauseField
-    group_type = DeclaredClauseFieldGroup if target else DeclaredClauseFieldGroup
-    reading_type = DeclaredClauseReading if target else DeclaredClauseReading
     if reference.project_id != source.project_id:
         raise ValueError("reading belongs to another project")
     primary = primary_layers
@@ -692,42 +658,18 @@ def read_retained_clause(
     frame = rows[component["frame"]]
     frame_component = frame.get("component", {})
     pin = reading["pin"]
-    from corpus_structure.semantic.declared_structural_references import DeclaredStructuralSource
 
-    source_matches = (
-        source.matches_pin(pin)
-        if isinstance(source, DeclaredStructuralSource)
-        else (
-            pin.get("source_view_id") == source.source_view_id
-            and pin.get("product_digest") == source.native_content_digest
-            and pin.get("native_product_task_id") == source.native_task_id
-            and pin.get("projection_digest") == source.projection_digest
-            and pin.get("recipe_digest") == source.recipe_digest
-        )
-    )
+    source_matches = source.matches_pin(pin)
     if (
         frame_component.get("kind") != "predicate_frame"
         or frame["pin"] != pin
         or not source_matches
-        or (
-            not target
-            and any(
-                part.get("scope") != passage.passage_id
-                or part.get("effective_version") != passage.effective_version
-                for part in (component, frame_component)
-            )
-        )
-        or (
-            target
-            and (
-                component.get("scope") != frame_component.get("scope")
-                or component.get("effective_version") != frame_component.get("effective_version")
-            )
-        )
+        or component.get("scope") != frame_component.get("scope")
+        or component.get("effective_version") != frame_component.get("effective_version")
     ):
         raise ValueError("retained frame differs from exact selected passage")
 
-    members: dict[Dimension, list[DeclaredClauseField | DeclaredClauseField]] = {
+    members: dict[Dimension, list[DeclaredClauseField]] = {
         dimension: [] for dimension in DIMENSIONS
     }
     incomplete = set()
@@ -752,7 +694,7 @@ def read_retained_clause(
             _literal_reading(spans[0], source, primary) if len(spans) == 1 else (None, None)
         )
         members[dimension].append(
-            field_type(
+            DeclaredClauseField(
                 dimension=dimension,
                 lexical_value=" ".join(span.text for span in spans),
                 spans=tuple(spans),
@@ -805,7 +747,7 @@ def read_retained_clause(
     for dimension, value in context_fields:
         if value is not None:
             members[dimension].append(
-                field_type(dimension=dimension, lexical_value=value, evidence=(passage.passage_id,))
+                DeclaredClauseField(dimension=dimension, lexical_value=value, evidence=(passage.passage_id,))
             )
     # A threshold has authority only in the admitted focus or a located condition.
     controls = [
@@ -863,18 +805,18 @@ def read_retained_clause(
         )
     ):
         (fact,) = empty
-        groups["exception"] = group_type(
+        groups["exception"] = DeclaredClauseFieldGroup(
             state="empty",
             witnesses=(_located(passage, fact.text, fact.start - passage.start),),
-            primary_witnesses=(_declared_primary(fact.reference) if target else fact.reference,),
+            primary_witnesses=(_declared_primary(fact.reference),),
         )
     condition = groups["condition"]
     threshold = groups["threshold_unit"]
     if threshold.members and "unresolved" in (condition.state, condition.grouping):
-        groups["threshold_unit"] = group_type(
+        groups["threshold_unit"] = DeclaredClauseFieldGroup(
             state="unresolved", grouping="unresolved", members=threshold.members
         )
-    return reading_type(
+    return DeclaredClauseReading(
         passage_id=passage.passage_id,
         groups=groups,
         focus=located_focus,
@@ -899,7 +841,6 @@ def select_dossier(
 
     from corpus_structure.semantic.structural_products import (
         DeclaredDossierProduct,
-        DeclaredStructuralInput,
         DeclaredStructuralProductReport,
         DossierRepresentation,
     )
@@ -967,18 +908,10 @@ def select_dossier(
         "unresolved_sense",
         "open_question",
     )
-    report_type = (
-        DeclaredStructuralProductReport
-        if isinstance(inputs, DeclaredStructuralInput)
-        else DeclaredStructuralProductReport
-    )
-    dossier_type = (
-        DeclaredDossierProduct if isinstance(inputs, DeclaredStructuralInput) else DeclaredDossierProduct
-    )
-    return report_type(
+    return DeclaredStructuralProductReport(
         kind="dossier",
         inputs=inputs,
-        dossier=dossier_type(
+        dossier=DeclaredDossierProduct(
             root_id=root_id,
             root_component=root_component,
             members=ordered,
@@ -996,19 +929,15 @@ def select_dossier(
 def dossier_root(reference, retained):
     """Resolve a provisional sense against the exact selected producer result."""
     from corpus_structure.semantic.declared_structural_references import (
-        DeclaredComponentRef,
         DeclaredStructuralRef,
     )
-    from corpus_structure.semantic.structural_products import read_structural_product_report
-
-    selected_type = (
-        DeclaredStructuralRef
-        if isinstance(reference, DeclaredComponentRef)
-        else DeclaredStructuralRef
+    from corpus_structure.semantic.structural_products import (
+        read_structural_product_report,
     )
-    selected_ref = selected_type.model_validate(
+
+    selected_ref = DeclaredStructuralRef.model_validate(
         reference.model_dump(
-            exclude={"component_id", "operation_id", "operation_version", "dependencies"}
+            exclude={"component_id"}
         )
     )
     for ref, payload in retained:
@@ -1016,12 +945,8 @@ def dossier_root(reference, retained):
             continue
         report = read_structural_product_report(payload["report"])
         if (
-            report.product_id == getattr(ref, "structural_id", ref.product_id)
+            report.product_id == ref.structural_id
             and report.definition_components is not None
-            and (
-                isinstance(reference, DeclaredComponentRef)
-                or report.inputs.dependencies == reference.dependencies
-            )
         ):
             for component in report.definition_components.components:
                 if component.component_id == reference.component_id:
@@ -1055,38 +980,12 @@ def _comparison_member_roles(
             else (passages[comparison.right_id], passages[comparison.left_id])
         )
         source = sources[passage.source_ref]
-        from corpus_structure.semantic.declared_structural_references import DeclaredComponentRef
 
-        if isinstance(root_ref, DeclaredComponentRef):
-            from corpus_structure.semantic.dossier_products import declared_comparison_occurrence
+        from corpus_structure.semantic.dossier_products import declared_comparison_occurrence
 
-            relation, occurrence = declared_comparison_occurrence(
-                relationship, selection.relationship_ref, source, passage, root_ref, root
-            )
-        else:
-            decision, edge = relationship["decision"], relationship["edge"]
-            if (
-                edge["relation"] not in {"denotes", "defined-by", "specializes"}
-                or decision["scope"] != passage.scope
-                or root.scope != passage.scope
-                or not passage.effective_version
-                or decision.get("effective_version") != passage.effective_version
-                or root.effective_version != passage.effective_version
-                or relationship["source_view_id"] != source.source_view_id
-                or selection.relationship_ref.project_id != source.project_id
-                or selection.relationship_ref.release_id != source.release_id
-                or root.component_id not in edge["member_target_ids"]
-                or not any(
-                    DeclaredComponentRef.model_validate(target["reference"]) == root_ref
-                    for target in relationship["component_targets"]
-                )
-            ):
-                raise ValueError("comparison side lacks the exact scoped root relationship")
-            occurrence = tuple(
-                LocatedDefinitionSpan(passage_id=passage.passage_id, **location)
-                for location in relationship["located_occurrence"]
-            )
-            relation = edge["relation"]
+        relation, occurrence = declared_comparison_occurrence(
+            relationship, selection.relationship_ref, source, passage, root_ref, root
+        )
         if not occurrence or any(
             not passage.start <= span.start < span.end <= passage.end
             or passage.text[span.start - passage.start : span.end - passage.start] != span.text
@@ -1157,14 +1056,11 @@ def _comparison_member_roles(
                 )
             conflict = _located(proof, proof.text, 0)
         citation = _located(passage, passage.text, 0)
-        from corpus_structure.semantic.structural_products import DeclaredDossierComparisonBinding
-
-        binding_type = (
-            DeclaredDossierComparisonBinding
-            if isinstance(root_ref, DeclaredComponentRef)
-            else DeclaredDossierComparisonBinding
+        from corpus_structure.semantic.structural_products import (
+            DeclaredDossierComparisonBinding,
         )
-        binding = binding_type(
+
+        binding = DeclaredDossierComparisonBinding(
             comparison_ref=reference,
             side=side,
             relationship_ref=selection.relationship_ref,
@@ -1219,7 +1115,6 @@ def derive_dossier_members(
     from corpus_structure.semantic.structural_admission import structural_statement
     from corpus_structure.semantic.structural_products import (
         DeclaredDossierMember,
-        DeclaredStructuralInput,
         DefinitionInterpretation,
         DefinitionOutcome,
         DossierFacet,
@@ -1244,7 +1139,7 @@ def derive_dossier_members(
         ref: report for ref, _, report in parsed if report.kind == "definition_applicability"
     }
     for reference, payload, report in parsed:
-        if report.product_id != getattr(reference, "structural_id", reference.product_id):
+        if report.product_id != reference.structural_id:
             raise ValueError("retained predecessor product substituted")
         if report.product_id not in inputs.dependencies:
             raise ValueError("dossier predecessor outside declared dependencies")
@@ -1404,12 +1299,7 @@ def derive_dossier_members(
                     supported = assertion["assessment_id"]
                     assessment_scope = assertion.get("assessment_scope")
                     break
-            member_type = (
-                DeclaredDossierMember
-                if isinstance(inputs, DeclaredStructuralInput)
-                else DeclaredDossierMember
-            )
-            member = member_type(
+            member = DeclaredDossierMember(
                 member_id=key,
                 passage_id=p.passage_id,
                 citation=span,
@@ -1472,7 +1362,7 @@ def produce_structural_comparison(
     primary_readings=None,
     predicate_version="6",
     check_active=lambda: None,
-) -> DeclaredStructuralProductReport | DeclaredStructuralProductReport:
+) -> DeclaredStructuralProductReport:
     """Compose exact selected source/read inventories without acquiring a Reader."""
     passages = {passage.passage_id: passage for passage in inputs.passages}
     sources = {source.identity: source for source in inputs.sources}
@@ -1517,7 +1407,7 @@ def produce_structural_dossier(
     member_budget=12,
     policy="supported-facet-greedy-1",
     check_active=lambda: None,
-) -> DeclaredStructuralProductReport | DeclaredStructuralProductReport:
+) -> DeclaredStructuralProductReport:
     """Resolve the selected immutable predecessor closure before representation."""
     check_active()
     if dossier_root(root_component, retained) != root:
@@ -1555,121 +1445,18 @@ def produce_structural_dossier(
 
 def produce_condition_qualification(inputs, *, attachment, retained):
     """Qualify only the exact retained source-supported directed attachment."""
-    from corpus_structure.semantic.structural_products import DeclaredStructuralInput
 
-    report_type = (
-        DeclaredStructuralProductReport
-        if isinstance(inputs, DeclaredStructuralInput)
-        else DeclaredStructuralProductReport
-    )
-    return report_type(
+    return DeclaredStructuralProductReport(
         kind="condition_qualification",
         inputs=inputs,
         condition_qualification=condition_qualification(inputs, attachment, retained),
     )
 
 
-class StructuralComparisonConfig(StructuralValue):
-    inputs: DeclaredStructuralInput | None = None
-    structural_input_digest: str | None = None
-    left_id: str | None = None
-    right_id: str | None = None
-    left_reading: DeclaredContributionRef | None = None
-    right_reading: DeclaredContributionRef | None = None
-    characterization_layers: tuple[dict, ...] = ()
-
-    @model_validator(mode="after")
-    def bound_input(self):
-        if self.inputs is None:
-            if any(
-                (
-                    self.structural_input_digest,
-                    self.left_id,
-                    self.right_id,
-                    self.left_reading,
-                    self.right_reading,
-                )
-            ):
-                raise ValueError("partial comparison config")
-        elif (
-            self.structural_input_digest != self.inputs.identity
-            or not self.characterization_layers
-            or self.left_id == self.right_id
-            or not {self.left_id, self.right_id} <= {p.passage_id for p in self.inputs.passages}
-            or self.left_reading is None
-            or self.right_reading is None
-            or self.left_reading == self.right_reading
-            or not {self.left_reading.contribution_id, self.right_reading.contribution_id}
-            <= set(self.inputs.dependencies)
-        ):
-            raise ValueError("comparison requires exact inputs and two selected passages")
-        return self
 
 
-class StructuralDossierConfig(StructuralValue):
-    inputs: DeclaredStructuralInput | None = None
-    structural_input_digest: str | None = None
-    root_component: DeclaredComponentRef | None = None
-    predecessors: tuple[DeclaredStructuralRef, ...] = ()
-    contribution_predecessors: tuple[DeclaredContributionRef, ...] = ()
-    comparison_selections: tuple[DeclaredDossierComparisonSelection, ...] = Field(
-        default=(), exclude_if=lambda value: not value
-    )
-    member_budget: int = Field(default=12, gt=0, strict=True)
-    policy: Literal["supported-facet-greedy-1", "source-order-control-1"] = (
-        "supported-facet-greedy-1"
-    )
-
-    @model_validator(mode="after")
-    def bound_input(self):
-        if self.inputs is None:
-            if (
-                self.structural_input_digest
-                or self.root_component
-                or self.predecessors
-                or self.contribution_predecessors
-                or self.comparison_selections
-            ):
-                raise ValueError("partial dossier config")
-        elif (
-            self.structural_input_digest != self.inputs.identity
-            or self.root_component is None
-            or not any(p.product_id == self.root_component.product_id for p in self.predecessors)
-        ):
-            raise ValueError("dossier requires original inputs and retained predecessors")
-        if len({p.product_id for p in self.predecessors}) != len(self.predecessors):
-            raise ValueError("duplicate dossier predecessor")
-        if len({p.contribution_id for p in self.contribution_predecessors}) != len(
-            self.contribution_predecessors
-        ):
-            raise ValueError("duplicate dossier contribution predecessor")
-        if len(set(self.comparison_selections)) != len(self.comparison_selections) or any(
-            selection.comparison_product_id not in {ref.product_id for ref in self.predecessors}
-            or self.inputs is None
-            or selection.relationship_ref.edge_id not in self.inputs.dependencies
-            or (
-                selection.applicability_ref is not None
-                and selection.applicability_ref not in self.predecessors
-            )
-            for selection in self.comparison_selections
-        ):
-            raise ValueError("dossier comparison binding requires exact declared dependencies")
-        return self
 
 
-class ConditionQualificationConfig(StructuralValue):
-    inputs: DeclaredStructuralInput | None = None
-    structural_input_digest: str | None = None
-    attachment: DeclaredContributionRef | None = None
-
-    @model_validator(mode="after")
-    def selected_input(self):
-        if self.inputs is None:
-            if self.structural_input_digest is not None or self.attachment is not None:
-                raise ValueError("condition qualification requires complete source and attachment")
-        elif self.structural_input_digest != self.inputs.identity or self.attachment is None:
-            raise ValueError("condition qualification requires complete source and attachment")
-        return self
 
 
 def condition_qualification(inputs, attachment, retained):
@@ -1678,14 +1465,8 @@ def condition_qualification(inputs, attachment, retained):
     from corpus_structure.semantic.structural_products import (
         DeclaredConditionQualificationProduct,
         ConditionRoleCitation,
-        DeclaredConditionQualificationProduct,
-        DeclaredStructuralInput,
     )
 
-    target = isinstance(inputs, DeclaredStructuralInput)
-    product_type = (
-        DeclaredConditionQualificationProduct if target else DeclaredConditionQualificationProduct
-    )
     rows = {row["contribution_id"]: row for row in retained["contributions"]}
     relation = rows.get(attachment.contribution_id)
     if (
@@ -1701,7 +1482,7 @@ def condition_qualification(inputs, attachment, retained):
     )
     version = component["question_version"]
     effective = (
-        inputs.passages[0].effective_version if target else component.get("effective_version")
+        inputs.passages[0].effective_version
     )
     primary_scope = component["scope"]
     primary_version = component.get("effective_version")
@@ -1711,7 +1492,6 @@ def condition_qualification(inputs, attachment, retained):
         or component["question"] != "source_predicate_interpretation"
         or version != "6"
         or relation_kind not in {"condition", "assumption"}
-        or (not target and component["scope"] != inputs.scope)
         or tuple((e["role"], e["contribution_id"]) for e in relation["endpoints"])
         != (("qualifier", qualifier_id), ("host", host_id))
     ):
@@ -1727,8 +1507,8 @@ def condition_qualification(inputs, attachment, retained):
             or value["kind"] != kind
             or value["question"] != "source_predicate_frames"
             or value["question_version"] != version
-            or value["scope"] != (primary_scope if target else inputs.scope)
-            or value.get("effective_version") != (primary_version if target else effective)
+            or value["scope"] != (primary_scope)
+            or value.get("effective_version") != (primary_version)
             or row["contribution_id"] not in relation["members"]
         ):
             raise ValueError("condition statement differs from the retained endpoint scope")
@@ -1762,21 +1542,9 @@ def condition_qualification(inputs, attachment, retained):
         raise ValueError("condition host requires its complete declared predicate member")
 
     pin = relation["pin"]
-    from corpus_structure.semantic.declared_structural_references import DeclaredStructuralSource
 
     def selected_source(source):
-        if source.project_id != attachment.project_id:
-            return False
-        if isinstance(source, DeclaredStructuralSource):
-            return source.matches_pin(pin)
-        return (
-            source.source_view_id == pin["source_view_id"]
-            and source.native_task_id == pin["native_product_task_id"]
-            and source.native_product_key == pin["product_key"]
-            and source.native_content_digest == pin["product_digest"]
-            and source.projection_digest == pin["projection_digest"]
-            and source.recipe_digest == pin["recipe_digest"]
-        )
+        return source.project_id == attachment.project_id and source.matches_pin(pin)
 
     (source,) = (source for source in inputs.sources if selected_source(source))
     (projection,) = (row["projection"] for row in retained["sources"] if row["pin"] == pin)
@@ -1827,7 +1595,7 @@ def condition_qualification(inputs, attachment, retained):
             )
         return tuple(locations)
 
-    return product_type(
+    return DeclaredConditionQualificationProduct(
         relation=relation_kind,
         attachment=attachment,
         effective_version=effective,

@@ -7,7 +7,7 @@ import pytest
 from pydantic import ValidationError
 
 from corpus_structure.methods.dossier_contributions import derive_declared_contribution_members
-from corpus_structure.methods.structural_products import StructuralDossierConfig, select_dossier
+from corpus_structure.methods.structural_products import select_dossier
 from corpus_structure.semantic.declared_structural_references import DeclaredContributionRef
 from semantic.dossier_contributions_support import source_fixture as source_fixture
 from semantic.dossier_semantic_states_support import component_reference, components, retained
@@ -31,12 +31,6 @@ def test_source_join_enters_dossier_with_both_endpoint_citations_and_no_borrowed
     assert set(member.computation_dependencies) >= {
         r["contribution_id"] for r in payload["contributions"]
     }
-    with pytest.raises(ValidationError):
-        StructuralDossierConfig(
-            inputs=inputs,
-            structural_input_digest=inputs.identity,
-            contribution_predecessors=(ref,),
-        )
     assert member.sense == "unresolved"
     # Current dossier products require an actual selected root component; a source
     # geometry join alone cannot invent the missing root or its semantic support.

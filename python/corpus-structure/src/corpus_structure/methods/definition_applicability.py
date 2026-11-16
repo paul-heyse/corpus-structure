@@ -7,20 +7,19 @@ independent assessment or publication standing.
 
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping
+from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Any, Literal, Protocol, Self
+from typing import Any, Literal, Protocol
 
-from pydantic import Field, JsonValue, model_validator
+from pydantic import JsonValue
 
-from corpus_structure.methods.annotation_rules import AnnotationRule, AnnotationRuleMatch
+from corpus_structure.methods.annotation_rules import AnnotationRuleMatch
 from corpus_structure.methods.gliner import GlinerPack, GlinerProfile, GlinerRefused
 from corpus_structure.methods.predicate_frames import (
     FrameCue,
     PredicateFrameResult,
     interpretation_recipe,
 )
-from corpus_structure.semantic.declared_structural_references import DeclaredRelationshipRef
 from corpus_structure.semantic.structural_products import (
     ApplicabilityPremise,
     DeclaredDefinitionBasisWitness,
@@ -28,72 +27,15 @@ from corpus_structure.semantic.structural_products import (
     DefinitionRoleCandidate,
     DeclaredLocatedDefinitionComponent,
     LocatedDefinitionSpan,
-    DeclaredComponentRef,
-    DeclaredStructuralDefinitionReading,
-    DeclaredStructuralInput,
     StructuralPassage,
-    StructuralValue,
     declared_definition_component,
 )
 
 
-class DefinitionComponentsConfig(StructuralValue):
-    native_execution_profile: dict[str, Any] | None = Field(
-        default=None, exclude_if=lambda value: value is None
-    )
-    inputs: DeclaredStructuralInput | None = None
-    structural_input_digest: str | None = None
-    target_ids: tuple[str, ...] = ()
-    profile: GlinerProfile | None = None
-    term_entity: str = Field(default="defined term or expression", min_length=1)
-    content_entity: str = Field(default="defining text or formula", min_length=1)
-    attachment_relation: str = Field(default="term is defined or explained by", min_length=1)
-    threshold: float = Field(default=0.5, gt=0, lt=1)
-    description_arm: Literal["bare", "described"] = "bare"
-    evaluation_overlap: Literal["flat", "nested", "allow"] | None = None
-    term_role: str = Field(default="defined_term", min_length=1)
-    content_role: str = Field(default="defining_content", min_length=1)
-    use_named_candidates: bool = True
-    use_model: bool = True
-    annotation_rules: tuple[AnnotationRule, ...] = ()
-    characterization_layers: tuple[dict, ...] = ()
-
-    @model_validator(mode="after")
-    def bound_inputs(self) -> Self:
-        if self.inputs is None:
-            if self.target_ids or self.profile or self.structural_input_digest:
-                raise ValueError("absent definition extraction cannot carry partial inputs")
-            return self
-        if (
-            self.use_model and self.profile is None
-        ) or self.structural_input_digest != self.inputs.identity:
-            raise ValueError(
-                "definition extraction requires selected producer inputs and exact input digest"
-            )
-        if not self.use_model and (self.profile is not None or not self.use_named_candidates):
-            raise ValueError(
-                "linguistic-only extraction requires named candidates and no model profile"
-            )
-        if not self.use_model and (
-            self.description_arm != "bare" or self.evaluation_overlap is not None
-        ):
-            raise ValueError("model experiments require enabled model extraction")
-        if self.use_named_candidates and self.annotation_rules and not self.characterization_layers:
-            raise ValueError("named definition extraction requires frozen primary layers")
-        passages = {p.passage_id for p in self.inputs.passages}
-        if (
-            not self.target_ids
-            or len(set(self.target_ids)) != len(self.target_ids)
-            or not set(self.target_ids) <= passages
-        ):
-            raise ValueError("definition targets must be unique selected passages")
-        if self.term_entity == self.content_entity:
-            raise ValueError("term and defining content need distinct entity roles")
-        return self
 
 
 class LocatedDefinitionQuestion(Protocol):
-    """Finite question fields shared by captured target and sealed configurations."""
+    """Finite authored question fields used by the current located request."""
 
     @property
     def term_entity(self) -> str: ...
@@ -170,7 +112,6 @@ def decode_definition_components(
     cfg: LocatedDefinitionQuestion,
     *,
     candidate_errors: list[dict[str, JsonValue]] | None = None,
-    component_factory: Callable[..., Any] = declared_definition_component,
 ) -> tuple[DeclaredLocatedDefinitionComponent, ...]:
     """Require both independently located endpoint roles and a returned attachment.
 
@@ -228,7 +169,7 @@ def decode_definition_components(
         except ValueError as error:
             rejected("attachment", index, error)
             continue
-        component = component_factory(
+        component = declared_definition_component(
             term=term,
             content=content,
             interpretation=term_spans[term.identity][1],
@@ -471,7 +412,6 @@ def components_from_named_matches(
     content_role: str,
     antecedents: Mapping[AnnotationRuleMatch, LocatedDefinitionSpan] | None = None,
     witnesses: Mapping[AnnotationRuleMatch, DeclaredDefinitionBasisWitness] | None = None,
-    component_factory: Callable[..., Any] = declared_definition_component,
 ) -> tuple[DeclaredLocatedDefinitionComponent, ...]:
     """Consume WCE03 named role expansions; never infer a role from node order.
 
@@ -526,7 +466,7 @@ def components_from_named_matches(
             continue
         antecedent = antecedents.get(match) if antecedents is not None else None
         qualified = witnesses is None or (match in witnesses and antecedent is None)
-        component = component_factory(
+        component = declared_definition_component(
             term=selected[0],
             content=antecedent if antecedent is not None else selected[1],
             interpretation=(
@@ -563,7 +503,6 @@ def components_from_following_display(
     scopes: Mapping[AnnotationRuleMatch, DefinitionScope],
     term_role: str,
     witnesses: Mapping[AnnotationRuleMatch, DeclaredDefinitionBasisWitness] | None = None,
-    component_factory: Callable[..., Any] = declared_definition_component,
 ) -> tuple[DeclaredLocatedDefinitionComponent, ...]:
     """Join an explicit named following-content cue to its adjacent native display.
 
@@ -641,7 +580,7 @@ def components_from_following_display(
             if witness is not None and labelled and label_match is not None:
                 witness = witness.model_copy(update={"label_nodes": label_match.nodes})
             found.append(
-                component_factory(
+                declared_definition_component(
                     term=span(term_start, term_end),
                     content=span(start, end),
                     interpretation=(
@@ -706,45 +645,8 @@ def definition_windows(passage: StructuralPassage, cfg: LocatedDefinitionQuestio
     return tuple(windows)
 
 
-class ApplicabilityCandidate(StructuralValue):
-    target_id: str = Field(min_length=1)
-    reference: DeclaredComponentRef
-    link_ref: DeclaredRelationshipRef
-    component: DeclaredLocatedDefinitionComponent
-    premises: tuple[ApplicabilityPremise, ...] = Field(min_length=1)
-
-    @model_validator(mode="after")
-    def component_binding(self) -> Self:
-        if self.reference.component_id != self.component.component_id:
-            raise ValueError("applicability candidate substitutes its component")
-        return self
 
 
-class DefinitionApplicabilityConfig(StructuralValue):
-    inputs: DeclaredStructuralInput | None = None
-    structural_input_digest: str | None = None
-    usage_id: str | None = None
-    selection_refs: tuple[DeclaredRelationshipRef, ...] = ()
-    applicability_scope: Literal["contextual_usage", "defining_occurrence"] = "contextual_usage"
-
-    @model_validator(mode="after")
-    def bound_inputs(self) -> Self:
-        if self.inputs is None:
-            if self.structural_input_digest or self.usage_id or self.selection_refs:
-                raise ValueError("absent applicability cannot carry partial inputs")
-            return self
-        if (
-            self.structural_input_digest != self.inputs.identity
-            or not self.selection_refs
-            or self.usage_id not in {p.passage_id for p in self.inputs.passages}
-        ):
-            raise ValueError("applicability requires exact inputs and usage/candidate selection")
-        if (
-            self.applicability_scope == "defining_occurrence"
-            and self.inputs.policy_id != "definition-introduction-1"
-        ):
-            raise ValueError("defining-occurrence scope requires its declared introduction policy")
-        return self
 
 
 def is_defining_occurrence(inputs, usage, component, relation):
@@ -761,26 +663,6 @@ def is_defining_occurrence(inputs, usage, component, relation):
     )
 
 
-def assess_applicability(
-    inputs: DeclaredStructuralInput,
-    usage_id: str,
-    candidate: ApplicabilityCandidate,
-    *,
-    defining_occurrence: bool = False,
-) -> DeclaredStructuralDefinitionReading:
-    assessment = applicability_assessment(
-        inputs, usage_id, candidate, defining_occurrence=defining_occurrence
-    )
-    return DeclaredStructuralDefinitionReading(
-        target_id=candidate.target_id,
-        component_ref=candidate.reference,
-        link_ref=candidate.link_ref,
-        component=candidate.component,
-        outcome=assessment.outcome,
-        evidence=assessment.evidence,
-        premises=assessment.premises,
-        reason=assessment.reason,
-    )
 
 
 @dataclass(frozen=True)
@@ -794,7 +676,7 @@ class ApplicabilityAssessment:
 def applicability_assessment(
     inputs, usage_id, candidate, *, defining_occurrence=False
 ) -> ApplicabilityAssessment:
-    """Reference-neutral compatibility policy shared by current and sealed readers."""
+    """Compatibility policy for selected current component and relationship references."""
     usage = next(p for p in inputs.passages if p.passage_id == usage_id)
     component = candidate.component
     dimensions = {p.dimension for p in candidate.premises}

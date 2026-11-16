@@ -12,7 +12,6 @@ from corpus_structure.semantic.declared_structural_references import (
     DeclaredStructuralSource,
 )
 from corpus_structure.semantic.identity import canonical_bytes
-from corpus_structure.semantic.structural_products import ExternalSourceRef
 
 
 def test_qualified_product_ref_preserves_header_and_does_not_alias_domain_content_id():
@@ -49,7 +48,7 @@ def test_qualified_product_ref_preserves_header_and_does_not_alias_domain_conten
     )
 
 
-def test_declared_source_ref_has_one_exact_native_address_and_legacy_schema_is_separate():
+def test_declared_source_ref_has_one_exact_native_address():
     pin = {
         "format": "declared-native-source-v1",
         "source": '["product:source",null]',
@@ -73,62 +72,3 @@ def test_declared_source_ref_has_one_exact_native_address_and_legacy_schema_is_s
     )
     with pytest.raises(ValidationError, match="complete native address"):
         DeclaredStructuralSource.model_validate({**pin, "source_product": "different"})
-    assert set(ExternalSourceRef.model_json_schema()["properties"]) == {
-        "project_id",
-        "run_id",
-        "cut_id",
-        "release_id",
-        "result_revision",
-        "source_view_id",
-        "native_task_id",
-        "native_product_key",
-        "native_content_digest",
-        "projection_digest",
-        "recipe_digest",
-        "coordinate_version",
-    }
-
-
-def test_task_replay_source_view_preserves_original_refs_and_refuses_declared_custody():
-    from corpus_structure.semantic.structural_products import (
-        DeclaredStructuralInput,
-        legacy_structural_sources,
-    )
-    from semantic.structural_products_support import inputs
-
-    legacy = inputs()
-    selected = legacy_structural_sources(legacy)
-    assert all(
-        actual is original for actual, original in zip(selected, legacy.sources, strict=True)
-    )
-    target = DeclaredStructuralSource(
-        format="declared-native-source-v1",
-        source='["product:source",null]',
-        source_product="product:source",
-        kind_contract="kind:source",
-        subject="subject",
-        document="document",
-        projection_digest="a" * 64,
-        section_pointer="#/texts/0",
-        membership="direct",
-        project_id="p",
-        original_source="document",
-        analyzed_scope_meaning='["null"]',
-        subject_definition="original-source-view",
-    )
-    passage = legacy.passages[0].model_copy(update={"source_ref": target.identity})
-    current = DeclaredStructuralInput(
-        question=legacy.question,
-        scope=legacy.scope,
-        inventory_id=legacy.inventory_id,
-        policy_id=legacy.policy_id,
-        sources=(target,),
-        passages=(passage,),
-        dependencies=legacy.dependencies,
-    )
-    with pytest.raises(
-        ValueError, match="task-based structural replay requires original legacy source custody"
-    ):
-        legacy_structural_sources(current)
-    assert current.sources[0] is target
-    assert not hasattr(target, "native_task_id") and not hasattr(target, "source_view_id")

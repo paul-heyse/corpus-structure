@@ -98,7 +98,6 @@ def decode_definition_window(raw, window, profile, *, envelope, options=None):
         located_definition_roles,
     )
 
-    from .structural_products import declared_definition_component
 
     options = DefinitionExtractionOptions() if options is None else options
     question: Any = DefinitionQuestion(
@@ -120,7 +119,6 @@ def decode_definition_window(raw, window, profile, *, envelope, options=None):
             window,
             question,
             candidate_errors=errors,
-            component_factory=declared_definition_component,
         )
     except ValueError as error:
         components = ()

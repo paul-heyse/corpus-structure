@@ -6,9 +6,7 @@ an assessment and never elevates a producer's supplied member qualifications.
 
 from __future__ import annotations
 
-import json
 from collections.abc import Mapping
-from dataclasses import dataclass
 from hashlib import sha256
 from typing import Any
 
@@ -286,106 +284,3 @@ def structural_statement(
 
 def structural_claim_id(statement: Mapping[str, Any]) -> str:
     return "structural-claim:" + sha256(canonical_bytes(statement)).hexdigest()
-
-
-@dataclass(frozen=True)
-class StructuralAssertionRow:
-    assertion_id: str
-    claim_id: str
-    selected_task_id: int
-    origin_task_id: int
-    cut_id: int
-    product_id: str
-    product_kind: str
-    policy_id: str
-    policy_version: str
-    set_id: int
-    c_pass_id: int
-    c_content_digest: str
-    frame_digest: str
-    case_id: str
-    statement_json: str
-    sources_json: str
-
-
-def load_structural_grade_evidence(conn, job: Mapping[str, Any], cut_id: int):
-    from sqlalchemy import text
-
-    dependencies = json.loads(job["dependencies"]) if job.get("dependencies") else {}
-    if not dependencies.get("structural_admission"):
-        return ()
-    return tuple(
-        conn.execute(
-            text("SELECT data.structural_publication_candidates(:project,:release,:run,:cut)"),
-            {
-                "project": job["project_id"],
-                "release": job["release_id"],
-                "run": job["id"],
-                "cut": cut_id,
-            },
-        ).scalar_one()
-    )
-
-
-def project_structural_assertions(prepared, evidence):
-    if not evidence:
-        return ()
-    if "StructuralPublicationPolicy" not in prepared.index.definitions:
-        raise ValueError("release does not admit structural publication")
-    for row in evidence:
-        prepared.validate_json("StructuralPublicStatement", row["statement_json"])
-    return tuple(StructuralAssertionRow(**row) for row in evidence)
-
-
-def structural_assertion_facets(row: Mapping[str, Any], *, support: bool = False):
-    result = {
-        key: value for key, value in row.items() if key not in {"statement_json", "sources_json"}
-    }
-    result.update(
-        standing="admitted_structural_statement",
-        scientific_truth="not_established",
-        member_truth="not_established_by_assembly_admission",
-    )
-    if support:
-        result.update(
-            statement=json.loads(row["statement_json"]), sources=json.loads(row["sources_json"])
-        )
-    return result
-
-
-def read_structural_assertions(
-    conn,
-    *,
-    release_id: str,
-    realization_id: str,
-    product_ids: tuple[str, ...],
-    support: bool = False,
-    max_bytes: int = 1_000_000,
-):
-    """Read admitted standing from the same selected realization, never producer labels."""
-    from sqlalchemy import select
-
-    from .metadata import table
-
-    if not product_ids:
-        return ()
-    assertions = table("data.structural_assertion")
-    fields = tuple(
-        name
-        for name in StructuralAssertionRow.__dataclass_fields__
-        if support or name not in {"statement_json", "sources_json"}
-    )
-    statement = (
-        select(*(assertions.c[name] for name in fields))
-        .where(
-            assertions.c.release_id == release_id,
-            assertions.c.realization_id == realization_id,
-            assertions.c.product_id.in_(product_ids),
-        )
-        .order_by(assertions.c.assertion_id)
-    )
-    from .pdf_record_reader import PublishedReadBudget
-
-    PublishedReadBudget(10_000, max_bytes).preflight(conn, statement)
-    rows = conn.execute(statement).mappings()
-    return tuple(structural_assertion_facets(row, support=support) for row in rows)

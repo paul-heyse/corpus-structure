@@ -239,17 +239,12 @@ def test_declared_clause_focus_refuses_partial_foreign_and_ambiguous_retained_fr
         )
 
 
-def test_target_clause_inventory_keeps_unknown_frames_and_historical_empty_refusal():
+def test_target_clause_inventory_keeps_unknown_frames():
     from corpus_structure.semantic.declared_structural_references import (
         DeclaredContributionRef,
-        DeclaredStructuralSource,
     )
     from corpus_structure.semantic.structural_products import (
-        ClauseClassificationProduct,
         DeclaredClauseClassificationProduct,
-        StructuralInput,
-        StructuralPassage,
-        StructuralProductReport,
     )
 
     reference = DeclaredContributionRef(
@@ -286,40 +281,6 @@ def test_target_clause_inventory_keeps_unknown_frames_and_historical_empty_refus
     with pytest.raises(ValueError, match="inspected frame closure"):
         DeclaredClauseClassificationProduct(
             context_policy="exact_focus", readings=(), inspected_frames=(reference,)
-        )
-    source = DeclaredStructuralSource(
-        source='["product:source",null]',
-        subject="native:source",
-        document="book",
-        projection_digest="b" * 64,
-        section_pointer="#/groups/0",
-        membership="direct",
-        project_id="p",
-        original_source="book",
-        analyzed_scope_meaning="{}",
-        source_product="product:source",
-        kind_contract="kind:source",
-        subject_definition="original-source-view",
-    )
-    passage = StructuralPassage(
-        passage_id="p", source_ref=source.identity, start=0, end=1, text="x", scope="local"
-    )
-    inputs = StructuralInput(
-        question="Classify",
-        scope="local",
-        inventory_id="selected",
-        policy_id="clause",
-        sources=(source,),
-        passages=(passage,),
-        dependencies=(reference.product_id,),
-    )
-    with pytest.raises(ValueError, match="distinct selected focuses"):
-        StructuralProductReport(
-            kind="clause_classification",
-            inputs=inputs,
-            clause_classification=ClauseClassificationProduct(
-                context_policy="exact_focus", readings=()
-            ),
         )
 
 
