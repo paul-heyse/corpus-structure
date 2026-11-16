@@ -1,18 +1,14 @@
-"""Shared controlled inputs and builders for native closure support."""
+"""Actual current operation archive inputs for native closure controls."""
 
-from __future__ import annotations
-
-from corpus_structure.semantic import PreparationProfile, ResolvedDependencies, prepare_release
-from corpus_structure.semantic.composed import composed_dependencies
 from corpus_structure.semantic.releases import persist_release
-from semantic.releases_support import source_bundle
+from semantic.data_operation_kernel_support import STORAGE, prepare_kernel
 
 
 def archive(engine):
-    bundle = source_bundle()
-    dependencies = composed_dependencies(ResolvedDependencies())
-    profile = PreparationProfile(version="semantic-2")
-    prepared = prepare_release(bundle, dependencies, profile)
+    captured = prepare_kernel(STORAGE)
+    bundle, dependencies, profile, prepared = (
+        captured.bundle, captured.dependencies, captured.profile, captured.prepared
+    )
     with engine.begin() as conn:
         persist_release(conn, bundle, dependencies, profile, prepared)
     return bundle, dependencies, profile, prepared

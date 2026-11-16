@@ -13,24 +13,10 @@ from native_refusals import native_refusal
 from sqlalchemy import insert, text
 from sqlalchemy.exc import DBAPIError
 
-from corpus_structure.semantic import PreparationProfile, ResolvedDependencies, prepare_release
-from corpus_structure.semantic.composed import composed_dependencies
 from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.releases import ReleaseConflict, persist_release
 from corpus_structure.semantic.types import PreparedArtifact
 from semantic.native_closure_support import archive as archive
-
-
-def realization(engine, release):
-    key = str(uuid4())
-    with engine.begin() as conn:
-        conn.execute(insert(table("data.project")).values(project_id=key))
-        conn.execute(
-            insert(table("data.realization")).values(
-                realization_id=key, project_id=key, release_id=release
-            )
-        )
-    return key
 
 
 def test_restricted_complete_archive_replay_and_immutable_closure(
@@ -86,14 +72,12 @@ def test_restricted_activation_cas_and_deployment_record(
     commit_db_engine, commit_admitter_engine, monkeypatch
 ):
     from corpus_structure.semantic.releases import ActivationConflict, activate_release
-    from semantic.execution_release_support import bundle as _bundle
+    from semantic.data_operation_kernel_support import STORAGE, prepare_kernel
 
-    bundle, deps, profile = (
-        _bundle(),
-        composed_dependencies(ResolvedDependencies()),
-        PreparationProfile(version="semantic-2"),
+    captured = prepare_kernel(STORAGE)
+    bundle, deps, profile, prepared = (
+        captured.bundle, captured.dependencies, captured.profile, captured.prepared
     )
-    prepared = prepare_release(bundle, deps, profile)
     project = str(uuid4())
     with commit_db_engine.begin() as conn:
         conn.execute(insert(table("data.project")).values(project_id=project))
@@ -176,13 +160,12 @@ def test_restricted_activation_cas_and_deployment_record(
         admit_execution_release(prepared, connection=conn)
 
 
-def test_bulk_exact_native_codec_vectors(commit_db_engine, commit_admitter_engine):
-    from decimal import Decimal
+def test_bulk_exact_native_codec_vectors(commit_db_engine):
+    from corpus_structure.semantic.identity import canonical_bytes
+    from corpus_structure.semantic.value_codec import value_meaning
 
-    from corpus_structure.semantic.value_codec import value_meaning as meaning
-
-    *_, prepared = archive(commit_admitter_engine)
-    z = realization(commit_db_engine, prepared.release_id)
+    # The actual current semantic value boundary consumes tagged values, not
+    # mutable typed-value rows in the retired realization model.
     samples = [
         ("decimal", "1.2300", Decimal("1.23")),
         ("decimal", "-0.000", Decimal("0")),
@@ -192,52 +175,24 @@ def test_bulk_exact_native_codec_vectors(commit_db_engine, commit_admitter_engin
         ("float", (0.0).hex(), 0.0),
         ("float", (-0.0).hex(), -0.0),
         ("float", (0.1).hex(), 0.1),
-        (
-            "float",
-            float.fromhex("0x0.0000000000001p-1022").hex(),
-            float.fromhex("0x0.0000000000001p-1022"),
-        ),
+        ("float", "0x0.0000000000001p-1022", float.fromhex("0x0.0000000000001p-1022")),
     ]
     with commit_db_engine.begin() as conn:
-        rows = [
-            {
-                "realization_id": z,
-                "release_id": prepared.release_id,
-                "value_id": str(i),
-                "kind": kind,
-                "text_value": lexical if kind != "decimal" else None,
-                "decimal_lexical": lexical if kind == "decimal" else None,
-            }
-            for i, (kind, lexical, _) in enumerate(samples)
-        ]
-        conn.execute(insert(table("data.typed_value")), rows)
-        conn.execute(text("SET LOCAL ROLE corpus_sem_publisher"))
         actual = conn.execute(
-            text(
-                "SELECT value_id,data.value_meaning(release_id,realization_id,value_id) FRO"
-                "M data.typed_value ORDER BY value_id::integer"
-            )
-        ).all()
-        assert [value for _, value in actual] == [meaning(value) for _, _, value in samples]
-        assert actual[0][1] == ["decimal", "1.23"]
-        assert actual[5][1] == ["float", "0x0.0p+0"]
-        assert actual[6][1] == ["float", "-0x0.0p+0"]
+            text("SELECT data.ddo_normalize(value) FROM jsonb_array_elements(CAST(:values AS jsonb)) WITH ORDINALITY AS item(value,ordinal) ORDER BY ordinal"),
+            {"values": canonical_bytes([[kind, lexical] for kind, lexical, _ in samples]).decode()},
+        ).scalars().all()
+        assert actual == [value_meaning(value) for _, _, value in samples]
+        assert actual[0] == ["decimal", "1.23"]
+        assert actual[5] == ["float", "0x0.0p+0"]
+        assert actual[6] == ["float", "-0x0.0p+0"]
         for lexical in (
-            "NaN",
-            "Infinity",
-            "0x1.0000000000000p+1024",
-            "0x1.0p+0",
-            "-0x0.0000000000000p-1022",
+            "NaN", "Infinity", "0x1.0000000000000p+1024", "0x1.0p+0", "-0x0.0000000000000p-1022"
         ):
             with pytest.raises(DBAPIError, match="invalid finite float"), conn.begin_nested():
                 conn.execute(
-                    insert(table("data.typed_value")).values(
-                        realization_id=z,
-                        release_id=prepared.release_id,
-                        value_id="bad",
-                        kind="float",
-                        text_value=lexical,
-                    )
+                    text("SELECT data.ddo_normalize(CAST(:value AS jsonb))"),
+                    {"value": canonical_bytes(["float", lexical]).decode()},
                 )
 
 
@@ -390,12 +345,6 @@ def test_live_cross_purpose_privilege_drift_refuses(
             persist_release(admission, bundle, deps, profile, prepared)
 
 
-@pytest.fixture
-def codec_binding(commit_db_engine, commit_admitter_engine):
-    *_, prepared = archive(commit_admitter_engine)
-    return prepared.release_id, realization(commit_db_engine, prepared.release_id)
-
-
 @settings(
     max_examples=16, deadline=None, suppress_health_check=[HealthCheck.function_scoped_fixture]
 )
@@ -416,45 +365,23 @@ def codec_binding(commit_db_engine, commit_admitter_engine):
         max_size=16,
     )
 )
-def test_generated_codec_batch(commit_db_engine, codec_binding, values):
+def test_generated_codec_batch(commit_db_engine, values):
     """One native DB, rolled-back examples, and one typed batch per example."""
     from corpus_structure.semantic.value_codec import value_meaning
 
-    r, z = codec_binding
-    rows = []
-    for i, value in enumerate(values):
-        kind = (
-            "float"
-            if isinstance(value, float)
-            else "decimal"
-            if isinstance(value, Decimal)
-            else "string"
-        )
+    from corpus_structure.semantic.identity import canonical_bytes
+
+    tagged = []
+    for value in values:
+        kind = "float" if isinstance(value, float) else "decimal" if isinstance(value, Decimal) else "string"
         lexical = value.hex() if isinstance(value, float) else str(value)
-        rows.append(
-            {
-                "release_id": r,
-                "realization_id": z,
-                "value_id": str(i),
-                "kind": kind,
-                "text_value": None if kind == "decimal" else lexical,
-                "decimal_lexical": lexical if kind == "decimal" else None,
-            }
-        )
+        tagged.append([kind, lexical])
     with commit_db_engine.connect() as conn:
         try:
-            conn.execute(insert(table("data.typed_value")), rows)
-            conn.execute(text("SET LOCAL ROLE corpus_sem_publisher"))
-            actual = (
-                conn.execute(
-                    text(
-                        "SELECT data.value_meaning(release_id,realization_id,value_id) FROM"
-                        " data.typed_value ORDER BY value_id::integer"
-                    )
-                )
-                .scalars()
-                .all()
-            )
+            actual = conn.execute(
+                text("SELECT data.ddo_normalize(value) FROM jsonb_array_elements(CAST(:values AS jsonb)) WITH ORDINALITY AS item(value,ordinal) ORDER BY ordinal"),
+                {"values": canonical_bytes(tagged).decode()},
+            ).scalars().all()
             assert actual == [value_meaning(value) for value in values]
         finally:
             conn.rollback()
