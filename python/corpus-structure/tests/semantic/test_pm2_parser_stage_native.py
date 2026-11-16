@@ -1,223 +1,219 @@
-"""Preserve actual historical PM2 worklist/query custody without an execution runner."""
+"""Current PM2 intent, eligibility and producing-attempt custody."""
 
 import json
+import os
 from pathlib import Path
+from typing import cast
 
 import pytest
+from sqlalchemy import text
+from sqlalchemy.exc import DBAPIError
 
-from corpus_structure.core.method import UnitRef, UnitResult
-from corpus_structure.core.vocab import ObservationOutcome, TaskUnitType
-from corpus_structure.orchestrate.commands import finalize_bound_run
-from corpus_structure.semantic.read_snapshot import read_snapshot
-from corpus_structure.semantic.structural_sources import (
-    StructuralPassageSelection,
-    prepare_structural_sources,
+from corpus_structure.semantic._data_operation_wire import (
+    WireClaimDataRequestRequest,
+    WirePublishDataDerivationRequest,
 )
-from corpus_structure.serve.contributions import ContributionRequest, serve_contributions
-from semantic.native_record_fixtures import complete_contributions
-from semantic.native_record_fixtures import private_source as private_source
+from corpus_structure.semantic.data_operation_demands import DemandPlanner
+from corpus_structure.semantic.data_operation_service import cancel_data_demand
+from corpus_structure.semantic.data_operation_storage import DataOperationStorage
+from semantic.current_pdf_source_support import (
+    admit_current_target,
+    current_consumer_request,
+    selected_current_sources,
+)
+from semantic.current_pdf_source_support import (
+    current_pdf_source_factory as current_pdf_source_factory,
+)
+from semantic.current_pm2_native_support import (
+    execute,
+    page,
+    parser_recipe,
+    projection_recipe,
+    projection_request,
+    pure_source,
+    register,
+    reports,
+    table_source,
+)
+from semantic.current_pm2_native_support import projection_prepared as projection_prepared
 
-ROOT = Path(__file__).resolve().parents[4]
-EVIDENCE = ROOT / "docs/design_review/evidence"
+DIPO = "text.dipo/source-native"
 
 
-@pytest.fixture
-def parser_samples():
-    panel = json.loads(
-        (EVIDENCE / "2026-11-08_pm2-parsers/raw/reference-operations.json").read_bytes()
-    )["cases"]
-    return panel[0]["text"], panel[2]["text"], panel[4]["text"]
+def test_partial_original_scope_is_ineligible_for_whole_block_inspection(projection_prepared):
+    from corpus_structure.semantic.sentence_products import _blocks
+    from corpus_structure.semantic.source_products import FrozenNativeSource
+
+    source, _, _ = pure_source(projection_prepared)
+    selected = source.value
+    selected["selectors"] = [{"projection": selected["source"]["projection"], "start": 0, "end": 1}]
+    partial = FrozenNativeSource.acquire(projection_prepared.prepared, selected)
+    blocks, coverage = _blocks(partial)
+    assert not blocks
+    assert len(coverage) == 1 and coverage[0]["outcome"] == "unsupported"
+    assert coverage[0]["reason"] == "selected scope does not contain the complete original block"
+    assert (coverage[0]["start"], coverage[0]["end"]) == (0, 2)
+    # This is explicit unexamined original scope, not completed-empty inference.
+    assert not any(item["outcome"] in {"empty", "complete"} for item in coverage)
 
 
-def test_pm2_unattempted_scope_remains_visible_without_provider_or_contributions(
-    parser_source, parser_samples, tmp_path, commit_reader_engine
+def test_unrequested_parser_scope_is_not_invented_as_an_empty_product(
+    scenario_seeds, tmp_path, monkeypatch
 ):
-
-    from corpus_structure.semantic.operations import BoundReader
-
-    case = parser_source
-    with case.writer.begin() as conn:
-        complete_contributions(
-            case,
-            conn,
-            UnitResult(
-                ref=UnitRef(TaskUnitType.SOURCE_VIEW, case.view, "private-unit"),
-                outcome=ObservationOutcome.EMPTY,
-            ),
+    with table_source(scenario_seeds, tmp_path, monkeypatch) as source:
+        kernel = admit_current_target(source, projection_recipe(tmp_path), tmp_path / "consumer")
+        ((row, _),) = selected_current_sources(source)
+        demand = register(kernel, projection_request(kernel, row, mode="literal"))
+        execute(kernel, demand)
+        snapshot = page(kernel, demand)
+        requested = {item["operation"] for item in snapshot.record["intent"]["operations"]}
+        assert (
+            not {DIPO, "text.hanlp_native/source-native", "text.maverick/source-native"} & requested
         )
-    finalize_bound_run(case.writer, case.run, "pm2-coverage-origin")
-    (_source,) = prepare_structural_sources(
-        case.writer,
-        (
-            StructuralPassageSelection(
-                run_id=case.run,
-                source_view_id=case.other_view,
-                passage_id="coverage",
-                start=0,
-                end=len(parser_samples[0]),
-                scope="coverage",
-            ),
-        ),
-    ).sources
-    from types import SimpleNamespace
-
-    from corpus_structure.semantic._operation_calls import select_source_view
-    from corpus_structure.semantic._operation_ids import SourceViewId
-    from corpus_structure.semantic.operations import binding_of, create_run, start_run
-    from corpus_structure.semantic.pm2_coverage import scope_coverage
-    from semantic.witnessed_scenario_support import completed_metadata
-
-    # Explicit historical records exercise retained query/export meaning. They do
-    # not rerun eligibility, select a provider or represent current demand work.
-    intents = [
-        dict(
-            source_view_id=case.other_view,
-            extent=[0, len(parser_samples[0])],
-            question="pm2.hanlp.frames",
-            operation_version="1",
-            disposition=disposition,
-            reason=reason,
-        )
-        for disposition, reason in (
-            ("ineligible", "unsupported language: fr"),
-            ("unscheduled", "explicit authored historical scope was not scheduled"),
-        )
-    ]
-    with case.writer.begin() as conn:
-        run = create_run(
-            conn,
-            project_id=case.project_id,
-            binding=binding_of(conn, case.run),
-            kind="slice",
-            options={"pm2_scope_intents": intents},
-            code_commit="sealed-pm2-worklist-fixture",
-            prepared=case.prepared,
-        )
-        start_run(conn, run, prepared=case.prepared)
-        select_source_view(
-            conn,
-            run_id=run,
-            source_run_id=case.run,
-            source_view_id=SourceViewId(case.other_view),
-            projection_context=case.prepared,
-        )
-    finalize_bound_run(case.writer, run, "sealed-unattempted-worklist")
-    metadata, _, _ = completed_metadata(case, run)
-    with case.writer.connect() as conn:
-        coverage = scope_coverage(conn, run, intents)
-    report = SimpleNamespace(
-        run_id=run, cut_id=metadata["cut_id"], tasks=(), scope_coverage=coverage
-    )
-    assert not report.tasks
-    with read_snapshot(case.writer) as conn:
-        reader_coverage = BoundReader(
-            conn, report.run_id, case.prepared, report.cut_id
-        ).pm2_scope_coverage()
-        selection = ContributionRequest(
-            run_id=report.run_id, source_view_id=case.other_view, include_scope_coverage=True
-        )
-        inspection = serve_contributions(conn, selection)
-    assert reader_coverage == report.scope_coverage
-    assert [entry.outcome for entry in report.scope_coverage] == ["ineligible", "unscheduled"]
-    assert all(entry.emitted_count == entry.inspected_count == 0 for entry in report.scope_coverage)
-    assert inspection.inventory_counts["contributions"] == 0
-    assert [item["row"] for item in inspection.items if item["population"] == "scope_coverage"] == [
-        entry.model_dump(mode="json") for entry in report.scope_coverage
-    ]
-
-
-def test_cancelled_pm2_scope_does_not_gain_an_operation_result(parser_source):
-    from hashlib import sha256
-
-    from corpus_structure.semantic._operation_calls import select_source_view
-    from corpus_structure.semantic._operation_ids import SourceViewId
-    from corpus_structure.semantic.operations import binding_of, create_run, create_task, start_run
-    from corpus_structure.semantic.pm2_coverage import scope_coverage
-
-    case = parser_source
-    with case.writer.begin() as conn:
-        complete_contributions(
-            case,
-            conn,
-            UnitResult(
-                ref=UnitRef(TaskUnitType.SOURCE_VIEW, case.view, "private-unit"),
-                outcome=ObservationOutcome.EMPTY,
-            ),
-        )
-    finalize_bound_run(case.writer, case.run, "pm2-cancel-origin")
-    digest = sha256(b"bounded scope cancelled before inference").hexdigest()
-    intents = [
-        {
-            "source_view_id": case.other_view,
-            "extent": [0, 2],
-            "question": "pm2.hanlp.frames",
-            "operation_version": "1",
-            "disposition": "scheduled",
-            "input_digest": digest,
+        assert {item["operation_id"] for item in snapshot.record["obligations"]} == {
+            "fixture.pm2_projection"
         }
-    ]
-    with case.writer.begin() as conn:
-        run = create_run(
-            conn,
-            project_id=case.project_id,
-            binding=binding_of(conn, case.run),
-            kind="slice",
-            options={"pm2_scope_intents": intents},
-            code_commit="native-pm2-coverage-test",
-            prepared=case.prepared,
+        assert not any(
+            item["family"].startswith(("dipo", "hanlp", "maverick"))
+            for member in snapshot.members()
+            if member["member_id"] is None
+            for item in member["body"].get("coverage", ())
         )
-        start_run(conn, run, prepared=case.prepared)
-        select_source_view(
-            conn,
-            run_id=run,
-            source_run_id=case.run,
-            source_view_id=SourceViewId(case.other_view),
-            projection_context=case.prepared,
-        )
-        task = create_task(
-            conn,
-            run_id=run,
-            config_id=case.task_row["method_config_id"],
-            stage="extract",
-            unit_type="source_view",
-            unit_id=case.other_view,
-            unit_key="private-unit",
-            input_hash=digest,
-        )
-    from corpus_structure.semantic.operations import end_source_run
+        assert snapshot.record["attempt_failures"] == []
 
-    with case.writer.begin() as connection:
-        assert end_source_run(connection, run) == 1
-    with read_snapshot(case.writer) as conn:
-        coverage = scope_coverage(conn, run, intents)
-        with pytest.raises(ValueError, match="scope source view differs from its admitted task"):
-            scope_coverage(
-                conn,
-                run,
-                [
-                    {
-                        "source_view_id": case.view,
-                        "extent": [0, 2],
-                        "question": "pm2.hanlp.frames",
-                        "operation_version": "1",
-                        "disposition": "scheduled",
-                        "input_digest": digest,
-                    }
-                ],
+
+def test_cancelled_current_pm2_scope_has_no_product_or_inspected_count(
+    scenario_seeds, tmp_path, monkeypatch
+):
+    with table_source(scenario_seeds, tmp_path, monkeypatch) as source:
+        kernel = admit_current_target(source, projection_recipe(tmp_path), tmp_path / "consumer")
+        ((row, _),) = selected_current_sources(source)
+        demand = register(kernel, projection_request(kernel, row))
+        with kernel.purpose("write").begin() as connection:
+            assert (
+                cancel_data_demand(
+                    connection, demand, reason="operator cancelled before inspection"
+                )["state"]
+                == "cancelled"
             )
-    (entry,) = coverage
-    assert entry.task_id == task
-    assert entry.outcome == "cancelled"
-    assert entry.origin_task_id is entry.inspected_count is entry.emitted_count is None
+        result = execute(kernel, demand)
+        assert result.receipt_count == 0
+        snapshot = page(kernel, demand)
+        assert snapshot.record["state"] == "cancelled"
+        assert snapshot.record["uses"] and all(
+            item["fate"] == "cancelled" for item in snapshot.record["uses"]
+        )
+        assert snapshot.members() == ()
+        assert snapshot.record["attempt_failures"] == []
 
 
-@pytest.fixture
-def parser_source(parser_samples, commit_db_engine, commit_writer_engine, tmp_path):
-    from semantic.native_record_fixtures import RecordSourceRecipe, record_source_for
+@pytest.mark.gpu
+@pytest.mark.provider_evidence
+@pytest.mark.prerequisite("pm2_native_assets")
+def test_actual_dipo_reclaim_refuses_stale_holder_before_current_publication(
+    current_pdf_source_factory, tmp_path, monkeypatch
+):
+    from corpus_structure.orchestrate.data_operations import NativeDemandExecutor
 
-    return record_source_for(
-        RecordSourceRecipe(sibling_references=parser_samples),
-        commit_db_engine,
-        commit_writer_engine,
-        tmp_path,
-    )
+    passage = "The sensor records each request. It writes a receipt."
+    with current_pdf_source_factory((("text", passage, passage, None),)) as source:
+        kernel = admit_current_target(
+            source,
+            parser_recipe(Path(os.environ["CORPUS_PM2_NATIVE_TEST_ASSETS"])),
+            tmp_path / "consumer",
+        )
+        demand = register(kernel, current_consumer_request(source, kernel, (DIPO,), discover=True))
+        old = None
+        # Advance real discovery/sentence dependencies; stop before this real
+        # DiPO request is executed so its first holder can genuinely expire.
+        for _ in range(12):
+            with kernel.purpose("write").begin() as connection:
+                planner = DemandPlanner(kernel.model, DataOperationStorage(connection))
+                ready = planner.ready(planner.resume(demand), authorization=b"{}")
+                selected = next((item for item in ready if item.operation == DIPO), None)
+                if selected is not None:
+                    claimed = DataOperationStorage(connection).claim_data_request(
+                        cast(
+                            WireClaimDataRequestRequest,
+                            dict(
+                                request_id=json.loads(selected.native)["request_id"],
+                                holder="old-dipo-holder",
+                                lease_seconds=30,
+                            ),
+                        )
+                    )
+                    assert claimed["state"] == "claimed"
+                    old = {
+                        name: claimed[name]
+                        for name in ("request_id", "generation", "task_id", "attempt", "holder")
+                    }
+            if old is not None:
+                break
+            execute(kernel, demand, rounds=1)
+        assert old is not None, "current source/sentence dependencies never made DiPO ready"
+        with source.kernel.clone.admin.begin() as connection:
+            connection.exec_driver_sql("SET LOCAL ROLE corpus_sem_publisher")
+            assert (
+                connection.execute(
+                    text(
+                        "UPDATE ops.task SET lease_until=clock_timestamp()-interval '1 second' WHERE id=:task"
+                    ),
+                    {"task": old["task_id"]},
+                ).rowcount
+                == 1
+            )
+        original = NativeDemandExecutor._retain_answer
+        observed = []
+
+        def retain(executor, ready, claim, answer, port, owner, *, physical):
+            intent = original(executor, ready, claim, answer, port, owner, physical=physical)
+            if ready.operation == DIPO and claim.request_id == old["request_id"]:
+                assert claim.task_id == old["task_id"] and claim.attempt > old["attempt"]
+                # The actual provider computation and retained new intent exist.
+                # Before its publication, the stale holder has no publish effect.
+                with (
+                    kernel.purpose("write").begin() as connection,
+                    pytest.raises(DBAPIError, match="stale"),
+                    connection.begin_nested(),
+                ):
+                    DataOperationStorage(connection).publish_data_derivation(
+                        cast(WirePublishDataDerivationRequest, {**old, "intent_id": intent})
+                    )
+                observed.append((claim, intent))
+            return intent
+
+        with monkeypatch.context() as patch:
+            patch.setattr(NativeDemandExecutor, "_retain_answer", retain)
+            execute(kernel, demand)
+        assert len(observed) == 1
+        ((claim, intent),) = observed
+        with source.kernel.clone.admin.connect() as connection:
+            retained = connection.execute(
+                text(
+                    "SELECT producer_task_id,producer_attempt,payload->'execution_evidence' AS evidence FROM ops.data_completion_intent WHERE id=:intent"
+                ),
+                {"intent": intent},
+            ).one()
+        assert (
+            retained.producer_task_id == claim.task_id
+            and retained.producer_attempt == claim.attempt
+        )
+        assert retained.evidence["provider_receipts"]
+        assert all(
+            item["provider"] == "dipo"
+            for receipt in retained.evidence["provider_receipts"]
+            for item in receipt["physical"]
+        )
+        values, snapshot = reports(kernel, demand, operation=DIPO)
+        assert {item["role"] for item in values} == {"result", "candidates"}
+        assert any(item["body"]["members"] for item in values if item["role"] == "candidates")
+        uses = {
+            item["obligation_id"]
+            for item in snapshot.record["obligations"]
+            if item["operation_id"] == DIPO
+        }
+        assert all(
+            item["fate"] == "fulfilled"
+            for item in snapshot.record["uses"]
+            if item["obligation_id"] in uses
+        )

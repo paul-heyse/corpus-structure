@@ -1,737 +1,400 @@
-"""Native completion and retained read over the private PM2 source boundary."""
+"""Current PM2 decoder/native custody; controlled replies give no provider credit."""
 
 import json
 import os
-from dataclasses import replace
-from types import SimpleNamespace
-from typing import Any, cast
+from copy import deepcopy
+from pathlib import Path
 
 import pytest
-from sqlalchemy import event, select, text
 from sqlalchemy.exc import DBAPIError
 
-from corpus_structure.core.method import UnitRef, UnitResult
-from corpus_structure.core.vocab import ObservationOutcome, TaskUnitType
-from corpus_structure.methods.native_host_clients import HostedPM2
-from corpus_structure.methods.pm2_result import pm2_input_digest, pm2_unit_result
-from corpus_structure.methods.pm2_source import D1SourceField, PM2SourceMap, SourceMapSegment
-from corpus_structure.orchestrate.commands import finalize_bound_run
-from corpus_structure.semantic._operation_calls import select_source_view
-from corpus_structure.semantic.claim_lifetime import maintained_claims
-from corpus_structure.semantic.identity import canonical_bytes
-from corpus_structure.semantic.interpretation_questions import QUESTION_INPUT, declared_families
-from corpus_structure.semantic.metadata import table
+from corpus_structure.semantic.declared_candidate_products import candidate_member_values
 from corpus_structure.semantic.observations import source_python
-from corpus_structure.semantic.operations import (
-    BoundReader,
-    OperationConflict,
-    binding_of,
-    claim_tasks,
-    complete_unit_result,
-    create_run,
-    create_task,
+from semantic.current_pdf_source_support import (
+    admit_current_target,
+    current_consumer_request,
+    selected_current_sources,
 )
-from corpus_structure.semantic.pm2_coverage import scope_coverage
-from corpus_structure.semantic.prepare import prepare_release
-from corpus_structure.semantic.proposals import native_source_frame
-from corpus_structure.semantic.read_snapshot import read_snapshot
-from corpus_structure.semantic.retained_contributions import RetainedContributionRef
-from corpus_structure.semantic.source_contexts import (
-    NativeSourceContext,
-    SourceSlice,
-    record_source_pin,
+from semantic.current_pdf_source_support import (
+    current_pdf_source_factory as current_pdf_source_factory,
 )
-from corpus_structure.semantic.types import SourceArtifact
-from corpus_structure.serve.contributions import ContributionRequest, serve_contributions
-from corpus_structure.settings import Settings
-from semantic.native_provider_support import actual_provider
-from semantic.native_record_fixtures import (
-    RecordSourceRecipe,
-    build_record_source,
-    complete_contributions,
-    prepare_record_source,
+from semantic.current_pm2_native_support import (
+    execute,
+    parser_recipe,
+    projection_recipe,
+    projection_request,
+    provider_recipe,
+    pure_source,
+    register,
+    reports,
+    table_source,
 )
-from semantic.native_record_fixtures import private_source as private_source
-from semantic.native_record_fixtures import (
-    private_source_with_originals as private_source_with_originals,
-)
-from semantic.retained_pm2_fixture import retain_pm2_fixture, retained_interpretation_dependencies
-
-SOURCE_PATH = "/source"
+from semantic.current_pm2_native_support import projection_prepared as projection_prepared
+from semantic.current_pm2_projection_fixture import project
+from semantic.data_operation_kernel_support import prepare_kernel
 
 
-def _claim(case, digest, *, view_id=None, unit_key="private-unit"):
-    with case.writer.begin() as conn:
-        config = case.task_row["method_config_id"]
-        task = create_task(
-            conn,
-            run_id=case.run,
-            config_id=config,
-            stage="record",
-            unit_type="source_view",
-            unit_id=case.view if view_id is None else view_id,
-            unit_key=unit_key,
-            input_hash=digest,
-        )
-        (held,) = claim_tasks(conn, run_id=case.run, config_id=config, holder="records")
-    assert held.task_id == task
-    return held
-
-
-@pytest.fixture
-def literal_question_source(commit_db_engine, commit_writer_engine, tmp_path):
-    declaration = {
-        "family": "literal_completion_v1",
-        "questions": [
-            {"key": "missing", "kind": "text", "instructions": "Copy the document's color."},
-            {"key": "value", "kind": "number", "instructions": "Copy the numeral."},
-        ],
-    }
-    base = prepare_record_source()
-    artifact = SourceArtifact(QUESTION_INPUT, canonical_bytes([declaration]))
-    dependencies = replace(base.dependencies, artifacts=(*base.dependencies.artifacts, artifact))
-    preparation = replace(
-        base,
-        dependencies=dependencies,
-        prepared=prepare_release(base.bundle, dependencies, base.profile),
-    )
-    return build_record_source(commit_db_engine, commit_writer_engine, tmp_path, preparation)
-
-
-def test_completed_empty_d1_keeps_native_empty_and_publishes_unresolved_question(
-    literal_question_source,
+def test_current_decoder_keeps_empty_raw_answer_and_unresolved_question_distinct(
+    projection_prepared,
 ):
-    case = literal_question_source
-    family = declared_families(case.prepared.registry_rows)["literal_completion_v1"]
-    with case.writer.connect() as conn:
-        view = BoundReader(conn, case.run, case.prepared, analysis=False).source_view(case.view)
-    source = replace(native_source_frame(view, ()), unit_ref="private-unit")
-    cell = next(piece for piece in view.pieces if piece.get("cell_index") == 0)
-    context = NativeSourceContext(
-        source,
-        (),
-        (SourceSlice(case.view, cell["start"], cell["end"]),),
-        "exact read",
-        "native-test",
-        "independently specified first cell",
+    assert all(item.complete for item in projection_prepared.model.implementation_slices)
+    value, frame, context = pure_source(projection_prepared)
+    outputs = [
+        project(
+            projection_prepared.prepared,
+            projection_prepared.model,
+            value.value,
+            frame.pin.values(),
+            context,
+            mode,
+        )
+        for mode in ("empty", "mixed")
+    ]
+    for report, count in zip(outputs, (1, 3), strict=True):
+        rows = candidate_member_values(report, candidate_type="contribution")
+        assert len(rows) == count
+        missing = next(row for row in rows if row["item_key"] == "interpretation:missing")
+        assert source_python(missing["value"])["state"] == "unresolved"
+        assert not missing["anchors"] and not missing.get("occurrence_id")
+    assert json.loads(outputs[0]["diagnostics_json"])["native_reply"]["outcome"] == "empty"
+    assert outputs[0]["inspection_outcome"] == "produced"
+    occurrence = next(
+        row
+        for row in candidate_member_values(outputs[1], candidate_type="contribution")
+        if row["kind"] == "occurrence"
     )
-    mapping = PM2SourceMap(context, context.text, (SourceMapSegment(0, 2, 0),), ())
-    assert context.text == "12"
-    pin = record_source_pin(source)
-    rendered = '{"source":"12"}'
-    field = D1SourceField(rendered, SOURCE_PATH, 11, 13)
-    ref = UnitRef(TaskUnitType.SOURCE_VIEW, case.view, "private-unit")
-    profile = {"provider": "d1", "checkpoint": "controlled-test"}
-    options = {
-        "question": family.family,
-        "operation_version": "3",
-        "source_path": SOURCE_PATH,
-    }
-    with case.writer.begin() as conn:
-        complete_contributions(case, conn, UnitResult(ref=ref, outcome=ObservationOutcome.EMPTY))
+    assert [(a["start"], a["end"], a["source_piece"]) for a in occurrence["anchors"]] == [
+        (0, 2, "12")
+    ]
 
-    def request_for(*keys):
-        return {
-            "state": {"source": "12"},
-            "questions": {q.key: q.native([]) for q in family.questions if q.key in keys},
-            "interpretation": {
-                "version": "3",
-                "declaration_digest": family.digest,
-                "assessed_scope": {
-                    "pin": pin,
-                    "scope_digest": mapping.scope_digest,
-                    "projection_extent": [cell["start"], cell["end"]],
-                },
-                "candidates": [],
-            },
-        }
 
-    empty_request = request_for("missing")
-    mixed_request = request_for("missing", "value")
-    absent = {"type": "text", "found": 0.2, "span": None, "text": None}
-    located = {
-        "type": "number",
-        "found": 0.98,
-        "span": [11, 13],
-        "text": "12",
-        "number": 12,
-        "path": SOURCE_PATH,
-    }
-    empty_reply = {
-        "outcome": "empty",
-        "rendered_state": rendered,
-        "state_fields": [[11, 13, SOURCE_PATH]],
-        "native": {"answers": {"missing": absent}},
-    }
-    mixed_reply = {
-        "outcome": "succeeded",
-        "rendered_state": rendered,
-        "state_fields": [[11, 13, SOURCE_PATH]],
-        "native": {"answers": {"missing": absent, "value": located}},
-    }
+def test_current_field_inversion_refuses_wrong_field_and_preserves_ordered_input_identity(
+    projection_prepared,
+):
+    from corpus_structure.methods.pm2_result import d1_evidence, pm2_input_digest
+    from corpus_structure.methods.pm2_source import D1SourceField, MappedSource
+    from corpus_structure.semantic.model_characterization import prepare_model_scope
 
-    def project(request, reply, *, version="3"):
-        selected = options | {"operation_version": version}
-        digest = pm2_input_digest(mapping, profile, request, **selected)
-        return digest, pm2_unit_result(
-            ref,
-            mapping,
-            profile=profile,
-            request=request,
-            reply=reply,
+    _, frame, _ = pure_source(projection_prepared)
+    scope = prepare_model_scope(frame, (0, 2), (0, 2))
+    request = dict(state=dict(source="12"), questions={"second": {}, "first": {}})
+    reply = dict(
+        outcome="succeeded",
+        rendered_state='{"source":"12"}',
+        native=dict(answers={"value": dict(span=[11, 13], text="12", path="/source")}),
+    )
+    field = D1SourceField(reply["rendered_state"], "/source", 11, 13)
+    located = d1_evidence(scope.mapping, reply, field=field, source_path="/source", native=True)
+    assert isinstance(located["value"], MappedSource)
+    assert located["value"].anchors[0]["source_piece"] == "12"
+    with pytest.raises(ValueError, match="authorized source path"):
+        d1_evidence(scope.mapping, reply, field=field, source_path="/candidate", native=True)
+    with pytest.raises(ValueError, match="rendered state"):
+        d1_evidence(
+            scope.mapping,
+            {**reply, "rendered_state": '{"source":"21"}'},
             field=field,
-            input_digest=digest,
-            prepared=case.prepared,
-            **selected,
+            source_path="/source",
+            native=True,
         )
-
-    for corrupted, expected in (
-        (empty_reply | {"rendered_state": '{"source":"21"}'}, "admitted request"),
-        (empty_reply | {"native": {"answers": {"wrong": absent}}}, "question population"),
-        (empty_reply | {"native": {"answers": {"missing": located}}}, "absent span"),
-    ):
-        with pytest.raises(ValueError, match=expected):
-            project(empty_request, corrupted)
-    _, legacy = project(
-        empty_request | {"interpretation": empty_request["interpretation"] | {"version": "2"}},
-        empty_reply,
-        version="2",
+    dimensions = dict(question="locate_literal", operation_version="3", source_path="/source")
+    digest = pm2_input_digest(scope.mapping, {"provider": "controlled"}, request, **dimensions)
+    changed = deepcopy(request)
+    changed["questions"] = dict(reversed(tuple(request["questions"].items())))
+    assert digest != pm2_input_digest(
+        scope.mapping, {"provider": "controlled"}, changed, **dimensions
     )
-    assert legacy.contribution_operations
-    assert legacy.contribution_operations[0]["outcome"] == "empty"
-    assert not legacy.contributions
-    _, limited = project(empty_request, {"outcome": "limited", "reason": "question_count"})
-    assert limited.contribution_operations
-    assert limited.contribution_operations[0]["outcome"] == "limited"
-    assert not limited.contributions
+    assert digest != pm2_input_digest(
+        scope.mapping,
+        {"provider": "controlled"},
+        request,
+        **(dimensions | {"source_path": "/candidate"}),
+    )
 
-    intents = []
-    for request, reply in ((empty_request, empty_reply), (mixed_request, mixed_reply)):
-        digest = pm2_input_digest(mapping, profile, request, **options)
-        held = _claim(case, digest)
-        with maintained_claims(case.writer, (held,), held.holder) as owner:
-            retain_pm2_fixture(
-                owner,
-                held,
-                cast(HostedPM2, SimpleNamespace(startup={**profile, "host_stream": 901})),
-                mapping,
-                request,
-                expected_profile=profile,
-                prepared=case.prepared,
-                method=case.method,
-                configuration_hash="private-config",
-                prefetched_reply=reply,
-                **options,
+
+def test_current_original_projection_cannot_mint_native_occurrence(projection_prepared):
+    value, frame, context = pure_source(projection_prepared, "x + y", native_text="x+y")
+    report = project(
+        projection_prepared.prepared,
+        projection_prepared.model,
+        value.value,
+        frame.pin.values(),
+        context,
+        "literal",
+    )
+    rows = candidate_member_values(report, candidate_type="contribution")
+    assert not any(row["kind"] == "occurrence" or row.get("occurrence_id") for row in rows)
+    assert source_python(rows[0]["value"])["state"] == "unsupported"
+    assert (
+        json.loads(report["diagnostics_json"])["native_reply"]["native"]["answers"]["value"]["text"]
+        == "x + y"
+    )
+
+
+def test_literal_provider_recipe_has_checked_profile_without_claiming_execution(tmp_path):
+    from corpus_structure.methods.native_profiles import pm2_selection
+
+    directory = tmp_path / "provider-prepared"
+    directory.mkdir()
+    # Declared fixture metadata only; no provider process or native publication.
+    selected = pm2_selection("d1", tmp_path, {"controlled": "runtime"}, {})
+    prepared = prepare_kernel(provider_recipe(tmp_path, selected), directory=directory)
+    operation = prepared.model.operation("fixture.pm2_literal_provider")
+    assert operation.subject == "original-source-view"
+    assert operation.replicate_policy == "retained-observation-single-result"
+    assert all(item.complete for item in prepared.model.implementation_slices)
+    assert (
+        "fixture.pm2_literal_provider" in json.loads(prepared.runtime.manifest)["provider_profiles"]
+    )
+
+
+def test_controlled_cell_mapping_and_unresolved_question_survive_current_native_read(
+    scenario_seeds, tmp_path, monkeypatch
+):
+    from corpus_structure.semantic.data_operation_service import read_data_demand
+
+    with table_source(scenario_seeds, tmp_path, monkeypatch) as source:
+        kernel = admit_current_target(source, projection_recipe(tmp_path), tmp_path / "consumer")
+        ((row, original),) = selected_current_sources(source)
+        cell = next(piece for piece in original["pieces"] if piece.get("cell_index") == 0)
+        assert original["text"][cell["start"] : cell["end"]] == "12"
+        for mode in ("empty", "mixed"):
+            demand = register(kernel, projection_request(kernel, row, mode=mode))
+            assert execute(kernel, demand).receipt_count == 1
+            (product,), selected = reports(kernel, demand)
+            report = product["body"]
+            missing = next(
+                item
+                for item in candidate_member_values(report, candidate_type="contribution")
+                if item["item_key"] == "interpretation:missing"
             )
-        intents.append(
-            dict(
-                source_view_id=case.view,
-                extent=(cell["start"], cell["end"]),
-                question=family.family,
-                operation_version="3",
-                disposition="scheduled",
-                input_digest=digest,
+            assert source_python(missing["value"])["state"] == "unresolved"
+            assert not missing["anchors"] and not missing.get("occurrence_id")
+            assert json.loads(report["diagnostics_json"])["native_reply"]["outcome"] == (
+                "empty" if mode == "empty" else "succeeded"
             )
+        rows = candidate_member_values(product["body"], candidate_type="contribution")
+        assert len(rows) == 3
+        (anchor,) = next(item for item in rows if item["kind"] == "occurrence")["anchors"]
+        assert (
+            anchor["space"],
+            anchor["pointer"],
+            anchor["start"],
+            anchor["end"],
+            anchor["source_piece"],
+        ) == ("native", cell["item_ref"] + "/data/table_cells/0", 0, 2, "12")
+        assert (
+            json.loads(product["body"]["diagnostics_json"])["locations"]["value"][
+                "selected_projection"
+            ][0]["source_piece"]
+            == "12"
         )
-    finalize_bound_run(case.writer, case.run, "pm2-empty-question-read")
-    with read_snapshot(case.writer) as conn:
-        coverage = scope_coverage(conn, case.run, intents)
-        page = serve_contributions(
-            conn,
-            ContributionRequest(
-                run_id=case.run,
-                source_view_id=case.view,
-                include_details=True,
-                include_interpretation=True,
-            ),
+        assert execute(kernel, demand).receipt_count == 0
+        (resumed,), _ = reports(kernel, demand)
+        assert resumed["product_id"] == product["product_id"]
+        with (
+            kernel.purpose("read").begin() as connection,
+            pytest.raises(DBAPIError, match="pins or current trust"),
+            connection.begin_nested(),
+        ):
+            read_data_demand(
+                connection,
+                demand,
+                continuation=dict(
+                    demand_id=demand,
+                    read_id=selected.cut.record["read_id"],
+                    read_snapshot="0:0:",
+                    view="products",
+                ),
+            )
+
+
+def test_original_spelling_remains_inspectable_without_current_native_occurrence(
+    current_pdf_source_factory, tmp_path
+):
+    with current_pdf_source_factory((("text", "x+y", "x + y", None),)) as source:
+        kernel = admit_current_target(source, projection_recipe(tmp_path), tmp_path / "consumer")
+        ((row, original),) = selected_current_sources(source)
+        assert original["text"] == "x + y"
+        demand = register(kernel, projection_request(kernel, row, mode="literal"))
+        execute(kernel, demand)
+        (product,), _ = reports(kernel, demand)
+        rows = candidate_member_values(product["body"], candidate_type="contribution")
+        assert not any(item["kind"] == "occurrence" or item.get("occurrence_id") for item in rows)
+        assert (
+            json.loads(product["body"]["diagnostics_json"])["native_reply"]["native"]["answers"][
+                "value"
+            ]["text"]
+            == "x + y"
         )
-    assert [(row.outcome, row.provider_outcome, row.emitted_count) for row in coverage] == [
-        ("succeeded", "empty", 1),
-        ("succeeded", "succeeded", 3),
-    ]
-    rows = [
-        cast(dict[str, Any], item["row"])
-        for item in page.items
-        if item["population"] == "contribution"
-    ]
-    unresolved = [row for row in rows if row["item_key"] == "interpretation:missing"]
-    assert len(unresolved) == 2
-    assert all(not row["anchors"] and not row.get("occurrence_id") for row in unresolved)
-    values = [source_python(row["value"]) for row in unresolved]
-    assert values[0] == values[1]
-    assert values[0]["state"] == "unresolved"
-    assert values[0]["native_answer"] == absent
-    interpretations = [
-        cast(dict[str, Any], item["row"])
-        for item in page.items
-        if item["population"] == "interpretation"
-    ]
-    facets = [
-        row["composition"]
-        for row in interpretations
-        if row["semantic_type"] == f"interpretation.{family.family}"
-    ]
-    assert len(facets) == 3
-    assert sum(facet["interpretation_state"] == "unresolved" for facet in facets) == 2
 
 
-@pytest.mark.parametrize(
-    "private_source",
-    [
-        RecordSourceRecipe(
-            sibling_references=("The sensor records each request. It writes a receipt.",)
-        )
-    ],
-    indirect=True,
-)
-def test_controlled_mapped_answer_and_limited_operation_survive_a_retained_read(private_source):
-    """Controlled retained mapping and custody; provider reassignment has separate evidence."""
-    _mapped_answer_and_limited_operation(private_source)
-
-
+@pytest.mark.gpu
 @pytest.mark.provider_evidence
 @pytest.mark.prerequisite("pm2_native_assets")
-@pytest.mark.parametrize(
-    "private_source",
-    [
-        RecordSourceRecipe(
-            sibling_references=("The sensor records each request. It writes a receipt.",)
-        )
-    ],
-    indirect=True,
-)
-def test_provider_mapped_answer_and_limited_operation_survive_a_retained_read(
-    private_source, tmp_path, record_source_admin
-):
-    """Actual D1/DIPO workers establish settlement, lease reassignment and retained reads."""
-    _mapped_answer_and_limited_operation(
-        private_source,
-        provider_assets=os.environ["CORPUS_PM2_NATIVE_TEST_ASSETS"],
-        tmp_path=tmp_path,
-        admin=record_source_admin,
-    )
+def test_actual_seventeen_question_refusal_stays_at_provider_boundary():
+    from corpus_structure.settings import Settings
+    from semantic.native_provider_support import actual_provider
 
-
-def _mapped_answer_and_limited_operation(case, *, provider_assets=None, tmp_path=None, admin=None):
-    with case.writer.connect() as conn:
-        view = BoundReader(conn, case.run, case.prepared, analysis=False).source_view(case.view)
-    source = native_source_frame(view, ())
-    cell = next(piece for piece in view.pieces if piece.get("cell_index") == 0)
-    context = NativeSourceContext(
-        source,
-        (),
-        (SourceSlice(case.view, cell["start"], cell["end"]),),
-        "exact read",
-        "native-test",
-        "independently specified first cell",
-    )
-    assert context.text == "12"
-    mapping = PM2SourceMap(context, context.text, (SourceMapSegment(0, 2, 0),), ())
-    request = {
-        "state": {"source": "12"},
-        "questions": {"value": {"type": "text", "instructions": "Copy the numeral as written."}},
-    }
-    ref = UnitRef(TaskUnitType.SOURCE_VIEW, case.view, source.unit_ref)
-    with case.writer.begin() as conn:
-        complete_contributions(
-            case,
-            conn,
-            UnitResult(
-                ref=UnitRef(TaskUnitType.SOURCE_VIEW, case.view, "private-unit"),
-                outcome=ObservationOutcome.EMPTY,
-            ),
-        )
-    options = {
-        "question": "locate_literal",
-        "operation_version": "1",
-        "source_path": SOURCE_PATH,
-    }
-    oversized = {
-        "state": request["state"],
-        "questions": {f"read_{index}": request["questions"]["value"] for index in range(17)},
-    }
-    assets = provider_assets
-    if assets:
-        # Opt-in native pass uses the same PostgreSQL fixture and public read as the
-        # deterministic case. CUDA takes the configured shared device handoff.
-        with actual_provider("d1", assets, endpoint=Settings().nemotron.endpoint) as worker:
-            profile = worker.startup
-            digest = pm2_input_digest(mapping, profile, request, **options)
-            held = _claim(case, digest, unit_key=source.unit_ref)
-            limited_held = _claim(
-                case,
-                pm2_input_digest(mapping, profile, oversized, **options),
-                unit_key=source.unit_ref,
-            )
-            with maintained_claims(
-                case.writer, (held, limited_held), "records", interval=0.1
-            ) as owner:
-                for claim, selected in ((held, request), (limited_held, oversized)):
-                    retain_pm2_fixture(
-                        owner,
-                        claim,
-                        worker,
-                        mapping,
-                        selected,
-                        expected_profile=profile,
-                        prepared=case.prepared,
-                        method=case.method,
-                        configuration_hash="private-config",
-                        **options,
-                    )
-        _settle_reassigned_dipo(case, tmp_path, admin, assets)
-    else:
-        profile = {"provider": "d1", "checkpoint": "controlled-test", "dtype": "bfloat16"}
-        rendered = '{"source":"12"}'
-        reply = {
-            "outcome": "succeeded",
-            "rendered_state": rendered,
-            "native": {"answers": {"value": {"span": [11, 13], "text": "12", "path": SOURCE_PATH}}},
-        }
-        field = D1SourceField(rendered, SOURCE_PATH, 11, 13)
-        digest = pm2_input_digest(mapping, profile, request, **options)
-        with pytest.raises(ValueError, match="admitted task input"):
-            pm2_unit_result(
-                ref,
-                mapping,
-                profile=profile,
-                request=request,
-                reply=reply,
-                field=field,
-                input_digest="wrong-input",
-                **options,
-            )
-        result = pm2_unit_result(
-            ref,
-            mapping,
-            profile=profile,
-            request=request,
-            reply=reply,
-            field=field,
-            input_digest=digest,
-            **options,
-        )
-        held = _claim(case, digest, unit_key=source.unit_ref)
-        with case.writer.begin() as conn:
-            _complete(case, conn, held, result)
-
-    assert digest != pm2_input_digest(mapping, {**profile, "dtype": "float32"}, request, **options)
-    assert digest != pm2_input_digest(
-        mapping, profile, request, **(options | {"source_path": "/candidate"})
-    )
-    original = {"state": request["state"], "questions": {"first": 1, "second": 2}}
-    changed = {"state": request["state"], "questions": {"second": 2, "first": 1}}
-    assert pm2_input_digest(mapping, profile, original, **options) != pm2_input_digest(
-        mapping, profile, changed, **options
-    )
-    if not assets:
-        limited_digest = pm2_input_digest(mapping, profile, oversized, **options)
-        limited_held = _claim(case, limited_digest, unit_key=source.unit_ref)
-        with case.writer.begin() as conn:
-            limited = pm2_unit_result(
-                ref,
-                mapping,
-                profile=profile,
-                request=oversized,
-                reply={"outcome": "limited", "reason": "question_count"},
-                input_digest=limited_digest,
-                **options,
-            )
-            _complete(case, conn, limited_held, limited)
-    completed = finalize_bound_run(case.writer, case.run, "pm2-private-read")
-    with read_snapshot(case.writer) as conn:
-        page = serve_contributions(
-            conn,
-            ContributionRequest(run_id=case.run, source_view_id=case.view, include_details=True),
-        )
-        if assets:
-            second_page = serve_contributions(
-                conn,
-                ContributionRequest(
-                    run_id=case.run,
-                    source_view_id=case.other_view,
-                    include_details=True,
-                ),
-            )
-            assert second_page.inventory_counts["contributions"] > 0
-        retained = table("ops.task_result")
-        detail = conn.scalar(select(retained.c.body).where(retained.c.task_id == held.task_id))
-        run = table("ops.run")
-        runtime = conn.execute(select(run.c.runtime_id).where(run.c.id == case.run)).scalar_one()
-        (contribution,) = detail["contributions"]
-        ref = RetainedContributionRef(
-            contribution_id=contribution["contribution_id"],
-            project_id=case.project_id,
-            run_id=case.run,
-            cut_id=completed.cut_id,
-            release_id=case.prepared.release_id,
-            result_revision=completed.data_revision,
-            selected_task_id=held.task_id,
-            origin_task_id=held.task_id,
-            runtime_fingerprint=runtime,
-        )
-        stale = ref.model_copy(update={"cut_id": completed.cut_id + 1})
-        resolved = retained_interpretation_dependencies(conn, case.prepared, (ref, stale, ref))
-        native_reads = []
-
-        def observe_native_read(_conn, _cursor, statement, _parameters, _context, _executemany):
-            if "ops.resolve_retained_source_contribution(" in statement:
-                native_reads.append(statement)
-
-        event.listen(conn, "before_cursor_execute", observe_native_read)
-        try:
-            assert resolved(ref) == [contribution]
-            assert len(native_reads) == 1
-            with (
-                pytest.raises(DBAPIError, match="cannot resolve exact selected origin"),
-                conn.begin_nested(),
-            ):
-                resolved(stale)
-            assert resolved(ref) == [contribution]
-            assert len(native_reads) == 2
-        finally:
-            event.remove(conn, "before_cursor_execute", observe_native_read)
-    assert page.inventory_counts["contributions"] == 1
-    anchor = next(
-        cast(dict[str, Any], item["row"])["anchors"][0]
-        for item in page.items
-        if item["population"] == "contribution"
-    )
-    assert {
-        cast(dict[str, Any], item["row"])["outcome"]
-        for item in page.items
-        if item["population"] == "operation"
-    } == {
-        "succeeded",
-        "limited",
-    }
-    assert (anchor["space"], anchor["pointer"], anchor["start"], anchor["end"]) == (
-        "native",
-        case.table + "/data/table_cells/0",
-        0,
-        2,
-    )
-    report = source_python(detail["parse_detail"])["pm2_native"]
-    assert report["locations"]["value"]["selected_projection"][0]["source_piece"] == "12"
-    assert report["input_digest"] == digest
-    with case.writer.begin() as conn:
-        binding = binding_of(conn, case.run)
-        comparison = create_run(
-            conn,
-            project_id=case.project_id,
-            binding=replace(
-                binding,
-                dependencies=canonical_bytes(
-                    {
-                        **json.loads(binding.dependencies),
-                        "local_semantic_admission": {"policy": "changed"},
-                    }
-                ),
-            ),
-            kind="slice",
-            options={},
-            code_commit="pm2-input-check",
-            prepared=case.prepared,
-        )
-        select_source_view(
-            conn,
-            run_id=comparison,
-            source_run_id=case.run,
-            source_view_id=case.view,
-            projection_context=case.prepared,
-        )
-        for input_hash in (
-            digest,
-            pm2_input_digest(
-                mapping, profile, request, **(options | {"source_path": "/candidate"})
-            ),
-        ):
-            create_task(
-                conn,
-                run_id=comparison,
-                config_id=case.task_row["method_config_id"],
-                stage="record",
-                unit_type="source_view",
-                unit_id=case.view,
-                unit_key=source.unit_ref,
-                input_hash=input_hash,
-            )
-        tasks = table("ops.task")
-        rows = conn.execute(select(tasks).where(tasks.c.run_id == comparison)).mappings()
-        reuse = {row["input_hash"]: row["reused_task_id"] for row in rows}
-        origin = conn.execute(
-            select(
-                tasks.c.id,
-                tasks.c.input_hash,
-                tasks.c.status,
-                tasks.c.method_config_id,
-                tasks.c.unit_id,
-                tasks.c.unit_key,
-            ).where(tasks.c.id == held.task_id)
-        ).one()
-        source_binding = binding_of(conn, case.run)
-        comparison_binding = binding_of(conn, comparison)
-    assert reuse[digest] == held.task_id, (origin, source_binding, comparison_binding, reuse)
-    assert (
-        reuse[
-            pm2_input_digest(mapping, profile, request, **(options | {"source_path": "/candidate"}))
-        ]
-        is None
-    )
-
-
-def _settle_reassigned_dipo(case, tmp_path, admin, assets):
-    key = "private-discourse-unit"
-    with case.writer.connect() as conn:
-        view = BoundReader(conn, case.run, case.prepared, analysis=False).source_view(
-            case.other_view
-        )
-    source = replace(native_source_frame(view, ()), unit_ref=key)
-    context = NativeSourceContext(
-        source,
-        (),
-        (SourceSlice(case.other_view, 0, len(source.text)),),
-        "local discourse",
-        "native-test",
-        "exact running-text scope",
-    )
-    mapping = PM2SourceMap(
-        context,
-        context.text,
-        (SourceMapSegment(0, len(context.text), 0),),
-        (),
-    )
-    request = {"text": context.text}
-    dimensions = {"question": "locate_discourse_units", "operation_version": "1"}
-    with actual_provider("dipo", assets, endpoint=Settings().nemotron.endpoint) as worker:
-        profile = worker.startup
-        digest = pm2_input_digest(mapping, profile, request, **dimensions)
-        held = _claim(case, digest, view_id=case.other_view, unit_key=key)
-        with admin.begin() as conn:
-            conn.exec_driver_sql("SET LOCAL ROLE corpus_sem_publisher")
-            conn.execute(
-                text(
-                    "UPDATE ops.task SET lease_until=clock_timestamp()-interval '1 second' "
-                    "WHERE id=:id"
-                ),
-                {"id": held.task_id},
-            )
-        with case.writer.begin() as conn:
-            (reassigned,) = claim_tasks(
-                conn,
-                run_id=case.run,
-                config_id=held.method_config_id,
-                holder="next-owner",
-            )
-        assert reassigned.task_id == held.task_id and reassigned.attempt > held.attempt
-        completion = dict(
-            expected_profile=profile,
-            prepared=case.prepared,
-            method=case.method,
-            configuration_hash="private-config",
-            **dimensions,
-        )
-        with (
-            maintained_claims(case.writer, (held,), held.holder) as stale,
-            pytest.raises(OperationConflict, match="attempt lost"),
-        ):
-            retain_pm2_fixture(stale, held, worker, mapping, request, **completion)
-        with maintained_claims(case.writer, (reassigned,), reassigned.holder) as current:
-            retain_pm2_fixture(current, reassigned, worker, mapping, request, **completion)
-
-
-def _complete(case, conn, held, result):
-    assert held.unit_key is not None
-    return complete_unit_result(
-        conn,
-        task_id=held.task_id,
-        attempt=held.attempt,
-        holder="records",
-        prepared=case.prepared,
-        method=case.method,
-        configuration_hash="private-config",
-        source=held.unit_key,
-        result=result,
-    )
-
-
-@pytest.mark.parametrize(
-    "private_source_with_originals",
-    [(("x+y",), ("x + y",))],
-    indirect=True,
-    ids=("authored-original-policy",),
-)
-def test_exact_original_projection_does_not_mint_a_physical_occurrence(
-    private_source_with_originals,
-):
-    case = private_source_with_originals
-    with case.writer.connect() as conn:
-        view = BoundReader(conn, case.run, case.prepared, analysis=False).source_view(
-            case.other_view
-        )
-    source = replace(native_source_frame(view, ()), unit_ref="private-unit")
-    context = NativeSourceContext(
-        source,
-        (),
-        (SourceSlice(case.other_view, 0, 5),),
-        "literal",
-        "native-test",
-        "original spelling",
-    )
-    assert context.text == "x + y"
-    mapping = PM2SourceMap(context, context.text, (SourceMapSegment(0, 5, 0),), ())
-    profile = {"provider": "d1"}
-    request = {
-        "state": {"source": "x + y"},
-        "questions": {"formula": {"type": "text", "instructions": "Read the formula."}},
-    }
-    rendered = '{"source":"x + y"}'
-    options = dict(question="locate_literal", operation_version="1", source_path=SOURCE_PATH)
-    digest = pm2_input_digest(mapping, profile, request, **options)
-    with case.writer.begin() as conn:
-        complete_contributions(
-            case,
-            conn,
-            UnitResult(
-                ref=UnitRef(TaskUnitType.SOURCE_VIEW, case.view, "private-unit"),
-                outcome=ObservationOutcome.EMPTY,
-            ),
-        )
-    held = _claim(case, digest, view_id=case.other_view)
-    result = pm2_unit_result(
-        UnitRef(TaskUnitType.SOURCE_VIEW, case.other_view, "private-unit"),
-        mapping,
-        profile=profile,
-        request=request,
-        reply={
-            "outcome": "succeeded",
-            "rendered_state": rendered,
-            "native": {
-                "answers": {"formula": {"span": [11, 16], "text": "x + y", "path": SOURCE_PATH}}
-            },
+    request = dict(
+        state=dict(source="12"),
+        questions={
+            f"read_{index}": dict(type="text", instructions="Copy the numeral exactly.")
+            for index in range(17)
         },
-        field=D1SourceField(rendered, SOURCE_PATH, 11, 16),
-        input_digest=digest,
-        **options,
     )
-    with case.writer.begin() as conn:
-        _complete(case, conn, held, result)
-    finalize_bound_run(case.writer, case.run, "pm2-orig-projection")
-    with read_snapshot(case.writer) as conn:
-        page = serve_contributions(
-            conn,
-            ContributionRequest(
-                run_id=case.run,
-                selected_task_id=held.task_id,
-                include_details=True,
+    with actual_provider(
+        "d1",
+        Path(os.environ["CORPUS_PM2_NATIVE_TEST_ASSETS"]),
+        endpoint=Settings().nemotron.endpoint,
+    ) as provider:
+        reply = provider.infer(request, check_active=lambda: None)
+    assert {name: reply[name] for name in ("outcome", "reason", "limit")} == dict(
+        outcome="limited", reason="question_count", limit=16
+    )
+    assert "native" not in reply
+
+
+@pytest.mark.gpu
+@pytest.mark.provider_evidence
+@pytest.mark.prerequisite("pm2_native_assets")
+def test_actual_literal_provider_answer_survives_current_selected_read(
+    scenario_seeds, tmp_path, monkeypatch
+):
+    from corpus_structure.methods.native_profiles import pm2_selection, preflight_native_runtime
+    from semantic.current_pm2_provider_fixture import OPERATION as ACTUAL
+
+    assets = Path(os.environ["CORPUS_PM2_NATIVE_TEST_ASSETS"])
+    checked = preflight_native_runtime("d1", assets)
+    selected = pm2_selection("d1", assets, checked["runtime_identity"], checked["assets"])
+    with table_source(scenario_seeds, tmp_path, monkeypatch) as source:
+        kernel = admit_current_target(
+            source, provider_recipe(tmp_path, selected), tmp_path / "consumer"
+        )
+        ((row, original),) = selected_current_sources(source)
+        cell = next(piece for piece in original["pieces"] if piece.get("cell_index") == 0)
+        request = projection_request(kernel, row, mode="literal", operation=ACTUAL).model_copy(
+            update={"inference": "actual-fixed-literal-panel"}
+        )
+        demand = register(kernel, request)
+        assert execute(kernel, demand).receipt_count == 1
+        (product,), snapshot = reports(kernel, demand, operation=ACTUAL)
+        diagnostics = json.loads(product["body"]["diagnostics_json"])
+        assert diagnostics["controlled_transport"] is False
+        answer = diagnostics["native_reply"]["native"]["answers"]["value"]
+        a, b = answer["span"]
+        rendered = diagnostics["native_reply"]["rendered_state"]
+        assert json.loads(rendered) == {"source": "12"}
+        assert b - a == 2 and rendered[a:b] == "12"
+        assert answer["text"] == "12" and answer["path"] == "/source"
+        occurrences = [
+            item
+            for item in candidate_member_values(product["body"], candidate_type="contribution")
+            if item["kind"] == "occurrence"
+        ]
+        assert len(occurrences) == 1
+        (anchor,) = occurrences[0]["anchors"]
+        assert (anchor["pointer"], anchor["start"], anchor["end"], anchor["source_piece"]) == (
+            cell["item_ref"] + "/data/table_cells/0",
+            0,
+            2,
+            "12",
+        )
+        use = next(item for item in snapshot.record["uses"] if item["use_id"] == product["use_id"])
+        with source.kernel.clone.admin.connect() as connection:
+            from sqlalchemy import text
+
+            evidence = connection.scalar(
+                text(
+                    "SELECT intent.payload->'execution_evidence' FROM ops.data_derivation episode JOIN ops.data_completion_intent intent ON intent.id=episode.intent_id WHERE episode.id=:episode"
+                ),
+                {"episode": product["derivation_id"]},
+            )
+        assert evidence["request_id"] == use["request_id"]
+        assert len(evidence["cpu_receipts"]) == 1
+        assert evidence["provider_receipts"]
+        assert all(
+            item["provider"] == "d1"
+            for receipt in evidence["provider_receipts"]
+            for item in receipt["physical"]
+        )
+        assert execute(kernel, demand).receipt_count == 0
+
+
+@pytest.mark.gpu
+@pytest.mark.provider_evidence
+@pytest.mark.prerequisite("pm2_native_assets")
+def test_actual_current_d1_limitation_is_inspectable_beside_successful_products(
+    current_pdf_source_factory, tmp_path
+):
+    from corpus_structure.orchestrate.data_operations import NativeDemandExecutionError
+
+    long_text = " ".join(["12"] * 6000)
+    oversized = " ".join(["unexamined"] * 7000)
+    with current_pdf_source_factory(
+        (
+            ("text", "12", "12", None),
+            ("text", long_text, long_text, None),
+            ("text", oversized, oversized, None),
+        )
+    ) as source:
+        kernel = admit_current_target(
+            source,
+            parser_recipe(Path(os.environ["CORPUS_PM2_NATIVE_TEST_ASSETS"])),
+            tmp_path / "consumer",
+        )
+        demand = register(
+            kernel,
+            current_consumer_request(
+                source, kernel, ("text.d1_source/source-native",), discover=True
             ),
         )
-        locations = BoundReader(
-            conn, case.run, case.prepared, page.cut_id
-        ).pm2_projection_locations(held.task_id)
-    assert page.inventory_counts["contributions"] == 0
-    assert locations is not None
-    location = locations["formula"]
-    assert location["reason"] == "native_occurrence_unavailable"
-    assert "occurrence_id" not in location
-    assert location["selected_projection"][0]["source_piece"] == "x + y"
+        with pytest.raises(NativeDemandExecutionError):
+            execute(kernel, demand)
+        from semantic.current_pm2_native_support import page
+
+        selected = page(kernel, demand)
+        (failed,) = [
+            item
+            for item in selected.record["attempt_failures"]
+            if "d1_limitation" in item["failure"]
+        ]
+        diagnostic = failed["failure"]["d1_limitation"]
+        assert diagnostic["native_reply"]["outcome"] == "limited"
+        assert diagnostic["native_reply"]["reason"] == "packed_row_tokens"
+        assert max(diagnostic["native_reply"]["row_tokens"]) > 4096
+        assert json.loads(diagnostic["request_json"])["state"]["source"] == long_text
+        assert diagnostic["inspected_count"] == diagnostic["emitted_count"] == 0
+        assert diagnostic["standing"] == "unperformed-question-inspection"
+        assert not {"members", "inspection_outcome"} & diagnostic.keys()
+        assert diagnostic["execution_evidence"]["provider_receipts"][0]["physical"]
+        assert all(
+            not item["products"]
+            for item in selected.record["uses"]
+            if item.get("request_id") == failed["request_id"]
+        )
+        values, _ = reports(kernel, demand, operation="text.d1_source/source-native")
+        assert {item["role"] for item in values} == {"result", "candidates"}
+        assert all(
+            item["body"].get("source_pin", {}).get("subject") != diagnostic["source_pin"]["subject"]
+            for item in values
+        )
+        ineligible_subject = next(
+            row["subject"]
+            for row, body in selected_current_sources(source)
+            if len(body["text"]) > 65536
+        )
+        ineligible = {
+            item["role"]: item["body"]
+            for item in values
+            if item["body"]["source_pin"]["subject"] == ineligible_subject
+        }
+        assert set(ineligible) == {"result", "candidates"}
+        assert ineligible["result"]["outcome"] == "partial"
+        assert ineligible["result"]["observations"] == []
+        assert all(
+            not item["examined"] and item["unexamined"] and item["outcome"] == "partial"
+            for item in ineligible["result"]["coverage"]
+        )
+        assert ineligible["candidates"]["members"] == ineligible["candidates"]["operations"] == []
+        assert ineligible["candidates"]["coverage"][0]["outcome"] == "unsupported"
