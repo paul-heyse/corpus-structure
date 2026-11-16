@@ -87,14 +87,20 @@ def _episode_set_recipe():
     role.pop("alternatives")
     role.pop("selected")
     consumer["binding"] = {"operator": "collection", "roles": ["items"], "collection": "set"}
-    return replace(PINNED, name="exact-per-input-producing-episodes", declaration_content=canonical_bytes(declarations))
+    return replace(
+        PINNED,
+        name="exact-per-input-producing-episodes",
+        declaration_content=canonical_bytes(declarations),
+    )
 
 
 PINNED_EPISODES = _episode_set_recipe()
 
 
 def _produce(kernel, *, subject, value, inference="inference:test"):
-    demand, _, _, attached = attach(kernel, subject=subject, original_source="source:B", inference=inference)
+    demand, _, _, attached = attach(
+        kernel, subject=subject, original_source="source:B", inference=inference
+    )
     fence = claim(kernel, attached)
     receipt = publish(kernel, fence, retain(kernel, fence, outputs=(value,)))
     with kernel["engine"].connect() as connection:
@@ -279,38 +285,72 @@ def test_explicit_input_producer_is_independent_of_other_planning_dependencies(d
     assert CONSUMER not in {item.operation for item in refused}
 
 
-@pytest.mark.parametrize("ddo_kernel", [PINNED_EPISODES], indirect=True, ids=["same-value-independent-episodes"])
+@pytest.mark.parametrize(
+    "ddo_kernel", [PINNED_EPISODES], indirect=True, ids=["same-value-independent-episodes"]
+)
 def test_same_native_value_and_position_keep_each_exact_selected_producing_episode(ddo_kernel):
     from copy import deepcopy
 
-    _, first, product = _produce(ddo_kernel, subject="source-subject:B", value=42, inference="first-genuine-observation")
-    _, second, same_product = _produce(ddo_kernel, subject="source-subject:B", value=42, inference="second-genuine-observation")
-    _, foreign, foreign_product = _produce(ddo_kernel, subject="source-subject:foreign", value=42, inference="genuine-foreign-context")
+    _, first, product = _produce(
+        ddo_kernel, subject="source-subject:B", value=42, inference="first-genuine-observation"
+    )
+    _, second, same_product = _produce(
+        ddo_kernel, subject="source-subject:B", value=42, inference="second-genuine-observation"
+    )
+    _, foreign, foreign_product = _produce(
+        ddo_kernel, subject="source-subject:foreign", value=42, inference="genuine-foreign-context"
+    )
     assert foreign_product != product
     assert product == same_product
     episodes = {first["derivation_id"], second["derivation_id"]}
     assert len(episodes) == 2
-    context = SubjectContext("ddo-test", "source-subject:B", "source:B", b'{"page":1}', subject_definition="original-occurrence")
+    context = SubjectContext(
+        "ddo-test",
+        "source-subject:B",
+        "source:B",
+        b'{"page":1}',
+        subject_definition="original-occurrence",
+    )
     entry = SourceSetEntry.from_semantic_source(DataProductReference(product), context=context)
     _, (ready,) = _ready(ddo_kernel, _register(ddo_kernel, entry, "exact-producing-episode-set"))
     (role,) = ready.binding_result.roles
     assert len(role.members) == 2
-    assert {(member.product, member.member, member.position, member.multiplicity) for member in role.members} == {(product, None, 0, 1)}
-    assert {member.support_episodes for member in role.members} == {(episode,) for episode in episodes}
+    assert {
+        (member.product, member.member, member.position, member.multiplicity)
+        for member in role.members
+    } == {(product, None, 0, 1)}
+    assert {member.support_episodes for member in role.members} == {
+        (episode,) for episode in episodes
+    }
     binding = json.loads(ready.binding)
     assert {item["support_derivation_ids"][0] for item in binding["inputs"]} == episodes
     with ddo_kernel["engine"].connect() as connection:
         for item in binding["inputs"]:
-            selected = connection.scalar(text("SELECT ops.ddo_input_support_episodes(CAST(:binding AS jsonb),CAST(:input AS jsonb))"), {"binding": json.dumps(binding), "input": json.dumps(item)})
+            selected = connection.scalar(
+                text(
+                    "SELECT ops.ddo_input_support_episodes(CAST(:binding AS jsonb),CAST(:input AS jsonb))"
+                ),
+                {"binding": json.dumps(binding), "input": json.dumps(item)},
+            )
             assert selected == item["support_derivation_ids"]
 
         # Native CPU-basis reconstruction must use the same exact per-input set,
         # rather than unioning equal-value siblings. This asserts no execution.
-        basis = connection.scalar(text("SELECT ops.ddo_cpu_input_basis(request) FROM ops.data_request request WHERE id=:request"), {"request": json.loads(ready.native)["request_id"]})
-        from corpus_structure.semantic.data_operation_cpu_basis import cpu_basis_values, cpu_input_basis_from_roles
+        basis = connection.scalar(
+            text(
+                "SELECT ops.ddo_cpu_input_basis(request) FROM ops.data_request request WHERE id=:request"
+            ),
+            {"request": json.loads(ready.native)["request_id"]},
+        )
+        from corpus_structure.semantic.data_operation_cpu_basis import (
+            cpu_basis_values,
+            cpu_input_basis_from_roles,
+        )
+
         assert isinstance(basis, list)
         grouped_roles, _ = cpu_basis_values(basis, scalar_roles=(), set_roles=("items",))
         from corpus_structure.semantic.data_operation_support import ComputationalSupportReference
+
         observed_episodes = set()
         for item in grouped_roles["items"]:
             assert len(item.support) == 1
@@ -319,13 +359,26 @@ def test_same_native_value_and_position_keep_each_exact_selected_producing_episo
             observed_episodes.add(reference.derivation_id)
         assert observed_episodes == episodes
         assert ready.resolved.subject_context is not None
-        assert basis == cpu_input_basis_from_roles(ddo_kernel["identities"][CONSUMER, "recipe"],
-            ready.resolved.subject_context, ready.resolved.roles, {"items": (42, 42)},
-            parameters=ready.resolved.parameters, replicate=ready.resolved.replicate)
+        assert basis == cpu_input_basis_from_roles(
+            ddo_kernel["identities"][CONSUMER, "recipe"],
+            ready.resolved.subject_context,
+            ready.resolved.roles,
+            {"items": (42, 42)},
+            parameters=ready.resolved.parameters,
+            replicate=ready.resolved.replicate,
+        )
 
     def counts(connection):
-        return tuple(connection.scalar(text("SELECT count(*) FROM " + table)) for table in (
-            "ops.data_request", "ops.task", "ops.data_completion_intent", "ops.data_derivation", "kb.data_product"))
+        return tuple(
+            connection.scalar(text("SELECT count(*) FROM " + table))
+            for table in (
+                "ops.data_request",
+                "ops.task",
+                "ops.data_completion_intent",
+                "ops.data_derivation",
+                "kb.data_product",
+            )
+        )
 
     with ddo_kernel["engine"].begin() as connection:
         before = counts(connection)
@@ -340,31 +393,89 @@ def test_same_native_value_and_position_keep_each_exact_selected_producing_episo
                 target["support_derivation_ids"] = changed["inputs"][1]["support_derivation_ids"]
             else:
                 target["support_derivation_ids"] = [foreign["derivation_id"]]
-                changed["support"].append(dict(kind="computation", derivation_id=foreign["derivation_id"], role=target["role"], position=target["position"]))
-            with pytest.raises(DBAPIError, match="wire|support|native manifest member"), connection.begin_nested():
-                connection.execute(text("SELECT ops.attach_data_request(CAST(:payload AS jsonb))"), {"payload": json.dumps(dict(
-                    obligation_id=ready.obligation, request_meaning=json.loads(ready.request),
-                    request_key=json.loads(ready.native)["request_id"], binding=changed, replicate=None))})
+                changed["support"].append(
+                    dict(
+                        kind="computation",
+                        derivation_id=foreign["derivation_id"],
+                        role=target["role"],
+                        position=target["position"],
+                    )
+                )
+            with (
+                pytest.raises(DBAPIError, match=r"wire|support|native manifest member"),
+                connection.begin_nested(),
+            ):
+                connection.execute(
+                    text("SELECT ops.attach_data_request(CAST(:payload AS jsonb))"),
+                    {
+                        "payload": json.dumps(
+                            dict(
+                                obligation_id=ready.obligation,
+                                request_meaning=json.loads(ready.request),
+                                request_key=json.loads(ready.native)["request_id"],
+                                binding=changed,
+                                replicate=None,
+                            )
+                        )
+                    },
+                )
             assert counts(connection) == before
-    from corpus_structure.semantic.data_operation_identity import CollectionValue, OptionalValue, canonical_identity, decode_semantic_value, semantic_value
+    from corpus_structure.semantic.data_operation_identity import (
+        CollectionValue,
+        OptionalValue,
+        canonical_identity,
+        decode_semantic_value,
+        semantic_value,
+    )
+
     meaning = decode_semantic_value(json.loads(ready.request)[3])
     original_members = meaning["inputs"]["items"]["value"].value.members
     merged = dict(original_members[0], support_episodes=tuple(sorted(episodes)))
-    meaning["inputs"]["items"]["value"] = OptionalValue("present", CollectionValue("set", (merged,)))
+    meaning["inputs"]["items"]["value"] = OptionalValue(
+        "present", CollectionValue("set", (merged,))
+    )
     grouped = deepcopy(binding)
     grouped["inputs"] = [dict(binding["inputs"][0], support_derivation_ids=sorted(episodes))]
     grouped["request_inputs"] = semantic_value(meaning["inputs"])
     grouped_key = canonical_identity("semantic-request", meaning)
     with ddo_kernel["engine"].begin() as connection:
         before = counts(connection)
-        with pytest.raises(DBAPIError, match="support set has no exact native binding row"), connection.begin_nested():
-            connection.execute(text("SELECT ops.attach_data_request(CAST(:payload AS jsonb))"), {"payload": json.dumps(dict(
-                obligation_id=ready.obligation, request_meaning=json.loads(grouped_key.canonical_input), request_key=grouped_key.key,
-                binding=grouped, replicate=None))})
+        with (
+            pytest.raises(DBAPIError, match="support set has no exact native binding row"),
+            connection.begin_nested(),
+        ):
+            connection.execute(
+                text("SELECT ops.attach_data_request(CAST(:payload AS jsonb))"),
+                {
+                    "payload": json.dumps(
+                        dict(
+                            obligation_id=ready.obligation,
+                            request_meaning=json.loads(grouped_key.canonical_input),
+                            request_key=grouped_key.key,
+                            binding=grouped,
+                            replicate=None,
+                        )
+                    )
+                },
+            )
         assert counts(connection) == before
     receipt = _complete_ready(ddo_kernel, ready)
     with ddo_kernel["engine"].connect() as connection:
-        retained = connection.execute(text("SELECT support_derivation_id FROM ops.data_derivation_support WHERE derivation_id=:episode ORDER BY support_derivation_id"), {"episode": receipt["derivation_id"]}).scalars().all()
-        inputs = connection.execute(text("SELECT product_id,position FROM ops.data_derivation_input WHERE derivation_id=:episode ORDER BY position"), {"episode": receipt["derivation_id"]}).all()
+        retained = (
+            connection.execute(
+                text(
+                    "SELECT support_derivation_id FROM ops.data_derivation_support WHERE derivation_id=:episode ORDER BY support_derivation_id"
+                ),
+                {"episode": receipt["derivation_id"]},
+            )
+            .scalars()
+            .all()
+        )
+        inputs = connection.execute(
+            text(
+                "SELECT product_id,position FROM ops.data_derivation_input WHERE derivation_id=:episode ORDER BY position"
+            ),
+            {"episode": receipt["derivation_id"]},
+        ).all()
     assert set(retained) == episodes and len(retained) == 2
     assert inputs == [(product, 0), (product, 1)]

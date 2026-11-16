@@ -1907,7 +1907,8 @@ def _dossier_member_invariants(value: Any) -> Any:
             value.comparison_binding.comparison_ref.structural_id
             if isinstance(value.comparison_binding.comparison_ref, DeclaredStructuralRef)
             else value.comparison_binding.comparison_ref.product_id
-        ) != value.relation_product_id
+        )
+        != value.relation_product_id
         or value.comparison_binding.root.component_id != value.sense
         or value.comparison_binding.citation.passage_id != value.passage_id
     ):

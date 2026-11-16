@@ -744,9 +744,7 @@ class SourceNativeMathReadings:
         )
 
     def inventory(self, pointer, latex, *, macros=None):
-        return _math_inventory(
-            self._inputs.get((pointer, latex), ()), latex, macros=macros
-        )
+        return _math_inventory(self._inputs.get((pointer, latex), ()), latex, macros=macros)
 
 
 def _math_inventory(candidates, latex, *, macros=None):

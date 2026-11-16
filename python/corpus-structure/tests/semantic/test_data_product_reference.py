@@ -8,7 +8,9 @@ from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_rele
 from corpus_structure.semantic.data_product_reference import (
     DataProductMemberReference,
     DataProductReference,
-    reference_inputs, member_reference, read_member_reference,
+    member_reference,
+    read_member_reference,
+    reference_inputs,
 )
 from corpus_structure.semantic.identity import canonical_bytes
 
@@ -39,7 +41,10 @@ def test_member_decoder_retains_qualified_identity_and_refuses_other_address_spa
     assert read_member_reference(left.values()) == left
     assert left.values() == {"product_id": "product:left", "member_id": "token:one"}
     for value in (
-        {"layer": {"task_id": 9, "product_key": "report", "content_digest": "a" * 64}, "local_id": "token:one"},
+        {
+            "layer": {"task_id": 9, "product_key": "report", "content_digest": "a" * 64},
+            "local_id": "token:one",
+        },
         {**left.values(), "local_id": "token:one"},
         {"product_id": "product:left", "member_id": ""},
         {"product_id": True, "member_id": "token:one"},

@@ -3,10 +3,17 @@
 from corpus_structure.methods.structural_products import compare_clauses
 from corpus_structure.semantic.contextual_links import RelationshipDecision, RelationshipEdge
 from corpus_structure.semantic.contextual_operations import ContextualRelationshipBinding
-from corpus_structure.semantic.contextual_retrieval import SemanticTargetGroup, target_representation
-from corpus_structure.semantic.dossier_products import DossierRelationship
+from corpus_structure.semantic.contextual_retrieval import (
+    SemanticTargetGroup,
+    target_representation,
+)
 from corpus_structure.semantic.declared_record_sources import DeclaredNativeFrameSource
-from corpus_structure.semantic.declared_structural_references import DeclaredComponentRef, DeclaredStructuralRef, DeclaredRelationshipRef
+from corpus_structure.semantic.declared_structural_references import (
+    DeclaredComponentRef,
+    DeclaredRelationshipRef,
+    DeclaredStructuralRef,
+)
+from corpus_structure.semantic.dossier_products import DossierRelationship
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.structural_admission import structural_statement
 from corpus_structure.semantic.structural_products import (
@@ -14,21 +21,40 @@ from corpus_structure.semantic.structural_products import (
     DeclaredClauseField,
     DeclaredClauseFieldGroup,
     DeclaredClauseReading,
+    DeclaredComparisonReport,
     DeclaredDefinitionComponentsProduct,
-    Dimension,
     DeclaredDossierComparisonSelection,
+    DeclaredStructuralInputPin,
+    DeclaredStructuralProductReport,
+    Dimension,
     LocatedDefinitionSpan,
-    DeclaredStructuralProductReport, DeclaredComparisonReport, DeclaredStructuralInputPin,
     declared_definition_component,
 )
-from semantic.structural_products_support import inputs, native_source, input_from_passages
+from semantic.structural_products_support import input_from_passages, native_source
 
 
 def side_inputs():
-    return input_from_passages((
-        dict(passage_id="a", document="book-a", text="Apply measure except in test runs.", start=0, scope="rules", effective_version="R2"),
-        dict(passage_id="b", document="book-b", text="Measure is a control rule.", start=0, scope="rules", effective_version="R2"),
-    ), scope="rules")
+    return input_from_passages(
+        (
+            dict(
+                passage_id="a",
+                document="book-a",
+                text="Apply measure except in test runs.",
+                start=0,
+                scope="rules",
+                effective_version="R2",
+            ),
+            dict(
+                passage_id="b",
+                document="book-b",
+                text="Measure is a control rule.",
+                start=0,
+                scope="rules",
+                effective_version="R2",
+            ),
+        ),
+        scope="rules",
+    )
 
 
 def span(passage, literal):
@@ -39,9 +65,15 @@ def span(passage, literal):
 
 
 def custody(source, identifier):
-    return dict(product_id=f"unadmitted:product:{identifier}", kind_contract="unadmitted:fixture-kind",
-        project_id=source.project_id, subject=source.subject, subject_definition=source.subject_definition,
-        original_source=source.original_source, analyzed_scope_meaning=source.analyzed_scope_meaning)
+    return dict(
+        product_id=f"unadmitted:product:{identifier}",
+        kind_contract="unadmitted:fixture-kind",
+        project_id=source.project_id,
+        subject=source.subject,
+        subject_definition=source.subject_definition,
+        original_source=source.original_source,
+        analyzed_scope_meaning=source.analyzed_scope_meaning,
+    )
 
 
 def fixture(value=None, *, exception=True, root_on_left=False, primary_layers=None):
@@ -82,7 +114,9 @@ def fixture(value=None, *, exception=True, root_on_left=False, primary_layers=No
         )
         groups = {
             **empty,
-            "exception": DeclaredClauseFieldGroup(state="present", grouping="singleton", members=(field,)),
+            "exception": DeclaredClauseFieldGroup(
+                state="present", grouping="singleton", members=(field,)
+            ),
         }
     comparison = compare_clauses(
         value,
@@ -96,38 +130,110 @@ def fixture(value=None, *, exception=True, root_on_left=False, primary_layers=No
             contribution_id="source-contribution:" + "c" * 64, **custody(right_source, 32)
         ),
     )
-    comparison = DeclaredComparisonReport(**comparison.model_dump(exclude_none=True),
-        sources_input=tuple(DeclaredStructuralInputPin(**custody(source, "source:"+str(i)),
-            reference=source.source) for i, source in enumerate(value.sources)),
-        reports_input=tuple(DeclaredStructuralInputPin(**custody(source, 31+i),
-            reference=canonical_bytes([f"unadmitted:product:{31+i}", None]).decode())
-            for i, source in enumerate((left_source, right_source))))
-    reference = DeclaredStructuralRef(structural_id=comparison.product_id, **custody(left_source, 33))
+    comparison = DeclaredComparisonReport(
+        **comparison.model_dump(exclude_none=True),
+        sources_input=tuple(
+            DeclaredStructuralInputPin(
+                **custody(source, "source:" + str(i)), reference=source.source
+            )
+            for i, source in enumerate(value.sources)
+        ),
+        reports_input=tuple(
+            DeclaredStructuralInputPin(
+                **custody(source, 31 + i),
+                reference=canonical_bytes([f"unadmitted:product:{31 + i}", None]).decode(),
+            )
+            for i, source in enumerate((left_source, right_source))
+        ),
+    )
+    reference = DeclaredStructuralRef(
+        structural_id=comparison.product_id, **custody(left_source, 33)
+    )
     selected = []
     relationships = {}
     for side, passage, source, literal, relation in (
         ("left", left, left_source, "measure", "specializes"),
         ("right", right, right_source, "Measure", "denotes"),
     ):
-        rel_ref = DeclaredRelationshipRef(**custody(source, 34 if side == "left" else 35), edge_id="edge-"+side)
-        selected.append(DeclaredDossierComparisonSelection(comparison_product_id=reference.product_id,
-            side=side, relationship_ref=rel_ref))
+        rel_ref = DeclaredRelationshipRef(
+            **custody(source, 34 if side == "left" else 35), edge_id="edge-" + side
+        )
+        selected.append(
+            DeclaredDossierComparisonSelection(
+                comparison_product_id=reference.product_id, side=side, relationship_ref=rel_ref
+            )
+        )
         from semantic.formal_products_support import released_profile
+
         frozen = native_source(released_profile().prepared, value, source)
-        frame = DeclaredNativeFrameSource(frozen.content.decode(), canonical_bytes(source.model_dump(mode="json", exclude_none=True)).decode())
+        frame = DeclaredNativeFrameSource(
+            frozen.content.decode(),
+            canonical_bytes(source.model_dump(mode="json", exclude_none=True)).decode(),
+        )
         located = span(passage, literal)
-        piece = next(piece for piece in frame.pieces if piece["kind"] == "native_text" and piece["start"] <= located.start < located.end <= piece["end"])
-        edge = RelationshipEdge(rel_ref.edge_id, "supplied:constraint", "supplied:occurrence", root.component_id,
-            (root.component_id,), relation, (), "preferred")
-        decision = RelationshipDecision("supplied:decision:"+side, "supplied:candidate-list", "supplied:occurrence",
-            passage.scope, passage.effective_version, "supplied:policy", "supplied:exclusions", "selected",
-            (), (), (edge,), (), (), None, None, source.source, ())
-        carrier = target_representation(root.component_id, canonical_bytes(root_ref.model_dump(mode="json", exclude_none=True)).decode(),
-            "Measure", "control rule", type_name="definition", scope=root.scope, effective_version=root.effective_version)
+        piece = next(
+            piece
+            for piece in frame.pieces
+            if piece["kind"] == "native_text"
+            and piece["start"] <= located.start < located.end <= piece["end"]
+        )
+        edge = RelationshipEdge(
+            rel_ref.edge_id,
+            "supplied:constraint",
+            "supplied:occurrence",
+            root.component_id,
+            (root.component_id,),
+            relation,
+            (),
+            "preferred",
+        )
+        decision = RelationshipDecision(
+            "supplied:decision:" + side,
+            "supplied:candidate-list",
+            "supplied:occurrence",
+            passage.scope,
+            passage.effective_version,
+            "supplied:policy",
+            "supplied:exclusions",
+            "selected",
+            (),
+            (),
+            (edge,),
+            (),
+            (),
+            None,
+            None,
+            source.source,
+            (),
+        )
+        carrier = target_representation(
+            root.component_id,
+            canonical_bytes(root_ref.model_dump(mode="json", exclude_none=True)).decode(),
+            "Measure",
+            "control rule",
+            type_name="definition",
+            scope=root.scope,
+            effective_version=root.effective_version,
+        )
         meaning = structural_statement(definition, root.component_id)["definition_component"]
-        binding = ContextualRelationshipBinding(decision, edge, SemanticTargetGroup(root.component_id, (root.component_id,), meaning),
-            (carrier,), frame.pin.values(), (dict(pin=frame.pin.values(), space="native", precision="exact",
-                pointer=piece["item_ref"], start=located.start-piece["start"], end=located.end-piece["start"], source_piece=literal),))
+        binding = ContextualRelationshipBinding(
+            decision,
+            edge,
+            SemanticTargetGroup(root.component_id, (root.component_id,), meaning),
+            (carrier,),
+            frame.pin.values(),
+            (
+                dict(
+                    pin=frame.pin.values(),
+                    space="native",
+                    precision="exact",
+                    pointer=piece["item_ref"],
+                    start=located.start - piece["start"],
+                    end=located.end - piece["start"],
+                    source_piece=literal,
+                ),
+            ),
+        )
         relationships[rel_ref] = DossierRelationship(binding, frame, meaning)
     value = value.model_copy(
         update=dict(

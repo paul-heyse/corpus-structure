@@ -114,12 +114,20 @@ def selected_item(
         pointer = piece.item_ref
         if pointer is None:
             raise ValueError("native annotation input requires its exact item pointer")
-        spellings[pointer] = spellings.get(pointer, "") + complete_text[piece.start:piece.end]
-    items = [dict(self_ref=f"#/groups/{identity}", label="section"), *(
-        dict(self_ref=pointer, label="text", text=spelling, orig=spelling,
-             parent={"$ref": f"#/groups/{identity}"})
-        for pointer, spelling in spellings.items()
-    )]
+        spellings[pointer] = spellings.get(pointer, "") + complete_text[piece.start : piece.end]
+    items = [
+        dict(self_ref=f"#/groups/{identity}", label="section"),
+        *(
+            dict(
+                self_ref=pointer,
+                label="text",
+                text=spelling,
+                orig=spelling,
+                parent={"$ref": f"#/groups/{identity}"},
+            )
+            for pointer, spelling in spellings.items()
+        ),
+    ]
     source, frame, context = selected_source(complete_text, pieces=projection, items=items)
     return AnnotationInput(frame.pin, block_id, kind, block, layout, pieces), source, frame, context
 

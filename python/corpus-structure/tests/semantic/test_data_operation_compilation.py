@@ -1718,10 +1718,20 @@ def test_native_admission_policy_remains_a_definition_determinant():
 
 def test_complete_episode_set_is_preserved_in_semantic_request_without_first_selection():
     model = compile_data_operations(declarations=declarations(contract()))
-    request, admission = project_operation_binding(model, resolved_binding(model, episodes=("episode-b", "episode-a")))
-    assert request.inputs["source"]["value"].value[0]["support_episodes"] == ("episode-a", "episode-b")
-    reversed_request, _ = project_operation_binding(model, resolved_binding(model, episodes=("episode-a", "episode-b")))
+    request, admission = project_operation_binding(
+        model, resolved_binding(model, episodes=("episode-b", "episode-a"))
+    )
+    assert request.inputs["source"]["value"].value[0]["support_episodes"] == (
+        "episode-a",
+        "episode-b",
+    )
+    reversed_request, _ = project_operation_binding(
+        model, resolved_binding(model, episodes=("episode-a", "episode-b"))
+    )
     single, _ = project_operation_binding(model, resolved_binding(model))
     assert request.identity == reversed_request.identity
     assert request.identity != single.identity
-    assert admission.selected_support["selected_support"]["source"]["members"][0]["episodes"] == ("episode-b", "episode-a")
+    assert admission.selected_support["selected_support"]["source"]["members"][0]["episodes"] == (
+        "episode-b",
+        "episode-a",
+    )

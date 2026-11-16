@@ -5,19 +5,22 @@ from typing import Any
 import pytest
 
 from corpus_structure.methods.structural_products import (
-    compare_clauses as compare_captured_clauses,
+    _difference,
+    _succession,
+    _typed_member,
+    select_dossier,
+    threshold_readings,
 )
 from corpus_structure.methods.structural_products import (
-    select_dossier, _difference, _typed_member, _succession,
-    threshold_readings,
+    compare_clauses as compare_captured_clauses,
 )
 from corpus_structure.semantic.structural_products import (
     DIMENSIONS,
     DeclaredClauseField,
     DeclaredClauseFieldGroup,
     DeclaredClauseReading,
-    DossierFacet,
     DeclaredDossierMember,
+    DossierFacet,
     LocatedDefinitionSpan,
 )
 from corpus_structure.serve.structural_products import dossier_representation_page
@@ -62,9 +65,7 @@ def read_clause(passage, *, source_inputs, **expected_roles):
                 )
             )
     source = next(
-        source
-        for source in source_inputs.sources
-        if source.identity == passage.source_ref
+        source for source in source_inputs.sources if source.identity == passage.source_ref
     )
     thresholds = threshold_readings(
         passage, source=source, primary_layers=formal_reading_sets(source_inputs)[source.identity]
@@ -100,7 +101,9 @@ def test_exact_threshold_difference(left, right, removed, added):
     assert outcome == "different"
     assert left_field.typed.basis_evidence is not None
     assert left_field.typed.basis_evidence.text == basis[1:]
-    assert left_field.typed.primary_formal is not None and left_field.typed.primary_basis is not None
+    assert (
+        left_field.typed.primary_formal is not None and left_field.typed.primary_basis is not None
+    )
     assert set(left_field.typed.primary_formal.values()) == {"product_id", "member_id"}
 
 
@@ -121,9 +124,13 @@ def test_succession_keeps_the_source_direction_when_comparison_is_reversed():
         "Clause rule.\nRevision R2 supersedes revision R1.\nx > 5 kg",
     )
     newer, older = inputs.passages
-    result = _succession(newer, older,
+    result = _succession(
+        newer,
+        older,
         sources={source.identity: source for source in inputs.sources},
-        primary_layers=None, primary_readings=formal_reading_sets(inputs))
+        primary_layers=None,
+        primary_readings=formal_reading_sets(inputs),
+    )
     assert result is not None
     assert (result.older_id, result.newer_id) == ("a", "b")
     assert result.evidence.text == "Revision R2 supersedes revision R1."
@@ -146,9 +153,16 @@ def test_caller_labels_cannot_substitute_for_succession_endpoints(left, same_sou
         same_source=same_source,
     )
     newer, older = inputs.passages
-    assert _succession(newer, older,
-        sources={source.identity: source for source in inputs.sources},
-        primary_layers=None, primary_readings=formal_reading_sets(inputs)) is None
+    assert (
+        _succession(
+            newer,
+            older,
+            sources={source.identity: source for source in inputs.sources},
+            primary_layers=None,
+            primary_readings=formal_reading_sets(inputs),
+        )
+        is None
+    )
 
 
 def members():
@@ -184,12 +198,19 @@ def test_supported_facets_gain_beats_source_order_without_discarding_members():
         for i in range(3)
     )
     greedy = select_dossier(
-        value, root_id=root.component_id, root_component=root, predecessors=(predecessor,),
-        members=rows, supported_facets=facets, member_budget=1
+        value,
+        root_id=root.component_id,
+        root_component=root,
+        predecessors=(predecessor,),
+        members=rows,
+        supported_facets=facets,
+        member_budget=1,
     )
     control = select_dossier(
         value,
-        root_id=root.component_id, root_component=root, predecessors=(predecessor,),
+        root_id=root.component_id,
+        root_component=root,
+        predecessors=(predecessor,),
         members=rows,
         supported_facets=facets,
         member_budget=1,
@@ -207,8 +228,14 @@ def test_mandatory_overflow_pages_and_rejects_substituted_membership():
     rows = tuple(m.model_copy(update={"role": "exception"}) for m in members())
     value = inputs()
     root, predecessor = root_references(value)
-    report = select_dossier(value, root_id=root.component_id, root_component=root,
-                            predecessors=(predecessor,), members=rows, member_budget=1)
+    report = select_dossier(
+        value,
+        root_id=root.component_id,
+        root_component=root,
+        predecessors=(predecessor,),
+        members=rows,
+        member_budget=1,
+    )
     first = dossier_representation_page(report, limit=2)
     assert first["mandatory_overflow"] is True
     assert len(first["members"]) == 2
@@ -225,8 +252,9 @@ def test_dossier_derives_only_actual_predecessor_roles_and_exact_protected_suppo
     from corpus_structure.semantic.structural_admission import structural_statement
     from corpus_structure.semantic.structural_products import (
         DeclaredDefinitionComponentsProduct,
+        DeclaredDefinitionComponentsReport,
+        DeclaredStructuralInputPin,
         DeclaredStructuralRef,
-        DeclaredDefinitionComponentsReport, DeclaredStructuralInputPin,
         declared_definition_component,
     )
 
@@ -245,22 +273,32 @@ def test_dossier_derives_only_actual_predecessor_roles_and_exact_protected_suppo
     predecessor = DeclaredDefinitionComponentsReport(
         kind="definition_components",
         inputs=value,
-        definition_components=DeclaredDefinitionComponentsProduct(components=(component,), stages=()),
-        sources_input=(DeclaredStructuralInputPin(
-            product_id=value.sources[0].source_product, kind_contract=value.sources[0].kind_contract,
-            project_id=value.sources[0].project_id, subject=value.sources[0].subject,
-            subject_definition=value.sources[0].subject_definition,
-            original_source=value.sources[0].original_source,
-            analyzed_scope_meaning=value.sources[0].analyzed_scope_meaning,
-            reference=value.sources[0].source,
-        ),),
+        definition_components=DeclaredDefinitionComponentsProduct(
+            components=(component,), stages=()
+        ),
+        sources_input=(
+            DeclaredStructuralInputPin(
+                product_id=value.sources[0].source_product,
+                kind_contract=value.sources[0].kind_contract,
+                project_id=value.sources[0].project_id,
+                subject=value.sources[0].subject,
+                subject_definition=value.sources[0].subject_definition,
+                original_source=value.sources[0].original_source,
+                analyzed_scope_meaning=value.sources[0].analyzed_scope_meaning,
+                reference=value.sources[0].source,
+            ),
+        ),
     )
     source = value.sources[0]
     reference = DeclaredStructuralRef(
-        product_id="fixture:structural-definition", structural_id=predecessor.product_id,
-        kind_contract="kind:fixture-definition", project_id=source.project_id,
-        subject=source.subject, subject_definition=source.subject_definition,
-        original_source=source.original_source, analyzed_scope_meaning=source.analyzed_scope_meaning,
+        product_id="fixture:structural-definition",
+        structural_id=predecessor.product_id,
+        kind_contract="kind:fixture-definition",
+        project_id=source.project_id,
+        subject=source.subject,
+        subject_definition=source.subject_definition,
+        original_source=source.original_source,
+        analyzed_scope_meaning=source.analyzed_scope_meaning,
     )
     closure = value.model_copy(
         update=dict(dependencies=(*value.dependencies, predecessor.product_id))
@@ -298,10 +336,12 @@ def test_independently_located_clause_premises_preserve_threshold_consequence():
         "modality": "must",
         "exception": "unless account is closed",
     }
-    left = read_clause(value.passages[0], source_inputs=value,
-                       **roles, condition="if revenue > 25000 USD")
-    right = read_clause(value.passages[1], source_inputs=value,
-                        **roles, condition="if revenue > 50000 USD")
+    left = read_clause(
+        value.passages[0], source_inputs=value, **roles, condition="if revenue > 25000 USD"
+    )
+    right = read_clause(
+        value.passages[1], source_inputs=value, **roles, condition="if revenue > 50000 USD"
+    )
     left_field = next(field for field in left.fields if field.dimension == "threshold_unit")
     right_field = next(field for field in right.fields if field.dimension == "threshold_unit")
     assert left_field.typed is not None and right_field.typed is not None
@@ -313,7 +353,7 @@ def test_independently_located_clause_premises_preserve_threshold_consequence():
 
 def test_grouped_typed_alignment_does_not_derive_interval_from_unresolved_applicability():
     from corpus_structure.methods.structural_products import _literal_reading
-    from corpus_structure.semantic.formal_readings import FormalSourceReadings, coordination_reading
+    from corpus_structure.semantic.formal_readings import coordination_reading
 
     value = threshold_inputs(
         "Identifier: Form-A and Date: 2025-01-15. X > 5 kg.\nComparison basis: gross weight.",
@@ -335,9 +375,7 @@ def test_grouped_typed_alignment_does_not_derive_interval_from_unresolved_applic
                 passage_id=passage.passage_id, start=start, end=start + len(spelling), text=spelling
             )
 
-        source = next(
-            s for s in value.sources if s.identity == passage.source_ref
-        )
+        source = next(s for s in value.sources if s.identity == passage.source_ref)
         primary = layers[source.identity]
         members = []
         for spelling in (f"Identifier: {form}", f"Date: {date}"):
@@ -355,7 +393,10 @@ def test_grouped_typed_alignment_does_not_derive_interval_from_unresolved_applic
                 )
             )
         cue = coordination_reading(
-            primary, primary.source, start=len(f"Identifier: {form}"), end=passage.text.index("Date:")
+            primary,
+            primary.source,
+            start=len(f"Identifier: {form}"),
+            end=passage.text.index("Date:"),
         )
         assert cue is not None and cue.value == connector
         # An unresolved actor can coexist with an otherwise exact threshold.
@@ -364,9 +405,7 @@ def test_grouped_typed_alignment_does_not_derive_interval_from_unresolved_applic
             for x in threshold_readings(
                 passage,
                 source=next(
-                    source
-                    for source in value.sources
-                    if source.identity == passage.source_ref
+                    source for source in value.sources if source.identity == passage.source_ref
                 ),
                 primary_layers=layers[source.identity],
             )
@@ -387,14 +426,15 @@ def test_grouped_typed_alignment_does_not_derive_interval_from_unresolved_applic
         return DeclaredClauseReading(passage_id=passage.passage_id, groups=groups)
 
     def ref(passage, digit):
-        source = next(
-            item for item in value.sources if item.identity == passage.source_ref
-        )
+        source = next(item for item in value.sources if item.identity == passage.source_ref)
         return dict(
             contribution_id="source-contribution:" + digit * 64,
-            product_id="fixture:reading:" + digit, kind_contract="kind:fixture-reading",
-            project_id=source.project_id, subject=source.subject,
-            subject_definition=source.subject_definition, original_source=source.original_source,
+            product_id="fixture:reading:" + digit,
+            kind_contract="kind:fixture-reading",
+            project_id=source.project_id,
+            subject=source.subject,
+            subject_definition=source.subject_definition,
+            original_source=source.original_source,
             analyzed_scope_meaning=source.analyzed_scope_meaning,
         )
 

@@ -10,13 +10,18 @@ from corpus_structure.methods import m1_source
 from corpus_structure.methods.gliner import GlinerPreparation, GlinerReport
 from corpus_structure.methods.gliner_worker import GlinerWorkerError
 from corpus_structure.semantic.identity import canonical_bytes
+from corpus_structure.semantic.m1_products import NativeCandidateData
 from methods.m1_producer_support import (
     ROOT as ROOT,
 )
 from methods.m1_producer_support import (
     ControlledDecoder as ControlledDecoder,
 )
-from methods.m1_producer_support import candidate_fixture_inputs, candidate_fixture_product, context_population
+from methods.m1_producer_support import (
+    candidate_fixture_inputs,
+    candidate_fixture_product,
+    context_population,
+)
 from methods.m1_producer_support import (
     detail_object as detail_object,
 )
@@ -29,9 +34,8 @@ from methods.m1_producer_support import (
 from methods.m1_producer_support import (
     view as view,
 )
-from methods.record_assembly_support import model as record_model
 from methods.m1_source_preparation_support import projection as literal_projection
-from corpus_structure.semantic.m1_products import NativeCandidateData
+from methods.record_assembly_support import model as record_model
 
 
 def test_local_schema_survives_empty_record_outputs(monkeypatch):
@@ -155,9 +159,17 @@ def test_request_limit_continues_independent_context_but_worker_fault_fences_it(
         dict(self_ref="#/texts/2", label="text", text=second),
     )
     pieces = (
-        dict(kind="native_text", source_field="text", item_ref="#/texts/1", start=0, end=len(first)),
+        dict(
+            kind="native_text", source_field="text", item_ref="#/texts/1", start=0, end=len(first)
+        ),
         dict(kind="synthetic_separator", start=len(first), end=len(first) + 1),
-        dict(kind="native_text", source_field="text", item_ref="#/texts/2", start=len(first) + 1, end=len(text)),
+        dict(
+            kind="native_text",
+            source_field="text",
+            item_ref="#/texts/2",
+            start=len(first) + 1,
+            end=len(text),
+        ),
     )
     source = literal_projection(text, pieces=pieces, items=nodes)
 
@@ -227,21 +239,32 @@ def test_request_limit_continues_independent_context_but_worker_fault_fences_it(
     )
 
 
-def test_current_annotation_consumer_reuses_columns_and_refuses_profile_or_source_drift(monkeypatch):
+def test_current_annotation_consumer_reuses_columns_and_refuses_profile_or_source_drift(
+    monkeypatch,
+):
     from dataclasses import replace
+
     from corpus_structure.ingest import annotations
     from corpus_structure.ingest.annotations import AnnotationProfile
     from corpus_structure.ingest.sentences import SentenceConfig
-    from corpus_structure.semantic.sentence_products import retained_source_annotation_products, source_annotation_rows
+    from corpus_structure.semantic.sentence_products import (
+        retained_source_annotation_products,
+        source_annotation_rows,
+    )
     from corpus_structure.semantic.source_products import FrozenNativeSource
     from methods.declared_primary_fixture import source_readings
 
     source, products, _primary, native = source_readings("Mean is average.", AnnotationProfile())
     monkeypatch.setattr(annotations, "pipeline", lambda *_: pytest.fail("replay ran inference"))
-    restored = retained_source_annotation_products(FrozenNativeSource(source.source_content.encode()), native)
+    restored = retained_source_annotation_products(
+        FrozenNativeSource(source.source_content.encode()), native
+    )
     assert restored == products
     assert restored[0].tokens[0].start == 0 and restored[0].sentences[-1].end == 16
-    profile = AnnotationProfile(native.configuration, execution_profile=native.value.model_dump(mode="json")["execution_profile"])
+    profile = AnnotationProfile(
+        native.configuration,
+        execution_profile=native.value.model_dump(mode="json")["execution_profile"],
+    )
     rows = source_annotation_rows(json.loads(native.content))
     for changed in (
         replace(profile, configuration=SentenceConfig(exclude=("ner",), batch_size=1)),
@@ -267,9 +290,17 @@ def test_explicit_regions_execute_only_requested_primary_and_keep_unrequested_in
         dict(self_ref="#/texts/2", label="text", text=second),
     )
     pieces = (
-        dict(kind="native_text", source_field="text", item_ref="#/texts/1", start=0, end=len(first)),
+        dict(
+            kind="native_text", source_field="text", item_ref="#/texts/1", start=0, end=len(first)
+        ),
         dict(kind="synthetic_separator", start=len(first), end=len(first) + 1),
-        dict(kind="native_text", source_field="text", item_ref="#/texts/2", start=len(first) + 1, end=len(text)),
+        dict(
+            kind="native_text",
+            source_field="text",
+            item_ref="#/texts/2",
+            start=len(first) + 1,
+            end=len(text),
+        ),
     )
     selected = literal_projection(text, pieces=pieces, items=nodes)
 
@@ -295,9 +326,7 @@ def test_explicit_regions_execute_only_requested_primary_and_keep_unrequested_in
     bad = cfg.model_copy(update={"region_pointers": ("#/texts/99999",)})
     with pytest.raises(m1_source.GlinerRefused, match="unknown native region"):
         candidate_fixture_product(
-            candidate_fixture_inputs(
-                selected, bad, check_active=lambda: None
-            ),
+            candidate_fixture_inputs(selected, bad, check_active=lambda: None),
             decoder,
         )
     assert worker.calls == []
@@ -329,7 +358,9 @@ def test_context_relationship_diagnostics_cross_the_source_report_boundary(monke
     result = candidate_fixture_product(frozen)
 
     decoded = source_python(source_value(result.parse_detail))
-    assert decoded["contexts"][0]["relationships"] == [[{"content": other.content}, "neighbor", "nearby unit"]]
+    assert decoded["contexts"][0]["relationships"] == [
+        [{"content": other.content}, "neighbor", "nearby unit"]
+    ]
     assert result.outcome == ObservationOutcome.FAILED
 
 
@@ -467,12 +498,21 @@ def test_dense_native_structure_emits_only_the_explicit_context_target_cells(mon
 
     source = dense_table_source()
     from corpus_structure.semantic.declared_contexts import DeclaredContextPopulation
-    population = DeclaredContextPopulation((source,), canonical_bytes(dict(
-        identity="unadmitted:dense-source", complete=True, evidence={"literal": "source"})))
+
+    population = DeclaredContextPopulation(
+        (source,),
+        canonical_bytes(
+            dict(identity="unadmitted:dense-source", complete=True, evidence={"literal": "source"})
+        ),
+    )
     data = NativeCandidateData.from_frame(source)
     prepared = source_preparation.prepare_source(
-        data, source_frame=source, context_population=population, persisted_annotations=(),
-        max_chars=256, max_pieces=64
+        data,
+        source_frame=source,
+        context_population=population,
+        persisted_annotations=(),
+        max_chars=256,
+        max_pieces=64,
     )
     selections = [s for s in prepared.selections if s.families == ("table",)]
     assert len(selections) == 30
@@ -527,8 +567,16 @@ def test_explicit_m1_kernel_consumes_prepared_inputs_without_reader_or_unit(monk
     source = view()
     cfg = candidate_configuration(ROOT / "domains/statistics", "default")
     inputs = candidate_fixture_inputs(source, cfg)
-    monkeypatch.setattr(source_preparation, "prepare_source", lambda *_a, **_k: pytest.fail("kernel prepared sources again"))
-    monkeypatch.setattr(source_preparation, "annotation_inputs", lambda *_a, **_k: pytest.fail("kernel discovered annotations again"))
+    monkeypatch.setattr(
+        source_preparation,
+        "prepare_source",
+        lambda *_a, **_k: pytest.fail("kernel prepared sources again"),
+    )
+    monkeypatch.setattr(
+        source_preparation,
+        "annotation_inputs",
+        lambda *_a, **_k: pytest.fail("kernel discovered annotations again"),
+    )
     worker = ControlledDecoder("definition")
     product = candidate_fixture_product(inputs, worker)
     assert isinstance(product, m1_source.M1CandidateProduct)
@@ -551,8 +599,13 @@ def test_m1_kernel_yields_exact_inference_question_and_receives_provider_failure
         candidate_configuration(ROOT / "domains/statistics", "default")
     )
     data = NativeCandidateData.from_frame(source)
-    prepared_source = prepare_source(data, source_frame=source, context_population=context_population(source),
-                                     persisted_annotations=(), policy=cfg.policy)
+    prepared_source = prepare_source(
+        data,
+        source_frame=source,
+        context_population=context_population(source),
+        persisted_annotations=(),
+        policy=cfg.policy,
+    )
     plan = m1_source.plan_candidates(
         prepared=release(),
         view=data,
@@ -600,8 +653,13 @@ def test_m1_typed_reply_preserves_bounded_provider_failure_dispositions(failure,
     plan = m1_source.plan_candidate_replies(
         prepared=release(),
         view=data,
-        prepared_source=prepare_source(data, source_frame=source, context_population=context_population(source),
-                                       persisted_annotations=(), policy=cfg.policy),
+        prepared_source=prepare_source(
+            data,
+            source_frame=source,
+            context_population=context_population(source),
+            persisted_annotations=(),
+            policy=cfg.policy,
+        ),
         annotation_result={
             "method": "controlled-boundary",
             "input_hash": "input",

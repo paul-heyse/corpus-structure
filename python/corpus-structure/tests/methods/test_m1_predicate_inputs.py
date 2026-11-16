@@ -311,5 +311,10 @@ def test_current_annotation_fixture_uses_declared_source_and_separate_nominal_pr
     assert annotations[0].source == frame.pin
     assert not hasattr(annotations[0], "primary_layers")
     assert [token.lemma for token in annotations[0].tokens] == ["lemma:0", "lemma:1"]
-    assert native.value.model_dump(mode="json", exclude_unset=True)["source"] == frame.value["source"]
-    assert primary[0].value.model_dump(mode="json", exclude_unset=True)["source"] == frame.value["source"]
+    assert (
+        native.value.model_dump(mode="json", exclude_unset=True)["source"] == frame.value["source"]
+    )
+    assert (
+        primary[0].value.model_dump(mode="json", exclude_unset=True)["source"]
+        == frame.value["source"]
+    )

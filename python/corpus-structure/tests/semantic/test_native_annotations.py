@@ -3,7 +3,7 @@
 from dataclasses import asdict
 
 import pytest
-from methods.declared_primary_fixture import selected_source
+from methods.declared_primary_fixture import profiles, selected_source
 
 from corpus_structure.core.work import drive_prepared_work
 from corpus_structure.ingest.annotations import AnnotationInput, AnnotationProfile
@@ -12,7 +12,6 @@ from corpus_structure.ingest.sentences import Block, SentenceConfig, pipeline, p
 from corpus_structure.methods.characterization_resources import ProviderExecution
 from corpus_structure.semantic.cpu_execution import CPUExecutionScope
 from corpus_structure.semantic.native_annotations import annotation_work
-from methods.declared_primary_fixture import profiles, selected_source
 
 
 @pytest.fixture(scope="module")

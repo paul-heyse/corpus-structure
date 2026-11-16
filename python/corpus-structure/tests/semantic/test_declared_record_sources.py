@@ -328,8 +328,12 @@ def test_candidate_preparation_accepts_explicit_declared_frame_without_view_refe
     )
     from corpus_structure.semantic.declared_contexts import DeclaredContextPopulation
 
-    population = DeclaredContextPopulation((frame,), b'{"identity":"fixture:current","complete":true}')
-    result = prepare_source(data, source_frame=frame, persisted_annotations=(), context_population=population)
+    population = DeclaredContextPopulation(
+        (frame,), b'{"identity":"fixture:current","complete":true}'
+    )
+    result = prepare_source(
+        data, source_frame=frame, persisted_annotations=(), context_population=population
+    )
     assert result.source is frame
     assert result.regions[0].pointer == "#/texts/0"
     assert result.preparation is not None

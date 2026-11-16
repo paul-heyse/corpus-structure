@@ -5,14 +5,13 @@ Consumers receive the actual annotation and construction products explicitly.
 """
 
 import json
-
 from dataclasses import asdict
 from functools import lru_cache
 from hashlib import sha256
 from pathlib import Path
 
-from spacy.lang.en import English
 from pydantic import JsonValue
+from spacy.lang.en import English
 
 from corpus_structure.ingest.annotation_views import annotation_view
 from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
@@ -135,7 +134,12 @@ def retained_products(source, frame, context, products, profile):
     for product in products:
         if product.source != frame.pin:
             raise ValueError("fixture annotation differs from the selected source carrier")
-        view = annotation_view(product, frame.text[product.block_start:product.block_end], English().vocab, required=())
+        view = annotation_view(
+            product,
+            frame.text[product.block_start : product.block_end],
+            English().vocab,
+            required=(),
+        )
         body = present(json.loads(canonical_bytes(asdict(product))))
         assert isinstance(body, dict)
         body["source"] = frame.pin.values()

@@ -74,16 +74,26 @@ def test_comparison_qualification_rejects_substitution(failure):
         binding = replace(binding, decision=replace(binding.decision, effective_version="R1"))
     elif failure == "target_custody":
         from corpus_structure.semantic.contextual_retrieval import target_representation
+
         carrier = binding.representations[0]
-        changed = target_representation(carrier.target_id, "wrong-exact-root", carrier.label, carrier.description,
-            type_name=carrier.type_name, scope=carrier.scope, effective_version=carrier.effective_version)
+        changed = target_representation(
+            carrier.target_id,
+            "wrong-exact-root",
+            carrier.label,
+            carrier.description,
+            type_name=carrier.type_name,
+            scope=carrier.scope,
+            effective_version=carrier.effective_version,
+        )
         binding = replace(binding, representations=(changed,))
         match = "exact native root component"
     elif failure == "source":
         binding = replace(binding, source_pin={**binding.source_pin, "source_product": "another"})
     else:
         anchor = binding.anchors[0]
-        binding = replace(binding, anchors=({**anchor, "start": anchor["start"] + 1, "end": anchor["end"] + 1},))
+        binding = replace(
+            binding, anchors=({**anchor, "start": anchor["start"] + 1, "end": anchor["end"] + 1},)
+        )
         match = "actual native source text"
     relationships[relationship_ref] = replace(relationship, binding=binding)
     with pytest.raises(ValueError, match=match):
@@ -200,7 +210,9 @@ def test_comparison_conflict_requires_exact_applicability_and_both_authored_read
             ),
         ),
     )
-    premise_ref = reference.model_copy(update={"product_id": "unadmitted:applicability", "structural_id": premise.product_id})
+    premise_ref = reference.model_copy(
+        update={"product_id": "unadmitted:applicability", "structural_id": premise.product_id}
+    )
     text = f'"{left_focus.text}" contradicts "{right_focus.text}".'
     proof = left.model_copy(
         update={
@@ -241,18 +253,37 @@ def test_comparison_conflict_requires_exact_applicability_and_both_authored_read
 
 
 def test_revision_requires_original_successor_and_direction():
-    from semantic.structural_products_support import input_from_passages
     from semantic.structural_formal_support import formal_reading_sets
+    from semantic.structural_products_support import input_from_passages
+
     left_text = "Apply measure. Measure is a control rule.\nClause rules.\nRevision R2 supersedes revision R1."
     right_text = "Measure is a control rule.\nClause rules.\nRevision R1."
-    value = input_from_passages((
-        dict(passage_id="a", document="same-original", text=left_text, start=0,
-             scope="rules", effective_version="R2", parent="rules"),
-        dict(passage_id="b", document="same-original", text=right_text, start=len(left_text)+1,
-             scope="rules", effective_version="R1", parent="rules"),
-    ), scope="rules")
+    value = input_from_passages(
+        (
+            dict(
+                passage_id="a",
+                document="same-original",
+                text=left_text,
+                start=0,
+                scope="rules",
+                effective_version="R2",
+                parent="rules",
+            ),
+            dict(
+                passage_id="b",
+                document="same-original",
+                text=right_text,
+                start=len(left_text) + 1,
+                scope="rules",
+                effective_version="R1",
+                parent="rules",
+            ),
+        ),
+        scope="rules",
+    )
     value, root, root_ref, reference, payload, selected, relationships = fixture(
-        value, exception=False, root_on_left=True, primary_layers=formal_reading_sets(value))
+        value, exception=False, root_on_left=True, primary_layers=formal_reading_sets(value)
+    )
     members, _ = derive(value, root, root_ref, reference, payload, selected[:1], relationships)
     assert [(m.role, m.citation.text) for m in members if m.role == "revision"] == [
         ("revision", "Revision R2 supersedes revision R1.")

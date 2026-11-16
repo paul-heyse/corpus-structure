@@ -30,13 +30,24 @@ def bundle():
     from corpus_structure.semantic.m1_products import m1_operation_inputs
 
     model = ROOT / "python/corpus-structure/src/corpus_structure/model/semantic"
-    return m1_operation_inputs(observation_inputs(SourceBundle(
-        "statistics_semantic", (
-            SourceArtifact("statistics_semantic", (ROOT / "domains/statistics/semantic.yaml").read_bytes()),
-            SourceArtifact("semantic_core", (model / "core.yaml").read_bytes()),
-            SourceArtifact("statistics_terminology", (ROOT / "domains/statistics/terminology.yaml").read_bytes()),
-        ),
-    )))
+    return m1_operation_inputs(
+        observation_inputs(
+            SourceBundle(
+                "statistics_semantic",
+                (
+                    SourceArtifact(
+                        "statistics_semantic",
+                        (ROOT / "domains/statistics/semantic.yaml").read_bytes(),
+                    ),
+                    SourceArtifact("semantic_core", (model / "core.yaml").read_bytes()),
+                    SourceArtifact(
+                        "statistics_terminology",
+                        (ROOT / "domains/statistics/terminology.yaml").read_bytes(),
+                    ),
+                ),
+            )
+        )
+    )
 
 
 @cache
@@ -56,19 +67,45 @@ def model():
 def view(text="Mean is average.", *, heading=None):
     from methods.declared_primary_fixture import selected_source
 
-    nodes = [dict(self_ref="#/groups/1", label="section"),
-             dict(self_ref="#/texts/1", label="text", text=text,
-                  parent={"$ref": "#/groups/1"})]
+    nodes = [
+        dict(self_ref="#/groups/1", label="section"),
+        dict(self_ref="#/texts/1", label="text", text=text, parent={"$ref": "#/groups/1"}),
+    ]
     offset = 0
     pieces = []
     if heading is not None:
         offset = len(heading) + 1
         text = heading + "\n" + text
-        nodes.insert(1, dict(self_ref="#/texts/0", label="section_header", text=heading,
-                             parent={"$ref": "#/groups/1"}))
-        pieces.extend([dict(kind="native_text", item_ref="#/texts/0", source_field="text", start=0, end=len(heading)),
-                       dict(kind="synthetic_separator", start=len(heading), end=offset)])
-    pieces.append(dict(kind="native_text", item_ref="#/texts/1", source_field="text", start=offset, end=len(text)))
+        nodes.insert(
+            1,
+            dict(
+                self_ref="#/texts/0",
+                label="section_header",
+                text=heading,
+                parent={"$ref": "#/groups/1"},
+            ),
+        )
+        pieces.extend(
+            [
+                dict(
+                    kind="native_text",
+                    item_ref="#/texts/0",
+                    source_field="text",
+                    start=0,
+                    end=len(heading),
+                ),
+                dict(kind="synthetic_separator", start=len(heading), end=offset),
+            ]
+        )
+    pieces.append(
+        dict(
+            kind="native_text",
+            item_ref="#/texts/1",
+            source_field="text",
+            start=offset,
+            end=len(text),
+        )
+    )
     _source, frame, _context = selected_source(text, pieces=pieces, items=nodes)
     return frame
 
@@ -114,15 +151,23 @@ class ControlledDecoder:
 def context_population(source):
     from corpus_structure.semantic.declared_contexts import DeclaredContextPopulation
 
-    return DeclaredContextPopulation((source,), canonical_bytes(dict(
-        identity="unadmitted:complete-literal-context", complete=True,
-        members=[source.pin.values()["source_member"]], evidence={"literal": "selected pure source"},
-    )))
+    return DeclaredContextPopulation(
+        (source,),
+        canonical_bytes(
+            dict(
+                identity="unadmitted:complete-literal-context",
+                complete=True,
+                members=[source.pin.values()["source_member"]],
+                evidence={"literal": "selected pure source"},
+            )
+        ),
+    )
 
 
 def candidate_fixture_inputs(source, cfg, *, check_active=lambda: None):
     """Freeze current source/annotations/primary products before the original pure kernel."""
     from dataclasses import replace
+
     from corpus_structure.ingest.annotations import AnnotationProfile, annotate
     from corpus_structure.ingest.sentences import pipeline
     from corpus_structure.methods.gliner import GlinerRefused
@@ -133,7 +178,10 @@ def candidate_fixture_inputs(source, cfg, *, check_active=lambda: None):
     from methods.declared_primary_fixture import retained_products
 
     check_active()
-    if cfg.source_projection_digest is not None and source.projection_digest != cfg.source_projection_digest:
+    if (
+        cfg.source_projection_digest is not None
+        and source.projection_digest != cfg.source_projection_digest
+    ):
         raise GlinerRefused("source differs from selected projection digest")
     if cfg.region_pointers is not None:
         missing = set(cfg.region_pointers) - {item["self_ref"] for item in source.items}
@@ -143,24 +191,45 @@ def candidate_fixture_inputs(source, cfg, *, check_active=lambda: None):
     profile = AnnotationProfile(cfg.sentences)
     native_profile = pipeline(profile.configuration).selection().native
     profile = replace(profile, execution_profile=native_profile.fingerprint)
-    annotations = tuple(annotate(annotation_inputs(data, profile=profile, source_frame=source), profile))
+    annotations = tuple(
+        annotate(annotation_inputs(data, profile=profile, source_frame=source), profile)
+    )
     pin = source.pin.values()
-    context = SubjectContext(pin["project_id"], pin["subject"], pin["original_source"],
-                             canonical_bytes(dict(source=source.value["source"], selectors=source.value["selectors"])),
-                             subject_definition=pin["subject_definition"])
-    native, primary = retained_products(FrozenNativeSource(source.source_content.encode()), source, context,
-                                        annotations, profile)
+    context = SubjectContext(
+        pin["project_id"],
+        pin["subject"],
+        pin["original_source"],
+        canonical_bytes(dict(source=source.value["source"], selectors=source.value["selectors"])),
+        subject_definition=pin["subject_definition"],
+    )
+    native, primary = retained_products(
+        FrozenNativeSource(source.source_content.encode()), source, context, annotations, profile
+    )
     population = context_population(source)
     prepared_source = prepare_source(
-        data, source_frame=source, context_population=population, profile=profile,
-        max_chars=cfg.max_context_chars, max_pieces=cfg.max_context_pieces,
-        max_annotation_chars=cfg.max_annotation_chars, check_active=check_active,
-        persisted_annotations=annotations, policy=cfg.policy, formula_prose=cfg.formula_prose,
+        data,
+        source_frame=source,
+        context_population=population,
+        profile=profile,
+        max_chars=cfg.max_context_chars,
+        max_pieces=cfg.max_context_pieces,
+        max_annotation_chars=cfg.max_annotation_chars,
+        check_active=check_active,
+        persisted_annotations=annotations,
+        policy=cfg.policy,
+        formula_prose=cfg.formula_prose,
         region_pointers=cfg.region_pointers,
     )
-    return dict(prepared=release(), model=model(), view=data, prepared_source=prepared_source,
-                primary_products=(primary,), annotation_result={"semantic_product": native.semantic_id},
-                cfg=cfg, check_active=check_active)
+    return dict(
+        prepared=release(),
+        model=model(),
+        view=data,
+        prepared_source=prepared_source,
+        primary_products=(primary,),
+        annotation_result={"semantic_product": native.semantic_id},
+        cfg=cfg,
+        check_active=check_active,
+    )
 
 
 def candidate_fixture_product(

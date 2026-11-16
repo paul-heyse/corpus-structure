@@ -50,8 +50,8 @@ class _Role(TypedDict):
 def cpu_basis_connection(semantic_bare_engine):
     from importlib.resources import files
 
-    from corpus_structure.semantic.data_operation_storage import native_protocol_sources, native_sql
     from corpus_structure.semantic.data_operation_binding_native import binding_native_sql
+    from corpus_structure.semantic.data_operation_storage import native_protocol_sources, native_sql
 
     root = files("corpus_structure.semantic").joinpath("sql")
     closure = root.joinpath("closure.sql").read_text()
@@ -188,8 +188,15 @@ def test_basis_reads_exact_products_contexts_and_origin_support_sets(cpu_basis_c
     # several rows share it; exact product correspondence keeps unrelated
     # episodes out and support-set normalization removes repeated references.
     inputs = [
-        {**{key: row[key] for key in ("role", "position", "multiplicity", "product_id", "member_id")},
-         "support_derivation_ids": sorted(reference["derivation_id"] for reference in row["support"])}
+        {
+            **{
+                key: row[key]
+                for key in ("role", "position", "multiplicity", "product_id", "member_id")
+            },
+            "support_derivation_ids": sorted(
+                reference["derivation_id"] for reference in row["support"]
+            ),
+        }
         for row in rows
     ]
     supports = [

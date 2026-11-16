@@ -507,7 +507,7 @@ def test_conflicting_candidate_pins_refuse_even_when_candidate_was_not_selected(
 
 
 def test_retrieval_relationship_cannot_silently_relabel_selected_neighbor_as_declaration():
-    primary = source(1, "X")
+    primary, neighbor = source(1, "X"), source(2, "Y")
     receipt = retrieval(
         candidates=(neighbor.pin,),
         selected=(B,),

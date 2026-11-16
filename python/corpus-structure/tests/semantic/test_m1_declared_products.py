@@ -606,8 +606,12 @@ def test_m1_scoped_source_and_direct_context_cannot_inspect_unselected_original_
     assert [(piece["start"], piece["end"]) for piece in data.pieces] == [(0, 5)]
     from corpus_structure.semantic.declared_contexts import DeclaredContextPopulation
 
-    population = DeclaredContextPopulation((selected,), b'{"identity":"fixture:current","complete":true}')
-    original = prepare_source(data, source_frame=selected, persisted_annotations=(), context_population=population)
+    population = DeclaredContextPopulation(
+        (selected,), b'{"identity":"fixture:current","complete":true}'
+    )
+    original = prepare_source(
+        data, source_frame=selected, persisted_annotations=(), context_population=population
+    )
     assert original.selections
     for selection in original.selections:
         context = selection.context(
@@ -633,7 +637,9 @@ def test_m1_scoped_source_and_direct_context_cannot_inspect_unselected_original_
         )
     clipped = frame([dict(projection=base.value["source"]["projection"], start=1, end=4)])
     partial = prepare_source(
-        NativeCandidateData.from_frame(clipped), source_frame=clipped, persisted_annotations=(),
+        NativeCandidateData.from_frame(clipped),
+        source_frame=clipped,
+        persisted_annotations=(),
         context_population=DeclaredContextPopulation((clipped,), population.witness),
     )
     assert partial.selections == ()

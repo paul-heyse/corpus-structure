@@ -527,7 +527,11 @@ def test_formal_nominal_packet_kinds_compile_to_native_publication_contract(prof
     assert contract["universe"] == "source"
     for member in members:
         body = next(row for row in projected["kinds"] if row["kind"] == member)
-        assert body["universe"] == ("ordinary" if member == profile.prepared.index.definitions["DdoFormalManifest"].iri else "source")
+        assert body["universe"] == (
+            "ordinary"
+            if member == profile.prepared.index.definitions["DdoFormalManifest"].iri
+            else "source"
+        )
         assert body["families"] == []
 
 
@@ -1032,8 +1036,10 @@ def test_target_formal_profile_refuses_stale_captured_grammar(profile):
 
 def test_target_distinct_original_projections_keep_disjoint_formal_members(profile):
     from semantic.formal_products_support import selected_rows
-    left, right = (selected_rows(profile, (text, "formula", text, "succeeded"))
-                   for text in ("x+y=1", "x-y=2"))
+
+    left, right = (
+        selected_rows(profile, (text, "formula", text, "succeeded")) for text in ("x+y=1", "x-y=2")
+    )
     assert left.value["source"]["document"] == right.value["source"]["document"]
     assert left.value["source"]["projection"] != right.value["source"]["projection"]
     results = tuple(

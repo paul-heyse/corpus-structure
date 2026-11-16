@@ -14,8 +14,12 @@ def formal_reading_sets(inputs):
     for source in inputs.sources:
         native = native_source(profile.prepared, inputs, source)
         context = SubjectContext(
-            source.project_id, source.subject, source.original_source,
-            canonical_bytes(dict(source=native.value["source"], selectors=native.value["selectors"])),
+            source.project_id,
+            source.subject,
+            source.original_source,
+            canonical_bytes(
+                dict(source=native.value["source"], selectors=native.value["selectors"])
+            ),
             subject_definition=source.subject_definition,
         )
         product = profile.run(native, FormalEvidenceOptions(), subject_context=context)
