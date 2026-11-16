@@ -76,6 +76,9 @@ BEGIN
  OR (SELECT extversion FROM pg_extension WHERE extname='vector') IS DISTINCT FROM numerics->>'pgvector_extension_version'
  OR numerics->>'target_collation' IS DISTINCT FROM 'C'
  OR text_configuration IS DISTINCT FROM 'pg_catalog.english'
+ OR numerics->>'linguistic_policy' IS DISTINCT FROM 'postgres-english-default-locale-observation-1'
+ OR numerics->>'alias_target_normalization' IS DISTINCT FROM 'python-str.lower'
+ OR numerics->>'alias_query_normalization' IS DISTINCT FROM 'postgres-default-lower'
  OR numerics->>'distance_operator' IS DISTINCT FROM 'pgvector-vector-cosine'
  OR numerics->>'score_transport' IS DISTINCT FROM 'postgres-float8'
  OR lexical_query IS NULL OR length(btrim(lexical_query))=0
@@ -93,9 +96,10 @@ BEGIN
  INTO membership,hits FROM score_rows;
  IF membership IS DISTINCT FROM to_jsonb(target_keys) THEN
  RAISE EXCEPTION 'native scoring membership is incomplete or duplicated' USING ERRCODE='23514'; END IF;
- RETURN jsonb_build_object('version','contextual-native-scores-1','inventory_id',inventory_key,
+ RETURN jsonb_build_object('version','contextual-native-scores-2','inventory_id',inventory_key,
  'profile_id',profile_key,'occurrence_id',p_query->>'occurrence_id','query_vector_id',p_query->>'query_vector_id',
- 'lexical_query',lexical_query,'membership',membership,'hits',hits);
+ 'lexical_query',lexical_query,'membership',membership,'hits',hits,
+ 'linguistic_observation',data.record_json_source(ops.ddo_contextual_linguistic_context()));
 END $score$;
 CREATE OR REPLACE FUNCTION ops.ddo_contextual_score_meaning(scores jsonb)
 RETURNS jsonb LANGUAGE sql IMMUTABLE STRICT SET search_path=pg_catalog,pg_temp AS $score$
@@ -106,6 +110,7 @@ RETURNS jsonb LANGUAGE sql IMMUTABLE STRICT SET search_path=pg_catalog,pg_temp A
  jsonb_build_array('occurrence_id',jsonb_build_array('string',scores->>'occurrence_id')),
  jsonb_build_array('query_vector_id',jsonb_build_array('string',scores->>'query_vector_id')),
  jsonb_build_array('lexical_query',jsonb_build_array('string',scores->>'lexical_query')),
+ jsonb_build_array('linguistic_observation',data.record_json_meaning(scores->'linguistic_observation')),
  jsonb_build_array('membership',jsonb_build_array('sequence',(SELECT coalesce(jsonb_agg(
  jsonb_build_array('string',value) ORDER BY ordinal),'[]') FROM jsonb_array_elements_text(scores->'membership') WITH ORDINALITY items(value,ordinal)))),
  jsonb_build_array('hits',jsonb_build_array('sequence',(SELECT coalesce(jsonb_agg(jsonb_build_array('mapping',jsonb_build_array(

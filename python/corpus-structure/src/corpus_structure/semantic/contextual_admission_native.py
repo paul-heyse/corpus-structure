@@ -219,6 +219,13 @@ BEGIN
  r.release_id:=episode.release_id; r.runtime_id:=episode.runtime_id;
  r.recipe:=episode.recipe; r.generation:=episode.generation;
  PERFORM ops.ddo_require_contextual_producer(r,intent.payload);
+ -- Preserve original authentic score bits. Only known SQL-visible linguistic
+ -- premises are compared; this neither rescores nor observes external file bytes.
+ IF r.operation_id='retrieve.contextual_scores/declared' AND NOT EXISTS (
+ SELECT FROM jsonb_array_elements(intent.payload->'outputs') output
+ WHERE output->'product'->'body' IS NOT NULL
+ AND data.ddo_field(data.ddo_normalize(output->'product'->'body'),'linguistic_observation') IS NOT DISTINCT FROM
+ data.record_json_meaning(data.record_json_source(ops.ddo_contextual_linguistic_context()))) THEN RETURN false; END IF;
  RETURN true;
  EXCEPTION WHEN data_exception OR integrity_constraint_violation OR no_data_found OR too_many_rows THEN RETURN false;
 END $contextual$;

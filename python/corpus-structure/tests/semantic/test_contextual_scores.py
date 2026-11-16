@@ -12,6 +12,7 @@ from corpus_structure.semantic.contextual_scores import candidates_from_scores, 
 from corpus_structure.semantic.declared_structural_calls import structural_operation_declarations
 from corpus_structure.semantic.observations import source_python, source_value
 from semantic.test_declared_contextual_operations import inputs
+from semantic.contextual_linguistic_support import linguistic_observation
 
 
 def controlled_scores():
@@ -30,7 +31,7 @@ def controlled_scores():
             SimpleNamespace(kind="hit", channel=channel, target_id=target, rank=rank, score=score)
             for rank, (target, score) in enumerate(zip(("one", "two"), scores, strict=True), 1)
         )
-    return values, acquired, score_product(acquired, values["query"], rows)
+    return values, acquired, score_product(acquired, values["query"], rows, linguistic_observation=linguistic_observation())
 
 
 def test_score_product_keeps_exact_float8_bits_and_independent_rrf_order():
@@ -107,6 +108,24 @@ def test_cpu_reduction_refuses_changed_native_score_correspondence(change):
             values["policy"],
             numerical_policy=default_retrieval_numerics(),
         )
+
+
+@pytest.mark.parametrize("change", ["missing-observation", "unknown-material", "provider-version", "old-version"])
+def test_score_consumer_requires_current_closed_linguistic_observation(change):
+    values, acquired, scores = controlled_scores()
+    observation = source_python(scores["linguistic_observation"])
+    if change == "missing-observation":
+        del scores["linguistic_observation"]
+    elif change == "old-version":
+        scores["version"] = "contextual-native-scores-1"
+    else:
+        if change == "unknown-material":
+            observation["unobserved_material"]["libc_build"] = "complete-fingerprint"
+        else:
+            observation["database_locale"].update(recorded_provider_version="one", actual_provider_version="two")
+        scores["linguistic_observation"] = source_value(observation)
+    with pytest.raises(ValueError):
+        candidates_from_scores(acquired, scores, values["query"], values["policy"], numerical_policy=default_retrieval_numerics())
 
 
 def test_lexical_projection_keeps_python_unicode_and_rejects_invented_forms():

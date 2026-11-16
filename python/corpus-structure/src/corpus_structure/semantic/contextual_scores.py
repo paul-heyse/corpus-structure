@@ -8,11 +8,14 @@ import struct
 from dataclasses import dataclass
 from typing import Any
 
-SCORE_VERSION = "contextual-native-scores-1"
+SCORE_VERSION = "contextual-native-scores-2"
 
 
-def score_product(inputs, query, rows):
+def score_product(inputs, query, rows, *, linguistic_observation):
     """Retain actual PostgreSQL float8 observations without a JSON number conversion."""
+    from .contextual_linguistics import checked_linguistic_observation, linguistic_source_value
+
+    observation = checked_linguistic_observation(linguistic_observation)
     membership = tuple(sorted(row.target_id for row in rows if row.kind == "membership"))
     if membership != inputs.inventory.target_ids:
         raise ValueError("eligible inventory vector membership is incomplete or duplicated")
@@ -42,6 +45,7 @@ def score_product(inputs, query, rows):
         occurrence_id=query["occurrence_id"],
         query_vector_id=inputs.query_vector.vector_id,
         lexical_query=query["lexical_query"],
+        linguistic_observation=linguistic_source_value(observation),
         membership=list(membership),
         hits=hits,
     )
@@ -53,8 +57,10 @@ def query_contextual_scores(connection, inputs, query, policy, *, numerical_poli
     from sqlalchemy.dialects.postgresql import ARRAY
 
     from .contextual_retrieval import contextual_score_statement
+    from .contextual_linguistics import observe_linguistic_context
 
     numerical_policy.require_runtime(connection)
+    observation = observe_linguistic_context(connection)
     if not query["lexical_query"].strip() or not 1 <= policy["budget"] <= policy["channel_budget"]:
         raise ValueError("native scores require a nonempty query and bounded candidate budgets")
     statement = contextual_score_statement(
@@ -77,11 +83,13 @@ def query_contextual_scores(connection, inputs, query, policy, *, numerical_poli
     # An explicitly empty inventory has a declared empty relation; SQL VALUES
     # requires a row type, so no query is needed for its proven empty population.
     rows = tuple(connection.execute(statement)) if inputs.inventory.targets else ()
-    return score_product(inputs, query, rows)
+    return score_product(inputs, query, rows, linguistic_observation=observation.model_dump())
 
 
 def candidates_from_scores(inputs, scores, query, policy, *, numerical_policy):
     from .contextual_retrieval import ChannelHit, fuse_candidates
+    from .contextual_linguistics import checked_linguistic_observation
+    from .observations import source_python
 
     if set(scores) != {
         "version",
@@ -90,6 +98,7 @@ def candidates_from_scores(inputs, scores, query, policy, *, numerical_policy):
         "occurrence_id",
         "query_vector_id",
         "lexical_query",
+        "linguistic_observation",
         "membership",
         "hits",
     } or (
@@ -112,6 +121,7 @@ def candidates_from_scores(inputs, scores, query, policy, *, numerical_policy):
         raise ValueError(
             "native scores differ from exact selected query/profile/inventory membership"
         )
+    checked_linguistic_observation(source_python(scores["linguistic_observation"]))
     channels = {name: [] for name in ("alias", "lexical", "dense")}
     previous = None
     for hit in scores["hits"]:

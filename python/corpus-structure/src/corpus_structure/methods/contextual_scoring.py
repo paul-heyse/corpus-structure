@@ -136,7 +136,7 @@ class ContextualScoringOperation:
             "cancellation": "call-boundary",
             "ownership": "invocation-owned-db-borrow",
         },
-        "behavior": "declared-contextual-native-scores-1",
+        "behavior": "declared-contextual-native-scores-2",
         "parameters": {},
         "binding": {"operator": "scan", "roles": ["query", "inventory", "vectors", "policy"]},
         "output_witnesses": [],

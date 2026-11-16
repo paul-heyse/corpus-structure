@@ -31,6 +31,8 @@ _FILES = (
     "semantic/contextual_neighborhood.py",
     "semantic/contextual_retrieval.py",
     "semantic/contextual_numerics.py",
+    "semantic/contextual_linguistics.py",
+    "semantic/contextual_linguistics_native.py",
     "semantic/contextual_links.py",
     "semantic/contextual_storage.py",
     "methods/contextual_embeddings.py",
