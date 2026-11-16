@@ -1037,16 +1037,53 @@ END $$;
 CREATE OR REPLACE FUNCTION ops.release_data_attempt(p_payload jsonb) RETURNS jsonb
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
 DECLARE p jsonb:=p_payload; r ops.data_request; t ops.task; old ops.data_attempt_failure;
- key text; retained text; replayed boolean:=false;
+ key text; retained text; replayed boolean:=false; diagnostic jsonb; evidence jsonb; question_request jsonb;
 BEGIN
  PERFORM ops.ddo_fields(p,ARRAY['request_id','generation','task_id','attempt','holder','physical_retirement','failure']);
- PERFORM ops.ddo_fields(p->'failure',ARRAY['code','message']);
+ PERFORM ops.ddo_require_wire('release_data_attempt','input',p);
+ PERFORM ops.ddo_fields(p->'failure',ARRAY['code','message'],ARRAY['d1_limitation']);
  IF p->>'physical_retirement' IS DISTINCT FROM 'confirmed' OR nullif(p->>'holder','') IS NULL
  OR nullif(p->'failure'->>'code','') IS NULL OR nullif(p->'failure'->>'message','') IS NULL
  OR (p->>'generation')::integer<1 OR (p->>'attempt')::integer<1 OR (p->>'task_id')::bigint<1 THEN
  RAISE EXCEPTION 'attempt release requires exact known retirement/failure'; END IF;
  SELECT * INTO STRICT r FROM ops.data_request WHERE id=p->>'request_id';
  PERFORM ops.ddo_authorize_request(r);
+ IF p->'failure' ? 'd1_limitation' THEN
+ diagnostic:=p->'failure'->'d1_limitation'; evidence:=diagnostic->'execution_evidence';
+ question_request:=(diagnostic->>'request_json')::jsonb;
+ IF r.operation_id NOT IN ('text.d1_source/source-native','text.d1_candidates/source-native')
+ OR p->'failure'->>'code' IS DISTINCT FROM 'd1-known-limitation'
+ OR octet_length(diagnostic->>'request_json')>67108864
+ OR encode(sha256(convert_to(diagnostic->>'request_json','UTF8')),'hex') IS DISTINCT FROM diagnostic->>'request_digest'
+ OR question_request->'interpretation'->'assessed_scope'->'pin' IS DISTINCT FROM diagnostic->'source_pin'
+ OR jsonb_typeof(question_request->'questions') IS DISTINCT FROM 'object'
+ OR (diagnostic->'native_reply'->>'reason'='question_count' AND (SELECT count(*) FROM jsonb_object_keys(question_request->'questions'))<=16)
+ OR (diagnostic->'native_reply'->>'reason'='packed_row_tokens' AND (SELECT count(*) FROM jsonb_object_keys(question_request->'questions')) NOT BETWEEN 1 AND 16)
+ OR (diagnostic->'source_pin'->>'project_id',diagnostic->'source_pin'->>'subject',diagnostic->'source_pin'->>'original_source') IS DISTINCT FROM (r.project_id,r.subject,r.original_source)
+ OR diagnostic->'source_pin'->>'analyzed_scope_meaning' IS DISTINCT FROM data.canonical_json(data.ddo_json_meaning(r.analyzed_scope))
+ OR NOT EXISTS(SELECT FROM jsonb_array_elements(r.binding->'inputs') input
+ JOIN kb.data_product product ON product.id=input->>'product_id'
+ LEFT JOIN kb.data_product_member member ON member.product_id=product.id AND member.member_id=input->>'member_id'
+ WHERE input->>'role'='source' AND product.id=diagnostic->'source_pin'->>'source_product'
+ AND input->>'member_id' IS NOT DISTINCT FROM diagnostic->'source_pin'->>'source_member'
+ AND coalesce(member.kind_contract,product.kind_contract)=diagnostic->'source_pin'->>'kind_contract'
+ AND coalesce(member.subject_definition,product.subject_definition)=diagnostic->'source_pin'->>'subject_definition')
+ OR (evidence-'version'-'runtime_id'-'host_receipts'-'cpu_receipts'-'cpu_replies'-'pdf_receipts'-'provider_receipts'-'external_receipts') IS DISTINCT FROM (p-'physical_retirement'-'failure')
+ OR jsonb_array_length(evidence->'provider_receipts')<>1
+ OR EXISTS(SELECT FROM jsonb_array_elements(evidence->'provider_receipts') receipt
+ WHERE jsonb_array_length(receipt->'logical_members')=0 OR jsonb_array_length(receipt->'physical')=0
+ OR receipt->'cohort_members' IS DISTINCT FROM diagnostic->'native_reply'->'batch_receipt'->'members'
+ OR NOT (receipt->'native_member_digests' ? (diagnostic->>'request_digest'))
+ OR diagnostic->'native_reply'->'batch_receipt'->'members'->>((diagnostic->'native_reply'->'batch_receipt'->>'member_ordinal')::integer) IS DISTINCT FROM diagnostic->>'request_digest'
+ OR EXISTS(SELECT FROM jsonb_array_elements(receipt->'logical_members') member
+ WHERE (member->'request_id',member->'generation',member->'task_id',member->'attempt') IS DISTINCT FROM (p->'request_id',p->'generation',p->'task_id',p->'attempt'))
+ OR EXISTS(SELECT FROM jsonb_array_elements(receipt->'physical') physical
+ WHERE physical->>'provider'<>'d1' OR physical->>'profile' IS DISTINCT FROM diagnostic->>'profile_digest'
+ OR physical->'runtime' IS DISTINCT FROM diagnostic->'native_reply'->'batch_receipt'->'header'->'runtime')) THEN
+ RAISE EXCEPTION 'D1 limitation differs from its exact source/attempt/provider custody' USING ERRCODE='23514'; END IF;
+ PERFORM sem.require_runtime_binding(r.release_id,evidence->>'runtime_id');
+ PERFORM ops.ddo_require_provider_profile(r.release_id,r.operation_id,evidence->>'runtime_id');
+ END IF;
  -- Request serialization also waits for uncertain retention/publication to settle.
  -- No inference work or transport wait is held under this transaction.
  PERFORM ops.ddo_lock_support(r.project_id,r.original_source,r.binding->'support');
@@ -1067,8 +1104,11 @@ BEGIN
  INSERT INTO ops.data_attempt_failure VALUES(key,r.id,r.generation,t.id,t.attempt,t.claimed_by,p->'failure',clock_timestamp(),pg_current_xact_id()::text);
  -- Holder remains immutable attribution for this retired attempt. Pending with
  -- no lease is reclaimable only through the next incremented attempt fence.
+ -- Generic physical task status retains the authorized metadata/reference, not
+ -- a second copy of source-bearing diagnostic material outside its scoped read.
  UPDATE ops.task SET status='pending',lease_until=NULL,finished_at=NULL,
- error=jsonb_build_object('data_attempt_failure',key,'failure',p->'failure') WHERE id=t.id;
+ error=jsonb_build_object('data_attempt_failure',key,'failure',CASE WHEN p->'failure' ? 'd1_limitation'
+ THEN (p->'failure'-'d1_limitation')||jsonb_build_object('d1_limitation_disclosure','undisclosed') ELSE p->'failure' END) WHERE id=t.id;
  END IF;
  SELECT id INTO retained FROM ops.data_completion_intent WHERE request_id=r.id AND generation=(p->>'generation')::integer;
  RETURN jsonb_build_object('payload',jsonb_build_object('state','released','request_id',r.id,

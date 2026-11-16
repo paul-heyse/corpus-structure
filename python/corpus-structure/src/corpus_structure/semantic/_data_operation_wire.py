@@ -368,14 +368,82 @@ class WireAttachDataRequestResult(TypedDict):
     use_id: Required[WireIdentifier]
 
 
+class WireD1LimitationBatchReceiptHeader(TypedDict):
+    profile: Required[str]
+    provider: Required[Literal["d1"]]
+    runtime: Required[str]
+
+
+class WireD1LimitationBatchReceipt(TypedDict):
+    digest: Required[str]
+    header: Required[WireD1LimitationBatchReceiptHeader]
+    member_ordinal: Required[int]
+    members: Required[list[str]]
+    version: Required[Literal[2]]
+
+
+class WireD1LimitationReplyVariant1(TypedDict):
+    batch_receipt: Required[WireD1LimitationBatchReceipt]
+    limit: Required[Literal[16]]
+    outcome: Required[Literal["limited"]]
+    reason: Required[Literal["question_count"]]
+
+
+class WireD1LimitationReplyVariant2(TypedDict):
+    batch_receipt: Required[WireD1LimitationBatchReceipt]
+    limit: Required[Literal[4096]]
+    outcome: Required[Literal["limited"]]
+    reason: Required[Literal["packed_row_tokens"]]
+    row_tokens: Required[list[int]]
+
+
+class WireD1LimitationSourcePin(TypedDict):
+    analyzed_scope_meaning: Required[WireIdentifier]
+    document: Required[WireIdentifier]
+    format: Required[Literal["declared-native-source-v1"]]
+    kind_contract: Required[WireIdentifier]
+    membership: Required[WireIdentifier]
+    original_source: Required[WireIdentifier]
+    project_id: Required[WireIdentifier]
+    projection_digest: Required[str]
+    section_pointer: Required[str]
+    source: Required[WireIdentifier]
+    source_member: NotRequired[WireIdentifier]
+    source_product: Required[WireIdentifier]
+    subject: Required[WireIdentifier]
+    subject_definition: Required[WireIdentifier]
+
+
+class WireD1KnownLimitation(TypedDict):
+    emitted_count: Required[Literal[0]]
+    execution_evidence: Required[WireNativeExecutionEvidence]
+    family: Required[WireIdentifier]
+    inspected_count: Required[Literal[0]]
+    native_reply: Required[WireD1LimitationReply]
+    profile_digest: Required[str]
+    request_digest: Required[str]
+    request_json: Required[str]
+    source_pin: Required[WireD1LimitationSourcePin]
+    stage: Required[int]
+    standing: Required[Literal["unperformed-question-inspection"]]
+    version: Required[Literal["d1-known-limitation-v1"]]
+
+
 class WireAttemptFailure(TypedDict):
     code: Required[WireIdentifier]
+    d1_limitation: NotRequired[WireD1KnownLimitation]
+    message: Required[WireIdentifier]
+
+
+class WireAttemptFailureObservationFailureVariant2(TypedDict):
+    code: Required[WireIdentifier]
+    d1_limitation_disclosure: Required[Literal["undisclosed"]]
     message: Required[WireIdentifier]
 
 
 class WireAttemptFailureObservation(TypedDict):
     attempt: Required[TaskAttempt]
-    failure: Required[WireAttemptFailure]
+    failure: Required[WireAttemptFailure | WireAttemptFailureObservationFailureVariant2]
     failure_id: Required[WireFailureId]
     generation: Required[WireGeneration]
     holder: Required[WireIdentifier]
@@ -1438,6 +1506,8 @@ type WireRequestMeaning = (
 )
 
 type WireTrustSnapshot = dict[str, WireNonnegativeInteger]
+
+type WireD1LimitationReply = WireD1LimitationReplyVariant1 | WireD1LimitationReplyVariant2
 
 type WireText = str
 

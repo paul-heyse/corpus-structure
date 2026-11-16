@@ -1626,6 +1626,39 @@ def read_page(metadata):
         .scalar_subquery()
     )
     failures = metadata.tables["ops.data_attempt_failure"]
+    failure_inputs = _items(requests.c.binding["inputs"], "failure_input")
+    failure_members = metadata.tables["kb.data_product_member"].alias("failure_member")
+    undisclosed_failure_input = exists(
+        select(1)
+        .select_from(
+            requests.join(failure_inputs, literal(True))
+            .join(products, products.c.id == failure_inputs.c.value["product_id"].astext)
+            .outerjoin(
+                failure_members,
+                and_(
+                    failure_members.c.product_id == products.c.id,
+                    failure_members.c.member_id == failure_inputs.c.value["member_id"].astext,
+                ),
+            )
+        )
+        .where(
+            requests.c.id == failures.c.request_id,
+            ~func.ops.ddo_kind_access(
+                func.coalesce(failure_members.c.kind_contract, products.c.kind_contract)
+            ),
+        )
+    )
+    # The selected-use scope already authorizes generic failure metadata. Keep
+    # that population complete while withholding exact native input material.
+    disclosed_failure = case(
+        (
+            and_(failures.c.failure.has_key("d1_limitation"), undisclosed_failure_input),
+            failures.c.failure.op("-")(literal("d1_limitation")).op("||")(
+                _obj(d1_limitation_disclosure=literal("undisclosed"))
+            ),
+        ),
+        else_=failures.c.failure,
+    )
     failure_value = _obj(
         failure_id=failures.c.id,
         request_id=failures.c.request_id,
@@ -1633,7 +1666,7 @@ def read_page(metadata):
         task_id=failures.c.task_id,
         attempt=failures.c.attempt,
         holder=failures.c.holder,
-        failure=failures.c.failure,
+        failure=disclosed_failure,
     )
     result_failures = (
         select(

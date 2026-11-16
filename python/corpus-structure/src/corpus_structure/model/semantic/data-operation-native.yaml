@@ -1574,11 +1574,94 @@ definitions:
       holder: {$ref: '#/definitions/identifier'}
     required: [state, reason, request_id, generation, task_id, attempt, holder]
     additionalProperties: false
+  d1_limitation_batch_receipt:
+    type: object
+    properties:
+      version: {type: integer, enum: [2]}
+      header:
+        type: object
+        properties:
+          provider: {const: d1}
+          profile: {type: string, pattern: '^[0-9a-f]{64}$'}
+          runtime: {type: string, pattern: '^[0-9a-f]{64}$'}
+        required: [provider, profile, runtime]
+        additionalProperties: false
+      members: {type: array, minItems: 1, maxItems: 16, items: {type: string, pattern: '^[0-9a-f]{64}$'}}
+      digest: {type: string, pattern: '^[0-9a-f]{64}$'}
+      member_ordinal: {type: integer, minimum: 0, maximum: 15}
+    required: [version, header, members, digest, member_ordinal]
+    additionalProperties: false
+  d1_limitation_reply:
+    oneOf:
+    - type: object
+      properties:
+        outcome: {const: limited}
+        reason: {const: question_count}
+        limit: {type: integer, enum: [16]}
+        batch_receipt: {$ref: '#/definitions/d1_limitation_batch_receipt'}
+      required: [outcome, reason, limit, batch_receipt]
+      additionalProperties: false
+    - type: object
+      properties:
+        outcome: {const: limited}
+        reason: {const: packed_row_tokens}
+        limit: {type: integer, enum: [4096]}
+        row_tokens: {type: array, minItems: 1, maxItems: 16, items: {type: integer, minimum: 1}, contains: {type: integer, minimum: 4097}}
+        batch_receipt: {$ref: '#/definitions/d1_limitation_batch_receipt'}
+      required: [outcome, reason, limit, row_tokens, batch_receipt]
+      additionalProperties: false
+  d1_limitation_source_pin:
+    type: object
+    properties:
+      format: {const: declared-native-source-v1}
+      source: {$ref: '#/definitions/identifier'}
+      subject: {$ref: '#/definitions/identifier'}
+      subject_definition: {$ref: '#/definitions/identifier'}
+      document: {$ref: '#/definitions/identifier'}
+      projection_digest: {type: string, pattern: '^[0-9a-f]{64}$'}
+      section_pointer: {type: string}
+      membership: {$ref: '#/definitions/identifier'}
+      project_id: {$ref: '#/definitions/identifier'}
+      original_source: {$ref: '#/definitions/identifier'}
+      analyzed_scope_meaning: {$ref: '#/definitions/identifier'}
+      source_product: {$ref: '#/definitions/identifier'}
+      source_member: {$ref: '#/definitions/identifier'}
+      kind_contract: {$ref: '#/definitions/identifier'}
+    required: [format, source, subject, subject_definition, document, projection_digest, section_pointer, membership, project_id, original_source, analyzed_scope_meaning, source_product, kind_contract]
+    additionalProperties: false
+  d1_known_limitation:
+    type: object
+    properties:
+      version: {const: d1-known-limitation-v1}
+      source_pin: {$ref: '#/definitions/d1_limitation_source_pin'}
+      family: {$ref: '#/definitions/identifier'}
+      stage: {type: integer, minimum: 0}
+      request_json: {type: string, minLength: 1, maxLength: 67108864}
+      request_digest: {type: string, pattern: '^[0-9a-f]{64}$'}
+      profile_digest: {type: string, pattern: '^[0-9a-f]{64}$'}
+      native_reply: {$ref: '#/definitions/d1_limitation_reply'}
+      inspected_count: {type: integer, enum: [0]}
+      emitted_count: {type: integer, enum: [0]}
+      standing: {const: unperformed-question-inspection}
+      execution_evidence: {$ref: '#/definitions/native_execution_evidence'}
+    required: [version, source_pin, family, stage, request_json, request_digest, profile_digest, native_reply, inspected_count, emitted_count, standing, execution_evidence]
+    additionalProperties: false
+    allOf:
+    - properties:
+        execution_evidence:
+          properties:
+            host_receipts: {maxItems: 0}
+            cpu_receipts: {maxItems: 0}
+            cpu_replies: {maxItems: 0}
+            pdf_receipts: {maxItems: 0}
+            external_receipts: {maxItems: 0}
+            provider_receipts: {minItems: 1, maxItems: 1}
   attempt_failure:
     type: object
     properties:
       code: {$ref: '#/definitions/identifier'}
       message: {$ref: '#/definitions/identifier'}
+      d1_limitation: {$ref: '#/definitions/d1_known_limitation'}
     required: [code, message]
     additionalProperties: false
   attempt_failure_observation:
@@ -1590,7 +1673,16 @@ definitions:
       task_id: {$ref: '#/definitions/task_id'}
       attempt: {$ref: '#/definitions/positive_integer'}
       holder: {$ref: '#/definitions/identifier'}
-      failure: {$ref: '#/definitions/attempt_failure'}
+      failure:
+        oneOf:
+        - $ref: '#/definitions/attempt_failure'
+        - type: object
+          properties:
+            code: {$ref: '#/definitions/identifier'}
+            message: {$ref: '#/definitions/identifier'}
+            d1_limitation_disclosure: {const: undisclosed}
+          required: [code, message, d1_limitation_disclosure]
+          additionalProperties: false
     required: [failure_id, request_id, generation, task_id, attempt, holder, failure]
     additionalProperties: false
   renew_data_request_result:

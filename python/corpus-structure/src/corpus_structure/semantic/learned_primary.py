@@ -21,6 +21,7 @@ _MODEL = _ROOT / "model/semantic/data-operation-learned.yaml"
 _FILES = (
     "methods/learned_primary.py",
     "semantic/learned_primary.py",
+    "semantic/d1_limitation.py",
     "semantic/contextual_native_products.py",
     "semantic/contextual_characterization.py",
     "methods/native_evidence_layers.py",
@@ -413,10 +414,22 @@ class PreparedLearnedPrimary:
             )
             return parsed.products
 
-        def parsed_d1(scope, request, native):
+        def parsed_d1(scope, request, native, reply, member_index):
             from corpus_structure.methods.pm2_interpretation_products import interpretation_products
             from corpus_structure.methods.pm2_products import ParserProducts
 
+            from .d1_limitation import classify_d1_limitation
+
+            limitation = classify_d1_limitation(
+                request,
+                native,
+                reply,
+                pin=frame.pin.values(),
+                selection=self.selection,
+                member_index=member_index,
+            )
+            if limitation is not None:
+                raise limitation
             if native.get("outcome") not in {"succeeded", "empty"}:
                 raise ValueError("native D1 did not complete its declared question inspection")
             from corpus_structure.methods.model_observation import validate_pm2_batch_receipt
@@ -572,8 +585,12 @@ class PreparedLearnedPrimary:
                         native = reply.payload.get("batch")
                         if not isinstance(native, list) or len(native) != len(batch):
                             raise ValueError("D1 changed its actual frozen question population")
-                        for (index, request), answer in zip(batch, native, strict=True):
-                            priors[index].update(parsed_d1(scope, request, answer))
+                        for member_index, ((index, request), answer) in enumerate(
+                            zip(batch, native, strict=True)
+                        ):
+                            priors[index].update(
+                                parsed_d1(scope, request, answer, reply, member_index)
+                            )
             else:
                 from corpus_structure.methods.gliner import (
                     GlinerInput,

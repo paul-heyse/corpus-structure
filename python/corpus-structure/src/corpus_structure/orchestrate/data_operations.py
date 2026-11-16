@@ -849,11 +849,16 @@ class NativeDemandExecutor:
         # Preserve the actual exception to the caller. The immutable native record
         # describes custody without copying protected values from exception text.
         def release(connection):
+            from corpus_structure.semantic.d1_limitation import known_d1_failure
+
+            failure = known_d1_failure(error, fence=claim.fence, runtime_id=self.runtime.runtime_id)
             return DataOperationStorage(connection).release_data_attempt(
                 {
                     **claim.fence,
                     "physical_retirement": "confirmed",
-                    "failure": {
+                    "failure": failure
+                    if failure is not None
+                    else {
                         "code": type(error).__module__ + "." + type(error).__qualname__,
                         "message": phase + " did not complete",
                     },
