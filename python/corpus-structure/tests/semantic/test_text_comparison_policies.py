@@ -5,17 +5,25 @@ from dataclasses import replace
 import pytest
 import yaml
 
-from corpus_structure.semantic.analysis_policies import analysis_policy_sources, compile_analysis_policies
+from corpus_structure.semantic.analysis_policies import (
+    analysis_policy_sources,
+    compile_analysis_policies,
+)
 from corpus_structure.semantic.types import PreparationError
 
 
 def candidate(**policy):
-    sources = tuple(source for source in analysis_policy_sources() if source.name.startswith("analysis/"))
+    sources = tuple(
+        source for source in analysis_policy_sources() if source.name.startswith("analysis/")
+    )
     original = next(source for source in sources if source.name == "analysis/policy.yaml")
     record = yaml.safe_load(original.content)
     for name, changes in policy.items():
         record[name].update(changes)
-    return tuple(replace(source, content=yaml.safe_dump(record).encode()) if source == original else source for source in sources)
+    return tuple(
+        replace(source, content=yaml.safe_dump(record).encode()) if source == original else source
+        for source in sources
+    )
 
 
 def test_alignment_mechanism_cannot_silently_change():

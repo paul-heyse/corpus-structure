@@ -100,7 +100,7 @@ exact retained run remains incompatible, check for a detached
 delivery that the existing verifier can qualify for that same result. Record the
 result or specific refusal, including the attempted command and release, and use
 the static walkthrough for public inspection. A product migration or replacement
-query would require separate product scope. [Exact attempted Reader query](../../functional_reviews/github-visitor-experience_2026-11-08.md#O02) · [Retained contextual reports](../../design_review/evidence/2026-11-08_nce-full-book/raw/review-contextual-reports.jsonl) · [Reader contract](../../../python/corpus-structure/src/corpus_structure/serve/contextual_navigation.py)
+query would require separate product scope. [Exact attempted Reader query](../../functional_reviews/github-visitor-experience_2026-11-08.md#O02) · [Retained contextual reports](../../design_review/evidence/2026-11-08_nce-full-book/raw/review-contextual-reports.jsonl) · [Reader contract (historical source)](../../README.md#historical-recovery)
 
 **Closure.** Compare each example with its exact spans and assessment. A visitor
 can reach the independently reviewed evidence and original pages without local

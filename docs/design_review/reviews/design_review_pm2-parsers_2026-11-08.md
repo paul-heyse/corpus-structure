@@ -139,7 +139,7 @@ input. The contribution Reader accepts explicit selected task identity.
 These are source findings. Fresh native inference, retained-result and reuse
 checks were `not_run` in this assessment. Runner (`orchestrate/pm2_stage.py`) ·
 [Task admission](../../../python/corpus-structure/src/corpus_structure/semantic/operations.py#L267) ·
-[Contribution Reader](../../../python/corpus-structure/src/corpus_structure/serve/contributions.py#L122)
+[Contribution Reader (historical source)](../../README.md#historical-recovery)
 
 | Review question | Observed implementation and remaining obligation |
 | --- | --- |

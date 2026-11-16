@@ -57,7 +57,7 @@ def _row(op, key, semantic_type, *, value=None, members=(), missing=(), located=
 
 
 def _facets(ops, rows):
-    return {key[1]: facet for key,facet in composition_facets(tuple(ops),tuple(rows)).items()}
+    return {key[1]: facet for key, facet in composition_facets(tuple(ops), tuple(rows)).items()}
 
 
 def test_discourse_returns_only_located_members_of_the_selected_ordered_arm():

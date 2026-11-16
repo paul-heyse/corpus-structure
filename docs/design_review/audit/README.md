@@ -468,7 +468,7 @@ Test-assessment 1.2 informs the use of retained verification evidence.
   that distinction to reach the consumer (FP-05/06, DP-04/09, CI-08/13).
   [Source custody](../../../python/corpus-structure/src/corpus_structure/semantic/sql/structural_products.sql#L2) ·
   [Result cardinality](../../../python/corpus-structure/src/corpus_structure/semantic/operations.py#L1302) ·
-  [Reader selection](../../../python/corpus-structure/src/corpus_structure/serve/contributions.py#L29)
+  [Reader selection (historical source)](../../README.md#historical-recovery)
 - **Distinct Dipo input universes.** Interface-checked against installed
   `dipo==0.2.1`. Raw parsing reconstructs EDUs through `edus_from_breaks`,
   while `predict_both` reconstructs from supplied EDUs through

@@ -81,7 +81,7 @@ successful-empty and successful-nonempty as distinct states. Input coverage and
 availability of aligned output are independent. A valid disjoint extent may
 retain ordered pieces when the role permits them. Partial atoms and fabricated
 spans yield diagnostics. [Completion owner](../../../python/corpus-structure/src/corpus_structure/semantic/operations.py) ·
-[Private read owner](../../../python/corpus-structure/src/corpus_structure/serve/contributions.py)
+[Private read owner (historical source)](../../README.md#historical-recovery)
 
 | CI operation and universe | Method and precision | Work, effects and evidence boundary |
 | --- | --- | --- |

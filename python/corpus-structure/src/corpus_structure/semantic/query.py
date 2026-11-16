@@ -2074,9 +2074,7 @@ class ReadSession:
             )
         return page
 
-    def source_report(
-        self, fact_id, observation_key, *, max_bytes=1024 * 1024, selection=None
-    ):
+    def source_report(self, fact_id, observation_key, *, max_bytes=1024 * 1024, selection=None):
         """Explicit immutable report read; a wrong root cannot select another report."""
         self._detail_selection(selection)
         if type(max_bytes) is not int or not 1 <= max_bytes <= 8 * 1024 * 1024:
@@ -2623,7 +2621,7 @@ class ReadSession:
                 name,
                 limit=limit,
                 max_bytes=max_bytes,
-                    selection=selection,
+                selection=selection,
             )
             for name in (
                 "supports",

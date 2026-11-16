@@ -14,11 +14,10 @@ from corpus_structure.core.db.store import (
     classify_error,
     record_operation_failure,
 )
-
 from corpus_structure.semantic.invariant_failures import (
     NativeDiagnosticBinding,
-    classify_invariant_failure,
     NativeInvariant,
+    classify_invariant_failure,
 )
 
 
@@ -27,10 +26,19 @@ def current_model():
     # A finite classifier input, not an admitted release or an execution receipt.
     return SimpleNamespace(
         model_id="definition:diagnostic-example",
-        invariants=(NativeInvariant(
-            "attempt_fence", "lifecycle", "execution.attempt_fence", True,
-            (NativeDiagnosticBinding("claim", "guard", "23514", guard="execution_task", guard_version="2"),),
-        ),),
+        invariants=(
+            NativeInvariant(
+                "attempt_fence",
+                "lifecycle",
+                "execution.attempt_fence",
+                True,
+                (
+                    NativeDiagnosticBinding(
+                        "claim", "guard", "23514", guard="execution_task", guard_version="2"
+                    ),
+                ),
+            ),
+        ),
     )
 
 
@@ -131,25 +139,3 @@ def test_constraint_identity_includes_schema_and_relation():
         classify_invariant_failure(model.invariants, "claim", error, model_id=model.model_id)
         is None
     )
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

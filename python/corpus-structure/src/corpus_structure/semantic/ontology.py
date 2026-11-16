@@ -40,6 +40,7 @@ from pyshacl import validate
 from rdflib import Graph
 from rdflib.namespace import RDF
 
+
 class OntologyError(ValueError):
     """A declared ontology or vocabulary could not be resolved completely."""
 

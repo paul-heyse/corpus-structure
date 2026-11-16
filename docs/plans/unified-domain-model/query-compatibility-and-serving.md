@@ -91,9 +91,9 @@ into an ordinary incompatibility outcome.
 
 Library evidence: [Pydantic boundary account](../../library_leverage/libraries/unified-model-boundaries_2026-11-01.md)
 and [PostgreSQL account](../../library_leverage/libraries/unified-model-postgresql_2026-11-01.md).
-Source entry points are [query registry](../../../python/corpus-structure/src/corpus_structure/serve/registry.py),
-[named journey](../../../python/corpus-structure/src/corpus_structure/serve/journey.py) and
-[query protocol](../../../python/corpus-structure/src/corpus_structure/serve/protocol.py).
+Source entry points are [query registry (historical source)](../../README.md#historical-recovery),
+[named journey (historical source)](../../README.md#historical-recovery) and
+[query protocol (historical source)](../../README.md#historical-recovery).
 No library reflection or AST analysis proves compatibility of arbitrary changed Python behavior.
 
 ## Delivery, migration and dependency boundary

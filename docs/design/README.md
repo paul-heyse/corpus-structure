@@ -18,26 +18,26 @@ inspectable views. Intermediate results remain useful and retain their evidence.
 
 ## Trace a result through the code
 
-Follow the retained “Section 5.1” citation through these responsibilities.
-The example links to the producing run and dated assessment. The code links
-show where to start reading the current implementation.
-[Citation example](../examples/README.md#a-printed-reference-becomes-a-typed-link)
+The retained “Section 5.1” citation records its producing run and dated assessment;
+[historical recovery](../README.md#historical-recovery) preserves that implementation context.
+The current declared-operation route starts at these owners. The
+[DDO coordinator](../plans/declared-data-operations_2026-11-12.md) distinguishes implemented
+slices from native/provider qualification still required.
 
-1. [Source capture](../../python/corpus-structure/src/corpus_structure/ingest/pdf_section_views.py)
-   selects published PDF sections. [Source-view SQL](../../python/corpus-structure/src/corpus_structure/semantic/sql/source_views.sql)
-   defines their retained view identity and source bindings.
+1. [Source products](../../python/corpus-structure/src/corpus_structure/semantic/source_products.py)
+   retain original source identity, exact coordinates and declared current source context.
 2. [Observation production](../../python/corpus-structure/src/corpus_structure/methods/gliner.py)
-   produces located extraction observations. The [scoped methods](../../python/corpus-structure/src/corpus_structure/methods/scoped_relations.py)
-   recover exact structural cues and their context.
-3. [Relationship selection](../../python/corpus-structure/src/corpus_structure/semantic/contextual_links.py)
-   distinguishes the retrieved candidates from the selected typed edge and its witness.
-4. [Reader navigation](../../python/corpus-structure/src/corpus_structure/serve/contextual_navigation.py)
-   exposes the retained decision through its exact run context. The
-   [query contracts](D8-agent-and-query-interfaces.md) and
-   [MCP transport](../../python/corpus-structure/src/corpus_structure/cli/mcp.py)
-   define how consumers inspect the result.
-   [Operation assessment](../../python/corpus-structure/src/corpus_structure/evaluate/operation_assessment.py)
-   supports separate judgments about the operation.
+   supplies located extraction observations. The
+   [scoped methods](../../python/corpus-structure/src/corpus_structure/methods/scoped_relations.py)
+   retain structural cues and their context.
+3. [Contextual retrieval](../../python/corpus-structure/src/corpus_structure/semantic/contextual_retrieval.py)
+   distinguishes candidate retrieval from selected relationships and attributed witnesses.
+4. [Selected structural reads](../../python/corpus-structure/src/corpus_structure/serve/selected_structural.py)
+   bind the actual demand, read, release/runtime, use, product and producing episode.
+   [Query contracts](D8-agent-and-query-interfaces.md) and
+   [MCP transport](../../python/corpus-structure/src/corpus_structure/cli/mcp.py) expose the same scope.
+   [Selected reference assessment](../../python/corpus-structure/src/corpus_structure/evaluate/selected_references.py)
+   preserves independent protected references separately from prediction selections.
 
 Docling and managed Nemotron Parse 3.5 support the demonstrated PDF intake.
 GLiNER supplies retained extraction observations. Finite interpretation and

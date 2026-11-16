@@ -191,17 +191,23 @@ def test_native_score_currentness_detects_known_linguistic_change_without_replac
     score_episode = scores.row["derivation_id"]
     target_episode = case.targets[0].row["derivation_id"]
     valid = text("SELECT ops.ddo_support_valid(:episode)")
-    payload = text("SELECT i.payload FROM ops.data_completion_intent i JOIN ops.data_derivation d "
-        "ON d.intent_id=i.id WHERE d.id=:episode")
+    payload = text(
+        "SELECT i.payload FROM ops.data_completion_intent i JOIN ops.data_derivation d "
+        "ON d.intent_id=i.id WHERE d.id=:episode"
+    )
     with case.kernel.engine.connect() as connection:
         transaction = connection.begin()
         try:
             assert connection.scalar(valid, {"episode": score_episode}) is True
             assert connection.scalar(valid, {"episode": target_episode}) is True
             original = connection.scalar(payload, {"episode": score_episode})
-            changed = connection.execute(text("UPDATE pg_catalog.pg_ts_dict SET dictinitoption = "
-                "dictinitoption || ', controlled_option = ''different''' "
-                "WHERE dictname='english_stem' AND dictnamespace='pg_catalog'::regnamespace"))
+            changed = connection.execute(
+                text(
+                    "UPDATE pg_catalog.pg_ts_dict SET dictinitoption = "
+                    "dictinitoption || ', controlled_option = ''different''' "
+                    "WHERE dictname='english_stem' AND dictnamespace='pg_catalog'::regnamespace"
+                )
+            )
             assert changed.rowcount == 1
             assert connection.scalar(valid, {"episode": score_episode}) is False
             assert connection.scalar(valid, {"episode": target_episode}) is True

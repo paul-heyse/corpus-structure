@@ -4,15 +4,12 @@ from dataclasses import replace
 
 import pytest
 
-
 from corpus_structure.semantic.math_context import (
     acquire_analysis_context_profile,
     prepare_interpretation_context,
 )
 from corpus_structure.semantic.prepare import prepare_release
 from corpus_structure.semantic.types import PreparationError
-
-
 
 
 def context(**kwargs):
@@ -140,12 +137,6 @@ def test_scientific_key_requires_policy_and_conditions():
     assert first != second
 
 
-
-
-
-
-
-
 def test_unknown_result_and_binding_kind_refuse():
     with pytest.raises(PreparationError):
         context().validate_result(
@@ -162,19 +153,11 @@ def test_caller_cannot_override_prepared_dependency_identity():
             prepared.stage_key("scientific", **{name: "forged"})
 
 
-
-
-
-
 @pytest.mark.parametrize("authority", ["profile", "expression_local", "binding"])
 def test_external_declarations_cannot_claim_owned_authority(authority):
     declaration = source_role("function", authority=authority, evidence="made-up")
     with pytest.raises(PreparationError, match="external declarations require source evidence"):
         context(source_id="rendition:1", scope="statement:1", declarations=[declaration])
-
-
-
-
 
 
 def test_scientific_profile_and_source_sharing_are_admitted_data():
@@ -189,8 +172,7 @@ def test_scientific_profile_and_source_sharing_are_admitted_data():
     assert context().profile.transformer_recipe == "sympy-transform-3"
 
 
-def test_candidate_scientific_parameters_rebind_supplied_recipe_without_ambient_acquisition(
-):
+def test_candidate_scientific_parameters_rebind_supplied_recipe_without_ambient_acquisition():
     import json
 
     from corpus_structure.semantic import SourceArtifact, SourceBundle
@@ -253,8 +235,6 @@ def test_candidate_scientific_parameters_rebind_supplied_recipe_without_ambient_
         require_scientific_policy(altered, context_profile=profile)
 
 
-
-
 def test_captured_semantic_assets_determine_every_analysis_stage():
     first_profile = acquire_analysis_context_profile()
     changed_profile = replace(
@@ -269,7 +249,3 @@ def test_captured_semantic_assets_determine_every_analysis_stage():
     assert changed.model_id != first.model_id
     for demand in ("lexical", "structure", "syntax", "occurrences", "interpretation", "symbolic"):
         assert changed.stage_key(demand) != first.stage_key(demand)
-
-
-
-

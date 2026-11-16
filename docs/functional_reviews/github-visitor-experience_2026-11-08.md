@@ -74,7 +74,7 @@ prepared PostgreSQL development target, the complete heading inventory, and cont
 retrieval prerequisites. The published whole-book recipe uses CUDA Docling layout and
 formula models, CPU RapidOCR, and a separate managed Nemotron service for the combined arm.
 Document that distinction before offering a reproduction command. The public example
-should remain useful if a retained development run is no longer available. [Reader contract](../../python/corpus-structure/src/corpus_structure/serve/contextual_navigation.py) · [Native reproduction](../design_review/evidence/2026-11-08_nce-full-book/README.md)
+should remain useful if a retained development run is no longer available. [Reader contract (historical source)](../README.md#historical-recovery) · [Native reproduction](../design_review/evidence/2026-11-08_nce-full-book/README.md)
 
 **Live Reader check, 2026-11-08.** The installed query refused run 327 with
 `incompatible_query`. A live walkthrough needs a compatible checkout and producing

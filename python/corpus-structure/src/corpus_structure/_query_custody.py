@@ -122,7 +122,8 @@ _CURRENT_READ_SOURCES = tuple(
 )
 _BASE = Path(__file__).resolve().parent
 _NAMES = {
-    "corpus_structure." + name[:-3].replace("/", "."): str(_BASE / name) for name in _CURRENT_READ_SOURCES
+    "corpus_structure." + name[:-3].replace("/", "."): str(_BASE / name)
+    for name in _CURRENT_READ_SOURCES
 }
 _KNOWN_PATHS = frozenset(_NAMES.values())
 _EXECUTED: dict[ModuleType, tuple[str, str]] = {}

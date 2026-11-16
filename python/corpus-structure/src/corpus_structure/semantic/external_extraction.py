@@ -103,8 +103,7 @@ def external_extraction_inputs(
 
 
 def external_extraction_assets():
-    from .analysis_policies import prepare_placement_policy
-    from .analysis_policies import analysis_policy_sources
+    from .analysis_policies import analysis_policy_sources, prepare_placement_policy
 
     policy = prepare_placement_policy()
     return SourceArtifact(

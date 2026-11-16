@@ -8,7 +8,6 @@ import pytest
 from scenario_recipes import register_scenario_builder
 
 
-
 @dataclass(frozen=True)
 class TinyRecipe:
     name: str
@@ -159,10 +158,6 @@ def test_claimed_task_refuses_seed_even_after_lease_expiry(unfinished_seed_refus
     names, remains = unfinished_seed_refusal
     assert len(names) == 1 and remains == [False]
     assert "building" not in _PATCH_STATE
-
-
-
-
 
 
 @pytest.fixture

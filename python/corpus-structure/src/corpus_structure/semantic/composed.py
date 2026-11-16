@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+
 from .identity import canonical_bytes
 from .types import ResolvedDependencies, SourceArtifact, SourceBundle
 

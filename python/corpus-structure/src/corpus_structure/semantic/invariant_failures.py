@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import re
 from collections.abc import Sequence
 from dataclasses import dataclass, replace
 from typing import Literal, Protocol
@@ -11,6 +10,7 @@ from typing import Literal, Protocol
 from corpus_structure.core.db.store import DatabaseOperationFailure, operation_failure
 
 from .refusals import SemanticRefusal
+
 
 @dataclass(frozen=True)
 class NativeDiagnosticBinding:

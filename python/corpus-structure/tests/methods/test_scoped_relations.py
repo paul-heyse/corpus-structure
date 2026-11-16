@@ -243,7 +243,12 @@ def test_condition_host_preserves_located_parts_after_declaration_refusal(
     retained_operations = tuple(op | custody for op in operations.values())
 
     def facets(selected):
-        return {key[1]:facet for key,facet in composition_facets(retained_operations,selected,prepared=release).items()}
+        return {
+            key[1]: facet
+            for key, facet in composition_facets(
+                retained_operations, selected, prepared=release
+            ).items()
+        }
 
     composed = facets(retained)
     for frame in (frames[host], frames[competing]):

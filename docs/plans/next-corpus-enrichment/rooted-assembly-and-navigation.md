@@ -222,7 +222,7 @@ near ties and requires only pairs whose entire intervals fall in the top five. W
 seven distinct representatives sharing one normalized vector, all intervals cover ranks
 one through six and the check accepts an empty edge list. Require exact membership and
 tie-order reconstruction while bounding any tolerance to distance comparison. Exercise
-that exact tie and the existing near-collinear case. [Detached rank verification](../../../python/corpus-structure/src/corpus_structure/serve/contextual_navigation.py#L173).
+that exact tie and the existing near-collinear case. [Detached rank verification (historical source)](../../README.md#historical-recovery).
 
 **2026-11-07 execution.** Contextual operation 9 retains native directed top-five
 ranks and rederives them at admission. Detached verification checks the exact reciprocal
@@ -240,7 +240,7 @@ Connect original source opportunities to exact authorized producer results, rule
 and route memberships, decision, dossier membership and display. A missing occurrence
 in one task cannot settle source capture. Verify the distinct stopping points for an
 omitted caption and a represented unsupported candidate across the intended products.
-Broader chain reports retain their conditional triggers. [Current capture](../../../python/corpus-structure/src/corpus_structure/serve/contextual_navigation.py#L263).
+Broader chain reports retain their conditional triggers. [Current capture (historical source)](../../README.md#historical-recovery).
 
 **2026-11-07 execution.** `source_decision_journey` connects an authenticated
 original source and typed case selector to the selected authorized task results.

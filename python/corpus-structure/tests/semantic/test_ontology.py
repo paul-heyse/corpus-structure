@@ -407,12 +407,18 @@ def test_shacl_nonconformance_has_located_diagnostics_and_invalid_shapes_are_err
 
 
 def test_generic_shacl_nested_paths_locate_failure_without_mutating_graphs():
-    data = Graph().parse(data='''@prefix ex: <urn:> .
-ex:source ex:condition [ex:count "invalid"] .''', format="turtle")
-    shapes = Graph().parse(data='''@prefix sh: <http://www.w3.org/ns/shacl#> .
+    data = Graph().parse(
+        data="""@prefix ex: <urn:> .
+ex:source ex:condition [ex:count "invalid"] .""",
+        format="turtle",
+    )
+    shapes = Graph().parse(
+        data="""@prefix sh: <http://www.w3.org/ns/shacl#> .
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 <urn:shape> a sh:NodeShape; sh:targetNode <urn:source>;
- sh:property [sh:path (<urn:condition> <urn:count>); sh:datatype xsd:integer] .''', format="turtle")
+ sh:property [sh:path (<urn:condition> <urn:count>); sh:datatype xsd:integer] .""",
+        format="turtle",
+    )
     before = set(data), set(shapes)
     result = validate_graph(data, shapes)
     assert not result.conforms and result.outcome == "nonconformant"
@@ -420,7 +426,9 @@ ex:source ex:condition [ex:count "invalid"] .''', format="turtle")
     assert len(result.diagnostics) == 1
     failure = result.diagnostics[0]
     assert failure.focus_node == "urn:source" and failure.path is not None
-    assert failure.constraint is not None and failure.constraint.endswith("DatatypeConstraintComponent")
+    assert failure.constraint is not None and failure.constraint.endswith(
+        "DatatypeConstraintComponent"
+    )
     assert failure.source_shape is not None
 
 
@@ -431,11 +439,17 @@ def test_graph_validation_keeps_supplied_data_shapes_and_ontology_operation_loca
     data = Dataset(default_union=False) if dataset else Graph()
     target = data.graph(URIRef("urn:source-graph")) if isinstance(data, Dataset) else data
     target.add((URIRef("urn:item"), URIRef("urn:count"), Literal(7)))
-    shapes = Graph().parse(data='''@prefix sh: <http://www.w3.org/ns/shacl#> .
+    shapes = Graph().parse(
+        data="""@prefix sh: <http://www.w3.org/ns/shacl#> .
 <urn:shape> a sh:NodeShape; sh:targetNode <urn:item>;
- sh:property [sh:path <urn:count>; sh:minCount 1] .''', format="turtle")
-    ontology = Graph().parse(data='''@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
-<urn:Child> rdfs:subClassOf <urn:Parent> .''', format="turtle")
+ sh:property [sh:path <urn:count>; sh:minCount 1] .""",
+        format="turtle",
+    )
+    ontology = Graph().parse(
+        data="""@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+<urn:Child> rdfs:subClassOf <urn:Parent> .""",
+        format="turtle",
+    )
     before = set(target), set(shapes), set(ontology)
     assert validate_graph(data, shapes, ontology).conforms
     assert (set(target), set(shapes), set(ontology)) == before
@@ -445,6 +459,7 @@ def test_graph_validation_keeps_supplied_data_shapes_and_ontology_operation_loca
 
 def test_generic_shacl_preserves_exact_large_integer_and_decimal_comparisons():
     from decimal import Decimal
+
     from rdflib.namespace import XSD
 
     data = Graph()
@@ -452,12 +467,15 @@ def test_generic_shacl_preserves_exact_large_integer_and_decimal_comparisons():
     data.add((subject, count, Literal(2**90)))
     precise = Literal(Decimal("0.10000000000000000001"))
     data.add((subject, amount, precise))
-    shapes = Graph().parse(data=f'''@prefix sh: <http://www.w3.org/ns/shacl#> .
+    shapes = Graph().parse(
+        data=f"""@prefix sh: <http://www.w3.org/ns/shacl#> .
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 <urn:shape> a sh:NodeShape; sh:targetNode <urn:item>;
- sh:property [sh:path <urn:count>; sh:datatype xsd:integer; sh:minInclusive {2**90-1}];
+ sh:property [sh:path <urn:count>; sh:datatype xsd:integer; sh:minInclusive {2**90 - 1}];
  sh:property [sh:path <urn:amount>; sh:datatype xsd:decimal;
- sh:minExclusive "0.1"^^xsd:decimal; sh:maxExclusive "0.10000000000000000002"^^xsd:decimal] .''', format="turtle")
+ sh:minExclusive "0.1"^^xsd:decimal; sh:maxExclusive "0.10000000000000000002"^^xsd:decimal] .""",
+        format="turtle",
+    )
     assert validate_graph(data, shapes).conforms
     observed = data.value(subject, count)
     assert isinstance(observed, Literal) and observed.toPython() == 2**90
@@ -467,13 +485,19 @@ def test_generic_shacl_preserves_exact_large_integer_and_decimal_comparisons():
 
 
 def test_generic_graph_validation_does_not_entail_reified_claims_or_run_shacl_rules():
-    data = Graph().parse(data='''@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+    data = Graph().parse(
+        data="""@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
 <urn:assertion:1> a rdf:Statement; rdf:subject <urn:a>; rdf:predicate <urn:owns>; rdf:object <urn:b> .
-<urn:assertion:2> a rdf:Statement; rdf:subject <urn:a>; rdf:predicate <urn:owns>; rdf:object <urn:b> .''', format="turtle")
-    shapes = Graph().parse(data='''@prefix sh: <http://www.w3.org/ns/shacl#> .
+<urn:assertion:2> a rdf:Statement; rdf:subject <urn:a>; rdf:predicate <urn:owns>; rdf:object <urn:b> .""",
+        format="turtle",
+    )
+    shapes = Graph().parse(
+        data="""@prefix sh: <http://www.w3.org/ns/shacl#> .
 <urn:shape> a sh:NodeShape; sh:targetNode <urn:a>;
  sh:property [sh:path <urn:owns>; sh:minCount 1];
- sh:rule [a sh:TripleRule; sh:subject sh:this; sh:predicate <urn:owns>; sh:object <urn:b>] .''', format="turtle")
+ sh:rule [a sh:TripleRule; sh:subject sh:this; sh:predicate <urn:owns>; sh:object <urn:b>] .""",
+        format="turtle",
+    )
     before = set(data)
     assert not validate_graph(data, shapes).conforms
     assert set(data) == before
@@ -483,16 +507,25 @@ def test_generic_graph_validation_does_not_entail_reified_claims_or_run_shacl_ru
 
 def test_invalid_generic_shape_keeps_cause_and_trusted_current_context_through_tool_boundary():
     import json
+
     from fastmcp.exceptions import ToolError
     from pyshacl.errors import ConstraintLoadError
+
     from corpus_structure.semantic.ontology import GraphExecutionError, GraphShapeError
-    from corpus_structure.semantic.refusals import located_failure_context, tool_refusals, trusted_operation_model_id
+    from corpus_structure.semantic.refusals import (
+        located_failure_context,
+        tool_refusals,
+        trusted_operation_model_id,
+    )
     from semantic.operation_reporting_support import prepared
 
     actual = prepared()
-    invalid = Graph().parse(data='''@prefix sh: <http://www.w3.org/ns/shacl#> .
+    invalid = Graph().parse(
+        data="""@prefix sh: <http://www.w3.org/ns/shacl#> .
 <urn:shape> a sh:NodeShape; sh:targetNode <urn:missing>;
- sh:property [sh:path <urn:field>; sh:minCount "wrong"] .''', format="turtle")
+ sh:property [sh:path <urn:field>; sh:minCount "wrong"] .""",
+        format="turtle",
+    )
 
     @tool_refusals(GraphShapeError, GraphExecutionError)
     def check_supplied_graph():
@@ -513,10 +546,14 @@ def test_invalid_generic_shape_keeps_cause_and_trusted_current_context_through_t
     assert report["observations"][0]["scope"] == "supplied generic graph"
 
 
-def test_generic_graph_library_failure_keeps_cause_and_context_through_cli_boundary(monkeypatch, capsys):
+def test_generic_graph_library_failure_keeps_cause_and_context_through_cli_boundary(
+    monkeypatch, capsys
+):
     import json
+
     import typer
     from pyshacl.errors import ReportableRuntimeError
+
     from corpus_structure.cli.failures import failure_boundary
     from corpus_structure.semantic import ontology
     from corpus_structure.semantic.ontology import GraphExecutionError, GraphShapeError
@@ -532,18 +569,29 @@ def test_generic_graph_library_failure_keeps_cause_and_context_through_cli_bound
 
     monkeypatch.setattr(ontology, "validate", unavailable)
     actual = prepared()
-    with pytest.raises(typer.Exit) as caught, failure_boundary(True, expected=(GraphShapeError, GraphExecutionError)) as context:
+    with (
+        pytest.raises(typer.Exit) as caught,
+        failure_boundary(True, expected=(GraphShapeError, GraphExecutionError)) as context,
+    ):
         context.bind(actual, scope="supplied generic graph")
         validate_graph(Graph(), Graph())
     assert len(calls) == 1 and isinstance(calls[0][0], Graph)
-    assert calls[0][1] == dict(shacl_graph=calls[0][1]["shacl_graph"], ont_graph=None,
-        inference="none", inplace=True, advanced=False, do_owl_imports=False)
+    assert calls[0][1] == dict(
+        shacl_graph=calls[0][1]["shacl_graph"],
+        ont_graph=None,
+        inference="none",
+        inplace=True,
+        advanced=False,
+        do_owl_imports=False,
+    )
     assert isinstance(caught.value.__context__, GraphExecutionError)
     assert caught.value.__context__.__cause__ is original
     failure = json.loads(capsys.readouterr().out)["error"]
     assert failure["code"] == "GraphExecutionError"
     report = failure["validation"]
-    assert report["release_id"] == actual.release_id and report["model_id"] == trusted_operation_model_id(actual)
+    assert report["release_id"] == actual.release_id and report[
+        "model_id"
+    ] == trusted_operation_model_id(actual)
     assert report["observations"][0]["category"] == "validator_failure"
     assert report["observations"][0]["model_path"] == "graph/validator"
     assert report["observations"][0]["scope"] == "supplied generic graph"

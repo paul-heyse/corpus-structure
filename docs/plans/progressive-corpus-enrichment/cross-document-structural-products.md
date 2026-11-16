@@ -86,7 +86,7 @@ The current [source-search owner](../../../python/corpus-structure/src/corpus_st
 returns pinned source selections, excerpts, lexical scores and bounded continuations without
 requiring completed knowledge. It is useful for passage discovery; an excerpt match does not
 establish that a passage defines a usage. Current
-[generic queries](../../../python/corpus-structure/src/corpus_structure/serve/queries.py),
+[generic queries (historical source)](../../README.md#historical-recovery),
 [semantic read sessions](../../../python/corpus-structure/src/corpus_structure/semantic/query.py)
 and [source/explanation boundary](../../design/D8-agent-and-query-interfaces.md#source-product-query-and-explanation-boundary)
 already carry selected release/result scope, occurrence/source evidence and explicit coverage.
