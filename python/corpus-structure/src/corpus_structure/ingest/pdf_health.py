@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
+
+
+if TYPE_CHECKING:
+    from corpus_structure.semantic.product_reference import ProductReference
 
 
 @dataclass(frozen=True, slots=True)
@@ -146,3 +150,110 @@ def error_summary(error: Exception) -> str:
             + error.message
         )[:1800]
     return (type(error).__name__ + ": " + str(error))[:1800]
+
+
+def formula_health_summary(
+    outcomes: Sequence[Mapping[str, Any]], reference: ProductReference
+) -> list[dict[str, Any]]:
+    """Keep queryable formula state and qualify diagnostics retained in exact metadata."""
+    summary: list[dict[str, Any]] = []
+    for ordinal, outcome in enumerate(outcomes):
+        value: dict[str, Any] = {"pointer": outcome["pointer"], "outcome": outcome["outcome"]}
+        if "diagnostic_ref" in outcome:
+            value["diagnostic_ref"] = dict(outcome["diagnostic_ref"])
+        elif "error" in outcome:
+            value["diagnostic_ref"] = dict(
+                reference.values(), family="native_metadata", local_id=f"formula_outcomes:{ordinal}"
+            )
+        summary.append(value)
+    return summary
+
+
+def source_view_health(
+    health,
+    section_pointer,
+    membership,
+    items,
+    ancestors,
+    *,
+    recognition_coverage=(),
+    recognition_coverage_present: bool = False,
+):
+    """Project coverage onto its named section and retain only local recognition outcomes.
+
+    Native item mappings permit locally detected display processing to be qualified;
+    pointer-only archival callers conservatively retain the producer summary.
+    """
+    value = dict(health)
+    nodes = {item["self_ref"]: item for item in items if isinstance(item, dict)}
+    pointers = {item["self_ref"] if isinstance(item, dict) else item for item in items}
+    outcomes = {row["pointer"]: row["outcome"] for row in health.get("formula_outcomes", ())}
+    value["formula_outcomes"] = [
+        row for row in health.get("formula_outcomes", ()) if row["pointer"] in pointers
+    ]
+    if nodes:
+        display = {
+            pointer
+            for pointer, item in nodes.items()
+            if item.get("label") == "formula"
+            and nodes.get(item.get("parent", {}).get("$ref"), {}).get("label")
+            not in {"table", "inline"}
+        }
+        value["display_coverage"] = (
+            "complete"
+            if all(outcomes.get(pointer) == "succeeded" for pointer in display)
+            else "partial"
+            if any(pointer in outcomes for pointer in display)
+            else "unknown"
+        )
+    if recognition_coverage_present or recognition_coverage:
+        for key in (
+            "inline_scope",
+            "cell_scope",
+            "inline_membership",
+            "cell_membership",
+            "candidate_policy",
+            "cells_policy",
+        ):
+            value.pop(key, None)
+        for universe in ("display", "inline", "cell"):
+            exact = [
+                row
+                for row in recognition_coverage
+                if row["universe"] == universe
+                and row["section_pointer"] == section_pointer
+                and row["membership"] == membership
+            ]
+            inherited = [
+                row
+                for row in recognition_coverage
+                if row["universe"] == universe
+                and row["outcome"] == "complete"
+                and row["membership"] == "descendants"
+                and (
+                    row["section_pointer"] == section_pointer or row["section_pointer"] in ancestors
+                )
+            ]
+            chosen = exact or inherited
+            if not chosen:
+                value[universe + "_coverage"] = "unknown"
+                continue
+            row = chosen[0]
+            value[universe + "_coverage"] = row["outcome"]
+            if universe != "display":
+                value[universe + "_scope"] = [section_pointer]
+                value[universe + "_membership"] = membership
+                value["candidate_policy" if universe == "inline" else "cells_policy"] = row[
+                    "policy"
+                ]
+        return value
+    for universe in ("inline", "cell"):
+        scopes = health.get(universe + "_scope", ())
+        source_membership = health.get(universe + "_membership")
+        covered = (section_pointer in scopes and membership == source_membership) or (
+            source_membership == "descendants"
+            and (section_pointer in scopes or any(pointer in scopes for pointer in ancestors))
+        )
+        if not covered and health.get(universe + "_coverage") in {"complete", "partial"}:
+            value[universe + "_coverage"] = "unknown"
+    return value

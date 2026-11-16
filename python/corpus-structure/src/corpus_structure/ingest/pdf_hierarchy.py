@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import re
 import warnings
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from functools import cache
 from hashlib import sha256
@@ -566,3 +566,47 @@ def project_section_nodes(
 
     visit(nodes[section_ref])
     return TextProjection(document_digest, section_ref, membership, "".join(text), tuple(pieces))
+
+
+def _native_section_title_parts(value: str) -> tuple[str | None, str]:
+    import re
+    import unicodedata
+
+    prefix = re.match(
+        r"^\s*(\d+(?:\.\d+)*)(?=$|\s|[:.)\u2013\u2014-])(?:\s|[:.)\u2013\u2014-])*", value
+    )
+    number = prefix[1] if prefix else None
+    title = value[prefix.end() :] if prefix else value
+    title = "".join(" " if unicodedata.category(char).startswith("P") else char for char in title)
+    return number, " ".join(title.casefold().split())
+
+
+def resolve_native_sections[Key](
+    catalog: Mapping[Key, str], selectors: Sequence[str]
+) -> tuple[Key, ...]:
+    """Resolve each title selector to one actual catalog occurrence, never an alias set."""
+    from corpus_structure.semantic.refusals import SourceReadRefused
+
+    normalized = {key: _native_section_title_parts(title) for key, title in catalog.items()}
+    resolved: dict[Key, None] = {}
+    for selector in selectors:
+        number, title = _native_section_title_parts(selector)
+        if not number and not title:
+            raise SourceReadRefused("invalid", "native section selector is empty")
+        matches = [
+            key
+            for key, (candidate_number, candidate_title) in normalized.items()
+            if (number is None or candidate_number == number)
+            and (not title or candidate_title == title)
+        ]
+        if not matches:
+            raise SourceReadRefused(
+                "missing", f"requested native section is unavailable: {selector!r}"
+            )
+        if len(matches) != 1:
+            choices = "; ".join(f"{catalog[key]!r} [{key}]" for key in matches)
+            raise SourceReadRefused(
+                "invalid", f"ambiguous native section selector {selector!r}: {choices}"
+            )
+        resolved[matches[0]] = None
+    return tuple(resolved)

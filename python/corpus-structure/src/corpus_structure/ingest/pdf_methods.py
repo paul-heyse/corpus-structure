@@ -105,7 +105,7 @@ def _select_sections(
     if cfg.sections and len(matched) != len(set(cfg.sections)):
         raise ValueError("requested intact section selection is missing or ambiguous")
     if not cfg.sections and isinstance(scope, dict) and scope.get("kind") == "native_sections":
-        from corpus_structure.semantic.source_views import resolve_native_sections
+        from .pdf_hierarchy import resolve_native_sections
 
         matched = list(
             resolve_native_sections(
@@ -172,7 +172,7 @@ def _drafts(
     recipe = section_text_recipe(
         native_product, analysis_eligible=analysis_eligible, policy=projection_policy
     )
-    from corpus_structure.semantic.source_views import formula_health_summary
+    from .pdf_health import formula_health_summary
 
     health = {
         **health,
@@ -203,7 +203,7 @@ def _drafts(
             if item.parent.cref not in {"#/body", "#/furniture"}:
                 ancestors.append(item.parent.cref)
             item = nodes[item.parent.cref]
-        from corpus_structure.semantic.source_views import source_view_health
+        from .pdf_health import source_view_health
 
         view_health = source_view_health(
             health,

@@ -8,7 +8,8 @@ from typing import Any, Literal
 
 from corpus_structure.core.method import SourceViewDraft
 from corpus_structure.semantic.pdf_record_reader import PublishedPdfReader
-from corpus_structure.semantic.source_views import resolve_native_sections, source_view_health
+from .pdf_health import source_view_health
+from .pdf_hierarchy import resolve_native_sections
 
 from .pdf_hierarchy import project_section_nodes, section_text_recipe, section_view_key
 

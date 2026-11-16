@@ -167,7 +167,7 @@ def test_abandoned_companion_export_closes_owned_cursor(field_database):
 
 
 def test_formula_health_summary_keeps_exact_diagnostic_in_qualified_metadata():
-    from corpus_structure.semantic.source_views import formula_health_summary
+    from corpus_structure.ingest.pdf_health import formula_health_summary
 
     reference = ProductReference(42, "p", "f" * 64)
     outcomes = [

@@ -2,7 +2,7 @@
 
 
 def test_source_view_health_is_relative_to_its_named_native_universe():
-    from corpus_structure.semantic.source_views import source_view_health
+    from corpus_structure.ingest.pdf_health import source_view_health
 
     group = {"self_ref": "#/groups/0", "label": "section"}
     formula = {"self_ref": "#/texts/0", "label": "formula", "parent": {"$ref": "#/groups/0"}}
