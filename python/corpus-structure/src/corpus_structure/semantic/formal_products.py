@@ -23,7 +23,7 @@ from .characterization import (
     occurrence_id,
     validate_inventory_graph,
 )
-from .characterization_evidence import validate_evidence
+from .characterization_evidence import validate_formal_evidence
 from .characterization_manifests import analytical_packets, append_manifest, manifest_contract
 from .data_operation_model import EffectiveDataOperationModel, EffectiveOperation, SubjectContext
 from .data_operation_outcomes import successful_return_outcome
@@ -327,7 +327,7 @@ def validate_formal_product(
                 )
         if region["availability"] != "available" and (region["atoms"] or region["terminals"]):
             raise ValueError("unsupported primary lexicon cannot assert characterized terminals")
-    validate_evidence(data, indexes)
+    validate_formal_evidence(indexes)
     validate_inventory_graph(data, indexes, all_nodes, choices, lambda _: None)
     if [row["family"] for row in checked["coverage"]] != list(FAMILIES):
         raise ValueError("formal product must retain every examined family outcome")

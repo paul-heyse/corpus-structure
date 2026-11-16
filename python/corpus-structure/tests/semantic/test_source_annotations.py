@@ -345,3 +345,41 @@ def test_current_native_columns_restore_whole_doc_without_pipeline_and_preserve_
     assert [t.head.i for t in restored.doc] == [0] * len(restored.doc)
     assert [t.lemma_ for t in restored.doc] == [f"lemma:{i}" for i in range(len(restored.doc))]
     assert all(t.morph.to_dict() == {"VerbForm": "Fin"} for t in restored.doc)
+
+
+@pytest.mark.parametrize(
+    "mutation,message",
+    (
+        ("foreign_head", "token coordinates"),
+        ("foreign_token_extent", "token coordinates"),
+        ("missing_lexeme", "actual token population"),
+        ("foreign_sentence", "token/sentence membership"),
+        ("changed_source_text", "text differs from its pinned source"),
+        ("duplicate_block", "duplicate native blocks"),
+    ),
+)
+def test_current_annotation_validator_refuses_invalid_retained_populations(
+    acquired, detached, mutation, message
+):
+    prepared, model, configuration, _selection = acquired
+    source, original = detached
+    value = copy.deepcopy(original)
+    block = value["blocks"][0]
+    annotation = block["annotation"]
+    token = annotation["tokens"][0]
+    if mutation == "foreign_head":
+        token["head"] = len(annotation["tokens"])
+    elif mutation == "foreign_token_extent":
+        token["end"] = annotation["block_end"] + 1
+    elif mutation == "missing_lexeme":
+        block["lexemes"].pop()
+    elif mutation == "foreign_sentence":
+        token["sentence"] = len(annotation["sentences"])
+    elif mutation == "changed_source_text":
+        annotation["text_digest"] = "0" * 64
+    elif mutation == "duplicate_block":
+        value["blocks"].append(copy.deepcopy(block))
+    with pytest.raises(ValueError, match=message):
+        validate_source_annotations(
+            prepared, model, value, source, configuration=configuration
+        )

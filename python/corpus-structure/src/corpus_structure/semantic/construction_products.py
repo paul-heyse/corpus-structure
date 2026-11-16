@@ -24,6 +24,7 @@ from .characterization import (
     validate_attachment_basis,
     validate_inventory_graph,
 )
+from .characterization_evidence import validate_navigation_evidence
 from .characterization_manifests import analytical_packets, append_manifest, manifest_contract
 from .constructions.declarations import FAMILIES, GRAMMAR_FAMILIES
 from .constructions.layers import ConstructionLayer, ConstructionSource
@@ -700,6 +701,7 @@ def validate_interpreted_product(
             policies.get("released_construction", {}).get("rules", {}).get(basis.get("rule_id"), {})
         )
 
+    validate_navigation_evidence(indexes)
     validate_inventory_graph(inventory, indexes, all_nodes, choices, validate_basis)
     for row in checked["coverage"]:
         if row["outcome"] in {"complete", "empty"} and (

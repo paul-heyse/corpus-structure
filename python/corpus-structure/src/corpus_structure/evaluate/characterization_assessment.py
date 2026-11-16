@@ -387,10 +387,6 @@ class LayerProjection:
                                 raise ReferenceError("layer repeats choice member identity")
                             index[member["local_id"]] = ("choice_member", member)
                             self.choice_groups[(*key, member["local_id"])] = row["local_id"]
-            for run in body.get("native_runs", ()):
-                if run["local_id"] in index:
-                    raise ReferenceError("layer repeats native run identity")
-                index[run["local_id"]] = ("native_runs", run)
             self.indexes[key] = index
         return self.layers[key]
 
@@ -414,14 +410,13 @@ class LayerProjection:
         result = dict(
             reference=output,
             collection=collection,
-            native_provider=_native_provider(body, row),
             families=[row["family"]]
             if "family" in row
             else [item["family"] for item in body.get("coverage", ())],
             extents=[
                 {
                     k: e[k]
-                    for k in ("source_view_id", "projection", "native_pointer", "start", "end")
+                    for k in ("projection", "native_pointer", "start", "end")
                     if k in e
                 }
                 for e in extents
@@ -493,7 +488,7 @@ class LayerProjection:
                         edge(name, target_member, target_pin, position=position)
                 elif name in {"native_token", "native_mention", "native_edu"} and witness_closure:
                     detail = dict(data)
-                    for field in ("native_run", "container", "sentence"):
+                    for field in ("container", "sentence"):
                         target = detail.pop(field, None)
                         if target is not None:
                             edge(name + "." + field, target)
@@ -661,12 +656,4 @@ class LayerProjection:
         )
 
 
-_EXTENT_FIELDS = {"source_view_id", "projection", "native_pointer", "start", "end"}
-
-
-def _native_provider(body, row):
-    identity = row.get("native_token", {}).get("native_run")
-    return next(
-        (run["provider"] for run in body.get("native_runs", ()) if run["local_id"] == identity),
-        None,
-    )
+_EXTENT_FIELDS = {"projection", "native_pointer", "start", "end"}

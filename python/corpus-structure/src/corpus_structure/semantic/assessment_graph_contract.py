@@ -13,7 +13,7 @@ ASSESSMENT_COLLECTIONS = (
     "choices",
     "coverage",
 )
-ASSESSMENT_NODE_KINDS = (*ASSESSMENT_COLLECTIONS, "choice_member", "named_binding", "native_runs")
+ASSESSMENT_NODE_KINDS = (*ASSESSMENT_COLLECTIONS, "choice_member", "named_binding")
 ASSESSMENT_RELATION_KINDS = tuple(
     sorted(
         {
@@ -33,7 +33,7 @@ ASSESSMENT_RELATION_KINDS = tuple(
             *(
                 name + "." + field
                 for name in ("native_token", "native_mention", "native_edu")
-                for field in ("native_run", "container", "sentence")
+                for field in ("container", "sentence")
             ),
             "named_match.native_container",
             "named_match.nodes",

@@ -1,43 +1,13 @@
 """Shared controlled inputs and builders for characterization evidence support."""
 
 from copy import deepcopy
+from typing import Any
 
 
-def evidence_rows(occurrences):
+def evidence_rows(occurrences) -> dict[str, Any]:
     parent = occurrences[0]["local_id"]
     surface = "".join(e["text"] for e in occurrences[0]["extents"])
-    run = dict(
-        local_id="native-run",
-        provider="fixture",
-        profile="native",
-        model="fixture",
-        model_version="1",
-        runtime_version="1",
-        configuration="fixture",
-        configuration_codec="spacy-config-v1",
-        configuration_digest="a" * 64,
-        layout_recipe="fixture",
-        layout_digest="b" * 64,
-        text_digest="c" * 64,
-    )
     annotations = [
-        dict(local_id="container", kind="native.block"),
-        dict(
-            local_id="token",
-            kind="native.token",
-            occurrences=[parent],
-            native_token=dict(
-                index=0,
-                container="container",
-                native_run="native-run",
-                text=surface,
-                whitespace="",
-                space=False,
-                source_role="prose",
-                native_head=0,
-                head_index_base=0,
-            ),
-        ),
         dict(
             local_id="formal-input",
             kind="formal.input",
@@ -86,18 +56,10 @@ def evidence_rows(occurrences):
     ]
     for row in annotations:
         row.update(family="syntax", vocabulary="fixture", status="native_evidence")
-    return dict(native_runs=[run], annotations=annotations)
+    return dict(annotations=annotations)
 
 
 EVIDENCE_MUTATIONS = (
-    "missing_token",
-    "missing_token_source",
-    "wrong_token_text",
-    "foreign_container",
-    "foreign_sentence",
-    "duplicate_index",
-    "missing_head_scheme",
-    "foreign_head",
     "missing_symbol",
     "foreign_symbol_parent",
     "symbol_parent_cycle",
@@ -116,30 +78,12 @@ EVIDENCE_MUTATIONS = (
 
 def mutate_evidence(body, mutation):
     rows = {a["local_id"]: a for a in body["annotations"]}
-    token, formal = rows["token"]["native_token"], rows["formal-token"]["formal"]
+    formal = rows["formal-token"]["formal"]
     root = rows["formal-input"]["formal_input"]
-    if mutation == "missing_token":
-        rows["token"].pop("native_token")
-    elif mutation == "missing_token_source":
-        rows["token"].pop("occurrences")
-    elif mutation == "wrong_token_text":
-        token["text"] = "invented"
-    elif mutation == "foreign_container":
-        token["container"] = "formal-input"
-    elif mutation == "foreign_sentence":
-        token["sentence"] = "container"
-    elif mutation == "duplicate_index":
-        duplicate = deepcopy(rows["token"])
-        duplicate["local_id"] = "duplicate-token"
-        body["annotations"].append(duplicate)
-    elif mutation == "missing_head_scheme":
-        token.pop("head_index_base")
-    elif mutation == "foreign_head":
-        token["native_head"] = 99
-    elif mutation == "missing_symbol":
+    if mutation == "missing_symbol":
         rows["symbol"].pop("formal")
     elif mutation == "foreign_symbol_parent":
-        formal["symbol_parent"] = "container"
+        formal["symbol_parent"] = "formal-input"
     elif mutation == "symbol_parent_cycle":
         rows["symbol"]["formal"]["symbol_parent"] = "symbol"
     elif mutation == "symbol_outside_parent":

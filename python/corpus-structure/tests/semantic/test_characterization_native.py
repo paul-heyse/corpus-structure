@@ -10,7 +10,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.semantic.characterization import validate_inventory_graph
-from corpus_structure.semantic.characterization_evidence import validate_evidence
+from corpus_structure.semantic.characterization_evidence import validate_formal_evidence
 from corpus_structure.semantic.construction_products import (
     ConstructionOptions,
     PreparedConstructionProfile,
@@ -527,20 +527,20 @@ def _indexes(data):
 
 
 @pytest.mark.parametrize("mutation", EVIDENCE_MUTATIONS)
-def test_current_shared_evidence_kernel_keeps_independent_counterexamples(mutation):
+def test_current_formal_evidence_kernel_keeps_independent_counterexamples(mutation):
     from semantic.characterization_evidence_support import evidence_rows, mutate_evidence
 
     body = _inventory()
     evidence = evidence_rows(body["occurrences"])
     for annotation in evidence["annotations"]:
-        if annotation["local_id"] in {"container", "symbol", "formal-token"}:
+        if annotation["local_id"] in {"symbol", "formal-token"}:
             annotation["occurrences"] = ["o0"]
-    body.update(native_runs=evidence["native_runs"], annotations=evidence["annotations"])
-    validate_evidence(body, _indexes(body))
+    body.update(annotations=evidence["annotations"])
+    validate_formal_evidence(_indexes(body))
     invalid = deepcopy(body)
     mutate_evidence(invalid, mutation)
     with pytest.raises(ValueError):
-        validate_evidence(invalid, _indexes(invalid))
+        validate_formal_evidence(_indexes(invalid))
 
 
 def test_current_shared_graph_kernel_keeps_factorized_diamond_and_refuses_cycle():

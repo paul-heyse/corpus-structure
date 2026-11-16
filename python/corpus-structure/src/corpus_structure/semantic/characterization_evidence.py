@@ -1,4 +1,4 @@
-"""Coordinate and population closure for retained native/formal evidence.
+"""Coordinate and source closure for declared formal and navigation evidence.
 
 These checks establish representation fidelity, not linguistic or scientific truth.
 """
@@ -7,85 +7,10 @@ import re
 from decimal import Decimal, InvalidOperation
 
 
-def validate_evidence(data, indexes):
+def validate_formal_evidence(indexes):
     annotations = indexes["annotations"]
     occurrences = indexes["occurrences"]
-    runs = {run["local_id"]: run for run in data.get("native_runs", ())}
-    if len(runs) != len(data.get("native_runs", ())):
-        raise ValueError("duplicate native run identity")
-    tokens = {}
     for annotation in annotations.values():
-        navigation = annotation.get("navigation")
-        if annotation["kind"] == "construction.navigation" and navigation is None:
-            raise ValueError("navigation annotation requires typed source fields")
-        if navigation is not None:
-            if (
-                annotation["kind"] != "construction.navigation"
-                or annotation["family"] != "construction.navigation"
-            ):
-                raise ValueError("navigation fields require their declared annotation family")
-            roles = navigation.get("roles", ())
-            if len({role["role"] for role in roles}) != len(roles):
-                raise ValueError("navigation role identity repeats")
-            refs = [ref for role in roles for ref in role["occurrences"]]
-            if (
-                not refs
-                or any(ref not in occurrences for ref in refs)
-                or set(refs) != set(annotation.get("occurrences", ()))
-            ):
-                raise ValueError(
-                    "navigation roles must conserve their annotation source occurrences"
-                )
-            if any(
-                e["synthetic"] or "text" not in e
-                for ref in refs
-                for e in occurrences[ref]["extents"]
-            ):
-                raise ValueError("navigation fields require literal source evidence")
-            for label in navigation.get("source_labels", ()):
-                if (
-                    not label["occurrences"]
-                    or any(ref not in refs for ref in label["occurrences"])
-                    or "".join(
-                        e["text"]
-                        for ref in label["occurrences"]
-                        for e in occurrences[ref]["extents"]
-                    )
-                    != label["value"]
-                ):
-                    raise ValueError("navigation source label differs from its literal source")
-            if any(
-                token["native_node"] not in annotation.get("external_premises", ())
-                for token in navigation.get("native_tokens", ())
-            ):
-                raise ValueError("navigation native token requires its external premise")
-        token = annotation.get("native_token")
-        if annotation["kind"] == "native.token" and token is None:
-            raise ValueError("native token requires typed columns")
-        if token is not None:
-            if token["native_run"] not in runs or annotations.get(token["container"], {}).get(
-                "kind"
-            ) not in {"native.block", "native.sentence"}:
-                raise ValueError("native token requires its run and container")
-            if (
-                token.get("sentence") is not None
-                and annotations.get(token["sentence"], {}).get("kind") != "native.sentence"
-            ):
-                raise ValueError("native token has unknown sentence")
-            sources = annotation.get("occurrences", ())
-            if not sources or any(ref not in occurrences for ref in sources):
-                raise ValueError("native token requires its exact source occurrence")
-            extents = [e for ref in sources for e in occurrences[ref]["extents"]]
-            if (
-                any(e["synthetic"] or "text" not in e for e in extents)
-                or "".join(e["text"] for e in extents) != token["text"]
-            ):
-                raise ValueError("native token text differs from literal source")
-            population = (token["native_run"], token["container"])
-            indices = tokens.setdefault(population, {})
-            if token["index"] in indices:
-                raise ValueError("duplicate native token index within container")
-            indices[token["index"]] = token
         formal_input = annotation.get("formal_input")
         if annotation["kind"] == "formal.input" and formal_input is None:
             raise ValueError("formal input annotation requires typed input")
@@ -147,7 +72,7 @@ def validate_evidence(data, indexes):
                 not any(
                     all(
                         e.get(key) == p.get(key)
-                        for key in ("projection", "source_view_id", "native_pointer")
+                        for key in ("projection", "native_pointer")
                     )
                     and all(key in extent for extent in (p, e) for key in ("start", "end"))
                     and p["start"] <= e["start"] <= e["end"] <= p["end"]
@@ -165,41 +90,6 @@ def validate_evidence(data, indexes):
                     raise ValueError("formal correspondence differs from literal source")
         if normalized_input and position != len(formal_input["text"]):
             raise ValueError("normalized correspondence requires an ordered complete partition")
-    from corpus_structure.methods.model_observation import validate_pm2_batch_receipt
-
-    from .observations import source_python
-
-    for annotation in annotations.values():
-        receipt_value = annotation.get("native_batch")
-        native_sentence = (
-            annotation["kind"] == "native.sentence" and annotation["family"] == "hanlp.tokens"
-        )
-        if receipt_value is None:
-            if (
-                native_sentence
-                and data["operation"]["key"] == "text.native_evidence"
-                and data["operation"]["version"] == "2"
-            ):
-                raise ValueError("current HanLP sentence requires its physical batch receipt")
-            continue
-        if not native_sentence:
-            raise ValueError("native batch receipt requires a HanLP sentence")
-        receipt = source_python(receipt_value)
-        population = tokens.get(("hanlp", annotation["local_id"]))
-        if population is None:
-            raise ValueError("native batch sentence lacks its canonical token population")
-        sentence = [population[index]["text"] for index in sorted(population)]
-        validate_pm2_batch_receipt(receipt, sentence, "hanlp")
-
-    for indices in tokens.values():
-        for token in indices.values():
-            if "native_head" in token:
-                if "head_index_base" not in token:
-                    raise ValueError("native head requires its index scheme")
-                head = token["native_head"]
-                base = token["head_index_base"]
-                if not (base == 1 and head == 0) and head - base not in indices:
-                    raise ValueError("native head is outside token population")
     parents = {
         key: row["formal"]["symbol_parent"]
         for key, row in annotations.items()
@@ -262,3 +152,53 @@ def validate_evidence(data, indexes):
                 raise ValueError("formal decimal requires exact decimal text") from exc
             if not value.is_finite():
                 raise ValueError("formal decimal must be finite")
+
+
+def validate_navigation_evidence(indexes):
+    annotations = indexes["annotations"]
+    occurrences = indexes["occurrences"]
+    for annotation in annotations.values():
+        navigation = annotation.get("navigation")
+        if annotation["kind"] == "construction.navigation" and navigation is None:
+            raise ValueError("navigation annotation requires typed source fields")
+        if navigation is not None:
+            if (
+                annotation["kind"] != "construction.navigation"
+                or annotation["family"] != "construction.navigation"
+            ):
+                raise ValueError("navigation fields require their declared annotation family")
+            roles = navigation.get("roles", ())
+            if len({role["role"] for role in roles}) != len(roles):
+                raise ValueError("navigation role identity repeats")
+            refs = [ref for role in roles for ref in role["occurrences"]]
+            if (
+                not refs
+                or any(ref not in occurrences for ref in refs)
+                or set(refs) != set(annotation.get("occurrences", ()))
+            ):
+                raise ValueError(
+                    "navigation roles must conserve their annotation source occurrences"
+                )
+            if any(
+                e["synthetic"] or "text" not in e
+                for ref in refs
+                for e in occurrences[ref]["extents"]
+            ):
+                raise ValueError("navigation fields require literal source evidence")
+            for label in navigation.get("source_labels", ()):
+                if (
+                    not label["occurrences"]
+                    or any(ref not in refs for ref in label["occurrences"])
+                    or "".join(
+                        e["text"]
+                        for ref in label["occurrences"]
+                        for e in occurrences[ref]["extents"]
+                    )
+                    != label["value"]
+                ):
+                    raise ValueError("navigation source label differs from its literal source")
+            if any(
+                token["native_node"] not in annotation.get("external_premises", ())
+                for token in navigation.get("native_tokens", ())
+            ):
+                raise ValueError("navigation native token requires its external premise")

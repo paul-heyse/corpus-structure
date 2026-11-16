@@ -1,11 +1,12 @@
 """Independent invalid populations and support mutations for shared evidence guards."""
 
 from copy import deepcopy
+from typing import Any
 
 import pytest
 
 from corpus_structure.semantic.characterization import _validate_construction_support
-from corpus_structure.semantic.characterization_evidence import validate_evidence
+from corpus_structure.semantic.characterization_evidence import validate_formal_evidence
 from semantic.characterization_evidence_support import (
     EVIDENCE_MUTATIONS as EVIDENCE_MUTATIONS,
 )
@@ -26,14 +27,13 @@ from semantic.characterization_evidence_support import (
 )
 
 
-def _evidence_body():
+def _evidence_body() -> dict[str, Any]:
     occurrences = [
         dict(
             local_id=key,
             extents=[
                 dict(
                     projection="p",
-                    source_view_id=1,
                     native_pointer=pointer,
                     start=start,
                     end=start + 3,
@@ -48,13 +48,53 @@ def _evidence_body():
 
 
 def _validate(body):
-    validate_evidence(
-        body,
+    validate_formal_evidence(
         {
             name: {row["local_id"]: row for row in body[name]}
             for name in ("annotations", "occurrences")
         },
     )
+
+
+
+@pytest.fixture(scope="module")
+def navigation_product():
+    from annotation_support import ControlledPipeline, selected_item
+    from methods.navigation_fixture import source_primary_products
+
+    from corpus_structure.ingest.annotations import AnnotationProfile
+    from corpus_structure.semantic.data_product_reference import DataProductReference, member_reference
+
+    controlled = ControlledPipeline()
+    text = "Table 5.1 (numbering namespace: Main)"
+    request, _source, frame, _context = selected_item(
+        controlled, text, start=0, block_id="#/texts/1"
+    )
+    # Controlled columns, without inference or a provider execution claim.
+    from corpus_structure.ingest.annotations import annotate
+    from unittest.mock import patch
+
+    profile = AnnotationProfile(execution_profile=controlled.selection().native.fingerprint)
+    with patch("corpus_structure.ingest.annotations.pipeline", return_value=controlled):
+        (annotation,) = annotate((request,), profile)
+    primary = source_primary_products(frame, (annotation,), profile=profile)
+    native = primary.native
+    assert native is not None
+    token = next(row for row in native.inventory("token"))
+    body = primary.construction.value.model_dump(mode="json", exclude_unset=True)
+    navigation = next(
+        packet["body"]
+        for packet in body["members"]
+        if packet["body"].get("navigation", {}).get("source_labels")
+    )
+    reference = member_reference(
+        DataProductReference(native.semantic_id), token["local_id"]
+    ).values()
+    navigation["navigation"]["native_tokens"] = [
+        dict(name="subject", index=0, native_node=reference)
+    ]
+    navigation["external_premises"] = [reference]
+    return primary, body, navigation["local_id"]
 
 
 @pytest.mark.parametrize(
@@ -69,30 +109,15 @@ def _validate(body):
         "missing_premise",
     ),
 )
-def test_navigation_source_and_native_premise_conservation(mutation):
-    body = _evidence_body()
-    native = dict(
-        layer=dict(task_id=1, product_key="annotation_layer", content_digest="a" * 64),
-        local_id="native-token",
+def test_navigation_source_and_native_premise_conservation(navigation_product, mutation):
+    from corpus_structure.semantic.construction_products import validate_construction_product
+
+    primary, original, local_id = navigation_product
+    body = deepcopy(original)
+    annotation = next(
+        packet["body"] for packet in body["members"] if packet["member_id"] == local_id
     )
-    navigation = dict(
-        codec="source-navigation-v1",
-        kind="artifact_mention",
-        pointer="#/texts/0",
-        status="complete",
-        roles=[dict(role="subject", occurrences=["source"])],
-        source_labels=[dict(kind="numbering_namespace", value="x=1", occurrences=["source"])],
-        native_tokens=[dict(name="subject", index=0, native_node=native)],
-    )
-    annotation = dict(
-        local_id="navigation",
-        kind="construction.navigation",
-        family="construction.navigation",
-        occurrences=["source"],
-        external_premises=[native],
-        navigation=navigation,
-    )
-    body["annotations"].append(annotation)
+    navigation = annotation["navigation"]
     if mutation == "missing_payload":
         annotation.pop("navigation")
     elif mutation == "duplicate_role":
@@ -105,28 +130,37 @@ def test_navigation_source_and_native_premise_conservation(mutation):
         navigation["source_labels"][0]["value"] = "invented"
     elif mutation == "missing_premise":
         annotation["external_premises"] = []
+
+    def validate():
+        return validate_construction_product(
+            primary.construction.prepared,
+            primary.construction.model,
+            body,
+            primary.source,
+            (primary.formal, primary.native),
+            subject_context=primary.context,
+        )
+
     if mutation is None:
-        _validate(body)
+        validate()
     else:
-        with pytest.raises(ValueError, match="navigation"):
-            _validate(body)
+        with pytest.raises(ValueError):
+            validate()
 
 
-def test_valid_native_formal_evidence_and_synthetic_partition():
+def test_valid_formal_evidence_and_synthetic_partition():
     body = _evidence_body()
     _validate(body)
-    root = body["annotations"][2]["formal_input"]
+    root = body["annotations"][0]["formal_input"]
     root["text"] += " "
     root["correspondence"].append(
         dict(input_start=3, input_end=4, relation="synthetic", source_occurrences=[], boundary=3)
     )
     _validate(body)
-    body["annotations"][1]["native_token"].update(native_head=0, head_index_base=1)
-    _validate(body)  # The native one-based root sentinel has no token target.
 
 
 @pytest.mark.parametrize("mutation", EVIDENCE_MUTATIONS)
-def test_invalid_native_formal_evidence_is_refused(mutation):
+def test_invalid_formal_evidence_is_refused(mutation):
     body = _evidence_body()
     mutate_evidence(body, mutation)
     with pytest.raises(ValueError):

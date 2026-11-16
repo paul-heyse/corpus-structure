@@ -13,7 +13,7 @@ from corpus_structure.evaluate.characterization_assessment import (
 from corpus_structure.semantic.refusals import ReferenceError
 
 PIN = {"product_id": "product:characterization-control"}
-EXTENT = dict(source_view_id=23, projection="c" * 64, native_pointer="#/texts/0", start=0, end=20)
+EXTENT = dict(projection="c" * 64, native_pointer="#/texts/0", start=0, end=20)
 
 
 def graph() -> dict[str, Any]:
@@ -510,61 +510,99 @@ def test_author_witness_graph_enforces_budget_before_full_closure():
         LayerProjection(lambda pin: body).graph(PIN, "term", max_bytes=32, witness_closure=True)
 
 
+def _selected_member_projection(annotations):
+    from corpus_structure.semantic.data_operation_identity import semantic_value
+    from corpus_structure.semantic.data_product_reference import DataProductReference
+    from corpus_structure.semantic.declared_formal_readings import SelectedCharacterizationInventories
+
+    # Literal current member packets test retained reading, without an admission/provider claim.
+    source = dict(document="document:control", projection="c" * 64)
+    selectors = [dict(projection=source["projection"], native_pointer="#/texts/0")]
+    body = dict(
+        source=source,
+        selectors=selectors,
+        members=[
+            dict(
+                member_id=row["local_id"],
+                kind_contract="kind:annotation-control",
+                context=dict(
+                    subject="original:control",
+                    subject_definition="original-source-view",
+                    original_source=source["document"],
+                    analyzed_scope=dict(source=source, selectors=selectors),
+                ),
+                body=dict(record_type="annotation", **row),
+            )
+            for row in annotations
+        ],
+    )
+    inventories = SelectedCharacterizationInventories(
+        {PIN["product_id"]: dict(canonical_body=semantic_value(body))}
+    )
+    return LayerProjection(
+        lambda pin: inventories[DataProductReference(pin["product_id"])].payload
+    )
+
+
 @pytest.mark.parametrize(
-    "provider,column,value",
+    "column,value",
     [
-        ("spacy", "pos", "VERB"),
-        ("spacy", "lemma", "run"),
-        ("spacy", "dependency", "ROOT"),
-        ("hanlp", "tag", "VBZ"),
-        ("spacy", "morphology", {}),
+        ("pos", "VERB"),
+        ("lemma", "run"),
+        ("dependency", "ROOT"),
+        ("tag", "VBZ"),
+        ("morphology", []),
     ],
 )
-def test_current_member_projection_preserves_native_column_provider_and_empty_value(
-    provider, column, value
-):
+def test_current_member_projection_preserves_native_column_scheme_and_empty_value(column, value):
     from corpus_structure.evaluate.characterization_assessment import _matches
 
-    # Controlled transport values establish projection fidelity, not provider execution.
-    native = dict(native_run="run", scheme="provider-native", **{column: value})
-    body = dict(
-        annotations=[dict(local_id="token", kind="native_token", native_token=native)],
-        native_runs=[dict(local_id="run", provider=provider)],
+    native = dict(
+        index=0,
+        native_run="working-doc",
+        container="block",
+        text="runs",
+        space=False,
+        whitespace="",
+        source_role="prose",
+        **{column: value},
+    )
+    annotation = dict(
+        local_id="token",
+        kind="native.token",
+        vocabulary="native",
+        family="syntax",
+        status="native_evidence",
+        native_scheme="provider-native",
+        native_token=native,
     )
     output = dict(product_id=PIN["product_id"], member_id="token", collection="annotations")
-    actual = LayerProjection(lambda pin: body).project(output, include_graph=False)
-    expected = dict(
-        native_provider=provider,
-        value=dict(native_token={column: value, "scheme": "provider-native"}),
-    )
+    actual = _selected_member_projection([annotation]).project(output, include_graph=False)
+    expected = dict(value=dict(native_token={column: value}, native_scheme="provider-native"))
     assert _matches(actual, expected)
-    assert not _matches(actual, dict(native_provider="other-provider"))
-    assert not _matches(actual, dict(value=dict(native_token=dict(scheme="other-scheme"))))
-    del body["annotations"][0]["native_token"][column]
-    absent = LayerProjection(lambda pin: body).project(output, include_graph=False)
+    assert actual["value"]["native_token"][column] == value
+    assert not _matches(actual, dict(value=dict(native_scheme="other-scheme")))
+    del native[column]
+    absent = _selected_member_projection([annotation]).project(output, include_graph=False)
     assert column not in absent["value"]["native_token"]
     assert not _matches(absent, expected)
 
 
 def test_current_graph_semantics_keeps_label_independent_of_native_score():
-    body = dict(
-        annotations=[
-            dict(
-                local_id="token",
-                kind="native_token",
-                vocabulary="native",
-                native_label="VERB",
-                scores=[dict(value=0.9)],
-            )
-        ]
+    annotation = dict(
+        local_id="token",
+        kind="native.token",
+        vocabulary="native",
+        native_label="VERB",
+        scores=[dict(value=0.9)],
     )
-    before = LayerProjection(lambda pin: body).graph(PIN, "token")
-    body["annotations"][0]["scores"] = [dict(value=0.1)]
-    changed_score = LayerProjection(lambda pin: body).graph(PIN, "token")
+    before = _selected_member_projection([annotation]).graph(PIN, "token")
+    annotation["scores"] = [dict(value=0.1)]
+    changed_score = _selected_member_projection([annotation]).graph(PIN, "token")
     assert graph_equal(before, changed_score, "source_semantics")
     assert not graph_equal(before, changed_score, "native_fidelity")
-    body["annotations"][0]["native_label"] = "NOUN"
-    changed_label = LayerProjection(lambda pin: body).graph(PIN, "token")
+    annotation["native_label"] = "NOUN"
+    changed_label = _selected_member_projection([annotation]).graph(PIN, "token")
     assert not graph_equal(before, changed_label, "source_semantics")
 
 
