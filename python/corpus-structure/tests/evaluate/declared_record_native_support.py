@@ -86,8 +86,15 @@ def policy_recipe(directory):
                             "source_pin_json": {"range": "string", "required": True},
                             "empty": {"range": "boolean", "required": True},
                             "family": {"range": "string", "pattern": "^(table|measurement)$"},
-                            "variant": {"range": "string", "pattern": "^(standard|unresolved-value-alternative)$"},
-                            "diagnostic_bytes": {"range": "integer", "minimum_value": 0, "maximum_value": 8 * 1024**2},
+                            "variant": {
+                                "range": "string",
+                                "pattern": "^(standard|unresolved-value-alternative)$",
+                            },
+                            "diagnostic_bytes": {
+                                "range": "integer",
+                                "minimum_value": 0,
+                                "maximum_value": 8 * 1024**2,
+                            },
                         }
                     },
                     "FixtureLiteralField": {
@@ -742,7 +749,17 @@ class ReadingPopulation:
     demand_id: str
 
 
-def run_readings(journey, selected_sources, *, policy, inference, empty_sources=(), family="table", variant="standard", diagnostic_bytes=0):
+def run_readings(
+    journey,
+    selected_sources,
+    *,
+    policy,
+    inference,
+    empty_sources=(),
+    family="table",
+    variant="standard",
+    diagnostic_bytes=0,
+):
     from corpus_structure.evaluate.declared_record_policy import (
         DdoRecordGradeSpecification,
         DdoRecordPredictionSelection,

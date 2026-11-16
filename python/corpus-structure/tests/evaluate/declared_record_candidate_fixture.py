@@ -16,7 +16,9 @@ ASSET = "record-policy-native-fixture/candidate-assets"
 MODULE = "evaluate.declared_record_candidate_fixture"
 
 
-def candidate_values(prepared, source, pin, *, model, check_active, family="table", variant="standard"):
+def candidate_values(
+    prepared, source, pin, *, model, check_active, family="table", variant="standard"
+):
     from copy import deepcopy
 
     from corpus_structure.semantic.record_contracts import (
@@ -134,16 +136,23 @@ def candidate_values(prepared, source, pin, *, model, check_active, family="tabl
         actual_value = value.pop("value")
         value.pop("original")
         if variant == "unresolved-value-alternative":
-            literal = next(item for item in unresolved["evidence_sets"] if item["set_id"] == value["evidence_sets"][0])
+            literal = next(
+                item
+                for item in unresolved["evidence_sets"]
+                if item["set_id"] == value["evidence_sets"][0]
+            )
             inspected = dict(literal, usage="context")
             inspected["set_id"] = evidence_set_identity(inspected)
             unresolved["evidence_sets"] = (*unresolved["evidence_sets"], inspected)
             value["evidence_sets"] = (inspected["set_id"],)
-            value["alternatives"] = (dict(
-                alternative_id=f"controlled-native-cell-{position}-actual-value",
-                value=actual_value, evidence_sets=(literal["set_id"],),
-                reason="actual located value remains a distinct unresolved alternative",
-            ),)
+            value["alternatives"] = (
+                dict(
+                    alternative_id=f"controlled-native-cell-{position}-actual-value",
+                    value=actual_value,
+                    evidence_sets=(literal["set_id"],),
+                    reason="actual located value remains a distinct unresolved alternative",
+                ),
+            )
         unresolved["interpretation_id"] = interpretation_identity(unresolved)
         records.append(unresolved)
     return tuple(records), tuple(coordinates)
@@ -197,9 +206,13 @@ def execute_kernel(
             dict(family=question.get("family", "table"), scope=pin["source"], outcome=outcome),
         ),
         diagnostics={
-            "reports": [], "fixture": "controlled-native-two-cell-computation",
-            **({"controlled_large": "x" * question["diagnostic_bytes"]}
-               if question.get("diagnostic_bytes", 0) else {}),
+            "reports": [],
+            "fixture": "controlled-native-two-cell-computation",
+            **(
+                {"controlled_large": "x" * question["diagnostic_bytes"]}
+                if question.get("diagnostic_bytes", 0)
+                else {}
+            ),
         },
     )
 

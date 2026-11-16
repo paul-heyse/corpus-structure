@@ -13,76 +13,150 @@ from corpus_structure.semantic.data_operation_storage import DataOperationStorag
 from corpus_structure.semantic.data_operation_support import ComputationalSupportReference
 from corpus_structure.semantic.rich_queries import SourceReadingsQuery
 from semantic.record_publication_native_support import (
-    publish_readings, query_publication, rich_publication as rich_publication,
+    publish_readings,
+    query_publication,
+)
+from semantic.record_publication_native_support import (
+    rich_publication as rich_publication,
 )
 
 
-def test_native_support_keeps_actual_raw_resolution_and_admission_producers(rich_publication, monkeypatch):
+def test_native_support_keeps_actual_raw_resolution_and_admission_producers(
+    rich_publication, monkeypatch
+):
     from evaluate.declared_record_native_support import complete_policy_fit
+
     from corpus_structure.semantic.data_operation_identity import decode_semantic_value
 
     journey = rich_publication
     fitted = complete_policy_fit(journey)
-    _, products, *_ = journey.selected_products(journey.kernel.purpose("read"), fitted.demand_id,
-        kind="https://corpus-structure.dev/semantic/data-operation-record-policy/DdoRecordPolicyAuthorization")
+    _, products, *_ = journey.selected_products(
+        journey.kernel.purpose("read"),
+        fitted.demand_id,
+        kind="https://corpus-structure.dev/semantic/data-operation-record-policy/DdoRecordPolicyAuthorization",
+    )
     ((authorization, _),) = products
-    source = next(source for source in journey.sources
-        if source.pin == fitted.calibration.grade.frame.coverage[0].source)
-    selected = publish_readings(journey, fitted.calibration_readings, source=source,
-        authorization=authorization, inference="actual-record-support")
+    source = next(
+        source
+        for source in journey.sources
+        if source.pin == fitted.calibration.grade.frame.coverage[0].source
+    )
+    selected = publish_readings(
+        journey,
+        fitted.calibration_readings,
+        source=source,
+        authorization=authorization,
+        inference="actual-record-support",
+    )
     assert len(selected.admission.selected_reading_ids) == 2
     assert selected.admission.selected_fact_ids == ()
     page = query_publication(selected, SourceReadingsQuery(name="source_readings"), limit=1)
     assert len(page["rows"]) == 1 and page["cursor"] is not None
-    second = query_publication(selected, SourceReadingsQuery(name="source_readings"), cursor=page["cursor"])
+    second = query_publication(
+        selected, SourceReadingsQuery(name="source_readings"), cursor=page["cursor"]
+    )
     rows = [*page["rows"], *second["rows"]]
     assert len(rows) == 2 and {row["scientific_truth"] for row in rows} == {"not-established"}
-    assert {Decimal(decode_semantic_value(row["reading"])["value"]["value"]["lexical"])
-        for row in rows} == {Decimal(12)}
+    assert {
+        Decimal(decode_semantic_value(row["reading"])["value"]["value"]["lexical"]) for row in rows
+    } == {Decimal(12)}
     from evaluate.test_declared_rich_native_journey import refuse_rich_completion_substitution
 
     for attack in ("decision", "missing-cpu"):
-        refuse_rich_completion_substitution(fitted, authorization, source, monkeypatch, attack=attack)
+        refuse_rich_completion_substitution(
+            fitted, authorization, source, monkeypatch, attack=attack
+        )
     with journey.kernel.engine.begin() as connection:
         for row in rows:
             assertion = row["assertion"]
-            for name, operation in (("original", "fixture.record_candidates"),
-                ("resolution", "resolve.m1_readings/declared")):
+            for name, operation in (
+                ("original", "fixture.record_candidates"),
+                ("resolution", "resolve.m1_readings/declared"),
+            ):
                 (support,) = assertion[name]["support_references"]
                 assert support["kind"] == "computation"
-                assert connection.scalar(text("SELECT request.operation_id FROM ops.data_derivation episode JOIN ops.data_request request ON request.id=episode.request_id WHERE episode.id=:id"),
-                    {"id": support["derivation_id"]}) == operation
+                assert (
+                    connection.scalar(
+                        text(
+                            "SELECT request.operation_id FROM ops.data_derivation episode JOIN ops.data_request request ON request.id=episode.request_id WHERE episode.id=:id"
+                        ),
+                        {"id": support["derivation_id"]},
+                    )
+                    == operation
+                )
             assert assertion["source_interpretation_id"] != assertion["interpretation_id"]
         (support,) = selected.admission.consolidation.support_references
         assert isinstance(support, ComputationalSupportReference)
-        assert connection.scalar(text("SELECT ops.ddo_support_valid(:episode)"), {"episode": support.derivation_id}) is True
-        DataOperationStorage(connection).revoke_data_support(cast(WireRevokeDataSupportRequest, {
-            "project_id": PROJECT, "original_source": source.pin.original_source,
-            "selector_kind": "product", "selector": source.pin.source_product,
-            "reason": "actual source-product revocation",
-        }))
-        assert connection.scalar(text("SELECT ops.ddo_support_valid(:episode)"), {"episode": support.derivation_id}) is False
+        assert (
+            connection.scalar(
+                text("SELECT ops.ddo_support_valid(:episode)"), {"episode": support.derivation_id}
+            )
+            is True
+        )
+        DataOperationStorage(connection).revoke_data_support(
+            cast(
+                WireRevokeDataSupportRequest,
+                {
+                    "project_id": PROJECT,
+                    "original_source": source.pin.original_source,
+                    "selector_kind": "product",
+                    "selector": source.pin.source_product,
+                    "reason": "actual source-product revocation",
+                },
+            )
+        )
+        assert (
+            connection.scalar(
+                text("SELECT ops.ddo_support_valid(:episode)"), {"episode": support.derivation_id}
+            )
+            is False
+        )
     with pytest.raises(DBAPIError, match="pins or current trust differ"):
-        query_publication(selected, SourceReadingsQuery(name="source_readings"), cursor=page["cursor"])
+        query_publication(
+            selected, SourceReadingsQuery(name="source_readings"), cursor=page["cursor"]
+        )
 
 
-def test_native_large_diagnostics_remain_in_actual_support_without_forcing_public_body(rich_publication):
+def test_native_large_diagnostics_remain_in_actual_support_without_forcing_public_body(
+    rich_publication,
+):
     from corpus_structure.semantic.data_operation_json import json_bytes, json_loads
-    from corpus_structure.semantic.demand_results import SelectedGraphBudgetExceeded, selected_record_index
+    from corpus_structure.semantic.demand_results import (
+        SelectedGraphBudgetExceeded,
+        selected_record_index,
+    )
 
     journey = rich_publication
     source = journey.sources[0]
-    readings = run_readings(journey, (source,), policy=None,
-        diagnostic_bytes=2 * 1024**2, inference="actual-large-record-diagnostic")
+    readings = run_readings(
+        journey,
+        (source,),
+        policy=None,
+        diagnostic_bytes=2 * 1024**2,
+        inference="actual-large-record-diagnostic",
+    )
     ((raw_product, raw),) = readings.raw
     assert json_loads(raw["diagnostics_json"])["controlled_large"] == "x" * (2 * 1024**2)
-    selected = publish_readings(journey, readings, source=source, inference="bounded-record-diagnostic-support")
+    selected = publish_readings(
+        journey, readings, source=source, inference="bounded-record-diagnostic-support"
+    )
     assert selected.admission.selected_reading_ids == ()
-    assert raw_product["id"] in {reference.product_id for reference in selected.consolidation.input_population}
-    page = query_publication(selected, SourceReadingsQuery(name="source_readings"), max_bytes=64 * 1024)
+    assert raw_product["id"] in {
+        reference.product_id for reference in selected.consolidation.input_population
+    }
+    page = query_publication(
+        selected, SourceReadingsQuery(name="source_readings"), max_bytes=64 * 1024
+    )
     assert page["rows"] == [] and len(json_bytes(page)) <= 64 * 1024
-    with journey.kernel.purpose("read").begin() as connection:
-        with pytest.raises(SelectedGraphBudgetExceeded):
-            with selected_record_index(connection, readings.demand_id, project_id=PROJECT,
-                scope={"product_ids": [raw_product["id"]]}, max_total_bytes=64 * 1024):
-                raise AssertionError("oversized exact support escaped its declared graph bound")
+    with (
+        journey.kernel.purpose("read").begin() as connection,
+        pytest.raises(SelectedGraphBudgetExceeded),
+        selected_record_index(
+            connection,
+            readings.demand_id,
+            project_id=PROJECT,
+            scope={"product_ids": [raw_product["id"]]},
+            max_total_bytes=64 * 1024,
+        ),
+    ):
+        raise AssertionError("oversized exact support escaped its declared graph bound")
