@@ -670,26 +670,6 @@ SELECT 'record_report'::text AS relation,to_jsonb(s) AS row_data FROM pg_temp.sp
 END $fn$;
 REVOKE ALL ON FUNCTION data.validate_record_projection_cut(text,text,bigint) FROM PUBLIC;
 
--- Exact current append wrapper recovered from semantic_0023_execution.sql through
--- native_inventory.update_function_inventory. Preserve its receipt-intent refusal.
-CREATE OR REPLACE FUNCTION data.publish_batch(r text,z text,b text,p_content bytea) RETURNS bigint
-LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $fn$
-DECLARE revision bigint;
-BEGIN
- IF EXISTS(SELECT 1 FROM data.publication_intent WHERE (release_id,realization_id,batch_id)=(r,z,b)) THEN
-  RAISE EXCEPTION 'derived receipt requires its immutable source intent' USING ERRCODE='23505'; END IF;
- -- Transport verifies staging table ownership/shape before any stage is read here.
- -- Any refusal rolls back the tentative receipt and rows in this same transaction.
- revision:=data.publish_contract_batch(r,z,b,p_content);
- IF EXISTS(SELECT FROM pg_temp.sp_record_report) OR EXISTS(SELECT FROM pg_temp.sp_source_record) OR EXISTS(SELECT FROM pg_temp.sp_record_report_member) OR EXISTS(SELECT FROM pg_temp.sp_record_field) OR EXISTS(SELECT FROM pg_temp.sp_record_field_piece) OR EXISTS(SELECT FROM pg_temp.sp_record_alternative) OR EXISTS(SELECT FROM pg_temp.sp_record_alternative_piece) OR EXISTS(SELECT FROM pg_temp.sp_record_anchor) OR EXISTS(SELECT FROM pg_temp.sp_record_occurrence_anchor) OR EXISTS(SELECT FROM pg_temp.sp_record_evidence_set) OR EXISTS(SELECT FROM pg_temp.sp_record_evidence_member) OR EXISTS(SELECT FROM pg_temp.sp_record_field_evidence) OR EXISTS(SELECT FROM pg_temp.sp_record_alternative_evidence) OR EXISTS(SELECT FROM pg_temp.sp_record_premise) OR EXISTS(SELECT FROM pg_temp.sp_record_dependency) OR EXISTS(SELECT FROM pg_temp.sp_record_private_assertion) OR EXISTS(SELECT FROM pg_temp.sp_record_admission) OR EXISTS(SELECT FROM pg_temp.sp_record_assertion) OR EXISTS(SELECT FROM pg_temp.sp_record_assertion_support) THEN
-  RAISE EXCEPTION 'source records require sealed-cut derived publication' USING ERRCODE='23514'; END IF;
- IF EXISTS(SELECT FROM pg_temp.sp_local_assertion) OR EXISTS(SELECT FROM pg_temp.sp_local_semantic_assertion) OR EXISTS(SELECT FROM pg_temp.sp_structural_assertion) THEN
-  RAISE EXCEPTION 'local source assertions require sealed-cut derived publication' USING ERRCODE='23514'; END IF;
- RETURN revision;
-END $fn$;
-REVOKE ALL ON FUNCTION data.publish_batch(text,text,text,bytea) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION data.publish_batch(text,text,text,bytea) TO corpus_sem_writer;
-
 -- Local source facts share the ordinary transport/receipt transaction. They never
 -- grant private contributions domain membership or whole-record standing.
 CREATE OR REPLACE FUNCTION data.validate_local_assertions(r text,z text) RETURNS void

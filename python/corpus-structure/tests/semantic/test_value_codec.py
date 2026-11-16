@@ -49,3 +49,11 @@ def test_equivalent_instants_share_meaning_without_erasing_observed_offsets():
 def test_nonfinite_meaning_refuses(value):
     with pytest.raises(ValueError, match="non-finite"):
         value_meaning(value)
+
+
+def test_exact_decimal_meaning_does_not_require_postgresql_numeric_capacity():
+    huge = "9" * 150000
+    tiny = "0." + "0" * 17000 + "1"
+    assert value_meaning(Decimal(huge)) == ["decimal", huge]
+    assert value_meaning(Decimal(tiny)) == ["decimal", tiny]
+    assert value_meaning(Decimal("-0.000e200000")) == ["decimal", "0"]

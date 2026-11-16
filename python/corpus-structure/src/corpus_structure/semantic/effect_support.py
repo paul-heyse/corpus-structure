@@ -270,12 +270,6 @@ SUPPORTED_EFFECTS = {
     },
     "open_read": {"effects": (), "implementation": "read", "transitions": {}, "version": "1"},
     "prepare": {"effects": (), "implementation": "prepare", "transitions": {}, "version": "1"},
-    "publish": {
-        "effects": ("atomic_native_publication", "monotone_revision"),
-        "implementation": "publish",
-        "transitions": {},
-        "version": "1",
-    },
     "publish_arrow": {
         "effects": ("protected_copy_same_transaction",),
         "implementation": "publish_arrow",
