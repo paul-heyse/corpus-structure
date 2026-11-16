@@ -273,6 +273,29 @@ qualification. Subsequent current PDF split/actual-runtime/physical-source chang
 normal successor, including exact retirement of the old observation-publisher signature. No
 application release/runtime/activation or development adoption occurred in this cycle.
 
+## Unregistered PDF split preparation · 2026-11-16
+
+**passed, superseded before registration:** preview `8247d2058e32426cbac0d8b7dfd04b86`,
+exact apply `eee1d997d7764e2cace3390c2526b4b1` and rollback-only candidate
+`17b3eaed629a4132bf8c344c4a59634f`. The [request](observation-split-successor.yaml)
+binds predecessor `semantic_ddo_logical_family` and explicitly retires only the old six-argument
+observation publisher; the seven-argument publisher requires actual runtime. Candidate review
+covered37 native/two ordinary operations, including nullable publication context and current physical
+contract registration. Existing whole-table SELECT privileges also cover the new nullable column;
+no column privacy claim follows. No registration or persistent installation occurred.
+
+Source review then found historical observation readers using a mutable request binding. The repair
+restores the sealed original producing episode and its immutable admitted use selection before
+release/runtime/input/receipt checks, and Python consumes native authenticated receipt/value without
+live re-projection. Missing or ambiguous original basis refuses. The new historical generation
+control is collected, not_run. The same-generation cross-release coalescing concern remains open.
+
+The integrated source also includes ADR-0119's v3 logical PDF profile, model0.6.6 retirement,
+current grammar/English retained noun chunks and fit-reader payload repair. A new coherent preview
+and candidate must capture these source/descriptor/physical changes. The earlier candidate bytes
+are not approved for registration, and frozen registered files are unchanged. The coordinator owns
+current acceptance; this record establishes preparation custody only.
+
 ## Acceptance still required
 
 - Preserve exact registered root custody and qualify any required native successor discovered by

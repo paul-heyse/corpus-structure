@@ -767,7 +767,9 @@ def test_installed_process_diagnostic_is_explicit_redacted_and_not_native_attrib
     store = ResultStore(tmp_path / "results")
     with store.operation("test", scope={"lane": "ordinary"}) as result:
         directory = result.directory / "ordinary"
-        _receipt(directory, ["tests/test_worker.py::test_a", "tests/test_worker.py::test_b"], fail=True)
+        _receipt(
+            directory, ["tests/test_worker.py::test_a", "tests/test_worker.py::test_b"], fail=True
+        )
         stderr = "Timeout (0:15:00)!\nprocess-only diagnostic password='fixture-stream-secret'\n"
         (directory / "pytest.stderr").write_text(stderr)
         result.publish("ordinary", directory)
@@ -775,9 +777,17 @@ def test_installed_process_diagnostic_is_explicit_redacted_and_not_native_attrib
     original = json.loads(_run(store, "failures", result.id, "--json").stdout)
     assert "process_diagnostic" not in original["lanes"]["ordinary"]
     assert "process-only diagnostic" not in json.dumps(original)
-    response = json.loads(_run(
-        store, "failures", result.id, "--process-diagnostic", "--diagnostic-chars", "2000", "--json"
-    ).stdout)
+    response = json.loads(
+        _run(
+            store,
+            "failures",
+            result.id,
+            "--process-diagnostic",
+            "--diagnostic-chars",
+            "2000",
+            "--json",
+        ).stdout
+    )
     process = response["lanes"]["ordinary"]["process_diagnostic"]
     assert process["availability"] == "available"
     assert process["format"] == "unparsed_process_stream"
@@ -804,7 +814,9 @@ def test_process_diagnostic_refuses_unbounded_or_external_streams(tmp_path, sour
             (directory / "pytest.stderr").symlink_to(outside)
         result.publish("ordinary", directory)
         result.settle("failed", lanes={"ordinary": "failed"})
-    response = json.loads(_run(store, "failures", result.id, "--process-diagnostic", "--json").stdout)
+    response = json.loads(
+        _run(store, "failures", result.id, "--process-diagnostic", "--json").stdout
+    )
     process = response["lanes"]["ordinary"]["process_diagnostic"]
     assert process["availability"] == ("omitted" if source == "oversized" else "unavailable")
     assert process["diagnostic"] is None

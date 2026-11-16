@@ -419,25 +419,56 @@ def test_published_target_meaning_uses_sealed_source_not_task_or_product_key(
         build = create_private_build(case=case)
         stage_complete_native(commit_writer_engine, build, tmp_path / key)
         with commit_writer_engine.begin() as conn:
-            adopt_pdf_companion_batch(conn, build, "occurrence", [{
-                "occurrence_id": "item", "kind": "text", "address_space": "native_item",
-                "precision": "item", "pointer": "#/texts/0",
-            }], "item")
+            adopt_pdf_companion_batch(
+                conn,
+                build,
+                "occurrence",
+                [
+                    {
+                        "occurrence_id": "item",
+                        "kind": "text",
+                        "address_space": "native_item",
+                        "precision": "item",
+                        "pointer": "#/texts/0",
+                    }
+                ],
+                "item",
+            )
             if input_publication is not None:
-                adopt_pdf_companion_batch(conn, build, "input", [{
-                    "role": "structural", "task_id": input_publication.task_id,
-                    "product_key": input_publication.product_key,
-                    "content_digest": input_publication.logical_digest,
-                }], "structural")
-                adopt_pdf_companion_batch(conn, build, "relation", [{
-                    "relation_id": "selection", "kind": "decision", "outcome": "selected",
-                    "comparison": "text", "policy": "controlled-exact-source-v1",
-                    "evidence": "same retained text in distinct authentic publications",
-                    "endpoints": [
-                        {"input_index": 0, "occurrence_id": "item", "role": "input"},
-                        {"occurrence_id": "item", "role": "output"},
+                adopt_pdf_companion_batch(
+                    conn,
+                    build,
+                    "input",
+                    [
+                        {
+                            "role": "structural",
+                            "task_id": input_publication.task_id,
+                            "product_key": input_publication.product_key,
+                            "content_digest": input_publication.logical_digest,
+                        }
                     ],
-                }], "selection")
+                    "structural",
+                )
+                adopt_pdf_companion_batch(
+                    conn,
+                    build,
+                    "relation",
+                    [
+                        {
+                            "relation_id": "selection",
+                            "kind": "decision",
+                            "outcome": "selected",
+                            "comparison": "text",
+                            "policy": "controlled-exact-source-v1",
+                            "evidence": "same retained text in distinct authentic publications",
+                            "endpoints": [
+                                {"input_index": 0, "occurrence_id": "item", "role": "input"},
+                                {"occurrence_id": "item", "role": "output"},
+                            ],
+                        }
+                    ],
+                    "selection",
+                )
             frozen = freeze_pdf_build(conn, build, kind="native")
             prepare_pdf_build(conn, frozen)
         validate_pdf_build(commit_writer_engine, frozen)
@@ -468,13 +499,20 @@ def test_published_target_meaning_uses_sealed_source_not_task_or_product_key(
     with commit_db_engine.begin() as conn:
         conn.exec_driver_sql("SET LOCAL ROLE corpus_sem_publisher")
         for publication in publications:
-            assert conn.scalar(
-                query,
-                {"task": publication.task_id, "key": publication.product_key,
-                 "digest": publication.logical_digest},
-            ) == expected
+            assert (
+                conn.scalar(
+                    query,
+                    {
+                        "task": publication.task_id,
+                        "key": publication.product_key,
+                        "digest": publication.logical_digest,
+                    },
+                )
+                == expected
+            )
         with conn.begin_nested() as savepoint:
             with pytest.raises(DBAPIError):
-                conn.scalar(query, {"task": first.task_id, "key": first.product_key,
-                                    "digest": "0" * 64})
+                conn.scalar(
+                    query, {"task": first.task_id, "key": first.product_key, "digest": "0" * 64}
+                )
             savepoint.rollback()

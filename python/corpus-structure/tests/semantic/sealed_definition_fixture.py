@@ -23,7 +23,6 @@ def component_descriptor():
         name="structure.definition_components",
         version="10",
         family=MethodFamily.RESOLVE,
-
         unit_type=TaskUnitType.RUN,
         confidence_source=None,
         Config=DefinitionComponentsConfig,
@@ -38,7 +37,6 @@ def applicability_descriptor():
         name="structure.definitions",
         version="2",
         family=MethodFamily.RESOLVE,
-
         unit_type=TaskUnitType.RUN,
         confidence_source=None,
         Config=DefinitionApplicabilityConfig,

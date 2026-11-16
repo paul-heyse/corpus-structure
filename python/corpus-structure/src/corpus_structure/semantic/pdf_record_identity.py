@@ -241,7 +241,9 @@ class LogicalPin:
             or not self.schema_id
             or not self.release_id
         ):
-            raise ValueError("logical pin requires current record profile, protocol, schema and release")
+            raise ValueError(
+                "logical pin requires current record profile, protocol, schema and release"
+            )
         if not _HEX.fullmatch(self.source_digest) or not _HEX.fullmatch(self.logical_digest):
             raise ValueError("logical pin requires qualified source and logical digests")
 
@@ -266,7 +268,11 @@ class LogicalIdentity:
                 schema_id,
                 "@context",
                 "@context",
-                (("protocol", PROTOCOL), ("record_profile", RECORD_PROFILE), ("source", source_digest)),
+                (
+                    ("protocol", PROTOCOL),
+                    ("record_profile", RECORD_PROFILE),
+                    ("source", source_digest),
+                ),
             )
         )
         self._previous: tuple[bytes, bytes] | None = None

@@ -316,12 +316,20 @@ incomplete reporting; native observation is complete and overall supervisor clea
 A bounded raw faulthandler diagnostic locates the main thread waiting in `execute_binding` during
 actual ready-frontier acquisition. This is no proof of the exact slow SQL or a deadlock; the
 workload/execution-fit failure remains open. Structured native traceback is unavailable for that
-crash, and the CLI lacks a direct retained-test-stderr view; root owns the bounded reporting repair.
+crash. The installed `ci test failures --process-diagnostic` now returns bounded redacted settled
+lane stderr without parsing it as native frames or attributing it to one test. Reporting controls
+passed `12cf89e485d048258d1f33a63c1c3a34`, and the actual command reads this retained crash.
+The execution-fit cause and actual artifact retry remain open.
 Event-positive `19dd25cda7274fcea07286d2da8d6280` still exposes empty named components after actual
 Sentence/Construction execution. Independent controlled parse trees roundtrip, while an actual
 CPU spaCy inspection finds different `as` dependency attachments for the two literal fixtures.
-Current retained grammar/source-column and report-stage diagnosis is required; no native/GPU
-accuracy or source-act integration claim follows from the controlled counterpart.
+Source now captures both observed `as` attachment forms and restores spaCy's English noun-chunk
+iterator when reconstructing retained columns. The full retained Sentence→Construction→Named-role
+roundtrip and direct rule controls24 passed `d5d9bf349acf4dbb9832717f7eb188bd`, including exact
+approved rule identities and primary scope. Earlier failures `b51756ff46bc4928a1641b1413ff10ba`,
+`74ffd41e8f9b48e6a1a62cbcb9755e1d`, `ff16f6b7a70a4415afb03425c88dc7c0` and
+`b7bdb04b8a7c4f28a952b9c48bc47410` remain retained. Actual event publication/negative controls
+remain required; authored columns establish no provider accuracy or GPU equivalence.
 
 Current PDF recognition/integration separation is integrated in source: a retained observation-set
 producer owns recognition/recovery policy; deterministic integration consumes actual raw capture
@@ -333,26 +341,49 @@ origin on replay, and the next successor must retire the exact old6-argument sig
 ordinary observation reads use the shared payload envelope and typed selected cuts. Actual native
 reclaim/adoption/policy-only reuse, refusal and revocation counterparts are collected, not_run.
 Root has regenerated PDF calls, wire/fates and physical columns from the integrated sources.
+The first split candidate `17b3eaed629a4132bf8c344c4a59634f` passed rollback-only authoring but
+is superseded before registration: review found historical observations resolving the mutable live
+request binding. The implemented correction restores original release/runtime/generation and full
+immutable admitted use selection through sealed episode/intent/publication/task fences. Historical
+projection consumes that restored basis; detachment uses native authenticated `{receipt,value}`,
+with no live re-projection. Missing or ambiguous original basis refuses. A real withdrawal→new
+release/runtime/generation test is collected, not_run; withdrawn old cuts must still refuse.
+Active same-generation cross-release coalescing remains a separate open integration concern.
+Fresh preview/candidate, complete review and actual native execution are required before closure.
 
 [ADR-0119](../adr/0119-pdf-logical-meaning-and-execution-custody.md) accepts one current PDF
 logical-fold/profile correction with typed authenticated input/endpoint meaning, excluding release
 and physical execution address salts. Exact qualified physical pins/receipts/bytes and source,
 schema, recipe, ordered occurrence/input/coverage meanings remain. Recognition input normalization
-must consume the one captured observation-meaning contract and authentic raw binding. Implementation
-and actual equality/change/refusal qualification are in progress; older current profiles will refuse
+consumes the one captured observation-meaning contract and authentic raw binding. The v3 source
+implementation is integrated at `0f2d4b9b0`: sealed native/integrated meanings terminate traversal,
+recognition inputs are deduplicated by physical identity and folded with their exact ordered roles,
+and input/endpoint frames use authenticated target meanings. Pure42 passed
+`ad43d6dfb2ca46dba10ad1ab6afe0969`. Independent target-meaning assertions are integrated into
+the actual rich and enriched journeys; native equality/change/refusal/ACL acceptance remains
+not_run pending matching capture. Older current profiles will refuse
 or regenerate, with no historical interpreter. This is accepted remaining I02/I03/I09 scope, not
 native closure or a second normalized-document authority.
 
 BoundReader, orphan private report wrappers/effect catalog, old record master seeds and run-based
 structural annotation loaders are now removed with their closed callers. Shared scientific owners
 retain independently expected whole-inventory/budget/unknown, source/scope and antecedent criteria.
-Remaining completion/runtime/source-view and PDF fixture tails stay assigned. The implicit
+The final run execution facade, fixed operation calls/IDs, orphan completion-native builder and
+closed old PDF fixture tails are removed. Canonical model0.6.6 retires23 run/system table classes
+and MethodTier without removing current97 physical relations or live scientific payload classes.
+Its model preview/apply passed `e682d234199b49b3ae37c2d426330ffd` /
+`ef7f2790ae594492a88caab7567a40ae`; focused model70 plus corrected retry1 passed
+`f2dd5f0e2f5e4752a2117c1d831d0bf7` / `ccca109bf4544ce5bd2790bb3a689073`.
+This changes current model/archive identities and requires reacquisition. Remaining source-context,
+closed SQL and obsolete protocol tails stay assigned; no compatible run facade is restored. The implicit
 corpus-specific `PdfIngestConfig.originals` field is removed; root inventory/config/fitter transport15
 passed `c9a47a3750ec4d00a52cea39104f2211`. Native archive/numerical9 had8passed in
 `0ee22bc2c7b546518645fd1671e99f64`; its remaining regex negative asserted executable admission
 at the archive-only phase. The test now enters actual admission in the same rollback boundary;
-no production pattern guard changes. Whole types `133947ca049244ccb67c2b782e7757d6` still fail
-remaining old callers, including two old PDF observation calls missing actual runtime. ADR lint
+no production pattern guard changes. Whole types `133947ca049244ccb67c2b782e7757d6` originally failed
+retired callers. Fresh `2c967afef9f4437ea0b8874ec9fb2bba` narrows remaining errors to an obsolete
+Method.tier protocol (removed), authored fixture list annotations (corrected) and the old prepared
+source layout branch (assigned for target closure). Fresh integrated types remain required. ADR lint
 passed `8c66ae70ec82478da11417ddc501cd99`; this is documentation/process evidence only.
 
 Remaining execution: finish obsolete operation/publication/source-view/runtime caller closure;

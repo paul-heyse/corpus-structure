@@ -263,9 +263,7 @@ class PreparedAnnotationRules:
                                 "expansion stopped at sentence or declared scope boundary",
                             )
                         expanded = scoped | {head}
-                excluded = {
-                    index for node in binding.exclude_nodes for index in node_map[node]
-                }
+                excluded = {index for node in binding.exclude_nodes for index in node_map[node]}
                 if head in excluded:
                     expanded, status, reason = (
                         {head},

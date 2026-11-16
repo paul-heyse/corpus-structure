@@ -1,0 +1,8 @@
+baseline: HEAD
+native_revision: semantic_ddo_observation_split
+native_predecessor: semantic_ddo_logical_family
+retire:
+  - kind: function
+    schema: ops
+    name: publish_pdf_observation
+    arguments: [bigint, bigint, text, text, bytea, 'bytea[]']

@@ -27,7 +27,6 @@ def m1_annotation_descriptor():
         name=METHOD,
         version="3",
         family=MethodFamily.EXTRACT,
-
         unit_type=TaskUnitType.SOURCE_VIEW,
         confidence_source=None,
         Config=M1AnnotationConfig,
@@ -90,7 +89,6 @@ def compose_view_descriptor():
         name="text.compose_view",
         version="1",
         family=MethodFamily.NORMALIZE,
-
         unit_type=TaskUnitType.DOCUMENT,
         confidence_source=None,
         Config=ComposeViewConfig,

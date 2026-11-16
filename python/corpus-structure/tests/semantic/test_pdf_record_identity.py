@@ -131,7 +131,13 @@ def test_logical_order_source_and_schema_are_meaning_bearing() -> None:
     assert pin.release_id != other_release.release_id
     assert pin.record_profile == "pdf-publication-records-v3"
     with pytest.raises(ValueError, match="current record profile"):
-        LogicalPin("schema:v1", "r", "1" * 64, pin.logical_digest, record_profile="pdf-publication-records-v2")
+        LogicalPin(
+            "schema:v1",
+            "r",
+            "1" * 64,
+            pin.logical_digest,
+            record_profile="pdf-publication-records-v2",
+        )
     with pytest.raises(ValueError, match="release/source differs"):
         pin.require_context(schema_id="schema:v1", release_id="r2", source_digest="1" * 64)
     assert (

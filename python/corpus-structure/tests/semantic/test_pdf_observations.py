@@ -98,11 +98,19 @@ def test_native_observation_meaning_keeps_numeric_settings_and_separates_custody
     from corpus_structure.semantic.identity import canonical_bytes
 
     supplied = observation(native_source)
-    supplied["observation"]["binding"]["decoding_json"] = '{"temperature":1e-8,"nested":{"limit":2.0}}'
+    supplied["observation"]["binding"]["decoding_json"] = (
+        '{"temperature":1e-8,"nested":{"limit":2.0}}'
+    )
     # Literal typed physical references test value projection only. They assert
     # no producer, publication, admission or native lineage standing.
-    supplied["inputs"] = [{"task_id": 1001, "product_key": "value-only-input",
-        "content_digest": "a" * 64, "role": "structural"}]
+    supplied["inputs"] = [
+        {
+            "task_id": 1001,
+            "product_key": "value-only-input",
+            "content_digest": "a" * 64,
+            "role": "structural",
+        }
+    ]
     changed = deepcopy(supplied)
     changed["product_key"] = "another-native-episode"
     changed["inputs"][0]["task_id"] += 17

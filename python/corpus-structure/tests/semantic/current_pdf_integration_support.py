@@ -193,18 +193,33 @@ def remap_current_integration(case, policy):
     """Admit and execute a real policy-only consumer of this actual source."""
     from semantic.current_pdf_source_support import admit_current_target
 
-    kernel = admit_current_target(case,
+    kernel = admit_current_target(
+        case,
         current_pdf_recipe(case.directory, integration_policy=policy),
-        case.directory / "policy-consumer")
-    request = SourceRunRequest(project_id=case.original.project_id,
-        release_id=kernel.prepared.release_id, runtime_id=kernel.runtime,
-        domain="toy", workflow="capture", selection=WholeDocument(),
-        documents=(case.original.document_key,), pdf_mode="integrated", recognition_pages=(1,),
-        targets=("source.pdf_integrated_views/discovery",))
-    with open_runtime_engine(case.settings, "current-policy-remap", purpose="write", max_size=6) as engine:
-        result = run_source_operation(engine, request,
-            MethodSettings(data_dir=case.directory, model_cache=case.directory), source_root=ROOT,
-            admission_engine=kernel.purpose("admit"))
+        case.directory / "policy-consumer",
+    )
+    request = SourceRunRequest(
+        project_id=case.original.project_id,
+        release_id=kernel.prepared.release_id,
+        runtime_id=kernel.runtime,
+        domain="toy",
+        workflow="capture",
+        selection=WholeDocument(),
+        documents=(case.original.document_key,),
+        pdf_mode="integrated",
+        recognition_pages=(1,),
+        targets=("source.pdf_integrated_views/discovery",),
+    )
+    with open_runtime_engine(
+        case.settings, "current-policy-remap", purpose="write", max_size=6
+    ) as engine:
+        result = run_source_operation(
+            engine,
+            request,
+            MethodSettings(data_dir=case.directory, model_cache=case.directory),
+            source_root=ROOT,
+            admission_engine=kernel.purpose("admit"),
+        )
     with case.reader().begin() as connection:
         snapshot = read_data_demand(connection, result.demand_id, view="products")
     return kernel, snapshot
@@ -218,8 +233,12 @@ def current_integration_journey(
     native_settings,
     *,
     raw_responses=(RICH_RESPONSE, RICH_RESPONSE),
-    outcome="succeeded", before_draft=None, before_observation=None,
-    expect_unresolved_page=False, reclaim_after_recognition=False, candidate_pages=(),
+    outcome="succeeded",
+    before_draft=None,
+    before_observation=None,
+    expect_unresolved_page=False,
+    reclaim_after_recognition=False,
+    candidate_pages=(),
 ):
     from corpus_structure.ingest import pdf_recognition, pdf_worker
     from corpus_structure.orchestrate import pdf_streaming
@@ -265,8 +284,12 @@ def current_integration_journey(
             for page in candidate_pages:
                 spool.capture_candidates(page)
             streamed = StreamingPdfResult(
-                document, spool,
-                "success", (), self.recipe.to_bytes(), (),
+                document,
+                spool,
+                "success",
+                (),
+                self.recipe.to_bytes(),
+                (),
             )
             occurrences = streamed.write_native_occurrence_batches(
                 record_root.with_name(record_root.name + "-occurrences"),
@@ -370,10 +393,20 @@ def current_integration_journey(
         def retained_draft(engine, claim, holder, draft, **arguments):
             # A small finite fixture materializes its actual Arrow journal once.
             # Publication still consumes the same rows through the real writer.
-            draft = replace(draft, companions={
-                family: tuple(rows) for family, rows in (draft.companions or {}).items()
-            }, metadata={**(draft.metadata or {}), **({"inline_candidate_pages": tuple(draft.metadata["inline_candidate_pages"])}
-                if draft.metadata and "inline_candidate_pages" in draft.metadata else {})})
+            draft = replace(
+                draft,
+                companions={
+                    family: tuple(rows) for family, rows in (draft.companions or {}).items()
+                },
+                metadata={
+                    **(draft.metadata or {}),
+                    **(
+                        {"inline_candidate_pages": tuple(draft.metadata["inline_candidate_pages"])}
+                        if draft.metadata and "inline_candidate_pages" in draft.metadata
+                        else {}
+                    ),
+                },
+            )
             case.claims[draft.product_key] = claim
             case.drafts[draft.product_key] = draft
             if before_draft is not None:

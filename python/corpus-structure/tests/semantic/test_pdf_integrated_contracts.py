@@ -18,7 +18,9 @@ from semantic.pdf_native_source_support import pdf13_context as pdf13_context
 
 
 def test_integrated_roundtrip_preserves_full_distinct_inventory(
-    native_source, independent_integrated, pdf13_context,
+    native_source,
+    independent_integrated,
+    pdf13_context,
 ):
     product = prepare(independent_integrated, native_source, context=pdf13_context)
     actual = product.values()
@@ -31,7 +33,10 @@ def test_integrated_roundtrip_preserves_full_distinct_inventory(
     assert ambiguity["relation_id"] == "ambiguous-equal-spelling"
     assert ambiguity["outcome"] == "ambiguous"
     assert [(row["input_index"], row["occurrence_id"]) for row in ambiguity["endpoints"]] == [
-        (1, "block-0"), (1, "block-1"), (2, "block-0"), (2, "block-1"),
+        (1, "block-0"),
+        (1, "block-1"),
+        (2, "block-0"),
+        (2, "block-1"),
     ]
     assert actual["health"]["source_fidelity"] == "unassessed"
 
