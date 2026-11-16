@@ -10,8 +10,28 @@ Protected judgments remain undisclosed. Comparison gap/dossier policies stay com
 condition/definition reports retain their own statement/component meaning. Missing/unselected
 admission or unavailable support never establishes absence. Native reader/export and retirement
 qualification remains with the [DDO coordinator](../plans/declared-data-operations_2026-11-12.md).
+An earlier report use can be an explicit root only through the native same-cut predicate that
+authenticates it as this issued conclusion's finite ordinary report input. Both report and issued
+output must be explicitly requested; source/project/context, visibility and trust must agree.
+Only that actual report edge and its ordinary/source support become visible. The protected issuer
+episode, A/B/C, frames and actors remain hidden; a copied conclusion cannot open this path.
 
 > Decision: [ADR-0115](../adr/0115-structural-policy-issuer.md)
+
+## Bounded physical execution evidence
+
+**Implemented source; scoped controls Tested · 2026-11-15; native qualification pending.** Current
+selected export v3 carries a distinct native execution-evidence leaf and archived JSON Schema2020-12
+contract. The actual original whole CPU batch reply stays private. The leaf preserves selected
+completion input/output/support facts, original fence/runtime, whole reply/receipt and selected member
+commitments, with unrelated cohort bodies explicitly undisclosed. JSONL and typed Parquet use the
+same selected native rows. Detached verification still checks selected semantic closure and reports
+native member assertion without independently replaying the hidden whole reply. Physical execution
+disclosure is separate from protected authority support disclosure and current native trust.
+The former export version is unsupported by the current reader; it gains no compatibility decoder.
+Native adoption/export/refusal controls remain with the DDO coordinator.
+
+> Decision: [ADR-0114](../adr/0114-contextual-target-reuse-and-batch-evidence.md)
 
 ## Pinned demand and operation interfaces
 

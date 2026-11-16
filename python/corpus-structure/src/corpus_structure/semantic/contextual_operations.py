@@ -95,7 +95,8 @@ def contextual_retrieval_assets():
                         name,
                         (
                             admitted_operation_module_meaning((_ROOT / name).read_bytes()).hex()
-                            if name in ("methods/contextual_declared.py", "methods/contextual_targets.py")
+                            if name
+                            in ("methods/contextual_declared.py", "methods/contextual_targets.py")
                             else (_ROOT / name).read_bytes().hex()
                         ),
                     )
@@ -156,7 +157,12 @@ def contextual_operation_sources(numerical_policy=None, *, neighborhood_policy=N
                 (_ROOT / name).read_bytes(),
                 str((_ROOT / name).resolve()),
             )
-            for name in (*_FILES[:3], "methods/contextual_targets.py", "semantic/contextual_target_products.py", "semantic/contextual_cpu.py")
+            for name in (
+                *_FILES[:3],
+                "methods/contextual_targets.py",
+                "semantic/contextual_target_products.py",
+                "semantic/contextual_cpu.py",
+            )
         ),
         boundary_contracts=(
             contextual_retrieval_assets(),
@@ -514,33 +520,50 @@ class ContextualInventoryPlan:
     port: Any = None
 
     def plan(self, arguments, *, binding, check_active, execution_owner):
+        import inspect
+
+        from .contextual_cpu import execute_contextual_projection_kernel
+        from .data_operation_cpu_basis import cpu_authority_value, cpu_input_basis_from_binding
         from .data_operation_json import json_bytes
         from .data_operation_prepared_call import PreparedCallResult
 
-        import inspect
-        from .contextual_cpu import execute_contextual_projection_kernel
-        from .data_operation_cpu_basis import cpu_authority_value, cpu_input_basis_from_binding
         if binding is None or binding.subject_context is None:
             raise ValueError("contextual inventory requires its actual selected input basis")
-        selected = self.prepared.validate_json("DdoContextualTargetSelection",
-            json_bytes(arguments.arguments["selection"])).model_dump(mode="python", exclude_unset=True)
-        basis = cpu_input_basis_from_binding(self.port.identity.recipe, binding, {"selection": (selected,)})
+        selected = self.prepared.validate_json(
+            "DdoContextualTargetSelection", json_bytes(arguments.arguments["selection"])
+        ).model_dump(mode="python", exclude_unset=True)
+        basis = cpu_input_basis_from_binding(
+            self.port.identity.recipe, binding, {"selection": (selected,)}
+        )
         kernel = execute_contextual_projection_kernel
-        bound = inspect.signature(kernel).bind(input_basis=basis,
-            operation=self.port.operation.semantic_id, member_contract="", check_active=check_active)
-        reply = yield from self.port.plan_cpu_reply(kernel, bound, contextual_operation_sources(),
-            check_active=check_active, execution_owner=execution_owner)
+        bound = inspect.signature(kernel).bind(
+            input_basis=basis,
+            operation=self.port.operation.semantic_id,
+            member_contract="",
+            check_active=check_active,
+        )
+        reply = yield from self.port.plan_cpu_reply(
+            kernel,
+            bound,
+            contextual_operation_sources(),
+            check_active=check_active,
+            execution_owner=execution_owner,
+        )
         product = cpu_authority_value(reply.content, expected_basis=basis)
-        checked = self.prepared.validate_json("DdoContextualInventory", json_bytes(product)).model_dump(
-            mode="python", exclude_unset=True)
-        return PreparedCallResult(checked, cpu_execution_evidence=canonical_bytes(reply.execution_receipt.record()),
-            cpu_execution_reply=reply.content)
+        checked = self.prepared.validate_json(
+            "DdoContextualInventory", json_bytes(product)
+        ).model_dump(mode="python", exclude_unset=True)
+        return PreparedCallResult(
+            checked,
+            cpu_execution_evidence=canonical_bytes(reply.execution_receipt.record()),
+            cpu_execution_reply=reply.content,
+        )
 
 
 def resolve_inventory_port(prepared, model, operation, *, identity, authorize, custody, sources):
     from corpus_structure.methods.contextual_declared import ContextualInventoryOperation
-    from .contextual_cpu import execute_contextual_projection_kernel
 
+    from .contextual_cpu import execute_contextual_projection_kernel
     from .data_operation_ports import PortRefusal
     from .data_operation_prepared_call import PreparedOriginalCallPort
 

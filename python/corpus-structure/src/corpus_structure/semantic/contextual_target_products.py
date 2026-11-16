@@ -75,7 +75,8 @@ def target_population(targets, *, original_source, kind_contract, semantic_targe
                     "original_source": original_source,
                     "descriptor": source_value(asdict(target)),
                     "semantic_target": source_value(
-                        semantic_targets[target.target_id] if semantic_targets is not None
+                        semantic_targets[target.target_id]
+                        if semantic_targets is not None
                         else {"curated_target": asdict(target)}
                     ),
                 },
@@ -121,19 +122,28 @@ def component_target_population(report, *, original_source, kind_contract):
         term, content = component.term, component.content
         source = passages[term.passage_id].source_ref
         meanings[component.component_id] = {
-            "term": {"source": sources[source].model_dump(mode="json"),
-                     "passage": passages[term.passage_id].model_dump(mode="json"),
-                     "span": term.model_dump(mode="json")},
-            "content": {"source": sources[passages[content.passage_id].source_ref].model_dump(mode="json"),
-                        "passage": passages[content.passage_id].model_dump(mode="json"),
-                        "span": content.model_dump(mode="json")},
+            "term": {
+                "source": sources[source].model_dump(mode="json"),
+                "passage": passages[term.passage_id].model_dump(mode="json"),
+                "span": term.model_dump(mode="json"),
+            },
+            "content": {
+                "source": sources[passages[content.passage_id].source_ref].model_dump(mode="json"),
+                "passage": passages[content.passage_id].model_dump(mode="json"),
+                "span": content.model_dump(mode="json"),
+            },
             "interpretation": component.interpretation,
             "scope": component.scope,
             "effective_version": component.effective_version,
         }
         binding = identity(
             "declared-definition-target-source",
-            [original_source, source, term.model_dump(mode="json"), content.model_dump(mode="json")],
+            [
+                original_source,
+                source,
+                term.model_dump(mode="json"),
+                content.model_dump(mode="json"),
+            ],
         )
         targets.append(
             target_representation(
@@ -146,18 +156,27 @@ def component_target_population(report, *, original_source, kind_contract):
                 effective_version=component.effective_version,
             )
         )
-    return target_population(targets, original_source=original_source, kind_contract=kind_contract,
-        semantic_targets=meanings)
+    return target_population(
+        targets,
+        original_source=original_source,
+        kind_contract=kind_contract,
+        semantic_targets=meanings,
+    )
 
 
 def materialize_target(target, *, context):
-    descriptor = TypeAdapter(TargetRepresentation).validate_python(source_python(target["descriptor"]))
+    descriptor = TypeAdapter(TargetRepresentation).validate_python(
+        source_python(target["descriptor"])
+    )
     if target_context(descriptor, target.get("original_source")) != {
         key: value for key, value in context.record.items() if key != "project_id"
     }:
         raise ValueError("target descriptor differs from its exact discovered context")
-    return {"original_source": target.get("original_source"), "descriptor": target["descriptor"],
-        "semantic_target": target["semantic_target"]}
+    return {
+        "original_source": target.get("original_source"),
+        "descriptor": target["descriptor"],
+        "semantic_target": target["semantic_target"],
+    }
 
 
 def selected_vector_frame(inventory, query, targets):
@@ -169,17 +188,23 @@ def selected_vector_frame(inventory, query, targets):
     query_vector = TypeAdapter(EncodedVector).validate_python(query["vector"])
     query_rendered = TypeAdapter(RenderedInput).validate_python(query["rendered"])
     if query_rendered.role != "query" or (
-        query_vector.object_id, query_vector.source_binding, query_vector.input_digest,
+        query_vector.object_id,
+        query_vector.source_binding,
+        query_vector.input_digest,
         query_vector.representation_digest,
     ) != (
-        query_rendered.object_id, query_rendered.source_binding,
-        query_rendered.final_input_digest, query_rendered.representation_digest,
+        query_rendered.object_id,
+        query_rendered.source_binding,
+        query_rendered.final_input_digest,
+        query_rendered.representation_digest,
     ):
         raise ValueError("selected query vector requires its actual query rendering")
     expected = {value.target_id: value for value in selected.targets}
     vectors, seen = [query_vector], set()
     for product in targets:
-        actual_profile = TypeAdapter(EncoderProfile).validate_python(source_python(product["profile"]))
+        actual_profile = TypeAdapter(EncoderProfile).validate_python(
+            source_python(product["profile"])
+        )
         vector = TypeAdapter(EncodedVector).validate_python(product["vector"])
         target = expected.get(vector.object_id)
         if target is None or vector.object_id in seen:
@@ -190,17 +215,32 @@ def selected_vector_frame(inventory, query, targets):
         if source_python(retained_target["descriptor"]) != asdict(target):
             # Compare canonical source values below to preserve tuple/list meaning.
             from .identity import canonical_bytes
-            if canonical_bytes(source_python(retained_target["descriptor"])) != canonical_bytes(asdict(target)):
-                raise ValueError("selected vector target differs from its exact inventory descriptor")
+
+            if canonical_bytes(source_python(retained_target["descriptor"])) != canonical_bytes(
+                asdict(target)
+            ):
+                raise ValueError(
+                    "selected vector target differs from its exact inventory descriptor"
+                )
         from .contextual_retrieval import _meaning
-        meanings = [group.meaning for group in selected.semantic_groups if target.target_id in group.member_target_ids]
+
+        meanings = [
+            group.meaning
+            for group in selected.semantic_groups
+            if target.target_id in group.member_target_ids
+        ]
         from .identity import canonical_bytes
-        if len(meanings) != 1 or canonical_bytes(_meaning(source_python(retained_target["semantic_target"]))) != canonical_bytes(meanings[0]):
+
+        if len(meanings) != 1 or canonical_bytes(
+            _meaning(source_python(retained_target["semantic_target"]))
+        ) != canonical_bytes(meanings[0]):
             raise ValueError("selected target meaning differs from its authentic selected source")
         rendered = TypeAdapter(RenderedInput).validate_python(product["rendered"])
         verify_retained_rendering(target_encoding_input(target), profile, rendered)
         if (vector.input_digest, vector.source_binding, vector.representation_digest) != (
-            rendered.final_input_digest, rendered.source_binding, rendered.representation_digest,
+            rendered.final_input_digest,
+            rendered.source_binding,
+            rendered.representation_digest,
         ):
             raise ValueError("selected target vector differs from its actual rendered input")
         vectors.append(vector)
@@ -215,13 +255,20 @@ def selected_vector_frame(inventory, query, targets):
         validate_vector(vector.values, profile.dimension)
         if vector.profile_id != profile.profile_id or vector.vector_id != identity(
             "context-vector",
-            [vector.object_id, vector.source_binding, profile.profile_id,
-             vector.input_digest, vector.representation_digest],
+            [
+                vector.object_id,
+                vector.source_binding,
+                profile.profile_id,
+                vector.input_digest,
+                vector.representation_digest,
+            ],
         ):
             raise ValueError("selected vector differs from its exact profile/input identity")
     return {
         "profile": query["profile"],
-        "vectors": source_value([asdict(value) for value in sorted(vectors, key=lambda value: value.object_id)]),
+        "vectors": source_value(
+            [asdict(value) for value in sorted(vectors, key=lambda value: value.object_id)]
+        ),
     }
 
 
@@ -243,6 +290,7 @@ class ContextualTargetPlan:
 
     def plan(self, arguments, *, binding, check_active, execution_owner):
         import inspect
+
         from .contextual_cpu import execute_contextual_projection_kernel
         from .contextual_operations import contextual_operation_sources
         from .data_operation_cpu_basis import cpu_authority_value, cpu_input_basis_from_binding
@@ -252,49 +300,99 @@ class ContextualTargetPlan:
         if binding is None or binding.subject_context is None:
             raise ValueError("contextual target projection requires its actual native context")
         roles = {role.name: role for role in self.port.operation.roles if role.direction == "input"}
-        bodies = {name: (arguments.arguments[role.parameter],) if role.collection == "scalar"
-            else tuple(arguments.arguments[role.parameter]) for name, role in roles.items()}
+        bodies = {
+            name: (arguments.arguments[role.parameter],)
+            if role.collection == "scalar"
+            else tuple(arguments.arguments[role.parameter])
+            for name, role in roles.items()
+        }
         basis = cpu_input_basis_from_binding(self.port.identity.recipe, binding, bodies)
         kernel = execute_contextual_projection_kernel
-        bound = inspect.signature(kernel).bind(input_basis=basis, operation=self.operation,
-            member_contract=self.member_contract, check_active=check_active)
-        reply = yield from self.port.plan_cpu_reply(kernel, bound, contextual_operation_sources(),
-            check_active=check_active, execution_owner=execution_owner)
+        bound = inspect.signature(kernel).bind(
+            input_basis=basis,
+            operation=self.operation,
+            member_contract=self.member_contract,
+            check_active=check_active,
+        )
+        reply = yield from self.port.plan_cpu_reply(
+            kernel,
+            bound,
+            contextual_operation_sources(),
+            check_active=check_active,
+            execution_owner=execution_owner,
+        )
         product = cpu_authority_value(reply.content, expected_basis=basis)
-        kind = ("DdoContextualTargetPopulation" if self.operation in {
-            "retrieve.contextual_targets/curated", "retrieve.contextual_targets/components"}
-            else "DdoContextualTarget" if self.operation == "retrieve.contextual_target/declared"
-            else "DdoContextualVectors")
-        checked = self.prepared.validate_json(kind, json_bytes(product)).model_dump(mode="python", exclude_unset=True)
-        return PreparedCallResult(checked,
-            cpu_execution_evidence=canonical_bytes(reply.execution_receipt.record()), cpu_execution_reply=reply.content)
+        kind = (
+            "DdoContextualTargetPopulation"
+            if self.operation
+            in {"retrieve.contextual_targets/curated", "retrieve.contextual_targets/components"}
+            else "DdoContextualTarget"
+            if self.operation == "retrieve.contextual_target/declared"
+            else "DdoContextualVectors"
+        )
+        checked = self.prepared.validate_json(kind, json_bytes(product)).model_dump(
+            mode="python", exclude_unset=True
+        )
+        return PreparedCallResult(
+            checked,
+            cpu_execution_evidence=canonical_bytes(reply.execution_receipt.record()),
+            cpu_execution_reply=reply.content,
+        )
 
 
 def resolve_target_port(prepared, model, operation, *, identity, authorize, custody, sources):
     from corpus_structure.methods.contextual_targets import (
-        ContextualTargetOperation, ContextualVectorSelectionOperation,
-        CuratedContextualTargetsOperation, SourceContextualTargetsOperation,
+        ContextualTargetOperation,
+        ContextualVectorSelectionOperation,
+        CuratedContextualTargetsOperation,
+        SourceContextualTargetsOperation,
     )
-    from .contextual_operations import contextual_operation_sources, contextual_retrieval_assets
+
     from .contextual_cpu import execute_contextual_projection_kernel
+    from .contextual_operations import contextual_operation_sources, contextual_retrieval_assets
     from .data_operation_ports import PortRefusal
     from .data_operation_prepared_call import PreparedOriginalCallPort
 
-    classes = (ContextualTargetOperation, ContextualVectorSelectionOperation,
-        CuratedContextualTargetsOperation, SourceContextualTargetsOperation)
+    classes = (
+        ContextualTargetOperation,
+        ContextualVectorSelectionOperation,
+        CuratedContextualTargetsOperation,
+        SourceContextualTargetsOperation,
+    )
     selected = model.operation(operation)
     owners = {surface.exposed.rsplit(".", 1)[0] for surface in selected.callable_surfaces}
     found = [kind for kind in classes if kind.__module__ + "." + kind.__qualname__ in owners]
     if len(found) != 1:
         raise PortRefusal("contextual target factory differs from its actual operation")
     receiver = found[0](None)
-    member_contract = next(item.key for item in model.identities if item.domain == "kind"
-        and item.owner == "https://corpus-structure.dev/semantic/data-operation-contextual/DdoContextualTargetMember")
+    member_contract = next(
+        item.key
+        for item in model.identities
+        if item.domain == "kind"
+        and item.owner
+        == "https://corpus-structure.dev/semantic/data-operation-contextual/DdoContextualTargetMember"
+    )
     plan = ContextualTargetPlan(prepared, operation, member_contract)
-    port = PreparedOriginalCallPort(identity, model, selected, sources, custody, receiver.run,
-        plan.plan, "corpus_structure.semantic.contextual_target_products.ContextualTargetPlan.plan",
-        authorize, (contextual_retrieval_assets(),), contextual_operation_sources(),
-        functions=(("corpus_structure.semantic.contextual_cpu.execute_contextual_projection_kernel",
-            execute_contextual_projection_kernel),), requires_prepared_schema=True, retain_cpu_reply=True)
+    port = PreparedOriginalCallPort(
+        identity,
+        model,
+        selected,
+        sources,
+        custody,
+        receiver.run,
+        plan.plan,
+        "corpus_structure.semantic.contextual_target_products.ContextualTargetPlan.plan",
+        authorize,
+        (contextual_retrieval_assets(),),
+        contextual_operation_sources(),
+        functions=(
+            (
+                "corpus_structure.semantic.contextual_cpu.execute_contextual_projection_kernel",
+                execute_contextual_projection_kernel,
+            ),
+        ),
+        requires_prepared_schema=True,
+        retain_cpu_reply=True,
+    )
     plan.port = port
     return port

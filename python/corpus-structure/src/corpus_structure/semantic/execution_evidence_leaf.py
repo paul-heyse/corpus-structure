@@ -57,23 +57,33 @@ class NativeExecutionEvidenceLeaf(BaseModel):
         if not isinstance(completion, dict):
             raise ValueError("execution leaf requires its selected completion facts")
         if "cpu_replies" in completion.get("execution_evidence", {}):
-            raise ValueError("selected execution projection must not disclose physical cohort replies")
+            raise ValueError(
+                "selected execution projection must not disclose physical cohort replies"
+            )
         native = wire_contracts()["retain_data_completion_intent"]["input"]
-        validate_wire_schema(schema_closure({"$ref": "#/definitions/completion"}, native["definitions"]), completion)
+        validate_wire_schema(
+            schema_closure({"$ref": "#/definitions/completion"}, native["definitions"]), completion
+        )
         return value
 
     @field_validator("cpu_receipt", mode="before")
     @classmethod
     def decode_receipt(cls, value):
         from .identity import canonical_bytes
+
         if isinstance(value, CPUExecutionReceipt):
             return value
         return TypeAdapter(CPUExecutionReceipt).validate_json(canonical_bytes(value))
 
     @model_validator(mode="after")
     def original_receipt(self):
-        if self.whole_reply_digest != self.cpu_receipt.result_digest or self.member_ordinal >= self.cohort_size:
-            raise ValueError("execution leaf differs from its actual whole CPU receipt or member position")
+        if (
+            self.whole_reply_digest != self.cpu_receipt.result_digest
+            or self.member_ordinal >= self.cohort_size
+        ):
+            raise ValueError(
+                "execution leaf differs from its actual whole CPU receipt or member position"
+            )
         evidence = self.selected_completion.get("execution_evidence", {})
         if any(evidence.get(key) != value for key, value in self.producer.items()) or (
             evidence.get("runtime_id") != self.runtime_id
@@ -83,8 +93,17 @@ class NativeExecutionEvidenceLeaf(BaseModel):
         return self
 
 
-def validate_execution_evidence_leaf(value, *, products, requests, derivations, receipts,
-    definitions, runtimes, outputs, uses=None):
+def execution_evidence_leaf_schema():
+    """The detached assertion contract uses Pydantic's explicit JSON Schema dialect."""
+    return {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        **NativeExecutionEvidenceLeaf.model_json_schema(),
+    }
+
+
+def validate_execution_evidence_leaf(
+    value, *, products, requests, derivations, receipts, definitions, runtimes, outputs, uses=None
+):
     """Interpret the bounded native assertion without claiming hidden-reply replay."""
     from .data_operation_json import json_bytes
     from .identity import canonical_bytes
@@ -109,37 +128,55 @@ def validate_execution_evidence_leaf(value, *, products, requests, derivations, 
         or receipt["intent_id"] != leaf.intent_id
         or receipt["derivation_id"] != leaf.derivation_id
         or product["kind_contract"] != leaf.kind_contract
-        or not any(output["derivation_id"] == leaf.derivation_id
-            and output["product_id"] == leaf.product_id and output["role"] == leaf.output_role
-            and output["position"] == leaf.output_position and output["member_id"] is None
-            for output in outputs)
+        or not any(
+            output["derivation_id"] == leaf.derivation_id
+            and output["product_id"] == leaf.product_id
+            and output["role"] == leaf.output_role
+            and output["position"] == leaf.output_position
+            and output["member_id"] is None
+            for output in outputs
+        )
         or (leaf.release_id, leaf.runtime_id) not in runtimes
     ):
-        raise ValueError("execution evidence leaf differs from its actual selected producer/publication")
+        raise ValueError(
+            "execution evidence leaf differs from its actual selected producer/publication"
+        )
     if leaf.use_id is not None:
         if uses is None:
             raise ValueError("execution evidence leaf requires its actual selected use")
         use = uses[leaf.use_id]
         if (use["derivation_id"], use["request_id"], use["generation"], use["fate"]) != (
-            leaf.derivation_id, producer["request_id"], producer["generation"], "fulfilled"
+            leaf.derivation_id,
+            producer["request_id"],
+            producer["generation"],
+            "fulfilled",
         ):
             raise ValueError("execution evidence leaf differs from its selected use")
     capability = definition["support_contract"]["capabilities"]
-    if (capability["forms"] != ["batch"] or capability["preparation"] != "resource"
-        or definition["profile"] != "derivation" or definition["support_contract"]["effects"] != []
-        or definition["recipe"] != leaf.recipe):
-        raise ValueError("execution evidence leaf lacks its explicit captured prepared batch contract")
+    if (
+        capability["forms"] != ["batch"]
+        or capability["preparation"] != "resource"
+        or definition["profile"] != "derivation"
+        or definition["support_contract"]["effects"] != []
+        or definition["recipe"] != leaf.recipe
+    ):
+        raise ValueError(
+            "execution evidence leaf lacks its explicit captured prepared batch contract"
+        )
     selected_outputs = leaf.selected_completion["outputs"]
-    if len(selected_outputs) != 1 or any((
-        selected_outputs[0]["role"] != leaf.output_role,
-        selected_outputs[0]["position"] != leaf.output_position,
-        selected_outputs[0].get("member_id") is not None,
-        selected_outputs[0]["multiplicity"] != 1,
-        selected_outputs[0]["product"]["kind_contract"] != leaf.kind_contract,
-        selected_outputs[0]["product"]["body"] != product["canonical_body"],
-    )):
+    if len(selected_outputs) != 1 or any(
+        (
+            selected_outputs[0]["role"] != leaf.output_role,
+            selected_outputs[0]["position"] != leaf.output_position,
+            selected_outputs[0].get("member_id") is not None,
+            selected_outputs[0]["multiplicity"] != 1,
+            selected_outputs[0]["product"]["kind_contract"] != leaf.kind_contract,
+            selected_outputs[0]["product"]["body"] != product["canonical_body"],
+        )
+    ):
         raise ValueError("selected completion differs from its exact logical output")
     from hashlib import sha256
+
     if sha256(canonical_bytes(product["canonical_body"])).hexdigest() != leaf.member_output_digest:
         raise ValueError("execution member projection differs from its exact selected product")
     return leaf

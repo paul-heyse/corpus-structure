@@ -281,6 +281,22 @@ its own explicit released numerical policy and actual provider/native controls. 
 common disclosure hooks, native capture, old consumer retirement and qualification remain open
 with I02/I04/I05/I06; no optional attestation registry or parallel scheduler is introduced.
 
+The scalar contextual producer/full-completion and later-validity guards are now wired into common
+retention/publication/support validity. Exact assets and numerical policies are archive-checked at
+admission and projected into existing immutable definitions. Batch ordinary support exports replace
+raw whole-reply intents with a distinct bounded native execution-evidence leaf; selected completion
+facts and semantic support remain visible. Export v3 archives its explicit schema and separates
+physical execution disclosure from protected-authority disclosure; it has no v2 fallback. Detached
+validation checks original publication/producer and selected edges, explicitly without hidden-reply
+replay. Selected graph inspection preserves that limit. Focused authority/leaf/detached42 **passed**
+`25bd39b79a534b63951f0531f3920d41`; protocol/authority/leaf18 **passed**
+`fbdf52e6134c4a2d862294e0a7cd592f`; types **passed** `e41fccb27c434ac9b56785b06235014c`.
+An initial selector named a nonexistent validation module and selected0 (`e1dfb22a5a104fcd884b27e7778b60c7`);
+it supplies no functional evidence. Native actual batch/adoption control now also checks scoped
+JSONL/Parquet privacy and detached limits; collection2 **passed** `11c0e4c7a8424cffae4a9f5252a6bfc9`,
+execution **not_run** pending successor. Scoring, model batching policy/qualification and finite
+ordinary structural support-root read integration remain open.
+
 **Accepted finite structural extension; implementation/qualification Proposed · 2026-11-15.**
 [ADR-0115](../adr/0115-structural-policy-issuer.md) extends the one current evaluator to actual
 comparison/condition/definition report choices with faithful lowering and exact protected A/B/C.

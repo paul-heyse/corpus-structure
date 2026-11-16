@@ -389,6 +389,7 @@ def verify_detached_result(
     runtimes=None,
     source_artifacts=None,
     authority_schema=None,
+    execution_evidence_schema=None,
     validate_closure=True,
 ) -> DemandResult:
     """Verify links and exact value identities against an explicit captured closure.
@@ -567,6 +568,42 @@ def verify_detached_result(
     populations = row_map("ops.data_population", "id")
     intents = row_map("ops.data_completion_intent", "id")
     receipts = row_map("ops.data_publication_receipt", "derivation_id")
+    from .execution_evidence_leaf import (
+        NativeExecutionEvidenceLeaf,
+        validate_execution_evidence_leaf,
+    )
+
+    execution_leaves = {}
+    for value in rows("ops.data_execution_evidence_leaf"):
+        if validate_closure and (definitions is None or runtimes is None):
+            raise ValueError(
+                "bounded execution evidence requires captured release/runtime contracts"
+            )
+        if execution_evidence_schema is not None:
+            from jsonschema import Draft202012Validator
+
+            Draft202012Validator(execution_evidence_schema).validate(value)
+        leaf = (
+            validate_execution_evidence_leaf(
+                value,
+                products=products,
+                requests=requests,
+                derivations=episodes,
+                receipts={receipt["id"]: receipt for receipt in receipts.values()},
+                definitions=actual_definitions,
+                runtimes=runtimes,
+                outputs=output_edges.values(),
+                uses=uses,
+            )
+            if validate_closure
+            else NativeExecutionEvidenceLeaf.model_validate_json(json_bytes(value))
+        )
+        if leaf.intent_id in intents:
+            raise ValueError("bounded execution evidence also discloses its private whole intent")
+        previous = execution_leaves.get(leaf.intent_id)
+        if previous is not None and previous != leaf:
+            raise ValueError("bounded execution evidence repeats conflicting member custody")
+        execution_leaves[leaf.intent_id] = leaf
     supports = row_map("ops.data_derivation_support", "derivation_id", "occurrence")
     original_supports = row_map(
         "ops.data_derivation_original_support", "derivation_id", "occurrence"
@@ -646,22 +683,30 @@ def verify_detached_result(
 
         for episode in episodes.values():
             request = required(requests, episode["request_id"], "producing request")
-            intent = required(intents, episode["intent_id"], "completion intent")
             receipt = required(receipts, episode["id"], "publication receipt")
-            if receipt["intent_id"] != intent["id"] or any(
-                intent[name] != episode[name]
-                for name in (
-                    "request_id",
-                    "generation",
-                    "runtime_id",
-                    "producer_task_id",
-                    "producer_attempt",
-                )
-            ):
-                raise ValueError(
-                    "detached producing episode differs from its completion/publication custody"
-                )
-            payload = intent["payload"]
+            if episode["intent_id"] in execution_leaves:
+                # This native assertion preserves the selected completion facts.
+                # Its hidden whole reply cannot be independently replayed here.
+                leaf = execution_leaves[episode["intent_id"]]
+                if receipt["intent_id"] != leaf.intent_id or leaf.derivation_id != episode["id"]:
+                    raise ValueError("bounded execution evidence names another publication")
+                payload = leaf.selected_completion
+            else:
+                intent = required(intents, episode["intent_id"], "completion intent")
+                if receipt["intent_id"] != intent["id"] or any(
+                    intent[name] != episode[name]
+                    for name in (
+                        "request_id",
+                        "generation",
+                        "runtime_id",
+                        "producer_task_id",
+                        "producer_attempt",
+                    )
+                ):
+                    raise ValueError(
+                        "detached producing episode differs from its completion/publication custody"
+                    )
+                payload = intent["payload"]
             definition = actual_definitions[episode["release_id"], request["operation_id"]]
             collections = {
                 role["name"]: role["collection"] for role in definition.get("input_roles", ())

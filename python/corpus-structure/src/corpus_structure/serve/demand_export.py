@@ -12,6 +12,9 @@ from corpus_structure.semantic.data_operation_json import json_bytes, wire_json_
 from corpus_structure.semantic.data_operation_read_index import SelectedRecordIndex
 from corpus_structure.semantic.demand_results import stream_demand_result, stream_selected_support
 
+_EXECUTION_JSON_FIELDS = {"producer", "selected_completion", "cpu_receipt"}
+_EXECUTION_INTEGER_FIELDS = {"output_position", "member_ordinal", "cohort_size"}
+
 
 def _pack(row):
     binary = [key for key, value in row.items() if isinstance(value, (bytes, memoryview))]
@@ -41,6 +44,7 @@ def _relation_schema(relation, names, cut_id):
 
     from corpus_structure.semantic.arrow_types import sql_arrow_type
     from corpus_structure.semantic.authority_leaf import NativeAuthorityLeaf
+    from corpus_structure.semantic.execution_evidence_leaf import NativeExecutionEvidenceLeaf
     from corpus_structure.semantic.metadata import table
 
     if relation == "ops.data_authority_leaf":
@@ -50,6 +54,18 @@ def _relation_schema(relation, names, cut_id):
         fields = [
             pa.field(name, pa.string(), nullable=type(None) in get_args(field.annotation))
             for name, field in NativeAuthorityLeaf.model_fields.items()
+        ]
+    elif relation == "ops.data_execution_evidence_leaf":
+        if names != set(NativeExecutionEvidenceLeaf.model_fields):
+            raise ValueError("execution export differs from its closed disclosure fields")
+        columns = ()
+        fields = [
+            pa.field(
+                name,
+                pa.int64() if name in _EXECUTION_INTEGER_FIELDS else pa.string(),
+                nullable=type(None) in get_args(field.annotation),
+            )
+            for name, field in NativeExecutionEvidenceLeaf.model_fields.items()
         ]
     else:
         columns = tuple(column for column in table(relation).c if column.name in names)
@@ -192,7 +208,11 @@ def export_demand_result(
                     and record["record"]["artifact_digest"] is not None
                 ):
                     source_digests.add(record["record"]["artifact_digest"])
-                if record["relation"] in {"ops.data_derivation", "ops.data_authority_leaf"}:
+                if record["relation"] in {
+                    "ops.data_derivation",
+                    "ops.data_authority_leaf",
+                    "ops.data_execution_evidence_leaf",
+                }:
                     producing = record["record"]
                     releases.add(producing["release_id"])
                     runtimes.add((producing["release_id"], producing["runtime_id"]))
@@ -263,6 +283,12 @@ def export_demand_result(
         from corpus_structure.semantic.authority_leaf import NativeAuthorityLeaf
 
         write("authority-contract.json", json_bytes(NativeAuthorityLeaf.model_json_schema()))
+        from corpus_structure.semantic.execution_evidence_leaf import (
+            NativeExecutionEvidenceLeaf,
+            execution_evidence_leaf_schema,
+        )
+
+        write("execution-evidence-contract.json", json_bytes(execution_evidence_leaf_schema()))
         closure_path = root / "closure.jsonl"
         with closure_path.open("wb") as output:
             for (payload,) in spool.execute("SELECT payload FROM records ORDER BY key"):
@@ -284,6 +310,7 @@ def export_demand_result(
                 "SELECT DISTINCT relation FROM records ORDER BY relation"
             ):
                 authority = relation == "ops.data_authority_leaf"
+                execution = relation == "ops.data_execution_evidence_leaf"
                 first = spool.execute(
                     "SELECT payload FROM records WHERE relation=? ORDER BY key LIMIT 1", (relation,)
                 ).fetchone()
@@ -304,6 +331,19 @@ def export_demand_result(
                                     NativeAuthorityLeaf.model_validate(record).model_dump(
                                         mode="json"
                                     )
+                                )
+                                continue
+                            if execution:
+                                checked = NativeExecutionEvidenceLeaf.model_validate_json(
+                                    json_bytes(record)
+                                ).model_dump(mode="json")
+                                values.append(
+                                    {
+                                        name: json_bytes(value).decode()
+                                        if name in _EXECUTION_JSON_FIELDS
+                                        else value
+                                        for name, value in checked.items()
+                                    }
                                 )
                                 continue
                             values.append(
@@ -331,9 +371,16 @@ def export_demand_result(
             ).fetchone()[0]
             else "complete"
         )
+        execution_disclosure = (
+            "bounded"
+            if spool.execute(
+                "SELECT EXISTS(SELECT 1 FROM records WHERE relation='ops.data_execution_evidence_leaf')"
+            ).fetchone()[0]
+            else "complete"
+        )
         spool.close()
         manifest = dict(
-            format="demand-result-export-v2",
+            format="demand-result-export-v3",
             encoding=format,
             cut_id=cut.identity,
             cut=cut.record,
@@ -341,7 +388,9 @@ def export_demand_result(
             closure="closure.jsonl",
             reader_contract="reader-contract.json",
             authority_contract="authority-contract.json",
+            execution_evidence_contract="execution-evidence-contract.json",
             support_disclosure=support_disclosure,
+            execution_evidence_disclosure=execution_disclosure,
             releases=release_files,
             runtimes=runtime_files,
             source_artifacts=source_files,
@@ -372,7 +421,7 @@ def verified_demand_export(root: Path, *, manifest_digest: str):
     if sha256(manifest_bytes).hexdigest() != manifest_digest:
         raise ValueError("export manifest differs from the explicit trusted digest")
     manifest = wire_json_loads(manifest_bytes)
-    if manifest["format"] != "demand-result-export-v2":
+    if manifest["format"] != "demand-result-export-v3":
         raise ValueError("unsupported selected result export")
     for name, descriptor in manifest["files"].items():
         path = root / name
@@ -423,6 +472,9 @@ def verified_demand_export(root: Path, *, manifest_digest: str):
         runtime_ids.add((binding.release_id, binding.runtime_id))
     wire_schema = wire_json_loads((root / manifest["reader_contract"]).read_bytes())
     authority_schema = wire_json_loads((root / manifest["authority_contract"]).read_bytes())
+    execution_schema = wire_json_loads(
+        (root / manifest["execution_evidence_contract"]).read_bytes()
+    )
     with TemporaryDirectory(prefix="demand-verify-") as scratch:
         index = SelectedRecordIndex(Path(scratch) / "closure.sqlite")
         try:
@@ -436,6 +488,13 @@ def verified_demand_export(root: Path, *, manifest_digest: str):
             )
             if manifest["support_disclosure"] != actual_disclosure:
                 raise ValueError("detached manifest misstates its protected support disclosure")
+            actual_execution = (
+                "bounded"
+                if next(index.rows("ops.data_execution_evidence_leaf"), None) is not None
+                else "complete"
+            )
+            if manifest["execution_evidence_disclosure"] != actual_execution:
+                raise ValueError("detached manifest misstates its physical execution disclosure")
             for ordinal, name in enumerate(manifest["pages"]):
                 page = verify_detached_result(
                     wire_json_loads((root / name).read_bytes()),
@@ -447,6 +506,7 @@ def verified_demand_export(root: Path, *, manifest_digest: str):
                     runtimes=runtime_ids,
                     source_artifacts=manifest["source_artifacts"],
                     authority_schema=authority_schema,
+                    execution_evidence_schema=execution_schema,
                     validate_closure=ordinal == 0,
                 )
                 if page.cut.identity != manifest["cut_id"]:
@@ -480,6 +540,13 @@ def verify_demand_export(root: Path, *, manifest_digest: str):
             support_disclosure=manifest["support_disclosure"],
             protected_dependencies="undisclosed"
             if manifest["support_disclosure"] == "bounded"
+            else "not_encountered",
+            execution_evidence_disclosure=manifest["execution_evidence_disclosure"],
+            physical_cpu_cohort="undisclosed"
+            if manifest["execution_evidence_disclosure"] == "bounded"
+            else "not_encountered",
+            whole_cpu_reply_verification="native-member-assertion-only"
+            if manifest["execution_evidence_disclosure"] == "bounded"
             else "not_encountered",
             inference="not_run",
         )

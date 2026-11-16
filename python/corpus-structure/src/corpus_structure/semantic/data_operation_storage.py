@@ -43,6 +43,7 @@ def native_protocol_sources(
     *, physical_sources=None, linkml_types=None
 ) -> tuple[SourceArtifact, ...]:
     from .authority_leaf import NativeAuthorityLeaf
+    from .contextual_admission_native import contextual_admission_native_sql
     from .data_operation_binding_native import binding_native_sources
     from .data_operation_cpu_basis import cpu_input_basis_native_sql
     from .data_operation_execution_evidence import SOURCE, execution_evidence_schema
@@ -54,6 +55,10 @@ def native_protocol_sources(
         original_support_reference_schema,
     )
     from .data_operation_wire_native import wire_native_sources
+    from .execution_evidence_leaf import (
+        execution_evidence_leaf_native_sql,
+        execution_evidence_leaf_schema,
+    )
     from .graph_runtime import nx
     from .pdf_completion_native import pdf_completion_native_sql
     from .record_grade_native import record_grade_native_sql
@@ -106,6 +111,26 @@ def native_protocol_sources(
         SourceArtifact(
             "native/data-operation-cpu-basis.py",
             Path(__file__).with_name("data_operation_cpu_basis.py").read_bytes(),
+        ),
+        SourceArtifact(
+            "native/data-operation-contextual-admission.sql",
+            contextual_admission_native_sql().encode(),
+        ),
+        SourceArtifact(
+            "native/data-operation-contextual-admission.py",
+            Path(__file__).with_name("contextual_admission_native.py").read_bytes(),
+        ),
+        SourceArtifact(
+            "native/data-operation-execution-evidence-leaf.sql",
+            execution_evidence_leaf_native_sql().encode(),
+        ),
+        SourceArtifact(
+            "native/data-operation-execution-evidence-leaf.json",
+            json_bytes(execution_evidence_leaf_schema()),
+        ),
+        SourceArtifact(
+            "native/data-operation-execution-evidence-leaf.py",
+            Path(__file__).with_name("execution_evidence_leaf.py").read_bytes(),
         ),
         SourceArtifact(
             "native/data-operation-cpu-receipts.py",
@@ -262,6 +287,11 @@ def _captured(sources) -> dict[str, bytes]:
         "native/data-operation-record-grade-native.sql",
         "native/data-operation-cpu-basis.sql",
         "native/data-operation-cpu-basis.py",
+        "native/data-operation-contextual-admission.sql",
+        "native/data-operation-contextual-admission.py",
+        "native/data-operation-execution-evidence-leaf.sql",
+        "native/data-operation-execution-evidence-leaf.json",
+        "native/data-operation-execution-evidence-leaf.py",
         "native/data-operation-cpu-receipts.py",
         "native/data-operation-rich-admission.sql",
         "native/data-operation-rich-admission.py",
@@ -410,6 +440,8 @@ def native_sql(sources=None) -> str:
             # SQL-language structural helpers resolve the tagged-value functions
             # when created. Install the shared kernel before these dependents.
             "native/data-operations.sql",
+            "native/data-operation-contextual-admission.sql",
+            "native/data-operation-execution-evidence-leaf.sql",
             "native/data-operation-structural-admission.sql",
             "native/data-operation-record-policy.sql",
             "native/data-operation-record-policy-completion.sql",
@@ -1067,6 +1099,9 @@ def data_operation_definition_projection(
                 "output_roles": [role for role in roles if role["direction"] == "output"],
                 "support_contract": {
                     "assets": archived_operations[operation.semantic_id]["assets"],
+                    "numerical_policy": archived_operations[operation.semantic_id].get(
+                        "numerical_policy"
+                    ),
                     "coverage": archived_operations[operation.semantic_id]["coverage"],
                     **(
                         {"external": asdict(operation.external)}

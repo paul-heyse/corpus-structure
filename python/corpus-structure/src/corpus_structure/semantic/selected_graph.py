@@ -83,6 +83,15 @@ def snapshot_from_index(prepared, cut, index, projection):
         unknowns.append(
             "protected dependencies of native authority " + leaf.derivation_id + " are undisclosed"
         )
+    from .execution_evidence_leaf import NativeExecutionEvidenceLeaf
+
+    for value in index.rows("ops.data_execution_evidence_leaf"):
+        execution = NativeExecutionEvidenceLeaf.model_validate_json(json_bytes(value))
+        # The declared semantic-support graph is intact. Hidden physical batch
+        # evidence is a separate limit, not a missing semantic dependency edge.
+        unknowns.append(
+            "whole physical CPU cohort for selected member " + execution.member + " is undisclosed"
+        )
 
     def authority_reference(reference):
         if reference.get("kind") in {"original-source", "authored"}:

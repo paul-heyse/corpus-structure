@@ -1099,10 +1099,64 @@ def selected_support_export(metadata, selected_uses, admissions, in_page):
     )
     intents = metadata.tables["ops.data_completion_intent"]
     receipts = metadata.tables["ops.data_publication_receipt"]
+    batch_episodes = (
+        select(episodes.c.id.label("derivation_id"), intents.c.id.label("intent_id"))
+        .select_from(
+            episodes.join(intents, intents.c.id == episodes.c.intent_id)
+            .join(requests, requests.c.id == episodes.c.request_id)
+            .join(
+                definitions,
+                and_(
+                    definitions.c.release_id == episodes.c.release_id,
+                    definitions.c.operation_id == requests.c.operation_id,
+                ),
+            )
+        )
+        .where(
+            episodes.c.id.in_(episode_ids),
+            definitions.c.support_contract["capabilities"]["forms"] == _json(["batch"]),
+            func.jsonb_array_length(
+                func.coalesce(intents.c.payload["execution_evidence"]["cpu_replies"], _json([]))
+            )
+            > 0,
+        )
+        .cte("export_batch_execution_episodes")
+        .prefix_with("MATERIALIZED")
+    )
     fields["completion_intents"] = records(
         intents,
-        intents.c.id.in_(select(episodes.c.intent_id).where(episodes.c.id.in_(episode_ids))),
+        and_(
+            intents.c.id.in_(select(episodes.c.intent_id).where(episodes.c.id.in_(episode_ids))),
+            intents.c.id.not_in(select(batch_episodes.c.intent_id)),
+        ),
         intents.c.id,
+    )
+    # Keep the selected operation's complete semantic support. Only the physical
+    # cohort reply is private; this is a distinct native assertion, never a
+    # rewritten completion-intent row with a misleading original payload digest.
+    fields["execution_evidence_leaves"] = (
+        select(
+            (
+                literal("ops.data_execution_evidence_leaf:")
+                + func.jsonb_build_array(
+                    episodes.c.id, outputs.c.product_id, outputs.c.role, outputs.c.position
+                ).cast(Text)
+            ).label("key"),
+            literal("ops.data_execution_evidence_leaf").label("relation"),
+            func.ops.ddo_cpu_execution_leaf(
+                episodes.c.id,
+                outputs.c.product_id,
+                outputs.c.role,
+                outputs.c.position,
+                null().cast(Text),
+            ).label("record"),
+        )
+        .select_from(
+            episodes.join(batch_episodes, batch_episodes.c.derivation_id == episodes.c.id).join(
+                outputs, outputs.c.derivation_id == episodes.c.id
+            )
+        )
+        .where(outputs.c.member_id.is_(None))
     )
     fields["publication_receipts"] = records(
         receipts, receipts.c.derivation_id.in_(episode_ids), receipts.c.id

@@ -242,6 +242,7 @@ BEGIN
  RETURN (SELECT EXISTS(SELECT FROM ops.data_derivation WHERE id=episode AND outcome IN ('success','empty'))
  AND ops.ddo_record_grade_dependencies_valid(episode)
  AND ops.ddo_record_fit_dependencies_valid(episode)
+ AND ops.ddo_contextual_dependencies_valid(episode)
  AND ops.ddo_rich_admission_dependencies_valid(episode) AND NOT EXISTS(
  SELECT FROM ops.data_derivation d JOIN ops.data_request r ON r.id=d.request_id
  JOIN ops.data_revocation v ON v.scope=ops.ddo_scope(r.project_id,r.original_source)
@@ -1224,6 +1225,7 @@ BEGIN
  PERFORM ops.ddo_require_policy_authorization_completion(r,p->'completion');
  PERFORM ops.ddo_require_structural_admission_completion(r,p->'completion');
  PERFORM ops.ddo_require_structural_dossier_completion(r,p->'completion');
+ PERFORM ops.ddo_require_contextual_completion(r,p->'completion');
  PERFORM ops.ddo_require_rich_preparation_completion(r,p->'completion');
  PERFORM ops.ddo_require_rich_admission_completion(r,p->'completion');
  PERFORM ops.ddo_assert_output_witnesses(r,p->'completion');
@@ -1465,6 +1467,7 @@ BEGIN
  PERFORM ops.ddo_require_policy_authorization_completion(r,i.payload);
  PERFORM ops.ddo_require_structural_admission_completion(r,i.payload);
  PERFORM ops.ddo_require_structural_dossier_completion(r,i.payload);
+ PERFORM ops.ddo_require_contextual_completion(r,i.payload);
  PERFORM ops.ddo_require_rich_preparation_completion(r,i.payload);
  PERFORM ops.ddo_require_rich_admission_completion(r,i.payload);
  PERFORM ops.ddo_assert_output_witnesses(r,i.payload);
@@ -1915,6 +1918,7 @@ BEGIN
  SELECT coalesce(jsonb_agg(role||jsonb_build_object('kind_contract',(SELECT id->>'key' FROM jsonb_array_elements(archived->'identities') id WHERE id->>'owner'=role->>'kind' AND id->>'domain'='kind'),'identity_requirements',coalesce(role->'support'->'identity_requirements','[]')) ORDER BY ord),'[]') INTO expected_outputs FROM jsonb_array_elements(operation->'roles') WITH ORDINALITY entry(role,ord) WHERE role->>'direction'='output';
  expected_support:=jsonb_build_object('policy',operation->'support_policy','coverage',operation->'coverage','outcomes',operation->'outcomes','replicate_policy',operation->'replicate_policy','state_dimensions',operation->'state_dimensions','transitions',operation->'transitions','effects',operation->'effects','capabilities',operation->'capabilities','provenance',CASE WHEN EXISTS(SELECT FROM jsonb_array_elements(operation->'roles') role WHERE role->'support'<>'null'::jsonb AND role->'support'->>'provenance'<>'value_substitution') THEN 'exact' ELSE 'value_substitution' END);
  expected_support:=expected_support||jsonb_build_object('assets',operation->'assets');
+ expected_support:=expected_support||jsonb_build_object('numerical_policy',operation->'numerical_policy');
  IF sem.ddo_provider_profile(p->>'release_id',operation) IS NOT NULL THEN expected_support:=expected_support||jsonb_build_object('provider_profile',sem.ddo_provider_profile(p->>'release_id',operation)); END IF;
  IF operation->'external' IS NOT NULL THEN expected_support:=expected_support||jsonb_build_object('external',operation->'external'); END IF;
  IF coalesce(operation->'output_witnesses','[]')<>'[]'::jsonb THEN expected_support:=expected_support||jsonb_build_object('output_witnesses',operation->'output_witnesses'); END IF;
