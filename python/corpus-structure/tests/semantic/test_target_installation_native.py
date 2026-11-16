@@ -372,9 +372,9 @@ def test_actual_target_successor_uses_registered_state_and_preserves_installatio
     sources["physical.yaml"] = yaml.safe_dump(declaration, sort_keys=False).encode()
     from corpus_structure.schema.physical import compile_physical
 
-    successor = capture_target_installation(compile_physical(
-        sources, linkml_types=metadata.info["physical_linkml_types"]
-    ))
+    successor = capture_target_installation(
+        compile_physical(sources, linkml_types=metadata.info["physical_linkml_types"])
+    )
     with engine.begin() as connection:
         verify_target(connection, target, purpose="maintenance")
         connection.exec_driver_sql(

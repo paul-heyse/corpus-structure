@@ -1,5 +1,19 @@
 # D7 · Evaluation, goldens and the outer loop
 
+## Selected operation-event fitting
+
+**Accepted target; implementation/qualification Proposed · 2026-11-16.** Explicit output-first
+questions freeze real report/component selectors, independent C labels, source/origin groups,
+rubric/partition/exposure and both exact selections. A current frame authenticates original report
+CPU correspondence and existing finite feature semantics without historical task/view aliases.
+The existing numerical fitter consumes that frame's actual numeric/event fields. Private fitted
+results retain labels/diagnostics; operation_event.authorize exposes only exact parameters through
+finite native authority, with real scorer provenance. The restricted fitter read has finite record
+and event variants, with the old record-specific API removed. DDO owns actual custody/consumer
+qualification and retirement; complete-record fitting is not a substitute for event fitting.
+
+> Decision: [ADR-0117](../adr/0117-current-operation-event-fitting.md)
+
 ## Finite structural report adjudication
 
 **Accepted target; implementation/qualification Proposed · 2026-11-15.** Comparison, condition

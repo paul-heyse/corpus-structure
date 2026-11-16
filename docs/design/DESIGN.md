@@ -350,6 +350,15 @@ semantic decoder fallback.
 
 ### §B2 Methods write observations; only consolidation writes knowledge, per run
 
+**Accepted target; normal-route implementation/adoption Proposed · 2026-11-16.** One canonical
+current physical/native basis, immutable Alembic root and exact frozen successors replace historical
+installation defaults. Current DDO guards retain actual source/schema/native/privilege custody;
+no realization-trigger, selected-fact or historical compiler fallback supplies current authority.
+D3 owns normal installation; DDO owns current consumer/fixture migration and recorded adoption.
+
+> Decision: [ADR-0118](../adr/0118-current-target-installation.md)
+
+
 **Proposed accepted final execution target · 2026-11-11.** One shared validated execution policy governs all characterization callers. Managed-operation cancellation/SIGINT stops its owned scope; existing run cancellation remains run-scoped. Retained characterization resume creates new runs for unfinished work and reuses compatible settled pins even from a terminal child, preserving native fences and original terminal evidence. [D6](D6-orchestration-metrics-policies.md#final-characterization-policy-and-retained-recovery) and [D8](D8-agent-and-query-interfaces.md#shared-policy-settings-status-and-characterization-resume) own execution and operator contracts.
 
 > Decision: [ADR-0091](../adr/0091-gpu-native-environment-boundaries.md)
@@ -458,6 +467,22 @@ legacy wait barrier rather than implying that every old option is supported.
 <a id="section-b4"></a>
 
 ### §B4 PostgreSQL 18 is the transactional authority for instances; the model is the authority for their structure
+
+**Accepted target; normal-route implementation/adoption Proposed · 2026-11-16.** One canonical
+current physical/native basis, immutable Alembic root and exact frozen successors replace historical
+installation defaults. Current DDO guards retain actual source/schema/native/privilege custody;
+no realization-trigger, selected-fact or historical compiler fallback supplies current authority.
+D3 owns normal installation; DDO owns current consumer/fixture migration and recorded adoption.
+
+> Decision: [ADR-0118](../adr/0118-current-target-installation.md)
+
+**Accepted target; implementation/qualification Proposed · 2026-11-16.** Current operation-event
+fitting retains exact selected component/source frames and independent labels, reuses one numerical
+fitter and exposes only exact safe parameters through finite native authority. No historical task/view
+alias or complete-record fitting substitution supplies event provenance. D7/D8 own the current route.
+
+> Decision: [ADR-0117](../adr/0117-current-operation-event-fitting.md)
+
 
 
 **Accepted target; implementation/qualification Proposed · 2026-11-15.** Contextual witness bindings
@@ -745,6 +770,22 @@ and later consumer adoption. SP-01 deploys no database or engine change.
 <a id="section-b5"></a>
 
 ### §B5 One LinkML semantic release governs interpretation and generated representations
+
+**Accepted target; normal-route implementation/adoption Proposed · 2026-11-16.** One canonical
+current physical/native basis, immutable Alembic root and exact frozen successors replace historical
+installation defaults. Current DDO guards retain actual source/schema/native/privilege custody;
+no realization-trigger, selected-fact or historical compiler fallback supplies current authority.
+D3 owns normal installation; DDO owns current consumer/fixture migration and recorded adoption.
+
+> Decision: [ADR-0118](../adr/0118-current-target-installation.md)
+
+**Accepted target; implementation/qualification Proposed · 2026-11-16.** Current operation-event
+fitting retains exact selected component/source frames and independent labels, reuses one numerical
+fitter and exposes only exact safe parameters through finite native authority. No historical task/view
+alias or complete-record fitting substitution supplies event provenance. D7/D8 own the current route.
+
+> Decision: [ADR-0117](../adr/0117-current-operation-event-fitting.md)
+
 
 
 **Accepted target; implementation/qualification Proposed · 2026-11-15.** Contextual witness bindings

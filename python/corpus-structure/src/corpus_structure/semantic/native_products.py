@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable
 from dataclasses import dataclass
 from hashlib import sha256
 from typing import TYPE_CHECKING, Any
@@ -10,51 +9,16 @@ from typing import TYPE_CHECKING, Any
 from pglast import ast
 from sqlalchemy.dialects.postgresql import dialect
 from sqlalchemy.schema import (
-    AddConstraint,
     CheckConstraint,
-    CreateIndex,
-    CreateTable,
     DefaultClause,
     MetaData,
 )
 
-from .metadata import metadata
 from .prepared_sql import PreparedSQL
 
 if TYPE_CHECKING:
     from .data_operation_model import EffectiveDataOperationModel
     from .types import SourceArtifact
-
-
-def selected_fact_query(target_metadata: MetaData | None = None):
-    """The fixed accepted-fact projection uses the same scoped relationship keys."""
-    from sqlalchemy import and_, select
-
-    target_metadata = metadata if target_metadata is None else target_metadata
-    fact, selection = (
-        target_metadata.tables["data.fact"].alias("f"),
-        target_metadata.tables["data.selection"].alias("s"),
-    )
-    return select(fact).select_from(
-        fact.join(
-            selection,
-            and_(
-                selection.c.realization_id == fact.c.realization_id,
-                selection.c.release_id == fact.c.release_id,
-                selection.c.fact_id == fact.c.fact_id,
-            ),
-        )
-    )
-
-
-@dataclass(frozen=True)
-class NativeProduct:
-    name: str
-    content: bytes
-
-    @property
-    def digest(self) -> str:
-        return sha256(self.content).hexdigest()
 
 
 @dataclass(frozen=True)
@@ -107,7 +71,11 @@ def capture_native_authoring_inputs(
     from .pdf_domain import pdf_domain_sources
     from .types import SourceArtifact
 
-    selected = metadata if target_metadata is None else target_metadata
+    if target_metadata is None:
+        from .metadata import metadata
+
+        target_metadata = metadata
+    selected = target_metadata
     physical = selected.info.get("physical_sources")
     types = selected.info.get("physical_linkml_types")
     if not physical or not isinstance(types, bytes):
@@ -142,8 +110,8 @@ def capture_native_authoring_inputs(
             SourceArtifact("authoring/" + name, Path(__file__).with_name(name).read_bytes())
             for name in (
                 "native_products.py",
-                "source_view_native.py",
-                "native_candidate.py",
+                "native_admission.py",
+                "native_authoring.py",
                 "data_operation_compilation.py",
                 "data_operation_model.py",
                 "data_operation_identity.py",
@@ -171,7 +139,7 @@ def capture_native_authoring_inputs(
         ),
         SourceArtifact(
             "authoring/execution-projection-check.sql",
-            execution_projection_check_sql(target_metadata=selected).encode(),
+            execution_projection_check_sql().encode(),
         ),
         SourceArtifact(
             "authoring/admission.sql",
@@ -202,27 +170,11 @@ def current_authoring_provenance(
     )
 
 
-def execution_projection_check_sql(*, target_metadata=None) -> str:
-    """Retain legacy-row refusal only where that legacy storage is declared."""
+def execution_projection_check_sql() -> str:
+    """The one current archive projection guard; no historical storage branch."""
     from pathlib import Path
 
-    selected = metadata if target_metadata is None else target_metadata
-    legacy = {
-        "sem.execution_operation",
-        "sem.execution_transition",
-        "sem.execution_edge",
-        "sem.operation_effect",
-        "sem.transition_effect",
-    }
-    present = legacy.intersection(selected.tables)
-    if present and present != legacy:
-        raise ValueError("partial legacy execution storage is not an execution projection")
-    source = Path(__file__).with_name("sql").joinpath("execution_projection_check.sql").read_text()
-    if not present:
-        before, owned = source.split(" -- {legacy_execution_rows_begin}\n")
-        _, after = owned.split(" -- {legacy_execution_rows_end}\n")
-        source = before + after
-    return source
+    return Path(__file__).with_name("sql").joinpath("execution_projection_check.sql").read_text()
 
 
 def relation_descriptor(relation) -> dict:
@@ -298,49 +250,6 @@ def relation_descriptor(relation) -> dict:
     return result
 
 
-def physical_products() -> tuple[NativeProduct, ...]:
-    """Render fixed DDL from the single physical model, in dependency order."""
-    pg = dialect()
-    products = []
-    for relation in sorted(metadata.tables.values(), key=lambda item: item.fullname):
-        products.append(
-            NativeProduct(
-                relation.fullname,
-                (
-                    str(
-                        CreateTable(relation, include_foreign_key_constraints=[]).compile(
-                            dialect=pg
-                        )
-                    ).strip()
-                    + ";\n"
-                ).encode(),
-            )
-        )
-        for index in sorted(relation.indexes, key=lambda item: str(item.name or "")):
-            products.append(
-                NativeProduct(
-                    str(index.name),
-                    (str(CreateIndex(index).compile(dialect=pg)).strip() + ";\n").encode(),
-                )
-            )
-    for relation in sorted(metadata.tables.values(), key=lambda item: item.fullname):
-        for constraint in sorted(
-            relation.foreign_key_constraints, key=lambda item: str(item.name or "")
-        ):
-            products.append(
-                NativeProduct(
-                    relation.fullname + "/" + str(constraint.name),
-                    (
-                        str(
-                            AddConstraint(constraint, isolate_from_table=False).compile(dialect=pg)
-                        ).strip()
-                        + ";\n"
-                    ).encode(),
-                )
-            )
-    return tuple(products)
-
-
 def literal_json_descriptor(sql: str | PreparedSQL, name: str) -> dict[str, Any]:
     """Decode a frozen literal descriptor without executing the supplied SQL."""
     import json
@@ -388,13 +297,6 @@ def function_bodies(sql: str | PreparedSQL, *, by_signature: bool = False) -> di
     return result
 
 
-def edge_projection(edges: Iterable[tuple[str, str, str, str]]) -> NativeProduct:
-    """Finite edges are ordered model data, never inferred from kernel source."""
-    from .identity import canonical_bytes
-
-    return NativeProduct("execution-edges.json", canonical_bytes(sorted(edges)))
-
-
 def derived_publication_sql():
     from pathlib import Path
 
@@ -424,7 +326,10 @@ def current_admission_fields(
     from .data_operation_model import MODEL_VERSION
     from .identity import canonical_bytes
 
-    target_metadata = metadata if target_metadata is None else target_metadata
+    if target_metadata is None:
+        from .metadata import metadata
+
+        target_metadata = metadata
     captured = (
         capture_native_authoring_inputs(target_metadata=target_metadata)
         if inputs is None
@@ -444,16 +349,7 @@ def current_admission_fields(
         "physical_checks_source_digest": sha256(canonical_bytes(check_sources)).hexdigest()
     }
     descriptor["physical_relations"] = sorted(target_metadata.tables)
-    descriptor["views"] = (
-        [
-            {
-                "relation": "data.selected_fact",
-                "query": str(selected_fact_query(target_metadata).compile(dialect=dialect())),
-            }
-        ]
-        if {"data.fact", "data.selection"} <= set(target_metadata.tables)
-        else []
-    )
+    descriptor["views"] = []
     from .scientific_evidence import scientific_report_layout
 
     layout = scientific_report_layout(
@@ -468,10 +364,6 @@ def current_admission_fields(
             "owned scientific report layout must define comparison and array consumers"
         )
     descriptor["scientific_report_layout"] = layout
-    if {"data.fact", "data.selection"} <= set(target_metadata.tables):
-        from .analytics import COMPILER_VERSION as analytical_compiler
-
-        descriptor["analytical_abi"] = analytical_compiler
     descriptor["data_operation_abi"] = MODEL_VERSION
     descriptor["physical_id"] = target_metadata.info["physical_model_id"]
     descriptor.update(current_authoring_provenance(captured).descriptor_fields())

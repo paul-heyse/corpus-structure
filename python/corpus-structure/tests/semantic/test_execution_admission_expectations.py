@@ -1,4 +1,4 @@
-"""Revision-local expectation resolution, independent of historical native payload health."""
+"""Revision-local current expectations, independent of unrelated native payload health."""
 
 from __future__ import annotations
 
@@ -20,8 +20,8 @@ def revision(root: Path, name: str, predecessor: str | None, *, frozen: bool = F
     body = "BEGIN RETURN 'admitted'; END"
     descriptor = {
         "physical_id": "independent-physical-model",
-        "views": [{"relation": "data.selected_fact", "query": "SELECT 17 AS value"}],
-        "functions": [{"signature": "data.guard_execution_admission()", "body_sha256": "a" * 64}],
+        "views": [],
+        "functions": [],
     }
     descriptor_body = "SELECT '" + json.dumps(descriptor) + "'::jsonb"
     sql = (
@@ -45,8 +45,6 @@ def revision(root: Path, name: str, predecessor: str | None, *, frozen: bool = F
     return NativeExpectation(
         (sha256(descriptor_body.encode()).hexdigest(), sha256(body.encode()).hexdigest()),
         "independent-physical-model",
-        "a" * 64,
-        "SELECT 17 AS value",
         (root / (name + "_native.json"), sha256(b'{"objects": []}').hexdigest()),
         body,
     )

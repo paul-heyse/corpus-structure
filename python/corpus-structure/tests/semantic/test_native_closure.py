@@ -371,17 +371,15 @@ def test_frozen_head_witness_preserves_its_explicit_authoring_provenance():
 
     from corpus_structure.semantic.execution_admission import _descriptor_sha256
     from corpus_structure.semantic.migrations import alembic_config, head_revision
-    from corpus_structure.semantic.native_products import (
-        NativeProduct,
-        function_bodies,
-    )
+    from corpus_structure.semantic.native_products import function_bodies
+    from corpus_structure.semantic.types import SourceArtifact
 
     current_head = head_revision()
     assert current_head is not None
     head_script = ScriptDirectory.from_config(alembic_config()).get_revision(current_head)
     assert head_script is not None
     revision = head_script.module
-    head = NativeProduct(
+    head = SourceArtifact(
         revision.NATIVE_ADMISSION_FILE,
         Path(head_script.path).with_name(revision.NATIVE_ADMISSION_FILE).read_bytes(),
     )
@@ -394,7 +392,7 @@ def test_frozen_head_witness_preserves_its_explicit_authoring_provenance():
         == _descriptor_sha256()
     )
 
-    from corpus_structure.semantic.source_view_native import recorded_authoring_provenance
+    from corpus_structure.semantic.native_admission import recorded_authoring_provenance
 
     provenance = recorded_authoring_provenance(head.content.decode())
     assert provenance.model_id == recorded["model_id"]

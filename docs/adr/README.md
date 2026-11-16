@@ -87,6 +87,8 @@ The [architecture map](../design/README.md) and its section owners own contracts
 | [ADR-0114](0114-contextual-target-reuse-and-batch-evidence.md) | Contextual targets reuse independent vectors and disclose scoped execution evidence | 2026-11-15 | [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
 | [ADR-0115](0115-structural-policy-issuer.md) | One evaluator applies distinct structural report policies | 2026-11-15 | [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
 | [ADR-0116](0116-contextual-authored-witness-bindings.md) | Contextual witnesses bind attributed hypotheses to exact current source carriers | 2026-11-15 | [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
+| [ADR-0117](0117-current-operation-event-fitting.md) | Selected event fitting preserves protected frames and exposes only authorized parameters | 2026-11-16 | [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
+| [ADR-0118](0118-current-target-installation.md) | One current native root and frozen successors replace historical installation paths | 2026-11-16 | [§B2](../design/DESIGN.md#section-b2), [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
 
 ## Superseded, still in the tree
 

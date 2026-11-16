@@ -1,6 +1,8 @@
 # DDO v10 current execution and ordinary disclosure
 
-**Preparation · 2026-11-15.** This is a planned rollback-only forward successor to frozen
+**Superseded preparation · 2026-11-16.** ADR-0118 selects the qualified clean current root as the normal installation route. No v10 candidate was registered. All earlier requests, previews and the failed candidate below retain their original scope/outcome.
+
+**Original preparation · 2026-11-15.** This is a planned rollback-only forward successor to frozen
 `semantic_ddo_domain_v9`, not the target-only clean baseline or persistent adoption. No preview,
 candidate, registration, deployment or activation is established by this request.
 

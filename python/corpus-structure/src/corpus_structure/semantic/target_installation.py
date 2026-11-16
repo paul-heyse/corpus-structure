@@ -201,9 +201,7 @@ def target_native_definitions(connection, installation: TargetInstallation):
     definitions.extend(
         _release_guard_definitions(
             connection,
-            sql.joinpath("closure.sql").read_text()
-            + "\n"
-            + execution_projection_check_sql(target_metadata=selected),
+            sql.joinpath("closure.sql").read_text() + "\n" + execution_projection_check_sql(),
             source="target-current:release archive guards",
         )
     )

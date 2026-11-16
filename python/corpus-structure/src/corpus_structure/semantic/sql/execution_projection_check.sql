@@ -15,14 +15,6 @@ BEGIN
  IF NOT EXISTS(SELECT FROM sem.artifact WHERE release_id=r AND artifact_name='data_operations.json'
      AND convert_from(content,'UTF8')::jsonb->>'version' = 'data-operation-model-v8') THEN
   RAISE EXCEPTION 'unsupported target operation archive' USING ERRCODE='23514'; END IF;
- -- {legacy_execution_rows_begin}
- IF EXISTS(SELECT FROM sem.execution_operation WHERE release_id=r)
-    OR EXISTS(SELECT FROM sem.execution_transition WHERE release_id=r)
-    OR EXISTS(SELECT FROM sem.execution_edge WHERE release_id=r)
-    OR EXISTS(SELECT FROM sem.operation_effect WHERE release_id=r)
-    OR EXISTS(SELECT FROM sem.transition_effect WHERE release_id=r) THEN
-  RAISE EXCEPTION 'target archive contains legacy execution projection rows' USING ERRCODE='23514'; END IF;
- -- {legacy_execution_rows_end}
  SELECT COALESCE(jsonb_agg(to_jsonb(x) ORDER BY to_jsonb(x)::text),'[]'::jsonb) INTO expected FROM (SELECT r release_id,rule->>'policy_id' policy_id,rule->>'evidence_tier' evidence_tier,rule->>'agreement' agreement,rule->>'decision' decision,rule->>'decision_tier' decision_tier FROM sem.artifact a CROSS JOIN LATERAL jsonb_array_elements(convert_from(a.content,'UTF8')::jsonb->'decision_rules') rule WHERE a.release_id=r AND a.artifact_name='operation/scientific-policy.json') x;
  SELECT COALESCE(jsonb_agg(to_jsonb(x) ORDER BY to_jsonb(x)::text),'[]'::jsonb) INTO actual FROM sem.scientific_decision_rule x WHERE release_id=r;
  IF actual IS DISTINCT FROM expected THEN RAISE EXCEPTION 'archived scientific_decision_rule projection differs' USING ERRCODE='23514'; END IF;

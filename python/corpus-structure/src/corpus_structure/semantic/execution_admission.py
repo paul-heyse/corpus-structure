@@ -1,8 +1,7 @@
-"""Trusted execution compatibility at the immutable release activation boundary.
+"""Current native execution authority from exact registered frozen contracts.
 
-Contract compilation establishes the model's meaning and implementation requirements.
-It does not establish that those requirements have native enforcement. In particular,
-the execution lifecycle contracts cannot activate until their SP-C03 guards exist.
+Compilation supplies model meaning; the deployed descriptor and release guard
+must match their frozen state before current admission or archive effects.
 """
 
 from __future__ import annotations
@@ -49,8 +48,6 @@ _REQUIRED = "data.require_execution_release"
 class NativeExpectation:
     functions: tuple[str, str]
     physical_id: str
-    guard_digest: str
-    selected_fact_sql: str
     state: tuple[Path, str]
     admission_body: str
 
@@ -76,30 +73,13 @@ def require_frozen_native_revision(versions: Path, revision: str) -> str:
 
 
 def _catalog_checks(body: str) -> str:
-    """Reuse the immutable guard's catalog checks without its release reads or writes."""
-    boundaries = (
-        (
-            " IF NOT EXISTS(SELECT FROM sem.physical_contract ",
-            " IF EXISTS(SELECT FROM sem.release archived CROSS JOIN LATERAL",
-        ),
-        (
-            " SELECT item.value INTO spec FROM jsonb_array_elements(expected->'functions')",
-            " IF NOT EXISTS(SELECT FROM sem.deployment_admission ",
-        ),
-    )
-    checks = []
-    for first, following in boundaries:
-        if body.count(first) != 1 or body.count(following) != 1:
-            raise ValueError("frozen native guard does not identify its catalog checks")
-        start, end = body.index(first), body.index(following)
-        if end <= start:
-            raise ValueError("frozen native guard has invalid catalog check boundaries")
-        checks.append(body[start:end])
-    return "\n".join(checks)
+    from .native_admission import catalog_checks
+
+    return catalog_checks(body)
 
 
 def verify_deployment_catalog(
-    connection: Connection, *, revision: str, versions: Path | None = None
+    connection: Connection, *, revision: str | None = None, versions: Path | None = None
 ) -> str:
     """Verify the full known revision before an effect on the maintenance connection."""
     from sqlalchemy.exc import DBAPIError
@@ -108,8 +88,8 @@ def verify_deployment_catalog(
     from .native_objects import execute_native_sql
 
     versions = ALEMBIC_DIR / "versions" if versions is None else versions
-    expected = _revision_expectation(versions, revision)
-    physical_id = _verify_deployment_functions(connection, revision=revision, versions=versions)
+    expected = _deployment_expectation(connection, revision=revision, versions=versions)
+    physical_id = expected.physical_id
     try:
         checks = _catalog_checks(expected.admission_body)
         # Run the exact catalog clauses in the same search path as the authenticated
@@ -139,18 +119,15 @@ def verify_deployment_catalog(
     return physical_id
 
 
-def _verify_deployment_functions(
+def _deployment_expectation(
     connection: Connection, *, revision: str | None = None, versions: Path | None = None
-) -> str:
+) -> NativeExpectation:
     """Compare the acquired catalog with its frozen expectations."""
     from sqlalchemy import text
 
     from .migrations import ALEMBIC_DIR
     from .native_objects import NativeAuthoringError, admit_native
 
-    guard_digest = _realization_fence_digest(connection)
-    if guard_digest is None:
-        raise ExecutionAdmissionError("native execution requires an enforcing realization fence")
     if versions is None:
         versions = ALEMBIC_DIR / "versions"
     if revision is not None:
@@ -175,7 +152,6 @@ def _verify_deployment_functions(
         candidates = tuple(
             item for item in _expectations(versions).values() if item.functions == tuple(bodies)
         )
-    candidates = tuple(item for item in candidates if item.guard_digest == guard_digest)
     if not candidates:
         raise ExecutionAdmissionError("native execution deployment differs from frozen contracts")
 
@@ -185,7 +161,6 @@ def _verify_deployment_functions(
         contracts = {
             (
                 item.physical_id,
-                item.selected_fact_sql,
                 tuple(
                     (
                         obj.identity,
@@ -203,22 +178,19 @@ def _verify_deployment_functions(
             raise ExecutionAdmissionError(
                 "native execution deployment has conflicting expectations"
             )
-        physical_id, expected_view, _ = contracts.pop()
+        contracts.pop()
         admit_native(connection, _frozen_functions(*candidates[0].state))
     except (NativeAuthoringError, OSError, ValueError) as exc:
         raise ExecutionAdmissionError(f"native execution deployment differs: {exc}") from exc
 
-    from pglast import parse_sql
-    from pglast.stream import RawStream
+    return candidates[0]
 
-    actual_view = connection.scalar(
-        text("SELECT pg_get_viewdef(to_regclass('data.selected_fact'),true)")
-    )
-    if actual_view is None or RawStream()(parse_sql(actual_view)) != RawStream()(
-        parse_sql(expected_view)
-    ):
-        raise ExecutionAdmissionError("native selected-fact view differs from its model projection")
-    return physical_id
+
+def _verify_deployment_functions(
+    connection: Connection, *, revision: str | None = None, versions: Path | None = None
+) -> str:
+    """Authenticate the current descriptor and enforcing release guard."""
+    return _deployment_expectation(connection, revision=revision, versions=versions).physical_id
 
 
 def require_native_execution(connection: Connection, prepared: PreparedRelease) -> str:
@@ -242,60 +214,16 @@ def require_native_execution(connection: Connection, prepared: PreparedRelease) 
         raise ExecutionAdmissionError(
             "native execution deployment or archived binding is incompatible: "
             + reason
-            + "; inspect the owning contract and derive a new reviewed revision with "
-            "ci schema derive --out <new-directory>"
+            + "; inspect the owning contract and prepare a reviewed current revision with "
+            "ci model change preview"
         ) from exc
 
     return physical_id
 
 
 def require_archive_fence(connection: Connection) -> None:
-    """Archive under either the exact refusal fence or the enforcing deployment."""
-    if _realization_fence_digest(connection) is not None:
-        _verify_deployment_functions(connection)
-
-
-def _realization_fence_digest(connection: Connection) -> str | None:
-    """Read the enforcing trigger body, or recognize the exact archive-only fence."""
-    from sqlalchemy import text
-
-    row = (
-        connection.execute(
-            text("""
-      SELECT encode(sha256(convert_to(p.prosrc,'UTF8')),'hex') AS digest,
-             pg_get_userbyid(p.proowner) AS owner,
-             p.prosecdef,p.proconfig,
-             ARRAY(SELECT a.attname::text FROM unnest(t.tgattr::smallint[])
-                   WITH ORDINALITY attrs(num,position)
-                   JOIN pg_attribute a ON a.attrelid=t.tgrelid AND a.attnum=attrs.num
-                   ORDER BY attrs.position) AS update_columns,
-             (SELECT pg_get_userbyid(nspowner) FROM pg_namespace
-              WHERE nspname='sem') AS schema_owner
-      FROM pg_trigger t JOIN pg_proc p ON p.oid=t.tgfoid
-      WHERE t.tgrelid='data.realization'::regclass AND t.tgname='guard_execution_admission'
-        AND NOT t.tgisinternal AND t.tgenabled IN ('O','A') AND t.tgqual IS NULL AND t.tgnargs=0
-        AND t.tgtype=23 AND p.oid=to_regprocedure('data.guard_execution_admission()')
-    """)
-        )
-        .mappings()
-        .one_or_none()
-    )
-    if row is None or row["proconfig"] != ["search_path=pg_catalog, pg_temp"]:
-        raise ExecutionAdmissionError("native execution archive fence is not deployed")
-    if (
-        row["digest"] == _REFUSAL_SHA256
-        and row["prosecdef"] is False
-        and row["owner"] == row["schema_owner"]
-        and row["update_columns"] == ["release_id"]
-    ):
-        return None
-    if (
-        row["owner"] == "corpus_sem_publisher"
-        and row["prosecdef"] is True
-        and row["update_columns"] == []
-    ):
-        return row["digest"]
-    raise ExecutionAdmissionError("native execution archive fence differs from trusted enforcement")
+    """Require current frozen native/physical/privilege custody before archive effects."""
+    verify_deployment_catalog(connection)
 
 
 def _descriptor_sha256() -> str:
@@ -418,7 +346,7 @@ def _expectation_metadata(
 
 
 def _expectations(versions: Path) -> dict[str, NativeExpectation]:
-    """Full-history discovery for callers identifying a contract by native body fingerprints."""
+    """Discover current registered contracts by their exact native body fingerprints."""
     revisions = _revision_index(versions)
     try:
         identities = tuple(
@@ -475,19 +403,9 @@ def _cached_selected_expectation(
     bodies = function_bodies(sql.decode())
     body = bodies[_DESCRIPTOR]
     descriptor = literal_json_descriptor(sql.decode(), _DESCRIPTOR)
-    (view,) = (
-        item["query"] for item in descriptor["views"] if item["relation"] == "data.selected_fact"
-    )
-    (guard,) = (
-        item["body_sha256"]
-        for item in descriptor["functions"]
-        if item["signature"] == "data.guard_execution_admission()"
-    )
     return NativeExpectation(
         (sha256(body.encode()).hexdigest(), sha256(bodies[_REQUIRED].encode()).hexdigest()),
         descriptor["physical_id"],
-        guard,
-        view,
         metadata.state,
         bodies[_REQUIRED],
     )
@@ -500,7 +418,7 @@ def _frozen_functions(path: Path, digest: str):
 
 @lru_cache(maxsize=32)
 def _cached_frozen_functions(path: Path, digest: str, _mtime: int, _ctime: int):
-    from .native_candidate import load_native_state
+    from .native_authoring import load_native_state
 
     selected = tuple(
         item
@@ -511,9 +429,3 @@ def _cached_frozen_functions(path: Path, digest: str, _mtime: int, _ctime: int):
     if len(selected) != 2:
         raise ValueError(f"{path.name}: required native enforcement functions are unavailable")
     return tuple(sorted(selected, key=lambda item: item.identity.qualified))
-
-
-# The realization trigger predates frozen native state. Preserve the independent
-# exact refusal and enforcing trigger contracts.
-_REFUSAL_SHA256 = "e5dc0f2a81371d4091c1d80a4fe4de6f5c94f519b9d916ffae486e9b75f4e462"
-_GUARD_SHA256 = "225ab497a6a3c33dfa895ba3ca977de9a27f86d7777c84f92e0bc47edbba98a6"

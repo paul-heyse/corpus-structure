@@ -641,12 +641,12 @@ def activate_release(
 ) -> ActivationToken:
     """Admit the exact archived release, then CAS the pointer and generation together.
 
-    Existing realizations retain their release FK; activation never updates them.
+    Existing results retain their original producer attribution.
     A stale token fails even after a pointer changes away and returns (ABA).
     """
     from .authored_sql import admit_archived_sql
+    from .data_operation_admission import admit_data_operation_release
     from .migrations import migration_fence
-    from .publication import admit_release
 
     migration_fence(conn)
     prepared = load_release(conn, release_id)
@@ -658,7 +658,7 @@ def activate_release(
             verify_reader=verify_sql_reader,
             analyzed=sql_admissions,
         )
-        admit_release(prepared, connection=conn)
+        admit_data_operation_release(conn, prepared)
         from sqlalchemy.exc import DBAPIError
 
         try:

@@ -1,5 +1,18 @@
 # D3 · Database
 
+## One current native installation basis
+
+**Accepted target; normal-route implementation/adoption Proposed · 2026-11-16.** Canonical current
+physical/PDF declarations replace runtime target filtering and historical defaults. One immutable
+current Alembic root and exact frozen-state successors govern normal authoring, registration and
+installation; historical semantic migration files remain records, not a selectable normal route.
+Current DDO/native guards retain schema, source, catalog, privilege and byte custody without old
+realization/selected-fact expectations. No persistent switch is performed by this decision. DDO owns
+current consumer/fixture migration, qualification, recovery and separately recorded development
+adoption; optional import never requires historical compatibility code.
+
+> Decision: [ADR-0118](../adr/0118-current-target-installation.md)
+
 ## Native semantic product and support target
 
 **Accepted target; implementation/qualification Proposed · 2026-11-12.** The DDO target uses one

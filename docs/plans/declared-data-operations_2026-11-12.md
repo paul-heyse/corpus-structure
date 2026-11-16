@@ -1,6 +1,6 @@
 # Declared data operations — total governing model
 
-**Status · 2026-11-15: DDO-00–11 execution in progress. CA-10–13 repairs integrated with scoped Python/physical controls; native capture and acceptance remain open. Current effective interpretation is v8. Complete producer/consumer migration, legacy retirement and supported development adoption remain incomplete. No persistent deployment or conversion. DDO-12 assembled qualification remains open.**
+**Status · 2026-11-16: DDO-00–11 execution in progress. Current effective interpretation is v8. The97-relation target is canonical; its normal native-only installation lifecycle, registered root, consumer integration and verified development adoption remain incomplete. Complete legacy retirement and DDO-12 assembled qualification remain open. No persistent deployment or conversion.**
 
 This coordinator is the sole owner of package readiness, source-qualified recommendation disposition,
 F/CA findings and preparation questions. Technical companions own contracts; dated sections below
@@ -9,6 +9,45 @@ Consumes [the audited domain-model review](../plan_improvement_reviews/declared-
 at `4f32589d0`. All actionable I01–I09 scope is scheduled below, with explicit investigations and
 conditional choices retained. Existing F01–F14/C1–C7/CA identities and scoped closures survive.
 Core3.3/heuristics/code-intelligence1.4/test-assessment1.2/binding apply. No broad audit is initiated.
+
+## Current execution boundary · 2026-11-16
+
+**Implemented; bounded Tested.** The97-relation physical declaration and maintained PDF actions now
+own the normal metadata basis. Current `native_authoring` and `native_admission` own generic frozen
+state/catalog contracts; the normal Alembic location is `target_alembic`. There is not yet a
+registered current root, so initialization must refuse rather than replay the historical series.
+[ADR-0118](../adr/0118-current-target-installation.md) selects one current root and exact frozen
+successors, including a native-only lifecycle with no fabricated application release. The
+unregistered [v10 preparation](../design_review/evidence/2026-11-15_ddo-v10-native/README.md) is
+superseded; its requests, previews and failed candidate remain evidence. Historical frozen files
+are unchanged. Older sections below retain their dated source/context, not the current route.
+
+Actual fresh target installation/render/catalog/ACL controls passed at their bounded source;
+root retry1 `e39d48a82e0b4cc88a796db0b121038a` passed after the original witness-local ambiguity
+in `2dbcaf3ec93e4882823f75e5175bb887` was repaired. Exact current-root successor controls2
+passed `ff10412ccc1e4d3585286340b2310962`. These establish private fresh/successor behavior,
+not the normal lifecycle, application consumers, adoption or provider qualification.
+
+Current activation calls checked DDO admission directly. Frozen descriptor/body/catalog custody
+replaces historical realization-trigger hashes and selected-fact assumptions. Current admission,
+installation and archive-bootstrap Python controls35 passed `9edb781c7f4e4402b2e65b751783a06a`.
+Typing `88f63bc01d4f435eaeff05c66ca15572` failed only in the historical PostgreSQL capability test's
+two removed trigger-hash expectations; current native/catalog counterparts are assigned. A real
+admitter-principal archive-fence positive and catalog-drift refusal remain required.
+
+[ADR-0117](../adr/0117-current-operation-event-fitting.md) retains the existing numerical fitter
+with genuine selected report/component frames, independent C labels and finite safe parameter
+authority. This is implementation in progress, not fitted scientific or native qualification.
+Current component CPU-body correspondence, applicability-source isolation, contextual linguistic
+premises, selected native annotation scoring and event fit/authority consumers remain active work.
+The fixed catalog has32 variants remaining/60 removed; genuine caller closure, not this count,
+determines retirement. Remaining old scientific/finalizer fixtures must migrate or retire with
+preserved independent expectations. No legacy reader will be kept merely for historical data.
+
+I09 remains open for native-only preview/candidate/register/deploy, a registered current root,
+current fixture baseline, full supported consumer readiness, recovery/fencing and adoption.
+I02/I04/I05/I06 retain common authority, source/body/lineage and native/provider integration.
+DDO-12 remains open for the final-source functional/provider/fault/nonfunctional union.
 
 ## Integrated execution · 2026-11-15
 
