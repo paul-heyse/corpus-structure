@@ -41,6 +41,8 @@ def grade_guard_connection(semantic_bare_engine):
         "ops.data_derivation",
         "ops.data_completion_intent",
         "sem.data_operation_definition",
+        "sem.artifact",
+        "sem.release_finalization",
     )
     with semantic_bare_engine.begin() as connection:
         for schema in ("ops", "sem", "data", "kb"):
@@ -99,6 +101,7 @@ def test_native_grade_function_population_has_independent_expected_signatures():
         if isinstance(statement.stmt, ast.CreateFunctionStmt) and statement.stmt.funcname
     }
     assert names == {
+        "ddo_model_class_contract",
         "ddo_record_grade_input_value",
         "ddo_record_grade_input",
         "ddo_record_grade_require_finite_census",

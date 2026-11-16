@@ -12,6 +12,23 @@ def record_grade_native_sql() -> str:
 
     return (
         r"""
+-- Logical class identity belongs to the authenticated effective model. It is
+-- independent of the subset projected as native operation body/member kinds.
+CREATE OR REPLACE FUNCTION sem.ddo_model_class_contract(
+ p_release text,p_contract text,p_class text DEFAULT NULL)
+RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $model$
+ SELECT count(*)=1 FROM sem.artifact artifact
+ JOIN sem.release_finalization finalized ON finalized.release_id=artifact.release_id
+ CROSS JOIN LATERAL jsonb_array_elements(convert_from(artifact.content,'UTF8')::jsonb->'kinds') owned
+ CROSS JOIN LATERAL jsonb_array_elements(convert_from(artifact.content,'UTF8')::jsonb->'identities') identity_
+ WHERE artifact.release_id=p_release AND artifact.artifact_name='data_operations.json'
+ AND (p_class IS NULL OR owned->>'name'=p_class)
+ AND owned->>'category'='class' AND (owned->>'complete')::boolean
+ AND identity_->>'domain'='kind' AND identity_->>'owner'=owned->>'semantic_id'
+ AND identity_->>'key'=p_contract
+$model$;
+REVOKE ALL ON FUNCTION sem.ddo_model_class_contract(text,text,text) FROM PUBLIC;
+
 CREATE OR REPLACE FUNCTION ops.ddo_record_grade_input_value(project text,product text,member text)
 RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $grade$
 DECLARE value jsonb;
@@ -335,16 +352,10 @@ BEGIN
  OR event->'features'->>'record_id' IS DISTINCT FROM candidate->>'record_id'
  OR event->'features'->>'interpretation_id' IS DISTINCT FROM candidate->>'interpretation_id'
  OR event->'features'->>'release_id' IS DISTINCT FROM producer.release_id
- OR NOT coverage->'event_ids' ? (candidate->>'interpretation_id')
- OR (SELECT count(*) FROM sem.artifact artifact
- CROSS JOIN LATERAL jsonb_array_elements(convert_from(artifact.content,'UTF8')::jsonb->'kinds') owned
- CROSS JOIN LATERAL jsonb_array_elements(convert_from(artifact.content,'UTF8')::jsonb->'identities') identity_
- JOIN sem.data_kind_release admitted ON admitted.release_id=producer.release_id AND admitted.kind_contract=identity_->>'key'
- WHERE artifact.release_id=producer.release_id AND artifact.artifact_name='data_operations.json'
- AND owned->>'name'=candidate->>'contract' AND owned->>'category'='class' AND (owned->>'complete')::boolean
- AND identity_->>'domain'='kind' AND identity_->>'owner'=owned->>'semantic_id'
- AND identity_->>'key'=question->>'family_contract')<>1 THEN
- RAISE EXCEPTION 'grade event relabels actual eligible reading, family or producing context' USING ERRCODE='23514'; END IF;
+ OR NOT coverage->'event_ids' ? (candidate->>'interpretation_id') THEN
+ RAISE EXCEPTION 'grade event relabels actual eligible reading or producing context' USING ERRCODE='23514'; END IF;
+ IF NOT sem.ddo_model_class_contract(producer.release_id,question->>'family_contract',candidate->>'contract') THEN
+ RAISE EXCEPTION 'grade family differs from its authenticated effective model class contract' USING ERRCODE='23514'; END IF;
  SELECT value INTO STRICT actual_event FROM jsonb_array_elements((carrier->>'diagnostics_json')::jsonb->'record_policy_events') item(value)
  WHERE value->>'record_id'=candidate->>'record_id' AND value->>'interpretation_id'=candidate->>'interpretation_id';
  IF actual_event->>'outcome'='completed' THEN

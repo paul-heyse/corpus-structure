@@ -26,6 +26,17 @@ def test_current_record_policy_journey_recipe_has_real_closed_producers(tmp_path
     assert captured is not None
     preparation = prepare_kernel(recipe)
     model = preparation.model
+    from corpus_structure.semantic.native_definition_projection import (
+        read_native_definition_projection,
+    )
+    from corpus_structure.semantic.record_contracts import record_family_contract
+
+    family = record_family_contract(model, "FixtureRecordFields")
+    assert family not in {
+        row["kind_contract"]
+        for row in read_native_definition_projection(preparation.prepared)["kinds"]
+    }
+    assert any(kind.name == "FixtureRecordFields" and kind.complete for kind in model.kinds)
     vocabulary = preparation.prepared.vocabulary_metadata["enums"]
     for name, expected_count in (
         ("StatisticalDistributionFamily", 6),
@@ -369,3 +380,53 @@ def test_actual_grade_fit_authorization_and_restricted_fitter_custody(
         pytest.raises(DBAPIError, match=r"trust|selected support"),
     ):
         reacquire_record_feature_grade(connection, fitted.feature.selection)
+
+
+def test_native_logical_family_contract_does_not_require_a_port_body_projection(
+    scenario_seeds, tmp_path
+):
+    from corpus_structure.semantic.record_contracts import record_family_contract
+
+    recipe = policy_recipe(tmp_path / "family-contract")
+    with scenario_seeds.commit_clone(recipe) as clone:
+        prepared = clone.stage.preparation
+        family = record_family_contract(prepared.model, "FixtureRecordFields")
+        release = prepared.prepared.release_id
+        with clone.admin.begin() as connection:
+            connection.exec_driver_sql("SET LOCAL ROLE corpus_sem_publisher")
+            assert (
+                connection.scalar(
+                    text(
+                        "SELECT count(*) FROM sem.data_kind_release WHERE release_id=:release AND kind_contract=:family"
+                    ),
+                    {"release": release, "family": family},
+                )
+                == 0
+            )
+            query = text("SELECT sem.ddo_model_class_contract(:release,:family,:name)")
+            valid = {"release": release, "family": family, "name": "FixtureRecordFields"}
+            assert connection.scalar(query, valid) is True
+            assert connection.scalar(query, {**valid, "name": None}) is True
+            for wrong in (
+                {"name": "MissingFamily"},
+                {"name": "FixtureCandidateQuestion"},
+                {"family": "kind:missing"},
+                {"release": "release:missing"},
+            ):
+                assert connection.scalar(query, {**valid, **wrong}) is False
+            for role in (
+                "corpus_sem_reader",
+                "corpus_sem_writer",
+                "corpus_sem_admitter",
+                "corpus_sem_evaluator",
+                "corpus_sem_fitter",
+            ):
+                assert (
+                    connection.scalar(
+                        text(
+                            "SELECT has_function_privilege(:role,'sem.ddo_model_class_contract(text,text,text)','EXECUTE')"
+                        ),
+                        {"role": role},
+                    )
+                    is False
+                )
