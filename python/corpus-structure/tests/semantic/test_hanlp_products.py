@@ -46,13 +46,12 @@ def profile():
     return PreparedHanlpProfile(prepared, model, selection)
 
 
-def inputs(profile):
-    text = "The mean is 2."
-    words = [("The", 0, 3), ("mean", 4, 8), ("is", 9, 11), ("2", 12, 13), (".", 13, 14)]
+def inputs(profile, *, text="The mean is 2.", words=None, pieces=None, items=None):
+    words = [("The", 0, 3), ("mean", 4, 8), ("is", 9, 11), ("2", 12, 13), (".", 13, 14)] if words is None else words
     pieces = [
         dict(kind="native_text", start=0, end=len(text), item_ref="#/texts/0", source_field="text")
-    ]
-    items = [dict(self_ref="#/texts/0", label="text", text=text, orig=text, prov=[dict(page_no=1)])]
+    ] if pieces is None else pieces
+    items = [dict(self_ref="#/texts/0", label="text", text=text, orig=text, prov=[dict(page_no=1)])] if items is None else items
     projection = native_projection_identity(text, pieces, items)
     coordinate = dict(
         document="document:original",
@@ -75,6 +74,7 @@ def inputs(profile):
     )
     context = dict(
         subject=source_subject(coordinate),
+        subject_definition="original-source-view",
         original_source=coordinate["document"],
         analyzed_scope=dict(source=coordinate, selectors=selectors),
     )
@@ -428,3 +428,34 @@ def _publication_context(source):
         canonical_bytes({"source": value["source"], "selectors": value["selectors"]}),
         subject_definition="original-source-view",
     )
+
+
+@pytest.mark.parametrize("predicate_count", [0, 1, 2])
+def test_raw_srl_preserves_unicode_whitespace_roles_and_honest_predicate_standing(profile, predicate_count):
+    text = "X X é x+y [3]."
+    population = [("X", 0, 1), ("X", 2, 3), ("é", 4, 5), ("x+y", 6, 9), ("[3]", 10, 13), (".", 13, 14)]
+    _, canonical, sentence, tokens = inputs(profile, text=text, words=population)
+    words = [word for _, word in tokens]
+    prepared = [word if index == 0 else " " + word for index, word in enumerate(words)]
+    preparation = dict(prepared_words=prepared, word_subwords=[[i + 1] for i in range(len(words))],
+                       input_ids=[100, *range(1, len(words) + 1), 101])
+    roles = [("X", "ARG1", 0, 1), (" X", "R-ARG1", 1, 2), (" x+y", "C-ARG1", 3, 4)]
+    roles.extend((" é", "PRED", 2, 3) for _ in range(predicate_count))
+    heads = dict(lemma=[" " + word for word in words], pos=["NN"] * len(words),
+                 dependency=[[len(words), "dep"] for _ in words[:-1]] + [[0, "root"]],
+                 constituency=["TOP", [["FRAG", [["WHADVP", [["NN", [prepared[0]]]]],
+                                               *[["NN", [word]] for word in prepared[1:]]]]]],
+                 srl=[roles])
+    units, alignment, coverage = detach_hanlp_sentence(sentence, tokens, canonical, heads, preparation)
+    by_family = {row["family"]: row["outcome"] for row in coverage}
+    assert by_family["hanlp.srl"] == ("complete" if predicate_count == 1 else "partial")
+    assert all(outcome == "complete" for family, outcome in by_family.items() if family != "hanlp.srl")
+    (group,) = [row for row in units if row["record_type"] == "srl_group"]
+    assert [(row["native_text"], row["label"], row["start"], row["end"]) for row in group["roles"]] == roles
+    assert [row["tokens"][0]["member_id"] for row in group["roles"][:3]] == [tokens[i][0] for i in (0, 1, 3)]
+    native_tokens = [row for row in units if row["record_type"] == "token"]
+    assert native_tokens[1]["lemma"] == " X" and native_tokens[-1]["dependency_head"] == 0
+    constituents = [row for row in units if row["record_type"] == "constituent"]
+    assert {row["label"] for row in constituents} == {"TOP", "FRAG", "WHADVP", "NN"}
+    assert len(constituents) == len(words) + 3
+    assert alignment["prepared_words"] == prepared

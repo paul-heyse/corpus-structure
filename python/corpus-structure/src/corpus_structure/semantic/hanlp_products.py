@@ -222,7 +222,11 @@ def detach_hanlp_sentence(sentence, tokens, canonical, heads, preparation, vocab
     try:
         groups = _NATIVE_SRL.validate_python(heads.get("srl"))
         detached = []
+        ambiguous_predicate = False
         for ordinal, group in enumerate(groups):
+            if not group:
+                raise ValueError("native SRL returned an empty role group")
+            ambiguous_predicate |= sum(role[1] == "PRED" for role in group) != 1
             roles = []
             for text, label, start, end in group:
                 if not label or not 0 <= start < end <= len(words):
@@ -246,7 +250,11 @@ def detach_hanlp_sentence(sentence, tokens, canonical, heads, preparation, vocab
                 )
             )
         units.extend(detached)
-        standing("srl", "complete" if groups else "empty")
+        standing(
+            "srl",
+            "partial" if ambiguous_predicate else "complete" if groups else "empty",
+            "native SRL group has no unique predicate" if ambiguous_predicate else None,
+        )
     except ValueError as error:
         standing("srl", "failed", str(error))
     if {row["family"] for row in coverage} != set(HANLP_FAMILIES):
