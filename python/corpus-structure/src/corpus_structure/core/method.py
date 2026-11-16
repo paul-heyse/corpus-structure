@@ -276,14 +276,6 @@ class SourceObservationReference:
             raise ValueError("source reference requires stable observation identity and role")
 
 
-@typing.runtime_checkable
-class StableObservationReading(ObservationReading, Protocol):
-    @property
-    def observation_key(self) -> str: ...
-    @property
-    def input_refs(self) -> tuple[SourceObservationReference, ...]: ...
-
-
 @dataclass(frozen=True)
 class RetainedSourceResult:
     """Authenticated historical producer input and exact selected-source correspondence."""
@@ -340,16 +332,6 @@ class Reader(Protocol):
     def source_view_ref(self, source_view_id: int) -> SourceViewRef: ...
 
     def source_view(self, source_view_id: int) -> PreparedSourceView: ...
-
-    def ancestor_source_views(self, source_view_id: int) -> Sequence[SourceViewRef]: ...
-
-    def source_observations(
-        self, source_view_id: int, method: str, kind: str
-    ) -> Sequence[StableObservationReading]: ...
-
-    def source_view_coverage(
-        self, source_view_id: int, method: str
-    ) -> tuple[SourceCoverageReading, ...]: ...
 
     def measurements(self, method: str, metric: str) -> Sequence[MeasurementView]:
         """Measurements a method wrote, read through reuse."""
@@ -613,18 +595,6 @@ class CoverageDraft:
             raise ValueError("unsupported coverage outcome")
         if self.outcome != "complete" and not self.reason:
             raise ValueError("incomplete coverage requires a reason")
-
-
-@dataclass(frozen=True, slots=True)
-class SourceCoverageReading:
-    """One immutable source-result coverage row and its effective origin/extent."""
-
-    coverage: CoverageDraft
-    task_id: int
-    release_id: str
-    position: int
-    start: int | None = None
-    end: int | None = None
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)

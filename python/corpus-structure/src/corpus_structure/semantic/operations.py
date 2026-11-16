@@ -20,7 +20,6 @@ from sqlalchemy.sql import ColumnElement
 from corpus_structure.core.method import (
     MeasurementView,
     Method,
-    SourceObservationReference,
     SourceViewRef,
     UnitResult,
 )
@@ -920,27 +919,6 @@ def complete_unit_result(
     ).apply(conn)
 
 
-@dataclass(frozen=True)
-class SourceObservationView:
-    id: int
-    task_id: int
-    kind: str
-    rendition_id: int | None
-    segment_id: int | None
-    span_id: int | None
-    payload: Mapping[str, JsonValue]
-    payload_hash: str
-    score: float | None
-    outcome: str
-    observation_key: str
-    release_id: str
-    input_refs: tuple[SourceObservationReference, ...] = ()
-    source_view_id: int | None = None
-    native_pointer: str | None = None
-    projected_span: tuple[int, int] | None = None
-    recognized_span: tuple[int, int] | None = None
-
-
 def _retained_source_ref(reference):
     return dict(
         document_id=reference.document_id,
@@ -1114,18 +1092,6 @@ class BoundReader:
                 read_budget=self._read_budget,
             )
         return cache[source_view_id]
-
-    def ancestor_source_views(self, source_view_id: int):
-        from .source_views import selected_source_views
-
-        source = self.source_view(source_view_id)
-        ancestors = {a["self_ref"] for a in source.ancestors}
-        selected = selected_source_views(self.conn, self.run_id, read_budget=self._read_budget)
-        return tuple(
-            v
-            for v in selected
-            if v.native_product == source.ref.native_product and v.section_pointer in ancestors
-        )
 
     def context_sources(self, source_view_id, request, *, limit, read_budget):
         from .source_views import read_context_sources
@@ -1679,124 +1645,6 @@ class BoundReader:
         if permitted is None:
             raise OperationConflict("original source is outside the bound run/project")
         return read_original(self.conn, DocumentId(permitted), prepared=self.prepared)
-
-    def source_observations(self, source_view_id: int, method: str, kind: str):
-        self.source_view(source_view_id)
-        return self._observations(source_view_id, method, kind)
-
-    def source_observations_for_ref(self, reference: SourceViewRef, method: str, kind: str):
-        """Read observations under an exact selected reference, without view hydration."""
-        if self.source_view_ref(reference.id) != reference:
-            raise OperationConflict("source observation reference differs from bound run")
-        return self._observations(reference.id, method, kind)
-
-    def _observations(self, source_id: int, method: str, kind: str):
-        from corpus_structure.core.method import payload_hash
-
-        from .observations import source_python
-
-        o, t, c, m = (
-            table("kb.observation"),
-            table("ops.task"),
-            table("ops.method_config"),
-            table("ops.method"),
-        )
-        q = (
-            select(o)
-            .select_from(t)
-            .join(o, o.c.task_id == func.coalesce(t.c.reused_task_id, t.c.id))
-            .join(c, t.c.method_config_id == c.c.id)
-            .join(m, c.c.method_id == m.c.id)
-            .where(
-                t.c.run_id == self.run_id,
-                o.c.source_view_id == source_id,
-                m.c.name == method,
-                o.c.kind == kind,
-            )
-            .order_by(o.c.ordinal)
-        )
-        q = self._source_producer_query(q, t, o, source_id, method)
-        if self._read_budget is not None:
-            self._read_budget.preflight(self.conn, q)
-        out = []
-        for row in self.conn.execute(q).mappings():
-            if self._read_budget is not None:
-                self._read_budget.value(row["payload"])
-            payload = (
-                source_python(row["payload"]["payload"])
-                if row["payload_definition"] == "SourceObservation"
-                else row["payload"]
-            )
-            # ObservationView is the recognizer's pure source representation. Domain boundary
-            # interpretation stays in PreparedRelease, not the legacy payload-schema registry.
-            out.append(
-                SourceObservationView(
-                    row["id"],
-                    row["task_id"],
-                    row["kind"],
-                    row["rendition_id"],
-                    row["segment_id"],
-                    row["span_id"],
-                    payload,
-                    payload_hash(payload),
-                    float(row["score"]) if row["score"] is not None else None,
-                    row["outcome"],
-                    row["observation_key"],
-                    row["release_id"],
-                    tuple(
-                        SourceObservationReference(ref["observation_key"], ref["role"])
-                        for ref in row["payload"].get("inputs", ())
-                    ),
-                    row["source_view_id"],
-                    row["payload"].get("native_pointer"),
-                    (
-                        (row["payload"]["projected_start"], row["payload"]["projected_end"])
-                        if row["payload"].get("projected_start") is not None
-                        else None
-                    ),
-                    (
-                        (row["payload"]["recognized_start"], row["payload"]["recognized_end"])
-                        if row["payload"].get("recognized_start") is not None
-                        else None
-                    ),
-                )
-            )
-        return out
-
-    def source_view_coverage(self, source_view_id: int, method: str):
-        from corpus_structure.core.method import CoverageDraft, SourceCoverageReading
-
-        source = self.source_view(source_view_id)
-        task, result, config, producer = map(
-            table, ("ops.task", "ops.task_result", "ops.method_config", "ops.method")
-        )
-        query = (
-            select(result)
-            .select_from(task)
-            .join(result, result.c.task_id == func.coalesce(task.c.reused_task_id, task.c.id))
-            .join(config, task.c.method_config_id == config.c.id)
-            .join(producer, producer.c.id == config.c.method_id)
-            .where(
-                task.c.run_id == self.run_id,
-                task.c.unit_type == "source_view",
-                task.c.unit_id == source_view_id,
-                producer.c.name == method,
-            )
-        )
-        query = self._source_producer_query(query, task, result, source_view_id, method)
-        return tuple(
-            SourceCoverageReading(
-                CoverageDraft(**item),
-                row["task_id"],
-                row["release_id"],
-                position,
-                0,
-                len(source.text),
-            )
-            for row in self.conn.execute(query).mappings()
-            for position, item in enumerate(row["body"].get("coverage", ()))
-            if item["family"] == method
-        )
 
     def measurements(self, method: str, metric: str) -> Sequence[MeasurementView]:
         from corpus_structure.core.method import MeasurementView

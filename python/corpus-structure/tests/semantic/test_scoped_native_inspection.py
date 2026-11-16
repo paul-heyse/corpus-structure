@@ -159,22 +159,6 @@ def test_formula_metadata_reuses_projection_validator_even_with_matching_corrupt
         source_formula_metadata(conn, reference, POINTER)
 
 
-def test_compact_observation_port_rechecks_selected_reference_without_hydration(source):
-    reference = source[1]
-    reader = BoundReader(Mock(), 11, Mock())
-    reader.source_view_ref = Mock(return_value=reference)
-    reader.source_view = Mock(side_effect=AssertionError("must not hydrate a partial view"))
-    reader._observations = Mock(return_value=["owned observation"])
-    assert reader.source_observations_for_ref(reference, "extract.math", "record") == [
-        "owned observation"
-    ]
-    with pytest.raises(OperationConflict, match="differs from bound run"):
-        reader.source_observations_for_ref(
-            replace(reference, recipe_digest="b" * 64), "extract.math", "record"
-        )
-    reader._observations.assert_called_once_with(reference.id, "extract.math", "record")
-
-
 def test_compact_reference_rejects_superseded_or_other_run_selection(monkeypatch, source):
     from corpus_structure.semantic import source_views
 
