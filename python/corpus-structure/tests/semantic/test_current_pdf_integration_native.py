@@ -17,6 +17,150 @@ from semantic.current_pdf_integration_support import RICH_RESPONSE, current_inte
 from semantic.pdf_native_source_support import IMAGE
 
 
+def selected_reference(case, operation, snapshot=None):
+    from corpus_structure.serve.selected_pdf import SelectedPdfSourceReference
+
+    snapshot = case.snapshot if snapshot is None else snapshot
+    obligations = {row["obligation_id"]: row for row in snapshot["obligations"]}
+    use = next(row for row in snapshot["uses"] if row["fate"] == "fulfilled"
+        and obligations[row["obligation_id"]]["operation_id"] == operation)
+    output = next(row for row in use["products"] if row["role"] == "result")
+    return SelectedPdfSourceReference(project_id=case.original.project_id,
+        demand_id=snapshot["demand_id"], read_id=snapshot["read_id"],
+        use_id=use["use_id"], product_id=output["product_id"], derivation_id=use["derivation_id"])
+
+
+def test_current_observation_reclaim_preserves_first_publication_without_fresh_provider_credit(
+    scenario_seeds, tmp_path, monkeypatch, native_settings,
+):
+    with current_integration_journey(scenario_seeds, tmp_path, monkeypatch, native_settings,
+                                    reclaim_after_recognition=True) as case:
+        assert case.interruption is not None and case.reclaimed_fence is not None
+        receipt = case.observation_source.receipt
+        assert receipt.attempt > case.reclaimed_fence["attempt"] > 1
+        assert case.calls == ["capture", "recognize", "recognition-adopt"]
+        assert len(case.observations) == 4
+        assert len({reference for reference, _ in case.observations}) == 2
+        assert case.values["source.pdf_recognition/observe"]["result"]["pages"][0]["outcome"] == "succeeded"
+        assert receipt.pages[0].adapter_reused is True
+        with case.clone.admin.connect() as connection:
+            for reference in receipt.pages[0].observations:
+                origin = reference.publication_context
+                assert origin.attempt == 1 and origin.attempt < receipt.attempt
+                assert origin.holder != receipt.holder
+                retained = connection.scalar(text(
+                    "SELECT publication_context FROM ops.pdf_product WHERE task_id=:task AND product_key=:key"
+                ), {"task": reference.task_id, "key": reference.product_key})
+                assert retained == origin.model_dump(mode="json")
+        assert "integrated" in case.publications
+
+
+def test_current_observation_reads_refuse_wrong_kind_tuple_custody_and_revoked_support(
+    scenario_seeds, tmp_path, monkeypatch, native_settings,
+):
+    from copy import deepcopy
+    from typing import cast
+
+    from sqlalchemy.exc import DBAPIError
+    from corpus_structure.semantic._data_operation_wire import WireRevokeDataSupportRequest
+    from corpus_structure.semantic.data_operation_json import json_bytes
+    from corpus_structure.semantic.data_operation_storage import DataOperationStorage
+    from corpus_structure.serve.selected_pdf import acquire_selected_pdf_observations, acquire_selected_pdf_source
+
+    with current_integration_journey(scenario_seeds, tmp_path, monkeypatch, native_settings) as case:
+        observed = case.observation_source.reference
+        raw = selected_reference(case, "source.pdf/capture")
+        assert observed != raw
+        with case.reader().begin() as connection:
+            assert acquire_selected_pdf_observations(connection, observed).receipt == case.observation_source.receipt
+            for reader, reference in (
+                (acquire_selected_pdf_source, observed),
+                (acquire_selected_pdf_observations, raw),
+                (acquire_selected_pdf_observations, observed.model_copy(update={"product_id": raw.product_id})),
+                (acquire_selected_pdf_observations, observed.model_copy(update={"project_id": observed.project_id + ":foreign"})),
+            ):
+                with pytest.raises(DBAPIError), connection.begin_nested():
+                    reader(connection, reference)
+        receipt = case.observation_source.receipt
+        for mutation in ("source", "recipe", "report", "origin", "request"):
+            forged = deepcopy(receipt.model_dump(mode="json"))
+            if mutation == "source":
+                forged["source_digest"] = "f" * 64
+            elif mutation == "recipe":
+                forged["pages"][0]["recipe_digest"] = "f" * 64
+            elif mutation == "report":
+                forged["pages"][0]["report_digest"] = "f" * 64
+            elif mutation == "origin":
+                forged["pages"][0]["observations"][0]["publication_context"]["attempt"] += 1
+            else:
+                forged["request_id"] += ":foreign"
+            with case.kernel.purpose("write").begin() as connection:
+                with pytest.raises(DBAPIError), connection.begin_nested():
+                    connection.scalar(text(
+                        "SELECT ops.pdf_observation_projection(CAST(:receipt AS jsonb),:task,:attempt,:holder)"
+                    ), {"receipt": json_bytes(forged).decode(), "task": receipt.task_id,
+                        "attempt": receipt.attempt, "holder": receipt.holder})
+        with case.kernel.purpose("write").begin() as connection:
+            DataOperationStorage(connection).revoke_data_support(cast(WireRevokeDataSupportRequest,
+                dict(project_id=case.original.project_id, original_source=case.original.document_key,
+                    selector_kind="product", selector=observed.product_id,
+                    reason="independent observation-set support withdrawal")))
+        with case.reader().begin() as connection:
+            with pytest.raises(DBAPIError), connection.begin_nested():
+                acquire_selected_pdf_observations(connection, observed)
+        # Revocation withdraws standing rather than erasing the actual raw attempts.
+        with case.clone.admin.connect() as connection:
+            assert connection.scalar(text("SELECT count(*) FROM ops.pdf_product WHERE task_id=:task AND kind='recognition_observation'"),
+                                     {"task": receipt.task_id}) == 2
+
+
+def test_current_policy_only_change_reuses_native_observation_support_without_provider_rerun(
+    scenario_seeds, tmp_path, monkeypatch, native_settings,
+):
+    from corpus_structure.core.method import MethodSettings
+    from corpus_structure.orchestrate.source_operation import run_source_operation
+    from corpus_structure.orchestrate.source_request import SourceRunRequest, WholeDocument
+    from corpus_structure.semantic.data_operation_service import read_data_demand
+    from corpus_structure.semantic.runtime import open_runtime_engine
+    from corpus_structure.serve.selected_pdf import acquire_selected_pdf_observations, acquire_selected_pdf_source
+    from semantic.current_pdf_integration_support import ROOT, current_pdf_recipe
+    from semantic.current_pdf_source_support import admit_current_target
+
+    with current_integration_journey(scenario_seeds, tmp_path, monkeypatch, native_settings) as case:
+        before = tuple(case.calls)
+        first_publication = case.publications["integrated"]
+        policy = dict(policy_id="pdf-integration-v1", conflict_action="keep", unmatched_action="add",
+                      specialized_crop_precedence=True, comparison_demand="lexical")
+        next_kernel = admit_current_target(case, current_pdf_recipe(tmp_path, integration_policy=policy),
+                                           tmp_path / "policy-consumer")
+        assert next_kernel.prepared.release_id != case.prepared.release_id
+        request = SourceRunRequest(project_id=case.original.project_id,
+            release_id=next_kernel.prepared.release_id, runtime_id=next_kernel.runtime,
+            domain="toy", workflow="capture", selection=WholeDocument(),
+            documents=(case.original.document_key,), pdf_mode="integrated", recognition_pages=(1,),
+            targets=("source.pdf_integrated_views/discovery",))
+        with open_runtime_engine(case.settings, "current-policy-remap", purpose="write", max_size=6) as engine:
+            result = run_source_operation(engine, request,
+                MethodSettings(data_dir=tmp_path, model_cache=tmp_path), source_root=ROOT,
+                admission_engine=next_kernel.purpose("admit"))
+        assert tuple(case.calls) == before
+        with case.reader().begin() as connection:
+            snapshot = read_data_demand(connection, result.demand_id, view="products")
+            reused = acquire_selected_pdf_observations(connection, selected_reference(case,
+                "source.pdf_recognition/observe", snapshot))
+            assert reused.reference.product_id == case.observation_source.reference.product_id
+            assert reused.reference.derivation_id == case.observation_source.reference.derivation_id
+            assert reused.receipt == case.observation_source.receipt
+            remapped = acquire_selected_pdf_source(connection, selected_reference(case,
+                "source.pdf_integrated/reconcile", snapshot))
+            assert remapped.physical.task_id != first_publication.task_id
+            assert remapped.receipt.publication.recipe_digest != case.values["source.pdf_integrated/reconcile"]["result"]["recipe_digest"]
+            reader = published_record_reader(connection, remapped.physical, projection_context=next_kernel.prepared)
+            assert reader is not None
+            decisions = list(reader.iter_companions("relation"))
+            assert decisions and any(row.get("outcome") == "retained_alternative" for row in decisions)
+
+
 def test_current_rich_integration_retains_separate_claims_inventory_and_originals(
     scenario_seeds, tmp_path, monkeypatch, native_settings
 ):

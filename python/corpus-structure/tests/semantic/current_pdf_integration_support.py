@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any
 
 from conftest import settings_for_native_clone
+from sqlalchemy import text
 
 from corpus_structure.core.method import MethodSettings
 from corpus_structure.ingest.pdf import PdfRecipe
@@ -175,6 +176,8 @@ class CurrentPdfIntegration:
     failure: Any = None
     snapshot: Any = None
     observation_source: Any = None
+    reclaimed_fence: Any = None
+    interruption: Any = None
 
     @property
     def prepared(self):
@@ -192,10 +195,8 @@ def current_integration_journey(
     native_settings,
     *,
     raw_responses=(RICH_RESPONSE, RICH_RESPONSE),
-    outcome="succeeded",
-    before_draft=None,
-    before_observation=None,
-    expect_unresolved_page=False,
+    outcome="succeeded", before_draft=None, before_observation=None,
+    expect_unresolved_page=False, reclaim_after_recognition=False,
 ):
     from corpus_structure.ingest import pdf_recognition, pdf_worker
     from corpus_structure.orchestrate import pdf_streaming
@@ -260,54 +261,44 @@ def current_integration_journey(
             return PdfStreamReply("success", (), self.recipe.to_bytes(), (), records + occurrences)
 
         def controlled_recognition(self, source, recipe, pages, *, check_active, **options):
-            case.calls.append("recognize")
             assert tuple(pages) == (1,)
-            directory = tmp_path / "controlled-actual-requests"
-            directory.mkdir()
-            (directory / "submitted.png").write_bytes(IMAGE)
-            requests = []
-            for ordinal, raw in enumerate(raw_responses):
-                row = dict(
-                    ordinal=ordinal,
-                    stage="fullpage" if ordinal == 0 else "detection",
-                    outcome="succeeded" if raw is not None else "failed",
-                    submitted_image="submitted.png",
-                    submitted_digest=sha256(IMAGE).hexdigest(),
-                    width=4,
-                    height=6,
-                    prompt="Independent finite controlled recognition",
-                    settings={},
-                )
-                if raw is not None:
-                    name = f"response-{ordinal:03d}.txt"
-                    (directory / name).write_bytes(raw)
-                    row.update(raw_response=name, raw_digest=sha256(raw).hexdigest(), finish_reason="stop")
-                else:
-                    row["diagnostic"] = "controlled connection closed before response"
-                (directory / f"request-{ordinal:03d}.json").write_text(json.dumps(row))
-                requests.append(row)
-            result = {"outcome": outcome, "requests": requests}
-            (directory / "result.json").write_text(json.dumps(result))
+            # This controlled external boundary retains actual request/report
+            # bytes. Reuse is explicit and confined to the exact source+recipe.
+            directory = tmp_path / "controlled-actual-requests" / source.digest / recipe.digest / "page-00001"
+            reused = directory.is_dir()
+            if reused:
+                case.calls.append("recognition-adopt")
+                result = json.loads((directory / "result.json").read_bytes())
+            else:
+                case.calls.append("recognize")
+                directory.mkdir(parents=True)
+                (directory / "submitted.png").write_bytes(IMAGE)
+                requests = []
+                for ordinal, raw in enumerate(raw_responses):
+                    row = dict(
+                        ordinal=ordinal, stage="fullpage" if ordinal == 0 else "detection",
+                        outcome="succeeded" if raw is not None else "failed",
+                        submitted_image="submitted.png", submitted_digest=sha256(IMAGE).hexdigest(),
+                        width=4, height=6, prompt="Independent finite controlled recognition",
+                        settings={},
+                    )
+                    if raw is not None:
+                        name = f"response-{ordinal:03d}.txt"
+                        (directory / name).write_bytes(raw)
+                        row.update(raw_response=name, raw_digest=sha256(raw).hexdigest(), finish_reason="stop")
+                    else:
+                        row["diagnostic"] = "controlled connection closed before response"
+                    (directory / f"request-{ordinal:03d}.json").write_text(json.dumps(row))
+                    requests.append(row)
+                result = {"outcome": outcome, "requests": requests}
+                (directory / "result.json").write_text(json.dumps(result))
             check_active()
-            yield RecognitionPage(
-                1,
-                directory,
-                result,
-                dict(
-                    status="coarse",
-                    normalization="none",
-                    source_space="pdf_points",
-                    target_space="submitted_pixels",
-                    page_width=200.0,
-                    page_height=300.0,
-                    page_rotation=0,
-                    crop_left=0.0,
-                    crop_top=0.0,
-                    crop_right=200.0,
-                    crop_bottom=300.0,
-                    affine=[0.02, 0.0, 0.0, 0.02, 0.0, 0.0],
-                ),
-            )
+            yield RecognitionPage(1, directory, result, dict(
+                status="coarse", normalization="none", source_space="pdf_points",
+                target_space="submitted_pixels", page_width=200.0, page_height=300.0,
+                page_rotation=0, crop_left=0.0, crop_top=0.0, crop_right=200.0,
+                crop_bottom=300.0, affine=[0.02, 0.0, 0.0, 0.02, 0.0, 0.0],
+            ), reused=reused)
 
         publish_observation = pdf_integrated.store_pdf_observation
 
@@ -351,6 +342,52 @@ def current_integration_journey(
         )
         patches.setattr(pdf_integrated, "store_pdf_observation", retain_observation)
         patches.setattr(pdf_streaming, "publish_pdf_record_draft", retained_draft)
+        if reclaim_after_recognition:
+            from corpus_structure.orchestrate.data_operations import NativeDemandExecutor
+            from corpus_structure.semantic._data_operation_wire import WireClaimDataRequestRequest
+            from corpus_structure.semantic.data_operation_storage import DataOperationStorage
+            from typing import cast
+
+            retain_answer = NativeDemandExecutor._retain_answer
+
+            def reclaim(executor, ready, claim, answer, port, owner, *, physical):
+                if ready.operation == "source.pdf_recognition/observe" and case.reclaimed_fence is None:
+                    # The provider/CPU work has returned and all raw publications
+                    # committed. Expiry+new claim share the existing support-lock
+                    # order, so the old heartbeat cannot race this fixture step.
+                    with case.clone.admin.begin() as connection:
+                        connection.execute(text(
+                            "SELECT ops.require_pdf_stage_owner(:task,:attempt,:holder)"
+                        ), {"task": claim.task_id, "attempt": claim.attempt, "holder": claim.holder})
+                        connection.exec_driver_sql("SET LOCAL ROLE corpus_sem_publisher")
+                        assert connection.execute(text(
+                            "UPDATE ops.task SET lease_until=clock_timestamp()-interval '1 second' WHERE id=:task"
+                        ), {"task": claim.task_id}).rowcount == 1
+                        connection.exec_driver_sql("SET LOCAL ROLE corpus_sem_writer")
+                        changed = DataOperationStorage(connection).claim_data_request(cast(
+                            WireClaimDataRequestRequest, dict(request_id=claim.request_id,
+                            holder="recognition-successor", lease_seconds=300),
+                        ))
+                        assert changed["state"] == "claimed"
+                        case.reclaimed_fence = {name: changed[name] for name in
+                            ("request_id", "generation", "task_id", "attempt", "holder")}
+                    from sqlalchemy.exc import DBAPIError
+                    from psycopg import Error as NativePgError
+                    import pytest
+
+                    # An actual native call from the old holder refuses before
+                    # replay can return any previously retained observation.
+                    with case.kernel.purpose("write").begin() as connection:
+                        with pytest.raises(DBAPIError) as stale, connection.begin_nested():
+                            publish_observation(connection, task_id=claim.task_id,
+                                attempt=claim.attempt, holder=claim.holder,
+                                runtime_id=executor.runtime.runtime_id,
+                                product=case.observations[0][1])
+                        assert isinstance(stale.value.orig, NativePgError)
+                        assert stale.value.orig.sqlstate == "P0004"
+                return retain_answer(executor, ready, claim, answer, port, owner, physical=physical)
+
+            patches.setattr(NativeDemandExecutor, "_retain_answer", reclaim)
         request = SourceRunRequest(
             project_id=original.project_id,
             release_id=kernel.prepared.release_id,
@@ -377,20 +414,32 @@ def current_integration_journey(
                     admission_engine=kernel.purpose("admit"),
                 )
             except NativeDemandExecutionError as error:
-                if not expect_unresolved_page:
+                if reclaim_after_recognition and case.reclaimed_fence is not None:
+                    from corpus_structure.semantic.claim_lifetime import ClaimFenceLost
+                    assert any(isinstance(failure, ClaimFenceLost) for failure in error.failures)
+                    case.interruption = error
+                    with case.clone.admin.begin() as connection:
+                        connection.exec_driver_sql("SET LOCAL ROLE corpus_sem_publisher")
+                        assert connection.execute(text(
+                            "UPDATE ops.task SET lease_until=clock_timestamp()-interval '1 second' WHERE id=:task"
+                        ), {"task": case.reclaimed_fence["task_id"]}).rowcount == 1
+                    from corpus_structure.semantic.data_operation_service import execute_data_demand
+                    result = execute_data_demand(engine, error.result.demand_id, source_root=ROOT,
+                        admission_engine=kernel.purpose("admit"), database_capacity=6)
+                elif not expect_unresolved_page:
                     raise
-                assert any(
+                else:
+                    assert any(
                     isinstance(failure, RuntimeError)
                     and str(failure) == "unresolved triple-pass physical pages: [1]"
                     for failure in error.failures
-                )
-                case.failure = error
-                result = error.result
+                    )
+                    case.failure = error
+                    result = error.result
             else:
                 assert not expect_unresolved_page, "failed page unexpectedly completed integration"
         case.demand_id = result.demand_id
-        with case.reader().connect() as connection:
-            from sqlalchemy import text
+        with case.reader().begin() as connection:
             assert connection.scalar(text("SELECT current_user")) == "corpus_sem_reader"
             snapshot = read_data_demand(connection, result.demand_id, view="products")
             from corpus_structure.serve.selected_pdf import SelectedPdfSourceReference, acquire_selected_pdf_source, acquire_selected_pdf_observations
