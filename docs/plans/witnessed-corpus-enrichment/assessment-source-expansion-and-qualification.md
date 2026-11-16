@@ -19,9 +19,10 @@ The separate test-resolution plan supplies its foundation; its repairs are not r
 ## Focused foundation assessment
 
 `evaluate/operation_assessment.py` already separates source-first/output-first questions and retains
-missing predictions and declared-case quality limits. `evaluate/structural_assessment.py` currently
-supports definition/comparison/dossier questions under a development-only frame. Protected A/B/C
-passes, actual native eligibility and portable review exist. Extend their contracts for the new
+missing predictions and declared-case quality limits. The current DDO declared structural evaluator
+replaces `evaluate/structural_assessment.py` with finite comparison/condition/definition policies
+under ADR-0115. Protected A/B/C custody, native eligibility and selected export contracts retain
+scope; actual integrated qualification remains with the DDO coordinator. Extend their contracts for the new
 events and exact shared-development source frames rather than treating development labels or whole-record labels
 as universal truth. Native152/explicit scenario preparation/token transport are baseline strengths;
 no complete final test qualification is inferred from their focused results.

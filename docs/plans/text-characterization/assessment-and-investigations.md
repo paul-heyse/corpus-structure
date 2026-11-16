@@ -26,13 +26,13 @@ fields; it does not know the new characterization graph's semantics. Extend owne
 and independent reference expectations for that graph rather than interpreting a successful
 existing record grade as a role/scope/choice grade.
 
-The separate [structural assessment source](../../../python/corpus-structure/src/corpus_structure/evaluate/structural_assessment.py)
-already models multi-source groups and independently authored path expectations, but its operation
-enumeration is finite and names current semantic products. It is not an existing universal
-characterization evaluator. Reuse its source-group custody where a contextual question needs
-multiple source pieces; extend an owning frame/product protocol deliberately when the current
-one cannot express the question. Do not mislabel contextual annotations as a dossier or
-`definition_components` merely to enter a current protocol.
+The current [declared structural evaluator](../../../python/corpus-structure/src/corpus_structure/evaluate/declared_structural_admission.py)
+replaces the retired structural-assessment reader. Its finite comparison/condition/definition
+policies retain exact report scope and protected independently attributed A/B/C judgments under
+[ADR-0115](../../adr/0115-structural-policy-issuer.md); their native qualification remains with the
+DDO coordinator. It is not a universal characterization evaluator. Extend the owning current
+frame/product protocol deliberately when it cannot express a new contextual question. Do not
+mislabel contextual annotations as a dossier or `definition_components` to enter a current protocol.
 
 [D7](../../design/D7-evaluation-goldens-outer-loop.md) and
 [ADR-0070](../../adr/0070-full-book-method-development.md) govern the shared full-book development
