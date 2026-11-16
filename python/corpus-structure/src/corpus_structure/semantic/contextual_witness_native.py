@@ -26,7 +26,7 @@ DECLARE original ops.data_request:=r; basis jsonb; row_ jsonb; query_row jsonb; 
  source_row jsonb; hypothesis_row jsonb; cues jsonb:='[]'; query_ jsonb; hypotheses jsonb; inventory_ jsonb;
  query_episode ops.data_derivation; inventory_episode ops.data_derivation; query_request ops.data_request;
  query_intent ops.data_completion_intent; query_basis jsonb; original_occurrence jsonb; original_source jsonb;
- cue jsonb; reference_ jsonb; admission ops.original_source_admission; assertion_ jsonb; cited jsonb;
+ cue jsonb; reference_ jsonb; admission ops.original_source_admission; assertion_ jsonb;
  actual_refs jsonb; carrier_ jsonb; seen text[]:='{}'; name_ text;
 BEGIN
  original.binding:=r.binding||jsonb_build_object('inputs',completion->'inputs','support',completion->'support');
