@@ -94,8 +94,6 @@ def test_native_authoring_refuses_existing_output_before_connection(cli, tmp_pat
     assert (out / "retained").read_text() == "unchanged"
 
 
-
-
 def test_explicit_overload_owner_keeps_each_abi_and_its_grants(monkeypatch):
     from corpus_structure.semantic import native_authoring
 
@@ -149,9 +147,7 @@ def test_current_pdf_payload_owns_all_current_helpers_and_exact_grants(monkeypat
     REVOKE ALL ON FUNCTION ops.new_pdf_helper(text) FROM PUBLIC;
     GRANT EXECUTE ON FUNCTION ops.new_pdf_helper(text) TO corpus_sem_writer;
     """
-    current = native_authoring._pdf_payload_definitions(
-        object(), sql, source="current PDF owner"
-    )
+    current = native_authoring._pdf_payload_definitions(object(), sql, source="current PDF owner")
     assert len(current) == 2
     assert "require_pdf_stage_owner" in current[0].sql
     assert "new_pdf_helper" in current[1].sql

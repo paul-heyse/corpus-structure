@@ -26,8 +26,6 @@ def test_named_shape_retains_type_nullability_default_identity_and_primary_key_o
     assert descriptor["primary_key"] == ["id"]
 
 
-
-
 def test_current_descriptor_freezes_declared_visual_geometry_and_indexes(semantic_bare_engine):
     from corpus_structure.semantic.native_products import admission_kernel
     from corpus_structure.semantic.target_installation import (
@@ -40,9 +38,13 @@ def test_current_descriptor_freezes_declared_visual_geometry_and_indexes(semanti
         catalog = _declared_physical_catalog(conn, metadata)
         assert conn.scalar(text("SELECT to_regclass('pg_temp.semantic_candidate_catalog')")) is None
     current = _admission_descriptor(
-        native_admission_sql(admission_kernel(), capture.authoring_inputs,
-                             base_descriptor=target_admission_descriptor(capture, ()),
-                             target_metadata=metadata, physical_catalog=catalog)
+        native_admission_sql(
+            admission_kernel(),
+            capture.authoring_inputs,
+            base_descriptor=target_admission_descriptor(capture, ()),
+            target_metadata=metadata,
+            physical_catalog=catalog,
+        )
     )
     locator_indexes = {
         item["definition"].split(" USING ")[1]

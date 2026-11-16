@@ -184,13 +184,24 @@ def test_creation_only_bootstrap_status_distinguishes_absent_from_unreadable_rev
     assert status.exit_code == 0, status.output
     report = json.loads(status.stdout)
     assert report["revision_table_present"] is False and report["revision_readable"] is False
-    assert report["revision"] is None and report["acquired"]["database"] == semantic_absent_database.name
+    assert (
+        report["revision"] is None
+        and report["acquired"]["database"] == semantic_absent_database.name
+    )
     with native_server.connect(semantic_absent_database.name) as connection:
-        connection.exec_driver_sql("CREATE TABLE public.semantic_alembic_version(version_num varchar(32) NOT NULL)")
-        connection.exec_driver_sql("REVOKE ALL ON public.semantic_alembic_version FROM PUBLIC,corpus_sem_reader")
-    denied_settings = settings.model_copy(update={
-        "database": settings.database.model_copy(update={"maintenance_url": settings.database.reader_url})
-    })
+        connection.exec_driver_sql(
+            "CREATE TABLE public.semantic_alembic_version(version_num varchar(32) NOT NULL)"
+        )
+        connection.exec_driver_sql(
+            "REVOKE ALL ON public.semantic_alembic_version FROM PUBLIC,corpus_sem_reader"
+        )
+    denied_settings = settings.model_copy(
+        update={
+            "database": settings.database.model_copy(
+                update={"maintenance_url": settings.database.reader_url}
+            )
+        }
+    )
     denied = cli("db", "status", "--maintenance", "--json", settings=lambda: denied_settings)
     assert denied.exit_code == 1
     assert "configured maintenance principal cannot read the migration revision" in denied.stdout

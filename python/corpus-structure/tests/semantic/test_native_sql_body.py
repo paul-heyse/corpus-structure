@@ -189,8 +189,12 @@ def test_unbound_sql_standard_body_cannot_author_native_admission():
 LANGUAGE sql BEGIN ATOMIC SELECT 1; END;"""
     capture = capture_target_installation(metadata)
     with pytest.raises(ValueError, match="server-bound normalized native object"):
-        native_admission_sql(admission_kernel() + "\n" + source, capture.authoring_inputs,
-                             base_descriptor=target_admission_descriptor(capture, ()), target_metadata=metadata)
+        native_admission_sql(
+            admission_kernel() + "\n" + source,
+            capture.authoring_inputs,
+            base_descriptor=target_admission_descriptor(capture, ()),
+            target_metadata=metadata,
+        )
 
 
 def test_current_release_guards_separate_readable_archives_from_current_projection_compiler():
@@ -210,5 +214,3 @@ def test_current_release_guards_separate_readable_archives_from_current_projecti
     )
     assert "IS DISTINCT FROM '22' THEN RAISE EXCEPTION" in projection
     assert "THEN RETURN;" not in projection
-
-

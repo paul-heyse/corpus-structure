@@ -103,8 +103,6 @@ def test_owned_ddl_rendering_preserves_upgrade_caller_without_ast_repair():
     compile("def upgrade():\n" + rendered, "candidate.py", "exec")
 
 
-
-
 def test_live_normalization_exact_transition_stale_before_and_role_restore(semantic_bare_engine):
     schema = "privilege_" + uuid4().hex[:12]
     with semantic_bare_engine.begin() as conn:
@@ -461,8 +459,6 @@ def test_final_trigger_catalog_tracks_explicit_parent_owner_transfer(semantic_ba
         conn.exec_driver_sql(f'DROP SCHEMA "{schema}" CASCADE')
 
 
-
-
 def test_rendered_candidate_catalog_failure_keeps_owning_phase(semantic_bare_engine, monkeypatch):
     from types import SimpleNamespace
 
@@ -485,5 +481,3 @@ def test_rendered_candidate_catalog_failure_keeps_owning_phase(semantic_bare_eng
         }
         assert "withheld diagnostic" not in str(failure.value)
         assert conn.scalar(text("SELECT 1")) == 1
-
-

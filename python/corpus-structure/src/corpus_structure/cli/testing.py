@@ -770,7 +770,10 @@ def _finish(result: Invocation, outcomes: dict[str, str], json: bool) -> None:
         next_action = (
             f"ci test scheduling {result.id}"
             if result.manifest.details.get("retry_selection_changes")
-            else f"ci test retry {result.manifest.scope['retry_of']}"
+            else (
+                f"Inspect collection failure with ci test failures {result.id}; "
+                "correct selectors or prerequisites and collect the current selection before retrying."
+            )
         )
         result.manifest.details["execution_outcome"] = "not_run"
     if result.manifest.action == "test.collect":
@@ -976,7 +979,10 @@ def _next_test_action(
         return (
             f"ci test scheduling {manifest.id}"
             if manifest.details.get("retry_selection_changes")
-            else f"ci test retry {manifest.scope['retry_of']}"
+            else (
+                f"Inspect collection failure with ci test failures {manifest.id}; "
+                "correct selectors or prerequisites and collect the current selection before retrying."
+            )
         )
     if manifest.action == "test.collect":
         mode = (

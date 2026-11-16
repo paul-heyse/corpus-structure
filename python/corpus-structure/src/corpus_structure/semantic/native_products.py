@@ -300,28 +300,6 @@ def function_bodies(sql: str | PreparedSQL, *, by_signature: bool = False) -> di
     return result
 
 
-def derived_publication_sql():
-    from pathlib import Path
-
-    from .publication import STAGE_TYPES
-
-    inference_relations = {"typed_value", "fact", "selection", "derivation", "derivation_premise"}
-    return (
-        Path(__file__)
-        .with_name("sql")
-        .joinpath("derived_publication.sql")
-        .read_text()
-        .replace(
-            "{accepted_empty_stages}",
-            " OR ".join(
-                "EXISTS(SELECT FROM pg_temp.sp_" + name + ")"
-                for name in STAGE_TYPES
-                if name not in inference_relations
-            ),
-        )
-    )
-
-
 def current_admission_fields(
     inputs: NativeAuthoringInputs | None = None, *, target_metadata: MetaData | None = None
 ) -> dict:

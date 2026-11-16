@@ -296,10 +296,6 @@ def test_bulk_exact_native_codec_vectors(commit_db_engine, commit_admitter_engin
                 )
 
 
-
-
-
-
 def _forward_descriptor(product):
     import json
 
@@ -336,9 +332,10 @@ def test_frozen_head_witness_preserves_its_explicit_authoring_provenance():
     )
     assert head.digest == revision.NATIVE_ADMISSION_SHA256
     recorded = _forward_descriptor(head)
-    assert require_frozen_native_revision(
-        Path(head_script.path).parent, current_head
-    ) == recorded["physical_id"]
+    assert (
+        require_frozen_native_revision(Path(head_script.path).parent, current_head)
+        == recorded["physical_id"]
+    )
 
     from corpus_structure.semantic.native_admission import recorded_authoring_provenance
 

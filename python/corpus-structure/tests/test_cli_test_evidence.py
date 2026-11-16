@@ -72,10 +72,16 @@ def _receipt(
     )
 
 
-def test_installed_retry_retains_collection_failure_in_existing_failure_view(tmp_path):
+@pytest.mark.parametrize("failure", ["syntax", "removed_parameter"])
+def test_installed_retry_retains_collection_failure_in_existing_failure_view(tmp_path, failure):
     source = tmp_path / "test_broken_retry.py"
-    source.write_text("def test_case(:\n    pass\n")
-    node = source.as_posix() + "::test_case"
+    source.write_text(
+        "def test_case(:\n    pass\n"
+        if failure == "syntax"
+        else "import pytest\n@pytest.mark.parametrize('index', [2])\n"
+        "def test_case(index):\n    raise AssertionError('must not execute')\n"
+    )
+    node = source.as_posix() + ("::test_case" if failure == "syntax" else "::test_case[1]")
     store = ResultStore(tmp_path / "results")
     with store.operation("test", scope={"lane": "ordinary"}) as original:
         directory = original.directory / "ordinary"
@@ -89,14 +95,18 @@ def test_installed_retry_retains_collection_failure_in_existing_failure_view(tmp
     replacement = store.show(report["id"])
     assert replacement.details["execution_outcome"] == "not_run"
     assert replacement.details["retry_recollection_failed"]
-    assert replacement.details["next_action"] == f"ci test retry {original.id}"
+    assert f"ci test failures {replacement.id}" in replacement.details["next_action"]
+    assert "collect the current selection" in replacement.details["next_action"]
+    assert f"ci test retry {original.id}" not in replacement.details["next_action"]
     assert "ordinary" in replacement.artifacts
     failures = json.loads(
         _run(store, "failures", report["id"], "--lane", "ordinary", "--json").stdout
     )
     assert failures["availability"] == "available"
-    assert any("SyntaxError" in item.get("diagnostic", "") for item in failures["items"])
-    assert failures["next_action"] == f"ci test retry {original.id}"
+    assert failures["items"]
+    if failure == "syntax":
+        assert any("SyntaxError" in item.get("diagnostic", "") for item in failures["items"])
+    assert failures["next_action"] == replacement.details["next_action"]
 
 
 def test_installed_retry_reports_changed_identities_without_repeating_stale_selection(tmp_path):

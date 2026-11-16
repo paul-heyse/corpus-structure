@@ -1,0 +1,16 @@
+{
+  "date": "2026-11-16",
+  "acquired": {
+    "database": "corpus_structure_ddo_stage",
+    "database_oid": 130661481,
+    "system_identifier": "7701811359771751232",
+    "host": "/var/run/postgresql",
+    "port": 5434,
+    "purpose": "maintenance"
+  },
+  "owner": "paul",
+  "ownership_stamp": "corpus-structure owned database 98b72e82405c4b21af4190dfc267bfba oid 130661481",
+  "revision": null,
+  "outcome": "passed",
+  "scope": "read-only acknowledged empty authoring stage; no application/native deployment"
+}
