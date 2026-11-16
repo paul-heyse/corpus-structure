@@ -13,7 +13,7 @@ from corpus_structure.methods import source_preparation as prep
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.source_contexts import NativeSourcePin
 from methods.m1_source_preparation_support import (
-    dense_table_source as dense_table_source,
+    declared_dense_table_source as declared_dense_table_source,
 )
 from methods.m1_source_preparation_support import (
     native_table_source as native_table_source,
@@ -309,16 +309,17 @@ def test_local_related_budget_counts_projection_separators(controlled):
 
 
 def test_dense_native_table_targets_every_data_cell_once_with_complete_bounded_paths():
-    from corpus_structure.semantic.source_contexts import RetrievalOutcome, SourceContextRead
+    from corpus_structure.semantic.declared_contexts import DeclaredContextPopulation
+    from corpus_structure.semantic.m1_products import NativeCandidateData
 
-    view = dense_table_source()
-    reader = SimpleNamespace(
-        context_sources=lambda *_args, **_kwargs: SourceContextRead(
-            (), (), "e" * 64, RetrievalOutcome.NO_MATCH, "no other source"
-        )
+    frame = declared_dense_table_source()
+    view = NativeCandidateData.from_frame(frame)
+    population = DeclaredContextPopulation(
+        (frame,), canonical_bytes({"fixture": "complete single-source native inventory"})
     )
     prepared = prep.prepare_source(
-        view, persisted_annotations=(), max_chars=256, max_pieces=64, reader=reader
+        view, source_frame=frame, context_population=population,
+        persisted_annotations=(), max_chars=256, max_pieces=64,
     )
     selected = [s for s in prepared.selections if s.families == ("table",)]
     assert len(selected) == 30

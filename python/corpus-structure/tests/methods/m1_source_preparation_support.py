@@ -41,7 +41,7 @@ def source(text="Mean is average.\nX+Y\n12\n?", *, labels=("text", "formula", "t
     return PreparedSourceView(ref, text, tuple(pieces), tuple(nodes), (), {})
 
 
-def native_table_source(cells, *, caption=None, note=None):
+def _native_table_projection(cells, *, caption=None, note=None):
     """Explicit native geometry and repeated lexical text with independent cell addresses."""
     table: dict[str, Any] = dict(
         self_ref="#/tables/0",
@@ -58,7 +58,7 @@ def native_table_source(cells, *, caption=None, note=None):
         if text:
             pointer = f"#/texts/{role}"
             table[role] = [{"$ref": pointer}]
-            nodes.append(dict(self_ref=pointer, label="caption" if role == "captions" else "text"))
+            nodes.append(dict(self_ref=pointer, label="caption" if role == "captions" else "text", text=text))
             chunks.append((pointer, None, text))
     pieces, texts, offset = [], [], 0
     for pointer, index, text in chunks:
@@ -72,12 +72,17 @@ def native_table_source(cells, *, caption=None, note=None):
                 item_ref=pointer,
                 start=offset,
                 end=offset + len(text),
-                **(dict(cell_index=index, source_field="cell_text") if index is not None else {}),
+                **(dict(cell_index=index, source_field="cell_text") if index is not None else dict(source_field="text")),
             )
         )
         texts.append(text)
         offset += len(text)
     text = "".join(texts)
+    return text, pieces, nodes
+
+
+def native_table_source(cells, *, caption=None, note=None):
+    text, pieces, nodes = _native_table_projection(cells, caption=caption, note=note)
     projection = dict(
         text=text, pieces=pieces, items=[n["self_ref"] for n in nodes], ancestors=[], health={}
     )
@@ -104,9 +109,23 @@ def table_cell(text, row, col, **flags):
     )
 
 
-def dense_table_source():
+def _dense_table_cells():
     cells = [table_cell("value", 0, col, column_header=True) for col in range(1, 10)]
     for row in range(1, 31):
         cells.append(table_cell(f"row{row}", row, 0, row_header=True))
         cells.extend(table_cell("0", row, col) for col in range(1, 10))
-    return native_table_source(tuple(cells), caption="Caption", note="Note")
+    return tuple(cells)
+
+
+def dense_table_source():
+    return native_table_source(_dense_table_cells(), caption="Caption", note="Note")
+
+
+def declared_dense_table_source():
+    """Current original/member coordinates over the independent finite cell inventory."""
+    from methods.record_assembly_support import source as declared_source
+
+    text, pieces, nodes = _native_table_projection(
+        _dense_table_cells(), caption="Caption", note="Note"
+    )
+    return declared_source(text, pieces=pieces, items=nodes, ancestors=())

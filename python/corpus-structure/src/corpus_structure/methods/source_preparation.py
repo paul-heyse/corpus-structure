@@ -360,7 +360,7 @@ def _table_selections(view, node, indices, prepared_cells, *, frame, max_chars, 
             if pieces is None:
                 limits.extend(f"{pointer}/data/table_cells/{t.cell_index}: {reason}" for t in group)
                 continue
-            native = [p for p in pieces if isinstance(p, SourceSlice)]
+            native = [p for p in pieces if isinstance(p, (SourceSlice, DeclaredSourceSlice))]
             selections.append(
                 ContextSelection(
                     pointer,
