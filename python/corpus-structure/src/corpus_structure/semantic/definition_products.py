@@ -309,7 +309,7 @@ class DefinitionCallPlan:
 
         collections = {role.name: role.collection for role in self.port.operation.roles}
         values["input_basis"] = cpu_input_basis_from_binding(
-            self.port.operation.recipe,
+            self.port.identity.recipe,
             binding,
             {
                 role.role: (arguments.arguments[role.role],)

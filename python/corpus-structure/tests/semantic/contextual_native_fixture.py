@@ -487,7 +487,7 @@ class FixtureCallPlan:
         if binding is None or binding.subject_context is None or not binding.sufficient:
             raise ValueError("controlled matcher requires actual sufficient native source support")
         basis = cpu_input_basis_from_binding(
-            self.port.operation.recipe, binding, {"source": (arguments.arguments["source"],)}
+            self.port.identity.recipe, binding, {"source": (arguments.arguments["source"],)}
         )
         bound = inspect.signature(self.kernel, eval_str=True).bind(
             input_basis=basis, prepared=self.prepared, check_active=check_active

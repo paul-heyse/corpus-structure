@@ -554,7 +554,7 @@ class ArtifactCallPlan:
             roles=binding.roles,
             context=binding.subject_context,
             input_basis=cpu_input_basis_from_binding(
-                self.port.operation.recipe,
+                self.port.identity.recipe,
                 binding,
                 {role.role: tuple(arguments.arguments[role.role]) for role in binding.roles},
             ),

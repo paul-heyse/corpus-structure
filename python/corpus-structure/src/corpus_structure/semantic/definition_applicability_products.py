@@ -143,7 +143,7 @@ class ApplicabilityCallPlan:
         if binding is None or binding.subject_context is None:
             raise ValueError("applicability requires its actual qualified binding")
         processed = cpu_input_basis_from_binding(
-            self.port.operation.recipe,
+            self.port.identity.recipe,
             binding,
             {role.role: (arguments.arguments[role.role],) for role in binding.roles},
         )
