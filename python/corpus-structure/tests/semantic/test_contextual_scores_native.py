@@ -16,6 +16,7 @@ from corpus_structure.semantic.contextual_scores import (
     query_contextual_scores,
 )
 from corpus_structure.semantic.data_operation_identity import semantic_value
+from corpus_structure.semantic.data_operation_json import json_bytes
 from corpus_structure.semantic.observations import source_value
 from semantic.test_declared_contextual_operations import inputs
 
@@ -43,7 +44,7 @@ def test_generated_native_function_matches_authoritative_core_scores_and_ties(na
         connection, acquired, values["query"], values["policy"], numerical_policy=numerics
     )
     actual = native_scores(connection, values, numerics)
-    assert actual == expected
+    assert json_bytes(actual) == json_bytes(expected)
     meaning = connection.scalar(
         select(func.ops.ddo_contextual_score_meaning(bindparam("scores", actual, type_=JSONB)))
     )
@@ -77,13 +78,13 @@ def test_native_score_function_preserves_proven_empty_inventory(native_rollback)
     numerics = default_retrieval_numerics()
     actual = native_scores(native_rollback.connection, values, numerics)
     assert actual["membership"] == actual["hits"] == []
-    assert actual == query_contextual_scores(
+    assert json_bytes(actual) == json_bytes(query_contextual_scores(
         native_rollback.connection,
         acquired,
         values["query"],
         values["policy"],
         numerical_policy=numerics,
-    )
+    ))
 
 
 def test_native_score_refuses_another_backend_policy(native_rollback):
@@ -164,10 +165,10 @@ def test_unicode_target_ids_use_canonical_c_ties_for_all_native_channels(native_
         assert [
             (row["target_id"], row["rank"]) for row in actual["hits"] if row["channel"] == channel
         ] == list(zip(expected_order, range(1, 6), strict=True))
-    assert actual == query_contextual_scores(
+    assert json_bytes(actual) == json_bytes(query_contextual_scores(
         native_rollback.connection,
         acquired,
         values["query"],
         values["policy"],
         numerical_policy=numerics,
-    )
+    ))
