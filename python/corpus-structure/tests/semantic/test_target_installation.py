@@ -1,7 +1,6 @@
 """Fresh installation selects current physical custody without legacy execution."""
 
 import json
-from importlib.resources import files
 
 import pytest
 import yaml
@@ -10,11 +9,11 @@ from corpus_structure.semantic.archive_native import archive_native_sql
 from corpus_structure.semantic.archive_transport import archive_tables
 from corpus_structure.semantic.metadata import metadata
 from corpus_structure.semantic.pdf_domain import CONTRACT, pdf_domain_sources
-from corpus_structure.semantic.target_installation import target_metadata, target_pdf_actions
+from corpus_structure.schema.physical import compile_physical
 
 
 def prepared_target():
-    return target_metadata(
+    return compile_physical(
         metadata.info["physical_sources"], linkml_types=metadata.info["physical_linkml_types"]
     )
 
@@ -80,13 +79,9 @@ def test_target_archive_uses_the_exact_supplied_metadata_and_pdf_actions():
     target = prepared_target()
     assert all(relation.metadata is target for relation in archive_tables(target))
     assert "CREATE TEMP TABLE" in archive_native_sql(target_metadata=target)
-    actions = target_pdf_actions(
-        files("corpus_structure").joinpath("model/semantic/pdf-actions.yaml").read_bytes()
-    )
     sources = pdf_domain_sources(
         physical_sources=target.info["physical_sources"],
         linkml_types=target.info["physical_linkml_types"],
-        actions_source=actions,
     )
     contract = json.loads(next(source.content for source in sources if source.name == CONTRACT))
     assert {"read_native_source", "retain_pdf_original", "seal_pdf_build"} <= set(
@@ -110,9 +105,7 @@ def test_target_native_capture_and_shared_task_checks_have_no_legacy_task_branch
         target_task_guard_sql,
     )
 
-    capture = capture_target_installation(
-        metadata.info["physical_sources"], linkml_types=metadata.info["physical_linkml_types"]
-    )
+    capture = capture_target_installation(prepared_target())
     fields = current_admission_fields(capture.authoring_inputs, target_metadata=capture.metadata)
     assert fields["views"] == []
     assert "analytical_abi" not in fields
@@ -151,15 +144,13 @@ def test_current_descriptor_and_projection_guard_do_not_inherit_obsolete_storage
         execution_projection_check_sql,
         literal_json_descriptor,
     )
-    from corpus_structure.semantic.source_view_native import native_admission_sql
+    from corpus_structure.semantic.native_admission import native_admission_sql
     from corpus_structure.semantic.target_installation import (
         capture_target_installation,
         target_admission_descriptor,
     )
 
-    capture = capture_target_installation(
-        metadata.info["physical_sources"], linkml_types=metadata.info["physical_linkml_types"]
-    )
+    capture = capture_target_installation(prepared_target())
     # This checks declaration rendering, without pretending the unnormalized
     # declaration is an admitted native catalog or an installed database.
     sql = native_admission_sql(
@@ -177,7 +168,7 @@ def test_current_descriptor_and_projection_guard_do_not_inherit_obsolete_storage
     assert "FROM sem.execution_operation" not in guard
     assert "kind='execution_model'" in guard
     assert "requires current declared data operations" in guard
-    assert "FROM sem.execution_operation" in execution_projection_check_sql()
+    assert "FROM sem.execution_operation" not in execution_projection_check_sql()
     assert parse_sql(guard)
 
 
@@ -200,14 +191,12 @@ def test_native_definition_source_cohort_cannot_be_mixed_with_another_physical_c
     from corpus_structure.semantic.data_operation_storage import data_operation_native_definitions
     from corpus_structure.semantic.target_installation import capture_target_installation
 
-    capture = capture_target_installation(
-        metadata.info["physical_sources"], linkml_types=metadata.info["physical_linkml_types"]
-    )
+    capture = capture_target_installation(prepared_target())
     changed = dict(metadata.info["physical_sources"])
     document = yaml.safe_load(changed["physical.yaml"])
     document["description"] = "A different explicitly captured physical source."
     changed["physical.yaml"] = yaml.safe_dump(document).encode()
-    other = target_metadata(changed, linkml_types=metadata.info["physical_linkml_types"])
+    other = compile_physical(changed, linkml_types=metadata.info["physical_linkml_types"])
     # Refusal precedes any database type lookup or normalization effect.
     with pytest.raises(ValueError, match="same captured physical sources"):
         data_operation_native_definitions(
@@ -239,7 +228,7 @@ def test_frozen_target_environment_does_not_import_current_metadata(monkeypatch)
         run_migrations=lambda: received.update(applied_frozen_revision=True),
     )
     monkeypatch.setattr(builtins, "__import__", guarded_import)
-    run_migrations(context, use_default_metadata=False)
+    run_migrations(context)
     assert received["connection"] is connection
     assert received["target_metadata"] is None
     assert received["applied_frozen_revision"] is True

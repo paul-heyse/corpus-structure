@@ -11,8 +11,7 @@ from alembic.migration import MigrationContext
 from alembic.script import ScriptDirectory
 from sqlalchemy import Connection
 
-ALEMBIC_DIR = Path(__file__).resolve().parents[3] / "semantic_alembic"
-TARGET_ALEMBIC_DIR = ALEMBIC_DIR.with_name("target_alembic")
+ALEMBIC_DIR = Path(__file__).resolve().parents[3] / "target_alembic"
 VERSION_TABLE = "semantic_alembic_version"
 
 
@@ -58,14 +57,19 @@ def upgrade(
 ) -> list[dict[str, Any]]:
     """Migrate on the caller's connection and transaction; never open a second connection."""
     migration_fence(connection)
-    if expected_predecessor is not None:
-        actual = current_revision(connection)
-        if actual == target:
-            return []
-        if actual != expected_predecessor:
-            raise MigrationPredecessorError(
-                f"expected native predecessor {expected_predecessor}, found {actual}"
-            )
+    actual = current_revision(connection)
+    directory = ScriptDirectory.from_config(alembic_config(script_location=script_location))
+    if directory.get_current_head() is None:
+        raise MigrationPredecessorError("no current native root is registered")
+    selected = directory.get_revision(target)
+    if selected is None:
+        raise MigrationPredecessorError("requested current native revision is not registered")
+    if actual == selected.revision:
+        return []
+    if actual != expected_predecessor:
+        raise MigrationPredecessorError(
+            f"expected native predecessor {expected_predecessor}, found {actual}"
+        )
     config = alembic_config(connection, script_location=script_location)
     command.upgrade(config, target)
     return list(config.attributes.get("applied", []))

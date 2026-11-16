@@ -6,96 +6,17 @@ It neither replays a historical migration nor authorizes a database transition.
 
 from __future__ import annotations
 
-import json
-from collections.abc import Mapping
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-import yaml
 from sqlalchemy import MetaData
 
-from corpus_structure.schema.physical import (
-    PHYSICAL_ROOT,
-    compile_physical,
-    physical_source_closure,
-)
-
-from .identity import canonical_bytes
 from .types import SourceArtifact
 
 if TYPE_CHECKING:
     from .native_products import NativeAuthoringInputs
-
-_MODEL = Path(__file__).parents[1] / "model/semantic"
-_TASK_SOURCE = "data-operation-task-physical.yaml"
-_LEGACY_EXECUTION_CLASSES = frozenset(
-    {
-        "execution_operation",
-        "execution_transition",
-        "execution_edge",
-        "operation_effect",
-        "transition_effect",
-    }
-)
-
-
-def target_physical_sources(sources: Mapping[str, bytes]) -> dict[str, bytes]:
-    """Select current declaration owners; never expand a legacy foreign-key closure."""
-    document = yaml.safe_load(sources[PHYSICAL_ROOT])
-    classes = document["classes"]
-    # Release archive/projection rows remain inputs of the current compiler and
-    # admission guard. PDF stored declarations belong to the maintained sealed
-    # publication/staging owners; source_build binds actual request-owned bytes.
-    document["classes"] = {
-        name: declaration
-        for name, declaration in classes.items()
-        if ("sem" in declaration.get("in_subset", ()) and name not in _LEGACY_EXECUTION_CLASSES)
-        or name in {"project", "document", "source_artifact", "source_build"}
-        or name.startswith("pdf_")
-    }
-    project = document["classes"]["project"]
-    project["attributes"].pop("selected_result_run_id", None)
-    annotations = project.get("annotations", {})
-    if "ph:foreign_keys" in annotations:
-        annotations["ph:foreign_keys"] = json.dumps(
-            [
-                foreign
-                for foreign in json.loads(annotations["ph:foreign_keys"])
-                if "selected_result_run_id" not in foreign["columns"]
-            ]
-        )
-    document["imports"] = [
-        name for name in document["imports"] if name != "characterization-physical"
-    ] + [_TASK_SOURCE.removesuffix(".yaml")]
-    captured = dict(sources)
-    captured[PHYSICAL_ROOT] = yaml.safe_dump(document, sort_keys=False).encode()
-    captured[_TASK_SOURCE] = _MODEL.joinpath(_TASK_SOURCE).read_bytes()
-    return physical_source_closure(PHYSICAL_ROOT, captured.__getitem__)
-
-
-def target_metadata(sources: Mapping[str, bytes], *, linkml_types: bytes):
-    """Compile the exact selected source closure using the existing physical compiler."""
-    return compile_physical(target_physical_sources(sources), linkml_types=linkml_types)
-
-
-def target_pdf_actions(content: bytes) -> SourceArtifact:
-    """Retain actual current PDF actions while retiring historical source-view APIs."""
-    from .pdf_domain import PREFIX
-
-    document = yaml.safe_load(content)
-    retired = {"publish_source_view", "read_source_view"}
-    document["actions"] = [action for action in document["actions"] if action["id"] not in retired]
-    diagnostics = []
-    for invariant in document["diagnostics"]:
-        selected = [
-            entry for entry in invariant["diagnostics"] if entry["operation"] not in retired
-        ]
-        if selected:
-            diagnostics.append({**invariant, "diagnostics": selected})
-    document["diagnostics"] = diagnostics
-    return SourceArtifact(PREFIX + "native/actions.yaml", canonical_bytes(document))
 
 
 def target_task_guard_sql(protocol: bytes, checks: str) -> str:
@@ -126,18 +47,13 @@ class TargetInstallation:
     authoring_inputs: NativeAuthoringInputs
 
 
-def capture_target_installation(
-    sources: Mapping[str, bytes], *, linkml_types: bytes
-) -> TargetInstallation:
+def capture_target_installation(selected: MetaData) -> TargetInstallation:
     from .native_products import capture_native_authoring_inputs
     from .pdf_domain import pdf_domain_sources
 
-    selected = target_metadata(sources, linkml_types=linkml_types)
-    actions = target_pdf_actions(_MODEL.joinpath("pdf-actions.yaml").read_bytes())
     pdf_sources = pdf_domain_sources(
         physical_sources=selected.info["physical_sources"],
-        linkml_types=linkml_types,
-        actions_source=actions,
+        linkml_types=selected.info["physical_linkml_types"],
     )
     inputs = capture_native_authoring_inputs(
         target_metadata=selected,
@@ -166,7 +82,7 @@ def capture_target_installation(
 
 def target_physical_prerequisites(connection, installation: TargetInstallation):
     """The table-free current function used by the PDF body CHECK declaration."""
-    from .native_candidate import _task_call_definition
+    from .native_authoring import _task_call_definition
 
     source = next(
         item.content.decode()
@@ -224,7 +140,7 @@ def target_native_definitions(connection, installation: TargetInstallation):
     from .archive_native import archive_native_definitions
     from .companion_projection_native import companion_projection_definitions
     from .data_operation_storage import data_operation_native_definitions
-    from .native_candidate import (
+    from .native_authoring import (
         _context_definition,
         _pdf_payload_definitions,
         _publication_view_definitions,
@@ -316,9 +232,7 @@ def target_native_definitions(connection, installation: TargetInstallation):
                 sql.joinpath("pdf_record_context.sql").read_text(),
                 source="target-current:PDF context",
             ),
-            *_pdf_payload_definitions(
-                connection, payload, source="target-current:PDF publication", current_source=True
-            ),
+            *_pdf_payload_definitions(connection, payload, source="target-current:PDF publication"),
             *_publication_view_definitions(connection, payload, source="target-current:PDF views"),
             *published_reader_definitions(connection, target_metadata=selected),
             *companion_projection_definitions(connection, target_metadata=selected),
@@ -535,7 +449,8 @@ def prepare_target_authoring(
     owned_authoring=False,
 ):
     """Normalize captured target declarations against their explicit frozen predecessor."""
-    from .native_candidate import (
+    from .native_admission import native_admission_sql
+    from .native_authoring import (
         _declared_physical_catalog,
         current_admission_definitions,
         definition_sql,
@@ -547,7 +462,6 @@ def prepare_target_authoring(
         prepare_native_authoring,
     )
     from .native_products import admission_kernel
-    from .source_view_native import native_admission_sql
 
     products = (
         *target_native_definitions(connection, installation),
@@ -637,9 +551,9 @@ def target_database_privileges_sql() -> str:
 
 def target_predecessor_descriptor(predecessor):
     """Read the complete registered target declaration, never installed desired meaning."""
-    from .native_candidate import authored_admission_sql
+    from .native_admission import _admission_descriptor
+    from .native_authoring import authored_admission_sql
     from .native_objects import NativeAuthoring, NativeAuthoringError, NativeObject
-    from .source_view_native import _admission_descriptor
 
     if not predecessor or any(not isinstance(item, NativeObject) for item in predecessor):
         raise NativeAuthoringError(
@@ -690,7 +604,7 @@ def prepare_target_successor(
     The caller authenticates registration custody before supplying its frozen
     objects. This checks their actual installed state and never adopts live bodies.
     """
-    from .native_candidate import (
+    from .native_authoring import (
         _physical_check_contract,
         compare_declared_candidate,
         physical_row_type_context,
@@ -732,31 +646,12 @@ def prepare_target_successor(
     )
 
 
-def prepare_target_candidate(
-    connection, installation: TargetInstallation, *, owned_authoring=False
-):
-    """Prepare a fresh Alembic root against an owned empty namespace, then roll back.
-
-    The returned ordinary/native operations still require explicit review, frozen
-    registration and the existing migration lifecycle. This never stamps or deploys.
-    """
-    from alembic.migration import MigrationContext
-    from alembic.operations import Operations
-    from alembic.operations.ops import ExecuteSQLOp
+def require_empty_target(connection) -> None:
+    """Refuse unregistered application state or migration history for an explicit root."""
     from sqlalchemy import text
-    from sqlalchemy.schema import CreateSchema
 
-    from .alembic_native import NativeTransitionOp
-    from .alembic_privileges import table_policy
-    from .native_candidate import _physical_check_contract, compare_declared_candidate
-    from .native_objects import NativeAuthoringError, prepare_native_authoring
+    from .native_objects import NativeAuthoringError
 
-    if not owned_authoring:
-        raise NativeAuthoringError("fresh target preparation requires owned authoring custody")
-    declared_schemas = {table.schema for table in installation.metadata.tables.values()}
-    if None in declared_schemas:
-        raise NativeAuthoringError("fresh target tables require explicit schemas")
-    schemas = sorted(schema for schema in declared_schemas if schema is not None)
     present = tuple(
         connection.scalars(
             text(
@@ -775,6 +670,29 @@ def prepare_target_candidate(
         )
     ):
         raise NativeAuthoringError("fresh target preparation refuses existing migration history")
+
+
+def prepare_target_candidate(
+    connection, installation: TargetInstallation, *, owned_authoring=False
+):
+    """Prepare a fresh root on an owned empty target, preserving normal Alembic custody."""
+    from alembic.migration import MigrationContext
+    from alembic.operations import Operations
+    from alembic.operations.ops import ExecuteSQLOp
+    from sqlalchemy.schema import CreateSchema
+
+    from .alembic_native import NativeTransitionOp
+    from .alembic_privileges import table_policy
+    from .native_authoring import _physical_check_contract, compare_declared_candidate
+    from .native_objects import NativeAuthoringError, prepare_native_authoring
+
+    if not owned_authoring:
+        raise NativeAuthoringError("fresh target preparation requires owned authoring custody")
+    require_empty_target(connection)
+    declared_schemas = {table.schema for table in installation.metadata.tables.values()}
+    if None in declared_schemas:
+        raise NativeAuthoringError("fresh target tables require explicit schemas")
+    schemas = sorted(schema for schema in declared_schemas if schema is not None)
     quote = connection.dialect.identifier_preparer.quote
     schema_sql = [
         statement

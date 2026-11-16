@@ -12,7 +12,7 @@ from corpus_structure.semantic.alembic_native import plugin as native_plugin
 from corpus_structure.semantic.migrations import VERSION_TABLE
 
 
-def run_migrations(context, *, use_default_metadata=True) -> None:
+def run_migrations(context) -> None:
     def applied(ctx: Any, step: Any, heads: Collection[Any], run_args: Mapping[str, Any]) -> None:
         context.config.attributes.setdefault("applied", []).append(
             {
@@ -26,16 +26,9 @@ def run_migrations(context, *, use_default_metadata=True) -> None:
     connection = context.config.attributes.get("connection")
     if connection is None:
         raise RuntimeError("semantic migrations require Config.attributes['connection']")
-    if "target_metadata" in context.config.attributes:
-        selected = context.config.attributes["target_metadata"]
-    elif use_default_metadata:
-        from corpus_structure.semantic.metadata import metadata
-
-        selected = metadata
-    else:
-        # Frozen target upgrades need no current physical/compiler imports.
-        # Autogeneration supplies its exact captured metadata explicitly.
-        selected = None
+    # Frozen upgrades never import current physical/compiler state.
+    # Autogeneration supplies its exact captured metadata explicitly.
+    selected = context.config.attributes.get("target_metadata")
     schemas = (
         {relation.schema for relation in selected.tables.values()}
         if selected is not None

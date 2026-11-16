@@ -4,4 +4,4 @@ from alembic import context
 
 from corpus_structure.semantic.alembic_environment import run_migrations
 
-run_migrations(context, use_default_metadata=False)
+run_migrations(context)

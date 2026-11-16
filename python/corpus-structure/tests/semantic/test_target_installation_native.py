@@ -13,12 +13,12 @@ from corpus_structure.cli.schema import _native_candidate_python
 from corpus_structure.semantic.alembic_privileges import admit_privileges
 from corpus_structure.semantic.metadata import metadata
 from corpus_structure.semantic.migrations import (
-    TARGET_ALEMBIC_DIR,
+    ALEMBIC_DIR,
     alembic_config,
     current_revision,
     upgrade,
 )
-from corpus_structure.semantic.native_candidate import (
+from corpus_structure.semantic.native_authoring import (
     authored_admission_sql,
     load_native_state,
     verify_frozen_catalog,
@@ -40,10 +40,7 @@ from native_test_support import principal_engine
 
 @pytest.fixture(scope="module")
 def fresh_target_epoch():
-    return capture_target_installation(
-        dict(metadata.info["physical_sources"]),
-        linkml_types=metadata.info["physical_linkml_types"],
-    )
+    return capture_target_installation(metadata)
 
 
 def application_namespaces(connection):
@@ -72,7 +69,7 @@ def runtime_temp_privileges(connection):
 
 
 def test_actual_target_default_contract(semantic_bare_engine, fresh_target_epoch):
-    from corpus_structure.semantic.native_candidate import _declared_physical_catalog
+    from corpus_structure.semantic.native_authoring import _declared_physical_catalog
 
     selected = MetaData()
     for name in ("ops.task", "sem.sql_admission"):
@@ -93,7 +90,7 @@ def test_actual_target_default_contract(semantic_bare_engine, fresh_target_epoch
 def test_actual_physical_row_type_context_restores_existing_data_and_new_tables(
     semantic_bare_engine,
 ):
-    from corpus_structure.semantic.native_candidate import physical_row_type_context
+    from corpus_structure.semantic.native_authoring import physical_row_type_context
 
     before = MetaData()
     Table(
@@ -229,7 +226,7 @@ def install_target_root(engine, epoch, tmp_path):
     location = tmp_path / "fresh-target"
     (location / "versions").mkdir(parents=True)
     for filename in ("env.py", "script.py.mako"):
-        shutil.copyfile(TARGET_ALEMBIC_DIR / filename, location / filename)
+        shutil.copyfile(ALEMBIC_DIR / filename, location / filename)
     revision = register_target_revision(
         location, "target_fresh_control", rendered, authoring, candidate
     )
@@ -373,9 +370,11 @@ def test_actual_target_successor_uses_registered_state_and_preserves_installatio
         "annotations": {"ph:default": "'unreviewed'"},
     }
     sources["physical.yaml"] = yaml.safe_dump(declaration, sort_keys=False).encode()
-    successor = capture_target_installation(
+    from corpus_structure.schema.physical import compile_physical
+
+    successor = capture_target_installation(compile_physical(
         sources, linkml_types=metadata.info["physical_linkml_types"]
-    )
+    ))
     with engine.begin() as connection:
         verify_target(connection, target, purpose="maintenance")
         connection.exec_driver_sql(
