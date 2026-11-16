@@ -118,9 +118,15 @@ def test_pdf_mode_captures_only_its_explicit_profile_and_exact_discovery(
     model = bound_data_operation_model(prepared)
     effect = model.operation(operation)
     assert effect.effects == (expected_effect,)
-    assert effect.dependencies == ((input_operation,) if mode == "enriched" else (input_operation, "source.pdf_recognition/observe"))
+    assert effect.dependencies == (
+        (input_operation,)
+        if mode == "enriched"
+        else (input_operation, "source.pdf_recognition/observe")
+    )
     if mode == "integrated":
-        assert model.operation("source.pdf_recognition/observe").dependencies == ("source.pdf/capture",)
+        assert model.operation("source.pdf_recognition/observe").dependencies == (
+            "source.pdf/capture",
+        )
     discovery = "source.pdf_" + mode + "_views/discovery"
     composition = "text.compose_view/" + mode + "-captured-full-native"
     assert model.operation(discovery).dependencies == (operation,)
@@ -162,10 +168,10 @@ def test_pdf_mode_captures_only_its_explicit_profile_and_exact_discovery(
 def test_recognition_refuses_duplicate_or_foreign_physical_pages_before_provider(pages):
     options = PdfRecognitionOptions(recovery_policy=None)
     values = {
-                "source_scope": "whole_document",
-                "health": {"conversion": "success"},
-                "document": {"pages": {"1": {}}},
-            }
+        "source_scope": "whole_document",
+        "health": {"conversion": "success"},
+        "document": {"pages": {"1": {}}},
+    }
     with pytest.raises(ValueError, match="physical page inventory"):
         recognition_page_selection(values, pages, options)
 
@@ -190,12 +196,20 @@ def test_recognition_recipe_owns_recovery_and_integration_recipe_owns_selection(
     assert value["recognition"] == recipe.digest
     with pytest.raises(ValueError):
         PdfRecognitionOptions(recovery_policy={"max_attempts": 2})
-    integration = PreparedPdfTransform(None, None, {
-        "mode": "integrated", "options": PdfIntegrationOptions(integration_policy={}).model_dump(mode="json")
-    })
+    integration = PreparedPdfTransform(
+        None,
+        None,
+        {
+            "mode": "integrated",
+            "options": PdfIntegrationOptions(integration_policy={}).model_dump(mode="json"),
+        },
+    )
     selected = json.loads(integration.recipe_bytes())
     assert selected["integration_policy"]["comparison_demand"] == "lexical"
-    assert not {"recognition", "recognition_pages", "recovery_policy", "source_recovery"} & selected.keys()
+    assert (
+        not {"recognition", "recognition_pages", "recovery_policy", "source_recovery"}
+        & selected.keys()
+    )
 
 
 def test_integration_policy_change_keeps_actual_recognition_recipe_identity(tmp_path):
@@ -203,18 +217,34 @@ def test_integration_policy_change_keeps_actual_recognition_recipe_identity(tmp_
     from semantic.data_operation_kernel_support import prepare_kernel
 
     first = prepare_kernel(current_pdf_recipe(tmp_path))
-    second = prepare_kernel(current_pdf_recipe(tmp_path, integration_policy={
-        "policy_id": "pdf-integration-v1", "conflict_action": "keep", "unmatched_action": "add",
-        "specialized_crop_precedence": True, "comparison_demand": "lexical",
-    }))
+    second = prepare_kernel(
+        current_pdf_recipe(
+            tmp_path,
+            integration_policy={
+                "policy_id": "pdf-integration-v1",
+                "conflict_action": "keep",
+                "unmatched_action": "add",
+                "specialized_crop_precedence": True,
+                "comparison_demand": "lexical",
+            },
+        )
+    )
     recognition = "source.pdf_recognition/observe"
     integration = "source.pdf_integrated/reconcile"
+
     def identities(model):
         return {(entry.owner, entry.domain): entry.key for entry in model.identities}
+
     assert first.model.operation(recognition).recipe == second.model.operation(recognition).recipe
-    assert identities(first.model)[recognition, "recipe"] == identities(second.model)[recognition, "recipe"]
+    assert (
+        identities(first.model)[recognition, "recipe"]
+        == identities(second.model)[recognition, "recipe"]
+    )
     assert first.model.operation(integration).recipe != second.model.operation(integration).recipe
-    assert identities(first.model)[integration, "recipe"] != identities(second.model)[integration, "recipe"]
+    assert (
+        identities(first.model)[integration, "recipe"]
+        != identities(second.model)[integration, "recipe"]
+    )
 
 
 def test_pdf_reader_materialization_checkpoint_observes_actual_request_cancellation():

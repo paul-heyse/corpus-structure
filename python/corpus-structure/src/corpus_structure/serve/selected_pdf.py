@@ -17,13 +17,14 @@ from corpus_structure.semantic.demand_results import CutSelection
 from corpus_structure.semantic.product_reference import ProductReference
 
 if TYPE_CHECKING:
+    from corpus_structure.semantic.pdf_observations import PdfObservationExecutionReceipt
     from corpus_structure.semantic.pdf_publication import PdfExecutionReceipt
     from corpus_structure.semantic.types import PreparedRelease
-    from corpus_structure.semantic.pdf_observations import PdfObservationExecutionReceipt
 
 
 class SelectedPdfSourceReference(BaseModel):
     """Selected PDF product address; the native read operation proves its kind."""
+
     model_config = ConfigDict(frozen=True, extra="forbid", strict=True)
     project_id: str = Field(min_length=1)
     demand_id: str = Field(min_length=1)
@@ -58,7 +59,9 @@ class SelectedPdfObservations:
     original_source: str
 
 
-def acquire_selected_pdf_observations(connection, reference: SelectedPdfSourceReference) -> SelectedPdfObservations:
+def acquire_selected_pdf_observations(
+    connection, reference: SelectedPdfSourceReference
+) -> SelectedPdfObservations:
     """Open an exact observation set without granting sealed publication standing."""
     from corpus_structure.semantic._data_operation_wire import WireReadSelectedPdfSourceRequest
     from corpus_structure.semantic.data_operation_storage import DataOperationStorage
@@ -66,16 +69,29 @@ def acquire_selected_pdf_observations(connection, reference: SelectedPdfSourceRe
     from corpus_structure.semantic.pdf_observations import PdfObservationExecutionReceipt
     from corpus_structure.semantic.releases import open_release
 
-    request = cast(WireReadSelectedPdfSourceRequest, validate_native_wire(
-        "read_selected_pdf_observations", "input", reference.model_dump(mode="python")
-    ))
+    request = cast(
+        WireReadSelectedPdfSourceRequest,
+        validate_native_wire(
+            "read_selected_pdf_observations", "input", reference.model_dump(mode="python")
+        ),
+    )
     result = DataOperationStorage(connection).read_selected_pdf_observations(request)
     cut = CutSelection(json_bytes(result["cut"]))
     pins = cut.record
-    if (pins["project_id"], pins["demand_id"], pins["read_id"]) != (reference.project_id, reference.demand_id, reference.read_id):
+    if (pins["project_id"], pins["demand_id"], pins["read_id"]) != (
+        reference.project_id,
+        reference.demand_id,
+        reference.read_id,
+    ):
         raise ValueError("selected observation receipt belongs to another pinned read")
     receipt = PdfObservationExecutionReceipt.model_validate_json(json_bytes(result["receipt"]))
-    return SelectedPdfObservations(reference, cut, receipt, open_release(connection, pins["release_id"]), result["original_source"])
+    return SelectedPdfObservations(
+        reference,
+        cut,
+        receipt,
+        open_release(connection, pins["release_id"]),
+        result["original_source"],
+    )
 
 
 def acquire_selected_pdf_source(

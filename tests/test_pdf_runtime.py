@@ -23,16 +23,18 @@ def test_domain_source_selection_survives_pure_scope_configuration():
 
     import yaml
 
+    from corpus_structure.orchestrate.project import OriginalInventory
+
     domain = yaml.safe_load(
-        (Path(__file__).resolve().parents[1] / "domains/statistics/methods.yaml").read_text()
+        (Path(__file__).resolve().parents[1] / "domains/statistics/originals.yaml").read_text()
     )
-    values = domain["configs"]["ingest.pdf_integrated"]["default"]
-    before = deepcopy(values)
-    configuration = PdfIngestConfig.model_validate(values)
-    assert configuration.originals == ("siegrist_random/Full_PDF/Full.pdf",)
+    before = deepcopy(domain)
+    inventory = OriginalInventory.model_validate(domain)
+    configuration = PdfIngestConfig(membership="descendants")
+    assert inventory.originals == ["siegrist_random/Full_PDF/Full.pdf"]
     assert configuration.membership == "descendants"
     assert configuration.section_policy().rule_id == "native-organizational-headings-v2"
-    assert values == before
+    assert domain == before
 
 
 def test_owned_assets_pin_actual_table_revision_and_detect_changed_bytes(tmp_path, monkeypatch):

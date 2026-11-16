@@ -103,8 +103,12 @@ def captured_split_pdf_ports(tmp_path_factory):
     return prepared.bundle, captured[1], prepared.prepared, prepared.model
 
 
-@pytest.mark.parametrize("operation", ["source.pdf_recognition/observe", "source.pdf_integrated/reconcile"])
-def test_split_pdf_ports_bind_their_actual_nominal_inputs_and_resources(captured_split_pdf_ports, operation):
+@pytest.mark.parametrize(
+    "operation", ["source.pdf_recognition/observe", "source.pdf_integrated/reconcile"]
+)
+def test_split_pdf_ports_bind_their_actual_nominal_inputs_and_resources(
+    captured_split_pdf_ports, operation
+):
     port, authorized, identity = acquired_port(captured_split_pdf_ports, operation)
     port._verify()
     assert authorized == [identity, identity]
@@ -113,7 +117,10 @@ def test_split_pdf_ports_bind_their_actual_nominal_inputs_and_resources(captured
         assert "integration_policy" not in port.profile.record["options"]
     else:
         assert set(port.profile.record["options"]) == {"integration_policy"}
-        assert "resources" not in port.profile.record and "recognition_recipe" not in port.profile.record
+        assert (
+            "resources" not in port.profile.record
+            and "recognition_recipe" not in port.profile.record
+        )
 
 
 @pytest.mark.parametrize(

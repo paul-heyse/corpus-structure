@@ -88,20 +88,25 @@ def test_current_native_archive_refuses_omitted_ordinary_identity_role_atomicall
         )
 
 
-def test_current_native_archive_refuses_unsupported_ordinary_regex_without_effects(
+def test_current_native_admission_refuses_unsupported_ordinary_regex_without_effects(
     commit_admitter_engine,
 ):
+    from corpus_structure.semantic.data_operation_admission import admit_data_operation_release
+    from corpus_structure.semantic.execution_admission import ExecutionAdmissionError
+
     captured = control(True)
     with commit_admitter_engine.begin() as conn:
         with (
             pytest.raises(
-                ReleaseConflict, match="unsupported required native constraint scope or pattern"
+                ExecutionAdmissionError,
+                match="unsupported required native constraint scope or pattern",
             ),
             conn.begin_nested(),
         ):
             persist_release(
                 conn, captured.bundle, captured.dependencies, captured.profile, captured.prepared
             )
+            admit_data_operation_release(conn, captured.prepared)
         assert (
             conn.scalar(
                 text("SELECT count(*) FROM sem.release_finalization WHERE release_id=:r"),

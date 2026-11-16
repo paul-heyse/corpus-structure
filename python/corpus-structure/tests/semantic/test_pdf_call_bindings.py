@@ -269,17 +269,27 @@ def test_current_native_integer_widths_refuse_inputs_outside_the_actual_abi():
                 calls._read_pdf_frozen_rowsRequest.model_validate({**request, field: outside})
             assert not isinstance(invalid.value, NativeResultViolation)
             assert invalid.value.errors()[0]["loc"] == (field,)
+
+
 def test_observation_publication_requires_an_explicit_actual_runtime():
     from corpus_structure.semantic.identifiers import RuntimeId, TaskAttempt, TaskId
 
     with pytest.raises(TypeError, match="runtime_id"):
         vars(calls)["prepare_publish_pdf_observation"](
-            task_id=TaskId(2), attempt=TaskAttempt(3), holder="actual-holder",
-            contract_digest="a" * 64, payload=b"{}", artifacts=(),
+            task_id=TaskId(2),
+            attempt=TaskAttempt(3),
+            holder="actual-holder",
+            contract_digest="a" * 64,
+            payload=b"{}",
+            artifacts=(),
         )
     prepared = calls.prepare_publish_pdf_observation(
-        task_id=TaskId(2), attempt=TaskAttempt(3), holder="actual-holder",
-        runtime_id=RuntimeId("actual-runtime"), contract_digest="a" * 64,
-        payload=b"{}", artifacts=(),
+        task_id=TaskId(2),
+        attempt=TaskAttempt(3),
+        holder="actual-holder",
+        runtime_id=RuntimeId("actual-runtime"),
+        contract_digest="a" * 64,
+        payload=b"{}",
+        artifacts=(),
     )
     assert prepared.compile().params["runtime_id"] == "actual-runtime"

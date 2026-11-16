@@ -12,6 +12,7 @@ from corpus_structure.semantic.pdf_storage import NativeDocumentUnavailable
 from corpus_structure.semantic.product_reference import ProductReference
 from corpus_structure.serve.native_source import NativeSourceRequest, _cell_companion
 
+
 @pytest.fixture
 def source():
     return ProductReference(3, "integrated", "a" * 64), ("#/texts/0", "#/texts/1", "#/body")

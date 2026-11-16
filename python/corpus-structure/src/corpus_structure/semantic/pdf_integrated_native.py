@@ -23,26 +23,38 @@ def observation_publication_sql(context=None) -> str:
     declaration = functions["ops", "publish_pdf_observation"]
     meaning = functions["ops", "pdf_observation_meaning"]
     meaning_option = next(option for option in meaning.options or () if option.defname == "as")
-    specification = next(source.content for source in context.domain.sources if source.name == MEANING_SPEC)
+    specification = next(
+        source.content for source in context.domain.sources if source.name == MEANING_SPEC
+    )
     marker = "-- {observation_meaning_projection}"
     if meaning_option.arg[0].sval.count(marker) != 1:
         raise ValueError("recognition meaning requires its one captured selection")
-    meaning_option.arg[0].sval = meaning_option.arg[0].sval.replace(marker, observation_meaning_sql(specification))
+    meaning_option.arg[0].sval = meaning_option.arg[0].sval.replace(
+        marker, observation_meaning_sql(specification)
+    )
     projection = functions["ops", "pdf_observation_projection"]
-    projection_option = next(option for option in projection.options or () if option.defname == "as")
+    projection_option = next(
+        option for option in projection.options or () if option.defname == "as"
+    )
     marker = "-- {observation_report_shape}"
     if projection_option.arg[0].sval.count(marker) != 1:
         raise ValueError("observation report requires its one typed boundary")
     from pydantic import TypeAdapter
+
     from .identity import canonical_bytes
 
-    report_schema = TypeAdapter(PdfObservationPageReport).json_schema(ref_template="#/definitions/{model}")
+    report_schema = TypeAdapter(PdfObservationPageReport).json_schema(
+        ref_template="#/definitions/{model}"
+    )
     if "$defs" in report_schema:
         report_schema["definitions"] = report_schema.pop("$defs")
     literal = canonical_bytes(report_schema).decode().replace("'", "''")
-    projection_option.arg[0].sval = projection_option.arg[0].sval.replace(marker,
-        "IF NOT coalesce(public.json_matches_schema('" + literal + "'::json,report::json),false) THEN "
-        "RAISE EXCEPTION 'observation report violates its finite manifest contract' USING ERRCODE='23514'; END IF;"
+    projection_option.arg[0].sval = projection_option.arg[0].sval.replace(
+        marker,
+        "IF NOT coalesce(public.json_matches_schema('"
+        + literal
+        + "'::json,report::json),false) THEN "
+        "RAISE EXCEPTION 'observation report violates its finite manifest contract' USING ERRCODE='23514'; END IF;",
     )
     option = next(option for option in declaration.options or () if option.defname == "as")
     body = option.arg[0].sval

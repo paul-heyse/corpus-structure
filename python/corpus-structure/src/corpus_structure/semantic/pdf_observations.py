@@ -33,8 +33,18 @@ class PdfObservationSetProduct:
 def observation_meaning_spec(content: bytes) -> dict[str, Any]:
     """Read the one finite field selection captured by the existing PDF owner."""
     value = json.loads(content)
-    lists = ("observation_fields", "binding_fields", "decoding_provenance_fields", "coverage_fields", "health_fields")
-    if not isinstance(value, dict) or set(value) != {"version", "fields", "pass_roles", *lists} or value["version"] != "pdf-observation-meaning-1":
+    lists = (
+        "observation_fields",
+        "binding_fields",
+        "decoding_provenance_fields",
+        "coverage_fields",
+        "health_fields",
+    )
+    if (
+        not isinstance(value, dict)
+        or set(value) != {"version", "fields", "pass_roles", *lists}
+        or value["version"] != "pdf-observation-meaning-1"
+    ):
         raise ValueError("unsupported recognition meaning selection")
     if not isinstance(value["fields"], dict) or not value["fields"]:
         raise ValueError("recognition meaning requires named source fields")
@@ -151,19 +161,14 @@ def observation_meaning(value: dict[str, Any], *, specification: bytes) -> dict[
     # spelling. The existing JSON meaning codec supplies numeric equivalence.
     binding["decoding_json"] = decoding
     observation = {
-        name: deepcopy(observed[name])
-        for name in spec["observation_fields"]
-        if name in observed
+        name: deepcopy(observed[name]) for name in spec["observation_fields"] if name in observed
     }
     observation["binding"] = binding
     coverage = []
     for row in value["coverage"]:
         if row["supports"]:
             raise ValueError("raw recognition coverage cannot inherit a source assessment")
-        coverage.append({
-            name: row[name]
-            for name in spec["coverage_fields"]
-        })
+        coverage.append({name: row[name] for name in spec["coverage_fields"]})
     return {
         "version": spec["version"],
         **{name: value[source] for name, source in spec["fields"].items()},
@@ -176,7 +181,11 @@ def observation_meaning(value: dict[str, Any], *, specification: bytes) -> dict[
 
 def observation_meaning_digest(value: dict[str, Any], *, specification: bytes) -> str:
     """Use the existing JSON meaning codec, including JSONB numeric equivalence."""
-    return sha256(json_context_meaning(canonical_bytes(observation_meaning(value, specification=specification)))).hexdigest()
+    return sha256(
+        json_context_meaning(
+            canonical_bytes(observation_meaning(value, specification=specification))
+        )
+    ).hexdigest()
 
 
 def observation_meaning_sql(specification: bytes) -> str:
@@ -191,14 +200,16 @@ def observation_meaning_sql(specification: bytes) -> str:
 
     selected = ",".join(literal(name) for name in spec["observation_fields"])
     removed = "".join("-" + literal(name) for name in spec["decoding_provenance_fields"])
-    scalar = ",".join(literal(name) + ",value->" + literal(source) for name, source in spec["fields"].items())
+    scalar = ",".join(
+        literal(name) + ",value->" + literal(source) for name, source in spec["fields"].items()
+    )
     return f"""
  IF value->>'kind' IS DISTINCT FROM 'recognition_observation'
- OR observed->>'pass_role' NOT IN ({','.join(literal(role) for role in spec['pass_roles'])})
+ OR observed->>'pass_role' NOT IN ({",".join(literal(role) for role in spec["pass_roles"])})
  OR observed ? 'mapped_evidence_digest' OR coalesce(value->'relations','[]')<>'[]'::jsonb
  OR coalesce(value->'mapping_reports','[]')<>'[]'::jsonb THEN
  RAISE EXCEPTION 'recognition meaning requires the finite raw observation producer' USING ERRCODE='23514'; END IF;
- binding:=jsonb_build_object({fields(spec['binding_fields'], "observed->'binding'")});
+ binding:=jsonb_build_object({fields(spec["binding_fields"], "observed->'binding'")});
  decoding:=(binding->>'decoding_json')::jsonb;
  IF jsonb_typeof(decoding) IS DISTINCT FROM 'object' THEN
  RAISE EXCEPTION 'recognition decoding must be a declared object' USING ERRCODE='23514'; END IF;
@@ -208,8 +219,8 @@ def observation_meaning_sql(specification: bytes) -> str:
  observation:=observation||jsonb_build_object('binding',binding);
  IF EXISTS(SELECT FROM jsonb_array_elements(value->'coverage') row WHERE row->'supports' IS DISTINCT FROM '[]'::jsonb) THEN
  RAISE EXCEPTION 'raw recognition coverage cannot inherit a source assessment' USING ERRCODE='23514'; END IF;
- SELECT coalesce(jsonb_agg(jsonb_build_object({fields(spec['coverage_fields'], 'row')}) ORDER BY ordinal),'[]')
+ SELECT coalesce(jsonb_agg(jsonb_build_object({fields(spec["coverage_fields"], "row")}) ORDER BY ordinal),'[]')
  INTO coverage FROM jsonb_array_elements(value->'coverage') WITH ORDINALITY item(row,ordinal);
- RETURN jsonb_build_object('version',{literal(spec['version'])},{scalar},'observation',observation,
- 'occurrences',value->'occurrences','coverage',coverage,{fields(spec['health_fields'], "value->'health'")});
+ RETURN jsonb_build_object('version',{literal(spec["version"])},{scalar},'observation',observation,
+ 'occurrences',value->'occurrences','coverage',coverage,{fields(spec["health_fields"], "value->'health'")});
 """

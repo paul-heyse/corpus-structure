@@ -53,7 +53,6 @@ class PdfRuntimeConfig(BaseModel):
 
 
 class PdfIngestConfig(PdfRuntimeConfig):
-    originals: tuple[str, ...] = ("siegrist_random/Full_PDF/Full.pdf",)
     section_rule: str = "native-organizational-headings-v2"
     section_pattern: str = r"^\d+(?:\.\d+)*\s*[:.)-]?\s+\S"
     organizational_heading_pattern: str = r"\S"

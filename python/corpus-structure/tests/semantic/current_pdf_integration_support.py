@@ -90,7 +90,9 @@ def current_pdf_recipe(directory, *, integration_policy=None):
     integration = pdf_transform_operation_sources(
         "integrated",
         recognition_recipe=NemotronRecipe("2" * 64, "3" * 64),
-        options=PdfIntegrationOptions(integration_policy={} if integration_policy is None else integration_policy),
+        options=PdfIntegrationOptions(
+            integration_policy={} if integration_policy is None else integration_policy
+        ),
         recognition_options=PdfRecognitionOptions(recovery_policy=None),
         resources=PdfRecognitionResources(
             python=sys.executable,
@@ -195,8 +197,11 @@ def current_integration_journey(
     native_settings,
     *,
     raw_responses=(RICH_RESPONSE, RICH_RESPONSE),
-    outcome="succeeded", before_draft=None, before_observation=None,
-    expect_unresolved_page=False, reclaim_after_recognition=False,
+    outcome="succeeded",
+    before_draft=None,
+    before_observation=None,
+    expect_unresolved_page=False,
+    reclaim_after_recognition=False,
 ):
     from corpus_structure.ingest import pdf_recognition, pdf_worker
     from corpus_structure.orchestrate import pdf_streaming
@@ -264,7 +269,13 @@ def current_integration_journey(
             assert tuple(pages) == (1,)
             # This controlled external boundary retains actual request/report
             # bytes. Reuse is explicit and confined to the exact source+recipe.
-            directory = tmp_path / "controlled-actual-requests" / source.digest / recipe.digest / "page-00001"
+            directory = (
+                tmp_path
+                / "controlled-actual-requests"
+                / source.digest
+                / recipe.digest
+                / "page-00001"
+            )
             reused = directory.is_dir()
             if reused:
                 case.calls.append("recognition-adopt")
@@ -276,16 +287,24 @@ def current_integration_journey(
                 requests = []
                 for ordinal, raw in enumerate(raw_responses):
                     row = dict(
-                        ordinal=ordinal, stage="fullpage" if ordinal == 0 else "detection",
+                        ordinal=ordinal,
+                        stage="fullpage" if ordinal == 0 else "detection",
                         outcome="succeeded" if raw is not None else "failed",
-                        submitted_image="submitted.png", submitted_digest=sha256(IMAGE).hexdigest(),
-                        width=4, height=6, prompt="Independent finite controlled recognition",
+                        submitted_image="submitted.png",
+                        submitted_digest=sha256(IMAGE).hexdigest(),
+                        width=4,
+                        height=6,
+                        prompt="Independent finite controlled recognition",
                         settings={},
                     )
                     if raw is not None:
                         name = f"response-{ordinal:03d}.txt"
                         (directory / name).write_bytes(raw)
-                        row.update(raw_response=name, raw_digest=sha256(raw).hexdigest(), finish_reason="stop")
+                        row.update(
+                            raw_response=name,
+                            raw_digest=sha256(raw).hexdigest(),
+                            finish_reason="stop",
+                        )
                     else:
                         row["diagnostic"] = "controlled connection closed before response"
                     (directory / f"request-{ordinal:03d}.json").write_text(json.dumps(row))
@@ -293,12 +312,26 @@ def current_integration_journey(
                 result = {"outcome": outcome, "requests": requests}
                 (directory / "result.json").write_text(json.dumps(result))
             check_active()
-            yield RecognitionPage(1, directory, result, dict(
-                status="coarse", normalization="none", source_space="pdf_points",
-                target_space="submitted_pixels", page_width=200.0, page_height=300.0,
-                page_rotation=0, crop_left=0.0, crop_top=0.0, crop_right=200.0,
-                crop_bottom=300.0, affine=[0.02, 0.0, 0.0, 0.02, 0.0, 0.0],
-            ), reused=reused)
+            yield RecognitionPage(
+                1,
+                directory,
+                result,
+                dict(
+                    status="coarse",
+                    normalization="none",
+                    source_space="pdf_points",
+                    target_space="submitted_pixels",
+                    page_width=200.0,
+                    page_height=300.0,
+                    page_rotation=0,
+                    crop_left=0.0,
+                    crop_top=0.0,
+                    crop_right=200.0,
+                    crop_bottom=300.0,
+                    affine=[0.02, 0.0, 0.0, 0.02, 0.0, 0.0],
+                ),
+                reused=reused,
+            )
 
         publish_observation = pdf_integrated.store_pdf_observation
 
@@ -343,46 +376,73 @@ def current_integration_journey(
         patches.setattr(pdf_integrated, "store_pdf_observation", retain_observation)
         patches.setattr(pdf_streaming, "publish_pdf_record_draft", retained_draft)
         if reclaim_after_recognition:
+            from typing import cast
+
             from corpus_structure.orchestrate.data_operations import NativeDemandExecutor
             from corpus_structure.semantic._data_operation_wire import WireClaimDataRequestRequest
             from corpus_structure.semantic.data_operation_storage import DataOperationStorage
-            from typing import cast
 
             retain_answer = NativeDemandExecutor._retain_answer
 
             def reclaim(executor, ready, claim, answer, port, owner, *, physical):
-                if ready.operation == "source.pdf_recognition/observe" and case.reclaimed_fence is None:
+                if (
+                    ready.operation == "source.pdf_recognition/observe"
+                    and case.reclaimed_fence is None
+                ):
                     # The provider/CPU work has returned and all raw publications
                     # committed. Expiry+new claim share the existing support-lock
                     # order, so the old heartbeat cannot race this fixture step.
                     with case.clone.admin.begin() as connection:
-                        connection.execute(text(
-                            "SELECT ops.require_pdf_stage_owner(:task,:attempt,:holder)"
-                        ), {"task": claim.task_id, "attempt": claim.attempt, "holder": claim.holder})
+                        connection.execute(
+                            text("SELECT ops.require_pdf_stage_owner(:task,:attempt,:holder)"),
+                            {
+                                "task": claim.task_id,
+                                "attempt": claim.attempt,
+                                "holder": claim.holder,
+                            },
+                        )
                         connection.exec_driver_sql("SET LOCAL ROLE corpus_sem_publisher")
-                        assert connection.execute(text(
-                            "UPDATE ops.task SET lease_until=clock_timestamp()-interval '1 second' WHERE id=:task"
-                        ), {"task": claim.task_id}).rowcount == 1
+                        assert (
+                            connection.execute(
+                                text(
+                                    "UPDATE ops.task SET lease_until=clock_timestamp()-interval '1 second' WHERE id=:task"
+                                ),
+                                {"task": claim.task_id},
+                            ).rowcount
+                            == 1
+                        )
                         connection.exec_driver_sql("SET LOCAL ROLE corpus_sem_writer")
-                        changed = DataOperationStorage(connection).claim_data_request(cast(
-                            WireClaimDataRequestRequest, dict(request_id=claim.request_id,
-                            holder="recognition-successor", lease_seconds=300),
-                        ))
+                        changed = DataOperationStorage(connection).claim_data_request(
+                            cast(
+                                WireClaimDataRequestRequest,
+                                dict(
+                                    request_id=claim.request_id,
+                                    holder="recognition-successor",
+                                    lease_seconds=300,
+                                ),
+                            )
+                        )
                         assert changed["state"] == "claimed"
-                        case.reclaimed_fence = {name: changed[name] for name in
-                            ("request_id", "generation", "task_id", "attempt", "holder")}
-                    from sqlalchemy.exc import DBAPIError
-                    from psycopg import Error as NativePgError
+                        case.reclaimed_fence = {
+                            name: changed[name]
+                            for name in ("request_id", "generation", "task_id", "attempt", "holder")
+                        }
                     import pytest
+                    from psycopg import Error as NativePgError
+                    from sqlalchemy.exc import DBAPIError
 
                     # An actual native call from the old holder refuses before
                     # replay can return any previously retained observation.
                     with case.kernel.purpose("write").begin() as connection:
                         with pytest.raises(DBAPIError) as stale, connection.begin_nested():
-                            publish_observation(connection, task_id=claim.task_id,
-                                attempt=claim.attempt, holder=claim.holder,
+                            publish_observation(
+                                connection,
+                                task_id=claim.task_id,
+                                attempt=claim.attempt,
+                                holder=claim.holder,
                                 runtime_id=executor.runtime.runtime_id,
-                                product=case.observations[0][1])
+                                product=case.observations[0][1],
+                            )
                         assert isinstance(stale.value.orig, NativePgError)
                         assert stale.value.orig.sqlstate == "P0004"
                 return retain_answer(executor, ready, claim, answer, port, owner, physical=physical)
@@ -416,23 +476,36 @@ def current_integration_journey(
             except NativeDemandExecutionError as error:
                 if reclaim_after_recognition and case.reclaimed_fence is not None:
                     from corpus_structure.semantic.claim_lifetime import ClaimFenceLost
+
                     assert any(isinstance(failure, ClaimFenceLost) for failure in error.failures)
                     case.interruption = error
                     with case.clone.admin.begin() as connection:
                         connection.exec_driver_sql("SET LOCAL ROLE corpus_sem_publisher")
-                        assert connection.execute(text(
-                            "UPDATE ops.task SET lease_until=clock_timestamp()-interval '1 second' WHERE id=:task"
-                        ), {"task": case.reclaimed_fence["task_id"]}).rowcount == 1
+                        assert (
+                            connection.execute(
+                                text(
+                                    "UPDATE ops.task SET lease_until=clock_timestamp()-interval '1 second' WHERE id=:task"
+                                ),
+                                {"task": case.reclaimed_fence["task_id"]},
+                            ).rowcount
+                            == 1
+                        )
                     from corpus_structure.semantic.data_operation_service import execute_data_demand
-                    result = execute_data_demand(engine, error.result.demand_id, source_root=ROOT,
-                        admission_engine=kernel.purpose("admit"), database_capacity=6)
+
+                    result = execute_data_demand(
+                        engine,
+                        error.result.demand_id,
+                        source_root=ROOT,
+                        admission_engine=kernel.purpose("admit"),
+                        database_capacity=6,
+                    )
                 elif not expect_unresolved_page:
                     raise
                 else:
                     assert any(
-                    isinstance(failure, RuntimeError)
-                    and str(failure) == "unresolved triple-pass physical pages: [1]"
-                    for failure in error.failures
+                        isinstance(failure, RuntimeError)
+                        and str(failure) == "unresolved triple-pass physical pages: [1]"
+                        for failure in error.failures
                     )
                     case.failure = error
                     result = error.result
@@ -442,26 +515,57 @@ def current_integration_journey(
         with case.reader().begin() as connection:
             assert connection.scalar(text("SELECT current_user")) == "corpus_sem_reader"
             snapshot = read_data_demand(connection, result.demand_id, view="products")
-            from corpus_structure.serve.selected_pdf import SelectedPdfSourceReference, acquire_selected_pdf_source, acquire_selected_pdf_observations
+            from corpus_structure.serve.selected_pdf import (
+                SelectedPdfSourceReference,
+                acquire_selected_pdf_observations,
+                acquire_selected_pdf_source,
+            )
 
             obligations = {row["obligation_id"]: row for row in snapshot["obligations"]}
-            raw_use = next(use for use in snapshot["uses"] if use["fate"] == "fulfilled"
-                           and obligations[use["obligation_id"]]["operation_id"] == "source.pdf/capture")
-            raw_output = next(product for product in raw_use["products"] if product["role"] == "result")
+            raw_use = next(
+                use
+                for use in snapshot["uses"]
+                if use["fate"] == "fulfilled"
+                and obligations[use["obligation_id"]]["operation_id"] == "source.pdf/capture"
+            )
+            raw_output = next(
+                product for product in raw_use["products"] if product["role"] == "result"
+            )
             assert raw_use["derivation_id"] is not None
-            acquired = acquire_selected_pdf_source(connection, SelectedPdfSourceReference(
-                project_id=original.project_id, demand_id=result.demand_id, read_id=snapshot["read_id"],
-                use_id=raw_use["use_id"], product_id=raw_output["product_id"], derivation_id=raw_use["derivation_id"],
-            ))
+            acquired = acquire_selected_pdf_source(
+                connection,
+                SelectedPdfSourceReference(
+                    project_id=original.project_id,
+                    demand_id=result.demand_id,
+                    read_id=snapshot["read_id"],
+                    use_id=raw_use["use_id"],
+                    product_id=raw_output["product_id"],
+                    derivation_id=raw_use["derivation_id"],
+                ),
+            )
             case.publications["native"] = acquired.physical
-            observed_use = next(use for use in snapshot["uses"] if use["fate"] == "fulfilled"
-                and obligations[use["obligation_id"]]["operation_id"] == "source.pdf_recognition/observe")
-            observed_output = next(product for product in observed_use["products"] if product["role"] == "result")
+            observed_use = next(
+                use
+                for use in snapshot["uses"]
+                if use["fate"] == "fulfilled"
+                and obligations[use["obligation_id"]]["operation_id"]
+                == "source.pdf_recognition/observe"
+            )
+            observed_output = next(
+                product for product in observed_use["products"] if product["role"] == "result"
+            )
             assert observed_use["derivation_id"] is not None
-            case.observation_source = acquire_selected_pdf_observations(connection, SelectedPdfSourceReference(
-                project_id=original.project_id, demand_id=result.demand_id, read_id=snapshot["read_id"],
-                use_id=observed_use["use_id"], product_id=observed_output["product_id"], derivation_id=observed_use["derivation_id"],
-            ))
+            case.observation_source = acquire_selected_pdf_observations(
+                connection,
+                SelectedPdfSourceReference(
+                    project_id=original.project_id,
+                    demand_id=result.demand_id,
+                    read_id=snapshot["read_id"],
+                    use_id=observed_use["use_id"],
+                    product_id=observed_output["product_id"],
+                    derivation_id=observed_use["derivation_id"],
+                ),
+            )
         case.snapshot = snapshot
         obligations = {row["obligation_id"]: row for row in snapshot["obligations"]}
         for use in snapshot["uses"]:

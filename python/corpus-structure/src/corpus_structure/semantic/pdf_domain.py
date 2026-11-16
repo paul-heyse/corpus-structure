@@ -20,10 +20,7 @@ CONTRACT = PREFIX + "contract.json"
 
 
 def _pdf_action(operation: str, owner: str, symbol: str) -> bool:
-    return (
-        owner.startswith(("semantic.pdf_", "ingest.pdf"))
-        or owner == "orchestrate.pdf_streaming"
-    )
+    return owner.startswith(("semantic.pdf_", "ingest.pdf")) or owner == "orchestrate.pdf_streaming"
 
 
 HELPER_CONTRACT = "pdf-native/helper-bindings"

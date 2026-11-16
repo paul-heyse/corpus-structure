@@ -40,6 +40,7 @@ from .types import PreparedRelease
 if TYPE_CHECKING:
     from .data_operation_runtime import RuntimeBinding
 
+
 @dataclass(frozen=True)
 class OperationBinding:
     release_id: str

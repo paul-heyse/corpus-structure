@@ -615,8 +615,6 @@ def test_policy_demand_defaults_into_recipe_and_unsupported_demand_refuses(nativ
     assert normalize_pdf_integration_policy({}) == normalize_pdf_integration_policy()
     assert recipe["integration_policy"] == normalize_pdf_integration_policy(legacy)
     with pytest.raises(ValueError, match="only lexical"):
-        PdfIntegrationOptions(
-            integration_policy={**legacy, "comparison_demand": "symbolic"}
-        )
+        PdfIntegrationOptions(integration_policy={**legacy, "comparison_demand": "symbolic"})
     with pytest.raises(ValueError, match="only lexical"):
         normalize_pdf_integration_policy({**legacy, "comparison_demand": "syntax"})

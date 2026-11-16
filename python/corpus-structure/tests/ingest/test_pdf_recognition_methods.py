@@ -120,6 +120,7 @@ def test_deterministic_integration_retains_typed_candidates_and_distinct_health_
         coverage = list(draft.companions["coverage"])
         assert coverage and all(row["outcome"] == "unknown" for row in coverage)
         observed.append(candidates[0])
+
     options = PdfIntegrationOptions(integration_policy={})
     selected = SelectedPdfInput(
         SimpleNamespace(values=lambda: values, original=original, schema_bytes=b"{}"),

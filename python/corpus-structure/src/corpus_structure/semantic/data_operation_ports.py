@@ -184,7 +184,10 @@ class PortCompletion:
             and type(self.pdf_execution_evidence) is not bytes
         ):
             raise TypeError("PDF execution evidence requires owned immutable bytes")
-        if self.pdf_observation_evidence is not None and type(self.pdf_observation_evidence) is not bytes:
+        if (
+            self.pdf_observation_evidence is not None
+            and type(self.pdf_observation_evidence) is not bytes
+        ):
             raise TypeError("PDF observation evidence requires owned immutable bytes")
         if (
             self.provider_execution_evidence is not None

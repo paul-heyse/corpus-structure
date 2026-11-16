@@ -323,7 +323,7 @@ BEGIN
  result:=jsonb_build_object('variant',variant,'cut',cut,'product_id',p_product,'derivation_id',p_derivation,'receipt_id',receipt_id,'frame',grade);
  IF octet_length(data.canonical_json(result))>coalesce((p->>'max_bytes')::bigint,8388608) THEN
  RAISE EXCEPTION 'feature fit frame exceeds explicit byte bound' USING ERRCODE='23514'; END IF;
- RETURN result;
+ RETURN jsonb_build_object('payload',result);
 END $fit$;
 REVOKE ALL ON FUNCTION ops.read_selected_feature_fit_frame(jsonb) FROM PUBLIC;
 """.replace("__GRADE_KIND__", GRADE_KIND)

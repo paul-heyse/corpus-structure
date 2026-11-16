@@ -213,24 +213,58 @@ def test_pdf_receipt_keeps_original_sealed_publisher_separate_from_admitting_att
         PortCompletion("op", (), pdf_execution_evidence=bytearray(b"{}"))  # type: ignore[arg-type]
 
 
-@pytest.mark.parametrize("foreign", [None, "request_id", "generation", "task_id", "attempt", "holder", "runtime_id"])
+@pytest.mark.parametrize(
+    "foreign", [None, "request_id", "generation", "task_id", "attempt", "holder", "runtime_id"]
+)
 def test_observation_transport_keeps_first_publication_and_binds_current_adoption(foreign):
     """Typed transport only; native guards establish the referenced rows' standing."""
     fence = dict(request_id="r", generation=2, task_id=3, attempt=4, holder="current-owner")
-    origin = dict(version="pdf-observation-publication-1", request_id="r", generation=2,
-                  task_id=3, attempt=1, holder="first-owner", runtime_id="first-runtime",
-                  release_id="release", source_digest="a" * 64)
-    record: dict[str, Any] = dict(version="pdf-observation-execution-1", **fence, runtime_id="current-runtime",
-                  source_digest="a" * 64, recipe_digest="b" * 64, pages=[dict(
-                      page_no=1, recipe_digest="b" * 64, report_digest="c" * 64,
-                      adapter_reused=True, observations=[dict(ordinal=0, task_id=3,
-                      product_key="actual-row-selector", content_digest="d" * 64,
-                      publication_context=origin)])])
+    origin = dict(
+        version="pdf-observation-publication-1",
+        request_id="r",
+        generation=2,
+        task_id=3,
+        attempt=1,
+        holder="first-owner",
+        runtime_id="first-runtime",
+        release_id="release",
+        source_digest="a" * 64,
+    )
+    record: dict[str, Any] = dict(
+        version="pdf-observation-execution-1",
+        **fence,
+        runtime_id="current-runtime",
+        source_digest="a" * 64,
+        recipe_digest="b" * 64,
+        pages=[
+            dict(
+                page_no=1,
+                recipe_digest="b" * 64,
+                report_digest="c" * 64,
+                adapter_reused=True,
+                observations=[
+                    dict(
+                        ordinal=0,
+                        task_id=3,
+                        product_key="actual-row-selector",
+                        content_digest="d" * 64,
+                        publication_context=origin,
+                    )
+                ],
+            )
+        ],
+    )
     if foreign is not None:
         record[foreign] = 99 if foreign in {"generation", "task_id", "attempt"} else "foreign"
+
     def bind():
-        return bind_execution_evidence(None, fence=fence, runtime_id="current-runtime",
-                                       pdf_observation_content=canonical_bytes(record))
+        return bind_execution_evidence(
+            None,
+            fence=fence,
+            runtime_id="current-runtime",
+            pdf_observation_content=canonical_bytes(record),
+        )
+
     if foreign is not None:
         with pytest.raises(ValueError, match="observation adoption receipt differs"):
             bind()

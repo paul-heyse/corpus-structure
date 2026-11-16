@@ -38,6 +38,7 @@ from corpus_structure.semantic.pdf_effect_contract import (
     PDF_RECOGNITION_FACTORY,
 )
 from corpus_structure.semantic.runtime import open_runtime_engine
+from semantic.current_pdf_integration_support import current_pdf_recipe
 from semantic.data_operation_kernel_support import Kernel
 from semantic.data_operation_original_support import OriginalSeedRecipe
 from semantic.pdf_native_source_support import IMAGE
@@ -134,20 +135,21 @@ def test_native_organization_enrichment_and_integration_keep_real_receipts_and_e
             (directory / "submitted.png").write_bytes(IMAGE)
             (directory / "response.txt").write_bytes(raw)
             requests = [
-                    dict(
-                        ordinal=ordinal,
-                        stage=stage,
-                        outcome="succeeded",
-                        submitted_image="submitted.png",
-                        submitted_digest=sha256(IMAGE).hexdigest(),
-                        width=4,
-                        height=6,
-                        raw_response="response.txt",
-                        raw_digest=sha256(raw).hexdigest(),
-                        prompt="Independent controlled recognition",
-                        settings={},
-                        finish_reason="stop",
-                    ) for ordinal, stage in enumerate(("fullpage", "detection"))
+                dict(
+                    ordinal=ordinal,
+                    stage=stage,
+                    outcome="succeeded",
+                    submitted_image="submitted.png",
+                    submitted_digest=sha256(IMAGE).hexdigest(),
+                    width=4,
+                    height=6,
+                    raw_response="response.txt",
+                    raw_digest=sha256(raw).hexdigest(),
+                    prompt="Independent controlled recognition",
+                    settings={},
+                    finish_reason="stop",
+                )
+                for ordinal, stage in enumerate(("fullpage", "detection"))
             ]
             for row in requests:
                 (directory / f"request-{row['ordinal']:03d}.json").write_text(json.dumps(row))
@@ -192,7 +194,9 @@ def test_native_organization_enrichment_and_integration_keep_real_receipts_and_e
         rejected_observations = []
         valid_observations = []
 
-        def checked_observation(connection, *, task_id, attempt, holder, runtime_id, product, context=None):
+        def checked_observation(
+            connection, *, task_id, attempt, holder, runtime_id, product, context=None
+        ):
             value = product.values()
             variants = (
                 "wrong-original",
@@ -265,8 +269,12 @@ def test_native_organization_enrichment_and_integration_keep_real_receipts_and_e
                 )
                 rejected_observations.append((task_id, forged["product_key"]))
             arguments = dict(
-                task_id=task_id, attempt=attempt, holder=holder, runtime_id=runtime_id,
-                product=product, context=context
+                task_id=task_id,
+                attempt=attempt,
+                holder=holder,
+                runtime_id=runtime_id,
+                product=product,
+                context=context,
             )
             digest = store_observation(connection, **arguments)
             assert store_observation(connection, **arguments) == digest
@@ -381,14 +389,24 @@ def test_native_organization_enrichment_and_integration_keep_real_receipts_and_e
                 (receipt,) = retained["payload"]["execution_evidence"]["pdf_receipts"]
                 assert receipt["publication"]["task_id"] == retained["producer_task_id"]
                 receipts.append((receipt, retained))
-            observed = connection.execute(
-                select(intents.c.payload, intents.c.producer_task_id)
-                .join_from(intents, derivations_table, derivations_table.c.intent_id == intents.c.id)
-                .where(derivations_table.c.id == derivations["source.pdf_recognition/observe"])
-            ).mappings().one()
-            (observation_receipt,) = observed["payload"]["execution_evidence"]["pdf_observation_receipts"]
+            observed = (
+                connection.execute(
+                    select(intents.c.payload, intents.c.producer_task_id)
+                    .join_from(
+                        intents, derivations_table, derivations_table.c.intent_id == intents.c.id
+                    )
+                    .where(derivations_table.c.id == derivations["source.pdf_recognition/observe"])
+                )
+                .mappings()
+                .one()
+            )
+            (observation_receipt,) = observed["payload"]["execution_evidence"][
+                "pdf_observation_receipts"
+            ]
             assert observation_receipt["task_id"] == observed["producer_task_id"]
-            assert observation_receipt["task_id"] not in {row[1]["producer_task_id"] for row in receipts}
+            assert observation_receipt["task_id"] not in {
+                row[1]["producer_task_id"] for row in receipts
+            }
             assert len(observation_receipt["pages"][0]["observations"]) == 2
             observations = (
                 connection.execute(
@@ -408,13 +426,23 @@ def test_native_organization_enrichment_and_integration_keep_real_receipts_and_e
             assert len(observation_inputs) == 2
             # Recognition consumes the raw selected capture; organization remains
             # an independently produced structural input for integration.
-            assert {tuple(pin) for pin in observation_inputs} != {tuple(receipts[0][0]["publication"][key] for key in ("task_id", "product_key", "logical_digest"))}
-            raw_publication = connection.scalar(text(
-                "SELECT ops.ddo_pdf_capture_source(request.id,request.project_id,selected->>'product_id',selected->>'support_derivation_id')->'publication' "
-                "FROM ops.data_request request CROSS JOIN LATERAL jsonb_array_elements(request.binding->'inputs') selected "
-                "WHERE request.id=:request AND selected->>'role'='capture'"
-            ), {"request": observation_receipt["request_id"]})
-            assert {tuple(pin) for pin in observation_inputs} == {tuple(raw_publication[key] for key in ("task_id", "product_key", "logical_digest"))}
+            assert {tuple(pin) for pin in observation_inputs} != {
+                tuple(
+                    receipts[0][0]["publication"][key]
+                    for key in ("task_id", "product_key", "logical_digest")
+                )
+            }
+            raw_publication = connection.scalar(
+                text(
+                    "SELECT ops.ddo_pdf_capture_source(request.id,request.project_id,selected->>'product_id',selected->>'support_derivation_id')->'publication' "
+                    "FROM ops.data_request request CROSS JOIN LATERAL jsonb_array_elements(request.binding->'inputs') selected "
+                    "WHERE request.id=:request AND selected->>'role'='capture'"
+                ),
+                {"request": observation_receipt["request_id"]},
+            )
+            assert {tuple(pin) for pin in observation_inputs} == {
+                tuple(raw_publication[key] for key in ("task_id", "product_key", "logical_digest"))
+            }
             for receipt, retained in receipts:
                 forged = deepcopy(receipt)
                 forged["publication"]["source_digest"] = "f" * 64
