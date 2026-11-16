@@ -263,6 +263,7 @@ def authority_connection(cpu_basis_connection, actual_cpu_fit):
                 "member_id": None,
                 "position": member.position,
                 "multiplicity": member.multiplicity,
+                "support_derivation_ids": sorted(member.support_episodes),
             }
         )
     request = {
@@ -291,6 +292,7 @@ def completion(actual, *, reply=None):
                 multiplicity=member.multiplicity,
                 product_id=member.product,
                 member_id=member.member,
+                support_derivation_ids=sorted(member.support_episodes),
             )
             for role in actual.binding.roles
             for member in role.members

@@ -136,13 +136,13 @@ BEGIN
  AND produced.position=0 AND produced.multiplicity=1 AND producer.outcome='success'
  AND EXISTS(SELECT FROM jsonb_array_elements(completion->'support') support
  WHERE support->>'derivation_id'=producer.id)
- AND (selected->>'support_derivation_id' IS NULL OR selected->>'support_derivation_id'=producer.id))<>1 THEN
+ AND ops.ddo_input_support_selection(selected) ? producer.id)<>1 THEN
  RAISE EXCEPTION 'policy basis lacks one exact supported successful native fit receipt' USING ERRCODE='23514'; END IF;
  SELECT producer.* INTO STRICT producing FROM ops.data_derivation producer
  JOIN ops.data_derivation_output produced ON produced.derivation_id=producer.id
  WHERE produced.product_id=basis.id AND produced.member_id IS NULL AND produced.role='fitted'
  AND EXISTS(SELECT FROM jsonb_array_elements(completion->'support') support WHERE support->>'derivation_id'=producer.id)
- AND (selected->>'support_derivation_id' IS NULL OR selected->>'support_derivation_id'=producer.id);
+ AND ops.ddo_input_support_selection(selected) ? producer.id;
  SELECT operation.* INTO STRICT fit_definition FROM sem.data_operation_definition operation
  JOIN ops.data_request request ON request.operation_id=operation.operation_id
  WHERE request.id=producing.request_id AND request.project_id=r.project_id AND operation.release_id=producing.release_id;
@@ -364,7 +364,7 @@ BEGIN
  WHERE value->>'role'=role_name AND value->>'product_id'=p_product AND value->>'member_id' IS NULL
  AND (value->>'multiplicity')::integer=1;
  IF NOT EXISTS(SELECT FROM jsonb_array_elements(r.binding->'support') support WHERE support->>'derivation_id'=p_derivation AND support->>'role'=role_name)
- OR (chosen->>'support_derivation_id' IS NOT NULL AND chosen->>'support_derivation_id' IS DISTINCT FROM p_derivation) THEN
+ OR NOT (ops.ddo_input_support_selection(chosen) ? p_derivation) THEN
  RAISE EXCEPTION 'fit grade selection differs from actual bound input product and producing episode' USING ERRCODE='23514'; END IF;
  SELECT * INTO STRICT producer FROM ops.data_derivation WHERE id=p_derivation AND outcome='success';
  SELECT operation.* INTO STRICT definition FROM sem.data_operation_definition operation JOIN ops.data_request request ON request.operation_id=operation.operation_id

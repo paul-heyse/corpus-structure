@@ -286,7 +286,7 @@ BEGIN
  AND owner.implementation_revision LIKE 'implementation-slice:%' AND owner.recipe=episode.recipe
  AND intent.payload->>'implementation_revision'=owner.implementation_revision
  AND jsonb_array_length(coalesce(intent.payload->'execution_evidence'->'cpu_receipts','[]'))=1
- AND EXISTS(SELECT FROM ops.ddo_input_support_refs(r.binding,report_role,selected->'position',report_product.id,NULL) support
+ AND EXISTS(SELECT FROM ops.ddo_input_support_refs(r.binding,selected) support
  WHERE support->>'kind'='computation' AND support->>'derivation_id'=episode.id);
  IF producer_count<>1 THEN RAISE EXCEPTION 'structural report lacks its one actual captured producer for the selected variant' USING ERRCODE='23514'; END IF;
  report_reference:=ops.ddo_structural_product_reference(report_product);
@@ -298,7 +298,7 @@ BEGIN
  IF pass_kind.kind IS DISTINCT FROM '__REFERENCE_KIND__' OR pass_kind.universe IS DISTINCT FROM 'evaluator' THEN
  RAISE EXCEPTION 'structural pass differs from its protected nominal kind' USING ERRCODE='23514'; END IF;
  SELECT admission.* INTO STRICT admitted FROM ops.original_source_admission admission
- JOIN ops.ddo_input_support_refs(r.binding,'passes',selected->'position',pass_product.id,NULL) support
+ JOIN ops.ddo_input_support_refs(r.binding,selected) support
  ON support->>'kind'='authored' AND support->>'admission_id'=admission.id AND support->>'source_reference'=admission.source_reference
  WHERE admission.product_id=pass_product.id AND admission.project_id=r.project_id
  AND admission.reference->>'kind'='authored-fact' AND ops.ddo_original_admission_valid(admission);
@@ -399,7 +399,7 @@ BEGIN
  AND intent.payload->>'implementation_revision'=issuer.implementation_revision
  AND (SELECT count(*) FROM ops.data_derivation_output other WHERE other.derivation_id=episode.id)=1
  AND data.ddo_normalize(intent.payload->'outputs'->0->'product'->'body')=conclusion.canonical_body
- AND EXISTS(SELECT FROM ops.ddo_input_support_refs(r.binding,'admissions',selected->'position',conclusion.id,NULL) support
+ AND EXISTS(SELECT FROM ops.ddo_input_support_refs(r.binding,selected) support
  WHERE support->>'kind'='computation' AND support->>'derivation_id'=episode.id);
  IF actual_count<>1 THEN RAISE EXCEPTION 'dossier admission lacks its exact actual native issuer receipt' USING ERRCODE='23514'; END IF;
  admission_value:=data.ddo_json(conclusion.canonical_body);

@@ -221,7 +221,7 @@ class WireInputMember(TypedDict):
     position: Required[WireNonnegativeInteger]
     product_id: Required[WireProductId]
     role: Required[WireIdentifier]
-    support_derivation_id: NotRequired[WireIdentifier | None]
+    support_derivation_ids: Required[list[WireIdentifier]]
 
 
 class WireChoice(TypedDict):

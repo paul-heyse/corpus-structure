@@ -228,7 +228,7 @@ BEGIN
  AND output.position=0 AND output.multiplicity=1 AND producer.outcome='success'
  AND ops.ddo_operation_event_command_eligible(definition)
  AND EXISTS(SELECT FROM jsonb_array_elements(r.binding->'support') support WHERE support->>'role'='parameters' AND support->>'derivation_id'=producer.id)
- AND (chosen->>'support_derivation_id' IS NULL OR chosen->>'support_derivation_id'=producer.id);
+ AND ops.ddo_input_support_selection(chosen) ? producer.id;
  SELECT * INTO STRICT issuer_request FROM ops.data_request WHERE id=issuing.request_id AND project_id=r.project_id;
  SELECT * INTO STRICT intent FROM ops.data_completion_intent WHERE id=issuing.intent_id
  AND request_id=issuing.request_id AND generation=issuing.generation;
@@ -269,7 +269,7 @@ BEGIN
  JOIN ops.data_publication_receipt receipt ON receipt.derivation_id=producer.id AND receipt.intent_id=producer.intent_id
  WHERE produced.product_id=basis.id AND produced.member_id IS NULL AND produced.role='fit' AND producer.outcome='success'
  AND EXISTS(SELECT FROM jsonb_array_elements(completion->'support') support WHERE support->>'role'='basis' AND support->>'derivation_id'=producer.id)
- AND (selected->>'support_derivation_id' IS NULL OR selected->>'support_derivation_id'=producer.id);
+ AND ops.ddo_input_support_selection(selected) ? producer.id;
  SELECT * INTO STRICT fit_request FROM ops.data_request WHERE id=producing.request_id AND project_id=r.project_id AND operation_id='operation_event.fit';
  SELECT * INTO STRICT fit_intent FROM ops.data_completion_intent WHERE id=producing.intent_id
  AND request_id=producing.request_id AND generation=producing.generation;

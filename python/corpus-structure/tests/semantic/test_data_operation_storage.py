@@ -731,7 +731,7 @@ def _protected_binding_case(
                         "multiplicity": 1,
                         "product_id": product,
                         "member_id": None,
-                        "support_derivation_id": receipt["derivation_id"],
+                        "support_derivation_ids": [receipt["derivation_id"]],
                     }
                 ],
                 "support": [
@@ -1040,7 +1040,7 @@ def test_actual_writer_requires_exact_authored_closed_population_binding(ddo_ker
                 "multiplicity": 1,
                 "product_id": product,
                 "member_id": "m15",
-                "support_derivation_id": episode,
+                "support_derivation_ids": [episode],
             },
             {
                 "role": "items",
@@ -1048,7 +1048,7 @@ def test_actual_writer_requires_exact_authored_closed_population_binding(ddo_ker
                 "multiplicity": 1,
                 "product_id": product,
                 "member_id": "m16",
-                "support_derivation_id": episode,
+                "support_derivation_ids": [episode],
             },
         ],
         "support": [

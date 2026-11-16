@@ -957,11 +957,7 @@ class DemandPlanner:
                             "multiplicity": member.multiplicity,
                             "product_id": member.product,
                             "member_id": member.member,
-                            **(
-                                {"support_derivation_id": member.support_episodes[0]}
-                                if member.support_episodes
-                                else {}
-                            ),
+                            "support_derivation_ids": sorted(member.support_episodes),
                         }
                     )
             wire_binding = {

@@ -81,10 +81,10 @@ BEGIN
  IF NOT EXISTS(SELECT FROM ops.data_derivation_input input WHERE input.derivation_id=episode.id
  AND input.role='observation' AND input.product_id=raw_input->>'product_id' AND input.member_id IS NULL)
  OR NOT EXISTS(SELECT FROM ops.data_derivation_support support WHERE support.derivation_id=episode.id
- AND support.support_derivation_id=raw_input->>'support_derivation_id') THEN
+ AND support.support_derivation_id=ops.ddo_single_input_support_episode(raw_input)) THEN
  RAISE EXCEPTION 'visual mapping lacks exact admitted raw input' USING ERRCODE='23514'; END IF;
  raw_pin:=jsonb_build_object('use_id',p->'evidence'->>'use_id','product_id',raw_input->>'product_id',
- 'derivation_id',raw_input->>'support_derivation_id');
+ 'derivation_id',ops.ddo_single_input_support_episode(raw_input));
  PERFORM ops.ddo_require_selected_output(p->'source'->>'demand_id',p->'source'->>'read_id',
  raw_pin->>'use_id',raw_pin->>'product_id',raw_pin->>'derivation_id');
  SELECT * INTO STRICT raw_product FROM kb.data_product WHERE id=raw_pin->>'product_id'

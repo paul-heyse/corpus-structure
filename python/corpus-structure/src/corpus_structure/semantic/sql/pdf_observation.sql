@@ -67,7 +67,7 @@ BEGIN
  IF p_receipt->>'recipe_digest' IS DISTINCT FROM profile->>'base_recipe_digest' THEN
  RAISE EXCEPTION 'observation receipt changes configured recognition recipe' USING ERRCODE='23514'; END IF;
  SELECT value INTO STRICT selected FROM jsonb_array_elements(request.binding->'inputs') WHERE value->>'role'='capture';
- capture:=ops.ddo_pdf_capture_source_for_request(request,request.project_id,selected->>'product_id',selected->>'support_derivation_id')->'publication';
+ capture:=ops.ddo_pdf_capture_source_for_request(request,request.project_id,selected->>'product_id',ops.ddo_single_input_support_episode(selected))->'publication';
  requested:=data.ddo_json(data.ddo_field(request.binding->'parameters','parameters'))->'pages';
  IF requested IS NULL OR jsonb_typeof(requested)<>'array' THEN
  RAISE EXCEPTION 'observation request lacks its exact physical page selection' USING ERRCODE='23514'; END IF;
@@ -256,10 +256,10 @@ BEGIN
   SELECT * INTO STRICT native_request FROM ops.data_request WHERE id=context.request_id;
   SELECT value INTO STRICT selected FROM jsonb_array_elements(native_request.binding->'inputs')
   WHERE value->>'role'='capture';
-  IF selected->>'member_id' IS NOT NULL OR selected->>'support_derivation_id' IS NULL THEN
+  IF selected->>'member_id' IS NOT NULL OR ops.ddo_single_input_support_episode(selected) IS NULL THEN
    RAISE EXCEPTION 'native recognition requires one whole selected PDF support' USING ERRCODE='23514'; END IF;
   publication:=ops.ddo_pdf_capture_source(native_request.id,context.project_id,
-   selected->>'product_id',selected->>'support_derivation_id')->'publication';
+   selected->>'product_id',ops.ddo_single_input_support_episode(selected))->'publication';
   IF (SELECT count(*) FROM json_array_elements(input_rows) i WHERE i->>'role'='structural')<>1
    OR NOT EXISTS(SELECT FROM json_array_elements(input_rows) i WHERE i->>'role'='structural'
     AND i->>'task_id'=publication->>'task_id' AND i->>'product_key'=publication->>'product_key'

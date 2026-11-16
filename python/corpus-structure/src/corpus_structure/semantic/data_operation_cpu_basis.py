@@ -437,9 +437,7 @@ BEGIN
  IF data.ddo_field(r.binding->'parameters','replicate') IS DISTINCT FROM
  data.ddo_json_meaning(jsonb_build_object('replicate',r.replicate)->'replicate') THEN
  RAISE EXCEPTION 'CPU input basis requires the actual exact request replicate wrapper' USING ERRCODE='23514'; END IF;
- FOR selected IN SELECT value FROM jsonb_array_elements(r.binding->'inputs')
- ORDER BY value->>'role' COLLATE "C",(value->>'position')::integer NULLS FIRST,
- value->>'product_id' COLLATE "C",value->>'member_id' COLLATE "C" NULLS FIRST LOOP
+ FOR selected IN SELECT value FROM jsonb_array_elements(r.binding->'inputs') LOOP
  SELECT * INTO STRICT product FROM kb.data_product
  WHERE id=selected->>'product_id' AND project_id=r.project_id;
  member:=NULL;
@@ -452,14 +450,7 @@ BEGIN
  jsonb_build_object('kind','computation','derivation_id',item->>'derivation_id','admission_use_id',item->>'admission_use_id')
  ELSE jsonb_build_object('kind',item->>'kind','admission_id',item->>'admission_id','source_reference',item->>'source_reference') END
  ) AS reference
- FROM jsonb_array_elements(r.binding->'support') entry(item)
- WHERE item->>'role'=selected->>'role' AND item->>'position' IS NOT DISTINCT FROM selected->>'position'
- AND (EXISTS(SELECT FROM ops.data_derivation_output output
- WHERE coalesce(item->>'kind','computation')='computation' AND output.derivation_id=item->>'derivation_id'
- AND output.product_id=product.id AND (output.member_id IS NULL OR output.member_id=member.member_id))
- OR EXISTS(SELECT FROM ops.original_source_admission admission
- WHERE item->>'kind' IN ('original-source','authored') AND admission.id=item->>'admission_id'
- AND admission.product_id=product.id AND member.member_id IS NULL))
+ FROM ops.ddo_input_support_refs(r.binding,selected) entry(item)
  ) admitted;
  context_meaning:=data.ddo_json_meaning(jsonb_build_object(
  'project_id',r.project_id,'subject',coalesce(member.subject,product.subject),
@@ -478,6 +469,16 @@ BEGIN
  jsonb_build_array('support',data.ddo_json_meaning(support_refs))));
  roles:=roles||jsonb_build_array(meaning);
  END LOOP;
+ -- Match the one Python basis owner even when equal value/member positions
+ -- have different selected support. Physical manifest order is not a set key.
+ SELECT coalesce(jsonb_agg(value ORDER BY
+ (data.ddo_field(value,'role')->>1) COLLATE "C",
+ (data.ddo_field(value,'position')->>1)::bigint NULLS FIRST,
+ (data.ddo_field(value,'product_id')->>1) COLLATE "C",
+ (data.ddo_field(value,'member_id')->>1) COLLATE "C" NULLS FIRST,
+ (data.ddo_field(value,'kind_contract')->>1) COLLATE "C",
+ convert_to(data.canonical_json(data.ddo_normalize(data.ddo_field(value,'support'))),'UTF8')),'[]')
+ INTO roles FROM jsonb_array_elements(roles);
  RETURN data.ddo_normalize(jsonb_build_array('mapping',jsonb_build_array(
  jsonb_build_array('version',jsonb_build_array('string','cpu-input-basis-2')),
  jsonb_build_array('recipe',jsonb_build_array('string',r.recipe)),

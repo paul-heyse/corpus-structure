@@ -244,8 +244,8 @@ BEGIN
  RAISE EXCEPTION 'PDF source consumer changes its qualified project' USING ERRCODE='23514'; END IF;
  PERFORM ops.ddo_authorize_request(consumer);
  IF NOT EXISTS(SELECT FROM jsonb_array_elements(consumer.binding->'inputs') selected
- WHERE selected->>'product_id'=p_product AND selected->>'member_id' IS NULL
- AND selected->>'support_derivation_id'=p_derivation)
+ WHERE CASE WHEN selected->>'product_id'=p_product AND selected->>'member_id' IS NULL
+ THEN ops.ddo_single_input_support_episode(selected)=p_derivation ELSE false END)
  OR NOT EXISTS(SELECT FROM jsonb_array_elements(consumer.binding->'support') selected
  WHERE selected->>'derivation_id'=p_derivation) THEN
  RAISE EXCEPTION 'PDF source is outside exact selected computational support' USING ERRCODE='23514'; END IF;
@@ -310,8 +310,8 @@ BEGIN
  SELECT * INTO STRICT consumer FROM ops.data_request WHERE id=p_request AND project_id=p_project;
  PERFORM ops.ddo_authorize_request(consumer);
  IF NOT EXISTS(SELECT FROM jsonb_array_elements(consumer.binding->'inputs') selected
- WHERE selected->>'role'='observations' AND selected->>'product_id'=p_product
- AND selected->>'member_id' IS NULL AND selected->>'support_derivation_id'=p_derivation)
+ WHERE CASE WHEN selected->>'role'='observations' AND selected->>'product_id'=p_product
+ AND selected->>'member_id' IS NULL THEN ops.ddo_single_input_support_episode(selected)=p_derivation ELSE false END)
  OR NOT EXISTS(SELECT FROM jsonb_array_elements(consumer.binding->'support') selected
  WHERE selected->>'derivation_id'=p_derivation) THEN
  RAISE EXCEPTION 'observations are outside exact selected computational support' USING ERRCODE='23514'; END IF;
@@ -319,21 +319,21 @@ BEGIN
  SELECT * INTO STRICT derivation FROM ops.data_derivation WHERE id=p_derivation;
  producer:=ops.ddo_pdf_producing_request(derivation.id);
  SELECT value INTO STRICT raw_capture FROM jsonb_array_elements(producer.binding->'inputs') WHERE value->>'role'='capture';
- PERFORM ops.ddo_pdf_capture_source_for_request(producer,p_project,raw_capture->>'product_id',raw_capture->>'support_derivation_id');
+ PERFORM ops.ddo_pdf_capture_source_for_request(producer,p_project,raw_capture->>'product_id',ops.ddo_single_input_support_episode(raw_capture));
  IF NOT EXISTS(SELECT FROM ops.data_derivation raw_derivation JOIN ops.data_request raw_request ON raw_request.id=raw_derivation.request_id
  JOIN sem.data_operation_definition raw_definition ON raw_definition.release_id=raw_derivation.release_id AND raw_definition.operation_id=raw_request.operation_id
- WHERE raw_derivation.id=raw_capture->>'support_derivation_id'
+ WHERE raw_derivation.id=ops.ddo_single_input_support_episode(raw_capture)
  AND raw_definition.support_contract->'effects'->0->>'name'='publish_pdf_capture') THEN
  RAISE EXCEPTION 'recognition input is not the exact qualified raw capture kind' USING ERRCODE='23514'; END IF;
  SELECT * INTO STRICT raw_product FROM kb.data_product WHERE id=raw_capture->>'product_id';
  SELECT value INTO STRICT capture FROM jsonb_array_elements(consumer.binding->'inputs') WHERE value->>'role'='capture';
- PERFORM ops.ddo_pdf_capture_source(consumer.id,p_project,capture->>'product_id',capture->>'support_derivation_id');
+ PERFORM ops.ddo_pdf_capture_source(consumer.id,p_project,capture->>'product_id',ops.ddo_single_input_support_episode(capture));
  -- Canonical product identity includes the complete qualified raw kind meaning;
  -- two actual producing episodes may support that same value. Preserve both
  -- independently valid chains rather than equating their physical publication pins.
  IF NOT EXISTS(
  WITH RECURSIVE lineage(id) AS (
- SELECT capture->>'support_derivation_id'
+ SELECT ops.ddo_single_input_support_episode(capture)
  UNION SELECT support.support_derivation_id FROM ops.data_derivation_support support JOIN lineage parent ON support.derivation_id=parent.id
  ) SELECT FROM lineage JOIN ops.data_derivation_output output ON output.derivation_id=lineage.id
  JOIN kb.data_product candidate ON candidate.id=output.product_id

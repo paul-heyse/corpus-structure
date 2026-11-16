@@ -451,7 +451,7 @@ def test_native_organization_enrichment_and_integration_keep_real_receipts_and_e
             }
             raw_publication = connection.scalar(
                 text(
-                    "SELECT ops.ddo_pdf_capture_source(request.id,request.project_id,selected->>'product_id',selected->>'support_derivation_id')->'publication' "
+                    "SELECT ops.ddo_pdf_capture_source(request.id,request.project_id,selected->>'product_id',ops.ddo_single_input_support_episode(selected))->'publication' "
                     "FROM ops.data_request request CROSS JOIN LATERAL jsonb_array_elements(request.binding->'inputs') selected "
                     "WHERE request.id=:request AND selected->>'role'='capture'"
                 ),

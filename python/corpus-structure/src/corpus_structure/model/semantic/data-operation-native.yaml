@@ -432,15 +432,18 @@ definitions:
         anyOf:
         - $ref: '#/definitions/identifier'
         - type: 'null'
-      support_derivation_id:
-        anyOf:
-        - $ref: '#/definitions/identifier'
-        - type: 'null'
+      support_derivation_ids:
+        type: array
+        items:
+          $ref: '#/definitions/identifier'
+        uniqueItems: true
+        minItems: 0
     required:
     - role
     - position
     - multiplicity
     - product_id
+    - support_derivation_ids
     additionalProperties: false
   support_member:
     oneOf:

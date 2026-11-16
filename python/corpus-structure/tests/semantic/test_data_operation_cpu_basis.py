@@ -1,4 +1,4 @@
-"""Actual frozen native input basis and independent typed-value expectations."""
+"""Bare-schema SQL basis controls; synthetic metadata grants no native admission."""
 
 from typing import Literal, TypedDict
 
@@ -51,6 +51,7 @@ def cpu_basis_connection(semantic_bare_engine):
     from importlib.resources import files
 
     from corpus_structure.semantic.data_operation_storage import native_protocol_sources, native_sql
+    from corpus_structure.semantic.data_operation_binding_native import binding_native_sql
 
     root = files("corpus_structure.semantic").joinpath("sql")
     closure = root.joinpath("closure.sql").read_text()
@@ -85,6 +86,7 @@ def cpu_basis_connection(semantic_bare_engine):
                     "ddo_cpu_reply_value",
                 },
             ),
+            (binding_native_sql(), {"ddo_input_support_selection", "ddo_input_support_refs"}),
             (cpu_input_basis_native_sql(), {"ddo_cpu_input_basis", "ddo_cpu_reply_output"}),
         ):
             parsed = prepare_sql(source, source="cpu-actual-input-basis-control")
@@ -186,7 +188,8 @@ def test_basis_reads_exact_products_contexts_and_origin_support_sets(cpu_basis_c
     # several rows share it; exact product correspondence keeps unrelated
     # episodes out and support-set normalization removes repeated references.
     inputs = [
-        {key: row[key] for key in ("role", "position", "multiplicity", "product_id", "member_id")}
+        {**{key: row[key] for key in ("role", "position", "multiplicity", "product_id", "member_id")},
+         "support_derivation_ids": sorted(reference["derivation_id"] for reference in row["support"])}
         for row in rows
     ]
     supports = [

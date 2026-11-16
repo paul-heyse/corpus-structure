@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+from copy import deepcopy
+from dataclasses import replace
 from typing import cast as typing_cast
 
 import pytest
@@ -21,13 +23,24 @@ from corpus_structure.semantic.data_operation_admission import (
     bound_data_operation_model,
 )
 from corpus_structure.semantic.data_operation_demands import DemandPlanner, freeze_demand
-from corpus_structure.semantic.data_operation_identity import semantic_value
+from corpus_structure.semantic.data_operation_identity import canonical_identity, decode_semantic_value, semantic_value
 from corpus_structure.semantic.data_operation_storage import DataOperationStorage
+from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.original_documents import (
     acquire_original_document_selection,
     register_original_document,
 )
 from semantic.data_operation_kernel_support import ORIGINAL_DOCUMENT, ORIGINAL_PDF
+
+
+def _exact_original_recipe():
+    assert ORIGINAL_DOCUMENT.declaration_content is not None
+    declaration = json.loads(ORIGINAL_DOCUMENT.declaration_content)
+    declaration["operations"][0]["roles"][0]["support"]["identity_requirements"] = ["original-source"]
+    return replace(ORIGINAL_DOCUMENT, name="exact-original-identity", declaration_content=canonical_bytes(declaration))
+
+
+EXACT_ORIGINAL = _exact_original_recipe()
 
 
 def test_original_fact_target_has_explicit_value_based_origin_policy(original_target):
@@ -43,9 +56,9 @@ def test_original_fact_target_has_explicit_value_based_origin_policy(original_ta
 
 @pytest.mark.parametrize(
     "ddo_kernel",
-    [ORIGINAL_DOCUMENT],
+    [ORIGINAL_DOCUMENT, EXACT_ORIGINAL],
     indirect=True,
-    ids=("original-document",),
+    ids=("original-document", "exact-original-identity"),
 )
 def test_authentic_original_fact_admission_publication_and_revocation(ddo_kernel, tmp_path):
     kernel = ddo_kernel
@@ -103,8 +116,27 @@ def test_authentic_original_fact_admission_publication_and_revocation(ddo_kernel
                 "position": 0,
             }
         ]
-        assert "support_derivation_id" not in binding["inputs"][0]
+        assert binding["inputs"][0]["support_derivation_ids"] == []
         assert ready.resolved.roles[0].members[0].support_episodes == ()
+        bad_reference = deepcopy(binding)
+        bad_reference["support"][0]["source_reference"] = "original:never-admitted"
+        with pytest.raises(DBAPIError, match="original support"), connection.begin_nested():
+            connection.execute(text("SELECT ops.attach_data_request(CAST(:payload AS jsonb))"), {"payload": json.dumps(dict(
+                obligation_id=ready.obligation, request_key=json.loads(ready.native)["request_id"],
+                request_meaning=json.loads(ready.request), binding=bad_reference, replicate=None))})
+        source_role = next(role for role in model.operation(ready.operation).roles if role.direction == "input")
+        assert source_role.support is not None
+        if "original-source" in source_role.support.identity_requirements:
+            meaning = decode_semantic_value(json.loads(ready.request)[3])
+            meaning["inputs"]["source"]["value"].value[0]["original_sources"] = ("original:never-admitted",)
+            forged = canonical_identity("semantic-request", meaning)
+            altered = deepcopy(binding)
+            altered["request_inputs"] = semantic_value(meaning["inputs"])
+            before = connection.scalar(text("SELECT count(*) FROM ops.data_request"))
+            with pytest.raises(DBAPIError, match="original source identity differs"), connection.begin_nested():
+                connection.execute(text("SELECT ops.attach_data_request(CAST(:payload AS jsonb))"), {"payload": json.dumps(dict(
+                    obligation_id=ready.obligation, request_key=forged.key, request_meaning=json.loads(forged.canonical_input), binding=altered, replicate=None))})
+            assert connection.scalar(text("SELECT count(*) FROM ops.data_request")) == before
         # An identical subject/source with a different selector scope cannot see this fact.
         wrong_scope = connection.execute(
             text(

@@ -633,6 +633,7 @@ def test_native_input_ledger_slots_are_dense_without_rewriting_source_positions(
             "multiplicity": 1,
             "product_id": product,
             "member_id": None,
+            "support_derivation_ids": [],
         }
         for product in ("product:b", "product:a")
     ] + [
@@ -642,6 +643,7 @@ def test_native_input_ledger_slots_are_dense_without_rewriting_source_positions(
             "multiplicity": 1,
             "product_id": str(position),
             "member_id": None,
+            "support_derivation_ids": [],
         }
         for position in (2, 5)
     ]

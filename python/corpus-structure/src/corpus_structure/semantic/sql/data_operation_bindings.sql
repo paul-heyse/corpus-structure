@@ -601,23 +601,59 @@ LANGUAGE sql IMMUTABLE STRICT SET search_path=pg_catalog,pg_temp AS $$
  JOIN LATERAL jsonb_array_elements(roledefs) roledef ON roledef->>'name'=input->>'role'
 $$;
 
--- A source position is local to its own product, not a global role slot.
--- Reuse authentic producing outputs/admissions to disambiguate equal positions.
-CREATE OR REPLACE FUNCTION ops.ddo_input_support_refs(binding jsonb,role_name text,source_position jsonb,product text,member text)
-RETURNS SETOF jsonb LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
- SELECT reference FROM jsonb_array_elements(binding->'support') reference
- WHERE reference->>'role'=role_name AND reference->'position' IS NOT DISTINCT FROM source_position
- AND ((coalesce(reference->>'kind','computation')='computation' AND EXISTS(
- SELECT FROM ops.data_derivation_output output WHERE output.derivation_id=reference->>'derivation_id'
- AND output.product_id=product AND (output.member_id IS NULL OR output.member_id IS NOT DISTINCT FROM member)))
- OR (reference->>'kind' IN ('original-source','authored') AND member IS NULL AND EXISTS(
- SELECT FROM ops.original_source_admission admission WHERE admission.id=reference->>'admission_id' AND admission.product_id=product)))
-$$;
+-- A complete selected set is explicit even for original/authored inputs ([]).
+-- It is not inferred from sibling inputs sharing a product or source position.
+CREATE OR REPLACE FUNCTION ops.ddo_input_support_selection(input_record jsonb) RETURNS jsonb
+LANGUAGE plpgsql IMMUTABLE STRICT SET search_path=pg_catalog,pg_temp AS $$
+DECLARE selected jsonb:=input_record->'support_derivation_ids'; canonical jsonb;
+BEGIN
+ IF jsonb_typeof(selected) IS DISTINCT FROM 'array' OR EXISTS(
+ SELECT FROM jsonb_array_elements(selected) value WHERE jsonb_typeof(value) IS DISTINCT FROM 'string' OR value#>>'{}'='') THEN
+ RAISE EXCEPTION 'input support requires an explicit canonical episode set' USING ERRCODE='23514'; END IF;
+ SELECT coalesce(jsonb_agg(value ORDER BY (value#>>'{}') COLLATE "C"),'[]') INTO canonical
+ FROM (SELECT DISTINCT value FROM jsonb_array_elements(selected)) unique_values;
+ IF selected IS DISTINCT FROM canonical THEN RAISE EXCEPTION 'input support episode set is duplicated or unordered' USING ERRCODE='23514'; END IF;
+ RETURN selected;
+END $$;
 
-CREATE OR REPLACE FUNCTION ops.ddo_input_support_episodes(binding jsonb,role_name text,source_position jsonb,product text,member text)
+CREATE OR REPLACE FUNCTION ops.ddo_single_input_support_episode(input_record jsonb) RETURNS text
+LANGUAGE plpgsql IMMUTABLE STRICT SET search_path=pg_catalog,pg_temp AS $$
+DECLARE selected jsonb:=ops.ddo_input_support_selection(input_record);
+BEGIN
+ IF jsonb_array_length(selected)<>1 THEN RAISE EXCEPTION 'input requires exactly one selected producing episode' USING ERRCODE='23514'; END IF;
+ RETURN selected->>0;
+END $$;
+
+-- Equal product/member/position values may have independent genuine producers.
+-- Authenticate the complete set on this exact manifest input, never their union.
+CREATE OR REPLACE FUNCTION ops.ddo_input_support_refs(binding jsonb,input_record jsonb)
+RETURNS SETOF jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
+DECLARE selected jsonb:=ops.ddo_input_support_selection(input_record); matched jsonb; episodes jsonb;
+BEGIN
+ IF NOT EXISTS(SELECT FROM jsonb_array_elements(binding->'inputs') actual WHERE actual=input_record) THEN
+ RAISE EXCEPTION 'support selection is not an exact manifest input' USING ERRCODE='23514'; END IF;
+ SELECT coalesce(jsonb_agg(reference),'[]') INTO matched FROM jsonb_array_elements(binding->'support') reference
+ WHERE reference->>'role'=input_record->>'role'
+ AND reference->'position' IS NOT DISTINCT FROM input_record->'position'
+ AND ((coalesce(reference->>'kind','computation')='computation' AND selected ? (reference->>'derivation_id')
+ AND EXISTS(SELECT FROM ops.data_derivation_output output
+ WHERE output.derivation_id=reference->>'derivation_id' AND output.product_id=input_record->>'product_id'
+ AND (output.member_id IS NULL OR output.member_id IS NOT DISTINCT FROM input_record->>'member_id')))
+ OR (reference->>'kind' IN ('original-source','authored') AND selected='[]'::jsonb
+ AND input_record->>'member_id' IS NULL AND EXISTS(SELECT FROM ops.original_source_admission admission
+ WHERE admission.id=reference->>'admission_id' AND admission.product_id=input_record->>'product_id'
+ AND admission.source_reference=reference->>'source_reference')));
+ SELECT coalesce(jsonb_agg(episode ORDER BY episode COLLATE "C"),'[]') INTO episodes FROM (
+ SELECT DISTINCT reference->>'derivation_id' episode FROM jsonb_array_elements(matched) reference
+ WHERE coalesce(reference->>'kind','computation')='computation') known;
+ IF episodes IS DISTINCT FROM selected THEN RAISE EXCEPTION 'selected input episode set lacks exact authentic output support' USING ERRCODE='23514'; END IF;
+ RETURN QUERY SELECT value FROM jsonb_array_elements(matched);
+END $$;
+
+CREATE OR REPLACE FUNCTION ops.ddo_input_support_episodes(binding jsonb,input_record jsonb)
 RETURNS jsonb LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
- SELECT coalesce(jsonb_agg(episode ORDER BY episode),'[]') FROM (
- SELECT DISTINCT reference->>'derivation_id' episode FROM ops.ddo_input_support_refs(binding,role_name,source_position,product,member) reference
+ SELECT coalesce(jsonb_agg(episode ORDER BY episode COLLATE "C"),'[]') FROM (
+ SELECT DISTINCT reference->>'derivation_id' episode FROM ops.ddo_input_support_refs(binding,input_record) reference
  WHERE coalesce(reference->>'kind','computation')='computation') selected
 $$;
 
@@ -663,12 +699,13 @@ BEGIN
  FOR roledef IN SELECT value FROM jsonb_array_elements(compiled->'input_roles') LOOP
  role:=roledef->>'name'; values:='[]';
  FOR item IN SELECT value FROM jsonb_array_elements(p_binding->'inputs') WHERE value->>'role'=role LOOP
+ PERFORM ops.ddo_input_support_selection(item);
  SELECT value INTO chosen FROM jsonb_array_elements(universe) v WHERE v->>'product'=item->>'product_id' AND v->>'member' IS NOT DISTINCT FROM item->>'member_id'
  AND roledef->'accepted_kind_contracts' ? (v->>'kind_contract') AND ops.ddo_binding_subject(roledef,v,p_subject,request.original_source) AND ops.ddo_binding_source(roledef,v,request.original_source,coalesce(demand.selection->'source_sets','{}'))
  AND v->>'position' IS NOT DISTINCT FROM item->>'position' AND v->>'multiplicity'=item->>'multiplicity'
- AND (item->>'support_derivation_id' IS NULL OR v->'support_episodes' ? (item->>'support_derivation_id'))
- AND EXISTS(SELECT FROM jsonb_array_elements(p_binding->'support') support WHERE support->>'role'=role AND support->>'position' IS NOT DISTINCT FROM item->>'position' AND ops.ddo_support_reference_matches(support,v)) LIMIT 1;
- IF chosen IS NULL THEN RAISE EXCEPTION 'selected binding row is outside current admitted universe' USING ERRCODE='23514'; END IF;
+ AND coalesce(v->'support_episodes','[]'::jsonb)=item->'support_derivation_ids'
+ AND EXISTS(SELECT FROM ops.ddo_input_support_refs(p_binding,item) support WHERE ops.ddo_support_reference_matches(support,v)) LIMIT 1;
+ IF chosen IS NULL THEN RAISE EXCEPTION 'selected input support set has no exact native binding row' USING ERRCODE='23514'; END IF;
  values:=values||jsonb_build_array(chosen);
  END LOOP;
  roles:=jsonb_set(roles,ARRAY[role],values);
