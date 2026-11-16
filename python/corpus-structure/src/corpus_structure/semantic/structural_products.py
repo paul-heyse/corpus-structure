@@ -791,8 +791,6 @@ class StructuralProductReport(StructuralValue):
     condition_qualification: ConditionQualificationProduct | None = Field(
         default=None, exclude_if=lambda value: value is None
     )
-    # The released ContextualEnrichmentReport validates this ordinary upstream report.
-    retrieval_report: dict[str, Any] | None = None
 
     @model_validator(mode="after")
     def closure(self) -> Self:
@@ -804,7 +802,7 @@ class StructuralProductReport(StructuralValue):
             "structural:"
             + sha256(
                 canonical_bytes(
-                    self.model_dump(mode="json", exclude_none=True, exclude={"retrieval_report"})
+                    self.model_dump(mode="json", exclude_none=True)
                 )
             ).hexdigest()
         )

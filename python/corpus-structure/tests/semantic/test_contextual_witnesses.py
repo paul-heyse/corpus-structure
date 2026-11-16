@@ -327,3 +327,25 @@ def test_acquisition_pins_original_query_cut_and_refuses_missing_cues(
             (roles[4].product_id, "subject"),
             (roles[5].product_id, "unrelated"),
         }
+
+
+def test_each_compatible_relation_keeps_exact_cited_carriers_without_same_span_substitution():
+    """An author may cite two real roles; overlap alone supplies no relationship."""
+    frame, context, roles, other = witness_case()
+    carrier = contextual_input_reference(roles[4], contribution=True).model_dump(mode="python", exclude_none=True)
+    roles[3].body["hypotheses"] = [
+        dict(hypothesis_id="authored:" + relation, target_id="one", relation=relation,
+             asserted_basis="producer_group", cue_refs=[carrier, other])
+        for relation in ("compared-with", "specializes")
+    ]
+    result = project(frame, context, roles)
+    witnesses = source_python(result["witnesses"])
+    assert {row["relation"] for row in witnesses} == {"compared-with", "specializes"}
+    assert all(row["evidence_ids"] == [carrier["contribution_id"], other["contribution_id"]] for row in witnesses)
+    assert all(row["basis"] == "producer_group" and row["support_state"] == "unassessed" for row in witnesses)
+    assert result["author_assertion"] == "unadmitted author assertion"
+    # The first cue shares its physical span with the second but has its own
+    # contribution/member identity. Omitting the actual query carrier refuses.
+    roles[3].body["hypotheses"][0]["cue_refs"] = [other]
+    with pytest.raises(ValueError, match="qualifying carrier"):
+        project(frame, context, roles)

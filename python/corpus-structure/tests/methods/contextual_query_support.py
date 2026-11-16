@@ -1,38 +1,90 @@
-"""Controlled inputs and builders shared by the contextual query consumers."""
+"""Current selected-member inputs for independent contextual query criteria."""
 
-from hashlib import sha256
+from copy import deepcopy
 
-from corpus_structure.semantic.characterization import AnnotationReference, LayerReport
+from corpus_structure.semantic.data_operation_model import SubjectContext
+from corpus_structure.semantic.data_product_reference import DataProductMemberReference, DataProductReference
+from corpus_structure.semantic.declared_formal_readings import DeclaredFormalInventory
+from corpus_structure.semantic.declared_record_sources import DeclaredNativeFrameSource, DeclaredRecordSource
 from corpus_structure.semantic.identity import canonical_bytes
-from corpus_structure.semantic.product_reference import ProductReference
-from corpus_structure.semantic.proposals import NativeFrameSource
 from corpus_structure.semantic.record_contracts import anchor_identity
 from corpus_structure.semantic.source_contexts import record_source_pin
+from corpus_structure.semantic.source_products import native_projection_identity
 
 TEXT = "A supervisor approves the request. She files it. Archive it."
-
-
 POINTER = "#/texts/1"
 
 
 def source(text=TEXT):
-    pieces = [dict(kind="native_text", item_ref=POINTER, start=0, end=len(text))]
-    context = dict(
-        pieces=pieces, items=[dict(self_ref=POINTER, text=text)], ancestors=[], health={}
+    items = [dict(self_ref=POINTER, label="text", text=text)]
+    pieces = [
+        dict(kind="native_text", item_ref=POINTER, source_field="text", start=0, end=len(text))
+    ]
+    projection = native_projection_identity(text, pieces, items, (), ())
+    coordinate = dict(
+        document="document:A", projection=projection, section_pointer=POINTER, membership="direct"
     )
-    projection = dict(text=text, pieces=pieces, items=[POINTER], ancestors=[], health={})
-    return NativeFrameSource(
-        "source",
-        text,
-        (),
-        1,
-        ProductReference(1, "native", "a" * 64),
-        "#/groups/0",
+    selectors = [dict(projection=projection, native_pointer=POINTER, start=0, end=len(text))]
+    address = DeclaredRecordSource(
+        "document:A",
+        projection,
+        POINTER,
         "direct",
-        sha256(canonical_bytes(projection)).hexdigest(),
-        "c" * 64,
-        canonical_bytes(context).decode(),
+        SubjectContext(
+            "project:A",
+            "source:A",
+            "document:A",
+            canonical_bytes({"source": coordinate, "selectors": selectors}),
+            subject_definition="original-source-view",
+        ),
+        "product:source",
+        "member:source",
+        "kind:source",
     )
+    return DeclaredNativeFrameSource(
+        canonical_bytes(
+            dict(source=coordinate, selectors=selectors, text=text, items=items, pieces=pieces)
+        ).decode(),
+        canonical_bytes(address.pin()).decode(),
+    )
+
+
+def primary(frame, root, children, memberships=()):
+    rows = deepcopy([root, *children])
+    occurrences = []
+    for row in rows:
+        row["occurrences"] = []
+        for ordinal, literal in enumerate(row.pop("literals", ())):
+            local = row["local_id"] + ":occ:" + str(ordinal)
+            start = frame.text.index(literal)
+            row["occurrences"].append(local)
+            occurrences.append(
+                dict(
+                    local_id=local,
+                    extents=[
+                        dict(
+                            projection=frame.projection_digest,
+                            native_pointer=POINTER,
+                            start=start,
+                            end=start + len(literal),
+                        )
+                    ],
+                )
+            )
+    reference = DataProductReference("product:primary")
+    terms = rows if root["kind"] == "predicate" else []
+    payload = dict(
+        source=frame.value["source"],
+        selectors=frame.value["selectors"],
+        terms=terms,
+        annotations=[] if terms else rows,
+        occurrences=occurrences,
+        memberships=list(memberships),
+        choices=[],
+        dependencies=[],
+    )
+    inventory = DeclaredFormalInventory(reference, canonical_bytes(payload))
+    return {reference: inventory}, DataProductMemberReference(reference, root["local_id"])
 
 
 def anchor(literal, *, frame=None, pointer=POINTER):
@@ -50,48 +102,6 @@ def anchor(literal, *, frame=None, pointer=POINTER):
     return dict(row, anchor_id=anchor_identity(row))
 
 
-def primary(root, members, *, frame=None, memberships=()):
-    frame = frame or source()
-    rows = [root, *members]
-    occurrences = []
-    for row in rows:
-        row.setdefault("occurrences", [])
-        for index, literal in enumerate(row.pop("literals", ())):
-            start = frame.text.index(literal)
-            key = f"{row['local_id']}:occ:{index}"
-            row["occurrences"].append(key)
-            occurrences.append(
-                dict(
-                    local_id=key,
-                    extents=[
-                        dict(
-                            source_view_id=frame.source_view_id,
-                            projection=frame.projection_digest,
-                            start=start,
-                            end=start + len(literal),
-                        )
-                    ],
-                )
-            )
-    terms = rows if root["kind"] == "predicate" else []
-    report = LayerReport(
-        canonical_bytes(
-            dict(
-                base_document=frame.native_product.values(),
-                source_scope={"source_view_ids": [frame.source_view_id]},
-                terms=terms,
-                annotations=[] if terms else rows,
-                occurrences=occurrences,
-                memberships=list(memberships),
-                choices=[],
-                dependencies=[],
-            )
-        )
-    )
-    pin = report.reference(3)
-    return {pin: report}, AnnotationReference(pin, root["local_id"])
-
-
 def frame_layer(*, frame=None):
     root = dict(
         local_id="frame",
@@ -106,11 +116,10 @@ def frame_layer(*, frame=None):
         ],
     )
     return primary(
-        root,
+        frame or source(), root,
         [
             dict(local_id="predicate", literals=["approves"], status="interpreted"),
             dict(local_id="object", literals=["the request"], status="interpreted"),
             dict(local_id="unknown", status="unknown"),
         ],
-        frame=frame,
     )

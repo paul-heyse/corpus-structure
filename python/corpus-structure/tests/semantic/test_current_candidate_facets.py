@@ -460,3 +460,32 @@ def test_current_delivery_dispatches_real_candidates_and_pins_pagination_and_byt
         )
     with pytest.raises(RichQueryRefused, match="max_bytes"):
         serving.serve_contribution_facets(None, request.model_copy(update={"max_bytes": 1024}))
+
+
+@pytest.mark.parametrize("question", ["qualification_scope", "relation_interpretation"])
+def test_current_finite_facets_preserve_exact_focus_raw_scores_and_negative_observation(source, question):
+    """These are controlled captured reports, not inferred accepted relations."""
+    focus = dict(product_id="actual-selected-primary", member_id="predicate", kind_contract="kind:predicate")
+    alternative = dict(product_id="actual-selected-primary", member_id="qualifier", kind_contract="kind:qualifier")
+    scope = dict(source_pin=pin(), selectors=[dict(native_pointer="#/texts/0", start=4, end=7)])
+    native = dict(scores={"no_match": 0.1, "a": 0.8, "b": 0.1})
+    binary = dict(direction="negative", positive_probability=0.4,
+        positive_criterion="Explicitly presented as a reason.", negative_criterion="No reason is presented.")
+    captured = dict(question=question, assessed_scope=scope, focus=focus,
+        candidates=[dict(key="a", reference=alternative), dict(key="b", reference=focus)],
+        selected_keys=["a"], native_answer=native, binary_observation=binary,
+        state="observed_negative")
+    body = dict(version="finite-interpretation-1", source_pin=pin(), mode="local",
+        standing="private_candidate_relative", reports=source_value([captured]))
+    actual = rows(source, selected(source, body, FINITE_KIND))
+    interpreted = next(item["row"] for item in actual
+        if item["population"] == "interpretation" and "report_position" in item["row"])
+    assert interpreted["meaning"] == captured
+    assert interpreted["meaning"]["focus"]["member_id"] == "predicate"
+    assert [value["key"] for value in interpreted["meaning"]["candidates"]] == ["a", "b"]
+    assert interpreted["meaning"]["native_answer"] == native
+    assert interpreted["meaning"]["binary_observation"] == binary
+    assert interpreted["reference"]["product_id"] == "selected-product"
+    assert interpreted["reference"]["member_id"] is None
+    assert interpreted["standing"] == "private_candidate_relative"
+    assert interpreted["public_admission"] == "not-established"

@@ -136,22 +136,6 @@ def test_public_statement_and_policy_are_released_shapes():
         )
 
 
-def test_numeric_retrieval_is_raw_task_provenance_not_envelope_identity():
-    report = definition()
-    with_scores = report.model_copy(
-        update={"retrieval_report": {"score": 0.000001, "vector": [0.1, -0.0]}}
-    )
-    changed_scores = report.model_copy(
-        update={"retrieval_report": {"score": 0.000002, "vector": [0.2, -0.0]}}
-    )
-    assert with_scores.product_id == changed_scores.product_id == report.product_id
-    from corpus_structure.semantic.identity import canonical_bytes
-
-    assert canonical_bytes(with_scores.model_dump(mode="json")) != canonical_bytes(
-        changed_scores.model_dump(mode="json")
-    )
-
-
 def test_definition_attachment_fact_identity_excludes_interpretation_proof_and_retrieval():
     from corpus_structure.semantic.structural_products import DefinitionComponentsProduct
 

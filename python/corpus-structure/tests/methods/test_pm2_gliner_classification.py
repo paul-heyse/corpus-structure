@@ -22,7 +22,6 @@ from corpus_structure.methods.model_observation import (
 )
 from corpus_structure.methods.pm2_gliner_classification import (
     FAMILY,
-    METHOD,
     VERSION,
     ClassificationProfile,
     GlinerRefused,
@@ -43,7 +42,6 @@ from corpus_structure.semantic.proposals import native_source_frame
 from corpus_structure.semantic.source_contexts import PreparedNativeSources
 from corpus_structure.semantic.source_views import PreparedSourceView
 from corpus_structure.semantic.types import SourceArtifact
-from corpus_structure.serve.contribution_composition import composition_facets
 
 
 @pytest.fixture
@@ -293,23 +291,6 @@ def test_managed_choice_keeps_raw_scores_and_release_order(
         assert isinstance(detail, dict)
         detail = detail[key]
     assert isinstance(detail, dict) and detail["synthetic_suffix"] == "."
-    meta = dict(
-        method=METHOD,
-        source_view_id=case.view.ref.id,
-        source=case.view.ref.key,
-        cut_member=True,
-        selected_task_id=11,
-        origin_task_id=11,
-    )
-    assert result.contribution_operations is not None
-    (operation,) = result.contribution_operations
-    facets = composition_facets(
-        [{**operation, **meta}],
-        [{**row, **meta}],
-    )
-    (facet,) = facets.values()
-    assert [role["option_key"] for role in facet["roles"]] == ["instruction", "schedule", "warning"]
-    assert [role["option_key"] for role in facet["roles"] if "native_score" in role] == observed
 
 
 @pytest.mark.parametrize("change", ["question", "source", "choice_order", "profile", "digest"])

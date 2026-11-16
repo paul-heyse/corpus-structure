@@ -27,8 +27,7 @@ from corpus_structure.semantic.contextual_retrieval import (
     fuse_candidates,
 )
 from corpus_structure.semantic.contextual_storage import (
-    enrichment_report,
-    interpretation_candidates,
+    project_interpretation_candidates,
 )
 from semantic.contextual_enrichment_support import (
     candidates as candidates,
@@ -290,27 +289,6 @@ def test_novelty_requires_explicit_source_proposal_and_examined_inventory():
         selection(c, inv, proposal=replace(proposal, examined_targets=("a",)))
 
 
-def test_report_profiles_and_list_closure():
-    vector = replace(query(), profile_id=E5.profile_id, values=(1.0,) + (0.0,) * 383)
-    vector = replace(
-        vector,
-        vector_id=identity(
-            "context-vector",
-            [
-                vector.object_id,
-                vector.source_binding,
-                vector.profile_id,
-                vector.input_digest,
-                vector.representation_digest,
-            ],
-        ),
-    )
-    report = enrichment_report(profiles=(E5,), vectors=(vector,))
-    assert report["version"] == "contextual-enrichment-2"
-    with pytest.raises(ValueError, match="unavailable"):
-        enrichment_report(profiles=(E5,), vectors=(vector,), candidate_lists=(candidates(),))
-
-
 def test_interpretation_inventory_preserves_equal_labels_and_exact_rank():
     inv = inventory()
     candidate_list = candidates(inv, {"dense": (ChannelHit("b", 0.9), ChannelHit("a", 0.8))})
@@ -320,17 +298,17 @@ def test_interpretation_inventory_preserves_equal_labels_and_exact_rank():
         "candidate_lists": [asdict(candidate_list)],
     }
     anchors = ({"pointer": "#/texts/1", "start": 0, "end": 6},)
-    selected = interpretation_candidates(report, candidate_list.list_id, "occ", anchors)
+    selected = project_interpretation_candidates(report["candidate_lists"][0], report["inventories"][0], candidate_list.list_id, "occ", anchors)
     assert selected.anchors == anchors
     assert [(t.target_id, t.label, t.rank) for t in selected.targets] == [
         ("b", "normal", 1),
         ("a", "normal", 2),
     ]
     with pytest.raises(ValueError, match="selected occurrence"):
-        interpretation_candidates(report, candidate_list.list_id, "different-occ", anchors)
+        project_interpretation_candidates(report["candidate_lists"][0], report["inventories"][0], candidate_list.list_id, "different-occ", anchors)
     report["candidate_lists"][0]["candidates"][0]["target_id"] = "foreign"
     with pytest.raises(ValueError, match="identity differs"):
-        interpretation_candidates(report, candidate_list.list_id, "occ", anchors)
+        project_interpretation_candidates(report["candidate_lists"][0], report["inventories"][0], candidate_list.list_id, "occ", anchors)
 
 
 def test_profile_versions_and_curated_descriptor_reuse_boundaries():
@@ -418,51 +396,7 @@ def test_rejected_witness_inputs_remain_in_replay_population():
     assert decision.outcome == "insufficient_evidence"
 
 
-def test_component_target_preserves_authenticated_origin_not_curated_text():
-    from corpus_structure.semantic.contextual_registry import (
-        ExtractedComponentTarget,
-        component_target_input,
-    )
-
-    target = ExtractedComponentTarget.model_validate(
-        dict(
-            reference=dict(
-                product_id="structural:original",
-                component_id="a" * 64,
-                operation_id="structure.definition_components",
-                operation_version="1",
-                project_id="source-project",
-                run_id=1,
-                cut_id=2,
-                release_id="source-release",
-                result_revision=0,
-                selected_task_id=3,
-                origin_task_id=4,
-                runtime_fingerprint="original-runtime",
-                dependencies=("original-source",),
-            ),
-            label="normal density",
-            description="source-stated defining content",
-            scope="chapter5",
-        )
-    )
-    original_inventory, representations = component_target_input((target,))
-    assert representations[0].target_id == "a" * 64
-    assert representations[0].source_binding == "definition-component:" + target.reference.identity
-    assert representations[0].label == "normal density"
-    changed = target.model_copy(update={"description": "different text"})
-    changed_inventory, changed_representations = component_target_input((changed,))
-    assert changed_inventory != original_inventory
-    assert (
-        changed_representations[0].representation_digest != representations[0].representation_digest
-    )
-    with pytest.raises(ValueError):
-        ExtractedComponentTarget.model_validate(
-            target.model_dump() | {"reference": {"component_id": "a" * 64}}
-        )
-
-
-def test_report_replays_complete_constraints_witnesses_and_selected_edges():
+def test_current_product_replays_complete_constraints_witnesses_and_selected_edges():
     inv = inventory()
     vectors = []
     for object_id, binding, representation in (
@@ -492,25 +426,23 @@ def test_report_replays_complete_constraints_witnesses_and_selected_edges():
         inv,
         witnesses=(witness("supported"), witness("refused", "b", support_state="unsupported")),
     )
-    report = enrichment_report(
-        profiles=(E5,),
-        vectors=vectors,
-        inventories=(inv,),
-        candidate_lists=(candidate_list,),
-        relationship_decisions=(decision,),
+    from corpus_structure.semantic.contextual_operations import (
+        ContextualRetrievalInputs, finish_contextual_retrieval, contextual_relationship_binding,
     )
-    stored = report["relationship_decisions"][0]
+    from corpus_structure.semantic.observations import source_python
+
+    inputs = ContextualRetrievalInputs(inv, E5, vectors[0], None, decision.constraints, decision.witnesses, frozenset())
+    report = finish_contextual_retrieval(inputs, candidate_list, {"source_pin": {"source": "source"}, "anchors": []})
+    stored = source_python(report["relationship_decision"])
     assert {w["witness_id"] for w in stored["witnesses"]} == {"supported", "refused"}
-    assert stored["selected_edges"][0]["member_target_ids"] == ("a",)
+    assert stored["selected_edges"][0]["member_target_ids"] == ["a"]
     assert "alternatives" not in stored
-    with pytest.raises(ValueError, match="selection semantics"):
-        enrichment_report(
-            profiles=(E5,),
-            vectors=vectors,
-            inventories=(inv,),
-            candidate_lists=(candidate_list,),
-            relationship_decisions=(replace(decision, selected_edges=()),),
-        )
+    selected = contextual_relationship_binding(report, decision_id=decision.decision_id, edge_id=decision.selected_edges[0].edge_id)
+    assert selected.edge.member_target_ids == ("a",)
+    stored["selected_edges"] = []
+    from corpus_structure.semantic.observations import source_value
+    with pytest.raises(ValueError, match="exact retained identity"):
+        contextual_relationship_binding(dict(report, relationship_decision=source_value(stored)), decision_id=decision.decision_id, edge_id=decision.selected_edges[0].edge_id)
 
 
 def test_same_source_meaning_different_producer_bases_corroborate_one_edge():
@@ -532,25 +464,10 @@ def test_same_source_meaning_different_producer_bases_corroborate_one_edge():
     single = select_definition_origins(inv, (a,))
     assert single.selected_edges[0].edge_id == edge.edge_id
     assert single.decision_id != result.decision_id
-    from corpus_structure.methods.contextual_candidates import relationship_contributions
-
-    source = dict(
-        contribution_id="evidence",
-        item_key="retained-source-term",
-        pin={},
-        anchors=(),
-        occurrence_id="occ",
-    )
-    (single_observation,) = relationship_contributions(
-        single, (source,), inv, "selection-operation"
-    )
-    (corroborated_observation,) = relationship_contributions(
-        result, (source,), inv, "selection-operation"
-    )
-    assert single_observation["value"] == corroborated_observation["value"]
-    assert single_observation["contribution_id"] != corroborated_observation["contribution_id"]
-    assert single_observation["computation_dependencies"][2] == single.decision_id
-    assert corroborated_observation["computation_dependencies"][2] == result.decision_id
+    # The canonical edge meaning is independent of corroborating producer bases;
+    # its decision retains both original witnesses rather than synthesizing a new origin.
+    assert single.selected_edges[0].target_id == edge.target_id
+    assert len(single.witnesses) == 1 and len(result.witnesses) == 2
     denied = select_definition_origins(inv, (a, replace(b, support_state="unsupported")))
     assert denied.selected_edges[0].member_target_ids == ("a",)
     assert len(denied.selected_edges[0].witnesses) == 1

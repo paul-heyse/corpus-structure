@@ -10,8 +10,10 @@ from corpus_structure.methods.contextual_embeddings import (
     ContextInput,
     render_context,
 )
-from corpus_structure.methods.contextual_query import QueryContextSelection, resolve_query_contexts
-from corpus_structure.semantic.characterization import LayerReport
+from corpus_structure.methods.contextual_query import (DeclaredQueryContextBinding, DeclaredQueryContextSelection, resolve_query_contexts)
+from corpus_structure.semantic.declared_formal_readings import DeclaredFormalInventory
+from corpus_structure.semantic.data_product_reference import DataProductReference
+from corpus_structure.semantic.source_contexts import PreparedNativeSources
 from corpus_structure.semantic.contributions import occurrence_identity
 from corpus_structure.semantic.identity import canonical_bytes
 from methods.contextual_query_support import (
@@ -38,14 +40,9 @@ def resolve(recipe, layers, reference, focal, *, frame=None, pointer=POINTER):
     frame = frame or source()
     focal_anchor = anchor(focal, frame=frame, pointer=pointer)
     occurrence = occurrence_identity((focal_anchor,))
-    selection = QueryContextSelection.model_validate(
-        dict(
-            recipe=recipe,
-            bindings=[dict(occurrence_id=occurrence, evidence=reference.values())],
-        )
-    )
+    selection = DeclaredQueryContextSelection(recipe, (DeclaredQueryContextBinding(occurrence, reference),))
     return resolve_query_contexts(
-        selection, layers, [dict(occurrence_id=occurrence, anchors=[focal_anchor])], frame
+        selection, layers, [dict(occurrence_id=occurrence, anchors=[focal_anchor])], frame, preparation=PreparedNativeSources((frame,))
     )[occurrence]
 
 
@@ -80,11 +77,11 @@ def test_located_frame_keeps_primary_roles_and_exact_focal_input():
 def test_primary_reference_cannot_select_foreign_or_unavailable_evidence(mutation):
     layers, reference = frame_layer()
     if mutation == "pin":
-        reference = replace(reference, layer=replace(reference.layer, content_digest="f" * 64))
+        reference = replace(reference, product=DataProductReference("product:foreign"))
     elif mutation == "missing":
-        reference = replace(reference, local_id="absent")
+        reference = replace(reference, member_id="absent")
     else:
-        report = layers[reference.layer]
+        report = layers[reference.product]
         body = report.payload
         if mutation == "family":
             body["terms"][0]["family"] = "native.syntax"
@@ -92,10 +89,8 @@ def test_primary_reference_cannot_select_foreign_or_unavailable_evidence(mutatio
             body["terms"][0]["kind"] = "operator"
         else:
             body["occurrences"][0]["extents"][0]["projection"] = "e" * 64
-        report = LayerReport(canonical_bytes(body))
-        pin = report.reference(reference.layer.task_id)
-        reference = replace(reference, layer=pin)
-        layers = {pin: report}
+        report = DeclaredFormalInventory(reference.product, canonical_bytes(body))
+        layers = {reference.product: report}
     with pytest.raises(ValueError):
         resolve("located-frame-2", layers, reference, "request")
 
@@ -137,7 +132,7 @@ def test_local_descriptor_uses_retained_earlier_member_not_later_lookalike():
         dict(local_id=f"m{i}", group="cluster", member=m["local_id"], order=i)
         for i, m in enumerate(members)
     ]
-    layers, reference = primary(root, members, memberships=memberships)
+    layers, reference = primary(source(), root, members, memberships=memberships)
     signal = resolve("located-referent-2", layers, reference, "She")
     assert signal.rendered == "Earlier local mention: A supervisor"
     absent = resolve("located-referent-2", layers, reference, "supervisor")
@@ -179,11 +174,11 @@ def test_discourse_uses_one_retained_adjacent_leaf_and_records_wider_omission():
             (("root", "edu0", 0), ("root", "right", 1), ("right", "edu1", 0), ("right", "edu2", 1))
         )
     ]
-    layers, reference = primary(root, [right, *leaves], memberships=memberships)
+    layers, reference = primary(source(), root, [right, *leaves], memberships=memberships)
     signal = resolve("located-discourse-neighbor-2", layers, reference, "files")
     assert signal.rendered == "Discourse neighbor: Archive it."
     assert signal.omissions == ("EDUs [0, 1]: wider_than_selected",)
-    subtree = replace(reference, local_id="right")
+    subtree = replace(reference, member_id="right")
     selected = resolve("located-discourse-neighbor-2", layers, subtree, "files")
     assert selected.rendered == "Discourse neighbor: Archive it."
     assert selected.omissions == ()
@@ -192,7 +187,7 @@ def test_discourse_uses_one_retained_adjacent_leaf_and_records_wider_omission():
 @pytest.mark.parametrize("guard", ["root", "member", "external", "site"])
 def test_query_recipe_never_resolves_unselected_analytical_choices(guard):
     layers, reference = frame_layer()
-    body = layers[reference.layer].payload
+    body = layers[reference.product].payload
     if guard == "root":
         body["terms"][0]["required_choices"] = ["unselected"]
     elif guard == "member":
@@ -202,7 +197,6 @@ def test_query_recipe_never_resolves_unselected_analytical_choices(guard):
     else:
         body["terms"][0]["children"].append(dict(role="subject", choice_group="site"))
         body["choices"] = [dict(local_id="site", members=[])]
-    report = LayerReport(canonical_bytes(body))
-    pin = report.reference(reference.layer.task_id)
+    report = DeclaredFormalInventory(reference.product, canonical_bytes(body))
     with pytest.raises(ValueError, match=r"choice|reading"):
-        resolve("located-frame-2", {pin: report}, replace(reference, layer=pin), "request")
+        resolve("located-frame-2", {reference.product: report}, reference, "request")
