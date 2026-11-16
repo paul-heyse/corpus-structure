@@ -1,5 +1,5 @@
 CREATE OR REPLACE FUNCTION data.require_execution_release(r text) RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $admission$
-DECLARE expected jsonb; spec jsonb; owner_name text; invalid_inference boolean; json_value_classes text[];
+DECLARE expected jsonb; spec jsonb; owner_name text; invalid_inference boolean; json_value_classes text[]; current_json_projection boolean;
 BEGIN
  -- {finalized_release}
  PERFORM sem.require_execution_projection(r);
@@ -61,11 +61,19 @@ BEGIN
   UNION SELECT class_id,ancestor_id FROM sem.class_hierarchy WHERE release_id=r
  ), owned(class_id) AS (
   SELECT class_id FROM roots UNION SELECT edges.target FROM owned JOIN edges ON edges.source=owned.class_id
- ) SELECT coalesce(array_agg(class_id),ARRAY[]::text[]) INTO json_value_classes FROM owned;
+ ) SELECT coalesce(array_agg(class_id),ARRAY[]::text[]),EXISTS(SELECT FROM archived)
+ INTO json_value_classes,current_json_projection FROM owned;
  IF EXISTS(SELECT FROM sem.property_applicability pa WHERE pa.release_id=r AND
     (pa.constraint_scope NOT IN ('shape','accepted_value') OR
      ((pa.constraints->>'pattern' IS NOT NULL OR COALESCE(pa.constraints->'patterns','[]'::jsonb) NOT IN ('[]'::jsonb,'null'::jsonb))
       AND NOT (pa.constraint_scope='shape' AND pa.class_id=ANY(json_value_classes))))) THEN
+   -- Keep the rejection predicate unchanged. A stale/missing DDO projection
+   -- makes its JSON ownership closure unknown, not evidence of an unsupported
+   -- declared pattern. Report that prerequisite before classifying constraints.
+   IF NOT current_json_projection AND EXISTS(SELECT FROM sem.artifact
+      WHERE release_id=r AND artifact_name='data_operations.json') THEN
+    RAISE EXCEPTION 'archived DDO native constraint projection is missing or incompatible with installed descriptor' USING ERRCODE='23514';
+   END IF;
    RAISE EXCEPTION 'unsupported required native constraint scope or pattern' USING ERRCODE='23514'; END IF;
  IF NOT EXISTS(SELECT FROM sem.release WHERE release_id=r AND profile='semantic-2') THEN
   RAISE EXCEPTION 'execution requires a current composed release' USING ERRCODE='23514'; END IF;

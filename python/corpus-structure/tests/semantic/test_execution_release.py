@@ -162,3 +162,39 @@ def test_scope_variants_retain_actual_declared_property_requirements(scope):
     sample = next(definition for definition in prepared.definitions if definition.name == "Sample")
     assert {prop.constraint_scope for prop in sample.properties} == {scope}
     assert json.loads(prepared.manifest)["data_operation_model"]
+
+
+def test_native_constraint_diagnostic_distinguishes_stale_descriptor_from_shape_pattern(
+    commit_db_engine,
+):
+    """Fault-inject only the owned clone; test the SQL guard's diagnostic boundary."""
+    from sqlalchemy.exc import DBAPIError
+
+    schema = yaml.safe_load(STORAGE.schema_text)
+    schema["classes"]["Sample"]["attributes"]["value"] = {
+        "range": "string", "required": True, "pattern": "^bounded$"
+    }
+    with commit_db_engine.begin() as connection:
+        *_, prepared = _stage(connection, schema=schema)
+        query = text("SELECT data.require_execution_release(:r)")
+        connection.execute(query, {"r": prepared.release_id})
+        fault = connection.begin_nested()
+        try:
+            # Deliberately mismatch the installed descriptor while leaving the
+            # actual archived sources, class projection and shape pattern intact.
+            # Python's outer frozen-catalog check is a different boundary.
+            connection.exec_driver_sql("""
+                CREATE OR REPLACE FUNCTION sem.data_operation_native_descriptor()
+                RETURNS jsonb LANGUAGE sql IMMUTABLE SET search_path=pg_catalog,pg_temp
+                AS $$ SELECT jsonb_build_object('version','data-operation-native-v1',
+                    'source_digest',repeat('0',64)) $$
+            """)
+            with (
+                pytest.raises(DBAPIError, match="native constraint projection is missing or incompatible"),
+                connection.begin_nested(),
+            ):
+                connection.execute(query, {"r": prepared.release_id})
+        finally:
+            fault.rollback()
+        # The genuine current descriptor accepts the same supported shape again.
+        connection.execute(query, {"r": prepared.release_id})
