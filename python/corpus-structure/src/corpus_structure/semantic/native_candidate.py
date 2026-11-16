@@ -1169,21 +1169,6 @@ def series_native_definitions(connection, *, include_selected=True, target_metad
             grants=(("corpus_sem_reader", "EXECUTE", False),),
         )
     )
-    review_sql = Path(__file__).with_name("sql").joinpath("review_assessments.sql").read_text()
-    for name in (
-        "create_structural_reference_set",
-        "record_structural_reference_pass",
-    ):
-        definitions.extend(
-            _task_call_definitions(
-                connection,
-                review_sql,
-                name=name,
-                source="operation review history:forward",
-                schema="eval",
-                grants=(("corpus_sem_evaluator", "EXECUTE", False),),
-            )
-        )
     definitions.append(
         _task_call_definition(
             connection,
