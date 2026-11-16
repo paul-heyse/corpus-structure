@@ -45,7 +45,10 @@ def observation_publication_sql(context=None) -> str:
     option.arg[0].sval = body
     signature = "ops.publish_pdf_observation(bigint,bigint,text,text,bytea,bytea[])"
     return (
-        RawStream()(declaration)
+        RawStream()(functions["ops", "pdf_observation_meaning"])
+        + ";\nALTER FUNCTION ops.pdf_observation_meaning(bytea) OWNER TO corpus_sem_publisher;\n"
+        + "REVOKE ALL ON FUNCTION ops.pdf_observation_meaning(bytea) FROM PUBLIC;\n"
+        + RawStream()(declaration)
         + ";\nALTER FUNCTION "
         + signature
         + " OWNER TO corpus_sem_publisher;\nREVOKE ALL ON FUNCTION "

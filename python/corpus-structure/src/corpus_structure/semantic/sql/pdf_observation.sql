@@ -1,4 +1,39 @@
 -- Current declared recognition observation publication over exact PDF support.
+CREATE OR REPLACE FUNCTION ops.pdf_observation_meaning(p_payload bytea) RETURNS jsonb
+LANGUAGE plpgsql IMMUTABLE STRICT SET search_path=pg_catalog,pg_temp AS $meaning$
+DECLARE value jsonb:=convert_from(p_payload,'UTF8')::jsonb;
+ observed jsonb:=value->'observation'; binding jsonb:=observed->'binding'; decoding jsonb;
+ observation jsonb; coverage jsonb;
+BEGIN
+ IF value->>'kind' IS DISTINCT FROM 'recognition_observation'
+ OR observed->>'pass_role' NOT IN ('A','B','C') OR observed ? 'mapped_evidence_digest'
+ OR coalesce(value->'relations','[]')<>'[]'::jsonb
+ OR coalesce(value->'mapping_reports','[]')<>'[]'::jsonb THEN
+ RAISE EXCEPTION 'recognition meaning requires the finite raw observation producer'
+ USING ERRCODE='23514'; END IF;
+ decoding:=(binding->>'decoding_json')::jsonb;
+ IF jsonb_typeof(decoding) IS DISTINCT FROM 'object' THEN
+ RAISE EXCEPTION 'recognition decoding must be a declared object' USING ERRCODE='23514'; END IF;
+ binding:=jsonb_set(binding,'{decoding_json}',to_jsonb(data.canonical_json(
+ decoding-'receipt_digests'-'service_generation')));
+ SELECT jsonb_object_agg(key,val) INTO observation FROM jsonb_each(observed) row(key,val)
+ WHERE key=ANY(ARRAY['image','pass_role','outcome','raw_response_digest','finish_reason']);
+ observation:=observation||jsonb_build_object('binding',binding);
+ IF EXISTS(SELECT FROM jsonb_array_elements(value->'coverage') row
+ WHERE row->'supports' IS DISTINCT FROM '[]'::jsonb) THEN
+ RAISE EXCEPTION 'raw recognition coverage cannot inherit a source assessment'
+ USING ERRCODE='23514'; END IF;
+ SELECT coalesce(jsonb_agg(jsonb_build_object('coverage_id',row->'coverage_id',
+ 'scope',row->'scope','family',row->'family','discovery_policy',row->'discovery_policy',
+ 'outcome',row->'outcome') ORDER BY ordinal),'[]') INTO coverage
+ FROM jsonb_array_elements(value->'coverage') WITH ORDINALITY item(row,ordinal);
+ RETURN jsonb_build_object('version','pdf-observation-meaning-1',
+ 'source_digest',value->'artifact_digest','recipe_digest',value->'recipe_digest',
+ 'observation',observation,'occurrences',value->'occurrences','coverage',coverage,
+ 'mapping_outcome',value->'health'->'mapping_outcome',
+ 'source_fidelity',value->'health'->'source_fidelity');
+END $meaning$;
+
 CREATE OR REPLACE FUNCTION ops.publish_pdf_observation(p_task bigint,p_attempt bigint,p_holder text,p_contract text,p_payload bytea,p_artifacts bytea[]) RETURNS text
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $observation$
 DECLARE job ops.task; context record; definition sem.data_operation_definition; native_request ops.data_request; selected jsonb; publication jsonb; product jsonb:='{}'; digest text:=encode(sha256(p_payload),'hex');
@@ -133,8 +168,11 @@ BEGIN
  INSERT INTO kb.source_artifact(artifact_digest,content)
  SELECT encode(sha256(content),'hex'),content FROM unnest(p_artifacts) content
  ON CONFLICT DO NOTHING;
- INSERT INTO ops.pdf_product(task_id,product_key,content_digest,kind,artifact_digest,release_id,contract_digest)
- VALUES(p_task,product->>'product_key',digest,product->>'kind',original,context.release_id,p_contract);
+ INSERT INTO ops.pdf_product(task_id,product_key,content_digest,kind,artifact_digest,release_id,contract_digest,publication_context)
+ VALUES(p_task,product->>'product_key',digest,product->>'kind',original,context.release_id,p_contract,
+ jsonb_build_object('version','pdf-observation-publication-1','request_id',context.request_id,
+ 'generation',context.generation,'task_id',p_task,'attempt',p_attempt,'holder',p_holder,
+ 'runtime_id',native_request.runtime_id,'release_id',context.release_id,'source_digest',original));
  INSERT INTO ops.pdf_product_artifact(task_id,product_key,artifact_digest)
  SELECT p_task,product->>'product_key',encode(sha256(supplied.content),'hex')
  FROM unnest(p_artifacts) supplied(content) ON CONFLICT DO NOTHING;

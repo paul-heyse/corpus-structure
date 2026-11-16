@@ -800,6 +800,9 @@ classes:
       contract_digest:
         range: string
         required: true
+      publication_context:
+        range: json_payload
+        description: Native-stamped first observation publication custody, separate from payload meaning. Absent historical custody cannot authorize an observation-set effect.
     unique_keys:
       primary_key:
         unique_key_slots:
