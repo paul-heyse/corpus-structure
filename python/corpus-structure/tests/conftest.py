@@ -334,6 +334,7 @@ def settings_for_native_clone(
             "maintenance_url": _authentication_url(original, "maintenance"),
             "reader_url": _authentication_url(original, "read"),
             "evaluator_url": _authentication_url(original, "evaluate"),
+            "fitter_url": _authentication_url(original, "fit"),
             "admission_url": _authentication_url(original, "admit"),
         }
     )

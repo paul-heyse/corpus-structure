@@ -1,4 +1,4 @@
-"""Current default MCP follows new runs without losing immutable task bindings."""
+"""Current native target entrypoints retain credentials and refuse unadmitted execution."""
 
 import pytest
 from sqlalchemy import select, text
@@ -16,7 +16,7 @@ def test_application_settings_resolve_original_credentials_before_clone_substitu
 
     clone = commit_db_engine.url.database
     assert clone is not None
-    for purpose in ("write", "read", "evaluate", "admit", "maintenance"):
+    for purpose in ("write", "read", "evaluate", "fit", "admit", "maintenance"):
         expected = make_url(connection_settings(native_settings, purpose).database.url)
         actual = make_url(connection_settings(commit_application_settings, purpose).database.url)
         assert actual.database == clone
@@ -38,7 +38,7 @@ def test_application_settings_resolve_original_credentials_before_clone_substitu
         )
 
 
-def test_db_migrate_uses_semantic_history_and_refuses_legacy(commit_db_engine):
+def test_db_migrate_uses_current_target_root_and_refuses_legacy(commit_db_engine):
     from corpus_structure.cli.db import DbRefused, _migrate
     from corpus_structure.semantic.metadata import PHYSICAL_MODEL_ID
     from corpus_structure.semantic.migrations import head_revision
@@ -54,56 +54,33 @@ def test_db_migrate_uses_semantic_history_and_refuses_legacy(commit_db_engine):
         _migrate(commit_db_engine, "owned-test", False)
 
 
-def test_execution_admission_refuses_genuine_unbound_semantic1_before_run(commit_db_engine):
-    from psycopg.errors import CheckViolation
-    from sqlalchemy import insert
-    from sqlalchemy.exc import DBAPIError
-
+def test_current_archive_admission_refuses_schema_only_release_before_effects(commit_db_engine):
     from corpus_structure.semantic import PreparationProfile, ResolvedDependencies, prepare_release
-    from corpus_structure.semantic.releases import persist_release
+    from corpus_structure.semantic.releases import ReleaseConflict, persist_release
     from semantic.releases_support import source_bundle
 
     bundle = source_bundle()
     dependencies = ResolvedDependencies()
     profile = PreparationProfile()
     prepared = prepare_release(bundle, dependencies, profile)
-    assert profile.version == "semantic-1" and prepared.execution_model_id is None
+    assert profile.version == "semantic-1"
+    assert not any(artifact.kind == "data_operations.json" for artifact in prepared.artifacts)
     with commit_db_engine.begin() as conn:
-        persist_release(conn, bundle, dependencies, profile, prepared)
-        conn.execute(insert(table("data.project")).values(project_id="unbound-execution"))
-        # Schema artifacts remain archivable, but cannot acquire a realization or
-        # run. The atomic native admission boundary precedes execution.
-        with pytest.raises(DBAPIError) as refused, conn.begin_nested():
-            conn.execute(
-                insert(table("data.realization")).values(
-                    project_id="unbound-execution",
-                    realization_id="unbound-execution-input",
-                    release_id=prepared.release_id,
-                )
-            )
-        assert isinstance(refused.value.orig, CheckViolation)
-        assert refused.value.orig.sqlstate == "23514"
-        assert "execution requires a current composed release" in str(refused.value.orig)
-        releases, realizations, runs = (
-            table("sem.release"),
-            table("data.realization"),
-            table("ops.run"),
-        )
-        assert (
-            conn.scalar(
-                select(releases.c.profile).where(releases.c.release_id == prepared.release_id)
-            )
-            == "semantic-1"
-        )
-        assert (
-            conn.execute(
-                select(realizations.c.realization_id).where(
-                    realizations.c.project_id == "unbound-execution"
-                )
-            ).all()
-            == []
-        )
-        assert (
-            conn.execute(select(runs.c.id).where(runs.c.project_id == "unbound-execution")).all()
-            == []
-        )
+        # Pure schema preparation grants no executable operation model. Refusal
+        # occurs at the actual current archive admission boundary, before effects.
+        with pytest.raises(
+            ReleaseConflict, match="execution projection requires current declared data operations"
+        ), conn.begin_nested():
+            persist_release(conn, bundle, dependencies, profile, prepared)
+        releases = table("sem.release")
+        assert conn.scalar(
+            select(releases.c.release_id).where(releases.c.release_id == prepared.release_id)
+        ) is None
+        projects = table("data.project")
+        assert conn.scalar(
+            select(projects.c.project_id).where(projects.c.project_id == "unbound-execution")
+        ) is None
+        demands = table("ops.data_demand")
+        assert conn.execute(
+            select(demands.c.id).where(demands.c.project_id == "unbound-execution")
+        ).all() == []
