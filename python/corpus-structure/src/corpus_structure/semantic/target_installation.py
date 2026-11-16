@@ -1,0 +1,381 @@
+"""Explicit current installation inputs, unselected until coordinated adoption.
+
+This builds from the same captured LinkML sources and compiler as normal metadata.
+It neither replays a historical migration nor authorizes a database transition.
+"""
+
+from __future__ import annotations
+
+import json
+from collections.abc import Mapping
+from dataclasses import dataclass
+from pathlib import Path
+from typing import TYPE_CHECKING
+
+import yaml
+from sqlalchemy import MetaData
+
+from corpus_structure.schema.physical import (
+    PHYSICAL_ROOT,
+    compile_physical,
+    physical_source_closure,
+)
+
+from .identity import canonical_bytes
+from .types import SourceArtifact
+
+if TYPE_CHECKING:
+    from .native_products import NativeAuthoringInputs
+
+_MODEL = Path(__file__).parents[1] / "model/semantic"
+_TASK_SOURCE = "data-operation-task-physical.yaml"
+_LEGACY_EXECUTION_CLASSES = frozenset({
+    "execution_operation", "execution_transition", "execution_edge", "operation_effect", "transition_effect",
+})
+
+
+def target_physical_sources(sources: Mapping[str, bytes]) -> dict[str, bytes]:
+    """Select current declaration owners; never expand a legacy foreign-key closure."""
+    document = yaml.safe_load(sources[PHYSICAL_ROOT])
+    classes = document["classes"]
+    # Release archive/projection rows remain inputs of the current compiler and
+    # admission guard. PDF stored declarations belong to the maintained sealed
+    # publication/staging owners; source_build binds actual request-owned bytes.
+    document["classes"] = {
+        name: declaration
+        for name, declaration in classes.items()
+        if ("sem" in declaration.get("in_subset", ()) and name not in _LEGACY_EXECUTION_CLASSES)
+        or name in {"project", "document", "source_artifact", "source_build"}
+        or name.startswith("pdf_")
+    }
+    project = document["classes"]["project"]
+    project["attributes"].pop("selected_result_run_id", None)
+    annotations = project.get("annotations", {})
+    if "ph:foreign_keys" in annotations:
+        annotations["ph:foreign_keys"] = json.dumps([
+            foreign for foreign in json.loads(annotations["ph:foreign_keys"])
+            if "selected_result_run_id" not in foreign["columns"]
+        ])
+    document["imports"] = [
+        name for name in document["imports"] if name != "characterization-physical"
+    ] + [_TASK_SOURCE.removesuffix(".yaml")]
+    captured = dict(sources)
+    captured[PHYSICAL_ROOT] = yaml.safe_dump(document, sort_keys=False).encode()
+    captured[_TASK_SOURCE] = _MODEL.joinpath(_TASK_SOURCE).read_bytes()
+    return physical_source_closure(PHYSICAL_ROOT, captured.__getitem__)
+
+
+def target_metadata(sources: Mapping[str, bytes], *, linkml_types: bytes):
+    """Compile the exact selected source closure using the existing physical compiler."""
+    return compile_physical(target_physical_sources(sources), linkml_types=linkml_types)
+
+
+def target_pdf_actions(content: bytes) -> SourceArtifact:
+    """Retain actual current PDF actions while retiring historical source-view APIs."""
+    from .pdf_domain import PREFIX
+
+    document = yaml.safe_load(content)
+    retired = {"publish_source_view", "read_source_view"}
+    document["actions"] = [action for action in document["actions"] if action["id"] not in retired]
+    diagnostics = []
+    for invariant in document["diagnostics"]:
+        selected = [entry for entry in invariant["diagnostics"] if entry["operation"] not in retired]
+        if selected:
+            diagnostics.append({**invariant, "diagnostics": selected})
+    document["diagnostics"] = diagnostics
+    return SourceArtifact(PREFIX + "native/actions.yaml", canonical_bytes(document))
+
+
+def target_task_guard_sql(protocol: bytes, checks: str) -> str:
+    """Share the existing request/lease/receipt checks, with no legacy task branch."""
+    from .data_operation_protocol import render_data_task_guard
+
+    return render_data_task_guard(protocol, """
+CREATE OR REPLACE FUNCTION ops.guard_execution_task() RETURNS trigger
+LANGUAGE plpgsql SET search_path=pg_catalog,pg_temp AS $task$
+BEGIN
+ IF NEW.data_request_id IS NULL OR NEW.data_generation IS NULL THEN
+ RAISE EXCEPTION 'physical task requires declared request generation' USING ERRCODE='23514'; END IF;
+-- {data_request_task_checks}
+END $task$;
+""", checks=checks)
+
+
+@dataclass(frozen=True)
+class TargetInstallation:
+    """One exact physical/native capture; preparation grants no deployment authority."""
+
+    metadata: MetaData
+    pdf_sources: tuple[SourceArtifact, ...]
+    authoring_inputs: NativeAuthoringInputs
+
+
+def capture_target_installation(sources: Mapping[str, bytes], *, linkml_types: bytes) -> TargetInstallation:
+    from .native_products import capture_native_authoring_inputs
+    from .pdf_domain import pdf_domain_sources
+
+    selected = target_metadata(sources, linkml_types=linkml_types)
+    actions = target_pdf_actions(_MODEL.joinpath("pdf-actions.yaml").read_bytes())
+    pdf_sources = pdf_domain_sources(
+        physical_sources=selected.info["physical_sources"], linkml_types=linkml_types,
+        actions_source=actions,
+    )
+    inputs = capture_native_authoring_inputs(
+        target_metadata=selected, pdf_sources=pdf_sources,
+        extra_sources=(SourceArtifact("authoring/target_installation.py", Path(__file__).read_bytes()),),
+    )
+    return TargetInstallation(selected, pdf_sources, inputs)
+
+
+def target_pdf_sql(installation: TargetInstallation) -> str:
+    from .pdf_completion_native import pdf_completion_native_sql
+    from .pdf_integrated_native import observation_publication_sql
+    from .pdf_publication_native import pdf_record_logical_identity_sql, publication_sql
+    from .pdf_selected_source_native import selected_source_reader_sql
+    from .pdf_staging_native import stage_native_sql
+
+    sql = Path(__file__).with_name("sql")
+    return "\n".join((
+        stage_native_sql(target_metadata=installation.metadata, pdf_sources=installation.pdf_sources),
+        publication_sql(target_metadata=installation.metadata), pdf_record_logical_identity_sql(),
+        sql.joinpath("pdf_record_proof_reader.sql").read_text(),
+        sql.joinpath("pdf_record_access_correspondence.sql").read_text(),
+        observation_publication_sql(), pdf_completion_native_sql(), selected_source_reader_sql(),
+    ))
+
+
+def target_native_definitions(connection, installation: TargetInstallation):
+    """Declare current owners directly; no frozen predecessors or legacy series catalog."""
+    from .archive_native import archive_native_definitions
+    from .companion_projection_native import companion_projection_definitions
+    from .data_operation_storage import data_operation_native_definitions
+    from .native_candidate import (
+        _context_definition,
+        _pdf_payload_definitions,
+        _publication_view_definitions,
+        _release_guard_definitions,
+        _shape_definition,
+        _task_call_definition,
+    )
+    from .native_objects import definition_from_sql
+    from .native_products import execution_projection_check_sql
+    from .native_sql_body import published_revision_definition, published_validation_definition
+    from .pdf_publication_native import _native_shape_guard
+    from .published_document import published_reader_definitions
+
+    selected = installation.metadata
+    sql = Path(__file__).with_name("sql")
+    definitions = []
+    for filename, schema, name, roles in (
+        ("identity.sql", "data", "canonical_json", ()),
+        ("identity.sql", "data", "decimal_canonical", ()),
+        ("closure.sql", "data", "require_float_lexical", ()),
+        ("closure.sql", "sem", "require_admission_caller", ()),
+        ("closure.sql", "sem", "refuse_immutable_mutation", ()),
+        ("closure.sql", "sem", "guard_finalized_insert", ()),
+        ("closure.sql", "sem", "record_deployment_admission", ("corpus_sem_admitter",)),
+        ("closure.sql", "sem", "record_sql_admission", ("corpus_sem_admitter",)),
+        ("closure.sql", "sem", "activate_release", ("corpus_sem_admitter",)),
+        ("execution_projection.sql", "sem", "require_scientific_layout", ()),
+    ):
+        definitions.append(_task_call_definition(
+            connection, sql.joinpath(filename).read_text(), name=name, schema=schema,
+            source="target-current:" + filename, grants=tuple((role, "EXECUTE", False) for role in roles),
+        ))
+    definitions.extend(data_operation_native_definitions(
+        connection, target_metadata=selected, sources=installation.authoring_inputs.native_sources,
+    ))
+    definitions.extend(archive_native_definitions(connection, target_metadata=selected))
+    definitions.extend(_release_guard_definitions(
+        connection, sql.joinpath("closure.sql").read_text() + "\n" + execution_projection_check_sql(target_metadata=selected),
+        source="target-current:release archive guards",
+    ))
+    for name in ("validate_runtime_binding", "register_runtime_binding", "require_runtime_binding"):
+        definitions.append(_task_call_definition(
+            connection, sql.joinpath("runtime_bindings.sql").read_text(), schema="sem", name=name,
+            source="target-current:runtime binding", grants=tuple(
+                (role, "EXECUTE", False) for role in ("corpus_sem_writer", "corpus_sem_admitter")
+            ) if name == "register_runtime_binding" else (),
+        ))
+    payload = target_pdf_sql(installation)
+    definitions.extend((
+        _shape_definition(connection, _native_shape_guard(), source="target-current:PDF shape"),
+        _context_definition(connection, sql.joinpath("pdf_record_context.sql").read_text(), source="target-current:PDF context"),
+        *_pdf_payload_definitions(connection, payload, source="target-current:PDF publication", current_source=True),
+        *_publication_view_definitions(connection, payload, source="target-current:PDF views"),
+        *published_reader_definitions(connection, target_metadata=selected),
+        *companion_projection_definitions(connection, target_metadata=selected),
+    ))
+    definitions = [
+        published_revision_definition(item, target_metadata=selected)
+        if item.identity.name == "read_pdf_published_revision"
+        else published_validation_definition(item, target_metadata=selected)
+        if item.identity.name == "read_pdf_published_validation" else item
+        for item in definitions
+    ]
+    # SQL-language bodies bind provider functions/views at CREATE time. Keep
+    # these established PDF prerequisites ahead of their dependent readers.
+    providers = (
+        "read_pdf_published_revision", "pdf_companion_field_bytes", "pdf_companion_body",
+        "pdf_selected_product", "pdf_published_item", "pdf_published_region", "pdf_published_coverage",
+    )
+    definitions = [
+        *(item for name in providers for item in definitions if item.identity.name == name),
+        *(item for item in definitions if item.identity.name not in providers),
+    ]
+    protocol = selected.info["physical_sources"]["data-operation-native.yaml"]
+    definitions.append(definition_from_sql(
+        connection, target_task_guard_sql(protocol, sql.joinpath("data_operation_task_checks.sql").read_text()),
+        source="target-current:request task fence", owner="corpus_sem_publisher",
+    ))
+    definitions.append(definition_from_sql(
+        connection, "CREATE TRIGGER zz_execution_task BEFORE INSERT OR UPDATE ON ops.task "
+        "FOR EACH ROW EXECUTE FUNCTION ops.guard_execution_task()",
+        source="target-current:request task fence", owner="corpus_sem_publisher",
+    ))
+    for relation in sorted(selected.tables.values(), key=lambda item: item.fullname):
+        quoted = connection.dialect.identifier_preparer.format_table(relation)
+        if relation.info.get("immutability") in {"intrinsic", "immutable", "deployment"} or relation.fullname == "sem.physical_contract":
+            # DDO intrinsic relations already receive this exact guard from
+            # data_operation_native_definitions; the final identity check is exact.
+            definitions.append(definition_from_sql(
+                connection, "CREATE TRIGGER semantic_immutable BEFORE UPDATE OR DELETE OR TRUNCATE ON "
+                + quoted + " FOR EACH STATEMENT EXECUTE FUNCTION sem.refuse_immutable_mutation()",
+                source="target-current:physical immutability", owner="corpus_sem_publisher",
+            ))
+        if relation.info.get("archive_role") is not None:
+            definitions.append(definition_from_sql(
+                connection, "CREATE TRIGGER finalized_release BEFORE INSERT ON " + quoted
+                + " FOR EACH ROW EXECUTE FUNCTION sem.guard_finalized_insert()",
+                source="target-current:finalized archive", owner="corpus_sem_publisher",
+            ))
+    unique = {}
+    for item in definitions:
+        if item.identity in unique:
+            previous = unique[item.identity]
+            if (previous.sql, previous.owner, previous.grants, previous.enabled,
+                previous.role_bindings, previous.bind_owner) != (
+                item.sql, item.owner, item.grants, item.enabled, item.role_bindings, item.bind_owner,
+            ):
+                raise ValueError("target native declaration differs under repeated identity: " + item.identity.qualified)
+        unique[item.identity] = item
+    return tuple(unique.values())
+
+
+def target_admission_descriptor(installation: TargetInstallation, native_objects):
+    """Derive complete current descriptor roots without inheriting historical inventory."""
+    from pglast import ast, parse_sql
+
+    from .native_products import relation_descriptor
+
+    selected = installation.metadata
+    triggers = []
+    for item in native_objects:
+        if item.identity.kind != "trigger":
+            continue
+        (raw,) = parse_sql(item.catalog["definition"])
+        trigger = raw.stmt
+        if (not isinstance(trigger, ast.CreateTrigStmt) or trigger.args or trigger.columns
+                or trigger.whenClause is not None or trigger.events is None
+                or trigger.timing is None or trigger.row is None):
+            raise ValueError("target guards require their declared unconditional no-argument trigger shape")
+        if item.identity.relation is None:
+            raise ValueError("target trigger requires its exact parent relation")
+        function = ".".join(part.sval for part in trigger.funcname or ())
+        triggers.append(dict(
+            relation=item.identity.schema + "." + item.identity.relation,
+            name=item.identity.name, function=function + "()",
+            type=trigger.events | trigger.timing | int(trigger.row),
+            columns=[], when=None, args="", deferrable=trigger.deferrable,
+            deferred=trigger.initdeferred,
+        ))
+    return dict(
+        tables=[relation_descriptor(table) for table in sorted(selected.tables.values(), key=lambda table: table.fullname)],
+        functions=[], views=[], indexes=[], checks=[], triggers=triggers,
+        readers=[dict(relation=table.fullname, roles=relation_descriptor(table)["read_roles"])
+                 for table in sorted(selected.tables.values(), key=lambda table: table.fullname)],
+    )
+
+
+def prepare_target_authoring(connection, installation: TargetInstallation, *, owned_authoring=False):
+    """Normalize a complete fresh declaration using the existing rollback-only author."""
+    from .native_candidate import _admission_definitions, _declared_physical_catalog, definition_sql
+    from .native_objects import prepare_native_authoring
+    from .native_products import admission_kernel
+    from .source_view_native import native_admission_sql
+
+    products = (
+        *target_native_definitions(connection, installation),
+        *_admission_definitions(connection, admission_kernel(), source="target-current:admission guard", require_descriptor=False),
+    )
+    normalized = prepare_native_authoring(connection, products, predecessor=(), owned_authoring=owned_authoring)
+    sql = native_admission_sql(
+        definition_sql(products),
+        inputs=installation.authoring_inputs,
+        base_descriptor=target_admission_descriptor(installation, normalized.desired),
+        native_objects=normalized.desired, target_metadata=installation.metadata,
+        physical_catalog=_declared_physical_catalog(connection, installation.metadata),
+    )
+    admission = _admission_definitions(connection, sql, source="target-current:admission")
+    complete = (*products[:-1], *admission)
+    return prepare_native_authoring(
+        connection, complete, predecessor=(), owned_authoring=owned_authoring,
+        check_plpgsql=frozenset(item.identity for item in complete if item.identity.kind == "function"),
+    )
+
+
+def prepare_target_candidate(connection, installation: TargetInstallation, *, owned_authoring=False):
+    """Prepare a fresh Alembic root against an owned empty namespace, then roll back.
+
+    The returned ordinary/native operations still require explicit review, frozen
+    registration and the existing migration lifecycle. This never stamps or deploys.
+    """
+    from alembic.operations.ops import ExecuteSQLOp
+    from sqlalchemy import text
+    from sqlalchemy.schema import CreateSchema
+
+    from .alembic_privileges import table_policy
+    from .native_candidate import _physical_check_contract, compare_declared_candidate
+    from .native_objects import NativeAuthoringError
+
+    if not owned_authoring:
+        raise NativeAuthoringError("fresh target preparation requires owned authoring custody")
+    declared_schemas = {table.schema for table in installation.metadata.tables.values()}
+    if None in declared_schemas:
+        raise NativeAuthoringError("fresh target tables require explicit schemas")
+    schemas = sorted(schema for schema in declared_schemas if schema is not None)
+    present = tuple(connection.scalars(text(
+        "SELECT nspname FROM pg_namespace WHERE nspname IN ('meta','sem','data','ops','kb','eval') ORDER BY nspname"
+    )))
+    if present:
+        raise NativeAuthoringError("fresh target preparation refuses existing application namespaces: " + ",".join(present))
+    if connection.scalar(text(
+        "SELECT to_regclass('public.alembic_version') IS NOT NULL OR "
+        "to_regclass('public.semantic_alembic_version') IS NOT NULL"
+    )):
+        raise NativeAuthoringError("fresh target preparation refuses existing migration history")
+    quote = connection.dialect.identifier_preparer.quote
+    schema_sql = [statement for schema in schemas for statement in (
+        str(CreateSchema(schema).compile(dialect=connection.dialect)),
+        "GRANT USAGE,CREATE ON SCHEMA " + quote(schema) + " TO corpus_sem_publisher",
+    )]
+    scaffolding = connection.begin_nested()
+    try:
+        for statement in schema_sql:
+            connection.exec_driver_sql(statement)
+        installation.metadata.create_all(connection, checkfirst=False)
+        for relation in installation.metadata.tables.values():
+            connection.exec_driver_sql("ALTER TABLE " + connection.dialect.identifier_preparer.format_table(relation)
+                                       + " OWNER TO " + quote(table_policy(relation)["owner"]))
+        authoring = prepare_target_authoring(connection, installation, owned_authoring=True)
+        physical_contract = _physical_check_contract(connection, installation.metadata, authoring)
+    finally:
+        scaffolding.rollback()
+    candidate, authoring = compare_declared_candidate(
+        connection, target_metadata=installation.metadata, authoring=authoring,
+        old_descriptor=dict(tables=[], privileges=[]), physical_contract=physical_contract,
+    )
+    if candidate.upgrade_ops is None:
+        raise NativeAuthoringError("fresh target preparation produced no migration body")
+    candidate.upgrade_ops.ops[:0] = [ExecuteSQLOp(statement) for statement in schema_sql]
+    return candidate, authoring

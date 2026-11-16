@@ -1433,14 +1433,16 @@ def data_operation_immutable_relations(target_metadata, physical_sources):
     return tuple(relations)
 
 
-def data_operation_native_definitions(connection, *, target_metadata=None):
+def data_operation_native_definitions(connection, *, target_metadata=None, sources=None):
     """Include every kernel function in normal server-normalized candidate custody."""
     from pglast import ast
 
     from .native_objects import definition_from_sql
     from .prepared_sql import prepare_sql
 
-    if target_metadata is None:
+    if sources is not None:
+        captured = tuple(sources)
+    elif target_metadata is None:
         captured = native_protocol_sources()
     else:
         sources = target_metadata.info.get("physical_sources")
@@ -1450,6 +1452,21 @@ def data_operation_native_definitions(connection, *, target_metadata=None):
                 "native candidate metadata lacks explicit captured physical inputs/types"
             )
         captured = native_protocol_sources(physical_sources=sources, linkml_types=types)
+    captured_map = _captured(captured)
+    physical_sources = {
+        source.name.removeprefix("native/projection-physical/"): source.content
+        for source in captured
+        if source.name.startswith("native/projection-physical/")
+    }
+    if target_metadata is None:
+        from corpus_structure.schema.physical import compile_physical
+
+        target_metadata = compile_physical(
+            physical_sources, linkml_types=captured_map["native/projection-linkml-types.yaml"]
+        )
+    elif (physical_sources != target_metadata.info.get("physical_sources") or
+          captured_map["native/projection-linkml-types.yaml"] != target_metadata.info.get("physical_linkml_types")):
+        raise ValueError("native definitions and target metadata require the same captured physical sources")
     sql = native_sql(captured)
     prepared = prepare_sql(sql, source="data-operations:forward")
     public = {item["name"]: item for item in _protocol(captured)}
@@ -1502,18 +1519,6 @@ def data_operation_native_definitions(connection, *, target_metadata=None):
                 grants=tuple((role, "EXECUTE", False) for role in roles),
             )
         )
-    captured_map = _captured(captured)
-    physical_sources = {
-        source.name.removeprefix("native/projection-physical/"): source.content
-        for source in captured
-        if source.name.startswith("native/projection-physical/")
-    }
-    if target_metadata is None:
-        from corpus_structure.schema.physical import compile_physical
-
-        target_metadata = compile_physical(
-            physical_sources, linkml_types=captured_map["native/projection-linkml-types.yaml"]
-        )
     for relation in data_operation_immutable_relations(target_metadata, physical_sources):
         definitions.append(
             definition_from_sql(
@@ -1532,6 +1537,6 @@ def data_operation_native_definitions(connection, *, target_metadata=None):
     return (
         *wire_native_definitions(connection, sources=captured),
         *definitions,
-        *binding_native_definitions(connection),
+        *binding_native_definitions(connection, sources=captured),
         *source_native_definitions(connection, sources=captured),
     )

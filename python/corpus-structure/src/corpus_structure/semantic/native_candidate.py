@@ -1658,7 +1658,7 @@ def series_native_definitions(connection, *, include_selected=True, target_metad
     return tuple(definitions)
 
 
-def _admission_definitions(connection, sql, *, source):
+def _admission_definitions(connection, sql, *, source, require_descriptor=True):
     prepared = prepare_sql(sql, source=source)
     definitions = []
     for index, raw in enumerate(prepared.statements):
@@ -1701,7 +1701,9 @@ def _admission_definitions(connection, sql, *, source):
                 definition, role_bindings=(("$migration_owner", "sem_namespace_owner"),)
             )
         definitions.append(definition)
-    if len(definitions) != 2:
+    if len(definitions) != (2 if require_descriptor else 1) or (
+        not require_descriptor and definitions[0].identity.name != "require_execution_release"
+    ):
         raise NativeAuthoringError(
             f"{source}: admission requires its descriptor and enforcing guard"
         )
@@ -2432,14 +2434,24 @@ def prepare_series_candidate(
         physical_contract = _physical_check_contract(connection, target_metadata, authoring)
     finally:
         scaffolding.rollback()
+    from .source_view_native import _admission_descriptor
+
+    previous_source = _predecessor_source(
+        connection, predecessor=predecessor, predecessor_state=predecessor_state
+    )
+    return compare_declared_candidate(
+        connection, target_metadata=target_metadata, authoring=authoring,
+        old_descriptor=_admission_descriptor(previous_source.admission),
+        physical_contract=physical_contract,
+    )
+
+
+def compare_declared_candidate(connection, *, target_metadata, authoring, old_descriptor, physical_contract):
+    """One Alembic comparison for explicit prior/desired declarations, including fresh roots."""
     from .alembic_privileges import plugin as privileges_plugin
     from .source_view_native import _admission_descriptor
 
     descriptor = _admission_descriptor(authored_admission_sql(authoring))
-    previous_source = _predecessor_source(
-        connection, predecessor=predecessor, predecessor_state=predecessor_state
-    )
-    old_descriptor = _admission_descriptor(previous_source.admission)
     before_policies = old_descriptor.get("privileges", ())
     target_policies = descriptor["privileges"]
     compared_privileges = []

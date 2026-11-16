@@ -419,7 +419,7 @@ def _native_candidate_python(upgrade_ops, restore_sql: str) -> str:
         "from sqlalchemy import Text\nfrom sqlalchemy.dialects import postgresql\n"
         "import pgvector.sqlalchemy\n"
         "from corpus_structure.semantic import alembic_native, alembic_privileges\n\n"
-        "from corpus_structure.schema.relational import Vector\n\n"
+        "from pgvector.sqlalchemy import VECTOR as Vector\n\n"
         "def upgrade():\n" + render_python_code(upgrade_ops) + "\n"
     )
     return source

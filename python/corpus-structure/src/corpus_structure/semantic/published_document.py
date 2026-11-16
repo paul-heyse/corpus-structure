@@ -58,10 +58,11 @@ class PublishedDocumentBinding:
             raise ValueError("published document address placement differs from product pin")
 
 
-def published_read_statements() -> dict[str, Select]:
+def published_read_statements(*, target_metadata=None) -> dict[str, Select]:
     """Resolve field/type references through the existing physical model once."""
-    access = table("kb.pdf_record_access")
-    region = table("kb.pdf_record_region")
+    selected_table = table if target_metadata is None else target_metadata.tables.__getitem__
+    access = selected_table("kb.pdf_record_access")
+    region = selected_table("kb.pdf_record_region")
     build, revision = (
         bindparam("_native_build_id", type_=Text()),
         bindparam("_native_revision_id", type_=Text()),
@@ -163,7 +164,7 @@ def published_read_statements() -> dict[str, Select]:
         region.c.pointer == bindparam("p_pointer", type_=Text()),
         region.c.region_index == bindparam("p_region_index", type_=BigInteger()),
     )
-    companion = table("kb.pdf_record_companion")
+    companion = selected_table("kb.pdf_record_companion")
     reports = (
         select(
             companion.c.local_id,
@@ -342,12 +343,12 @@ def _published_read_native(statement, selectors):
     return native
 
 
-def published_readers_sql() -> str:
+def published_readers_sql(*, target_metadata=None) -> str:
     """Guard exact publication first, then call its private Core-derived SQL body."""
     pg = dialect(paramstyle="named")
     quote = pg.identifier_preparer.quote
     result = []
-    for name, statement in published_read_statements().items():
+    for name, statement in published_read_statements(target_metadata=target_metadata).items():
         selectors = _published_read_selectors()[name]
         native = _published_read_native(statement, selectors)
         body = str(native.compile(dialect=pg, compile_kwargs={"literal_binds": True}))
@@ -385,14 +386,14 @@ TO corpus_sem_reader,corpus_sem_writer,corpus_sem_evaluator;
     return "\n".join(result)
 
 
-def published_reader_definitions(connection):
+def published_reader_definitions(connection, *, target_metadata=None):
     """Explicit native definitions for the same public envelopes and private bodies."""
     from pglast import ast
 
     from .native_objects import definition_from_sql
     from .prepared_sql import prepare_sql
 
-    prepared = prepare_sql(published_readers_sql(), source="published-document:forward")
+    prepared = prepare_sql(published_readers_sql(target_metadata=target_metadata), source="published-document:forward")
     result = []
     for index, raw in enumerate(prepared.statements):
         if not isinstance(raw.stmt, ast.CreateFunctionStmt):

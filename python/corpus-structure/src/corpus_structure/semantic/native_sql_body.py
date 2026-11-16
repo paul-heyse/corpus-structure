@@ -53,11 +53,13 @@ def sql_standard_definition(definition, statement):
     )
 
 
-def published_revision_definition(definition):
+def published_revision_definition(definition, *, target_metadata=None):
     """The exact published product pin, with private build state independently checked."""
     from sqlalchemy import literal_column, select
 
-    from .metadata import table
+    from .metadata import table as default_table
+
+    table = default_table if target_metadata is None else target_metadata.tables.__getitem__
 
     published, build = table("ops.pdf_published_revision"), table("ops.pdf_stage_build")
     statement = (
@@ -74,11 +76,13 @@ def published_revision_definition(definition):
     return sql_standard_definition(definition, statement)
 
 
-def published_validation_statement():
+def published_validation_statement(*, target_metadata=None):
     """The original immutable receipt for an exact published pin, without revalidation."""
     from sqlalchemy import and_, literal_column, select
 
-    from .metadata import table
+    from .metadata import table as default_table
+
+    table = default_table if target_metadata is None else target_metadata.tables.__getitem__
 
     published = table("ops.pdf_published_revision")
     build = table("ops.pdf_stage_build")
@@ -149,8 +153,8 @@ def published_validation_statement():
     )
 
 
-def published_validation_definition(definition):
-    return sql_standard_definition(definition, published_validation_statement())
+def published_validation_definition(definition, *, target_metadata=None):
+    return sql_standard_definition(definition, published_validation_statement(target_metadata=target_metadata))
 
 
 def body_source(statement: ast.CreateFunctionStmt) -> str:

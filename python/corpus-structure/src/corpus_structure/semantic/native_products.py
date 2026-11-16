@@ -82,10 +82,11 @@ class NativeAuthoringInputs:
     model: EffectiveDataOperationModel
     sources: tuple[SourceArtifact, ...]
     physical_id: str
+    native_sources: tuple[SourceArtifact, ...]
 
 
 def capture_native_authoring_inputs(
-    *, target_metadata: MetaData | None = None
+    *, target_metadata: MetaData | None = None, pdf_actions=None, pdf_sources=None, extra_sources=()
 ) -> NativeAuthoringInputs:
     """Acquire the native protocol, exact physical closure and real helper assets once.
 
@@ -114,11 +115,17 @@ def capture_native_authoring_inputs(
     native = native_protocol_sources(physical_sources=physical, linkml_types=types)
     declarations = native_operation_declarations(native)
     calls = native_operation_calls(sources=native)
+    if pdf_actions is not None and pdf_sources is not None:
+        raise ValueError("select PDF action input or an already captured PDF source cohort")
+    pdf = (
+        pdf_domain_sources(physical_sources=physical, linkml_types=types, actions_source=pdf_actions)
+        if pdf_sources is None else tuple(pdf_sources)
+    )
     sources = (
         *native,
         declarations,
         *capture_port_generator_sources(),
-        *pdf_domain_sources(physical_sources=physical, linkml_types=types),
+        *pdf,
         *(
             SourceArtifact("physical/" + name, content)
             for name, content in sorted(physical.items())
@@ -161,19 +168,24 @@ def capture_native_authoring_inputs(
         ),
         SourceArtifact(
             "authoring/execution-projection-check.sql",
-            Path(__file__).with_name("sql").joinpath("execution_projection_check.sql").read_bytes(),
+            execution_projection_check_sql(target_metadata=selected).encode(),
         ),
         SourceArtifact(
             "authoring/admission.sql",
             Path(__file__).with_name("sql").joinpath("admission.sql").read_bytes(),
         ),
+        SourceArtifact(
+            "authoring/data-operation-task-checks.sql",
+            Path(__file__).with_name("sql").joinpath("data_operation_task_checks.sql").read_bytes(),
+        ),
     )
+    sources = (*sources, *extra_sources)
     names = [source.name for source in sources]
     if len(names) != len(set(names)):
         raise ValueError("native authoring source capture repeats an input")
     sources = tuple(sorted(sources, key=lambda item: item.name))
     model = compile_data_operations(declarations=(declarations,), captured_contracts=sources)
-    return NativeAuthoringInputs(model, sources, selected.info["physical_model_id"])
+    return NativeAuthoringInputs(model, sources, selected.info["physical_model_id"], native)
 
 
 def current_authoring_provenance(
@@ -185,6 +197,24 @@ def current_authoring_provenance(
         sha256(captured.model.content).hexdigest(),
         tuple((item.name, item.digest) for item in captured.sources),
     )
+
+
+def execution_projection_check_sql(*, target_metadata=None) -> str:
+    """Retain legacy-row refusal only where that legacy storage is declared."""
+    from pathlib import Path
+
+    selected = metadata if target_metadata is None else target_metadata
+    legacy = {"sem.execution_operation", "sem.execution_transition", "sem.execution_edge",
+              "sem.operation_effect", "sem.transition_effect"}
+    present = legacy.intersection(selected.tables)
+    if present and present != legacy:
+        raise ValueError("partial legacy execution storage is not an execution projection")
+    source = Path(__file__).with_name("sql").joinpath("execution_projection_check.sql").read_text()
+    if not present:
+        before, owned = source.split(" -- {legacy_execution_rows_begin}\n")
+        _, after = owned.split(" -- {legacy_execution_rows_end}\n")
+        source = before + after
+    return source
 
 
 def relation_descriptor(relation) -> dict:
@@ -411,7 +441,7 @@ def current_admission_fields(
             "relation": "data.selected_fact",
             "query": str(selected_fact_query(target_metadata).compile(dialect=dialect())),
         }
-    ]
+    ] if {"data.fact", "data.selection"} <= set(target_metadata.tables) else []
     from .scientific_evidence import scientific_report_layout
 
     layout = scientific_report_layout(
@@ -426,9 +456,10 @@ def current_admission_fields(
             "owned scientific report layout must define comparison and array consumers"
         )
     descriptor["scientific_report_layout"] = layout
-    from .analytics import COMPILER_VERSION as analytical_compiler
+    if {"data.fact", "data.selection"} <= set(target_metadata.tables):
+        from .analytics import COMPILER_VERSION as analytical_compiler
 
-    descriptor["analytical_abi"] = analytical_compiler
+        descriptor["analytical_abi"] = analytical_compiler
     descriptor["data_operation_abi"] = MODEL_VERSION
     descriptor["physical_id"] = target_metadata.info["physical_model_id"]
     descriptor.update(current_authoring_provenance(captured).descriptor_fields())

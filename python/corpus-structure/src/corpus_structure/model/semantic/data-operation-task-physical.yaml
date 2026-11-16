@@ -1,0 +1,54 @@
+id: https://corpus-structure.org/model/semantic/data-operation-task-physical
+name: data_operation_task_physical
+prefixes:
+  linkml: https://w3id.org/linkml/
+  ph: https://corpus-structure.org/physical/
+imports: [linkml:types]
+enums:
+  DataOperationTaskState:
+    annotations:
+      ph:values_from: data-operation-native.yaml#/definitions/data_task_state/enum
+classes:
+  task:
+    description: Physical execution attempt owned by one declared request generation.
+    in_subset: [ops]
+    attributes:
+      id:
+        range: integer
+        required: true
+        annotations:
+          ph:identity: 'true'
+          ph:python_type: corpus_structure.semantic.identifiers.TaskId
+      release_id: {range: string, required: true}
+      data_request_id: {range: string, required: true}
+      data_generation: {range: integer, required: true}
+      invocation_key:
+        range: string
+        required: true
+        annotations: {ph:default: gen_random_uuid()::text}
+      trigger:
+        range: json_payload
+        required: true
+        annotations: {ph:default: "'{}'::jsonb"}
+      status: {range: DataOperationTaskState, required: true}
+      attempt:
+        range: integer
+        required: true
+        annotations: {ph:python_type: corpus_structure.semantic.identifiers.TaskAttempt}
+      claimed_by: {range: string}
+      lease_until: {range: timestamp}
+      result_digest: {range: string}
+      error: {range: json_payload}
+      cost: {range: json_payload, required: true}
+      reason: {range: string}
+      priority: {range: integer, required: true}
+      created_at: {range: timestamp, required: true}
+      started_at: {range: timestamp}
+      finished_at: {range: timestamp}
+    unique_keys:
+      primary_key: {unique_key_slots: [id]}
+      unique_release: {unique_key_slots: [id, release_id]}
+      unique_invocation: {unique_key_slots: [invocation_key]}
+    annotations:
+      ph:foreign_keys: '[{"columns":["release_id"],"target":"sem.release.release_id"},{"columns":["data_request_id"],"target":"ops.data_request.id"}]'
+      ph:checks: '["data_generation > 0", "invocation_key <> ''''", "attempt >= 0"]'

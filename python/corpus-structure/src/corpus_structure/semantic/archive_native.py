@@ -39,8 +39,8 @@ END $archive$;
 """
 
 
-def archive_native_sql() -> str:
-    tables = archive_tables()
+def archive_native_sql(*, target_metadata=None) -> str:
+    tables = archive_tables(target_metadata)
     quote = dialect().identifier_preparer.quote
     expected = ",".join("'" + scratch_name(t) + "'" for t in sorted(tables, key=lambda t: t.name))
     inventory = f"""
@@ -138,9 +138,9 @@ END $archive$;
     return "\n".join([_GUARD, *prepare, *publish])
 
 
-def archive_native_definitions(connection):
+def archive_native_definitions(connection, *, target_metadata=None):
     source = "typed release archive:forward"
-    prepared = prepare_sql(archive_native_sql(), source=source)
+    prepared = prepare_sql(archive_native_sql(target_metadata=target_metadata), source=source)
     return tuple(
         definition_from_sql(
             connection,

@@ -13,16 +13,16 @@ from .prepared_sql import prepare_sql
 from .projection_recipe import native_statement
 
 
-def parameters_sql() -> str:
+def parameters_sql(*, target_metadata=None) -> str:
     pg = dialect(paramstyle="named")
     return ",".join(
         p.native_name + " " + p.sql_type.compile(dialect=pg)
-        for p in projection(FAMILIES[0]).recipe.parameters
+        for p in projection(FAMILIES[0], target_metadata=target_metadata).recipe.parameters
     )
 
 
-def pin_guard_sql() -> str:
-    return f"""CREATE OR REPLACE FUNCTION ops.require_published_companion_pin({parameters_sql()})
+def pin_guard_sql(*, target_metadata=None) -> str:
+    return f"""CREATE OR REPLACE FUNCTION ops.require_published_companion_pin({parameters_sql(target_metadata=target_metadata)})
 RETURNS ops.pdf_published_revision LANGUAGE plpgsql VOLATILE SECURITY DEFINER
 SET search_path=pg_catalog,pg_temp AS $pin$
 DECLARE published ops.pdf_published_revision; boundary ops.data_demand_read; receipt jsonb;
@@ -43,8 +43,8 @@ END $pin$;
 """
 
 
-def family_sql(family: str) -> str:
-    selected = projection(family)
+def family_sql(family: str, *, target_metadata=None) -> str:
+    selected = projection(family, target_metadata=target_metadata)
     pg = dialect(paramstyle="named")
     quote = pg.identifier_preparer.quote
     returns = ",".join(quote(c.name) + " " + c.type.compile(dialect=pg) for c in selected.columns)
@@ -67,7 +67,7 @@ def family_sql(family: str) -> str:
                 dialect=pg, compile_kwargs={"literal_binds": True}
             )
         )
-    return f"""CREATE OR REPLACE FUNCTION {selected.function_name}({parameters_sql()})
+    return f"""CREATE OR REPLACE FUNCTION {selected.function_name}({parameters_sql(target_metadata=target_metadata)})
 RETURNS TABLE({returns}) LANGUAGE plpgsql VOLATILE SECURITY DEFINER
 SET search_path=pg_catalog,pg_temp AS $projection$
 DECLARE published ops.pdf_published_revision; selected_release text;
@@ -79,11 +79,11 @@ END $projection$;
 """
 
 
-def input_body_definition(connection):
+def input_body_definition(connection, *, target_metadata=None):
     """Private pure SELECT; the public wrapper retains its mandatory guard sequence."""
-    selected = projection("input")
+    selected = projection("input", target_metadata=target_metadata)
     envelope = (
-        prepare_sql(family_sql("input"), source="input projection envelope").private_tree()[0].stmt
+        prepare_sql(family_sql("input", target_metadata=target_metadata), source="input projection envelope").private_tree()[0].stmt
     )
     if not isinstance(envelope, ast.CreateFunctionStmt):
         raise TypeError("input projection requires a function envelope")
@@ -144,13 +144,13 @@ def input_body_definition(connection):
     )
 
 
-def companion_projection_definitions(connection):
+def companion_projection_definitions(connection, *, target_metadata=None):
     """Complete source definitions consumed by native autogeneration/admission.
 
     The helper is private to the publisher's protected functions. Reader grants belong
     only to the four modeled projections, never to the underlying native relations.
     """
-    sources = (("pin", pin_guard_sql()), *((family, family_sql(family)) for family in FAMILIES))
+    sources = (("pin", pin_guard_sql(target_metadata=target_metadata)), *((family, family_sql(family, target_metadata=target_metadata)) for family in FAMILIES))
     definitions = tuple(
         definition_from_sql(
             connection,
@@ -166,4 +166,4 @@ def companion_projection_definitions(connection):
         )
         for name, sql in sources
     )
-    return (definitions[0], input_body_definition(connection), *definitions[1:])
+    return (definitions[0], input_body_definition(connection, target_metadata=target_metadata), *definitions[1:])

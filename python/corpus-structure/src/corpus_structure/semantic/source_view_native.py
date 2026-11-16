@@ -49,6 +49,7 @@ def native_admission_sql(
     *,
     extra_relations=(),
     base_admission=None,
+    base_descriptor: dict | None = None,
     native_objects=(),
     retire=(),
     target_metadata: MetaData | None = None,
@@ -59,11 +60,27 @@ def native_admission_sql(
     from .identity import canonical_bytes
     from .native_products import admission_kernel, current_admission_fields
 
-    if base_admission is None:
-        raise ValueError("native admission requires an explicit frozen predecessor")
+    if (base_admission is None) == (base_descriptor is None):
+        raise ValueError("native admission requires one explicit predecessor or current descriptor")
     target_metadata = metadata if target_metadata is None else target_metadata
-    descriptor = _admission_descriptor(base_admission)
+    from copy import deepcopy
+
+    if base_admission is not None:
+        descriptor = _admission_descriptor(base_admission)
+    else:
+        assert base_descriptor is not None
+        descriptor = deepcopy(base_descriptor)
     descriptor.update(current_admission_fields(inputs, target_metadata=target_metadata))
+    if base_descriptor is not None:
+        descriptor["views"].extend(
+            dict(relation=native.identity.schema + "." + native.identity.name, query=native.catalog["query"])
+            for native in native_objects if native.identity.kind == "view"
+        )
+        descriptor["readers"].extend(
+            dict(relation=native.identity.schema + "." + native.identity.name,
+                 roles=sorted(role for role, privilege, _ in native.catalog["acl"] if privilege == "SELECT" and role != native.catalog["owner"]))
+            for native in native_objects if native.identity.kind == "view"
+        )
     for obsolete in (
         "supported_effects",
         "supported_effect_versions",

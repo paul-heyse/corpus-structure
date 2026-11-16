@@ -40,7 +40,7 @@ HELPER_CONTRACT = "pdf-native/helper-bindings"
 ANALYSIS_RUNTIME = PREFIX + "analysis/libraries.json"
 
 
-def _action_sources(*, physical_sources=None, linkml_types=None):
+def _action_sources(*, physical_sources=None, linkml_types=None, actions_source=None):
     """Read explicit current PDF helper declarations and their actual field owners."""
     import yaml
     from cattrs import Converter
@@ -55,9 +55,11 @@ def _action_sources(*, physical_sources=None, linkml_types=None):
     from .native_call_sources import resolve_call_bindings
 
     root = Path(__file__).resolve().parents[1] / "model/semantic"
-    action_source = SourceArtifact(
+    action_source = actions_source if actions_source is not None else SourceArtifact(
         PREFIX + "native/actions.yaml", root.joinpath("pdf-actions.yaml").read_bytes()
     )
+    if action_source.name != PREFIX + "native/actions.yaml":
+        raise ValueError("PDF actions require their explicit named source")
     document = yaml.safe_load(action_source.content)
     if (
         not isinstance(document, dict)
@@ -133,10 +135,10 @@ def _action_sources(*, physical_sources=None, linkml_types=None):
     return actions, sources, document["diagnostics"]
 
 
-def pdf_domain_sources(*, physical_sources=None, linkml_types=None) -> tuple[SourceArtifact, ...]:
+def pdf_domain_sources(*, physical_sources=None, linkml_types=None, actions_source=None) -> tuple[SourceArtifact, ...]:
     """Acquire current PDF helper assets without an execution catalog/compiler."""
     actions, action_sources, diagnostics = _action_sources(
-        physical_sources=physical_sources, linkml_types=linkml_types
+        physical_sources=physical_sources, linkml_types=linkml_types, actions_source=actions_source
     )
     root = Path(__file__).resolve().parents[1] / "model/semantic"
     supplied = dict(physical_sources or {})

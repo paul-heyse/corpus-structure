@@ -12,6 +12,7 @@ from alembic.script import ScriptDirectory
 from sqlalchemy import Connection
 
 ALEMBIC_DIR = Path(__file__).resolve().parents[3] / "semantic_alembic"
+TARGET_ALEMBIC_DIR = ALEMBIC_DIR.with_name("target_alembic")
 VERSION_TABLE = "semantic_alembic_version"
 
 

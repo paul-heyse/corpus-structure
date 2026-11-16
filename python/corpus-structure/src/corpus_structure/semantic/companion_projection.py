@@ -68,14 +68,14 @@ RECIPE_VERSION = "pdf-companion-projection-v4"
 JSON_MATERIALIZATION = {"python": "jsonb-text-v1", "arrow": "jsonb-arrow-json-v1"}
 
 
-@lru_cache(maxsize=1)
-def installed_projection_id() -> str:
+@lru_cache(maxsize=4)
+def installed_projection_id(physical_id=None) -> str:
     from .metadata import PHYSICAL_MODEL_ID, physical_model_id
 
     return (
         RECIPE_VERSION
         + ":"
-        + sha256((physical_model_id(MODEL) + PHYSICAL_MODEL_ID).encode()).hexdigest()
+        + sha256((physical_model_id(MODEL) + (PHYSICAL_MODEL_ID if physical_id is None else physical_id)).encode()).hexdigest()
     )
 
 
@@ -540,14 +540,14 @@ def prepare_projection(
 
 
 @lru_cache(maxsize=4)
-def projection(family: str) -> CompanionProjection:
+def projection(family: str, *, target_metadata=None) -> CompanionProjection:
     from .metadata import metadata
 
     return prepare_projection(
         SchemaView(str(MODEL)),
         family,
-        projection_id=installed_projection_id(),
-        physical=metadata,
+        projection_id=installed_projection_id(None if target_metadata is None else target_metadata.info["physical_model_id"]),
+        physical=metadata if target_metadata is None else target_metadata,
     )
 
 

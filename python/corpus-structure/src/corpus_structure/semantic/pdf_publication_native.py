@@ -7,7 +7,7 @@ from pathlib import Path
 
 from sqlalchemy.dialects.postgresql import dialect
 
-from .metadata import metadata
+from .metadata import metadata as default_metadata
 from .pdf_staging import STAGE_FAMILIES
 
 _FINAL = {
@@ -181,8 +181,9 @@ corpus_sem_reader,corpus_sem_evaluator,corpus_sem_writer;
 """
 
 
-def _coverage_support_violation_sql() -> str:
+def _coverage_support_violation_sql(*, target_metadata=None) -> str:
     """Set-shaped resolution of the existing exact-pin support/complete rule."""
+    metadata = default_metadata if target_metadata is None else target_metadata
     from sqlalchemy import (
         and_,
         cast,
@@ -342,8 +343,9 @@ def _coverage_support_violation_sql() -> str:
     return str(invalid.compile(dialect=dialect(), compile_kwargs={"literal_binds": True}))
 
 
-def _validation_rows_equal_sql(*relations: str) -> str:
+def _validation_rows_equal_sql(*relations: str, target_metadata=None) -> str:
     """Exact equality of protected typed rows within their build-local namespaces."""
+    metadata = default_metadata if target_metadata is None else target_metadata
     predicates = []
     pg = dialect()
     for relation in relations:
@@ -376,11 +378,11 @@ def _validation_rows_equal_sql(*relations: str) -> str:
     return "\n AND ".join(predicates)
 
 
-def _published_validation_sql() -> str:
+def _published_validation_sql(*, target_metadata=None) -> str:
     from .native_sql_body import published_validation_statement
 
     body = str(
-        published_validation_statement().compile(
+        published_validation_statement(target_metadata=target_metadata).compile(
             dialect=dialect(), compile_kwargs={"literal_binds": True}
         )
     )
@@ -393,7 +395,8 @@ def _published_validation_sql() -> str:
     )
 
 
-def publication_sql() -> str:
+def publication_sql(*, target_metadata=None) -> str:
+    metadata = default_metadata if target_metadata is None else target_metadata
     from .pdf_record_reader_native import (
         pdf_companion_export_sql,
         pdf_native_export_sql,
@@ -1548,7 +1551,7 @@ BEGIN
 END $$;
 REVOKE ALL ON FUNCTION ops.pdf_publication_projection(jsonb,bigint,bigint,text) FROM PUBLIC;
 """
-    sql += _published_validation_sql()
+    sql += _published_validation_sql(target_metadata=metadata)
     sql += "REVOKE ALL ON FUNCTION ops.pdf_check_build_inventory(text,text,text) FROM PUBLIC;\n"
     signatures = [
         "check_pdf_build(text,bigint,bigint,text,text,text)",
@@ -1583,10 +1586,10 @@ corpus_sem_reader,corpus_sem_evaluator;\n"
     marker = "{pdf_coverage_support_violation_query}"
     if sql.count(marker) != 1:
         raise ValueError("PDF validation requires its declared coverage support query")
-    sql = sql.replace(marker, _coverage_support_violation_sql())
+    sql = sql.replace(marker, _coverage_support_violation_sql(target_metadata=metadata))
     sql = sql.replace(
         "{pdf_access_rows_equal}",
-        _validation_rows_equal_sql("kb.pdf_record_access", "kb.pdf_record_region"),
+        _validation_rows_equal_sql("kb.pdf_record_access", "kb.pdf_record_region", target_metadata=metadata),
     ).replace(
         "{pdf_native_rows_equal}",
         _validation_rows_equal_sql(
@@ -1595,6 +1598,7 @@ corpus_sem_reader,corpus_sem_evaluator;\n"
             "kb.pdf_record_membership",
             "ops.pdf_artifact_stream",
             "ops.pdf_artifact_part",
+            target_metadata=metadata,
         ),
     )
     return (

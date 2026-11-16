@@ -20,9 +20,10 @@ from .arrow_transfer import ArrowTransferError, ArrowWriteProfile
 from .metadata import PHYSICAL_MODEL_ID, metadata
 
 
-def archive_tables() -> tuple[Table, ...]:
+def archive_tables(target_metadata=None) -> tuple[Table, ...]:
+    selected_metadata = metadata if target_metadata is None else target_metadata
     selected = sorted(
-        (t for t in metadata.tables.values() if t.info.get("archive_role") is not None),
+        (t for t in selected_metadata.tables.values() if t.info.get("archive_role") is not None),
         key=lambda t: t.fullname,
     )
     roles = [t.info["archive_role"] for t in selected]
