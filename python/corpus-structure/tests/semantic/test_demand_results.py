@@ -294,13 +294,11 @@ def _detached_closure(
                 request_key=request.identity.key,
                 project_id="project:A",
                 operation_id="op:A",
-                release_id="release:A",
                 replicate=None,
                 recipe="recipe:A",
                 subject="root",
                 original_source=original_source,
                 analyzed_scope={"scale": Decimal("1.20")},
-                subject_definition="document",
             ),
         ),
         (
@@ -895,3 +893,37 @@ def test_detached_protected_authority_has_explicit_bounded_custody():
     ] = "foreign"
     with pytest.raises(ValueError, match="command/effect/factory"):
         verify_detached_result(native, records=wrong, **options)
+
+
+@pytest.mark.parametrize("validate_closure", [True, False])
+def test_detached_reuse_keeps_original_episode_and_checks_target_recipe(validate_closure):
+    from copy import deepcopy
+
+    from corpus_structure.semantic.demand_results import verify_detached_result
+
+    native, records = _detached_closure()
+    request = next(row["record"] for row in records if row["relation"] == "ops.data_request")
+    assert "release_id" not in request and "runtime_id" not in request
+    original = next(
+        row["record"] for row in records if row["relation"] == "sem.data_operation_definition"
+    )
+    target = {**deepcopy(original), "release_id": "release:target"}
+    records.append(
+        dict(key="target-definition", relation="sem.data_operation_definition", record=target)
+    )
+    native["release_id"] = "release:target"
+    native["runtime_id"] = "runtime:target"
+    checked = verify_detached_result(
+        native,
+        records=records,
+        wire_schema={},
+        runtimes={("release:A", "runtime:A"), ("release:target", "runtime:target")},
+        validate_closure=validate_closure,
+    )
+    assert checked.cut.record["release_id"] == "release:target"
+    assert checked.record["uses"][0]["derivation_id"] == "episode:A"
+    target["recipe"] = "recipe:changed"
+    with pytest.raises(ValueError, match="selected recipe is not admitted"):
+        verify_detached_result(
+            native, records=records, wire_schema={}, validate_closure=validate_closure
+        )

@@ -529,29 +529,16 @@ def verify_detached_result(
             if expected is None or value != {name: expected[name] for name in stored_fields}:
                 raise ValueError("detached operation differs from its captured release contract")
     requests = row_map("ops.data_request", "id")
+    episodes = row_map("ops.data_derivation", "id")
     if validate_closure:
         from .data_operation_model import validate_replicate_selection
 
+        # Request placement and its active generation are mutable and deliberately
+        # absent from the public projection. Each immutable episode owns the
+        # producing release/runtime/recipe used to validate that request's meaning.
         for request in requests.values():
-            definition = actual_definitions[request["release_id"], request["operation_id"]]
-            validate_replicate_selection(
-                definition["support_contract"]["replicate_policy"],
-                request["replicate"],
-                owner=request["operation_id"],
-            )
-            checked_context(
-                SubjectContext(
-                    request["project_id"],
-                    request["subject"],
-                    request["original_source"],
-                    json_bytes(request["analyzed_scope"]),
-                    subject_definition=definition["subject_definition"],
-                ),
-                release_id=request["release_id"],
-                subject_definition=definition["subject_definition"],
-            )
-    episodes = row_map("ops.data_derivation", "id")
-    if validate_closure:
+            if next(rows_for("ops.data_derivation", request_id=request["id"]), None) is None:
+                raise ValueError("detached immutable producing episode is missing from request support closure")
         for episode in episodes.values():
             if (
                 runtimes is not None
@@ -562,6 +549,23 @@ def verify_detached_result(
             definition = actual_definitions[episode["release_id"], request["operation_id"]]
             if episode["recipe"] != request["recipe"] or definition["recipe"] != episode["recipe"]:
                 raise ValueError("detached producing recipe differs from captured definition")
+            validate_replicate_selection(
+                definition["support_contract"]["replicate_policy"],
+                request["replicate"],
+                owner=request["operation_id"],
+            )
+            context = SubjectContext(
+                request["project_id"],
+                request["subject"],
+                request["original_source"],
+                json_bytes(request["analyzed_scope"]),
+                subject_definition=definition["subject_definition"],
+            )
+            checked_context(
+                context,
+                release_id=episode["release_id"],
+                subject_definition=definition["subject_definition"],
+            )
     uses = row_map("ops.demand_use", "id")
     originals = row_map("ops.original_source_admission", "id")
     output_edges = row_map("ops.data_derivation_output", "derivation_id", "role", "position")
@@ -860,7 +864,19 @@ def verify_detached_result(
                 )
                 if episode["request_id"] != retained["request_id"]:
                     raise ValueError("detached selected episode names another semantic request")
-            definition = actual_definitions[record["release_id"], request["operation_id"]]
+            else:
+                # A shared request can also have an unsettled selected use. Its
+                # semantic context still comes from an authentic original episode,
+                # not the request's undisclosed current placement.
+                episode = next(rows_for("ops.data_derivation", request_id=request["id"]))
+            definition = actual_definitions[episode["release_id"], request["operation_id"]]
+            context = SubjectContext(
+                request["project_id"],
+                request["subject"],
+                request["original_source"],
+                json_bytes(request["analyzed_scope"]),
+                subject_definition=definition["subject_definition"],
+            )
             binding = retained["selection"]
             binding_endpoints(binding)
             expected = SemanticRequestKey(
@@ -869,13 +885,7 @@ def verify_detached_result(
                 decode_semantic_value(binding["request_inputs"]),
                 decode_semantic_value(binding["parameters"]),
                 binding["inference"],
-                subject_context=SubjectContext(
-                    request["project_id"],
-                    request["subject"],
-                    request["original_source"],
-                    json_bytes(request["analyzed_scope"]),
-                    subject_definition=definition["subject_definition"],
-                ),
+                subject_context=context,
             ).identity.key
             if expected != request["request_key"]:
                 raise ValueError("detached request differs from its exact selected meaning")
@@ -897,6 +907,31 @@ def verify_detached_result(
                 raise ValueError("detached unsettled use cannot supply produced outputs")
         else:
             required(episodes, use["derivation_id"], "selected producing episode")
+        request = requests.get(retained["request_id"])
+        if request is not None:
+            # Every page keeps target admission separate from original production;
+            # transitive support uses above retain their own producing contracts.
+            episode = (
+                episodes[use["derivation_id"]]
+                if use["derivation_id"] is not None
+                else next(rows_for("ops.data_derivation", request_id=request["id"]))
+            )
+            definition = actual_definitions[episode["release_id"], request["operation_id"]]
+            target_definitions = actual_definitions if definitions is None else definitions
+            target = target_definitions.get((record["release_id"], request["operation_id"]))
+            if target is None or target["recipe"] != request["recipe"]:
+                raise ValueError("detached selected recipe is not admitted by its target release")
+            checked_context(
+                SubjectContext(
+                    request["project_id"],
+                    request["subject"],
+                    request["original_source"],
+                    json_bytes(request["analyzed_scope"]),
+                    subject_definition=definition["subject_definition"],
+                ),
+                release_id=record["release_id"],
+                subject_definition=target["subject_definition"],
+            )
         for product in use["products"]:
             edge = required(
                 output_edges,
