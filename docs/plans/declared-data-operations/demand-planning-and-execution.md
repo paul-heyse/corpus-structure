@@ -311,6 +311,16 @@ native operation rather than a caller-built single-snapshot shortcut. See Postgr
 [SELECT locking clauses](https://www.postgresql.org/docs/18/sql-select.html#SQL-FOR-UPDATE-SHARE)
 and [row locks](https://www.postgresql.org/docs/18/explicit-locking.html#LOCKING-ROWS).
 
+The authenticated attach metadata must identify the generation's stored release, runtime and exact
+binding/read before preparing work. Reserve the actual retained capsule and request capacity before
+claiming that expected generation; a changed generation refuses/replans rather than dispatching
+under a newly observed basis. The new demand's release and value-equivalent binding are not substitutes
+for the original generation's execution custody. Hydration reconstructs the exact original pinned read
+and selected support; cancellation of the creating demand does not erase an independently useful
+shared request. Reconciliation and completion retain the original basis. Partition physical batches by
+that basis while keeping one invocation's byte, claim, CPU/provider and cancellation owner. Current
+source correspondence still gates executable acquisition; no historical-code interpreter is supplied.
+
 ### Semantic, attempt and physical states
 
 Keep three related state machines explicit in the governing model:

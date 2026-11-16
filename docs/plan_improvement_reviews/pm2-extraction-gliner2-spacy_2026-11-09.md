@@ -76,7 +76,7 @@ The former can bind term and content via a retained named match but its qualifie
 explanation branches can still produce an explanation rather than a definition. The latter
 projects a retained role, so running it again cannot discover missing evidence. Preserve the
 release-owned `definition-scope-1` witness and its
-[native validation](../../python/corpus-structure/src/corpus_structure/semantic/sql/structural_products.sql#L2166);
+[native validation](https://github.com/paul-heyse/corpus-structure/blob/1bb87f8b2/python/corpus-structure/src/corpus_structure/semantic/sql/structural_products.sql#L2166);
 do not globally reinterpret naming, accept bare
 coincidence, or weaken native and detached checks to fill an inventory.
 
@@ -197,7 +197,7 @@ protocol (DP-09/15, H7/H14).
 **Proposed PM2-07/08/11 amendment.** Implement the missing like-for-like comparison as an
 operation assessment, using the current natural literal assertion pack plus exact
 [spaCy-backed qualification](../../python/corpus-structure/src/corpus_structure/methods/assertion_qualification.py)
-as the incumbent. Reuse the existing [NCE release-bound clause operation](../../python/corpus-structure/src/corpus_structure/methods/clause_classification.py#L294)
+as the incumbent. Reuse the existing [NCE release-bound clause operation](https://github.com/paul-heyse/corpus-structure/blob/1bb87f8b2/python/corpus-structure/src/corpus_structure/methods/clause_classification.py#L294)
 for request, worker and replay custody; PM2 supplies its own declared question and labels.
 Use separate native GLiNER2 classification for a genuinely equivalent passage
 or clause question, with identical applicable scope, released label meanings and independently

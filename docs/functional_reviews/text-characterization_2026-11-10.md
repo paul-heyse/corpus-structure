@@ -70,7 +70,7 @@ them without inference or retokenization. The existing system does not rerun a p
 and [procedure roles](../../python/corpus-structure/src/corpus_structure/methods/structural_roles.py)
 nonetheless establish related role, coordination, modality and scope decisions in separate code.
 [HanLP projection](../../python/corpus-structure/src/corpus_structure/methods/pm2_hanlp_products.py)
-adds another scheme-specific frame/cue projection. [Native admission](../../python/corpus-structure/src/corpus_structure/semantic/sql/source_contributions.sql)
+adds another scheme-specific frame/cue projection. [Native admission](https://github.com/paul-heyse/corpus-structure/blob/1bb87f8b2/python/corpus-structure/src/corpus_structure/semantic/sql/source_contributions.sql)
 checks exact annotation origins and reconstructs expected role/reading support. Its validation
 purpose must survive a producer redesign; agreement with the producer alone would not validate meaning.
 

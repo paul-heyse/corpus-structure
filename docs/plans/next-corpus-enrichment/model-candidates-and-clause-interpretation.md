@@ -136,7 +136,7 @@ detached verifier reconstructs schema, profile and context but does not authenti
 selected computation policy or reconstruct the configured definition window inventory.
 Check a resealed substituted schema, overlap or threshold setting, and a different
 same-passage window through both admission and detached replay. Preserve deterministic
-interpretation and the actual provider receipts. [Native validation](../../../python/corpus-structure/src/corpus_structure/semantic/sql/structural_products.sql#L1241) ·
+interpretation and the actual provider receipts. [Native validation](https://github.com/paul-heyse/corpus-structure/blob/1bb87f8b2/python/corpus-structure/src/corpus_structure/semantic/sql/structural_products.sql#L1241) ·
 Detached model replay (`serve/model_observation_replay.py:68`, retired; historical finding baseline).
 
 **2026-11-07 execution.** Definition operation 9 and clause-classification operation

@@ -24,7 +24,7 @@ claimed scope facets, preserving all source-supported alternatives.
 
 - Extend the [operation fitting owner](../../../python/corpus-structure/src/corpus_structure/evaluate/operation_fitting.py),
   [finite parameter contract](../../../python/corpus-structure/src/corpus_structure/semantic/operation_policy.py)
-  and [native fitting routes](../../../python/corpus-structure/src/corpus_structure/semantic/sql/operation_event_fitting.sql)
+  and [native fitting routes](https://github.com/paul-heyse/corpus-structure/blob/1bb87f8b2/python/corpus-structure/src/corpus_structure/semantic/sql/operation_event_fitting.sql)
   through one explicit event selector. Keep the existing event as a distinct choice in the current contract and preserve its default for existing callers. Bind the new event to its actual emitted relation
   kind/type, producer operation/version, exact contribution and term/content endpoint anchors,
   frozen passage and scope. Authenticate exact origin task, project, completed run/cut/release
@@ -126,8 +126,8 @@ origin task and contribution, which permits repeated appearances to become separ
 observations. Record independent head, tail, direction and scope dispositions and
 disagreements in the protected path. Qualify repeated events, missing and single-class
 frames, forged inputs, denied protected reads and ordinary authorized parameter reads
-for the new event. [Feature recipe](../../../python/corpus-structure/src/corpus_structure/semantic/sql/operation_event_fitting.sql#L2) ·
-[Native event frame](../../../python/corpus-structure/src/corpus_structure/semantic/sql/operation_event_fitting.sql#L137) ·
+for the new event. [Feature recipe](https://github.com/paul-heyse/corpus-structure/blob/1bb87f8b2/python/corpus-structure/src/corpus_structure/semantic/sql/operation_event_fitting.sql#L2) ·
+[Native event frame](https://github.com/paul-heyse/corpus-structure/blob/1bb87f8b2/python/corpus-structure/src/corpus_structure/semantic/sql/operation_event_fitting.sql#L137) ·
 [Runtime score input](../../../python/corpus-structure/src/corpus_structure/semantic/operation_policy.py#L57).
 
 **2026-11-07 execution.** `ci eval operation-event-features` derives an attachment

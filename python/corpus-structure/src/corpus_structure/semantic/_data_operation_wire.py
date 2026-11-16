@@ -400,11 +400,16 @@ class WireAttachDataRequestRequest(TypedDict):
 
 class WireAttachDataRequestResult(TypedDict):
     action: Required[Literal["compute", "reconcile", "reuse"]]
+    binding: Required[WireBinding]
+    binding_demand_id: Required[WireIdentifier]
+    binding_obligation_id: Required[WireIdentifier]
     derivation_id: Required[WireDerivationId | None]
     fate: Required[Literal["attached", "fulfilled"]]
     generation: Required[WireGeneration]
+    release_id: Required[WireIdentifier]
     request_id: Required[WireRequestId]
     retained_intent_id: Required[WireCompletionIntentId | None]
+    runtime_id: Required[WireIdentifier]
     task_id: Required[TaskId | None]
     trust_snapshot: Required[WireTrustSnapshot]
     use_id: Required[WireIdentifier]
@@ -526,6 +531,7 @@ class WireCancelDataDemandResult(TypedDict):
 
 class WireClaimDataRequestRequest(TypedDict):
     external_packet_id: NotRequired[WireExternalPacketId]
+    generation: Required[WirePositiveInteger]
     holder: Required[WireIdentifier]
     lease_seconds: Required[int]
     request_id: Required[WireRequestId]
@@ -538,11 +544,16 @@ class WireClaimDataRequestResultVariant1(TypedDict):
 class WireClaimDataRequestResultVariant2(TypedDict):
     action: Required[Literal["compute", "reconcile"]]
     attempt: Required[TaskAttempt]
+    binding: Required[WireBinding]
+    binding_demand_id: Required[WireIdentifier]
+    binding_obligation_id: Required[WireIdentifier]
     generation: Required[WireGeneration]
     holder: Required[WireIdentifier]
     lease_until: Required[str]
+    release_id: Required[WireIdentifier]
     request_id: Required[WireRequestId]
     retained_intent_id: Required[WireCompletionIntentId | None]
+    runtime_id: Required[WireIdentifier]
     state: Required[Literal["claimed"]]
     task_id: Required[TaskId]
     trust_snapshot: Required[WireTrustSnapshot]

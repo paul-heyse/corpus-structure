@@ -50,7 +50,7 @@ Factorization is an execution decision for a specific workload. [Current numeric
    compatibility while leaving other roles under the same correspondence.
 3. **Make the new request reproducible at admission.** Extend the existing registered policy
    branch and its request/result custody in the
-   [native contribution admission](../../../python/corpus-structure/src/corpus_structure/semantic/sql/source_contributions.sql).
+   [native contribution admission](https://github.com/paul-heyse/corpus-structure/blob/1bb87f8b2/python/corpus-structure/src/corpus_structure/semantic/sql/source_contributions.sql).
    Resolve exact admitted source anchors, geometry, schematic correspondence evidence and
    scoped declaration. Bind them and the policy version to a canonical premise/request
    projection. Establish one authoritative construction of the ordered domain, factors, masks
@@ -107,7 +107,7 @@ no eligible band emits no correspondence operation or explicit unavailable outco
 Connect cancellation and unavailable-state reporting in the ordinary path, then verify
 source-conditioned detached replay, a substituted factor or premise, and cancellation
 without partial publication. The controlled ambiguity and exact-header results stand.
-[Native request reconstruction](../../../python/corpus-structure/src/corpus_structure/semantic/sql/source_contributions.sql#L3002) ·
+[Native request reconstruction](https://github.com/paul-heyse/corpus-structure/blob/1bb87f8b2/python/corpus-structure/src/corpus_structure/semantic/sql/source_contributions.sql#L3002) ·
 [Worker call](../../../python/corpus-structure/src/corpus_structure/methods/scoped_relations.py#L1496) ·
 Detached dispatch (`serve/review_bundle.py:2325`, retired; historical finding baseline).
 

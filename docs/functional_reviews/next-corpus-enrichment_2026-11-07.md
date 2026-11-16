@@ -492,7 +492,7 @@ inputs and pair membership. Reuse native operations where semantics match, and c
 native reconstruction on threshold, Unicode, null and invalid-value boundaries. If exact parity for
 a proposed distance or TF term cannot be established within the existing authority boundary, keep it
 as an assessment challenger pending a deliberate validation design. Keep excluded pairs unscored and
-provider failure distinct from an empty selection. [Current scorer](../../python/corpus-structure/src/corpus_structure/semantic/artifact_identity.py) · [Native validator](../../python/corpus-structure/src/corpus_structure/semantic/sql/structural_products.sql) · [Splink inference](https://moj-analytical-services.github.io/splink/api_docs/inference.html)
+provider failure distinct from an empty selection. [Current scorer](../../python/corpus-structure/src/corpus_structure/semantic/artifact_identity.py) · [Native validator](https://github.com/paul-heyse/corpus-structure/blob/1bb87f8b2/python/corpus-structure/src/corpus_structure/semantic/sql/structural_products.sql) · [Splink inference](https://moj-analytical-services.github.io/splink/api_docs/inference.html)
 
 **Assessment.** Recover the three known captions and count newly represented, nominated and
 supported reference pairs separately. Include same-code collisions across chapters, a cross-view
@@ -534,7 +534,7 @@ Reader, CLI and MCP routes and the detached bundle verification that reconstruct
 Preserve the split between complete membership and bounded display. Keep the supported-facet greedy
 projection until interacting display constraints are demonstrated on identical membership. A SciPy
 `milp` challenger should then specify the constraints and compare useful facet coverage and
-preservation of required qualifiers under the same budget. [Membership code](../../python/corpus-structure/src/corpus_structure/methods/structural_products.py) · [Native owner](../../python/corpus-structure/src/corpus_structure/semantic/sql/structural_products.sql) · Portable verifier (`serve/review_bundle.py`, retired; historical finding baseline)
+preservation of required qualifiers under the same budget. [Membership code](../../python/corpus-structure/src/corpus_structure/methods/structural_products.py) · [Native owner](https://github.com/paul-heyse/corpus-structure/blob/1bb87f8b2/python/corpus-structure/src/corpus_structure/semantic/sql/structural_products.sql) · Portable verifier (`serve/review_bundle.py`, retired; historical finding baseline)
 
 **Similarity and concept family browsing.** Keep exact authenticated meaning groups. Produce a
 separate bounded projection with a typed witnessed lane for related, broader, narrower, alternative
@@ -709,7 +709,7 @@ WCE-R18. Carry that obligation forward explicitly. Establish one versioned autho
 from authenticated source inputs and compare canonical reconstruction of the request before treating
 a native result as source-conditioned. Avoid relying on producer-authored factor digests alone.
 Demonstrate that a changed factor value or mask with a recomputed digest fails this check, and that
-exact replay preserves the original result. [Native admission](../../python/corpus-structure/src/corpus_structure/semantic/sql/source_contributions.sql) · [WCE repair disposition](../plans/witnessed-corpus-enrichment_2026-11-05.md#repair-disposition--2026-11-07)
+exact replay preserves the original result. [Native admission](https://github.com/paul-heyse/corpus-structure/blob/1bb87f8b2/python/corpus-structure/src/corpus_structure/semantic/sql/source_contributions.sql) · [WCE repair disposition](../plans/witnessed-corpus-enrichment_2026-11-05.md#repair-disposition--2026-11-07)
 
 For learning, fit a small conditional log-linear model only after there are independently judged
 cases with meaningful differences in correspondence and role compatibility. For a case with retained
@@ -752,7 +752,7 @@ construction, fit admission, parameter applicability and the existing `ci eval o
 the meaning of `defined_by_correctness` distinct in the event contract and preserve prior fit evidence under its original
 custody. Keep protected judgments and authored references in evaluator/fitter custody, with ordinary
 consumers receiving only authorized diagnostics or explicit finite parameters. Reuse the project's
-applicable environment and exact release binding. [Fitter](../../python/corpus-structure/src/corpus_structure/evaluate/operation_fitting.py) · [Runtime parameter contract](../../python/corpus-structure/src/corpus_structure/semantic/operation_policy.py) · [Native event contract](../../python/corpus-structure/src/corpus_structure/semantic/sql/operation_event_fitting.sql) · CLI (`cli/eval.py`, retired; historical finding baseline)
+applicable environment and exact release binding. [Fitter](../../python/corpus-structure/src/corpus_structure/evaluate/operation_fitting.py) · [Runtime parameter contract](../../python/corpus-structure/src/corpus_structure/semantic/operation_policy.py) · [Native event contract](https://github.com/paul-heyse/corpus-structure/blob/1bb87f8b2/python/corpus-structure/src/corpus_structure/semantic/sql/operation_event_fitting.sql) · CLI (`cli/eval.py`, retired; historical finding baseline)
 
 The first feature arm uses `log1p` of the exact term and defining-content character lengths, signed
 term-to-content separation divided by the length of the frozen inspected passage, and a binary cue

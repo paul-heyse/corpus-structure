@@ -82,7 +82,7 @@ annotations and released `definition-scope-1` policy. A genuine span or new mode
 reading can support a separately attributed private candidate. Public eligibility
 still requires the independent protected evidence bound to the contribution.
 [DMA definition basis](../domain-model-alignment/semantic-admission.md#DMA-05) ·
-[Public eligibility](../../../python/corpus-structure/src/corpus_structure/semantic/sql/structural_publication.sql)
+[Public eligibility](https://github.com/paul-heyse/corpus-structure/blob/1bb87f8b2/python/corpus-structure/src/corpus_structure/semantic/sql/structural_publication.sql)
 
 ### Compose retained parts
 

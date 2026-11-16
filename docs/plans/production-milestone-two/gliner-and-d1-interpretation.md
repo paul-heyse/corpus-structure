@@ -197,7 +197,7 @@ supported fair-coin `1/8` to `0.125` case.
 
 For passage function, compare deterministic cues, native GLiNER classification and d1
 on the same authorized focus. Reuse the
-[NCE clause operation's request and replay custody](../../../python/corpus-structure/src/corpus_structure/methods/clause_classification.py#L294),
+[NCE clause operation's request and replay custody](https://github.com/paul-heyse/corpus-structure/blob/1bb87f8b2/python/corpus-structure/src/corpus_structure/methods/clause_classification.py#L294),
 while PM2 compiles its own question and labels. A classification arm declares stable
 label descriptions, prompt, activation semantics, thresholds and any examples in its
 release-bound request. Keep evidence examples separate from held-out assessment cases.

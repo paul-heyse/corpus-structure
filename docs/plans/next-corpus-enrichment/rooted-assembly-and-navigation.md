@@ -67,7 +67,7 @@ In interactive delivery use the existing authenticated pagination, root/membersh
 policy continuation and byte limits. Export full selected membership and sufficient
 binding evidence for independent reconstruction through the ordinary detached route. Cache
 or prepare exact predecessor closure once per scoped product and reuse it across its
-members rather than fetching per side or facet. [Native owner](../../../python/corpus-structure/src/corpus_structure/semantic/sql/structural_products.sql) ·
+members rather than fetching per side or facet. [Native owner](https://github.com/paul-heyse/corpus-structure/blob/1bb87f8b2/python/corpus-structure/src/corpus_structure/semantic/sql/structural_products.sql) ·
 [Contribution-backed membership](../../../python/corpus-structure/src/corpus_structure/methods/dossier_contributions.py) ·
 [Bounded serving](../../../python/corpus-structure/src/corpus_structure/serve/structural_products.py) ·
 Detached verifier (`serve/review_bundle.py`, retired; historical finding baseline)
@@ -188,7 +188,7 @@ authenticate its independent applicability premises. Complete the conflict role,
 has no derivation alongside variant, exception and revision. Check the two-clause
 refusal, supported left-only and dual bindings, and conflict with exact source evidence
 through membership and detached replay. [Application binding](../../../python/corpus-structure/src/corpus_structure/methods/structural_products.py#L638) ·
-[Native binding](../../../python/corpus-structure/src/corpus_structure/semantic/sql/structural_products.sql#L580).
+[Native binding](https://github.com/paul-heyse/corpus-structure/blob/1bb87f8b2/python/corpus-structure/src/corpus_structure/semantic/sql/structural_products.sql#L580).
 
 **2026-11-07 execution.** Dossier operation 3 requires the exact predicate focus,
 source term usage and independently admitted applicability predecessor for each

@@ -31,7 +31,7 @@ across producers, consumers and native support. At the 2026-11-10 authoring base
 [procedure roles](../../../python/corpus-structure/src/corpus_structure/methods/structural_roles.py)
 constructed roles/coordination/negation independently of general
 [predicate frames](../../../python/corpus-structure/src/corpus_structure/methods/predicate_frames.py).
-Native [source-contribution SQL](../../../python/corpus-structure/src/corpus_structure/semantic/sql/source_contributions.sql)
+Native [source-contribution SQL](https://github.com/paul-heyse/corpus-structure/blob/1bb87f8b2/python/corpus-structure/src/corpus_structure/semantic/sql/source_contributions.sql)
 also reconstructed role inventories and reading layout. The delivered cutover preserves source
 and declared mechanical witness checks while replacing duplicated language-producing policy.
 

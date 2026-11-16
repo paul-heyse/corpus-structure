@@ -163,7 +163,7 @@ It addresses FP-04/05/07, DP-02/07/08/12, CI-05/08 and A2/A4/G6.
 [native characterization guard](../../../python/corpus-structure/src/corpus_structure/semantic/sql/characterization.sql)
 checks that schema and reference existence. Those checks alone do not establish that the
 supplied host/member corresponds to the rule's actual witness bindings. Existing
-[`predicate_argument_inventory`](../../../python/corpus-structure/src/corpus_structure/semantic/sql/source_contributions.sql)
+[`predicate_argument_inventory`](https://github.com/paul-heyse/corpus-structure/blob/1bb87f8b2/python/corpus-structure/src/corpus_structure/semantic/sql/source_contributions.sql)
 instead reconstructs a substantial predicate/argument inventory.
 
 **Proposed correction.** TC-05/09 supplies finite released endpoint/source/member/role/choice

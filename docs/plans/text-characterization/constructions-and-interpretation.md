@@ -44,7 +44,7 @@ replacement places the predicate-frame, procedure-role and qualifier-recipe inte
 the shared primary construction and interpretation owner. The HanLP products' own interpretation
 still runs beside it (TC-E09). Useful native matching and independently expected semantic cases survive.
 
-The [source contribution SQL](../../../python/corpus-structure/src/corpus_structure/semantic/sql/source_contributions.sql)
+The [source contribution SQL](https://github.com/paul-heyse/corpus-structure/blob/1bb87f8b2/python/corpus-structure/src/corpus_structure/semantic/sql/source_contributions.sql)
 at that baseline authenticated annotation origin and reconstructed expected role/reading support.
 Its exact source and producer authentication survives. Semantic producer policy now belongs
 to the executable shared authority; downstream admission consumes typed retained premises and

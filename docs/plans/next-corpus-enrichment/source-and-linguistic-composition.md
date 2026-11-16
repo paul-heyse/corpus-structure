@@ -162,7 +162,7 @@ independent natural-language parser or accepting submitted role values without a
 Preserve existing singleton reports under their original evidence custody. Convert an authenticated
 single field to a single-member reading only where it supplies the exact new meaning. Regenerate
 when the required grouped evidence is absent. Regenerate selected new comparisons through the new
-release and invalidate dependent dossier views only when the bound inputs or membership change. [Native structural functions](../../../python/corpus-structure/src/corpus_structure/semantic/sql/structural_products.sql)
+release and invalidate dependent dossier views only when the bound inputs or membership change. [Native structural functions](https://github.com/paul-heyse/corpus-structure/blob/1bb87f8b2/python/corpus-structure/src/corpus_structure/semantic/sql/structural_products.sql)
 · [Released observations](../../../python/corpus-structure/src/corpus_structure/model/semantic/observations.yaml) · Portable verification (`serve/review_bundle.py`, retired; historical finding baseline)
 
 **Acceptance.** Compare changed responsible role, optional versus required modality, added
@@ -210,7 +210,7 @@ condition shape and exact escape wording where present, leaving room for a subst
 formal condition on a nonformal premise. Detached replay derives the complete reading
 and may refuse what native admission accepted. Verify parity on a forged polarity or
 formal condition and the exact source-backed or escape reading through the ordinary
-consumers. [Native predicate guard](../../../python/corpus-structure/src/corpus_structure/semantic/sql/source_contributions.sql#L1088) ·
+consumers. [Native predicate guard](https://github.com/paul-heyse/corpus-structure/blob/1bb87f8b2/python/corpus-structure/src/corpus_structure/semantic/sql/source_contributions.sql#L1088) ·
 Detached reconstruction (`serve/review_bundle.py:1968`, retired; historical finding baseline).
 
 **2026-11-07 execution.** The native guard derives predicate form, voice, polarity
@@ -247,7 +247,7 @@ another dimension affects the comparison. Establish typed member alignment under
 declared scope and basis. Exercise changed typed members, conjunction versus disjunction,
 and identical unresolved member lists alongside otherwise comparable singleton thresholds.
 Compare native and application decisions and exact detached delivery. [Application comparison](../../../python/corpus-structure/src/corpus_structure/methods/structural_products.py#L163) ·
-[Native comparison](../../../python/corpus-structure/src/corpus_structure/semantic/sql/structural_products.sql#L531).
+[Native comparison](https://github.com/paul-heyse/corpus-structure/blob/1bb87f8b2/python/corpus-structure/src/corpus_structure/semantic/sql/structural_products.sql#L531).
 
 **2026-11-07 execution.** Comparison operation 4 aligns uniquely supported typed
 members, carries conjunction, disjunction and unresolved grouping explicitly, and

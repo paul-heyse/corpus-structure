@@ -36,7 +36,7 @@ series. [Current checkpoint](../../STATUS.md) ·
 [Projection code](../../python/corpus-structure/src/corpus_structure/ingest/pdf_hierarchy.py) ·
 [Native source admission](https://github.com/paul-heyse/corpus-structure/blob/115248de546a2b0d186215d23eba94759bfd8620/python/corpus-structure/src/corpus_structure/semantic/sql/source_views.sql) ·
 [Knowledge representation](../design/D1-knowledge-representation.md) ·
-[Native structural validation](../../python/corpus-structure/src/corpus_structure/semantic/sql/structural_products.sql) ·
+[Native structural validation](https://github.com/paul-heyse/corpus-structure/blob/1bb87f8b2/python/corpus-structure/src/corpus_structure/semantic/sql/structural_products.sql) ·
 [Operation fitting](../../python/corpus-structure/src/corpus_structure/evaluate/operation_fitting.py)
 
 The shared development and assessment frame is Grinstead–Snell physical pages 191–310. The

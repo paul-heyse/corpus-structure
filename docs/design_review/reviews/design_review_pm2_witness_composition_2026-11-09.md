@@ -44,7 +44,7 @@ native admission and retained reads give a credible library route (G8).
 <a id="F01"></a>
 
 **F01 · Definition witness (PM2-03/07/08).** The legacy definition guard in
-[structural products](../../../python/corpus-structure/src/corpus_structure/semantic/sql/structural_products.sql)
+[structural products](https://github.com/paul-heyse/corpus-structure/blob/1bb87f8b2/python/corpus-structure/src/corpus_structure/semantic/sql/structural_products.sql)
 binds the retained predicate recipe and exact content role; naming alone establishes an
 explanation. Introduce a release-versioned witness for source-backed layout, exact cue and
 complete directed content, parameter roles and the unique antecedent. Keep the prior proof and

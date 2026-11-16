@@ -97,7 +97,7 @@ upstream determinants and release compatibility hold. A change in a downstream
 rule can consume unchanged work where that contract permits it. A changed
 effective request or runtime needs a new producer origin. A successful evaluation
 comparison cannot authorize reuse across release identities. [Dependency
-projection](../../../python/corpus-structure/src/corpus_structure/semantic/sql/task_dependency_scope.sql) ·
+projection](https://github.com/paul-heyse/corpus-structure/blob/1bb87f8b2/python/corpus-structure/src/corpus_structure/semantic/sql/task_dependency_scope.sql) ·
 [Task and reuse owner](https://github.com/paul-heyse/corpus-structure/blob/784771fcdf389d0fe1738afc753149f384c65bcb/python/corpus-structure/src/corpus_structure/semantic/operations.py)
 
 ## 5. Scenarios

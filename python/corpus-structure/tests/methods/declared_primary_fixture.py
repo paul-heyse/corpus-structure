@@ -62,7 +62,7 @@ def profiles():
     ), PreparedConstructionProfile(prepared, model)
 
 
-def selected_source(text, *, pieces=None, items=None, recognition=()):
+def selected_source(text, *, pieces=None, items=None, recognition=(), section_pointer="#/body", membership="descendants"):
     formal, _construction = profiles()
     pieces = (
         pieces
@@ -85,8 +85,8 @@ def selected_source(text, *, pieces=None, items=None, recognition=()):
     source = FrozenNativeSource.from_projection(
         formal.prepared,
         document="unadmitted:literal-document",
-        section_pointer="#/body",
-        membership="descendants",
+        section_pointer=section_pointer,
+        membership=membership,
         text=text,
         pieces=pieces,
         items=items,

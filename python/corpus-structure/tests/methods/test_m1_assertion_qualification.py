@@ -80,7 +80,7 @@ def produce(monkeypatch, text, groups, *, heading=None):
         data,
         source_frame=frame,
         context_population=population,
-        profile=AnnotationProfile(cfg.sentences, execution_profile=native.value.execution_profile),
+        profile=AnnotationProfile(cfg.sentences, execution_profile=json.loads(native.content)["execution_profile"]),
         persisted_annotations=annotations,
         max_chars=cfg.max_context_chars,
         max_pieces=cfg.max_context_pieces,
@@ -402,10 +402,10 @@ def test_missing_cue_columns_withhold_only_unsupported_conclusions(
     coverage = next(
         row
         for product in primary
-        for row in product.value.coverage
-        if row.family == "construction.source_readings"
+        for row in json.loads(product.content)["coverage"]
+        if row["family"] == "construction.source_readings"
     )
-    assert coverage.outcome == "complete"
+    assert coverage["outcome"] == "partial"
     context = NativeSourceContext(
         source,
         (),

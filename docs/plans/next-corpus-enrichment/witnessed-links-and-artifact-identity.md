@@ -23,7 +23,7 @@ aliases are unknown across that frame. It can qualify reference reachability and
 A separate frame with comparable names and same-lineage judgments is needed for scorer benefit.
 [Contextual producer](../../../python/corpus-structure/src/corpus_structure/methods/contextual_candidates.py) ·
 [Scoped producer](../../../python/corpus-structure/src/corpus_structure/methods/scoped_relations.py) ·
-[Artifact native validation](../../../python/corpus-structure/src/corpus_structure/semantic/sql/structural_products.sql) ·
+[Artifact native validation](https://github.com/paul-heyse/corpus-structure/blob/1bb87f8b2/python/corpus-structure/src/corpus_structure/semantic/sql/structural_products.sql) ·
 [Artifact evidence](../../design_review/evidence/2026-11-06_wce-completion-repair/artifact/README.md)
 
 Apply [D1 representation](../../design/D1-knowledge-representation.md),
@@ -232,7 +232,7 @@ definition of the cue's subject. Require an exact endpoint binding for selection
 retain section-only matches as candidates. Verify with unrelated and incomplete
 same-section populations, plus a correctly bound target, through native and detached
 reconstruction. [Candidate route](../../../python/corpus-structure/src/corpus_structure/methods/contextual_candidates.py#L717) ·
-[Native witness reconstruction](../../../python/corpus-structure/src/corpus_structure/semantic/sql/source_contributions.sql#L2569) ·
+[Native witness reconstruction](https://github.com/paul-heyse/corpus-structure/blob/1bb87f8b2/python/corpus-structure/src/corpus_structure/semantic/sql/source_contributions.sql#L2569) ·
 Detached witness replay (`serve/contextual_witness_replay.py:489`, retired; historical finding baseline).
 
 **2026-11-07 execution.** A named section supports a nomination. Selection requires
@@ -246,7 +246,7 @@ located declaration's target and edge, or the formula operation. Detached replay
 reconstructs these populations. Check complete-group omission through the running-task
 guard and require the exact effective version on a formula recap edge. The recap
 operation retains the version, but the producer and guards omit it from the emitted
-edge. [Native operation checks](../../../python/corpus-structure/src/corpus_structure/semantic/sql/source_contributions.sql#L2971) ·
+edge. [Native operation checks](https://github.com/paul-heyse/corpus-structure/blob/1bb87f8b2/python/corpus-structure/src/corpus_structure/semantic/sql/source_contributions.sql#L2971) ·
 [Recap producer](../../../python/corpus-structure/src/corpus_structure/methods/scoped_relations.py#L1118).
 
 **2026-11-07 execution.** Native admission reconstructs the located named cue's
@@ -287,7 +287,7 @@ producer and read path, using an explicitly controlled source case where authent
 evidence is missing. The retained cut had zero new pair keys and zero score-eligible
 pairs. Tables 5.8 and 5.9 used unscoped-code nominations. Table 6.1 also had a directed
 witness. [Nomination type](../../../python/corpus-structure/src/corpus_structure/semantic/artifact_identity.py#L231) ·
-[Native admission](../../../python/corpus-structure/src/corpus_structure/semantic/sql/structural_products.sql#L940) ·
+[Native admission](https://github.com/paul-heyse/corpus-structure/blob/1bb87f8b2/python/corpus-structure/src/corpus_structure/semantic/sql/structural_products.sql#L940) ·
 [Retained result](../../design_review/evidence/2026-11-07_nce07-12/raw/artifact-replay-002/result.json).
 
 **2026-11-07 execution.** Artifact operation 4 derives an explicit cross-work

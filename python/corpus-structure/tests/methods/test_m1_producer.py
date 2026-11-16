@@ -346,7 +346,7 @@ def test_context_relationship_diagnostics_cross_the_source_report_boundary(monke
     )
     frozen = candidate_fixture_inputs(source, cfg)
     prepared_source = frozen["prepared_source"]
-    other = view("Nearby unit.").pin
+    other = view("Nearby unit.").source_key
     frozen["prepared_source"] = replace(
         prepared_source,
         selections=tuple(
@@ -359,7 +359,7 @@ def test_context_relationship_diagnostics_cross_the_source_report_boundary(monke
 
     decoded = source_python(source_value(result.parse_detail))
     assert decoded["contexts"][0]["relationships"] == [
-        [{"content": other.content}, "neighbor", "nearby unit"]
+        [other, "neighbor", "nearby unit"]
     ]
     assert result.outcome == ObservationOutcome.FAILED
 

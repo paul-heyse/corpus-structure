@@ -63,6 +63,29 @@ explicit inputs. Learned/downstream acquisition freezes the release-owned model-
 before execution; installed policy still must match its exact authenticated digest. Current M1 score
 diagnostics retain genuine semantic source keys without manufacturing historical view identifiers.
 
+The clause producer owns exact predicate-focus and canonical-sentence projection in
+[`clause_products`](../../../python/corpus-structure/src/corpus_structure/semantic/clause_products.py).
+Its current nominal answers retain rival observations, raw scores and observed/withheld/failed
+dispositions. The uncalled historical clause configuration/Reader projection and concordance
+display are retired; no current producer consumes that display. Preserve exact original extents,
+source-owned adjacent context, wrong-source and partial/ambiguous-frame refusals in current controls,
+without reconstructing task/view or retained-contribution aliases. The old source-contribution and
+operation-event-fitting SQL are not executable authorities. The sole surviving mutual-neighborhood
+kernel has its dedicated
+[`contextual_neighborhood.sql`](../../../python/corpus-structure/src/corpus_structure/semantic/sql/contextual_neighborhood.sql)
+owner; its captured function body and numerical policy retain their existing identity.
+
+Historical SQL navigation, artifact-likelihood replay, dossier projection and source-dependency
+fixtures are retired with their closed SQL owners. Current numerical/source meaning belongs to
+Python domain kernels and selected library functionality; native publication binds the exact-input
+CPU reply, retained body, source/support closure and purpose. Keep current nominal navigation and
+artifact source/alias/cue controls, full endpoint-citation/private-membership expectations, and actual
+registered artifact/structural admission, tampered-output atomic refusal and selected/detached-read
+journeys. A pure replacement establishes its local semantic criterion only. The registered-native
+artifact/structural journeys remain required; old algorithm-replay or substituted resolver fixtures
+cannot qualify their replacement. Protected structural judgments remain separate from source
+membership and do not confer truth on an assembled dossier.
+
 ## One operation authority and prepared execution · Domain-model I02/I04/I08
 
 DDO-07/08 own the complete operation-by-operation retirement inventory, with current disposition in

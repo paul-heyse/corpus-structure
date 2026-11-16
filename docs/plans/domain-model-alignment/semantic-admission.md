@@ -53,7 +53,7 @@ support and requested outputs in the admission transaction. Full solver
 replay remains a separately advertised, stronger detached check. Readers,
 CLI, MCP and export preserve the assurance actually established.
 [Value validation](../../../python/corpus-structure/src/corpus_structure/semantic/local_interpretation_reports.py) ·
-[Native admission](../../../python/corpus-structure/src/corpus_structure/semantic/sql/source_contributions.sql#L3029)
+[Native admission](https://github.com/paul-heyse/corpus-structure/blob/1bb87f8b2/python/corpus-structure/src/corpus_structure/semantic/sql/source_contributions.sql#L3029)
 
 **Closure.** Use independently specified joint probabilities to verify a
 valid partial display and a valid complete display. Refuse a resealed zero
@@ -85,8 +85,8 @@ portable dependencies needed to check the basis. For old products, derive
 a stronger basis only from retained authentic evidence. Otherwise preserve
 their actual standing or regenerate under DMA-13.
 [Definition producer](../../../python/corpus-structure/src/corpus_structure/methods/definition_applicability.py) ·
-[Native guard](../../../python/corpus-structure/src/corpus_structure/semantic/sql/structural_products.sql#L1929) ·
-[Public eligibility](../../../python/corpus-structure/src/corpus_structure/semantic/sql/structural_publication.sql#L169)
+[Native guard](https://github.com/paul-heyse/corpus-structure/blob/1bb87f8b2/python/corpus-structure/src/corpus_structure/semantic/sql/structural_products.sql#L1929) ·
+[Public eligibility](https://github.com/paul-heyse/corpus-structure/blob/1bb87f8b2/python/corpus-structure/src/corpus_structure/semantic/sql/structural_publication.sql#L169)
 
 **Closure.** A resealed component joining genuine spans without the claimed
 cue or geometry refuses, including in detached verification. Positive
@@ -109,6 +109,6 @@ Reconcile the scoped witness contract at native completion and detached
 verification. Require both boundaries to refuse the same resealed
 matched-cue and geometry counterexamples while retaining supported
 positive bases and the separate public-eligibility control.
-[Native accepting branch](../../../python/corpus-structure/src/corpus_structure/semantic/sql/structural_products.sql#L1951) ·
+[Native accepting branch](https://github.com/paul-heyse/corpus-structure/blob/1bb87f8b2/python/corpus-structure/src/corpus_structure/semantic/sql/structural_products.sql#L1951) ·
 [Producer scope checks](../../../python/corpus-structure/src/corpus_structure/methods/definition_applicability.py#L315) ·
 [Independent controls](../../../python/corpus-structure/tests/ingest/test_definition_rules.py#L124)

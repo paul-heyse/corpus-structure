@@ -146,6 +146,63 @@ recovery/adoption and DDO-12 qualification remain required.
 
 ### Current consumer integration and discovered defects · 2026-11-16
 
+**Execution resumed · 2026-11-16; source closure Implemented, bounded Tested.** The operator
+authorized all remaining DDO scope. Current source/scoped caller integration is on main
+(`900a71ed5`, `21d69f6f3`, `843f5d56e`); worker endpoint66 passed
+`2c26f14551254dfbbd5f5e7dde01410e`. Contextual inventory assembly now owns the minimal live
+builder directly (`523e4b7a3`); its19 pure controls passed
+`838af18975b44102a1765612af037970`. The old evaluator constructor/codec is removed
+(`6f5bc47bd`), all13 semantic controls migrated (`a3546bc6e`): full file passed
+`d43b073aab6f46ed9e673c668b036c14`, final same-symbol provenance refinement passed
+`51656c81243a4ef2956495792d12a05e`. These are current nominal source/product controls, not
+native/provider qualification. Shared fixtures carry explicit frames, preparation and populations;
+no LayerReport, Reader or task/view compatibility adapter supplies missing inputs.
+
+Root additionally retires closed source-preparation/Reader protocols, clause wrappers, old
+contribution/fitting/navigation/artifact/dossier SQL replay and their orphan native fixtures.
+The exact captured neighborhood kernel bytes remain unchanged in their dedicated SQL owner
+(`3812d31cf`); focused kernel1 passed `6a09b6b9acb64eaea9f5b14071c32644`.
+Clause/core controls preserve exact source extents and original owned context (`fc06cfa7b`);
+focused16 and corrected6 passed `410a570f9a754b9888eb32bde0d596ee` /
+`f865e535030f4224a548a5581b414994`. Generated report schemas differ only in their source ID;
+the original pure neighborhood9/10 failure `84f4486567af4cc78f404898ffda1ebc` is resolved by
+normal generation and exact retry1 `6556665f8d5445549a5850516a31b8fd`. Current registered-native
+artifact/structural and selected/detached-read counterparts remain required; pure controls do not
+replace native custody. Historical citations now name their exact retained Git baseline.
+
+Whole ordinary collection passed7430 identities `15b233762b8f4e72b0d52963e3b3b541`, functional
+execution **not_run**. Root nominal integration143 had141passed/2failed
+`8f0ba70537e546a0b4daafd85a3d729b`; the remaining two failures are current dossier root/source-pin
+fixture integration, with independent semantic-state and endpoint-citation criteria retained.
+An obsolete reuse expectation now preserves distinct negative ancestor-read dependencies even when
+consumed pieces coincide. Current negative-dependency and identical-dependency sharing2 passed
+`f6b69e3e1db84cb0987022393cd7d9f5`; earlier failed fixture attempts remain held. Whole typing
+`db186d8f02274a71b810defbc3e6dc0e` narrowed the source baseline to one dossier legacy-branch union,
+which root removed rather than widening. After cross-release integration and normal wire generation,
+`63f381eb5361424fa11b291ebabbe0e9` failed10 new execution-basis/test-harness typing diagnostics;
+those remain assigned. No suppression or compatibility restoration closes this boundary.
+
+Cross-release request execution is integrated at `c0e1b6f4d`: authenticated attach metadata supplies
+the immutable generation basis before capacity reservation; native claim requires that expected
+generation; original binding/read/runtime governs computation, hydration and retention. Worker
+pure35 passed `c30eca1afb6f40a78d53ce2ea31edc7c`; native3 collection
+`762284939359431488e1f69d931e71f8` is not execution. Independent implementation review identified
+two material open I03 corrections: repeated full-capsule queue copies escape admitted byte accounting,
+and later ready pages can need undeclared native profiles after serving starts. The existing shared
+CPU/provider owner must solve both before acceptance; no second pool or historical interpreter is
+introduced. Source correspondence, cancelled-origin shared usefulness, exact support and generation
+fences remain required. Final typing, actual compute/reconcile/race journeys and capture are open.
+
+Subsequent milestones retain their prerequisite order: settle this source/capacity increment and
+current wires/PDF products; review/register/deploy the exact native successor; retry selected-support,
+renewal, security and failed consumer journeys; qualify actual providers and selected CLI/MCP/export
+reads; recover/fence and adopt the current development target; execute the retained whole-document
+demand with interruption/resume; establish the final-source functional/provider/fault/nonfunctional
+union. Already implemented coverage, graph, neighborhood, source-migration and rich consumer
+capabilities need remaining integration/qualification, not replacement implementations. Optional graph
+algorithms and new stream declarations remain conditional. Historical data may be retained or migrated;
+no legacy reader or compatibility runtime is required. Development is unchanged pending verified adoption.
+
 **Implemented; qualification in progress.** The owned stage retains root and seven exact
 successors through `semantic_ddo_observation_split`, with unchanged OID/system and verified head;
 the detailed lifecycle and later pending source changes are below. Earlier
