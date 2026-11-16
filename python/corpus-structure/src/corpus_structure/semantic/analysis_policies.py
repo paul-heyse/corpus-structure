@@ -81,14 +81,6 @@ class PlacementPolicyDefinition:
     refine_timeout: str
 
 
-@dataclass(frozen=True)
-class CapturePolicyDefinition:
-    modes: tuple[str, ...]
-    manifest: str
-    digest: str
-    ordering: str
-    completeness: str
-    storage: str
 
 
 @dataclass(frozen=True)
@@ -119,7 +111,6 @@ class AnalysisPolicies:
     text: TextPreparationPolicy
     alignment: AlignmentPolicyDefinition
     placement: PlacementPolicyDefinition
-    capture: CapturePolicyDefinition
 
 
 def _fail(code: str, location: str, message: str) -> Never:
@@ -215,7 +206,7 @@ def compile_analysis_policies(sources: tuple[SourceArtifact, ...]) -> AnalysisPo
         converter.register_structure_hook(primitive, exact)
     result = converter.structure(record, AnalysisPolicies)
     validate_math_policy(result.mathematical)
-    validate_preparation_policies(result.text, result.alignment, result.placement, result.capture)
+    validate_preparation_policies(result.text, result.alignment, result.placement)
     return result
 
 
@@ -381,7 +372,7 @@ def validate_math_policy(profile) -> None:
             )
 
 
-def validate_preparation_policies(text, alignment, placement, capture) -> None:
+def validate_preparation_policies(text, alignment, placement) -> None:
     from decimal import Decimal, InvalidOperation
 
     if (
@@ -437,26 +428,6 @@ def validate_preparation_policies(text, alignment, placement, capture) -> None:
         or refine <= 0
     ):
         _fail("unsupported_placement_policy", "analysis/placement", "invalid cutoff/window/timeout")
-    if capture is None or (
-        capture.modes,
-        capture.manifest,
-        capture.digest,
-        capture.ordering,
-        capture.completeness,
-        capture.storage,
-    ) != (
-        ("resident", "spooled"),
-        "semantic-capture-1",
-        "canonical-rows-1",
-        "primary-key-c",
-        "full-spine",
-        "parquet",
-    ):
-        _fail(
-            "unsupported_capture_policy",
-            "analysis/capture",
-            "implement capture representation/hash/lifetime support before admission",
-        )
 
 
 _DEMAND_COMPONENTS = {

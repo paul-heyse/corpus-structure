@@ -177,117 +177,6 @@ classes:
         range: string
         required: true
         slot_uri: analysis:PlacementPolicyDefinition_refine_timeout
-  CapturePolicyDefinition:
-    attributes:
-      modes:
-        range: string
-        required: true
-        multivalued: true
-        minimum_cardinality: 1
-        slot_uri: analysis:CapturePolicyDefinition_modes
-      manifest:
-        range: string
-        required: true
-        slot_uri: analysis:CapturePolicyDefinition_manifest
-      digest:
-        range: string
-        required: true
-        slot_uri: analysis:CapturePolicyDefinition_digest
-      ordering:
-        range: string
-        required: true
-        slot_uri: analysis:CapturePolicyDefinition_ordering
-      completeness:
-        range: string
-        required: true
-        slot_uri: analysis:CapturePolicyDefinition_completeness
-      storage:
-        range: string
-        required: true
-        slot_uri: analysis:CapturePolicyDefinition_storage
-  CaptureSnapshotBinding:
-    attributes:
-      release_id:
-        range: string
-        required: true
-        slot_uri: analysis:CaptureSnapshotBinding_release_id
-      realization_id:
-        range: string
-        required: true
-        slot_uri: analysis:CaptureSnapshotBinding_realization_id
-      data_revision:
-        range: integer
-        required: true
-        minimum_value: 0
-        slot_uri: analysis:CaptureSnapshotBinding_data_revision
-      capture_id:
-        range: string
-        required: true
-        slot_uri: analysis:CaptureSnapshotBinding_capture_id
-  CaptureRelationManifest:
-    attributes:
-      name:
-        range: string
-        identifier: true
-        slot_uri: analysis:CaptureRelationManifest_name
-      rows:
-        range: integer
-        required: true
-        minimum_value: 0
-        slot_uri: analysis:CaptureRelationManifest_rows
-      logical_digest:
-        range: string
-        required: true
-        slot_uri: analysis:CaptureRelationManifest_logical_digest
-      arrow_schema:
-        range: string
-        required: true
-        slot_uri: analysis:CaptureRelationManifest_arrow_schema
-      file:
-        range: string
-        slot_uri: analysis:CaptureRelationManifest_file
-      sha256:
-        range: string
-        slot_uri: analysis:CaptureRelationManifest_sha256
-  CaptureManifest:
-    attributes:
-      format:
-        range: string
-        required: true
-        slot_uri: analysis:CaptureManifest_format
-      digest_recipe:
-        range: string
-        required: true
-        slot_uri: analysis:CaptureManifest_digest_recipe
-      complete:
-        range: boolean
-        required: true
-        slot_uri: analysis:CaptureManifest_complete
-      binding:
-        range: CaptureSnapshotBinding
-        required: true
-        inlined: true
-        slot_uri: analysis:CaptureManifest_binding
-      projection_id:
-        range: string
-        required: true
-        slot_uri: analysis:CaptureManifest_projection_id
-      profile_digest:
-        range: string
-        required: true
-        slot_uri: analysis:CaptureManifest_profile_digest
-      logical_digest:
-        range: string
-        required: true
-        slot_uri: analysis:CaptureManifest_logical_digest
-      relations:
-        range: CaptureRelationManifest
-        required: true
-        multivalued: true
-        minimum_cardinality: 1
-        inlined: true
-        inlined_as_list: false
-        slot_uri: analysis:CaptureManifest_relations
   AnalysisSymbolDeclaration:
     description: Source-local syntactic authority; entity attachment remains a separate
       binding.
@@ -435,11 +324,7 @@ classes:
         required: true
         inlined: true
         slot_uri: analysis:AnalysisPolicies_placement
-      capture:
-        range: CapturePolicyDefinition
-        required: true
-        inlined: true
-        slot_uri: analysis:AnalysisPolicies_capture
+
 enums:
   AnalysisSymbolRole:
     permissible_values:

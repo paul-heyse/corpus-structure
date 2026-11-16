@@ -174,12 +174,3 @@ placement:
   pick_cutoff: 80
   regex_timeout: '1.0'
   refine_timeout: '0.2'
-capture:
-  modes:
-  - resident
-  - spooled
-  manifest: semantic-capture-1
-  digest: canonical-rows-1
-  ordering: primary-key-c
-  completeness: full-spine
-  storage: parquet
