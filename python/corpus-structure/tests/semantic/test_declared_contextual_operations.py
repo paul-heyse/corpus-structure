@@ -267,3 +267,29 @@ def test_current_definition_inventory_preserves_semantic_meaning_without_legacy_
     selection["semantic_targets"] = source_value({})
     with pytest.raises(ValueError, match="actual selected semantic target meaning"):
         contextual_inventory_values(selection)
+
+
+def test_curated_target_validator_bytes_belong_to_actual_retrieval_assets(monkeypatch):
+    import json
+
+    from corpus_structure.semantic import contextual_operations as owner
+    from corpus_structure.semantic import contextual_registry
+
+    original = owner.contextual_retrieval_assets()
+    recorded = dict(json.loads(original.content)["files"])
+    filename = contextual_registry.__file__
+    assert filename is not None
+    registry = Path(filename)
+    actual = registry.read_bytes()
+    assert bytes.fromhex(recorded["semantic/contextual_registry.py"]) == actual
+    read_bytes = Path.read_bytes
+
+    def changed_validator(path):
+        if path == registry:
+            return actual + b"\n# independently changed validator source\n"
+        return read_bytes(path)
+
+    monkeypatch.setattr(Path, "read_bytes", changed_validator)
+    changed = owner.contextual_retrieval_assets()
+    assert changed.digest != original.digest
+    assert bytes.fromhex(dict(json.loads(changed.content)["files"])["semantic/contextual_registry.py"]) == actual + b"\n# independently changed validator source\n"

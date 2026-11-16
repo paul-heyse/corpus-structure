@@ -52,6 +52,7 @@ _FILES = (
     "semantic/declared_record_sources.py",
     "semantic/source_contexts.py",
     "methods/contextual_candidates.py",
+    "semantic/contextual_registry.py",
 )
 
 _INVENTORY = TypeAdapter(FrozenInventory)
