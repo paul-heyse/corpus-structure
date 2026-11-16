@@ -50,6 +50,7 @@ def query(
     (key, class_name); claims (subject, predicate, object_entity, fact_id);
     statement (product_id, member_id); evidence (fact_id, occurrence_id);
     source_readings (record_id); family_profile/transformations_of (family);
+    ownership_at (asset, date as YYYY-MM-DD);
     construction_profile (construction); parameter_mapping (family, construction);
     families_where (predicate, value); relations_between (a, b, depth up to4).
     Filters are optional except a named query's subject, endpoints or statement.

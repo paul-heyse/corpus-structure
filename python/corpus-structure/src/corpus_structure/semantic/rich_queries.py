@@ -10,9 +10,10 @@ from __future__ import annotations
 import json
 from collections import defaultdict
 from dataclasses import dataclass
+from datetime import date as Date
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
+from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, field_serializer
 
 from corpus_structure.core.vocab import CaseRule
 
@@ -77,6 +78,16 @@ class SourceReadingsQuery(QueryOptions):
     record_id: str | None = None
 
 
+class OwnershipAtQuery(QueryOptions):
+    name: Literal["ownership_at"]
+    asset: str = Field(min_length=1)
+    date: Date
+
+    @field_serializer("date")
+    def date_on_wire(self, value: Date) -> str:
+        return value.isoformat()
+
+
 class FamilyProfileQuery(QueryOptions):
     name: Literal["family_profile", "transformations_of"]
     family: str = Field(min_length=1)
@@ -115,6 +126,7 @@ type RichQuery = Annotated[
     | StatementQuery
     | EvidenceQuery
     | SourceReadingsQuery
+    | OwnershipAtQuery
     | FamilyProfileQuery
     | ConstructionProfileQuery
     | ParameterMappingQuery
@@ -128,6 +140,7 @@ RichQueryName = Literal[
     "statement",
     "evidence",
     "source_readings",
+    "ownership_at",
     "family_profile",
     "construction_profile",
     "families_where",
@@ -142,6 +155,33 @@ QUERY_NAMES = frozenset(TypeAdapter(RichQuery).json_schema()["discriminator"]["m
 class RichQueryRow:
     value: dict[str, Any]
     position: str | dict
+
+
+def ownership_applicability(interval: dict | None, at: Date) -> Literal["established", "not_applicable", "unknown"]:
+    """Source-stated bounds only: partial/symbolic dates and unknown inclusivity stay unknown."""
+    if interval is None:
+        return "unknown"
+    for name, inclusive in (("start", "start_incl"), ("end", "end_incl")):
+        value = interval.get(name)
+        if value is None:
+            continue
+        if not isinstance(value, dict) or value.get("kind") != "partial_date":
+            return "unknown"
+        raw = value.get("lexical")
+        if not isinstance(raw, str) or len(raw) != 10:
+            return "unknown"
+        try:
+            bound = Date.fromisoformat(raw)
+        except ValueError:
+            return "unknown"
+        if (name == "start" and at < bound) or (name == "end" and at > bound):
+            return "not_applicable"
+        if at == bound:
+            if interval.get(inclusive) is None:
+                return "unknown"
+            if interval.get(inclusive) is False:
+                return "not_applicable"
+    return "established"
 
 
 def statement_key(reference) -> str | None:
@@ -453,6 +493,21 @@ def query_rows(index: RichQueryIndex, query: RichQuery):
             ):
                 continue
             yield RichQueryRow(index.claim_record(key), key)
+    elif isinstance(query, OwnershipAtQuery):
+        assets = set(index.resolve(query.asset, class_name="Asset"))
+        for key in index.included(query):
+            fact = index.facts[key]
+            if fact.predicate != index.iri("toy:owns") or index.object_entity(key) not in assets:
+                continue
+            for occurrence in index.visible_occurrences(key, query):
+                qualification = _untrusted_value(index.qualification(occurrence))
+                if not query.include_suppositions and qualification.get("modality") == "supposed":
+                    continue
+                interval = qualification.get("valid_time")
+                yield RichQueryRow(dict(claim=index.claim_record(key),
+                    occurrence=occurrence.model_dump(mode="python"),
+                    qualification=semantic_value(qualification), interval=semantic_value(interval),
+                    applicability=ownership_applicability(interval, query.date)), occurrence.occurrence_id)
     elif isinstance(query, StatementQuery):
         key = canonical_bytes([query.product_id, query.member_id]).decode()
         claims = [
