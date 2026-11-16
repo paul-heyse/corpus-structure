@@ -17,7 +17,8 @@ BEGIN
  'retrieve.contextual_target_vector/declared','retrieve.contextual_vectors/selection',
  'retrieve.contextual_targets/curated','retrieve.contextual_targets/components',
  'retrieve.contextual_target/declared','retrieve.contextual_inventory/declared',
- 'retrieve.contextual_scores/declared','retrieve.contextual/declared') THEN RETURN; END IF;
+ 'retrieve.contextual_scores/declared','retrieve.contextual/declared',
+ 'retrieve.contextual_witnesses/declared','retrieve.contextual/with-witnesses') THEN RETURN; END IF;
  SELECT * INTO STRICT operation FROM sem.data_operation_definition
  WHERE release_id=r.release_id AND operation_id=r.operation_id;
  factory:=CASE r.operation_id
@@ -30,7 +31,9 @@ BEGIN
  WHEN 'retrieve.contextual_target/declared' THEN 'corpus_structure.methods.contextual_targets.ContextualTargetOperation.acquire_port'
  WHEN 'retrieve.contextual_inventory/declared' THEN 'corpus_structure.methods.contextual_declared.ContextualInventoryOperation.acquire_port'
  WHEN 'retrieve.contextual_scores/declared' THEN 'corpus_structure.methods.contextual_scoring.ContextualScoringOperation.acquire_port'
- WHEN 'retrieve.contextual/declared' THEN 'corpus_structure.methods.contextual_declared.ContextualRetrievalOperation.acquire_port' END;
+ WHEN 'retrieve.contextual/declared' THEN 'corpus_structure.methods.contextual_declared.ContextualRetrievalOperation.acquire_port'
+ WHEN 'retrieve.contextual_witnesses/declared' THEN 'corpus_structure.methods.contextual_witnesses.ContextualWitnessOperation.acquire_port'
+ WHEN 'retrieve.contextual/with-witnesses' THEN 'corpus_structure.methods.contextual_witnesses.ContextualWitnessedRetrievalOperation.acquire_port' END;
  IF operation.support_contract->'capabilities'->'prepared_factory'->>'entrypoint' IS DISTINCT FROM factory
  OR (operation.support_contract->'capabilities'->'prepared_factory'->>'source_digest' ~ '^[0-9a-f]{64}$') IS NOT TRUE
  OR (operation.implementation_revision LIKE 'implementation-slice:%') IS NOT TRUE
@@ -51,6 +54,7 @@ RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalo
 DECLARE original ops.data_request:=r; basis jsonb; item jsonb; role_name text; result jsonb:='{}';
  episode ops.data_derivation; producing ops.data_request; intent ops.data_completion_intent;
  producer_basis jsonb; scores_episode ops.data_derivation; scores_request ops.data_request;
+ witness_episode ops.data_derivation; witness_request ops.data_request;
  vectors_episode ops.data_derivation; vectors_request ops.data_request; query_episode ops.data_derivation; vector_query jsonb; query_context jsonb;
  definition sem.data_operation_definition; score_definition sem.data_operation_definition;
 BEGIN
@@ -58,7 +62,7 @@ BEGIN
  basis:=ops.ddo_cpu_input_basis(original);
  FOR item IN SELECT value FROM jsonb_array_elements(data.ddo_field(basis,'roles')->1) LOOP
  role_name:=data.ddo_field(item,'role')->>1;
- IF result ? role_name OR role_name NOT IN ('query','inventory','vectors','policy','scores')
+ IF result ? role_name OR role_name NOT IN ('query','inventory','vectors','policy','scores','witnesses')
  OR data.ddo_field(item,'member_id') IS DISTINCT FROM '["null"]'::jsonb
  OR data.ddo_field(item,'multiplicity') IS DISTINCT FROM '["integer","1"]'::jsonb THEN
  RAISE EXCEPTION 'native contextual scoring requires exact distinct whole role products' USING ERRCODE='23514'; END IF;
@@ -75,14 +79,17 @@ BEGIN
  OR (role_name='inventory' AND producing.operation_id<>'retrieve.contextual_inventory/declared')
  OR (role_name='vectors' AND producing.operation_id<>'retrieve.contextual_vectors/selection')
  OR (role_name='scores' AND producing.operation_id<>'retrieve.contextual_scores/declared')
+ OR (role_name='witnesses' AND producing.operation_id<>'retrieve.contextual_witnesses/declared')
  OR NOT ops.ddo_contextual_dependencies_valid(episode.id) THEN
  RAISE EXCEPTION 'native contextual input lacks its actual declared producer/common receipt' USING ERRCODE='23514'; END IF;
- IF role_name='scores' THEN scores_episode:=episode; scores_request:=producing;
+ IF role_name='witnesses' THEN witness_episode:=episode; witness_request:=producing;
+ ELSIF role_name='scores' THEN scores_episode:=episode; scores_request:=producing;
  ELSIF role_name='vectors' THEN vectors_episode:=episode; vectors_request:=producing;
  ELSIF role_name='query' THEN query_episode:=episode; query_context:=data.ddo_field(item,'context'); END IF;
  END LOOP;
  IF (SELECT array_agg(key ORDER BY key) FROM jsonb_object_keys(result) key) IS DISTINCT FROM
  (CASE WHEN r.operation_id='retrieve.contextual_scores/declared' THEN ARRAY['inventory','policy','query','vectors']
+ WHEN r.operation_id='retrieve.contextual/with-witnesses' THEN ARRAY['inventory','policy','query','scores','vectors','witnesses']
  ELSE ARRAY['inventory','policy','query','scores','vectors'] END) THEN
  RAISE EXCEPTION 'native contextual input population is incomplete or foreign' USING ERRCODE='23514'; END IF;
  IF query_context IS DISTINCT FROM data.ddo_field(basis,'context')
@@ -122,6 +129,17 @@ BEGIN
  IF definition.support_contract->'numerical_policy' IS DISTINCT FROM score_definition.support_contract->'numerical_policy' THEN
  RAISE EXCEPTION 'native scores and CPU reduction have different captured numerical policies' USING ERRCODE='23514'; END IF;
  END IF;
+ IF witness_episode.id IS NOT NULL THEN
+ SELECT * INTO STRICT intent FROM ops.data_completion_intent WHERE id=witness_episode.intent_id;
+ witness_request.release_id:=witness_episode.release_id; witness_request.runtime_id:=witness_episode.runtime_id;
+ witness_request.recipe:=witness_episode.recipe; witness_request.generation:=witness_episode.generation;
+ witness_request.binding:=witness_request.binding||jsonb_build_object('inputs',intent.payload->'inputs','support',intent.payload->'support');
+ producer_basis:=ops.ddo_cpu_input_basis(witness_request);
+ FOREACH role_name IN ARRAY ARRAY['query','inventory'] LOOP
+ IF ops.ddo_rich_role_population(basis,role_name) IS DISTINCT FROM ops.ddo_rich_role_population(producer_basis,role_name) THEN
+ RAISE EXCEPTION 'contextual witness binding belongs to another exact query/inventory support population' USING ERRCODE='23514'; END IF;
+ END LOOP;
+ END IF;
  RETURN result;
 END $contextual$;
 
@@ -133,10 +151,13 @@ BEGIN
  'retrieve.contextual_target_vector/declared','retrieve.contextual_vectors/selection',
  'retrieve.contextual_targets/curated','retrieve.contextual_targets/components',
  'retrieve.contextual_target/declared','retrieve.contextual_inventory/declared',
- 'retrieve.contextual_scores/declared','retrieve.contextual/declared') THEN RETURN; END IF;
+ 'retrieve.contextual_scores/declared','retrieve.contextual/declared',
+ 'retrieve.contextual_witnesses/declared','retrieve.contextual/with-witnesses') THEN RETURN; END IF;
  PERFORM ops.ddo_require_contextual_producer(r,completion);
- IF r.operation_id IN ('retrieve.contextual_scores/declared','retrieve.contextual/declared') THEN
+ IF r.operation_id IN ('retrieve.contextual_scores/declared','retrieve.contextual/declared','retrieve.contextual/with-witnesses') THEN
  values_:=ops.ddo_contextual_scoring_inputs(r,completion);
+ ELSIF r.operation_id='retrieve.contextual_witnesses/declared' THEN
+ PERFORM ops.ddo_contextual_witness_inputs(r,completion);
  END IF;
  IF r.operation_id='retrieve.contextual_scores/declared' THEN
  SELECT * INTO STRICT definition FROM sem.data_operation_definition WHERE release_id=r.release_id AND operation_id=r.operation_id;
@@ -160,7 +181,8 @@ BEGIN
  'retrieve.contextual_target_vector/declared','retrieve.contextual_vectors/selection',
  'retrieve.contextual_targets/curated','retrieve.contextual_targets/components',
  'retrieve.contextual_target/declared','retrieve.contextual_inventory/declared',
- 'retrieve.contextual_scores/declared','retrieve.contextual/declared') THEN RETURN true; END IF;
+ 'retrieve.contextual_scores/declared','retrieve.contextual/declared',
+ 'retrieve.contextual_witnesses/declared','retrieve.contextual/with-witnesses') THEN RETURN true; END IF;
  -- Immutable correspondence was checked at retention and publication by this
  -- captured native kernel. Ordinary support recursion rechecks mutable premises;
  -- do not replay the whole reply/model/scoring graph on every support read.

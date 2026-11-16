@@ -78,7 +78,6 @@ def inputs():
                 }
             ]
         ),
-        "witnesses": source_value([]),
         "exclusions": source_value([]),
     }
     return {

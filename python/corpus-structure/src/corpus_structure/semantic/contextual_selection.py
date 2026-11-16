@@ -181,7 +181,7 @@ def acquire_contextual_vector_selection(
         query_body,
         inventory_body,
         frame,
-        dict(constraints=source_value([]), witnesses=source_value([]), exclusions=source_value([])),
+        dict(constraints=source_value([]), exclusions=source_value([])),
     )
     from .data_operation_model import SubjectContext, json_context_meaning
 
@@ -234,3 +234,82 @@ def freeze_contextual_retrieval_demand(
         source_sets=(*selection.source_sets, *source_sets),
         original_sources=original_sources,
     )
+
+
+def acquire_contextual_witness_selection(connection, selection, *, project_id, query, cues):
+    """Bind explicitly cited cues from the query's exact selected support closure.
+
+    A missing carrier or a cue outside that closure is a refusal. Callers never
+    replace those cases with an empty witness population or a newer source read.
+    """
+    from .data_operation_identity import decode_semantic_value
+    from .data_operation_json import json_bytes
+    from .data_operation_model import SubjectContext, json_context_meaning
+    from .data_product_reference import DataProductMemberReference, DataProductReference
+    from .declared_structural_references import DeclaredContributionRef, DeclaredProductRef
+    from .demand_results import selected_record_index
+
+    body, query_entry, cut = _selected_product(connection, query, project_id=project_id,
+        kind_name="DdoContextualQuery")
+    selected_query = next(value for value in selection.source_sets if value.name == "contextual-query")
+    if selected_query.entries != (query_entry,):
+        raise ValueError("witness acquisition requires the exact previously selected query")
+    refs = tuple(DeclaredContributionRef.model_validate(value) for value in cues)
+    carrier = DeclaredContributionRef.model_validate(body["carrier"])
+    if not refs or carrier not in refs or len(set(refs)) != len(refs):
+        raise ValueError("witness acquisition requires distinct cues including its exact query carrier")
+    pin = body["source_pin"]
+    source = DeclaredProductRef(product_id=pin["source_product"], member_id=pin.get("source_member"),
+        kind_contract=pin["kind_contract"], project_id=pin["project_id"], subject=pin["subject"],
+        subject_definition=pin["subject_definition"], original_source=pin["original_source"],
+        analyzed_scope_meaning=pin["analyzed_scope_meaning"])
+    with selected_record_index(connection, query.demand_id, project_id=project_id,
+        scope={"product_ids": [query.product_id]}, read_id=cut.record["read_id"],
+        expected_cut=cut.identity, capture_frontier=True,
+        max_total_bytes=64 * 1024 * 1024) as (_, index):
+        products = index.mapping("kb.data_product", ("id",))
+        members = index.mapping("kb.data_product_member", ("product_id", "member_id"))
+
+        def entry(ref):
+            parent = products.get(ref.product_id)
+            row = parent if ref.member_id is None else members.get((ref.product_id, ref.member_id))
+            if parent is None or row is None:
+                raise ValueError("witness reference is unavailable or outside the selected query closure")
+            context = SubjectContext(parent["project_id"], row["subject"], row["original_source"],
+                json_bytes(row["analyzed_scope"]), subject_definition=row["subject_definition"])
+            actual = DeclaredProductRef(product_id=ref.product_id, member_id=ref.member_id,
+                kind_contract=row["kind_contract"], project_id=context.project_id, subject=context.subject,
+                subject_definition=context.subject_definition, original_source=context.original_source,
+                analyzed_scope_meaning=json_context_meaning(context.analyzed_scope).decode())
+            if actual != DeclaredProductRef.model_validate(ref.model_dump(exclude={"contribution_id"})):
+                raise ValueError("witness reference differs from its actual selected qualified context")
+            value = decode_semantic_value(row["canonical_body"] if ref.member_id is None else row["body"])
+            if isinstance(ref, DeclaredContributionRef) and (
+                value.get("contribution_id") != ref.contribution_id or value.get("pin") != pin):
+                raise ValueError("witness cue differs from its selected body/source")
+            reference = DataProductReference(ref.product_id)
+            if ref.member_id is not None:
+                reference = DataProductMemberReference(reference, ref.member_id)
+            return SourceSetEntry.from_semantic_source(reference, context=context)
+
+        source_entry, cue_entries = entry(source), tuple(entry(value) for value in refs)
+    return ContextualVectorSelection((*selection.source_sets,
+        FrozenSourceSet("contextual-witness-source", (source_entry,)),
+        FrozenSourceSet("contextual-witness-cues", cue_entries)),
+        (*selection.cuts, cut), selection.query_context)
+
+
+def freeze_contextual_witnessed_retrieval_demand(
+    model, selection, *, inference, execution_profile, original_sources=(), source_sets=()
+):
+    """Freeze the actual private authored-binding producer and its retrieval consumer."""
+    from .data_operation_demands import RootSubject, freeze_demand
+    names = {value.name for value in selection.source_sets}
+    if not {"contextual-witness-source", "contextual-witness-cues"} <= names:
+        raise ValueError("witnessed retrieval requires exact selected source and cue closure")
+    context = selection.query_context
+    return freeze_demand(model,
+        roots=(RootSubject(context.subject, context.original_source, context.analyzed_scope),),
+        targets=("retrieve.contextual_vectors/selection", "retrieve.contextual/with-witnesses"),
+        inference=inference, execution_profile=execution_profile,
+        source_sets=(*selection.source_sets, *source_sets), original_sources=original_sources)

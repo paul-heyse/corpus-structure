@@ -169,3 +169,17 @@ def test_score_product_is_valid_under_its_current_nominal_contract():
         mode="python", exclude_unset=True
     )
     assert json_bytes(actual) == json_bytes(scores)
+    from corpus_structure.semantic.data_operation_admission import bound_data_operation_model
+    from semantic.test_contextual_witnesses import project, witness_case
+
+    frame, context, roles, _ = witness_case()
+    bindings = project(frame, context, roles)
+    actual_bindings = prepared.validate_json("DdoContextualWitnessBindings", json_bytes(bindings))
+    assert json_bytes(actual_bindings.model_dump(mode="python", exclude_unset=True)) == json_bytes(bindings)
+    model = bound_data_operation_model(prepared)
+    producer = model.operation("retrieve.contextual_witnesses/declared")
+    consumer = model.operation("retrieve.contextual/with-witnesses")
+    assert producer.capabilities.forms == ("scalar",)
+    assert {role.name for role in producer.roles if role.direction == "input"} == {
+        "source", "query", "inventory", "hypotheses", "cues"}
+    assert "witnesses" in {role.name for role in consumer.roles if role.direction == "input"}

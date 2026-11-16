@@ -156,7 +156,7 @@ def case(recipe):
     occurrence = dict(
         kind="occurrence",
         semantic_type="contextual.located_mention",
-        contribution_id="contribution:actual-source",
+        contribution_id="source-contribution:" + "a" * 64,
         operation_key="operation:actual-source",
         occurrence_id=occurrence_identity((anchor,)),
         pin=record_source_pin(frame),

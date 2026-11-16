@@ -56,6 +56,26 @@ def contextual_input_role(row):
     )
 
 
+def checked_frame_source(frame_record, source):
+    """One exact actual source header/body projection for contextual CPU consumers."""
+    from .data_operation_identity import semantic_value
+    from .data_operation_model import json_context_meaning
+    from .declared_record_sources import DeclaredNativeFrameSource
+    from .identity import canonical_bytes
+
+    frame = DeclaredNativeFrameSource(**frame_record)
+    pin, context = frame.pin.values(), source.context
+    if pin["source"] != canonical_bytes([source.product_id, source.member_id]).decode() or (
+        canonical_bytes(semantic_value(frame.value)) != canonical_bytes(semantic_value(source.body))
+    ) or (
+        pin["source_product"], pin["kind_contract"], pin["project_id"], pin["subject"],
+        pin["subject_definition"], pin["original_source"], pin["analyzed_scope_meaning"],
+    ) != (source.product_id, source.kind_contract, context.project_id, context.subject,
+        context.subject_definition, context.original_source, json_context_meaning(context.analyzed_scope).decode()):
+        raise ValueError("query frame differs from its actual processed source product/context")
+    return frame
+
+
 def contextual_authority_reply(input_basis, products):
     return cpu_authority_reply(input_basis, products)
 

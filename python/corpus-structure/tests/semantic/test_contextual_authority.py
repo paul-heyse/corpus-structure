@@ -190,6 +190,8 @@ def test_query_authority_rebuilds_actual_selected_primary_context(recipe, monkey
         processed, frame.record, asdict(profile()), "", (), check_active=lambda: None
     )
     result = cpu_authority_value(canonical_bytes(reply), expected_basis=processed)
+    assert result["query"]["carrier"]["product_id"] == "controlled-occurrence"
+    assert result["query"]["carrier"]["contribution_id"] == occurrence["contribution_id"]
     assert result["query"]["context"]["rendered"] == expected
     assert result["query"]["context_inputs"][0]["product_id"] == "product:primary"
     wrong = dict(frame.record)
@@ -240,7 +242,7 @@ def test_retrieval_reduction_uses_owned_cpu_with_exact_controlled_score_input():
     bound = signature.bind(
         input_basis=processed,
         numerical_policy=default_retrieval_numerics().model_dump(mode="json"),
-        check_active=lambda: None,
+        witnessed=False, check_active=lambda: None,
     )
     sources = contextual_operation_sources()
     descriptor = PythonCPUDescriptor(

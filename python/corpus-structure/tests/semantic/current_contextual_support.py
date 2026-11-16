@@ -325,7 +325,6 @@ def retrieval_intent(kernel, selection, *, budget):
                 )
             ]
         ),
-        witnesses=source_value([]),
         exclusions=source_value([]),
     )
     policy = authored_fact_selection(

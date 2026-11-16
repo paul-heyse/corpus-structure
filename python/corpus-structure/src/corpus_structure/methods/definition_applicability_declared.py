@@ -64,7 +64,7 @@ class DefinitionApplicabilityOperation:
             {
                 "name": "relationship",
                 "parameter": "relationship",
-                "kind": "https://corpus-structure.dev/semantic/data-operation-contextual/DdoContextualRetrievalProduct",
+                "kind": "https://corpus-structure.dev/semantic/data-operation-contextual/DdoContextualWitnessedRetrievalProduct",
                 "direction": "input",
                 "minimum": 1,
                 "maximum": 1,
@@ -72,10 +72,12 @@ class DefinitionApplicabilityOperation:
                 "presence": "required",
                 "support": {
                     "provenance": "exact",
-                    "source": "same-original",
+                    "source": "frozen-source-set",
+                    "source_set": "definition-relationships",
                     "coverage": {"role": "relationship", "description": "exact-selected-source"},
                     "identity_requirements": ["episode"],
                 },
+                "subject_target": "source-set",
             },
             {
                 "name": "result",
@@ -107,10 +109,7 @@ class DefinitionApplicabilityOperation:
         },
         "outcomes": ["success"],
         "precision_description": "original-native-half-open-extents",
-        "dependencies": [
-            "structure.definition_declaration_components/declared",
-            "retrieve.contextual/declared",
-        ],
+        "dependencies": [],
         "effects": [],
         "capabilities": {
             "forms": ["scalar"],

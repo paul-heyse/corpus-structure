@@ -26,6 +26,7 @@ _FILES = (
     "methods/contextual_embeddings.py",
     "methods/contextual_candidates.py",
     "semantic/declared_record_sources.py",
+    "semantic/declared_structural_references.py",
     "semantic/source_contexts.py",
     "methods/contextual_query.py",
     "methods/pm2_dipo_products.py",
@@ -228,40 +229,15 @@ def execute_query_encoder_authority_kernel(
 ) -> dict:
     from .contextual_cpu import contextual_basis_values, contextual_input_role
     from .data_operation_cpu_basis import cpu_authority_reply
-    from .data_operation_identity import decode_semantic_value, semantic_value
+    from .data_operation_identity import decode_semantic_value
     from .data_operation_model import json_context_meaning
-    from .declared_record_sources import DeclaredNativeFrameSource
 
     roles, _ = contextual_basis_values(input_basis)
     if len(roles.get("source", ())) != 1 or len(roles.get("occurrence", ())) != 1:
         raise ValueError("query encoder requires its exact source and retained occurrence")
     source = contextual_input_role(roles["source"][0])
-    frame = DeclaredNativeFrameSource(**frame_record)
-    pin, context = frame.pin.values(), source.context
-    if (
-        pin["source"] != canonical_bytes([source.product_id, source.member_id]).decode()
-        or canonical_bytes(semantic_value(frame.value))
-        != canonical_bytes(semantic_value(source.body))
-        or (
-            pin["source_product"],
-            pin["kind_contract"],
-            pin["project_id"],
-            pin["subject"],
-            pin["subject_definition"],
-            pin["original_source"],
-            pin["analyzed_scope_meaning"],
-        )
-        != (
-            source.product_id,
-            source.kind_contract,
-            context.project_id,
-            context.subject,
-            context.subject_definition,
-            context.original_source,
-            json_context_meaning(context.analyzed_scope).decode(),
-        )
-    ):
-        raise ValueError("query frame differs from its actual processed source product/context")
+    from .contextual_cpu import checked_frame_source
+    frame = checked_frame_source(frame_record, source)
     occurrence = roles["occurrence"][0]["body"]
     parameters = decode_semantic_value(input_basis)["parameters"]
     selected = parameters.get("context_selection")
@@ -288,6 +264,16 @@ def execute_query_encoder_authority_kernel(
         query_context_record=query_context,
         context_inputs=context_inputs,
     )
+    from .declared_structural_references import DeclaredContributionRef
+    occurrence_input = contextual_input_role(roles["occurrence"][0])
+    result["query"]["carrier"] = DeclaredContributionRef(
+        product_id=occurrence_input.product_id, member_id=occurrence_input.member_id,
+        kind_contract=occurrence_input.kind_contract, project_id=occurrence_input.context.project_id,
+        subject=occurrence_input.context.subject, subject_definition=occurrence_input.context.subject_definition,
+        original_source=occurrence_input.context.original_source,
+        analyzed_scope_meaning=json_context_meaning(occurrence_input.context.analyzed_scope).decode(),
+        contribution_id=occurrence["contribution_id"],
+    ).model_dump(mode="python", exclude_none=True)
     return cpu_authority_reply(input_basis, result)
 
 

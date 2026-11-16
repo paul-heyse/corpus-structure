@@ -99,9 +99,21 @@ classes:
       lexical_targets: {range: SourceValue, inlined: true, required: true}
       profile: {range: SourceValue, inlined: true, required: true}
       vectors: {range: SourceValue, inlined: true, required: true}
+  DdoContextualCarrierInput:
+    is_a: DdoSemanticProductReference
+    attributes:
+      member_id: {}
+      kind_contract: {required: true}
+      project_id: {required: true}
+      subject_definition: {required: true}
+      subject: {required: true}
+      original_source: {required: true}
+      analyzed_scope_meaning: {required: true}
+      contribution_id: {required: true, pattern: "^source-contribution:[0-9a-f]{64}$"}
   DdoContextualQuery:
     is_a: SourceRecordProduct
     attributes:
+      carrier: {range: DdoContextualCarrierInput, inlined: true, required: true}
       source_pin: {range: RecordSourcePin, inlined: true, required: true}
       occurrence_id: {required: true}
       lexical_query: {required: true}
@@ -137,8 +149,44 @@ classes:
       budget: {range: integer, required: true, minimum_value: 1}
       channel_budget: {range: integer, required: true, minimum_value: 1}
       constraints: {range: SourceValue, inlined: true, required: true}
-      witnesses: {range: SourceValue, inlined: true, required: true}
       exclusions: {range: SourceValue, inlined: true, required: true}
+  DdoContextualProductInput:
+    is_a: DdoSemanticProductReference
+    attributes:
+      member_id: {}
+      kind_contract: {required: true}
+      project_id: {required: true}
+      subject_definition: {required: true}
+      subject: {required: true}
+      original_source: {}
+      analyzed_scope_meaning: {required: true}
+  DdoContextualWitnessHypothesis:
+    is_a: SourceRecordProduct
+    attributes:
+      hypothesis_id: {required: true}
+      target_id: {required: true}
+      relation: {required: true, pattern: "^(denotes|alias-of|defined-by|specializes|compared-with|participates-in|cites-section)$"}
+      asserted_basis: {required: true, pattern: "^(explicit_source_cue|producer_group|geometry|model_reading|admitted_derivation)$"}
+      cue_refs: {range: DdoContextualCarrierInput, inlined_as_list: true, multivalued: true, required: true, minimum_cardinality: 1}
+  DdoContextualWitnessHypotheses:
+    is_a: SourceRecordProduct
+    attributes:
+      author_assertion: {required: true}
+      hypotheses: {range: DdoContextualWitnessHypothesis, inlined_as_list: true, multivalued: true, value_presence: PRESENT, minimum_cardinality: 0}
+  DdoContextualWitnessBindings:
+    is_a: SourceRecordProduct
+    attributes:
+      standing: {required: true, equals_string: private_authored_source_binding_hypotheses}
+      support_state: {required: true, equals_string: unassessed}
+      author_assertion: {required: true}
+      authored_support: {range: SourceValue, inlined: true, required: true}
+      query_input: {range: DdoContextualProductInput, inlined: true, required: true}
+      inventory_input: {range: DdoContextualProductInput, inlined: true, required: true}
+      source_input: {range: DdoContextualProductInput, inlined: true, required: true}
+      hypotheses_input: {range: DdoContextualProductInput, inlined: true, required: true}
+      cues_input: {range: DdoContextualCarrierInput, inlined_as_list: true, multivalued: true, required: true, minimum_cardinality: 1}
+      hypotheses: {range: DdoContextualWitnessHypothesis, inlined_as_list: true, multivalued: true, value_presence: PRESENT, minimum_cardinality: 0}
+      witnesses: {range: SourceValue, inlined: true, required: true}
   DdoContextualNativeScoreHit:
     is_a: SourceRecordProduct
     attributes:
@@ -175,6 +223,13 @@ classes:
       profile: {range: SourceValue, inlined: true, required: true}
       vectors: {range: SourceValue, inlined: true, required: true}
       neighborhood: {range: SourceValue, inlined: true, required: true}
+
+  DdoContextualWitnessedRetrievalProduct:
+    is_a: DdoContextualRetrievalProduct
+    attributes:
+      witness_input: {range: DdoContextualProductInput, inlined: true, required: true}
+      witness_standing: {required: true, equals_string: private_authored_source_binding_hypotheses}
+      support_state: {required: true, equals_string: unassessed}
 
 enums:
   DdoLocatedQueryContextRecipe:

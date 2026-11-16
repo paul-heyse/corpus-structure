@@ -149,20 +149,23 @@ def candidates_from_scores(inputs, scores, query, policy, *, numerical_policy):
 
 
 def execute_contextual_retrieval_kernel(
-    input_basis: list, numerical_policy: dict, *, check_active
+    input_basis: list, numerical_policy: dict, *, witnessed: bool, check_active
 ) -> dict:
     from .contextual_cpu import contextual_basis_values, contextual_input_role
     from .contextual_numerics import RetrievalNumericalPolicy
     from .contextual_operations import finish_contextual_retrieval, prepare_contextual_retrieval
+    from .contextual_witnesses import STANDING, contextual_input_reference
     from .data_operation_cpu_basis import cpu_authority_reply
 
     roles, context = contextual_basis_values(input_basis)
-    if set(roles) != {"query", "inventory", "vectors", "policy", "scores"} or any(
+    expected_roles = {"query", "inventory", "vectors", "policy", "scores"} | ({"witnesses"} if witnessed else set())
+    if set(roles) != expected_roles or any(
         len(rows) != 1 for rows in roles.values()
     ):
         raise ValueError("contextual reduction requires four exact inputs and its native scores")
     values = {name: rows[0]["body"] for name, rows in roles.items()}
     query, scores = values.pop("query"), values.pop("scores")
+    binding = values.pop("witnesses") if witnessed else None
     pin = query["source_pin"]
     query_context = contextual_input_role(roles["query"][0]).context
     if query_context != context or (pin["project_id"], pin["original_source"]) != (
@@ -173,11 +176,29 @@ def execute_contextual_retrieval_kernel(
             "contextual query differs from its actual selected product/original context"
         )
     inputs = prepare_contextual_retrieval(query=query, **values, check_active=check_active)
+    if binding is not None:
+        from dataclasses import replace
+        from pydantic import TypeAdapter
+        from .contextual_links import RelationshipWitness
+        from .declared_structural_references import DeclaredProductRef
+        from .observations import source_python
+        if binding["standing"] != STANDING or binding["support_state"] != "unassessed" or (
+            DeclaredProductRef.model_validate(binding["query_input"]) != contextual_input_reference(roles["query"][0])
+            or DeclaredProductRef.model_validate(binding["inventory_input"]) != contextual_input_reference(roles["inventory"][0])
+        ):
+            raise ValueError("authored witness binding differs from exact query/inventory or private unassessed standing")
+        witnesses = TypeAdapter(tuple[RelationshipWitness, ...]).validate_python(source_python(binding["witnesses"]))
+        if any(value.support_state != "unassessed" for value in witnesses):
+            raise ValueError("authored witness assertion cannot manufacture assessed source support")
+        inputs = replace(inputs, witnesses=witnesses)
     numerics = RetrievalNumericalPolicy.model_validate(numerical_policy)
     candidates = candidates_from_scores(
         inputs, scores, query, values["policy"], numerical_policy=numerics
     )
     product = finish_contextual_retrieval(inputs, candidates, query, check_active=check_active)
+    if binding is not None:
+        product.update(witness_input=contextual_input_reference(roles["witnesses"][0]).model_dump(mode="python", exclude_none=True),
+            witness_standing=STANDING, support_state="unassessed")
     return cpu_authority_reply(input_basis, product)
 
 
