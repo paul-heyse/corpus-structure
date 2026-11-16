@@ -9,21 +9,50 @@ from corpus_structure.semantic.formal_readings import (
     formal_field_readings,
     lexical_fact_readings,
 )
-from corpus_structure.semantic.structural_products import ExternalSourceRef, LocatedDefinitionSpan
-from semantic.primary_formal_fixture import formal_layers
-from semantic.typed_structural_composition_support import threshold_inputs
+from corpus_structure.semantic.structural_products import LocatedDefinitionSpan
+from corpus_structure.semantic.declared_structural_references import DeclaredStructuralSource
+from corpus_structure.semantic.formal_products import FormalEvidenceOptions, FrozenFormalSource
+from corpus_structure.semantic.identity import canonical_bytes
+from corpus_structure.semantic.structural_products import StructuralPassage
+from semantic.formal_products_support import profile as profile
+from semantic.formal_products_support import selected_rows, publication_context
 
 
-def test_whole_normalized_fields_and_lexical_basis_are_consumed_without_parsing(monkeypatch):
+
+def case(profile, text):
+    """Pure supplied structural address; parser products carry real current meanings."""
+    from corpus_structure.semantic.data_operation_model import json_context_meaning
+    from corpus_structure.semantic.source_products import source_subject
+
+    source = selected_rows(profile, (text, "text", "", ""))
+    product = profile.run(source, FormalEvidenceOptions(), subject_context=publication_context(source))
+    selected = source.value
+    coordinate = selected["source"]
+    address = DeclaredStructuralSource(
+        source=canonical_bytes(["fixture:formal-source", None]).decode(),
+        source_product="fixture:formal-source", kind_contract="kind:fixture-source",
+        subject=source_subject(coordinate), subject_definition="original-source-view",
+        document=coordinate["document"], original_source=coordinate["document"],
+        projection_digest=coordinate["projection"],
+        section_pointer=coordinate["section_pointer"], membership=coordinate["membership"],
+        project_id="fixture:formal", analyzed_scope_meaning=json_context_meaning(canonical_bytes(
+            dict(source=coordinate, selectors=selected["selectors"])
+        )).decode(),
+    )
+    passage = StructuralPassage(passage_id="p", source_ref=address.identity,
+                               start=0, end=len(text), text=text, scope="fixture")
+    readings = FormalSourceReadings.from_products((product,), source)
+    return source, product, address, passage, readings
+
+
+def test_whole_normalized_fields_and_lexical_basis_are_consumed_without_parsing(profile, monkeypatch):
     from corpus_structure.semantic import formal_evidence, structural_parsing
 
     text = (
         "revenue ≥ 2.50e3 USD\nComparison basis: annual gross revenue.\n"
         "Identifier: Form-A and Date: 2025-01-15."
     )
-    inputs = threshold_inputs(text, text)
-    passage, source = inputs.passages[0], inputs.sources[0]
-    layers = formal_layers(inputs)
+    _native, _product, source, passage, primary = case(profile, text)
 
     def unexpected(*_args, **_kwargs):
         pytest.fail("comparison consumer reran field recognition")
@@ -31,7 +60,6 @@ def test_whole_normalized_fields_and_lexical_basis_are_consumed_without_parsing(
     monkeypatch.setattr(formal_evidence, "nominate_fields", unexpected)
     for name in ("parse_threshold", "parse_comparison_literal", "threshold_fields"):
         monkeypatch.setattr(structural_parsing, name, unexpected)
-    primary = FormalSourceReadings(layers, source)
     fields, complete = _threshold_inventory(passage, source, primary)
     assert complete and len(fields) == 1
     (field,) = fields
@@ -61,48 +89,37 @@ def test_whole_normalized_fields_and_lexical_basis_are_consumed_without_parsing(
         )
     a = text.index("Form-A") + len("Form-A")
     b = text.index("Date:")
-    cue = coordination_reading(primary, source, start=a, end=b)
+    cue = coordination_reading(primary, primary.source, start=a, end=b)
     assert cue is not None and cue.value == "and" and cue.text == "and"
 
 
-def test_rival_layer_origins_and_invalid_domains_do_not_become_known_absence():
-    inputs = threshold_inputs("X > 2 kg", "Date: 2025-02-30")
-    layers = formal_layers(inputs)
-    source, passage = inputs.sources[0], inputs.passages[0]
-    assert isinstance(source, ExternalSourceRef)
-    pin = next(
-        pin
-        for pin, report in layers.items()
-        if source.source_view_id in report.payload["source_scope"]["source_view_ids"]
-    )
-    rival = {**layers, layers[pin].reference(9999): layers[pin]}
+def test_distinct_examined_scopes_and_invalid_domains_do_not_become_known_absence(profile):
+    native, product, source, passage, primary = case(profile, "X > 2 kg\nDate: 2025-02-30")
+    narrowed = native.value
+    narrowed["selectors"] = [dict(projection=source.projection_digest, start=0, end=8)]
+    selected = FrozenFormalSource.acquire(profile.prepared, narrowed)
+    other = profile.run(selected, FormalEvidenceOptions(), subject_context=publication_context(selected))
+    assert other.content != product.content
+    rival = FormalSourceReadings.from_products((product, other), native)
     fields, complete = formal_field_readings(
-        rival, source, family="formal.threshold", start=passage.start, end=passage.end
+        rival, rival.source, family="formal.threshold", start=0, end=8
     )
     assert fields == () and not complete
-    assert _threshold_inventory(passage, source, {}) == ((), False)
-    invalid, second = inputs.passages[1], inputs.sources[1]
+    missing = FormalSourceReadings.from_products((), native)
+    assert _threshold_inventory(passage, source, missing) == ((), False)
     fields, complete = formal_field_readings(
-        layers, second, family="formal.date", start=invalid.start, end=invalid.end
+        primary, primary.source, family="formal.date", start=9, end=len(passage.text)
     )
     assert fields == () and not complete
-    with pytest.raises(ValueError, match="source binding"):
-        formal_field_readings(
-            layers,
-            source.model_copy(update=dict(recipe_digest="d" * 64)),
-            family="formal.threshold",
-            start=passage.start,
-            end=passage.end,
-        )
+    with pytest.raises(ValueError, match="another original source"):
+        _threshold_inventory(passage, source.model_copy(update=dict(projection_digest="d" * 64)), primary)
 
 
-def test_revision_identifiers_and_exception_marker_retain_named_source_members():
+def test_revision_identifiers_and_exception_marker_retain_named_source_members(profile):
     text = "Clause policy.\nRevision R2 supersedes revision R1.\nNo exceptions."
-    inputs = threshold_inputs(text, text)
-    passage, source = inputs.passages[0], inputs.sources[0]
-    layers = formal_layers(inputs)
+    _native, _product, source, passage, layers = case(profile, text)
     (fact,) = lexical_fact_readings(
-        layers, source, kind="formal.revision_succession", start=0, end=len(text)
+        layers, layers.source, kind="formal.revision_succession", start=0, end=len(text)
     )
     assert fact.text == "Revision R2 supersedes revision R1."
     assert [(role, value) for role, _reference, value in fact.bindings] == [
@@ -110,7 +127,7 @@ def test_revision_identifiers_and_exception_marker_retain_named_source_members()
         ("older_revision", "R1"),
     ]
     (empty,) = lexical_fact_readings(
-        layers, source, kind="formal.exception_empty", start=0, end=len(text)
+        layers, layers.source, kind="formal.exception_empty", start=0, end=len(text)
     )
     assert empty.text == "No exceptions" and empty.value == "empty"
     assert passage.text[empty.start : empty.end] == empty.text
@@ -144,32 +161,29 @@ def test_revision_identifiers_and_exception_marker_retain_named_source_members()
         ("Identifier: " + "A" * 245, None),
     ],
 )
-def test_comparison_projection_preserves_existing_numeric_and_source_size_bounds(surface, expected):
-    inputs = threshold_inputs(surface, surface)
-    source, passage = inputs.sources[0], inputs.passages[0]
-    literal, reference = _literal_reading(passage, source, formal_layers(inputs))
+def test_comparison_projection_preserves_existing_numeric_and_source_size_bounds(profile, surface, expected):
+    _native, _product, source, passage, primary = case(profile, surface)
+    literal, reference = _literal_reading(passage, source, primary)
     assert (literal.model_dump(mode="json", exclude_none=True) if literal else None) == expected
     assert (reference is not None) == (expected is not None)
 
 
 @pytest.mark.parametrize("surface", ["1e1000000", "1e-1000000"])
-def test_comparison_refusal_preserves_exact_large_and_tiny_primary_facts(surface):
+def test_comparison_refusal_preserves_exact_large_and_tiny_primary_facts(profile, surface):
     from corpus_structure.semantic.identity import canonical_bytes
     from corpus_structure.semantic.structural_products import ComparisonLiteral
 
     spelling = f"Quantity: {surface} kg"
-    inputs = threshold_inputs(spelling, spelling)
-    source, passage = inputs.sources[0], inputs.passages[0]
-    layers = formal_layers(inputs)
+    _native, product, source, passage, layers = case(profile, spelling)
     (field,), complete = formal_field_readings(
-        layers, source, family="formal.quantity", start=passage.start, end=passage.end
+        layers, layers.source, family="formal.quantity", start=passage.start, end=passage.end
     )
     assert complete and field.text == spelling
     assert field.normalized["value"] == surface
     assert field.normalized["domain_status"] == "unresolved"
-    before = {pin: canonical_bytes(report.payload) for pin, report in layers.items()}
+    before = product.content
     assert _literal_reading(passage, source, layers) == (None, None)
-    assert before == {pin: canonical_bytes(report.payload) for pin, report in layers.items()}
+    assert before == product.content
     with pytest.raises(ValueError, match="bounded decimal range"):
         ComparisonLiteral(kind="quantity", value=surface, unit="kg")
     with pytest.raises(ValueError, match="bounded decimal range"):

@@ -3,32 +3,34 @@
 import pytest
 
 from corpus_structure.methods.inline_formula_occurrences import inline_equations, inline_symbols
-from corpus_structure.semantic.formal_evidence import build_formal_layer
+from corpus_structure.semantic.formal_products import FormalEvidenceOptions
+from corpus_structure.semantic.declared_formal_readings import declared_formal_layers
 from corpus_structure.semantic.formal_sources import (
     NORMALIZATION_RECIPE,
     mapped_formal_extents,
     normalize_inline_equation,
 )
-from semantic.primary_formal_fixture import operation, source
-from semantic.primary_formal_fixture import prepared as prepared
+from semantic.formal_products_support import profile as profile
+from semantic.formal_products_support import selected_rows, publication_context
 
 
-def case(prepared, text="Z using the equation X = σZ + µ.", **options):  # noqa: RUF001 - literal mathematical sigma
-    view = source((text, "text", "", ""))
-    layer = build_formal_layer(view, prepared, operation(), **options)
-    return view, layer, {layer.reference(12): layer}
+def case(profile, text="Z using the equation X = σZ + µ.", **options):  # noqa: RUF001 - literal mathematical sigma
+    view = selected_rows(profile, (text, "text", "", ""))
+    layer = profile.run(view, FormalEvidenceOptions(**options),
+                        subject_context=publication_context(view))
+    return view, layer, declared_formal_layers((layer,), view)
 
 
 def equations(view, layers, selection=None, max_chars=2048):
     return tuple(
         inline_equations(
-            view.text,
-            view.pieces,
-            {item["self_ref"]: item for item in view.items},
+            view.value["text"],
+            view.value["pieces"],
+            {item["self_ref"]: item for item in view.value["items"]},
             selection,
             max_chars=max_chars,
             primary_layers=layers,
-            projection=view.ref.projection_digest,
+            projection=view.value["source"]["projection"],
         )
     )
 
@@ -52,12 +54,12 @@ def test_normalization_has_explicit_source_atoms_and_synthetic_separators():
 
 
 def test_retained_inline_reader_maps_unicode_and_second_equal_word_without_inference(
-    prepared, monkeypatch
+    profile, monkeypatch
 ):
     from corpus_structure.methods.math import grammar
     from corpus_structure.semantic import formal_sources
 
-    view, layer, layers = case(prepared)
+    view, layer, layers = case(profile)
     monkeypatch.setattr(
         formal_sources,
         "nominate_inline_equations",
@@ -73,11 +75,11 @@ def test_retained_inline_reader_maps_unicode_and_second_equal_word_without_infer
     )
     (equation,) = equations(view, layers)
     symbols, outcome = inline_symbols(
-        view.text, equation, primary_layers=layers, projection=view.ref.projection_digest
+        view.value["text"], equation, primary_layers=layers, projection=view.value["source"]["projection"]
     )
     assert outcome == "parsed"
     assert [
-        (symbol.start, symbol.end, view.text[symbol.start : symbol.end]) for symbol in symbols
+        (symbol.start, symbol.end, view.value["text"][symbol.start : symbol.end]) for symbol in symbols
     ] == [
         (21, 22, "X"),
         (25, 26, "σ"),  # noqa: RUF001 - literal mathematical sigma
@@ -87,7 +89,7 @@ def test_retained_inline_reader_maps_unicode_and_second_equal_word_without_infer
     assert all(symbol.primary_node and symbol.parent_occurrence for symbol in symbols)
     root = next(
         annotation
-        for annotation in layer.payload["annotations"]
+        for annotation in layer.inventory()["annotations"]
         if annotation.get("native_label") == "introduced_inline_equation"
     )
     value = root["formal_input"]
@@ -103,15 +105,15 @@ def test_retained_inline_reader_maps_unicode_and_second_equal_word_without_infer
     }
 
 
-def test_normalized_atom_cuts_and_synthetic_only_spans_never_gain_source_authority(prepared):
-    _view, layer, _layers = case(prepared)
+def test_normalized_atom_cuts_and_synthetic_only_spans_never_gain_source_authority(profile):
+    _view, layer, _layers = case(profile)
     value = next(
         annotation["formal_input"]
-        for annotation in layer.payload["annotations"]
+        for annotation in layer.inventory()["annotations"]
         if annotation.get("native_label") == "introduced_inline_equation"
     )
     occurrences = {
-        occurrence["local_id"]: occurrence for occurrence in layer.payload["occurrences"]
+        occurrence["local_id"]: occurrence for occurrence in layer.inventory()["occurrences"]
     }
     with pytest.raises(ValueError, match="normalized source atom"):
         mapped_formal_extents(value, 5, 6, occurrences)
@@ -121,12 +123,12 @@ def test_normalized_atom_cuts_and_synthetic_only_spans_never_gain_source_authori
     assert (sigma["start"], sigma["end"], sigma["text"]) == (25, 26, "σ")  # noqa: RUF001 - literal mathematical sigma
 
 
-def test_reader_selection_requires_actual_nomination_support_and_explicit_primary(prepared):
-    view, _layer, layers = case(prepared)
+def test_reader_selection_requires_actual_nomination_support_and_explicit_primary(profile):
+    view, _layer, layers = case(profile)
     assert equations(view, layers, [("clipped", 21, 31, None)]) == ()
     (equation,) = equations(view, layers)
-    assert inline_symbols(view.text, equation) == ((), "unsupported")
-    assert tuple(inline_equations(view.text, view.pieces, {}, None, max_chars=2048)) == ()
+    assert inline_symbols(view.value["text"], equation) == ((), "unsupported")
+    assert tuple(inline_equations(view.value["text"], view.value["pieces"], {}, None, max_chars=2048)) == ()
 
 
 @pytest.mark.parametrize(
@@ -138,11 +140,11 @@ def test_reader_selection_requires_actual_nomination_support_and_explicit_primar
     ],
 )
 def test_nomination_failure_is_retained_and_not_retried_in_consumer(
-    prepared, text, bound, expected
+    profile, text, bound, expected
 ):
-    view, _layer, layers = case(prepared, text, max_inline_chars=bound)
+    view, _layer, layers = case(profile, text, max_inline_chars=bound)
     (equation,) = equations(view, layers)
     assert equation.status == expected
     assert inline_symbols(
-        view.text, equation, primary_layers=layers, projection=view.ref.projection_digest
+        view.value["text"], equation, primary_layers=layers, projection=view.value["source"]["projection"]
     ) == ((), expected)
