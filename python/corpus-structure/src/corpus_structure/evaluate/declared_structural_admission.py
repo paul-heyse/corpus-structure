@@ -6,14 +6,17 @@ executed, nor does possession of them grant ordinary publication authority.
 
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, model_validator
 
 from corpus_structure.semantic.data_operation_identity import body_identity, semantic_value
 from corpus_structure.semantic.declared_structural_references import DeclaredProductRef
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.structural_admission import structural_statement
+from corpus_structure.semantic.structural_admission import POLICIES
 from corpus_structure.semantic.structural_products import (
     DeclaredComparisonReport,
+    DeclaredConditionReport,
+    DeclaredDefinitionComponentsReport,
     DeclaredStructuralInput,
 )
 
@@ -35,13 +38,18 @@ class DdoStructuralAssessmentFrame(StructuralAssessmentValue):
     inputs: DeclaredStructuralInput
     question: Nonempty
     case_id: Nonempty
-    operation: Literal["qualified_comparison"]
-    rubric_version: Literal["independent-structural-comparison-1"]
+    operation: Literal["qualified_comparison", "condition_qualification", "definition_components"]
+    component_id: Annotated[str, Field(pattern=r"^[a-f0-9]{64}$")] | None
+    rubric_version: Literal["independent-structural-comparison-1", "independent-condition-qualification-1", "independent-definition-component-1"]
     direction: Literal["source_first", "output_first"]
     exposed_outputs: tuple[DeclaredProductRef, ...]
 
     @model_validator(mode="after")
     def exact_exposure(self):
+        if self.rubric_version != POLICIES[self.operation]:
+            raise ValueError("structural rubric differs from its actual report variant")
+        if (self.component_id is not None) != (self.operation == "definition_components"):
+            raise ValueError("only definition component admission requires one exact component selector")
         if self.question != self.inputs.question:
             raise ValueError("structural frame question differs from its selected source question")
         if self.direction == "source_first" and self.exposed_outputs:
@@ -126,7 +134,10 @@ def structural_admission_value(report, passes, *, references=None):
     """Compute a permitted conclusion; native completion authenticates its authority."""
     from corpus_structure.semantic.declared_structural_admission import DdoStructuralAdmission
 
-    checked = DeclaredComparisonReport.model_validate(report)
+    checked = TypeAdapter(Annotated[
+        DeclaredComparisonReport | DeclaredConditionReport | DeclaredDefinitionComponentsReport,
+        Field(discriminator="kind"),
+    ]).validate_python(report)
     typed = tuple(DdoStructuralReferencePass.model_validate(value) for value in passes)
     by_kind = {value.pass_kind: value for value in typed}
     if len(typed) != 3 or set(by_kind) != {"A", "B", "C"}:
@@ -136,7 +147,7 @@ def structural_admission_value(report, passes, *, references=None):
         raise ValueError("structural A/B/C require independently attributed actor identities")
     if any(value.frame != c.frame for value in typed):
         raise ValueError("structural A/B/C differ from their exact frozen frame")
-    if c.frame.inputs != checked.inputs:
+    if c.frame.inputs != checked.inputs or c.frame.operation != checked.kind:
         raise ValueError("structural adjudication differs from its exact report and source inputs")
     actual = {
         value.pass_kind: body_identity(raw).key for raw, value in zip(passes, typed, strict=True)
@@ -158,7 +169,7 @@ def structural_admission_value(report, passes, *, references=None):
             canonical_bytes(parent.model_dump(mode="json")) for parent in c.parents
         } != actual_parents:
             raise ValueError("C parent references differ from the actual admitted A/B products")
-    statement = structural_statement(checked)
+    statement = structural_statement(checked, component_id=c.frame.component_id)
     meaning = canonical_bytes(semantic_value(statement)).decode()
     matches = tuple(
         case
@@ -171,10 +182,9 @@ def structural_admission_value(report, passes, *, references=None):
         matches[0].source_passages
     ):
         raise ValueError("structural support omits a selected source passage")
-    return DdoStructuralAdmission(
-        report=c.frame.report,
-        statement_meaning_json=meaning,
-    )
+    return DdoStructuralAdmission.model_validate(dict(
+        report=c.frame.report, component_id=c.frame.component_id,
+        policy_id=POLICIES[checked.kind], statement_meaning_json=meaning))
 
 
 def structural_reference_kind_declarations():

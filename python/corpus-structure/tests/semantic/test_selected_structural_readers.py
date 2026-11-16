@@ -222,3 +222,14 @@ def test_comparison_computational_custody_does_not_establish_scientific_support(
     )
     assert rows[0]["status"] == "unavailable"
     assert rows[0]["reason"] == "authorized_comparison_support_unavailable"
+
+
+def test_explicit_admission_binding_acquires_both_roots_and_refuses_unselected_report():
+    from corpus_structure.serve.structural_products import SelectedStructuralAdmissionBinding, SelectedStructuralRequest
+    conclusion = ROOT.model_copy(update=dict(product_id="native:conclusion", use_id="use:conclusion", derivation_id="episode:conclusion"))
+    binding = SelectedStructuralAdmissionBinding(report=ROOT, admission=conclusion)
+    request = SelectedStructuralRequest(demand_id="d", project_id="p", roots=(ROOT,), admissions=(binding,))
+    assert request.selection_roots == (ROOT, conclusion)
+    for bindings in ((binding, binding), (SelectedStructuralAdmissionBinding(report=conclusion, admission=ROOT),)):
+        with pytest.raises(ValueError, match="explicit report roots"):
+            SelectedStructuralRequest(demand_id="d", project_id="p", roots=(ROOT,), admissions=bindings)

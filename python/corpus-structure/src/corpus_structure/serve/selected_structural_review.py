@@ -37,7 +37,7 @@ class SelectedStructuralReviewRequest(BaseModel):
 
 def _roots(request):
     if isinstance(request, SelectedStructuralRequest):
-        return request.roots, ()
+        return request.selection_roots, ()
     if isinstance(request, SelectedSourceDecisionJourneyRequest):
         return tuple(layer.root for layer in request.layers), (
             request.opportunity.source.source_product,

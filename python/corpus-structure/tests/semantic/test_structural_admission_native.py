@@ -177,6 +177,7 @@ def _passes(kernel, report, expected):
         question="Compare exact source-qualified controlled roles",
         case_id="whole",
         operation="qualified_comparison",
+        component_id=None,
         rubric_version="independent-structural-comparison-1",
         direction="source_first",
         exposed_outputs=[],
@@ -266,6 +267,7 @@ def structural_native_journey(current_pdf_source_factory, tmp_path):
                 kernel,
                 (ISSUER,),
                 comparison.context,
+                admission_report=comparison,
                 originals=independent,
                 inference="actual-original-structural-A-B",
             ),
@@ -357,6 +359,7 @@ def test_actual_structural_authorship_issuer_dossier_selected_gap_and_detached_e
             kernel,
             (ISSUER,),
             comparison.context,
+            admission_report=comparison,
             originals=case["original_passes"],
             inference="actual-structural-independent-issuer",
         ),
@@ -374,6 +377,29 @@ def test_actual_structural_authorship_issuer_dossier_selected_gap_and_detached_e
         admission.body["statement_meaning_json"]
         == canonical_bytes(semantic_value(case["expected"])).decode()
     )
+    from semantic.structural_production_native_support import read_statement
+    from corpus_structure.serve.structural_products import SelectedStructuralAdmissionBinding, inspect_selected_structures
+    support_request, support_page = read_statement(kernel, retained["demand_id"], comparison, admission)
+    assert support_page["reports"][0]["availability"] == "observed"
+    assert support_page["reports"][0]["selection_basis"] == "native_structural_report_support"
+    assert support_page["reports"][0]["public_assertions"][0]["admission"] == admission.body
+    assert support_page["reports"][0]["producer"]["use_id"] == comparison.row["use_id"]
+    with kernel.purpose("read").begin() as connection:
+        without_issuer = inspect_selected_structures(connection, support_request.model_copy(update={"admissions": ()}))
+        assert without_issuer["reports"][0]["availability"] == "outside_selection"
+        unrelated = case["component"].root
+        wrong_binding = inspect_selected_structures(connection, support_request.model_copy(update={
+            "roots": (unrelated,), "admissions": (SelectedStructuralAdmissionBinding(report=unrelated, admission=admission.root),)}))
+        assert wrong_binding["reports"][0]["availability"] == "outside_selection"
+        support_archive = export_selected_structural_review(connection,
+            SelectedStructuralReviewRequest(selection=support_request), destination=case["tmp_path"] / "ordinary-report-support-review")
+    support_archive_path, support_archive_digest = support_archive["path"], support_archive["manifest_digest"]
+    assert isinstance(support_archive_path, str) and isinstance(support_archive_digest, str)
+    assert verify_selected_structural_review(Path(support_archive_path), manifest_digest=support_archive_digest)["cut_id"] == support_archive["cut_id"]
+    support_delivered = b"".join(path.read_bytes() for path in Path(support_archive_path).rglob("*") if path.is_file())
+    assert b"protected-structural-author:" not in support_delivered and b"authored-session:" not in support_delivered
+    pinned_support = support_request.model_copy(update=dict(read_id=support_page["cut"]["read_id"],
+        expected_cut=support_page["cut_id"], implementation=support_page["implementation"]))
     component = case["component"]
     component_id = component.body["definition_components"]["components"][0]["component_id"]
     dossier_selection = DemandOperationSelection(
@@ -385,7 +411,6 @@ def test_actual_structural_authorship_issuer_dossier_selected_gap_and_detached_e
         ),
     )
     sources = (
-        *case["source_sets"],
         FrozenSourceSet("dossier-sources", tuple(value.entry() for value in case["originals"])),
         FrozenSourceSet("dossier-components", (component.entry(),)),
         FrozenSourceSet("dossier-definitions", ()),
@@ -417,8 +442,9 @@ def test_actual_structural_authorship_issuer_dossier_selected_gap_and_detached_e
             kernel,
             (COMPARE, ISSUER, DOSSIER),
             comparison.context,
+            admission_report=comparison,
             originals=case["original_passes"],
-            source_sets=sources,
+            source_sets=(*case["source_sets"], *sources),
             selections=(case["comparison_selection"], dossier_selection),
             inference="actual-ordinary-structural-dossier",
         ),
@@ -470,6 +496,9 @@ def test_actual_structural_authorship_issuer_dossier_selected_gap_and_detached_e
         "right",
     }
     assert row["evidence"]["scientific_truth"] == "not_established"
+    assert row["evidence"]["sides"]["left"]["source"] != row["evidence"]["sides"]["right"]["source"]
+    with kernel.purpose("read").begin() as connection, pytest.raises(ValueError, match="scope"):
+        inspect_selected_gap(connection, gap.model_copy(update={"scope": "foreign-scope"}))
     assert membership["availability"] == "observed"
     archive_path, archive_digest = archive["path"], archive["manifest_digest"]
     assert isinstance(archive_path, str) and isinstance(archive_digest, str)
@@ -568,6 +597,10 @@ def test_actual_structural_authorship_issuer_dossier_selected_gap_and_detached_e
         )
     assert [row["status"] for row in refused["rows"]] == ["unavailable"]
     assert refused["rows"][0]["reason"] == "authorized_comparison_support_unavailable"
+    with kernel.purpose("read").begin() as connection:
+        copied_support = inspect_selected_structures(connection, support_request.model_copy(update={"admissions": (
+            SelectedStructuralAdmissionBinding(report=comparison.root, admission=claimed_root),)}))
+    assert copied_support["reports"][0]["availability"] == "outside_selection"
 
     for failure in ("original-author", "ordinary-output"):
         changed = deepcopy(case["passes"][2])
@@ -582,6 +615,7 @@ def test_actual_structural_authorship_issuer_dossier_selected_gap_and_detached_e
             kernel,
             (ISSUER,),
             comparison.context,
+            admission_report=comparison,
             originals=(*case["original_passes"][:2], c),
             inference="native-structural-refusal:" + failure,
         )
@@ -645,6 +679,12 @@ def test_actual_structural_authorship_issuer_dossier_selected_gap_and_detached_e
     with kernel.purpose("read").begin() as connection:
         current = inspect_selected_gap(connection, gap)
     assert current["rows"] and all(row["status"] == "unavailable" for row in current["rows"])
+    with kernel.purpose("read").begin() as connection:
+        withdrawn = inspect_selected_structures(connection, support_request)
+    assert withdrawn["reports"][0]["availability"] == "outside_selection"
+    with kernel.purpose("read").begin() as connection, pytest.raises(DBAPIError, match="current trust differ"):
+        inspect_selected_structures(connection, pinned_support)
+    assert verify_selected_structural_review(Path(support_archive_path), manifest_digest=support_archive_digest)["cut_id"] == support_archive["cut_id"]
     # The held historic transfer remains verifiable; it grants no current trust.
     assert (
         verify_selected_structural_review(Path(archive_path), manifest_digest=archive_digest)[
@@ -707,3 +747,37 @@ def _assert_native_issuer_refusal(kernel, pending, monkeypatch, *, exchange_outp
         else "original submitted author attribution"
     )
     assert expected in (error.diag.message_primary or "")
+
+
+def test_definition_admission_refuses_same_shaped_controlled_fixture_producer(structural_native_journey, monkeypatch):
+    """A genuine fixture CPU receipt does not become a released definition producer."""
+    import psycopg
+    from corpus_structure.orchestrate.data_operations import NativeDemandExecutionError
+    from corpus_structure.semantic.data_operation_storage import DataOperationStorage
+    from corpus_structure.semantic.structural_admission import structural_statement
+    from corpus_structure.semantic.structural_products import DeclaredDefinitionComponentsReport
+    from semantic.structural_reference_native_support import original_passes
+
+    case = structural_native_journey
+    kernel, component = case["kernel"], case["component"]
+    report = DeclaredDefinitionComponentsReport.model_validate(component.body)
+    selector = report.definition_components.components[0].component_id
+    expected = structural_statement(report, selector)
+    originals, _ = original_passes(kernel, component, expected, component_id=selector,
+        inference="controlled-component-is-not-production-definition")
+    pending = request(kernel, (ISSUER,), component.context, originals=originals,
+        admission_report=component, admission_variant="definition", inference="refuse-wrong-definition-producer")
+    actual = DataOperationStorage.retain_data_completion_intent
+    observed = []
+    def inspect(storage, payload):
+        try:
+            return actual(storage, payload)
+        except DBAPIError as error:
+            observed.append(error.orig)
+            raise
+    monkeypatch.setattr(DataOperationStorage, "retain_data_completion_intent", inspect)
+    with pytest.raises(NativeDemandExecutionError):
+        execute(kernel, pending, purpose="evaluate", author=True)
+    assert len(observed) == 1
+    assert isinstance(observed[0], psycopg.errors.CheckViolation)
+    assert observed[0].diag.message_primary == "structural report lacks its one actual captured producer for the selected variant"

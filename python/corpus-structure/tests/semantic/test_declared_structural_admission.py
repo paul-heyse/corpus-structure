@@ -120,7 +120,8 @@ def comparison_report():
     )
 
 
-def passes_for(report) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+def passes_for(report, *, component_id=None) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    from corpus_structure.semantic.structural_admission import POLICIES
     context = dict(
         project_id="p",
         subject="subject:A",
@@ -139,12 +140,13 @@ def passes_for(report) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
         inputs=report.model_dump(mode="python")["inputs"],
         question=report.inputs.question,
         case_id="whole",
-        operation="qualified_comparison",
-        rubric_version="independent-structural-comparison-1",
+        operation=report.kind,
+        component_id=component_id,
+        rubric_version=POLICIES[report.kind],
         direction="source_first",
         exposed_outputs=[],
     )
-    statement = canonical_bytes(semantic_value(structural_statement(report))).decode()
+    statement = canonical_bytes(semantic_value(structural_statement(report, component_id=component_id))).decode()
     passes: list[dict[str, Any]] = [
         dict(
             version="structural-reference-pass-1",
@@ -164,7 +166,7 @@ def passes_for(report) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
                     path=["public_statement"],
                     judgment="supported",
                     expected_meaning_json=statement,
-                    source_passages=["left", "right"],
+                    source_passages=[passage.passage_id for passage in report.inputs.passages],
                 )
             ],
         )
@@ -417,7 +419,7 @@ def test_supported_gap_examines_complete_membership_and_exact_native_predecessor
             format="ddo-native-authority-leaf-v1",
             derivation_id="issuer:actual",
             use_id=None,
-            issuer_operation="structure.admit_comparison",
+            issuer_operation="structure.admit",
             release_id="release:actual",
             runtime_id="runtime:actual",
             recipe="recipe:actual",
@@ -460,3 +462,146 @@ def test_supported_gap_examines_complete_membership_and_exact_native_predecessor
     assert (
         supported_comparison_gap_rows(request, report, None, binding)[0]["status"] == "unavailable"
     )
+
+
+def finite_report(variant):
+    from corpus_structure.semantic.structural_products import DeclaredConditionReport, DeclaredDefinitionComponentsReport, declared_definition_component
+    base = comparison_report()
+    text = "If ready, Ada acts."
+    inputs = base.inputs.model_dump(mode="python")
+    inputs["sources"] = inputs["sources"][:1]
+    inputs["passages"] = [dict(passage_id="whole", source_ref=base.inputs.sources[0].identity,
+        start=0, end=len(text), text=text, scope="selected")]
+    pin = base.sources_input[0].model_dump(mode="python")
+    if variant == "condition_qualification":
+        reference = base.comparison.left_reading.model_dump(mode="python")
+        return DeclaredConditionReport.model_validate(dict(inputs=inputs, source_input=pin,
+            report_input=base.reports_input[0].model_dump(mode="python"),
+            condition_qualification=dict(relation="condition", attachment=reference,
+                qualifier=[dict(source_pointer="#/texts/0", span=dict(passage_id="whole",start=0,end=8,text="If ready"))],
+                host_predicate=[dict(source_pointer="#/texts/0",span=dict(passage_id="whole",start=14,end=18,text="acts"))]))), None
+    component = declared_definition_component(term=dict(passage_id="whole",start=10,end=13,text="Ada"),
+        content=dict(passage_id="whole",start=14,end=18,text="acts"), interpretation="unresolved", basis="unqualified",
+        scope="selected", evidence=("whole",), reason="Pure located proposal has no interpretation authority")
+    return DeclaredDefinitionComponentsReport.model_validate(dict(inputs=inputs, sources_input=[pin], reports_input=[],
+        definition_components=dict(components=[component.model_dump(mode="python")], stages=[]))), component.component_id
+
+
+@pytest.mark.parametrize("variant", ["condition_qualification", "definition_components"])
+def test_finite_report_roles_require_exact_whole_meaning_and_component_selection(variant):
+    report, selector = finite_report(variant)
+    passes, _ = passes_for(report, component_id=selector)
+    admitted = structural_admission_value(report.model_dump(mode="python"), passes)
+    assert admitted.statement["kind"] == variant
+    assert admitted.component_id == selector
+    if variant == "condition_qualification":
+        assert admitted.statement[variant]["qualifier"][0]["passage"]["text"] == "If ready"
+        assert admitted.statement[variant]["host_predicate"][0]["passage"]["text"] == "acts"
+    else:
+        assert admitted.statement["definition_component"]["term"]["text"] == "Ada"
+        assert admitted.statement["definition_component"]["content"]["text"] == "acts"
+        with pytest.raises(ValueError, match="missing or duplicated"):
+            structural_statement(report, "f" * 64)
+    changed = deepcopy(passes)
+    changed[2]["cases"][0]["expected_meaning_json"] = canonical_bytes(semantic_value({**admitted.statement, "scope": None})).decode()
+    with pytest.raises(ValueError, match="supported whole"):
+        structural_admission_value(report.model_dump(mode="python"), changed)
+    from corpus_structure.evaluate.declared_structural_admission import DdoStructuralAssessmentFrame
+    for update in ({"component_id": None if selector else "f" * 64}, {"rubric_version": "independent-structural-comparison-1"}):
+        with pytest.raises(ValueError):
+            DdoStructuralAssessmentFrame.model_validate({**passes[2]["frame"], **update})
+
+
+@pytest.mark.parametrize("change", ["null_to_missing", "swapped_roles", "foreign_source", "duplicate_case", "source_first_exposure"])
+def test_current_whole_statement_refuses_changed_meaning_or_assessment_frame(change):
+    report = comparison_report()
+    passes, _ = passes_for(report)
+    changed = deepcopy(passes)
+    if change == "null_to_missing":
+        expected = deepcopy(structural_statement(report))
+        del expected["comparison"]["dimensions"][0]["left_group"]["members"][0]["condition"]["nullable"]
+        changed[2]["cases"][0]["expected_meaning_json"] = canonical_bytes(semantic_value(expected)).decode()
+    elif change == "swapped_roles":
+        expected = structural_statement(report)
+        expected["comparison"]["left"], expected["comparison"]["right"] = expected["comparison"]["right"], expected["comparison"]["left"]
+        changed[2]["cases"][0]["expected_meaning_json"] = canonical_bytes(semantic_value(expected)).decode()
+    elif change == "foreign_source":
+        changed[2]["frame"] = deepcopy(changed[2]["frame"])
+        changed[2]["frame"]["inputs"]["sources"][0]["project_id"] = "foreign"
+    elif change == "duplicate_case":
+        changed[2]["cases"].append(deepcopy(changed[2]["cases"][0]))
+    else:
+        changed[2]["frame"] = {**changed[2]["frame"], "exposed_outputs": [changed[2]["frame"]["report"]]}
+    with pytest.raises(ValueError):
+        structural_admission_value(report.model_dump(mode="python"), changed)
+
+
+def report_support_rows():
+    """Controlled captured rows for pure edge interpretation, not native evidence."""
+    from corpus_structure.semantic.authority_leaf import NativeAuthorityLeaf
+    from corpus_structure.semantic.declared_structural_admission import ADMISSION_KIND
+    report = comparison_report()
+    passes, _ = passes_for(report)
+    value = structural_admission_value(report.model_dump(mode="python"), passes)
+    reference = value.report
+    product = dict(id=reference.product_id, kind_contract=reference.kind_contract, project_id=reference.project_id,
+        subject=reference.subject, subject_definition=reference.subject_definition, original_source=reference.original_source,
+        analyzed_scope=None, canonical_body=semantic_value(report.model_dump(mode="python")))
+    conclusion = dict(id="ordinary:admission", kind_contract="kind:admission", project_id="p", canonical_body=semantic_value(value.model_dump(mode="python")))
+    leaf = NativeAuthorityLeaf(format="ddo-native-authority-leaf-v1", derivation_id="episode:issuer", use_id="use:issuer",
+        issuer_operation="structure.admit", release_id="release", runtime_id="runtime", recipe="issuer-recipe",
+        product_id=conclusion["id"], kind_contract=conclusion["kind_contract"], intent_id="intent:issuer", receipt_id="receipt:issuer",
+        standing="valid", protected_dependencies="undisclosed")
+    edge = dict(derivation_id=leaf.derivation_id, role="comparison", position=0, support_derivation_id="episode:report",
+        admission_use_id="use:report", scope="scope:original:A", epoch=0, occurrence=0)
+    episode = dict(id="episode:report", request_id="request:report", release_id="release", runtime_id="runtime",
+        intent_id="intent:report", recipe="report-recipe", outcome="success")
+    output = dict(derivation_id=episode["id"], role="result", position=0, multiplicity=1, member_id=None, product_id=product["id"])
+    definition = dict(profile="derivation", recipe=episode["recipe"], implementation_revision="implementation-slice:report",
+        support_contract=dict(effects=[], capabilities=dict(prepared_factory=dict(
+            entrypoint="corpus_structure.methods.structural_declared.DeclaredStructuralComparison.acquire_port", source_digest="a" * 64))))
+    return edge, dict(leaf=leaf, products={product["id"]: product, conclusion["id"]: conclusion},
+        kinds={reference.kind_contract: dict(kind="urn:corpus:structural:DeclaredComparisonReport", universe="ordinary"),
+            conclusion["kind_contract"]: dict(kind=ADMISSION_KIND, universe="ordinary")},
+        uses={"use:report": dict(id="use:report", fate="fulfilled", derivation_id=episode["id"])},
+        episodes={episode["id"]: episode}, outputs=[output],
+        requests={"request:report": dict(operation_id="structure.compare/declared", project_id="p")},
+        definitions={("release", "structure.compare/declared"): definition},
+        intents={"intent:report": dict(payload=dict(implementation_revision="implementation-slice:report", execution_evidence=dict(cpu_receipts=[{}])))},
+        receipts=[dict(derivation_id=episode["id"], intent_id="intent:report")])
+
+
+def test_authenticated_report_support_keeps_the_actual_prior_use_without_frontier_alias():
+    from corpus_structure.semantic.declared_structural_admission import validate_structural_report_support
+    edge, rows = report_support_rows()
+    value, use, episode, output = validate_structural_report_support(edge, **rows)
+    assert value.report.product_id == "native:actual-comparison"
+    assert use["id"] == "use:report" and episode["id"] == "episode:report"
+    assert output["role"] == "result"
+    assert rows["leaf"].protected_dependencies == "undisclosed"
+
+
+@pytest.mark.parametrize("change", ["unrelated_report", "wrong_use", "private_kind", "foreign_context", "wrong_factory", "missing_receipt", "withdrawn", "copied_conclusion", "protected_edge"])
+def test_ordinary_report_edge_refuses_unrelated_private_copied_or_unavailable_custody(change):
+    from corpus_structure.semantic.declared_structural_admission import validate_structural_report_support
+    edge, rows = deepcopy(report_support_rows())
+    if change == "unrelated_report":
+        rows["outputs"][0]["product_id"] = "unrelated:actual-product"
+    elif change == "wrong_use":
+        edge["admission_use_id"] = "unselected:use"
+    elif change == "private_kind":
+        rows["kinds"]["kind:comparison"]["universe"] = "evaluator"
+    elif change == "foreign_context":
+        rows["products"]["native:actual-comparison"]["project_id"] = "foreign"
+    elif change == "wrong_factory":
+        rows["definitions"]["release", "structure.compare/declared"]["support_contract"]["capabilities"]["prepared_factory"]["entrypoint"] = "controlled.same_shape"
+    elif change == "missing_receipt":
+        rows["receipts"] = []
+    elif change == "withdrawn":
+        rows["leaf"] = rows["leaf"].model_copy(update={"standing": "unavailable"})
+    elif change == "copied_conclusion":
+        rows["leaf"] = rows["leaf"].model_copy(update={"issuer_operation": "authored-copy"})
+    else:
+        edge["role"] = "passes"
+    with pytest.raises(ValueError):
+        validate_structural_report_support(edge, **rows)

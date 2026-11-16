@@ -115,7 +115,7 @@ def test_public_learned_math_downstream_profile_has_complete_captured_factories(
         "structure.definition_applicability/declared",
         "structure.dossier/declared",
         "structure.compare/declared",
-        "structure.admit_comparison",
+        "structure.admit",
         "structure.condition_qualification/declared",
         "structure.clause_classification/declared",
         "retrieve.contextual/declared",

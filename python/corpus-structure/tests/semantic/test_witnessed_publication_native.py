@@ -1,74 +1,43 @@
-"""Exact component eligibility through real independent-pass and publication owners.
+"""Exact named component from actual sentence/construction production and native admission.
 
-The authored interpretations are controlled mechanism inputs, not corpus quality evidence.
+This literal functional case does not establish whole applicability or general
+linguistic accuracy. The independent A/B/C authors are explicitly attributed.
 """
 
 import pytest
-from psycopg import Error as PsycopgError
-from sqlalchemy import select
-from sqlalchemy.exc import DBAPIError
 
-from corpus_structure.orchestrate.commands import finalize_bound_run
+from corpus_structure.evaluate.declared_structural_admission import DdoStructuralAssessmentFrame
+from corpus_structure.semantic.data_operation_identity import semantic_value
 from corpus_structure.semantic.identity import canonical_bytes
-from corpus_structure.semantic.metadata import table
-from semantic.native_record_fixtures import RecordSourceRecipe
-from semantic.native_record_fixtures import private_source as private_source
-from semantic.witnessed_scenario_support import (
-    authored_component_admission,
-    completed_component_case,
-)
+from semantic.current_pdf_source_support import admit_current_target, current_pdf_source_factory as current_pdf_source_factory
+from semantic.structural_production_native_support import NAMED, produce_source_reports, publish_statement, read_statement, recipe, selected_for_source, source_pin
 
 
-@pytest.mark.parametrize(
-    "private_source", [RecordSourceRecipe()], indirect=True, ids=("record-base",)
-)
-def test_exact_component_admits_without_whole_applicability(
-    private_source, record_source_evaluator, tmp_path
-):
-    case = private_source
-    completed = completed_component_case(case, tmp_path)
-    authored = authored_component_admission(completed, record_source_evaluator)
-    admission, expected = authored.admission, authored.expected
-
-    def produce(binding, output):
-        run = completed.produce_component(structural_admission=(binding,))
-        finalize_bound_run(case.writer, run.run_id, output)
-        return run.run_id
-
-    run = produce(admission, "component-publication")
-    with case.writer.connect() as conn:
-        rows = (
-            conn.execute(
-                select(table("data.structural_assertion"))
-                .join(
-                    table("ops.task"),
-                    table("ops.task").c.id == table("data.structural_assertion").c.selected_task_id,
-                )
-                .where(table("ops.task").c.run_id == run)
-            )
-            .mappings()
-            .all()
-        )
-    assert len(rows) == 1
-    assert rows[0]["policy_id"] == "independent-definition-component-1"
-    assert rows[0]["statement_json"] == canonical_bytes(expected).decode()
-    # Successful component publication above is the positive premise. Complete the
-    # second producer outside the refusal block so an earlier setup error cannot pass.
-    refused = completed.produce_component(
-        structural_admission=(dict(admission, policy_id="independent-witnessed-applicability-1"),)
-    )
-    with pytest.raises(DBAPIError) as caught:
-        finalize_bound_run(case.writer, refused.run_id, "refused-whole-applicability")
-    error = caught.value.orig
-    assert isinstance(error, PsycopgError)
-    assert error.sqlstate == "23514"
-    assert error.diag.message_primary == "structural publication policy is not released"
-    with case.writer.connect() as conn:
-        assert not conn.execute(
-            select(table("data.structural_assertion"))
-            .join(
-                table("ops.task"),
-                table("ops.task").c.id == table("data.structural_assertion").c.selected_task_id,
-            )
-            .where(table("ops.task").c.run_id == refused.run_id)
-        ).first()
+def test_exact_component_admits_without_whole_applicability(current_pdf_source_factory, tmp_path):
+    literal = "We define variance as spread."
+    source = current_pdf_source_factory((("text", literal, literal, None),))
+    kernel = admit_current_target(source, recipe(tmp_path / "recipe"), tmp_path / "consumer")
+    _, original, products, _ = produce_source_reports(source, kernel, NAMED, text=literal)
+    (report,) = selected_for_source(kernel, products, "urn:corpus:structural:DeclaredDefinitionComponentsReport", original)
+    (component,) = report.body["definition_components"]["components"]
+    # Span meaning is independent literal expectation; native primary block and
+    # product addresses supply only the selected physical scope/custody identity.
+    passage = next(value for value in report.body["inputs"]["passages"] if value["passage_id"] == component["term"]["passage_id"])
+    assert passage["text"] == literal
+    def span(start, end):
+        return dict(source=source_pin(original), start=start, end=end, text=literal[start:end], scope=passage["scope"])
+    expected = dict(version="structural-public-statement-3", kind="definition_components", scope="selected-native-blocks",
+        coverage_limits=[], exclusions=[], definition_component=dict(term=span(10, 18), content=span(22, 28),
+            interpretation="definition", scope=passage["scope"]))
+    issued, admission, _, passes = publish_statement(kernel, report, expected,
+        component_id=component["component_id"], inference="actual-named-definition")
+    assert admission.body["policy_id"] == "independent-definition-component-1"
+    assert admission.body["component_id"] == component["component_id"]
+    assert admission.body["scientific_truth"] == "not_established"
+    assert admission.body["member_truth"] == "not_established_by_assembly_admission"
+    assert admission.body["statement_meaning_json"] == canonical_bytes(semantic_value(expected)).decode()
+    _, page = read_statement(kernel, issued["demand_id"], report, admission)
+    assert page["public_admission"] == "selected_native_statements"
+    assert page["reports"][0]["public_assertions"][0]["admission"] == admission.body
+    with pytest.raises(ValueError):
+        DdoStructuralAssessmentFrame.model_validate({**passes[2]["frame"], "rubric_version": "independent-witnessed-applicability-1"})

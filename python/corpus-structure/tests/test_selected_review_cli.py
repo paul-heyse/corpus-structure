@@ -37,7 +37,7 @@ def test_current_reference_assessment_review_help_is_lazy(cli):
         assert result.exit_code == 0, result.output
 
 
-@pytest.mark.parametrize("targets", [("structure.admit_comparison",), ("record_policy.grade",)])
+@pytest.mark.parametrize("targets", [("structure.admit",), ("record_policy.grade",)])
 def test_structural_admission_cli_requires_its_exact_target_and_evaluator_purpose(
     cli, monkeypatch, tmp_path, targets
 ):
@@ -68,7 +68,7 @@ def test_structural_admission_cli_requires_its_exact_target_and_evaluator_purpos
     result = cli(
         "eval", "structural", "--request", str(path), "--source-root", str(tmp_path), "--json"
     )
-    if targets == ("structure.admit_comparison",):
+    if targets == ("structure.admit",):
         assert acquired == ["evaluate"]
         assert result.exception is sentinel
     else:

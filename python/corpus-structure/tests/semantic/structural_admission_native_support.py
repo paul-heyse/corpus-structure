@@ -14,7 +14,7 @@ from semantic.data_operation_kernel_support import CapturedKernelInputs, KernelR
 from semantic.structural_native_fixture import OPERATION, TEXT, operation_sources
 
 COMPARE = "structure.compare/declared"
-ISSUER = "structure.admit_comparison"
+ISSUER = "structure.admit"
 DOSSIER = "structure.dossier/declared"
 
 
@@ -149,13 +149,22 @@ def selected(kernel, demand, *, kind, purpose="read"):
     )
 
 
-def request(kernel, targets, context, *, originals=(), source_sets=(), selections=(), inference):
+def request(kernel, targets, context, *, originals=(), source_sets=(), selections=(), inference,
+            admission_report=None, admission_variant="comparison"):
     from corpus_structure.semantic.data_operation_service import (
         DemandOriginalSelection,
         DemandRoot,
         NativeDemandRequest,
+        DemandOperationSelection,
     )
     from corpus_structure.semantic.data_operation_source_sets import source_sets_record
+    from corpus_structure.semantic.data_operation_source_sets import FrozenSourceSet
+
+    if ISSUER in targets:
+        if admission_report is None:
+            raise ValueError("structural issuer fixture requires the actual selected report")
+        source_sets = (*source_sets, FrozenSourceSet("structural-admission-report", (admission_report.entry(),)))
+        selections = (*selections, DemandOperationSelection(operation=ISSUER, choices={"report_variant": admission_variant}))
 
     return NativeDemandRequest(
         project_id=PROJECT,

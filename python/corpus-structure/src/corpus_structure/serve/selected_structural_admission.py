@@ -15,7 +15,7 @@ from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.structural_admission import structural_statement
 
 
-def selected_structural_admission(scope, root, selected_report, report):
+def _selected_structural_conclusion(scope, root):
     """Only an actual native authority leaf grants this ordinary scoped standing."""
     if root.member_id is not None:
         raise ValueError("structural admission requires its actual whole conclusion")
@@ -63,6 +63,14 @@ def selected_structural_admission(scope, root, selected_report, report):
     value = DdoStructuralAdmission.model_validate_json(
         json_bytes(decode_semantic_value(product["canonical_body"]))
     )
+    return value, leaf
+
+
+def selected_structural_admission(scope, root, selected_report, report):
+    admitted = _selected_structural_conclusion(scope, root)
+    if admitted is None:
+        return None
+    value, leaf = admitted
     context = selected_report.context
     from corpus_structure.semantic.data_operation_model import json_context_meaning
 
@@ -79,13 +87,51 @@ def selected_structural_admission(scope, root, selected_report, report):
     if (
         value.report != reference
         or value.statement_meaning_json
-        != canonical_bytes(semantic_value(structural_statement(report))).decode()
+        != canonical_bytes(semantic_value(structural_statement(report, value.component_id))).decode()
     ):
         raise ValueError(
-            "structural admission differs from exact selected comparison and statement"
+            "structural admission differs from exact selected report and statement"
         )
     return value, leaf
 
+
+
+def selected_structural_support_root(scope, root, admission_root):
+    """Read one ordinary report through its native selectively disclosed issuer edge."""
+    from corpus_structure.semantic.declared_structural_admission import validate_structural_report_support
+    from corpus_structure.semantic.data_operation_model import SubjectContext
+    from corpus_structure.semantic.data_operation_support import ComputationalSupportReference
+    from corpus_structure.semantic.rich_knowledge_contracts import DdoRichSelectedMember
+    from .selected_contributions import SelectedContribution
+
+    admitted = _selected_structural_conclusion(scope, admission_root)
+    if admitted is None or root.member_id is not None:
+        return None
+    _, leaf = admitted
+    edges = [edge for edge in scope.index.rows("ops.data_derivation_support")
+        if edge["derivation_id"] == leaf.derivation_id and edge["support_derivation_id"] == root.derivation_id
+        and edge.get("admission_use_id") == root.use_id]
+    if not edges:
+        return None
+    if len(edges) != 1:
+        raise ValueError("structural report root repeats its actual ordinary issuer edge")
+    products = scope.index.mapping("kb.data_product", ("id",))
+    kinds = scope.index.mapping("sem.data_kind_contract", ("kind_contract",))
+    requests = scope.index.mapping("ops.data_request", ("id",))
+    value, used, episode, output = validate_structural_report_support(edges[0], leaf=leaf, products=products, kinds=kinds,
+        uses=scope.index.mapping("ops.demand_use", ("id",)), episodes=scope.index.mapping("ops.data_derivation", ("id",)),
+        outputs=scope.index.rows("ops.data_derivation_output"), requests=requests,
+        definitions=scope.index.mapping("sem.data_operation_definition", ("release_id", "operation_id")),
+        intents=scope.index.mapping("ops.data_completion_intent", ("id",)), receipts=scope.index.rows("ops.data_publication_receipt"))
+    if value.report.product_id != root.product_id:
+        return None
+    product = products[root.product_id]
+    context = SubjectContext(product["project_id"], product["subject"], product["original_source"], json_bytes(product["analyzed_scope"]),
+        subject_definition=product["subject_definition"])
+    reference = DdoRichSelectedMember(product_id=root.product_id, member_id=None, kind_contract=product["kind_contract"],
+        support_references=(ComputationalSupportReference(derivation_id=episode["id"], admission_use_id=used["id"]),))
+    return SelectedContribution(reference, context, decode_semantic_value(product["canonical_body"]), kinds[product["kind_contract"]]["kind"],
+        requests[episode["request_id"]]["operation_id"], used["id"], episode["id"], output)
 
 def supported_comparison_gap_rows(
     request, report, admission, binding_report

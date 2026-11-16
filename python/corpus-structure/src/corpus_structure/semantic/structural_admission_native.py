@@ -136,9 +136,56 @@ BEGIN
  jsonb_build_array('coverage_limits',coverage),jsonb_build_array('exclusions',exclusions),jsonb_build_array('comparison',value))));
 END $structural$;
 
+CREATE OR REPLACE FUNCTION ops.ddo_structural_statement(report jsonb,component_id text) RETURNS jsonb
+LANGUAGE plpgsql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $structural$
+DECLARE inputs jsonb:=data.ddo_field(report,'inputs'); variant text:=data.ddo_field(report,'kind')->>1;
+ coverage jsonb; exclusions jsonb; statement jsonb; value jsonb; component jsonb; fields jsonb; role_name text; citations jsonb;
+BEGIN
+ IF variant='qualified_comparison' THEN
+ IF component_id IS NOT NULL THEN RAISE EXCEPTION 'comparison statement cannot select a definition component' USING ERRCODE='23514'; END IF;
+ RETURN ops.ddo_structural_comparison_statement(report); END IF;
+ IF variant NOT IN ('condition_qualification','definition_components') THEN
+ RAISE EXCEPTION 'structural admission requires its exact released report variant' USING ERRCODE='23514'; END IF;
+ IF (variant='definition_components') IS DISTINCT FROM (component_id IS NOT NULL) THEN
+ RAISE EXCEPTION 'only definition publication requires one exact component selector' USING ERRCODE='23514'; END IF;
+ SELECT jsonb_build_array('sequence',coalesce(jsonb_agg(item ORDER BY (item->>1) COLLATE "C"),'[]')) INTO coverage
+ FROM jsonb_array_elements(data.ddo_field(inputs,'coverage_limits')->1) selected(item);
+ SELECT jsonb_build_array('sequence',coalesce(jsonb_agg(item ORDER BY data.canonical_json(data.ddo_json(item)) COLLATE "C"),'[]')) INTO exclusions FROM (
+ SELECT ops.ddo_structural_map(jsonb_build_array(
+ jsonb_build_array('left',ops.ddo_structural_citation(report,data.ddo_field(exclusion,'left')->>1)),
+ jsonb_build_array('right',ops.ddo_structural_citation(report,data.ddo_field(exclusion,'right')->>1)))) item
+ FROM jsonb_array_elements(data.ddo_field(inputs,'exclusions')->1) selected(exclusion)) selected;
+ statement:=ops.ddo_structural_map(jsonb_build_array(
+ jsonb_build_array('version',jsonb_build_array('string','structural-public-statement-3')),
+ jsonb_build_array('kind',jsonb_build_array('string',variant)),jsonb_build_array('scope',data.ddo_field(inputs,'scope')),
+ jsonb_build_array('coverage_limits',coverage),jsonb_build_array('exclusions',exclusions)));
+ IF variant='definition_components' THEN
+ SELECT item INTO STRICT component FROM jsonb_array_elements(data.ddo_field(data.ddo_field(report,'definition_components'),'components')->1) selected(item)
+ WHERE data.ddo_field(item,'component_id')->>1=component_id;
+ fields:=jsonb_build_array(jsonb_build_array('term',ops.ddo_structural_span(report,data.ddo_field(component,'term'))),
+ jsonb_build_array('content',ops.ddo_structural_span(report,data.ddo_field(component,'content'))),
+ jsonb_build_array('interpretation',data.ddo_field(component,'interpretation')),jsonb_build_array('scope',data.ddo_field(component,'scope')));
+ value:=data.ddo_field(component,'effective_version');
+ IF coalesce(value,'["null"]')<>'["null"]'::jsonb THEN fields:=fields||jsonb_build_array(jsonb_build_array('effective_version',value)); END IF;
+ RETURN ops.ddo_structural_merge(statement,ops.ddo_structural_map(jsonb_build_array(jsonb_build_array('definition_component',ops.ddo_structural_map(fields)))));
+ END IF;
+ component:=data.ddo_field(report,'condition_qualification');
+ fields:=jsonb_build_array(jsonb_build_array('relation',data.ddo_field(component,'relation')));
+ value:=data.ddo_field(component,'effective_version');
+ IF coalesce(value->>1,'')<>'' THEN fields:=fields||jsonb_build_array(jsonb_build_array('effective_version',value)); END IF;
+ FOREACH role_name IN ARRAY ARRAY['qualifier','host_predicate'] LOOP
+ SELECT jsonb_build_array('sequence',coalesce(jsonb_agg(ops.ddo_structural_map(jsonb_build_array(
+ jsonb_build_array('source_pointer',data.ddo_field(item,'source_pointer')),
+ jsonb_build_array('passage',ops.ddo_structural_span(report,data.ddo_field(item,'span'))))) ORDER BY ordinal),'[]')) INTO citations
+ FROM jsonb_array_elements(data.ddo_field(component,role_name)->1) WITH ORDINALITY selected(item,ordinal);
+ fields:=fields||jsonb_build_array(jsonb_build_array(role_name,citations));
+ END LOOP;
+ RETURN ops.ddo_structural_merge(statement,ops.ddo_structural_map(jsonb_build_array(jsonb_build_array('condition_qualification',ops.ddo_structural_map(fields)))));
+END $structural$;
+
 REVOKE ALL ON FUNCTION ops.ddo_structural_map(jsonb),ops.ddo_structural_pick(jsonb,text[],boolean),
 ops.ddo_structural_merge(jsonb,jsonb),ops.ddo_structural_citation(jsonb,text),ops.ddo_structural_span(jsonb,jsonb),
-ops.ddo_structural_citations(jsonb,jsonb),ops.ddo_structural_clause_field(jsonb,jsonb),ops.ddo_structural_comparison_statement(jsonb) FROM PUBLIC;
+ops.ddo_structural_citations(jsonb,jsonb),ops.ddo_structural_clause_field(jsonb,jsonb),ops.ddo_structural_comparison_statement(jsonb),ops.ddo_structural_statement(jsonb,text) FROM PUBLIC;
 """
 
 
@@ -153,11 +200,13 @@ def structural_admission_native_sql():
         ADMISSION_OPERATION,
         REFERENCE_KIND,
         DdoStructuralAdmission,
+        STRUCTURAL_REPORT_PRODUCERS,
     )
 
     fields = {
         "version",
         "report",
+        "component_id",
         "policy_id",
         "policy_version",
         "statement_encoding",
@@ -194,6 +243,7 @@ DECLARE definition sem.data_operation_definition; selected jsonb; output jsonb; 
  pass_product kb.data_product; pass_kind sem.data_kind_contract; admitted ops.original_source_admission;
  pass_body jsonb; frame jsonb; passes jsonb:='{}'; actors jsonb:='[]'; parent_values jsonb:='[]'; c jsonb;
  report jsonb; statement jsonb; expected jsonb; selected_case jsonb; report_reference jsonb; producer_count bigint;
+ report_kind text; variant text; report_role text; policy_id text; selected_component text;
 BEGIN
  SELECT * INTO STRICT definition FROM sem.data_operation_definition WHERE release_id=r.release_id AND operation_id=r.operation_id;
  IF NOT coalesce(ops.ddo_structural_command_eligible(definition),false) THEN
@@ -206,14 +256,20 @@ BEGIN
  IF completion->>'outcome' IS DISTINCT FROM 'success' OR jsonb_array_length(completion->'inputs')<>4
  OR jsonb_array_length(completion->'outputs')<>1 THEN
  RAISE EXCEPTION 'structural admission requires one report, three exact passes and one conclusion' USING ERRCODE='23514'; END IF;
- SELECT value INTO STRICT selected FROM jsonb_array_elements(completion->'inputs') WHERE value->>'role'='report';
+ SELECT value INTO STRICT selected FROM jsonb_array_elements(completion->'inputs') WHERE value->>'role' IN ('comparison','condition','definition');
  IF selected->>'member_id' IS NOT NULL OR (selected->>'position')::integer IS DISTINCT FROM 0
  OR (selected->>'multiplicity')::integer IS DISTINCT FROM 1 THEN
  RAISE EXCEPTION 'structural report must be its exact whole scalar input' USING ERRCODE='23514'; END IF;
  SELECT * INTO STRICT report_product FROM kb.data_product WHERE id=selected->>'product_id' AND project_id=r.project_id;
- IF NOT EXISTS(SELECT FROM sem.data_kind_contract kind WHERE kind.kind_contract=report_product.kind_contract
- AND kind.kind='urn:corpus:structural:DeclaredComparisonReport' AND kind.universe='ordinary') THEN
- RAISE EXCEPTION 'structural admission requires its actual current comparison kind' USING ERRCODE='23514'; END IF;
+ SELECT kind.kind INTO STRICT report_kind FROM sem.data_kind_contract kind WHERE kind.kind_contract=report_product.kind_contract AND kind.universe='ordinary';
+ CASE report_kind
+ WHEN 'urn:corpus:structural:DeclaredComparisonReport' THEN variant:='qualified_comparison'; report_role:='comparison'; policy_id:='independent-structural-comparison-1';
+ WHEN 'urn:corpus:structural:DeclaredConditionReport' THEN variant:='condition_qualification'; report_role:='condition'; policy_id:='independent-condition-qualification-1';
+ WHEN 'urn:corpus:structural:DeclaredDefinitionComponentsReport' THEN variant:='definition_components'; report_role:='definition'; policy_id:='independent-definition-component-1';
+ ELSE RAISE EXCEPTION 'structural admission requires its actual released report kind' USING ERRCODE='23514'; END CASE;
+ report:=data.ddo_json(report_product.canonical_body);
+ IF report->>'kind' IS DISTINCT FROM variant OR selected->>'role' IS DISTINCT FROM report_role THEN
+ RAISE EXCEPTION 'structural report differs from its exact choice-bound nominal variant' USING ERRCODE='23514'; END IF;
  SELECT count(*) INTO producer_count FROM ops.data_derivation episode
  JOIN ops.data_derivation_output produced ON produced.derivation_id=episode.id
  JOIN ops.data_publication_receipt receipt ON receipt.derivation_id=episode.id AND receipt.intent_id=episode.intent_id
@@ -222,17 +278,17 @@ BEGIN
  JOIN ops.data_completion_intent intent ON intent.id=episode.intent_id
  WHERE produced.product_id=report_product.id AND produced.member_id IS NULL AND produced.role='result'
  AND produced.position=0 AND produced.multiplicity=1 AND episode.outcome='success'
- AND owner.operation_id='structure.compare/declared' AND owner.profile='derivation'
+ AND owner.profile='derivation'
  AND owner.support_contract->'effects'='[]'::jsonb
- AND owner.support_contract->'capabilities'->'prepared_factory'->>'entrypoint'='corpus_structure.methods.structural_declared.DeclaredStructuralComparison.acquire_port'
+ AND (variant,owner.operation_id,owner.support_contract->'capabilities'->'prepared_factory'->>'entrypoint') IN (
+ __REPORT_PRODUCERS__)
  AND owner.support_contract->'capabilities'->'prepared_factory'->>'source_digest' ~ '^[0-9a-f]{64}$'
  AND owner.implementation_revision LIKE 'implementation-slice:%' AND owner.recipe=episode.recipe
  AND intent.payload->>'implementation_revision'=owner.implementation_revision
  AND jsonb_array_length(coalesce(intent.payload->'execution_evidence'->'cpu_receipts','[]'))=1
- AND EXISTS(SELECT FROM ops.ddo_input_support_refs(r.binding,'report',selected->'position',report_product.id,NULL) support
+ AND EXISTS(SELECT FROM ops.ddo_input_support_refs(r.binding,report_role,selected->'position',report_product.id,NULL) support
  WHERE support->>'kind'='computation' AND support->>'derivation_id'=episode.id);
- IF producer_count<>1 THEN RAISE EXCEPTION 'structural report lacks its one actual captured comparison producer' USING ERRCODE='23514'; END IF;
- report:=data.ddo_json(report_product.canonical_body);
+ IF producer_count<>1 THEN RAISE EXCEPTION 'structural report lacks its one actual captured producer for the selected variant' USING ERRCODE='23514'; END IF;
  report_reference:=ops.ddo_structural_product_reference(report_product);
  FOR selected IN SELECT value FROM jsonb_array_elements(completion->'inputs') WHERE value->>'role'='passes' LOOP
  IF selected->>'member_id' IS NOT NULL OR (selected->>'multiplicity')::integer IS DISTINCT FROM 1 THEN
@@ -260,7 +316,8 @@ BEGIN
  OR jsonb_strip_nulls(frame->'inputs') IS DISTINCT FROM jsonb_strip_nulls(report->'inputs')
  OR frame->>'question' IS DISTINCT FROM report->'inputs'->>'question'
  OR jsonb_array_length(pass_body->'cases')<>1 OR pass_body->'cases'->0->>'case_id' IS DISTINCT FROM frame->>'case_id'
- OR frame->>'operation' IS DISTINCT FROM 'qualified_comparison' OR frame->>'rubric_version' IS DISTINCT FROM 'independent-structural-comparison-1'
+ OR frame->>'operation' IS DISTINCT FROM variant OR frame->>'rubric_version' IS DISTINCT FROM policy_id
+ OR NOT frame ? 'component_id' OR ((frame->>'component_id' IS NOT NULL) IS DISTINCT FROM (variant='definition_components'))
  OR frame->>'direction' NOT IN ('source_first','output_first')
  OR (frame->>'direction'='source_first' AND frame->'exposed_outputs'<>'[]'::jsonb)
  OR (frame->>'direction'='output_first' AND NOT EXISTS(SELECT FROM jsonb_array_elements(frame->'exposed_outputs') exposed
@@ -280,14 +337,15 @@ BEGIN
  IF jsonb_array_length(c->'parents')<>2 OR jsonb_strip_nulls(c->'parents') @> jsonb_strip_nulls(parent_values) IS NOT TRUE
  OR jsonb_strip_nulls(parent_values) @> jsonb_strip_nulls(c->'parents') IS NOT TRUE THEN
  RAISE EXCEPTION 'C does not adjudicate exact original A/B product/body identities' USING ERRCODE='23514'; END IF;
- statement:=ops.ddo_structural_comparison_statement(report_product.canonical_body);
+ selected_component:=frame->>'component_id';
+ statement:=ops.ddo_structural_statement(report_product.canonical_body,selected_component);
  SELECT value INTO STRICT selected_case FROM jsonb_array_elements(c->'cases')
  WHERE value->>'facet'='public_statement' AND value->'path'='["public_statement"]'::jsonb
  AND value->>'judgment'='supported' AND value->>'expected_meaning_json'=data.canonical_json(statement);
  IF NOT (selected_case->'source_passages' @> coalesce((SELECT jsonb_agg(value->>'passage_id') FROM jsonb_array_elements(report->'inputs'->'passages')),'[]')) THEN
  RAISE EXCEPTION 'structural supported statement omits selected source passages' USING ERRCODE='23514'; END IF;
- expected:=jsonb_build_object('version','structural-admission-1','report',report_reference,
- 'policy_id','independent-structural-comparison-1','policy_version','1','statement_encoding','ddo-semantic-value-v1',
+ expected:=jsonb_build_object('version','structural-admission-1','report',report_reference,'component_id',selected_component,
+ 'policy_id',policy_id,'policy_version','1','statement_encoding','ddo-semantic-value-v1',
  'statement_meaning_json',data.canonical_json(statement),'standing','admitted_structural_statement',
  'assessment_basis','independently_attributed_authored_judgments','scientific_truth','not_established',
  'member_truth','not_established_by_assembly_admission');
@@ -358,12 +416,74 @@ EXCEPTION WHEN no_data_found OR too_many_rows THEN
  RAISE EXCEPTION 'dossier admission cannot resolve exact ordinary issuer/report custody' USING ERRCODE='23514';
 END $structural$;
 REVOKE ALL ON FUNCTION ops.ddo_require_structural_dossier_completion(ops.data_request,jsonb) FROM PUBLIC;
+
+CREATE OR REPLACE FUNCTION ops.ddo_structural_report_support(selected_use text,read_id text,requested_products jsonb) RETURNS jsonb
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $structural$
+DECLARE boundary ops.data_demand_read; demand ops.data_demand; chosen ops.demand_use; episode ops.data_derivation;
+ issuer sem.data_operation_definition; conclusion kb.data_product; report kb.data_product;
+ input ops.data_derivation_input; report_use ops.demand_use; support ops.data_derivation_support;
+ value jsonb; role_name text; nominal text;
+BEGIN
+ -- This is one selectively disclosed ordinary edge, not traversal of an issuer's
+ -- protected request, frame, actors or original A/B/C inputs.
+ IF jsonb_typeof(requested_products) IS DISTINCT FROM 'array' THEN RETURN NULL; END IF;
+ SELECT * INTO STRICT boundary FROM ops.data_demand_read WHERE id=read_id;
+ SELECT * INTO STRICT demand FROM ops.data_demand WHERE id=boundary.demand_id;
+ SELECT * INTO STRICT chosen FROM ops.demand_use WHERE id=selected_use AND demand_id=boundary.demand_id;
+ IF chosen.fate IS DISTINCT FROM 'fulfilled' OR NOT coalesce(ops.ddo_read_visible(chosen.created_at,chosen.created_xid,boundary),false)
+ OR NOT coalesce(ops.ddo_use_valid(chosen,boundary),false) OR EXISTS(SELECT FROM ops.demand_use newer
+ WHERE newer.obligation_id=chosen.obligation_id AND ops.ddo_read_visible(newer.created_at,newer.created_xid,boundary)
+ AND (newer.created_at,newer.id)>(chosen.created_at,chosen.id)) THEN RETURN NULL; END IF;
+ SELECT * INTO STRICT episode FROM ops.data_derivation WHERE id=chosen.derivation_id AND outcome='success';
+ SELECT definition.* INTO STRICT issuer FROM sem.data_operation_definition definition
+ JOIN ops.data_request request ON request.operation_id=definition.operation_id AND definition.release_id=episode.release_id
+ WHERE request.id=episode.request_id AND request.project_id=demand.project_id;
+ IF NOT coalesce(ops.ddo_structural_command_eligible(issuer),false)
+ OR NOT coalesce(ops.ddo_policy_authority_leaf(episode.id),false) THEN RETURN NULL; END IF;
+ SELECT product.* INTO STRICT conclusion FROM ops.data_derivation_output output
+ JOIN kb.data_product product ON product.id=output.product_id
+ JOIN sem.data_kind_contract kind ON kind.kind_contract=product.kind_contract
+ WHERE output.derivation_id=episode.id AND output.role='admission' AND output.position=0
+ AND output.multiplicity=1 AND output.member_id IS NULL AND product.project_id=demand.project_id
+ AND kind.kind='__KIND__' AND kind.universe='ordinary' AND requested_products ? product.id;
+ value:=data.ddo_json(conclusion.canonical_body);
+ CASE value->>'policy_id'
+ WHEN 'independent-structural-comparison-1' THEN role_name:='comparison'; nominal:='urn:corpus:structural:DeclaredComparisonReport';
+ WHEN 'independent-condition-qualification-1' THEN role_name:='condition'; nominal:='urn:corpus:structural:DeclaredConditionReport';
+ WHEN 'independent-definition-component-1' THEN role_name:='definition'; nominal:='urn:corpus:structural:DeclaredDefinitionComponentsReport';
+ ELSE RETURN NULL; END CASE;
+ SELECT * INTO STRICT input FROM ops.data_derivation_input WHERE derivation_id=episode.id AND role=role_name
+ AND position=0 AND multiplicity=1 AND member_id IS NULL;
+ SELECT product.* INTO STRICT report FROM kb.data_product product
+ JOIN sem.data_kind_contract kind ON kind.kind_contract=product.kind_contract
+ WHERE product.id=input.product_id AND product.project_id=demand.project_id
+ AND kind.kind=nominal AND kind.universe='ordinary' AND requested_products ? product.id
+ AND ops.ddo_body_access(product.kind_contract,product.canonical_body);
+ IF jsonb_strip_nulls(value->'report') IS DISTINCT FROM jsonb_strip_nulls(ops.ddo_structural_product_reference(report)) THEN RETURN NULL; END IF;
+ -- The consumed original support row fixes the report's actual prior use and
+ -- episode; a same-shaped product or an arbitrary historical use is insufficient.
+ SELECT original.* INTO STRICT support FROM ops.data_derivation_support original
+ WHERE original.derivation_id=episode.id AND original.role=role_name AND original.position=0;
+ SELECT used.* INTO STRICT report_use FROM ops.demand_use used
+ JOIN ops.data_derivation producer ON producer.id=used.derivation_id
+ JOIN ops.data_request request ON request.id=producer.request_id
+ JOIN ops.data_derivation_output output ON output.derivation_id=producer.id
+ WHERE used.id=support.admission_use_id AND used.derivation_id=support.support_derivation_id
+ AND used.fate='fulfilled' AND producer.outcome='success' AND producer.completed_at<=boundary.frontier_at
+ AND request.project_id=demand.project_id AND output.product_id=report.id AND output.member_id IS NULL
+ AND output.role='result' AND output.position=0 AND output.multiplicity=1
+ AND ops.ddo_read_visible(used.created_at,used.created_xid,boundary) AND ops.ddo_use_valid(used,boundary);
+ RETURN jsonb_build_object('product_id',report.id,'derivation_id',report_use.derivation_id,'use_id',report_use.id);
+EXCEPTION WHEN no_data_found OR too_many_rows THEN RETURN NULL;
+END $structural$;
+REVOKE ALL ON FUNCTION ops.ddo_structural_report_support(text,text,jsonb) FROM PUBLIC;
 """
     sql = (
         sql.replace("__OPERATION__", ADMISSION_OPERATION)
         .replace("__FACTORY__", ADMISSION_FACTORY)
         .replace("__KIND__", ADMISSION_KIND)
         .replace("__REFERENCE_KIND__", REFERENCE_KIND)
+        .replace("__REPORT_PRODUCERS__", ",".join("(" + ",".join("'" + item + "'" for item in (variant, operation, factory)) + ")" for variant, producers in STRUCTURAL_REPORT_PRODUCERS.items() for operation, factory in producers))
         .replace("__EFFECTS__", json.dumps([asdict(ADMISSION_EFFECT)], separators=(",", ":")))
     )
     return structural_statement_native_sql() + sql

@@ -3,9 +3,9 @@
 from typing import ClassVar
 
 
-class StructuralComparisonAdmission:
+class StructuralAdmission:
     __data_operation__: ClassVar[dict] = {
-        "id": "structure.admit_comparison",
+        "id": "structure.admit",
         "profile": "command",
         "subject": "actual-focus-source",
         "subject_definition": {
@@ -18,20 +18,36 @@ class StructuralComparisonAdmission:
         "entrypoints": ["run"],
         "roles": [
             {
-                "name": "report",
-                "parameter": "report",
+                "name": "comparison",
+                "parameter": "comparison",
                 "direction": "input",
                 "kind": "urn:corpus:structural:DeclaredComparisonReport",
-                "minimum": 1,
+                "minimum": 0,
                 "maximum": 1,
                 "collection": "scalar",
-                "presence": "required",
+                "presence": "optional",
+                "subject_target": "source-set",
                 "support": {
                     "provenance": "exact",
-                    "source": "same-original",
+                    "source": "frozen-source-set",
+                    "source_set": "structural-admission-report",
                     "identity_requirements": ["episode"],
-                    "coverage": {"role": "report", "description": "exact-native-structural-report"},
+                    "coverage": {"role": "comparison", "description": "exact-native-comparison-report"},
                 },
+            },
+            {
+                "name": "condition", "parameter": "condition", "direction": "input",
+                "kind": "urn:corpus:structural:DeclaredConditionReport", "minimum": 0, "maximum": 1,
+                "collection": "scalar", "presence": "optional", "subject_target": "source-set",
+                "support": {"provenance": "exact", "source": "frozen-source-set", "source_set": "structural-admission-report",
+                    "identity_requirements": ["episode"], "coverage": {"role": "condition", "description": "exact-native-condition-report"}},
+            },
+            {
+                "name": "definition", "parameter": "definition", "direction": "input",
+                "kind": "urn:corpus:structural:DeclaredDefinitionComponentsReport", "minimum": 0, "maximum": 1,
+                "collection": "scalar", "presence": "optional", "subject_target": "source-set",
+                "support": {"provenance": "exact", "source": "frozen-source-set", "source_set": "structural-admission-report",
+                    "identity_requirements": ["episode"], "coverage": {"role": "definition", "description": "exact-native-definition-report"}},
             },
             {
                 "name": "passes",
@@ -61,7 +77,7 @@ class StructuralComparisonAdmission:
             },
         ],
         "applicability": [
-            {"kind": "documentation", "text": "exact-independent-structural-comparison-1"}
+            {"kind": "documentation", "text": "exact-independent-comparison-condition-or-definition-component"}
         ],
         "invariants": [
             {
@@ -100,7 +116,17 @@ class StructuralComparisonAdmission:
         "binding": {
             "operator": "all",
             "children": [
-                {"operator": "scan", "roles": ["report"]},
+                {"operator": "choice", "choice_parameter": "report_variant", "children": [
+                    {"operator": "all", "roles": ["comparison"], "children": [
+                        {"operator": "scan", "roles": ["comparison"]},
+                        {"operator": "cardinality", "roles": ["comparison"], "minimum": 1, "maximum": 1}]},
+                    {"operator": "all", "roles": ["condition"], "children": [
+                        {"operator": "scan", "roles": ["condition"]},
+                        {"operator": "cardinality", "roles": ["condition"], "minimum": 1, "maximum": 1}]},
+                    {"operator": "all", "roles": ["definition"], "children": [
+                        {"operator": "scan", "roles": ["definition"]},
+                        {"operator": "cardinality", "roles": ["definition"], "minimum": 1, "maximum": 1}]},
+                ]},
                 {"operator": "collection", "roles": ["passes"], "collection": "set"},
             ],
         },
@@ -120,12 +146,15 @@ class StructuralComparisonAdmission:
         ],
     }
 
-    def run(self, report: dict, passes: list) -> dict:
+    def run(self, passes: list, comparison: dict | None = None, condition: dict | None = None, definition: dict | None = None) -> dict:
         from corpus_structure.evaluate.declared_structural_admission import (
             structural_admission_value,
         )
 
-        return structural_admission_value(report, passes).model_dump(mode="json")
+        reports = [value for value in (comparison, condition, definition) if value is not None]
+        if len(reports) != 1:
+            raise ValueError("structural admission requires one selected actual report variant")
+        return structural_admission_value(reports[0], passes).model_dump(mode="json")
 
     @staticmethod
     def acquire_port(prepared, model, operation, *, identity, authorize, custody, sources):
