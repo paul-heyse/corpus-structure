@@ -15,7 +15,6 @@ from sqlalchemy import select
 
 from corpus_structure.core.method import Digest, MethodSettings, Resources, UnitRef, UnitView
 from corpus_structure.core.vocab import MethodTier, TaskUnitType
-
 from corpus_structure.methods.contextual_candidates import (
     ContextualQueryConfig,
     ProducerRelationshipRecipe,

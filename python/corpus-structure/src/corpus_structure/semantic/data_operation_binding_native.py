@@ -28,12 +28,18 @@ def binding_native_sql() -> str:
     return _SQL.read_text()
 
 
-def binding_native_definitions(connection: Connection, *, sources=None) -> tuple[NativeDefinition, ...]:
+def binding_native_definitions(
+    connection: Connection, *, sources=None
+) -> tuple[NativeDefinition, ...]:
     """Acquire every helper through the existing native-authoring lifecycle."""
     source = "data-operation-bindings:forward"
-    sql = binding_native_sql() if sources is None else {
-        item.name: item.content for item in sources
-    }["native/data-operation-bindings.sql"].decode()
+    sql = (
+        binding_native_sql()
+        if sources is None
+        else {item.name: item.content for item in sources}[
+            "native/data-operation-bindings.sql"
+        ].decode()
+    )
     prepared = prepare_sql(sql, source=source)
     return tuple(
         definition_from_sql(

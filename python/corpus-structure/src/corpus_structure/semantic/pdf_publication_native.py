@@ -1589,7 +1589,9 @@ corpus_sem_reader,corpus_sem_evaluator;\n"
     sql = sql.replace(marker, _coverage_support_violation_sql(target_metadata=metadata))
     sql = sql.replace(
         "{pdf_access_rows_equal}",
-        _validation_rows_equal_sql("kb.pdf_record_access", "kb.pdf_record_region", target_metadata=metadata),
+        _validation_rows_equal_sql(
+            "kb.pdf_record_access", "kb.pdf_record_region", target_metadata=metadata
+        ),
     ).replace(
         "{pdf_native_rows_equal}",
         _validation_rows_equal_sql(

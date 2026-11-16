@@ -84,11 +84,29 @@ def test_structural_review_preserves_exact_root_scope_and_refuses_substituted_re
             ],
         )
     )
-    selection = review.SelectedStructuralReviewRequest.model_validate({
-        "selection": {**selection.selection.model_dump(mode="python"), "admissions": [{
-            "report": dict(product_id="product:actual", member_id=None, use_id="use:actual", derivation_id="episode:actual"),
-            "admission": dict(product_id="product:admission", member_id=None, use_id="use:issuer", derivation_id="episode:issuer"),
-        }]}})
+    selection = review.SelectedStructuralReviewRequest.model_validate(
+        {
+            "selection": {
+                **selection.selection.model_dump(mode="python"),
+                "admissions": [
+                    {
+                        "report": dict(
+                            product_id="product:actual",
+                            member_id=None,
+                            use_id="use:actual",
+                            derivation_id="episode:actual",
+                        ),
+                        "admission": dict(
+                            product_id="product:admission",
+                            member_id=None,
+                            use_id="use:issuer",
+                            derivation_id="episode:issuer",
+                        ),
+                    }
+                ],
+            }
+        }
+    )
     destination = tmp_path / "selected"
     receipt = review.export_selected_structural_review(None, selection, destination=destination)
     digest = receipt["manifest_digest"]

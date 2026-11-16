@@ -381,8 +381,17 @@ class _RetrievalRow(Protocol):
     score: float | None
 
 
-def contextual_score_statement(relation, *, inventory_id, profile_id, target_ids,
-    query_vector, lexical_query, channel_budget, text_configuration):
+def contextual_score_statement(
+    relation,
+    *,
+    inventory_id,
+    profile_id,
+    target_ids,
+    query_vector,
+    lexical_query,
+    channel_budget,
+    text_configuration,
+):
     """The one bounded Core scoring query, shared by execution and native admission.
 
     Arguments are SQL expressions. The caller owns authentic membership and exact
@@ -398,7 +407,9 @@ def contextual_score_statement(relation, *, inventory_id, profile_id, target_ids
         .cte("eligible_concept_vectors")
         .prefix_with("MATERIALIZED")
     )
-    distance = eligible.c.vector.op("OPERATOR(public.<=>)", return_type=DOUBLE_PRECISION)(query_vector)
+    distance = eligible.c.vector.op("OPERATOR(public.<=>)", return_type=DOUBLE_PRECISION)(
+        query_vector
+    )
     config = text_configuration.cast(REGCONFIG)
     tsquery = func.websearch_to_tsquery(config, lexical_query)
     tsvector = func.to_tsvector(config, eligible.c.search_text)
@@ -444,8 +455,9 @@ def contextual_score_statement(relation, *, inventory_id, profile_id, target_ids
             )
         )
     combined = union_all(*branches).subquery("retrieval_rows")
-    return select(combined).order_by(combined.c.kind.desc(), combined.c.channel,
-        combined.c.rank, combined.c.target_id)
+    return select(combined).order_by(
+        combined.c.kind.desc(), combined.c.channel, combined.c.rank, combined.c.target_id
+    )
 
 
 def retrieve_candidates(
@@ -489,19 +501,21 @@ def retrieve_candidates(
             numerical_policy=numerics,
         )
     numerics.require_runtime(conn)
-    statement = contextual_score_statement(relation,
+    statement = contextual_score_statement(
+        relation,
         inventory_id=bindparam("inventory_id", inventory.inventory_id, type_=Text),
         profile_id=bindparam("profile_id", query.profile_id, type_=Text),
         target_ids=bindparam("target_ids", list(inventory.target_ids), type_=ARRAY(Text)),
-        query_vector=cast(bindparam("query_vector", list(vector), type_=VECTOR(dimension)), VECTOR(dimension)),
+        query_vector=cast(
+            bindparam("query_vector", list(vector), type_=VECTOR(dimension)), VECTOR(dimension)
+        ),
         lexical_query=bindparam("lexical_query", lexical_query, type_=Text),
         channel_budget=bindparam("channel_budget", channel_budget, type_=Integer),
-        text_configuration=literal(numerics.text_configuration))
+        text_configuration=literal(numerics.text_configuration),
+    )
     rows = typing_cast(
         tuple[_RetrievalRow, ...],
-        tuple(
-            conn.execute(statement)
-        ),
+        tuple(conn.execute(statement)),
     )
     actual = tuple(sorted(row.target_id for row in rows if row.kind == "membership"))
     if actual != inventory.target_ids:

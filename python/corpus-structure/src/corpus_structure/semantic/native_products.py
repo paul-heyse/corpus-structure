@@ -118,8 +118,11 @@ def capture_native_authoring_inputs(
     if pdf_actions is not None and pdf_sources is not None:
         raise ValueError("select PDF action input or an already captured PDF source cohort")
     pdf = (
-        pdf_domain_sources(physical_sources=physical, linkml_types=types, actions_source=pdf_actions)
-        if pdf_sources is None else tuple(pdf_sources)
+        pdf_domain_sources(
+            physical_sources=physical, linkml_types=types, actions_source=pdf_actions
+        )
+        if pdf_sources is None
+        else tuple(pdf_sources)
     )
     sources = (
         *native,
@@ -204,8 +207,13 @@ def execution_projection_check_sql(*, target_metadata=None) -> str:
     from pathlib import Path
 
     selected = metadata if target_metadata is None else target_metadata
-    legacy = {"sem.execution_operation", "sem.execution_transition", "sem.execution_edge",
-              "sem.operation_effect", "sem.transition_effect"}
+    legacy = {
+        "sem.execution_operation",
+        "sem.execution_transition",
+        "sem.execution_edge",
+        "sem.operation_effect",
+        "sem.transition_effect",
+    }
     present = legacy.intersection(selected.tables)
     if present and present != legacy:
         raise ValueError("partial legacy execution storage is not an execution projection")
@@ -436,12 +444,16 @@ def current_admission_fields(
         "physical_checks_source_digest": sha256(canonical_bytes(check_sources)).hexdigest()
     }
     descriptor["physical_relations"] = sorted(target_metadata.tables)
-    descriptor["views"] = [
-        {
-            "relation": "data.selected_fact",
-            "query": str(selected_fact_query(target_metadata).compile(dialect=dialect())),
-        }
-    ] if {"data.fact", "data.selection"} <= set(target_metadata.tables) else []
+    descriptor["views"] = (
+        [
+            {
+                "relation": "data.selected_fact",
+                "query": str(selected_fact_query(target_metadata).compile(dialect=dialect())),
+            }
+        ]
+        if {"data.fact", "data.selection"} <= set(target_metadata.tables)
+        else []
+    )
     from .scientific_evidence import scientific_report_layout
 
     layout = scientific_report_layout(

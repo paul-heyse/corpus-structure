@@ -306,6 +306,21 @@ The implementation worker is migrating genuine sentence/construction/predicate/n
 callers and retiring the final two old structural authoring functions/captures. Native successor,
 actual source/provider/read/export/refusal qualification and exact registry retirement remain open.
 
+### Current source integration · 2026-11-15
+
+**Implemented; scoped Tested, native qualification open.** Native contextual score capture now
+includes the single Core query owner and generated SQL. Ordinary structural report support is
+validated through the same bounded authority contract in live and detached readers. Current
+SourceValue extraction/conversion functions have their own captured SQL owner; fresh installation
+no longer obtains these helpers incidentally from historical record-publication migrations.
+Protocol/scoring/target-installation Python controls24 **passed**
+`9b9002f913ff40959c40c4a1dbef275c`; configured typing and lint **passed**
+`e8696e185fc74e3186f899b60be1974c` / `7221ee5d9dd94c33945444341c1e192e`.
+The target-only97-relation seam is implemented but remains unselected. Its first real fresh-native
+attempt `ad343476d73548789664045babfc7484` **failed** because the PDF descriptor function must exist
+before a table CHECK is created; the owning installation repair and actual retry remain open.
+A v10 request is prepared only: no candidate, registration, deployment or adoption is claimed.
+
 ## Current state and execution order
 
 | Package | Implemented / evidence boundary | Remaining accepted work and prerequisites |

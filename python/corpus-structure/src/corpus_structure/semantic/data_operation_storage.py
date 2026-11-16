@@ -44,6 +44,7 @@ def native_protocol_sources(
 ) -> tuple[SourceArtifact, ...]:
     from .authority_leaf import NativeAuthorityLeaf
     from .contextual_admission_native import contextual_admission_native_sql
+    from .contextual_scoring_native import contextual_scoring_native_sql
     from .data_operation_binding_native import binding_native_sources
     from .data_operation_cpu_basis import cpu_input_basis_native_sql
     from .data_operation_execution_evidence import SOURCE, execution_evidence_schema
@@ -119,6 +120,21 @@ def native_protocol_sources(
         SourceArtifact(
             "native/data-operation-contextual-admission.py",
             Path(__file__).with_name("contextual_admission_native.py").read_bytes(),
+        ),
+        SourceArtifact(
+            "native/data-operation-contextual-scoring.sql", contextual_scoring_native_sql().encode()
+        ),
+        SourceArtifact(
+            "native/data-operation-contextual-scoring.py",
+            Path(__file__).with_name("contextual_scoring_native.py").read_bytes(),
+        ),
+        SourceArtifact(
+            "native/data-operation-contextual-score-query.py",
+            Path(__file__).with_name("contextual_retrieval.py").read_bytes(),
+        ),
+        SourceArtifact(
+            "native/data-operation-source-values.sql",
+            Path(__file__).with_name("sql").joinpath("source_values.sql").read_bytes(),
         ),
         SourceArtifact(
             "native/data-operation-execution-evidence-leaf.sql",
@@ -289,6 +305,10 @@ def _captured(sources) -> dict[str, bytes]:
         "native/data-operation-cpu-basis.py",
         "native/data-operation-contextual-admission.sql",
         "native/data-operation-contextual-admission.py",
+        "native/data-operation-contextual-scoring.sql",
+        "native/data-operation-contextual-scoring.py",
+        "native/data-operation-contextual-score-query.py",
+        "native/data-operation-source-values.sql",
         "native/data-operation-execution-evidence-leaf.sql",
         "native/data-operation-execution-evidence-leaf.json",
         "native/data-operation-execution-evidence-leaf.py",
@@ -435,11 +455,13 @@ def native_sql(sources=None) -> str:
     sql = "\n".join(
         bodies[name].decode()
         for name in (
+            "native/data-operation-source-values.sql",
             "native/data-operation-cpu-basis.sql",
             "native/data-operation-record-grade-native.sql",
             # SQL-language structural helpers resolve the tagged-value functions
             # when created. Install the shared kernel before these dependents.
             "native/data-operations.sql",
+            "native/data-operation-contextual-scoring.sql",
             "native/data-operation-contextual-admission.sql",
             "native/data-operation-execution-evidence-leaf.sql",
             "native/data-operation-structural-admission.sql",
@@ -1464,9 +1486,12 @@ def data_operation_native_definitions(connection, *, target_metadata=None, sourc
         target_metadata = compile_physical(
             physical_sources, linkml_types=captured_map["native/projection-linkml-types.yaml"]
         )
-    elif (physical_sources != target_metadata.info.get("physical_sources") or
-          captured_map["native/projection-linkml-types.yaml"] != target_metadata.info.get("physical_linkml_types")):
-        raise ValueError("native definitions and target metadata require the same captured physical sources")
+    elif physical_sources != target_metadata.info.get("physical_sources") or captured_map[
+        "native/projection-linkml-types.yaml"
+    ] != target_metadata.info.get("physical_linkml_types"):
+        raise ValueError(
+            "native definitions and target metadata require the same captured physical sources"
+        )
     sql = native_sql(captured)
     prepared = prepare_sql(sql, source="data-operations:forward")
     public = {item["name"]: item for item in _protocol(captured)}

@@ -16,13 +16,27 @@ CONDITION = "structure.condition_qualification/declared"
 
 
 def recipe(directory):
-    from corpus_structure.evaluate.declared_structural_admission import structural_reference_kind_declarations
+    from corpus_structure.evaluate.declared_structural_admission import (
+        structural_reference_kind_declarations,
+    )
     from corpus_structure.semantic.characterization_ports import construction_operation_sources
-    from corpus_structure.semantic.composed import data_operation_dependencies, read_data_operation_inputs
+    from corpus_structure.semantic.composed import (
+        data_operation_dependencies,
+        read_data_operation_inputs,
+    )
     from corpus_structure.semantic.construction_products import load_construction_options
-    from corpus_structure.semantic.declared_structural_admission import structural_admission_kind_declarations, structural_admission_sources
-    from corpus_structure.semantic.declared_structural_calls import structural_operation_declarations, structural_operation_sources
-    from corpus_structure.semantic.definition_component_products import definition_component_inputs, definition_component_operation_sources
+    from corpus_structure.semantic.declared_structural_admission import (
+        structural_admission_kind_declarations,
+        structural_admission_sources,
+    )
+    from corpus_structure.semantic.declared_structural_calls import (
+        structural_operation_declarations,
+        structural_operation_sources,
+    )
+    from corpus_structure.semantic.definition_component_products import (
+        definition_component_inputs,
+        definition_component_operation_sources,
+    )
     from corpus_structure.semantic.predicate_products import predicate_operation_sources
     from corpus_structure.semantic.primary_operations import combine_primary_sources
     from corpus_structure.semantic.sentence_products import sentence_operation_sources
@@ -36,22 +50,58 @@ def recipe(directory):
     assert acquired is not None
     declarations, sources = acquired
     assert sources is not None
-    deps = ResolvedDependencies((*tuple(item for item in captured.dependencies.artifacts if not item.name.startswith("data-operations/")),
-        SourceArtifact("operation/model-observation.json", (ROOT / "python/corpus-structure/src/corpus_structure/methods/model_observation.json").read_bytes())),
-        captured.dependencies.vocabularies, captured.dependencies.ontology_sources)
-    sources = combine_primary_sources(sources,
-        sentence_operation_sources(), construction_operation_sources(construction_options=load_construction_options(ROOT / "domains/statistics")),
-        predicate_operation_sources(), definition_component_operation_sources(), structural_operation_sources(), structural_admission_sources())
-    deps = data_operation_dependencies(deps, (*declarations, structural_operation_declarations(), structural_reference_kind_declarations(),
-        structural_admission_kind_declarations()), sources)
-    return replace(original, name="current-protected-structural-production",
-        captured_inputs=CapturedKernelInputs(definition_component_inputs(captured.bundle), deps, captured.profile))
+    deps = ResolvedDependencies(
+        (
+            *tuple(
+                item
+                for item in captured.dependencies.artifacts
+                if not item.name.startswith("data-operations/")
+            ),
+            SourceArtifact(
+                "operation/model-observation.json",
+                (
+                    ROOT
+                    / "python/corpus-structure/src/corpus_structure/methods/model_observation.json"
+                ).read_bytes(),
+            ),
+        ),
+        captured.dependencies.vocabularies,
+        captured.dependencies.ontology_sources,
+    )
+    sources = combine_primary_sources(
+        sources,
+        sentence_operation_sources(),
+        construction_operation_sources(
+            construction_options=load_construction_options(ROOT / "domains/statistics")
+        ),
+        predicate_operation_sources(),
+        definition_component_operation_sources(),
+        structural_operation_sources(),
+        structural_admission_sources(),
+    )
+    deps = data_operation_dependencies(
+        deps,
+        (
+            *declarations,
+            structural_operation_declarations(),
+            structural_reference_kind_declarations(),
+            structural_admission_kind_declarations(),
+        ),
+        sources,
+    )
+    return replace(
+        original,
+        name="current-protected-structural-production",
+        captured_inputs=CapturedKernelInputs(
+            definition_component_inputs(captured.bundle), deps, captured.profile
+        ),
+    )
 
 
 def produce_source_reports(source, kernel, target, *, text):
     """One source-discovery demand owns genuine source and primary producer uses."""
-    from semantic.current_pdf_source_support import current_consumer_request
     from corpus_structure.semantic.demand_results import read_demand_result
+    from semantic.current_pdf_source_support import current_consumer_request
 
     pending = current_consumer_request(source, kernel, (target,), discover=True)
     retained, execution = execute(kernel, pending)
@@ -59,33 +109,57 @@ def produce_source_reports(source, kernel, target, *, text):
     with kernel.purpose("read").begin() as connection:
         page = read_demand_result(connection, retained["demand_id"], project_id=PROJECT, limit=1000)
     products = tuple(Product(row, row["body"]) for row in page.members())
-    contract = kernel.identities["https://corpus-structure.dev/semantic/data-operation-source/DdoSelectedNativeSource", "kind"]
-    (original,) = [item for item in products if item.row["kind_contract"] == contract and item.body["text"] == text
-        and item.body["source"]["section_pointer"] == "#/groups/0" and item.body["source"]["membership"] == "descendants"]
+    contract = kernel.identities[
+        "https://corpus-structure.dev/semantic/data-operation-source/DdoSelectedNativeSource",
+        "kind",
+    ]
+    (original,) = [
+        item
+        for item in products
+        if item.row["kind_contract"] == contract
+        and item.body["text"] == text
+        and item.body["source"]["section_pointer"] == "#/groups/0"
+        and item.body["source"]["membership"] == "descendants"
+    ]
     return retained, original, products, pending
 
 
 def source_pin(product):
     """Only returned native header/source coordinates supply the source address."""
-    from corpus_structure.semantic.data_operation_model import json_context_meaning
     from corpus_structure.semantic.data_operation_json import json_bytes
+    from corpus_structure.semantic.data_operation_model import json_context_meaning
     from corpus_structure.semantic.declared_structural_references import DeclaredStructuralSource
     from corpus_structure.semantic.identity import canonical_bytes
 
     row, body = product.row, product.body
     coordinate = body["source"]
-    return DeclaredStructuralSource(source=canonical_bytes([row["product_id"], row["member_id"]]).decode(),
-        source_product=row["product_id"], source_member=row["member_id"], kind_contract=row["kind_contract"], project_id=PROJECT,
-        subject=row["subject"], subject_definition=row["subject_definition"], original_source=row["original_source"],
-        analyzed_scope_meaning=json_context_meaning(json_bytes(row["analyzed_scope"])).decode(), document=coordinate["document"],
-        projection_digest=coordinate["projection"], section_pointer=coordinate["section_pointer"], membership=coordinate["membership"]).model_dump(mode="json", exclude_none=True)
+    return DeclaredStructuralSource(
+        source=canonical_bytes([row["product_id"], row["member_id"]]).decode(),
+        source_product=row["product_id"],
+        source_member=row["member_id"],
+        kind_contract=row["kind_contract"],
+        project_id=PROJECT,
+        subject=row["subject"],
+        subject_definition=row["subject_definition"],
+        original_source=row["original_source"],
+        analyzed_scope_meaning=json_context_meaning(json_bytes(row["analyzed_scope"])).decode(),
+        document=coordinate["document"],
+        projection_digest=coordinate["projection"],
+        section_pointer=coordinate["section_pointer"],
+        membership=coordinate["membership"],
+    ).model_dump(mode="json", exclude_none=True)
 
 
 def selected_for_source(kernel, products, kind, original):
     contract = kernel.identities[kind, "kind"]
-    return tuple(item for item in products if item.row["kind_contract"] == contract
-        and item.row["subject"] == original.row["subject"] and item.row["original_source"] == original.row["original_source"]
-        and item.row["analyzed_scope"] == original.row["analyzed_scope"])
+    return tuple(
+        item
+        for item in products
+        if item.row["kind_contract"] == contract
+        and item.row["subject"] == original.row["subject"]
+        and item.row["original_source"] == original.row["original_source"]
+        and item.row["analyzed_scope"] == original.row["analyzed_scope"]
+    )
 
 
 def publish_statement(kernel, report, expected, *, inference, component_id=None):
@@ -93,21 +167,46 @@ def publish_statement(kernel, report, expected, *, inference, component_id=None)
     from semantic.structural_admission_native_support import ISSUER, request, selected
     from semantic.structural_reference_native_support import original_passes
 
-    originals, passes = original_passes(kernel, report, expected, component_id=component_id, inference=inference)
-    variant = {"qualified_comparison": "comparison", "condition_qualification": "condition", "definition_components": "definition"}[report.body["kind"]]
-    pending = request(kernel, (ISSUER,), report.context, originals=originals,
-        admission_report=report, admission_variant=variant, inference=inference + ":issue")
+    originals, passes = original_passes(
+        kernel, report, expected, component_id=component_id, inference=inference
+    )
+    variant = {
+        "qualified_comparison": "comparison",
+        "condition_qualification": "condition",
+        "definition_components": "definition",
+    }[report.body["kind"]]
+    pending = request(
+        kernel,
+        (ISSUER,),
+        report.context,
+        originals=originals,
+        admission_report=report,
+        admission_variant=variant,
+        inference=inference + ":issue",
+    )
     retained, result = execute(kernel, pending, purpose="evaluate", author=True)
     assert result.receipt_count >= 1
-    (admission,) = selected(kernel, retained["demand_id"], kind="urn:corpus:structural-admission:DdoStructuralAdmission")
+    (admission,) = selected(
+        kernel, retained["demand_id"], kind="urn:corpus:structural-admission:DdoStructuralAdmission"
+    )
     return retained, admission, originals, passes
 
 
 def read_statement(kernel, demand, report, admission):
-    from corpus_structure.serve.structural_products import SelectedStructuralAdmissionBinding, SelectedStructuralRequest, inspect_selected_structures
+    from corpus_structure.serve.structural_products import (
+        SelectedStructuralAdmissionBinding,
+        SelectedStructuralRequest,
+        inspect_selected_structures,
+    )
 
-    pending = SelectedStructuralRequest(demand_id=demand, project_id=PROJECT, roots=(report.root,),
-        admissions=(SelectedStructuralAdmissionBinding(report=report.root, admission=admission.root),))
+    pending = SelectedStructuralRequest(
+        demand_id=demand,
+        project_id=PROJECT,
+        roots=(report.root,),
+        admissions=(
+            SelectedStructuralAdmissionBinding(report=report.root, admission=admission.root),
+        ),
+    )
     with kernel.purpose("read").begin() as connection:
         page = inspect_selected_structures(connection, pending)
     return pending, page
@@ -129,22 +228,45 @@ def assert_native_transport_parity(kernel, native_settings, pending, page, direc
 
     settings = read_settings(native_settings, kernel.engine)
     database = settings.database
-    env = os.environ | {"CORPUS_DATABASE__URL": database.url,
+    env = os.environ | {
+        "CORPUS_DATABASE__URL": database.url,
         "CORPUS_DATABASE__READER_URL": database.reader_url or "",
-        "CORPUS_RUNTIME__DEFAULT_PROJECT": PROJECT}
-    pinned = pending.model_copy(update=dict(read_id=page["cut"]["read_id"], expected_cut=page["cut_id"], implementation=page["implementation"]))
+        "CORPUS_RUNTIME__DEFAULT_PROJECT": PROJECT,
+    }
+    pinned = pending.model_copy(
+        update=dict(
+            read_id=page["cut"]["read_id"],
+            expected_cut=page["cut_id"],
+            implementation=page["implementation"],
+        )
+    )
     path = directory / "selected-condition.json"
     path.write_bytes(json_bytes(pinned.model_dump(mode="python")))
     command = str(Path(sys.executable).with_name("ci"))
-    reply = subprocess.run([command, "structure", "list", str(path), "--json"], cwd=ROOT, env=env,
-        capture_output=True, check=True, timeout=120)
+    reply = subprocess.run(
+        [command, "structure", "list", str(path), "--json"],
+        cwd=ROOT,
+        env=env,
+        capture_output=True,
+        check=True,
+        timeout=120,
+    )
     assert json_loads(reply.stdout) == page
 
     async def inspect():
-        transport = StdioTransport(command=command, args=["mcp", "serve", "--project", PROJECT, "--demand", pending.demand_id],
-            cwd=str(ROOT), env=env, keep_alive=False, log_file=directory / "condition-stdio.log")
+        transport = StdioTransport(
+            command=command,
+            args=["mcp", "serve", "--project", PROJECT, "--demand", pending.demand_id],
+            cwd=str(ROOT),
+            env=env,
+            keep_alive=False,
+            log_file=directory / "condition-stdio.log",
+        )
         async with Client(transport, timeout=120) as client:
-            response = await client.call_tool("inspect_structures", {"request": pinned.model_dump(mode="json")})
+            response = await client.call_tool(
+                "inspect_structures", {"request": pinned.model_dump(mode="json")}
+            )
             assert not response.is_error and response.structured_content is not None
             assert json_loads(response.structured_content["exact_json"]) == page
+
     anyio.run(inspect)

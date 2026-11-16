@@ -1383,8 +1383,6 @@ def series_native_definitions(connection, *, include_selected=True, target_metad
     )
     for name in (
         "record_feature_score",
-        "record_source_float",
-        "record_source_json",
         "record_json_meaning",
         "validate_record_admission_overlay",
         "validate_record_reading_cut",
@@ -2425,13 +2423,17 @@ def prepare_series_candidate(
         connection, predecessor=predecessor, predecessor_state=predecessor_state
     )
     return compare_declared_candidate(
-        connection, target_metadata=target_metadata, authoring=authoring,
+        connection,
+        target_metadata=target_metadata,
+        authoring=authoring,
         old_descriptor=_admission_descriptor(previous_source.admission),
         physical_contract=physical_contract,
     )
 
 
-def compare_declared_candidate(connection, *, target_metadata, authoring, old_descriptor, physical_contract):
+def compare_declared_candidate(
+    connection, *, target_metadata, authoring, old_descriptor, physical_contract
+):
     """One Alembic comparison for explicit prior/desired declarations, including fresh roots."""
     from .alembic_privileges import plugin as privileges_plugin
     from .source_view_native import _admission_descriptor

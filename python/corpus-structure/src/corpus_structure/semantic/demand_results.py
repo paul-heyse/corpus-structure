@@ -631,6 +631,38 @@ def verify_detached_result(
             raise ValueError("detached bounded authority also discloses its hidden episode or use")
         authorities[key] = leaf
 
+    if validate_closure:
+        from .declared_structural_admission import validate_structural_report_support
+
+        # A public structural issuer can disclose its one explicitly requested
+        # ordinary report edge without disclosing the protected issuer episode.
+        # No other support edge may originate outside the acquired episode set.
+        for edge in supports.values():
+            if edge["derivation_id"] in episodes:
+                continue
+            matching = tuple(
+                leaf
+                for (derivation_id, _), leaf in authorities.items()
+                if derivation_id == edge["derivation_id"]
+            )
+            if not matching:
+                raise ValueError(
+                    "detached support edge lacks its producing episode or structural authority"
+                )
+            validate_structural_report_support(
+                edge,
+                leaf=matching[0],
+                products=products,
+                kinds=actual_kinds,
+                uses=uses,
+                episodes=episodes,
+                outputs=output_edges.values(),
+                requests=requests,
+                definitions=actual_definitions,
+                intents=intents,
+                receipts=receipts.values(),
+            )
+
     def authority_reference(reference):
         if reference.get("kind") in {"original-source", "authored"}:
             return None

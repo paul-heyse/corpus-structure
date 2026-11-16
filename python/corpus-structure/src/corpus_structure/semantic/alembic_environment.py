@@ -36,7 +36,11 @@ def run_migrations(context, *, use_default_metadata=True) -> None:
         # Frozen target upgrades need no current physical/compiler imports.
         # Autogeneration supplies its exact captured metadata explicitly.
         selected = None
-    schemas = {relation.schema for relation in selected.tables.values()} if selected is not None else set()
+    schemas = (
+        {relation.schema for relation in selected.tables.values()}
+        if selected is not None
+        else set()
+    )
 
     def include_name(name: str | None, type_: str, parent_names: Any) -> bool:
         return name in schemas if type_ == "schema" else True

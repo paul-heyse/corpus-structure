@@ -149,8 +149,12 @@ def _support_walk(metadata, seed, *, public=False):
             ),
             else_=reference_kind,
         )
-    structural_report = cast(func.ops.ddo_structural_report_support(
-        uses.c.id, _var("boundary.id", Text), _requested_read_scope()["product_ids"]), JSONB)
+    structural_report = cast(
+        func.ops.ddo_structural_report_support(
+            uses.c.id, _var("boundary.id", Text), _requested_read_scope()["product_ids"]
+        ),
+        JSONB,
+    )
     edge_queries = (
         _node(
             case(
@@ -196,9 +200,13 @@ def _support_walk(metadata, seed, *, public=False):
         ).where(closure.c.kind == "population", populations.c.id == closure.c.id),
     )
     if public:
-        edge_queries += (_node("use", structural_report["use_id"].astext).where(
-            closure.c.kind == "use", uses.c.id == closure.c.id,
-            func.ops.ddo_policy_authority_leaf(uses.c.derivation_id)),)
+        edge_queries += (
+            _node("use", structural_report["use_id"].astext).where(
+                closure.c.kind == "use",
+                uses.c.id == closure.c.id,
+                func.ops.ddo_policy_authority_leaf(uses.c.derivation_id),
+            ),
+        )
     edges = union_all(*(query.correlate(closure) for query in edge_queries)).lateral("support_edge")
     return closure.union(
         select(edges.c.kind, edges.c.id)
@@ -1172,13 +1180,28 @@ def selected_support_export(metadata, selected_uses, admissions, in_page):
         visible_edge = relation.c.derivation_id.in_(episode_ids)
         if name == "data_derivation_support":
             issuer_use = uses.alias("structural_issuer_use")
-            report_ref = cast(func.ops.ddo_structural_report_support(
-                issuer_use.c.id, _var("boundary.id", Text), _requested_read_scope()["product_ids"]), JSONB)
-            visible_edge = or_(visible_edge, exists(select(1).select_from(issuer_use).where(
-                reached("use", issuer_use.c.id), relation.c.derivation_id == issuer_use.c.derivation_id,
-                relation.c.role.in_(("comparison", "condition", "definition")),
-                relation.c.support_derivation_id == report_ref["derivation_id"].astext,
-                relation.c.admission_use_id == report_ref["use_id"].astext)))
+            report_ref = cast(
+                func.ops.ddo_structural_report_support(
+                    issuer_use.c.id,
+                    _var("boundary.id", Text),
+                    _requested_read_scope()["product_ids"],
+                ),
+                JSONB,
+            )
+            visible_edge = or_(
+                visible_edge,
+                exists(
+                    select(1)
+                    .select_from(issuer_use)
+                    .where(
+                        reached("use", issuer_use.c.id),
+                        relation.c.derivation_id == issuer_use.c.derivation_id,
+                        relation.c.role.in_(("comparison", "condition", "definition")),
+                        relation.c.support_derivation_id == report_ref["derivation_id"].astext,
+                        relation.c.admission_use_id == report_ref["use_id"].astext,
+                    )
+                ),
+            )
         fields[name.removeprefix("data_derivation_")] = records(
             relation, visible_edge, *relation.primary_key.columns
         )

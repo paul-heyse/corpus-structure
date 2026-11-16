@@ -32,22 +32,53 @@ class StructuralAdmission:
                     "source": "frozen-source-set",
                     "source_set": "structural-admission-report",
                     "identity_requirements": ["episode"],
-                    "coverage": {"role": "comparison", "description": "exact-native-comparison-report"},
+                    "coverage": {
+                        "role": "comparison",
+                        "description": "exact-native-comparison-report",
+                    },
                 },
             },
             {
-                "name": "condition", "parameter": "condition", "direction": "input",
-                "kind": "urn:corpus:structural:DeclaredConditionReport", "minimum": 0, "maximum": 1,
-                "collection": "scalar", "presence": "optional", "subject_target": "source-set",
-                "support": {"provenance": "exact", "source": "frozen-source-set", "source_set": "structural-admission-report",
-                    "identity_requirements": ["episode"], "coverage": {"role": "condition", "description": "exact-native-condition-report"}},
+                "name": "condition",
+                "parameter": "condition",
+                "direction": "input",
+                "kind": "urn:corpus:structural:DeclaredConditionReport",
+                "minimum": 0,
+                "maximum": 1,
+                "collection": "scalar",
+                "presence": "optional",
+                "subject_target": "source-set",
+                "support": {
+                    "provenance": "exact",
+                    "source": "frozen-source-set",
+                    "source_set": "structural-admission-report",
+                    "identity_requirements": ["episode"],
+                    "coverage": {
+                        "role": "condition",
+                        "description": "exact-native-condition-report",
+                    },
+                },
             },
             {
-                "name": "definition", "parameter": "definition", "direction": "input",
-                "kind": "urn:corpus:structural:DeclaredDefinitionComponentsReport", "minimum": 0, "maximum": 1,
-                "collection": "scalar", "presence": "optional", "subject_target": "source-set",
-                "support": {"provenance": "exact", "source": "frozen-source-set", "source_set": "structural-admission-report",
-                    "identity_requirements": ["episode"], "coverage": {"role": "definition", "description": "exact-native-definition-report"}},
+                "name": "definition",
+                "parameter": "definition",
+                "direction": "input",
+                "kind": "urn:corpus:structural:DeclaredDefinitionComponentsReport",
+                "minimum": 0,
+                "maximum": 1,
+                "collection": "scalar",
+                "presence": "optional",
+                "subject_target": "source-set",
+                "support": {
+                    "provenance": "exact",
+                    "source": "frozen-source-set",
+                    "source_set": "structural-admission-report",
+                    "identity_requirements": ["episode"],
+                    "coverage": {
+                        "role": "definition",
+                        "description": "exact-native-definition-report",
+                    },
+                },
             },
             {
                 "name": "passes",
@@ -77,7 +108,10 @@ class StructuralAdmission:
             },
         ],
         "applicability": [
-            {"kind": "documentation", "text": "exact-independent-comparison-condition-or-definition-component"}
+            {
+                "kind": "documentation",
+                "text": "exact-independent-comparison-condition-or-definition-component",
+            }
         ],
         "invariants": [
             {
@@ -116,17 +150,51 @@ class StructuralAdmission:
         "binding": {
             "operator": "all",
             "children": [
-                {"operator": "choice", "choice_parameter": "report_variant", "children": [
-                    {"operator": "all", "roles": ["comparison"], "children": [
-                        {"operator": "scan", "roles": ["comparison"]},
-                        {"operator": "cardinality", "roles": ["comparison"], "minimum": 1, "maximum": 1}]},
-                    {"operator": "all", "roles": ["condition"], "children": [
-                        {"operator": "scan", "roles": ["condition"]},
-                        {"operator": "cardinality", "roles": ["condition"], "minimum": 1, "maximum": 1}]},
-                    {"operator": "all", "roles": ["definition"], "children": [
-                        {"operator": "scan", "roles": ["definition"]},
-                        {"operator": "cardinality", "roles": ["definition"], "minimum": 1, "maximum": 1}]},
-                ]},
+                {
+                    "operator": "choice",
+                    "choice_parameter": "report_variant",
+                    "children": [
+                        {
+                            "operator": "all",
+                            "roles": ["comparison"],
+                            "children": [
+                                {"operator": "scan", "roles": ["comparison"]},
+                                {
+                                    "operator": "cardinality",
+                                    "roles": ["comparison"],
+                                    "minimum": 1,
+                                    "maximum": 1,
+                                },
+                            ],
+                        },
+                        {
+                            "operator": "all",
+                            "roles": ["condition"],
+                            "children": [
+                                {"operator": "scan", "roles": ["condition"]},
+                                {
+                                    "operator": "cardinality",
+                                    "roles": ["condition"],
+                                    "minimum": 1,
+                                    "maximum": 1,
+                                },
+                            ],
+                        },
+                        {
+                            "operator": "all",
+                            "roles": ["definition"],
+                            "children": [
+                                {"operator": "scan", "roles": ["definition"]},
+                                {
+                                    "operator": "cardinality",
+                                    "roles": ["definition"],
+                                    "minimum": 1,
+                                    "maximum": 1,
+                                },
+                            ],
+                        },
+                    ],
+                },
                 {"operator": "collection", "roles": ["passes"], "collection": "set"},
             ],
         },
@@ -146,7 +214,13 @@ class StructuralAdmission:
         ],
     }
 
-    def run(self, passes: list, comparison: dict | None = None, condition: dict | None = None, definition: dict | None = None) -> dict:
+    def run(
+        self,
+        passes: list,
+        comparison: dict | None = None,
+        condition: dict | None = None,
+        definition: dict | None = None,
+    ) -> dict:
         from corpus_structure.evaluate.declared_structural_admission import (
             structural_admission_value,
         )

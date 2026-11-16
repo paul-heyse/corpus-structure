@@ -11,8 +11,7 @@ from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, model_validator
 from corpus_structure.semantic.data_operation_identity import body_identity, semantic_value
 from corpus_structure.semantic.declared_structural_references import DeclaredProductRef
 from corpus_structure.semantic.identity import canonical_bytes
-from corpus_structure.semantic.structural_admission import structural_statement
-from corpus_structure.semantic.structural_admission import POLICIES
+from corpus_structure.semantic.structural_admission import POLICIES, structural_statement
 from corpus_structure.semantic.structural_products import (
     DeclaredComparisonReport,
     DeclaredConditionReport,
@@ -40,7 +39,11 @@ class DdoStructuralAssessmentFrame(StructuralAssessmentValue):
     case_id: Nonempty
     operation: Literal["qualified_comparison", "condition_qualification", "definition_components"]
     component_id: Annotated[str, Field(pattern=r"^[a-f0-9]{64}$")] | None
-    rubric_version: Literal["independent-structural-comparison-1", "independent-condition-qualification-1", "independent-definition-component-1"]
+    rubric_version: Literal[
+        "independent-structural-comparison-1",
+        "independent-condition-qualification-1",
+        "independent-definition-component-1",
+    ]
     direction: Literal["source_first", "output_first"]
     exposed_outputs: tuple[DeclaredProductRef, ...]
 
@@ -49,7 +52,9 @@ class DdoStructuralAssessmentFrame(StructuralAssessmentValue):
         if self.rubric_version != POLICIES[self.operation]:
             raise ValueError("structural rubric differs from its actual report variant")
         if (self.component_id is not None) != (self.operation == "definition_components"):
-            raise ValueError("only definition component admission requires one exact component selector")
+            raise ValueError(
+                "only definition component admission requires one exact component selector"
+            )
         if self.question != self.inputs.question:
             raise ValueError("structural frame question differs from its selected source question")
         if self.direction == "source_first" and self.exposed_outputs:
@@ -134,10 +139,12 @@ def structural_admission_value(report, passes, *, references=None):
     """Compute a permitted conclusion; native completion authenticates its authority."""
     from corpus_structure.semantic.declared_structural_admission import DdoStructuralAdmission
 
-    checked = TypeAdapter(Annotated[
-        DeclaredComparisonReport | DeclaredConditionReport | DeclaredDefinitionComponentsReport,
-        Field(discriminator="kind"),
-    ]).validate_python(report)
+    checked = TypeAdapter(
+        Annotated[
+            DeclaredComparisonReport | DeclaredConditionReport | DeclaredDefinitionComponentsReport,
+            Field(discriminator="kind"),
+        ]
+    ).validate_python(report)
     typed = tuple(DdoStructuralReferencePass.model_validate(value) for value in passes)
     by_kind = {value.pass_kind: value for value in typed}
     if len(typed) != 3 or set(by_kind) != {"A", "B", "C"}:
@@ -182,9 +189,14 @@ def structural_admission_value(report, passes, *, references=None):
         matches[0].source_passages
     ):
         raise ValueError("structural support omits a selected source passage")
-    return DdoStructuralAdmission.model_validate(dict(
-        report=c.frame.report, component_id=c.frame.component_id,
-        policy_id=POLICIES[checked.kind], statement_meaning_json=meaning))
+    return DdoStructuralAdmission.model_validate(
+        dict(
+            report=c.frame.report,
+            component_id=c.frame.component_id,
+            policy_id=POLICIES[checked.kind],
+            statement_meaning_json=meaning,
+        )
+    )
 
 
 def structural_reference_kind_declarations():

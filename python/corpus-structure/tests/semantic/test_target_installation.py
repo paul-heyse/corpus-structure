@@ -21,18 +21,54 @@ def prepared_target():
 
 def test_target_physical_model_keeps_request_pdf_and_release_custody_without_old_roots():
     target = prepared_target()
-    assert {"ops.task", "ops.data_request", "ops.source_build", "ops.pdf_published_revision",
-            "kb.document", "kb.source_artifact", "sem.runtime_binding", "kb.data_product"} <= set(target.tables)
-    assert not {"ops.run", "ops.method", "ops.method_config", "ops.completed_result",
-                "kb.source_view", "ops.run_source_view", "data.fact", "data.selected_fact"} & set(target.tables)
+    assert {
+        "ops.task",
+        "ops.data_request",
+        "ops.source_build",
+        "ops.pdf_published_revision",
+        "kb.document",
+        "kb.source_artifact",
+        "sem.runtime_binding",
+        "kb.data_product",
+    } <= set(target.tables)
+    assert not {
+        "ops.run",
+        "ops.method",
+        "ops.method_config",
+        "ops.completed_result",
+        "kb.source_view",
+        "ops.run_source_view",
+        "data.fact",
+        "data.selected_fact",
+    } & set(target.tables)
     assert not any(relation.schema == "eval" for relation in target.tables.values())
-    assert not {"sem.execution_operation", "sem.execution_transition", "sem.execution_edge",
-                "sem.operation_effect", "sem.transition_effect"} & set(target.tables)
+    assert not {
+        "sem.execution_operation",
+        "sem.execution_transition",
+        "sem.execution_edge",
+        "sem.operation_effect",
+        "sem.transition_effect",
+    } & set(target.tables)
     task = target.tables["ops.task"]
-    assert {"data_request_id", "data_generation", "invocation_key", "attempt", "claimed_by",
-            "lease_until", "result_digest"} <= set(task.c.keys())
-    assert not {"run_id", "method_config_id", "stage", "unit_id", "unit_type",
-                "reused_task_id", "packet_hash", "input_hash"} & set(task.c.keys())
+    assert {
+        "data_request_id",
+        "data_generation",
+        "invocation_key",
+        "attempt",
+        "claimed_by",
+        "lease_until",
+        "result_digest",
+    } <= set(task.c.keys())
+    assert not {
+        "run_id",
+        "method_config_id",
+        "stage",
+        "unit_id",
+        "unit_type",
+        "reused_task_id",
+        "packet_hash",
+        "input_hash",
+    } & set(task.c.keys())
     assert not task.c.data_request_id.nullable and not task.c.data_generation.nullable
     assert "selected_result_run_id" not in target.tables["data.project"].c
     for relation in target.tables.values():
@@ -44,16 +80,24 @@ def test_target_archive_uses_the_exact_supplied_metadata_and_pdf_actions():
     target = prepared_target()
     assert all(relation.metadata is target for relation in archive_tables(target))
     assert "CREATE TEMP TABLE" in archive_native_sql(target_metadata=target)
-    actions = target_pdf_actions(files("corpus_structure").joinpath("model/semantic/pdf-actions.yaml").read_bytes())
+    actions = target_pdf_actions(
+        files("corpus_structure").joinpath("model/semantic/pdf-actions.yaml").read_bytes()
+    )
     sources = pdf_domain_sources(
         physical_sources=target.info["physical_sources"],
-        linkml_types=target.info["physical_linkml_types"], actions_source=actions,
+        linkml_types=target.info["physical_linkml_types"],
+        actions_source=actions,
     )
     contract = json.loads(next(source.content for source in sources if source.name == CONTRACT))
-    assert {"read_native_source", "retain_pdf_original", "seal_pdf_build"} <= set(contract["actions"])
+    assert {"read_native_source", "retain_pdf_original", "seal_pdf_build"} <= set(
+        contract["actions"]
+    )
     assert not {"publish_source_view", "read_source_view"} & set(contract["actions"])
-    assert all(entry["operation"] not in {"publish_source_view", "read_source_view"}
-               for invariant in contract["diagnostics"] for entry in invariant["diagnostics"])
+    assert all(
+        entry["operation"] not in {"publish_source_view", "read_source_view"}
+        for invariant in contract["diagnostics"]
+        for entry in invariant["diagnostics"]
+    )
 
 
 def test_target_native_capture_and_shared_task_checks_have_no_legacy_task_branch():
@@ -76,13 +120,23 @@ def test_target_native_capture_and_shared_task_checks_have_no_legacy_task_branch
     assert fields["physical_id"] == capture.metadata.info["physical_model_id"]
     captured = {source.name: source.content for source in capture.authoring_inputs.sources}
     checks = captured["authoring/data-operation-task-checks.sql"].decode()
-    guard = target_task_guard_sql(capture.metadata.info["physical_sources"]["data-operation-native.yaml"], checks)
+    guard = target_task_guard_sql(
+        capture.metadata.info["physical_sources"]["data-operation-native.yaml"], checks
+    )
     assert parse_sql(guard) and parse_plpgsql(guard)
-    assert all(name not in guard for name in ("ops.run", "method_config", "execution_task_state", "require_transition"))
-    assert all(message in guard for message in (
-        "protected admitted request generation", "invalid data claim fence",
-        "data task association/terminal state immutable", "data completion requires receipt",
-    ))
+    assert all(
+        name not in guard
+        for name in ("ops.run", "method_config", "execution_task_state", "require_transition")
+    )
+    assert all(
+        message in guard
+        for message in (
+            "protected admitted request generation",
+            "invalid data claim fence",
+            "data task association/terminal state immutable",
+            "data completion requires receipt",
+        )
+    )
     payload = target_pdf_sql(capture)
     assert parse_sql(payload)
     assert all(name not in payload for name in ("ops.run", "kb.source_view", "ops.method_config"))
@@ -109,8 +163,10 @@ def test_current_descriptor_and_projection_guard_do_not_inherit_obsolete_storage
     # This checks declaration rendering, without pretending the unnormalized
     # declaration is an admitted native catalog or an installed database.
     sql = native_admission_sql(
-        admission_kernel(), inputs=capture.authoring_inputs,
-        base_descriptor=target_admission_descriptor(capture, ()), target_metadata=capture.metadata,
+        admission_kernel(),
+        inputs=capture.authoring_inputs,
+        base_descriptor=target_admission_descriptor(capture, ()),
+        target_metadata=capture.metadata,
     )
     descriptor = literal_json_descriptor(sql, "data.execution_contract_descriptor")
     assert parse_sql(sql)
@@ -154,7 +210,9 @@ def test_native_definition_source_cohort_cannot_be_mixed_with_another_physical_c
     other = target_metadata(changed, linkml_types=metadata.info["physical_linkml_types"])
     # Refusal precedes any database type lookup or normalization effect.
     with pytest.raises(ValueError, match="same captured physical sources"):
-        data_operation_native_definitions(None, target_metadata=other, sources=capture.authoring_inputs.native_sources)
+        data_operation_native_definitions(
+            None, target_metadata=other, sources=capture.authoring_inputs.native_sources
+        )
 
 
 def test_frozen_target_environment_does_not_import_current_metadata(monkeypatch):

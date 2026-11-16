@@ -5,19 +5,32 @@ def _score_query():
     from pgvector.sqlalchemy import VECTOR
     from sqlalchemy import Integer, Text, column, func, literal_column
     from sqlalchemy.dialects import postgresql
+
     from .contextual_retrieval import contextual_score_statement
 
-    relation = func.ops.ddo_contextual_vector_rows(literal_column("p_inventory"),
-        literal_column("p_vectors")).table_valued(column("inventory_id", Text),
-            column("profile_id", Text), column("target_id", Text), column("vector", VECTOR()),
-            column("search_text", Text), column("exact_forms", postgresql.ARRAY(Text)))
-    statement = contextual_score_statement(relation,
-        inventory_id=literal_column("inventory_key", Text), profile_id=literal_column("profile_key", Text),
+    relation = func.ops.ddo_contextual_vector_rows(
+        literal_column("p_inventory"), literal_column("p_vectors")
+    ).table_valued(
+        column("inventory_id", Text),
+        column("profile_id", Text),
+        column("target_id", Text),
+        column("vector", VECTOR()),
+        column("search_text", Text),
+        column("exact_forms", postgresql.ARRAY(Text)),
+    )
+    statement = contextual_score_statement(
+        relation,
+        inventory_id=literal_column("inventory_key", Text),
+        profile_id=literal_column("profile_key", Text),
         target_ids=literal_column("target_keys", postgresql.ARRAY(Text)),
         query_vector=literal_column("query_vector", VECTOR()),
-        lexical_query=literal_column("lexical_query", Text), channel_budget=literal_column("channel_budget", Integer),
-        text_configuration=literal_column("text_configuration", Text))
-    return str(statement.compile(dialect=postgresql.dialect(), compile_kwargs={"literal_binds": True}))
+        lexical_query=literal_column("lexical_query", Text),
+        channel_budget=literal_column("channel_budget", Integer),
+        text_configuration=literal_column("text_configuration", Text),
+    )
+    return str(
+        statement.compile(dialect=postgresql.dialect(), compile_kwargs={"literal_binds": True})
+    )
 
 
 def contextual_scoring_native_sql() -> str:

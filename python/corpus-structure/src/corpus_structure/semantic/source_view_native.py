@@ -73,13 +73,24 @@ def native_admission_sql(
     descriptor.update(current_admission_fields(inputs, target_metadata=target_metadata))
     if base_descriptor is not None:
         descriptor["views"].extend(
-            dict(relation=native.identity.schema + "." + native.identity.name, query=native.catalog["query"])
-            for native in native_objects if native.identity.kind == "view"
+            dict(
+                relation=native.identity.schema + "." + native.identity.name,
+                query=native.catalog["query"],
+            )
+            for native in native_objects
+            if native.identity.kind == "view"
         )
         descriptor["readers"].extend(
-            dict(relation=native.identity.schema + "." + native.identity.name,
-                 roles=sorted(role for role, privilege, _ in native.catalog["acl"] if privilege == "SELECT" and role != native.catalog["owner"]))
-            for native in native_objects if native.identity.kind == "view"
+            dict(
+                relation=native.identity.schema + "." + native.identity.name,
+                roles=sorted(
+                    role
+                    for role, privilege, _ in native.catalog["acl"]
+                    if privilege == "SELECT" and role != native.catalog["owner"]
+                ),
+            )
+            for native in native_objects
+            if native.identity.kind == "view"
         )
     for obsolete in (
         "supported_effects",

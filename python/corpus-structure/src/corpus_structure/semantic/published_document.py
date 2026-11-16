@@ -393,7 +393,9 @@ def published_reader_definitions(connection, *, target_metadata=None):
     from .native_objects import definition_from_sql
     from .prepared_sql import prepare_sql
 
-    prepared = prepare_sql(published_readers_sql(target_metadata=target_metadata), source="published-document:forward")
+    prepared = prepare_sql(
+        published_readers_sql(target_metadata=target_metadata), source="published-document:forward"
+    )
     result = []
     for index, raw in enumerate(prepared.statements):
         if not isinstance(raw.stmt, ast.CreateFunctionStmt):

@@ -15,9 +15,9 @@ from corpus_structure.semantic.contextual_operations import (
     contextual_retrieval_values,
 )
 from corpus_structure.semantic.contextual_retrieval import freeze_inventory, target_representation
+from corpus_structure.semantic.contextual_storage import lexical_target_rows
 from corpus_structure.semantic.data_operation_compilation import compile_data_operations
 from corpus_structure.semantic.observations import source_python, source_value
-from corpus_structure.semantic.contextual_storage import lexical_target_rows
 from corpus_structure.semantic.types import SourceArtifact, SourceBundle
 
 

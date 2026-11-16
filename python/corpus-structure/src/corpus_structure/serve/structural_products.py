@@ -33,18 +33,27 @@ class SelectedStructuralRequest(StructuralReadRequest):
 
     @model_validator(mode="after")
     def exact_admission_reports(self):
-        if any(binding.report not in self.roots for binding in self.admissions) or len(set(self.admissions)) != len(self.admissions):
-            raise ValueError("structural admissions require distinct bindings to explicit report roots")
+        if any(binding.report not in self.roots for binding in self.admissions) or len(
+            set(self.admissions)
+        ) != len(self.admissions):
+            raise ValueError(
+                "structural admissions require distinct bindings to explicit report roots"
+            )
         return self
 
     @property
     def selection_roots(self):
-        return tuple(dict.fromkeys((*self.roots, *(binding.admission for binding in self.admissions))))
+        return tuple(
+            dict.fromkeys((*self.roots, *(binding.admission for binding in self.admissions)))
+        )
 
 
 def inspect_selected_structures(conn, request: SelectedStructuralRequest):
     """Inspect explicit reports and only their explicitly selected native conclusions."""
-    from .selected_structural_admission import selected_structural_admission, selected_structural_support_root
+    from .selected_structural_admission import (
+        selected_structural_admission,
+        selected_structural_support_root,
+    )
 
     with structural_scope(conn, request, roots=request.selection_roots) as scope:
         reports: list[dict[str, Any]] = []
@@ -52,15 +61,24 @@ def inspect_selected_structures(conn, request: SelectedStructuralRequest):
             selected = selected_root(scope, root)
             selection_basis = "selected_output"
             if selected is None:
-                candidates = [value for binding in request.admissions if binding.report == root
-                    for value in (selected_structural_support_root(scope, root, binding.admission),) if value is not None]
+                candidates = [
+                    value
+                    for binding in request.admissions
+                    if binding.report == root
+                    for value in (selected_structural_support_root(scope, root, binding.admission),)
+                    if value is not None
+                ]
                 if candidates:
                     selected = candidates[0]
                     selection_basis = "native_structural_report_support"
                     if any(value != selected for value in candidates):
-                        raise ValueError("structural admission bindings disagree on exact ordinary report support")
+                        raise ValueError(
+                            "structural admission bindings disagree on exact ordinary report support"
+                        )
             if selected is None:
-                reports.append(dict(root=root.model_dump(mode="python"), availability="outside_selection"))
+                reports.append(
+                    dict(root=root.model_dump(mode="python"), availability="outside_selection")
+                )
                 continue
             report = structural_report(scope, selected)
             public_assertions = []
@@ -70,11 +88,23 @@ def inspect_selected_structures(conn, request: SelectedStructuralRequest):
                 admitted = selected_structural_admission(scope, binding.admission, selected, report)
                 if admitted is not None:
                     value, leaf = admitted
-                    public_assertions.append(dict(admission_root=binding.admission.model_dump(mode="python"),
-                        admission=value.model_dump(mode="python"), authority=leaf.model_dump(mode="python")))
-            reports.append(dict(root=root.model_dump(mode="python"), availability="observed",
-                selection_basis=selection_basis, producer=producer(selected), report=report.model_dump(mode="python", exclude_none=True),
-                public_assertions=public_assertions))
+                    public_assertions.append(
+                        dict(
+                            admission_root=binding.admission.model_dump(mode="python"),
+                            admission=value.model_dump(mode="python"),
+                            authority=leaf.model_dump(mode="python"),
+                        )
+                    )
+            reports.append(
+                dict(
+                    root=root.model_dump(mode="python"),
+                    availability="observed",
+                    selection_basis=selection_basis,
+                    producer=producer(selected),
+                    report=report.model_dump(mode="python", exclude_none=True),
+                    public_assertions=public_assertions,
+                )
+            )
         return bounded_result(
             request,
             dict(
@@ -85,7 +115,9 @@ def inspect_selected_structures(conn, request: SelectedStructuralRequest):
                 reports=reports,
                 standing="private_proposal",
                 source_coverage="declared_report_inputs_only",
-                public_admission="selected_native_statements" if any(report.get("public_assertions") for report in reports) else "not-established",
+                public_admission="selected_native_statements"
+                if any(report.get("public_assertions") for report in reports)
+                else "not-established",
             ),
         )
 

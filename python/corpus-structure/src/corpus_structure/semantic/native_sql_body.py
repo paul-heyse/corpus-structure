@@ -154,7 +154,9 @@ def published_validation_statement(*, target_metadata=None):
 
 
 def published_validation_definition(definition, *, target_metadata=None):
-    return sql_standard_definition(definition, published_validation_statement(target_metadata=target_metadata))
+    return sql_standard_definition(
+        definition, published_validation_statement(target_metadata=target_metadata)
+    )
 
 
 def body_source(statement: ast.CreateFunctionStmt) -> str:

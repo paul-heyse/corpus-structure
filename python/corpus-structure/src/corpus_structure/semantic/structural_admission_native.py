@@ -199,8 +199,8 @@ def structural_admission_native_sql():
         ADMISSION_KIND,
         ADMISSION_OPERATION,
         REFERENCE_KIND,
-        DdoStructuralAdmission,
         STRUCTURAL_REPORT_PRODUCERS,
+        DdoStructuralAdmission,
     )
 
     fields = {
@@ -483,7 +483,14 @@ REVOKE ALL ON FUNCTION ops.ddo_structural_report_support(text,text,jsonb) FROM P
         .replace("__FACTORY__", ADMISSION_FACTORY)
         .replace("__KIND__", ADMISSION_KIND)
         .replace("__REFERENCE_KIND__", REFERENCE_KIND)
-        .replace("__REPORT_PRODUCERS__", ",".join("(" + ",".join("'" + item + "'" for item in (variant, operation, factory)) + ")" for variant, producers in STRUCTURAL_REPORT_PRODUCERS.items() for operation, factory in producers))
+        .replace(
+            "__REPORT_PRODUCERS__",
+            ",".join(
+                "(" + ",".join("'" + item + "'" for item in (variant, operation, factory)) + ")"
+                for variant, producers in STRUCTURAL_REPORT_PRODUCERS.items()
+                for operation, factory in producers
+            ),
+        )
         .replace("__EFFECTS__", json.dumps([asdict(ADMISSION_EFFECT)], separators=(",", ":")))
     )
     return structural_statement_native_sql() + sql

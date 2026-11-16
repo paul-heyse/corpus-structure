@@ -566,10 +566,14 @@ def prepare_contextual_inventory(binding, inventory, vectors, *, profile_id, dim
 
 def lexical_target_rows(inventory):
     """Exact lexical projection under Python's declared Unicode case semantics."""
-    return tuple(dict(target_id=target.target_id,
-        search_text=" ".join((target.label, target.description, *target.aliases)),
-        exact_forms=[target.label.lower(), *(alias.lower() for alias in target.aliases)])
-        for target in inventory.targets)
+    return tuple(
+        dict(
+            target_id=target.target_id,
+            search_text=" ".join((target.label, target.description, *target.aliases)),
+            exact_forms=[target.label.lower(), *(alias.lower() for alias in target.aliases)],
+        )
+        for target in inventory.targets
+    )
 
 
 def transient_vector_relation(

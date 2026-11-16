@@ -83,7 +83,11 @@ def input_body_definition(connection, *, target_metadata=None):
     """Private pure SELECT; the public wrapper retains its mandatory guard sequence."""
     selected = projection("input", target_metadata=target_metadata)
     envelope = (
-        prepare_sql(family_sql("input", target_metadata=target_metadata), source="input projection envelope").private_tree()[0].stmt
+        prepare_sql(
+            family_sql("input", target_metadata=target_metadata), source="input projection envelope"
+        )
+        .private_tree()[0]
+        .stmt
     )
     if not isinstance(envelope, ast.CreateFunctionStmt):
         raise TypeError("input projection requires a function envelope")
@@ -150,7 +154,10 @@ def companion_projection_definitions(connection, *, target_metadata=None):
     The helper is private to the publisher's protected functions. Reader grants belong
     only to the four modeled projections, never to the underlying native relations.
     """
-    sources = (("pin", pin_guard_sql(target_metadata=target_metadata)), *((family, family_sql(family, target_metadata=target_metadata)) for family in FAMILIES))
+    sources = (
+        ("pin", pin_guard_sql(target_metadata=target_metadata)),
+        *((family, family_sql(family, target_metadata=target_metadata)) for family in FAMILIES),
+    )
     definitions = tuple(
         definition_from_sql(
             connection,
@@ -166,4 +173,8 @@ def companion_projection_definitions(connection, *, target_metadata=None):
         )
         for name, sql in sources
     )
-    return (definitions[0], input_body_definition(connection, target_metadata=target_metadata), *definitions[1:])
+    return (
+        definitions[0],
+        input_body_definition(connection, target_metadata=target_metadata),
+        *definitions[1:],
+    )

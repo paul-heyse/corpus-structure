@@ -128,7 +128,12 @@ def render_data_task_guard(content: bytes, template: str, *, checks: str | None 
         if checks is None:
             from pathlib import Path
 
-            checks = Path(__file__).with_name("sql").joinpath("data_operation_task_checks.sql").read_text()
+            checks = (
+                Path(__file__)
+                .with_name("sql")
+                .joinpath("data_operation_task_checks.sql")
+                .read_text()
+            )
         template = template.replace("-- {data_request_task_checks}", checks)
     policy = data_task_lifecycle(content)
 

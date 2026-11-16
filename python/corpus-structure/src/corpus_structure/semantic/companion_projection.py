@@ -75,7 +75,12 @@ def installed_projection_id(physical_id=None) -> str:
     return (
         RECIPE_VERSION
         + ":"
-        + sha256((physical_model_id(MODEL) + (PHYSICAL_MODEL_ID if physical_id is None else physical_id)).encode()).hexdigest()
+        + sha256(
+            (
+                physical_model_id(MODEL)
+                + (PHYSICAL_MODEL_ID if physical_id is None else physical_id)
+            ).encode()
+        ).hexdigest()
     )
 
 
@@ -546,7 +551,9 @@ def projection(family: str, *, target_metadata=None) -> CompanionProjection:
     return prepare_projection(
         SchemaView(str(MODEL)),
         family,
-        projection_id=installed_projection_id(None if target_metadata is None else target_metadata.info["physical_model_id"]),
+        projection_id=installed_projection_id(
+            None if target_metadata is None else target_metadata.info["physical_model_id"]
+        ),
         physical=metadata if target_metadata is None else target_metadata,
     )
 
