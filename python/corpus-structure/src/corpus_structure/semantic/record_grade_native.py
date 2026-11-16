@@ -55,7 +55,7 @@ BEGIN
  FOR node IN __DDO_CORE_RECORD_GRADE_CENSUS_NODES__ LOOP
  IF node.kind='episode' AND EXISTS(SELECT FROM ops.data_derivation episode
  JOIN ops.data_request request ON request.id=episode.request_id
- JOIN sem.data_operation_definition definition ON definition.release_id=request.release_id AND definition.operation_id=request.operation_id
+ JOIN sem.data_operation_definition definition ON definition.release_id=episode.release_id AND definition.operation_id=request.operation_id
  WHERE episode.id=node.id AND (request.operation_id IN ('__GRADE_OPERATION__','record_policy.fit','record_policy.authorize')
  OR EXISTS(SELECT FROM jsonb_array_elements(definition.input_roles||definition.output_roles) role
  JOIN sem.data_kind_contract kind ON kind.kind_contract=role->>'kind_contract' WHERE kind.universe='evaluator'))) THEN
@@ -194,7 +194,7 @@ DECLARE a jsonb:=ops.ddo_record_grade_input(r,'reference_a'); b jsonb:=ops.ddo_r
  predicted jsonb; carrier jsonb; candidate jsonb; event jsonb; actual_event jsonb; coverage jsonb; ref jsonb; pin jsonb; bound jsonb;
  pins jsonb:='[]'; sources_ jsonb:='[]'; event_count integer:=0; selected_count integer:=0; n bigint; pass_row record;
  producer ops.data_derivation; reading sem.data_operation_definition;
- reading_request ops.data_request; reading_completion jsonb; reading_body jsonb;
+ reading_request ops.data_request; reading_intent ops.data_completion_intent; reading_completion jsonb; reading_body jsonb;
  verified_readings jsonb:='{}'; reading_key text;
 BEGIN
  IF grade->>'version' IS DISTINCT FROM 'record-grade-1'
@@ -299,11 +299,19 @@ BEGIN
  reading_key:=data.canonical_json(jsonb_build_array(producer.id,selected->>'product_id'));
  IF NOT verified_readings ? reading_key THEN
  SELECT * INTO STRICT reading_request FROM ops.data_request WHERE id=producer.request_id AND project_id=r.project_id;
- SELECT intent.payload INTO STRICT reading_completion FROM ops.data_completion_intent intent
+ SELECT intent.* INTO STRICT reading_intent FROM ops.data_completion_intent intent
  JOIN ops.data_publication_receipt receipt ON receipt.intent_id=intent.id AND receipt.derivation_id=producer.id
- WHERE intent.id=producer.intent_id;
+ WHERE intent.id=producer.intent_id AND intent.request_id=producer.request_id AND intent.generation=producer.generation;
+ IF (reading_intent.producer_task_id,reading_intent.producer_attempt,reading_intent.runtime_id) IS DISTINCT FROM
+ (producer.producer_task_id,producer.producer_attempt,producer.runtime_id)
+ OR reading_intent.payload->>'outcome' IS DISTINCT FROM producer.outcome THEN
+ RAISE EXCEPTION 'record prediction differs from original reading producer fences' USING ERRCODE='23514'; END IF;
+ reading_request.release_id:=producer.release_id; reading_request.runtime_id:=producer.runtime_id;
+ reading_request.recipe:=producer.recipe; reading_request.generation:=producer.generation;
+ reading_request.binding:=reading_request.binding||jsonb_build_object('inputs',reading_intent.payload->'inputs','support',reading_intent.payload->'support');
+ reading_completion:=reading_intent.payload;
  SELECT canonical_body INTO STRICT reading_body FROM kb.data_product WHERE id=selected->>'product_id' AND project_id=r.project_id;
- IF reading.profile IS DISTINCT FROM 'derivation'
+ IF reading_request.operation_id IS DISTINCT FROM reading.operation_id OR reading.profile IS DISTINCT FROM 'derivation'
  OR reading.support_contract->'effects' IS DISTINCT FROM '[]'::jsonb
  OR reading.support_contract->'capabilities'->'prepared_factory'->>'entrypoint' IS DISTINCT FROM 'corpus_structure.methods.reading_resolution.ReadingResolutionOperation.acquire_port'
  OR reading_completion->>'implementation_revision' IS DISTINCT FROM reading.implementation_revision
