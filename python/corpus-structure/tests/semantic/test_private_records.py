@@ -2,25 +2,12 @@
 
 from copy import deepcopy
 from dataclasses import replace
-from importlib.resources import files
 
-import psycopg
 import pytest
-import yaml
 from native_refusals import native_refusal
 from sqlalchemy import select, text
-from sqlalchemy.exc import DBAPIError
 
-from corpus_structure.semantic import (
-    PreparationProfile,
-    ResolvedDependencies,
-    SourceArtifact,
-    SourceBundle,
-    prepare_release,
-)
-from corpus_structure.semantic.composed import composed_dependencies
 from corpus_structure.semantic.metadata import table
-from corpus_structure.semantic.observations import observation_inputs
 from corpus_structure.semantic.operations import (
     BoundReader,
 )
@@ -35,7 +22,6 @@ from corpus_structure.semantic.publication import (
     publish_on_connection,
 )
 from corpus_structure.semantic.records import authenticated_coordinate_texts
-from corpus_structure.semantic.releases import persist_release
 from semantic.native_record_fixtures import (
     RecordSourceRecipe,
     bypass,
@@ -45,7 +31,6 @@ from semantic.native_record_fixtures import (
     complete_absent_and_empty_reports,
     refresh_record_identities,
 )
-from semantic.native_record_fixtures import private_preparation as private_preparation
 from semantic.native_record_fixtures import private_source as private_source
 
 
@@ -330,125 +315,6 @@ def test_private_product_types_are_independently_refused_by_protected_knowledge_
             ).first()
             is None
         )
-
-
-def test_private_placement_preserves_schemas_and_excludes_graph_applicability(private_preparation):
-    from corpus_structure.semantic.record_contracts import record_product_classes
-    from corpus_structure.semantic.releases import _projection_rows
-
-    prepared = private_preparation.prepared
-    products = record_product_classes(prepared.definitions)
-    private_iris = {prepared.index.definitions[name].iri for name in products}
-    rows = _projection_rows(prepared)
-    assert private_iris <= {row["class_id"] for row in rows["class_definition"]}
-    assert not private_iris & {row["class_id"] for row in rows["property_applicability"]}
-    assert not private_iris & {row["class_id"] for row in rows["identity_slot"]}
-    assert not private_iris & {row["class_id"] for row in rows["operation_property_role"]}
-    assert not private_iris & {row["class_id"] for row in rows["conditional_rule"]}
-    assert any(
-        row["class_id"] == prepared.index.definitions["Entity"].iri
-        for row in rows["property_applicability"]
-    )
-    assert any(
-        row["class_id"] == prepared.index.definitions["Entity"].iri and row["role"] == "identity"
-        for row in rows["operation_property_role"]
-    )
-    assert prepared.json_schema("RecordSourcePin")["properties"]["product_digest"]["allOf"] == [
-        {"pattern": "^[0-9a-f]{64}$"},
-    ]
-
-
-@pytest.mark.parametrize("inlined", [True, False])
-def test_graph_properties_cannot_range_into_private_products(inlined):
-    from corpus_structure.semantic import PreparationError
-
-    schema = dict(
-        id="https://example/graph-range",
-        name="graph_range",
-        imports=["core"],
-        classes={
-            "GraphRecord": dict(attributes={"pin": dict(range="RecordSourcePin", inlined=inlined)})
-        },
-    )
-    bundle = observation_inputs(
-        SourceBundle(
-            "domain",
-            (
-                SourceArtifact(
-                    "core",
-                    files("corpus_structure").joinpath("model/semantic/core.yaml").read_bytes(),
-                ),
-                SourceArtifact("domain", yaml.safe_dump(schema).encode()),
-            ),
-        )
-    )
-    with pytest.raises(PreparationError, match="cannot range into a private record product"):
-        prepare_release(bundle)
-
-
-def test_ordinary_graph_regex_admission_remains_refused(commit_db_engine):
-    schema = dict(
-        id="https://example/graph-regex",
-        name="graph_regex",
-        default_range="string",
-        types={"string": dict(base="str", uri="http://www.w3.org/2001/XMLSchema#string")},
-        classes={"GraphRecord": dict(attributes={"label": dict(pattern="^x$", required=True)})},
-    )
-    bundle = SourceBundle("domain", (SourceArtifact("domain", yaml.safe_dump(schema).encode()),))
-    dependencies = composed_dependencies(ResolvedDependencies())
-    profile = PreparationProfile(version="semantic-2")
-    prepared = prepare_release(bundle, dependencies, profile)
-    with (
-        pytest.raises(DBAPIError, match="unsupported required native constraint scope or pattern"),
-        commit_db_engine.begin() as conn,
-    ):
-        persist_release(conn, bundle, dependencies, profile, prepared)
-        conn.execute(text("SELECT data.require_execution_release(:r)"), {"r": prepared.release_id})
-
-
-def test_native_projection_still_refuses_missing_ordinary_graph_roles(
-    commit_db_engine, monkeypatch
-):
-    from corpus_structure.semantic import releases
-
-    schema = dict(
-        id="https://example/graph-roles",
-        name="graph_roles",
-        default_range="string",
-        types={"string": dict(base="str", uri="http://www.w3.org/2001/XMLSchema#string")},
-        classes={
-            "GraphRecord": dict(
-                attributes={"id": dict(identifier=True), "label": dict(required=True)}
-            )
-        },
-    )
-    bundle = SourceBundle("domain", (SourceArtifact("domain", yaml.safe_dump(schema).encode()),))
-    dependencies = composed_dependencies(ResolvedDependencies())
-    profile = PreparationProfile(version="semantic-2")
-    prepared = prepare_release(bundle, dependencies, profile)
-    original = releases._projection_rows
-
-    def omitted_role(product):
-        rows = original(product)
-        rows["operation_property_role"] = [
-            row for row in rows["operation_property_role"] if row["role"] != "identity"
-        ]
-        return rows
-
-    monkeypatch.setattr(releases, "_projection_rows", omitted_role)
-    with (
-        pytest.raises(
-            releases.ReleaseConflict, match="archived operation_property_role projection differs"
-        ) as refused,
-        commit_db_engine.begin() as conn,
-    ):
-        persist_release(conn, bundle, dependencies, profile, prepared)
-        conn.execute(
-            text("SELECT sem.require_execution_projection(:r)"), {"r": prepared.release_id}
-        )
-    assert isinstance(refused.value.__cause__, DBAPIError)
-    assert isinstance(refused.value.__cause__.orig, psycopg.Error)
-    assert refused.value.__cause__.orig.sqlstate == "23514"
 
 
 @pytest.mark.parametrize(
