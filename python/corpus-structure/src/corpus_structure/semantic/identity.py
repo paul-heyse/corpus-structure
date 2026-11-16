@@ -9,9 +9,6 @@ from typing import Any
 
 from .value_codec import decimal_text, value_meaning
 
-# Compatibility name for existing semantic consumers; there is one implementation.
-_meaning = value_meaning
-
 
 def canonical_bytes(value: Any) -> bytes:
     """Canonical semantic values; input bytes are never normalized with this function."""
@@ -153,8 +150,8 @@ def fact_key(
                     realization,
                     subject,
                     predicate,
-                    _meaning(object_),
-                    _meaning(qualification),
+                    value_meaning(object_),
+                    value_meaning(qualification),
                 ]
             )
         ).hexdigest()

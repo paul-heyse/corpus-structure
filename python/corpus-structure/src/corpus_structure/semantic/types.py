@@ -408,7 +408,8 @@ class PreparedRelease:
         include_identifier: bool = True,
     ) -> tuple[str, ...]:
         """Canonical candidate keys for each declared unique group; not entity resolution."""
-        from .identity import _meaning, canonical_bytes
+        from .identity import canonical_bytes
+        from .value_codec import value_meaning
 
         definition = self.index.definitions[class_name]
         props = self.index.properties_by_class[class_name]
@@ -425,7 +426,7 @@ class PreparedRelease:
                     from .unicode_identity import identity_casefold
 
                     value = identity_casefold(value)
-                pairs.append((name, _meaning(value)))
+                pairs.append((name, value_meaning(value)))
             out.append(
                 "entity:"
                 + sha256(
