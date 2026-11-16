@@ -115,3 +115,22 @@ def test_current_call_facade_imports_the_actual_physical_nominal_owner(monkeypat
             canonical_identifiers=True,
             identifiers_module="._unused_call_enums",
         )
+
+
+def test_current_identifiers_import_without_old_facade_or_arrow():
+    import subprocess
+    import sys
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "from corpus_structure.semantic.identifiers import TaskId; "
+            "import sys; assert TaskId(7)==7; "
+            "assert 'corpus_structure.semantic._operation_calls' not in sys.modules; "
+            "assert not any(name.split('.')[0]=='pyarrow' for name in sys.modules)",
+        ],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr

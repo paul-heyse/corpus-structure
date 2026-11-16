@@ -240,3 +240,32 @@ def test_published_validation_reader_preserves_original_six_field_receipt():
     with pytest.raises(NativeResultViolation) as refused:
         materialize(("b", "f", "l", "contract", "true", "original-native"))
     assert refused.value.locations == (("native_callbacks",),)
+
+
+def test_current_native_integer_widths_refuse_inputs_outside_the_actual_abi():
+    from sqlalchemy import BigInteger, Integer
+
+    function = calls._read_pdf_frozen_rows_function
+    types = {parameter.key: type(parameter.type) for parameter in function.clauses}
+    assert types["task_id"] is BigInteger
+    assert types["limit"] is Integer
+    request = {
+        "build_id": "build",
+        "task_id": 1,
+        "attempt": 1,
+        "holder": "worker",
+        "frozen_digest": "digest",
+        "family": "native",
+        "after": None,
+        "filters": {},
+        "limit": 1,
+    }
+    for field, bits in (("task_id", 64), ("limit", 32)):
+        for edge in (-(1 << (bits - 1)), (1 << (bits - 1)) - 1):
+            actual = calls._read_pdf_frozen_rowsRequest.model_validate({**request, field: edge})
+            assert getattr(actual, field) == edge
+        for outside in (-(1 << (bits - 1)) - 1, 1 << (bits - 1)):
+            with pytest.raises(ValidationError) as invalid:
+                calls._read_pdf_frozen_rowsRequest.model_validate({**request, field: outside})
+            assert not isinstance(invalid.value, NativeResultViolation)
+            assert invalid.value.errors()[0]["loc"] == (field,)
