@@ -107,25 +107,20 @@ def selected_item(
     complete_text = " " * start + block.text
     projection = [dict(kind="synthetic_separator", start=0, end=start)] if start else []
     projection.extend(piece.to_wire() for piece in pieces)
-    items = {f"#/groups/{identity}": dict(self_ref=f"#/groups/{identity}", label="section")}
+    spellings: dict[str, str] = {}
     for piece in pieces:
         if piece.kind != "native_text":
             continue
-        row = items.setdefault(
-            piece.item_ref,
-            dict(
-                self_ref=piece.item_ref,
-                label="text",
-                text="",
-                orig="",
-                parent={"$ref": f"#/groups/{identity}"},
-            ),
-        )
-        row["text"] += complete_text[piece.start : piece.end]
-        row["orig"] = row["text"]
-    source, frame, context = selected_source(
-        complete_text, pieces=projection, items=list(items.values())
-    )
+        pointer = piece.item_ref
+        if pointer is None:
+            raise ValueError("native annotation input requires its exact item pointer")
+        spellings[pointer] = spellings.get(pointer, "") + complete_text[piece.start:piece.end]
+    items = [dict(self_ref=f"#/groups/{identity}", label="section"), *(
+        dict(self_ref=pointer, label="text", text=spelling, orig=spelling,
+             parent={"$ref": f"#/groups/{identity}"})
+        for pointer, spelling in spellings.items()
+    )]
+    source, frame, context = selected_source(complete_text, pieces=projection, items=items)
     return AnnotationInput(frame.pin, block_id, kind, block, layout, pieces), source, frame, context
 
 

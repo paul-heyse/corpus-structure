@@ -4,12 +4,15 @@ These pure fixtures create no execution episode, native receipt or admission sta
 Consumers receive the actual annotation and construction products explicitly.
 """
 
+import json
+
 from dataclasses import asdict
 from functools import lru_cache
 from hashlib import sha256
 from pathlib import Path
 
 from spacy.lang.en import English
+from pydantic import JsonValue
 
 from corpus_structure.ingest.annotation_views import annotation_view
 from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
@@ -121,10 +124,10 @@ def retained_products(source, frame, context, products, profile):
     formal, construction = profiles()
     products = (products,) if isinstance(products, AnnotationProduct) else tuple(products)
 
-    def present(value):
+    def present(value: JsonValue) -> JsonValue:
         if isinstance(value, dict):
             return {key: present(item) for key, item in value.items() if item is not None}
-        if isinstance(value, (tuple, list)):
+        if isinstance(value, list):
             return [present(item) for item in value]
         return value
 
@@ -132,13 +135,9 @@ def retained_products(source, frame, context, products, profile):
     for product in products:
         if product.source != frame.pin:
             raise ValueError("fixture annotation differs from the selected source carrier")
-        view = annotation_view(
-            product,
-            frame.text[product.block_start : product.block_end],
-            English().vocab,
-            required=(),
-        )
-        body = present(asdict(product))
+        view = annotation_view(product, frame.text[product.block_start:product.block_end], English().vocab, required=())
+        body = present(json.loads(canonical_bytes(asdict(product))))
+        assert isinstance(body, dict)
         body["source"] = frame.pin.values()
         body["display_spans"] = [dict(start=start, end=end) for start, end in product.display_spans]
         lexemes = [

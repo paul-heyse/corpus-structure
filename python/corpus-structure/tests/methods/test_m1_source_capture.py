@@ -12,7 +12,6 @@ from methods.m1_producer_support import (
     ControlledDecoder,
     candidate_fixture_inputs,
     candidate_fixture_product,
-    owned_reader,
     view,
 )
 
@@ -26,16 +25,15 @@ def rules():
 
 def compare(monkeypatch, text, rules):
     source = view(text)
-    reader = owned_reader(source)
 
     decoder = ControlledDecoder("empty")
     cfg = candidate_configuration(ROOT / "domains/statistics", "default")
-    ctx = SimpleNamespace(reader=reader, check_active=lambda: None)
+    ctx = SimpleNamespace(check_active=lambda: None)
     baseline = candidate_fixture_product(
-        candidate_fixture_inputs(ctx.reader, source, cfg, check_active=ctx.check_active), decoder
+        candidate_fixture_inputs(source, cfg, check_active=ctx.check_active), decoder
     )
     captured = candidate_fixture_product(
-        candidate_fixture_inputs(ctx.reader, source, cfg, check_active=ctx.check_active),
+        candidate_fixture_inputs(source, cfg, check_active=ctx.check_active),
         decoder,
         source_capture_rules=rules,
     )

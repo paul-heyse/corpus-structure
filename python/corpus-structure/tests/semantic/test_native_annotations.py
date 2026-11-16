@@ -12,7 +12,12 @@ from corpus_structure.ingest.sentences import Block, SentenceConfig, pipeline, p
 from corpus_structure.methods.characterization_resources import ProviderExecution
 from corpus_structure.semantic.cpu_execution import CPUExecutionScope
 from corpus_structure.semantic.native_annotations import annotation_work
-from semantic.primary_formal_fixture import prepared as prepared
+from methods.declared_primary_fixture import profiles, selected_source
+
+
+@pytest.fixture(scope="module")
+def prepared():
+    return profiles()[0].prepared
 
 
 def _plan(work):
