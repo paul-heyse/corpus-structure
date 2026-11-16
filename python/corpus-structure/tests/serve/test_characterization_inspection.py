@@ -91,26 +91,43 @@ def test_current_characterization_refuses_task_layer_pins_and_unbounded_reads():
 
 def _native_header(index=0):
     return dict(
-        spacy_version="3.8.11", model="retained-model", model_version="original-version",
-        profile_recipe="original-profile:" + str(index), pipeline_config_digest="a" * 64,
+        spacy_version="3.8.11",
+        model="retained-model",
+        model_version="original-version",
+        profile_recipe="original-profile:" + str(index),
+        pipeline_config_digest="a" * 64,
         availability=[dict(family="syntax", attribute="dependency", status="complete")],
-        configuration="private pipeline configuration", tokens=[{"text": "private token"}],
+        configuration="private pipeline configuration",
+        tokens=[{"text": "private token"}],
     )
 
 
 def test_summary_projects_metadata_counts_and_original_provider_digests_without_payloads():
     body = dict(
-        source={"document": "original", "projection": "b" * 64}, outcome="partial",
-        members=[{"body": {"record_type": "annotation", "text": "private annotation"}},
-                 {"body": {"record_type": "annotation"}}, {"body": {"record_type": "term"}}],
-        coverage=[dict(family="roles", outcome="unknown", availability="unavailable", reason="private reason")],
+        source={"document": "original", "projection": "b" * 64},
+        outcome="partial",
+        members=[
+            {"body": {"record_type": "annotation", "text": "private annotation"}},
+            {"body": {"record_type": "annotation"}},
+            {"body": {"record_type": "term"}},
+        ],
+        coverage=[
+            dict(
+                family="roles",
+                outcome="unknown",
+                availability="unavailable",
+                reason="private reason",
+            )
+        ],
         dependencies=[{"product_id": "original-primary"}],
         blocks=[{"annotation": _native_header()}, {"annotation": _native_header()}],
     )
     summary = _characterization_summary(body, native_annotation=True)
     assert summary["member_counts"] == {"annotation": 2, "term": 1}
     assert summary["dependency_count"] == 1
-    assert summary["coverage"] == ({"family": "roles", "outcome": "unknown", "availability": "unavailable"},)
+    assert summary["coverage"] == (
+        {"family": "roles", "outcome": "unknown", "availability": "unavailable"},
+    )
     (provider,) = summary["providers"]
     assert provider["provider"] == "spacy" and provider["runtime_version"] == "3.8.11"
     assert provider["configuration_digest"] == "a" * 64
@@ -131,31 +148,68 @@ def test_summary_metadata_bounds_report_actual_omissions():
         header = _native_header(index)
         header["availability"] = header["availability"] * 40
         headers.append({"annotation": header})
-    summary = _characterization_summary({
-        "blocks": headers,
-        "coverage": [dict(family=str(index), outcome="partial", availability="unknown") for index in range(70)],
-        "members": [],
-    }, native_annotation=True)
+    summary = _characterization_summary(
+        {
+            "blocks": headers,
+            "coverage": [
+                dict(family=str(index), outcome="partial", availability="unknown")
+                for index in range(70)
+            ],
+            "members": [],
+        },
+        native_annotation=True,
+    )
     assert len(summary["providers"]) == 16 and summary["providers_omitted"] == 2
-    assert all(len(provider["availability"]) == 32 and provider["availability_omitted"] == 8 for provider in summary["providers"])
+    assert all(
+        len(provider["availability"]) == 32 and provider["availability_omitted"] == 8
+        for provider in summary["providers"]
+    )
     assert len(summary["coverage"]) == 64 and summary["coverage_omitted"] == 6
     assert summary["member_counts"] == {}
 
 
 def test_summary_preserves_selected_custody_and_does_not_advertise_full_body_resource(monkeypatch):
     from types import SimpleNamespace
+
     from corpus_structure.semantic import contribution_queries, releases
     from corpus_structure.serve import source_catalog
 
-    body = dict(outcome="partial", members=[], coverage=[], blocks=[{"annotation": _native_header()}])
-    row = dict(product_id="product:actual", use_id="use:actual", derivation_id="derivation:actual", kind_contract="kind:native", body=body)
-    result = dict(cut={"release_id": "release:actual"}, items=[row], obligations=[], uses=[], populations=[],
-                  knowledge="observed", page_complete=False, continuation="same:cursor", resource_handle="full:body")
+    body = dict(
+        outcome="partial", members=[], coverage=[], blocks=[{"annotation": _native_header()}]
+    )
+    row = dict(
+        product_id="product:actual",
+        use_id="use:actual",
+        derivation_id="derivation:actual",
+        kind_contract="kind:native",
+        body=body,
+    )
+    result = dict(
+        cut={"release_id": "release:actual"},
+        items=[row],
+        obligations=[],
+        uses=[],
+        populations=[],
+        knowledge="observed",
+        page_complete=False,
+        continuation="same:cursor",
+        resource_handle="full:body",
+    )
     monkeypatch.setattr(contribution_queries, "read_demand_contributions", lambda *_: result)
-    prepared = SimpleNamespace(validate_python=lambda nominal, value: SimpleNamespace(model_dump=lambda **_: value))
+    prepared = SimpleNamespace(
+        validate_python=lambda nominal, value: SimpleNamespace(model_dump=lambda **_: value)
+    )
     monkeypatch.setattr(releases, "open_release", lambda *_: prepared)
-    monkeypatch.setattr(source_catalog, "_kind_contracts", lambda _, root: {"kind:native": "DdoSourceAnnotations"} if root == "DdoCharacterizationEnvelope" else {})
-    actual = inspect_demand_characterization(None, DemandCharacterizationRequest(project_id="p", demand_id="d"))
+    monkeypatch.setattr(
+        source_catalog,
+        "_kind_contracts",
+        lambda _, root: (
+            {"kind:native": "DdoSourceAnnotations"} if root == "DdoCharacterizationEnvelope" else {}
+        ),
+    )
+    actual = inspect_demand_characterization(
+        None, DemandCharacterizationRequest(project_id="p", demand_id="d")
+    )
     assert actual["cut"] is result["cut"] and actual["continuation"] == "same:cursor"
     assert actual["items"][0]["product_id"] == "product:actual"
     assert actual["items"][0]["use_id"] == "use:actual"

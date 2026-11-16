@@ -5,7 +5,10 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from corpus_structure.semantic.characterization_store import FamilyOutcomeSummary, HistoricalProviderSummary
+from corpus_structure.semantic.characterization_store import (
+    FamilyOutcomeSummary,
+    HistoricalProviderSummary,
+)
 from corpus_structure.semantic.data_operation_json import DdoJsonValue
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.native_definition_projection import DefinitionVariant
@@ -43,13 +46,15 @@ def _characterization_summary(body, *, native_annotation=False):
     Missing provider/coverage/member fields remain unknown. Retained provider
     attributes describe their original record, never a new execution assertion.
     """
-    values = {name: body[name] for name in (
-        "source", "original_document", "profile", "execution_profile", "outcome"
-    ) if name in body}
+    values = {
+        name: body[name]
+        for name in ("source", "original_document", "profile", "execution_profile", "outcome")
+        if name in body
+    }
     if "members" in body:
-        values["member_counts"] = dict(Counter(
-            packet["body"]["record_type"] for packet in body["members"]
-        ))
+        values["member_counts"] = dict(
+            Counter(packet["body"]["record_type"] for packet in body["members"])
+        )
     for field, output in (("dependencies", "dependency_count"), ("active", "active_count")):
         if field in body:
             values[output] = len(body[field])
@@ -69,11 +74,14 @@ def _characterization_summary(body, *, native_annotation=False):
                 continue
             availability = annotation["availability"]
             provider = HistoricalProviderSummary(
-                provider="spacy", profile=annotation["profile_recipe"],
-                model=annotation["model"], model_version=annotation["model_version"],
+                provider="spacy",
+                profile=annotation["profile_recipe"],
+                model=annotation["model"],
+                model_version=annotation["model_version"],
                 runtime_version=annotation["spacy_version"],
                 configuration_digest=annotation["pipeline_config_digest"],
-                availability=availability[:32], availability_omitted=max(0, len(availability) - 32),
+                availability=availability[:32],
+                availability_omitted=max(0, len(availability) - 32),
             )
             providers[canonical_bytes(provider.model_dump(mode="json"))] = provider
         ordered = [providers[key] for key in sorted(providers)]
@@ -81,7 +89,9 @@ def _characterization_summary(body, *, native_annotation=False):
     return SelectedCharacterizationSummary.model_validate(values).model_dump(mode="python")
 
 
-def inspect_demand_characterization(connection, request: DemandCharacterizationRequest) -> dict[str, Any]:
+def inspect_demand_characterization(
+    connection, request: DemandCharacterizationRequest
+) -> dict[str, Any]:
     """Read actual nominal primary members and explicit population/coverage standing."""
     from corpus_structure.semantic.contribution_queries import read_demand_contributions
 
@@ -111,17 +121,25 @@ def inspect_demand_characterization(connection, request: DemandCharacterizationR
         from corpus_structure.serve.source_catalog import _kind_contracts
 
         prepared = open_release(connection, result["cut"]["release_id"])
-        kinds = {**_kind_contracts(prepared, "DdoCharacterizationEnvelope"),
-                 **_kind_contracts(prepared, "DdoEnrichedDocumentView")}
+        kinds = {
+            **_kind_contracts(prepared, "DdoCharacterizationEnvelope"),
+            **_kind_contracts(prepared, "DdoEnrichedDocumentView"),
+        }
         for row in result["items"]:
             nominal = kinds.get(row["kind_contract"])
             if nominal is None:
                 continue
-            body = prepared.validate_python(nominal, row["body"]).model_dump(mode="python", exclude_unset=True)
-            summaries.append({
-                **{key: value for key, value in row.items() if key != "body"},
-                "summary": _characterization_summary(body, native_annotation=nominal == "DdoSourceAnnotations"),
-            })
+            body = prepared.validate_python(nominal, row["body"]).model_dump(
+                mode="python", exclude_unset=True
+            )
+            summaries.append(
+                {
+                    **{key: value for key, value in row.items() if key != "body"},
+                    "summary": _characterization_summary(
+                        body, native_annotation=nominal == "DdoSourceAnnotations"
+                    ),
+                }
+            )
     return {
         **{key: value for key, value in result.items() if key != "resource_handle"},
         "projection": "characterization-summary-1",

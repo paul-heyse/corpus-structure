@@ -407,10 +407,12 @@ def native_sql(sources=None) -> str:
         for name in (
             "native/data-operation-cpu-basis.sql",
             "native/data-operation-record-grade-native.sql",
+            # SQL-language structural helpers resolve the tagged-value functions
+            # when created. Install the shared kernel before these dependents.
+            "native/data-operations.sql",
             "native/data-operation-structural-admission.sql",
             "native/data-operation-record-policy.sql",
             "native/data-operation-record-policy-completion.sql",
-            "native/data-operations.sql",
             "native/data-operation-rich-admission.sql",
         )
     )
