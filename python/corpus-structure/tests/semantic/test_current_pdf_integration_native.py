@@ -34,7 +34,15 @@ def test_current_rich_integration_retains_separate_claims_inventory_and_original
         organized = case.publications["organized"]
         assert selected.task_id != organized.task_id
         assert len(case.observations) == 2
-        assert all(reference.task_id == selected.task_id for reference, _ in case.observations)
+        assert all(reference.task_id != selected.task_id and reference.task_id != organized.task_id for reference, _ in case.observations)
+        assert len({reference.task_id for reference, _ in case.observations}) == 1
+        retained_effect = case.observation_source.receipt
+        assert retained_effect.task_id == case.observations[0][0].task_id
+        assert len(retained_effect.pages) == 1 and len(retained_effect.pages[0].observations) == 2
+        for request in retained_effect.pages[0].observations:
+            assert request.publication_context.task_id == retained_effect.task_id
+            assert request.publication_context.attempt == retained_effect.attempt
+            assert request.publication_context.runtime_id == retained_effect.runtime_id
         assert case.calls == ["capture", "recognize"]
         with case.reader().connect() as connection:
             reader = published_record_reader(connection, selected, projection_context=case.prepared)
@@ -49,15 +57,9 @@ def test_current_rich_integration_retains_separate_claims_inventory_and_original
             assert any(row.get("text") == "y+2" and row["kind"] == "formula" for row in occurrences)
             for reference, _observed in case.observations:
                 retained = read_pdf_product(connection, **reference.values(), include_body=True)
-                assert (
-                    retained["body"]["observation"]["raw_response_digest"]
-                    == sha256(raw).hexdigest()
-                )
-                assert (
-                    retained["body"]["observation"]["image"]["artifact_digest"]
-                    == sha256(IMAGE).hexdigest()
-                )
-                assert retained["body"]["inputs"] == [{**organized.values(), "role": "structural"}]
+                assert retained["body"]["observation"]["raw_response_digest"] == sha256(raw).hexdigest()
+                assert retained["body"]["observation"]["image"]["artifact_digest"] == sha256(IMAGE).hexdigest()
+                assert retained["body"]["inputs"] == [{**case.publications["native"].values(), "role": "structural"}]
             chart = next(row for row in cells if "/meta/tabular_chart/" in row["occurrence_id"])
             trace = trace_pdf_occurrence(
                 connection, **selected.values(), occurrence_id=chart["occurrence_id"]
@@ -150,6 +152,9 @@ def test_current_failed_later_request_keeps_prior_observation_without_completed_
         assert case.failure is not None
         assert "integrated" not in case.publications
         assert "source.pdf_integrated/reconcile" not in case.values
+        observed_set = case.values["source.pdf_recognition/observe"]["result"]
+        assert observed_set["pages"][0]["outcome"] == "failed"
+        assert [reading["outcome"] for reading in observed_set["pages"][0]["observations"]] == ["succeeded", "failed"]
         assert len(case.observations) == 2
         first, later = case.observations
         assert first[0].task_id == later[0].task_id
@@ -175,12 +180,10 @@ def test_current_failed_later_request_keeps_prior_observation_without_completed_
             )
             assert all(row["body"]["outcome"] != "complete" for row in succeeded["coverage"])
         with case.clone.admin.connect() as connection:
-            assert (
-                connection.scalar(
-                    text(
-                        "SELECT count(*) FROM ops.pdf_product WHERE task_id=:task AND kind='integrated'"
-                    ),
-                    {"task": first[0].task_id},
-                )
-                == 0
-            )
+            assert connection.scalar(text(
+                "SELECT count(DISTINCT publication.build_id) FROM ops.pdf_published_revision publication "
+                "JOIN ops.task task ON task.id=publication.task_id "
+                "JOIN ops.data_request request ON request.id=task.data_request_id "
+                "JOIN ops.demand_use use_ ON use_.request_id=request.id "
+                "WHERE use_.demand_id=:demand AND request.operation_id='source.pdf_integrated/reconcile'"
+            ), {"demand": case.demand_id}) == 0

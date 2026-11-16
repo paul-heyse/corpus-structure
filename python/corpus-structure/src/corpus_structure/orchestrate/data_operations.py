@@ -759,6 +759,7 @@ class NativeDemandExecutor:
                 answer.execution_evidence,
                 answer.cpu_execution_evidence,
                 answer.pdf_execution_evidence,
+                answer.pdf_observation_evidence,
                 answer.provider_execution_evidence,
             )
         ):
@@ -773,6 +774,7 @@ class NativeDemandExecutor:
                 cpu_content=answer.cpu_execution_evidence,
                 cpu_reply_content=answer.cpu_execution_reply,
                 pdf_content=answer.pdf_execution_evidence,
+                pdf_observation_content=answer.pdf_observation_evidence,
                 provider_content=answer.provider_execution_evidence,
             )
         if len(json_bytes(completion)) > self.policy.max_reply_bytes:

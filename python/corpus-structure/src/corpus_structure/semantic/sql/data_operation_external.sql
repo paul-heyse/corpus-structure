@@ -155,7 +155,8 @@ BEGIN
  OR coalesce(completion->'execution_evidence'->'host_receipts','[]')<>'[]'::jsonb
  OR coalesce(completion->'execution_evidence'->'cpu_receipts','[]')<>'[]'::jsonb
  OR coalesce(completion->'execution_evidence'->'provider_receipts','[]')<>'[]'::jsonb
- OR coalesce(completion->'execution_evidence'->'pdf_receipts','[]')<>'[]'::jsonb THEN RAISE EXCEPTION 'external completion requires exactly its genuine native admission receipt'; END IF;
+ OR coalesce(completion->'execution_evidence'->'pdf_receipts','[]')<>'[]'::jsonb
+ OR coalesce(completion->'execution_evidence'->'pdf_observation_receipts','[]')<>'[]'::jsonb THEN RAISE EXCEPTION 'external completion requires exactly its genuine native admission receipt'; END IF;
  wire:=completion->'execution_evidence'->'external_receipts'->0;
  SELECT * INTO STRICT receipt FROM ops.data_external_receipt WHERE id=wire->>'receipt_id';
  SELECT * INTO STRICT packet FROM ops.data_external_packet WHERE id=receipt.packet_id;

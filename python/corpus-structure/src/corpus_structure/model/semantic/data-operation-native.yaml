@@ -1654,6 +1654,7 @@ definitions:
             cpu_receipts: {maxItems: 0}
             cpu_replies: {maxItems: 0}
             pdf_receipts: {maxItems: 0}
+            pdf_observation_receipts: {maxItems: 0}
             external_receipts: {maxItems: 0}
             provider_receipts: {minItems: 1, maxItems: 1}
   attempt_failure:
@@ -2492,6 +2493,14 @@ definitions:
       original_source: {$ref: '#/definitions/identifier'}
     required: [receipt, cut, original_source]
     additionalProperties: false
+  read_selected_pdf_observations_result:
+    type: object
+    properties:
+      cut: {$ref: '#/definitions/cut_selection'}
+      receipt: {$ref: '#/definitions/PdfObservationExecutionReceipt'}
+      original_source: {$ref: '#/definitions/identifier'}
+    required: [receipt, cut, original_source]
+    additionalProperties: false
 
   visual_evidence_pin:
     type: object
@@ -2729,6 +2738,12 @@ operations:
   profile: read
   request: read_selected_pdf_source_request
   result: read_selected_pdf_source_result
+  purposes: [read]
+
+- name: read_selected_pdf_observations
+  profile: read
+  request: read_selected_pdf_source_request
+  result: read_selected_pdf_observations_result
   purposes: [read]
 
 - name: initialize_source_project

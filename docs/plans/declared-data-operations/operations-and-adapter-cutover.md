@@ -17,8 +17,26 @@ must never be relabelled with invented legacy task/view identifiers. Shared stat
 belongs to the coordinator's efficiency follow-up before wider qualification resumes.
 
 PDF transformation acquisition explicitly selects standard, enriched or integrated source mode and
-an optional organization policy. Effect/factory pairs and sealed publisher receipts authenticate
-real native products, with selected structural-parent lineage retained by recognition observations.
+an optional organization policy. **Accepted target; native split qualification remains open ·
+2026-11-16.** Recognition retains a typed ordered page/request observation set over the raw capture,
+independently of organization and deterministic integration policy. Its own recovery policy governs
+provider attempts. Integration consumes that exact selected set plus structural capture and applies
+only integration policy; a policy change can reuse recognized evidence without another provider call.
+Failed, partial and no-response requests retain their actual outcomes and unknown source coverage;
+successful retention establishes neither recognized completeness nor accepted source truth.
+
+One captured PDF field-selection specification owns observation meaning in Python and native SQL.
+Asserted source, model/request configuration, image mapping, raw reading and scope/outcome differences
+remain determinants. Physical task/publication pins, service generations, HTTP receipt identities,
+usage and diagnostic prose remain separately inspectable evidence. Native first-publication context
+is stamped on the immutable observation row and survives exact replay; the current adoption claim
+does not relabel that origin or claim fresh provider execution. Observation-set evidence is distinct
+from a sealed PDF receipt. The selected reader authenticates both support chains and compares the
+qualified raw canonical product, including its kind, logical/schema/recipe/health meaning and context;
+different valid producing episodes may support that same value. Both actual episode/publication
+references remain retained. Equal original bytes alone never establish that correspondence.
+
+Effect/factory pairs and sealed publisher receipts authenticate real native document products.
 The shared reader admits a conservative aggregate materialization bound before whole native bodies
 or companions cross into Python; cancellation and request credit retain their existing owners.
 Pure enrichment/organization kernels remain independently callable. These contracts replace the

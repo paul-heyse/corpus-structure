@@ -193,6 +193,40 @@ def test_captured_recognition_reader_is_an_exact_current_pdf_authoring_input():
     assert "original precision differs" not in target_pdf_sql(changed)
 
 
+def test_target_observation_projection_uses_acquired_spec_after_ambient_source_restores(monkeypatch):
+    import json
+    from dataclasses import replace
+    from pglast import ast, parse_sql
+    from pglast.stream import RawStream
+    from corpus_structure.semantic import pdf_domain
+    from corpus_structure.semantic.pdf_observations import MEANING_SPEC
+    from corpus_structure.semantic.target_installation import capture_target_installation, target_pdf_sql
+    from corpus_structure.semantic.types import SourceArtifact
+    from semantic.pdf_domain_support import altered_domain
+
+    acquire = pdf_domain.pdf_domain_sources
+
+    def selected_sources(**kwargs):
+        contract, *sources = acquire(**kwargs)
+        original = pdf_domain.PdfDomainContract(contract.content, tuple(sources))
+        declaration = next(source for source in sources if source.name == MEANING_SPEC)
+        selected = json.loads(declaration.content)
+        selected["binding_fields"].remove("seed")
+        domain = altered_domain(original, sources=tuple(
+            replace(source, content=json.dumps(selected).encode()) if source.name == MEANING_SPEC else source
+            for source in sources
+        ))
+        return (SourceArtifact(pdf_domain.CONTRACT, domain.content), *domain.sources)
+
+    with monkeypatch.context() as acquisition:
+        acquisition.setattr(pdf_domain, "pdf_domain_sources", selected_sources)
+        captured = capture_target_installation(prepared_target())
+    statement = next(row.stmt for row in parse_sql(target_pdf_sql(captured))
+        if isinstance(row.stmt, ast.CreateFunctionStmt) and row.stmt.funcname
+        and row.stmt.funcname[-1].sval == "pdf_observation_meaning")
+    assert "'seed',observed->'binding'->'seed'" not in RawStream()(statement)
+
+
 def test_current_descriptor_and_projection_guard_do_not_inherit_obsolete_storage():
     from pglast import parse_sql
 

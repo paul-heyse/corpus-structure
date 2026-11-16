@@ -5,41 +5,166 @@ DECLARE value jsonb:=convert_from(p_payload,'UTF8')::jsonb;
  observed jsonb:=value->'observation'; binding jsonb:=observed->'binding'; decoding jsonb;
  observation jsonb; coverage jsonb;
 BEGIN
- IF value->>'kind' IS DISTINCT FROM 'recognition_observation'
- OR observed->>'pass_role' NOT IN ('A','B','C') OR observed ? 'mapped_evidence_digest'
- OR coalesce(value->'relations','[]')<>'[]'::jsonb
- OR coalesce(value->'mapping_reports','[]')<>'[]'::jsonb THEN
- RAISE EXCEPTION 'recognition meaning requires the finite raw observation producer'
- USING ERRCODE='23514'; END IF;
- decoding:=(binding->>'decoding_json')::jsonb;
- IF jsonb_typeof(decoding) IS DISTINCT FROM 'object' THEN
- RAISE EXCEPTION 'recognition decoding must be a declared object' USING ERRCODE='23514'; END IF;
- binding:=jsonb_set(binding,'{decoding_json}',to_jsonb(data.canonical_json(
- decoding-'receipt_digests'-'service_generation')));
- SELECT jsonb_object_agg(key,val) INTO observation FROM jsonb_each(observed) row(key,val)
- WHERE key=ANY(ARRAY['image','pass_role','outcome','raw_response_digest','finish_reason']);
- observation:=observation||jsonb_build_object('binding',binding);
- IF EXISTS(SELECT FROM jsonb_array_elements(value->'coverage') row
- WHERE row->'supports' IS DISTINCT FROM '[]'::jsonb) THEN
- RAISE EXCEPTION 'raw recognition coverage cannot inherit a source assessment'
- USING ERRCODE='23514'; END IF;
- SELECT coalesce(jsonb_agg(jsonb_build_object('coverage_id',row->'coverage_id',
- 'scope',row->'scope','family',row->'family','discovery_policy',row->'discovery_policy',
- 'outcome',row->'outcome') ORDER BY ordinal),'[]') INTO coverage
- FROM jsonb_array_elements(value->'coverage') WITH ORDINALITY item(row,ordinal);
- RETURN jsonb_build_object('version','pdf-observation-meaning-1',
- 'source_digest',value->'artifact_digest','recipe_digest',value->'recipe_digest',
- 'observation',observation,'occurrences',value->'occurrences','coverage',coverage,
- 'mapping_outcome',value->'health'->'mapping_outcome',
- 'source_fidelity',value->'health'->'source_fidelity');
+ -- {observation_meaning_projection}
 END $meaning$;
 
-CREATE OR REPLACE FUNCTION ops.publish_pdf_observation(p_task bigint,p_attempt bigint,p_holder text,p_contract text,p_payload bytea,p_artifacts bytea[]) RETURNS text
+CREATE OR REPLACE FUNCTION ops.pdf_recognition_profile(p_release text,p_definition sem.data_operation_definition)
+RETURNS jsonb LANGUAGE plpgsql STABLE SET search_path=pg_catalog,pg_temp AS $profile$
+DECLARE asset jsonb; profile jsonb;
+BEGIN
+ IF p_definition.release_id IS DISTINCT FROM p_release THEN
+ RAISE EXCEPTION 'recognition policy belongs to another release' USING ERRCODE='23514'; END IF;
+ SELECT value INTO STRICT asset FROM jsonb_array_elements(p_definition.support_contract->'assets')
+ WHERE value->>'reference'='frozen-native-recognition-policy'
+ AND value->>'contract'='pdf-recognition/policy-v1'
+ AND value->>'role'='recognition-models-and-recovery-policy';
+ SELECT convert_from(content,'UTF8')::jsonb INTO STRICT profile FROM sem.input
+ WHERE release_id=p_release AND input_kind='dependency' AND input_name=asset->>'contract'
+ AND content_digest=asset->>'content_digest' AND encode(sha256(content),'hex')=content_digest;
+ PERFORM ops.ddo_fields(profile,ARRAY['version','base_recipe_digest','recipes','recovery_policy','source_recovery']);
+ IF profile->>'version' IS DISTINCT FROM 'pdf-recognition-profile-1' THEN
+ RAISE EXCEPTION 'unsupported recognition policy' USING ERRCODE='23514'; END IF;
+ RETURN profile;
+END $profile$;
+
+CREATE OR REPLACE FUNCTION ops.pdf_observation_projection(p_receipt jsonb,p_task bigint,p_attempt bigint,p_holder text)
+RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $projection$
+DECLARE job ops.task; request ops.data_request; definition sem.data_operation_definition;
+ context record; profile jsonb; selected jsonb; capture jsonb; page jsonb; request_ref jsonb;
+ report jsonb; result jsonb; request_row jsonb; payload jsonb; raw_payload bytea;
+ product ops.pdf_product; origin jsonb; ordinal bigint; page_position bigint;
+ requested jsonb; available jsonb; page_groups jsonb:='[]'; previous_page bigint; previous_outcome text;
+ page_requests jsonb; pages jsonb:='[]'; report_content bytea; body_content bytea;
+ recovery_count integer:=0;
+BEGIN
+ PERFORM ops.ddo_fields(p_receipt,ARRAY['version','request_id','generation','task_id','attempt','holder','runtime_id','source_digest','recipe_digest','pages']);
+ SELECT * INTO STRICT job FROM ops.task WHERE id=p_task;
+ SELECT * INTO STRICT context FROM ops.pdf_task_context(p_task);
+ SELECT * INTO STRICT request FROM ops.data_request WHERE id=context.request_id;
+ PERFORM ops.ddo_authorize_request(request);
+ SELECT * INTO STRICT definition FROM sem.data_operation_definition
+ WHERE release_id=context.release_id AND operation_id=request.operation_id;
+ IF NOT coalesce(ops.ddo_pdf_command_eligible(definition),false)
+ OR definition.support_contract->'effects'->0->>'name' IS DISTINCT FROM 'retain_pdf_observations'
+ OR p_receipt->>'version' IS DISTINCT FROM 'pdf-observation-execution-1'
+ OR p_receipt->>'request_id' IS DISTINCT FROM context.request_id
+ OR (p_receipt->>'generation')::bigint IS DISTINCT FROM context.generation
+ OR (p_receipt->>'task_id')::bigint IS DISTINCT FROM p_task
+ OR (p_receipt->>'attempt')::bigint IS DISTINCT FROM p_attempt
+ OR p_attempt IS NULL OR p_attempt<1 OR nullif(p_holder,'') IS NULL
+ OR p_receipt->>'holder' IS DISTINCT FROM p_holder
+ OR p_receipt->>'source_digest' IS DISTINCT FROM context.source_digest
+ OR NOT EXISTS(SELECT FROM sem.runtime_binding runtime WHERE runtime.release_id=context.release_id
+ AND runtime.runtime_id=p_receipt->>'runtime_id') THEN
+ RAISE EXCEPTION 'observation receipt differs from actual native recognition owner' USING ERRCODE='23514'; END IF;
+ profile:=ops.pdf_recognition_profile(context.release_id,definition);
+ IF p_receipt->>'recipe_digest' IS DISTINCT FROM profile->>'base_recipe_digest' THEN
+ RAISE EXCEPTION 'observation receipt changes configured recognition recipe' USING ERRCODE='23514'; END IF;
+ SELECT value INTO STRICT selected FROM jsonb_array_elements(request.binding->'inputs') WHERE value->>'role'='capture';
+ capture:=ops.ddo_pdf_capture_source(request.id,request.project_id,selected->>'product_id',selected->>'support_derivation_id')->'publication';
+ requested:=data.ddo_json(data.ddo_field(request.binding->'parameters','parameters'))->'pages';
+ IF requested IS NULL OR jsonb_typeof(requested)<>'array' THEN
+ RAISE EXCEPTION 'observation request lacks its exact physical page selection' USING ERRCODE='23514'; END IF;
+ SELECT coalesce(jsonb_agg((native.scalars_json->>'page_no')::bigint ORDER BY (native.scalars_json->>'page_no')::bigint),'[]')
+ INTO available FROM ops.pdf_record_document document JOIN kb.pdf_record_membership member
+ ON member.product_id=document.product_id AND member.revision_id=document.revision_id
+ AND member.parent_id=document.root_id AND member.field_name='pages'
+ JOIN kb.pdf_record_native native ON native.product_id=member.product_id AND native.revision_id=member.revision_id AND native.record_id=member.record_id
+ WHERE document.product_id=capture->>'build_id' AND document.revision_id=capture->>'build_id';
+ IF requested='[]'::jsonb THEN requested:=available;
+ ELSIF EXISTS(SELECT FROM jsonb_array_elements(requested) page_number WHERE NOT available @> jsonb_build_array(page_number)) THEN
+ RAISE EXCEPTION 'recognition page is outside the actual selected native inventory' USING ERRCODE='23514';
+ END IF;
+ IF jsonb_array_length(p_receipt->'pages')=0 THEN
+ RAISE EXCEPTION 'observation receipt has no inspected page reports' USING ERRCODE='23514'; END IF;
+ FOR page,page_position IN SELECT value,n FROM jsonb_array_elements(p_receipt->'pages') WITH ORDINALITY item(value,n) LOOP
+ PERFORM ops.ddo_fields(page,ARRAY['page_no','recipe_digest','report_digest','adapter_reused','observations']);
+ IF jsonb_typeof(page->'adapter_reused') IS DISTINCT FROM 'boolean'
+ OR NOT requested @> jsonb_build_array((page->>'page_no')::bigint)
+ OR NOT EXISTS(SELECT FROM jsonb_array_elements(profile->'recipes') recipe WHERE recipe->>'digest'=page->>'recipe_digest') THEN
+ RAISE EXCEPTION 'observation page/recipe differs from exact requested source' USING ERRCODE='23514'; END IF;
+ IF previous_page IS DISTINCT FROM (page->>'page_no')::bigint THEN
+ IF page_groups @> jsonb_build_array((page->>'page_no')::bigint)
+ OR page->>'recipe_digest' IS DISTINCT FROM profile->>'base_recipe_digest' THEN
+ RAISE EXCEPTION 'observation page ordering/base recipe differs' USING ERRCODE='23514'; END IF;
+ page_groups:=page_groups||jsonb_build_array((page->>'page_no')::bigint); recovery_count:=0;
+ ELSE
+ recovery_count:=recovery_count+1;
+ IF recovery_count<>1 OR profile->'recovery_policy'='null'::jsonb
+ OR previous_outcome='succeeded' OR page->>'recipe_digest'=profile->>'base_recipe_digest' THEN
+ RAISE EXCEPTION 'observation recovery differs from its finite admitted policy' USING ERRCODE='23514'; END IF;
+ END IF;
+ SELECT content INTO STRICT report_content FROM kb.source_artifact
+ WHERE artifact_digest=page->>'report_digest' AND encode(sha256(content),'hex')=artifact_digest;
+ report:=convert_from(report_content,'UTF8')::jsonb;
+ -- {observation_report_shape}
+ IF report->>'page_no' IS DISTINCT FROM page->>'page_no' OR report->>'recipe_digest' IS DISTINCT FROM page->>'recipe_digest'
+ OR jsonb_array_length(report->'requests') IS DISTINCT FROM jsonb_array_length(page->'observations') THEN
+ RAISE EXCEPTION 'observation report differs from exact retained request inventory' USING ERRCODE='23514'; END IF;
+ SELECT content INTO STRICT body_content FROM kb.source_artifact WHERE artifact_digest=report->>'result_digest' AND encode(sha256(content),'hex')=artifact_digest;
+ result:=convert_from(body_content,'UTF8')::jsonb;
+ IF result->>'outcome' IS NULL OR result->>'outcome' NOT IN ('succeeded','partial','failed','unknown','unsupported') THEN
+ RAISE EXCEPTION 'observation report lacks its actual reported page outcome' USING ERRCODE='23514'; END IF;
+ page_requests:='[]';
+ FOR request_ref,ordinal IN SELECT value,n-1 FROM jsonb_array_elements(page->'observations') WITH ORDINALITY item(value,n) LOOP
+ PERFORM ops.ddo_fields(request_ref,ARRAY['ordinal','task_id','product_key','content_digest','publication_context']);
+ SELECT * INTO STRICT product FROM ops.pdf_product WHERE task_id=(request_ref->>'task_id')::bigint
+ AND product_key=request_ref->>'product_key' AND content_digest=request_ref->>'content_digest';
+ origin:=product.publication_context;
+ IF product.kind<>'recognition_observation' OR product.task_id<>p_task
+ OR product.artifact_digest IS DISTINCT FROM context.source_digest
+ OR origin IS NULL OR origin IS DISTINCT FROM request_ref->'publication_context'
+ OR origin->>'version' IS DISTINCT FROM 'pdf-observation-publication-1'
+ OR origin->>'request_id' IS DISTINCT FROM context.request_id OR (origin->>'generation')::bigint IS DISTINCT FROM context.generation
+ OR (origin->>'task_id')::bigint IS DISTINCT FROM p_task OR origin->>'release_id' IS DISTINCT FROM context.release_id
+ OR origin->>'source_digest' IS DISTINCT FROM context.source_digest
+ OR (origin->>'attempt')::bigint NOT BETWEEN 1 AND p_attempt
+ OR ((origin->>'attempt')::bigint=p_attempt AND (origin->>'holder' IS DISTINCT FROM p_holder OR origin->>'runtime_id' IS DISTINCT FROM p_receipt->>'runtime_id'))
+ OR (request_ref->>'ordinal')::bigint IS DISTINCT FROM ordinal
+ OR (report->'requests'->(ordinal::integer)->>'ordinal')::bigint IS DISTINCT FROM ordinal
+ OR NOT EXISTS(SELECT FROM sem.runtime_binding runtime WHERE runtime.release_id=origin->>'release_id' AND runtime.runtime_id=origin->>'runtime_id')
+ OR EXISTS(SELECT FROM ops.data_revocation revoked WHERE revoked.scope=ops.ddo_scope(request.project_id,request.original_source)
+ AND revoked.selector_kind='runtime' AND revoked.selector=origin->>'runtime_id') THEN
+ RAISE EXCEPTION 'observation publication/adoption loses original native attribution' USING ERRCODE='23514'; END IF;
+ SELECT body.payload INTO STRICT raw_payload FROM ops.pdf_product_body body WHERE body.task_id=product.task_id AND body.product_key=product.product_key;
+ payload:=convert_from(raw_payload,'UTF8')::jsonb;
+ SELECT artifact.content INTO STRICT body_content FROM kb.source_artifact artifact
+ WHERE artifact.artifact_digest=report->'requests'->(ordinal::integer)->>'request_digest' AND encode(sha256(artifact.content),'hex')=artifact.artifact_digest;
+ request_row:=convert_from(body_content,'UTF8')::jsonb;
+ IF encode(sha256(raw_payload),'hex') IS DISTINCT FROM product.content_digest
+ OR payload->>'recipe_digest' IS DISTINCT FROM page->>'recipe_digest'
+ OR payload->'observation'->'image'->>'page_no' IS DISTINCT FROM page->>'page_no'
+ OR request_row->>'ordinal' IS DISTINCT FROM request_ref->>'ordinal'
+ OR request_row->>'submitted_digest' IS DISTINCT FROM payload->'observation'->'image'->>'artifact_digest'
+ OR request_row->>'outcome' IS DISTINCT FROM payload->'observation'->>'outcome'
+ OR (CASE request_row->>'stage' WHEN 'fullpage' THEN 'A' WHEN 'detection' THEN 'B' WHEN 'crop' THEN 'C' END) IS DISTINCT FROM payload->'observation'->>'pass_role'
+ OR (request_row ? 'raw_response') IS DISTINCT FROM (payload->'observation' ? 'raw_response_digest')
+ OR (request_row ? 'raw_response' AND request_row->>'raw_digest' IS DISTINCT FROM payload->'observation'->>'raw_response_digest')
+ OR EXISTS(SELECT FROM unnest(ARRAY[page->>'report_digest',report->>'result_digest',report->'requests'->(ordinal::integer)->>'request_digest']) digest
+ WHERE NOT EXISTS(SELECT FROM ops.pdf_product_artifact owned WHERE owned.task_id=product.task_id AND owned.product_key=product.product_key AND owned.artifact_digest=digest)) THEN
+ RAISE EXCEPTION 'observation report/request bytes differ from native retained evidence' USING ERRCODE='23514'; END IF;
+ page_requests:=page_requests||jsonb_build_array(jsonb_build_object('ordinal',ordinal,
+ 'meaning_digest',ops.ddo_digest(data.ddo_json_meaning(ops.pdf_observation_meaning(raw_payload))),
+ 'pass_role',payload->'observation'->'pass_role','outcome',payload->'observation'->'outcome'));
+ END LOOP;
+ IF result->>'outcome'='succeeded' AND (jsonb_array_length(page_requests)<2
+ OR page_requests->0->>'pass_role'<>'A' OR page_requests->1->>'pass_role'<>'B'
+ OR EXISTS(SELECT FROM jsonb_array_elements(page_requests) reading WHERE reading->>'outcome'<>'succeeded')) THEN
+ RAISE EXCEPTION 'successful page report differs from actual retained pass outcomes' USING ERRCODE='23514'; END IF;
+ pages:=pages||jsonb_build_array(jsonb_build_object('page_no',page->'page_no','recipe_digest',page->'recipe_digest','outcome',result->'outcome','observations',page_requests));
+ previous_page:=(page->>'page_no')::bigint; previous_outcome:=result->>'outcome';
+ END LOOP;
+ IF page_groups IS DISTINCT FROM requested THEN
+ RAISE EXCEPTION 'observation reports do not cover the exact requested page inventory' USING ERRCODE='23514'; END IF;
+ RETURN jsonb_build_object('document',request.original_source,'source_digest',context.source_digest,'recipe_digest',p_receipt->'recipe_digest','pages',pages);
+END $projection$;
+
+CREATE OR REPLACE FUNCTION ops.publish_pdf_observation(p_task bigint,p_attempt bigint,p_holder text,p_runtime text,p_contract text,p_payload bytea,p_artifacts bytea[]) RETURNS text
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $observation$
 DECLARE job ops.task; context record; definition sem.data_operation_definition; native_request ops.data_request; selected jsonb; publication jsonb; product jsonb:='{}'; digest text:=encode(sha256(p_payload),'hex');
  wire json; field_name text; field_value json; envelope_fields text[]:=ARRAY[]::text[];
  input_rows json; occurrence_rows json; relation_rows json; coverage_rows json; mapping_rows json;
- previous ops.pdf_product; input jsonb; occurrence jsonb; relation jsonb; endpoint jsonb; coverage jsonb; mapping_report jsonb; pin ops.pdf_product; idx bigint; eid bigint; original text;
+ previous ops.pdf_product; input jsonb; occurrence jsonb; relation jsonb; endpoint jsonb; coverage jsonb; mapping_report jsonb; pin ops.pdf_product; idx bigint; eid bigint; original text; recognition_profile jsonb;
 BEGIN
  -- Read identity without locking the task before the native support/demand/request
  -- locks. Exact immutable replay below needs only its original attempt fence.
@@ -49,10 +174,18 @@ BEGIN
   JOIN ops.data_request request ON request.release_id=d.release_id AND request.operation_id=d.operation_id
   WHERE request.id=context.request_id;
   IF NOT coalesce(ops.ddo_pdf_command_eligible(definition),false)
-   OR definition.support_contract->'effects'->0->>'name' IS DISTINCT FROM 'publish_pdf_integration' THEN
-   RAISE EXCEPTION 'native observations require the exact approved PDF integration effect' USING ERRCODE='23514';
+   OR definition.support_contract->'effects'->0->>'name' IS DISTINCT FROM 'retain_pdf_observations' THEN
+   RAISE EXCEPTION 'native observations require the exact approved PDF recognition effect' USING ERRCODE='23514';
   END IF;
  IF job.attempt IS DISTINCT FROM p_attempt OR job.claimed_by IS DISTINCT FROM p_holder THEN RAISE EXCEPTION 'stale recognition observation attempt' USING ERRCODE='P0004'; END IF;
+ PERFORM sem.require_runtime_binding(context.release_id,p_runtime);
+ IF NOT EXISTS(SELECT FROM sem.runtime_binding runtime WHERE runtime.release_id=context.release_id
+ AND runtime.runtime_id=p_runtime AND convert_from(runtime.manifest_bytes,'UTF8')::jsonb->>'execution_profile'=
+ (SELECT request.binding->>'execution_profile' FROM ops.data_request request WHERE request.id=context.request_id))
+ OR EXISTS(SELECT FROM ops.data_revocation revoked WHERE revoked.scope=ops.ddo_scope(context.project_id,
+ (SELECT request.original_source FROM ops.data_request request WHERE request.id=context.request_id))
+ AND revoked.selector_kind='runtime' AND revoked.selector=p_runtime) THEN
+ RAISE EXCEPTION 'observation publisher runtime differs from admitted request profile/trust' USING ERRCODE='23514'; END IF;
  wire:=convert_from(p_payload,'UTF8')::json;
  IF json_typeof(wire) IS DISTINCT FROM 'object' OR wire->>'kind' IS DISTINCT FROM 'recognition_observation' THEN RAISE EXCEPTION 'parsing record must be an object: PdfIntegratedProduct' USING ERRCODE='23514'; END IF;
  FOR field_name,field_value IN SELECT key,value FROM json_each(wire) LOOP
@@ -70,6 +203,12 @@ BEGIN
  -- {integrated_shape_guard}
  IF product->>'kind' IS DISTINCT FROM 'recognition_observation' OR product->>'product_key'=''  THEN
   RAISE EXCEPTION 'recognition observation kind/key/health differs' USING ERRCODE='23514'; END IF;
+ recognition_profile:=ops.pdf_recognition_profile(context.release_id,definition);
+ IF NOT EXISTS(SELECT FROM jsonb_array_elements(recognition_profile->'recipes') recipe
+ WHERE recipe->>'digest'=product->>'recipe_digest'
+ AND recipe->>'weights_digest'=product->'observation'->'binding'->>'weights_digest'
+ AND recipe->>'tokenizer_digest'=product->'observation'->'binding'->>'tokenizer_digest') THEN
+ RAISE EXCEPTION 'recognition recipe/model differs from exact admitted profile' USING ERRCODE='23514'; END IF;
  IF encode(sha256(ops.pdf_contract_input(context.release_id,'schema/pdf_products')),'hex') IS DISTINCT FROM p_contract THEN RAISE EXCEPTION 'PDF contract is not archived by task release' USING ERRCODE='23514'; END IF;
  IF product->'observation'->>'pass_role' IN ('chandra_page','chandra_crop') THEN
   RAISE EXCEPTION 'native integration cannot publish legacy Chandra observations' USING ERRCODE='23514'; END IF;
@@ -172,7 +311,7 @@ BEGIN
  VALUES(p_task,product->>'product_key',digest,product->>'kind',original,context.release_id,p_contract,
  jsonb_build_object('version','pdf-observation-publication-1','request_id',context.request_id,
  'generation',context.generation,'task_id',p_task,'attempt',p_attempt,'holder',p_holder,
- 'runtime_id',native_request.runtime_id,'release_id',context.release_id,'source_digest',original));
+ 'runtime_id',p_runtime,'release_id',context.release_id,'source_digest',original));
  INSERT INTO ops.pdf_product_artifact(task_id,product_key,artifact_digest)
  SELECT p_task,product->>'product_key',encode(sha256(supplied.content),'hex')
  FROM unnest(p_artifacts) supplied(content) ON CONFLICT DO NOTHING;
@@ -223,5 +362,5 @@ BEGIN
  END LOOP;
  RETURN digest;
 END $observation$;
-REVOKE ALL ON FUNCTION ops.publish_pdf_observation(bigint,bigint,text,text,bytea,bytea[]) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION ops.publish_pdf_observation(bigint,bigint,text,text,bytea,bytea[]) TO corpus_sem_writer;
+REVOKE ALL ON FUNCTION ops.publish_pdf_observation(bigint,bigint,text,text,text,bytea,bytea[]) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION ops.publish_pdf_observation(bigint,bigint,text,text,text,bytea,bytea[]) TO corpus_sem_writer;

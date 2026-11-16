@@ -4,7 +4,6 @@ import json
 import sys
 from dataclasses import asdict
 from pathlib import Path
-from types import SimpleNamespace
 
 import pytest
 
@@ -24,9 +23,11 @@ from corpus_structure.semantic.pdf_effect_contract import (
 from corpus_structure.semantic.pdf_transforms import (
     PdfEnrichmentOptions,
     PdfIntegrationOptions,
+    PdfRecognitionOptions,
     PdfRecognitionResources,
     PreparedPdfTransform,
     pdf_transform_operation_sources,
+    recognition_page_selection,
 )
 from corpus_structure.semantic.primary_operations import (
     primary_operation_inputs,
@@ -95,7 +96,8 @@ def test_pdf_mode_captures_only_its_explicit_profile_and_exact_discovery(
         transformed = pdf_transform_operation_sources(
             mode,
             recognition_recipe=NemotronRecipe("2" * 64, "3" * 64),
-            options=PdfIntegrationOptions(recovery_policy=None, integration_policy={}),
+            options=PdfIntegrationOptions(integration_policy={}),
+            recognition_options=PdfRecognitionOptions(recovery_policy=None),
             resources=resources,
             directory=tmp_path / "owned",
             input_operation=input_operation,
@@ -116,7 +118,9 @@ def test_pdf_mode_captures_only_its_explicit_profile_and_exact_discovery(
     model = bound_data_operation_model(prepared)
     effect = model.operation(operation)
     assert effect.effects == (expected_effect,)
-    assert effect.dependencies == (input_operation,)
+    assert effect.dependencies == ((input_operation,) if mode == "enriched" else (input_operation, "source.pdf_recognition/observe"))
+    if mode == "integrated":
+        assert model.operation("source.pdf_recognition/observe").dependencies == ("source.pdf/capture",)
     discovery = "source.pdf_" + mode + "_views/discovery"
     composition = "text.compose_view/" + mode + "-captured-full-native"
     assert model.operation(discovery).dependencies == (operation,)
@@ -155,32 +159,25 @@ def test_pdf_mode_captures_only_its_explicit_profile_and_exact_discovery(
 
 
 @pytest.mark.parametrize("pages", [(1, 1), (2,)])
-def test_integration_refuses_duplicate_or_foreign_physical_pages_before_provider(pages):
-    options = PdfIntegrationOptions(recovery_policy=None, integration_policy={})
-    profile = PreparedPdfTransform(
-        None, None, {"mode": "integrated", "options": options.model_dump(mode="json")}
-    )
-    selected = SimpleNamespace(
-        product=SimpleNamespace(
-            values=lambda: {
+def test_recognition_refuses_duplicate_or_foreign_physical_pages_before_provider(pages):
+    options = PdfRecognitionOptions(recovery_policy=None)
+    values = {
                 "source_scope": "whole_document",
                 "health": {"conversion": "success"},
                 "document": {"pages": {"1": {}}},
             }
-        )
-    )
     with pytest.raises(ValueError, match="physical page inventory"):
-        next(profile._integrate(selected, b"{}", pages, None, None, lambda: None))
+        recognition_page_selection(values, pages, options)
 
 
-def test_integration_recipe_retains_explicit_recovery_and_selection():
-    options = PdfIntegrationOptions(recovery_policy={"max_attempts": 1}, integration_policy={})
+def test_recognition_recipe_owns_recovery_and_integration_recipe_owns_selection():
+    options = PdfRecognitionOptions(recovery_policy={"max_attempts": 1})
     recipe = NemotronRecipe("2" * 64, "3" * 64)
     profile = PreparedPdfTransform(
         None,
         None,
         {
-            "mode": "integrated",
+            "mode": "recognized",
             "options": options.model_dump(mode="json"),
             "recognition_bytes": recipe.to_bytes().hex(),
             "recognition_recipe": asdict(recipe),
@@ -189,10 +186,35 @@ def test_integration_recipe_retains_explicit_recovery_and_selection():
     value = json.loads(profile.recipe_bytes((3, 1)))
     assert value["recognition_pages"] == [3, 1]
     assert value["recovery_policy"]["max_attempts"] == 1
-    assert value["integration_policy"]["comparison_demand"] == "lexical"
+    assert "integration_policy" not in value
     assert value["recognition"] == recipe.digest
     with pytest.raises(ValueError):
-        PdfIntegrationOptions(recovery_policy={"max_attempts": 2}, integration_policy={})
+        PdfRecognitionOptions(recovery_policy={"max_attempts": 2})
+    integration = PreparedPdfTransform(None, None, {
+        "mode": "integrated", "options": PdfIntegrationOptions(integration_policy={}).model_dump(mode="json")
+    })
+    selected = json.loads(integration.recipe_bytes())
+    assert selected["integration_policy"]["comparison_demand"] == "lexical"
+    assert not {"recognition", "recognition_pages", "recovery_policy", "source_recovery"} & selected.keys()
+
+
+def test_integration_policy_change_keeps_actual_recognition_recipe_identity(tmp_path):
+    from semantic.current_pdf_integration_support import current_pdf_recipe
+    from semantic.data_operation_kernel_support import prepare_kernel
+
+    first = prepare_kernel(current_pdf_recipe(tmp_path))
+    second = prepare_kernel(current_pdf_recipe(tmp_path, integration_policy={
+        "policy_id": "pdf-integration-v1", "conflict_action": "keep", "unmatched_action": "add",
+        "specialized_crop_precedence": True, "comparison_demand": "lexical",
+    }))
+    recognition = "source.pdf_recognition/observe"
+    integration = "source.pdf_integrated/reconcile"
+    def identities(model):
+        return {(entry.owner, entry.domain): entry.key for entry in model.identities}
+    assert first.model.operation(recognition).recipe == second.model.operation(recognition).recipe
+    assert identities(first.model)[recognition, "recipe"] == identities(second.model)[recognition, "recipe"]
+    assert first.model.operation(integration).recipe != second.model.operation(integration).recipe
+    assert identities(first.model)[integration, "recipe"] != identities(second.model)[integration, "recipe"]
 
 
 def test_pdf_reader_materialization_checkpoint_observes_actual_request_cancellation():

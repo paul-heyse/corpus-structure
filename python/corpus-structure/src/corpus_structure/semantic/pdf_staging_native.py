@@ -164,6 +164,10 @@ RETURNS SETOF ops.pdf_stage_build LANGUAGE plpgsql SECURITY DEFINER SET search_p
 DECLARE owner record; build ops.pdf_stage_build; id text;
 BEGIN
  SELECT * INTO STRICT owner FROM ops.require_pdf_stage_owner(p_task,p_attempt,p_holder);
+ IF EXISTS(SELECT FROM ops.data_request request JOIN sem.data_operation_definition definition
+ ON definition.release_id=request.release_id AND definition.operation_id=request.operation_id
+ WHERE request.id=owner.request_id AND definition.support_contract->'effects'->0->>'name'='retain_pdf_observations') THEN
+ RAISE EXCEPTION 'recognition retention cannot stage a sealed PDF publication' USING ERRCODE='23514'; END IF;
  PERFORM ops.require_pdf_operation(owner.release_id,'begin_pdf_build');
  IF p_source IS NULL OR p_recipe IS NULL OR p_schema IS DISTINCT FROM
  encode(sha256(ops.pdf_contract_input(owner.release_id,

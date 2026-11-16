@@ -101,6 +101,10 @@ def native_protocol_sources(
         ),
         SourceArtifact(SOURCE, execution_evidence_schema()),
         SourceArtifact(
+            "native/pdf-observations.py",
+            Path(__file__).with_name("pdf_observations.py").read_bytes(),
+        ),
+        SourceArtifact(
             "native/data-operation-external-receipts.py",
             Path(__file__).with_name("external_receipts.py").read_bytes(),
         ),

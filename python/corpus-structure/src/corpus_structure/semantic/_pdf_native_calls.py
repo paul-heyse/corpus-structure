@@ -31,6 +31,7 @@ from sqlalchemy.dialects.postgresql import BYTEA, JSONB
 from corpus_structure.semantic.identifiers import ContentDigest as ContentDigest
 from corpus_structure.semantic.identifiers import ProductKey as ProductKey
 from corpus_structure.semantic.identifiers import ReleaseId as ReleaseId
+from corpus_structure.semantic.identifiers import RuntimeId as RuntimeId
 from corpus_structure.semantic.identifiers import TaskAttempt as TaskAttempt
 from corpus_structure.semantic.identifiers import TaskId as TaskId
 
@@ -1456,7 +1457,7 @@ def prepare_pdf_build(
 
 
 PUBLISH_PDF_OBSERVATION_CONTRACT_DIGEST = (
-    "cfb730ab2c3ad93121b42138cb76fdb532fc77e744a3011f8c9a6c0330501fa6"
+    "f1bf11ca855f998b38b1201f7187dc1996d17a3c3fe3c2584bc62942dc4be54b"
 )
 
 
@@ -1469,6 +1470,7 @@ class _publish_pdf_observationRequest(OperationResult):
         Field(ge=TaskAttempt(-9223372036854775808), le=TaskAttempt(9223372036854775807)),
     ]
     holder: str
+    runtime_id: RuntimeId
     contract_digest: str
     payload: bytes
     artifacts: tuple[bytes, ...]
@@ -1478,6 +1480,7 @@ _publish_pdf_observation_function = func.ops.publish_pdf_observation(
     bindparam("task_id", type_=BigInteger()),
     bindparam("attempt", type_=BigInteger()),
     bindparam("holder", type_=Text()),
+    bindparam("runtime_id", type_=Text()),
     bindparam("contract_digest", type_=Text()),
     bindparam("payload", type_=BYTEA()),
     bindparam("artifacts", type_=ARRAY(BYTEA())),
@@ -1491,6 +1494,7 @@ def prepare_publish_pdf_observation(
     task_id: TaskId,
     attempt: TaskAttempt,
     holder: str,
+    runtime_id: RuntimeId,
     contract_digest: str,
     payload: bytes,
     artifacts: tuple[bytes, ...],
@@ -1500,6 +1504,7 @@ def prepare_publish_pdf_observation(
         task_id=task_id,
         attempt=attempt,
         holder=holder,
+        runtime_id=runtime_id,
         contract_digest=contract_digest,
         payload=payload,
         artifacts=artifacts,
@@ -1516,6 +1521,7 @@ def prepare_publish_pdf_observation(
             "task_id": _request.task_id,
             "attempt": _request.attempt,
             "holder": _request.holder,
+            "runtime_id": _request.runtime_id,
             "contract_digest": _request.contract_digest,
             "payload": _request.payload,
             "artifacts": _request.artifacts,
@@ -1540,6 +1546,7 @@ def publish_pdf_observation(
     task_id: TaskId,
     attempt: TaskAttempt,
     holder: str,
+    runtime_id: RuntimeId,
     contract_digest: str,
     payload: bytes,
     artifacts: tuple[bytes, ...],
@@ -1549,6 +1556,7 @@ def publish_pdf_observation(
         task_id=task_id,
         attempt=attempt,
         holder=holder,
+        runtime_id=runtime_id,
         contract_digest=contract_digest,
         payload=payload,
         artifacts=artifacts,
@@ -4983,4 +4991,4 @@ def read_pdf_frozen_rows(
         return tuple(materialize_read_pdf_frozen_rows(row) for row in _native_result)
 
 
-CALL_CONTRACT_DIGEST = "681e56e1ec251c6d249ae7f213d5b79589ff30ef0c60e7de972bb03ce30e4daa"
+CALL_CONTRACT_DIGEST = "73ef9427b2e5606d2a1d310d267e3e1dffe477d9264508bb97f424ed785f80bf"

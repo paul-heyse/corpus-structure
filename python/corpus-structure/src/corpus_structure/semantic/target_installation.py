@@ -113,6 +113,8 @@ def target_physical_prerequisites(connection, installation: TargetInstallation):
 
 
 def target_pdf_sql(installation: TargetInstallation) -> str:
+    from .pdf_contracts import _context_from_domain
+    from .pdf_domain import CONTRACT, PdfDomainContract
     from .pdf_completion_native import pdf_completion_native_sql
     from .pdf_integrated_native import observation_publication_sql
     from .pdf_publication_native import pdf_record_logical_identity_sql, publication_sql
@@ -120,6 +122,10 @@ def target_pdf_sql(installation: TargetInstallation) -> str:
     from .pdf_staging_native import stage_native_sql
 
     sql = Path(__file__).with_name("sql")
+    contract = next(source for source in installation.pdf_sources if source.name == CONTRACT)
+    context = _context_from_domain(None, PdfDomainContract(contract.content, tuple(
+        source for source in installation.pdf_sources if source.name != CONTRACT
+    )))
     return "\n".join(
         (
             next(
@@ -139,7 +145,7 @@ def target_pdf_sql(installation: TargetInstallation) -> str:
             pdf_record_logical_identity_sql(),
             sql.joinpath("pdf_record_proof_reader.sql").read_text(),
             sql.joinpath("pdf_record_access_correspondence.sql").read_text(),
-            observation_publication_sql(),
+            observation_publication_sql(context),
             next(
                 source.content.decode()
                 for source in installation.authoring_inputs.sources

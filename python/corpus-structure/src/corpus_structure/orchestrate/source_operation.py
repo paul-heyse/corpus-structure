@@ -195,7 +195,7 @@ def prepare_source_demand(
         transform = (
             "source.pdf_math/enrich"
             if request.pdf_mode == "enriched"
-            else "source.pdf_integrated/reconcile"
+            else "source.pdf_recognition/observe"
         )
         model.operation(
             transform

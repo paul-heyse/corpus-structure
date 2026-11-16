@@ -1,0 +1,10 @@
+{
+  "version": "pdf-observation-meaning-1",
+  "fields": {"source_digest": "artifact_digest", "recipe_digest": "recipe_digest"},
+  "observation_fields": ["image", "pass_role", "outcome", "raw_response_digest", "finish_reason"],
+  "binding_fields": ["provider", "package_identity", "source_identity", "weights_digest", "tokenizer_digest", "prompt_digest", "decoding_json", "seed", "render_policy", "crop_policy", "merge_policy"],
+  "decoding_provenance_fields": ["receipt_digests", "service_generation"],
+  "coverage_fields": ["coverage_id", "scope", "family", "discovery_policy", "outcome"],
+  "health_fields": ["mapping_outcome", "source_fidelity"],
+  "pass_roles": ["A", "B", "C"]
+}

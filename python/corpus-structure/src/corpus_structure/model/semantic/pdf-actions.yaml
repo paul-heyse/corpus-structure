@@ -686,6 +686,11 @@ actions:
       native_parameter: p_holder
       nullable: false
       source: physical:ops.task.claimed_by
+    - name: runtime_id
+      native_parameter: p_runtime
+      nullable: false
+      semantic_type: RuntimeId
+      source: physical:sem.runtime_binding.runtime_id
     - name: contract_digest
       native_parameter: p_contract
       nullable: false

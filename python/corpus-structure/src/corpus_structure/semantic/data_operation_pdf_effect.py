@@ -12,7 +12,9 @@ from .pdf_effect_contract import (
     PDF_ENRICHMENT_EFFECT,
     PDF_INTEGRATION_EFFECT,
     PDF_ORGANIZATION_EFFECT,
+    PDF_RECOGNITION_EFFECT,
 )
+from .pdf_observations import PdfObservationExecutionReceipt
 from .pdf_publication import PdfExecutionReceipt, inspect_pdf_execution_receipt
 
 
@@ -40,6 +42,7 @@ class PdfCaptureEffectPort(ReceiptBearingEffectPort):
                 (PDF_ENRICHMENT_EFFECT,),
                 (PDF_INTEGRATION_EFFECT,),
                 (PDF_ORGANIZATION_EFFECT,),
+                (PDF_RECOGNITION_EFFECT,),
             )
             or operation.capabilities.preparation != "pdf-native"
             or operation.capabilities.prepared_factory is None
@@ -65,6 +68,25 @@ class PdfCaptureEffectPort(ReceiptBearingEffectPort):
             values, binding=binding, check_active=check_active, execution_owner=execution_owner
         )
         claim = execution_owner.claim
+        if self.operation.effects == (PDF_RECOGNITION_EFFECT,):
+            if claim is None or completion.pdf_observation_evidence is None or completion.pdf_execution_evidence is not None:
+                raise PortRefusal("recognition retention requires its actual observation receipt")
+            receipt = PdfObservationExecutionReceipt.model_validate_json(completion.pdf_observation_evidence)
+            if (receipt.task_id, receipt.attempt, receipt.holder) != (claim.task_id, claim.attempt, claim.holder):
+                raise PortRefusal("observation adoption differs from its current native claim")
+            from sqlalchemy import bindparam, func, select
+            from sqlalchemy.dialects.postgresql import JSONB
+
+            check_active()
+            with execution_owner.engine.connect() as connection:
+                connection.scalar(select(func.ops.pdf_observation_projection(
+                    bindparam("receipt", receipt.model_dump(mode="json"), type_=JSONB),
+                    claim.task_id, claim.attempt, claim.holder,
+                )))
+            check_active()
+            return completion
+        if completion.pdf_observation_evidence is not None:
+            raise PortRefusal("sealed PDF publication cannot acquire observation-set evidence")
         if claim is None or completion.pdf_execution_evidence is None:
             raise PortRefusal("PDF effect requires its active claim and actual sealed receipt")
         receipt = TypeAdapter(PdfExecutionReceipt).validate_json(

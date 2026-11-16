@@ -90,6 +90,19 @@ BEGIN
  RETURN jsonb_build_object('source',coordinate,'text',text_value,'pieces',pieces,'items',atoms,'ancestors',ancestors,'recognition',recognition,'selectors',selected);
 END $$;
 
+CREATE OR REPLACE FUNCTION ops.read_selected_pdf_observations(p_payload jsonb) RETURNS jsonb
+LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
+DECLARE p jsonb:=p_payload; demand ops.data_demand; boundary ops.data_demand_read; receipt jsonb; cut jsonb;
+BEGIN
+ PERFORM ops.ddo_fields(p,ARRAY['project_id','demand_id','read_id','use_id','product_id','derivation_id']);
+ SELECT * INTO STRICT demand FROM ops.data_demand WHERE id=p->>'demand_id' AND project_id=p->>'project_id';
+ cut:=ops.ddo_require_selected_output(p->>'demand_id',p->>'read_id',p->>'use_id',p->>'product_id',p->>'derivation_id');
+ SELECT * INTO STRICT boundary FROM ops.data_demand_read WHERE id=p->>'read_id' AND demand_id=demand.id;
+ receipt:=ops.ddo_pdf_observation_derivation_receipt(demand.project_id,p->>'product_id',p->>'derivation_id',NULL,boundary);
+ RETURN jsonb_build_object('payload',jsonb_build_object('receipt',receipt,'cut',cut,
+ 'original_source',(SELECT original_source FROM kb.data_product WHERE id=p->>'product_id')));
+END $$;
+
 CREATE OR REPLACE FUNCTION ops.ddo_original_document_view(p_reference jsonb) RETURNS jsonb
 LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
 DECLARE document kb.document; original bytea; body jsonb; coordinate jsonb;
@@ -174,4 +187,82 @@ BEGIN
  SELECT * INTO STRICT boundary FROM ops.data_demand_read WHERE id=p->>'read_id' AND demand_id=demand.id;
  receipt:=ops.ddo_pdf_derivation_receipt(demand.project_id,p->>'product_id',p->>'derivation_id',NULL,boundary);
  RETURN jsonb_build_object('payload',jsonb_build_object('receipt',receipt,'cut',cut,'original_source',(SELECT original_source FROM kb.data_product WHERE id=p->>'product_id')));
+END $$;
+
+CREATE OR REPLACE FUNCTION ops.ddo_pdf_observation_derivation_receipt(p_project text,p_product text,
+ p_derivation text,p_source text DEFAULT NULL,p_read ops.data_demand_read DEFAULT NULL) RETURNS jsonb
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
+DECLARE producer ops.data_request; derivation ops.data_derivation; intent ops.data_completion_intent;
+ product kb.data_product; receipts jsonb; receipt jsonb; expected jsonb;
+BEGIN
+ IF NOT ops.ddo_support_valid(p_derivation,p_read) THEN
+ RAISE EXCEPTION 'observation derivation support is not admitted at selected read' USING ERRCODE='23514'; END IF;
+ SELECT der.* INTO STRICT derivation FROM ops.data_derivation der
+ JOIN ops.data_derivation_output output ON output.derivation_id=der.id
+ WHERE der.id=p_derivation AND output.product_id=p_product AND output.member_id IS NULL;
+ SELECT * INTO STRICT producer FROM ops.data_request WHERE id=derivation.request_id
+ AND project_id=p_project AND (p_source IS NULL OR original_source=p_source);
+ PERFORM ops.ddo_authorize_request(producer);
+ IF NOT EXISTS(SELECT FROM sem.data_operation_definition definition
+ WHERE definition.release_id=derivation.release_id AND definition.operation_id=producer.operation_id
+ AND coalesce(ops.ddo_pdf_command_eligible(definition),false)
+ AND definition.support_contract->'effects'->0->>'name'='retain_pdf_observations') THEN
+ RAISE EXCEPTION 'selected observation derivation is not an approved recognition command' USING ERRCODE='23514'; END IF;
+ PERFORM ops.require_pdf_operation(producer.release_id,'read_pdf_product');
+ SELECT * INTO STRICT intent FROM ops.data_completion_intent WHERE id=derivation.intent_id;
+ SELECT * INTO STRICT product FROM kb.data_product WHERE id=p_product
+ AND project_id=p_project AND original_source=producer.original_source;
+ receipts:=intent.payload->'execution_evidence'->'pdf_observation_receipts';
+ IF jsonb_typeof(receipts) IS DISTINCT FROM 'array' OR jsonb_array_length(receipts)<>1 THEN
+ RAISE EXCEPTION 'selected observations lack one actual native retention receipt' USING ERRCODE='23514'; END IF;
+ receipt:=receipts->0;
+ expected:=ops.pdf_observation_projection(receipt,intent.producer_task_id,intent.producer_attempt,intent.producer_holder);
+ IF data.ddo_json(product.canonical_body) IS DISTINCT FROM expected
+ OR expected->>'document' IS DISTINCT FROM producer.original_source THEN
+ RAISE EXCEPTION 'selected observation meaning differs from native retained evidence' USING ERRCODE='23514'; END IF;
+ RETURN receipt;
+END $$;
+
+CREATE OR REPLACE FUNCTION ops.ddo_pdf_observation_source(p_request text,p_project text,
+ p_product text,p_derivation text) RETURNS jsonb
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
+DECLARE consumer ops.data_request; derivation ops.data_derivation; producer ops.data_request;
+ receipt jsonb; capture jsonb; raw_capture jsonb; raw_product kb.data_product;
+BEGIN
+ SELECT * INTO STRICT consumer FROM ops.data_request WHERE id=p_request AND project_id=p_project;
+ PERFORM ops.ddo_authorize_request(consumer);
+ IF NOT EXISTS(SELECT FROM jsonb_array_elements(consumer.binding->'inputs') selected
+ WHERE selected->>'role'='observations' AND selected->>'product_id'=p_product
+ AND selected->>'member_id' IS NULL AND selected->>'support_derivation_id'=p_derivation)
+ OR NOT EXISTS(SELECT FROM jsonb_array_elements(consumer.binding->'support') selected
+ WHERE selected->>'derivation_id'=p_derivation) THEN
+ RAISE EXCEPTION 'observations are outside exact selected computational support' USING ERRCODE='23514'; END IF;
+ receipt:=ops.ddo_pdf_observation_derivation_receipt(p_project,p_product,p_derivation,consumer.original_source);
+ SELECT * INTO STRICT derivation FROM ops.data_derivation WHERE id=p_derivation;
+ SELECT * INTO STRICT producer FROM ops.data_request WHERE id=derivation.request_id;
+ SELECT value INTO STRICT raw_capture FROM jsonb_array_elements(producer.binding->'inputs') WHERE value->>'role'='capture';
+ PERFORM ops.ddo_pdf_capture_source(producer.id,p_project,raw_capture->>'product_id',raw_capture->>'support_derivation_id');
+ IF NOT EXISTS(SELECT FROM ops.data_derivation raw_derivation JOIN ops.data_request raw_request ON raw_request.id=raw_derivation.request_id
+ JOIN sem.data_operation_definition raw_definition ON raw_definition.release_id=raw_request.release_id AND raw_definition.operation_id=raw_request.operation_id
+ WHERE raw_derivation.id=raw_capture->>'support_derivation_id'
+ AND raw_definition.support_contract->'effects'->0->>'name'='publish_pdf_capture') THEN
+ RAISE EXCEPTION 'recognition input is not the exact qualified raw capture kind' USING ERRCODE='23514'; END IF;
+ SELECT * INTO STRICT raw_product FROM kb.data_product WHERE id=raw_capture->>'product_id';
+ SELECT value INTO STRICT capture FROM jsonb_array_elements(consumer.binding->'inputs') WHERE value->>'role'='capture';
+ PERFORM ops.ddo_pdf_capture_source(consumer.id,p_project,capture->>'product_id',capture->>'support_derivation_id');
+ -- Canonical product identity includes the complete qualified raw kind meaning;
+ -- two actual producing episodes may support that same value. Preserve both
+ -- independently valid chains rather than equating their physical publication pins.
+ IF NOT EXISTS(
+ WITH RECURSIVE lineage(id) AS (
+ SELECT capture->>'support_derivation_id'
+ UNION SELECT support.support_derivation_id FROM ops.data_derivation_support support JOIN lineage parent ON support.derivation_id=parent.id
+ ) SELECT FROM lineage JOIN ops.data_derivation_output output ON output.derivation_id=lineage.id
+ JOIN kb.data_product candidate ON candidate.id=output.product_id
+ WHERE output.member_id IS NULL AND candidate.id=raw_product.id
+ AND candidate.kind_contract=raw_product.kind_contract
+ AND candidate.project_id=p_project AND candidate.original_source=consumer.original_source
+ AND ops.ddo_support_valid(lineage.id)) THEN
+ RAISE EXCEPTION 'observation raw capture differs from qualified selected source lineage' USING ERRCODE='23514'; END IF;
+ RETURN receipt;
 END $$;

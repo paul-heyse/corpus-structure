@@ -2,7 +2,6 @@
 
 import json
 from contextlib import contextmanager
-from dataclasses import asdict
 from hashlib import sha256
 from types import SimpleNamespace
 
@@ -19,16 +18,16 @@ from pydantic import ValidationError
 
 from corpus_structure.ingest.pdf import PdfConversion, publication_payload
 from corpus_structure.ingest.pdf_hierarchy import snapshot
-from corpus_structure.ingest.pdf_recognition import NemotronRecipe, PdfRecognitionRecoveryPolicy
+from corpus_structure.ingest.pdf_recognition import PdfRecognitionRecoveryPolicy
 from corpus_structure.semantic.pdf_transforms import (
     PdfIntegrationOptions,
-    PreparedPdfTransform,
     SelectedPdfInput,
+    integration_draft,
 )
 from corpus_structure.semantic.product_reference import ProductReference
 
 
-def test_live_integration_retains_typed_candidates_and_distinct_valid_health_rows(
+def test_deterministic_integration_retains_typed_candidates_and_distinct_health_rows(
     tmp_path, monkeypatch
 ):
     from corpus_structure.ingest.pdf_candidates import CandidatePage, InlineCandidate
@@ -96,15 +95,7 @@ def test_live_integration_retains_typed_candidates_and_distinct_valid_health_row
         source.iter_pages = refuse
         return source
 
-    class NoProviderWorker:
-        def __init__(self, **kwargs):
-            pass
-
-        def recognize_pages(self, *args, **kwargs):
-            # Empty recognition evidence intentionally establishes no coverage/fidelity.
-            return iter(())
-
-    def retain(unit, draft):
+    def assert_draft(draft):
         candidates = list(draft.metadata["inline_candidate_pages"])
         assert len(candidates) == 1 and isinstance(candidates[0], EncodedPagePayload)
         assert captures[0][0].replays[1].path.exists()
@@ -129,42 +120,21 @@ def test_live_integration_retains_typed_candidates_and_distinct_valid_health_row
         coverage = list(draft.companions["coverage"])
         assert coverage and all(row["outcome"] == "unknown" for row in coverage)
         observed.append(candidates[0])
-        return ProductReference(20, "integrated", "d" * 64)
-
-    from corpus_structure.ingest import pdf_recognition
-
-    monkeypatch.setattr(pdf_recognition, "RecognitionWorker", NoProviderWorker)
-    recipe = NemotronRecipe("a" * 64, "b" * 64)
-    options = PdfIntegrationOptions(recovery_policy=None, integration_policy={})
-    profile = PreparedPdfTransform(
-        None,
-        None,
-        {
-            "mode": "integrated",
-            "options": options.model_dump(mode="json"),
-            "recognition_recipe": asdict(recipe),
-            "resources": {
-                "python": "unused",
-                "script": "unused",
-                "endpoint": "unused",
-                "receipts": str(tmp_path),
-                "timeout_seconds": 1,
-            },
-        },
-    )
+    options = PdfIntegrationOptions(integration_policy={})
     selected = SelectedPdfInput(
         SimpleNamespace(values=lambda: values, original=original, schema_bytes=b"{}"),
         reference,
         capture(reference, tmp_path / "candidate-input"),
         ((section.self_ref, "descendants"),),
         context,
+        None,
     )
-    owner = SimpleNamespace(claim=SimpleNamespace(task_id=20))
-    # Controlled no-provider evidence cannot establish recognized coverage.
-    with contextmanager(profile._integrate)(
-        selected, b"{}", (), owner, tmp_path / "selected", lambda: None
+    # This kernel has no execution/admission authority. An empty supplied reading
+    # inventory remains unknown; the DDO operation separately requires inspected reports.
+    with contextmanager(integration_draft)(
+        selected, b"{}", (), tmp_path / "selected", options
     ) as draft:
-        retain(None, draft)
+        assert_draft(draft)
     assert len(observed) == 1
 
 

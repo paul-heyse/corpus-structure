@@ -160,6 +160,10 @@ def pdf_domain_sources(
         SourceArtifact(
             PREFIX + "schema/pdf_products", root.joinpath("pdf-products.yaml").read_bytes()
         ),
+        SourceArtifact(
+            PREFIX + "schema/pdf_observation_meaning",
+            root.joinpath("pdf-observation-meaning.json").read_bytes(),
+        ),
         SourceArtifact(PREFIX + "schema/core", root.joinpath("core.yaml").read_bytes()),
         SourceArtifact(
             PREFIX + "schema/pdf_domain_schema",

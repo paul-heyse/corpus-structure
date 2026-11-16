@@ -91,6 +91,31 @@ def acquired_port(captured, operation_id):
     return port, authorized, identity
 
 
+@pytest.fixture(scope="module")
+def captured_split_pdf_ports(tmp_path_factory):
+    from corpus_structure.semantic.composed import read_data_operation_inputs
+    from semantic.current_pdf_integration_support import current_pdf_recipe
+    from semantic.data_operation_kernel_support import prepare_kernel
+
+    prepared = prepare_kernel(current_pdf_recipe(tmp_path_factory.mktemp("split-pdf-resources")))
+    captured = read_data_operation_inputs(prepared.dependencies)
+    assert captured is not None and captured[1] is not None
+    return prepared.bundle, captured[1], prepared.prepared, prepared.model
+
+
+@pytest.mark.parametrize("operation", ["source.pdf_recognition/observe", "source.pdf_integrated/reconcile"])
+def test_split_pdf_ports_bind_their_actual_nominal_inputs_and_resources(captured_split_pdf_ports, operation):
+    port, authorized, identity = acquired_port(captured_split_pdf_ports, operation)
+    port._verify()
+    assert authorized == [identity, identity]
+    if operation == "source.pdf_recognition/observe":
+        assert "resources" in port.profile.record
+        assert "integration_policy" not in port.profile.record["options"]
+    else:
+        assert set(port.profile.record["options"]) == {"integration_policy"}
+        assert "resources" not in port.profile.record and "recognition_recipe" not in port.profile.record
+
+
 @pytest.mark.parametrize(
     "operation",
     (

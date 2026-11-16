@@ -134,6 +134,47 @@ class WirePdfExecutionReceipt(TypedDict):
     publisher_holder: Required[str]
 
 
+class WirePdfObservationPublicationContext(TypedDict):
+    attempt: Required[int]
+    generation: Required[int]
+    holder: Required[str]
+    release_id: Required[str]
+    request_id: Required[str]
+    runtime_id: Required[str]
+    source_digest: Required[str]
+    task_id: Required[int]
+    version: Required[Literal["pdf-observation-publication-1"]]
+
+
+class WirePdfObservedRequest(TypedDict):
+    content_digest: Required[str]
+    ordinal: Required[int]
+    product_key: Required[str]
+    publication_context: Required[WirePdfObservationPublicationContext]
+    task_id: Required[int]
+
+
+class WirePdfObservedPage(TypedDict):
+    adapter_reused: Required[bool]
+    observations: Required[list[WirePdfObservedRequest]]
+    page_no: Required[int]
+    recipe_digest: Required[str]
+    report_digest: Required[str]
+
+
+class WirePdfObservationExecutionReceipt(TypedDict):
+    attempt: Required[int]
+    generation: Required[int]
+    holder: Required[str]
+    pages: Required[list[WirePdfObservedPage]]
+    recipe_digest: Required[str]
+    request_id: Required[str]
+    runtime_id: Required[str]
+    source_digest: Required[str]
+    task_id: Required[int]
+    version: Required[Literal["pdf-observation-execution-1"]]
+
+
 class WireProviderExecutionReceipt(TypedDict):
     cohort_digest: Required[str]
     cohort_members: Required[list[str]]
@@ -165,6 +206,7 @@ class WireNativeExecutionEvidence(TypedDict):
     generation: Required[WireGeneration]
     holder: Required[str]
     host_receipts: Required[list[WireNativeExecutionReceipt]]
+    pdf_observation_receipts: NotRequired[list[WirePdfObservationExecutionReceipt]]
     pdf_receipts: NotRequired[list[WirePdfExecutionReceipt]]
     provider_receipts: NotRequired[list[WireProviderExecutionReceipt]]
     request_id: Required[WireRequestId]
@@ -1237,6 +1279,12 @@ class WireReadSelectedFeatureFitFrameResult(TypedDict):
     variant: Required[Literal["record-feature-grade", "operation-event-frame"]]
 
 
+class WireReadSelectedPdfObservationsResult(TypedDict):
+    cut: Required[WireCutSelection]
+    original_source: Required[WireIdentifier]
+    receipt: Required[WirePdfObservationExecutionReceipt]
+
+
 class WireReadSelectedPdfSourceRequest(TypedDict):
     demand_id: Required[WireDemandId]
     derivation_id: Required[WireDerivationId]
@@ -1905,6 +1953,14 @@ class DataOperationCalls:
     ) -> WireReadSelectedPdfSourceResult:
         return cast(
             WireReadSelectedPdfSourceResult, self._invoke("read_selected_pdf_source", payload)
+        )
+
+    def read_selected_pdf_observations(
+        self, payload: WireReadSelectedPdfSourceRequest
+    ) -> WireReadSelectedPdfObservationsResult:
+        return cast(
+            WireReadSelectedPdfObservationsResult,
+            self._invoke("read_selected_pdf_observations", payload),
         )
 
     def initialize_source_project(

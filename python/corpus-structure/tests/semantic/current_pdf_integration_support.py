@@ -37,6 +37,7 @@ from corpus_structure.semantic.pdf_domain import pdf_domain_dependencies
 from corpus_structure.semantic.pdf_transforms import (
     PdfEnrichmentOptions,
     PdfIntegrationOptions,
+    PdfRecognitionOptions,
     PdfRecognitionResources,
     pdf_transform_operation_sources,
 )
@@ -58,7 +59,7 @@ from semantic.pdf_native_source_support import IMAGE, make_native_source
 ROOT = Path(__file__).resolve().parents[4]
 
 
-def current_pdf_recipe(directory):
+def current_pdf_recipe(directory, *, integration_policy=None):
     native = PdfRecipe(
         "0" * 40,
         "1" * 40,
@@ -88,7 +89,8 @@ def current_pdf_recipe(directory):
     integration = pdf_transform_operation_sources(
         "integrated",
         recognition_recipe=NemotronRecipe("2" * 64, "3" * 64),
-        options=PdfIntegrationOptions(recovery_policy=None, integration_policy={}),
+        options=PdfIntegrationOptions(integration_policy={} if integration_policy is None else integration_policy),
+        recognition_options=PdfRecognitionOptions(recovery_policy=None),
         resources=PdfRecognitionResources(
             python=sys.executable,
             script=str(worker),
@@ -171,6 +173,8 @@ class CurrentPdfIntegration:
     values: dict[str, dict] = field(default_factory=dict)
     demand_id: str | None = None
     failure: Any = None
+    snapshot: Any = None
+    observation_source: Any = None
 
     @property
     def prepared(self):
@@ -261,6 +265,7 @@ def current_integration_journey(
             directory = tmp_path / "controlled-actual-requests"
             directory.mkdir()
             (directory / "submitted.png").write_bytes(IMAGE)
+            requests = []
             for ordinal, raw in enumerate(raw_responses):
                 row = dict(
                     ordinal=ordinal,
@@ -276,15 +281,18 @@ def current_integration_journey(
                 if raw is not None:
                     name = f"response-{ordinal:03d}.txt"
                     (directory / name).write_bytes(raw)
-                    row.update(raw_response=name, finish_reason="stop")
+                    row.update(raw_response=name, raw_digest=sha256(raw).hexdigest(), finish_reason="stop")
                 else:
                     row["diagnostic"] = "controlled connection closed before response"
                 (directory / f"request-{ordinal:03d}.json").write_text(json.dumps(row))
+                requests.append(row)
+            result = {"outcome": outcome, "requests": requests}
+            (directory / "result.json").write_text(json.dumps(result))
             check_active()
             yield RecognitionPage(
                 1,
                 directory,
-                {"outcome": outcome},
+                result,
                 dict(
                     status="coarse",
                     normalization="none",
@@ -381,8 +389,31 @@ def current_integration_journey(
             else:
                 assert not expect_unresolved_page, "failed page unexpectedly completed integration"
         case.demand_id = result.demand_id
-        with clone.admin.connect() as connection:
+        with case.reader().connect() as connection:
+            from sqlalchemy import text
+            assert connection.scalar(text("SELECT current_user")) == "corpus_sem_reader"
             snapshot = read_data_demand(connection, result.demand_id, view="products")
+            from corpus_structure.serve.selected_pdf import SelectedPdfSourceReference, acquire_selected_pdf_source, acquire_selected_pdf_observations
+
+            obligations = {row["obligation_id"]: row for row in snapshot["obligations"]}
+            raw_use = next(use for use in snapshot["uses"] if use["fate"] == "fulfilled"
+                           and obligations[use["obligation_id"]]["operation_id"] == "source.pdf/capture")
+            raw_output = next(product for product in raw_use["products"] if product["role"] == "result")
+            assert raw_use["derivation_id"] is not None
+            acquired = acquire_selected_pdf_source(connection, SelectedPdfSourceReference(
+                project_id=original.project_id, demand_id=result.demand_id, read_id=snapshot["read_id"],
+                use_id=raw_use["use_id"], product_id=raw_output["product_id"], derivation_id=raw_use["derivation_id"],
+            ))
+            case.publications["native"] = acquired.physical
+            observed_use = next(use for use in snapshot["uses"] if use["fate"] == "fulfilled"
+                and obligations[use["obligation_id"]]["operation_id"] == "source.pdf_recognition/observe")
+            observed_output = next(product for product in observed_use["products"] if product["role"] == "result")
+            assert observed_use["derivation_id"] is not None
+            case.observation_source = acquire_selected_pdf_observations(connection, SelectedPdfSourceReference(
+                project_id=original.project_id, demand_id=result.demand_id, read_id=snapshot["read_id"],
+                use_id=observed_use["use_id"], product_id=observed_output["product_id"], derivation_id=observed_use["derivation_id"],
+            ))
+        case.snapshot = snapshot
         obligations = {row["obligation_id"]: row for row in snapshot["obligations"]}
         for use in snapshot["uses"]:
             if use["fate"] != "fulfilled":

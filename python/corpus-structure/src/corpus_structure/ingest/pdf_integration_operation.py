@@ -41,6 +41,18 @@ class PdfIntegrationOperation:
                 },
             },
             {
+                "name": "observations",
+                "parameter": "observations",
+                "direction": "input",
+                "kind": "https://corpus-structure.dev/semantic/data-operation-pdf-capture/DdoPdfObservationSet",
+                "minimum": 1, "maximum": 1, "collection": "scalar", "presence": "alternative",
+                "alternatives": ["source.pdf_recognition/observe"],
+                "selected": "source.pdf_recognition/observe",
+                "support": {"provenance": "exact", "origins": ["computation"],
+                            "identity_requirements": ["episode", "alternative"], "source": "same-original",
+                            "coverage": {"role": "observations", "description": "requested-physical-page-observations"}},
+            },
+            {
                 "name": "result",
                 "direction": "output",
                 "kind": "https://corpus-structure.dev/semantic/data-operation-pdf-capture/DdoPdfIntegratedPublication",
@@ -50,8 +62,7 @@ class PdfIntegrationOperation:
                 "presence": "required",
             },
         ],
-        "parameters": {"pages": {"value_type": "integer", "many": True, "default": []}},
-        "dependencies": ["source.pdf/capture"],
+        "dependencies": ["source.pdf/capture", "source.pdf_recognition/observe"],
         "effects": [
             {
                 "name": "publish_pdf_integration",
@@ -82,8 +93,8 @@ class PdfIntegrationOperation:
         },
         "outcomes": ["success", "failed"],
         "precision_description": "native-pdf-records-and-original-coordinates",
-        "behavior": "immutable per-page recognition receipts and explicit retained reconciliation",
-        "binding": {"operator": "scan", "roles": ["capture"]},
+        "behavior": "deterministic integration policy over explicitly selected retained observations",
+        "binding": {"operator": "scan", "roles": ["capture", "observations"]},
         "opaque": [
             {
                 "reference": "corpus_structure.semantic.pdf_transforms.execute_pdf_integration",
@@ -134,5 +145,5 @@ class PdfIntegrationOperation:
         self.execution_owner = execution_owner
         self.check_active = check_active
 
-    def run(self, capture: dict, pages: tuple[int, ...]) -> PdfCaptureProduct:
-        return execute_pdf_integration(self, capture, pages)
+    def run(self, capture: dict, observations: dict) -> PdfCaptureProduct:
+        return execute_pdf_integration(self, capture, observations)

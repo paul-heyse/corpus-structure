@@ -29,6 +29,16 @@ PDF_INTEGRATION_FACTORY = (
     "corpus_structure.ingest.pdf_integration_operation.PdfIntegrationOperation.acquire_port"
 )
 
+PDF_RECOGNITION_EFFECT = EffectContract(
+    "retain_pdf_observations",
+    ("original-source", "exact-selected-pdf", "owned-request-attempt"),
+    "request-generation/source-digest/recognition-recipe-digest",
+    "native-observation-set-receipt",
+)
+PDF_RECOGNITION_FACTORY = (
+    "corpus_structure.ingest.pdf_observation_operation.PdfObservationOperation.acquire_port"
+)
+
 PDF_ORGANIZATION_EFFECT = EffectContract(
     "publish_pdf_organization",
     ("original-source", "exact-selected-pdf", "owned-request-attempt"),

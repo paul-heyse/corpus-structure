@@ -57,13 +57,10 @@ def _boundary(bundle: SourceBundle) -> PreparedRelease:
     return prepare_release(bundle)
 
 
-def prepare_pdf_context(prepared: PreparedRelease, domain: PdfDomainContract) -> PreparedPdfContext:
-    """Prepare the captured current PDF facet using its own schema and policies."""
-    qualified = trusted_pdf_context().require_operation("read_pdf_product")["implementation"]
-    if domain.require_operation("read_pdf_product")["implementation"] != qualified:
-        raise ValueError("PDF read ABI is unsupported by the qualified reader")
+def _context_from_domain(release_id: str | None, domain: PdfDomainContract) -> PreparedPdfContext:
+    """Lower one already captured domain; native authoring has no application release."""
     return PreparedPdfContext(
-        prepared.release_id,
+        release_id,
         _boundary(domain.schema),
         domain,
         domain.source("schema/pdf_products").digest,
@@ -71,6 +68,14 @@ def prepare_pdf_context(prepared: PreparedRelease, domain: PdfDomainContract) ->
             "pdf/staging-model.yaml", domain.source("implementation/pdf/staging-model.yaml").content
         ),
     )
+
+
+def prepare_pdf_context(prepared: PreparedRelease, domain: PdfDomainContract) -> PreparedPdfContext:
+    """Prepare the captured current PDF facet using its own schema and policies."""
+    qualified = trusted_pdf_context().require_operation("read_pdf_product")["implementation"]
+    if domain.require_operation("read_pdf_product")["implementation"] != qualified:
+        raise ValueError("PDF read ABI is unsupported by the qualified reader")
+    return _context_from_domain(prepared.release_id, domain)
 
 
 @lru_cache(maxsize=1)
@@ -79,15 +84,7 @@ def trusted_pdf_context() -> PreparedPdfContext:
 
     contract, *sources = pdf_domain_sources()
     domain = PdfDomainContract(contract.content, tuple(sources))
-    return PreparedPdfContext(
-        None,
-        _boundary(domain.schema),
-        domain,
-        domain.source("schema/pdf_products").digest,
-        SourceArtifact(
-            "pdf/staging-model.yaml", domain.source("implementation/pdf/staging-model.yaml").content
-        ),
-    )
+    return _context_from_domain(None, domain)
 
 
 def integrated_metadata_policy(

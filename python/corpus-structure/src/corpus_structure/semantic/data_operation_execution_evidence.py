@@ -17,6 +17,7 @@ from .cpu_receipts import CPUExecutionReceipt
 from .external_receipts import ExternalExecutionReceipt
 from .identity import canonical_bytes
 from .pdf_publication import PdfExecutionReceipt
+from .pdf_observations import PdfObservationExecutionReceipt
 
 SOURCE = "native/data-operation-execution-evidence.schema.json"
 _Identifier = Annotated[str, Field(strict=True, min_length=1)]
@@ -37,6 +38,7 @@ class NativeExecutionEvidence(BaseModel):
     cpu_receipts: tuple[CPUExecutionReceipt, ...]
     cpu_replies: tuple[str, ...] = ()
     pdf_receipts: tuple[PdfExecutionReceipt, ...] = ()
+    pdf_observation_receipts: tuple[PdfObservationExecutionReceipt, ...] = ()
     provider_receipts: tuple[ProviderExecutionReceipt, ...] = ()
     external_receipts: tuple[ExternalExecutionReceipt, ...] = ()
 
@@ -74,6 +76,7 @@ def bind_execution_evidence(
     cpu_content: bytes | None = None,
     cpu_reply_content: bytes | None = None,
     pdf_content: bytes | None = None,
+    pdf_observation_content: bytes | None = None,
     provider_content: bytes | None = None,
     external_content: bytes | None = None,
 ) -> dict:
@@ -86,6 +89,7 @@ def bind_execution_evidence(
         "cpu_receipts": [json.loads(cpu_content)] if cpu_content is not None else [],
         "cpu_replies": [cpu_reply_content.decode("utf-8")] if cpu_reply_content is not None else [],
         "pdf_receipts": [json.loads(pdf_content)] if pdf_content is not None else [],
+        "pdf_observation_receipts": [json.loads(pdf_observation_content)] if pdf_observation_content is not None else [],
         "provider_receipts": json.loads(provider_content) if provider_content is not None else [],
         "external_receipts": json.loads(external_content) if external_content is not None else [],
     }
@@ -100,6 +104,12 @@ def bind_execution_evidence(
     ):
         raise ValueError("retained CPU reply differs from its actual execution receipt")
     claim = tuple(fence[name] for name in ("request_id", "generation", "task_id", "attempt"))
+    for receipt in checked.pdf_observation_receipts:
+        if (
+            receipt.request_id, receipt.generation, receipt.task_id, receipt.attempt,
+            receipt.holder, receipt.runtime_id,
+        ) != (*claim, fence["holder"], runtime_id):
+            raise ValueError("observation adoption receipt differs from native attempt/runtime")
     for receipt in checked.provider_receipts:
         # The existing provider handle validates work/cohort/scatter and actual
         # physical exchanges before handing over this typed receipt. Bind its

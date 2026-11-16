@@ -577,6 +577,7 @@ def store_pdf_observation(
     task_id: int,
     attempt: int,
     holder: str,
+    runtime_id: str,
     product: PreparedIntegratedPdfProduct,
     context: PreparedPdfContext | None = None,
 ) -> str:
@@ -600,7 +601,7 @@ def store_pdf_observation(
         raise ValueError("observation publication refuses native or integrated document bodies")
     require_pdf_database_action(conn, archived.release_id, "publish_pdf_observation")
     from ._pdf_native_calls import publish_pdf_observation
-    from .identifiers import TaskAttempt, TaskId
+    from .identifiers import RuntimeId, TaskAttempt, TaskId
     from .releases import open_release
 
     return publish_pdf_observation(
@@ -608,6 +609,7 @@ def store_pdf_observation(
         task_id=TaskId(task_id),
         attempt=TaskAttempt(attempt),
         holder=holder,
+        runtime_id=RuntimeId(runtime_id),
         contract_digest=product.contract_digest,
         payload=product.payload,
         artifacts=product.artifacts,

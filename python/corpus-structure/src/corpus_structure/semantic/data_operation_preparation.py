@@ -473,14 +473,14 @@ def _acquire_primary_profile(
             from corpus_structure.ingest.pdf_recognition import NemotronRecipe
 
             from .pdf_transforms import (
-                PdfIntegrationOptions,
+                PdfIntegrationProfile,
                 PdfRecognitionResources,
                 pdf_transform_operation_sources,
             )
 
             selected = capture.recognition
             recognition_recipe = NemotronRecipe(**yaml.safe_load(read(selected.recipe)))
-            options = PdfIntegrationOptions.model_validate(yaml.safe_load(read(selected.options)))
+            options = PdfIntegrationProfile.model_validate(yaml.safe_load(read(selected.options)))
             resources = PdfRecognitionResources.model_validate(
                 yaml.safe_load(read(selected.resources))
             )
@@ -497,7 +497,8 @@ def _acquire_primary_profile(
                 read(str(Path(resources.script).relative_to(root)))
             arguments["pdf_integration_sources"] = pdf_transform_operation_sources(
                 "integrated",
-                options=options,
+                options=options.integration,
+                recognition_options=options.recognition,
                 recognition_recipe=recognition_recipe,
                 resources=resources,
                 directory=location(capture.directory),
