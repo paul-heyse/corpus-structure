@@ -144,7 +144,6 @@ POSTGRESQL_IMPLEMENTATION_SOURCES = (
     ("invocation/source-request.py", "orchestrate/source_request.py"),
     ("invocation/source-operation.py", "orchestrate/source_operation.py"),
     ("invocation/source-lineage.py", "orchestrate/source_lineage.py"),
-    ("invocation/source-progress.py", "orchestrate/source_progress.py"),
     ("invocation/source-reporting.py", "orchestrate/source_reporting.py"),
     ("characterization/execution-policy.py", "core/execution_policy.py"),
     ("characterization/cpu-execution.py", "semantic/cpu_execution.py"),

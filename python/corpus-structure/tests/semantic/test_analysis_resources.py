@@ -10,7 +10,6 @@ from typing import cast
 import duckdb
 import pytest
 from sqlalchemy import Engine
-from typer.testing import CliRunner
 
 from corpus_structure.semantic._operation_ids import CutId, RunId
 from corpus_structure.semantic.analytics import AnalysisScope, BorrowedRows
@@ -301,57 +300,3 @@ def test_finalization_preserves_selected_resource_snapshot(tmp_path, monkeypatch
     assert finalize_bound_run(engine, 17, "output", analytics=resources) == "controlled result"
     assert observed == [(engine, 1, "output", resources)]
     assert observed[0][3] is resources
-
-
-@pytest.mark.parametrize("command", ["finalize", "regenerate"])
-def test_cli_passes_resolved_analytics_without_reacquiring_defaults(command, tmp_path, monkeypatch):
-    from corpus_structure.cli import orchestrate as cli
-    from corpus_structure.cli.app import app
-    from corpus_structure.orchestrate import commands
-    from corpus_structure.semantic import releases, runtime
-    from corpus_structure.semantic.domain_operations import DomainResult
-    from corpus_structure.semantic.publication import PublicationReceipt
-
-    resources = {"threads": "3", "memory_limit": "72MiB", "scratch_path": str(tmp_path)}
-    for key, value in resources.items():
-        monkeypatch.setenv("CORPUS_ANALYTICS__" + key.upper(), value)
-    observed = []
-
-    @contextmanager
-    def engine(*args, **kwargs):
-        yield FinalizationEngine()
-
-    def finalized(engine, run, output, *, analytics):
-        observed.append(analytics)
-        return DomainResult(
-            run, CutId(1), output, PublicationReceipt("control", 1, "0" * 64), 0, 0, 1
-        )
-
-    monkeypatch.setattr(cli, "ENGINE", engine)
-    monkeypatch.setattr(runtime, "open_runtime_engine", engine)
-    monkeypatch.setattr(commands, "finalize_bound_run", finalized)
-    monkeypatch.setattr(commands, "run_source_ready", lambda *args: True)
-    prepared = prepared_inputs()[2]
-    monkeypatch.setattr(releases, "load_release", lambda *args: prepared)
-    args = (
-        ["run", "finalize", "17", "--output-realization", "output", "--json"]
-        if command == "finalize"
-        else [
-            "regenerate",
-            "--domain",
-            "statistics",
-            "--corpus",
-            str(tmp_path),
-            "--project",
-            "control",
-            "--resume-run",
-            "17",
-            "--leave-unselected",
-            "--json",
-        ]
-    )
-    result = CliRunner().invoke(app, args)
-    assert result.exit_code == 0, (result.output, result.exception)
-    assert len(observed) == 1
-    assert observed[0].threads == 3 and observed[0].memory_limit == "72MiB"
-    assert observed[0].scratch_path == tmp_path

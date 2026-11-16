@@ -64,8 +64,8 @@ def test_supervisor_handoff_distinguishes_waiting_from_lost_active_session(
     commit_application_settings = resubmission_application_settings
     from sqlalchemy.exc import DBAPIError
 
-    from corpus_structure.orchestrate.commands import bound_status
     from corpus_structure.orchestrate.liveness import (
+        observe_supervisor,
         record_supervisor,
         run_supervisor,
         supervisor_connection,
@@ -78,16 +78,11 @@ def test_supervisor_handoff_distinguishes_waiting_from_lost_active_session(
         update={"database": settings.database.model_copy(update={"pool_max_size": 1})}
     )
 
-    def status(expected):
+    def custody(expected):
         with commit_reader_engine.connect() as reader:
-            progress = bound_status(reader, run, project_id="resubmit")
-        assert progress.run is not None
-        assert progress.run.supervisor == expected
-        assert progress.orphaned == (
-            [run] if expected == "orphaned" else None if expected == "unassessed" else []
-        )
+            assert observe_supervisor(reader, run) == expected
 
-    status("unassessed")
+    custody((False, None))
     with open_runtime_engine(settings, purpose="write", timeout=3) as engine:
         with engine.begin() as writer:
             start_run(writer, run)
@@ -104,23 +99,18 @@ def test_supervisor_handoff_distinguishes_waiting_from_lost_active_session(
         with supervisor_connection(engine) as supervisor, run_supervisor(supervisor, run):
             record_supervisor(supervisor, run, waiting=False)
             supervisor.commit()
-            status("active")
+            custody((True, False))
             with engine.begin() as writer:
                 seal_cut(writer, run, "source-ready")
             record_supervisor(supervisor, run, waiting=True)
             supervisor.commit()
-        status("waiting")
+        custody((False, True))
         with supervisor_connection(engine) as supervisor, run_supervisor(supervisor, run):
             record_supervisor(supervisor, run, waiting=False)
             supervisor.commit()
-            status("active")
+            custody((True, False))
             supervisor.invalidate()
-        status("orphaned")
-        from corpus_structure.semantic.operations import end_source_run
-
-        with engine.begin() as connection:
-            end_source_run(connection, run)
-        status("terminal")
+        custody((False, False))
 
 
 def test_direct_retains_protected_direction_scope_guards(

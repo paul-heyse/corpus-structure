@@ -33,7 +33,6 @@ def test_pm2_unattempted_scope_remains_visible_without_provider_or_contributions
     parser_source, parser_samples, tmp_path, commit_reader_engine
 ):
 
-    from corpus_structure.orchestrate.commands import bound_status
     from corpus_structure.semantic.operations import BoundReader
 
     case = parser_source
@@ -111,7 +110,6 @@ def test_pm2_unattempted_scope_remains_visible_without_provider_or_contributions
     )
     assert not report.tasks
     with read_snapshot(case.writer) as conn:
-        progress = bound_status(conn, report.run_id).run
         reader_coverage = BoundReader(
             conn, report.run_id, case.prepared, report.cut_id
         ).pm2_scope_coverage()
@@ -119,8 +117,7 @@ def test_pm2_unattempted_scope_remains_visible_without_provider_or_contributions
             run_id=report.run_id, source_view_id=case.other_view, include_scope_coverage=True
         )
         inspection = serve_contributions(conn, selection)
-    assert progress is not None
-    assert progress.pm2_scope_coverage == reader_coverage == report.scope_coverage
+    assert reader_coverage == report.scope_coverage
     assert [entry.outcome for entry in report.scope_coverage] == ["ineligible", "unscheduled"]
     assert all(entry.emitted_count == entry.inspected_count == 0 for entry in report.scope_coverage)
     assert inspection.inventory_counts["contributions"] == 0
@@ -132,7 +129,6 @@ def test_pm2_unattempted_scope_remains_visible_without_provider_or_contributions
 def test_cancelled_pm2_scope_does_not_gain_an_operation_result(parser_source):
     from hashlib import sha256
 
-    from corpus_structure.orchestrate.commands import bound_status
     from corpus_structure.semantic._operation_calls import select_source_view
     from corpus_structure.semantic._operation_ids import SourceViewId
     from corpus_structure.semantic.operations import binding_of, create_run, create_task, start_run
@@ -150,24 +146,23 @@ def test_cancelled_pm2_scope_does_not_gain_an_operation_result(parser_source):
         )
     finalize_bound_run(case.writer, case.run, "pm2-cancel-origin")
     digest = sha256(b"bounded scope cancelled before inference").hexdigest()
+    intents = [
+        {
+            "source_view_id": case.other_view,
+            "extent": [0, 2],
+            "question": "pm2.hanlp.frames",
+            "operation_version": "1",
+            "disposition": "scheduled",
+            "input_digest": digest,
+        }
+    ]
     with case.writer.begin() as conn:
         run = create_run(
             conn,
             project_id=case.project_id,
             binding=binding_of(conn, case.run),
             kind="slice",
-            options={
-                "pm2_scope_intents": [
-                    {
-                        "source_view_id": case.other_view,
-                        "extent": [0, 2],
-                        "question": "pm2.hanlp.frames",
-                        "operation_version": "1",
-                        "disposition": "scheduled",
-                        "input_digest": digest,
-                    }
-                ]
-            },
+            options={"pm2_scope_intents": intents},
             code_commit="native-pm2-coverage-test",
             prepared=case.prepared,
         )
@@ -194,7 +189,7 @@ def test_cancelled_pm2_scope_does_not_gain_an_operation_result(parser_source):
     with case.writer.begin() as connection:
         assert end_source_run(connection, run) == 1
     with read_snapshot(case.writer) as conn:
-        status = bound_status(conn, run).run
+        coverage = scope_coverage(conn, run, intents)
         with pytest.raises(ValueError, match="scope source view differs from its admitted task"):
             scope_coverage(
                 conn,
@@ -210,8 +205,7 @@ def test_cancelled_pm2_scope_does_not_gain_an_operation_result(parser_source):
                     }
                 ],
             )
-    assert status is not None and status.pm2_scope_coverage is not None
-    (entry,) = status.pm2_scope_coverage
+    (entry,) = coverage
     assert entry.task_id == task
     assert entry.outcome == "cancelled"
     assert entry.origin_task_id is entry.inspected_count is entry.emitted_count is None
