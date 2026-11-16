@@ -1608,22 +1608,6 @@ class BoundReader:
             source_bindings=tuple(bindings),
         )
 
-    def original(self, document_id: int) -> bytes:
-        """Read retained source bytes only within this reader's run/project binding."""
-        document, run = table("kb.document"), table("ops.run")
-        permitted = self.conn.execute(
-            select(document.c.id)
-            .join_from(document, run, document.c.project_id == run.c.project_id)
-            .where(
-                document.c.id == document_id,
-                run.c.id == self.run_id,
-                run.c.release_id == self.prepared.release_id,
-            )
-        ).scalar_one_or_none()
-        if permitted is None:
-            raise OperationConflict("original source is outside the bound run/project")
-        return read_original(self.conn, DocumentId(permitted), prepared=self.prepared)
-
     def measurements(self, method: str, metric: str) -> Sequence[MeasurementView]:
         from corpus_structure.core.method import MeasurementView
         from corpus_structure.core.vocab import MeasurementScope

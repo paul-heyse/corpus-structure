@@ -345,9 +345,6 @@ class Reader(Protocol):
         """The run's guideline body."""
         ...
 
-    def original(self, document_id: int) -> bytes:
-        """The retained original bytes under this reader's admitted project/run custody."""
-        ...
 
     def documents(self, originals: Sequence[str]) -> tuple[UnitRef, ...]:
         """Owned document references under the frozen corpus and original-source selection."""
