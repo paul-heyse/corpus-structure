@@ -895,7 +895,11 @@ def recognition_observation_values(
                 scope=f"page:{page.page_no}",
                 family=f"nemotron-pass-{observation['pass_role']}",
                 discovery_policy="public-triple-union-v1",
-                outcome="capped" if row.get("finish_reason") == "length" else "partial",
+                outcome=(
+                    "unknown"
+                    if "raw_response" not in row
+                    else "capped" if row.get("finish_reason") == "length" else "partial"
+                ),
                 detail=("Request output only; completion does not establish source completeness."),
                 supports=[],
             )

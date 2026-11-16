@@ -66,95 +66,11 @@ from corpus_structure.semantic.source_discovery import source_discovery_inputs
 from semantic.data_operation_kernel_support import CapturedKernelInputs, Kernel, KernelRecipe
 from semantic.data_operation_original_support import OriginalSeedRecipe
 from semantic.pdf_native_source_support import IMAGE
+from semantic.current_pdf_integration_support import current_pdf_recipe
 
 ROOT = Path(__file__).resolve().parents[4]
 
 
-def _pdf_recipe(directory):
-    native = PdfRecipe(
-        "0" * 40,
-        "1" * 40,
-        device="cpu",
-        ocr_device="cpu",
-        recipe_id="docling-standard-pdf-stream-v1",
-    )
-    assets = PreparedPdfAssets(directory, b"{}", ())
-    capture = pdf_capture_operation_sources(native, assets, directory=directory / "owned")
-    organization = pdf_transform_operation_sources(
-        "organized",
-        options=SectionPolicy("explicit-native-headings"),
-        directory=directory / "owned",
-    )
-    enriched = pdf_transform_operation_sources(
-        "enriched",
-        recipe=native,
-        assets=assets,
-        options=PdfEnrichmentOptions(),
-        directory=directory / "owned",
-        input_operation="source.pdf_sections/organize",
-    )
-    worker = directory / "explicit-provider.py"
-    worker.write_text(
-        "raise AssertionError('controlled provider boundary must replace inference')\n"
-    )
-    integration = pdf_transform_operation_sources(
-        "integrated",
-        recognition_recipe=NemotronRecipe("2" * 64, "3" * 64),
-        options=PdfIntegrationOptions(recovery_policy=None, integration_policy={}),
-        resources=PdfRecognitionResources(
-            python=sys.executable,
-            script=str(worker),
-            endpoint="http://127.0.0.1:8123/v1",
-            receipts=str(directory / "receipts"),
-            timeout_seconds=1,
-        ),
-        directory=directory / "owned",
-        input_operation="source.pdf_sections/organize",
-    )
-    sources = combine_primary_sources(
-        pdf_views_operation_sources(capture, mode="organized", transformation_sources=organization),
-        pdf_views_operation_sources(capture, mode="enriched", transformation_sources=enriched),
-        pdf_views_operation_sources(capture, mode="integrated", transformation_sources=integration),
-    )
-    bundle = source_discovery_inputs(
-        pdf_capture_inputs(
-            SourceBundle(
-                "toy_semantic",
-                (
-                    SourceArtifact(
-                        "toy_semantic", (ROOT / "domains/toy/semantic.yaml").read_bytes()
-                    ),
-                    SourceArtifact(
-                        "semantic_core",
-                        (
-                            ROOT
-                            / "python/corpus-structure/src/corpus_structure/model/semantic/core.yaml"
-                        ).read_bytes(),
-                    ),
-                ),
-            )
-        )
-    )
-    native_sources = native_protocol_sources()
-    dependencies = pdf_domain_dependencies(ResolvedDependencies())
-    dependencies = data_operation_dependencies(
-        ResolvedDependencies(
-            (*dependencies.artifacts, *native_sources, *capture_port_generator_sources())
-        ),
-        (native_operation_declarations(native_sources),),
-        sources,
-    )
-    return KernelRecipe(
-        "controlled-pdf-transform-demand",
-        "",
-        None,
-        "",
-        project_id=None,
-        execution_profile="source-native",
-        captured_inputs=CapturedKernelInputs(
-            bundle, dependencies, PreparationProfile(version="semantic-2")
-        ),
-    )
 
 
 def test_native_organization_enrichment_and_integration_keep_real_receipts_and_exact_resume(
@@ -280,7 +196,7 @@ def test_native_organization_enrichment_and_integration_keep_real_receipts_and_e
     monkeypatch.setattr(
         pdf_recognition.RecognitionWorker, "_recognize_pages", ControlledRecognition.recognize_pages
     )
-    recipe = OriginalSeedRecipe(_pdf_recipe(tmp_path))
+    recipe = OriginalSeedRecipe(current_pdf_recipe(tmp_path))
     with scenario_seeds.commit_clone(recipe) as clone:
         kernel = Kernel(
             clone.admin,

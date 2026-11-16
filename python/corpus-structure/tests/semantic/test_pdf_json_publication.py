@@ -1,120 +1,114 @@
-"""Independent protected checks for the bounded JSON-text publication realization."""
+"""Current native PDF companion shapes and exact registered descriptor custody."""
 
 from copy import deepcopy
+from dataclasses import replace
 
 import psycopg
 import pytest
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
-from semantic.pdf_native_source_support import integrated
-
-from . import pdf_integration_support as fixtures
-
-pdf13_db = fixtures.pdf13_db
+from corpus_structure.semantic.native_objects import native_owner
+from semantic.current_pdf_integration_support import current_integration_journey
 
 
-def test_json_envelope_and_every_decomposed_record_remain_closed_and_typed(pdf13_db):
-    db = pdf13_db
-    value = integrated(db.source, db.inputs)
-    value["mapping_reports"] = [{"input_index": 1, "occurrence_id": "block-0", "outcome": "mapped"}]
-    product = fixtures.prepare(value, db.source)
-    # The removed aggregate document writer no longer accepts collection/envelope
-    # arguments. Their closed preparation boundary remains independently assessed.
-    envelope_cases = []
-    record_cases = []
-    for collection, shape in (
-        ("inputs", "PdfProductInput"),
-        ("occurrences", "PdfProductOccurrence"),
-        ("relations", "PdfProductRelation"),
-        ("coverage", "PdfProductCoverage"),
-        ("mapping_reports", "PdfMappingDisposition"),
-    ):
-        invalid = deepcopy(value)
-        invalid[collection][-1]["unmodeled"] = True
-        record_cases.append((invalid, shape))
-        invalid = deepcopy(value)
-        invalid[collection] = None
-        envelope_cases.append(invalid)
-    for change in ("unknown", "missing", "null", "empty_coverage", "nested_enum", "nested_type"):
-        invalid = deepcopy(value)
-        if change == "unknown":
-            invalid["unmodeled"] = []
-        elif change == "missing":
-            del invalid["health"]
-        elif change == "null":
-            invalid["health"] = None
-        elif change == "empty_coverage":
-            invalid["coverage"] = []
-        elif change == "nested_enum":
-            invalid["relations"][-1]["endpoints"][-1]["role"] = "unmodeled"
-            record_cases.append((invalid, "PdfProductRelation"))
-        else:
-            invalid["inputs"][-1]["task_id"] = str(invalid["inputs"][-1]["task_id"])
-            record_cases.append((invalid, "PdfProductInput"))
-        envelope_cases.append(invalid)
-    for invalid in envelope_cases:
-        with pytest.raises(ValueError):
-            fixtures.prepare(invalid, db.source)
-    for index, (invalid, shape) in enumerate(record_cases):
-        invalid["product_key"] = f"invalid-json-{index}"
-        with pytest.raises(DBAPIError) as caught:
-            fixtures._publish_record_values(db, invalid)
-        assert isinstance(caught.value.orig, psycopg.Error)
-        assert (caught.value.orig.sqlstate, caught.value.orig.diag.message_primary) == (
-            "23514",
-            "parsing record shape differs: " + shape,
-        )
-    digest = fixtures.publish(db, product)
-    assert fixtures.publish(db, product) == digest
-    from corpus_structure.semantic.pdf_record_reader import published_record_reader
-    from corpus_structure.semantic.product_reference import ProductReference
+def test_every_current_integrated_companion_is_closed_under_its_real_claim(
+    scenario_seeds, tmp_path, monkeypatch, native_settings
+):
+    refused = []
 
-    with db.writer.connect() as conn:
-        assert (
-            conn.scalar(
-                text("SELECT count(*) FROM ops.pdf_product WHERE product_key LIKE 'invalid-json-%'")
-            )
-            == 0
-        )
-        reader = published_record_reader(conn, ProductReference(db.job.task, "selected", digest))
-        assert reader is not None
-        descriptor = reader.product_descriptor()
-    assert descriptor["version"] == 2 and descriptor["kind"] == "integrated"
-    assert descriptor["health"] == value["health"]
-    assert descriptor["revision"]["logical_digest"] == digest
-    assert descriptor["revision"]["schema_digest"] == value["content"]["schema_digest"]
-    assert descriptor["revision"]["recipe_digest"] == value["content"]["recipe_digest"]
-    assert descriptor["revision"]["release_id"] == db.prepared.release_id
-    assert (
-        not {"content", "inputs", "occurrences", "relations", "coverage", "mapping_reports"}
-        & descriptor.keys()
-    )
+    def check(case, engine, claim, holder, draft, arguments, publish):
+        if draft.kind != "integrated":
+            return
+        from hashlib import sha256
+
+        from corpus_structure.semantic.identity import canonical_bytes
+        from corpus_structure.semantic.pdf_staging import begin_pdf_build
+
+        cases = []
+        classes = {
+            "input": "PdfProductInput", "occurrence": "PdfProductOccurrence",
+            "relation": "PdfProductRelation", "mapping_report": "PdfMappingDisposition",
+            "coverage": "PdfProductCoverage",
+        }
+        for family in classes:
+            assert draft.companions[family], family
+            body = deepcopy(draft.companions[family][0])
+            body["unmodeled"] = True
+            cases.append((family, family, body))
+        body = deepcopy(draft.companions["relation"][0])
+        body["endpoints"][-1]["role"] = "unmodeled"
+        cases.append(("endpoint-role", "relation", body))
+        body = deepcopy(draft.companions["input"][0])
+        body["task_id"] = str(body["task_id"])
+        cases.append(("input-type", "input", body))
+        for label, family, body in cases:
+            # Exercise the installed publisher's actual guard with this command's
+            # real fence. Each invalid staged row rolls back independently; no
+            # full alternate document or callback-wide transaction is retained.
+            with engine.begin() as connection:
+                with pytest.raises(DBAPIError) as error, connection.begin_nested():
+                    build = begin_pdf_build(
+                        connection, task_id=claim.task_id, attempt=claim.attempt, holder=holder,
+                        source_digest=sha256(draft.original).hexdigest(),
+                        recipe_digest=sha256(draft.recipe_bytes).hexdigest(),
+                        schema_digest=sha256(draft.schema_bytes).hexdigest(),
+                        replay_key="closed-shape-probe:" + label,
+                    )
+                    local = str(body.get({
+                        "occurrence": "occurrence_id", "relation": "relation_id",
+                        "coverage": "coverage_id",
+                    }.get(family, ""), 0))
+                    connection.execute(text(
+                        "SELECT ops.adopt_pdf_companion(:build,:task,:attempt,:holder,:family,:local,"
+                        "CAST(:body AS jsonb),:key,0,'{}'::jsonb)"
+                    ), dict(build=build.build_id, task=claim.task_id, attempt=claim.attempt,
+                            holder=holder, family=family, local=local,
+                            body=canonical_bytes(body).decode(), key="negative:" + label))
+                assert isinstance(error.value.orig, psycopg.Error)
+                assert (error.value.orig.sqlstate, error.value.orig.diag.message_primary) == (
+                    "23514", "parsing record shape differs: " + classes[family],
+                )
+            refused.append(label)
+
+    with current_integration_journey(
+        scenario_seeds, tmp_path, monkeypatch, native_settings, before_draft=check
+    ) as case:
+        assert len(refused) == 7
+        with case.reader().connect() as connection:
+            with pytest.raises(DBAPIError) as error, connection.begin_nested():
+                connection.scalar(text("SELECT count(*) FROM ops.pdf_stage_build"))
+            assert error.value.orig.sqlstate == "42501"
+        with case.clone.admin.connect() as connection:
+            assert connection.scalar(text(
+                "SELECT count(*) FROM ops.pdf_stage_build WHERE task_id=:task AND replay_key LIKE 'closed-shape-probe:%'"
+            ), {"task": case.publications["integrated"].task_id}) == 0
 
 
-def test_descriptor_helper_is_part_of_exact_native_admission(pdf13_db):
+def test_descriptor_helper_is_part_of_exact_current_native_catalog(commit_db_engine):
     from corpus_structure.semantic.execution_admission import (
-        ExecutionAdmissionError,
-        admit_execution_release,
+        ExecutionAdmissionError, verify_deployment_catalog,
     )
+    from corpus_structure.semantic.migrations import current_revision
 
-    db = pdf13_db
-    with db.admin.begin() as conn:
-        conn.exec_driver_sql("SET LOCAL ROLE corpus_sem_publisher")
-        conn.exec_driver_sql("""
-          CREATE OR REPLACE FUNCTION ops.pdf_product_descriptor(p_payload bytea) RETURNS jsonb
-          LANGUAGE sql IMMUTABLE STRICT SET search_path=pg_catalog,pg_temp
-          AS $$ SELECT '{}'::jsonb $$
-        """)
-    with (
-        db.admin.begin() as conn,
-        pytest.raises(ExecutionAdmissionError, match=r"ops\.pdf_product_descriptor"),
-    ):
-        admit_execution_release(db.prepared, connection=conn)
+    with commit_db_engine.begin() as connection:
+        revision = current_revision(connection)
+        verify_deployment_catalog(connection, revision=revision)
+        with connection.begin_nested() as drift:
+            with native_owner(connection, "corpus_sem_publisher"):
+                connection.exec_driver_sql("""
+                  CREATE OR REPLACE FUNCTION ops.pdf_product_descriptor(p_payload bytea) RETURNS jsonb
+                  LANGUAGE sql IMMUTABLE STRICT SET search_path=pg_catalog,pg_temp
+                  AS $$ SELECT '{}'::jsonb $$
+                """)
+            with pytest.raises(ExecutionAdmissionError, match=r"ops\.pdf_product_descriptor"):
+                verify_deployment_catalog(connection, revision=revision)
+            drift.rollback()
+        verify_deployment_catalog(connection, revision=revision)
 
 
 @pytest.mark.prerequisite("task86_witness")
-def test_retained_book_witness_descriptor_and_content_fit_without_relation_jsonb(pdf13_db):
+def test_retained_book_witness_descriptor_and_content_fit_without_relation_jsonb(commit_db_engine):
     import gzip
     import json
     import os
@@ -149,7 +143,7 @@ def test_retained_book_witness_descriptor_and_content_fit_without_relation_jsonb
         key: value["content"][key] for key in ("schema_digest", "recipe_digest", "health")
     }
     del value
-    with pdf13_db.admin.begin() as conn:
+    with commit_db_engine.begin() as conn:
         conn.exec_driver_sql("SET TRANSACTION READ ONLY")
         conn.exec_driver_sql("SET LOCAL ROLE corpus_sem_publisher")
         # This is a read-only witness check, not publication into fabricated input
