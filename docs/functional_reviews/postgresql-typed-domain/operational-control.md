@@ -24,7 +24,7 @@ state rather than snapshots or transaction state and are not a substitute.
 Acquisition failure owns no returned session; later failures attempt rollback and close independently.
 Cancellation remains explicit where supported. Delivery includes configured-driver parity, retained
 numeric metadata and an original error accompanied by both cleanup failures. Prioritize alongside O10.
-Sources: [analytics](../../../python/corpus-structure/src/corpus_structure/semantic/analytics.py),
+Sources: [analytics (historical source)](../../README.md#historical-recovery),
 [description](../../../python/corpus-structure/src/corpus_structure/serve/database_description.py),
 [ADBC lifecycle addendum](../../libraries/postgresql/adbc-driver-postgresql.md).
 

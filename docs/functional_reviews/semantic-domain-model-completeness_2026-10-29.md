@@ -76,13 +76,13 @@ Paths below name the source locations inspected, not new authorities.
 | S5 | [Operations](../../python/corpus-structure/src/corpus_structure/semantic/operations.py), run binding, task scheduling/claim/completion, source custody and held submissions |
 | S6 | [Lifecycle guards](../../python/corpus-structure/semantic_alembic/versions/semantic_0012_observation_inputs.sql), run/task/cut guards at 39–126; [final-cut barrier](../../python/corpus-structure/semantic_alembic/versions/semantic_0015_source_selection.sql) |
 | S7 | Historical agent submission (`intervene/semantic.py`; recover at the baseline in §2), held/refused/terminal results at 152–229; [native hold/cancel](../../python/corpus-structure/semantic_alembic/versions/semantic_0020_agent_resubmission.sql) |
-| S8 | [Domain operations](../../python/corpus-structure/src/corpus_structure/semantic/domain_operations.py), immutable replay at 184–242, coverage at 945–955, atomic evaluation at 1555–1740, scientific policy and assessments afterward |
+| S8 | [Domain operations (historical source)](../README.md#historical-recovery), immutable replay at 184–242, coverage at 945–955, atomic evaluation at 1555–1740, scientific policy and assessments afterward |
 | S9 | [Publication](../../python/corpus-structure/src/corpus_structure/semantic/publication.py), typed rows/batches and one retry owner; [current frozen transport](../../python/corpus-structure/semantic_alembic/versions/semantic_0021_transport.sql) |
 | S10 | [Ontology projection](../../python/corpus-structure/src/corpus_structure/semantic/ontology.py), scoped generation at 122–234, qualified assertions at 357, validation at 398 |
-| S11 | [Inference](../../python/corpus-structure/src/corpus_structure/semantic/inference.py), snapshot/finite closure; [native grounding](../../python/corpus-structure/semantic_alembic/versions/semantic_0007_inference.sql) |
-| S12 | [Analytics](../../python/corpus-structure/src/corpus_structure/semantic/analytics.py), packet/snapshot and AnalysisScope at 313–466; [Arrow publication](../../python/corpus-structure/src/corpus_structure/semantic/arrow_publication.py) |
+| S11 | [Inference (historical source)](../README.md#historical-recovery), snapshot/finite closure; [native grounding](../../python/corpus-structure/semantic_alembic/versions/semantic_0007_inference.sql) |
+| S12 | [Analytics (historical source)](../README.md#historical-recovery), packet/snapshot and AnalysisScope at 313–466; [Arrow publication](../../python/corpus-structure/src/corpus_structure/semantic/arrow_publication.py) |
 | S13 | [Source reports](../../python/corpus-structure/src/corpus_structure/model/semantic/observations.yaml), [query contracts](../../python/corpus-structure/src/corpus_structure/semantic/query.py), source-run adapter (`orchestrate/semantic.py`) |
-| S14 | [Scientific rule input](../../python/corpus-structure/src/corpus_structure/semantic/domain_operations.py), ReleasedRulesPolicy; [authored SQL admission](../../python/corpus-structure/src/corpus_structure/semantic/authored_sql.py) |
+| S14 | [Scientific rule input (historical source)](../README.md#historical-recovery), ReleasedRulesPolicy; [authored SQL admission](../../python/corpus-structure/src/corpus_structure/semantic/authored_sql.py) |
 
 ## 3. What already works, and what completeness adds
 

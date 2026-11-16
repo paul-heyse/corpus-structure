@@ -52,7 +52,9 @@ def dependencies():
 @pytest.mark.parametrize("version", ["semantic-1", "semantic-2"])
 def test_explicit_current_inputs_roundtrip_and_domain_namespace(version):
     supplied = dependencies()
-    declarations, python = read_data_operation_inputs(supplied)
+    captured = read_data_operation_inputs(supplied)
+    assert captured is not None
+    declarations, python = captured
     assert declarations[0].name == "operations.yaml" and python is None
     prepared = prepare_release(domain(), supplied, PreparationProfile(version=version))
     assert {definition.name for definition in prepared.definitions} == {"Thing"}

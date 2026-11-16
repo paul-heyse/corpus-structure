@@ -10,7 +10,7 @@ leads, not applicability verdicts or selected replacements.
 
 [Projection recipes](../../../../../python/corpus-structure/src/corpus_structure/semantic/projection_recipe.py) already lower model-owned expressions
 into Core. [Companion preparation](../../../../../python/corpus-structure/src/corpus_structure/semantic/companion_projection.py) caches stable function
-shapes with typed parameters and deterministic ordering. [Analytics](../../../../../python/corpus-structure/src/corpus_structure/semantic/analytics.py)
+shapes with typed parameters and deterministic ordering. [Analytics (historical source)](../../../../README.md#historical-recovery)
 prepares query structure before value binding. These are used, not missing capabilities.
 
 ## Research shortlist

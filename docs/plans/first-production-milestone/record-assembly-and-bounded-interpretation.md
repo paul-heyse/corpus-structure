@@ -31,7 +31,7 @@ policy selections, not confidence cutoffs. Existing
 [publication rows](../../../python/corpus-structure/src/corpus_structure/semantic/publication.py)
 include occurrence evidence, evidence roles, assessments, alternatives and derivation premises.
 These are foundations to extend under M1-02/M1-03, rather than five independent stores.
-[`derive`](../../../python/corpus-structure/src/corpus_structure/semantic/inference.py) computes
+[`derive` (historical source)](../../README.md#historical-recovery) computes
 finite rule closure over admitted premises. `semantic/record_interpretation.py` already supplies the distinct bounded domain operation
 `interpret_records` with three templates. Complete its producer/policy integration: routing uncertain candidates through `derive` would conflate
 interpretation with established entailment. D1/D2 own meanings; D4 owns method realization;

@@ -163,7 +163,7 @@ stays in the [execution-findings table](#execution-findings); this is not a seco
 "the default analytical command graph also performs capture, primary demand and exact-view binding
 before consumers". [The CLI](../../python/corpus-structure/src/corpus_structure/cli/orchestrate.py):56–64, 298–310
 always passes the phase-0 graph and registry, so
-[the command owner](../../python/corpus-structure/src/corpus_structure/orchestrate/commands.py):194
+[the command owner (historical source)](../README.md#historical-recovery):194
 treats the run as non-ordinary and skips the demand at 379–389. Mathematical source methods then
 require primary pins that the stock configurations do not contain. The condition is unchanged since `e9025e949`; only direct Python
 callers, `ci regenerate` and the M1 policy reach the demand. BEP's audit recorded the same defect

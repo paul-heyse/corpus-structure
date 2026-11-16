@@ -49,7 +49,7 @@ M1-00/M1-02 before activation; companion plans do not amend accepted ADRs by imp
 Current [publication](../../../python/corpus-structure/src/corpus_structure/semantic/publication.py)
 already has `PublicationBatch`, source occurrences, evidence/roles, support, alternatives,
 assessments, coverage and proof premises. Current
-[`consolidate_cut`](../../../python/corpus-structure/src/corpus_structure/semantic/domain_operations.py)
+[`consolidate_cut` (historical source)](../../README.md#historical-recovery)
 is the release-bound policy boundary; singleton candidates and storage validity are explicitly
 insufficient to authorize selection. Current
 [`ReadSession`](../../../python/corpus-structure/src/corpus_structure/semantic/query.py) and

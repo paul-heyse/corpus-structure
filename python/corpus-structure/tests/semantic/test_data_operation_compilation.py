@@ -701,21 +701,8 @@ def test_archived_model_is_read_without_reopening_source_or_current_defaults():
         read_effective_data_operations(canonical_bytes(record))
 
 
-def test_current_execution_schema_uses_the_pure_effective_phase(monkeypatch):
-    from corpus_structure.semantic import contracts
-
-    monkeypatch.setattr(
-        contracts, "approved_implementations", lambda: pytest.fail("legacy approval invoked")
-    )
-    model = compile_data_operations(contracts.trusted_execution_schema())
-    assert len([kind for kind in model.kinds if kind.category == "class"]) > 100
-    assert any(kind.name == "OperationContract" for kind in model.kinds)
-    assert all(kind.complete for kind in model.kinds)
-
-
-def test_current_statistics_kind_closure_uses_supplied_terminology_bytes(monkeypatch):
+def test_current_statistics_kind_closure_uses_supplied_terminology_bytes():
     from corpus_structure.schema.pack import DOMAINS
-    from corpus_structure.semantic import contracts
     from corpus_structure.semantic.prepare import (
         _view_and_vocabularies,
         effective_class_definitions,
@@ -723,9 +710,6 @@ def test_current_statistics_kind_closure_uses_supplied_terminology_bytes(monkeyp
     from corpus_structure.semantic.terminology import acquire_terminology
     from corpus_structure.semantic.types import PreparationProfile
 
-    monkeypatch.setattr(
-        contracts, "approved_implementations", lambda: pytest.fail("legacy approval invoked")
-    )
     pack = DOMAINS / "statistics"
     root = Path(__file__).parents[2] / "src/corpus_structure"
     terminology, assets, ontology_names = acquire_terminology(pack)

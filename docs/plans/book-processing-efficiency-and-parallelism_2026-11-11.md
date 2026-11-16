@@ -169,7 +169,7 @@ Owner: BEP-06/07, O05/O06.
 **E12 · Route normal `ci run` through primary characterization.**
 [The CLI](../../python/corpus-structure/src/corpus_structure/cli/orchestrate.py):299–308 passes the
 non-null default graph and registry supplied by `_phase0()`.
-[The command owner](../../python/corpus-structure/src/corpus_structure/orchestrate/commands.py):194
+[The command owner (historical source)](../README.md#historical-recovery):194
 therefore marks it non-ordinary and skips automatic capture→primary demand→view binding at379–389.
 Default mathematical methods then require primary pins that the stock configurations do not contain
 ([math methods](../../python/corpus-structure/src/corpus_structure/methods/math/methods.py):138–139).
@@ -180,7 +180,7 @@ command calls or a mock of the former public helper. Owner: BEP-08, O08.
 
 <a id="BEP-E13"></a>
 **E13 · Deliver the accepted operation aggregate in existing reports.**
-[bound_status](../../python/corpus-structure/src/corpus_structure/orchestrate/commands.py):719–837
+[bound_status (historical source)](../README.md#historical-recovery):719–837
 reports one run's counts plus policy/anchor/region/stage. The
 characterization receipt helper (`orchestrate/characterization_recovery.py`):314–358
 records child IDs and latest-stage details, but does not acquire the bindings consumed by

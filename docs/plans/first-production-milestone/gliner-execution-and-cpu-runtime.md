@@ -70,7 +70,7 @@ release evidence. Runtime admission does not decide semantic acceptance.
 | `orchestrate/runner.py`, method registry and source-step grouping | Reuse task/step/result ownership and compatible batching. Reuse the implemented bounded `GlinerWorker` supervisor and candidate producer. Finish aggregate CPU admission/ordinary workload evidence, with no fictional `agent.opus` tasks for CPU extraction. |
 | [statistics policy](../../../domains/statistics/policies.yaml) and [methods](../../../domains/statistics/methods.yaml) | The ordinary phase-0 policy remains separate. `orchestrate/m1.py` and `domains/statistics/m1-methods.yaml` supply an explicit retained CPU candidate policy with `policy_propose=False`; finish evaluated acceptance/publication without adding an LLM fallback. |
 | [observations.py](../../../python/corpus-structure/src/corpus_structure/semantic/observations.py), `bind_result` | Source-bound immutable results and actual coverage remain the persistence seam; M1-02/03 add family evidence/diagnostic meaning. |
-| [analytics.py](../../../python/corpus-structure/src/corpus_structure/semantic/analytics.py), `CapturedPacket`, `AnalysisScope` | Reuse typed columnar input and lazy-result lifetimes for candidate joins and coverage aggregation, with CPU settings coordinated by the run. |
+| [analytics.py (historical source)](../../README.md#historical-recovery), `CapturedPacket`, `AnalysisScope` | Reuse typed columnar input and lazy-result lifetimes for candidate joins and coverage aggregation, with CPU settings coordinated by the run. |
 
 The workload is retained statistics-first English source views with five released family subsets,
 mixed prose/table/formula contexts and repeated windows. Share one model residency and reuse

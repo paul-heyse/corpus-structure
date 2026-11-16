@@ -14,7 +14,7 @@ encoder for each stream. It explicitly handles UTF8/LargeUTF8/StringView JSONB, 
 nanosecond normalization and requires Decimal128 for numeric writes. Partial encoder output is not
 published after failure. [Row publication](../../../../../python/corpus-structure/src/corpus_structure/semantic/publication.py) uses Psycopg set_types()
 for genuine Python rows, on the same borrowed Core transaction.
-[Analytics](../../../../../python/corpus-structure/src/corpus_structure/semantic/analytics.py) and [Companion export](../../../../../python/corpus-structure/src/corpus_structure/serve/companion_export.py)
+[Analytics (historical source)](../../../../README.md#historical-recovery) and [Companion export](../../../../../python/corpus-structure/src/corpus_structure/serve/companion_export.py)
 own separate ADBC snapshot reads, normalization and reader cleanup. The former bulk-pool loader
 is historical, not current missing integration.
 

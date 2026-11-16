@@ -13,14 +13,12 @@ from corpus_structure.semantic.native_products import (
 
 
 def test_native_authoring_does_not_acquire_legacy_or_application_catalog(monkeypatch):
-    from corpus_structure.semantic import composed, contracts
+    from corpus_structure.semantic import data_operation_preparation
 
     def forbidden(*args, **kwargs):
         raise AssertionError("native authoring acquired the legacy application catalog")
 
-    monkeypatch.setattr(contracts, "compile_execution_model", forbidden)
-    monkeypatch.setattr(contracts, "trusted_execution_inputs", forbidden)
-    monkeypatch.setattr(composed, "composed_dependencies", forbidden)
+    monkeypatch.setattr(data_operation_preparation, "acquire_data_operation_inputs", forbidden)
     inputs = capture_native_authoring_inputs()
     assert inputs.model.operations
     assert all(operation.semantic_id.startswith("data.") for operation in inputs.model.operations)

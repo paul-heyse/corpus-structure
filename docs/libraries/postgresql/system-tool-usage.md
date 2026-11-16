@@ -107,7 +107,7 @@ Normal application access uses [Psycopg](psycopg.md), [psycopg-pool](psycopg-poo
 in-process tooling, not PostgreSQL administration executables. See
 [store.py](../../../python/corpus-structure/src/corpus_structure/core/db/store.py),
 [runtime.py](../../../python/corpus-structure/src/corpus_structure/semantic/runtime.py),
-[analytics.py](../../../python/corpus-structure/src/corpus_structure/semantic/analytics.py) and
+[analytics.py (historical source)](../../README.md#historical-recovery) and
 [arrow_transfer.py](../../../python/corpus-structure/src/corpus_structure/semantic/arrow_transfer.py).
 The installed Psycopg implementation reported `binary` with bundled libpq version **180006**;
 do not assume it uses the same shared-library file as the host's `psql` executable.

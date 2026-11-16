@@ -139,7 +139,7 @@ Repository source references above are relative to
 
 - [Database description](../../../python/corpus-structure/src/corpus_structure/serve/database_description.py),
   lines29ff,164–190,350–445: explicit request, release/admission, statistics and output schema.
-- [Analytics](../../../python/corpus-structure/src/corpus_structure/semantic/analytics.py),
+- [Analytics (historical source)](../../README.md#historical-recovery),
   lines421–504,896–935,1199–1245,1457–1470: borrowing, snapshot/COPY capture, cleanup and reader scope.
 - [Capture storage](../../../python/corpus-structure/src/corpus_structure/semantic/capture_storage.py),
   lines137–220: resident/spooled batching and retained ownership.

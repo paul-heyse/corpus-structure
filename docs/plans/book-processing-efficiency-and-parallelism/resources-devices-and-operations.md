@@ -295,7 +295,7 @@ recovery. BEP-07b's final operating selection must be in place before assembled 
 
 **Proposed accepted target · 2026-11-12.** E04/E06/E12 share a consequential boundary defect:
 CLI and direct callers interpret the same source operation separately, while graph injection
-stands in for intent. In inspected [commands.py](../../../python/corpus-structure/src/corpus_structure/orchestrate/commands.py),
+stands in for intent. In inspected [commands.py (historical source)](../../README.md#historical-recovery),
 `ordinary_graph = graph is None and registry_for is None` controls automatic characterization.
 The normal CLI explicitly injects those very defaults and bypasses it. Public preparation also
 precedes pure argument checks; registration independently reloads the same release. Fix these
@@ -370,7 +370,7 @@ adapter workflow loops and mechanism-specific dispatch assertions after actual c
 ### Explain work through current managed reporting
 
 Extend [existing status/task operations](../../../python/corpus-structure/src/corpus_structure/cli/orchestrate.py),
-lines415–443/590–596, [status projection](../../../python/corpus-structure/src/corpus_structure/orchestrate/commands.py),
+lines415–443/590–596, [status projection (historical source)](../../README.md#historical-recovery),
 lines755–805, and
 [observation logging](../../../python/corpus-structure/src/corpus_structure/cli/observation_logging.py).
 Use existing invocation/run/task lineage and `on_created` correlation for the stage runs the

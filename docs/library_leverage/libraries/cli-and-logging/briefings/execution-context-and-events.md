@@ -19,7 +19,7 @@ The code already has substantial structured operational information:
   derives exact retries from retained receipts and compares attempts with required coverage.
   [model.py](../../../../../python/corpus-structure/src/corpus_structure/cli/model.py) supplies
   preview/candidate inspection and explicit action guidance. These are agent usability strengths.
-- [run status](../../../../../python/corpus-structure/src/corpus_structure/orchestrate/commands.py)
+- [run status (historical source)](../../../../README.md#historical-recovery)
   and [CLI status](../../../../../python/corpus-structure/src/corpus_structure/cli/status.py)
   expose semantic run/task state separately from managed invocation IDs. These identities mean
   different things; merging their labels would lose useful distinctions.
