@@ -60,4 +60,3 @@ def test_registered_chain_refuses_unreviewed_metadata(tmp_path, change):
         (tmp_path / "versions/duplicate.py").write_bytes(path.read_bytes())
     with pytest.raises(SemanticRefusal):
         verify_registered_base(tmp_path, base)
-

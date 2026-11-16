@@ -29,7 +29,9 @@ class RetrievalNumericalPolicy(BaseModel):
     )
     target_collation: Literal["C"] = "C"
     text_configuration: Literal["pg_catalog.english"] = "pg_catalog.english"
-    linguistic_policy: Literal["postgres-english-default-locale-observation-1"] = "postgres-english-default-locale-observation-1"
+    linguistic_policy: Literal["postgres-english-default-locale-observation-1"] = (
+        "postgres-english-default-locale-observation-1"
+    )
     alias_target_normalization: Literal["python-str.lower"] = "python-str.lower"
     alias_query_normalization: Literal["postgres-default-lower"] = "postgres-default-lower"
     distance_operator: Literal["pgvector-vector-cosine"] = "pgvector-vector-cosine"

@@ -164,7 +164,10 @@ def cpu_input_basis_from_roles(
 
 
 def cpu_basis_values(
-    input_basis: list, *, scalar_roles: tuple[str, ...], set_roles: tuple[str, ...],
+    input_basis: list,
+    *,
+    scalar_roles: tuple[str, ...],
+    set_roles: tuple[str, ...],
     sequence_roles: tuple[str, ...] = (),
 ) -> tuple[dict[str, tuple[CPUInputRole, ...]], SubjectContext]:
     """Decode finite actual input headers and values, without authenticating them.
@@ -177,31 +180,70 @@ def cpu_basis_values(
 
     _require_current_basis(input_basis)
     basis = decode_semantic_value(input_basis)
-    if type(basis["recipe"]) is not str or not basis["recipe"] or not isinstance(basis["roles"], list):
+    if (
+        type(basis["recipe"]) is not str
+        or not basis["recipe"]
+        or not isinstance(basis["roles"], list)
+    ):
         raise ValueError("CPU input basis requires its actual recipe and role sequence")
     names = (*scalar_roles, *set_roles, *sequence_roles)
     if len(set(names)) != len(names) or any(type(name) is not str or not name for name in names):
         raise ValueError("CPU input decoder requires distinct finite role names")
 
     def context(value):
-        if not isinstance(value, dict) or set(value) != {
-            "project_id", "subject", "subject_definition", "original_source", "analyzed_scope"
-        } or not isinstance(value["analyzed_scope"], dict):
+        if (
+            not isinstance(value, dict)
+            or set(value)
+            != {"project_id", "subject", "subject_definition", "original_source", "analyzed_scope"}
+            or not isinstance(value["analyzed_scope"], dict)
+        ):
             raise ValueError("CPU input context differs from its complete typed contract")
-        return SubjectContext(value["project_id"], value["subject"], value["original_source"],
-            json_bytes(value["analyzed_scope"]), subject_definition=value["subject_definition"])
+        return SubjectContext(
+            value["project_id"],
+            value["subject"],
+            value["original_source"],
+            json_bytes(value["analyzed_scope"]),
+            subject_definition=value["subject_definition"],
+        )
 
     selected_context = context(basis["context"])
     grouped = {name: [] for name in names}
     seen = set()
     for row in basis["roles"]:
-        if not isinstance(row, dict) or set(row) != {
-            "role", "position", "multiplicity", "product_id", "member_id", "kind_contract", "context", "body", "support"
-        } or type(row["role"]) is not str or row["role"] not in grouped or type(row["multiplicity"]) is not int or row["multiplicity"] != 1:
+        if (
+            not isinstance(row, dict)
+            or set(row)
+            != {
+                "role",
+                "position",
+                "multiplicity",
+                "product_id",
+                "member_id",
+                "kind_contract",
+                "context",
+                "body",
+                "support",
+            }
+            or type(row["role"]) is not str
+            or row["role"] not in grouped
+            or type(row["multiplicity"]) is not int
+            or row["multiplicity"] != 1
+        ):
             raise ValueError("CPU inputs differ from their exact finite scalar/set roles")
-        if any(type(row[field]) is not str or not row[field] for field in ("product_id", "kind_contract")) or (
-            row["member_id"] is not None and (type(row["member_id"]) is not str or not row["member_id"])
-        ) or (row["position"] is not None and (type(row["position"]) is not int or row["position"] < 0)):
+        if (
+            any(
+                type(row[field]) is not str or not row[field]
+                for field in ("product_id", "kind_contract")
+            )
+            or (
+                row["member_id"] is not None
+                and (type(row["member_id"]) is not str or not row["member_id"])
+            )
+            or (
+                row["position"] is not None
+                and (type(row["position"]) is not int or row["position"] < 0)
+            )
+        ):
             raise ValueError("CPU input header lacks its exact product/member/position")
         if not isinstance(row["support"], list):
             raise ValueError("CPU input support requires its exact selected reference sequence")
@@ -209,9 +251,19 @@ def cpu_basis_values(
         if meaning in seen:
             raise ValueError("CPU input population repeats an exact selected header/value")
         seen.add(meaning)
-        grouped[row["role"]].append(CPUInputRole(row["role"], row["position"], row["multiplicity"],
-            row["product_id"], row["member_id"], row["kind_contract"], context(row["context"]),
-            row["body"], read_support_references(row["support"])))
+        grouped[row["role"]].append(
+            CPUInputRole(
+                row["role"],
+                row["position"],
+                row["multiplicity"],
+                row["product_id"],
+                row["member_id"],
+                row["kind_contract"],
+                context(row["context"]),
+                row["body"],
+                read_support_references(row["support"]),
+            )
+        )
     if any(len(grouped[name]) != 1 for name in scalar_roles):
         raise ValueError("CPU computation requires each exact scalar input")
     for name in sequence_roles:

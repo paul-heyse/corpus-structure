@@ -815,6 +815,16 @@ def _prepare_release_uncached(
             _fail("execution_model", "execution", str(exc))
     elif any(a.name.startswith("execution/") for a in dependencies.artifacts):
         _fail("execution_model", "execution", "execution inputs require semantic-2")
+    for dependency in dependencies.artifacts:
+        if dependency.name == "operation/query-manifest.json" or dependency.name.endswith(
+            "/operation/query-manifest.json"
+        ):
+            _fail(
+                "unsupported_query_contract",
+                dependency.name,
+                "legacy named-query inputs are unsupported; acquire the current selected query contracts",
+                "unsupported",
+            )
     operation_inputs = {}
     for dependency in dependencies.artifacts:
         if dependency.name in {
@@ -1322,13 +1332,6 @@ def _prepare_release_uncached(
     characterization_profile = compile_characterization_profiles(definitions)
     if characterization_profile is not None:
         artifacts.append(characterization_profile)
-    from .query_compatibility import prepare_query_bindings
-
-    query_products = prepare_query_bindings(dependencies)
-    if query_products is not None:
-        query_artifact, query_rows = query_products
-        artifacts.append(query_artifact)
-        rows += query_rows
     from .projection_analysis_products import prepare_projection_analysis
 
     projection_analysis = prepare_projection_analysis(dependencies)

@@ -116,7 +116,8 @@ concrete privileged-read ordering gap prevents that conclusion; Retain Python
 remains selected. This inquiry made no grant, migration, source change or probe run.
 
 The writer-callable `SECURITY DEFINER` function
-[`data.publish_derived_batch_v2`](../../../../python/corpus-structure/src/corpus_structure/semantic/sql/derived_publication.sql#L19)
+`data.publish_derived_batch_v2` in historical `semantic/sql/derived_publication.sql`
+(recover this dated source through [Historical recovery](../../../README.md#historical-recovery))
 checks release admission at line43, then its accepted-inference branch reads
 `pg_temp.sp_*` relations at lines83–87. The generated empty-stage expressions are
 also direct temporary-relation reads

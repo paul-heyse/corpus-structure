@@ -228,7 +228,12 @@ def execute_query_encoder_authority_kernel(
     from .data_operation_identity import decode_semantic_value
     from .data_operation_model import json_context_meaning
 
-    roles, _ = cpu_basis_values(input_basis, scalar_roles=("source", "occurrence"), set_roles=(), sequence_roles=("primary",))
+    roles, _ = cpu_basis_values(
+        input_basis,
+        scalar_roles=("source", "occurrence"),
+        set_roles=(),
+        sequence_roles=("primary",),
+    )
     source = roles["source"][0]
     from .contextual_cpu import checked_frame_source
 

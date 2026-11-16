@@ -43,11 +43,17 @@ def operation_score_inputs() -> tuple[SourceArtifact, ...]:
 def operation_score_sources() -> PythonSourceCollection:
     policy = operation_score_numerical_policy()
     path = Path(__file__).with_name("operation_policy.py")
-    runtime = path.parents[1]/"evaluate/declared_operation_events.py"
+    runtime = path.parents[1] / "evaluate/declared_operation_events.py"
     return PythonSourceCollection(
         (
-            PythonSource("corpus_structure.semantic.operation_policy", path.read_bytes(), str(path)),
-            PythonSource("corpus_structure.evaluate.declared_operation_events", runtime.read_bytes(), str(runtime)),
+            PythonSource(
+                "corpus_structure.semantic.operation_policy", path.read_bytes(), str(path)
+            ),
+            PythonSource(
+                "corpus_structure.evaluate.declared_operation_events",
+                runtime.read_bytes(),
+                str(runtime),
+            ),
         ),
         boundary_contracts=(
             SourceArtifact(

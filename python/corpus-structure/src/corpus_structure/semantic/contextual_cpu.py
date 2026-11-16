@@ -84,17 +84,12 @@ def execute_contextual_projection_kernel(
         result = contextual_inventory_values(one("selection"))
     elif operation == "retrieve.contextual_vectors/selection":
         targets = roles.get("targets", ())
-        if any(
-            row.body.get("original_source") != row.context.original_source
-            for row in targets
-        ):
+        if any(row.body.get("original_source") != row.context.original_source for row in targets):
             raise ValueError("target vector differs from its actual original custody")
         query = one("query")
         if query.get("original_source") != context.original_source:
             raise ValueError("query vector differs from its actual original custody")
-        result = selected_vector_frame(
-            one("inventory"), query, tuple(row.body for row in targets)
-        )
+        result = selected_vector_frame(one("inventory"), query, tuple(row.body for row in targets))
     else:
         raise ValueError("contextual projection belongs to another captured operation")
     check_active()

@@ -45,6 +45,7 @@ def native_protocol_sources(
     from .authority_leaf import NativeAuthorityLeaf
     from .contextual_admission_native import contextual_admission_native_sql
     from .contextual_definition_native import contextual_definition_native_sql
+    from .contextual_linguistics_native import contextual_linguistics_native_sql
     from .contextual_scoring_native import contextual_scoring_native_sql
     from .contextual_witness_native import contextual_witness_native_sql
     from .data_operation_binding_native import binding_native_sources
@@ -64,6 +65,7 @@ def native_protocol_sources(
         execution_evidence_leaf_schema,
     )
     from .graph_runtime import nx
+    from .operation_event_native import operation_event_native_sources
     from .pdf_completion_native import pdf_completion_native_sql
     from .record_grade_native import record_grade_native_sql
     from .record_policy_completion_native import record_policy_completion_native_sql
@@ -143,6 +145,18 @@ def native_protocol_sources(
             Path(__file__).with_name("contextual_admission_native.py").read_bytes(),
         ),
         SourceArtifact(
+            "native/data-operation-contextual-linguistics.sql",
+            contextual_linguistics_native_sql().encode(),
+        ),
+        SourceArtifact(
+            "native/data-operation-contextual-linguistics.py",
+            Path(__file__).with_name("contextual_linguistics.py").read_bytes(),
+        ),
+        SourceArtifact(
+            "native/data-operation-contextual-linguistics-native.py",
+            Path(__file__).with_name("contextual_linguistics_native.py").read_bytes(),
+        ),
+        SourceArtifact(
             "native/data-operation-contextual-scoring.sql", contextual_scoring_native_sql().encode()
         ),
         SourceArtifact(
@@ -191,6 +205,7 @@ def native_protocol_sources(
             "native/data-operation-record-grade-native.py",
             Path(__file__).with_name("record_grade_native.py").read_bytes(),
         ),
+        *operation_event_native_sources(),
         SourceArtifact(
             "native/data-operation-record-policy.sql", record_policy_native_sql().encode()
         ),
@@ -347,6 +362,9 @@ def _captured(sources) -> dict[str, bytes]:
         "native/data-operation-contextual-definition.py",
         "native/data-operation-contextual-admission.sql",
         "native/data-operation-contextual-admission.py",
+        "native/data-operation-contextual-linguistics.sql",
+        "native/data-operation-contextual-linguistics.py",
+        "native/data-operation-contextual-linguistics-native.py",
         "native/data-operation-contextual-scoring.sql",
         "native/data-operation-contextual-scoring.py",
         "native/data-operation-contextual-score-query.py",
@@ -360,6 +378,10 @@ def _captured(sources) -> dict[str, bytes]:
         "native/data-operation-rich-admission.sql",
         "native/data-operation-rich-admission.py",
         "native/data-operation-record-grade-native.py",
+        "native/data-operation-operation-event.sql",
+        "native/data-operation-operation-event-native.py",
+        "native/data-operation-operation-event-producers.py",
+        "native/data-operation-operation-event-methods.py",
         "native/data-operation-record-policy.sql",
         "native/data-operation-structural-admission.sql",
         "native/data-operation-structural-admission-native.py",
@@ -480,11 +502,13 @@ def native_sql(sources=None) -> str:
             "native/data-operations.sql",
             "native/data-operation-definition-admission.sql",
             "native/data-operation-contextual-definition.sql",
+            "native/data-operation-contextual-linguistics.sql",
             "native/data-operation-contextual-scoring.sql",
             "native/data-operation-contextual-witness.sql",
             "native/data-operation-contextual-admission.sql",
             "native/data-operation-execution-evidence-leaf.sql",
             "native/data-operation-structural-admission.sql",
+            "native/data-operation-operation-event.sql",
             "native/data-operation-record-policy.sql",
             "native/data-operation-record-policy-completion.sql",
             "native/data-operation-rich-admission.sql",

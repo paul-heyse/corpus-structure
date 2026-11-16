@@ -127,6 +127,8 @@ def record_policy_native_sql():
     import json
     from dataclasses import asdict
 
+    from corpus_structure.evaluate.declared_operation_events import PARAMETERS_KIND
+
     from .declared_structural_admission import ADMISSION_KIND
     from .record_policy_authority import (
         AUTHORIZATION_EFFECT,
@@ -159,7 +161,8 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $poli
  JOIN sem.data_kind_contract kind ON kind.kind_contract=(SELECT product.kind_contract FROM kb.data_product product WHERE product.id=output.product_id)
  WHERE d.id=episode AND d.outcome='success'
  AND ((ops.ddo_policy_command_eligible(definition) AND output.role='authorization' AND kind.kind='__KIND__')
- OR (ops.ddo_structural_command_eligible(definition) AND output.role='admission' AND kind.kind='__STRUCTURAL_KIND__'))
+ OR (ops.ddo_structural_command_eligible(definition) AND output.role='admission' AND kind.kind='__STRUCTURAL_KIND__')
+ OR (ops.ddo_operation_event_command_eligible(definition) AND output.role='parameters' AND kind.kind='__EVENT_PARAMETERS_KIND__'))
  AND output.position=0 AND output.multiplicity=1 AND output.member_id IS NULL
  AND kind.universe='ordinary'
  AND (SELECT count(*) FROM ops.data_derivation_output other WHERE other.derivation_id=d.id)=1)
@@ -203,6 +206,7 @@ REVOKE ALL ON FUNCTION ops.ddo_policy_authority_summary(text,text,text) FROM PUB
         .replace("__FACTORY__", AUTHORIZATION_FACTORY)
         .replace("__KIND__", AUTHORIZATION_KIND)
         .replace("__STRUCTURAL_KIND__", ADMISSION_KIND)
+        .replace("__EVENT_PARAMETERS_KIND__", PARAMETERS_KIND)
         .replace("__EFFECTS__", json.dumps([asdict(AUTHORIZATION_EFFECT)], separators=(",", ":")))
         + _feature_fit_sql()
     )

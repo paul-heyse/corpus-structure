@@ -11,7 +11,13 @@ from sqlalchemy import text
 
 
 def test_native_only_current_root_preview_register_deploy_and_refusals(
-    cli, semantic_bare_engine, semantic_absent_database, native_server, native_settings, current_native_model_checkout, monkeypatch
+    cli,
+    semantic_bare_engine,
+    semantic_absent_database,
+    native_server,
+    native_settings,
+    current_native_model_checkout,
+    monkeypatch,
 ):
     from typer.testing import CliRunner
 
@@ -139,8 +145,15 @@ def test_native_only_current_root_preview_register_deploy_and_refusals(
     from corpus_structure.semantic.migration_chain import registered_base
 
     stage_settings = settings_for_native_clone(native_settings, semantic_absent_database.name)
-    made = cli("db", "init", "--creation-only", "--creation-token", semantic_absent_database.token,
-               "--json", settings=lambda: stage_settings)
+    made = cli(
+        "db",
+        "init",
+        "--creation-only",
+        "--creation-token",
+        semantic_absent_database.token,
+        "--json",
+        settings=lambda: stage_settings,
+    )
     assert made.exit_code == 0, made.output
     base = registered_base(location, None, "current_root_control")
     report, products = author_native_candidate(
@@ -153,15 +166,28 @@ def test_native_only_current_root_preview_register_deploy_and_refusals(
         assert connection.scalar(text("SELECT to_regnamespace('sem')")) is None
 
     with semantic_bare_engine.begin() as connection:
-        connection.exec_driver_sql("INSERT INTO data.project(project_id) VALUES('current-successor-control')")
+        connection.exec_driver_sql(
+            "INSERT INTO data.project(project_id) VALUES('current-successor-control')"
+        )
     from corpus_structure.schema import preparation
 
-    physical = yaml.safe_load((root / preparation.MODEL_PATH / "semantic/physical.yaml").read_bytes())
+    physical = yaml.safe_load(
+        (root / preparation.MODEL_PATH / "semantic/physical.yaml").read_bytes()
+    )
     physical["classes"]["project"]["attributes"]["installation_note"] = {"range": "string"}
-    successor = success(run("preview", "-", input=yaml.safe_dump({
-        "native_revision": "current_successor_control", "native_predecessor": "current_root_control",
-        "physical": yaml.safe_dump(physical),
-    })))
+    successor = success(
+        run(
+            "preview",
+            "-",
+            input=yaml.safe_dump(
+                {
+                    "native_revision": "current_successor_control",
+                    "native_predecessor": "current_root_control",
+                    "physical": yaml.safe_dump(physical),
+                }
+            ),
+        )
+    )
     success(run("apply", successor["result_id"]))
     candidate = success(run("candidate", successor["result_id"]))
     success(run("register", candidate["result_id"]))
@@ -172,12 +198,21 @@ def test_native_only_current_root_preview_register_deploy_and_refusals(
     success(run("deploy", candidate["result_id"]))
     with semantic_bare_engine.connect() as connection:
         assert migrations.current_revision(connection) == "current_successor_control"
-        assert connection.execute(text("SELECT project_id,installation_note FROM data.project")).one() == ("current-successor-control", None)
+        assert connection.execute(
+            text("SELECT project_id,installation_note FROM data.project")
+        ).one() == ("current-successor-control", None)
         assert connection.scalar(text("SELECT count(*) FROM sem.release")) == 0
         verify_deployment_catalog(connection)
-    stale = run("preview", "-", input=yaml.safe_dump({
-        "native_revision": "stale_successor", "native_predecessor": "current_root_control",
-    }))
+    stale = run(
+        "preview",
+        "-",
+        input=yaml.safe_dump(
+            {
+                "native_revision": "stale_successor",
+                "native_predecessor": "current_root_control",
+            }
+        ),
+    )
     assert stale.exit_code == 1
 
 

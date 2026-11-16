@@ -446,8 +446,18 @@ score_operation_event__data_operation__ = {
 }
 
 
-def acquire_operation_event_score_port(prepared, model, operation, *, identity, authorize, custody, sources):
+def acquire_operation_event_score_port(
+    prepared, model, operation, *, identity, authorize, custody, sources
+):
     """Acquire the existing typed numerical callable with exact native issuer custody."""
     from corpus_structure.evaluate.declared_operation_events import acquire_score_port
-    return acquire_score_port(prepared, model, operation, identity=identity, authorize=authorize,
-                              custody=custody, sources=sources)
+
+    return acquire_score_port(
+        prepared,
+        model,
+        operation,
+        identity=identity,
+        authorize=authorize,
+        custody=custody,
+        sources=sources,
+    )

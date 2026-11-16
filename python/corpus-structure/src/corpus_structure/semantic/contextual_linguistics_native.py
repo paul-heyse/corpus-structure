@@ -8,7 +8,9 @@ def linguistic_observation_schema() -> bytes:
     from .identity import canonical_bytes
     from .nominal_schema_kinds import _tuples
 
-    schema = LinguisticObservation.model_json_schema(ref_template="#/definitions/linguistic_{model}")
+    schema = LinguisticObservation.model_json_schema(
+        ref_template="#/definitions/linguistic_{model}"
+    )
     definitions = schema.pop("$defs", {})
     schema["definitions"] = {"linguistic_" + name: value for name, value in definitions.items()}
     return canonical_bytes(checked_json_schema(_draft7(_tuples(schema))))
@@ -44,4 +46,6 @@ RETURNS jsonb LANGUAGE sql STABLE SET search_path=pg_catalog,pg_temp AS $linguis
  FROM (__LINGUISTIC_QUERY__) observation(value)
 $linguistic$;
 REVOKE ALL ON FUNCTION ops.ddo_require_contextual_linguistic_observation(jsonb),ops.ddo_contextual_linguistic_context() FROM PUBLIC;
-""".replace("__LINGUISTIC_QUERY__", linguistic_context_query()).replace("__LINGUISTIC_SCHEMA__", schema)
+""".replace("__LINGUISTIC_QUERY__", linguistic_context_query()).replace(
+        "__LINGUISTIC_SCHEMA__", schema
+    )

@@ -55,7 +55,9 @@ def witness_case():
     )
 
     def ref(value):
-        return contextual_input_reference(value, contribution=True).model_dump(mode="python", exclude_none=True)
+        return contextual_input_reference(value, contribution=True).model_dump(
+            mode="python", exclude_none=True
+        )
 
     carrier_ref, other_ref = ref(carrier), ref(other)
     hypotheses = dict(

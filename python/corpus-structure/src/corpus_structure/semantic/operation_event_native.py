@@ -4,11 +4,16 @@
 def operation_event_native_sql() -> str:
     import json
     from dataclasses import asdict
+
     from corpus_structure.evaluate.declared_operation_events import (
-        AUTHORIZATION_EFFECT, AUTHORIZATION_FACTORY, AUTHORIZATION_OPERATION, NAMESPACE,
+        AUTHORIZATION_EFFECT,
+        AUTHORIZATION_FACTORY,
+        AUTHORIZATION_OPERATION,
+        NAMESPACE,
     )
 
-    return r"""
+    return (
+        r"""
 CREATE OR REPLACE FUNCTION ops.ddo_operation_event_command_eligible(definition sem.data_operation_definition)
 RETURNS boolean LANGUAGE sql IMMUTABLE STRICT SET search_path=pg_catalog,pg_temp AS $event$
  SELECT definition.operation_id='__AUTHORIZE__' AND definition.profile='command'
@@ -305,18 +310,22 @@ BEGIN
  RETURN true;
  EXCEPTION WHEN data_exception OR integrity_constraint_violation OR no_data_found OR too_many_rows THEN RETURN false;
 END $event$;
-""".replace("__AUTHORIZE__", AUTHORIZATION_OPERATION).replace("__AUTHORIZE_FACTORY__", AUTHORIZATION_FACTORY).replace(
-        "__EFFECT__", json.dumps([asdict(AUTHORIZATION_EFFECT)], separators=(",", ":"))
-    ).replace("__NAMESPACE__", NAMESPACE) + "\n".join(
-        f"REVOKE ALL ON FUNCTION ops.{name}({arguments}) FROM PUBLIC;" for name, arguments in (
-            ("ddo_operation_event_command_eligible", "sem.data_operation_definition"),
-            ("ddo_operation_event_completion_scopes", "ops.data_request"),
-            ("ddo_operation_event_dependency_scopes", "text"),
-            ("ddo_operation_event_require_frame", "ops.data_request,jsonb"),
-            ("ddo_operation_event_require_fit", "ops.data_request,jsonb"),
-            ("ddo_operation_event_require_parameters", "ops.data_request"),
-            ("ddo_require_operation_event_completion", "ops.data_request,jsonb"),
-            ("ddo_operation_event_dependencies_valid", "text"),
+""".replace("__AUTHORIZE__", AUTHORIZATION_OPERATION)
+        .replace("__AUTHORIZE_FACTORY__", AUTHORIZATION_FACTORY)
+        .replace("__EFFECT__", json.dumps([asdict(AUTHORIZATION_EFFECT)], separators=(",", ":")))
+        .replace("__NAMESPACE__", NAMESPACE)
+        + "\n".join(
+            f"REVOKE ALL ON FUNCTION ops.{name}({arguments}) FROM PUBLIC;"
+            for name, arguments in (
+                ("ddo_operation_event_command_eligible", "sem.data_operation_definition"),
+                ("ddo_operation_event_completion_scopes", "ops.data_request"),
+                ("ddo_operation_event_dependency_scopes", "text"),
+                ("ddo_operation_event_require_frame", "ops.data_request,jsonb"),
+                ("ddo_operation_event_require_fit", "ops.data_request,jsonb"),
+                ("ddo_operation_event_require_parameters", "ops.data_request"),
+                ("ddo_require_operation_event_completion", "ops.data_request,jsonb"),
+                ("ddo_operation_event_dependencies_valid", "text"),
+            )
         )
     )
 
@@ -324,11 +333,23 @@ END $event$;
 def operation_event_native_sources():
     """Executable helper plus its actual source owners for the existing native cut."""
     from pathlib import Path
+
     from .types import SourceArtifact
-    root=Path(__file__).parents[1]
+
+    root = Path(__file__).parents[1]
     return (
-        SourceArtifact("native/data-operation-operation-event.sql",operation_event_native_sql().encode()),
-        SourceArtifact("native/data-operation-operation-event-native.py",Path(__file__).read_bytes()),
-        SourceArtifact("native/data-operation-operation-event-producers.py",(root/"evaluate/declared_operation_events.py").read_bytes()),
-        SourceArtifact("native/data-operation-operation-event-methods.py",(root/"methods/operation_events.py").read_bytes()),
+        SourceArtifact(
+            "native/data-operation-operation-event.sql", operation_event_native_sql().encode()
+        ),
+        SourceArtifact(
+            "native/data-operation-operation-event-native.py", Path(__file__).read_bytes()
+        ),
+        SourceArtifact(
+            "native/data-operation-operation-event-producers.py",
+            (root / "evaluate/declared_operation_events.py").read_bytes(),
+        ),
+        SourceArtifact(
+            "native/data-operation-operation-event-methods.py",
+            (root / "methods/operation_events.py").read_bytes(),
+        ),
     )

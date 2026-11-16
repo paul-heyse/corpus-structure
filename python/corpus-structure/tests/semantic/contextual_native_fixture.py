@@ -188,9 +188,9 @@ def source_values(prepared, model, source, pin, context, source_input):
 
 
 def _matched_source_values(input_basis: list, *, prepared, check_active) -> dict:
-    from corpus_structure.semantic.data_operation_cpu_basis import cpu_basis_values
     from corpus_structure.semantic.contextual_witnesses import contextual_input_reference
     from corpus_structure.semantic.data_operation_admission import bound_data_operation_model
+    from corpus_structure.semantic.data_operation_cpu_basis import cpu_basis_values
     from corpus_structure.semantic.declared_record_sources import (
         DeclaredNativeFrameSource,
         DeclaredRecordSource,

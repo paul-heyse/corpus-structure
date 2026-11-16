@@ -1705,9 +1705,7 @@ def execute_grade_kernel(input_basis: list, metadata: dict, *, prepared, check_a
     reference_prepared = captured[metadata["reference_release_id"]]
     archives = tuple(captured[release_id] for release_id in metadata["prediction_release_ids"])
     checked = DdoRecordGradeSpecification.model_validate_json(json_bytes(values["specification"]))
-    by_product = {
-        role.product_id: role.body for role in basis["prediction"]
-    }
+    by_product = {role.product_id: role.body for role in basis["prediction"]}
     if set(by_product) != {
         address["product_id"] for address in metadata["bound_prediction_addresses"]
     }:

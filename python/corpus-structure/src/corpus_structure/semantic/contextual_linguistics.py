@@ -91,9 +91,14 @@ class LinguisticObservation(LinguisticFact):
 
     def require_known_provider_version(self):
         locale = self.database_locale
-        if (locale.recorded_provider_version is not None and locale.actual_provider_version is not None
-            and locale.recorded_provider_version != locale.actual_provider_version):
-            raise ValueError("contextual linguistic provider version differs from recorded database version")
+        if (
+            locale.recorded_provider_version is not None
+            and locale.actual_provider_version is not None
+            and locale.recorded_provider_version != locale.actual_provider_version
+        ):
+            raise ValueError(
+                "contextual linguistic provider version differs from recorded database version"
+            )
 
 
 def linguistic_context_query() -> str:
@@ -154,7 +159,9 @@ def checked_linguistic_observation(value) -> LinguisticObservation:
     observation.require_known_provider_version()
     keys = [(row.token_type, row.sequence) for row in observation.text_search.mappings]
     if not keys or keys != sorted(set(keys)):
-        raise ValueError("contextual linguistic mappings require exact ordered token/dictionary positions")
+        raise ValueError(
+            "contextual linguistic mappings require exact ordered token/dictionary positions"
+        )
     for token in {key[0] for key in keys}:
         positions = [sequence for kind, sequence in keys if kind == token]
         if positions != list(range(1, len(positions) + 1)):
@@ -165,7 +172,9 @@ def checked_linguistic_observation(value) -> LinguisticObservation:
 def observe_linguistic_context(connection) -> LinguisticObservation:
     from sqlalchemy import text
 
-    return checked_linguistic_observation(connection.execute(text(linguistic_context_query())).scalar_one())
+    return checked_linguistic_observation(
+        connection.execute(text(linguistic_context_query())).scalar_one()
+    )
 
 
 def linguistic_source_value(observation: LinguisticObservation) -> dict:

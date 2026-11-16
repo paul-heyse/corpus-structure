@@ -56,8 +56,8 @@ def query_contextual_scores(connection, inputs, query, policy, *, numerical_poli
     from sqlalchemy import Integer, Text, bindparam, cast, literal
     from sqlalchemy.dialects.postgresql import ARRAY
 
-    from .contextual_retrieval import contextual_score_statement
     from .contextual_linguistics import observe_linguistic_context
+    from .contextual_retrieval import contextual_score_statement
 
     numerical_policy.require_runtime(connection)
     observation = observe_linguistic_context(connection)
@@ -87,8 +87,8 @@ def query_contextual_scores(connection, inputs, query, policy, *, numerical_poli
 
 
 def candidates_from_scores(inputs, scores, query, policy, *, numerical_policy):
-    from .contextual_retrieval import ChannelHit, fuse_candidates
     from .contextual_linguistics import checked_linguistic_observation
+    from .contextual_retrieval import ChannelHit, fuse_candidates
     from .observations import source_python
 
     if set(scores) != {
@@ -169,7 +169,9 @@ def execute_contextual_retrieval_kernel(
     expected_roles = {"query", "inventory", "vectors", "policy", "scores"} | (
         {"witnesses"} if witnessed else set()
     )
-    roles, context = cpu_basis_values(input_basis, scalar_roles=tuple(sorted(expected_roles)), set_roles=())
+    roles, context = cpu_basis_values(
+        input_basis, scalar_roles=tuple(sorted(expected_roles)), set_roles=()
+    )
     values = {name: rows[0].body for name, rows in roles.items()}
     query, scores = values.pop("query"), values.pop("scores")
     binding = values.pop("witnesses") if witnessed else None

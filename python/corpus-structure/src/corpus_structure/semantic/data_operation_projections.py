@@ -257,6 +257,7 @@ def _scope_projection(metadata, nodes, project, direct_sources, *, domain_depend
         ordinary,
         domain_scopes(func.ops.ddo_record_grade_dependency_scopes, "record_grade_scope"),
         domain_scopes(func.ops.ddo_record_fit_dependency_scopes, "record_fit_scope"),
+        domain_scopes(func.ops.ddo_operation_event_dependency_scopes, "operation_event_scope"),
     ).order_by("scope")
 
 

@@ -10,8 +10,8 @@ import inspect
 from dataclasses import asdict, dataclass
 from typing import Any
 
-from .identity import canonical_bytes
 from .data_operation_cpu_basis import CPUInputRole
+from .identity import canonical_bytes
 
 STANDING = "private_authored_source_binding_hypotheses"
 
@@ -41,15 +41,24 @@ def project_contextual_witnesses(input_basis, frame_record, *, check_active):
     from corpus_structure.methods.contextual_embeddings import identity
 
     from .contextual_cpu import checked_frame_source
-    from .data_operation_cpu_basis import cpu_basis_values
-    from .data_operation_support import ComputationalSupportReference, AuthoredFactSupportReference, support_reference_records
     from .contextual_links import RelationshipWitness
     from .contextual_operations import admitted_contextual_inventory
+    from .data_operation_cpu_basis import cpu_basis_values
+    from .data_operation_support import (
+        AuthoredFactSupportReference,
+        ComputationalSupportReference,
+        support_reference_records,
+    )
     from .declared_structural_references import DeclaredContributionRef
     from .observations import source_value
 
     check_active()
-    roles, context = cpu_basis_values(input_basis, scalar_roles=("source", "query", "inventory", "hypotheses"), set_roles=(), sequence_roles=("cues",))
+    roles, context = cpu_basis_values(
+        input_basis,
+        scalar_roles=("source", "query", "inventory", "hypotheses"),
+        set_roles=(),
+        sequence_roles=("cues",),
+    )
     if not roles["cues"]:
         raise ValueError(
             "witness binding requires exact source/query/inventory/authored hypotheses and cues"
@@ -72,7 +81,9 @@ def project_contextual_witnesses(input_basis, frame_record, *, check_active):
             nodes[f"{pointer}/data/table_cells/{index}"] = cell
     cues = {}
     for row in roles["cues"]:
-        if not row.support or any(not isinstance(value, ComputationalSupportReference) for value in row.support):
+        if not row.support or any(
+            not isinstance(value, ComputationalSupportReference) for value in row.support
+        ):
             raise ValueError("witness cues require their original computational support")
         ref = contextual_input_reference(row, contribution=True)
         key = canonical_bytes(ref.model_dump(mode="json"))
@@ -96,7 +107,13 @@ def project_contextual_witnesses(input_basis, frame_record, *, check_active):
         raise ValueError(
             "witness binding lacks the exact query carrier, including same-span role identity"
         )
-    authored = support_reference_records(tuple(item for item in roles["hypotheses"][0].support if isinstance(item, AuthoredFactSupportReference)))
+    authored = support_reference_records(
+        tuple(
+            item
+            for item in roles["hypotheses"][0].support
+            if isinstance(item, AuthoredFactSupportReference)
+        )
+    )
     if not authored or not hypotheses["author_assertion"]:
         raise ValueError("witness hypotheses lack their explicit admitted authored attribution")
     target_ids = set(inventory.target_ids)

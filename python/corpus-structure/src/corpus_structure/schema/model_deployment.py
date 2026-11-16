@@ -554,10 +554,7 @@ def _verified_script_location(root: Path, binding: Candidate) -> Generator[Path 
         relative_environment = (source.parent / "env.py").relative_to(root).as_posix()
         if sha256(environment).hexdigest() != binding.files.get(relative_environment):
             raise ModelError(["current migration environment differs from the reviewed candidate"])
-        if (
-            base is not None
-            and sha256(environment).hexdigest() != dict(base.files)["env.py"]
-        ):
+        if base is not None and sha256(environment).hexdigest() != dict(base.files)["env.py"]:
             raise ModelError(["registered migration environment changed during acquisition"])
         (location / "env.py").write_bytes(environment)
         for name, content in frozen.items():

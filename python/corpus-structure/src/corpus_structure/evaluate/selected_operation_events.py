@@ -441,13 +441,18 @@ class SelectedOperationEventFrameSelection(FrozenContract):
 
     @model_validator(mode="after")
     def whole_same_project(self) -> Self:
-        if self.reference.member_id is not None or self.reference.project_id != self.selection.project_id:
+        if (
+            self.reference.member_id is not None
+            or self.reference.project_id != self.selection.project_id
+        ):
             raise ValueError("fit frame selection requires a whole product in its exact project")
         return self
 
 
 class DdoOperationEventFitSpecification(FrozenContract):
-    version: Literal["selected-operation-event-fit-specification-1"] = "selected-operation-event-fit-specification-1"
+    version: Literal["selected-operation-event-fit-specification-1"] = (
+        "selected-operation-event-fit-specification-1"
+    )
     frame: SelectedOperationEventFrameSelection
     algorithm: OperationEventAlgorithm
 
@@ -463,7 +468,10 @@ class DdoOperationEventFit(FrozenContract):
     def exact_frame_identity(self) -> Self:
         if self.result.frame_digest != self.specification.frame.frame_digest:
             raise ValueError("event fit differs from its actual selected current frame")
-        if self.result.parameters is not None and self.result.parameters.algorithm != self.specification.algorithm:
+        if (
+            self.result.parameters is not None
+            and self.result.parameters.algorithm != self.specification.algorithm
+        ):
             raise ValueError("event fit changes its actual predeclared numerical algorithm")
         return self
 

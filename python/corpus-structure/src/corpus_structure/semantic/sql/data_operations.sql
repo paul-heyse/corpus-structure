@@ -200,6 +200,7 @@ BEGIN
  SELECT scope FROM (__DDO_CORE_LOCK_SUPPORT_SCOPES__) ordinary_scopes
  UNION SELECT scope FROM ops.ddo_record_grade_completion_scopes(r) extra(scope)
  UNION SELECT scope FROM ops.ddo_record_fit_completion_scopes(r) fit_extra(scope)
+ UNION SELECT scope FROM ops.ddo_operation_event_completion_scopes(r) event_extra(scope)
  ORDER BY scope
  LOOP
  INSERT INTO ops.data_trust_scope(scope,project_id,epoch) VALUES(scope_key,project,0) ON CONFLICT DO NOTHING;
@@ -242,6 +243,7 @@ BEGIN
  RETURN (SELECT EXISTS(SELECT FROM ops.data_derivation WHERE id=episode AND outcome IN ('success','empty'))
  AND ops.ddo_record_grade_dependencies_valid(episode)
  AND ops.ddo_record_fit_dependencies_valid(episode)
+ AND ops.ddo_operation_event_dependencies_valid(episode)
  AND ops.ddo_contextual_dependencies_valid(episode)
  AND ops.ddo_definition_dependencies_valid(episode)
  AND ops.ddo_rich_admission_dependencies_valid(episode) AND NOT EXISTS(
@@ -864,7 +866,8 @@ BEGIN
  PERFORM ops.ddo_authorize(kind.universe) FROM jsonb_array_elements(def.input_roles||def.output_roles) role JOIN sem.data_kind_contract kind ON kind.kind_contract=role->>'kind_contract';
  IF coalesce(ops.ddo_pdf_command_eligible(def),false) THEN
  PERFORM ops.require_pdf_operation(d.release_id,'retain_pdf_original');
- ELSIF coalesce(ops.ddo_policy_command_eligible(def),false) OR coalesce(ops.ddo_structural_command_eligible(def),false) THEN
+ ELSIF coalesce(ops.ddo_policy_command_eligible(def),false) OR coalesce(ops.ddo_structural_command_eligible(def),false)
+ OR coalesce(ops.ddo_operation_event_command_eligible(def),false) THEN
  IF NOT pg_has_role(coalesce(nullif(current_setting('role'),'none'),session_user),'corpus_sem_evaluator','MEMBER') THEN
  RAISE EXCEPTION 'policy authorization requires native evaluator purpose' USING ERRCODE='42501'; END IF;
  ELSIF def.profile NOT IN ('derivation','discovery') OR coalesce(def.support_contract->'effects','[]')<>'[]'::jsonb THEN
@@ -1223,6 +1226,9 @@ BEGIN
  PERFORM ops.ddo_require_external_completion(p->'completion',r,t.id,t.attempt,t.claimed_by);
  PERFORM ops.ddo_require_record_grade_completion(r,p->'completion');
  PERFORM ops.ddo_require_record_fit_completion(r,p->'completion');
+ IF r.operation_id IN ('operation_event.frame','operation_event.fit','operation_event.authorize') THEN
+ PERFORM ops.ddo_authorize('evaluator'); END IF;
+ PERFORM ops.ddo_require_operation_event_completion(r,p->'completion');
  PERFORM ops.ddo_require_policy_authorization_completion(r,p->'completion');
  PERFORM ops.ddo_require_structural_admission_completion(r,p->'completion');
  PERFORM ops.ddo_require_structural_dossier_completion(r,p->'completion');
@@ -1466,6 +1472,9 @@ BEGIN
  PERFORM ops.ddo_require_external_completion(i.payload,r,i.producer_task_id,i.producer_attempt,i.producer_holder);
  PERFORM ops.ddo_require_record_grade_completion(r,i.payload);
  PERFORM ops.ddo_require_record_fit_completion(r,i.payload);
+ IF r.operation_id IN ('operation_event.frame','operation_event.fit','operation_event.authorize') THEN
+ PERFORM ops.ddo_authorize('evaluator'); END IF;
+ PERFORM ops.ddo_require_operation_event_completion(r,i.payload);
  PERFORM ops.ddo_require_policy_authorization_completion(r,i.payload);
  PERFORM ops.ddo_require_structural_admission_completion(r,i.payload);
  PERFORM ops.ddo_require_structural_dossier_completion(r,i.payload);

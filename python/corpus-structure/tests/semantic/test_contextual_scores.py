@@ -11,8 +11,8 @@ from corpus_structure.semantic.contextual_operations import prepare_contextual_r
 from corpus_structure.semantic.contextual_scores import candidates_from_scores, score_product
 from corpus_structure.semantic.declared_structural_calls import structural_operation_declarations
 from corpus_structure.semantic.observations import source_python, source_value
-from semantic.test_declared_contextual_operations import inputs
 from semantic.contextual_linguistic_support import linguistic_observation
+from semantic.test_declared_contextual_operations import inputs
 
 
 def controlled_scores():
@@ -31,7 +31,13 @@ def controlled_scores():
             SimpleNamespace(kind="hit", channel=channel, target_id=target, rank=rank, score=score)
             for rank, (target, score) in enumerate(zip(("one", "two"), scores, strict=True), 1)
         )
-    return values, acquired, score_product(acquired, values["query"], rows, linguistic_observation=linguistic_observation())
+    return (
+        values,
+        acquired,
+        score_product(
+            acquired, values["query"], rows, linguistic_observation=linguistic_observation()
+        ),
+    )
 
 
 def test_score_product_keeps_exact_float8_bits_and_independent_rrf_order():
@@ -110,7 +116,9 @@ def test_cpu_reduction_refuses_changed_native_score_correspondence(change):
         )
 
 
-@pytest.mark.parametrize("change", ["missing-observation", "unknown-material", "provider-version", "old-version"])
+@pytest.mark.parametrize(
+    "change", ["missing-observation", "unknown-material", "provider-version", "old-version"]
+)
 def test_score_consumer_requires_current_closed_linguistic_observation(change):
     values, acquired, scores = controlled_scores()
     observation = source_python(scores["linguistic_observation"])
@@ -122,10 +130,18 @@ def test_score_consumer_requires_current_closed_linguistic_observation(change):
         if change == "unknown-material":
             observation["unobserved_material"]["libc_build"] = "complete-fingerprint"
         else:
-            observation["database_locale"].update(recorded_provider_version="one", actual_provider_version="two")
+            observation["database_locale"].update(
+                recorded_provider_version="one", actual_provider_version="two"
+            )
         scores["linguistic_observation"] = source_value(observation)
     with pytest.raises(ValueError):
-        candidates_from_scores(acquired, scores, values["query"], values["policy"], numerical_policy=default_retrieval_numerics())
+        candidates_from_scores(
+            acquired,
+            scores,
+            values["query"],
+            values["policy"],
+            numerical_policy=default_retrieval_numerics(),
+        )
 
 
 def test_lexical_projection_keeps_python_unicode_and_rejects_invented_forms():

@@ -56,6 +56,17 @@ def validate_authority_leaf(value, *, products, kinds, definitions, runtimes, sc
         return validate_structural_authority_leaf(
             leaf, products=products, kinds=kinds, definitions=definitions, runtimes=runtimes
         )
+    from corpus_structure.evaluate.declared_operation_events import (
+        AUTHORIZATION_OPERATION as EVENT_AUTHORIZATION_OPERATION,
+    )
+    from corpus_structure.evaluate.declared_operation_events import (
+        validate_operation_event_authority_leaf,
+    )
+
+    if leaf.issuer_operation == EVENT_AUTHORIZATION_OPERATION:
+        return validate_operation_event_authority_leaf(
+            leaf, products=products, kinds=kinds, definitions=definitions, runtimes=runtimes
+        )
     definition = definitions.get((leaf.release_id, leaf.issuer_operation))
     product = products.get(leaf.product_id)
     kind = kinds.get(leaf.kind_contract)
