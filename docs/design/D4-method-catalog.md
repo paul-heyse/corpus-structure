@@ -1,5 +1,21 @@
 # D4 · Method catalog
 
+## Attributed contextual witness bindings
+
+**Accepted target; implementation/qualification Proposed · 2026-11-15.** Queries retain their exact
+semantic contribution carrier independently of physical occurrence/vector identity. An explicit
+witness-binding producer binds admitted authored relationship hypotheses to actual source/cue/query
+and inventory products, with native common-receipt, anchor and support checks. The query's own
+carrier must be among the cited cues. These are private, attributed, unassessed hypotheses;
+source binding does not establish machine inference, accepted standing or scientific truth.
+Explicit with-witnesses retrieval consumes that binding and the native score product; shared
+relationship selection preserves competing alternatives. The no-witness route remains insufficient
+evidence. Arbitrary policy witness acceptance and mounted legacy readers retire with their current
+consumers. Selected source sets and exact witness inputs remain visible to applicability/readers.
+The DDO coordinator owns native/scientific consumer qualification and retirement.
+
+> Decision: [ADR-0116](../adr/0116-contextual-authored-witness-bindings.md)
+
 ## Operation-owned contracts and recipes
 
 **Accepted target; implementation/qualification Proposed · 2026-11-12.** The DDO target uses one

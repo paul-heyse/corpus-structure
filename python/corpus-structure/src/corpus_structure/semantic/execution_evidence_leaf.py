@@ -184,7 +184,7 @@ def validate_execution_evidence_leaf(
 
 def execution_evidence_leaf_native_sql() -> str:
     return r"""
-CREATE OR REPLACE FUNCTION ops.ddo_cpu_execution_leaf(episode_id text,selected_product text,selected_role text,selected_position integer,selected_use text)
+CREATE OR REPLACE FUNCTION ops.ddo_cpu_execution_leaf(episode_id text,selected_product text,selected_role text,selected_position bigint,selected_use text)
 RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $cpu_leaf$
 DECLARE episode ops.data_derivation; request ops.data_request; intent ops.data_completion_intent;
  receipt ops.data_publication_receipt; product kb.data_product; reply jsonb; projected jsonb; chosen jsonb;
@@ -230,5 +230,5 @@ BEGIN
  'member_output_digest',ops.ddo_digest(projected),'physical_cohort','undisclosed',
  'verification','native-checked-member-projection');
 END $cpu_leaf$;
-REVOKE ALL ON FUNCTION ops.ddo_cpu_execution_leaf(text,text,text,integer,text) FROM PUBLIC;
+REVOKE ALL ON FUNCTION ops.ddo_cpu_execution_leaf(text,text,text,bigint,text) FROM PUBLIC;
 """

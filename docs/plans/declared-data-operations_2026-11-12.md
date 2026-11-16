@@ -339,6 +339,15 @@ expressions in contextual guards; the owning generators are repaired, actual ret
 Publication **passed** `9cfd6db29f414a93a506e097b541dfbb` after replacing a retired structural
 assessment link; original failed `23cc4561493048c2a3d5c4b09251a4a9` is preserved.
 
+**Accepted current consumer correction; implementation/qualification Proposed · 2026-11-15.**
+[ADR-0116](../adr/0116-contextual-authored-witness-bindings.md) carries same-span semantic
+carrier identity and explicitly attributed private/unassessed source-bound hypotheses into current
+contextual consumers. Genuine cue/source/query/inventory inputs and common receipts bind the
+assertions; they do not establish machine inference. Explicit with-witnesses retrieval replaces
+arbitrary policy witnesses; the no-witness route retains insufficient evidence. Competing-sense,
+known-version and same-span scientific expectations migrate before mounted readers retire.
+These remain I02/I05/I06 implementation and native-consumer obligations, not a scientific closure.
+
 ## Current state and execution order
 
 | Package | Implemented / evidence boundary | Remaining accepted work and prerequisites |

@@ -41,3 +41,11 @@ negative-only privilege checks that assumed obsolete APIs existed. The helper mo
 record publication into captured SourceValue SQL; negative checks resolve function OIDs and treat
 absence as no grant, while still refusing an existing private-kernel grant. These corrections need
 a fresh preview/candidate. No artifact from the failed attempt is registered or deployed.
+
+Second preview `960e82a7204c4267943948ba9dcb3cbe` **passed** at `34be568c3`, with no
+file effects. It is superseded before candidate authoring by actual fresh-target static findings:
+the execution-evidence leaf must use bigint positions to match its real projection callers, and
+D1's failure JSON path must be grouped before subtraction. Negative-only schema privilege checks
+also resolve nullable namespace OIDs rather than requiring an obsolete eval namespace. The strict
+native/physical descriptors still require actual current objects. Shared repairs and the complete
+target checker context need a coherent new source capture; this preview supplies no native pass.

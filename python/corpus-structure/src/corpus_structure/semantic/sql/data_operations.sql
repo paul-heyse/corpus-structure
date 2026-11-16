@@ -1109,7 +1109,7 @@ BEGIN
  -- a second copy of source-bearing diagnostic material outside its scoped read.
  UPDATE ops.task SET status='pending',lease_until=NULL,finished_at=NULL,
  error=jsonb_build_object('data_attempt_failure',key,'failure',CASE WHEN p->'failure' ? 'd1_limitation'
- THEN (p->'failure'-'d1_limitation')||jsonb_build_object('d1_limitation_disclosure','undisclosed') ELSE p->'failure' END) WHERE id=t.id;
+ THEN ((p->'failure')-'d1_limitation')||jsonb_build_object('d1_limitation_disclosure','undisclosed') ELSE p->'failure' END) WHERE id=t.id;
  END IF;
  SELECT id INTO retained FROM ops.data_completion_intent WHERE request_id=r.id AND generation=(p->>'generation')::integer;
  RETURN jsonb_build_object('payload',jsonb_build_object('state','released','request_id',r.id,

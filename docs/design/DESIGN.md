@@ -459,6 +459,16 @@ legacy wait barrier rather than implying that every old option is supported.
 
 ### §B4 PostgreSQL 18 is the transactional authority for instances; the model is the authority for their structure
 
+
+**Accepted target; implementation/qualification Proposed · 2026-11-15.** Contextual witness bindings
+retain the exact semantic query carrier and explicitly attributed private unassessed hypotheses
+bound to genuine source/cue/query/inventory custody. With-witnesses retrieval consumes that binding;
+no-witness retrieval remains insufficient evidence. Source binding confers no provider inference or
+accepted scientific standing. D4/D8 own producer and consumer contracts and legacy reader retirement.
+
+> Decision: [ADR-0116](../adr/0116-contextual-authored-witness-bindings.md)
+
+
 **Accepted current target; implementation/qualification Proposed · 2026-11-15.** Current native
 contracts preserve actual source, completion, trust and purpose authority while obsolete interpreters
 and compatibility paths retire. Ordinary policy authorization requires the exact evaluator command
@@ -735,6 +745,16 @@ and later consumer adoption. SP-01 deploys no database or engine change.
 <a id="section-b5"></a>
 
 ### §B5 One LinkML semantic release governs interpretation and generated representations
+
+
+**Accepted target; implementation/qualification Proposed · 2026-11-15.** Contextual witness bindings
+retain the exact semantic query carrier and explicitly attributed private unassessed hypotheses
+bound to genuine source/cue/query/inventory custody. With-witnesses retrieval consumes that binding;
+no-witness retrieval remains insufficient evidence. Source binding confers no provider inference or
+accepted scientific standing. D4/D8 own producer and consumer contracts and legacy reader retirement.
+
+> Decision: [ADR-0116](../adr/0116-contextual-authored-witness-bindings.md)
+
 
 **Accepted current target; implementation/qualification Proposed · 2026-11-15.** Checked current
 subject, family, enforcement and numerical contracts govern interpretation without a legacy model
