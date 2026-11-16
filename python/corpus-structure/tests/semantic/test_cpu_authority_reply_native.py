@@ -390,16 +390,23 @@ def test_other_stored_input_basis_cannot_reuse_real_worker_reply(
     authority_connection, actual_cpu_fit
 ):
     connection, request = authority_connection
-    changed = deepcopy(actual_cpu_fit.values["specification"][0])
+    original_specification = actual_cpu_fit.values["specification"][0]
+    changed = deepcopy(original_specification)
     changed["threshold"] = 0.75
+    assert original_specification["threshold"] == 0.99
+    assert semantic_value(changed) != semantic_value(original_specification)
     # This is a different immutable selected fixture row, not an UPDATE of the
     # original product and never a claimed current computational producer.
-    original = actual_cpu_fit.binding.roles[-1].members[0]
+    original = next(
+        role.members[0] for role in actual_cpu_fit.binding.roles if role.role == "specification"
+    )
+    replacement_product = "product:other-controlled-spec"
+    assert replacement_product != original.product
     connection.execute(
         table("kb.data_product")
         .insert()
         .values(
-            id="product:other-controlled-spec",
+            id=replacement_product,
             kind_contract=original.kind_contract,
             project_id="project:one",
             subject=original.subject,
@@ -413,6 +420,12 @@ def test_other_stored_input_basis_cannot_reuse_real_worker_reply(
     different = deepcopy(request)
     next(row for row in different["binding"]["inputs"] if row["role"] == "specification")[
         "product_id"
-    ] = "product:other-controlled-spec"
+    ] = replacement_product
+    changed_completion = completion(actual_cpu_fit)
+    # The helper authenticates original completion pins for historical reads,
+    # rather than substituting a request's later live selection.
+    next(row for row in changed_completion["inputs"] if row["role"] == "specification")[
+        "product_id"
+    ] = replacement_product
     with pytest.raises(DBAPIError, match="exact native input basis"):
-        native_output(connection, different, completion(actual_cpu_fit))
+        native_output(connection, different, changed_completion)

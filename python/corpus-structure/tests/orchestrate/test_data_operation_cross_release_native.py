@@ -48,7 +48,7 @@ def _register(connection, preparation):
 @pytest.mark.parametrize("ddo_kernel", [EXECUTION], indirect=True, ids=["execution"])
 @pytest.mark.parametrize("retained", [False, True], ids=["compute", "reconcile"])
 def test_two_admitted_releases_coalesce_and_use_original_basis_after_creating_demand_cancelled(
-    ddo_kernel, monkeypatch, retained
+    ddo_kernel, monkeypatch, retained, tmp_path
 ):
     original = ddo_kernel.preparation
     monkeypatch.syspath_prepend(str(original.directory))
@@ -78,7 +78,15 @@ def test_two_admitted_releases_coalesce_and_use_original_basis_after_creating_de
         project_id=None,
         schema_text=EXECUTION.schema_text + "  UnrelatedReleaseMarker: {}\n",
     )
-    target = prepare_kernel(recipe, directory=original.directory)
+    target_directory = tmp_path / "target-release"
+    target_directory.mkdir()
+    target = prepare_kernel(recipe, directory=target_directory)
+    # Separate schema acquisition leaves the sealed original seed untouched.
+    # Both releases execute identical captured Python at the original import root.
+    assert target.directory != original.directory
+    for _, filename, content in EXECUTION.python_sources:
+        assert (original.directory / filename).read_bytes() == content
+        assert (target.directory / filename).read_bytes() == content
     assert target.prepared.release_id != original.prepared.release_id
     assert (
         _intent(target.model).record["operations"][0]["recipe"]
