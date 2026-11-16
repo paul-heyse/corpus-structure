@@ -550,7 +550,11 @@ def binding_branches(metadata):
             selected_key(products.c.id),
             _visible(uses),
             func.ops.ddo_use_valid(uses.table_valued(), boundary),
-            allowed_producer,
+            # A role-scoped explicit pin selects genuine input provenance;
+            # production dependencies constrain default acquisition, not that
+            # independent source workflow. Role/header/access checks below and
+            # the selected read/support validity above still apply to both.
+            or_(exact_pin, allowed_producer),
             or_(exact_pin, ~later_exists),
         )
         .distinct(*distinct)

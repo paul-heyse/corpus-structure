@@ -235,6 +235,36 @@ drift expectations remain independent. Remaining PDF integration/recognition cri
 migrated to actual separate current commands before old single-run fixture retirement; no synthetic
 capture task supplies integration authority.
 
+The fresh native cohort11 `ce88d3256e694aaebc3707ef9c70bf5b` had9passed/2failed, including actual
+captured-recognition fidelity/forgery/ACL2 and the real scripted Docling child/IPC pipeline passing.
+Its two raw-engine capacity fixture failures were corrected: CLI now acquires the actual managed
+purpose pools through clone-bound settings, and the directly owned executor supplies its explicit
+reservation. Exact retry2 passed `fa5e58bc1a284a1c94184666858c19c9`. Coverage reports all11 identities
+covered with changed source/private-host bindings, not assembled qualification. Current publisher
+owner/raw-ACL/immutable statement guards passed1 `dc800133d848404d89fa76903019e73f` without
+manufactured body rows.
+
+Actual record retry `e5d97c5427d74efe8e71460e237edd19` reached grading but failed complete source
+context equality. Discovery stamps `original-source-view`;14 source-scoped consumer declarations
+instead used `selected-native-source`. The declarations now use the existing original-source-view
+contract; distinct project targets/registries and cross-source focus cohorts remain distinct.
+Strict grading/native context guards remain unchanged. Focused77 had76passed/1worktree spaCy
+environment refusal `78cc1ad85aea4354994f45bda427b42a`; canonical main exact retry1 passed
+`63025ab6839f433eae783f23685a14df`. Actual record recipe compilation1 also passed
+`edf403ce8fd24a6799f9e85c4f8d18d8`. Fresh native grading/fitting remains required.
+
+Event positive retry `245cbaaf04de499081142b809a31d519` failed a duplicate product-ID scope before
+execution. Its fixture now deduplicates request IDs while retaining every distinct use/derivation
+row. Negative cases remain not_run. Artifact retry `ffa9a9acd3d548d8be103ee0f1258a09` did not reach
+publication. A separate actual native control `5d8fca172c34439aa51eeccbcdce5577` confirms that a
+nonempty unrelated planning dependency incorrectly hides an otherwise authentic explicit retained
+input. Earlier `eb8124da5374431ca8de05d82e261070` stopped at its fixture's obsolete expected root list;
+that fixture was corrected before the discriminating failure. The binding projection now admits
+such exact declared-role pins independently of acquisition dependencies, retaining all native
+context/kind/access/read/support and producer-specific checks. Source127b… requires a reviewed
+successor from capture-lineage before actual native retries. The artifact projector also preserves
+actual selected source members while keeping whole-construction and exact frame guards.
+
 Read-only [original-source inventory](../design_review/evidence/2026-11-16_ddo-current-native/README.md#original-source-adoption-inventory--2026-11-16)
 found all29 original registrations at28 existing local paths with exact recorded SHA256. This
 provides a regeneration basis; no generated/protected bodies were read and no development mutation

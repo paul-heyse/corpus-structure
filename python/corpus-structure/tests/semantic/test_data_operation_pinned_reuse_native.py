@@ -28,9 +28,10 @@ from semantic.test_data_operation_population_native import _complete_ready
 
 PRODUCER = "urn:ddo-test:source"
 CONSUMER = "urn:explicit-retained-consumer"
+PLANNING_DEPENDENCY = "urn:unrelated-planning-dependency"
 
 
-def _recipe():
+def _recipe(*, ordinary_dependency=False):
     assert STORAGE.declaration_content is not None
     declarations = json.loads(STORAGE.declaration_content)
     producer = next(op for op in declarations["operations"] if op["id"] == PRODUCER)
@@ -59,16 +60,22 @@ def _recipe():
         },
     )
     consumer["binding"] = {"operator": "scan", "roles": ["items"]}
+    if ordinary_dependency:
+        unrelated = json.loads(json.dumps(producer))
+        unrelated["id"] = PLANNING_DEPENDENCY
+        declarations["operations"].append(unrelated)
+        consumer["dependencies"] = [unrelated["id"]]
+        consumer["potential_dependencies"].append(unrelated["id"])
     declarations["operations"].append(consumer)
     return replace(
         STORAGE,
-        name="explicit-retained-source-pins",
+        name="explicit-retained-source-pins" + ("-with-dependency" if ordinary_dependency else ""),
         declaration_content=canonical_bytes(declarations),
     )
 
 
 PINNED = _recipe()
-pytestmark = pytest.mark.parametrize("ddo_kernel", [PINNED], indirect=True, ids=["pinned-retained"])
+PINNED_WITH_DEPENDENCY = _recipe(ordinary_dependency=True)
 
 
 def _produce(kernel, *, subject, value):
@@ -83,7 +90,7 @@ def _produce(kernel, *, subject, value):
     return demand, receipt, product
 
 
-def _register(kernel, entry, inference="focus-comparison"):
+def _register(kernel, entry, inference="focus-comparison", *, expected_roots=(CONSUMER,)):
     intent = freeze_demand(
         kernel["model"],
         roots=(RootSubject("focus:A", "source:A", b'{"focus":true}'),),
@@ -92,7 +99,7 @@ def _register(kernel, entry, inference="focus-comparison"):
         inference=inference,
         execution_profile="execution:test",
     )
-    assert intent.record["root_operations"] == [CONSUMER]
+    assert intent.record["root_operations"] == list(expected_roots)
     with kernel["engine"].begin() as connection:
         return DemandPlanner(kernel["model"], DataOperationStorage(connection)).register(
             intent,
@@ -109,6 +116,7 @@ def _ready(kernel, demand):
         return snapshot, planner.ready(snapshot, authorization=b"{}")
 
 
+@pytest.mark.parametrize("ddo_kernel", [PINNED], indirect=True, ids=["pinned-retained"])
 def test_native_explicit_retained_pin_crosses_demands_without_hidden_production(ddo_kernel):
     source_demand, original, product = _produce(ddo_kernel, subject="source-subject:B", value=42)
     _, _sibling, sibling_product = _produce(ddo_kernel, subject="source-subject:sibling", value=99)
@@ -192,3 +200,65 @@ def test_native_explicit_retained_pin_crosses_demands_without_hidden_production(
         _complete_ready(ddo_kernel, answer)
     with ddo_kernel["engine"].connect() as connection:
         assert connection.scalar(text("SELECT count(*) FROM ops.data_derivation")) == 2
+
+
+@pytest.mark.parametrize(
+    "ddo_kernel", [PINNED_WITH_DEPENDENCY], indirect=True, ids=["independent-pinned-producer"]
+)
+def test_explicit_input_producer_is_independent_of_other_planning_dependencies(ddo_kernel):
+    from corpus_structure.semantic.data_product_reference import DataProductMemberReference
+
+    _, original, product = _produce(ddo_kernel, subject="source-subject:B", value=42)
+    _, _, sibling = _produce(ddo_kernel, subject="source-subject:sibling", value=99)
+    context = SubjectContext(
+        "ddo-test",
+        "source-subject:B",
+        "source:B",
+        b'{"page":1}',
+        subject_definition="original-occurrence",
+    )
+    reference = DataProductReference(product)
+    entry = SourceSetEntry.from_semantic_source(reference, context=context)
+
+    def register(selected, inference="independent-input"):
+        return _register(
+            ddo_kernel, selected, inference, expected_roots=(CONSUMER, PLANNING_DEPENDENCY)
+        )
+
+    snapshot, ready = _ready(ddo_kernel, register(entry))
+    assert PRODUCER not in {row["operation_id"] for row in snapshot["obligations"]}
+    (answer,) = [item for item in ready if item.operation == CONSUMER]
+    (actual,) = answer.binding_result.roles[0].members
+    assert actual.product == product and actual.product != sibling
+    assert actual.support_episodes == (original["derivation_id"],)
+    for wrong_entry, inference in (
+        (
+            SourceSetEntry.from_semantic_source(
+                reference, context=replace(context, subject="forged-context")
+            ),
+            "wrong-header",
+        ),
+        (
+            SourceSetEntry.from_semantic_source(
+                DataProductMemberReference(reference, "missing-member"), context=context
+            ),
+            "wrong-member",
+        ),
+    ):
+        _, refused = _ready(ddo_kernel, register(wrong_entry, inference))
+        assert CONSUMER not in {item.operation for item in refused}
+    with ddo_kernel["engine"].begin() as connection:
+        DataOperationStorage(connection).revoke_data_support(
+            typing_cast(
+                WireRevokeDataSupportRequest,
+                {
+                    "project_id": "ddo-test",
+                    "original_source": "source:B",
+                    "selector_kind": "product",
+                    "selector": product,
+                    "reason": "the exact pinned source is no longer available",
+                },
+            )
+        )
+    _, refused = _ready(ddo_kernel, register(entry, "revoked-independent-pin"))
+    assert CONSUMER not in {item.operation for item in refused}

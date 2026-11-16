@@ -26,6 +26,14 @@ provenance. Preparation/identity foundations do not activate the replacement nat
 legacy readers. The [DDO coordinator](../plans/declared-data-operations_2026-11-12.md) owns current
 scope and evidence; all older implemented sections retain their stated selected/archived boundary.
 
+**Implemented source; actual consumer qualification pending · 2026-11-16.** Operations whose
+subject is the selected original source view declare the existing `original-source-view` definition,
+including M1 readings and source-scoped contextual/finite consumers. They preserve discovery's
+complete source context rather than giving the same occurrence another subject definition.
+Project target/registry subjects and explicitly cross-source focus/cohort subjects keep their distinct
+contracts. Grading still requires exact equality of every source-context field; no alias decoder or
+relaxed native comparison supplies compatibility.
+
 > Decision: [ADR-0092](../adr/0092-ddo-operation-authority.md)
 
 **Implemented foundation · 2026-11-12; production adoption remains DDO-07/09.**

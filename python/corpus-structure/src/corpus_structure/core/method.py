@@ -345,7 +345,6 @@ class Reader(Protocol):
         """The run's guideline body."""
         ...
 
-
     def documents(self, originals: Sequence[str]) -> tuple[UnitRef, ...]:
         """Owned document references under the frozen corpus and original-source selection."""
         ...

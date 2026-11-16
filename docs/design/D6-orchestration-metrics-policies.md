@@ -55,6 +55,15 @@ semantic role occurrences and refuses selected execution cycles. Native frontier
 pinned continuation use the existing demand owner. Ordinary driver migration, physical stream
 execution and later production cutover remain separate accepted work.
 
+**Implemented source; native realization/qualification pending · 2026-11-16.** A frozen source-set
+pin selects an authentic input independently of the operations scheduled to produce new work.
+A nonempty planning dependency list does not exclude an explicitly pinned producer outside that
+list. Pins come only from the selected operation's declared input scopes. Same-project and exact
+product/member/context/kind/source-role checks, actual fulfilled use/support, read visibility,
+permissions and any role-specific producer/factory authority still apply. An unpinned input keeps
+the ordinary consumed-producer restriction. The current native successor and its actual positive,
+wrong-header/member and revoked-support controls are owned by the DDO coordinator.
+
 ## Final characterization policy and retained recovery
 
 **Implemented; focused controls Tested2026-11-12; combined qualification open.** Shared application
