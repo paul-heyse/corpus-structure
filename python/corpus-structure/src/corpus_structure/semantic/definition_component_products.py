@@ -120,7 +120,9 @@ def project_definition_components(
 
     def member(name):
         (value,) = next(role.members for role in roles if role.role == name)
-        if value.member is not None or value.multiplicity != 1:
+        # The source-view family publishes this exact source as a member;
+        # observation/candidate reports must still be whole retained products.
+        if value.multiplicity != 1 or (name != "source" and value.member is not None):
             raise ValueError("definition components require exact whole retained products")
         return value
 
@@ -438,7 +440,9 @@ def project_named_definition_components(
 
     def member(name):
         (value,) = next(role.members for role in roles if role.role == name)
-        if value.member is not None or value.multiplicity != 1:
+        # A selected native source is genuinely a member of the source-view
+        # family. Primary annotation/construction reports remain whole products.
+        if value.multiplicity != 1 or (name != "source" and value.member is not None):
             raise ValueError("named definition components require exact whole primary products")
         return value
 
