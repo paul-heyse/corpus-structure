@@ -981,11 +981,11 @@ def _candidate_operation_counts(
     store: ResultStore, candidate_id: str, binding: Candidate
 ) -> tuple[CandidateOperationCounts | None, str | None]:
     """Inspect authenticated serialized operations and rendered upgrade structure."""
-    import ast
     import json
     import os
 
     from corpus_structure.cli.managed import ResultError
+    from corpus_structure.schema.model_explanation import ordinary_upgrade_statements
     from corpus_structure.semantic.alembic_privileges import native_operation_payloads
 
     names = ("native_candidate.py", "native_operations.json")
@@ -1004,33 +1004,26 @@ def _candidate_operation_counts(
         state_ = json.loads(products["native_operations.json"])
         native = len(native_operation_payloads(state_))
         privilege = len(state_.get("operations", ())) - native
-        tree = ast.parse(products["native_candidate.py"])
-        upgrade = next(
-            (
-                node
-                for node in tree.body
-                if isinstance(node, ast.FunctionDef) and node.name == "upgrade"
-            ),
-            None,
-        )
-        if upgrade is None:
-            return None, "retained rendering has no upgrade function"
-        commands = [
-            node
-            for node in upgrade.body
-            if not isinstance(node, ast.Pass)
-            and not (
-                isinstance(node, ast.Expr)
-                and isinstance(node.value, ast.Constant)
-                and isinstance(node.value.value, str)
-            )
-        ]
-        ordinary = len(commands) - native - privilege
-        if ordinary < 0:
-            return None, "retained rendering does not match its serialized operation inventory"
+        ordinary = len(ordinary_upgrade_statements(
+            products["native_candidate.py"], native=native, privilege=privilege
+        ))
     except SyntaxError, ValueError, TypeError:
         return None, "retained authoring products cannot supply operation counts"
     return CandidateOperationCounts(native=native, privilege=privilege, ordinary=ordinary), None
+
+
+def _ordinary_operations_view(report):
+    content: list[Text | Syntax] = [
+        Text(report.basis), Text(f"{report.total} ordinary upgrade operations")
+    ]
+    for item in report.items:
+        content.extend((
+            Text(f"Ordinary {item.ordinal} · upgrade statement {item.upgrade_statement_ordinal}"),
+            Syntax(safe_text(item.text), item.language, word_wrap=True),
+        ))
+    if report.next_after is not None:
+        content.append(Text(f"Continue with --after {report.next_after}"))
+    return Group(*content)
 
 
 def _candidate_view(report: CandidateInspection) -> Table:
@@ -1084,8 +1077,8 @@ def inspect_candidate(
     ctx: typer.Context,
     candidate_id: Annotated[str, typer.Argument(metavar="CANDIDATE_ID")],
     view: Annotated[
-        Literal["summary", "operations", "sql", "contract"],
-        typer.Option(help="Select candidate summary, native operations, SQL changes or contract."),
+        Literal["summary", "operations", "ordinary", "sql", "contract"],
+        typer.Option(help="Select summary, native operations, ordinary Alembic/Python, SQL changes or contract."),
     ] = "summary",
     after: Annotated[
         int,
@@ -1201,6 +1194,36 @@ def inspect_candidate(
                     validation_purpose=validation_purpose,
                 )
                 emit(report, json=json_)
+                return
+            if view == "ordinary":
+                import json
+                import os
+
+                from corpus_structure.schema.model_explanation import explain_ordinary_operations
+                from corpus_structure.semantic.alembic_privileges import native_operation_payloads
+
+                products = {}
+                with store.open_artifact(candidate_id, "candidate") as (_, directory):
+                    for name in ("native_candidate.py", "native_operations.json"):
+                        fd = os.open(name, os.O_RDONLY | os.O_NOFOLLOW, dir_fd=directory)
+                        with os.fdopen(fd, "rb") as stream:
+                            raw = stream.read()
+                        if sha256(raw).hexdigest() != binding.hashes.get(name):
+                            raise ResultError("frozen authoring product differs from candidate binding")
+                        products[name] = raw
+                frozen = json.loads(products["native_operations.json"])
+                native = len(native_operation_payloads(frozen))
+                emit(
+                    explain_ordinary_operations(
+                        products["native_candidate.py"], candidate_id,
+                        native=native, privilege=len(frozen["operations"]) - native,
+                        after=after, limit=limit,
+                        binding=binding.model_dump(mode="json", include={
+                            "revision", "predecessor", "target", "target_profile", "target_identity", "hashes",
+                        }),
+                    ),
+                    json=json_, render=_ordinary_operations_view,
+                )
                 return
             if view == "operations":
                 import os

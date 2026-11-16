@@ -931,11 +931,34 @@ def test_candidate_summary_counts_exact_retained_upgrade_without_execution(
         "ordinary": 2,
     }
     assert body["operation_counts_detail"] is None
+    ordinary_args = ["model", "change", "inspect-candidate", result.id, "--view", "ordinary"]
+    first = CliRunner().invoke(app, [*ordinary_args, "--limit", "1", "--json"])
+    assert first.exit_code == 0, first.output
+    ordinary = json.loads(first.stdout)
+    assert ordinary["total"] == 2 and ordinary["next_after"] == 1
+    assert ordinary["source"] == "native_candidate.py:upgrade"
+    assert ordinary["source_sha256"] == sha256(source).hexdigest()
+    assert ordinary["items"][0] == {
+        "ordinal": 1, "upgrade_statement_ordinal": 2 if envelope == 1 else 3,
+        "language": "python", "text": "with owned_operation():\n        op.drop_constraint('old')",
+    }
+    second = CliRunner().invoke(app, [*ordinary_args, "--after", "1", "--json"])
+    assert second.exit_code == 0, second.output
+    page = json.loads(second.stdout)
+    assert page["next_after"] is None
+    assert page["items"][0]["text"] == "op.owned_sql('publisher', 'frozen CHECK contract')"
+    assert page["items"][0]["language"] == "python"
+    assert "not executed or translated" in page["basis"]
+    rendered = CliRunner().invoke(app, ordinary_args)
+    assert rendered.exit_code == 0 and "drop_constraint" in rendered.stdout
     # Hash authentication remains mandatory even for a read-only aggregate.
     (directory / "native_candidate.py").write_bytes(b"def upgrade(): pass")
     damaged = CliRunner().invoke(app, ["model", "change", "inspect-candidate", result.id, "--json"])
     assert damaged.exit_code != 0
     assert "differs from candidate binding" in json.loads(damaged.stdout)["error"]["message"]
+    refused = CliRunner().invoke(app, [*ordinary_args, "--json"])
+    assert refused.exit_code == 1
+    assert "differs from candidate binding" in json.loads(refused.stdout)["error"]["message"]
 
 
 @pytest.fixture(scope="module")
