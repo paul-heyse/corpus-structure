@@ -418,6 +418,7 @@ def status(
         revision: str | None
         head: str | None
         revision_readable: bool
+        revision_table_present: bool
         target: DeploymentProfile
         acquired: StorageTarget
 
@@ -442,15 +443,14 @@ def status(
         database, principal, server_version = conn.execute(
             text("select current_database(), current_user, current_setting('server_version')")
         ).one()
-        readable = bool(
-            conn.scalar(
-                text(
-                    "select has_table_privilege("
-                    "to_regclass('public.semantic_alembic_version'), 'SELECT')"
-                )
+        present, permitted = conn.execute(
+            text(
+                "SELECT to_regclass('public.semantic_alembic_version') IS NOT NULL, "
+                "has_table_privilege(to_regclass('public.semantic_alembic_version'),'SELECT')"
             )
-        )
-        if maintenance and not readable:
+        ).one()
+        readable = bool(permitted)
+        if maintenance and present and not readable:
             raise ValueError(
                 "the configured maintenance principal cannot read the migration revision"
             )
@@ -461,6 +461,7 @@ def status(
                 server_version=server_version,
                 revision=migrations.current_revision(conn) if readable else None,
                 revision_readable=readable,
+                revision_table_present=present,
                 target=selected,
                 acquired=acquired,
                 head=migrations.head_revision(),

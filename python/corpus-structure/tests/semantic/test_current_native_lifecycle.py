@@ -158,3 +158,39 @@ def test_native_only_current_root_preview_register_deploy_and_refusals(
     refused = run("preview", "-", input=yaml.safe_dump({"native_revision": "another_root"}))
     assert refused.exit_code == 1
     assert "fresh native authoring requires an empty target" in refused.stdout
+
+
+def test_creation_only_bootstrap_status_distinguishes_absent_from_unreadable_revision(
+    cli, semantic_absent_database, native_server, native_settings, model_checkout, monkeypatch
+):
+    from corpus_structure.schema import preparation
+    from corpus_structure.semantic import migrations
+
+    root, _ = model_checkout
+    location = root / preparation.PACKAGE_PATH.parents[1] / migrations.ALEMBIC_DIR.name
+    monkeypatch.setattr(migrations, "ALEMBIC_DIR", location)
+    settings = settings_for_native_clone(native_settings, semantic_absent_database.name)
+    assert migrations.head_revision() is None
+    bootstrap = ("db", "init", "--creation-token", semantic_absent_database.token, "--json")
+    refused = cli(*bootstrap, settings=lambda: settings)
+    assert refused.exit_code == 1 and "no current native root is registered" in refused.stdout
+    assert not native_server.exists(semantic_absent_database.name)
+    created = cli(*bootstrap, "--creation-only", settings=lambda: settings)
+    assert created.exit_code == 0, created.output
+    report = json.loads(created.stdout)
+    assert report["created"] is True
+    assert report["revision"] is report["model_revision"] is None and report["applied"] == []
+    status = cli("db", "status", "--maintenance", "--json", settings=lambda: settings)
+    assert status.exit_code == 0, status.output
+    report = json.loads(status.stdout)
+    assert report["revision_table_present"] is False and report["revision_readable"] is False
+    assert report["revision"] is None and report["acquired"]["database"] == semantic_absent_database.name
+    with native_server.connect(semantic_absent_database.name) as connection:
+        connection.exec_driver_sql("CREATE TABLE public.semantic_alembic_version(version_num varchar(32) NOT NULL)")
+        connection.exec_driver_sql("REVOKE ALL ON public.semantic_alembic_version FROM PUBLIC,corpus_sem_reader")
+    denied_settings = settings.model_copy(update={
+        "database": settings.database.model_copy(update={"maintenance_url": settings.database.reader_url})
+    })
+    denied = cli("db", "status", "--maintenance", "--json", settings=lambda: denied_settings)
+    assert denied.exit_code == 1
+    assert "configured maintenance principal cannot read the migration revision" in denied.stdout
