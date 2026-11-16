@@ -1,4 +1,4 @@
-"""One run-owned CPU source candidate producer, before knowledge acceptance."""
+"""CPU source candidate preparation, before knowledge acceptance."""
 
 from __future__ import annotations
 
@@ -148,7 +148,6 @@ class M1Config(BaseModel):
     native_execution_profile: dict[str, Any] | None = Field(
         default=None, exclude_if=lambda value: value is None
     )
-    characterization_layers: tuple[dict[str, Any], ...] = ()
     model_config = ConfigDict(frozen=True, extra="forbid")
     local_schema: dict[str, Any] | None = None
     region_pointers: tuple[str, ...] | None = None
@@ -158,8 +157,6 @@ class M1Config(BaseModel):
         "m1-canonical-related-context-candidates-5",
         "m1-canonical-related-context-candidates-6",
     ] = POLICY
-    source_dependencies: Literal["source_view_product"] = "source_view_product"
-    source_dependency_method: Literal["extract.m1_annotations"] = "extract.m1_annotations"
     snapshot: Path
     checkpoint: str
     revision: str

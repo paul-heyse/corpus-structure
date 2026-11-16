@@ -51,13 +51,10 @@ native_execution_profile:
     version: pm2-runtime-1
   threads: 4
   version: nlp-gpu-profile-1
-characterization_layers: []
 local_schema: null
 region_pointers: null
 source_projection_digest: null
 policy: m1-canonical-related-context-candidates-4
-source_dependencies: source_view_product
-source_dependency_method: extract.m1_annotations
 snapshot: /home/paul/.cache/huggingface/hub/models--fastino--gliner2.5-base-v1/snapshots/54785d51df8d86a0d8f2eb212fec15871aad2c4d
 checkpoint: fastino/gliner2.5-base-v1
 revision: 54785d51df8d86a0d8f2eb212fec15871aad2c4d

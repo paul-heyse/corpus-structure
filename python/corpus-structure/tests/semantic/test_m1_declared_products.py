@@ -147,7 +147,17 @@ def test_actual_m1_producer_captures_selection_witnesses_and_single_stored_membe
 
 
 def test_m1_semantic_profile_excludes_snapshot_path_and_captures_record_schema():
+    import yaml
+
     config = configuration()
+    authored = M1Config.model_validate(
+        yaml.safe_load((ROOT / "domains/statistics/profiles/m1.yaml").read_bytes())
+    )
+    assert authored.checkpoint == config.checkpoint
+    assert authored.revision == config.revision
+    assert authored.policy == config.policy
+    assert authored.artifact_hashes == config.artifact_hashes
+    assert authored.native_execution_profile is not None
     left = m1_profile_assets(config, record_schemas())
     right = m1_profile_assets(
         config.model_copy(update={"snapshot": Path("/different/physical/snapshot")}),

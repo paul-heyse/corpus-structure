@@ -48,8 +48,7 @@ def _algorithm_ast(content: bytes):
 def m1_profile_assets(configuration, record_schemas):
     configuration = M1Config.model_validate(configuration)
     values = configuration.model_dump(mode="json")
-    for field in ("snapshot", "source_dependencies", "source_dependency_method"):
-        values.pop(field)
+    values.pop("snapshot")
     root = Path(__file__).parents[1]
     paths = (
         "methods/m1_source.py",
