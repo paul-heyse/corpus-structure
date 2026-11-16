@@ -1135,6 +1135,7 @@ def data_operation_definition_projection(
                     "numerical_policy": archived_operations[operation.semantic_id].get(
                         "numerical_policy"
                     ),
+                    "result_fields": dict(operation.result_fields),
                     "coverage": archived_operations[operation.semantic_id]["coverage"],
                     **(
                         {"external": asdict(operation.external)}

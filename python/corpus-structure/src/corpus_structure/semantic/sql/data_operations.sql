@@ -1919,6 +1919,9 @@ BEGIN
  expected_support:=jsonb_build_object('policy',operation->'support_policy','coverage',operation->'coverage','outcomes',operation->'outcomes','replicate_policy',operation->'replicate_policy','state_dimensions',operation->'state_dimensions','transitions',operation->'transitions','effects',operation->'effects','capabilities',operation->'capabilities','provenance',CASE WHEN EXISTS(SELECT FROM jsonb_array_elements(operation->'roles') role WHERE role->'support'<>'null'::jsonb AND role->'support'->>'provenance'<>'value_substitution') THEN 'exact' ELSE 'value_substitution' END);
  expected_support:=expected_support||jsonb_build_object('assets',operation->'assets');
  expected_support:=expected_support||jsonb_build_object('numerical_policy',operation->'numerical_policy');
+ expected_support:=expected_support||jsonb_build_object('result_fields',coalesce((
+  SELECT jsonb_object_agg(field->>0,field->>1)
+  FROM jsonb_array_elements(coalesce(operation->'result_fields','[]')) field),'{}'::jsonb));
  IF sem.ddo_provider_profile(p->>'release_id',operation) IS NOT NULL THEN expected_support:=expected_support||jsonb_build_object('provider_profile',sem.ddo_provider_profile(p->>'release_id',operation)); END IF;
  IF operation->'external' IS NOT NULL THEN expected_support:=expected_support||jsonb_build_object('external',operation->'external'); END IF;
  IF coalesce(operation->'output_witnesses','[]')<>'[]'::jsonb THEN expected_support:=expected_support||jsonb_build_object('output_witnesses',operation->'output_witnesses'); END IF;
