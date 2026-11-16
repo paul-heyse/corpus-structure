@@ -364,18 +364,18 @@ def prepare_preview(
                     ["physical and native object effects require a native revision request"]
                 )
             native_intent(request.retire, request.recreate)
-        if bool(native or request.deployment) != bool(target):
+        if (native or request.deployment) != bool(target):
             raise model.ModelError(["a deployment preview requires a configured target binding"])
         if request.deployment_profile and (
             not target or request.deployment_profile != target_profile
         ):
             raise model.ModelError(["deployment profile differs from the requested target"])
-        if bool(native) != bool(authoring_target):
+        if native != bool(authoring_target):
             raise model.ModelError(["a native preview requires its development authoring target"])
         migration = request.change.alembic_revision if request.change else None
         if request.native_revision and migration and migration != request.native_revision:
             raise model.ModelError(["native revision conflicts with the declared model change"])
-        if bool(native) != bool(migration or request.native_revision):
+        if native != bool(migration or request.native_revision):
             raise model.ModelError(
                 [
                     "a native change requires an Alembic revision; None predecessor explicitly requests an empty root"
@@ -748,7 +748,7 @@ def prepare_preview(
             routes={kind: change.route(kind) for kind in compatibility},
             generated=tuple(file.path for file in files if file.path in generated),
             physical=physical,
-            native=bool(native),
+            native=native,
             native_basis=native_basis,
             admission=admission,
             admission_applicable=bool(local_release),

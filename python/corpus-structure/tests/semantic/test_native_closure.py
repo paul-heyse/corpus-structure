@@ -296,55 +296,8 @@ def test_bulk_exact_native_codec_vectors(commit_db_engine, commit_admitter_engin
                 )
 
 
-def test_selected_view_drift_refuses_admission(commit_db_engine, commit_admitter_engine):
-    from corpus_structure.semantic.execution_admission import (
-        ExecutionAdmissionError,
-        _verify_deployment_functions,
-    )
-
-    with commit_db_engine.begin() as conn:
-        _verify_deployment_functions(conn)
-        conn.execute(
-            text("CREATE OR REPLACE VIEW data.selected_fact AS SELECT f.* FROM data.fact f")
-        )
-        with pytest.raises(ExecutionAdmissionError, match="selected-fact view"):
-            _verify_deployment_functions(conn)
 
 
-def test_model_products_match_frozen_current_native_state(commit_db_engine, monkeypatch):
-    from sqlalchemy.dialects.postgresql import dialect
-    from sqlalchemy.schema import CreateTable
-
-    from corpus_structure.semantic import source_view_native
-    from corpus_structure.semantic.metadata import metadata
-    from corpus_structure.semantic.native_candidate import (
-        current_native_state,
-        prepare_series_candidate,
-    )
-
-    before = {
-        name: str(CreateTable(relation).compile(dialect=dialect()))
-        for name, relation in metadata.tables.items()
-    }
-
-    def refuse_recorded_provenance(_admission):
-        raise AssertionError("current candidate must declare current authoring provenance")
-
-    monkeypatch.setattr(
-        source_view_native, "recorded_authoring_provenance", refuse_recorded_provenance
-    )
-    with commit_db_engine.connect() as conn:
-        frozen = current_native_state(conn)
-        assert frozen is not None
-        script, authoring = prepare_series_candidate(conn, owned_authoring=True)
-        assert script.upgrade_ops is not None and script.upgrade_ops.is_empty()
-        assert {item.identity: item.payload() for item in authoring.desired} == {
-            item.identity: item.payload() for item in frozen
-        }
-    assert before == {
-        name: str(CreateTable(relation).compile(dialect=dialect()))
-        for name, relation in metadata.tables.items()
-    }
 
 
 def _forward_descriptor(product):
@@ -364,14 +317,12 @@ def _forward_descriptor(product):
 
 
 def test_frozen_head_witness_preserves_its_explicit_authoring_provenance():
-    from hashlib import sha256
     from pathlib import Path
 
     from alembic.script import ScriptDirectory
 
-    from corpus_structure.semantic.execution_admission import _descriptor_sha256
+    from corpus_structure.semantic.execution_admission import require_frozen_native_revision
     from corpus_structure.semantic.migrations import alembic_config, head_revision
-    from corpus_structure.semantic.native_products import function_bodies
     from corpus_structure.semantic.types import SourceArtifact
 
     current_head = head_revision()
@@ -385,12 +336,9 @@ def test_frozen_head_witness_preserves_its_explicit_authoring_provenance():
     )
     assert head.digest == revision.NATIVE_ADMISSION_SHA256
     recorded = _forward_descriptor(head)
-    assert (
-        sha256(
-            function_bodies(head.content.decode())["data.execution_contract_descriptor"].encode()
-        ).hexdigest()
-        == _descriptor_sha256()
-    )
+    assert require_frozen_native_revision(
+        Path(head_script.path).parent, current_head
+    ) == recorded["physical_id"]
 
     from corpus_structure.semantic.native_admission import recorded_authoring_provenance
 

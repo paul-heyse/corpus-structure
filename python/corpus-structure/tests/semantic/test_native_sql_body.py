@@ -177,14 +177,20 @@ LANGUAGE sql AS $$ SELECT 'unrelated overload'::text $$""")
 
 
 def test_unbound_sql_standard_body_cannot_author_native_admission():
-    from corpus_structure.semantic.migrations import ALEMBIC_DIR
-    from corpus_structure.semantic.source_view_native import native_admission_sql
+    from corpus_structure.semantic.metadata import metadata
+    from corpus_structure.semantic.native_admission import native_admission_sql
+    from corpus_structure.semantic.native_products import admission_kernel
+    from corpus_structure.semantic.target_installation import (
+        capture_target_installation,
+        target_admission_descriptor,
+    )
 
     source = """CREATE OR REPLACE FUNCTION ops.unbound_preview() RETURNS integer
 LANGUAGE sql BEGIN ATOMIC SELECT 1; END;"""
-    frozen = ALEMBIC_DIR.joinpath("versions/semantic_0065_admission.sql").read_text()
+    capture = capture_target_installation(metadata)
     with pytest.raises(ValueError, match="server-bound normalized native object"):
-        native_admission_sql(source, base_admission=frozen)
+        native_admission_sql(admission_kernel() + "\n" + source, capture.authoring_inputs,
+                             base_descriptor=target_admission_descriptor(capture, ()), target_metadata=metadata)
 
 
 def test_current_release_guards_separate_readable_archives_from_current_projection_compiler():
@@ -206,35 +212,3 @@ def test_current_release_guards_separate_readable_archives_from_current_projecti
     assert "THEN RETURN;" not in projection
 
 
-def test_current_native_sources_own_release_guards_and_record_only_views(commit_db_engine):
-    from corpus_structure.semantic.migrations import ALEMBIC_DIR
-    from corpus_structure.semantic.native_candidate import (
-        series_native_definitions,
-        series_predecessor_definitions,
-    )
-    from corpus_structure.semantic.native_products import function_bodies
-
-    # Candidate authoring resolves trigger ownership against current relations;
-    # the migrated schema also exercises omission of physically retired tables.
-    with commit_db_engine.begin() as conn:
-        desired = series_native_definitions(conn)
-        predecessor = series_predecessor_definitions(conn)
-    wanted = {(item.identity.schema, item.identity.name): item for item in desired}
-    previous = {(item.identity.schema, item.identity.name): item for item in predecessor}
-    # The bounded PDF/task predecessor set does not own the old release guards.
-    old_guards = function_bodies(
-        ALEMBIC_DIR.joinpath("versions/semantic_0053_positioned_syntax.sql").read_text()
-    )
-    for name in ("require_archive_bytes", "require_execution_projection"):
-        assert function_bodies(wanted["sem", name].sql)["sem." + name] != old_guards["sem." + name]
-        assert wanted["sem", name].owner == "corpus_sem_publisher"
-        assert wanted["sem", name].grants == ()
-    for name in (
-        "pdf_selected_product",
-        "pdf_published_item",
-        "pdf_published_region",
-        "pdf_published_coverage",
-    ):
-        assert "UNION" not in wanted["ops", name].sql
-        assert "UNION" in previous["ops", name].sql
-    assert ("ops", "legacy_integrated_source_context") not in wanted

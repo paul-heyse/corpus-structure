@@ -85,9 +85,11 @@ present, revalidates unsettled work and preserves concurrent edits. Whole-worktr
 outside the supported guarantee. Move the generation callers through the same validation boundary
 and remove any bypass that can write before revision validation.
 
-For a native effect, reuse `prepare_series_candidate()`, native object validation and the
-existing artifact materialization. Run authoring in rollback-only maintenance scope on the
-persistent configured development DB. Use Alembic **1.20.1**
+For a native effect, use the current `prepare_target_candidate()` or
+`prepare_target_successor()` owner with native object validation and existing artifact
+materialization. A declared revision with `native_predecessor: null` requires an actually empty
+authoring target. A successor binds the exact registered frozen native state. Authoring runs in
+rollback-only maintenance scope on the explicitly acquired target. Use Alembic **1.20.1**
 `MigrationContext.configure(connection=…, opts=…)` and `autogenerate.produce_migrations(context, metadata)`
 inside that owner with existing comparison settings and native SQL checks. Autogeneration provides
 a structured migration candidate. Native retirement, exact predecessor and admission depend on
@@ -97,7 +99,7 @@ artifact. Preserve distinct identities for the change, candidate, revision, sema
 and runtime binding.
 [MigrationContext API](https://alembic.sqlalchemy.org/en/latest/api/runtime.html#alembic.runtime.migration.MigrationContext.configure) ·
 [Autogenerate API](https://alembic.sqlalchemy.org/en/latest/api/autogenerate.html#alembic.autogenerate.produce_migrations) ·
-[Native candidate owner](../../../python/corpus-structure/src/corpus_structure/semantic/native_candidate.py)
+[Native candidate owner](../../../python/corpus-structure/src/corpus_structure/semantic/native_authoring.py)
 
 The installed native path stages the wrapper with the candidate. Inspect it by managed ID,
 then use `ci model change register CANDIDATE` to install the exact files in the checkout. The
@@ -173,6 +175,6 @@ replay. The retained isolated PostgreSQL rehearsal used a historical wrapper and
 at the owner, which remains valid at that scope. Post-deploy command target continuity belongs to
 [CLI-CA06](corpus-and-operations.md#completion-audit-follow-up).
 [Native authoring adapter](../../../python/corpus-structure/src/corpus_structure/cli/schema.py#L238) ·
-[Native series owner](../../../python/corpus-structure/src/corpus_structure/semantic/native_candidate.py#L1514) ·
+[Current target owner](../../../python/corpus-structure/src/corpus_structure/semantic/target_installation.py) ·
 [Wrapper and target checks](../../../python/corpus-structure/src/corpus_structure/schema/model_deployment.py#L228) ·
 [Isolated rehearsal](../../../python/corpus-structure/tests/semantic/test_model_deployment.py#L28)

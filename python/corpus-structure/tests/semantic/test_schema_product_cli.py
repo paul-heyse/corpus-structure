@@ -80,7 +80,7 @@ def test_model_diagnostics_remain_actionable_in_cli_json(cli, monkeypatch):
 
 
 def test_derive_exports_changed_model_without_entering_native_authoring(cli, tmp_path, monkeypatch):
-    from corpus_structure.semantic import native_candidate, regeneration
+    from corpus_structure.semantic import regeneration, target_installation
 
     original = regeneration.prepare_packs
     resolved = []
@@ -94,7 +94,7 @@ def test_derive_exports_changed_model_without_entering_native_authoring(cli, tmp
         raise AssertionError("model artifact export must not author native definitions")
 
     monkeypatch.setattr(regeneration, "prepare_packs", prepare)
-    monkeypatch.setattr(native_candidate, "prepare_series_candidate", unexpected)
+    monkeypatch.setattr(target_installation, "prepare_target_candidate", unexpected)
     target = tmp_path / "model"
     result = cli("schema", "derive", "--out", str(target), "--json")
     assert result.exit_code == 0, result.output

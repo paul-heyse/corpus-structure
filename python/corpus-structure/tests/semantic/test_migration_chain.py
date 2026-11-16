@@ -88,7 +88,7 @@ def test_author_successor_on_undeployed_base_rolls_back(semantic_database_at, na
         )
         base = registered_base(migrations.ALEMBIC_DIR, predecessor, target)
         report, products = author_native_candidate(
-            settings, None, None, expected_predecessor=target, native_base=base
+            settings, None, expected_predecessor=target, native_base=base
         )
         assert report.predecessor == target
         assert products["native_operations.json"]
@@ -96,7 +96,7 @@ def test_author_successor_on_undeployed_base_rolls_back(semantic_database_at, na
             assert migrations.current_revision(connection) == predecessor
         with pytest.raises(SemanticRefusal, match="base differs"):
             author_native_candidate(
-                settings, None, None, expected_predecessor=predecessor, native_base=base
+                settings, None, expected_predecessor=predecessor, native_base=base
             )
         with engine.begin() as connection:
             assert migrations.current_revision(connection) == predecessor

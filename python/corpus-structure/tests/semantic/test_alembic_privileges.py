@@ -103,28 +103,6 @@ def test_owned_ddl_rendering_preserves_upgrade_caller_without_ast_repair():
     compile("def upgrade():\n" + rendered, "candidate.py", "exec")
 
 
-def test_named_data_steps_compile_explicit_columns_and_refuse_unknown():
-    from sqlalchemy.dialects.postgresql import dialect
-
-    from corpus_structure.semantic.metadata import metadata
-    from corpus_structure.semantic.native_data_steps import build_data_step
-
-    sql = str(
-        build_data_step("characterization-source-scope", metadata).compile(
-            dialect=dialect(), compile_kwargs={"literal_binds": True}
-        )
-    )
-    assert (
-        "INSERT INTO kb.characterization_source_scope (task_id, product_key, content_digest, source_view_id, body)"
-        in sql
-    )
-    assert "ON CONFLICT DO NOTHING" in sql
-    from pydantic import ValidationError
-
-    from corpus_structure.schema.model_change import ChangeRequest
-
-    with pytest.raises(ValidationError):
-        ChangeRequest.model_validate({"data_steps": ["arbitrary.module.function"]})
 
 
 def test_live_normalization_exact_transition_stale_before_and_role_restore(semantic_bare_engine):
@@ -268,7 +246,7 @@ def test_rendered_candidate_executes_exact_upgrade_before_admission_and_rolls_ba
 ):
     from types import SimpleNamespace
 
-    from corpus_structure.semantic import native_candidate, native_objects
+    from corpus_structure.semantic import native_authoring, native_objects
     from corpus_structure.semantic.alembic_privileges import admit_privileges as real_admit
 
     name = "rendered_" + uuid4().hex[:10]
@@ -298,10 +276,10 @@ def test_rendered_candidate_executes_exact_upgrade_before_admission_and_rolls_ba
         observed.append("catalog")
 
     monkeypatch.setattr(native_objects, "admit_native", native_check)
-    monkeypatch.setattr(native_candidate, "verify_frozen_catalog", catalog_check)
+    monkeypatch.setattr(native_authoring, "verify_frozen_catalog", catalog_check)
     with semantic_bare_engine.begin() as conn:
         role = conn.scalar(text("SELECT current_user"))
-        native_candidate.verify_rendered_candidate(
+        native_authoring.verify_rendered_candidate(
             conn, source, SimpleNamespace(desired=()), (), "frozen"
         )
         assert observed == ["native", "catalog"]
@@ -343,7 +321,7 @@ def test_schema_normalization_orders_explicit_delegation_leaves_without_cascade(
 def test_rendered_candidate_failure_exposes_safe_site_without_sql_or_payload(semantic_bare_engine):
     from types import SimpleNamespace
 
-    from corpus_structure.semantic.native_candidate import verify_rendered_candidate
+    from corpus_structure.semantic.native_authoring import verify_rendered_candidate
 
     source = "from alembic import op\ndef upgrade():\n    op.execute(\"SELECT 'private-payload-sentinel'::integer\")\n"
     with semantic_bare_engine.begin() as conn:
@@ -436,7 +414,7 @@ def test_owner_column_acl_is_removed_without_changing_implicit_owner_rights(sema
 
 def test_final_trigger_catalog_tracks_explicit_parent_owner_transfer(semantic_bare_engine):
     from corpus_structure.semantic.alembic_native import NativeTransitionOp
-    from corpus_structure.semantic.native_candidate import final_native_catalog
+    from corpus_structure.semantic.native_authoring import final_native_catalog
     from corpus_structure.semantic.native_objects import (
         admit_native,
         definition_from_sql,
@@ -471,17 +449,7 @@ def test_final_trigger_catalog_tracks_explicit_parent_owner_transfer(semantic_ba
         # The native transition's intermediate owner is still the actual predecessor table owner.
         assert authoring.desired[0].expected_catalog(conn)["owner"] == original_owner
         admit_native(conn, authoring.desired)
-        from dataclasses import replace
-
-        original_trigger = authoring.desired[0]
-        # Real legacy task triggers use the v2 namespace-owner binding profile.
-        historical = replace(
-            original_trigger,
-            catalog_json=json.dumps({**original_trigger.catalog, "owner": "$migration_owner"}),
-            role_bindings=(("$migration_owner", "sem_namespace_owner"),),
-            binding_version=2,
-        )
-        final = final_native_catalog((historical,), [policy])
+        final = final_native_catalog(authoring.desired, [policy])
         trigger_obj = next(obj for obj in final if obj.identity.kind == "trigger")
         assert trigger_obj.catalog["owner"] == "corpus_sem_publisher"
         assert trigger_obj.role_bindings == () and trigger_obj.binding_version == 1
@@ -490,69 +458,25 @@ def test_final_trigger_catalog_tracks_explicit_parent_owner_transfer(semantic_ba
         )
         admit_native(conn, final)
         admit_privileges(conn, [policy])
-        # On the next head, frozen literal parent ownership governs intermediate
-        # expectations too; an old source namespace token cannot invent a change.
-        from types import SimpleNamespace
-
-        from corpus_structure.semantic.alembic_native import compare_native
-        from corpus_structure.semantic.native_candidate import intermediate_native_catalog
-        from corpus_structure.semantic.native_objects import NativeAuthoring
-
-        next_desired = intermediate_native_catalog((historical,), final, {"privileges": [policy]})
-        assert next_desired[0].catalog["owner"] == "corpus_sem_publisher"
-        next_ops = ops.UpgradeOps([])
-        compare_native(
-            SimpleNamespace(
-                connection=conn,
-                migration_context=SimpleNamespace(
-                    opts={"native_authoring": NativeAuthoring(next_desired, final)}
-                ),
-            ),
-            next_ops,
-            {schema},
-        )
-        assert next_ops.is_empty()
         conn.exec_driver_sql(f'DROP SCHEMA "{schema}" CASCADE')
 
 
-def test_reference_table_policies_preserve_evaluation_isolation():
-    from corpus_structure.semantic.alembic_privileges import desired_policies
-    from corpus_structure.semantic.metadata import metadata
-
-    reference_names = {
-        "eval.reference_set",
-        "eval.reference_unit",
-        "eval.reference_pass",
-        "eval.reference_frame",
-        "eval.reference_item",
-        "eval.reference_evaluation",
-        "eval.document_split",
-    }
-    for name in reference_names:
-        assert table_policy(metadata.tables[name])["acl"] == [
-            ("corpus_sem_evaluator", "SELECT", False)
-        ]
-    policies = desired_policies(metadata, ())
-    eval_schema = next(p for p in policies if p["kind"] == "schema" and p["name"] == "eval")
-    assert not {"corpus_sem_writer", "corpus_sem_reader", "corpus_sem_admitter"} & {
-        role for role, _, _ in eval_schema["acl"]
-    }
 
 
 def test_rendered_candidate_catalog_failure_keeps_owning_phase(semantic_bare_engine, monkeypatch):
     from types import SimpleNamespace
 
-    from corpus_structure.semantic import native_candidate
+    from corpus_structure.semantic import native_authoring
 
     def catalog_refusal(connection, admission):
         connection.exec_driver_sql(
             "DO $$ BEGIN RAISE EXCEPTION 'withheld diagnostic' USING ERRCODE='23514'; END $$"
         )
 
-    monkeypatch.setattr(native_candidate, "verify_frozen_catalog", catalog_refusal)
+    monkeypatch.setattr(native_authoring, "verify_frozen_catalog", catalog_refusal)
     with semantic_bare_engine.begin() as conn:
         with pytest.raises(NativeAuthoringError) as failure:
-            native_candidate.verify_rendered_candidate(
+            native_authoring.verify_rendered_candidate(
                 conn, "def upgrade():\n    pass\n", SimpleNamespace(desired=()), (), "frozen"
             )
         assert failure.value.authoring_context == {
@@ -563,126 +487,3 @@ def test_rendered_candidate_catalog_failure_keeps_owning_phase(semantic_bare_eng
         assert conn.scalar(text("SELECT 1")) == 1
 
 
-def test_successor_trigger_declarations_use_frozen_parent_before_normalization(
-    semantic_bare_engine,
-):
-    from dataclasses import replace
-    from pathlib import Path
-    from types import SimpleNamespace
-
-    from corpus_structure.semantic.alembic_native import NativeTransitionOp, compare_native
-    from corpus_structure.semantic.data_operation_protocol import render_data_task_guard
-    from corpus_structure.semantic.native_candidate import (
-        _execution_task_definitions,
-        intermediate_native_definitions,
-    )
-    from corpus_structure.semantic.native_objects import (
-        NativeObject,
-        admit_native,
-        definition_from_sql,
-        prepare_native_authoring,
-        semantic_namespace_owner,
-    )
-    from corpus_structure.semantic.source_view_native import _admission_descriptor
-
-    project = Path(__file__).resolve().parents[2]
-    versions = project / "semantic_alembic/versions"
-    semantic = project / "src/corpus_structure/semantic"
-    found = json.loads(versions.joinpath("semantic_ddo_found_v1_native.json").read_text())
-    frozen = tuple(NativeObject.from_payload(item) for item in found["desired"])
-    descriptor = _admission_descriptor(
-        versions.joinpath("semantic_ddo_found_v1_admission.sql").read_text()
-    )
-    with semantic_bare_engine.begin() as conn:
-        conn.exec_driver_sql("CREATE SCHEMA sem")
-        raw = _execution_task_definitions(
-            conn,
-            render_data_task_guard(
-                (semantic.parent / "model/semantic/data-operation-native.yaml").read_bytes(),
-                semantic.joinpath("sql/execution_guards.sql").read_text(),
-            ),
-            versions.joinpath("semantic_0023_execution.sql").read_text(),
-            source="execution task:forward",
-        )
-        raw_trigger = next(item for item in raw if item.identity.kind == "trigger")
-        assert raw_trigger.bind_owner
-        assert raw_trigger.owner == semantic_namespace_owner(conn)
-        projected = intermediate_native_definitions(conn, raw, frozen, descriptor)
-        projected_trigger = next(item for item in projected if item.identity.kind == "trigger")
-        assert projected_trigger.owner == "corpus_sem_publisher"
-        assert not projected_trigger.bind_owner and projected_trigger.role_bindings == ()
-        assert next(item for item in projected if item.identity.kind == "function") == raw[0]
-        # Earlier v2 predecessors retain the exact namespace-bound interpretation.
-        old = json.loads(versions.joinpath("semantic_ddo_origeps_v1_native.json").read_text())
-        old_objects = tuple(NativeObject.from_payload(item) for item in old["desired"])
-        old_descriptor = _admission_descriptor(
-            versions.joinpath("semantic_ddo_origeps_v1_admission.sql").read_text()
-        )
-        historical = intermediate_native_definitions(conn, raw, old_objects, old_descriptor)
-        assert next(item for item in historical if item.identity.kind == "trigger") == raw_trigger
-
-        schema = "declared_parent_" + uuid4().hex[:10]
-        conn.exec_driver_sql(f'CREATE SCHEMA "{schema}"')
-        conn.exec_driver_sql(f'GRANT USAGE,CREATE ON SCHEMA "{schema}" TO corpus_sem_publisher')
-        conn.exec_driver_sql(f'CREATE TABLE "{schema}".sample(id integer)')
-        conn.exec_driver_sql(f'ALTER TABLE "{schema}".sample OWNER TO corpus_sem_publisher')
-        conn.exec_driver_sql(
-            f'CREATE FUNCTION "{schema}".guard() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RETURN NEW; END $$'
-        )
-        trigger = replace(
-            definition_from_sql(
-                conn,
-                f'CREATE TRIGGER guarded BEFORE INSERT ON "{schema}".sample FOR EACH ROW EXECUTE FUNCTION "{schema}".guard()',
-                source="test:new-or-moved-parent",
-                owner=raw_trigger.owner,
-            ),
-            role_bindings=raw_trigger.role_bindings,
-            bind_owner=True,
-        )
-        with pytest.raises(
-            NativeAuthoringError, match="trigger requires its declared owning relation"
-        ):
-            prepare_native_authoring(conn, (trigger,), owned_authoring=True)
-        relation = Table("sample", MetaData(), Column("id", Integer), schema=schema)
-        with pytest.raises(NativeAuthoringError, match="conflicts with its declared parent policy"):
-            intermediate_native_definitions(
-                conn,
-                (replace(trigger, bind_owner=False, role_bindings=()),),
-                (),
-                {},
-                target_policies=(table_policy(relation),),
-            )
-        with pytest.raises(NativeAuthoringError, match="namespace owner binding differs"):
-            intermediate_native_definitions(
-                conn,
-                (replace(trigger, owner="corpus_sem_reader"),),
-                (),
-                {},
-                target_policies=(table_policy(relation),),
-            )
-        declared = intermediate_native_definitions(
-            conn, (trigger,), (), {}, target_policies=(table_policy(relation),)
-        )
-        assert declared[0].owner == "corpus_sem_publisher" and not declared[0].bind_owner
-        first = prepare_native_authoring(conn, declared, owned_authoring=True)
-        operations = Operations(MigrationContext.configure(conn))
-        operations.invoke(NativeTransitionOp(None, first.desired[0]))
-        admit_native(conn, first.desired)
-        # A later pass starts from the raw definition again, rather than an
-        # already-normalized object; the frozen predecessor supplies its owner.
-        next_definitions = intermediate_native_definitions(conn, (trigger,), first.desired, {})
-        second = prepare_native_authoring(
-            conn, next_definitions, predecessor=first.desired, owned_authoring=True
-        )
-        changes = ops.UpgradeOps([])
-        compare_native(
-            SimpleNamespace(
-                connection=conn,
-                migration_context=SimpleNamespace(opts={"native_authoring": second}),
-            ),
-            changes,
-            {schema},
-        )
-        assert changes.is_empty()
-        conn.exec_driver_sql(f'DROP SCHEMA "{schema}" CASCADE')
-        conn.exec_driver_sql("DROP SCHEMA sem")

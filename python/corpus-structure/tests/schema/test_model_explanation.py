@@ -79,7 +79,7 @@ def test_frozen_operation_multiplicity_order_acl_and_unknown_dependency_are_pres
 
 
 def test_native_function_explanation_preserves_statement_boundaries_body_and_acl():
-    from corpus_structure.semantic.native_candidate import definition_sql
+    from corpus_structure.semantic.native_authoring import definition_sql
     from corpus_structure.semantic.native_objects import NativeDefinition, NativeIdentity
 
     before = (

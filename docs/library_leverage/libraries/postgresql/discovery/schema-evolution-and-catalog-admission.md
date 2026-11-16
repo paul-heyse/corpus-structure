@@ -10,7 +10,7 @@ leads, not applicability verdicts or selected replacements.
 
 [NativeTransitionOp](../../../../../python/corpus-structure/src/corpus_structure/semantic/alembic_native.py) already registers operations, implements
 execution, comparison and rendering of frozen before/after native objects.
-[Candidate authoring](../../../../../python/corpus-structure/src/corpus_structure/semantic/native_candidate.py) uses produce_migrations;
+[Candidate authoring (historical)](../../../../README.md#historical-recovery) uses produce_migrations;
 [Migration execution](../../../../../python/corpus-structure/src/corpus_structure/semantic/migrations.py) supplies a caller-owned connection and
 transaction fence. [Native objects](../../../../../python/corpus-structure/src/corpus_structure/semantic/native_objects.py) and
 [Catalog observation](../../../../../python/corpus-structure/src/corpus_structure/semantic/native_catalog.py) retain independent desired/observed facts.

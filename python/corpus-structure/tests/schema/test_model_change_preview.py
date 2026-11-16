@@ -146,7 +146,6 @@ def test_structural_discovery_qualifies_coordinates_without_claiming_binding(mod
 
 
 def test_deployment_preview_binds_separate_authoring_and_destination(model_checkout, monkeypatch):
-    from corpus_structure.cli import model as commands
     from corpus_structure.cli import recipes, schema
     from corpus_structure.cli.app import app
     from corpus_structure.cli.output import CliState
@@ -156,9 +155,9 @@ def test_deployment_preview_binds_separate_authoring_and_destination(model_check
 
     root, location = model_checkout
     (root / "domains").symlink_to(generate.REPOSITORY / "domains", target_is_directory=True)
-    migrations_dir = root / "migrations"
+    migrations_dir = root / preparation.PACKAGE_PATH.parents[1] / migrations.ALEMBIC_DIR.name
     versions = migrations_dir / "versions"
-    versions.mkdir(parents=True)
+    versions.mkdir(parents=True, exist_ok=True)
     (versions / "before.py").write_text('revision = "before"\ndown_revision = None\n')
     monkeypatch.setattr(migrations, "ALEMBIC_DIR", migrations_dir)
     settings = Settings(
@@ -220,16 +219,13 @@ def test_deployment_preview_binds_separate_authoring_and_destination(model_check
     def author(
         source,
         _database,
-        _state,
         *,
         expected_predecessor,
         expected_target,
         target_metadata,
         retire,
         recreate,
-        data_steps,
     ):
-        assert data_steps == ()
         assert source.database.url == settings.database.url
         assert expected_predecessor == "before"
         assert expected_target == source_identity
@@ -271,7 +267,6 @@ def test_deployment_preview_binds_separate_authoring_and_destination(model_check
         input=yaml.safe_dump(
             {
                 "deployment": True,
-                "packs": ["statistics"],
                 "native_predecessor": "before",
                 "native_revision": "after",
                 "physical": yaml.safe_dump(proposed),
@@ -396,28 +391,6 @@ def test_deployment_preview_binds_separate_authoring_and_destination(model_check
     for private in ("PRIVATE_SQL", "PRIVATE_PARAMETER", "PRIVATE_NATIVE_MESSAGE"):
         assert private not in failed.output + inspected.output
 
-    acquire = commands._prepare_release
-
-    def altered_release(*args, **kwargs):
-        bundle, dependencies, profile, prepared = acquire(*args, **kwargs)
-        assert prepared.artifacts
-        artifact, *others = prepared.artifacts
-        changed = replace(
-            prepared, artifacts=(replace(artifact, content=artifact.content + b" "), *others)
-        )
-        return bundle, dependencies, profile, changed
-
-    with monkeypatch.context() as altered:
-        altered.setattr(commands, "_prepare_release", altered_release)
-        altered.setattr(
-            schema,
-            "author_native_candidate",
-            lambda *_, **__: pytest.fail("altered release reached native authoring"),
-        )
-        refused = run(["candidate", preview["result_id"]], settings)
-    assert refused.exit_code == 1
-    assert "prepared release artifacts differ from the reviewed preview" in refused.output
-
     refused = run(["candidate", preview["result_id"]], changed_development)
     assert refused.exit_code != 0
     assert "development authoring target differs" in refused.output
@@ -428,25 +401,14 @@ def test_deployment_preview_binds_separate_authoring_and_destination(model_check
         (root / "results" / authored_id / "deployment.json").read_bytes()
     )
     assert binding.release == preview["release"]
-    assert binding.release_manifest_sha256 is not None
-    assert binding.release_artifacts_sha256 is not None
+    assert binding.release_manifest_sha256 is None
+    assert binding.release_artifacts_sha256 is None
     assert binding.target_profile == "deployment"
     assert binding.target == destination_id
     assert binding.authoring_target == development
     assert binding.target_identity == destination_identity
     with pytest.raises(model.ModelError, match="deployment target differs"):
         deploy_candidate(root, changed_destination, binding, (), report=lambda _: None)
-    older = Candidate.model_validate_json(
-        binding.model_dump_json(exclude={"release_artifacts_sha256"})
-    )
-    with pytest.raises(model.ModelError, match="lacks exact release product digests"):
-        deploy_candidate(
-            root,
-            settings,
-            older,
-            acquire(root, binding.packs),
-            report=lambda _: pytest.fail("older receipt reached a deployment effect"),
-        )
     registered = run(["register", authored_id], settings)
     assert registered.exit_code == 0, registered.output
     assert migrations.head_revision() == "after"

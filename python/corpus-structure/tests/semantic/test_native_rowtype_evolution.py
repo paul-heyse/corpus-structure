@@ -13,7 +13,7 @@ from sqlalchemy.exc import DBAPIError
 from corpus_structure.cli.schema import _native_candidate_python
 from corpus_structure.semantic.alembic_native import NativeTransitionOp
 from corpus_structure.semantic.alembic_privileges import OwnedOperationsOp
-from corpus_structure.semantic.native_candidate import _order_row_type_evolution
+from corpus_structure.semantic.native_authoring import _order_row_type_evolution
 from corpus_structure.semantic.native_objects import (
     NativeAuthoringError,
     admit_native,

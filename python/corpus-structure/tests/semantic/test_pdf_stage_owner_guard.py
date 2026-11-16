@@ -1,6 +1,6 @@
 """Actual source-authored PDF guard checked without changing frozen admission."""
 
-from corpus_structure.semantic.native_candidate import _pdf_payload_definitions
+from corpus_structure.semantic.native_authoring import _pdf_payload_definitions
 from corpus_structure.semantic.native_objects import (
     NativeIdentity,
     observe_native,
@@ -21,12 +21,10 @@ def test_current_pdf_stage_owner_static_check_preserves_frozen_kernel(commit_db_
                 connection,
                 stage_native_sql(),
                 source="current PDF owner guard",
-                current_source=True,
             )
             if item.identity == identity
         )
-        # The authoring checker traverses both the legacy and request-backed branches
-        # against the real installed row types and native dependencies.
+        # Check current request custody against the installed row types/dependencies.
         prepared = prepare_native_authoring(
             connection,
             (selected,),

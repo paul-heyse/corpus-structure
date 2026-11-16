@@ -73,7 +73,7 @@ and verify each selected slice before its dependent use; do not wait for all inv
 single barrier. A newly discovered obligation is owned here/coordinator rather than transferred to
 PM2 or left as an unscheduled research note. No unresolved investigation counts as completion.
 
-Sources: [native candidate](../../../python/corpus-structure/src/corpus_structure/semantic/native_candidate.py),
+Sources: [native candidate](../../../python/corpus-structure/src/corpus_structure/semantic/target_installation.py),
 [migrations](../../../python/corpus-structure/src/corpus_structure/semantic/migrations.py),
 [Alembic rewrite API](https://alembic.sqlalchemy.org/en/latest/api/autogenerate.html),
 [pool3.3.3 source](https://github.com/psycopg/psycopg/tree/pool-3.3.3/psycopg_pool/psycopg_pool),
@@ -124,7 +124,7 @@ participant/lifecycle required by the alternative. Deferred cases name specific 
   Selected-source export (`:325–354`) stages output in a temporary sibling, closes readers and settles
   its snapshot before no-replace publication. Companion Parquet/IPC custody is not a second
   transactional database participant.
-- **Native evolution:** `semantic/native_candidate.py:1313–1380,1804–1846` already uses rollback-only
+- **Native evolution:** `semantic/target_installation.py:1313–1380,1804–1846` already uses rollback-only
   savepoints, including catalog normalization. `semantic/migrations.py:30–76` requires one current
   head and caller-owned transaction, fenced with a transaction advisory lock.
   `semantic_alembic/env.py:31–55` refuses offline execution, accepts the caller connection, installs

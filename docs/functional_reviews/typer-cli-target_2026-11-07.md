@@ -303,7 +303,7 @@ to automation.
    selection of a completed result explicit. A candidate or runtime change cannot decide
    on its own to rewrite data, change semantic identity or promote a run. Reuse the
    persistent development target and rollback-only authoring where appropriate.
-   [Native candidate owner](../../python/corpus-structure/src/corpus_structure/semantic/native_candidate.py) ·
+   [Native candidate owner (historical)](../README.md#historical-recovery) ·
    [Release owner](../../python/corpus-structure/src/corpus_structure/semantic/releases.py)
 
 For this repository, typed composition earns its place where identity, applicable effects

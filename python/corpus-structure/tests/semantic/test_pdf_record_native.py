@@ -77,7 +77,7 @@ def test_record_field_order_types_and_model_constraints():
 
 
 def test_independent_model_edit_changes_ddl_arrow_boundary_and_admission(tmp_path, monkeypatch):
-    from corpus_structure.semantic import native_products, pdf_record_model, source_view_native
+    from corpus_structure.semantic import native_products, pdf_record_model
 
     for name, content in physical_source_closure(
         PHYSICAL_MODEL.name, lambda name: PHYSICAL_MODEL.with_name(name).read_bytes()
@@ -105,7 +105,7 @@ def test_independent_model_edit_changes_ddl_arrow_boundary_and_admission(tmp_pat
     assert changed_id != PHYSICAL_MODEL_ID
     before = native_products.current_admission_fields()
     before_arrow = record_arrow_schema("kb.pdf_record_membership")
-    for module in (native_products, pdf_record_model, source_view_native):
+    for module in (native_products, pdf_record_model):
         monkeypatch.setattr(module, "metadata", changed)
     after = native_products.current_admission_fields()
     assert before["physical_checks_source_digest"] != after["physical_checks_source_digest"]
