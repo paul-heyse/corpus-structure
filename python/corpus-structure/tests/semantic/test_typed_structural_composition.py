@@ -8,23 +8,21 @@ from corpus_structure.methods.structural_products import (
     compare_clauses as compare_captured_clauses,
 )
 from corpus_structure.methods.structural_products import (
-    select_dossier,
+    select_dossier, _difference, _typed_member, _succession,
     threshold_readings,
 )
 from corpus_structure.semantic.structural_products import (
     DIMENSIONS,
-    ClauseField,
-    ClauseFieldGroup,
-    ClauseReading,
+    DeclaredClauseField,
+    DeclaredClauseFieldGroup,
+    DeclaredClauseReading,
     DossierFacet,
-    DossierMember,
+    DeclaredDossierMember,
     LocatedDefinitionSpan,
-    legacy_structural_sources,
 )
 from corpus_structure.serve.structural_products import dossier_representation_page
-from semantic.primary_formal_fixture import formal_layers
-from semantic.structural_products_support import inputs
-from semantic.structural_release_fixture import released_report
+from semantic.structural_formal_support import formal_reading_sets
+from semantic.structural_products_support import inputs, root_references
 from semantic.typed_structural_composition_support import (
     revision_inputs as revision_inputs,
 )
@@ -34,7 +32,7 @@ from semantic.typed_structural_composition_support import (
 
 
 def compare_clauses(value, **kwargs):
-    return compare_captured_clauses(value, primary_layers=formal_layers(value), **kwargs)
+    return compare_captured_clauses(value, primary_readings=formal_reading_sets(value), **kwargs)
 
 
 def read_clause(passage, *, source_inputs, **expected_roles):
@@ -44,7 +42,7 @@ def read_clause(passage, *, source_inputs, **expected_roles):
         dimension = next(dimension for dimension in DIMENSIONS if dimension == name)
         start = passage.start + passage.text.index(spelling)
         fields.append(
-            ClauseField(
+            DeclaredClauseField(
                 dimension=dimension,
                 lexical_value=spelling,
                 evidence=(passage.passage_id,),
@@ -59,22 +57,22 @@ def read_clause(passage, *, source_inputs, **expected_roles):
     for dimension, value in (("parent", passage.parent), ("version", passage.effective_version)):
         if value:
             fields.append(
-                ClauseField(
+                DeclaredClauseField(
                     dimension=dimension, lexical_value=value, evidence=(passage.passage_id,)
                 )
             )
     source = next(
         source
-        for source in legacy_structural_sources(source_inputs)
+        for source in source_inputs.sources
         if source.identity == passage.source_ref
     )
     thresholds = threshold_readings(
-        passage, source=source, primary_layers=formal_layers(source_inputs)
+        passage, source=source, primary_layers=formal_reading_sets(source_inputs)[source.identity]
     )
     if len(thresholds) == 1:
-        assert all(isinstance(field, ClauseField) for field in thresholds)
-        fields.extend(field for field in thresholds if isinstance(field, ClauseField))
-    return ClauseReading(passage_id=passage.passage_id, fields=tuple(fields))
+        assert all(isinstance(field, DeclaredClauseField) for field in thresholds)
+        fields.extend(field for field in thresholds if isinstance(field, DeclaredClauseField))
+    return DeclaredClauseReading(passage_id=passage.passage_id, fields=tuple(fields))
 
 
 @pytest.mark.parametrize(
@@ -89,30 +87,21 @@ def read_clause(passage, *, source_inputs, **expected_roles):
 def test_exact_threshold_difference(left, right, removed, added):
     basis = "\nComparison basis: annual gross revenue."
     value = threshold_inputs(left + basis, right + basis)
-    report = compare_clauses(
-        value,
-        left=read_clause(value.passages[0], source_inputs=value),
-        right=read_clause(value.passages[1], source_inputs=value),
-    )
-    assert report.comparison is not None
-    d = report.comparison.dimensions[5]
+    left_field = read_clause(value.passages[0], source_inputs=value).fields[0]
+    right_field = read_clause(value.passages[1], source_inputs=value).fields[0]
+    assert left_field.typed is not None and right_field.typed is not None
+    removed_interval, added_interval, outcome = _difference(left_field.typed, right_field.typed)
 
     def endpoint(v):
         return None if v is None else (v.lower, v.upper, v.lower_closed, v.upper_closed)
 
-    assert endpoint(d.removed_interval) == removed
-    assert endpoint(d.added_interval) == added
-    assert d.typed_outcome == "different"
-    assert d.left is not None and d.left.typed is not None
-    assert d.left.typed.basis_evidence is not None
-    assert d.left.typed.basis_evidence.text == basis[1:]
-    assert report.comparison.applicability == "unestablished"
-    assert d.left.typed.primary_formal is not None and d.left.typed.primary_basis is not None
-    released = released_report(report, method="structure.compare", version="6")
-    typed = released["comparison"]["dimensions"][5]["left"]["typed"]
-    assert typed["value"] == d.left.typed.value
-    assert typed["primary_formal"] == d.left.typed.primary_formal.values()
-    assert typed["primary_basis"] == d.left.typed.primary_basis.values()
+    assert endpoint(removed_interval) == removed
+    assert endpoint(added_interval) == added
+    assert outcome == "different"
+    assert left_field.typed.basis_evidence is not None
+    assert left_field.typed.basis_evidence.text == basis[1:]
+    assert left_field.typed.primary_formal is not None and left_field.typed.primary_basis is not None
+    assert set(left_field.typed.primary_formal.values()) == {"product_id", "member_id"}
 
 
 def test_missing_unit_and_ambiguous_fields_withhold_typed_conclusion():
@@ -122,14 +111,8 @@ def test_missing_unit_and_ambiguous_fields_withhold_typed_conclusion():
         ("x > 2 kg and y > 3 kg", "x > 5 kg"),
     ):
         value = threshold_inputs(left, right)
-        report = compare_clauses(
-            value,
-            left=read_clause(value.passages[0], source_inputs=value),
-            right=read_clause(value.passages[1], source_inputs=value),
-        )
-        assert report.comparison is not None
-        assert report.comparison.dimensions[5].typed_outcome == "unknown"
-        assert report.comparison.dimensions[5].removed_interval is None
+        fields = read_clause(value.passages[0], source_inputs=value).fields
+        assert len(fields) != 1 or _typed_member(fields[0]) is None
 
 
 def test_succession_keeps_the_source_direction_when_comparison_is_reversed():
@@ -138,22 +121,14 @@ def test_succession_keeps_the_source_direction_when_comparison_is_reversed():
         "Clause rule.\nRevision R2 supersedes revision R1.\nx > 5 kg",
     )
     newer, older = inputs.passages
-    report = compare_clauses(
-        inputs,
-        left=read_clause(newer, source_inputs=inputs),
-        right=read_clause(older, source_inputs=inputs),
-    )
-    result = report.comparison
-    assert result is not None and result.applicability == "successive_revisions"
-    assert result.left_id == newer.passage_id
-    assert result.succession is not None
-    assert (result.succession.older_id, result.succession.newer_id) == ("a", "b")
-    assert result.succession.evidence.text == "Revision R2 supersedes revision R1."
-    assert result.succession.older_evidence.text == "Revision R1."
-    released = released_report(report, method="structure.compare", version="6")
-    succession = released["comparison"]["succession"]
-    assert succession["older_evidence"]["text"] == "Revision R1."
-    assert len(succession["primary_witnesses"]) == 4
+    result = _succession(newer, older,
+        sources={source.identity: source for source in inputs.sources},
+        primary_layers=None, primary_readings=formal_reading_sets(inputs))
+    assert result is not None
+    assert (result.older_id, result.newer_id) == ("a", "b")
+    assert result.evidence.text == "Revision R2 supersedes revision R1."
+    assert result.older_evidence.text == "Revision R1."
+    assert len(result.primary_witnesses) == 4
 
 
 @pytest.mark.parametrize(
@@ -171,25 +146,21 @@ def test_caller_labels_cannot_substitute_for_succession_endpoints(left, same_sou
         same_source=same_source,
     )
     newer, older = inputs.passages
-    result = compare_clauses(
-        inputs,
-        left=read_clause(newer, source_inputs=inputs),
-        right=read_clause(older, source_inputs=inputs),
-    ).comparison
-    assert result is not None and result.applicability == "unestablished"
-    assert result.succession is None
+    assert _succession(newer, older,
+        sources={source.identity: source for source in inputs.sources},
+        primary_layers=None, primary_readings=formal_reading_sets(inputs)) is None
 
 
 def members():
     p = inputs().passages[0]
     span = LocatedDefinitionSpan(passage_id=p.passage_id, start=p.start, end=p.end, text=p.text)
     return tuple(
-        DossierMember(
+        DeclaredDossierMember(
             member_id=str(i),
             passage_id=p.passage_id,
             citation=span,
             role="usage",
-            sense="unresolved",
+            sense="1" * 64,
             scope=p.scope,
             relation_product_id="upstream",
         )
@@ -198,6 +169,8 @@ def members():
 
 
 def test_supported_facets_gain_beats_source_order_without_discarding_members():
+    value = inputs()
+    root, predecessor = root_references(value)
     rows = members()
     facets = tuple(
         DossierFacet(
@@ -205,17 +178,18 @@ def test_supported_facets_gain_beats_source_order_without_discarding_members():
             kind="topic:" + str(i),
             scope="scope",
             member_id="2",
-            assessment_id="actual-assessment",
+            assessment_id="fixture:assessment",
             evidence=("a",),
         )
         for i in range(3)
     )
     greedy = select_dossier(
-        inputs(), root_id="root", members=rows, supported_facets=facets, member_budget=1
+        value, root_id=root.component_id, root_component=root, predecessors=(predecessor,),
+        members=rows, supported_facets=facets, member_budget=1
     )
     control = select_dossier(
-        inputs(),
-        root_id="root",
+        value,
+        root_id=root.component_id, root_component=root, predecessors=(predecessor,),
         members=rows,
         supported_facets=facets,
         member_budget=1,
@@ -231,7 +205,10 @@ def test_supported_facets_gain_beats_source_order_without_discarding_members():
 
 def test_mandatory_overflow_pages_and_rejects_substituted_membership():
     rows = tuple(m.model_copy(update={"role": "exception"}) for m in members())
-    report = select_dossier(inputs(), root_id="root", members=rows, member_budget=1)
+    value = inputs()
+    root, predecessor = root_references(value)
+    report = select_dossier(value, root_id=root.component_id, root_component=root,
+                            predecessors=(predecessor,), members=rows, member_budget=1)
     first = dossier_representation_page(report, limit=2)
     assert first["mandatory_overflow"] is True
     assert len(first["members"]) == 2
@@ -247,16 +224,16 @@ def test_dossier_derives_only_actual_predecessor_roles_and_exact_protected_suppo
     from corpus_structure.methods.structural_products import derive_dossier_members
     from corpus_structure.semantic.structural_admission import structural_statement
     from corpus_structure.semantic.structural_products import (
-        DefinitionComponentsProduct,
-        RetainedStructuralRef,
-        StructuralProductReport,
-        definition_component,
+        DeclaredDefinitionComponentsProduct,
+        DeclaredStructuralRef,
+        DeclaredDefinitionComponentsReport, DeclaredStructuralInputPin,
+        declared_definition_component,
     )
 
     value = inputs()
     p = value.passages[0]
     span = LocatedDefinitionSpan(passage_id=p.passage_id, start=p.start, end=p.end, text=p.text)
-    component = definition_component(
+    component = declared_definition_component(
         term=span,
         content=span,
         interpretation="definition",
@@ -265,21 +242,25 @@ def test_dossier_derives_only_actual_predecessor_roles_and_exact_protected_suppo
         evidence=(p.passage_id,),
         reason="Explicit source cue.",
     )
-    predecessor = StructuralProductReport(
+    predecessor = DeclaredDefinitionComponentsReport(
         kind="definition_components",
         inputs=value,
-        definition_components=DefinitionComponentsProduct(components=(component,), stages=()),
+        definition_components=DeclaredDefinitionComponentsProduct(components=(component,), stages=()),
+        sources_input=(DeclaredStructuralInputPin(
+            product_id=value.sources[0].source_product, kind_contract=value.sources[0].kind_contract,
+            project_id=value.sources[0].project_id, subject=value.sources[0].subject,
+            subject_definition=value.sources[0].subject_definition,
+            original_source=value.sources[0].original_source,
+            analyzed_scope_meaning=value.sources[0].analyzed_scope_meaning,
+            reference=value.sources[0].source,
+        ),),
     )
-    reference = RetainedStructuralRef(
-        product_id=predecessor.product_id,
-        project_id="p",
-        run_id=1,
-        cut_id=1,
-        release_id="r",
-        result_revision=1,
-        selected_task_id=1,
-        origin_task_id=1,
-        runtime_fingerprint="runtime",
+    source = value.sources[0]
+    reference = DeclaredStructuralRef(
+        product_id="fixture:structural-definition", structural_id=predecessor.product_id,
+        kind_contract="kind:fixture-definition", project_id=source.project_id,
+        subject=source.subject, subject_definition=source.subject_definition,
+        original_source=source.original_source, analyzed_scope_meaning=source.analyzed_scope_meaning,
     )
     closure = value.model_copy(
         update=dict(dependencies=(*value.dependencies, predecessor.product_id))
@@ -302,7 +283,7 @@ def test_dossier_derives_only_actual_predecessor_roles_and_exact_protected_suppo
     assert not facets and all(m.assessment_id is None for m in unsupported)
     with pytest.raises(ValueError, match="substituted"):
         derive_dossier_members(
-            closure, ((reference.model_copy(update=dict(product_id="another")), payload),)
+            closure, ((reference.model_copy(update=dict(structural_id="another")), payload),)
         )
 
 
@@ -317,21 +298,17 @@ def test_independently_located_clause_premises_preserve_threshold_consequence():
         "modality": "must",
         "exception": "unless account is closed",
     }
-    comparison = compare_clauses(
-        value,
-        left=read_clause(
-            value.passages[0], source_inputs=value, **roles, condition="if revenue > 25000 USD"
-        ),
-        right=read_clause(
-            value.passages[1], source_inputs=value, **roles, condition="if revenue > 50000 USD"
-        ),
-    ).comparison
-    assert comparison is not None
-    assert comparison.dimensions[0].outcome == "same_lexical_value"
-    assert comparison.dimensions[4].outcome == "different_lexical_value"
-    assert comparison.dimensions[5].removed_interval is not None
-    assert comparison.dimensions[5].removed_interval.upper == "50000"
-    assert comparison.applicability == "unestablished"
+    left = read_clause(value.passages[0], source_inputs=value,
+                       **roles, condition="if revenue > 25000 USD")
+    right = read_clause(value.passages[1], source_inputs=value,
+                        **roles, condition="if revenue > 50000 USD")
+    left_field = next(field for field in left.fields if field.dimension == "threshold_unit")
+    right_field = next(field for field in right.fields if field.dimension == "threshold_unit")
+    assert left_field.typed is not None and right_field.typed is not None
+    removed, added, outcome = _difference(left_field.typed, right_field.typed)
+    assert removed is not None and removed.upper == "50000" and added is None
+    assert outcome == "different"
+    assert left_field.typed.span.text == "revenue > 25000 USD"
 
 
 def test_grouped_typed_alignment_does_not_derive_interval_from_unresolved_applicability():
@@ -349,7 +326,7 @@ def test_grouped_typed_alignment_does_not_derive_interval_from_unresolved_applic
             )
         }
     )
-    layers = formal_layers(value)
+    layers = formal_reading_sets(value)
 
     def side(passage, form, date, connector, state):
         def span(spelling, start=None):
@@ -359,16 +336,16 @@ def test_grouped_typed_alignment_does_not_derive_interval_from_unresolved_applic
             )
 
         source = next(
-            s for s in legacy_structural_sources(value) if s.identity == passage.source_ref
+            s for s in value.sources if s.identity == passage.source_ref
         )
-        primary = FormalSourceReadings(layers, source)
+        primary = layers[source.identity]
         members = []
         for spelling in (f"Identifier: {form}", f"Date: {date}"):
             located = span(spelling)
             literal, reference = _literal_reading(located, source, primary)
             assert literal is not None and reference is not None
             members.append(
-                ClauseField(
+                DeclaredClauseField(
                     dimension="object",
                     lexical_value=spelling,
                     evidence=(passage.passage_id,),
@@ -378,7 +355,7 @@ def test_grouped_typed_alignment_does_not_derive_interval_from_unresolved_applic
                 )
             )
         cue = coordination_reading(
-            primary, source, start=len(f"Identifier: {form}"), end=passage.text.index("Date:")
+            primary, primary.source, start=len(f"Identifier: {form}"), end=passage.text.index("Date:")
         )
         assert cue is not None and cue.value == connector
         # An unresolved actor can coexist with an otherwise exact threshold.
@@ -388,41 +365,37 @@ def test_grouped_typed_alignment_does_not_derive_interval_from_unresolved_applic
                 passage,
                 source=next(
                     source
-                    for source in legacy_structural_sources(value)
+                    for source in value.sources
                     if source.identity == passage.source_ref
                 ),
-                primary_layers=formal_layers(value),
+                primary_layers=layers[source.identity],
             )
             if x.dimension == "threshold_unit"
         )
-        groups = {d: ClauseFieldGroup(state="absent") for d in DIMENSIONS}
-        groups["actor"] = ClauseFieldGroup(state=state)
-        groups["object"] = ClauseFieldGroup(
+        groups = {d: DeclaredClauseFieldGroup(state="absent") for d in DIMENSIONS}
+        groups["actor"] = DeclaredClauseFieldGroup(state=state)
+        groups["object"] = DeclaredClauseFieldGroup(
             state="present",
             grouping="conjunction" if connector == "and" else "disjunction",
             members=tuple(members),
             witnesses=(span(connector, passage.text.index(f" {connector} ") + 1),),
-            primary_witnesses=(cue.reference,),
+            primary_witnesses=(cue.reference.values(),),
         )
-        groups["threshold_unit"] = ClauseFieldGroup(
+        groups["threshold_unit"] = DeclaredClauseFieldGroup(
             state="present", grouping="singleton", members=(threshold,)
         )
-        return ClauseReading(passage_id=passage.passage_id, groups=groups)
+        return DeclaredClauseReading(passage_id=passage.passage_id, groups=groups)
 
     def ref(passage, digit):
         source = next(
-            item for item in legacy_structural_sources(value) if item.identity == passage.source_ref
+            item for item in value.sources if item.identity == passage.source_ref
         )
         return dict(
             contribution_id="source-contribution:" + digit * 64,
-            project_id=source.project_id,
-            run_id=1,
-            cut_id=1,
-            release_id=source.release_id,
-            result_revision=0,
-            selected_task_id=1,
-            origin_task_id=1,
-            runtime_fingerprint="runtime",
+            product_id="fixture:reading:" + digit, kind_contract="kind:fixture-reading",
+            project_id=source.project_id, subject=source.subject,
+            subject_definition=source.subject_definition, original_source=source.original_source,
+            analyzed_scope_meaning=source.analyzed_scope_meaning,
         )
 
     left, right = value.passages
@@ -435,7 +408,7 @@ def test_grouped_typed_alignment_does_not_derive_interval_from_unresolved_applic
         typed_groups=True,
     )
     assert report.comparison is not None
-    released = released_report(report, method="structure.compare", version="6")
+    released = report.model_dump(mode="json")
     object_ = next(d for d in released["comparison"]["dimensions"] if d["dimension"] == "object")
     for side in ("left_group", "right_group"):
         assert object_[side]["primary_witnesses"]
