@@ -212,6 +212,34 @@ admission. Deployment establishes installation, not consumer acceptance. The pri
 Docling, event and record refusals now require fresh execution against the matching head.
 Development remains unchanged; application release/runtime and activation remain absent on stage.
 
+## Explicit retained-input producer scope · 2026-11-16
+
+**passed:** preview `862ddeb572714d45a3ef3b65d017233b`, exact apply
+`9d0656f1aa904bac988215bfcb548c83`, rollback-only candidate
+`e119e77898504a04a566cdda2c8a6d04`, registration `02dead377e3b4bf499454a9c86f68e55`
+and deployment `c159b36ff8f1426b91fa76e85b2af7f0`. The
+[request](explicit-pin-successor.yaml) binds predecessor `semantic_ddo_capture_lineage`.
+Exact four frozen files were registered at `58a05df4e`. Separate maintenance status confirms
+unchanged stage OID130661481/system7701811359771751232 and
+revision=head=`semantic_ddo_explicit_pin_scope`. No application release/runtime or activation occurred.
+
+Root and independent review inspected all10 native body transitions and zero ordinary/privilege
+operations. `ops.ddo_binding_rows` changes only the admitted-CTE producer predicate to accept either
+an exact declared-role frozen pin or the existing planning-producer restriction. Fulfilled use,
+same project, selected key/read visibility/support validity and all downstream header/member/kind,
+source/origin/access/producer-specific checks remain enforced. Unpinned inputs retain the original
+restriction. Other transitions recustody native73b5…→127b… and the exact descriptor bodies/inputs.
+Physical c634/97 relations, checks, indexes, triggers, views, readers, ABI, PDF contract and ACLs
+are unchanged. Rollback-only PL/pgSQL and exact rendered-candidate admission passed.
+
+Actual native readiness control first failed `5d8fca172c34439aa51eeccbcdce5577`: an authentic
+retained input outside an unrelated nonempty planning dependency was hidden. Exact retry
+`58f65afbac384f3db29241f9591ead95` passed after installation, preserving the independent source
+workflow and original producing episode while refusing wrong header, missing member and revoked
+support. Its earlier fixture-root-list failure `eb8124da5374431ca8de05d82e261070` stays retained.
+This establishes that binding/readiness boundary, not complete artifact/record/event publication.
+Those actual consumer retries and the original pinned-reuse controls remain required.
+
 ## Acceptance still required
 
 - Preserve exact registered root custody and qualify any required native successor discovered by

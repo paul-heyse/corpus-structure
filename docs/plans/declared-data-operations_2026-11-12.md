@@ -261,9 +261,15 @@ nonempty unrelated planning dependency incorrectly hides an otherwise authentic 
 input. Earlier `eb8124da5374431ca8de05d82e261070` stopped at its fixture's obsolete expected root list;
 that fixture was corrected before the discriminating failure. The binding projection now admits
 such exact declared-role pins independently of acquisition dependencies, retaining all native
-context/kind/access/read/support and producer-specific checks. Source127b… requires a reviewed
-successor from capture-lineage before actual native retries. The artifact projector also preserves
-actual selected source members while keeping whole-construction and exact frame guards.
+context/kind/access/read/support and producer-specific checks. Registered successor
+`semantic_ddo_explicit_pin_scope` at `58a05df4e` deployed with
+`c159b36ff8f1426b91fa76e85b2af7f0`; independent maintenance confirms the same stage identity at
+head. All10 reviewed transitions are native bodies, with no ordinary, privilege or physical changes.
+Actual binding/readiness exact retry1 passed `58f65afbac384f3db29241f9591ead95`, including wrong
+header/member and revoked-support refusal. Complete artifact/record/event publication still needs
+fresh execution. The artifact projector also preserves actual selected source members while keeping
+whole-construction and exact frame guards. The [native evidence owner](../design_review/evidence/2026-11-16_ddo-current-native/README.md#explicit-retained-input-producer-scope--2026-11-16)
+retains this lifecycle and its bounded acceptance.
 
 Read-only [original-source inventory](../design_review/evidence/2026-11-16_ddo-current-native/README.md#original-source-adoption-inventory--2026-11-16)
 found all29 original registrations at28 existing local paths with exact recorded SHA256. This

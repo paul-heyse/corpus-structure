@@ -55,7 +55,7 @@ semantic role occurrences and refuses selected execution cycles. Native frontier
 pinned continuation use the existing demand owner. Ordinary driver migration, physical stream
 execution and later production cutover remain separate accepted work.
 
-**Implemented source; native realization/qualification pending · 2026-11-16.** A frozen source-set
+**Implemented; scoped native binding Tested · 2026-11-16.** A frozen source-set
 pin selects an authentic input independently of the operations scheduled to produce new work.
 A nonempty planning dependency list does not exclude an explicitly pinned producer outside that
 list. Pins come only from the selected operation's declared input scopes. Same-project and exact
