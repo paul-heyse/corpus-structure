@@ -2,6 +2,7 @@
 
 from functools import lru_cache
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -87,3 +88,33 @@ def acquire_source(profile, value):
     for selector in value["selectors"]:
         selector["projection"] = projection
     return FrozenFormalSource.acquire(profile.prepared, value)
+
+
+def selected_rows(profile, *rows):
+    """Literal original/recognition inputs, without a historical task or layer address."""
+    text, pieces, items, recognition, selectors = "", [], [], [], []
+    for index, (surface, label, latex, health) in enumerate(rows):
+        if index:
+            pieces.append(dict(kind="synthetic_separator", start=len(text), end=len(text) + 1))
+            text += "\n"
+        pointer = f"#/texts/{index}"
+        start = len(text)
+        if surface:
+            pieces.append(dict(kind="native_text", item_ref=pointer,
+                               source_field="orig" if label == "formula" else "text",
+                               start=start, end=start + len(surface)))
+        text += surface
+        items.append(dict(self_ref=pointer, label=label,
+                          text=latex if label == "formula" else surface, orig=surface,
+                          prov=[dict(page_no=index + 1)]))
+        selector: dict[str, Any] = dict(projection="pending", native_pointer=pointer)
+        if surface:
+            selector.update(start=start, end=len(text))
+        selectors.append(selector)
+        if label == "formula":
+            recognition.append(dict(pointer=pointer, outcome=health))
+    return acquire_source(profile, dict(
+        source=dict(document="document:original-content", section_pointer="#/groups/0",
+                    membership="descendants", projection="pending"),
+        text=text, pieces=pieces, items=items, recognition=recognition, selectors=selectors,
+    ))

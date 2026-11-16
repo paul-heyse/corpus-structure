@@ -1,39 +1,28 @@
-"""Independent positions and domain outcomes for retained positioned formal syntax."""
+"""Independent positions/domain outcomes through current nominal formal products."""
 
 import pytest
 from lark.exceptions import VisitError
 
 from corpus_structure.core.vocab import ParseOutcome
 from corpus_structure.methods.math import grammar as math_grammar
-from corpus_structure.semantic.characterization import (
-    decode_layer,
-    encode_layer,
-)
 from corpus_structure.semantic.formal_evidence import (
-    build_formal_layer,
     decimal_value,
     nominate_fields,
 )
 from corpus_structure.semantic.math_context import acquire_analysis_context_profile
 from corpus_structure.semantic.structural_parsing import parse_comparison_literal, parse_threshold
-from semantic.primary_formal_fixture import (
-    operation as operation,
-)
-from semantic.primary_formal_fixture import (
-    prepared as prepared,
-)
-from semantic.primary_formal_fixture import (
-    source as source,
-)
+from corpus_structure.semantic.formal_products import FormalEvidenceOptions, FormalEvidenceProduct
+from semantic.formal_products_support import profile as profile
+from semantic.formal_products_support import selected_rows
 
 
 @pytest.mark.parametrize("health", ["succeeded", "failed"])
-def test_unprojected_native_formula_retains_recognition_without_literal_claim(prepared, health):
-    view = source(("", "formula", "x+1", health))
-    layer = build_formal_layer(view, prepared, operation())
+def test_unprojected_native_formula_retains_recognition_without_literal_claim(profile, health):
+    view = selected_rows(profile, ("", "formula", "x+1", health))
+    layer = profile.run(view, FormalEvidenceOptions())
     (recognized,) = [
         row
-        for row in layer.payload["annotations"]
+        for row in layer.inventory()["annotations"]
         if row.get("formal_input", {}).get("representation") == "recognized_latex"
     ]
     assert recognized["formal_input"]["text"] == "x+1"
@@ -43,28 +32,28 @@ def test_unprojected_native_formula_retains_recognition_without_literal_claim(pr
     assert recognized["formal_input"]["correspondence"][0]["relation"] == "contained_in_atom"
     assert all(
         extent["native_pointer"] == "#/texts/0" and "start" not in extent and "text" not in extent
-        for row in layer.payload["occurrences"]
+        for row in layer.inventory()["occurrences"]
         for extent in row["extents"]
     )
-    coverage = {row["family"]: row for row in layer.payload["coverage"]}
+    coverage = {row["family"]: row for row in layer.inventory()["coverage"]}
     assert coverage["formal.math"]["outcome"] == "partial"
     assert "source-character correspondence" in coverage["formal.math"]["reason"]
     assert all(
         row["outcome"] == "empty" for family, row in coverage.items() if family != "formal.math"
     )
-    assert any(row["kind"] == "formal.symbol" for row in layer.payload["annotations"]) == (
+    assert any(row["kind"] == "formal.symbol" for row in layer.inventory()["annotations"]) == (
         health == "succeeded"
     )
 
 
-def report(prepared, text):
-    return build_formal_layer(source((text, "text", "", "")), prepared, operation())
+def report(profile, text):
+    return profile.run(selected_rows(profile, (text, "text", "", "")), FormalEvidenceOptions())
 
 
 def roots(layer, family, representation=None):
     return [
         annotation
-        for annotation in layer.payload["annotations"]
+        for annotation in layer.inventory()["annotations"]
         if annotation["family"] == family
         and "formal_input" in annotation
         and (
@@ -76,39 +65,39 @@ def roots(layer, family, representation=None):
 def normalized(layer, family):
     return [
         annotation["formal"]["normalized"]
-        for annotation in layer.payload["annotations"]
+        for annotation in layer.inventory()["annotations"]
         if annotation["family"] == family and "normalized" in annotation.get("formal", {})
     ]
 
 
 def extents(layer, annotation):
-    values = {item["local_id"]: item["extents"] for item in layer.payload["occurrences"]}
+    values = {item["local_id"]: item["extents"] for item in layer.inventory()["occurrences"]}
     return [extent for occurrence in annotation["occurrences"] for extent in values[occurrence]]
 
 
-def test_examined_nomination_is_independent_of_zero_recognized_fields(prepared):
+def test_examined_nomination_is_independent_of_zero_recognized_fields(profile):
     nomination = nominate_fields("α\t prose\n")  # noqa: RUF001 - deliberate Greek source text
     assert (nomination.examined_start, nomination.examined_end) == (0, 9)
     assert nomination.candidates == ()
-    layer = report(prepared, "α\t prose\n")  # noqa: RUF001 - deliberate Greek source text
-    for coverage in layer.payload["coverage"]:
+    layer = report(profile, "α\t prose\n")  # noqa: RUF001 - deliberate Greek source text
+    for coverage in layer.inventory()["coverage"]:
         assert (
             coverage["eligible"]
             == coverage["examined"]
-            == [dict(projection="b" * 64, native_pointer="#/texts/0", start=0, end=9)]
+            == [dict(projection=layer.value.source.projection, native_pointer="#/texts/0", start=0, end=9)]
         )
         if coverage["family"] != "formal.lexical":
             assert coverage["outcome"] == "empty"
 
 
-def test_repeated_equal_fields_and_subtoken_members_are_exact(prepared):
-    layer = report(prepared, "x≥2\nx≥2\nlimit≥2kg")
+def test_repeated_equal_fields_and_subtoken_members_are_exact(profile):
+    layer = report(profile, "x≥2\nx≥2\nlimit≥2kg")
     thresholds = roots(layer, "formal.threshold")
     assert [root["formal_input"]["text"] for root in thresholds] == ["x≥2", "x≥2", "limit≥2kg"]
     assert len({root["local_id"] for root in thresholds}) == 3
     numbers = [
         annotation
-        for annotation in layer.payload["annotations"]
+        for annotation in layer.inventory()["annotations"]
         if annotation["family"] == "formal.threshold"
         and annotation.get("formal", {}).get("rule") == "NUMBER"
     ]
@@ -121,9 +110,9 @@ def test_repeated_equal_fields_and_subtoken_members_are_exact(prepared):
     ] * 3
 
 
-def test_decimal_comparators_units_and_domain_invalid_fields_survive(prepared):
+def test_decimal_comparators_units_and_domain_invalid_fields_survive(profile):
     layer = report(
-        prepared,
+        profile,
         (
             "x ≤ -2.50e-3 kg\nDate: 2026-02-30\nQuantity: +1.20e-3 quux\n"
             "Range: (2,2] kg\nIdentifier: A-1"
@@ -155,7 +144,7 @@ def test_decimal_comparators_units_and_domain_invalid_fields_survive(prepared):
     assert any(value["value"] == "A-1" for value in normalized(layer, "formal.identifier"))
     assert roots(layer, "formal.date")[0]["formal_input"]["syntax_outcome"] == "complete"
     assert roots(layer, "formal.date")[0]["formal_input"]["interpretation_outcome"] == "invalid"
-    assert layer.payload["outcome"] == "complete"
+    assert layer.value.outcome == "complete"
     # Existing domain adapters keep their stronger validation promise.
     assert parse_comparison_literal("Date: 2026-02-30") is None
     assert parse_comparison_literal("Range: (2,2] kg") is None
@@ -163,8 +152,8 @@ def test_decimal_comparators_units_and_domain_invalid_fields_survive(prepared):
     assert threshold is not None and threshold["value"] == "-0.0025"
 
 
-def test_interval_endpoints_and_filtered_label_metadata(prepared):
-    layer = report(prepared, "Range: [1,2)\nRange: (1,2]\nRange: [1,1]")
+def test_interval_endpoints_and_filtered_label_metadata(profile):
+    layer = report(profile, "Range: [1,2)\nRange: (1,2]\nRange: [1,1]")
     values = [
         value for value in normalized(layer, "formal.interval") if value["kind"] == "interval"
     ]
@@ -174,7 +163,7 @@ def test_interval_endpoints_and_filtered_label_metadata(prepared):
     first = roots(layer, "formal.interval")[0]
     nodes = [
         annotation["formal"]
-        for annotation in layer.payload["annotations"]
+        for annotation in layer.inventory()["annotations"]
         if annotation.get("formal", {}).get("input_id") == first["local_id"]
     ]
     assert any(
@@ -186,8 +175,8 @@ def test_interval_endpoints_and_filtered_label_metadata(prepared):
     assert root_node["end"] == root_node["container_end"] == 12
 
 
-def test_whole_input_failure_stays_distinct_from_nominated_complete_prefix(prepared):
-    layer = report(prepared, "Date: 2026-02-28 trailing")
+def test_whole_input_failure_stays_distinct_from_nominated_complete_prefix(profile):
+    layer = report(profile, "Date: 2026-02-28 trailing")
     field = next(
         root["formal_input"]
         for root in roots(layer, "formal.date")
@@ -197,7 +186,7 @@ def test_whole_input_failure_stays_distinct_from_nominated_complete_prefix(prepa
     assert field["text"] == "Date: 2026-02-28 trailing"
     assert field["diagnostic"]["category"] in {"UnexpectedCharacters", "UnexpectedToken"}
     assert (
-        next(item for item in layer.payload["coverage"] if item["family"] == "formal.date")[
+        next(item for item in layer.inventory()["coverage"] if item["family"] == "formal.date")[
             "outcome"
         ]
         == "partial"
@@ -212,16 +201,16 @@ def test_whole_input_failure_stays_distinct_from_nominated_complete_prefix(prepa
     assert prefix["parent_occurrence"] != field["parent_occurrence"]
 
 
-def test_recognized_formula_interior_never_claims_original_pdf_characters(prepared, monkeypatch):
+def test_recognized_formula_interior_never_claims_original_pdf_characters(profile, monkeypatch):
     monkeypatch.setattr(
         math_grammar,
         "to_sympy",
         lambda *args, **kwargs: pytest.fail("syntax requested native algebra"),
     )
-    view = source(
+    view = selected_rows(profile,
         ("x plus x", "formula", "x+x", "succeeded"), ("x plus x", "formula", "x+x", "succeeded")
     )
-    layer = build_formal_layer(view, prepared, operation())
+    layer = profile.run(view, FormalEvidenceOptions())
     formulas = roots(layer, "formal.math", "recognized_latex")
     assert len({item["local_id"] for item in formulas}) == 2
     for index, root in enumerate(formulas):
@@ -239,7 +228,7 @@ def test_recognized_formula_interior_never_claims_original_pdf_characters(prepar
         ]
         symbols = [
             item
-            for item in layer.payload["annotations"]
+            for item in layer.inventory()["annotations"]
             if item.get("formal", {}).get("input_id") == root["local_id"]
             and item["formal"]["rule"] == "SYMBOL"
         ]
@@ -255,20 +244,20 @@ def test_recognized_formula_interior_never_claims_original_pdf_characters(prepar
             == [(f"#/texts/{index}", index * 9, index * 9 + 8)]
             for item in symbols
         )
-    replay = decode_layer(prepared, encode_layer(layer))
+    replay = FormalEvidenceProduct(layer.content, profile.prepared, profile.model)
     assert (
         roots(replay, "formal.math", "recognized_latex")[1]["formal_input"]["original_text"]
         == "x plus x"
     )
-    assert replay.payload == layer.payload
+    assert replay.inventory() == layer.inventory()
 
 
 def test_ordinary_retained_annotation_read_preserves_formal_fields_without_parsing(
-    prepared, monkeypatch
+    profile, monkeypatch
 ):
     from corpus_structure.semantic import formal_evidence
 
-    layer = report(prepared, "Date: 2026-02-30")
+    layer = report(profile, "Date: 2026-02-30")
     monkeypatch.setattr(
         formal_evidence,
         "nominate_fields",
@@ -277,7 +266,7 @@ def test_ordinary_retained_annotation_read_preserves_formal_fields_without_parsi
     monkeypatch.setattr(
         math_grammar, "syntax", lambda *args: pytest.fail("retained read reran parsing")
     )
-    retained = decode_layer(prepared, encode_layer(layer)).payload
+    retained = FormalEvidenceProduct(layer.content, profile.prepared, profile.model).inventory()
     row = next(
         annotation
         for annotation in retained["annotations"]
@@ -293,10 +282,8 @@ def test_ordinary_retained_annotation_read_preserves_formal_fields_without_parsi
     assert occurrence["extents"][0]["text"] == "Date: 2026-02-30"
 
 
-def test_failed_recognition_and_deadline_preserve_input_and_lexical_siblings(prepared, monkeypatch):
-    unavailable = build_formal_layer(
-        source(("bad source", "formula", "", "failed")), prepared, operation()
-    )
+def test_failed_recognition_and_deadline_preserve_input_and_lexical_siblings(profile, monkeypatch):
+    unavailable = profile.run(selected_rows(profile, ("bad source", "formula", "", "failed")), FormalEvidenceOptions())
     assert (
         roots(unavailable, "formal.math", "recognized_latex")[0]["formal_input"]["diagnostic"][
             "category"
@@ -310,23 +297,21 @@ def test_failed_recognition_and_deadline_preserve_input_and_lexical_siblings(pre
             latex, start, ParseOutcome.FAILED, failure=math_grammar.Failure("timeout", "Timeout")
         ),
     )
-    timed_out = build_formal_layer(
-        source(("original", "formula", "x+x", "succeeded")), prepared, operation()
-    )
+    timed_out = profile.run(selected_rows(profile, ("original", "formula", "x+x", "succeeded")), FormalEvidenceOptions())
     formal = roots(timed_out, "formal.math", "recognized_latex")[0]["formal_input"]
     assert formal["text"] == "x+x" and formal["original_text"] == "original"
     assert formal["syntax_outcome"] == "failed" and formal["diagnostic"]["category"] == "timeout"
     assert roots(timed_out, "formal.lexical")
 
 
-def test_semantic_callback_failure_does_not_erase_positioned_syntax(prepared, monkeypatch):
+def test_semantic_callback_failure_does_not_erase_positioned_syntax(profile, monkeypatch):
     from corpus_structure.semantic import formal_evidence
 
     def failed(tree):
         raise VisitError(str(tree.data), tree, ValueError("test interpretation failure"))
 
     monkeypatch.setattr(formal_evidence, "normalized_field", failed)
-    layer = report(prepared, "Date: 2026-02-28")
+    layer = report(profile, "Date: 2026-02-28")
     field = roots(layer, "formal.date")[0]["formal_input"]
     assert field["syntax_outcome"] == "complete"
     assert field["interpretation_outcome"] == "failed"
@@ -334,11 +319,11 @@ def test_semantic_callback_failure_does_not_erase_positioned_syntax(prepared, mo
         category="semantic_callback", message="ValueError: test interpretation failure", rule="date"
     )
     assert any(
-        item.get("formal", {}).get("rule") == "DATE" for item in layer.payload["annotations"]
+        item.get("formal", {}).get("rule") == "DATE" for item in layer.inventory()["annotations"]
     )
 
 
-def test_formal_ambiguity_uses_direct_shared_dag_and_bounded_callbacks(prepared, monkeypatch):
+def test_formal_ambiguity_uses_direct_shared_dag_and_bounded_callbacks(profile, monkeypatch):
     monkeypatch.setattr(
         math_grammar,
         "syntax",
@@ -349,16 +334,16 @@ def test_formal_ambiguity_uses_direct_shared_dag_and_bounded_callbacks(prepared,
         "to_sympy",
         lambda *args, **kwargs: pytest.fail("packed syntax constructed native algebra"),
     )
-    view = source(("original", "formula", "f(x)", "succeeded"))
-    layer = build_formal_layer(view, prepared, operation())
-    assert layer.payload["choices"]
-    assert {"application", "multiply"} <= {term["value"] for term in layer.payload["terms"]}
+    view = selected_rows(profile, ("original", "formula", "f(x)", "succeeded"))
+    layer = profile.run(view, FormalEvidenceOptions())
+    assert layer.inventory()["choices"]
+    assert {"application", "multiply"} <= {term["value"] for term in layer.inventory()["terms"]}
     assert any(
         "choice_group" in edge
-        for term in layer.payload["terms"]
+        for term in layer.inventory()["terms"]
         for edge in term.get("children", ())
     )
-    bounded = build_formal_layer(view, prepared, operation(), max_forest_nodes=1)
+    bounded = profile.run(view, FormalEvidenceOptions(max_forest_nodes=1))
     assert (
         roots(bounded, "formal.math", "recognized_latex")[0]["formal_input"]["diagnostic"][
             "category"
@@ -369,37 +354,30 @@ def test_formal_ambiguity_uses_direct_shared_dag_and_bounded_callbacks(prepared,
         roots(bounded, "formal.math", "recognized_latex")[0]["formal_input"]["syntax_outcome"]
         == "complete"
     )
-    assert bounded.payload["outcome"] == "partial"
+    assert bounded.value.outcome == "partial"
 
 
-def test_unsupported_formal_callback_retains_native_syntax_as_unknown(prepared):
-    layer = build_formal_layer(
-        source(("original", "formula", r"\sqrt{x}", "succeeded")), prepared, operation()
-    )
+def test_unsupported_formal_callback_retains_native_syntax_as_unknown(profile):
+    layer = profile.run(selected_rows(profile, ("original", "formula", r"\sqrt{x}", "succeeded")), FormalEvidenceOptions())
     formal = roots(layer, "formal.math", "recognized_latex")[0]["formal_input"]
     assert formal["syntax_outcome"] == "complete"
     assert formal["interpretation_outcome"] == "unresolved"
     assert formal["diagnostic"]["category"] == "unsupported_formal_semantics"
     unsupported = [
-        term for term in layer.payload["terms"] if term["value"] == "uninterpreted:square_root"
+        term for term in layer.inventory()["terms"] if term["value"] == "uninterpreted:square_root"
     ]
     assert unsupported and all(term["status"] == "unknown" for term in unsupported)
     assert any(
-        annotation["native_label"] == "square_root" for annotation in layer.payload["annotations"]
+        annotation["native_label"] == "square_root" for annotation in layer.inventory()["annotations"]
     )
 
 
-def test_canonical_symbols_retain_qualified_subscript_parent_and_derivation(prepared):
-    layer = build_formal_layer(
-        source(("original", "formula", r"\sigma_{X_1} + \mu_i", "succeeded")),
-        prepared,
-        operation(),
-        math_start="formula",
-    )
+def test_canonical_symbols_retain_qualified_subscript_parent_and_derivation(profile):
+    layer = profile.run(selected_rows(profile, ("original", "formula", r"\sigma_{X_1} + \mu_i", "succeeded")), FormalEvidenceOptions(math_start="formula"))
     recognized_root = roots(layer, "formal.math", "recognized_latex")[0]["local_id"]
     symbols = {
         annotation["local_id"]: annotation
-        for annotation in layer.payload["annotations"]
+        for annotation in layer.inventory()["annotations"]
         if annotation["kind"] == "formal.symbol"
         and annotation["formal"]["input_id"] == recognized_root
     }
@@ -423,8 +401,8 @@ def test_canonical_symbols_retain_qualified_subscript_parent_and_derivation(prep
         ("i", 19, 20, r"\mu_i"),
     ]
     assert (
-        decode_layer(prepared, encode_layer(layer)).payload["annotations"]
-        == layer.payload["annotations"]
+        FormalEvidenceProduct(layer.content, profile.prepared, profile.model).inventory()["annotations"]
+        == layer.inventory()["annotations"]
     )
 
 
@@ -441,171 +419,32 @@ def test_decimal_normalization_is_exact_and_does_not_expand_large_exponents(surf
     assert decimal_value(surface) == expected
 
 
-def test_native_math_working_syntax_uses_retained_callbacks_without_parse(prepared, monkeypatch):
-    from corpus_structure.methods.math.prepared import PreparedMathInput
-    from corpus_structure.semantic.formal_forest import retained_math_syntax
-    from corpus_structure.semantic.math_context import prepare_interpretation_context
-
-    view = source(("x+1", "formula", "x+1", "succeeded"))
-    layer = build_formal_layer(view, prepared, operation())
-    layers = {layer.reference(42): layer}
-    monkeypatch.setattr(
-        math_grammar, "syntax", lambda *a, **k: pytest.fail("consumer reran parser")
-    )
-    result = retained_math_syntax(layers, view, "#/texts/0", "x+1")
-    assert result.status is ParseOutcome.OK, result.failure
-    assert result.tree is not None
-    assert any(node.data == "add" for node in result.tree.iter_subtrees())
-    operand = PreparedMathInput(
-        prepare_interpretation_context(
-            context_profile=acquire_analysis_context_profile(), macros={}
-        ),
-        "x+1",
-    )
-    operand.retain_primary_syntax(result)
-    assert operand.syntax() is result
 
 
-def test_native_math_working_syntax_retains_local_rivals_and_refuses_macro_drift(prepared):
+
+
+def test_current_formal_macros_are_explicit_inputs_under_the_acquired_grammar(profile):
     from corpus_structure.core.evidence import MacroDef
-    from corpus_structure.semantic.formal_forest import retained_math_syntax
+    from corpus_structure.semantic.formal_evidence import grammar_identity, macro_identity
 
-    view = source(("f(x)", "formula", "f(x)", "succeeded"))
-    layer = build_formal_layer(view, prepared, operation())
-    result = retained_math_syntax({layer.reference(42): layer}, view, "#/texts/0", "f(x)")
-    assert result.status is ParseOutcome.AMBIGUOUS and result.tree is not None
-    assert any(node.data == "_ambig" for node in result.tree.iter_subtrees())
-    assert result.failure is None
-    result = retained_math_syntax(
-        {layer.reference(42): layer},
-        view,
-        "#/texts/0",
-        "f(x)",
-        macros={"\\RR": MacroDef(body="\\mathbb{R}")},
-    )
-    assert (
-        result.status is ParseOutcome.FAILED
-        and result.failure is not None
-        and result.failure.category == "primary_grammar_drift"
-    )
-
-
-def test_native_formal_macros_are_frozen_in_input_and_grammar(prepared):
-    from corpus_structure.core.evidence import MacroDef
-    from corpus_structure.semantic.formal_evidence import macro_identity, math_grammar_identity
-
-    view = source(("R", "formula", "\\RR", "succeeded"))
+    view = selected_rows(profile, ("R", "formula", "\\RR", "succeeded"))
     macros = {"\\RR": MacroDef(body="\\mathbb{R}")}
-    layer = build_formal_layer(view, prepared, operation(), macros=macros)
+    layer = profile.run(view, FormalEvidenceOptions(macros=macros))
     inp = roots(layer, "formal.math", "recognized_latex")[0]["formal_input"]
     assert inp["macro_identity"] == macro_identity(macros) != "none"
-    assert inp["grammar"] == math_grammar_identity(macros)
+    assert inp["grammar"] == "formal-math"
+    assert profile.grammar == grammar_identity()
+    changed = profile.run(view, FormalEvidenceOptions(macros={"\\RR": MacroDef(body="\\mathbb{Z}")}))
+    other = roots(changed, "formal.math", "recognized_latex")[0]["formal_input"]
+    assert other["macro_identity"] != inp["macro_identity"]
+    assert other["grammar"] == inp["grammar"]
     assert inp["syntax_outcome"] == "complete"
 
 
-def test_native_request_consumes_primary_math_for_syntax_lexical_and_structure(
-    prepared, monkeypatch
-):
-    from corpus_structure.methods.math.native import native_request_analysis
-
-    view = source(("x+1", "formula", "x+1", "succeeded"))
-    layer = build_formal_layer(view, prepared, operation())
-    layers = {layer.reference(42): layer}
-    monkeypatch.setattr(
-        math_grammar, "syntax", lambda *_a, **_k: pytest.fail("request reparsed syntax")
-    )
-    syntax = native_request_analysis(view, None, "syntax", primary_layers=layers)
-    assert syntax.items[0]["outcome"] == "ok"
-    assert syntax.items[0]["primary_input"]["layer"] == layer.reference(42).values()
-    lexical = native_request_analysis(view, None, "lexical", primary_layers=layers)
-    assert {(t["text"], t["start"], t["end"]) for t in lexical.items[0]["lexical"]} == {
-        ("x", 0, 1),
-        ("+", 1, 2),
-        ("1", 2, 3),
-    }
-    structure = native_request_analysis(view, None, "structure", primary_layers=layers)
-    assert structure.items[0]["structure"]["outcome"] == "complete"
-    assert all("primary_node" in row for row in structure.items[0]["structure"]["nodes"])
-    missing = native_request_analysis(view, None, "syntax", primary_layers={})
-    assert missing.items[0]["outcome"] == "failed"
-    assert missing.items[0]["failure"]["category"] == "missing_primary_input"
 
 
-def test_native_method_readings_seed_primary_syntax_once_before_domain_interpretation(
-    prepared, monkeypatch
-):
-    from types import SimpleNamespace
-
-    from corpus_structure.methods.math.methods import ExtractMathConfig
-    from corpus_structure.methods.math.native import readings
-
-    view = source(("x+1", "formula", "x+1", "succeeded"))
-    layer = build_formal_layer(view, prepared, operation())
-    layers = {layer.reference(42): layer}
-    reader = SimpleNamespace(
-        prepared=None,
-        primary_characterization=lambda _id, **_kw: layers,
-        ancestor_source_views=lambda _id: (),
-    )
-    cfg = ExtractMathConfig(characterization_layers=(layer.reference(42).values(),))
-    monkeypatch.setattr(
-        math_grammar, "syntax", lambda *_a, **_k: pytest.fail("method reparsed formula")
-    )
-    monkeypatch.setattr(
-        math_grammar, "syntax_forest", lambda *_a, **_k: pytest.fail("method rebuilt forest")
-    )
-    result = readings(view, cfg, reader)
-    assert len(result) == 1 and result[0].result.status is ParseOutcome.OK
-    assert [(o.name, o.start, o.end) for o in result[0].result.occurrences] == [("x", 0, 1)]
-    assert result[0].prepared._primary_input["layer"] == layer.reference(42).values()
-    assert readings(view, cfg, reader)[0] is result[0]
 
 
-def test_native_math_reading_caches_are_private_to_their_reader_with_shared_primary_input(
-    prepared, monkeypatch
-):
-    from types import SimpleNamespace
-
-    from corpus_structure.methods.math.methods import ExtractMathConfig
-    from corpus_structure.methods.math.native import readings
-    from corpus_structure.methods.math.prepared import StageState
-
-    view = source(("x+1", "formula", "x+1", "succeeded"))
-    layer = build_formal_layer(view, prepared, operation())
-    layers = {layer.reference(42): layer}
-
-    def reader():
-        return SimpleNamespace(
-            prepared=None,
-            primary_characterization=lambda _id, **_kw: layers,
-            ancestor_source_views=lambda _id: (),
-        )
-
-    left, right = reader(), reader()
-    cfg = ExtractMathConfig(characterization_layers=(layer.reference(42).values(),))
-    monkeypatch.setattr(
-        math_grammar, "syntax", lambda *_a, **_k: pytest.fail("reader reparsed retained syntax")
-    )
-    monkeypatch.setattr(
-        math_grammar,
-        "syntax_forest",
-        lambda *_a, **_k: pytest.fail("reader rebuilt retained forest"),
-    )
-    (first,) = readings(view, cfg, left)
-    (second,) = readings(view, cfg, right)
-    assert first is not second and first.prepared is not second.prepared
-    assert first.result.status is second.result.status is ParseOutcome.OK
-    assert [(o.name, o.start, o.end) for o in first.result.occurrences] == [("x", 0, 1)]
-    assert [(o.name, o.start, o.end) for o in second.result.occurrences] == [("x", 0, 1)]
-    assert left.math_readings_batch is not right.math_readings_batch
-    assert readings(view, cfg, left)[0] is first
-    assert readings(view, cfg, right)[0] is second
-    first.prepared._states["private-control"] = StageState("failed", "partial", "controlled")
-    left.math_readings_batch.native.clear()
-    assert "private-control" not in second.prepared._states
-    assert readings(view, cfg, right)[0] is second
-    with pytest.raises(ValueError, match="another source reader"):
-        left.math_readings_batch.bind(right)
 
 
 def test_private_native_choice_factoring_preserves_correlated_pairs_and_shared_children():
