@@ -23,11 +23,11 @@ def unexpected(*args, **kwargs):
 semantic.prepare_release = unexpected
 sqlalchemy.create_engine = unexpected
 for name in (
-    "semantic.native_record_fixtures", "semantic.declared_scenarios",
-    "semantic.publication_fixture_support", "semantic.test_private_records",
-    "semantic.test_publication",
-    "methods.test_m1_readings", "methods.test_m1_record_frontends",
-    "methods.test_m1_source_profile",
+    "semantic.current_pdf_source_support",
+    "evaluate.declared_record_native_support",
+    "semantic.structural_native_fixture",
+    "semantic.test_current_claim_owner_native",
+    "semantic.test_declared_reading_resolution",
 ):
     importlib.import_module(name)
 """

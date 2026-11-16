@@ -41,9 +41,10 @@ conflicting interpretations of the same binding remain alternatives. Unlocatable
 missing declarations and ambiguous binding remain explicit limitations. A formula-only record
 requires independently inspected unstated symbol and meaning; omissions cannot supply it.
 
-The readings graph runs `resolve.m1_readings` over the immutable extraction product. Changing
+The current declared operation `resolve.m1_readings/declared` consumes the exact retained
+candidate report and explicit feature policy. Changing
 finite feature parameters recomputes reading scores without repeating GLiNER extraction. The
-resolver seals the complete event inputs, actual feature-instance/input digests and provisional
+operation retains the complete event inputs, actual feature-instance/input digests and provisional
 whole-reading compatibility logit under `independent-complete-reading-logistic-1`. No matching
 feature instance yields `not_run`. The three-template pure interpreter receives actual retained
 alternative groups through an explicit factor-policy interface. Missing factors/identity policy

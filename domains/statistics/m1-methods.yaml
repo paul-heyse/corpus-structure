@@ -146,10 +146,6 @@ configs:
       max_context_chars: 4096
       max_context_pieces: 128
       formula_prose: true
-  resolve.m1_readings:
-    default:
-      feature_instances: []
-
   structure.definition_components: {}
   structure.clause_classification: {}
   structure.definitions: {}
