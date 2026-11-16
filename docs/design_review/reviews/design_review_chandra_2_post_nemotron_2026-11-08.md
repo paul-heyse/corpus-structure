@@ -77,7 +77,7 @@ The execution catalog, adapter check and native validation contract are versione
 from the package pins. Qualify the actual new schema, callbacks and fresh writer together.
 The archive decoder already preserves the producing context. Exercise archived and current
 publication separately and qualify the workspace Typer override with both CLIs.
-[Adapter admission](../../../python/corpus-structure/src/corpus_structure/semantic/native_adapter_contracts.py) ·
+[Adapter admission (historical recovery)](../../README.md#historical-recovery) ·
 [Native callbacks](../../../python/corpus-structure/src/corpus_structure/semantic/pdf_records.py) ·
 [Docling release](https://github.com/docling-project/docling/releases/tag/v2.148.0)
 

@@ -78,7 +78,7 @@ publication bindings; their integrated delivery must not be claimed by these com
 The current [release preparation](../../../python/corpus-structure/src/corpus_structure/semantic/prepare.py)
 already closes supplied imports without filesystem/network fallback (`:260–355`), materializes
 effective inherited slots and bounds (`:624–800`), and archives normalized definitions and
-boundary recipes (`:866–887`). The [execution compiler](../../../python/corpus-structure/src/corpus_structure/semantic/contracts.py)
+boundary recipes (`:866–887`). The [execution compiler (historical recovery)](../../README.md#historical-recovery)
 validates a LinkML ExecutionCatalog before structuring immutable dataclasses (`:1474–1513,
 1816–1833`). Its relationship, lifecycle and implementation checks are useful starting points
 (`:1516–1733`); their existing representations are not sufficient justification for omitting

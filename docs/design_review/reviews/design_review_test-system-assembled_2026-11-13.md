@@ -137,7 +137,7 @@ queued seed. DDO original-source composition combines an engine-free authentic r
 with an admitted target kernel and seed-owned runtime files. It does not restore retired DDO
 columns or use inference episodes as original-source authority.
 
-The [snapshot contract](../../../python/corpus-structure/src/corpus_structure/semantic/contracts.py)
+The [snapshot contract (historical recovery)](../../README.md#historical-recovery)
 uses a lock for lazy installed acquisition and a documented, nested process-wide override.
 Affected preparation owners bypass ordinary memo reads and writes during overrides, preserving
 the warm ordinary entry afterward. Concurrent independent override scopes are expressly outside

@@ -50,7 +50,7 @@ negative expectations for malformed variants, absent/null and nonfinite values.
 and validates JSON through `TypeAdapter(JsonValue)` to obtain Python data for archive publication.
 [archive_reader.py](../../../../../python/corpus-structure/src/corpus_structure/semantic/archive_reader.py)
 reconstructs typed products with cattrs and manually checks archive root/registry-row wire shapes.
-[contracts.py](../../../../../python/corpus-structure/src/corpus_structure/semantic/contracts.py)
+[contracts.py (historical recovery)](../../../../README.md#historical-recovery)
 has another exact-primitive converter configured before composite hooks capture it.
 
 **Mechanisms and broader use:** Pydantic directional serializers/shared schema definitions,

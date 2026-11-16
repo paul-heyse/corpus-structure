@@ -59,7 +59,7 @@ artifact bytes, selected library/compiler compatibility and regenerated boundary
 correspondence. It uses finalized immutable headers/store-context caching and preserves the
 complete coherence path for historical unfinalized archives. Opening reconstructs recorded
 products; persistence/activation/run admission retain their separate stronger verification.
-[contracts.py](../../../python/corpus-structure/src/corpus_structure/semantic/contracts.py)
+[contracts.py (historical recovery)](../../README.md#historical-recovery)
 has a separately scoped exact-primitive converter. Its distinct responsibility is not a reason
 to replace both with a mutable global converter.
 
