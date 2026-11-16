@@ -45,10 +45,20 @@ END $event$;
 
 CREATE OR REPLACE FUNCTION ops.ddo_operation_event_dependency_scopes(episode text)
 RETURNS SETOF text LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $event$
-DECLARE r ops.data_request;
+DECLARE r ops.data_request; producing ops.data_derivation; intent ops.data_completion_intent;
 BEGIN
- SELECT request.* INTO STRICT r FROM ops.data_request request JOIN ops.data_derivation producer
- ON producer.request_id=request.id WHERE producer.id=episode;
+ SELECT * INTO STRICT producing FROM ops.data_derivation WHERE id=episode;
+ SELECT * INTO STRICT r FROM ops.data_request WHERE id=producing.request_id;
+ IF r.operation_id NOT IN ('operation_event.frame','operation_event.fit','operation_event.authorize','urn:corpus:operation:score-operation-event') THEN RETURN; END IF;
+ -- Request adoption cannot replace the original episode's input/source basis.
+ SELECT * INTO STRICT intent FROM ops.data_completion_intent WHERE id=producing.intent_id
+ AND request_id=producing.request_id AND generation=producing.generation;
+ IF (intent.producer_task_id,intent.producer_attempt,intent.runtime_id) IS DISTINCT FROM
+ (producing.producer_task_id,producing.producer_attempt,producing.runtime_id) THEN
+ RAISE EXCEPTION 'event dependency scopes differ from original producer fences' USING ERRCODE='23514'; END IF;
+ r.release_id:=producing.release_id; r.runtime_id:=producing.runtime_id;
+ r.recipe:=producing.recipe; r.generation:=producing.generation;
+ r.binding:=r.binding||jsonb_build_object('inputs',intent.payload->'inputs','support',intent.payload->'support');
  RETURN QUERY SELECT * FROM ops.ddo_operation_event_completion_scopes(r);
 END $event$;
 
@@ -108,8 +118,8 @@ BEGIN
  RAISE EXCEPTION 'event report lacks its exact successful selected native use' USING ERRCODE='23514'; END IF;
  SELECT * INTO STRICT producer FROM ops.data_derivation WHERE id=selected->>'derivation_id' AND outcome='success';
  SELECT operation.* INTO STRICT definition FROM sem.data_operation_definition operation
- JOIN ops.data_request request ON request.release_id=operation.release_id AND request.operation_id=operation.operation_id
- WHERE request.id=producer.request_id AND request.project_id=r.project_id;
+ JOIN ops.data_request request ON request.operation_id=operation.operation_id
+ WHERE request.id=producer.request_id AND request.project_id=r.project_id AND operation.release_id=producer.release_id;
  IF definition.operation_id IS DISTINCT FROM selected->>'producer_operation'
  OR definition.implementation_revision IS DISTINCT FROM selected->>'producer_revision'
  OR producer.release_id IS DISTINCT FROM question->'prediction_selection'->>'release_id' THEN
@@ -173,8 +183,15 @@ BEGIN
  RAISE EXCEPTION 'event fit changes exact frame producing support' USING ERRCODE='23514'; END IF;
  SELECT * INTO STRICT producer FROM ops.data_derivation WHERE id=p_derivation AND outcome='success';
  SELECT * INTO STRICT frame_request FROM ops.data_request WHERE id=producer.request_id AND project_id=r.project_id;
- SELECT * INTO STRICT definition FROM sem.data_operation_definition WHERE release_id=frame_request.release_id AND operation_id=frame_request.operation_id;
- SELECT * INTO STRICT intent FROM ops.data_completion_intent WHERE id=producer.intent_id;
+ SELECT * INTO STRICT intent FROM ops.data_completion_intent WHERE id=producer.intent_id
+ AND request_id=producer.request_id AND generation=producer.generation;
+ IF (intent.producer_task_id,intent.producer_attempt,intent.runtime_id) IS DISTINCT FROM
+ (producer.producer_task_id,producer.producer_attempt,producer.runtime_id) THEN
+ RAISE EXCEPTION 'event frame differs from original producer fences' USING ERRCODE='23514'; END IF;
+ frame_request.release_id:=producer.release_id; frame_request.runtime_id:=producer.runtime_id;
+ frame_request.recipe:=producer.recipe; frame_request.generation:=producer.generation;
+ frame_request.binding:=frame_request.binding||jsonb_build_object('inputs',intent.payload->'inputs','support',intent.payload->'support');
+ SELECT * INTO STRICT definition FROM sem.data_operation_definition WHERE release_id=producer.release_id AND operation_id=frame_request.operation_id;
  SELECT * INTO STRICT actual FROM kb.data_product WHERE id=p_product AND project_id=r.project_id;
  IF selected->'reference' IS DISTINCT FROM ops.ddo_structural_product_reference(actual)
  OR data.ddo_json(actual.canonical_body)->>'frame_digest' IS DISTINCT FROM selected->>'frame_digest'
@@ -206,14 +223,21 @@ BEGIN
  JOIN ops.data_derivation_output output ON output.derivation_id=producer.id
  JOIN ops.data_publication_receipt receipt ON receipt.derivation_id=producer.id AND receipt.intent_id=producer.intent_id
  JOIN ops.data_request request ON request.id=producer.request_id AND request.project_id=r.project_id
- JOIN sem.data_operation_definition definition ON definition.release_id=request.release_id AND definition.operation_id=request.operation_id
+ JOIN sem.data_operation_definition definition ON definition.release_id=producer.release_id AND definition.operation_id=request.operation_id
  WHERE output.product_id=chosen->>'product_id' AND output.member_id IS NULL AND output.role='parameters'
  AND output.position=0 AND output.multiplicity=1 AND producer.outcome='success'
  AND ops.ddo_operation_event_command_eligible(definition)
  AND EXISTS(SELECT FROM jsonb_array_elements(r.binding->'support') support WHERE support->>'role'='parameters' AND support->>'derivation_id'=producer.id)
  AND (chosen->>'support_derivation_id' IS NULL OR chosen->>'support_derivation_id'=producer.id);
  SELECT * INTO STRICT issuer_request FROM ops.data_request WHERE id=issuing.request_id AND project_id=r.project_id;
- SELECT * INTO STRICT intent FROM ops.data_completion_intent WHERE id=issuing.intent_id;
+ SELECT * INTO STRICT intent FROM ops.data_completion_intent WHERE id=issuing.intent_id
+ AND request_id=issuing.request_id AND generation=issuing.generation;
+ IF (intent.producer_task_id,intent.producer_attempt,intent.runtime_id) IS DISTINCT FROM
+ (issuing.producer_task_id,issuing.producer_attempt,issuing.runtime_id) THEN
+ RAISE EXCEPTION 'event parameter issuer differs from original producer fences' USING ERRCODE='23514'; END IF;
+ issuer_request.release_id:=issuing.release_id; issuer_request.runtime_id:=issuing.runtime_id;
+ issuer_request.recipe:=issuing.recipe; issuer_request.generation:=issuing.generation;
+ issuer_request.binding:=issuer_request.binding||jsonb_build_object('inputs',intent.payload->'inputs','support',intent.payload->'support');
  PERFORM ops.ddo_require_operation_event_completion(issuer_request,intent.payload);
  IF data.ddo_normalize(intent.payload->'outputs'->0->'product'->'body') IS DISTINCT FROM
  (SELECT canonical_body FROM kb.data_product WHERE id=chosen->>'product_id' AND project_id=r.project_id) THEN
@@ -247,7 +271,14 @@ BEGIN
  AND EXISTS(SELECT FROM jsonb_array_elements(completion->'support') support WHERE support->>'role'='basis' AND support->>'derivation_id'=producer.id)
  AND (selected->>'support_derivation_id' IS NULL OR selected->>'support_derivation_id'=producer.id);
  SELECT * INTO STRICT fit_request FROM ops.data_request WHERE id=producing.request_id AND project_id=r.project_id AND operation_id='operation_event.fit';
- SELECT * INTO STRICT fit_intent FROM ops.data_completion_intent WHERE id=producing.intent_id;
+ SELECT * INTO STRICT fit_intent FROM ops.data_completion_intent WHERE id=producing.intent_id
+ AND request_id=producing.request_id AND generation=producing.generation;
+ IF (fit_intent.producer_task_id,fit_intent.producer_attempt,fit_intent.runtime_id) IS DISTINCT FROM
+ (producing.producer_task_id,producing.producer_attempt,producing.runtime_id) THEN
+ RAISE EXCEPTION 'event fit differs from original producer fences' USING ERRCODE='23514'; END IF;
+ fit_request.release_id:=producing.release_id; fit_request.runtime_id:=producing.runtime_id;
+ fit_request.recipe:=producing.recipe; fit_request.generation:=producing.generation;
+ fit_request.binding:=fit_request.binding||jsonb_build_object('inputs',fit_intent.payload->'inputs','support',fit_intent.payload->'support');
  PERFORM ops.ddo_require_operation_event_completion(fit_request,fit_intent.payload);
  IF data.ddo_normalize(fit_intent.payload->'outputs'->0->'product'->'body') IS DISTINCT FROM basis.canonical_body
  OR data.ddo_json(basis.canonical_body)->'result'->>'status' IS DISTINCT FROM 'fitted' THEN
@@ -283,15 +314,23 @@ END $event$;
 
 CREATE OR REPLACE FUNCTION ops.ddo_operation_event_dependencies_valid(episode text)
 RETURNS boolean LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $event$
-DECLARE r ops.data_request; completion jsonb; selected jsonb; boundary ops.data_demand_read;
- scope_key text; epoch bigint; current_trust jsonb;
+DECLARE r ops.data_request; producing ops.data_derivation; intent ops.data_completion_intent;
+ selected jsonb; boundary ops.data_demand_read; scope_key text; epoch bigint; current_trust jsonb;
 BEGIN
- SELECT request.* INTO STRICT r FROM ops.data_request request JOIN ops.data_derivation producer ON producer.request_id=request.id WHERE producer.id=episode;
+ SELECT * INTO STRICT producing FROM ops.data_derivation WHERE id=episode;
+ SELECT * INTO STRICT r FROM ops.data_request WHERE id=producing.request_id;
  IF r.operation_id NOT IN ('operation_event.frame','operation_event.fit','operation_event.authorize','urn:corpus:operation:score-operation-event') THEN RETURN true; END IF;
  IF NOT EXISTS(SELECT FROM ops.data_derivation producer JOIN ops.data_publication_receipt receipt ON receipt.derivation_id=producer.id AND receipt.intent_id=producer.intent_id
  JOIN sem.artifact artifact ON artifact.release_id=producer.release_id AND artifact.artifact_name='data_operation_native_definitions.json'
  WHERE producer.id=episode AND convert_from(artifact.content,'UTF8')::jsonb->>'native_digest'='__DDO_SOURCE_DIGEST__') THEN RETURN false; END IF;
- SELECT intent.payload INTO STRICT completion FROM ops.data_derivation producer JOIN ops.data_completion_intent intent ON intent.id=producer.intent_id WHERE producer.id=episode;
+ SELECT * INTO STRICT intent FROM ops.data_completion_intent WHERE id=producing.intent_id
+ AND request_id=producing.request_id AND generation=producing.generation;
+ IF producing.outcome IS DISTINCT FROM 'success' OR
+ (intent.producer_task_id,intent.producer_attempt,intent.runtime_id) IS DISTINCT FROM
+ (producing.producer_task_id,producing.producer_attempt,producing.runtime_id) THEN RETURN false; END IF;
+ r.release_id:=producing.release_id; r.runtime_id:=producing.runtime_id;
+ r.recipe:=producing.recipe; r.generation:=producing.generation;
+ r.binding:=r.binding||jsonb_build_object('inputs',intent.payload->'inputs','support',intent.payload->'support');
  IF r.operation_id='operation_event.frame' THEN
  FOR selected IN SELECT ops.ddo_record_grade_input(r,'question')->'body'->'original_selection'
  UNION SELECT ops.ddo_record_grade_input(r,'question')->'body'->'prediction_selection' LOOP
