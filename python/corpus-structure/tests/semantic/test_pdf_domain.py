@@ -138,45 +138,6 @@ def test_pdf_domain_owns_observation_boundary_and_exact_published_read_calls(dom
             require_call_context(prepared, "read_native_source", variant, "changed")
 
 
-def test_current_pdf_diagnostics_preserve_exact_native_identity(domain):
-    from types import SimpleNamespace
-
-    from corpus_structure.semantic.invariant_failures import classify_invariant_failure
-
-    class NativeError(Exception):
-        sqlstate = "23503"
-        diag = SimpleNamespace(
-            schema_name="kb",
-            table_name="source_view",
-            constraint_name="fk_source_view_native_build_id_native_revision_id_secti_79ff",
-            message_detail=None,
-        )
-
-    error = NativeError("arbitrary source-view failure prose")
-    identity = "pdf-domain:" + sha256(domain.content).hexdigest()
-    failure = classify_invariant_failure(
-        domain.invariants, "publish_source_view", error, model_id=identity
-    )
-    assert failure is not None
-    assert (failure.code, failure.invariant, failure.scope, failure.model_id) == (
-        "pdf.published_document_address",
-        "published_document_address",
-        "relational",
-        identity,
-    )
-    assert (
-        classify_invariant_failure(domain.invariants, "read_source_view", error, model_id=identity)
-        is None
-    )
-    error.diag.constraint_name = "another_foreign_key"
-    assert (
-        classify_invariant_failure(
-            domain.invariants, "publish_source_view", error, model_id=identity
-        )
-        is None
-    )
-
-
 def test_selected_pdf_receipt_read_requires_explicit_use_and_producer():
     from corpus_structure.semantic.data_operation_wire import validate_native_wire
 

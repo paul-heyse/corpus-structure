@@ -8,7 +8,7 @@ transactions own database connections; no connection enters native computation.
 from __future__ import annotations
 
 from collections.abc import Callable, Generator, Iterable, Mapping
-from contextlib import ExitStack, closing, contextmanager, nullcontext
+from contextlib import ExitStack, closing, contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
@@ -17,7 +17,7 @@ import pyarrow as pa
 from sqlalchemy import Connection, Engine
 
 from corpus_structure.core.db.lifetime import BorrowerCancellation
-from corpus_structure.semantic.claim_lifetime import OwnedClaim, maintained_claims
+from corpus_structure.semantic.claim_lifetime import OwnedClaim
 from corpus_structure.semantic.product_reference import ProductReference
 
 if TYPE_CHECKING:
@@ -154,7 +154,7 @@ def run_private_native_pdf_build(
     integration_policy: dict[str, Any] | None = None,
     on_adopted: Callable[[PdfStageReceipt], None] | None = None,
     cancellation: BorrowerCancellation | None = None,
-    owned_check: Callable[[], None] | None = None,
+    owned_check: Callable[[], None],
 ) -> PdfBuildRef:
     """Run the actual finite native worker into protected private record custody.
 
@@ -185,59 +185,250 @@ def run_private_native_pdf_build(
     entered = False
     try:
         worker = PdfWorker(recipe, assets=assets)
-        with (
-            maintained_claims(engine, [claim], holder)
-            if owned_check is None
-            else nullcontext(owned_check)
-        ) as check_claim_active:
 
-            def check_active():
-                cancellation.check_active()
-                check_claim_active()
+        def check_active():
+            cancellation.check_active()
+            owned_check()
 
-            entered = True
-            try:
-                with _pdf_transaction(engine, cancellation) as connection:
-                    build = begin_pdf_build(
-                        connection,
-                        task_id=claim.task_id,
-                        attempt=claim.attempt,
-                        holder=holder,
-                        source_digest=source_digest,
-                        recipe_digest=recipe.digest,
-                        schema_digest=schema_digest,
-                        replay_key=replay_key,
+        entered = True
+        try:
+            with _pdf_transaction(engine, cancellation) as connection:
+                build = begin_pdf_build(
+                    connection,
+                    task_id=claim.task_id,
+                    attempt=claim.attempt,
+                    holder=holder,
+                    source_digest=source_digest,
+                    recipe_digest=recipe.digest,
+                    schema_digest=schema_digest,
+                    replay_key=replay_key,
+                )
+                from corpus_structure.semantic.pdf_domain import require_pdf_database_action
+
+                require_pdf_database_action(connection, build.release_id, "stage_pdf_producer")
+                from corpus_structure.semantic.pdf_contracts import pdf_context_for_task
+                from corpus_structure.semantic.pdf_payloads import (
+                    prepare_payload_family,
+                    schema_dump,
+                )
+
+                payload_family = prepare_payload_family(
+                    pdf_context_for_task(connection, claim.task_id)
+                )
+                payload_schema = schema_dump(payload_family.json_schema)
+            replay_root = directory / build.build_id
+            replay_root.mkdir(exist_ok=True)
+
+            def adopt_replay(replay: PdfReplayRef) -> None:
+                check_active()
+                replay.verify()
+                if replay.family == "candidate_payload":
+                    from corpus_structure.ingest.pdf_candidate_source import encoded_replay
+                    from corpus_structure.semantic.pdf_publication import (
+                        adopt_pdf_companion_batch,
                     )
-                    from corpus_structure.semantic.pdf_domain import require_pdf_database_action
 
-                    require_pdf_database_action(connection, build.release_id, "stage_pdf_producer")
-                    from corpus_structure.semantic.pdf_contracts import pdf_context_for_task
-                    from corpus_structure.semantic.pdf_payloads import (
-                        prepare_payload_family,
-                        schema_dump,
-                    )
-
-                    payload_family = prepare_payload_family(
-                        pdf_context_for_task(connection, claim.task_id)
-                    )
-                    payload_schema = schema_dump(payload_family.json_schema)
-                replay_root = directory / build.build_id
-                replay_root.mkdir(exist_ok=True)
-
-                def adopt_replay(replay: PdfReplayRef) -> None:
-                    check_active()
-                    replay.verify()
-                    if replay.family == "candidate_payload":
-                        from corpus_structure.ingest.pdf_candidate_source import encoded_replay
-                        from corpus_structure.semantic.pdf_publication import (
-                            adopt_pdf_companion_batch,
+                    if not replay.path.resolve().is_relative_to(
+                        (replay_root / "pages").resolve()
+                    ):
+                        raise ValueError("candidate payload escaped owned replay directory")
+                    encoded = encoded_replay(replay, payload_family)
+                    with _pdf_transaction(engine, cancellation) as connection:
+                        adopt_pdf_companion_batch(
+                            connection,
+                            build,
+                            "native_metadata",
+                            (
+                                {
+                                    "kind": "inline_candidate_pages",
+                                    "ordinal": encoded.page_no,
+                                    "value": encoded,
+                                },
+                            ),
+                            replay_key=f"page:{encoded.page_no}:candidate-metadata",
+                            cancellation=cancellation,
                         )
+                    return
+                if replay.family == "page":
+                    import json
 
-                        if not replay.path.resolve().is_relative_to(
-                            (replay_root / "pages").resolve()
+                    from corpus_structure.ingest.pdf_stream_types import PdfReplayRef
+                    from corpus_structure.ingest.pdf_streaming import (
+                        iter_replay_artifact_batches,
+                    )
+
+                    with replay.path.open() as source:
+                        page = json.load(source)
+                    number = page["page"]["page_no"]
+                    raster = page["raster"]
+                    raster_path = Path(raster["path"])
+                    if not raster_path.resolve().is_relative_to(
+                        (replay_root / "pages").resolve()
+                    ):
+                        raise ValueError("native raster escaped owned replay directory")
+                    retained = [
+                        ("assembly", replay, artifact_profile("assembly")),
+                        (
+                            "raster",
+                            PdfReplayRef(
+                                raster_path,
+                                raster["digest"],
+                                raster["byte_length"],
+                                "native-raster",
+                            ),
+                            artifact_profile("raster"),
+                        ),
+                    ]
+                    for suffix, artifact, profile in retained:
+                        for index, (family, batch) in enumerate(
+                            iter_replay_artifact_batches(
+                                artifact,
+                                build_id=build.build_id,
+                                stream_id=f"page/{number}/{suffix}",
+                                encoding_profile=profile,
+                            )
                         ):
-                            raise ValueError("candidate payload escaped owned replay directory")
-                        encoded = encoded_replay(replay, payload_family)
+                            check_active()
+                            with _pdf_transaction(engine, cancellation) as connection:
+                                receipt = adopt_pdf_batch(
+                                    connection,
+                                    build,
+                                    f"page:{number}:{suffix}:{artifact.digest}:{index}",
+                                    {family: (batch,)},
+                                    cancellation=cancellation,
+                                )
+                            if on_adopted is not None:
+                                on_adopted(receipt)
+                    return
+                if replay.family == "companion:occurrence":
+                    import json
+
+                    from corpus_structure.semantic.pdf_record_model import record_arrow_schema
+
+                    with pa.memory_map(str(replay.path), "r") as source:
+                        reader = pa.ipc.open_file(source)
+                        if not reader.schema.equals(
+                            record_arrow_schema("ops.pdf_stage_companion"), check_metadata=True
+                        ):
+                            raise ValueError("native occurrence replay schema differs")
+                        for ordinal in range(reader.num_record_batches):
+                            check_active()
+                            batch = reader.get_batch(ordinal)
+
+                            def occurrences(batch=batch):
+                                for body in batch.column("body"):
+                                    yield json.loads(body.as_py())
+
+                            adopt_pdf_companions(
+                                engine,
+                                build,
+                                "occurrence",
+                                occurrences(),
+                                replay_key=f"ipc-companion:{replay.digest}:{ordinal}",
+                                start_ordinal=batch.column("ordinal")[0].as_py(),
+                                check_active=check_active,
+                                cancellation=cancellation,
+                            )
+                    return
+                if replay.family not in STAGE_FAMILIES:
+                    raise ValueError("unknown private PDF replay family")
+                batches = ipc_replay_batches([replay], check_active)
+                try:
+                    for batch in batches:
+                        with _pdf_transaction(engine, cancellation) as connection:
+                            receipt = adopt_pdf_batch(
+                                connection,
+                                build,
+                                batch.replay_key,
+                                batch.relations,
+                                cancellation=cancellation,
+                            )
+                        if on_adopted is not None:
+                            on_adopted(receipt)
+                finally:
+                    batches.close()
+
+            with ExitStack() as native_lifetime:
+                if recipe.device == "cuda" or recipe.ocr_device == "cuda":
+                    if require_nemotron_handoff:
+                        if nemotron_endpoint is None:
+                            raise ValueError("native GPU worker requires a Nemotron endpoint")
+                        native_lifetime.enter_context(
+                            native_before_nemotron(nemotron_endpoint, check_active=check_active)
+                        )
+                    else:
+                        native_lifetime.enter_context(
+                            suspend_resident_nemotron(
+                                nemotron_endpoint, check_active=check_active
+                            )
+                        )
+                native_lifetime.enter_context(closing(worker))
+                reply = worker.stream(
+                    owner.reference,
+                    spool_root=replay_root / "pages",
+                    record_root=replay_root / "records",
+                    build_id=build.build_id,
+                    release_id=build.release_id,
+                    payload_schema=payload_schema,
+                    on_replay=adopt_replay,
+                    check_active=check_active,
+                    observation_replay=observation_replay,
+                    structural_pin=structural_pin,
+                    integration_policy=integration_policy,
+                    reconciliation_root=replay_root / "reconciliation"
+                    if observation_replay
+                    else None,
+                )
+            if reply.conversion_status != "success":
+                raise RuntimeError(
+                    "native streaming conversion did not complete: " + "; ".join(reply.errors)
+                )
+            from corpus_structure.semantic.pdf_publication import adopt_pdf_companion_batch
+
+            with _pdf_transaction(engine, cancellation) as connection:
+                adopt_pdf_companion_batch(
+                    connection,
+                    build,
+                    "native_metadata",
+                    (
+                        {
+                            "kind": "runtime_report",
+                            "ordinal": 0,
+                            "value": {"effective_options": reply.effective_options.decode()},
+                        },
+                    ),
+                    replay_key="native:runtime-report",
+                    cancellation=cancellation,
+                )
+                adopt_pdf_companion_batch(
+                    connection,
+                    build,
+                    "health",
+                    (
+                        {
+                            "conversion": reply.conversion_status,
+                            "display_coverage": "unknown",
+                            "inline_coverage": "unknown",
+                            "cell_coverage": "unknown",
+                            "issues": list(reply.errors),
+                            "source_scope": "whole_document",
+                        },
+                    ),
+                    replay_key="native:health",
+                    cancellation=cancellation,
+                )
+            import json
+
+            completion = replay_root / "records" / "completion.jsonl"
+            if completion.exists():
+                with completion.open() as completion_file:
+                    for ordinal, line in enumerate(completion_file):
+                        value = json.loads(line)
+                        if value.get("kind") != "formula":
+                            continue
+                        body = {"pointer": value["item_ref"], "outcome": value["outcome"]}
+                        if value.get("error"):
+                            body["error"] = value["error"]
                         with _pdf_transaction(engine, cancellation) as connection:
                             adopt_pdf_companion_batch(
                                 connection,
@@ -245,216 +436,20 @@ def run_private_native_pdf_build(
                                 "native_metadata",
                                 (
                                     {
-                                        "kind": "inline_candidate_pages",
-                                        "ordinal": encoded.page_no,
-                                        "value": encoded,
+                                        "kind": "formula_outcomes",
+                                        "ordinal": ordinal,
+                                        "value": body,
                                     },
                                 ),
-                                replay_key=f"page:{encoded.page_no}:candidate-metadata",
+                                replay_key=f"native:formula:{ordinal}",
                                 cancellation=cancellation,
                             )
-                        return
-                    if replay.family == "page":
-                        import json
-
-                        from corpus_structure.ingest.pdf_stream_types import PdfReplayRef
-                        from corpus_structure.ingest.pdf_streaming import (
-                            iter_replay_artifact_batches,
-                        )
-
-                        with replay.path.open() as source:
-                            page = json.load(source)
-                        number = page["page"]["page_no"]
-                        raster = page["raster"]
-                        raster_path = Path(raster["path"])
-                        if not raster_path.resolve().is_relative_to(
-                            (replay_root / "pages").resolve()
-                        ):
-                            raise ValueError("native raster escaped owned replay directory")
-                        retained = [
-                            ("assembly", replay, artifact_profile("assembly")),
-                            (
-                                "raster",
-                                PdfReplayRef(
-                                    raster_path,
-                                    raster["digest"],
-                                    raster["byte_length"],
-                                    "native-raster",
-                                ),
-                                artifact_profile("raster"),
-                            ),
-                        ]
-                        for suffix, artifact, profile in retained:
-                            for index, (family, batch) in enumerate(
-                                iter_replay_artifact_batches(
-                                    artifact,
-                                    build_id=build.build_id,
-                                    stream_id=f"page/{number}/{suffix}",
-                                    encoding_profile=profile,
-                                )
-                            ):
-                                check_active()
-                                with _pdf_transaction(engine, cancellation) as connection:
-                                    receipt = adopt_pdf_batch(
-                                        connection,
-                                        build,
-                                        f"page:{number}:{suffix}:{artifact.digest}:{index}",
-                                        {family: (batch,)},
-                                        cancellation=cancellation,
-                                    )
-                                if on_adopted is not None:
-                                    on_adopted(receipt)
-                        return
-                    if replay.family == "companion:occurrence":
-                        import json
-
-                        from corpus_structure.semantic.pdf_record_model import record_arrow_schema
-
-                        with pa.memory_map(str(replay.path), "r") as source:
-                            reader = pa.ipc.open_file(source)
-                            if not reader.schema.equals(
-                                record_arrow_schema("ops.pdf_stage_companion"), check_metadata=True
-                            ):
-                                raise ValueError("native occurrence replay schema differs")
-                            for ordinal in range(reader.num_record_batches):
-                                check_active()
-                                batch = reader.get_batch(ordinal)
-
-                                def occurrences(batch=batch):
-                                    for body in batch.column("body"):
-                                        yield json.loads(body.as_py())
-
-                                adopt_pdf_companions(
-                                    engine,
-                                    build,
-                                    "occurrence",
-                                    occurrences(),
-                                    replay_key=f"ipc-companion:{replay.digest}:{ordinal}",
-                                    start_ordinal=batch.column("ordinal")[0].as_py(),
-                                    check_active=check_active,
-                                    cancellation=cancellation,
-                                )
-                        return
-                    if replay.family not in STAGE_FAMILIES:
-                        raise ValueError("unknown private PDF replay family")
-                    batches = ipc_replay_batches([replay], check_active)
-                    try:
-                        for batch in batches:
-                            with _pdf_transaction(engine, cancellation) as connection:
-                                receipt = adopt_pdf_batch(
-                                    connection,
-                                    build,
-                                    batch.replay_key,
-                                    batch.relations,
-                                    cancellation=cancellation,
-                                )
-                            if on_adopted is not None:
-                                on_adopted(receipt)
-                    finally:
-                        batches.close()
-
-                with ExitStack() as native_lifetime:
-                    if recipe.device == "cuda" or recipe.ocr_device == "cuda":
-                        if require_nemotron_handoff:
-                            if nemotron_endpoint is None:
-                                raise ValueError("native GPU worker requires a Nemotron endpoint")
-                            native_lifetime.enter_context(
-                                native_before_nemotron(nemotron_endpoint, check_active=check_active)
-                            )
-                        else:
-                            native_lifetime.enter_context(
-                                suspend_resident_nemotron(
-                                    nemotron_endpoint, check_active=check_active
-                                )
-                            )
-                    native_lifetime.enter_context(closing(worker))
-                    reply = worker.stream(
-                        owner.reference,
-                        spool_root=replay_root / "pages",
-                        record_root=replay_root / "records",
-                        build_id=build.build_id,
-                        release_id=build.release_id,
-                        payload_schema=payload_schema,
-                        on_replay=adopt_replay,
-                        check_active=check_active,
-                        observation_replay=observation_replay,
-                        structural_pin=structural_pin,
-                        integration_policy=integration_policy,
-                        reconciliation_root=replay_root / "reconciliation"
-                        if observation_replay
-                        else None,
-                    )
-                if reply.conversion_status != "success":
-                    raise RuntimeError(
-                        "native streaming conversion did not complete: " + "; ".join(reply.errors)
-                    )
-                from corpus_structure.semantic.pdf_publication import adopt_pdf_companion_batch
-
-                with _pdf_transaction(engine, cancellation) as connection:
-                    adopt_pdf_companion_batch(
-                        connection,
-                        build,
-                        "native_metadata",
-                        (
-                            {
-                                "kind": "runtime_report",
-                                "ordinal": 0,
-                                "value": {"effective_options": reply.effective_options.decode()},
-                            },
-                        ),
-                        replay_key="native:runtime-report",
-                        cancellation=cancellation,
-                    )
-                    adopt_pdf_companion_batch(
-                        connection,
-                        build,
-                        "health",
-                        (
-                            {
-                                "conversion": reply.conversion_status,
-                                "display_coverage": "unknown",
-                                "inline_coverage": "unknown",
-                                "cell_coverage": "unknown",
-                                "issues": list(reply.errors),
-                                "source_scope": "whole_document",
-                            },
-                        ),
-                        replay_key="native:health",
-                        cancellation=cancellation,
-                    )
-                import json
-
-                completion = replay_root / "records" / "completion.jsonl"
-                if completion.exists():
-                    with completion.open() as completion_file:
-                        for ordinal, line in enumerate(completion_file):
-                            value = json.loads(line)
-                            if value.get("kind") != "formula":
-                                continue
-                            body = {"pointer": value["item_ref"], "outcome": value["outcome"]}
-                            if value.get("error"):
-                                body["error"] = value["error"]
-                            with _pdf_transaction(engine, cancellation) as connection:
-                                adopt_pdf_companion_batch(
-                                    connection,
-                                    build,
-                                    "native_metadata",
-                                    (
-                                        {
-                                            "kind": "formula_outcomes",
-                                            "ordinal": ordinal,
-                                            "value": body,
-                                        },
-                                    ),
-                                    replay_key=f"native:formula:{ordinal}",
-                                    cancellation=cancellation,
-                                )
-                check_active()
-            finally:
-                # Stop native borrowers before ending claim maintenance or source custody.
-                if not worker.closed or worker.pid is not None:
-                    worker.close()
-                owner.close()
+            check_active()
+        finally:
+            # Stop native borrowers before ending claim maintenance or source custody.
+            if not worker.closed or worker.pid is not None:
+                worker.close()
+            owner.close()
     finally:
         if not entered:
             if worker is not None:
@@ -529,8 +524,7 @@ def publish_pdf_record_draft(
             )
             if existing.state != "open":
                 raise ValueError(
-                    "identified PDF draft cannot replace frozen/published content; "
-                    "use explicit retained-product reuse or resume_pdf_publication"
+                    "identified PDF draft cannot replace frozen/published content"
                 )
             build = existing.build
             if build.attempt != claim.attempt or build.holder != holder:
@@ -755,97 +749,6 @@ def produce_published_pdf_records(
         return seal_pdf_build(connection, frozen, product_key="native")
 
 
-def migrate_retained_pdf_envelope(
-    engine: Engine,
-    claim: OwnedClaim,
-    holder: str,
-    *,
-    path: Path,
-    expected_sha256: str,
-    original: bytes,
-    schema_bytes: bytes,
-    recipe_bytes: bytes,
-    directory: Path,
-    kind: Literal["native", "integrated"],
-    product_key: str = "integrated",
-    cancellation: BorrowerCancellation | None = None,
-    structural_parent: ProductReference | None = None,
-) -> PublishedPdfDocumentRef:
-    """Explicit qualified storage derivation; never repeats source inference.
-
-    The existing task must already represent this migration/adoption recipe.
-    Retained bytes are checked while decoding, before the new build is frozen.
-    This writes only private/admitted products for that task, not defaults or a
-    completed knowledge result. Original historical products remain unchanged.
-    """
-    from hashlib import sha256
-    from uuid import uuid4
-
-    from corpus_structure.ingest.pdf_retained_stream import retained_pdf_draft
-    from corpus_structure.semantic.pdf_contracts import pdf_context_for_task
-    from corpus_structure.semantic.pdf_payloads import prepare_payload_family
-
-    cancellation = cancellation or BorrowerCancellation()
-    with _pdf_transaction(engine, cancellation) as connection:
-        payload_family = prepare_payload_family(pdf_context_for_task(connection, claim.task_id))
-    owner = directory / uuid4().hex
-    owner.mkdir(parents=True)
-    with (
-        maintained_claims(engine, [claim], holder) as check_claim_active,
-        retained_pdf_draft(
-            path,
-            expected_sha256=expected_sha256,
-            product_key=product_key,
-            original=original,
-            schema_bytes=schema_bytes,
-            recipe_bytes=recipe_bytes,
-            directory=owner / "companions",
-            kind=kind,
-            structural_parent=structural_parent,
-            payload_family=payload_family,
-        ) as draft,
-    ):
-
-        def check_active():
-            cancellation.check_active()
-            check_claim_active()
-
-        if structural_parent is not None:
-            import json
-
-            from corpus_structure.semantic.pdf_record_reader import PublishedPdfReader
-
-            retained_parent = json.loads(draft.recipe_bytes)["retained_parent"]
-            expected = ProductReference(
-                retained_parent["parent_task_id"],
-                retained_parent["parent_product_key"],
-                retained_parent["parent_digest"],
-            )
-            # A same-source pin alone does not prove preservation of the old parent.
-            # Resolve the admitted current parent and verify its retained original envelope.
-            with _pdf_transaction(engine, cancellation) as connection:
-                parent_reader = PublishedPdfReader(
-                    connection, structural_parent, cancellation=cancellation
-                )
-                digest = sha256()
-                for block in parent_reader.scalar("retained/envelope"):
-                    check_active()
-                    digest.update(block)
-                if digest.hexdigest() != expected.content_digest:
-                    raise ValueError(
-                        "current structural parent does not derive from retained parent"
-                    )
-        return publish_pdf_record_draft(
-            engine,
-            claim,
-            holder,
-            draft,
-            directory=owner / "publication",
-            check_active=check_active,
-            cancellation=cancellation,
-        )
-
-
 def _adopt_retained_serialization(
     engine, build, retained, check_active, *, cancellation: BorrowerCancellation | None = None
 ):
@@ -1003,52 +906,3 @@ def _finish_frozen_pdf(
     check_active()
     with _pdf_transaction(engine, cancellation) as connection:
         return seal_pdf_build(connection, frozen, product_key=product_key)
-
-
-def resume_pdf_publication(
-    engine: Engine,
-    claim: OwnedClaim,
-    holder: str,
-    *,
-    product_key: str,
-    source_digest: str,
-    recipe_digest: str,
-    schema_digest: str,
-    kind: Literal["native", "integrated"],
-    check_active: Callable[[], None],
-    cancellation: BorrowerCancellation | None = None,
-) -> PublishedPdfDocumentRef:
-    """Explicit recovery over the same frozen union; accepts no replacement draft."""
-    from dataclasses import replace
-
-    from corpus_structure.semantic.pdf_publication import inspect_pdf_build
-    from corpus_structure.semantic.pdf_staging import resume_pdf_build
-
-    cancellation = cancellation or BorrowerCancellation()
-    authority_check = check_active
-
-    def check_active():
-        cancellation.check_active()
-        authority_check()
-
-    check_active()
-    with _pdf_transaction(engine, cancellation) as connection:
-        state = inspect_pdf_build(
-            connection,
-            task_id=claim.task_id,
-            attempt=claim.attempt,
-            holder=holder,
-            replay_key="product:" + product_key,
-        )
-        if state is None:
-            raise ValueError("no retained PDF build to resume")
-        _check_pdf_build_premises(state, claim, source_digest, recipe_digest, schema_digest, kind)
-        if state.published is not None:
-            return state.published
-        if state.frozen is None:
-            raise ValueError("PDF build is not frozen; resume its exact upload replay first")
-        build = state.build
-        if build.attempt != claim.attempt or build.holder != holder:
-            build = resume_pdf_build(connection, build, attempt=claim.attempt, holder=holder)
-        frozen = replace(state.frozen, build=build)
-    return _finish_frozen_pdf(engine, frozen, product_key, check_active, cancellation=cancellation)

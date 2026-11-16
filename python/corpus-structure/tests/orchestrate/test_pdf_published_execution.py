@@ -219,7 +219,7 @@ def test_computed_draft_never_silently_replaces_frozen_or_published_content(
     draft = PdfRecordPublicationDraft(
         {"changed": "native value"}, "native", original, schema, recipe, {"conversion": "success"}
     )
-    with pytest.raises(ValueError, match="explicit retained-product reuse"):
+    with pytest.raises(ValueError, match="cannot replace frozen/published content"):
         publish_pdf_record_draft(
             engine, claim, "holder", draft, directory=tmp_path, check_active=lambda: None
         )

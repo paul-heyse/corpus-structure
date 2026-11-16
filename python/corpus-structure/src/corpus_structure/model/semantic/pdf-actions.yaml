@@ -1652,7 +1652,7 @@ actions:
   id: stage_pdf_producer
   implementation:
     owner: orchestrate.pdf_streaming
-    symbol: run_private_pdf_build
+    symbol: run_private_native_pdf_build
     version: '1'
   outcomes:
   - applied

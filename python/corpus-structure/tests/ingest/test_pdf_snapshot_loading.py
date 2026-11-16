@@ -126,3 +126,81 @@ def test_snapshot_refuses_nonfinite_json(number):
     value = NativeSnapshot(payload, sha256(payload).hexdigest(), DoclingDocument(name="v").version)
     with pytest.raises(NativeMappingError, match="native JSON numbers must be finite"):
         load_snapshot(value)
+
+
+def _retained_table_data():
+    from docling_core.types.doc import TableCell, TableData
+
+    native = TableData(
+        num_rows=1,
+        num_cols=1,
+        table_cells=[
+            TableCell(
+                text="declared cell",
+                start_row_offset_idx=0,
+                end_row_offset_idx=1,
+                start_col_offset_idx=0,
+                end_col_offset_idx=1,
+            )
+        ],
+    )
+    return native.model_dump(mode="json", by_alias=True, exclude_none=True)
+
+
+def test_retained_computed_grid_is_verified_then_projected_without_mutating_source():
+    from copy import deepcopy
+
+    from corpus_structure.ingest.pdf_hierarchy import derive_retained_native_projection
+
+    data = _retained_table_data()
+    source = {"tables": [{"data": data}], "pictures": []}
+    original = deepcopy(source)
+    projected, count = derive_retained_native_projection(source)
+    assert count == 1
+    assert source == original
+    assert "grid" not in projected["tables"][0]["data"]
+    assert projected["tables"][0]["data"] == {k: v for k, v in data.items() if k != "grid"}
+
+
+@pytest.mark.parametrize("change", ["grid", "unknown", "coercion"])
+def test_retained_grid_derivation_refuses_conflict_unknown_fields_and_native_coercion(change):
+    from corpus_structure.ingest.pdf_hierarchy import derive_retained_native_projection
+
+    data = _retained_table_data()
+    if change == "grid":
+        data["grid"][0][0]["text"] = "fabricated cached cell"
+    elif change == "unknown":
+        data["not_a_native_field"] = "unmodeled"
+    else:
+        data["num_rows"] = "1"
+    with pytest.raises(
+        ValueError, match=r"computed grid differs|undeclared TableData|changed supplied data"
+    ):
+        derive_retained_native_projection({"tables": [{"data": data}]})
+
+
+def test_retained_projection_accepts_canonical_absent_grid_and_only_declared_chart_paths():
+    from copy import deepcopy
+
+    from corpus_structure.ingest.pdf_hierarchy import derive_retained_native_projection
+
+    data = _retained_table_data()
+    canonical = {k: v for k, v in data.items() if k != "grid"}
+    source = {
+        "tables": [{"data": canonical}],
+        "pictures": [
+            {
+                "meta": {
+                    "tabular_chart": {"chart_data": deepcopy(data)},
+                    "opaque_payload": deepcopy(data),
+                },
+                "annotations": [{"kind": "tabular_chart_data", "chart_data": deepcopy(data)}],
+            }
+        ],
+    }
+    projected, count = derive_retained_native_projection(source)
+    assert count == 2
+    assert projected["tables"][0]["data"] == canonical
+    assert "grid" not in projected["pictures"][0]["meta"]["tabular_chart"]["chart_data"]
+    assert "grid" not in projected["pictures"][0]["annotations"][0]["chart_data"]
+    assert projected["pictures"][0]["meta"]["opaque_payload"] == data

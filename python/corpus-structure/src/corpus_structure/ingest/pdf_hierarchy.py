@@ -41,11 +41,105 @@ def snapshot(document: Any) -> NativeSnapshot:
     return NativeSnapshot(payload, sha256(payload).hexdigest(), str(document.version))
 
 
+def derive_retained_native_projection(document: Mapping[str, Any]) -> tuple[dict[str, Any], int]:
+    """Remove only verified serialization-only TableData grids before identity.
+
+    Docling owns the native computed property; the retained validation contract
+    selects the supported historical serialization profile. Each table is checked
+    separately. Other fields, cell values and the caller's supplied value survive
+    unchanged. Exact historical bytes are retained independently by the caller.
+    """
+    from copy import deepcopy
+    from importlib.metadata import version
+
+    from docling_core.types.doc import TableData
+
+    from corpus_structure.semantic.pdf_records import _difference, native_validation_contract
+
+    contract = native_validation_contract()
+    if version("docling-core") != contract["docling_core_version"]:
+        raise ValueError("retained native projection requires the pinned Docling core")
+    policy = contract["retained_serialization_projection"]
+    computed = policy["computed_field"]
+    if policy["native_class"] != "TableData" or computed not in TableData.model_computed_fields:
+        raise ValueError("unsupported retained computed-field projection policy")
+    count = 0
+
+    def table_data(value: Mapping[str, Any], address: str) -> Mapping[str, Any]:
+        nonlocal count
+        undeclared = set(value) - set(TableData.model_fields) - {computed}
+        if undeclared:
+            raise ValueError(f"{address}: undeclared TableData fields: {sorted(undeclared)}")
+        if computed not in value:
+            return value
+        declared = {key: child for key, child in value.items() if key != computed}
+        validation_input = deepcopy(declared)
+        native = TableData.model_validate(validation_input)
+        unchanged = native.model_dump(
+            mode="json",
+            by_alias=True,
+            exclude_unset=True,
+            exclude_computed_fields=True,
+        )
+        difference = _difference(declared, validation_input)
+        if difference is None:
+            difference = _difference(declared, unchanged)
+        if difference is not None:
+            raise ValueError(
+                f"{address}{difference[1:]}: native TableData validation changed supplied data"
+            )
+        expected = native.model_dump(include={computed}, **policy["serialization"])[computed]
+        difference = _difference(value[computed], expected)
+        if difference is not None:
+            raise ValueError(
+                f"{address}/{computed}{difference[1:]}: retained computed grid differs"
+            )
+        count += 1
+        return declared
+
+    projected = dict(document)
+    tables = list(document.get("tables", ()))
+    for index, table in enumerate(tables):
+        if isinstance(table, Mapping) and isinstance(table.get("data"), Mapping):
+            derived = table_data(table["data"], f"#/tables/{index}/data")
+            if derived is not table["data"]:
+                tables[index] = {**table, "data": derived}
+    if "tables" in document:
+        projected["tables"] = tables
+    pictures = list(document.get("pictures", ()))
+    for index, picture in enumerate(pictures):
+        changed = dict(picture)
+        meta = picture.get("meta")
+        if isinstance(meta, Mapping) and isinstance(meta.get("tabular_chart"), Mapping):
+            chart = meta["tabular_chart"]
+            if isinstance(chart.get("chart_data"), Mapping):
+                derived = table_data(
+                    chart["chart_data"], f"#/pictures/{index}/meta/tabular_chart/chart_data"
+                )
+                if derived is not chart["chart_data"]:
+                    changed["meta"] = {**meta, "tabular_chart": {**chart, "chart_data": derived}}
+        if "annotations" in picture:
+            annotations = list(picture["annotations"])
+            for number, annotation in enumerate(annotations):
+                if annotation.get("kind") == "tabular_chart_data" and isinstance(
+                    annotation.get("chart_data"), Mapping
+                ):
+                    derived = table_data(
+                        annotation["chart_data"],
+                        f"#/pictures/{index}/annotations/{number}/chart_data",
+                    )
+                    if derived is not annotation["chart_data"]:
+                        annotations[number] = {**annotation, "chart_data": derived}
+            changed["annotations"] = annotations
+        pictures[index] = changed
+    if "pictures" in document:
+        projected["pictures"] = pictures
+    return projected, count
+
+
 def load_snapshot(value: NativeSnapshot) -> DoclingDocument:
     """Check exact bytes and declared native state without serializer normalization."""
     from corpus_structure.semantic.pdf_records import validate_native_callbacks
-
-    from .pdf_retained_stream import derive_retained_native_projection
 
     if sha256(value.payload).hexdigest() != value.digest:
         raise ValueError("native document integrity mismatch")

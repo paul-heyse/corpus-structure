@@ -341,3 +341,74 @@ def test_partial_stream_disposes_containing_worker(tmp_path):
             assert worker.closed and worker.pid is None
         finally:
             worker.close()
+
+
+def test_native_draft_preserves_attributable_health_without_publication_envelope(monkeypatch):
+    from docling_core.types.doc import DocItemLabel, DoclingDocument
+
+    from corpus_structure.ingest import pdf
+    from corpus_structure.ingest.pdf import PdfConversion
+    from corpus_structure.ingest.pdf_health import FormulaOutcome
+    from corpus_structure.ingest.pdf_hierarchy import snapshot
+    from corpus_structure.ingest.pdf_record_product import native_publication_draft
+
+    document = DoclingDocument(name="Formula source")
+    formula = document.add_text(label=DocItemLabel.FORMULA, text="x+1")
+    conversion = PdfConversion(
+        "a" * 64,
+        b"{}",
+        snapshot(document),
+        "success",
+        (),
+        (FormulaOutcome(formula.self_ref, "succeeded"),),
+        (),
+        None,
+    )
+
+    def forbidden(*args, **kwargs):
+        raise AssertionError("record draft must not build a canonical envelope")
+
+    monkeypatch.setattr(pdf, "publication_payload", forbidden)
+    draft = native_publication_draft(
+        conversion,
+        product_key="native",
+        original=b"%PDF-1.7",
+        schema_bytes=b"{}",
+    )
+    assert isinstance(draft.document, DoclingDocument)
+    assert draft.document.texts[0].text == "x+1"
+    assert draft.health["display_coverage"] == "complete"
+    assert draft.health["formula_outcomes"] == [
+        {"pointer": formula.self_ref, "outcome": "succeeded"}
+    ]
+    assert "document" not in draft.health
+
+
+def test_native_occurrence_index_keeps_region_identity_without_copying_large_text():
+    from docling_core.types.doc import (
+        BoundingBox,
+        DocItemLabel,
+        DoclingDocument,
+        ProvenanceItem,
+        Size,
+    )
+
+    from corpus_structure.ingest.pdf_record_product import native_occurrence_rows
+
+    document = DoclingDocument(name="Native large field")
+    document.add_page(page_no=1, size=Size(width=100, height=200))
+    text = "x" * 100000
+    item = document.add_text(
+        label=DocItemLabel.TEXT,
+        text=text,
+        prov=ProvenanceItem(
+            page_no=1, bbox=BoundingBox(l=1, t=2, r=50, b=20), charspan=(0, len(text))
+        ),
+    )
+    rows = {row["occurrence_id"]: row for row in native_occurrence_rows(document)}
+    assert set(rows) == {"#/body", "#/furniture", item.self_ref, item.self_ref + "/prov/0"}
+    assert rows[item.self_ref]["address_space"] == "native_item"
+    assert rows[item.self_ref + "/prov/0"]["region_index"] == 0
+    assert rows[item.self_ref + "/prov/0"]["page_no"] == 1
+    assert "text" not in rows[item.self_ref]
+    assert document.texts[0].text == text
