@@ -32,6 +32,7 @@ from semantic.model_characterization_support import (
     d1_reply,
     gliner_profile,
     gliner_report,
+    prepared as prepared,
     scope,
 )
 

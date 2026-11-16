@@ -26,7 +26,7 @@ from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.sentence_products import (
     _blocks,
     _detach_annotation_block,
-    annotation_manifest,
+    source_annotation_packets,
     sentence_operation_sources,
     sentence_product_inputs,
     source_annotation_rows,
@@ -103,7 +103,7 @@ def detached(acquired, monkeypatch):
         (),
         b"{}",
         member="controlled-original-member",
-        subject_definition="document",
+        subject_definition="original-source-view",
         support_references=(),
     )
     address = DeclaredRecordSource.from_bound(source, member, project="controlled-project")
@@ -138,13 +138,7 @@ def detached(acquired, monkeypatch):
         if all(row["outcome"] in {"complete", "empty"} for row in value["coverage"])
         else "partial"
     )
-    contract = next(
-        identity.key
-        for identity in model.identities
-        if identity.owner == prepared.index.definitions["DdoSourceAnnotationManifest"].iri
-        and identity.domain == "kind"
-    )
-    value["members"] = [annotation_manifest(value, kind_contract=contract)]
+    value["members"] = source_annotation_packets(prepared, model, value)
     return source, value
 
 
@@ -169,8 +163,13 @@ def test_one_annotation_population_preserves_existing_payload_and_compact_manife
     assert len(restored) == 1 and len(restored[0].tokens) == 4
     assert restored[0].block_start == 0 and restored[0].block_end == len(source.value["text"])
     assert product.value.model_dump(mode="json")["outcome"] == "partial"
-    assert len(value["members"]) == 1
-    assert set(value["members"][0]["body"]) == {
+    kinds = [packet["body"]["record_type"] for packet in value["members"]]
+    assert {kind: kinds.count(kind) for kind in set(kinds)} == {
+        "native_block": 1, "native_token": 4, "native_sentence": 1, "manifest": 1,
+    }
+    manifest = next(packet for packet in value["members"]
+                    if packet["body"]["record_type"] == "manifest")
+    assert set(manifest["body"]) == {
         "record_type",
         "source",
         "selectors",
@@ -194,6 +193,7 @@ def test_one_annotation_population_preserves_existing_payload_and_compact_manife
                 "project_id": pin["project_id"],
                 "kind_contract": pin["kind_contract"],
                 "subject": pin["subject"],
+                "subject_definition": pin["subject_definition"],
                 "original_source": pin["original_source"],
                 "analyzed_scope": {
                     "source": source.value["source"],
@@ -288,7 +288,7 @@ def test_annotation_consumer_refuses_equal_source_body_from_another_selected_car
         (),
         b"{}",
         member=original["source_member"],
-        subject_definition="document",
+        subject_definition="original-source-view",
         support_references=(),
     )
     foreign = DeclaredNativeFrameSource.acquire(

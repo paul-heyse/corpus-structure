@@ -133,45 +133,22 @@ def test_profile_identity_and_artifact_mismatch(profile):
 
 @pytest.fixture
 def source_context():
-    from corpus_structure.semantic.identity import canonical_bytes
-    from corpus_structure.semantic.product_reference import ProductReference
-    from corpus_structure.semantic.proposals import NativeFrameSource
     from corpus_structure.semantic.source_contexts import (
-        NativeSourceContext,
-        SourceSlice,
-        SyntheticText,
+        NativeSourceContext, PreparedNativeSources, SyntheticText, source_slice,
     )
+    from methods.record_assembly_support import source
 
-    pieces = [{"kind": "native_text", "item_ref": "#/texts/1", "start": 0, "end": 7}]
-    native = {
-        "pieces": pieces,
-        "items": [{"self_ref": "#/texts/1"}],
-        "ancestors": [],
-        "health": {"inline_coverage": "unknown"},
-    }
-    projection = {**native, "text": "mean 12", "items": ["#/texts/1"]}
-    source = NativeFrameSource(
-        "unit:1",
-        "mean 12",
+    frame = source("mean 12")
+    return NativeSourceContext(
+        frame,
         (),
-        1,
-        ProductReference(17, "integrated", "a" * 64),
-        "#/groups/1",
-        "direct",
-        sha256(canonical_bytes(projection)).hexdigest(),
-        "c" * 64,
-        canonical_bytes(native).decode(),
-        version=3,
-    )
-    context = NativeSourceContext(
-        source,
-        (),
-        (SourceSlice(1, 0, 4), SyntheticText("|", "separator"), SourceSlice(1, 5, 7)),
+        (source_slice(frame, 0, 4), SyntheticText("|", "separator"), source_slice(frame, 5, 7)),
         "test mapping",
         "fixture-policy",
         "explicit selection",
+        version=2,
+        preparation=PreparedNativeSources((frame,)),
     )
-    return context
 
 
 def test_actual_context_owner_synthetic_crossing_and_classified_offsets(source_context):

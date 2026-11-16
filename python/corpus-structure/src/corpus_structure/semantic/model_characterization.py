@@ -11,7 +11,7 @@ import json
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
 from hashlib import sha256
-from typing import Any, cast
+from typing import Any
 
 from corpus_structure.methods.gliner import (
     GlinerInput,
@@ -27,7 +27,6 @@ from corpus_structure.methods.pm2_source import (
     PM2SourceMap,
     SourceMapSegment,
 )
-from corpus_structure.semantic.characterization import LayerReport
 from corpus_structure.semantic.data_product_reference import (
     DataProductMemberReference,
     DataProductReference,
@@ -40,15 +39,12 @@ from corpus_structure.semantic.interpretation_questions import (
     CHARACTERIZATION_FAMILIES,
     QuestionFamily,
 )
-from corpus_structure.semantic.product_reference import ProductReference
-from corpus_structure.semantic.proposals import native_source_frame
 from corpus_structure.semantic.source_contexts import (
     NativeSourceContext,
     PreparedNativeSources,
     record_source_pin,
     source_slice,
 )
-from corpus_structure.semantic.source_views import PreparedSourceView
 
 D1_SOURCE_FAMILIES = CHARACTERIZATION_FAMILIES[:4]
 CANDIDATE_FAMILIES = CHARACTERIZATION_FAMILIES[4:6]
@@ -67,7 +63,7 @@ def question_manifest(prepared) -> dict[str, str]:
 
 @dataclass(frozen=True, slots=True)
 class ModelScope:
-    view: PreparedSourceView | DeclaredNativeFrameSource
+    view: DeclaredNativeFrameSource
     focal: tuple[int, int]
     examined: tuple[int, int]
     mapping: PM2SourceMap
@@ -76,12 +72,8 @@ class ModelScope:
     def identity(self) -> str:
         return digest(
             dict(
-                source=(
-                    self.view.pin.values()
-                    if isinstance(self.view, DeclaredNativeFrameSource)
-                    else self.view.ref.native_product.values()
-                ),
-                projection=_projection(self.view),
+                source=self.view.pin.values(),
+                projection=self.view.projection_digest,
                 focal=self.focal,
                 examined=self.examined,
                 source_map=self.mapping.input_digest,
@@ -90,7 +82,7 @@ class ModelScope:
 
 
 def prepare_model_scope(
-    view: PreparedSourceView | DeclaredNativeFrameSource,
+    view: DeclaredNativeFrameSource,
     focal: tuple[int, int],
     examined: tuple[int, int],
     *,
@@ -100,7 +92,7 @@ def prepare_model_scope(
     a, b = examined
     if not 0 <= a <= focal[0] < focal[1] <= b <= len(view.text):
         raise ValueError("model focal scope must lie inside its declared examined context")
-    source = view if isinstance(view, DeclaredNativeFrameSource) else native_source_frame(view, ())
+    source = view
     preparation = PreparedNativeSources((source,))
     context = NativeSourceContext(
         source,
@@ -114,11 +106,11 @@ def prepare_model_scope(
         preparation=preparation,
     )
     formulas = {
-        item["self_ref"] for item in _source_rows(view, "items") if item.get("label") == "formula"
+        item["self_ref"] for item in view.value["items"] if item.get("label") == "formula"
     }
     atoms = tuple(
         (piece["start"] - a, piece["end"] - a)
-        for piece in _source_rows(view, "pieces")
+        for piece in view.value["pieces"]
         if piece.get("item_ref") in formulas and piece["start"] < b and a < piece["end"]
     )
     if any(start < 0 or end > b - a for start, end in atoms):
@@ -129,28 +121,11 @@ def prepare_model_scope(
     return ModelScope(view, focal, examined, mapping)
 
 
-def _projection(view):
-    return (
-        view.projection_digest
-        if isinstance(view, DeclaredNativeFrameSource)
-        else view.ref.projection_digest
-    )
-
-
-def _source_rows(view, name):
-    return (
-        view.value.get(name, ())
-        if isinstance(view, DeclaredNativeFrameSource)
-        else getattr(view, name)
-    )
-
-
 def _related_member(reference, local_id):
     selected = read_member_reference(reference)
-    product = (
-        selected.product if isinstance(selected, DataProductMemberReference) else selected.layer
-    )
-    return member_reference(product, local_id).values()
+    if not isinstance(selected, DataProductMemberReference):
+        raise ValueError("model candidate requires an exact current semantic member reference")
+    return member_reference(selected.product, local_id).values()
 
 
 @dataclass(frozen=True)
@@ -159,9 +134,7 @@ class DeclaredModelDependency:
     payload: dict
 
 
-type ModelDependencies = (
-    Mapping[ProductReference, LayerReport] | Mapping[DataProductReference, DeclaredModelDependency]
-)
+type ModelDependencies = Mapping[DataProductReference, DeclaredModelDependency]
 
 
 def declared_model_dependencies(products, source):
@@ -192,16 +165,12 @@ def _resolve(
     reference: Mapping[str, Any], dependencies: ModelDependencies
 ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
     selected = read_member_reference(reference)
-    if isinstance(selected, DataProductMemberReference):
-        pin, local_id = selected.product, selected.member_id
-        layer = cast(Mapping[DataProductReference, DeclaredModelDependency], dependencies).get(pin)
-        if layer is None or layer.reference != pin:
-            raise ValueError("model candidate is outside its exact selected semantic closure")
-    else:
-        pin, local_id = selected.layer, selected.local_id
-        layer = cast(Mapping[ProductReference, LayerReport], dependencies).get(pin)
-        if layer is None or layer.reference(pin.task_id) != pin:
-            raise ValueError("model candidate is outside the exact retained dependency closure")
+    if not isinstance(selected, DataProductMemberReference):
+        raise ValueError("model candidate requires an exact current semantic member reference")
+    pin, local_id = selected.product, selected.member_id
+    layer = dependencies.get(pin)
+    if layer is None or layer.reference != pin:
+        raise ValueError("model candidate is outside its exact selected semantic closure")
     body = layer.payload
     rows = [
         row
@@ -261,11 +230,7 @@ def freeze_candidates(
             raise ValueError("candidate type or source support differs from the released question")
         extents = [extent for occurrence in occurrences for extent in occurrence["extents"]]
         if any(
-            (
-                not isinstance(scope.view, DeclaredNativeFrameSource)
-                and extent["source_view_id"] != scope.view.ref.id
-            )
-            or extent["projection"] != _projection(scope.view)
+            extent["projection"] != scope.view.projection_digest
             or extent.get("synthetic")
             or not scope.examined[0]
             <= extent.get("start", -1)
@@ -349,7 +314,7 @@ def contextual_candidate_populations(
                 and not row.get("unexamined")
             ):
                 complete |= any(
-                    selector["projection"] == _projection(scope.view)
+                    selector["projection"] == scope.view.projection_digest
                     and selector.get("start", 0) <= scope.examined[0]
                     and selector.get("end", len(scope.view.text)) >= scope.examined[1]
                     for selector in row.get("examined", ())
@@ -419,7 +384,7 @@ def contextual_candidate_populations(
             focus = member_reference(pin, owner).values()
             _node, focus_occurrences = _resolve(focus, dependencies)
             if not all(
-                extent["projection"] == _projection(scope.view)
+                extent["projection"] == scope.view.projection_digest
                 and scope.focal[0]
                 <= extent.get("start", -1)
                 < extent.get("end", -1)
@@ -511,7 +476,7 @@ def compile_question_stage(
         ),
         structural_context=[
             dict(pointer=node["self_ref"], label=node.get("label"), text=node.get("text", ""))
-            for node in _source_rows(scope.view, "ancestors")
+            for node in scope.view.value.get("ancestors", ())
         ],
         prior_answers={
             key: dict(prior[key])
