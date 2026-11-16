@@ -6164,7 +6164,7 @@ operations:
   universe: Exact explicit bound inputs; no ambient latest model
   effects: &id011
   - atomic_attempt_holder_deadline_change
-  outcomes: &id036
+  outcomes: &id034
   - applied
   - replay
   - conflict
@@ -6277,7 +6277,7 @@ operations:
   universe: Exact explicit bound inputs; no ambient latest model
   effects: &id012
   - atomic_terminal_result_and_reports
-  outcomes: &id037
+  outcomes: &id035
   - done
   - empty
   - failed
@@ -6415,7 +6415,7 @@ operations:
   effects: &id014
   - immutable_cut
   - final_cut_seals_source_atomically
-  outcomes: &id033
+  outcomes: &id032
   - applied
   - replay
   - conflict
@@ -6456,58 +6456,6 @@ operations:
       semantic_type: CutId
     cardinality: one
     ordered: false
-- id: end_run
-  inputs:
-  - Run
-  - TaskInvocation
-  results:
-  - Run
-  - TaskInvocation
-  applicability:
-  - immutable_binding
-  universe: Exact explicit bound inputs; no ambient latest model
-  effects: &id015
-  - coordinated_run_and_task_terminalization
-  - retain_held_diagnostics
-  outcomes: &id035
-  - applied
-  - replay
-  - conflict
-  outcome_domain: transaction
-  dependencies:
-  - semantic_release
-  - execution_model
-  - input_binding
-  - implementation_version
-  precision: Exact authored/canonical values; no implicit rounding
-  implementation: end_run
-  transitions:
-  - run_fail_open
-  - run_fail_sealed
-  - task_cancel
-  - task_cancel_held
-  projections: []
-  calls:
-  - id: end_source_run
-    symbol: ops.end_source_run
-    parameters:
-    - name: run_id
-      source: physical:ops.run.id
-      nullable: false
-      native_parameter: p_run
-      semantic_type: RunId
-    - name: failure
-      source: primitive:json_payload
-      nullable: true
-      native_parameter: p_failure
-      default_json: 'null'
-    result_mode: scalar
-    result_fields:
-    - name: affected_tasks
-      source: primitive:integer
-      nullable: false
-    cardinality: one
-    ordered: false
 - id: read_original
   inputs:
   - Document
@@ -6515,7 +6463,7 @@ operations:
   - SourceArtifact
   applicability: []
   universe: Exact explicit bound inputs; no ambient latest model
-  effects: &id016 []
+  effects: &id015 []
   outcomes:
   - source_ready
   - missing
@@ -6584,7 +6532,7 @@ operations:
   - completed_source
   - terminal_result
   universe: Exact explicit bound inputs; no ambient latest model
-  effects: &id017 []
+  effects: &id016 []
   outcomes:
   - done
   - empty
@@ -6613,7 +6561,7 @@ operations:
   - qualified_reference
   - source_authorization
   universe: Exact explicit bound inputs; no ambient latest model
-  effects: &id018
+  effects: &id017
   - private_canonical_assembly
   outcomes:
   - applied
@@ -6650,10 +6598,10 @@ operations:
   - verified_lineage
   - completed_result
   universe: Exact explicit bound inputs; no ambient latest model
-  effects: &id019
+  effects: &id018
   - private_compute
   - atomic_source_proof_result_publication
-  outcomes: &id034
+  outcomes: &id033
   - applied
   - replay
   - conflict
@@ -6751,7 +6699,7 @@ operations:
   applicability:
   - scientific_selection
   universe: Exact explicit bound inputs; no ambient latest model
-  effects: &id020 []
+  effects: &id019 []
   outcomes:
   - accepted
   - rejected
@@ -6789,7 +6737,7 @@ operations:
   - positive_grounding
   - same_snapshot
   universe: Exact explicit bound inputs; no ambient latest model
-  effects: &id021
+  effects: &id020
   - private_finite_positive_proof
   outcomes:
   - applied
@@ -6870,7 +6818,7 @@ operations:
   - exact_replay
   - writable_output
   universe: Exact explicit bound inputs; no ambient latest model
-  effects: &id022
+  effects: &id021
   - protected_proof_publication
   outcomes:
   - applied
@@ -6901,7 +6849,7 @@ operations:
   - writable_output
   - exact_replay
   universe: Exact explicit bound inputs; no ambient latest model
-  effects: &id023
+  effects: &id022
   - atomic_native_publication
   - monotone_revision
   outcomes:
@@ -6964,7 +6912,7 @@ operations:
   applicability:
   - qualified_reference
   universe: Exact explicit bound inputs; no ambient latest model
-  effects: &id024 []
+  effects: &id023 []
   outcomes:
   - admissible
   - unsupported
@@ -7006,7 +6954,7 @@ operations:
   applicability:
   - same_snapshot
   universe: Exact explicit bound inputs; no ambient latest model
-  effects: &id025 []
+  effects: &id024 []
   outcomes:
   - applied
   - conflict
@@ -7036,7 +6984,7 @@ operations:
   - same_snapshot
   - coverage_lowering
   universe: Exact explicit bound inputs; no ambient latest model
-  effects: &id026 []
+  effects: &id025 []
   outcomes:
   - observed
   - absent
@@ -7064,7 +7012,7 @@ operations:
   - same_snapshot
   - qualified_reference
   universe: Exact explicit bound inputs; no ambient latest model
-  effects: &id027 []
+  effects: &id026 []
   outcomes:
   - applied
   - conflict
@@ -7089,7 +7037,7 @@ operations:
   applicability:
   - projection_fidelity
   universe: Exact explicit bound inputs; no ambient latest model
-  effects: &id028 []
+  effects: &id027 []
   outcomes:
   - compiled
   - invalid
@@ -7117,7 +7065,7 @@ operations:
   - same_snapshot
   - projection_fidelity
   universe: Exact explicit bound inputs; no ambient latest model
-  effects: &id029
+  effects: &id028
   - materialize_same_snapshot_before_source_close
   outcomes:
   - captured
@@ -7147,7 +7095,7 @@ operations:
   - projection_fidelity
   - analysis_lifetime
   universe: Exact explicit bound inputs; no ambient latest model
-  effects: &id030
+  effects: &id029
   - own_engine_readers_registrations_scratch
   outcomes:
   - opened
@@ -7175,7 +7123,7 @@ operations:
   applicability:
   - analysis_lifetime
   universe: Exact explicit bound inputs; no ambient latest model
-  effects: &id031
+  effects: &id030
   - attempt_every_owned_teardown
   - preserve_failure_and_cancellation
   outcomes:
@@ -7204,7 +7152,7 @@ operations:
   - exact_replay
   - writable_output
   universe: Exact explicit bound inputs; no ambient latest model
-  effects: &id032
+  effects: &id031
   - protected_copy_same_transaction
   outcomes:
   - applied
@@ -9545,23 +9493,6 @@ implementations:
   effects: *id014
   required_capabilities:
   - execution.lifecycle.v1
-- id: end_run
-  owner: semantic.operations
-  symbol: end_source_run
-  version: '1'
-  placement: core
-  input_concepts:
-  - Run
-  - TaskInvocation
-  result_concepts:
-  - Run
-  - TaskInvocation
-  features:
-  - typed_bound_inputs
-  - explicit_outcomes
-  effects: *id015
-  required_capabilities:
-  - execution.lifecycle.v1
 - id: read_original
   owner: semantic.operations
   symbol: read_original
@@ -9574,7 +9505,7 @@ implementations:
   features:
   - typed_bound_inputs
   - explicit_outcomes
-  effects: *id016
+  effects: *id015
   required_capabilities: []
 - id: bind_report
   owner: semantic.observations
@@ -9590,7 +9521,7 @@ implementations:
   features:
   - typed_bound_inputs
   - explicit_outcomes
-  effects: *id017
+  effects: *id016
   required_capabilities: []
 - id: assemble
   owner: semantic.consolidation
@@ -9609,7 +9540,7 @@ implementations:
   features:
   - typed_bound_inputs
   - explicit_outcomes
-  effects: *id018
+  effects: *id017
   required_capabilities: []
 - id: evaluate
   owner: semantic.domain_operations
@@ -9630,7 +9561,7 @@ implementations:
   features:
   - typed_bound_inputs
   - explicit_outcomes
-  effects: *id019
+  effects: *id018
   required_capabilities:
   - execution.lifecycle.v1
 - id: scientific_policy
@@ -9649,7 +9580,7 @@ implementations:
   features:
   - typed_bound_inputs
   - explicit_outcomes
-  effects: *id020
+  effects: *id019
   required_capabilities: []
 - id: derive
   owner: semantic.inference
@@ -9665,7 +9596,7 @@ implementations:
   features:
   - typed_bound_inputs
   - explicit_outcomes
-  effects: *id021
+  effects: *id020
   required_capabilities: []
 - id: publish_inference
   owner: semantic.inference
@@ -9680,7 +9611,7 @@ implementations:
   features:
   - typed_bound_inputs
   - explicit_outcomes
-  effects: *id022
+  effects: *id021
   required_capabilities: []
 - id: publish
   owner: semantic.publication
@@ -9697,7 +9628,7 @@ implementations:
   features:
   - typed_bound_inputs
   - explicit_outcomes
-  effects: *id023
+  effects: *id022
   required_capabilities:
   - execution.lifecycle.v1
 - id: native_admission
@@ -9712,7 +9643,7 @@ implementations:
   features:
   - typed_bound_inputs
   - explicit_outcomes
-  effects: *id024
+  effects: *id023
   required_capabilities: []
 - id: read
   owner: semantic.query
@@ -9727,7 +9658,7 @@ implementations:
   features:
   - typed_bound_inputs
   - explicit_outcomes
-  effects: *id025
+  effects: *id024
   required_capabilities: []
 - id: query
   owner: semantic.query
@@ -9745,7 +9676,7 @@ implementations:
   features:
   - typed_bound_inputs
   - explicit_outcomes
-  effects: *id026
+  effects: *id025
   required_capabilities: []
 - id: explain
   owner: semantic.query
@@ -9760,7 +9691,7 @@ implementations:
   features:
   - typed_bound_inputs
   - explicit_outcomes
-  effects: *id027
+  effects: *id026
   required_capabilities: []
 - id: projection
   owner: semantic.analytics
@@ -9776,7 +9707,7 @@ implementations:
   features:
   - typed_bound_inputs
   - explicit_outcomes
-  effects: *id028
+  effects: *id027
   required_capabilities: []
 - id: capture
   owner: semantic.analytics
@@ -9792,7 +9723,7 @@ implementations:
   features:
   - typed_bound_inputs
   - explicit_outcomes
-  effects: *id029
+  effects: *id028
   required_capabilities: []
 - id: analysis
   owner: semantic.analytics
@@ -9810,7 +9741,7 @@ implementations:
   features:
   - typed_bound_inputs
   - explicit_outcomes
-  effects: *id030
+  effects: *id029
   required_capabilities: []
 - id: analysis_close
   owner: semantic.analytics
@@ -9825,7 +9756,7 @@ implementations:
   features:
   - typed_bound_inputs
   - explicit_outcomes
-  effects: *id031
+  effects: *id030
   required_capabilities: []
 - id: publish_arrow
   owner: semantic.arrow_publication
@@ -9840,7 +9771,7 @@ implementations:
   features:
   - typed_bound_inputs
   - explicit_outcomes
-  effects: *id032
+  effects: *id031
   required_capabilities:
   - execution.lifecycle.v1
 - id: renew_claim
@@ -11083,8 +11014,6 @@ lifecycles:
   - run_begin
   - run_final_cut
   - run_finish
-  - run_fail_open
-  - run_fail_sealed
   invariants:
   - immutable_binding
   - final_cut_barrier
@@ -11349,8 +11278,6 @@ lifecycles:
   - task_claim_held
   - task_complete
   - task_complete_held
-  - task_cancel
-  - task_cancel_held
   invariants:
   - attempt_fence
   - terminal_result
@@ -11634,7 +11561,7 @@ transitions:
   effects:
   - capture_final_cut
   - seal_source_production
-  outcomes: *id033
+  outcomes: *id032
 - id: run_finish
   lifecycle: run
   operation: evaluate
@@ -11652,42 +11579,7 @@ transitions:
   - final_cut_barrier
   effects:
   - publish_receipts_and_completed_result_atomically
-  outcomes: *id034
-- id: run_fail_open
-  lifecycle: run
-  operation: end_run
-  from_states:
-  - created
-  - running
-  to_states:
-  - failed_open
-  - cancelled_open
-  immutable_bindings:
-  - release
-  - input_revision
-  - method_configuration
-  - invocation_identity
-  invariants:
-  - immutable_binding
-  effects: []
-  outcomes: *id035
-- id: run_fail_sealed
-  lifecycle: run
-  operation: end_run
-  from_states:
-  - consolidating
-  to_states:
-  - failed_sealed
-  - cancelled_sealed
-  immutable_bindings:
-  - release
-  - input_revision
-  - method_configuration
-  - invocation_identity
-  invariants:
-  - immutable_binding
-  effects: []
-  outcomes: *id035
+  outcomes: *id033
 - id: task_claim
   lifecycle: task
   operation: claim
@@ -11704,7 +11596,7 @@ transitions:
   invariants:
   - attempt_fence
   effects: []
-  outcomes: *id036
+  outcomes: *id034
 - id: task_reclaim
   lifecycle: task
   operation: claim
@@ -11720,7 +11612,7 @@ transitions:
   invariants:
   - attempt_fence
   effects: []
-  outcomes: *id036
+  outcomes: *id034
 - id: task_reclaim_held
   lifecycle: task
   operation: claim
@@ -11736,7 +11628,7 @@ transitions:
   invariants:
   - attempt_fence
   effects: []
-  outcomes: *id036
+  outcomes: *id034
 - id: task_complete
   lifecycle: task
   operation: complete
@@ -11755,7 +11647,7 @@ transitions:
   - attempt_fence
   - terminal_result
   effects: []
-  outcomes: *id037
+  outcomes: *id035
 - id: task_complete_held
   lifecycle: task
   operation: complete
@@ -11774,41 +11666,6 @@ transitions:
   - attempt_fence
   - terminal_result
   effects: []
-  outcomes: *id037
-- id: task_cancel
-  lifecycle: task
-  operation: end_run
-  from_states:
-  - pending
-  - awaiting_agent
-  - running
-  to_states:
-  - cancelled
-  immutable_bindings:
-  - release
-  - input_revision
-  - method_configuration
-  - invocation_identity
-  invariants:
-  - attempt_fence
-  effects: []
-  outcomes: *id035
-- id: task_cancel_held
-  lifecycle: task
-  operation: end_run
-  from_states:
-  - running_held
-  - awaiting_agent_held
-  to_states:
-  - cancelled_held
-  immutable_bindings:
-  - release
-  - input_revision
-  - method_configuration
-  - invocation_identity
-  invariants:
-  - attempt_fence
-  effects: []
   outcomes: *id035
 - id: realization_complete
   lifecycle: realization
@@ -11826,7 +11683,7 @@ transitions:
   - writable_output
   - completed_result
   effects: []
-  outcomes: *id034
+  outcomes: *id033
 - id: result_publish
   lifecycle: evaluation_result
   operation: evaluate
@@ -11842,7 +11699,7 @@ transitions:
   invariants:
   - completed_result
   effects: []
-  outcomes: *id034
+  outcomes: *id033
 - id: task_renew_claim
   lifecycle: task
   operation: renew_claim

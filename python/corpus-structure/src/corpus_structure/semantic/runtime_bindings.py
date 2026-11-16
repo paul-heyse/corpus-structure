@@ -212,24 +212,3 @@ def require_installed_runtime(
             raise RuntimeBindingError("installed runtime differs from the archived execution pin")
         return binding
     return prepare_runtime_binding(prepared)
-
-
-def legacy_runtime_binding(
-    prepared: PreparedRelease, inputs: tuple[SourceArtifact, ...]
-) -> RuntimeBinding:
-    """Read legacy provenance exclusively from its archive; this cannot authorize execution."""
-    from .contracts import EXECUTION_COMPILER_VERSION
-
-    model, compiler = _execution(prepared)
-    if compiler == EXECUTION_COMPILER_VERSION:
-        raise RuntimeBindingError("current execution requires its explicit immutable runtime pin")
-    sources = _inputs(inputs)
-    if tuple(sorted(model.implementation_digests)) != tuple(
-        (item.name, item.digest) for item in sources
-    ):
-        raise RuntimeBindingError("legacy runtime source custody is incomplete")
-    try:
-        python_version = json.loads(prepared.manifest)["libraries"]["python"]
-    except (ValueError, KeyError, TypeError) as error:
-        raise RuntimeBindingError("legacy interpreter provenance is unavailable") from error
-    return _binding(prepared, sources, python_version=python_version)

@@ -377,7 +377,6 @@ def approved_implementations() -> Mapping[str, Any]:
             "complete": operations.complete_task,
             "complete_unit": operations.complete_unit_result,
             "cut": operations.seal_cut,
-            "end_run": operations.end_source_run,
             "read_original": operations.read_original,
             "prepare_parsing_text": capture_text,
             "interpret_parsing_math": interpret_parsing_math,

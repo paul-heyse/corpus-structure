@@ -185,3 +185,18 @@ def test_native_runtime_validator_refuses_previous_versions(native_rollback, ver
             },
         )
     assert getattr(refusal.value.orig, "sqlstate", None) == "23514"
+
+
+def test_run_without_an_explicit_runtime_pin_refuses_before_reconstructing_archived_code():
+    from types import SimpleNamespace
+    from typing import Any, cast
+    from unittest.mock import Mock
+    from corpus_structure.semantic.runtime_binding_store import runtime_binding_for_run
+    from corpus_structure.semantic.data_operation_runtime import RuntimeBindingError
+
+    connection = Mock()
+    connection.execute.return_value.one.return_value = SimpleNamespace(release_id="release:exact", runtime_id=None)
+    with pytest.raises(RuntimeBindingError, match="explicit immutable runtime pin"):
+        runtime_binding_for_run(cast(Any, connection), 7, cast(Any, SimpleNamespace(release_id="release:exact")))
+    # No archived implementation rows are read to manufacture an executable pin.
+    assert connection.execute.call_count == 1

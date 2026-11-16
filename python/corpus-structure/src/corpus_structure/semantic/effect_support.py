@@ -298,17 +298,6 @@ SUPPORTED_EFFECTS = {
         "transitions": {},
         "version": "1",
     },
-    "end_run": {
-        "effects": ("coordinated_run_and_task_terminalization", "retain_held_diagnostics"),
-        "implementation": "end_run",
-        "transitions": {
-            "run_fail_open": (),
-            "run_fail_sealed": (),
-            "task_cancel": (),
-            "task_cancel_held": (),
-        },
-        "version": "1",
-    },
     "evaluate": {
         "effects": ("atomic_source_proof_result_publication", "private_compute"),
         "implementation": "evaluate",

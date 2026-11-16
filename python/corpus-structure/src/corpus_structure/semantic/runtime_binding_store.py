@@ -11,7 +11,7 @@ from .data_operation_runtime import (
 )
 from .identifiers import RuntimeId
 from .metadata import table
-from .types import PreparedRelease, SourceArtifact
+from .types import PreparedRelease
 
 
 def persist_runtime_binding(
@@ -55,23 +55,7 @@ def runtime_binding_for_run(
     if selected.release_id != prepared.release_id:
         raise RuntimeBindingError("run and prepared release differ")
     if selected.runtime_id is None:
-        from .runtime_bindings import legacy_runtime_binding
-
-        archived_input = table("sem.input")
-        prefix = "execution/implementation/"
-        inputs = tuple(
-            SourceArtifact(row.input_name.removeprefix(prefix), bytes(row.content))
-            for row in conn.execute(
-                select(archived_input.c.input_name, archived_input.c.content)
-                .where(
-                    archived_input.c.release_id == prepared.release_id,
-                    archived_input.c.input_kind == "dependency",
-                    archived_input.c.input_name.startswith(prefix),
-                )
-                .order_by(archived_input.c.input_name)
-            )
-        )
-        return legacy_runtime_binding(prepared, inputs)
+        raise RuntimeBindingError("run has no explicit immutable runtime pin")
     return runtime_binding_for_release(conn, prepared, selected.runtime_id)
 
 

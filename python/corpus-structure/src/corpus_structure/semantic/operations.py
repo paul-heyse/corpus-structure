@@ -2367,28 +2367,6 @@ def run_view(
     )
 
 
-def end_source_run(
-    conn: Connection,
-    run_id: RunId,
-    *,
-    failure: Mapping[str, JsonValue] | None = None,
-    prepared: PreparedRelease | None = None,
-) -> int:
-    from ._operation_calls import end_source_run as invoke
-    from .releases import open_release
-
-    run = table("ops.run")
-    release = conn.execute(select(run.c.release_id).where(run.c.id == run_id)).scalar_one()
-    if prepared is None:
-        prepared = open_release(conn, release)
-    elif prepared.release_id != release:
-        raise ValueError("end-run preparation differs from the run's bound release")
-    return invoke(
-        conn,
-        run_id=run_id,
-        failure=dict(failure) if failure is not None else None,
-        projection_context=prepared,
-    )
 
 
 def renew_claim(conn: Connection, *, task_id: TaskId, attempt: TaskAttempt, holder: str) -> None:

@@ -303,14 +303,12 @@ def test_native_completion_envelope_uses_derived_nested_fields_and_present_empty
 
 def test_native_json_parameters_preserve_sql_null_vs_json_null():
     completion = {p.key: p.type for p in _operation_calls._complete_task_function.clauses}
-    cancellation = {p.key: p.type for p in _operation_calls._end_source_run_function.clauses}
     from sqlalchemy.dialects.postgresql import JSONB
 
-    error, envelope, failure = completion["error"], completion["envelope"], cancellation["failure"]
-    assert isinstance(error, JSONB) and isinstance(envelope, JSONB) and isinstance(failure, JSONB)
+    error, envelope = completion["error"], completion["envelope"]
+    assert isinstance(error, JSONB) and isinstance(envelope, JSONB)
     assert error.none_as_null is False
     assert envelope.none_as_null is True
-    assert failure.none_as_null is True
 
 
 def test_batch_mode_cannot_discard_a_native_result_contract():

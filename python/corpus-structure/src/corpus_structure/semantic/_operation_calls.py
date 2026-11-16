@@ -1455,71 +1455,6 @@ def capture_cut(
         return materialize_capture_cut(row)
 
 
-END_SOURCE_RUN_CONTRACT_DIGEST = "e66d7a83baea00eff56c4d1e91a4bbaf5e792ed1f6ffe57f6343a1f680cd109d"
-
-
-class _end_source_runRequest(OperationResult):
-    run_id: Annotated[RunId, Field(ge=RunId(-9223372036854775808), le=RunId(9223372036854775807))]
-    failure: JsonValue | None = None
-
-
-_end_source_run_function = func.ops.end_source_run(
-    bindparam("run_id", type_=BigInteger()),
-    bindparam("failure", type_=JSONB(none_as_null=True)),
-    type_=BigInteger(),
-)
-_end_source_run_statement = select(_end_source_run_function)
-
-
-def prepare_end_source_run(
-    *,
-    run_id: RunId,
-    failure: JsonValue | None = None,
-    projection_context: PreparedRelease | None = None,
-) -> Select[int]:
-    _request = _end_source_runRequest(
-        run_id=run_id,
-        failure=failure,
-    )
-    if projection_context is not None:
-        require_call_context(
-            projection_context, "end_run", "end_source_run", END_SOURCE_RUN_CONTRACT_DIGEST
-        )
-    return _end_source_run_statement.params(
-        **{
-            "run_id": _request.run_id,
-            "failure": _request.failure,
-        }
-    )
-
-
-_end_source_run_adapter = TypeAdapter(int)
-
-
-def materialize_end_source_run(row: tuple[int]) -> int:
-    with native_result_scope("end_run", "end_source_run", "affected_tasks"):
-        checked = _end_source_run_adapter.validate_python(row[0], strict=True)
-        return checked
-
-
-def end_source_run(
-    conn: Connection,
-    *,
-    run_id: RunId,
-    failure: JsonValue | None = None,
-    projection_context: PreparedRelease | None = None,
-) -> int:
-    _statement = prepare_end_source_run(
-        run_id=run_id,
-        failure=failure,
-        projection_context=projection_context,
-    )
-    _native_result = conn.execute(_statement)
-    with native_result_scope("end_run", "end_source_run"):
-        row = _native_result.one()
-        return materialize_end_source_run(row)
-
-
 ORIGINAL_DESCRIPTOR_CONTRACT_DIGEST = (
     "ec7ed48c312815a2aa4810a5a256f8011b249e53302325671b9a98ae65a00627"
 )
@@ -3611,4 +3546,4 @@ def read_characterization_inventory(
         return materialize_read_characterization_inventory(row)
 
 
-CALL_CONTRACT_DIGEST = "5b12d5e960f01d0a0329784b12eeaf9b0fc98ddebc5d7d42ac9c1ecb4c5cddc8"
+CALL_CONTRACT_DIGEST = "f04b48c65c93fa436d3fc97f9992174bcc8357888584251c5b53a6cb07dcfc9a"

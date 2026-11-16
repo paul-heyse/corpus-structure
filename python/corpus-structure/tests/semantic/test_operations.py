@@ -881,57 +881,6 @@ def test_logical_invocation_distinguishes_fresh_reports_but_not_retries(
         assert len(set(invocations)) == 2
 
 
-def test_native_cancel_drains_claims_and_blocks_late_completion(
-    commit_db_engine, commit_writer_engine
-):
-    from corpus_structure.semantic.operations import end_source_run
-
-    p = prepare_operation_scenario(commit_db_engine)
-    e = commit_writer_engine
-    with e.begin() as c:
-        run = create_run(
-            c,
-            project_id="p",
-            binding=OperationBinding(p.release_id, "z", 0, b"{}"),
-            kind="full",
-            options={},
-            code_commit="test",
-        )
-        cfg = record_method(
-            c,
-            SimpleNamespace(
-                name="read",
-                version="1",
-                family="ingest",
-                tier="deterministic",
-                confidence_source=None,
-                unit_type="run",
-                Config=create_model("ReadConfig"),
-            ),
-            "default",
-            {},
-            "config",
-            prepared=p,
-        )
-        task = create_task(
-            c, run_id=run, config_id=cfg, stage="ingest", unit_type="run", input_hash="same"
-        )
-        claim_tasks(c, run_id=run, config_id=cfg, holder="worker")
-        assert end_source_run(c, run) == 1
-        assert end_source_run(c, run) == 0
-    with pytest.raises(OperationConflict), e.begin() as c:
-        complete_task(
-            c,
-            task_id=task,
-            attempt=TaskAttempt(1),
-            holder="worker",
-            prepared=p,
-            observations=[],
-            outcome="empty",
-        )
-    with e.connect() as c:
-        assert c.execute(select(table("ops.task").c.status)).scalar_one() == "cancelled"
-        assert not c.execute(select(table("kb.observation"))).first()
 
 
 def test_lease_reclaim_keeps_invocation_and_refuses_stale_attempt(
@@ -1000,43 +949,3 @@ def test_lease_reclaim_keeps_invocation_and_refuses_stale_attempt(
             observations=[],
             outcome="empty",
         )
-
-
-def test_native_run_activation_uses_declared_lifecycle_and_refuses_terminal_state(
-    commit_db_engine, commit_writer_engine
-):
-    from corpus_structure.semantic.operations import end_source_run, start_run
-
-    prepared = prepare_operation_scenario(commit_db_engine)
-    with commit_writer_engine.begin() as conn:
-        run = create_run(
-            conn,
-            project_id="p",
-            binding=OperationBinding(prepared.release_id, "z", 0, b"{}"),
-            kind="full",
-            options={},
-            code_commit="native-run-activation",
-        )
-        assert (
-            conn.scalar(select(table("ops.run").c.status).where(table("ops.run").c.id == run))
-            == "created"
-        )
-        assert start_run(conn, run, prepared=prepared) == run
-        assert (
-            conn.scalar(select(table("ops.run").c.status).where(table("ops.run").c.id == run))
-            == "running"
-        )
-        assert start_run(conn, run, prepared=prepared) == run
-    with commit_writer_engine.begin() as conn:
-        end_source_run(
-            conn, run, failure={"message": "bounded terminal refusal"}, prepared=prepared
-        )
-        assert (
-            conn.scalar(select(table("ops.run").c.status).where(table("ops.run").c.id == run))
-            == "failed"
-        )
-    with (
-        commit_writer_engine.begin() as conn,
-        pytest.raises(OperationConflict, match="no longer accepts activation"),
-    ):
-        start_run(conn, run, prepared=prepared)
