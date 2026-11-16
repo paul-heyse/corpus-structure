@@ -115,7 +115,6 @@ def declaration_product_values(
         {"selectors": selected["selectors"]},
         {"key": "text.declaration_syntax/source-native"},
         families=(DECLARATION_FAMILY,),
-        semantic=True,
     )
     requested, unavailable = _requested_regions(source)
     for selector in unavailable:

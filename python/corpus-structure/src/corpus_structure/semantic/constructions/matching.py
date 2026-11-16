@@ -206,52 +206,10 @@ class PreparedConstructions:
         return tuple(matches), tuple(unavailable)
 
 
-def retained_documents(layers, view, vocab):
-    """Rebuild native working Docs without tokenization, inference or whitespace loss."""
-    for pin, report in layers.items():
-        payload = report.payload
-        occurrences = {o["local_id"]: o for o in payload["occurrences"]}
-        groups = {}
-        for annotation in payload["annotations"]:
-            native = annotation.get("native_token")
-            if native is None or annotation.get("native_scheme") != "spacy-token-columns-1":
-                continue
-            extents = [e for o in annotation["occurrences"] for e in occurrences[o]["extents"]]
-            if not extents or any(e["source_view_id"] != view.ref.id for e in extents):
-                continue
-            groups.setdefault(native["container"], []).append(
-                (annotation, min(e["start"] for e in extents), max(e["end"] for e in extents))
-            )
-        for container, rows in groups.items():
-            rows.sort(key=lambda row: row[0]["native_token"]["index"])
-            if [r[0]["native_token"]["index"] for r in rows] != list(range(len(rows))):
-                raise ValueError("retained native token indices are not a complete container")
-            block = next(
-                (
-                    annotation
-                    for annotation in payload["annotations"]
-                    if annotation["local_id"] == container
-                ),
-                None,
-            )
-            if block is None or block["kind"] != "native.block":
-                raise ValueError("retained native tokens lack their exact block container")
-            bounds = [
-                extent for oid in block["occurrences"] for extent in occurrences[oid]["extents"]
-            ]
-            if not bounds or any(
-                extent["source_view_id"] != view.ref.id
-                or extent["projection"] != view.ref.projection_digest
-                for extent in bounds
-            ):
-                raise ValueError("retained native block differs from selected source")
-            start, end = min(e["start"] for e in bounds), max(e["end"] for e in bounds)
-            doc, doc_to_annotation = _working_document(view.text, start, end, rows, vocab)
-            yield pin, container, doc, doc_to_annotation, start, end
 
 
 def _working_document(text, start, end, rows, vocab):
-    """One whitespace/head reconstruction owner for released and native projections."""
+    """Reconstruct exact native whitespace and head columns for current source products."""
     words, spaces, owners, native_to_doc, doc_to_annotation = [], [], [], {}, {}
     cursor = start
     for annotation, a, b in rows:

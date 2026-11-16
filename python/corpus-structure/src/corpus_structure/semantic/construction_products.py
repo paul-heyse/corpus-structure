@@ -301,7 +301,6 @@ def construction_product_values(
         selected["source"],
         {"selectors": selected["selectors"]},
         {"key": "text.constructions/source-native"},
-        semantic=True,
         families=(
             *FAMILIES,
             "construction.math_scope",
@@ -321,7 +320,7 @@ def construction_product_values(
     attempted = set()
     requested, unknown = _requested_regions(source)
     for selector in unknown:
-        for family in FAMILIES:
+        for family in GRAMMAR_FAMILIES:
             builder.record(family, selector, "unknown", "selected original ancestry is unavailable")
     regions = []
     for product in formal:
@@ -346,14 +345,20 @@ def construction_product_values(
             for row in boundaries
             if max(a, row["start"]) < min(b, row["end"])
         ]
-        if native_body["outcome"] != "complete":
-            for family in FAMILIES:
+        sentence_coverage = [row for row in native_body["coverage"] if row["family"] == "spacy.sentences"]
+        if not sentence_coverage or any(
+            row["outcome"] not in {"complete", "empty"}
+            or row["availability"] != "available"
+            or row.get("unexamined")
+            for row in sentence_coverage
+        ):
+            for family in GRAMMAR_FAMILIES:
                 for selector in selected["selectors"]:
                     builder.record(
                         family,
                         selector,
                         "unknown",
-                        "selected native sentence characterization is incomplete",
+                        "selected native sentence boundaries are incomplete",
                     )
     for start, end in regions:
         if (start, end) in attempted or start == end:
@@ -362,7 +367,7 @@ def construction_product_values(
         try:
             atoms, terminals = readings.positioned(start=start, end=end)
         except ValueError as error:
-            for family in FAMILIES:
+            for family in GRAMMAR_FAMILIES:
                 builder.record(
                     family,
                     dict(projection=view.projection, start=start, end=end),
@@ -438,7 +443,7 @@ def construction_product_values(
                 view, pin, block, doc, selected_annotations, start, patterns
             )
             if unavailable:
-                for family in FAMILIES:
+                for family in GRAMMAR_FAMILIES:
                     for selector in selected["selectors"]:
                         builder.record(family, selector, "partial", "; ".join(unavailable))
     from .constructions.navigation import populate_navigation_products

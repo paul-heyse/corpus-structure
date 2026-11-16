@@ -1,8 +1,5 @@
 """Independent positioned and symbolic expectations for shared constructions."""
 
-import copy
-from pathlib import Path
-from types import SimpleNamespace
 
 import pytest
 from lark import Lark
@@ -16,47 +13,63 @@ from corpus_structure.semantic.constructions import (
     recognize,
 )
 from corpus_structure.semantic.constructions.forest import terminal_guard
-from corpus_structure.semantic.constructions.layers import ConstructionLayer
+from corpus_structure.semantic.constructions.layers import ConstructionLayer, ConstructionSource
+from methods.declared_primary_fixture import profiles, selected_source
 from corpus_structure.semantic.constructions.matching import RAW_GROUP, PreparedConstructions
 
 
 def source(text):
-    base = dict(task_id=7, product_key="document", content_digest="a" * 64)
-    projection = "b" * 64
-    selector = dict(projection=projection, native_pointer="#/texts/0", start=0, end=len(text))
-    scope = dict(
-        source_view_ids=[11],
-        source_views=[
-            dict(
-                source_view_id=11,
-                key="source",
-                base_document=base,
-                section_pointer="#/groups/0",
-                membership="descendants",
-                projection_digest=projection,
-                recipe_digest="c" * 64,
-            )
-        ],
-        profile="full",
-        selectors=[selector],
+    selected, _frame, _context = selected_source(text)
+    builder = ConstructionLayer(
+        selected.value["source"],
+        {"selectors": selected.value["selectors"]},
+        {"key": "text.constructions/source-native"},
     )
-    operation = dict(
-        key="text.constructions",
-        version="1",
-        runtime="test",
-        model="none",
-        grammar="tc-constructions-1",
-        configuration="cfg",
-        input="input",
-        context="scope",
+    return builder, ConstructionSource.from_native(selected)
+
+
+def nominal_product(builder, view, *, value=None):
+    """Validate the actual current product, including grammar witness endpoints."""
+    from corpus_structure.semantic.construction_products import (
+        interpreted_member_contracts, interpreted_product_value, validate_interpreted_product,
     )
-    builder = ConstructionLayer(base, scope, operation)
-    view = SimpleNamespace(
-        ref=SimpleNamespace(id=11, projection_digest=projection),
-        text=text,
-        pieces=(dict(start=0, end=len(text), kind="native_text", item_ref="#/texts/0", page=3),),
+    from corpus_structure.semantic.source_products import FrozenNativeSource
+
+    _formal, profile = profiles()
+    selected = FrozenNativeSource.acquire(profile.prepared, view.value)
+    _source, _frame, context = selected_source(view.text)
+    if value is None:
+        value = interpreted_product_value(selected, builder.facts(),
+                                           interpreted_member_contracts(profile.prepared, profile.model), ())
+    return validate_interpreted_product(profile.prepared, profile.model, value, selected, (),
+                                        subject_context=context)
+
+
+def native_columns(doc):
+    """Detach independent literal columns through current annotation ownership."""
+    from dataclasses import replace
+    from hashlib import sha256
+    from unittest.mock import patch
+
+    from annotation_support import ControlledPipeline, selected_item
+    from corpus_structure.ingest import annotations
+    from corpus_structure.ingest.annotations import AnnotationProfile
+    from corpus_structure.ingest.sentences import TextLayout, TextToken
+    from methods.declared_primary_fixture import retained_source_annotations
+
+    controlled = ControlledPipeline()
+    request, selected, frame, context = selected_item(
+        controlled, doc.text, start=0, block_id="#/texts/1"
     )
-    return builder, view
+    request = replace(request, layout=TextLayout(
+        0, len(doc.text), sha256(doc.text.encode()).hexdigest(),
+        tuple(TextToken(token.idx, token.idx + len(token), bool(token.whitespace_)) for token in doc), (),
+    ))
+    profile = AnnotationProfile(execution_profile=controlled.selection().native.fingerprint)
+    with patch.object(annotations, "pipeline", return_value=controlled):
+        (product,) = annotations.annotate((request,), profile, processed_docs=(doc,), require_complete=False)
+    native = retained_source_annotations(selected, frame, context, (product,), profile)
+    return selected, native
 
 
 def test_raw_source_negation_quantification_and_conditional_are_nested():
@@ -264,32 +277,29 @@ def test_named_native_anchor_is_distinct_from_discontinuous_members():
 
 
 def native_case(words, heads, deps, pos, morphs=None):
-    from corpus_structure.semantic.product_reference import ProductReference
+    from corpus_structure.semantic.constructions.matching import retained_native_documents, retained_native_vocab
+    from corpus_structure.semantic.data_product_reference import DataProductReference
 
     vocab = English().vocab
     doc = Doc(
-        vocab,
-        words=words,
-        spaces=[True] * (len(words) - 1) + [False],
-        heads=heads,
-        deps=deps,
-        pos=pos,
-        lemmas=[w.lower() for w in words],
+        vocab, words=words, spaces=[True] * (len(words) - 1) + [False],
+        heads=heads, deps=deps, pos=pos, lemmas=[word.lower() for word in words],
         **({"morphs": morphs} if morphs else {}),
     )
-    builder, view = source(doc.text)
-    annotations = {
-        i: dict(local_id=f"token-{i}", native_token=dict(text=w, lemma=w.lower()))
-        for i, w in enumerate(words)
-    }
-    pin = ProductReference(task_id=8, product_key="layer", content_digest="d" * 64)
-    builder.native(view, pin, "container", doc, annotations, 0, PreparedConstructions(vocab))
-    return builder
+    selected, native = native_columns(doc)
+    view = ConstructionSource.from_native(selected)
+    builder = ConstructionLayer(selected.value["source"], {"selectors": selected.value["selectors"]},
+                                {"key": "text.constructions/source-native"})
+    vocab = retained_native_vocab(selected, native)
+    (block, retained, annotations, start, _end), = retained_native_documents(selected, native, vocab)
+    builder.native(view, DataProductReference(native.semantic_id), block, retained,
+                   annotations, start, PreparedConstructions(vocab))
+    return builder, native
 
 
 @pytest.mark.parametrize("separator", ["\n", "\t", "\n\n", "  "])
 def test_native_layout_tokens_are_not_semantic_participants(separator):
-    builder = native_case(
+    builder, native = native_case(
         ["Rain", separator, "falls"],
         [2, 2, 2],
         ["nsubj", "dep", "ROOT"],
@@ -302,7 +312,7 @@ def test_native_layout_tokens_are_not_semantic_participants(separator):
     ]
     assert {term["value"] for term in participants} == {"rain", "falls"}
     assert all(
-        premise["local_id"] != "token-1"
+        premise["member_id"] != native.inventory("token")[1]["local_id"]
         for term in participants
         for premise in term["external_premises"]
     )
@@ -321,10 +331,11 @@ def test_native_layout_tokens_are_not_semantic_participants(separator):
 
 @pytest.mark.parametrize("spelling", ["X\n+\nY", "X\r\n+\tY"])
 def test_multiline_native_atom_keeps_spelling_beside_interpreted_lexical_label(spelling):
-    builder = native_case([spelling, "varies"], [1, 1], ["nsubj", "ROOT"], ["NOUN", "VERB"])
+    builder, native = native_case([spelling, "varies"], [1, 1], ["nsubj", "ROOT"], ["NOUN", "VERB"])
     participant = next(term for term in builder.terms.values() if term["value"] == "x + y")
     assert participant["provenance"] == ["lexical-normalization:whitespace-folding-1"]
-    assert participant["external_premises"][0]["local_id"] == "token-0"
+    assert participant["external_premises"][0] == {"product_id": native.semantic_id,
+                                                         "member_id": native.inventory("token")[0]["local_id"]}
     assert [
         extent["text"]
         for oid in participant["occurrences"]
@@ -333,7 +344,7 @@ def test_multiline_native_atom_keeps_spelling_beside_interpreted_lexical_label(s
 
 
 def test_native_inflection_and_modal_force_are_explicit_supported_proposals():
-    builder = native_case(
+    builder, native = native_case(
         ["Rain", "may", "fall"],
         [2, 2, 2],
         ["nsubj", "aux", "ROOT"],
@@ -356,7 +367,7 @@ def test_native_inflection_and_modal_force_are_explicit_supported_proposals():
 
 
 def test_coordination_inherits_only_witnessed_missing_subject():
-    inherited = native_case(
+    inherited, _native = native_case(
         ["Rain", "falls", "and", "melts"],
         [1, 1, 3, 1],
         ["nsubj", "ROOT", "cc", "conj"],
@@ -366,7 +377,7 @@ def test_coordination_inherits_only_witnessed_missing_subject():
         t["value"] == "inherited-grammatical-subject" and t["premises"]
         for t in inherited.terms.values()
     )
-    local = native_case(
+    local, _native = native_case(
         ["Rain", "falls", "and", "snow", "melts"],
         [1, 1, 4, 4, 1],
         ["nsubj", "ROOT", "cc", "nsubj", "conj"],
@@ -376,7 +387,7 @@ def test_coordination_inherits_only_witnessed_missing_subject():
 
 
 def test_native_quantification_has_distinct_variable_restrictor_body():
-    builder = native_case(
+    builder, native = native_case(
         ["Every", "trial", "succeeds"], [1, 2, 2], ["det", "nsubj", "ROOT"], ["DET", "NOUN", "VERB"]
     )
     binder = next(t for t in builder.terms.values() if t["kind"] == "binder")
@@ -401,7 +412,8 @@ def test_quantifier_and_negative_scope_remain_two_correlated_alternatives():
 def test_layer_keeps_finite_witness_bindings_and_exact_source_positions():
     builder, view = source("Rain falls.")
     builder.region(view, 0, len(view.text))
-    payload = builder.payload("test-release")
+    product = nominal_product(builder, view)
+    payload = product.inventory()
     assert payload["roles"]
     annotations = {a["local_id"]: a for a in payload["annotations"]}
     memberships = {m["local_id"]: m for m in payload["memberships"]}
@@ -418,77 +430,45 @@ def test_no_match_and_limit_have_distinct_outcomes():
     assert recognize("Rain falls.", max_chars=2).outcome == "unsupported"
 
 
-def test_released_layer_and_wrong_host_control():
-    from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
-    from corpus_structure.semantic.characterization import characterization_inputs, validate_layer
+def test_current_product_and_wrong_host_control():
+    import json
 
-    core = Path(__file__).parents[2] / "src/corpus_structure/model/semantic/core.yaml"
-    release = prepare_release(
-        characterization_inputs(SourceBundle("core", (SourceArtifact("core", core.read_bytes()),)))
-    )
     builder, view = source("Rain falls.")
     builder.region(view, 0, len(view.text))
-    payload = builder.payload(release.release_id)
-    report = validate_layer(release, payload)
-    assert report.payload["roles"]
-    invalid = copy.deepcopy(payload)
-    role = invalid["roles"][0]
-    role["owner"] = next(t["local_id"] for t in invalid["terms"])
+    product = nominal_product(builder, view)
+    assert product.inventory()["roles"]
+    invalid = json.loads(product.content)
+    role = next(packet["body"] for packet in invalid["members"] if packet["body"]["record_type"] == "role")
+    role["owner"] = next(packet["member_id"] for packet in invalid["members"]
+                         if packet["body"]["record_type"] == "term")
     with pytest.raises(ValueError, match=r"witness|endpoint"):
-        validate_layer(release, invalid)
+        nominal_product(builder, view, value=invalid)
 
 
 @pytest.mark.parametrize("gap", [" ", "\t", "\n  "])
 def test_retained_working_doc_preserves_whitespace_and_native_named_dependencies(gap):
-    from corpus_structure.semantic.characterization import LayerReport
-    from corpus_structure.semantic.constructions.matching import retained_documents
-    from corpus_structure.semantic.identity import canonical_bytes
+    from corpus_structure.semantic.constructions.matching import retained_native_documents, retained_native_vocab
 
-    builder, view = source("Rain" + gap + "falls")
-    rows = []
-    for index, (text, a, b, head, dep, pos) in enumerate(
-        (
-            ("Rain", 0, 4, 1, "nsubj", "NOUN"),
-            ("falls", 4 + len(gap), 9 + len(gap), 1, "ROOT", "VERB"),
-        )
-    ):
-        oid = builder.occurrence(view, a, b)
-        rows.append(
-            dict(
-                local_id=f"native-{index}",
-                native_scheme="spacy-token-columns-1",
-                occurrences=[oid],
-                native_token=dict(
-                    index=index,
-                    container="block",
-                    text=text,
-                    lemma=text.lower(),
-                    pos=pos,
-                    tag="NN",
-                    morphology=[],
-                    native_head=head,
-                    dependency=dep,
-                ),
-            )
-        )
-    rows.append(
-        dict(
-            local_id="block",
-            kind="native.block",
-            occurrences=[builder.occurrence(view, 0, len(view.text))],
-        )
-    )
-    report = LayerReport(
-        canonical_bytes(dict(occurrences=list(builder.occurrences.values()), annotations=rows))
-    )
-    pin = report.reference(100)
-    vocab = English().vocab
-    _, _, doc, annotations, _start, _end = next(retained_documents({pin: report}, view, vocab))
-    assert doc.text == view.text
-    assert len(annotations) == 2
-    assert doc.has_annotation("POS", require_complete=True)
-    matches, _ = PreparedConstructions(vocab).match(doc)
-    assert any(m.rule_id == "tc.native.active.v1" for m in matches)
+    # Arbitrary retained whitespace has its own source token; a single ordinary
+    # space is represented by the preceding token's native space column.
+    words = ["Rain", "falls"] if gap == " " else ["Rain", gap, "falls"]
+    index = len(words) - 1
+    doc = Doc(English().vocab, words=words,
+              spaces=[True, False] if gap == " " else [False] * 3,
+              heads=[index] * len(words),
+              deps=["nsubj", "ROOT"] if gap == " " else ["nsubj", "dep", "ROOT"],
+              pos=["NOUN", "VERB"] if gap == " " else ["NOUN", "SPACE", "VERB"],
+              lemmas=[word.lower() for word in words])
+    selected, native = native_columns(doc)
+    vocab = retained_native_vocab(selected, native)
+    _block, restored, annotations, start, end = next(retained_native_documents(selected, native, vocab))
+    assert restored.text == "Rain" + gap + "falls"
+    assert (start, end) == (0, len(restored.text))
+    assert len(annotations) == len(words)
+    assert restored.has_annotation("POS", require_complete=True)
+    assert restored[0].head.i == index and restored[index].dep_ == "ROOT"
+    matches, _ = PreparedConstructions(vocab).match(restored)
+    assert any(match.rule_id == "tc.native.active.v1" for match in matches)
 
 
 def test_literal_disjunction_and_collective_distribution_are_distinct_structures():

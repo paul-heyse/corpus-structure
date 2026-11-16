@@ -283,7 +283,6 @@ def produce(source, native_products, canonical, hanlp):
         source.value["source"],
         {"selectors": source.value["selectors"]},
         {"key": "text.constructions/source-native"},
-        semantic=True,
         families=(DECLARATION_FAMILY,),
     )
     from corpus_structure.semantic.declared_record_sources import DeclaredNativeFrameSource

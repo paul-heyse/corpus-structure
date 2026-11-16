@@ -48,7 +48,6 @@ def product(selected):
         selected.value["source"],
         {"selectors": selected.value["selectors"]},
         {"key": "text.constructions/source-native"},
-        semantic=True,
         families=(FAMILY,),
     )
     populate_navigation_products(layer, ConstructionSource.from_native(selected), selected, None)

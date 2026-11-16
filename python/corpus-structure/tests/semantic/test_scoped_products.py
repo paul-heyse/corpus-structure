@@ -57,7 +57,6 @@ def test_native_scoped_kernel_keeps_actual_artifact_source_and_formal_addresses(
         coordinate,
         {"selectors": source.value["selectors"]},
         {"key": "text.constructions/source-native"},
-        semantic=True,
         families=(FAMILY,),
     )
     populate_navigation_products(layer, ConstructionSource.from_native(source), source, None)

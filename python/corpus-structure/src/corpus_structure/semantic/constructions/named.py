@@ -132,7 +132,7 @@ def _populate_named_blocks(layer, view, native_pin, prepared, blocks, *, check_a
                 status="interpreted" if availability == "available" else "unknown",
                 named_match=body,
                 occurrences=[layer.occurrence(view, product.block_start, product.block_end)],
-                external_premises=[] if layer.semantic else [body["native_container"]],
+                external_premises=[],
             )
         for match in result.matches:
             declaration = rules[match.rule, match.variant]
@@ -204,9 +204,7 @@ def _populate_named_blocks(layer, view, native_pin, prepared, blocks, *, check_a
                 status="interpreted",
                 occurrences=occurrences,
                 named_match=body,
-                external_premises=body["nodes"]
-                if layer.semantic
-                else [body["native_container"], *body["nodes"]],
+                external_premises=body["nodes"],
             )
             for role in match.roles:
                 for order, index in enumerate(role.nodes):

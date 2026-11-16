@@ -240,7 +240,6 @@ def test_current_navigation_uses_the_whole_original_note(profile, prefix):
         native.value["source"],
         {"selectors": native.value["selectors"]},
         {"key": "text.constructions/source-native"},
-        semantic=True,
         families=(FAMILY,),
     )
     populate_navigation_products(layer, ConstructionSource.from_native(native), native, None)

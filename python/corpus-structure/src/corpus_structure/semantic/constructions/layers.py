@@ -1,4 +1,4 @@
-"""Detach construction products into the existing immutable shared layer contract."""
+"""Build current source-addressed construction inventories for nominal products."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
-from corpus_structure.semantic.characterization import occurrence_id, validate_layer
+from corpus_structure.semantic.characterization import occurrence_id
 from corpus_structure.semantic.identity import canonical_bytes
 
 from ..data_product_reference import member_reference
@@ -57,12 +57,8 @@ class ConstructionSource:
         return source_subject(self.value["source"])
 
 
-def _source_projection(view):
-    return view.projection if isinstance(view, ConstructionSource) else view.ref.projection_digest
 
 
-def _source_key(view):
-    return view.key if isinstance(view, ConstructionSource) else view.ref.id
 
 
 class ConstructionLayer:
@@ -73,10 +69,8 @@ class ConstructionLayer:
         operation: Mapping[str, Any],
         *,
         families=FAMILIES,
-        semantic: bool = False,
     ):
         self.base, self.scope = dict(base), dict(scope)
-        self.semantic = semantic
         self.families = tuple(families)
         self.operation = {
             **operation,
@@ -110,8 +104,7 @@ class ConstructionLayer:
                 if pointer is None:
                     raise ValueError("construction source piece has no native address")
                 extent = dict(
-                    projection=_source_projection(view),
-                    **({} if self.semantic else {"source_view_id": _source_key(view)}),
+                    projection=view.projection,
                     native_pointer=pointer,
                     start=a,
                     end=b,
@@ -162,11 +155,11 @@ class ConstructionLayer:
         parse_seconds: float = 2.0,
         check_active=lambda: None,
     ):
-        selector = dict(projection=_source_projection(view), start=start, end=end)
+        selector = dict(projection=view.projection, start=start, end=end)
         result = recognize(
             view.text[start:end],
             tuple(atoms),
-            region=f"{_source_key(view)}:{start}:{end}",
+            region=f"{view.key}:{start}:{end}",
             offset=start,
             max_chars=max_chars,
             terminals=terminals,
@@ -302,7 +295,7 @@ class ConstructionLayer:
         if result.root:
             root = identity(
                 "root",
-                [_source_key(view), start, end, result.root.target, result.root.choice_group],
+                [view.key, start, end, result.root.target, result.root.choice_group],
             )
             self.terms[root] = dict(
                 local_id=root,
@@ -795,7 +788,7 @@ class ConstructionLayer:
                     )
 
     def facts(self):
-        """Shared semantic inventory; released legacy envelope is a separate projection."""
+        """Return the current semantic inventory and its actual family coverage."""
         grouped = {}
         for row in self.coverage:
             grouped.setdefault(row["family"], []).append(row)
@@ -885,24 +878,4 @@ class ConstructionLayer:
             terms=list(self.terms.values()),
             choices=list(self.choices.values()),
             coverage=coverage,
-        )
-
-    def payload(self, release_id: str, dependencies=()):
-        return dict(
-            format="characterization-layer-v1",
-            base_document=self.base,
-            release_id=release_id,
-            operation=self.operation,
-            source_scope=self.scope,
-            dependencies=list(dependencies),
-            **self.facts(),
-        )
-
-    def finish(self, prepared, *, dependencies=None, releases=None):
-        pins = [] if dependencies is None else [p.values() for p in dependencies]
-        return validate_layer(
-            prepared,
-            self.payload(prepared.release_id, pins),
-            dependencies=dependencies,
-            releases=releases,
         )

@@ -14,7 +14,7 @@ from methods.declared_primary_fixture import selected_source, profiles
 from methods.navigation_fixture import source_primary_products
 
 
-def primary_fixture(controlled, monkeypatch, *, heading=None):
+def primary_fixture(controlled, monkeypatch, *, heading=None, missing=None):
     body = "Ada must check valves." if heading else "Ada checks valves."
     start = len(heading) + 1 if heading else 0
     text = (heading + "\n" if heading else "") + body
@@ -45,6 +45,10 @@ def primary_fixture(controlled, monkeypatch, *, heading=None):
         (header,) = annotations.annotate((request,),profile)
         header = replace(header,tokens=tuple(replace(token,pos="NOUN",tag="NN",lemma=heading[token.start:token.end].casefold()) for token in header.tokens))
         products.insert(0,header)
+    if missing is not None:
+        products = [replace(current, availability=tuple(
+            replace(column, status="absent") if column.attribute == missing else column
+            for column in current.availability)) for current in products]
     primary = source_primary_products(frame, products, profile=profile, native_profile=controlled.selection().native)
     monkeypatch.setattr(annotations,"pipeline",lambda *_: pytest.fail("consumer reran native NLP"))
     return frame, product, primary
@@ -204,3 +208,28 @@ def test_formula_symbols_consume_canonical_inventory_and_preserve_coordinate_spa
         representation="recognized_latex",
     ) == ((), "unsupported")
     assert captured_formula_symbols(text) == ((), "unsupported")
+
+
+@pytest.mark.parametrize("missing,polarity", [("TAG", "positive"), ("MORPH", "unresolved"), ("SENT_START", None)])
+def test_optional_native_columns_do_not_taint_independent_source_reading_coverage(controlled, monkeypatch, missing, polarity):
+    import json
+
+    view, _annotation, primary = primary_fixture(controlled, monkeypatch, missing=missing)
+    assert primary.native is not None
+    native = json.loads(primary.native.content)
+    assert native["outcome"] == "partial"
+    coverage = {row.family: row for row in primary.construction.value.coverage}
+    source_readings = coverage["construction.source_readings"]
+    if polarity is None:
+        assert source_readings.outcome == "partial"
+        assert all(row.outcome not in {"complete", "empty"} for name, row in coverage.items()
+                   if name in {"construction.predication", "construction.embedding"})
+        return
+    assert source_readings.outcome == "complete" and not source_readings.unexamined
+    inventory = primary.construction.inventory()
+    terms = {row["local_id"]: row for row in inventory["terms"]}
+    source_frames = [row for row in inventory["terms"] if row["kind"] == "predicate"
+                     and row["vocabulary"] == "source-linguistic-rules-1"]
+    assert source_frames
+    assert {terms[edge["target"]]["value"] for frame in source_frames for edge in frame["children"]
+            if edge["role"] == "polarity"} == {polarity}
