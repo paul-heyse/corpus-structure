@@ -529,15 +529,23 @@ def prepare_target_authoring(
     installation: TargetInstallation,
     *,
     physical_prerequisites=(),
+    predecessor=(),
+    retire=frozenset(),
+    recreate=frozenset(),
     owned_authoring=False,
 ):
-    """Normalize a complete fresh declaration using the existing rollback-only author."""
+    """Normalize captured target declarations against their explicit frozen predecessor."""
     from .native_candidate import (
         _declared_physical_catalog,
         current_admission_definitions,
         definition_sql,
     )
-    from .native_objects import NativeAuthoring, native_sql_script, prepare_native_authoring
+    from .native_objects import (
+        NativeAuthoring,
+        NativeAuthoringError,
+        native_sql_script,
+        prepare_native_authoring,
+    )
     from .native_products import admission_kernel
     from .source_view_native import native_admission_sql
 
@@ -550,8 +558,25 @@ def prepare_target_authoring(
             require_descriptor=False,
         ),
     )
+    fixed = {item.identity for item in physical_prerequisites}
+    if fixed & (retire | recreate):
+        raise NativeAuthoringError(
+            "CHECK-bound target prerequisites require an explicit physical transition"
+        )
+    before_complete = tuple(item for item in predecessor if item.identity not in fixed)
+    before_products = tuple(
+        item
+        for item in before_complete
+        if (item.identity.schema, item.identity.name) != ("data", "execution_contract_descriptor")
+    )
+    product_ids = {item.identity for item in before_products}
     normalized = prepare_native_authoring(
-        connection, products, predecessor=(), owned_authoring=owned_authoring
+        connection,
+        products,
+        predecessor=before_products,
+        retire=retire & product_ids,
+        recreate=recreate & product_ids,
+        owned_authoring=owned_authoring,
     )
     sql = native_admission_sql(
         native_sql_script(
@@ -573,7 +598,9 @@ def prepare_target_authoring(
         remaining = prepare_native_authoring(
             connection,
             complete,
-            predecessor=(),
+            predecessor=before_complete,
+            retire=retire,
+            recreate=recreate,
             owned_authoring=owned_authoring,
             check_plpgsql=frozenset(
                 item.identity for item in complete if item.identity.kind == "function"
@@ -582,7 +609,12 @@ def prepare_target_authoring(
                 item.identity for item in complete if item.identity.kind == "trigger"
             ),
         )
-    return NativeAuthoring(desired=(*physical_prerequisites, *remaining.desired))
+    return NativeAuthoring(
+        desired=(*physical_prerequisites, *remaining.desired),
+        predecessor=predecessor,
+        retire=retire,
+        recreate=recreate,
+    )
 
 
 def target_database_privileges_sql() -> str:
@@ -600,6 +632,103 @@ def target_database_privileges_sql() -> str:
         + "',current_database()); EXECUTE format('"
         + grant.replace("'", "''")
         + "',current_database()); END $target_database$"
+    )
+
+
+def target_predecessor_descriptor(predecessor):
+    """Read the complete registered target declaration, never installed desired meaning."""
+    from .native_candidate import authored_admission_sql
+    from .native_objects import NativeAuthoring, NativeAuthoringError, NativeObject
+    from .source_view_native import _admission_descriptor
+
+    if not predecessor or any(not isinstance(item, NativeObject) for item in predecessor):
+        raise NativeAuthoringError(
+            "target successor requires exact frozen native predecessor objects"
+        )
+    frozen = NativeAuthoring(desired=predecessor, predecessor=predecessor)
+    admission = authored_admission_sql(frozen)
+    descriptor = _admission_descriptor(admission)
+    legacy = {"ops.run", "ops.method", "ops.method_config", "kb.source_view", "data.fact"}
+    if "analytical_abi" in descriptor or legacy & {
+        item["relation"] for item in descriptor["tables"]
+    }:
+        raise NativeAuthoringError("target successor refuses a legacy-series predecessor")
+    expected_functions = {item["signature"] for item in descriptor["functions"]} | {
+        "data.execution_contract_descriptor()"
+    }
+    expected_views = {item["relation"] for item in descriptor["views"]}
+    expected_triggers = {(item["relation"], item["name"]) for item in descriptor["triggers"]}
+    if (
+        {item.identity.qualified for item in predecessor if item.identity.kind == "function"}
+        != expected_functions
+        or {item.identity.qualified for item in predecessor if item.identity.kind == "view"}
+        != expected_views
+        or {
+            (item.identity.schema + "." + (item.identity.relation or ""), item.identity.name)
+            for item in predecessor
+            if item.identity.kind == "trigger"
+        }
+        != expected_triggers
+    ):
+        raise NativeAuthoringError(
+            "target successor requires its complete frozen native predecessor inventory"
+        )
+    return descriptor, admission
+
+
+def prepare_target_successor(
+    connection,
+    installation: TargetInstallation,
+    *,
+    predecessor,
+    retire=frozenset(),
+    recreate=frozenset(),
+    owned_authoring=False,
+):
+    """Prepare a current successor from one exact registered target state.
+
+    The caller authenticates registration custody before supplying its frozen
+    objects. This checks their actual installed state and never adopts live bodies.
+    """
+    from .native_candidate import (
+        _physical_check_contract,
+        compare_declared_candidate,
+        physical_row_type_context,
+        verify_frozen_catalog,
+    )
+    from .native_objects import NativeAuthoringError, admit_native
+
+    if not owned_authoring:
+        raise NativeAuthoringError("target successor preparation requires owned authoring custody")
+    descriptor, admission = target_predecessor_descriptor(predecessor)
+    admit_native(connection, predecessor)
+    verify_frozen_catalog(connection, admission)
+    previous = {item.identity: item for item in predecessor}
+    prerequisites = []
+    for declared in target_physical_prerequisites(connection, installation):
+        frozen = previous.get(declared.identity)
+        if frozen is None or frozen.statements != declared.install_sql:
+            raise NativeAuthoringError(
+                "CHECK-bound target prerequisite change requires an explicit physical transition"
+            )
+        prerequisites.append(frozen)
+    with physical_row_type_context(connection, installation.metadata):
+        authoring = prepare_target_authoring(
+            connection,
+            installation,
+            physical_prerequisites=tuple(prerequisites),
+            predecessor=predecessor,
+            retire=retire,
+            recreate=recreate,
+            owned_authoring=True,
+        )
+        physical_contract = _physical_check_contract(connection, installation.metadata, authoring)
+    return compare_declared_candidate(
+        connection,
+        target_metadata=installation.metadata,
+        authoring=authoring,
+        old_descriptor=descriptor,
+        physical_contract=physical_contract,
     )
 
 

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from contextlib import contextmanager
 from dataclasses import dataclass, replace
 from hashlib import sha256
 from pathlib import Path
@@ -2337,26 +2338,8 @@ def _physical_check_contract(connection, target_metadata, authoring):
     )
 
 
-def prepare_series_candidate(
-    connection,
-    *,
-    predecessor=None,
-    predecessor_state: Path | None = None,
-    retire=frozenset(),
-    recreate=frozenset(),
-    include_selected=True,
-    target_metadata=metadata,
-    owned_authoring=False,
-):
-    """Produce ordinary and selected native operations together; no revision/file is written."""
-    if not owned_authoring:
-        raise NativeAuthoringError(
-            "native preparation requires an explicitly owned authoring database"
-        )
-    # Native triggers require their real parent row types during PostgreSQL
-    # normalization. These new-table prerequisites exist only inside a savepoint;
-    # rollback precedes normal Alembic comparison, so CREATEs remain explicit.
-    existing = set(
+def physical_relations(connection) -> set[str]:
+    return set(
         connection.scalars(
             text(
                 "SELECT n.nspname || '.' || c.relname FROM pg_class c "
@@ -2364,9 +2347,16 @@ def prepare_series_candidate(
             )
         )
     )
-    from .native_data_steps import require_frozen_data_prerequisites
 
-    require_frozen_data_prerequisites(existing, target_metadata)
+
+@contextmanager
+def physical_row_type_context(connection, target_metadata, *, existing=None):
+    """Supply declared new tables/columns for native normalization, then roll back.
+
+    This supplies row types, never a data backfill or authorization to accept
+    installed drift. Each caller authenticates its own predecessor before entry.
+    """
+    existing = physical_relations(connection) if existing is None else existing
     new_tables = [item for item in target_metadata.sorted_tables if item.fullname not in existing]
     scaffolding = connection.begin_nested()
     try:
@@ -2395,18 +2385,46 @@ def prepare_series_candidate(
                         + " ADD COLUMN "
                         + str(CreateColumn(temporary).compile(dialect=connection.dialect))
                     )
-        for relation in new_tables:
-            # Migration authority creates cross-owner foreign keys, including
-            # evaluator tables referencing ops cuts; runtime roles need no DDL ACLs.
-            connection.exec_driver_sql(previous_sql)
-            target_metadata.create_all(connection, tables=[relation], checkfirst=False)
+        # Alembic comparison happens after rollback. Create the collection
+        # together so SQLAlchemy retains its native FK/cycle ordering.
         connection.exec_driver_sql(previous_sql)
+        target_metadata.create_all(connection, tables=new_tables, checkfirst=False)
         for relation in new_tables:
+            owner = table_policy(relation)["owner"]
+            if owner is None:
+                raise NativeAuthoringError("declared physical table requires its owner")
             connection.exec_driver_sql(
                 "ALTER TABLE "
                 + connection.dialect.identifier_preparer.format_table(relation)
-                + " OWNER TO corpus_sem_publisher"
+                + " OWNER TO "
+                + connection.dialect.identifier_preparer.quote(owner)
             )
+        yield
+    finally:
+        scaffolding.rollback()
+
+
+def prepare_series_candidate(
+    connection,
+    *,
+    predecessor=None,
+    predecessor_state: Path | None = None,
+    retire=frozenset(),
+    recreate=frozenset(),
+    include_selected=True,
+    target_metadata=metadata,
+    owned_authoring=False,
+):
+    """Produce ordinary and selected native operations together; no revision/file is written."""
+    if not owned_authoring:
+        raise NativeAuthoringError(
+            "native preparation requires an explicitly owned authoring database"
+        )
+    existing = physical_relations(connection)
+    from .native_data_steps import require_frozen_data_prerequisites
+
+    require_frozen_data_prerequisites(existing, target_metadata)
+    with physical_row_type_context(connection, target_metadata, existing=existing):
         authoring = _prepare_series_authoring(
             connection,
             predecessor=predecessor,
@@ -2418,8 +2436,6 @@ def prepare_series_candidate(
             owned_authoring=owned_authoring,
         )
         physical_contract = _physical_check_contract(connection, target_metadata, authoring)
-    finally:
-        scaffolding.rollback()
     from .source_view_native import _admission_descriptor
 
     previous_source = _predecessor_source(
