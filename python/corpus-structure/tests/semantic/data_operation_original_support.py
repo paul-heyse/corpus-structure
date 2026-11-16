@@ -1,14 +1,13 @@
 """Retained original-source premises beside an admitted current target kernel."""
 
 from dataclasses import dataclass
-from io import BytesIO
 from hashlib import sha256
+from io import BytesIO
 from typing import Any
 
 from scenario_recipes import register_scenario_builder
 
 from corpus_structure.core.evidence import document_key
-
 from corpus_structure.semantic.data_operation_storage import DataOperationStorage
 from corpus_structure.semantic.identifiers import ProjectId, ReleaseId
 from corpus_structure.semantic.original_documents import (
@@ -96,7 +95,10 @@ def build_original_seed(recipe, admin, writer, directory, *, purpose_engine=None
     path.write_bytes(original)
     with writer.begin() as connection:
         DataOperationStorage(connection).initialize_source_project(
-            {"project_id": ProjectId(PROJECT), "release_id": ReleaseId(preparation.prepared.release_id)}
+            {
+                "project_id": ProjectId(PROJECT),
+                "release_id": ReleaseId(preparation.prepared.release_id),
+            }
         )
         register_original_document(
             connection,
@@ -110,9 +112,16 @@ def build_original_seed(recipe, admin, writer, directory, *, purpose_engine=None
         selected = acquire_original_document_selection(
             connection,
             project_id=PROJECT,
-            document_key=document_key(PROJECT, "independent-original.pdf", sha256(original).hexdigest()),
+            document_key=document_key(
+                PROJECT, "independent-original.pdf", sha256(original).hexdigest()
+            ),
         )
-        if read_original_document_bytes(connection, selected.reference, prepared=preparation.prepared) != original:
+        if (
+            read_original_document_bytes(
+                connection, selected.reference, prepared=preparation.prepared
+            )
+            != original
+        ):
             raise ValueError("original seed retained bytes differ from the registered source")
     return OriginalSeedStage(
         selected, KernelSeedStage(preparation, admitted.identities, recipe.target)

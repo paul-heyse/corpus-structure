@@ -222,10 +222,15 @@ def test_pdf_only_modes_declare_their_actual_source_member_contexts(tmp_path):
     from semantic.test_pdf_transform_demand_native import _pdf_recipe
 
     profile = prepare_kernel(_pdf_recipe(tmp_path))
-    assert not any(name.startswith("text.") for name in (op.semantic_id for op in profile.model.operations))
+    assert not any(
+        name.startswith("text.") for name in (op.semantic_id for op in profile.model.operations)
+    )
     definition = profile.model.subject_definition("original-source-view")
     assert definition.scope == "original-source"
-    assert next(k.name for k in profile.model.kinds if k.semantic_id == definition.identifier_kind) == "string"
+    assert (
+        next(k.name for k in profile.model.kinds if k.semantic_id == definition.identifier_kind)
+        == "string"
+    )
     value = FrozenNativeSource.from_projection(
         profile.prepared,
         document="independent-original",
@@ -239,7 +244,8 @@ def test_pdf_only_modes_declare_their_actual_source_member_contexts(tmp_path):
     ).value
     selected_kind = profile.prepared.index.definitions["DdoSelectedNativeSource"].iri
     kind_contract = next(
-        identity.key for identity in profile.model.identities
+        identity.key
+        for identity in profile.model.identities
         if identity.domain == "kind" and identity.owner == selected_kind
     )
     population = selected_source_population(
@@ -257,7 +263,18 @@ def test_pdf_only_modes_declare_their_actual_source_member_contexts(tmp_path):
         assert member["context"]["subject_definition"] == "original-source-view"
         assert member["context"]["original_source"] == "independent-original"
         assert member["context"]["subject"] == population["members"][0]["context"]["subject"]
-        assert member["context"]["analyzed_scope"] == population["members"][0]["context"]["analyzed_scope"]
-        invalid = {**population, "members": [{**population["members"][0], "context": {**population["members"][0]["context"], "original_source": None}}]}
+        assert (
+            member["context"]["analyzed_scope"]
+            == population["members"][0]["context"]["analyzed_scope"]
+        )
+        invalid = {
+            **population,
+            "members": [
+                {
+                    **population["members"][0],
+                    "context": {**population["members"][0]["context"], "original_source": None},
+                }
+            ],
+        }
         with pytest.raises(PortRefusal, match="original"):
             project_product_members(profile.model, kind, invalid)

@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from conftest import settings_for_native_clone
 from sqlalchemy import select, text
 from sqlalchemy.exc import DBAPIError
 
@@ -60,11 +61,10 @@ from corpus_structure.semantic.pdf_transforms import (
 )
 from corpus_structure.semantic.pdf_views import pdf_views_operation_sources
 from corpus_structure.semantic.primary_operations import combine_primary_sources
+from corpus_structure.semantic.runtime import open_runtime_engine
 from corpus_structure.semantic.source_discovery import source_discovery_inputs
 from semantic.data_operation_kernel_support import CapturedKernelInputs, Kernel, KernelRecipe
 from semantic.data_operation_original_support import OriginalSeedRecipe
-from conftest import settings_for_native_clone
-from corpus_structure.semantic.runtime import open_runtime_engine
 from semantic.pdf_native_source_support import IMAGE
 
 ROOT = Path(__file__).resolve().parents[4]
@@ -304,8 +304,16 @@ def test_native_organization_enrichment_and_integration_keep_real_receipts_and_e
         def checked_observation(connection, *, task_id, attempt, holder, product, context=None):
             value = product.values()
             variants = (
-                "wrong-original", "missing-image", "missing-recipe", "wrong-image-size",
-                "health", "usage", "unknown-transform", "late-coverage", "attempt", "holder",
+                "wrong-original",
+                "missing-image",
+                "missing-recipe",
+                "wrong-image-size",
+                "health",
+                "usage",
+                "unknown-transform",
+                "late-coverage",
+                "attempt",
+                "holder",
             )
             for variant in variants:
                 forged = deepcopy(value)
@@ -317,9 +325,12 @@ def test_native_organization_enrichment_and_integration_keep_real_receipts_and_e
                 elif variant in {"missing-image", "missing-recipe"}:
                     missing = (
                         value["observation"]["image"]["artifact_digest"]
-                        if variant == "missing-image" else value["recipe_digest"]
+                        if variant == "missing-image"
+                        else value["recipe_digest"]
                     )
-                    artifacts = tuple(blob for blob in artifacts if sha256(blob).hexdigest() != missing)
+                    artifacts = tuple(
+                        blob for blob in artifacts if sha256(blob).hexdigest() != missing
+                    )
                 elif variant == "wrong-image-size":
                     forged["observation"]["image"]["width"] += 1
                 elif variant == "health":
@@ -331,8 +342,10 @@ def test_native_organization_enrichment_and_integration_keep_real_receipts_and_e
                     forged["observation"].pop("usage_json", None)
                 elif variant == "unknown-transform":
                     forged["observation"]["image"]["transform"] = {
-                        "status": "unknown", "normalization": "unknown",
-                        "source_space": "pdf_points", "target_space": "submitted_pixels",
+                        "status": "unknown",
+                        "normalization": "unknown",
+                        "source_space": "pdf_points",
+                        "target_space": "submitted_pixels",
                         "affine": [1, 0, 0, 1, 0, 0],
                     }
                 elif variant == "late-coverage":
@@ -359,7 +372,9 @@ def test_native_organization_enrichment_and_integration_keep_real_receipts_and_e
                     "P0004" if variant in {"attempt", "holder"} else "23514"
                 )
                 rejected_observations.append((task_id, forged["product_key"]))
-            arguments = dict(task_id=task_id, attempt=attempt, holder=holder, product=product, context=context)
+            arguments = dict(
+                task_id=task_id, attempt=attempt, holder=holder, product=product, context=context
+            )
             digest = store_observation(connection, **arguments)
             assert store_observation(connection, **arguments) == digest
             valid_observations.append((task_id, value["product_key"], digest))
@@ -512,24 +527,43 @@ def test_native_organization_enrichment_and_integration_keep_real_receipts_and_e
         assert valid_observations and len(rejected_observations) == 10 * len(valid_observations)
         with clone.admin.connect() as connection:
             for task_id, key in rejected_observations:
-                for relation in ("ops.pdf_product", "ops.pdf_product_body", "ops.pdf_product_artifact", "ops.pdf_product_input"):
-                    assert connection.scalar(
-                        text("SELECT count(*) FROM " + relation + " WHERE task_id=:task AND product_key=:key"),
-                        {"task": task_id, "key": key},
-                    ) == 0
+                for relation in (
+                    "ops.pdf_product",
+                    "ops.pdf_product_body",
+                    "ops.pdf_product_artifact",
+                    "ops.pdf_product_input",
+                ):
+                    assert (
+                        connection.scalar(
+                            text(
+                                "SELECT count(*) FROM "
+                                + relation
+                                + " WHERE task_id=:task AND product_key=:key"
+                            ),
+                            {"task": task_id, "key": key},
+                        )
+                        == 0
+                    )
             for task_id, key, digest in valid_observations:
                 retained = connection.execute(
-                    text("SELECT p.content_digest, encode(sha256(b.payload),'hex'), b.recipe_digest "
-                         "FROM ops.pdf_product p JOIN ops.pdf_product_body b "
-                         "USING(task_id,product_key) WHERE p.task_id=:task AND p.product_key=:key"),
+                    text(
+                        "SELECT p.content_digest, encode(sha256(b.payload),'hex'), b.recipe_digest "
+                        "FROM ops.pdf_product p JOIN ops.pdf_product_body b "
+                        "USING(task_id,product_key) WHERE p.task_id=:task AND p.product_key=:key"
+                    ),
                     {"task": task_id, "key": key},
                 ).one()
                 assert retained[0] == retained[1] == digest
-                assert connection.scalar(
-                    text("SELECT count(*) FROM ops.pdf_product_artifact WHERE task_id=:task "
-                         "AND product_key=:key AND artifact_digest=:recipe"),
-                    {"task": task_id, "key": key, "recipe": retained[2]},
-                ) == 1
+                assert (
+                    connection.scalar(
+                        text(
+                            "SELECT count(*) FROM ops.pdf_product_artifact WHERE task_id=:task "
+                            "AND product_key=:key AND artifact_digest=:recipe"
+                        ),
+                        {"task": task_id, "key": key, "recipe": retained[2]},
+                    )
+                    == 1
+                )
         before = tuple(calls)
         resumed = execute_data_demand(
             kernel.purpose("write"),

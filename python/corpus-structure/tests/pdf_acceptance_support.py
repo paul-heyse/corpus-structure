@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-
 import pyarrow as pa
 from docling_core.types.doc import (
     BoundingBox,

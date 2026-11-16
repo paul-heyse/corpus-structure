@@ -5,7 +5,6 @@ No recognizer/model is invoked. Test-specific mutations and expected outcomes st
 
 from hashlib import sha256
 from types import SimpleNamespace
-from typing import Any
 
 import pytest
 from pydantic import create_model
@@ -21,23 +20,18 @@ from corpus_structure.semantic.original_documents import register_original_docum
 from corpus_structure.semantic.pdf_contracts import (
     prepare_pdf_product,
     store_pdf_original,
-    trusted_pdf_context,
 )
 from corpus_structure.semantic.pdf_integrated import (
-    prepare_integrated_pdf_product,
     store_pdf_observation,
 )
 from semantic.operation_scenario_support import prepare_operation_scenario
 from semantic.pdf_native_source_support import (
-    CELL, CELL_IDS, IMAGE, ITEM_IDS, REGION_IDS, RESPONSE, independent_integrated, integrated,
-    mutate_selected, native_source, observation, pdf13_context, pin, prepare,
+    observation,
+    pin,
+    prepare,
 )
 
 HOLDER = "pdf13-fixture"
-
-
-
-
 
 
 @pytest.fixture

@@ -12,7 +12,6 @@ import pytest
 from corpus_structure.semantic.pdf_contracts import trusted_pdf_context
 from corpus_structure.semantic.pdf_integrated import prepare_integrated_pdf_product
 
-
 IMAGE = b64decode(
     "iVBORw0KGgoAAAANSUhEUgAAAAQAAAAGCAIAAABrW6giAAAAFElEQVR4nGP8//8/"
     "AwwwMSABcjgA5T4DCWUMPAMAAAAASUVORK5CYII="

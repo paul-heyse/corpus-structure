@@ -1,5 +1,4 @@
 """Small controlled native publications for maintained source-consumer journeys."""
-from semantic.selected_source_native_support import publish_native_record_fixture
 
 import json
 from collections.abc import Mapping
@@ -12,7 +11,6 @@ from pathlib import Path
 from types import MappingProxyType, SimpleNamespace
 from typing import Any
 
-import pyarrow as pa
 import pytest
 import yaml
 from docling_core.types.doc import DocItemLabel, DoclingDocument, GroupLabel, TableCell, TableData
@@ -25,7 +23,6 @@ from corpus_structure.core.vocab import ObservationKind, ObservationOutcome, Tas
 from corpus_structure.ingest.pdf import PdfConversion, publication_payload
 from corpus_structure.ingest.pdf_health import FormulaOutcome
 from corpus_structure.ingest.pdf_hierarchy import snapshot
-from corpus_structure.ingest.pdf_streaming import PdfStreamSpool, StreamingPdfResult
 from corpus_structure.methods.contextual_embeddings import (
     EncodedVector,
     EncoderProfile,
@@ -71,14 +68,6 @@ from corpus_structure.semantic.operations import (
 )
 from corpus_structure.semantic.original_documents import register_original_document
 from corpus_structure.semantic.pdf_contracts import prepare_pdf_product, store_pdf_original
-from corpus_structure.semantic.pdf_publication import (
-    adopt_pdf_companion_batch,
-    freeze_pdf_build,
-    prepare_pdf_build,
-    seal_pdf_build,
-    validate_pdf_build,
-)
-from corpus_structure.semantic.pdf_staging import adopt_pdf_batch, begin_pdf_build
 from corpus_structure.semantic.product_reference import ProductReference
 from corpus_structure.semantic.record_contracts import (
     anchor_identity,
@@ -91,6 +80,7 @@ from corpus_structure.semantic.releases import persist_release
 from corpus_structure.semantic.rich_knowledge_sources import rich_policy_inputs
 from corpus_structure.semantic.source_views import store_source_view
 from corpus_structure.semantic.types import PreparedRelease
+from semantic.selected_source_native_support import publish_native_record_fixture
 
 
 def qualified_view_draft(draft, release_id, *, policy=None):
@@ -113,7 +103,6 @@ def qualified_view_draft(draft, release_id, *, policy=None):
         ),
         recipe_bytes=recipe,
     )
-
 
 
 class RawReport(BaseModel):

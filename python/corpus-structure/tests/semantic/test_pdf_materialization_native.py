@@ -150,8 +150,9 @@ def test_exact_pdf_materialization_bound_admits_small_source_and_refuses_before_
             assert context["request_id"] is not None
             documents = table("kb.document")
             actual_original = connection.execute(
-                select(documents.c.project_id, documents.c.key, documents.c.content_hash)
-                .where(documents.c.id == context["document_id"])
+                select(documents.c.project_id, documents.c.key, documents.c.content_hash).where(
+                    documents.c.id == context["document_id"]
+                )
             ).one()
             assert tuple(actual_original) == (
                 selected_original.reference.project_id,
