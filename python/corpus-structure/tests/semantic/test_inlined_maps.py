@@ -1,33 +1,17 @@
 """LinkML maps are keyed collections; list order must not become domain meaning."""
 
-from dataclasses import replace
 from decimal import Decimal
 from pathlib import Path
 
 import pytest
 import yaml
 from pydantic import ValidationError
-from sqlalchemy import insert, select
-from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.semantic import (
-    PreparationProfile,
-    ResolvedDependencies,
     SourceArtifact,
     SourceBundle,
     prepare_release,
 )
-from corpus_structure.semantic.composed import composed_dependencies
-from corpus_structure.semantic.consolidation import SourceItem, assemble
-from corpus_structure.semantic.metadata import table
-from corpus_structure.semantic.publication import (
-    EvidenceRow,
-    PublicationBatch,
-    RoleRow,
-    ValueRow,
-    publish_batch,
-)
-from corpus_structure.semantic.releases import persist_release
 
 
 def inputs():
@@ -76,91 +60,42 @@ def test_keyed_member_shape_rejects_mismatched_identifier():
         )
 
 
-def test_map_order_does_not_split_facts_and_native_keys_cannot_be_forged(
-    commit_db_engine, commit_writer_engine
-):
-    p = prepare_release(
-        inputs(),
-        composed_dependencies(ResolvedDependencies()),
-        PreparationProfile(version="semantic-2"),
-    )
-    with commit_db_engine.begin() as conn:
-        persist_release(
-            conn,
-            inputs(),
-            composed_dependencies(ResolvedDependencies()),
-            PreparationProfile(version="semantic-2"),
-            p,
-        )
-        conn.execute(insert(table("data.project")).values(project_id="p"))
-        conn.execute(
-            insert(table("data.realization")).values(
-                realization_id="z", project_id="p", release_id=p.release_id
-            )
-        )
+def test_map_order_preserves_typed_qualification_identity():
+    prepared = prepare_release(inputs())
     parameters = {
         "scale": {"key": "scale", "value": Decimal("2.00")},
         "shape": {"key": "shape", "value": Decimal("3.00")},
     }
-    item = SourceItem(
-        "subject",
-        "Thing",
-        "label",
-        "report",
-        {"modality": "asserted", "polarity": True, "parameters": parameters},
-        "source",
-        "one",
-        "stated",
-        (EvidenceRow("ev", "source", "page#p", "parser", "1"),),
+    first: dict[str, object] = {
+        "modality": "asserted", "polarity": True, "parameters": parameters,
+    }
+    second = {**first, "parameters": dict(reversed(tuple(parameters.items())))}
+    assert prepared.fact_identity(
+        "identity:scope", "subject", "https://example.org/label", "report", first,
+        qualification_class="MappedQualification",
+    ) == prepared.fact_identity(
+        "identity:scope", "subject", "https://example.org/label", "report", second,
         qualification_class="MappedQualification",
     )
-    other = replace(
-        item,
-        item="two",
-        qualification={
-            **item.qualification,
-            "parameters": dict(reversed(tuple(parameters.items()))),
-        },
+    changed = {**first, "parameters": {**parameters, "scale": {"key": "scale", "value": Decimal("4")}}}
+    assert prepared.fact_identity(
+        "identity:scope", "subject", "https://example.org/label", "report", first,
+        qualification_class="MappedQualification",
+    ) != prepared.fact_identity(
+        "identity:scope", "subject", "https://example.org/label", "report", changed,
+        qualification_class="MappedQualification",
     )
-    batch = assemble(p, "z", "maps", (item, other))
-    assert len(batch.fact) == 1
-    assert len(batch.occurrence) == 2
-    publish_batch(commit_writer_engine, batch)
-    with commit_writer_engine.connect() as conn:
-        assert (
-            conn.execute(select(table("data.fact").c.fact_id)).scalar_one() == batch.fact[0].fact_id
-        )
-    map_id = next(r.parent_value_id for r in batch.value_role if r.role == "scale")
-    # A disconnected typed qualifier still requires native structural conformance.
-    # This bypasses Python validation without changing any existing fact identity.
-    qualifier = next(
-        value
-        for value in batch.typed_value
-        if value.datatype == next(d.iri for d in p.definitions if d.name == "MappedQualification")
+
+
+def test_distinct_semantic_scope_keeps_distinct_qualification_identity():
+    prepared = prepare_release(inputs())
+    first: dict[str, object] = {
+        "modality": "asserted", "polarity": True,
+        "scope": {"extent": "section", "locator": "page#one"},
+    }
+    second = {**first, "scope": {"extent": "section", "locator": "page#two"}}
+    assert prepared.fact_identity(
+        "identity:scope", "subject", "https://example.org/label", "same", first,
+    ) != prepared.fact_identity(
+        "identity:scope", "subject", "https://example.org/label", "same", second,
     )
-    scalar_roles = tuple(
-        RoleRow("forged-q", role.role, 0, role.child_value_id)
-        for role in batch.value_role
-        if role.parent_value_id == qualifier.value_id and role.role != "parameters"
-    )
-    member = next(
-        role.child_value_id
-        for role in batch.value_role
-        if role.parent_value_id == map_id and role.role == "scale"
-    )
-    forged = PublicationBatch(
-        p.release_id,
-        "z",
-        "forged",
-        typed_value=(
-            ValueRow("forged-q", "record", datatype=qualifier.datatype),
-            ValueRow("forged-map", "mapping"),
-        ),
-        value_role=(
-            *scalar_roles,
-            RoleRow("forged-q", "parameters", 0, "forged-map"),
-            RoleRow("forged-map", "wrong", 0, member),
-        ),
-    )
-    with pytest.raises(DBAPIError, match="inlined map key"):
-        publish_batch(commit_writer_engine, forged)

@@ -12,10 +12,8 @@ from pydantic import MISSING, ConfigDict, Field, ValidationError, create_model
 from corpus_structure.semantic import (
     PreparationError,
     PreparationProfile,
-    ResolvedDependencies,
     prepare_release,
 )
-from corpus_structure.semantic.composed import composed_dependencies
 from corpus_structure.semantic.conditional_rules import (
     compile_conditional_rules,
     conditional_model_namespace,
@@ -29,7 +27,6 @@ PROFILE = PreparationProfile(version="semantic-2")
 def prepare(data=None):
     return prepare_release(
         bundle(schema() if data is None else data),
-        composed_dependencies(ResolvedDependencies()),
         profile=PROFILE,
     )
 

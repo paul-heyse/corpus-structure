@@ -14,9 +14,7 @@ from corpus_structure.semantic import (
     SourceBundle,
     prepare_release,
 )
-from corpus_structure.semantic.composed import composed_dependencies
 from corpus_structure.semantic.statement_types import effective_bindings, statement_definition
-from corpus_structure.semantic.types import ResolvedDependencies
 from semantic.conditional_rules_support import bundle, schema
 
 
@@ -108,8 +106,7 @@ def test_malformed_statement_binding_refuses_during_public_preparation(defect):
 def test_accepted_conditions_do_not_reject_submission_and_missing_context_is_structural():
     prepared = prepare_release(
         bundle(schema()),
-        composed_dependencies(ResolvedDependencies()),
-        PreparationProfile(version="semantic-2", constraint_scope="accepted_value"),
+        profile=PreparationProfile(version="semantic-2", constraint_scope="accepted_value"),
     )
     raw = {"id": "thing", "status": "ready"}
     assert prepared.validate_python("Thing", raw).model_dump()["status"] == "ready"
@@ -131,8 +128,7 @@ def test_accepted_field_constraints_are_enforced_only_at_accepted_entrypoint():
     data["classes"]["Thing"]["attributes"]["amount"].update({"minimum_value": 1, "required": True})
     prepared = prepare_release(
         bundle(data),
-        composed_dependencies(ResolvedDependencies()),
-        PreparationProfile(version="semantic-2", constraint_scope="accepted_value"),
+        profile=PreparationProfile(version="semantic-2", constraint_scope="accepted_value"),
     )
     assert prepared.validate_json("Thing", '{"id":"x","amount":"0"}').model_dump()["amount"] == 0
     with pytest.raises(ValidationError, match="below minimum"):
