@@ -20,7 +20,6 @@ if TYPE_CHECKING:
     from corpus_structure.methods.math.native_topology import NativeTopology
 
 
-
 @dataclass(frozen=True)
 class PreparedSourceView:
     ref: SourceViewRef
