@@ -76,7 +76,10 @@ def test_restricted_activation_cas_and_deployment_record(
 
     captured = prepare_kernel(STORAGE)
     bundle, deps, profile, prepared = (
-        captured.bundle, captured.dependencies, captured.profile, captured.prepared
+        captured.bundle,
+        captured.dependencies,
+        captured.profile,
+        captured.prepared,
     )
     project = str(uuid4())
     with commit_db_engine.begin() as conn:
@@ -177,16 +180,30 @@ def test_bulk_exact_native_codec_vectors(commit_db_engine):
         ("float", "0x0.0000000000001p-1022", float.fromhex("0x0.0000000000001p-1022")),
     ]
     with commit_db_engine.begin() as conn:
-        actual = conn.execute(
-            text("SELECT data.ddo_normalize(value) FROM jsonb_array_elements(CAST(:values AS jsonb)) WITH ORDINALITY AS item(value,ordinal) ORDER BY ordinal"),
-            {"values": canonical_bytes([[kind, lexical] for kind, lexical, _ in samples]).decode()},
-        ).scalars().all()
+        actual = (
+            conn.execute(
+                text(
+                    "SELECT data.ddo_normalize(value) FROM jsonb_array_elements(CAST(:values AS jsonb)) WITH ORDINALITY AS item(value,ordinal) ORDER BY ordinal"
+                ),
+                {
+                    "values": canonical_bytes(
+                        [[kind, lexical] for kind, lexical, _ in samples]
+                    ).decode()
+                },
+            )
+            .scalars()
+            .all()
+        )
         assert actual == [value_meaning(value) for _, _, value in samples]
         assert actual[0] == ["decimal", "1.23"]
         assert actual[5] == ["float", "0x0.0p+0"]
         assert actual[6] == ["float", "-0x0.0p+0"]
         for lexical in (
-            "NaN", "Infinity", "0x1.0000000000000p+1024", "0x1.0p+0", "-0x0.0000000000000p-1022"
+            "NaN",
+            "Infinity",
+            "0x1.0000000000000p+1024",
+            "0x1.0p+0",
+            "-0x0.0000000000000p-1022",
         ):
             with pytest.raises(DBAPIError, match="invalid finite float"), conn.begin_nested():
                 conn.execute(
@@ -298,9 +315,9 @@ def test_current_physical_constraint_changes_admission_identity(relation_name, e
 def test_alembic_current_physical_comparison(commit_db_engine):
     from alembic import command
 
+    from corpus_structure.semantic.metadata import metadata
     from corpus_structure.semantic.migrations import alembic_config
     from corpus_structure.semantic.native_objects import NativeAuthoring
-    from corpus_structure.semantic.metadata import metadata
 
     with commit_db_engine.connect() as conn:
         config = alembic_config(conn)
@@ -313,6 +330,7 @@ def test_live_cross_purpose_privilege_drift_refuses(
     commit_db_engine, commit_reader_engine, commit_admitter_engine, commit_application_settings
 ):
     from corpus_structure.semantic.runtime import open_runtime_engine
+
     with (
         open_runtime_engine(commit_application_settings, purpose="read") as restricted,
         restricted.connect() as read,
@@ -339,16 +357,23 @@ def test_live_cross_purpose_privilege_drift_refuses(
         with commit_db_engine.begin() as admin:
             admin.execute(text("SET LOCAL ROLE corpus_sem_publisher"))
             admin.execute(
-                text("REVOKE EXECUTE ON FUNCTION ops.initialize_source_project(jsonb) FROM corpus_sem_reader")
+                text(
+                    "REVOKE EXECUTE ON FUNCTION ops.initialize_source_project(jsonb) FROM corpus_sem_reader"
+                )
             )
             admin.execute(
-                text("GRANT EXECUTE ON FUNCTION ops.read_selected_feature_fit_frame(jsonb) TO corpus_sem_admitter")
+                text(
+                    "GRANT EXECUTE ON FUNCTION ops.read_selected_feature_fit_frame(jsonb) TO corpus_sem_admitter"
+                )
             )
         with admission.begin(), pytest.raises(DBAPIError, match="purpose contract"):
             admission.execute(text("SELECT data.require_runtime_principal('admit')"))
         from corpus_structure.semantic.execution_admission import ExecutionAdmissionError
 
-        with pytest.raises(ExecutionAdmissionError, match="native deployment catalog differs"), admission.begin():
+        with (
+            pytest.raises(ExecutionAdmissionError, match="native deployment catalog differs"),
+            admission.begin(),
+        ):
             persist_release(admission, bundle, deps, profile, prepared)
 
 
@@ -374,21 +399,32 @@ def test_live_cross_purpose_privilege_drift_refuses(
 )
 def test_generated_codec_batch(commit_db_engine, values):
     """One native DB, rolled-back examples, and one typed batch per example."""
-    from corpus_structure.semantic.value_codec import value_meaning
-
     from corpus_structure.semantic.identity import canonical_bytes
+    from corpus_structure.semantic.value_codec import value_meaning
 
     tagged = []
     for value in values:
-        kind = "float" if isinstance(value, float) else "decimal" if isinstance(value, Decimal) else "string"
+        kind = (
+            "float"
+            if isinstance(value, float)
+            else "decimal"
+            if isinstance(value, Decimal)
+            else "string"
+        )
         lexical = value.hex() if isinstance(value, float) else str(value)
         tagged.append([kind, lexical])
     with commit_db_engine.connect() as conn:
         try:
-            actual = conn.execute(
-                text("SELECT data.ddo_normalize(value) FROM jsonb_array_elements(CAST(:values AS jsonb)) WITH ORDINALITY AS item(value,ordinal) ORDER BY ordinal"),
-                {"values": canonical_bytes(tagged).decode()},
-            ).scalars().all()
+            actual = (
+                conn.execute(
+                    text(
+                        "SELECT data.ddo_normalize(value) FROM jsonb_array_elements(CAST(:values AS jsonb)) WITH ORDINALITY AS item(value,ordinal) ORDER BY ordinal"
+                    ),
+                    {"values": canonical_bytes(tagged).decode()},
+                )
+                .scalars()
+                .all()
+            )
             assert actual == [value_meaning(value) for value in values]
         finally:
             conn.rollback()

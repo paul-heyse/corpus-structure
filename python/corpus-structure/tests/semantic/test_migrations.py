@@ -42,7 +42,9 @@ def test_bootstrap_downgrade_refuses_destructive_reversal(commit_db_engine: Engi
         assert "data_request" in inspect(conn).get_table_names(schema="ops")
 
 
-def test_current_semantic_values_preserve_large_exact_lexical_content(commit_db_engine: Engine) -> None:
+def test_current_semantic_values_preserve_large_exact_lexical_content(
+    commit_db_engine: Engine,
+) -> None:
     from corpus_structure.semantic.identity import canonical_bytes
 
     lexical = "9" * 10000

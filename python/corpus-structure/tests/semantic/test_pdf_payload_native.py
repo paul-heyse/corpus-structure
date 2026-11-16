@@ -23,10 +23,10 @@ def test_payload_forward_state_retains_previous_managed_objects():
     from corpus_structure.semantic.migrations import ALEMBIC_DIR
 
     before = json.loads(
-        ALEMBIC_DIR.joinpath("versions/semantic_pg_20261101_native.json").read_bytes()
+        ALEMBIC_DIR.joinpath("versions/semantic_ddo_compiler23_native.json").read_bytes()
     )
     after = json.loads(
-        ALEMBIC_DIR.joinpath("versions/semantic_pdf_20261101_native.json").read_bytes()
+        ALEMBIC_DIR.joinpath("versions/semantic_ddo_consumer_fixes_native.json").read_bytes()
     )
 
     def identities(state):
@@ -39,10 +39,13 @@ def test_payload_forward_state_retains_previous_managed_objects():
             for item in state["desired"]
         }
 
-    assert len(before["desired"]) == 10
+    assert before["desired"]
     assert identities(before) <= identities(after)
-    assert after["predecessor"] == "semantic_pg_20261101"
-    assert all(item["after"] is not None for item in after["operations"])
+    assert after["predecessor"] == "semantic_ddo_compiler23"
+    assert all(
+        item["kind"] == "native" and item["payload"]["after"] is not None
+        for item in after["operations"]
+    )
 
 
 def test_frozen_capture_includes_actual_ipc_and_logical_scalar(

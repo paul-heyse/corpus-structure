@@ -240,13 +240,26 @@ def test_component_cpu_retains_selected_source_member_and_requires_whole_primary
 
     frame, context = unadmitted_frame("12 means 12.")
     source = json.loads(frame.source_content)
-    names = ("annotations", "constructions") if variant == "named" else ("observation", "candidates")
+    names = (
+        ("annotations", "constructions") if variant == "named" else ("observation", "candidates")
+    )
     _, raw_roles, _ = selected_roles(("source", *names))
-    roles = tuple(replace(role, members=(replace(
-        role.members[0], subject=context.subject, original_source=context.original_source,
-        analyzed_scope=context.analyzed_scope, subject_definition=context.subject_definition,
-        member="unadmitted:selected-source-view" if role.role == "source" else None,
-    ),)) for role in raw_roles)
+    roles = tuple(
+        replace(
+            role,
+            members=(
+                replace(
+                    role.members[0],
+                    subject=context.subject,
+                    original_source=context.original_source,
+                    analyzed_scope=context.analyzed_scope,
+                    subject_definition=context.subject_definition,
+                    member="unadmitted:selected-source-view" if role.role == "source" else None,
+                ),
+            ),
+        )
+        for role in raw_roles
+    )
     # An explicitly empty, unadmitted primary inventory reaches the real domain
     # refusal after source custody. It cannot stand in for learned annotations.
     primary = {"source": source["source"], "selectors": source["selectors"], "blocks": []}
@@ -257,7 +270,8 @@ def test_component_cpu_retains_selected_source_member_and_requires_whole_primary
         from corpus_structure.semantic.source_products import FrozenNativeSource
 
         pin = DeclaredRecordSource.from_bound(
-            FrozenNativeSource.acquire(prepared_workflow, source), roles[0].members[0],
+            FrozenNativeSource.acquire(prepared_workflow, source),
+            roles[0].members[0],
             project=context.project_id,
         ).pin()
         arguments = dict(
@@ -274,29 +288,45 @@ def test_component_cpu_retains_selected_source_member_and_requires_whole_primary
         return result
 
     monkeypatch.setattr(DeclaredNativeFrameSource, "acquire", observe_source)
-    kernel = (components.named_definition_components_kernel if variant == "named"
-              else components.definition_components_kernel)
-    sources = components.definition_component_operation_sources(include_learned=variant == "learned")
+    kernel = (
+        components.named_definition_components_kernel
+        if variant == "named"
+        else components.definition_components_kernel
+    )
+    sources = components.definition_component_operation_sources(
+        include_learned=variant == "learned"
+    )
     descriptor = PythonCPUDescriptor(
         tuple((item.module, item.filename, item.content) for item in sources.sources),
-        kernel.__module__ + "." + kernel.__qualname__, (),
-        verification="prepared-kernel", control_parameter="check_active",
-        prepared_parameter="prepared", prepared_release_id=prepared_workflow.release_id,
+        kernel.__module__ + "." + kernel.__qualname__,
+        (),
+        verification="prepared-kernel",
+        control_parameter="check_active",
+        prepared_parameter="prepared",
+        prepared_release_id=prepared_workflow.release_id,
     )
     signature = inspect.signature(kernel, eval_str=True)
 
     def invoke(selected_roles):
         basis = cpu_input_basis_from_roles(
-            "unadmitted:named-source-boundary", context, selected_roles,
+            "unadmitted:named-source-boundary",
+            context,
+            selected_roles,
             {name: (body,) for name, body in arguments.items()},
-            parameters=canonical_bytes(semantic_value({})), replicate=None,
+            parameters=canonical_bytes(semantic_value({})),
+            replicate=None,
         )
         bound = signature.bind(
-            arguments=arguments, roles=selected_roles, context=context, input_basis=basis,
-            prepared=prepared_workflow, check_active=lambda: None,
+            arguments=arguments,
+            roles=selected_roles,
+            context=context,
+            input_basis=basis,
+            prepared=prepared_workflow,
+            check_active=lambda: None,
         )
         raw = execute_python_call(
-            descriptor.packet(bound.arguments, signature), lambda: None,
+            descriptor.packet(bound.arguments, signature),
+            lambda: None,
             prepared_releases={prepared_workflow.release_id: prepared_workflow},
         )
         return cpu_authority_value(raw, expected_basis=basis)
@@ -307,26 +337,41 @@ def test_component_cpu_retains_selected_source_member_and_requires_whole_primary
     else:
         result = invoke(roles)
         assert result["definition_components"]["components"] == []
-        assert {stage["outcome"] for stage in result["definition_components"]["stages"]} == {"unavailable"}
+        assert {stage["outcome"] for stage in result["definition_components"]["stages"]} == {
+            "unavailable"
+        }
         assert result["inputs"]["coverage_limits"]
         assert result["inputs"]["sources"][0]["source_member"] == "unadmitted:selected-source-view"
     assert acquired[0]["source_product"] == roles[0].members[0].product
     assert acquired[0]["source_member"] == "unadmitted:selected-source-view"
     assert acquired[0]["original_source"] == context.original_source
-    assert acquired[0]["source"] == canonical_bytes([
-        roles[0].members[0].product, "unadmitted:selected-source-view"
-    ]).decode()
+    assert (
+        acquired[0]["source"]
+        == canonical_bytes(
+            [roles[0].members[0].product, "unadmitted:selected-source-view"]
+        ).decode()
+    )
     for name in names:
-        changed = tuple(replace(role, members=(replace(
-            role.members[0], member="unadmitted:primary-fragment"
-        ),)) if role.role == name else role for role in roles)
+        changed = tuple(
+            replace(role, members=(replace(role.members[0], member="unadmitted:primary-fragment"),))
+            if role.role == name
+            else role
+            for role in roles
+        )
         with pytest.raises(ValueError, match=r"exact whole (primary|retained) products"):
             invoke(changed)
-    duplicated = (replace(roles[0], members=(replace(roles[0].members[0], multiplicity=2),)), *roles[1:])
+    duplicated = (
+        replace(roles[0], members=(replace(roles[0].members[0], multiplicity=2),)),
+        *roles[1:],
+    )
     with pytest.raises(ValueError, match=r"exact whole (primary|retained) products"):
         invoke(duplicated)
-    foreign = (replace(roles[0], members=(replace(
-        roles[0].members[0], original_source="unadmitted:foreign-original"
-    ),)), *roles[1:])
+    foreign = (
+        replace(
+            roles[0],
+            members=(replace(roles[0].members[0], original_source="unadmitted:foreign-original"),),
+        ),
+        *roles[1:],
+    )
     with pytest.raises(ValueError, match="bound original document"):
         invoke(foreign)

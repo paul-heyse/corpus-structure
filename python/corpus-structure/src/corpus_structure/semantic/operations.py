@@ -1880,7 +1880,6 @@ class BoundReader:
 
     def capture_pdf_candidates(self, reference, directory):
         """Detach selected-product IPC custody before releasing the database borrower."""
-        from dataclasses import replace
         from pathlib import Path
 
         from corpus_structure.ingest.pdf_candidate_source import ReplayCandidatePageSource
@@ -2144,6 +2143,7 @@ class BoundReader:
             .order_by(documents.c.key)
         ).all()
         return tuple(UnitRef(TaskUnitType.DOCUMENT, row.id, row.key) for row in rows)
+
 
 def renew_claim(conn: Connection, *, task_id: int, attempt: int, holder: str) -> None:
     """Renew only the current attempt through the protected native ownership guard."""

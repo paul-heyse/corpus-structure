@@ -79,8 +79,9 @@ def extract(op):
 
 
 def test_current_source_pins_keep_table_scopes_distinct_and_refuse_foreign_endpoints():
-    from corpus_structure.semantic.identity import canonical_bytes
     from semantic.record_contracts_support import PIN
+
+    from corpus_structure.semantic.identity import canonical_bytes
 
     selected = rows()
     for row in selected:

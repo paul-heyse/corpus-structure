@@ -326,10 +326,7 @@ def test_actual_current_event_fitter_issuer_and_shared_scorer_keep_exact_private
         public_bytes = canonical_bytes(list(public_products))
         assert b"controlled-output-first-C" not in public_bytes
         assert b"independent numerical-control author" not in public_bytes
-        assert all(
-            row["id"] != case["frame_product"].row["product_id"]
-            for row in public_products
-        )
+        assert all(row["id"] != case["frame_product"].row["product_id"] for row in public_products)
 
 
 def test_actual_restricted_event_frame_read_refuses_ordinary_purpose_and_substituted_use(

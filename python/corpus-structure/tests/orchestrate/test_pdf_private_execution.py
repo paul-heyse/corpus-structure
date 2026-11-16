@@ -90,7 +90,7 @@ def test_native_parent_settles_borrowers_before_claim_maintenance_ends(
     monkeypatch, tmp_path, device, ocr_device, required, failure
 ):
     from corpus_structure.ingest import pdf_capacity, pdf_stream_types, pdf_worker
-    from corpus_structure.semantic import pdf_domain, pdf_contracts
+    from corpus_structure.semantic import pdf_contracts, pdf_domain
     from corpus_structure.semantic.pdf_payloads import prepare_payload_family, schema_load
 
     engine = Transactions()

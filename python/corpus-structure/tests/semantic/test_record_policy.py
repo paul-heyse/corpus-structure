@@ -384,7 +384,14 @@ def test_nonpresent_literal_inspection_scope_supports_complete_candidate_lowerin
     lowered = rich_reading_value(prepared, model, row, coordinate_texts=coordinates)
     assert lowered.class_name == "TableAssertionReading"
     assert set(lowered.fields) == {
-        "table", "cell", "row_label", "header_path", "cell_value", "note", "unit", "caption"
+        "table",
+        "cell",
+        "row_label",
+        "header_path",
+        "cell_value",
+        "note",
+        "unit",
+        "caption",
     }
     assert lowered.fields["caption"]["state"] == state
     assert row["standing"] == "candidate"

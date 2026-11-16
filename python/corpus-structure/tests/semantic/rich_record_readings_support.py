@@ -68,5 +68,3 @@ def inspected_reading(family):
     row["anchors"], row["evidence_sets"] = tuple(anchors), tuple(sets)
     row["interpretation_id"] = interpretation_identity(row)
     return row, coordinates
-
-

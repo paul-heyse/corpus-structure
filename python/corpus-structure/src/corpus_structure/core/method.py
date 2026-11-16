@@ -416,6 +416,7 @@ class Reader(Protocol):
         """Owned document references under the frozen corpus and original-source selection."""
         ...
 
+
 class SourcePreparationReader(Protocol):
     """Additional owned reads for consumers of reusable source preparation.
 

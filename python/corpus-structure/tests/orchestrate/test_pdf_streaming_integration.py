@@ -8,6 +8,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+from semantic.current_pdf_source_support import _current_pdf_source
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
@@ -15,7 +16,6 @@ from corpus_structure.ingest.pdf_stream_types import PdfStreamReply
 from corpus_structure.ingest.pdf_worker import PdfWorker
 from corpus_structure.orchestrate import pdf_streaming
 from corpus_structure.semantic.pdf_staging import inspect_pdf_progress
-from semantic.current_pdf_source_support import _current_pdf_source
 
 
 class _ScriptedDocumentConverter:
@@ -126,9 +126,7 @@ def test_real_private_native_pipeline_adopts_pages_records_and_companions(
         return build
 
     monkeypatch.setattr(pdf_streaming, "run_private_native_pdf_build", inspect_private)
-    with _current_pdf_source(
-        scenario_seeds, tmp_path, monkeypatch, stream=inspect_reply
-    ) as source:
+    with _current_pdf_source(scenario_seeds, tmp_path, monkeypatch, stream=inspect_reply) as source:
         assert len(replies) == len(private) == 1
         assert adopted
         build, receipts, directory = private[0]

@@ -167,7 +167,9 @@ Focused actual evaluator/PDF/record and artifact retries are pending. Developmen
 
 ## Original-source adoption inventory · 2026-11-16
 
-**Verified read-only observation.** [The bounded inventory](original-source-inventory.json)
+**Verified read-only observation.** Finalized record
+`ddo.current-original-regeneration-basis` binds [the bounded inventory](original-source-inventory.json)
+and its [read-only census source](original_source_inventory.py). The census
 reacquired unchanged development OID25921445/system7701811359771751232 and read only original
 document metadata plus filesystem SHA256. All29 registered documents resolve to28 existing local
 paths, and every file matches its recorded content hash. No generated interpretation or protected

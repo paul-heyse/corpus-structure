@@ -1,0 +1,64 @@
+{
+  "schema_version": 1,
+  "id": "ddo.current-original-regeneration-basis",
+  "title": "Current original bytes available for target-native regeneration",
+  "group": "declared-data-operations",
+  "package": "DDO-11",
+  "finalized": "2026-11-16",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Do actual historical original registrations still resolve to exact local source bytes without retaining historical application readers?",
+  "answers": [
+    "DDO-11",
+    "DDO-12"
+  ],
+  "method": "Acquire exact historical database OID/system through a repeatable-read read-only transaction over original document metadata; hash existing local files with SHA256 and compare against recorded content hashes. No generated or protected answer bodies are read and no database mutation is performed.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-16_ddo-current-native/original_source_inventory.py"
+  ],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "original_source_inventory.py",
+      "role": "Bounded read-only census source with exact acquired target refusal",
+      "sha256": "808d55550ddde5bbdb8fb6962c2929d8dda7080682eae1379f56f9266dcf7261"
+    },
+    {
+      "path": "original-source-inventory.json",
+      "role": "Original registration metadata, file SHA256 and selected regeneration disposition",
+      "sha256": "013d916c13e61ebe8e0c848b5c9f3cfb8c3181111ca28ada98a20b87c0cbfa5e"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "registered_originals",
+      "value": 29,
+      "of": null,
+      "unit": "documents",
+      "note": null
+    },
+    {
+      "name": "distinct_existing_paths",
+      "value": 28,
+      "of": null,
+      "unit": "paths",
+      "note": null
+    },
+    {
+      "name": "exact_file_hash_matches",
+      "value": 29,
+      "of": 29,
+      "unit": "documents",
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Every acquired original registration resolves to an existing file with the exact recorded SHA256. The normal current original-registration and regeneration route has concrete source inputs; it has not yet been executed for these originals. Historical generated products and judgments have no established target-native correspondence. Database backup/restore, writer fencing, current application activation, regenerated results and development cutover are not established.",
+  "consumed_by": [
+    "DDO-11",
+    "DDO-12"
+  ]
+}
