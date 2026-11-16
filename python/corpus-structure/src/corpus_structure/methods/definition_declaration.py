@@ -1,109 +1,20 @@
-"""Read an explicit local declaration chain from retained HanLP roles."""
+"""Select a local declaration chain from current positioned native syntax products."""
 
 from __future__ import annotations
 
 import re
 from dataclasses import dataclass
 from hashlib import sha256
-from typing import Self
-
-from pydantic import Field, model_validator
 
 from corpus_structure.semantic.constructions.retained_declarations import DeclarationNotQualified
 from corpus_structure.semantic.identity import canonical_bytes
-from corpus_structure.semantic.source_contexts import record_source_pin
 from corpus_structure.semantic.structural_products import (
     DeclarationChainBinding,
-    DeclarationChainWitness,
-    DefinitionComponentsProduct,
-    DefinitionStage,
     LocatedDefinitionSpan,
-    StructuralInput,
-    StructuralProductReport,
-    StructuralValue,
-    definition_component,
 )
 
 CHAIN_VERSION = "definition-declaration-chain-2"
-CHAIN_METHOD = "structure.definition_declaration_components"
 _LABEL_NUMBER = re.compile(r"[0-9]+(?:\.[0-9]+)*")
-
-
-class DeclarationChainSelection(StructuralValue):
-    passage_id: str = Field(min_length=1)
-
-
-class DeclarationComponentsConfig(StructuralValue):
-    inputs: StructuralInput | None = None
-    structural_input_digest: str | None = None
-    selections: tuple[DeclarationChainSelection, ...] = Field(default=(), max_length=64)
-    characterization_layers: tuple[dict, ...] = ()
-
-    @model_validator(mode="after")
-    def selected_input(self) -> Self:
-        if self.inputs is None:
-            if self.selections or self.structural_input_digest is not None:
-                raise ValueError("absent declaration extraction cannot carry partial inputs")
-            return self
-        selected = {item.passage_id for item in self.selections}
-        if (
-            self.structural_input_digest != self.inputs.identity
-            or not self.characterization_layers
-            or not selected
-            or len(selected) != len(self.selections)
-            or not selected <= {passage.passage_id for passage in self.inputs.passages}
-        ):
-            raise ValueError("declaration extraction requires exact frozen primary layer inputs")
-        return self
-
-
-def project_retained_declarations(reader, cfg, *, check_active=lambda: None):
-    """Project genuinely retained inputs under the sealed producer ABI; no execution."""
-    from .model_observation import private_declaration_enabled
-
-    if cfg.inputs is None:
-        raise ValueError("declaration extraction requires exact selected inputs")
-    if not private_declaration_enabled(reader.prepared.manifest):
-        raise ValueError("declaration chain requires the matching released definition policy")
-    reader.validate_structural_inputs(cfg.inputs)
-    passages = {passage.passage_id: passage for passage in cfg.inputs.passages}
-    refs = {source.identity: source for source in cfg.inputs.sources}
-    from corpus_structure.semantic.product_reference import ProductReference
-
-    # Resolve this task's frozen products once. Source-local selection keeps
-    # unrelated documents and incomplete sentence populations independent.
-    frozen = reader.characterization_layers(
-        tuple(ProductReference(**pin) for pin in cfg.characterization_layers)
-    )
-    by_source = {}
-    for pin, report in frozen.items():
-        for identity in report.payload["source_scope"]["source_view_ids"]:
-            by_source.setdefault(identity, {})[pin] = report
-    found = []
-    for item in cfg.selections:
-        check_active()
-        passage = passages[item.passage_id]
-        source_ref = refs[passage.source_ref]
-        view = reader.source_view(source_ref.source_view_id)
-        layers = by_source.get(source_ref.source_view_id, {})
-        found.append(primary_declaration_component(layers, view, passage))
-    report = StructuralProductReport(
-        kind="definition_components",
-        inputs=cfg.inputs,
-        definition_components=DefinitionComponentsProduct(
-            components=tuple(found),
-            stages=tuple(
-                DefinitionStage(
-                    passage_id=item.passage_id,
-                    operation="attachment",
-                    outcome="succeeded",
-                    reason=("Released declaration chain replayed from exact native parser roles."),
-                )
-                for item in cfg.selections
-            ),
-        ),
-    )
-    return report, {"version": CHAIN_VERSION}
 
 
 def _require(value):
@@ -198,53 +109,6 @@ def _declaration_chain_from_sentences(candidates, passage):
         construction_subject_token=construct["subject"],
         naming_frame=naming.reference.identity,
         naming_antecedent_token=named["antecedent"],
-    )
-
-
-def primary_declaration_component(layers, view, passage):
-    """Apply domain chain selection to exact retained primary sentence facts."""
-    from corpus_structure.semantic.constructions.retained_declarations import declaration_sentences
-    from corpus_structure.semantic.proposals import native_source_frame
-
-    source = native_source_frame(view, ())
-    if (
-        not 0 <= passage.start < passage.end <= len(view.text)
-        or view.text[passage.start : passage.end] != passage.text
-    ):
-        raise DeclarationNotQualified("declaration passage differs from exact source")
-    sentences, evidence = declaration_sentences(layers, view, passage)
-    chain = _declaration_chain_from_sentences(tuple(sentences), passage)
-    return definition_component(
-        term=chain.term,
-        content=chain.content,
-        interpretation="definition",
-        basis="declaration_chain",
-        declaration_chain=DeclarationChainWitness(
-            version=CHAIN_VERSION,
-            primary_evidence=tuple(dict.fromkeys(evidence)),
-            scope_digest=sha256(
-                canonical_bytes(
-                    dict(
-                        source=record_source_pin(source),
-                        passage=[passage.start, passage.end],
-                        policy="primary-declaration-roles-1",
-                    )
-                )
-            ).hexdigest(),
-            label=chain.label,
-            bindings=chain.bindings,
-            construction_frame=chain.construction_frame,
-            construction_subject_token=chain.construction_subject_token,
-            naming_frame=chain.naming_frame,
-            naming_antecedent_token=chain.naming_antecedent_token,
-        ),
-        scope=passage.scope,
-        effective_version=passage.effective_version,
-        evidence=(passage.passage_id,),
-        reason=(
-            "Exact retained native declaration roles and primary voice interpretations "
-            "support this local definition chain; domain admission remains separate."
-        ),
     )
 
 

@@ -49,7 +49,7 @@ def inputs():
 
 def test_explicit_subtype_boundary_and_identity_policy():
     release = prepare_release(inputs())
-    observed = dict(
+    observed: dict[str, object] = dict(
         modality="asserted", polarity=True, reporter="Alice", channel="Straße", hedge="measured"
     )
     assert (

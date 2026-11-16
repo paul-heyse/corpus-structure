@@ -1,11 +1,10 @@
-"""Independent native UD/SRL fixture on semantic source/product references."""
+"""Controlled literal UD/SRL facts on current source and semantic member references."""
 
 import json
 from hashlib import sha256
 from types import SimpleNamespace
 
 import pytest
-from methods.test_definition_declaration_primary import _ROWS
 
 from corpus_structure.methods.definition_declaration import (
     _declaration_chain_from_sentences,
@@ -27,6 +26,101 @@ from corpus_structure.semantic.declared_record_sources import (
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.source_products import native_projection_identity, source_subject
 from corpus_structure.semantic.structural_products import StructuralPassage
+
+
+# Each native UD/SRL fact is authored independently of the consumer's checks.
+_ROWS = (
+    (
+        "Definition 1 Let X be a set.",
+        ("Definition", "1", "Let", "X", "be", "a", "set", "."),
+        ("definition", "1", "let", "X", "be", "a", "set", "."),
+        (
+            (0, "root"),
+            (1, "nummod"),
+            (1, "dep"),
+            (7, "nsubj"),
+            (7, "cop"),
+            (7, "det"),
+            (3, "ccomp"),
+            (1, "punct"),
+        ),
+        ((("PRED", 4, 5), ("ARG1", 3, 4), ("ARG2", 5, 7)),),
+        {4: "copular"},
+    ),
+    (
+        "Let Y be a set that contains elements from the set of X.",
+        (
+            "Let",
+            "Y",
+            "be",
+            "a",
+            "set",
+            "that",
+            "contains",
+            "elements",
+            "from",
+            "the",
+            "set",
+            "of",
+            "X",
+            ".",
+        ),
+        (
+            "let",
+            "Y",
+            "be",
+            "a",
+            "set",
+            "that",
+            "contain",
+            "element",
+            "from",
+            "the",
+            "set",
+            "of",
+            "X",
+            ".",
+        ),
+        (
+            (0, "root"),
+            (5, "nsubj"),
+            (5, "cop"),
+            (5, "det"),
+            (1, "ccomp"),
+            (7, "nsubj"),
+            (5, "acl:relcl"),
+            (7, "obj"),
+            (11, "case"),
+            (11, "det"),
+            (7, "obl"),
+            (13, "case"),
+            (11, "nmod"),
+            (1, "punct"),
+        ),
+        (
+            (("PRED", 2, 3), ("ARG1", 1, 2), ("ARG2", 3, 13)),
+            (("PRED", 6, 7), ("ARG0", 5, 6), ("ARG1", 7, 8)),
+        ),
+        {2: "copular", 6: "active"},
+    ),
+    (
+        "The elements of Y are called samples.",
+        ("The", "elements", "of", "Y", "are", "called", "samples", "."),
+        ("the", "element", "of", "Y", "be", "call", "sample", "."),
+        (
+            (2, "det"),
+            (6, "nsubj:pass"),
+            (4, "case"),
+            (2, "nmod"),
+            (6, "aux:pass"),
+            (0, "root"),
+            (6, "xcomp"),
+            (6, "punct"),
+        ),
+        ((("PRED", 5, 6), ("ARG1", 0, 4), ("ARG2", 6, 7)),),
+        {5: "passive"},
+    ),
+)
 
 
 def case():
@@ -273,9 +367,12 @@ def test_missing_native_premise_or_changed_canonical_association_cannot_become_e
         declaration_sentences_products((failed,), source, passage(source), supporting=(hanlp,))
 
 
-def test_target_definition_component_retains_semantic_witness_and_independent_domain_result():
+def test_target_definition_component_retains_semantic_witness_and_independent_domain_result(monkeypatch):
     source, native, canonical, hanlp = case()
     product = produce(source, native, canonical, hanlp)
+    import corpus_structure.semantic.constructions.retained_declarations as declaration_owner
+    monkeypatch.setattr(declaration_owner, "_declared_sentences", lambda *_a, **_k: pytest.fail("consumer reran native syntax projection"))
+    monkeypatch.setattr(declaration_owner, "_facts", lambda *_a, **_k: pytest.fail("consumer recognized declaration syntax"))
     component = primary_declaration_component_products(
         (product,),
         source,
@@ -291,15 +388,24 @@ def test_target_definition_component_retains_semantic_witness_and_independent_do
         for reference in witness["primary_evidence"]
     )
     assert "parser" not in witness and "task_id" not in canonical_bytes(witness).decode()
+    assert component.content.text == (
+        "Let X be a set. Let Y be a set that contains elements from the set of X. The elements of Y"
+    )
+    assert witness["version"] == "definition-declaration-chain-2"
+    assert witness["naming_frame"] in {reference.identity for reference in component.declaration_chain.primary_evidence}
+    assert len(witness["bindings"]) == 1
+    assert witness["bindings"][0]["subject_token"] == 3
+    assert witness["bindings"][0]["use_token"] == 12
+
 
 
 def applicability_case():
     from corpus_structure.semantic.contextual_links import RelationshipDecision, RelationshipEdge
     from corpus_structure.semantic.contextual_operations import ContextualRelationshipBinding
     from corpus_structure.semantic.contextual_retrieval import (
-        SemanticTargetGroup,
-        target_representation,
+        semantic_target_groups,
     )
+    from corpus_structure.semantic.contextual_target_products import component_target_values
     from corpus_structure.semantic.declared_record_sources import DeclaredNativeFrameSource
     from corpus_structure.semantic.declared_structural_references import (
         DeclaredComponentRef,
@@ -312,7 +418,6 @@ def applicability_case():
         evidence_anchor,
         source_slice,
     )
-    from corpus_structure.semantic.structural_admission import structural_statement
     from corpus_structure.semantic.structural_products import (
         DeclaredDefinitionComponentsProduct,
         DeclaredDefinitionComponentsReport,
@@ -405,16 +510,10 @@ def applicability_case():
             0, len(usage.text), literal=usage.text, allow_multiple=True
         )
     )
-    target = target_representation(
-        component.component_id,
-        canonical_bytes(component_ref.model_dump(mode="json", exclude_none=True)).decode(),
-        component.term.text,
-        component.content.text,
-        type_name="definition",
-        scope=component.scope,
+    target, meaning = component_target_values(
+        report, component, original_source=component_ref.original_source
     )
-    meaning = structural_statement(report, component.component_id)["definition_component"]
-    group = SemanticTargetGroup("semantic-target:selected", (component.component_id,), meaning)
+    (group,) = semantic_target_groups((target,), {component.component_id: meaning})
     edge = RelationshipEdge(
         "edge:selected",
         "definition",
@@ -519,3 +618,62 @@ def test_declared_applicability_refuses_carrier_meaning_usage_or_edge_substituti
         selected_definition_applicability(
             inputs, "usage", report, component, relationship, binding, usage_frame=frame
         )
+
+
+@pytest.mark.parametrize("failure", ["missing_declaration", "clipped_sentence", "changed_source", "unexamined"])
+def test_current_declaration_reader_refuses_missing_or_substituted_semantic_scope(failure):
+    source, native, canonical, hanlp = case()
+    product = produce(source, native, canonical, hanlp)
+    products, selected = (product,), passage(source)
+    if failure == "missing_declaration":
+        products = ()
+    elif failure == "clipped_sentence":
+        selected = selected.model_copy(update=dict(start=1, text=selected.text[1:]))
+    else:
+        body = json.loads(product.content)
+        if failure == "changed_source":
+            body["source"]["document"] = "another-book"
+        else:
+            body["coverage"][0]["unexamined"] = [dict(projection=source.value["source"]["projection"], start=0, end=1)]
+        products = (CharacterizationSnapshot(product.product_id, canonical_bytes(body)),)
+    with pytest.raises(DeclarationNotQualified):
+        declaration_sentences_products(products, source, selected, supporting=(hanlp,))
+
+
+@pytest.mark.parametrize("corruption", ["missing_column", "srl_support"])
+def test_current_declaration_syntax_failure_preserves_healthy_siblings(corruption):
+    source, native, canonical, hanlp = case()
+    body = json.loads(hanlp.content)
+    if corruption == "missing_column":
+        token = next(row["body"] for row in body["members"] if row["body"]["record_type"] == "token")
+        del token["lemma"]
+    else:
+        group = next(row["body"] for row in body["members"] if row["body"]["record_type"] == "srl_group")
+        group["roles"][0]["tokens"] = []
+    changed = CharacterizationSnapshot(hanlp.product_id, canonical_bytes(body))
+    product = produce(source, native, canonical, changed)
+    facts = product.inventory()
+    roots = [term for term in facts["terms"] if term["value"] == "declaration_sentence"]
+    assert len(roots) == 2
+    (coverage,) = [row for row in json.loads(product.content)["coverage"] if row["family"] == DECLARATION_FAMILY]
+    assert coverage["outcome"] == "partial"
+    assert len(coverage["examined"]) == 2 and len(coverage["unexamined"]) == 1
+    with pytest.raises(DeclarationNotQualified):
+        declaration_sentences_products((product,), source, passage(source), supporting=(changed,))
+
+
+def test_current_healthy_chain_survives_unselected_malformed_sentence(monkeypatch):
+    import sys
+
+    selected_text = " ".join(row[0] for row in _ROWS)
+    monkeypatch.setattr(sys.modules[__name__], "_ROWS", (*_ROWS, _ROWS[0]))
+    source, native, canonical, hanlp = case()
+    body = json.loads(hanlp.content)
+    token = next(row["body"] for row in body["members"] if row["body"]["record_type"] == "token" and row["body"]["sentence"]["member_id"] == "sentence:3")
+    del token["lemma"]
+    changed = CharacterizationSnapshot(hanlp.product_id, canonical_bytes(body))
+    product = produce(source, native, canonical, changed)
+    selected = passage(source).model_copy(update=dict(text=selected_text, end=len(selected_text)))
+    component = primary_declaration_component_products((product,), source, selected, supporting=(changed,), source_pin=native[0].source.values())
+    assert component.term.text == "samples"
+    assert component.declaration_chain is not None
