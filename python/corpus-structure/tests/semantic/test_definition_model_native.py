@@ -30,6 +30,7 @@ def _literal_hash(value):
         json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()
     ).hexdigest()
 
+
 def _literal_current_observation():
     profile = {
         "snapshot": "/acquired",
@@ -100,7 +101,9 @@ def test_current_definition_request_binds_independent_header_member_and_ordered_
     pack = SimpleNamespace(
         release="r", version="native-local-v1", declaration_json=expected["header"]["declaration"]
     )
-    member = GlinerInput("context", "b" * 64, " \u03b1\t\u03b2", "text.gliner_definitions/source-native")
+    member = GlinerInput(
+        "context", "b" * 64, " \u03b1\t\u03b2", "text.gliner_definitions/source-native"
+    )
     arguments = (pack, config["profile"], (member,), 0.5, "flat", False, policy["inference"])
     assert batch_receipt(*arguments) == expected
     assert report_observation_digest(report) == report["observation_digest"]
@@ -118,10 +121,18 @@ def test_current_definition_request_binds_independent_header_member_and_ordered_
     assert expected["digest"] not in schema_digests
     changed_profile = {**config["profile"], "execution_profile": "other-numerical-policy"}
     assert batch_receipt(pack, changed_profile, *arguments[2:])["digest"] != expected["digest"]
-    assert batch_receipt(*arguments[:-1], {"operation": "batch_extract", "include_spans": False})["digest"] != expected["digest"]
+    assert (
+        batch_receipt(*arguments[:-1], {"operation": "batch_extract", "include_spans": False})[
+            "digest"
+        ]
+        != expected["digest"]
+    )
 
 
-@pytest.mark.parametrize("change", ["missing-receipt", "ordinal", "member", "duplicate", "receipt-shape", "raw", "profile"])
+@pytest.mark.parametrize(
+    "change",
+    ["missing-receipt", "ordinal", "member", "duplicate", "receipt-shape", "raw", "profile"],
+)
 def test_current_definition_observation_keeps_exact_original_batch_commitment(change):
     _, _, receipt, report = _literal_current_observation()
     changed = deepcopy(report)
@@ -175,20 +186,31 @@ def test_current_named_definition_preserves_source_cue_and_refuses_changed_cpu_b
         kernel = admit_current_target(source, recipe(tmp_path / "recipe"), tmp_path / "consumer")
         retain = DataOperationStorage.retain_data_completion_intent
         attempted = []
-        counts = text("SELECT (SELECT count(*) FROM ops.data_completion_intent),(SELECT count(*) FROM kb.data_product),(SELECT count(*) FROM ops.data_derivation),(SELECT count(*) FROM ops.data_publication_receipt)")
+        counts = text(
+            "SELECT (SELECT count(*) FROM ops.data_completion_intent),(SELECT count(*) FROM kb.data_product),(SELECT count(*) FROM ops.data_derivation),(SELECT count(*) FROM ops.data_publication_receipt)"
+        )
 
         def intercept(storage, payload):
-            operation = storage.connection.scalar(text("SELECT operation_id FROM ops.data_request WHERE id=:id"), {"id": payload["request_id"]})
+            operation = storage.connection.scalar(
+                text("SELECT operation_id FROM ops.data_request WHERE id=:id"),
+                {"id": payload["request_id"]},
+            )
             if operation == NAMED and not attempted:
                 changed = deepcopy(payload)
                 body = decode_semantic_value(changed["completion"]["outputs"][0]["product"]["body"])
                 body["inputs"]["question"] += " altered after the original CPU reply"
                 DeclaredDefinitionComponentsReport.model_validate(body)
                 changed["completion"]["outputs"][0]["product"]["body"] = semantic_value(body)
-                assert changed["completion"]["execution_evidence"] == payload["completion"]["execution_evidence"]
+                assert (
+                    changed["completion"]["execution_evidence"]
+                    == payload["completion"]["execution_evidence"]
+                )
                 with kernel.engine.connect() as connection:
                     before = connection.execute(counts).one()
-                with pytest.raises(DBAPIError, match="definition publication differs"), storage.connection.begin_nested():
+                with (
+                    pytest.raises(DBAPIError, match="definition publication differs"),
+                    storage.connection.begin_nested(),
+                ):
                     retain(storage, changed)
                 with kernel.engine.connect() as connection:
                     assert connection.execute(counts).one() == before
@@ -198,15 +220,35 @@ def test_current_named_definition_preserves_source_cue_and_refuses_changed_cpu_b
         monkeypatch.setattr(DataOperationStorage, "retain_data_completion_intent", intercept)
         _, original, products, _ = produce_source_reports(source, kernel, NAMED, text=literal)
         assert attempted
-        (report,) = selected_for_source(kernel, products, "urn:corpus:structural:DeclaredDefinitionComponentsReport", original)
+        (report,) = selected_for_source(
+            kernel, products, "urn:corpus:structural:DeclaredDefinitionComponentsReport", original
+        )
         assert report.body["sources_input"][0]["member_id"] == original.row["member_id"]
         components = report.body["definition_components"]["components"]
-        (matched,) = [component for component in components if component["term"]["text"] == "variance" and component["content"]["text"].startswith("spread")]
+        (matched,) = [
+            component
+            for component in components
+            if component["term"]["text"] == "variance"
+            and component["content"]["text"].startswith("spread")
+        ]
         assert matched["basis"] == "matched_cue"
-        (annotations,) = selected_for_source(kernel, products, "https://corpus-structure.dev/semantic/data-operation-sentences/DdoSourceAnnotations", original)
-        (constructions,) = selected_for_source(kernel, products, "https://corpus-structure.dev/semantic/data-operation-constructions/DdoPrimaryConstructionProduct", original)
-        assert matched["witness"]["annotation_product"]["product_id"] == annotations.row["product_id"]
+        (annotations,) = selected_for_source(
+            kernel,
+            products,
+            "https://corpus-structure.dev/semantic/data-operation-sentences/DdoSourceAnnotations",
+            original,
+        )
+        (constructions,) = selected_for_source(
+            kernel,
+            products,
+            "https://corpus-structure.dev/semantic/data-operation-constructions/DdoPrimaryConstructionProduct",
+            original,
+        )
+        assert (
+            matched["witness"]["annotation_product"]["product_id"] == annotations.row["product_id"]
+        )
         assert matched["witness"]["primary_match"]["product_id"] == constructions.row["product_id"]
+
 
 def test_native_model_report_preserves_exact_binary_profile_and_scores(commit_db_engine):
     values = (

@@ -46,9 +46,7 @@ def test_transient_native_channels_keep_exact_vectors_empty_hits_and_identity_ti
         return {channel.channel: channel.hits for channel in result.channel_results}
 
     actual = channels(values)
-    assert [(hit.target_id, hit.score) for hit in actual["dense"]] == [
-        ("one", 1.0), ("two", 0.0)
-    ]
+    assert [(hit.target_id, hit.score) for hit in actual["dense"]] == [("one", 1.0), ("two", 0.0)]
     assert [hit.target_id for hit in actual["alias"]] == ["one", "two"]
     assert [hit.target_id for hit in actual["lexical"]] == ["one", "two"]
     quiet = deepcopy(values)
@@ -61,7 +59,8 @@ def test_transient_native_channels_keep_exact_vectors_empty_hits_and_identity_ti
     vectors[2]["values"] = [1.0, 0.0]
     tied["vectors"]["vectors"] = source_value(vectors)
     assert [(hit.target_id, hit.score) for hit in channels(tied)["dense"]] == [
-        ("one", 1.0), ("two", 1.0)
+        ("one", 1.0),
+        ("two", 1.0),
     ]
 
 

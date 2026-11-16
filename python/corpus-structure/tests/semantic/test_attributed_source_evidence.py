@@ -6,12 +6,12 @@ from dataclasses import replace
 
 import pytest
 
+from corpus_structure.semantic.data_operation_model import SubjectContext
+from corpus_structure.semantic.declared_record_sources import DeclaredRecordSource
 from corpus_structure.semantic.record_contracts import (
     bind_record_candidates,
     interpretation_identity,
 )
-from corpus_structure.semantic.data_operation_model import SubjectContext
-from corpus_structure.semantic.declared_record_sources import DeclaredRecordSource
 from corpus_structure.semantic.source_contexts import (
     ContextRefused,
     NativeSourceContext,

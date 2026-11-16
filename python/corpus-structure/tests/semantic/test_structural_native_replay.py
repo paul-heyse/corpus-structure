@@ -65,14 +65,28 @@ def _formal_case(profile, text):
     native = selected(profile, text)
     coordinate = native.value["source"]
     scope = canonical_bytes({"source": coordinate, "selectors": native.value["selectors"]})
-    context = SubjectContext("unadmitted:project", source_subject(coordinate), coordinate["document"], scope, subject_definition="original-source-view")
+    context = SubjectContext(
+        "unadmitted:project",
+        source_subject(coordinate),
+        coordinate["document"],
+        scope,
+        subject_definition="original-source-view",
+    )
     assert context.original_source is not None
     product = profile.run(native, FormalEvidenceOptions(), subject_context=context)
     address = DeclaredStructuralSource(
-        source='["unadmitted:source",null]', source_product="unadmitted:source", kind_contract="unadmitted:source-kind",
-        project_id=context.project_id, subject=context.subject, subject_definition=context.subject_definition,
-        original_source=context.original_source, analyzed_scope_meaning=json_context_meaning(scope).decode(),
-        document=coordinate["document"], projection_digest=coordinate["projection"], section_pointer=coordinate["section_pointer"], membership=coordinate["membership"],
+        source='["unadmitted:source",null]',
+        source_product="unadmitted:source",
+        kind_contract="unadmitted:source-kind",
+        project_id=context.project_id,
+        subject=context.subject,
+        subject_definition=context.subject_definition,
+        original_source=context.original_source,
+        analyzed_scope_meaning=json_context_meaning(scope).decode(),
+        document=coordinate["document"],
+        projection_digest=coordinate["projection"],
+        section_pointer=coordinate["section_pointer"],
+        membership=coordinate["membership"],
     )
     return native, address, product, FormalSourceReadings.from_products((product,), native)
 
@@ -95,34 +109,98 @@ def test_current_comparison_literal_has_independent_bounded_meaning(profile, spe
         assert reference.member_id in {member.member_id for member in product.members}
 
 
-@pytest.mark.parametrize("connector,grouping", [("and", "conjunction"), ("or", "disjunction"), ("as well as", "unresolved")])
-def test_current_retained_clause_keeps_repeated_exact_occurrences_and_empty_exception(profile, connector, grouping):
+@pytest.mark.parametrize(
+    "connector,grouping",
+    [("and", "conjunction"), ("or", "disjunction"), ("as well as", "unresolved")],
+)
+def test_current_retained_clause_keeps_repeated_exact_occurrences_and_empty_exception(
+    profile, connector, grouping
+):
     from corpus_structure.methods.structural_products import read_retained_clause
     from corpus_structure.semantic.declared_structural_references import DeclaredContributionRef
     from corpus_structure.semantic.structural_products import StructuralPassage
 
     text = f"Clerk must file Form {connector} Form. No exceptions."
     _, source, formal, primary = _formal_case(profile, text)
-    passage = StructuralPassage(passage_id="left", source_ref=source.identity, start=0, end=len(text), text=text, scope="selected")
-    reference = DeclaredContributionRef(product_id="unadmitted:predicate-report", member_id=None, kind_contract="unadmitted:predicate-kind", contribution_id="source-contribution:"+"a"*64, **source.model_dump(include={"project_id", "subject", "subject_definition", "original_source", "analyzed_scope_meaning"}))
+    passage = StructuralPassage(
+        passage_id="left",
+        source_ref=source.identity,
+        start=0,
+        end=len(text),
+        text=text,
+        scope="selected",
+    )
+    reference = DeclaredContributionRef(
+        product_id="unadmitted:predicate-report",
+        member_id=None,
+        kind_contract="unadmitted:predicate-kind",
+        contribution_id="source-contribution:" + "a" * 64,
+        **source.model_dump(
+            include={
+                "project_id",
+                "subject",
+                "subject_definition",
+                "original_source",
+                "analyzed_scope_meaning",
+            }
+        ),
+    )
 
     def extent(word, start=0):
         at = text.index(word, start)
-        return dict(start=at, end=at+len(word))
+        return dict(start=at, end=at + len(word))
 
     first = extent("Form")
     second = extent("Form", first["end"])
     pin = source.model_dump(mode="json", exclude_none=True)
     rows = [
-        dict(contribution_id=reference.contribution_id, pin=pin, component=dict(kind="predicate_reading", frame="frame", scope="selected")),
-        dict(contribution_id="frame", pin=pin, component=dict(kind="predicate_frame", scope="selected", frame_members=[
-            dict(role=role, contribution=role+str(index), outcome="complete", extents=[location])
-            for index, (role, location) in enumerate((("actor", extent("Clerk")), ("predicate", extent("file")), ("object", first), ("object", second)))
-        ])),
-        dict(contribution_id="exception", component=dict(kind="predicate_qualifier", host_contribution_id="frame", qualifier_contribution_id="exception-cue", qualifier_kind="exception")),
-        dict(contribution_id="exception-cue", pin=pin, component=dict(extents=[extent("No exceptions.")])),
+        dict(
+            contribution_id=reference.contribution_id,
+            pin=pin,
+            component=dict(kind="predicate_reading", frame="frame", scope="selected"),
+        ),
+        dict(
+            contribution_id="frame",
+            pin=pin,
+            component=dict(
+                kind="predicate_frame",
+                scope="selected",
+                frame_members=[
+                    dict(
+                        role=role,
+                        contribution=role + str(index),
+                        outcome="complete",
+                        extents=[location],
+                    )
+                    for index, (role, location) in enumerate(
+                        (
+                            ("actor", extent("Clerk")),
+                            ("predicate", extent("file")),
+                            ("object", first),
+                            ("object", second),
+                        )
+                    )
+                ],
+            ),
+        ),
+        dict(
+            contribution_id="exception",
+            component=dict(
+                kind="predicate_qualifier",
+                host_contribution_id="frame",
+                qualifier_contribution_id="exception-cue",
+                qualifier_kind="exception",
+            ),
+        ),
+        dict(
+            contribution_id="exception-cue",
+            pin=pin,
+            component=dict(extents=[extent("No exceptions.")]),
+        ),
     ]
-    reading = read_retained_clause(passage, source, reference, {"contributions": rows}, primary_layers=primary)
+    reading = read_retained_clause(
+        passage, source, reference, {"contributions": rows}, primary_layers=primary
+    )
     groups = reading.groups
     assert groups is not None
     group = groups["object"]
@@ -135,7 +213,11 @@ def test_current_retained_clause_keeps_repeated_exact_occurrences_and_empty_exce
     assert positions == [first["start"], second["start"]]
     assert groups["exception"].state == "empty"
     (witness,) = groups["exception"].witnesses
-    assert (witness.start, witness.end, witness.text) == (text.index("No exceptions"), text.index("No exceptions")+13, "No exceptions")
+    assert (witness.start, witness.end, witness.text) == (
+        text.index("No exceptions"),
+        text.index("No exceptions") + 13,
+        "No exceptions",
+    )
     from corpus_structure.semantic.structural_products import DeclaredPrimaryReference
 
     reference = groups["exception"].primary_witnesses[0]
@@ -154,9 +236,19 @@ def test_current_navigation_uses_the_whole_original_note(profile, prefix):
 
     text = prefix + "Only the Heads row uses percentages."
     native, _, _, _ = _formal_case(profile, text)
-    layer = ConstructionLayer(native.value["source"], {"selectors": native.value["selectors"]}, {"key": "text.constructions/source-native"}, semantic=True, families=(FAMILY,))
+    layer = ConstructionLayer(
+        native.value["source"],
+        {"selectors": native.value["selectors"]},
+        {"key": "text.constructions/source-native"},
+        semantic=True,
+        families=(FAMILY,),
+    )
     populate_navigation_products(layer, ConstructionSource.from_native(native), native, None)
-    notes = [row for row in layer.facts()["annotations"] if row.get("navigation", {}).get("kind") == "note_scope"]
+    notes = [
+        row
+        for row in layer.facts()["annotations"]
+        if row.get("navigation", {}).get("kind") == "note_scope"
+    ]
     assert len(notes) == (0 if prefix else 1)
 
 
@@ -168,10 +260,35 @@ def test_current_dossier_page_excludes_unselected_member_source_closure():
     from semantic.test_dossier_products import _predecessor
 
     component, root, predecessor, report, inputs = _predecessor()
-    other = DeclaredStructuralSource.model_validate({**inputs.sources[0].model_dump(), "source": '["source:unrelated","member:unrelated"]', "source_product": "source:unrelated", "source_member": "member:unrelated", "document": "document:unrelated", "original_source": "document:unrelated", "subject": "subject:unrelated"})
-    unused = StructuralPassage(passage_id="unrelated", source_ref=other.identity, start=0, end=14, text="uncited source", scope="unrelated")
-    inputs = inputs.model_copy(update={"sources": (*inputs.sources, other), "passages": (*inputs.passages, unused)})
-    dossier = produce_structural_dossier(inputs, root_component=root, root=component, retained=((predecessor, {"report": report}),), relationships={})
+    other = DeclaredStructuralSource.model_validate(
+        {
+            **inputs.sources[0].model_dump(),
+            "source": '["source:unrelated","member:unrelated"]',
+            "source_product": "source:unrelated",
+            "source_member": "member:unrelated",
+            "document": "document:unrelated",
+            "original_source": "document:unrelated",
+            "subject": "subject:unrelated",
+        }
+    )
+    unused = StructuralPassage(
+        passage_id="unrelated",
+        source_ref=other.identity,
+        start=0,
+        end=14,
+        text="uncited source",
+        scope="unrelated",
+    )
+    inputs = inputs.model_copy(
+        update={"sources": (*inputs.sources, other), "passages": (*inputs.passages, unused)}
+    )
+    dossier = produce_structural_dossier(
+        inputs,
+        root_component=root,
+        root=component,
+        retained=((predecessor, {"report": report}),),
+        relationships={},
+    )
     assert dossier.dossier is not None
     before = dossier.model_dump(mode="json")
     page = dossier_member_page(dossier, population="membership", offset=1, limit=1)
@@ -185,8 +302,16 @@ def test_current_dossier_page_excludes_unselected_member_source_closure():
 @pytest.mark.parametrize(
     "left,right,actor_outcome",
     [
-        ("Manager must approve Table 5.1 if revenue > 25000 USD.", "Manager must approve Table 5.1 if revenue > 50000 USD.", "same_lexical_value"),
-        ("Table 5.1 must be approved by Manager if revenue > 25000 USD.", "Table 5.1 must be approved by Analyst if revenue > 25000 USD.", "different_lexical_value"),
+        (
+            "Manager must approve Table 5.1 if revenue > 25000 USD.",
+            "Manager must approve Table 5.1 if revenue > 50000 USD.",
+            "same_lexical_value",
+        ),
+        (
+            "Table 5.1 must be approved by Manager if revenue > 25000 USD.",
+            "Table 5.1 must be approved by Analyst if revenue > 25000 USD.",
+            "different_lexical_value",
+        ),
     ],
     ids=("threshold", "passive-actor"),
 )
@@ -206,31 +331,109 @@ def test_current_native_comparison_consumes_actual_predicate_and_formal_source_p
     )
 
     literals = (left, right)
-    with current_pdf_source_factory(tuple(("text", value, value, None) for value in literals)) as source:
+    with current_pdf_source_factory(
+        tuple(("text", value, value, None) for value in literals)
+    ) as source:
         kernel = admit_current_target(source, recipe(tmp_path / "recipe"), tmp_path / "consumer")
         _, _, products, _ = produce_source_reports(source, kernel, PREDICATES, text=left)
-        source_kind = kernel.identities["https://corpus-structure.dev/semantic/data-operation-source/DdoSelectedNativeSource", "kind"]
-        originals = tuple(next(value for value in products if value.row["kind_contract"] == source_kind and value.body["source"]["section_pointer"] == f"#/groups/{index}" and value.body["source"]["membership"] == "descendants") for index in range(2))
+        source_kind = kernel.identities[
+            "https://corpus-structure.dev/semantic/data-operation-source/DdoSelectedNativeSource",
+            "kind",
+        ]
+        originals = tuple(
+            next(
+                value
+                for value in products
+                if value.row["kind_contract"] == source_kind
+                and value.body["source"]["section_pointer"] == f"#/groups/{index}"
+                and value.body["source"]["membership"] == "descendants"
+            )
+            for index in range(2)
+        )
         reports, formal, readings = [], [], []
         for original in originals:
-            (report,) = selected_for_source(kernel, products, "https://corpus-structure.dev/semantic/data-operation-candidate-inspection/DdoPredicateInspectionReport", original)
+            (report,) = selected_for_source(
+                kernel,
+                products,
+                "https://corpus-structure.dev/semantic/data-operation-candidate-inspection/DdoPredicateInspectionReport",
+                original,
+            )
             reports.append(report)
-            formal.extend(selected_for_source(kernel, products, "https://corpus-structure.dev/semantic/data-operation-characterization/DdoFormalProduct", original))
-            rows = {packet["body"]["contribution_id"]: packet["body"] for packet in report.body["members"]}
+            formal.extend(
+                selected_for_source(
+                    kernel,
+                    products,
+                    "https://corpus-structure.dev/semantic/data-operation-characterization/DdoFormalProduct",
+                    original,
+                )
+            )
+            rows = {
+                packet["body"]["contribution_id"]: packet["body"]
+                for packet in report.body["members"]
+            }
             matching = []
             for row in rows.values():
                 component = row.get("component", {})
                 if component.get("kind") != "predicate_reading":
                     continue
                 frame = rows[component["frame"]]["component"]
-                if any(member["role"] == "predicate" and any(original.body["text"][extent["start"]:extent["end"]] in {"approve", "approved"} for extent in member["extents"]) for member in frame["frame_members"]):
+                if any(
+                    member["role"] == "predicate"
+                    and any(
+                        original.body["text"][extent["start"] : extent["end"]]
+                        in {"approve", "approved"}
+                        for extent in member["extents"]
+                    )
+                    for member in frame["frame_members"]
+                ):
                     matching.append(row["contribution_id"])
             assert len(matching) == 1
             readings.append(matching[0])
-        parameters = dict(question="Compare genuine selected predicate roles.", scope="selected", inventory_id="current-native-comparison", policy_id="exact-private-predicate-comparison-1", left_passage_id="left", right_passage_id="right", left_start=0, left_end=len(left), right_start=0, right_end=len(right), left_reading=readings[0], right_reading=readings[1], left_source_reference=canonical_bytes([originals[0].row["product_id"], originals[0].row["member_id"]]).decode(), right_source_reference=canonical_bytes([originals[1].row["product_id"], originals[1].row["member_id"]]).decode(), left_report_reference=canonical_bytes([reports[0].row["product_id"], None]).decode(), right_report_reference=canonical_bytes([reports[1].row["product_id"], None]).decode())
-        demand, execution = execute(kernel, request(kernel, (COMPARE,), originals[0].context, selections=(DemandOperationSelection(operation=COMPARE, parameters=parameters),), source_sets=(FrozenSourceSet("structural-sources", tuple(value.entry() for value in originals)), FrozenSourceSet("structural-reports", tuple(value.entry() for value in reports)), FrozenSourceSet("structural-formal", tuple(value.entry() for value in formal))), inference="current-real-source-comparison:"+actor_outcome))
+        parameters = dict(
+            question="Compare genuine selected predicate roles.",
+            scope="selected",
+            inventory_id="current-native-comparison",
+            policy_id="exact-private-predicate-comparison-1",
+            left_passage_id="left",
+            right_passage_id="right",
+            left_start=0,
+            left_end=len(left),
+            right_start=0,
+            right_end=len(right),
+            left_reading=readings[0],
+            right_reading=readings[1],
+            left_source_reference=canonical_bytes(
+                [originals[0].row["product_id"], originals[0].row["member_id"]]
+            ).decode(),
+            right_source_reference=canonical_bytes(
+                [originals[1].row["product_id"], originals[1].row["member_id"]]
+            ).decode(),
+            left_report_reference=canonical_bytes([reports[0].row["product_id"], None]).decode(),
+            right_report_reference=canonical_bytes([reports[1].row["product_id"], None]).decode(),
+        )
+        demand, execution = execute(
+            kernel,
+            request(
+                kernel,
+                (COMPARE,),
+                originals[0].context,
+                selections=(DemandOperationSelection(operation=COMPARE, parameters=parameters),),
+                source_sets=(
+                    FrozenSourceSet(
+                        "structural-sources", tuple(value.entry() for value in originals)
+                    ),
+                    FrozenSourceSet(
+                        "structural-reports", tuple(value.entry() for value in reports)
+                    ),
+                    FrozenSourceSet("structural-formal", tuple(value.entry() for value in formal)),
+                ),
+                inference="current-real-source-comparison:" + actor_outcome,
+            ),
+        )
         assert execution.receipt_count == 1
-        (product,) = selected_products(kernel, demand["demand_id"], kind="urn:corpus:structural:DeclaredComparisonReport")
+        (product,) = selected_products(
+            kernel, demand["demand_id"], kind="urn:corpus:structural:DeclaredComparisonReport"
+        )
         comparison = product.body["comparison"]
         assert len(comparison["dimensions"]) == 10
         assert comparison["dimensions"][0]["outcome"] == actor_outcome
@@ -240,5 +443,9 @@ def test_current_native_comparison_consumes_actual_predicate_and_formal_source_p
             assert threshold["left_group"]["members"][0]["typed"]["value"] == "25000"
             assert threshold["right_group"]["members"][0]["typed"]["value"] == "50000"
             assert threshold["typed_outcome"] == "unknown"
-        assert [comparison[key]["product_id"] for key in ("left_reading", "right_reading")] == [value.row["product_id"] for value in reports]
-        assert [value["product_id"] for value in product.body["sources_input"]] == [value.row["product_id"] for value in originals]
+        assert [comparison[key]["product_id"] for key in ("left_reading", "right_reading")] == [
+            value.row["product_id"] for value in reports
+        ]
+        assert [value["product_id"] for value in product.body["sources_input"]] == [
+            value.row["product_id"] for value in originals
+        ]

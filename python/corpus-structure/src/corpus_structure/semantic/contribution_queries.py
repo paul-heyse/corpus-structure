@@ -1,5 +1,6 @@
 """Current contribution inventory from exact selected DDO products and members."""
 
+
 def read_demand_contributions(connection, request):
     """Current contribution inventory from exact native product/member selections.
 
