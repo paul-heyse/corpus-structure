@@ -2,10 +2,9 @@
 
 import pytest
 
-from corpus_structure.semantic.contribution_queries import ContributionInventory
 from corpus_structure.semantic.observations import source_value
 from corpus_structure.semantic.refusals import SemanticRefusal
-from corpus_structure.serve.contributions import _interpretations
+from corpus_structure.serve.contribution_composition import composition_facets
 
 PIN = {"source": "source-a", "source_view_id": 2}
 SCOPE = {"pin": PIN, "projection_extent": [10, 70], "scope_digest": "a" * 64}
@@ -58,12 +57,7 @@ def _row(op, key, semantic_type, *, value=None, members=(), missing=(), located=
 
 
 def _facets(ops, rows):
-    inventory = ContributionInventory((), tuple(ops), (), False, tuple(rows))
-    return {
-        row["contribution_id"]: row["composition"]
-        for row in _interpretations(inventory)
-        if "composition" in row
-    }
+    return {key[1]: facet for key,facet in composition_facets(tuple(ops),tuple(rows)).items()}
 
 
 def test_discourse_returns_only_located_members_of_the_selected_ordered_arm():

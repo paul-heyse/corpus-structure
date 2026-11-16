@@ -5,23 +5,9 @@ from pydantic import ValidationError
 
 from corpus_structure.semantic.refusals import InvalidContinuation
 from corpus_structure.serve import structural_products as reader
-from corpus_structure.serve.queries import GENERIC
-from corpus_structure.serve.registry import build_registry
 
 
 def test_structural_questions_require_actual_selected_contracts():
-    registry = build_registry(GENERIC)
-    assert (
-        not {
-            "structural_definitions",
-            "structural_applicability",
-            "structural_comparisons",
-            "structural_dossiers",
-            "source_decision_journey",
-            "dossier_representation",
-        }
-        & registry.keys()
-    )
     root = dict(
         product_id="native:actual",
         member_id=None,

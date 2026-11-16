@@ -222,12 +222,10 @@ def test_condition_host_preserves_located_parts_after_declaration_refusal(
         detail = interpretation["reason"]
         assert isinstance(detail, str) and reason in detail
 
-    # Exercise the ordinary Reader projection with the actual released row codec,
-    # not a second fixture of the component or an independent interpretation rule.
-    from corpus_structure.semantic.contribution_queries import ContributionInventory
+    # Exercise the actual scientific composition kernel with its released row codec.
     from corpus_structure.semantic.identity import canonical_bytes
     from corpus_structure.semantic.refusals import SemanticRefusal
-    from corpus_structure.serve.contributions import _interpretations
+    from corpus_structure.serve.contribution_composition import composition_facets
 
     pin = next(iter(rows.values()))["pin"]
     custody = dict(
@@ -245,12 +243,7 @@ def test_condition_host_preserves_located_parts_after_declaration_refusal(
     retained_operations = tuple(op | custody for op in operations.values())
 
     def facets(selected):
-        inventory = ContributionInventory((), retained_operations, (), False, selected)
-        return {
-            row["contribution_id"]: row["composition"]
-            for row in _interpretations(inventory, prepared=release)
-            if "composition" in row
-        }
+        return {key[1]:facet for key,facet in composition_facets(retained_operations,selected,prepared=release).items()}
 
     composed = facets(retained)
     for frame in (frames[host], frames[competing]):

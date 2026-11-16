@@ -44,7 +44,6 @@ from .coverage_contract import coverage_recipe
 from .identity import canonical_bytes
 from .metadata import table
 from .outcomes import ScientificOutcome
-from .query_compatibility import QueryBindingReference
 from .read_snapshot import _Store, read_snapshot
 from .refusals import ReadLimit
 from .releases import open_release
@@ -248,7 +247,6 @@ class InventoryPage(_Envelope):
     selection: AnswerSelection | None = None
     run_id: int | None = None
     cut_id: int | None = None
-    query_binding: QueryBindingReference | None = None
     root: str
     collection: str
     items: tuple[dict[str, Any], ...]
@@ -297,7 +295,6 @@ class SourceObservationReport(_Envelope):
     selection: AnswerSelection | None = None
     run_id: int | None = None
     cut_id: int | None = None
-    query_binding: QueryBindingReference | None = None
     root_fact_id: str
     observation_id: int
     observation_key: str
@@ -398,7 +395,6 @@ class Explanation(_Envelope):
     selection: AnswerSelection | None = None
     run_id: int | None = None
     cut_id: int | None = None
-    query_binding: QueryBindingReference | None = None
     fact_id: str
     standing: FactStanding
     inventories: dict[str, InventoryPage]
@@ -577,7 +573,7 @@ class ReadSession:
         return self._occurrence_contexts(ids)
 
     def hydrate_rows(self, rows, *, definition=None):
-        """One strict fact/occurrence hydration boundary for primitive and named reads."""
+        """One strict fact/occurrence hydration boundary for the retained primitive reader."""
         roots = {
             row[key]
             for row in rows
@@ -1648,15 +1644,6 @@ class ReadSession:
             Coverage(**{key: row[key] for key in Coverage.model_fields}) for row in rows[:limit]
         ), len(rows) > limit
 
-    def _detail_query_binding(self, query_binding):
-        if query_binding is None:
-            return None
-        if not isinstance(query_binding, QueryBindingReference):
-            raise WrongBinding("detail requires a typed query binding")
-        if query_binding.release_id != self.binding.release_id:
-            raise WrongRelease("detail query binding belongs to another producing release")
-        return query_binding.model_dump(mode="json")
-
     def _detail_selection(self, selection):
         if selection is None:
             return None
@@ -1672,7 +1659,6 @@ class ReadSession:
         continuation=None,
         limit=64,
         max_bytes=1024 * 1024,
-        query_binding=None,
         selection=None,
     ):
         """Page only the released requirement's selected scopes under the same binding."""
@@ -1683,7 +1669,6 @@ class ReadSession:
             or not 1 <= max_bytes <= 8 * 1024 * 1024
         ):
             raise SemanticRefusal("unsupported coverage detail page bounds")
-        named_binding = self._detail_query_binding(query_binding)
         selected = self._detail_selection(selection)
         scopes = tuple(sorted(scopes))
         identity = {
@@ -1694,7 +1679,6 @@ class ReadSession:
             "run": self.completed_run_id,
             "cut": self.completed_cut_id,
             "family": family,
-            "query_binding": named_binding,
             "selection": selected,
             "scopes": sha256(canonical_bytes(scopes)).hexdigest(),
             "limit": limit,
@@ -1731,7 +1715,6 @@ class ReadSession:
             cut_id=self.completed_cut_id,
             root=family,
             collection="coverage",
-            query_binding=query_binding,
             selection=selection,
             items=tuple(row.model_dump(mode="python") for row in rows),
             population_complete=not more,
@@ -1954,7 +1937,6 @@ class ReadSession:
         after_identity=None,
         limit=64,
         max_bytes=1024 * 1024,
-        query_binding=None,
         selection=None,
     ):
         """Select identity rows before hydration; reports contain references, never bodies."""
@@ -1967,7 +1949,6 @@ class ReadSession:
             or not 1 <= max_bytes <= 8 * 1024 * 1024
         ):
             raise SemanticRefusal("inventory limits exceed the supported range")
-        named_binding = self._detail_query_binding(query_binding)
         selected = self._detail_selection(selection)
         f = table("data.fact")
         if (
@@ -1985,7 +1966,6 @@ class ReadSession:
             "run": self.completed_run_id,
             "cut": self.completed_cut_id,
             "root": fact_id,
-            "query_binding": named_binding,
             "selection": selected,
             "collection": collection,
             "limit": limit,
@@ -2083,7 +2063,6 @@ class ReadSession:
             cut_id=self.completed_cut_id,
             root=fact_id,
             collection=collection,
-            query_binding=query_binding,
             selection=selection,
             items=items,
             population_complete=not more,
@@ -2096,10 +2075,9 @@ class ReadSession:
         return page
 
     def source_report(
-        self, fact_id, observation_key, *, max_bytes=1024 * 1024, query_binding=None, selection=None
+        self, fact_id, observation_key, *, max_bytes=1024 * 1024, selection=None
     ):
         """Explicit immutable report read; a wrong root cannot select another report."""
-        self._detail_query_binding(query_binding)
         self._detail_selection(selection)
         if type(max_bytes) is not int or not 1 <= max_bytes <= 8 * 1024 * 1024:
             raise SemanticRefusal("source report byte limit exceeds the supported range")
@@ -2127,7 +2105,6 @@ class ReadSession:
             run_id=self.completed_run_id,
             cut_id=self.completed_cut_id,
             root_fact_id=fact_id,
-            query_binding=query_binding,
             selection=selection,
             observation_id=row["id"],
             observation_key=row["observation_key"],
@@ -2637,7 +2614,7 @@ class ReadSession:
         return result
 
     def explain(
-        self, fact_id: str, *, limit=64, max_bytes=1024 * 1024, query_binding=None, selection=None
+        self, fact_id: str, *, limit=64, max_bytes=1024 * 1024, selection=None
     ) -> Explanation:
         """Bounded inventories under one snapshot; source report bodies are explicit reads."""
         pages = {
@@ -2646,8 +2623,7 @@ class ReadSession:
                 name,
                 limit=limit,
                 max_bytes=max_bytes,
-                query_binding=query_binding,
-                selection=selection,
+                    selection=selection,
             )
             for name in (
                 "supports",
@@ -2675,7 +2651,6 @@ class ReadSession:
             cut_id=self.completed_cut_id,
             fact_id=fact_id,
             standing=self.fact_standing({fact_id})[fact_id],
-            query_binding=query_binding,
             selection=selection,
             inventories=pages,
         )

@@ -14,67 +14,6 @@ from importlib.machinery import PathFinder, SourceFileLoader
 from pathlib import Path
 from types import ModuleType
 
-QUERY_SOURCES = (
-    "_query_custody.py",
-    "serve/queries.py",
-    "serve/registry.py",
-    "serve/read.py",
-    "serve/results.py",
-    "serve/protocol.py",
-    "serve/journey.py",
-    "serve/source_search.py",
-    "serve/structural_products.py",
-    "serve/contextual_navigation.py",
-    "serve/source_decision_journey.py",
-    "serve/structural_gaps.py",
-    "serve/native_source.py",
-    "serve/pdf_visual_evidence.py",
-    "serve/selected_pdf.py",
-    "semantic/visual_evidence.py",
-    "semantic/data_operation_visual_read.py",
-    "semantic/arrow_types.py",
-    "semantic/query.py",
-    "semantic/consolidation.py",
-    "semantic/coverage_contract.py",
-    "semantic/continuations.py",
-    "semantic/query_compatibility.py",
-    "semantic/value_codec.py",
-    "semantic/types.py",
-    "semantic/scientific_evidence.py",
-    "semantic/scientific_evidence_schema.py",
-    "semantic/outcomes.py",
-    "semantic/analysis_contracts.py",
-    "semantic/math_context.py",
-    "semantic/analysis_policies.py",
-    "semantic/identity.py",
-    "semantic/unicode_identity.py",
-    "methods/llm/producer.py",
-    "semantic/metadata.py",
-    "semantic/source_views.py",
-    "semantic/structural_products.py",
-    "semantic/structural_admission.py",
-    "semantic/product_reference.py",
-    "semantic/published_document.py",
-    "semantic/pdf_record_reader.py",
-    "semantic/pdf_storage.py",
-    "semantic/native_requests.py",
-    "semantic/_operation_calls.py",
-    "semantic/_operation_ids.py",
-    "semantic/operation_results.py",
-    "semantic/operation_value_types.py",
-    "semantic/pdf_contracts.py",
-    "semantic/pdf_domain.py",
-    "semantic/_pdf_native_calls.py",
-    "semantic/_pdf_native_ids.py",
-    "semantic/native_call_sources.py",
-    "semantic/data_operation_protocol.py",
-    "semantic/identifiers.py",
-    "semantic/pdf_payloads.py",
-    "schema/relational.py",
-    "core/canonical.py",
-)
-# Current finite rich-query owners. Retired integer-cut helpers remain above only
-# until their compiler/consumer removal; current meanings acquire this subset.
 RICH_QUERY_SOURCES = (
     "_query_custody.py",
     "semantic/rich_queries.py",
@@ -171,10 +110,9 @@ STRUCTURAL_READ_SOURCES = tuple(
         )
     )
 )
-QUERY_SOURCES = tuple(
+_CURRENT_READ_SOURCES = tuple(
     dict.fromkeys(
         (
-            *QUERY_SOURCES,
             *RICH_QUERY_SOURCES,
             *COMPOSITE_READ_SOURCES,
             *GROUPED_INTERPRETATION_SOURCES,
@@ -184,12 +122,11 @@ QUERY_SOURCES = tuple(
 )
 _BASE = Path(__file__).resolve().parent
 _NAMES = {
-    "corpus_structure." + name[:-3].replace("/", "."): str(_BASE / name) for name in QUERY_SOURCES
+    "corpus_structure." + name[:-3].replace("/", "."): str(_BASE / name) for name in _CURRENT_READ_SOURCES
 }
 _KNOWN_PATHS = frozenset(_NAMES.values())
-_EXECUTED: dict[ModuleType, tuple[str, str, bool]] = {}
+_EXECUTED: dict[ModuleType, tuple[str, str]] = {}
 _EXPECTED: ContextVar[dict[str, str] | None] = ContextVar("query_source_custody", default=None)
-_PACK: ContextVar[str | None] = ContextVar("query_source_pack", default=None)
 
 
 class SourceCustodyError(RuntimeError):
@@ -209,7 +146,7 @@ class _CapturedLoader(SourceFileLoader):
             raise SourceCustodyError("query-helper bytes changed before import")
         # Compile the actual captured installed bytes, without stale timestamp pyc.
         exec(compile(source, self.path, "exec", dont_inherit=True), module.__dict__)
-        _EXECUTED[module] = (path, digest, False)
+        _EXECUTED[module] = (path, digest)
 
 
 class _CustodyFinder:
@@ -221,9 +158,6 @@ class _CustodyFinder:
         if spec is None or not isinstance(spec.loader, SourceFileLoader) or spec.origin is None:
             return None
         origin = str(Path(spec.origin).resolve())
-        pack = _PACK.get()
-        if pack is not None and Path(origin).is_relative_to(pack) and origin not in expected:
-            raise SourceCustodyError("query helper is outside its declared source bundle")
         if origin in _KNOWN_PATHS or origin in expected:
             spec.loader = _CapturedLoader(fullname, spec.origin)
             return spec
@@ -235,22 +169,12 @@ def install(bootstrap_source: bytes) -> None:
     _EXECUTED[sys.modules[__name__]] = (
         str(Path(__file__).resolve()),
         sha256(bootstrap_source).hexdigest(),
-        False,
     )
     if not any(isinstance(finder, _CustodyFinder) for finder in sys.meta_path):
         sys.meta_path.insert(0, _CustodyFinder())
 
 
-def record_plugin(module: ModuleType, path: Path, source: bytes) -> None:
-    _EXECUTED[module] = (str(path.resolve()), sha256(source).hexdigest(), True)
-
-
-def verify_plugin(module: ModuleType, path: Path, source: bytes) -> None:
-    if _EXECUTED.get(module) != (str(path.resolve()), sha256(source).hexdigest(), True):
-        raise SourceCustodyError("query plugin cache has no matching source custody")
-
-
-def _check_loaded(expected: dict[str, str], pack: str | None) -> None:
+def _check_loaded(expected: dict[str, str]) -> None:
     # Retain custody for helper objects still referenced by cached query code even
     # if somebody removed their module from sys.modules before importing it again.
     for module in [*sys.modules.values(), *_EXECUTED]:
@@ -264,28 +188,21 @@ def _check_loaded(expected: dict[str, str], pack: str | None) -> None:
             continue
         path = str(Path(origin).resolve())
         record = _EXECUTED.get(module)
-        if record is not None and record[2]:
-            continue  # The selected plugin cache entry is verified by its loader.
-        if pack is not None and Path(path).is_relative_to(pack) and path not in expected:
-            raise SourceCustodyError("unlisted warm query helper; restart with its declared bundle")
         if path not in expected:
             continue
-        if record != (path, expected[path], False):
+        if record != (path, expected[path]):
             raise SourceCustodyError(
                 "query helper was loaded without matching source custody; restart the process"
             )
 
 
 @contextmanager
-def query_sources(expected: dict[str, str], *, pack: Path | None = None):
+def query_sources(expected: dict[str, str]):
     """Check already-loaded helpers and constrain later imports to captured bytes."""
-    root = str(pack.resolve()) if pack is not None else None
-    _check_loaded(expected, root)
+    _check_loaded(expected)
     token = _EXPECTED.set(expected)
-    pack_token = _PACK.set(root)
     try:
         yield
-        _check_loaded(expected, root)
+        _check_loaded(expected)
     finally:
         _EXPECTED.reset(token)
-        _PACK.reset(pack_token)
