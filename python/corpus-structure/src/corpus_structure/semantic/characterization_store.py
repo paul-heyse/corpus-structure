@@ -254,37 +254,6 @@ def read_primary_layers(
     return layers
 
 
-def read_memberships(
-    connection: Connection,
-    reference: ProductReference,
-    groups: Sequence[str],
-    *,
-    run_id: int | None = None,
-    after: tuple[int, str, str] | None = None,
-    layer_key: str | None = None,
-    limit: int = 100,
-    max_bytes: int = 1048576,
-) -> dict[str, Any]:
-    """Fetch requested group memberships and their actual occurrence sets in one query."""
-    from ._operation_calls import read_characterization_memberships as invoke
-
-    return cast(
-        dict[str, Any],
-        invoke(
-            connection,
-            task_id=reference.task_id,
-            product_key=reference.product_key,
-            content_digest=reference.content_digest,
-            groups=list(groups),
-            run_id=RunId(run_id) if run_id is not None else None,
-            after=list(after) if after is not None else None,
-            layer_key=layer_key,
-            limit=limit,
-            max_bytes=max_bytes,
-        ),
-    )
-
-
 def read_nodes(
     connection: Connection,
     reference: ProductReference,

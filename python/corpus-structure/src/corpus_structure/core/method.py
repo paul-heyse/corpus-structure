@@ -60,10 +60,8 @@ if typing.TYPE_CHECKING:
         LayerManifest,
         LayerReport,
     )
-    from corpus_structure.semantic.pdf_contracts import PreparedPdfContext, PreparedPdfProduct
     from corpus_structure.semantic.pdf_integrated import (
         PreparedIntegratedPdfProduct,
-        PreparedPdfOriginal,
     )
     from corpus_structure.semantic.pdf_record_reader import PublishedReadBudget
     from corpus_structure.semantic.product_reference import ProductReference
@@ -337,19 +335,6 @@ class Reader(Protocol):
         """Resolve one published view pin without requiring run completion."""
         ...
 
-    def characterization_memberships(
-        self,
-        reference: ProductReference,
-        groups: Sequence[str],
-        *,
-        after: tuple[int, str, str] | None = None,
-        layer_key: str | None = None,
-        limit: int = 100,
-        max_bytes: int = 1048576,
-    ) -> Mapping[str, Any]:
-        """Read an indexed bounded page of memberships from the exact view."""
-        ...
-
     def source_views(self) -> Sequence[SourceViewRef]: ...
 
     def source_view_ref(self, source_view_id: int) -> SourceViewRef: ...
@@ -358,18 +343,6 @@ class Reader(Protocol):
 
     def ancestor_source_views(self, source_view_id: int) -> Sequence[SourceViewRef]: ...
 
-    def pdf_context(self) -> PreparedPdfContext: ...
-
-    def prepare_integrated_pdf_product(
-        self,
-        payload: Mapping[str, Any],
-        original: bytes | PreparedPdfOriginal,
-        recipe_bytes: bytes,
-        *,
-        artifacts: tuple[bytes, ...] = (),
-        native_schema: bytes | None = None,
-    ) -> PreparedIntegratedPdfProduct: ...
-
     def source_observations(
         self, source_view_id: int, method: str, kind: str
     ) -> Sequence[StableObservationReading]: ...
@@ -377,10 +350,6 @@ class Reader(Protocol):
     def source_view_coverage(
         self, source_view_id: int, method: str
     ) -> tuple[SourceCoverageReading, ...]: ...
-
-    def prepare_pdf_product(
-        self, payload: Mapping[str, Any], original: bytes, schema_bytes: bytes, recipe_bytes: bytes
-    ) -> PreparedPdfProduct: ...
 
     def measurements(self, method: str, metric: str) -> Sequence[MeasurementView]:
         """Measurements a method wrote, read through reuse."""

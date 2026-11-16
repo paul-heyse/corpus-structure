@@ -1038,22 +1038,6 @@ class BoundReader:
 
         return read_view(self.conn, reference, run_id=self.run_id)
 
-    def characterization_memberships(
-        self, reference, groups, *, after=None, layer_key=None, limit=100, max_bytes=1048576
-    ):
-        from .characterization_store import read_memberships
-
-        return read_memberships(
-            self.conn,
-            reference,
-            groups,
-            run_id=self.run_id,
-            after=after,
-            layer_key=layer_key,
-            limit=limit,
-            max_bytes=max_bytes,
-        )
-
     def pdf_contract(self):
         from .pdf_contracts import pdf_context_for_release
 
@@ -1680,42 +1664,6 @@ class BoundReader:
             source_views=old_views,
             source_bindings=tuple(bindings),
         )
-
-    def pdf_context(self):
-        from .pdf_contracts import pdf_context_for_task
-
-        if not self.source_tasks:
-            raise OperationConflict("PDF preparation requires a bound source task")
-        context = getattr(self, "_pdf_context", None)
-        if context is None:
-            context = pdf_context_for_task(self.conn, next(iter(self.source_tasks.values())))
-            self._pdf_context = context
-        return context
-
-    def prepare_integrated_pdf_product(
-        self, payload, original, recipe_bytes, *, artifacts=(), native_schema=None
-    ):
-        from .pdf_integrated import prepare_integrated_pdf_product
-
-        return prepare_integrated_pdf_product(
-            payload,
-            original,
-            recipe_bytes,
-            artifacts=artifacts,
-            native_schema=native_schema,
-            context=self.pdf_context(),
-        )
-
-    def prepare_pdf_product(self, payload, original, schema_bytes, recipe_bytes):
-        from .pdf_contracts import pdf_context_for_task, prepare_pdf_product
-
-        if not self.source_tasks:
-            raise OperationConflict("native preparation requires bound source task")
-        context = getattr(self, "_pdf_context", None)
-        if context is None:
-            context = pdf_context_for_task(self.conn, next(iter(self.source_tasks.values())))
-            self._pdf_context = context
-        return prepare_pdf_product(payload, original, schema_bytes, recipe_bytes, context=context)
 
     def original(self, document_id: int) -> bytes:
         """Read retained source bytes only within this reader's run/project binding."""
