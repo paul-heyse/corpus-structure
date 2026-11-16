@@ -24,6 +24,116 @@ from semantic.archive_faults import administrative_archive_edit
 from semantic.data_operation_kernel_support import STORAGE
 
 
+@pytest.mark.prerequisite("pm2_native_assets")
+def test_maintained_statistics_application_cli_retains_large_runtime_and_atomic_admission(
+    commit_db_engine, native_settings, current_native_model_checkout, monkeypatch
+):
+    """Actual local application metadata and native transport, without model inference."""
+    import shutil
+    import subprocess
+    from pathlib import Path
+
+    from corpus_structure.cli import model as commands
+    from corpus_structure.cli import recipes
+    from corpus_structure.schema import preparation
+    from corpus_structure.semantic import runtime_binding_store
+    from corpus_structure.semantic.runtime import open_runtime_engine
+
+    root, _ = current_native_model_checkout
+    maintained = Path(__file__).resolve().parents[4] / "domains/statistics"
+    shutil.copytree(maintained, root / "domains/statistics")
+    location = root / preparation.PACKAGE_PATH.parents[1] / migrations.ALEMBIC_DIR.name
+    # This application-only journey starts at the registered current head. Its
+    # checkout therefore retains that real frozen chain, unlike the fresh-root
+    # authoring fixture's intentionally empty versions directory.
+    shutil.copytree(migrations.ALEMBIC_DIR / "versions", location / "versions", dirs_exist_ok=True)
+    subprocess.run(["git", "-C", str(root), "add", "."], check=True)
+    subprocess.run(
+        ["git", "-C", str(root), "-c", "user.name=Fixture", "-c",
+         "user.email=fixture@example.test", "commit", "-qm", "actual statistics application inputs"],
+        check=True,
+    )
+    monkeypatch.setattr(migrations, "ALEMBIC_DIR", location)
+    monkeypatch.setattr(recipes, "checkout", lambda _: root)
+    settings = settings_for_native_clone(native_settings, commit_db_engine.url.database)
+    settings = settings.model_copy(update={"ci_results": root / "results", "deployment": None})
+    runner = CliRunner()
+
+    def command(action, identifier, **kwargs):
+        result = runner.invoke(
+            app, ["model", "change", action, identifier, "--json"],
+            obj=CliState(settings_factory=lambda: settings), **kwargs,
+        )
+        return result
+
+    def success(result):
+        assert result.exit_code == 0, result.output
+        return json.loads(result.stdout)
+
+    staged = success(command("preview", "-", input=yaml.safe_dump({
+        "deployment": True,
+        "data_operations": "domains/statistics/operations.yaml",
+        "execution_profile": "source-native",
+    })))
+    success(command("apply", staged["result_id"]))
+    authored = success(command("candidate", staged["result_id"]))
+    store = ResultStore(root / "results")
+    binding = Candidate.model_validate_json(store.read_artifact(authored["result_id"], "deployment"))
+    assert binding.revision is None
+    assert binding.target_identity is not None and binding.runtime is not None
+    prepared = commands._prepare_release(root, (), data_operations="domains/statistics/operations.yaml")
+    runtime = commands._read_runtime(store, authored["result_id"], binding.runtime, prepared[3])
+    assert runtime is not None
+    assert len(runtime.archive) > 64 * 1024**2
+    assert json.loads(runtime.manifest)["execution_profile"] == "source-native"
+    assert json.loads(runtime.manifest)["observed"] == {}
+    assert sha256(runtime.archive).hexdigest() == binding.runtime.archive_sha256
+    assert store.read_artifact(staged["result_id"], "runtime_archive") == runtime.archive
+    assert store.read_artifact(staged["result_id"], "runtime_manifest") == runtime.manifest
+
+    for purpose, principal in (("admit", "corpus_sem_admitter"), ("read", "corpus_sem_reader")):
+        with open_runtime_engine(settings, "statistics-actual-purpose", purpose=purpose) as engine:
+            with engine.connect() as connection:
+                assert connection.scalar(text("SELECT current_user")) == principal
+
+    persist_runtime = runtime_binding_store.persist_runtime_binding
+
+    def refuse_after_real_runtime(connection, release, actual):
+        assert actual == runtime
+        assert connection.scalar(text("SELECT current_user")) == "corpus_sem_admitter"
+        persist_runtime(connection, release, actual)
+        raise ModelError(["controlled refusal after actual statistics runtime registration"])
+
+    with monkeypatch.context() as faults:
+        faults.setattr(runtime_binding_store, "persist_runtime_binding", refuse_after_real_runtime)
+        failed = command("deploy", authored["result_id"])
+    assert failed.exit_code == 1, failed.output
+    failure = json.loads(failed.stdout)
+    assert "controlled refusal after actual statistics runtime" in failure["error"]["message"]
+    assert failure["operation_account"]["known_effects"] == ["archive"]
+    with open_runtime_engine(settings, "statistics-rollback-read", purpose="read") as engine:
+        with engine.connect() as connection:
+            for relation in ("sem.runtime_binding", "sem.deployment_admission"):
+                assert connection.scalar(text(
+                    f"SELECT count(*) FROM {relation} WHERE release_id=:release"
+                ), {"release": binding.release}) == 0
+
+    deployed = success(command("deploy", authored["result_id"]))
+    assert deployed["runtime"] == binding.runtime.model_dump(mode="json")
+    assert deployed["operation_account"]["known_effects"] == ["archive", "admission", "verified"]
+    assert deployed["operation_account"]["acquired_target"] == binding.target_identity.model_dump(mode="json")
+    with open_runtime_engine(settings, "statistics-verified-read", purpose="read") as engine:
+        with engine.connect() as connection, connection.begin():
+            connection.exec_driver_sql("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY")
+            assert connection.scalar(text("SHOW transaction_read_only")) == "on"
+            assert connection.scalar(text("SELECT current_user")) == "corpus_sem_reader"
+            assert runtime_binding_store.runtime_binding_for_release(
+                connection, prepared[3], runtime.runtime_id
+            ) == runtime
+    replay = success(command("deploy", authored["result_id"]))
+    assert replay["runtime"] == deployed["runtime"]
+
+
 def test_current_native_release_deployment_resumes_before_separate_activation(
     semantic_bare_engine, native_settings, current_native_model_checkout, monkeypatch
 ):

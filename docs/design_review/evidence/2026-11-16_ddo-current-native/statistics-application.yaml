@@ -1,0 +1,5 @@
+# Application-only request. The CLI acquires and binds the configured database/OID.
+# This selects local captured inputs; it neither starts providers nor processes a corpus.
+deployment: true
+data_operations: domains/statistics/operations.yaml
+execution_profile: source-native
