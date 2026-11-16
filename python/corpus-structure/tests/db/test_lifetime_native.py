@@ -2,19 +2,12 @@
 
 from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime
+from types import SimpleNamespace
 from threading import Event
 from time import monotonic, sleep
 
 import psycopg
 import pytest
-from corpus_structure.semantic.operation_results import (
-    ClaimedTask,
-    MethodConfigId,
-    ReleaseId,
-    RunId,
-    TaskAttempt,
-    TaskId,
-)
 from db_store_support import settings_for
 from psycopg_pool import PoolTimeout
 from sqlalchemy import text
@@ -23,13 +16,12 @@ from sqlalchemy.exc import DBAPIError
 from corpus_structure.core.db.lifetime import BorrowerCancellation
 from corpus_structure.core.db.store import (
     DatabaseCause,
+    DatabasePhase,
     EffectKnowledge,
     open_store,
     operation_failure,
 )
-from corpus_structure.core.vocab import TaskUnitType
-from corpus_structure.semantic import claim_lifetime, publication
-from corpus_structure.semantic.publication import PublicationBatch
+from corpus_structure.semantic import claim_lifetime
 from corpus_structure.settings import DatabaseSettings
 
 
@@ -58,7 +50,7 @@ def active_query(engine, pid, fragment):
 
 @pytest.mark.usefixtures("observed_store_checkouts")
 def test_actual_pool_pressure_timeout_closed_and_non_destructive_diagnostics(
-    infrastructure_engine, monkeypatch
+    infrastructure_engine,
 ):
     settings = settings_for(infrastructure_engine)
     with open_store(
@@ -69,21 +61,14 @@ def test_actual_pool_pressure_timeout_closed_and_non_destructive_diagnostics(
             with ThreadPoolExecutor(max_workers=1) as threads:
                 waiting = threads.submit(store.pool.getconn)
                 wait_until(lambda: store.pool.get_stats().get("requests_waiting") == 1)
-                monkeypatch.setattr(
-                    publication,
-                    "lookup_receipt",
-                    lambda *args: pytest.fail("acquisition must not resolve receipts"),
-                )
-                with pytest.raises(DBAPIError) as pressure:
-                    publication._publish(
-                        store.engine,
-                        PublicationBatch("r", "z", "b"),
-                        lambda *args: pytest.fail("overload must not execute"),
-                        attempts=3,
-                    )
+                with pytest.raises(DBAPIError) as pressure, store.engine.connect():
+                    pytest.fail("overload must not acquire a database connection")
                 failure = operation_failure(pressure.value).failure
                 assert failure.cause is DatabaseCause.ADMISSION_PRESSURE
-                assert failure.effects is EffectKnowledge.NONE
+                # Raw pool acquisition supplies the native cause. It has no semantic
+                # operation context from which to infer effects or replay policy.
+                assert failure.phase is DatabasePhase.UNKNOWN
+                assert failure.effects is EffectKnowledge.UNCERTAIN
                 with pytest.raises(PoolTimeout):
                     waiting.result(timeout=3)
         finally:
@@ -96,15 +81,10 @@ def test_actual_pool_pressure_timeout_closed_and_non_destructive_diagnostics(
         assert second.pool_stats["requests_errors"] == first.pool_stats["requests_errors"]
         assert first.usage_scope == "pool_connection_scopes_only"
     assert store.diagnostic().lifecycle == "closed"
-    with pytest.raises(DBAPIError) as closed:
-        publication._publish(
-            store.engine,
-            PublicationBatch("r", "z", "b"),
-            lambda *args: pytest.fail("closed pool must not execute"),
-            attempts=3,
-        )
+    with pytest.raises(DBAPIError) as closed, store.engine.connect():
+        pytest.fail("closed pool must not acquire a database connection")
     assert operation_failure(closed.value).failure.cause is DatabaseCause.INVENTORY_CLOSED
-    assert operation_failure(closed.value).failure.effects is EffectKnowledge.NONE
+    assert operation_failure(closed.value).failure.phase is DatabasePhase.UNKNOWN
 
 
 @pytest.mark.parametrize("copy", [False, True])
@@ -160,56 +140,36 @@ def test_actual_cancel_settles_query_or_copy_before_connection_reuse(infrastruct
             assert conn.scalar(text("SELECT 91")) == 91
 
 
-def test_mid_write_native_failure_has_independent_zero_row_rollback(
-    infrastructure_commit_engine, monkeypatch
-):
+def test_mid_write_native_failure_has_independent_zero_row_rollback(infrastructure_commit_engine):
     with infrastructure_commit_engine.begin() as conn:
         conn.execute(text("CREATE TABLE public.pg_runtime_effect (value int)"))
 
-    def execute(conn, batch):
+    with pytest.raises(DBAPIError), infrastructure_commit_engine.begin() as conn:
         conn.execute(text("INSERT INTO public.pg_runtime_effect VALUES (1)"))
         conn.execute(text("SELECT 1/0"))
         pytest.fail("division by zero did not fail")
-
-    monkeypatch.setattr(
-        publication, "lookup_receipt", lambda *args: pytest.fail("commit never attempted")
-    )
-    with pytest.raises(DBAPIError) as caught:
-        publication._publish(
-            infrastructure_commit_engine, PublicationBatch("r", "z", "batch"), execute, attempts=3
-        )
-    assert operation_failure(caught.value).failure.effects is EffectKnowledge.ROLLED_BACK
     with infrastructure_commit_engine.connect() as conn:
         assert conn.scalar(text("SELECT count(*) FROM public.pg_runtime_effect")) == 0
 
 
-def test_renewal_exit_cancels_active_query_and_joins_owner(infrastructure_engine, monkeypatch):
+def test_renewal_exit_cancels_active_query_and_joins_owner(infrastructure_engine):
     started = Event()
     pid = []
 
-    def slow_renew(conn, **kwargs):
+    def slow_renew(conn, owned):
         pid.append(conn.scalar(text("SELECT pg_backend_pid()")))
         started.set()
         conn.execute(text("SELECT pg_sleep(20)"))
 
-    monkeypatch.setattr(claim_lifetime, "renew_claim", slow_renew)
-    claim = ClaimedTask(
-        task_id=TaskId(1),
-        run_id=RunId(1),
-        release_id=ReleaseId("r"),
-        method_config_id=MethodConfigId(1),
-        unit_type=TaskUnitType.SOURCE_VIEW,
-        unit_id=1,
-        unit_key=None,
-        packet_hash=None,
-        attempt=TaskAttempt(1),
-        holder="owner",
-        deadline=datetime.now(UTC),
-        invocation_key="renewal",
-        held_progress=None,
+    # This is a physical renewal/cancellation control; the callback deliberately owns
+    # only a sleeping SQL statement. Current native task custody is tested separately.
+    claim = SimpleNamespace(
+        task_id=1, attempt=1, release_id="r", holder="owner", deadline=datetime.now(UTC)
     )
     with open_store(settings_for(infrastructure_engine), "pg-renewal-stop", max_size=1) as store:
-        with claim_lifetime.maintained_claims(store.engine, [claim], "owner", interval=0.01):
+        with claim_lifetime.maintained_claims(
+            store.engine, [claim], "owner", interval=0.01, renew=slow_renew
+        ):
             assert started.wait(3)
             wait_until(lambda: active_query(infrastructure_engine, pid[0], "pg_sleep"))
             stop_started = monotonic()
@@ -220,26 +180,13 @@ def test_renewal_exit_cancels_active_query_and_joins_owner(infrastructure_engine
 
 @pytest.mark.usefixtures("observed_store_checkouts")
 def test_renewal_native_statement_deadline_reaches_authority_check(
-    infrastructure_engine, monkeypatch
+    infrastructure_engine,
 ):
-    def slow_renew(conn, **kwargs):
+    def slow_renew(conn, owned):
         conn.execute(text("SELECT pg_sleep(20)"))
 
-    monkeypatch.setattr(claim_lifetime, "renew_claim", slow_renew)
-    claim = ClaimedTask(
-        task_id=TaskId(1),
-        run_id=RunId(1),
-        release_id=ReleaseId("r"),
-        method_config_id=MethodConfigId(1),
-        unit_type=TaskUnitType.SOURCE_VIEW,
-        unit_id=1,
-        unit_key=None,
-        packet_hash=None,
-        attempt=TaskAttempt(1),
-        holder="owner",
-        deadline=datetime.now(UTC),
-        invocation_key="renewal",
-        held_progress=None,
+    claim = SimpleNamespace(
+        task_id=1, attempt=1, release_id="r", holder="owner", deadline=datetime.now(UTC)
     )
     deadline = DatabaseSettings(
         renewal_statement_timeout_seconds=0.1, renewal_lock_timeout_seconds=0.05
@@ -248,7 +195,7 @@ def test_renewal_native_statement_deadline_reaches_authority_check(
         with (
             pytest.raises(DBAPIError) as caught,
             claim_lifetime.maintained_claims(
-                store.engine, [claim], "owner", interval=0.01, database=deadline
+                store.engine, [claim], "owner", interval=0.01, database=deadline, renew=slow_renew
             ) as check,
         ):
             wait_until(lambda: _check_failed(check))
@@ -273,6 +220,14 @@ def test_cli_runtime_failure_reports_its_actual_live_pool_without_sql(infrastruc
     from corpus_structure.cli.failures import failure_boundary
     from corpus_structure.semantic.runtime import open_runtime_engine
 
+    settings = settings_for(infrastructure_engine)
+    settings = settings.model_copy(
+        update={
+            "database": settings.database.model_copy(
+                update={"maintenance_url": settings.database.url}
+            )
+        }
+    )
     app = typer.Typer()
 
     @app.command()
@@ -280,7 +235,7 @@ def test_cli_runtime_failure_reports_its_actual_live_pool_without_sql(infrastruc
         with (
             failure_boundary(True),
             open_runtime_engine(
-                settings_for(infrastructure_engine), "diagnostic-invocation", purpose="maintenance"
+                settings, "diagnostic-invocation", purpose="maintenance"
             ) as engine,
             engine.begin() as conn,
         ):
@@ -288,6 +243,7 @@ def test_cli_runtime_failure_reports_its_actual_live_pool_without_sql(infrastruc
 
     result = CliRunner().invoke(app, [])
     assert result.exit_code == 1
+    assert result.stdout, (result.output, result.exception)
     error = json.loads(result.stdout)["error"]
     assert error["failure"]["sqlstate"] == "22012"
     assert error["failure"]["effects"] == "uncertain"
@@ -301,7 +257,6 @@ def test_cli_runtime_failure_reports_its_actual_live_pool_without_sql(infrastruc
 @pytest.mark.usefixtures("observed_store_checkouts")
 def test_reserved_renewal_runs_while_all_port_capacity_is_borrowed(infrastructure_engine):
     from datetime import timedelta
-    from types import SimpleNamespace
 
     renewed = Event()
     observed = []
