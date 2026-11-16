@@ -85,6 +85,20 @@ def defining_text_features(
     term_extent, content_extent = extent(term), extent(content)
     if term_extent is None or content_extent is None:
         return DefiningTextFeatures(None, "incomparable_endpoint_anchors")
+    return defining_text_feature_values(body, term_extent, content_extent)
+
+
+def defining_text_feature_values(
+    body: str, term_extent: tuple[int, int, int], content_extent: tuple[int, int, int]
+) -> DefiningTextFeatures:
+    """Existing arithmetic after the source owner establishes exact common-passage spans.
+
+    Extents are passage-relative (start, end, union character length). This numeric
+    function grants neither source custody nor linguistic correctness.
+    """
+    if not body or any(not 0 <= start < end <= len(body) or not 0 < length <= end - start
+                       for start, end, length in (term_extent, content_extent)):
+        raise ValueError("defining-text features require exact nonempty passage extents")
     t0, t1, term_length = term_extent
     c0, c1, content_length = content_extent
     separation = c0 - t1 if c0 >= t1 else c1 - t0 if t0 >= c1 else 0

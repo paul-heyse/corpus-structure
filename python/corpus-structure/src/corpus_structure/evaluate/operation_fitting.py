@@ -8,7 +8,8 @@ they establish neither held-out performance nor calibrated factual correctness.
 from __future__ import annotations
 
 import warnings
-from typing import Literal, Self
+from collections.abc import Sequence
+from typing import Literal, Protocol, Self
 
 import numpy as np
 from pydantic import BaseModel, ConfigDict, Field, FiniteFloat, model_validator
@@ -40,6 +41,42 @@ EventJudgment = Literal["supported", "unsupported", "ambiguous", "unassessed"]
 AttachmentFacet = Literal[
     "attachment_head", "attachment_tail", "attachment_direction", "attachment_scope"
 ]
+
+
+class NumericEventObservation(Protocol):
+    """Only values used by the shared numerical algorithm."""
+
+    @property
+    def event_id(self) -> str: ...
+    @property
+    def features(self) -> Sequence[float]: ...
+    @property
+    def judgment(self) -> EventJudgment: ...
+
+
+class NumericEventFrame(Protocol):
+    """The frame owner authenticates population/provenance and commits its identity."""
+
+    @property
+    def fit_digest(self) -> str: ...
+    @property
+    def fit_origin_group_count(self) -> int | None: ...
+    @property
+    def observations(self) -> Sequence[NumericEventObservation]: ...
+    @property
+    def event(self) -> OperationEvent: ...
+    @property
+    def event_version(self) -> str: ...
+    @property
+    def producer_version(self) -> str: ...
+    @property
+    def feature_names(self) -> tuple[str, ...]: ...
+    @property
+    def corpus_id(self) -> str: ...
+    @property
+    def rubric_digest(self) -> str: ...
+    @property
+    def reference_digest(self) -> str: ...
 
 
 class OperationEventSighting(EventContract):
@@ -106,10 +143,27 @@ class OperationEventFrame(EventContract):
         return self
 
 
-def _origin_group_count(frame: OperationEventFrame) -> int | None:
-    if frame.event == DEFAULT_OPERATION_EVENT:
-        return None
-    return len({o.origin_group for o in frame.observations if o.origin_group is not None})
+    @property
+    def fit_digest(self) -> str:
+        """Legacy frame identity remains owned here until its actual callers retire."""
+        value = self.model_dump(mode="json")
+        if self.feature_unavailable is None:
+            del value["feature_unavailable"]
+        for unavailable in value.get("feature_unavailable", ()):
+            if not unavailable["sightings"]:
+                del unavailable["sightings"]
+        for observation in value["observations"]:
+            if observation["origin_group"] is None:
+                del observation["origin_group"]
+            if not observation["sightings"]:
+                del observation["sightings"]
+        return numeric_identity("frame", value).removeprefix("frame:")
+
+    @property
+    def fit_origin_group_count(self) -> int | None:
+        if self.event == DEFAULT_OPERATION_EVENT:
+            return None
+        return len({o.origin_group for o in self.observations if o.origin_group is not None})
 
 
 class NativeOperationEventFrame(EventContract):
@@ -329,7 +383,7 @@ class OperationEventFitResult(EventContract):
 
 
 def _fit_operation_event(
-    frame: OperationEventFrame, algorithm: OperationEventAlgorithm | None = None
+    frame: NumericEventFrame, algorithm: OperationEventAlgorithm | None = None
 ) -> OperationEventFitResult:
     algorithm = algorithm or OperationEventAlgorithm()
     digest = frame_digest(frame)
@@ -343,7 +397,7 @@ def _fit_operation_event(
         labeled=len(labeled),
         positive=positive,
         negative=negative,
-        origin_groups=_origin_group_count(frame),
+        origin_groups=frame.fit_origin_group_count,
     )
     if not labeled:
         return OperationEventFitResult(
@@ -452,7 +506,7 @@ def _fit_operation_event(
 
 
 def fit_operation_event(
-    frame: OperationEventFrame, algorithm: OperationEventAlgorithm | None = None
+    frame: NumericEventFrame, algorithm: OperationEventAlgorithm | None = None
 ) -> OperationEventFitResult:
     try:
         return _fit_operation_event(frame, algorithm)
@@ -462,27 +516,16 @@ def fit_operation_event(
             reason=f"Numerical fitting failed: {type(error).__name__}: {error}",
             frame_digest=frame_digest(frame),
             observations=len(frame.observations),
-            origin_groups=_origin_group_count(frame),
+            origin_groups=frame.fit_origin_group_count,
             labeled=sum(o.judgment in {"supported", "unsupported"} for o in frame.observations),
             positive=sum(o.judgment == "supported" for o in frame.observations),
             negative=sum(o.judgment == "unsupported" for o in frame.observations),
         )
 
 
-def frame_digest(frame: OperationEventFrame) -> str:
-    """Hash numeric meaning identically to the native binary64 identity codec."""
-    value = frame.model_dump(mode="json")
-    if frame.feature_unavailable is None:
-        del value["feature_unavailable"]
-    for unavailable in value.get("feature_unavailable", ()):
-        if not unavailable["sightings"]:
-            del unavailable["sightings"]
-    for observation in value["observations"]:
-        if observation["origin_group"] is None:
-            del observation["origin_group"]
-        if not observation["sightings"]:
-            del observation["sightings"]
-    return numeric_identity("frame", value).removeprefix("frame:")
+def frame_digest(frame: NumericEventFrame) -> str:
+    """Use the exact identity supplied by this frame's canonical owner."""
+    return frame.fit_digest
 
 
 def read_native_frame(
