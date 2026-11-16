@@ -1,4 +1,4 @@
-"""Local ontology acquisition and deterministic semantic RDF projections.
+"""Local ontology acquisition, schema artifacts and explicit RDF conformance.
 
 Acquisition reads explicitly supplied files. The pure release compiler consumes its
 immutable snapshots; it never opens an OAK endpoint or acquires an ontology itself.
@@ -8,18 +8,13 @@ from __future__ import annotations
 
 import copy
 import hashlib
-import json
-import math
 import warnings
-from collections.abc import Callable, Iterable, Mapping, MutableMapping
-from dataclasses import dataclass, field
-from datetime import date, datetime
-from decimal import Decimal
-from functools import lru_cache
+from collections.abc import Iterable, Mapping, MutableMapping
+from dataclasses import dataclass
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from types import MappingProxyType
-from typing import TYPE_CHECKING, Any
+from typing import Any
 from typing import Literal as TypingLiteral
 
 from linkml.generators.owlgen import OwlSchemaGenerator
@@ -41,18 +36,9 @@ from linkml_term_validator.plugins import (
     DynamicEnumPlugin,
     PermissibleValueMeaningPlugin,
 )
-from pydantic import BaseModel
 from pyshacl import validate
-from rdflib import BNode, Graph, Literal, Namespace, URIRef
+from rdflib import Graph
 from rdflib.namespace import RDF
-from rdflib.term import Node
-
-CS = Namespace("https://corpus-structure.dev/semantic/")
-
-if TYPE_CHECKING:
-    from .contracts import ProjectionContract
-    from .types import PreparedRelease
-
 
 class OntologyError(ValueError):
     """A declared ontology or vocabulary could not be resolved completely."""
@@ -113,7 +99,6 @@ class GraphValidation:
     report: bytes
     message: str
     diagnostics: tuple[GraphDiagnostic, ...] = ()
-    validation: BaseModel | None = None
 
     @property
     def outcome(self) -> TypingLiteral["conformant", "nonconformant"]:
@@ -466,344 +451,20 @@ def resolve_vocabularies(
     return snapshots
 
 
-def qualified_assertion_graph(assertions: Iterable[Mapping[str, Any]]) -> Graph:
-    """Represent source assertions without entailing their unqualified triple.
-
-    Each record requires id, subject, predicate and object. URIRef objects are
-    resource references; other values are literals, preserving JSON structure
-    for qualification values that have no scalar representation.
-    """
-    graph = Graph()
-    seen = {}
-    for assertion in assertions:
-        identity = str(assertion["id"])
-        if identity in seen and seen[identity] != assertion:
-            raise OntologyError(f"conflicting assertion occurrence identity {identity!r}")
-        seen[identity] = copy.deepcopy(assertion)
-        node = URIRef(str(assertion["id"]))
-        graph.add((node, RDF.type, RDF.Statement))
-        graph.add((node, RDF.subject, URIRef(str(assertion["subject"]))))
-        graph.add((node, RDF.predicate, URIRef(str(assertion["predicate"]))))
-        obj = assertion["object"]
-        if isinstance(obj, dict | tuple | list):
-            object_value = Literal(
-                json.dumps(obj, sort_keys=True, separators=(",", ":")), datatype=RDF.JSON
-            )
-        else:
-            object_value = obj if isinstance(obj, (URIRef, Literal)) else Literal(obj)
-        graph.add((node, RDF.object, object_value))
-        for key, value in assertion.items():
-            if key in {"id", "subject", "predicate", "object"}:
-                continue
-            if isinstance(value, URIRef | Literal):
-                rdf_value = value
-            elif isinstance(value, dict | tuple | list):
-                rdf_value = Literal(
-                    json.dumps(value, sort_keys=True, separators=(",", ":")), datatype=RDF.JSON
-                )
-            else:
-                rdf_value = Literal(value)
-            graph.add((node, CS[key], rdf_value))
-    return graph
-
-
-@dataclass(frozen=True)
-class QualifiedGraphReference:
-    """An instance reference whose target must be present in validation closure."""
-
-    target_id: str
-
-    def __post_init__(self) -> None:
-        if type(self.target_id) is not str or not self.target_id:
-            raise OntologyError("qualified reference requires target identity")
-
-
-@dataclass(frozen=True)
-class GraphProjectionBinding:
-    """The actual release-bound contract, separate from a projection instance label."""
-
-    release_id: str
-    execution_model_id: str
-    contract: ProjectionContract
-    validation_outcomes: tuple[str, ...]
-
-    def require_validation_outcome(self, outcome: str) -> None:
-        if outcome not in self.validation_outcomes:
-            raise OntologyError(f"graph validation outcome {outcome!r} is not in the bound model")
-
-    @classmethod
-    def from_release(
-        cls, prepared: PreparedRelease, contract_id: str = "graph_validation"
-    ) -> GraphProjectionBinding:
-        from .contracts import _PRODUCT_CONVERTER, ProjectionContract
-
-        if prepared.execution_model_id is None:
-            raise OntologyError("graph contract requires the bound execution model")
-        model = next(
-            (
-                row
-                for row in prepared.registry_rows
-                if row.kind == "execution_model" and row.name == prepared.execution_model_id
-            ),
-            None,
-        )
-        if model is None:
-            raise OntologyError("graph contract requires the bound execution model")
-        body = json.loads(model.body)
-        if body.get("model_id") != prepared.execution_model_id:
-            raise OntologyError("graph execution model identity differs")
-        candidates = [row for row in body["projections"] if row["id"] == contract_id]
-        if len(candidates) != 1:
-            raise OntologyError(f"unknown graph contract {contract_id!r}")
-        contract = _PRODUCT_CONVERTER.structure(candidates[0], ProjectionContract)
-        operation = next(
-            (item for item in body["operations"] if item["id"] == "graph_validate"), None
-        )
-        if operation is None or contract_id not in operation["projections"]:
-            raise OntologyError("graph validation operation is not bound to its projection")
-        return cls(
-            prepared.release_id, prepared.execution_model_id, contract, tuple(operation["outcomes"])
-        )
-
-
-@dataclass(frozen=True)
-class QualifiedGraphProjection:
-    """Explicit validation universe; output focus does not narrow its required closure."""
-
-    release_id: str
-    realization_id: str
-    data_revision: int
-    projection_id: str
-    assertions: tuple[Mapping[str, Any], ...]
-    related_nodes: Mapping[str, Mapping[str, Any]]
-    references: Mapping[str, tuple[str, ...]]
-    identity_exclusions: tuple[Mapping[str, Any], ...] = ()
-    contract_binding: GraphProjectionBinding = field(kw_only=True)
-    source_universe: tuple[str, ...] = field(kw_only=True)
-    snapshot_guard: Callable[[], bool] = field(kw_only=True, repr=False, compare=False)
-
-    def __post_init__(self) -> None:
-        def freeze(value: Any) -> Any:
-            if isinstance(value, Mapping):
-                return MappingProxyType({key: freeze(child) for key, child in value.items()})
-            if isinstance(value, tuple | list):
-                return tuple(freeze(child) for child in value)
-            return value
-
-        object.__setattr__(self, "assertions", freeze(self.assertions))
-        object.__setattr__(self, "related_nodes", freeze(self.related_nodes))
-        object.__setattr__(self, "references", freeze(self.references))
-        object.__setattr__(self, "identity_exclusions", freeze(self.identity_exclusions))
-
-    def graph(self) -> Graph:
-        bound = self.contract_binding
-        contract = bound.contract
-        policy = contract.graph_policy
-        if bound.release_id != self.release_id:
-            raise OntologyError("wrong graph contract release")
-        if (contract.implementation, contract.lifetime) != (
-            "graph_project",
-            "snapshot",
-        ) or policy is None:
-            raise OntologyError("graph contract has no supported enforcing policy")
-        if (policy.universe, policy.precision, policy.collections, policy.lifetime) != (
-            "typed_reference_closure",
-            "exact_literals",
-            "positions_and_multiplicity",
-            "snapshot",
-        ) or set(contract.omissions) != {
-            "bare_triple_entailment",
-            "concurrent_transition_authority",
-        }:
-            raise OntologyError("unsupported graph projection policy")
-        if not self.snapshot_guard():
-            raise OntologyError("graph projection snapshot is closed")
-        if not self.release_id or not self.realization_id or not self.projection_id:
-            raise OntologyError("graph projection requires release, realization and projection")
-        if type(self.data_revision) is not int or self.data_revision < 0:
-            raise OntologyError("graph projection requires snapshot revision")
-        assertions = {str(row["id"]): row for row in self.assertions}
-        if len(assertions) != len(self.assertions):
-            raise OntologyError("duplicate projected occurrence identity")
-        exclusions = {str(row["id"]): row for row in self.identity_exclusions}
-        if len(exclusions) != len(self.identity_exclusions):
-            raise OntologyError("duplicate projected identity exclusion")
-        overlap = (assertions.keys() & self.related_nodes.keys()) | (
-            exclusions.keys() & (assertions.keys() | self.related_nodes.keys())
-        )
-        if overlap:
-            raise OntologyError("projected node identities overlap")
-        for row in exclusions.values():
-            left, right = row.get("left"), row.get("right")
-            if not isinstance(left, QualifiedGraphReference) or not isinstance(
-                right, QualifiedGraphReference
-            ):
-                raise OntologyError("identity exclusion requires typed endpoint references")
-            if left == right:
-                raise OntologyError("identity exclusion endpoints collapse")
-            evidence = row.get("evidence")
-            if (
-                not isinstance(evidence, tuple | list)
-                or not evidence
-                or any(not isinstance(item, QualifiedGraphReference) for item in evidence)
-            ):
-                raise OntologyError("identity exclusion needs typed evidence closure")
-        available = {**self.related_nodes, **assertions, **exclusions}
-        if (
-            len(set(self.source_universe)) != len(self.source_universe)
-            or set(self.source_universe) - available.keys()
-        ):
-            raise OntologyError("graph source universe is incomplete or duplicated")
-        for identity, row in self.related_nodes.items():
-            if row.get("kind", "record") not in policy.node_kinds:
-                raise OntologyError(f"unsupported graph node kind at {identity}")
-        if self.references.keys() - available.keys():
-            raise OntologyError("reference source is outside projected node universe")
-        for row in available.values():
-            for key, expected in (
-                ("release_id", self.release_id),
-                ("realization_id", self.realization_id),
-                ("data_revision", self.data_revision),
-            ):
-                if key in row and row[key] != expected:
-                    raise OntologyError(f"wrong graph node scope: {key}")
-
-        def instance_references(value: Any) -> set[str]:
-            if isinstance(value, QualifiedGraphReference):
-                return {value.target_id}
-            if isinstance(value, URIRef):
-                return {str(value)}
-            if isinstance(value, Mapping):
-                return set().union(
-                    *(
-                        instance_references(child)
-                        for key, child in value.items()
-                        if key not in {"predicate", "rdf_type", "class_iri"}
-                    )
-                )
-            if isinstance(value, tuple | list):
-                return set().union(*(instance_references(child) for child in value))
-            return set()
-
-        references = {
-            identity: set(self.references.get(identity, ())) | instance_references(row)
-            for identity, row in available.items()
-        }
-        for identity, assertion in assertions.items():
-            subject = assertion["subject"]
-            references[identity].add(
-                subject.target_id if isinstance(subject, QualifiedGraphReference) else str(subject)
-            )
-        required = set(assertions) | set(exclusions) | set(self.source_universe)
-        pending = list(required)
-        while pending:
-            source = pending.pop()
-            for target in references.get(source, ()):
-                if target not in available:
-                    raise OntologyError(f"missing required related node {target!r}")
-                if target not in required:
-                    required.add(target)
-                    pending.append(target)
-        graph = Graph()
-        binding = {
-            "release": self.release_id,
-            "realization": self.realization_id,
-            "data_revision": self.data_revision,
-            "projection": self.projection_id,
-        }
-
-        def structure(owner: URIRef, path: tuple[str, ...], value: Any) -> URIRef | Literal:
-            if isinstance(value, QualifiedGraphReference):
-                return URIRef(value.target_id)
-            if isinstance(value, URIRef | Literal):
-                return value
-            if value is None:
-                node = URIRef(
-                    "urn:cs:projection-null:"
-                    + hashlib.sha256(
-                        json.dumps([binding, str(owner), path], sort_keys=True).encode()
-                    ).hexdigest()
-                )
-                graph.add((node, RDF.type, CS.Null))
-                return node
-            if not isinstance(value, Mapping | tuple | list):
-                if not isinstance(value, str | int | float | Decimal | date | datetime):
-                    raise OntologyError("unsupported exact graph literal")
-                if (isinstance(value, float) and not math.isfinite(value)) or (
-                    isinstance(value, Decimal) and not value.is_finite()
-                ):
-                    raise OntologyError("non-finite graph literal")
-                return Literal(value)
-            # Paths retain duplicate member positions, independently of RDF set semantics.
-            node = URIRef(
-                "urn:cs:projection-value:"
-                + hashlib.sha256(
-                    json.dumps([binding, str(owner), path], sort_keys=True).encode()
-                ).hexdigest()
-            )
-            if isinstance(value, Mapping):
-                graph.add((node, RDF.type, CS.Record))
-                for key, child in value.items():
-                    if type(key) is not str:
-                        raise OntologyError("qualified record keys must be strings")
-                    graph.add((node, CS[key], structure(owner, (*path, key), child)))
-            else:
-                graph.add((node, RDF.type, CS.Collection))
-                for position, child in enumerate(value):
-                    member = URIRef(str(node) + ":" + str(position))
-                    graph.add((node, CS.member, member))
-                    graph.add((member, RDF.type, CS.CollectionMember))
-                    graph.add((member, CS.position, Literal(position)))
-                    graph.add((member, CS.value, structure(owner, (*path, str(position)), child)))
-            return node
-
-        for assertion in self.assertions:
-            node = URIRef(str(assertion["id"]))
-            graph.add((node, RDF.type, RDF.Statement))
-            subject = assertion["subject"]
-            graph.add(
-                (
-                    node,
-                    RDF.subject,
-                    URIRef(
-                        subject.target_id
-                        if isinstance(subject, QualifiedGraphReference)
-                        else str(subject)
-                    ),
-                )
-            )
-            graph.add((node, RDF.predicate, URIRef(str(assertion["predicate"]))))
-            graph.add((node, RDF.object, structure(node, ("object",), assertion["object"])))
-        for identity in exclusions:
-            node = URIRef(identity)
-            graph.add((node, RDF.type, CS.IdentityExclusion))
-            graph.add((node, CS.left, URIRef(exclusions[identity]["left"].target_id)))
-            graph.add((node, CS.right, URIRef(exclusions[identity]["right"].target_id)))
-        for identity in sorted(required):
-            node = URIRef(identity)
-            for key, value in binding.items():
-                graph.add((node, CS[key], Literal(value)))
-            row = available[identity]
-            for key, value in row.items():
-                if key in {"id", "subject", "predicate", "object"} and identity in assertions:
-                    continue
-                graph.add((node, CS[key + "Node"], structure(node, (key,), value)))
-            for target in sorted(references.get(identity, ())):
-                graph.add((node, CS.requiredNode, URIRef(target)))
-        return graph
-
-
 def validate_graph(data: Graph, shapes: Graph, ontology: Graph | None = None) -> GraphValidation:
     """Conformance only: no implicit entailment, imports, mutation or SHACL rules."""
     from pyshacl.errors import ConstraintLoadError, ReportableRuntimeError, ShapeLoadError
+    from pyshacl.rdfutil import clone_graph
 
     try:
         conforms, report, message = validate(
-            data,
-            shacl_graph=shapes,
-            ont_graph=ontology,
+            clone_graph(data),
+            shacl_graph=clone_graph(shapes),
+            ont_graph=clone_graph(ontology) if ontology is not None else None,
             inference="none",
-            inplace=False,
+            # PySHACL adds system triples to its shapes and may change Dataset
+            # union settings. Only these operation-owned copies are mutable.
+            inplace=True,
             advanced=False,
             do_owl_imports=False,
         )
@@ -989,104 +650,3 @@ def validate_bindings(
     context = ValidationContext(_schema(view), target_class=target_class)
     plugin.pre_process(context)
     return tuple(result.message for result in plugin.process(dict(instance), context))
-
-
-def qualified_validation_graph(projection: QualifiedGraphProjection) -> Graph:
-    """Materialize the declared qualified validation closure, never a bare-domain graph."""
-    return projection.graph()
-
-
-@lru_cache(maxsize=1)
-def _qualified_shape_triples() -> tuple[tuple[Node, Node, Node], ...]:
-    """Prepare immutable core triples once; mutable graphs remain operation-owned."""
-    return tuple(
-        Graph().parse(
-            data='''@prefix sh: <http://www.w3.org/ns/shacl#> .
-@prefix cs: <https://corpus-structure.dev/semantic/> .
-@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
-@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
-cs:StatementShape a sh:NodeShape; sh:targetClass rdf:Statement;
- sh:property [sh:path rdf:subject; sh:minCount 1; sh:maxCount 1; sh:nodeKind sh:IRI];
- sh:property [sh:path rdf:predicate; sh:minCount 1; sh:maxCount 1; sh:nodeKind sh:IRI];
- sh:property [sh:path rdf:object; sh:minCount 1; sh:maxCount 1] .
-cs:IdentityExclusionShape a sh:NodeShape; sh:targetClass cs:IdentityExclusion;
- sh:property [sh:path cs:left; sh:minCount 1; sh:maxCount 1; sh:nodeKind sh:IRI];
- sh:property [sh:path cs:right; sh:minCount 1; sh:maxCount 1; sh:nodeKind sh:IRI];
- sh:sparql [sh:message "Identity exclusion endpoints must differ";
- sh:select """SELECT $this WHERE {
-   $this <https://corpus-structure.dev/semantic/left> ?e;
-   <https://corpus-structure.dev/semantic/right> ?e . }"""] .
-cs:MemberShape a sh:NodeShape; sh:targetClass cs:CollectionMember;
- sh:property [sh:path cs:position; sh:datatype xsd:integer;
-              sh:minInclusive 0; sh:minCount 1; sh:maxCount 1];
- sh:property [sh:path cs:value; sh:minCount 1; sh:maxCount 1] .
-cs:CollectionShape a sh:NodeShape; sh:targetClass cs:Collection;
- sh:property [sh:path cs:member; sh:class cs:CollectionMember];
- sh:sparql [sh:message "Collection member positions must be unique";
- sh:select """SELECT $this WHERE {
-   $this <https://corpus-structure.dev/semantic/member> ?a, ?b . FILTER(?a != ?b)
-   ?a <https://corpus-structure.dev/semantic/position> ?p .
-   ?b <https://corpus-structure.dev/semantic/position> ?p . }"""] .
-cs:ScopedNodeShape a sh:NodeShape; sh:targetSubjectsOf cs:projection;
- sh:property [sh:path cs:release; sh:minCount 1; sh:maxCount 1];
- sh:property [sh:path cs:realization; sh:minCount 1; sh:maxCount 1];
- sh:property [sh:path cs:data_revision; sh:datatype xsd:integer;
-              sh:minInclusive 0; sh:minCount 1; sh:maxCount 1] .
-''',
-            format="turtle",
-        )
-    )
-
-
-def _add_isolated_triples(destination: Graph, triples: Iterable[tuple[Node, Node, Node]]) -> None:
-    """Merge an independent graph with its blank-node namespace standardized apart."""
-    remapped: dict[BNode, BNode] = {}
-
-    def node(value: Node) -> Node:
-        if isinstance(value, BNode):
-            return remapped.setdefault(value, BNode())
-        return value
-
-    destination.addN((node(s), node(p), node(o), destination) for s, p, o in triples)
-
-
-def qualified_projection_shapes() -> Graph:
-    """Fresh core shapes: callers may mutate them without changing later validation."""
-    graph = Graph()
-    _add_isolated_triples(graph, _qualified_shape_triples())
-    return graph
-
-
-def validate_projected_graph(
-    projection: QualifiedGraphProjection, shapes: Graph | None = None, ontology: Graph | None = None
-) -> GraphValidation:
-    selected = qualified_projection_shapes()
-    if shapes is not None:
-        _add_isolated_triples(selected, shapes)
-    try:
-        result = validate_graph(qualified_validation_graph(projection), selected, ontology)
-    except (GraphShapeError, GraphExecutionError) as exc:
-        projection.contract_binding.require_validation_outcome(exc.outcome)
-        from .refusals import FailureContext
-
-        context = FailureContext(
-            operation="graph_validate",
-            scope=f"{projection.realization_id}@{projection.data_revision}/{projection.projection_id}",
-            release_id=projection.contract_binding.release_id,
-            model_id=projection.contract_binding.execution_model_id,
-        )
-        exc.__dict__.setdefault("semantic_failure_context", context)
-        raise
-    projection.contract_binding.require_validation_outcome(result.outcome)
-    from dataclasses import replace
-
-    from .operation_reporting import graph_validation_report
-
-    return replace(
-        result,
-        validation=graph_validation_report(
-            result,
-            binding=projection.contract_binding,
-            scope=f"{projection.realization_id}@{projection.data_revision}/{projection.projection_id}",
-        ),
-    )

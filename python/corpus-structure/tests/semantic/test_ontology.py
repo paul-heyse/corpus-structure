@@ -10,18 +10,15 @@ from rdflib import Graph, Literal, URIRef
 from rdflib.namespace import RDF
 
 from corpus_structure.semantic.ontology import (
-    CS,
     OntologyError,
     build_graph_artifacts,
     expand_enum,
-    qualified_assertion_graph,
     resolve_vocabularies,
     resolve_vocabularies_from_bytes,
     validate_bindings,
     validate_enum_meanings,
     validate_graph,
 )
-from semantic.ontology_support import _bound_projection as _bound_projection
 
 
 def view(**kwargs):
@@ -66,33 +63,6 @@ def test_canonical_generated_ontology_and_shapes():
     assert not validate_graph(data, shapes).conforms
     data.add((thing, URIRef("https://example.org/name"), Literal("Alpha")))
     assert validate_graph(data, shapes).conforms
-
-
-def test_parallel_assertions_do_not_entail_bare_triple():
-    source = URIRef("https://example.org/source")
-    records = [
-        dict(
-            id=f"https://example.org/assertion/{i}",
-            subject="https://example.org/a",
-            predicate="https://example.org/owns",
-            object=URIRef("https://example.org/b"),
-            polarity="positive",
-            condition={"valid_from": "2026-01-01"},
-            evidence=source,
-        )
-        for i in (1, 2)
-    ]
-    graph = qualified_assertion_graph(records)
-    assert len(set(graph.subjects(RDF.type, RDF.Statement))) == 2
-    assert (
-        URIRef(records[0]["subject"]),
-        URIRef(records[0]["predicate"]),
-        records[0]["object"],
-    ) not in graph
-    assert (URIRef(records[1]["id"]), CS.evidence, source) in graph
-    condition = graph.value(URIRef(records[0]["id"]), CS.condition)
-    assert isinstance(condition, Literal)
-    assert condition.datatype == RDF.JSON
 
 
 def local_ontology(tmp_path: Path) -> Path:
@@ -204,24 +174,6 @@ def test_obo_remote_import_is_rejected(tmp_path):
         expand_enum(schema, "A", {"test": path})
 
 
-def test_ordered_roles_are_not_flattened_into_triple_sets():
-    g = qualified_assertion_graph(
-        [
-            dict(
-                id="urn:assertion:1",
-                subject="urn:subject",
-                predicate="urn:p",
-                object=1,
-                roles=[{"name": "first", "value": 1}, {"name": "second", "value": 1}],
-            )
-        ]
-    )
-    value = g.value(URIRef("urn:assertion:1"), CS.roles)
-    assert str(value) == '[{"name":"first","value":1},{"name":"second","value":1}]'
-    assert isinstance(value, Literal)
-    assert value.datatype == RDF.JSON
-
-
 def test_meaning_plugin_checks_labels_and_unknown_terms(tmp_path):
     path = local_ontology(tmp_path)
     schema = view(
@@ -242,16 +194,6 @@ def test_byte_preparation_recomputes_membership_without_persistent_cache(tmp_pat
     assert first[0].accepted_values == ("TEST:2", "TEST:3")
     assert first == resolve_vocabularies_from_bytes(schema, {"test": path.read_bytes()})
     assert list(tmp_path.iterdir()) == [path]
-
-
-def test_structured_object_and_conflicting_occurrence_identity():
-    a = dict(id="urn:assertion", subject="urn:s", predicate="urn:p", object={"roles": [1, 2]})
-    graph = qualified_assertion_graph([a])
-    assert graph.value(URIRef("urn:assertion"), RDF.object) == Literal(
-        '{"roles":[1,2]}', datatype=RDF.JSON
-    )
-    with pytest.raises(OntologyError, match="conflicting assertion"):
-        qualified_assertion_graph([a, dict(a, object={"roles": [2, 1]})])
 
 
 def test_resolved_meanings_are_checked_and_unbound_prefixes_explicit(tmp_path):
@@ -437,342 +379,6 @@ def test_profile_default_scope_is_applied_to_graph_projection():
     assert not list(shapes.objects(None, SH.minCount))
 
 
-def test_qualified_projection_exposes_structured_paths_and_required_closure():
-
-    occurrence = {
-        "id": "urn:occ:1",
-        "subject": "urn:entity:1",
-        "predicate": "urn:p",
-        "object": "value",
-        "condition": {"roles": ["same", "same"]},
-    }
-    projection = _bound_projection(
-        "r",
-        "z",
-        3,
-        "qualified-validation",
-        (occurrence,),
-        {
-            "urn:entity:1": {"kind": "entity"},
-            "urn:proof:1": {"kind": "direct", "premises": [URIRef("urn:occ:1")]},
-        },
-        {"urn:occ:1": ("urn:proof:1",)},
-    )
-    graph = projection.graph()
-    assert (URIRef("urn:occ:1"), CS.requiredNode, URIRef("urn:proof:1")) in graph
-    condition = graph.value(URIRef("urn:occ:1"), CS.conditionNode)
-    roles = graph.value(condition, CS.roles)
-    members = set(graph.objects(roles, CS.member))
-    assert len(members) == 2
-    assert {int(str(graph.value(member, CS.position))) for member in members} == {0, 1}
-    assert {str(graph.value(member, CS.value)) for member in members} == {"same"}
-    from dataclasses import replace
-
-    with pytest.raises(OntologyError, match="missing required related node"):
-        replace(projection, related_nodes={}).graph()
-
-
-def test_projected_validation_uses_nested_qualified_path():
-    from corpus_structure.semantic.ontology import (
-        validate_projected_graph,
-    )
-
-    row = {
-        "id": "urn:occ:1",
-        "subject": "urn:s",
-        "predicate": "urn:p",
-        "object": "v",
-        "condition": {"count": "invalid"},
-    }
-    projection = _bound_projection(
-        "r", "z", 0, "graph-validation", (row,), {"urn:s": {"kind": "entity"}}, {}
-    )
-    shapes = Graph().parse(
-        data="""@prefix sh: <http://www.w3.org/ns/shacl#> .
-@prefix cs: <https://corpus-structure.dev/semantic/> .
-@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
-<urn:shape> a sh:NodeShape; sh:targetClass cs:Record;
- sh:property [sh:path cs:count; sh:datatype xsd:integer] .""",
-        format="turtle",
-    )
-    result = validate_projected_graph(projection, shapes)
-    assert not result.conforms
-    assert result.validation is not None
-    located = result.validation.model_dump(mode="json")
-    assert located["release_id"] == projection.release_id
-    assert located["model_id"] == projection.contract_binding.execution_model_id
-    observation = located["observations"][0]
-    assert observation["operation"] == "graph_validate"
-    assert observation["model_path"]
-    assert observation["input_path"]
-    assert observation["scope"] == "z@0/graph-validation"
-    from hashlib import sha256
-
-    assert located["evidence"]["digest"] == sha256(result.report).hexdigest()
-    assert located["evidence"]["kind"] == "marker"
-    assert located["evidence"]["sensitivity"] == "safe"
-
-
-def test_graph_operation_invalid_shape_retains_bound_diagnostic_through_tool_boundary():
-    import json
-
-    from fastmcp.exceptions import ToolError
-    from pyshacl.errors import ConstraintLoadError
-
-    from corpus_structure.semantic.ontology import (
-        GraphExecutionError,
-        GraphShapeError,
-        validate_projected_graph,
-    )
-    from corpus_structure.semantic.refusals import tool_refusals
-
-    projection = _bound_projection(
-        "release:graph-errors", "realization:graph-errors", 7, "graph-errors", (), {}, {}
-    )
-    invalid = Graph().parse(
-        data="""@prefix sh: <http://www.w3.org/ns/shacl#> .
-<urn:invalid-shape> a sh:NodeShape; sh:targetNode <urn:missing>;
- sh:property [sh:path <urn:field>; sh:minCount "wrong"] .""",
-        format="turtle",
-    )
-    # This is the maintained generic tool error adapter around the actual
-    # model-owned operation, without registering a new public graph tool.
-    guarded = tool_refusals(GraphShapeError, GraphExecutionError)(validate_projected_graph)
-    with pytest.raises(ToolError) as caught:
-        guarded(projection, invalid)
-    graph_error = caught.value.__cause__
-    assert isinstance(graph_error, GraphShapeError)
-    raw_cause = graph_error.__cause__
-    assert isinstance(raw_cause, ConstraintLoadError)
-    assert "sh:minCount" in str(raw_cause) and "xsd:integer" in str(raw_cause)
-    failure = json.loads(str(caught.value))
-    assert failure["code"] == "GraphShapeError"
-    assert failure["message"] == (
-        "Graph validation failed; request correction detail for structural paths."
-    )
-    located = failure["validation"]
-    assert located["release_id"] == "release:graph-errors"
-    assert located["model_id"] == projection.contract_binding.execution_model_id
-    assert located["complete"] is True
-    assert located["observations"] == [
-        {
-            "category": "invalid_shape",
-            "code": "invalid_shape",
-            "model_path": "graph/shapes",
-            "operation": "graph_validate",
-            "scope": "realization:graph-errors@7/graph-errors",
-            "message": "Boundary validation failed: GraphShapeError",
-        }
-    ]
-
-
-def test_graph_operation_controlled_dependency_failure_reaches_located_cli_boundary(
-    monkeypatch, capsys
-):
-    import json
-
-    import typer
-    from pyshacl.errors import ReportableRuntimeError
-
-    from corpus_structure.cli.failures import failure_boundary
-    from corpus_structure.semantic import ontology
-    from corpus_structure.semantic.ontology import GraphExecutionError, GraphShapeError
-
-    projection = _bound_projection(
-        "release:graph-errors", "realization:graph-errors", 7, "graph-errors", (), {}, {}
-    )
-    dependency_error = ReportableRuntimeError("controlled pySHACL dependency failure")
-    calls = []
-
-    def unavailable(data_graph, **kwargs):
-        calls.append(data_graph)
-        raise dependency_error
-
-    # A controlled library-boundary failure tests propagation through the real
-    # operation and adapter; it does not qualify live infrastructure availability.
-    monkeypatch.setattr(ontology, "validate", unavailable)
-    with (
-        pytest.raises(typer.Exit) as caught,
-        failure_boundary(True, expected=(GraphShapeError, GraphExecutionError)),
-    ):
-        ontology.validate_projected_graph(projection)
-    assert len(calls) == 1
-    assert isinstance(calls[0], Graph)
-    graph_error = caught.value.__context__
-    assert isinstance(graph_error, GraphExecutionError)
-    assert graph_error.__cause__ is dependency_error
-    failure = json.loads(capsys.readouterr().out)["error"]
-    assert failure["code"] == "GraphExecutionError"
-    assert failure["message"] == (
-        "Graph validation failed; request correction detail for structural paths."
-    )
-    located = failure["validation"]
-    assert located["release_id"] == "release:graph-errors"
-    assert located["model_id"] == projection.contract_binding.execution_model_id
-    assert located["complete"] is True
-    assert located["observations"] == [
-        {
-            "category": "validator_failure",
-            "code": "runtime_failure",
-            "model_path": "graph/validator",
-            "operation": "graph_validate",
-            "scope": "realization:graph-errors@7/graph-errors",
-            "message": "Boundary validation failed: GraphExecutionError",
-        }
-    ]
-
-
-def test_projected_null_remains_distinct_from_absence_and_literal_text():
-
-    row = {
-        "id": "urn:occ:1",
-        "subject": "urn:s",
-        "predicate": "urn:p",
-        "object": None,
-        "qualification": {"null": None, "text": "None"},
-    }
-    graph = _bound_projection(
-        "r", "z", 0, "graph-validation", (row,), {"urn:s": {"kind": "entity"}}, {}
-    ).graph()
-    qualification = graph.value(URIRef("urn:occ:1"), CS.qualificationNode)
-    null = graph.value(qualification, CS.null)
-    assert (null, RDF.type, CS.Null) in graph
-    assert graph.value(qualification, CS.text) == Literal("None")
-    assert graph.value(qualification, CS.absent) is None
-
-
-def test_typed_graph_references_derive_transitive_closure_without_reference_map():
-    from dataclasses import replace
-
-    from corpus_structure.semantic.ontology import QualifiedGraphReference
-
-    row = {
-        "id": "urn:occ",
-        "subject": QualifiedGraphReference("urn:entity"),
-        "predicate": "urn:p",
-        "object": "value",
-        "qualification": {"proof": QualifiedGraphReference("urn:proof")},
-    }
-    projection = _bound_projection(
-        "r",
-        "z",
-        0,
-        "graph-validation",
-        (row,),
-        {
-            "urn:entity": {"kind": "entity"},
-            "urn:proof": {"premise": QualifiedGraphReference("urn:evidence")},
-            "urn:evidence": {"kind": "evidence"},
-        },
-        {},
-    )
-    graph = projection.graph()
-    assert (URIRef("urn:proof"), CS.requiredNode, URIRef("urn:evidence")) in graph
-    nodes = dict(projection.related_nodes)
-    del nodes["urn:evidence"]
-    with pytest.raises(OntologyError, match="missing required related node"):
-        replace(projection, related_nodes=nodes).graph()
-
-
-def test_reified_collection_shapes_reject_duplicate_member_positions():
-    from corpus_structure.semantic.ontology import qualified_projection_shapes, validate_graph
-
-    graph = Graph()
-    parent, a, b = map(URIRef, ("urn:collection", "urn:a", "urn:b"))
-    graph.add((parent, RDF.type, CS.Collection))
-    for member in (a, b):
-        graph.add((parent, CS.member, member))
-        graph.add((member, RDF.type, CS.CollectionMember))
-        graph.add((member, CS.position, Literal(0)))
-        graph.add((member, CS.value, Literal("same")))
-    assert not validate_graph(graph, qualified_projection_shapes()).conforms
-
-
-def test_qualified_projection_refuses_node_binding_relabeling():
-
-    row = {"id": "urn:occ", "subject": "urn:s", "predicate": "urn:p", "object": "value"}
-    projection = _bound_projection(
-        "r",
-        "z",
-        2,
-        "graph-validation",
-        (row,),
-        {"urn:s": {"kind": "entity", "realization_id": "other"}},
-        {},
-    )
-    with pytest.raises(OntologyError, match="wrong graph node scope"):
-        projection.graph()
-
-
-def test_identity_exclusions_are_qualified_constraints_with_complete_closure():
-    from dataclasses import replace
-
-    from rdflib.namespace import OWL
-
-    from corpus_structure.semantic.ontology import (
-        QualifiedGraphReference,
-        validate_projected_graph,
-    )
-
-    first = {
-        "id": "urn:exclusion:first",
-        "left": QualifiedGraphReference("urn:entity:a"),
-        "right": QualifiedGraphReference("urn:entity:b"),
-        "evidence": (QualifiedGraphReference("urn:evidence:first"),),
-        "reason": "source distinguishes the entities",
-    }
-    second = {**first, "id": "urn:exclusion:second"}
-    projection = _bound_projection(
-        "release",
-        "realization",
-        2,
-        "qualified-identity-exclusions",
-        (),
-        {
-            "urn:entity:a": {"kind": "entity"},
-            "urn:entity:b": {"kind": "entity"},
-            "urn:evidence:first": {"kind": "evidence"},
-        },
-        {},
-        (first, second),
-    )
-    graph = projection.graph()
-    assert set(graph.subjects(RDF.type, CS.IdentityExclusion)) == {
-        URIRef("urn:exclusion:first"),
-        URIRef("urn:exclusion:second"),
-    }
-    assert not list(graph.triples((None, OWL.differentFrom, None)))
-    assert (URIRef("urn:exclusion:first"), CS.left, URIRef("urn:entity:a")) in graph
-    assert (URIRef("urn:exclusion:first"), CS.requiredNode, URIRef("urn:evidence:first")) in graph
-    assert validate_projected_graph(projection).conforms
-    with pytest.raises(OntologyError, match="missing required related node"):
-        replace(projection, related_nodes={"urn:entity:a": {}}).graph()
-    with pytest.raises(OntologyError, match="endpoints collapse"):
-        replace(projection, identity_exclusions=({**first, "right": first["left"]},)).graph()
-    with pytest.raises(OntologyError, match="typed endpoint references"):
-        replace(projection, identity_exclusions=({**first, "left": "urn:entity:a"},)).graph()
-    with pytest.raises(OntologyError, match="typed evidence"):
-        replace(projection, identity_exclusions=({**first, "evidence": ()},)).graph()
-
-
-def test_graph_contract_and_snapshot_are_enforced():
-    from dataclasses import replace
-
-    projection = _bound_projection(
-        "r", "z", 0, "instance-label", (), {"urn:e": {"kind": "entity"}}, {}
-    )
-    with pytest.raises(OntologyError, match="wrong graph contract release"):
-        replace(
-            projection, contract_binding=replace(projection.contract_binding, release_id="other")
-        ).graph()
-    with pytest.raises(OntologyError, match="snapshot is closed"):
-        replace(projection, snapshot_guard=lambda: False).graph()
-    with pytest.raises(OntologyError, match="source universe"):
-        replace(projection, source_universe=("urn:missing",)).graph()
-    with pytest.raises(OntologyError, match="node kind"):
-        replace(projection, related_nodes={"urn:e": {"kind": "unmodeled"}}).graph()
-
-
 def test_shacl_nonconformance_has_located_diagnostics_and_invalid_shapes_are_errors():
     from corpus_structure.semantic.ontology import GraphShapeError, validate_graph
 
@@ -798,3 +404,146 @@ def test_shacl_nonconformance_has_located_diagnostics_and_invalid_shapes_are_err
     )
     with pytest.raises(GraphShapeError):
         validate_graph(data, invalid)
+
+
+def test_generic_shacl_nested_paths_locate_failure_without_mutating_graphs():
+    data = Graph().parse(data='''@prefix ex: <urn:> .
+ex:source ex:condition [ex:count "invalid"] .''', format="turtle")
+    shapes = Graph().parse(data='''@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+<urn:shape> a sh:NodeShape; sh:targetNode <urn:source>;
+ sh:property [sh:path (<urn:condition> <urn:count>); sh:datatype xsd:integer] .''', format="turtle")
+    before = set(data), set(shapes)
+    result = validate_graph(data, shapes)
+    assert not result.conforms and result.outcome == "nonconformant"
+    assert (set(data), set(shapes)) == before
+    assert len(result.diagnostics) == 1
+    failure = result.diagnostics[0]
+    assert failure.focus_node == "urn:source" and failure.path is not None
+    assert failure.constraint is not None and failure.constraint.endswith("DatatypeConstraintComponent")
+    assert failure.source_shape is not None
+
+
+@pytest.mark.parametrize("dataset", [False, True])
+def test_graph_validation_keeps_supplied_data_shapes_and_ontology_operation_local(dataset):
+    from rdflib import Dataset
+
+    data = Dataset(default_union=False) if dataset else Graph()
+    target = data.graph(URIRef("urn:source-graph")) if isinstance(data, Dataset) else data
+    target.add((URIRef("urn:item"), URIRef("urn:count"), Literal(7)))
+    shapes = Graph().parse(data='''@prefix sh: <http://www.w3.org/ns/shacl#> .
+<urn:shape> a sh:NodeShape; sh:targetNode <urn:item>;
+ sh:property [sh:path <urn:count>; sh:minCount 1] .''', format="turtle")
+    ontology = Graph().parse(data='''@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+<urn:Child> rdfs:subClassOf <urn:Parent> .''', format="turtle")
+    before = set(target), set(shapes), set(ontology)
+    assert validate_graph(data, shapes, ontology).conforms
+    assert (set(target), set(shapes), set(ontology)) == before
+    if isinstance(data, Dataset):
+        assert data.default_union is False
+
+
+def test_generic_shacl_preserves_exact_large_integer_and_decimal_comparisons():
+    from decimal import Decimal
+    from rdflib.namespace import XSD
+
+    data = Graph()
+    subject, count, amount = map(URIRef, ("urn:item", "urn:count", "urn:amount"))
+    data.add((subject, count, Literal(2**90)))
+    precise = Literal(Decimal("0.10000000000000000001"))
+    data.add((subject, amount, precise))
+    shapes = Graph().parse(data=f'''@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+<urn:shape> a sh:NodeShape; sh:targetNode <urn:item>;
+ sh:property [sh:path <urn:count>; sh:datatype xsd:integer; sh:minInclusive {2**90-1}];
+ sh:property [sh:path <urn:amount>; sh:datatype xsd:decimal;
+ sh:minExclusive "0.1"^^xsd:decimal; sh:maxExclusive "0.10000000000000000002"^^xsd:decimal] .''', format="turtle")
+    assert validate_graph(data, shapes).conforms
+    observed = data.value(subject, count)
+    assert isinstance(observed, Literal) and observed.toPython() == 2**90
+    assert precise.datatype == XSD.decimal and str(precise) == "0.10000000000000000001"
+    data.set((subject, amount, Literal(Decimal("0.10000000000000000002"))))
+    assert not validate_graph(data, shapes).conforms
+
+
+def test_generic_graph_validation_does_not_entail_reified_claims_or_run_shacl_rules():
+    data = Graph().parse(data='''@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+<urn:assertion:1> a rdf:Statement; rdf:subject <urn:a>; rdf:predicate <urn:owns>; rdf:object <urn:b> .
+<urn:assertion:2> a rdf:Statement; rdf:subject <urn:a>; rdf:predicate <urn:owns>; rdf:object <urn:b> .''', format="turtle")
+    shapes = Graph().parse(data='''@prefix sh: <http://www.w3.org/ns/shacl#> .
+<urn:shape> a sh:NodeShape; sh:targetNode <urn:a>;
+ sh:property [sh:path <urn:owns>; sh:minCount 1];
+ sh:rule [a sh:TripleRule; sh:subject sh:this; sh:predicate <urn:owns>; sh:object <urn:b>] .''', format="turtle")
+    before = set(data)
+    assert not validate_graph(data, shapes).conforms
+    assert set(data) == before
+    assert len(set(data.subjects(RDF.type, RDF.Statement))) == 2
+    assert (URIRef("urn:a"), URIRef("urn:owns"), URIRef("urn:b")) not in data
+
+
+def test_invalid_generic_shape_keeps_cause_and_trusted_current_context_through_tool_boundary():
+    import json
+    from fastmcp.exceptions import ToolError
+    from pyshacl.errors import ConstraintLoadError
+    from corpus_structure.semantic.ontology import GraphExecutionError, GraphShapeError
+    from corpus_structure.semantic.refusals import located_failure_context, tool_refusals, trusted_operation_model_id
+    from semantic.operation_reporting_support import prepared
+
+    actual = prepared()
+    invalid = Graph().parse(data='''@prefix sh: <http://www.w3.org/ns/shacl#> .
+<urn:shape> a sh:NodeShape; sh:targetNode <urn:missing>;
+ sh:property [sh:path <urn:field>; sh:minCount "wrong"] .''', format="turtle")
+
+    @tool_refusals(GraphShapeError, GraphExecutionError)
+    def check_supplied_graph():
+        with located_failure_context(actual, scope="supplied generic graph"):
+            return validate_graph(Graph(), invalid)
+
+    with pytest.raises(ToolError) as caught:
+        check_supplied_graph()
+    assert isinstance(caught.value.__cause__, GraphShapeError)
+    assert isinstance(caught.value.__cause__.__cause__, ConstraintLoadError)
+    failure = json.loads(str(caught.value))
+    assert failure["code"] == "GraphShapeError"
+    report = failure["validation"]
+    assert report["release_id"] == actual.release_id
+    assert report["model_id"] == trusted_operation_model_id(actual)
+    assert report["observations"][0]["category"] == "invalid_shape"
+    assert report["observations"][0]["model_path"] == "graph/shapes"
+    assert report["observations"][0]["scope"] == "supplied generic graph"
+
+
+def test_generic_graph_library_failure_keeps_cause_and_context_through_cli_boundary(monkeypatch, capsys):
+    import json
+    import typer
+    from pyshacl.errors import ReportableRuntimeError
+    from corpus_structure.cli.failures import failure_boundary
+    from corpus_structure.semantic import ontology
+    from corpus_structure.semantic.ontology import GraphExecutionError, GraphShapeError
+    from corpus_structure.semantic.refusals import trusted_operation_model_id
+    from semantic.operation_reporting_support import prepared
+
+    original = ReportableRuntimeError("controlled library failure")
+    calls = []
+
+    def unavailable(data, **options):
+        calls.append((data, options))
+        raise original
+
+    monkeypatch.setattr(ontology, "validate", unavailable)
+    actual = prepared()
+    with pytest.raises(typer.Exit) as caught, failure_boundary(True, expected=(GraphShapeError, GraphExecutionError)) as context:
+        context.bind(actual, scope="supplied generic graph")
+        validate_graph(Graph(), Graph())
+    assert len(calls) == 1 and isinstance(calls[0][0], Graph)
+    assert calls[0][1] == dict(shacl_graph=calls[0][1]["shacl_graph"], ont_graph=None,
+        inference="none", inplace=True, advanced=False, do_owl_imports=False)
+    assert isinstance(caught.value.__context__, GraphExecutionError)
+    assert caught.value.__context__.__cause__ is original
+    failure = json.loads(capsys.readouterr().out)["error"]
+    assert failure["code"] == "GraphExecutionError"
+    report = failure["validation"]
+    assert report["release_id"] == actual.release_id and report["model_id"] == trusted_operation_model_id(actual)
+    assert report["observations"][0]["category"] == "validator_failure"
+    assert report["observations"][0]["model_path"] == "graph/validator"
+    assert report["observations"][0]["scope"] == "supplied generic graph"
