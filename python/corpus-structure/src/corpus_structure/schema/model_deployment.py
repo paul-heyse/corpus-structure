@@ -8,13 +8,13 @@ import os
 import re
 import sys
 from collections.abc import Callable, Generator
-from contextlib import contextmanager
+from contextlib import ExitStack, contextmanager
 from hashlib import sha256
 from pathlib import Path
 from tempfile import NamedTemporaryFile, TemporaryDirectory
 from typing import TYPE_CHECKING
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, model_validator
 
 from corpus_structure.schema.model import ModelError
 from corpus_structure.schema.model_change import (
@@ -64,7 +64,7 @@ class Candidate(BaseModel):
     authoring_identity: StorageTarget | None = None
     native_base: NativeMigrationBase | None = None
     deployment_base: NativeMigrationBase | None = None
-    release: str
+    release: str | None
     release_manifest_sha256: str | None = None
     release_artifacts_sha256: str | None = None
     packs: tuple[str, ...]
@@ -74,24 +74,37 @@ class Candidate(BaseModel):
     wrapper_sha256: str | None = None
     inspection_sha256: str | None = None
 
+    @model_validator(mode="after")
+    def native_only_has_no_release_claims(self):
+        if self.release is None:
+            if self.release_manifest_sha256 is not None or self.release_artifacts_sha256 is not None or self.inspection_sha256 is not None:
+                raise ValueError("a native-only candidate cannot carry release hashes or an application inspection capsule")
+            if self.packs or self.data_operations is not None or self.revision is None:
+                raise ValueError("a native-only candidate requires a native revision and no application release inputs")
+        return self
+
     @classmethod
     def from_preview(
         cls,
         preview: ChangePreview,
         revision: str | None,
-        prepared: PreparedRelease,
+        prepared: PreparedRelease | None,
         products: dict[str, bytes],
     ) -> Candidate:
         if (
             not preview.target
             or not preview.target_profile
-            or bool(revision) != bool(preview.request.native_predecessor)
+            or bool(revision) != preview.request.native_requested
             or bool(revision) != bool(preview.authoring_target)
         ):
             raise ModelError(
                 ["candidate requires a deployment target and matching native authoring binding"]
             )
-        preview.verify_release(prepared)
+        if prepared is None:
+            if not preview.effects.native or preview.effects.admission or preview.local_release is not None or preview.release_manifest_sha256 is not None or preview.release_artifacts_sha256 is not None:
+                raise ModelError(["native-only candidate differs from the reviewed release-free preview"])
+        else:
+            preview.verify_release(prepared)
         binding = cls(
             workspace=preview.workspace,
             model_revision=preview.revision,
@@ -105,7 +118,7 @@ class Candidate(BaseModel):
             authoring_identity=preview.authoring_identity,
             native_base=preview.native_base,
             deployment_base=preview.deployment_base,
-            release=prepared.release_id,
+            release=prepared.release_id if prepared is not None else None,
             release_manifest_sha256=preview.release_manifest_sha256,
             release_artifacts_sha256=preview.release_artifacts_sha256,
             packs=preview.request.packs,
@@ -179,7 +192,7 @@ def capture_target(settings: Settings, *, purpose: Purpose) -> StorageTarget:
 def predecessor_fence(
     settings: Settings,
     target: str,
-    predecessor: str,
+    predecessor: str | None,
     identity: StorageTarget | None = None,
     *,
     native_base: NativeMigrationBase | None = None,
@@ -208,16 +221,20 @@ def predecessor_fence(
         expected = predecessor if native_base is None else native_base.acquired_revision
         if current_revision(conn) != expected:
             raise ModelError(["installed native predecessor differs from the model preview"])
+        if expected is None:
+            from corpus_structure.semantic.target_installation import require_empty_target
+
+            require_empty_target(conn)
         yield actual
 
 
-def verify_predecessor(settings: Settings, target: str, predecessor: str) -> StorageTarget:
+def verify_predecessor(settings: Settings, target: str, predecessor: str | None) -> StorageTarget:
     with predecessor_fence(settings, target, predecessor) as actual:
         return actual
 
 
 def capture_authoring_base(
-    settings: Settings, target: str, predecessor: str
+    settings: Settings, target: str, predecessor: str | None
 ) -> tuple[StorageTarget, NativeMigrationBase | None]:
     """Bind the acquired database and a registered, still undeployed forward base."""
     from corpus_structure.semantic.migrations import current_revision, migration_fence
@@ -235,7 +252,13 @@ def capture_authoring_base(
         migration_fence(conn)
         actual = current_revision(conn)
         if actual is None:
-            raise ModelError(["native authoring requires a migrated database"])
+            from corpus_structure.semantic.target_installation import require_empty_target
+
+            require_empty_target(conn)
+        if predecessor is None:
+            if actual is not None:
+                raise ModelError(["fresh native authoring requires an empty target"])
+            return identity, None
         base = (
             None
             if actual == predecessor
@@ -247,7 +270,7 @@ def capture_authoring_base(
 def _migration_names(binding: Candidate) -> dict[str, str]:
     if not binding.revision or not re.fullmatch(r"[A-Za-z0-9_]{1,32}", binding.revision):
         raise ModelError(["revision ID must contain 1 to 32 letters, digits or underscores"])
-    if not binding.predecessor or binding.predecessor == binding.revision:
+    if binding.predecessor == binding.revision:
         raise ModelError(["native registration requires a distinct predecessor"])
     return {kind: f"{binding.revision}_{suffix}" for kind, _, suffix in _NATIVE_PRODUCTS}
 
@@ -271,7 +294,7 @@ from alembic import op
 from corpus_structure.semantic.native_objects import NativeObject, admit_native
 
 revision = {json.dumps(binding.revision)}
-down_revision = {json.dumps(binding.predecessor)}
+down_revision = {binding.predecessor!r}
 branch_labels = None
 depends_on = None
 {constants}
@@ -287,7 +310,7 @@ def _read(name, digest):
 def upgrade():
     state = json.loads(_read(NATIVE_STATE_FILE, NATIVE_STATE_SHA256))
     _read(NATIVE_ADMISSION_FILE, NATIVE_ADMISSION_SHA256)
-    if state["version"] not in {{1, 2}} or state["predecessor"] != down_revision:
+    if state["version"] != 2 or state["predecessor"] != down_revision:
         raise RuntimeError("incompatible native predecessor")
     source = _read(NATIVE_UPGRADE_FILE, NATIVE_UPGRADE_SHA256)
     namespace = {{}}
@@ -508,6 +531,9 @@ def _verified_script_location(root: Path, binding: Candidate) -> Generator[Path 
         versions = location / "versions"
         versions.mkdir()
         environment = (source.parent / "env.py").read_bytes()
+        relative_environment = (source.parent / "env.py").relative_to(root).as_posix()
+        if sha256(environment).hexdigest() != binding.files.get(relative_environment):
+            raise ModelError(["current migration environment differs from the reviewed candidate"])
         if (
             binding.deployment_base is not None
             and sha256(environment).hexdigest() != dict(binding.deployment_base.files)["env.py"]
@@ -555,7 +581,7 @@ def _commit_deployment_effect(
     conn: Connection,
     effect: str,
     *,
-    release: str,
+    release: str | None,
     reconcile: Callable[[], bool | None],
     settled: Callable[[str], None],
 ) -> Generator[None]:
@@ -607,7 +633,7 @@ def deploy_candidate(
     root: Path,
     settings: Settings,
     binding: Candidate,
-    deployment: tuple,
+    deployment: tuple | None,
     *,
     report: Callable[[str], None],
     checkpoint: Callable[[StorageTarget, str | None, str, str | None], None] | None = None,
@@ -625,7 +651,7 @@ def deploy_candidate(
         verify_deployment_catalog,
     )
     from corpus_structure.semantic.migrations import current_revision, migration_fence, upgrade
-    from corpus_structure.semantic.publication import admit_release
+    from corpus_structure.semantic.data_operation_admission import admit_data_operation_release
     from corpus_structure.semantic.releases import open_release, persist_release
     from corpus_structure.semantic.runtime import open_runtime_engine
 
@@ -633,18 +659,25 @@ def deploy_candidate(
     _, destination = deployment_settings(settings, binding.target_profile)
     if target_fingerprint(destination) != binding.target:
         raise ModelError(["configured deployment target differs from the candidate"])
-    bundle, deps, profile, prepared = deployment
-    verify_release_products(
-        prepared,
-        release=binding.release,
-        manifest_sha256=binding.release_manifest_sha256,
-        artifacts_sha256=binding.release_artifacts_sha256,
-        binding="the candidate",
-    )
+    prepared = None
+    sql_inputs = None
+    if binding.release is None:
+        if deployment is not None:
+            raise ModelError(["native-only candidate cannot deploy application release inputs"])
+    else:
+        if deployment is None:
+            raise ModelError(["release candidate requires its exact application inputs"])
+        bundle, deps, profile, prepared = deployment
+        verify_release_products(
+            prepared, release=binding.release,
+            manifest_sha256=binding.release_manifest_sha256,
+            artifacts_sha256=binding.release_artifacts_sha256,
+            binding="the candidate",
+        )
+        sql_inputs = prepare_release_sql(prepared, deps)
     if binding.target_identity is None:
         raise ModelError(["candidate lacks the approved acquired PostgreSQL target"])
     assert_explicit_route(destination)
-    sql_inputs = prepare_release_sql(prepared, deps)
     starting_revision = (
         binding.predecessor
         if binding.deployment_base is None
@@ -667,9 +700,7 @@ def deploy_candidate(
         _verified_script_location(root, binding) as script_location,
         open_runtime_engine(destination, "ci-model-migrate", purpose="maintenance") as maintenance,
         _deployment_connection(maintenance) as conn,
-        open_runtime_engine(destination, "ci-model-admit", purpose="admit") as admission,
-        _deployment_connection(admission) as writer,
-        open_runtime_engine(destination, "ci-model-verify", purpose="read") as reader,
+        ExitStack() as purpose_routes,
     ):
         versions = None if script_location is None else script_location / "versions"
 
@@ -680,15 +711,32 @@ def deploy_candidate(
                 verify(recovery, "maintenance")
                 migration_fence(recovery)
                 observed = current_revision(recovery)
-                if observed is None or observed not in {starting_revision, binding.revision}:
+                if observed is None:
+                    if starting_revision is None:
+                        from corpus_structure.semantic.target_installation import require_empty_target
+
+                        require_empty_target(recovery)
+                        return False
+                    return None
+                if observed not in {starting_revision, binding.revision}:
                     return None
                 verify_deployment_catalog(recovery, revision=observed, versions=versions)
                 return observed == binding.revision
 
-        # Establish each purpose route before the first durable effect.
-        with writer.begin(), _deployment_connection(reader) as check, check.begin():
-            verify(writer, "admit")
-            verify(check, "read")
+        def open_purpose_routes():
+            admission = purpose_routes.enter_context(open_runtime_engine(destination, "ci-model-admit", purpose="admit"))
+            writer = purpose_routes.enter_context(_deployment_connection(admission))
+            reader = purpose_routes.enter_context(open_runtime_engine(destination, "ci-model-verify", purpose="read"))
+            with writer.begin(), _deployment_connection(reader) as check, check.begin():
+                verify(writer, "admit")
+                verify(check, "read")
+            return writer, reader
+
+        writer = reader = None
+        # Existing releases can preflight their ordinary routes before migration.
+        # A fresh root installs those kernels before ordinary purpose admission.
+        if prepared is not None and (starting_revision is not None or binding.revision is None):
+            writer, reader = open_purpose_routes()
 
         target = binding.target_identity
         reached = binding.revision
@@ -717,10 +765,15 @@ def deploy_candidate(
                 target = verify(conn, "maintenance")
                 migration_fence(conn)
                 actual = current_revision(conn)
-                if actual is None or actual not in {starting_revision, binding.revision}:
+                if actual not in {starting_revision, binding.revision}:
                     raise ModelError(["acquired revision differs from the approved predecessor"])
-                verify_deployment_catalog(conn, revision=actual, versions=versions)
-                if checkpoint is not None and actual != binding.revision:
+                if actual is None:
+                    from corpus_structure.semantic.target_installation import require_empty_target
+
+                    require_empty_target(conn)
+                else:
+                    verify_deployment_catalog(conn, revision=actual, versions=versions)
+                if checkpoint is not None and actual is not None and actual != binding.revision:
                     checkpoint(target, starting_revision, actual, None)
                 upgrade(
                     conn,
@@ -732,6 +785,21 @@ def deploy_candidate(
                     raise ModelError(["migration did not reach the approved revision"])
                 if actual != binding.revision:
                     verify_deployment_catalog(conn, revision=binding.revision, versions=versions)
+
+        if prepared is None:
+            assert binding.revision is not None
+            with conn.begin():
+                verify(conn, "maintenance")
+                migration_fence(conn)
+                if current_revision(conn) != binding.revision:
+                    raise ModelError(["native revision changed before final catalog verification"])
+                verify_deployment_catalog(conn, revision=binding.revision, versions=versions)
+            settled("verified")
+            return
+        assert binding.release is not None and deployment is not None
+        bundle, deps, profile, prepared = deployment
+        if writer is None or reader is None:
+            writer, reader = open_purpose_routes()
 
         with conn.begin():
             conn.exec_driver_sql("SET TRANSACTION ISOLATION LEVEL READ COMMITTED")
@@ -856,7 +924,7 @@ def deploy_candidate(
                     admit_archived_sql(
                         writer, binding.release, analyzed=analyzed, physical_id=physical_id
                     )
-                admit_release(prepared, connection=writer)
+                admit_data_operation_release(writer, prepared)
             with _deployment_connection(reader) as snapshot, snapshot.begin():
                 snapshot.exec_driver_sql(
                     "SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY"

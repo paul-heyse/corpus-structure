@@ -31,7 +31,7 @@ class DbReport(BaseModel):
     created: bool
     revision: str | None
     head: str | None
-    model_revision: str
+    model_revision: str | None
     applied: list[str]
 
 
@@ -123,9 +123,9 @@ def _migrate(
     from sqlalchemy import text
 
     from corpus_structure.semantic import migrations
-    from corpus_structure.semantic.metadata import PHYSICAL_MODEL_ID
-
     head = migrations.head_revision()
+    if head is None:
+        raise DbRefused("no current native root is registered; prepare and register a native revision first")
     with engine.begin() as conn:
         legacy = conn.execute(
             text(
@@ -137,25 +137,22 @@ def _migrate(
             raise DbRefused("legacy database refused: bootstrap a fresh owned semantic database")
         migrations.migration_fence(conn)
         current = migrations.current_revision(conn)
-        if current != head and not created and expected_predecessor is None:
-            local_development = name == "corpus_structure_dev" and conn.scalar(
-                text("SELECT inet_server_addr() IS NULL AND current_setting('port') = '5434'")
+        if current != head and current is not None and not created and expected_predecessor is None:
+            raise DbRefused(
+                "use ci model change deploy for bound deployment; "
+                "database recovery requires --expected-predecessor"
             )
-            if not local_development:
-                raise DbRefused(
-                    "use ci model change deploy for bound deployment; "
-                    "database recovery requires --expected-predecessor"
-                )
         applied = migrations.upgrade(
-            conn, head or "head", expected_predecessor=expected_predecessor
+            conn, head, expected_predecessor=expected_predecessor
         )
         current = migrations.current_revision(conn)
+        physical_id = conn.scalar(text("SELECT data.execution_contract_descriptor()->>'physical_id'"))
     return DbReport(
         database=name,
         created=created,
         revision=current,
         head=head,
-        model_revision=PHYSICAL_MODEL_ID,
+        model_revision=physical_id,
         applied=[str(a["revision"]) for a in applied],
     )
 
@@ -167,12 +164,14 @@ def _run(
     creation_token: str | None = None,
     *,
     expected_predecessor: str | None = None,
+    creation_only: bool = False,
 ) -> None:
     from corpus_structure.cli.failures import failure_boundary
     from corpus_structure.core.db.extensions import ExtensionVersionMismatch
 
     settings = state(ctx).settings()
     from corpus_structure.semantic.migrations import MigrationPredecessorError
+    from corpus_structure.semantic.native_objects import NativeAuthoringError
     from corpus_structure.semantic.runtime import connection_settings
 
     admin, engine, name = _engines(
@@ -181,15 +180,29 @@ def _run(
     try:
         with failure_boundary(
             json_,
-            expected=(DbRefused, ExtensionVersionMismatch, MigrationPredecessorError),
+            expected=(DbRefused, ExtensionVersionMismatch, MigrationPredecessorError, NativeAuthoringError),
             report_expected_validation=False,
         ):
+            from corpus_structure.semantic.migrations import head_revision
+
+            if not creation_only and head_revision() is None:
+                raise DbRefused("no current native root is registered; use init --creation-only for a new empty authoring stage")
             created = (
                 _create(admin, name, settings.database.template, creation_token)
                 if create
                 else False
             )
-            report = _migrate(engine, name, created, expected_predecessor=expected_predecessor)
+            if creation_only:
+                from corpus_structure.semantic.target_installation import require_empty_target
+
+                if not created:
+                    raise DbRefused("creation-only bootstrap requires a new database")
+                with engine.begin() as conn:
+                    require_empty_target(conn)
+                report = DbReport(database=name, created=True, revision=None,
+                                  head=head_revision(), model_revision=None, applied=[])
+            else:
+                report = _migrate(engine, name, created, expected_predecessor=expected_predecessor)
     finally:
         admin.dispose()
         engine.dispose()
@@ -203,9 +216,10 @@ def init(
     creation_token: str | None = typer.Option(
         None, "--creation-token", help="Require a new database and acknowledge its disposal owner."
     ),
+    creation_only: bool = typer.Option(False, "--creation-only", help="Create an empty owned authoring stage without installing a native revision."),
 ) -> None:
     """Create the database from the template, check it and upgrade it to head."""
-    _run(ctx, json_, create=True, creation_token=creation_token)
+    _run(ctx, json_, create=True, creation_token=creation_token, creation_only=creation_only)
 
 
 @db_app.command("migrate")

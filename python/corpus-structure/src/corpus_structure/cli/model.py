@@ -87,7 +87,7 @@ class NativeBaseInspection(BaseModel):
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
-    acquired_revision: str
+    acquired_revision: str | None
     predecessor: str
     revisions: tuple[str, ...]
     execution_context: str
@@ -205,7 +205,7 @@ class CandidateInspection(EffectGuidance):
     model_revision: str
     native_revision: str | None
     predecessor: str | None
-    release: str
+    release: str | None
     release_artifacts_sha256: str | None = None
     target: str
     target_profile: DeploymentProfile
@@ -477,7 +477,7 @@ def _target_summary(profile: DeploymentProfile | None, target: StorageTarget | N
 def _base_summary(base: NativeMigrationBase | NativeBaseInspection | None) -> str:
     if base is None:
         return "already installed"
-    return " → ".join((base.acquired_revision, *base.revisions))
+    return " → ".join((base.acquired_revision or "empty", *base.revisions))
 
 
 def _apply_view(report: ModelResult) -> Table:
@@ -525,11 +525,11 @@ def _preview_guidance(
             next_command=f"ci model change preview {preview_id}",
             action_detail="the preview lacks exact release product digests",
         )
-    if not staged.files and not staged.effects.admission:
+    if not staged.files and not (staged.effects.admission or staged.effects.native):
         return EffectGuidance()
     try:
         root = checkout(ctx)
-        if staged.effects.admission:
+        if staged.effects.admission or staged.effects.native:
             try:
                 check_preview(root, staged, applied=True)
             except ModelError:
@@ -540,7 +540,7 @@ def _preview_guidance(
                     return EffectGuidance(
                         action_detail="the candidate requires an exact target binding"
                     )
-                conditions = ["verify the prepared release identity and artifacts"]
+                conditions = ["verify the prepared release identity and artifacts"] if staged.effects.admission else []
                 if staged.effects.native:
                     conditions.append("verify the bound development target and native predecessor")
                 return EffectGuidance(
@@ -548,13 +548,13 @@ def _preview_guidance(
                     action_conditions=tuple(conditions),
                 )
         check_preview(root, staged)
-        if staged.request.native_predecessor and (
+        if staged.request.native_requested and (
             not staged.authoring_target or staged.authoring_identity is None
         ):
             return EffectGuidance(action_detail="the native authoring target is unavailable")
         conditions = (
             ("verify the bound development target and native predecessor",)
-            if staged.request.native_predecessor
+            if staged.request.native_requested
             else ()
         )
         return EffectGuidance(
@@ -1112,6 +1112,8 @@ def inspect_candidate(
                 from corpus_structure.semantic.contract_inspection import inspect_contract
                 from corpus_structure.semantic.inspection_capsule import open_capsule
 
+                if binding.release is None:
+                    raise ResultError("native-only candidate has no application contract capsule")
                 if not binding.inspection_sha256:
                     raise ResultError("contract detail unavailable in this retained candidate")
                 if subject_kind is None or subject is None:
@@ -1207,7 +1209,7 @@ def inspect_candidate(
                         status = "verified"
                     if dependency_available:
                         check_candidate_files(root, binding)
-                        if not (
+                        if binding.release is not None and not (
                             binding.release_manifest_sha256 and binding.release_artifacts_sha256
                         ):
                             raise ModelError(["candidate lacks exact release product digests"])
@@ -1220,8 +1222,7 @@ def inspect_candidate(
                             action_conditions=(
                                 "verify the configured and acquired target",
                                 "verify purpose roles and the applicable native predecessor",
-                                "verify the prepared release identity and artifacts",
-                            ),
+                            ) + (("verify the prepared release identity and artifacts",) if binding.release is not None else ()),
                         )
             except (ModelError, ResultError, OSError, RecipeError) as error:
                 if status == "unverified":
@@ -1357,19 +1358,19 @@ def preview(
                 authoring_identity = None
                 native_base = None
                 deployment_base = None
-                if bound.native_predecessor or bound.deployment:
+                if bound.native_requested or bound.deployment:
                     model_stage(result, "bind deployment target")
                     settings = state(ctx).settings()
                     profile, destination = deployment_settings(settings, bound.deployment_profile)
                     target = target_fingerprint(destination)
-                    if bound.native_predecessor:
+                    if bound.native_requested:
                         authoring_target = target_fingerprint(settings)
                         authoring_identity, native_base = capture_authoring_base(
                             settings, authoring_target, bound.native_predecessor
                         )
                     if profile == "development" and authoring_identity is not None:
                         target_identity, deployment_base = authoring_identity, native_base
-                    elif bound.native_predecessor:
+                    elif bound.native_requested:
                         target_identity, deployment_base = capture_authoring_base(
                             destination, target, bound.native_predecessor
                         )
@@ -1403,7 +1404,13 @@ def preview(
                 dependencies = None
                 release = None
                 physical_id = None
-                if bound.archive_release or target is not None:
+                if bound.native_requested:
+                    from corpus_structure.schema.physical import physical_sources_id
+
+                    physical_sources = physical_release_sources(root, bound.physical)
+                    if physical_sources is not None:
+                        physical_id = physical_sources_id(physical_sources)
+                if bound.archive_release or (target is not None and (bound.packs or bound.data_operations)):
                     from corpus_structure.schema.physical import physical_sources_id
 
                     physical_sources = physical_release_sources(root, bound.physical)
@@ -1576,7 +1583,6 @@ def apply(
                 if (
                     not staged.authoring_target
                     or staged.authoring_identity is None
-                    or not staged.request.native_predecessor
                 ):
                     raise ModelError(["preview lacks the bound development authoring target"])
 
@@ -1723,12 +1729,9 @@ def candidate(
                 }
             )
             with _retained_sql_explanation(result, retained) as sql_holder:
-                record = staged.request.change
-                revision = staged.request.native_revision or (
-                    record.alembic_revision if record else None
-                )
+                revision = staged.request.declared_native_revision
                 if (
-                    not staged.effects.admission
+                    not (staged.effects.admission or staged.effects.native)
                     or not staged.target
                     or not staged.target_profile
                     or staged.target_identity is None
@@ -1737,12 +1740,17 @@ def candidate(
                 with writer_lock(root):
                     model_stage(result, "verify preview and prepare release")
                     check_preview(root, staged, applied=True)
-                    bundle, dependencies, profile, prepared = _prepare_release(
-                        root, staged.request.packs, data_operations=staged.request.data_operations
-                    )
-                    staged.verify_release(prepared)
-                    _retain_authored_sql(sql_holder, dependencies, preserve=True)
-                    sql_inputs = prepare_release_sql(prepared, dependencies)
+                    prepared = None
+                    release_inputs = None
+                    sql_inputs = None
+                    if staged.effects.admission:
+                        release_inputs = _prepare_release(
+                            root, staged.request.packs, data_operations=staged.request.data_operations
+                        )
+                        bundle, dependencies, profile, prepared = release_inputs
+                        staged.verify_release(prepared)
+                        _retain_authored_sql(sql_holder, dependencies, preserve=True)
+                        sql_inputs = prepare_release_sql(prepared, dependencies)
                     products: dict[str, bytes] = {}
                     if staged.effects.native:
                         settings = state(ctx).settings()
@@ -1768,7 +1776,6 @@ def candidate(
                         native, products = author_native_candidate(
                             settings,
                             None,
-                            None,
                             expected_predecessor=staged.request.native_predecessor,
                             expected_target=staged.authoring_identity,
                             **(
@@ -1777,7 +1784,6 @@ def candidate(
                                 else {}
                             ),
                             target_metadata=target_metadata,
-                            data_steps=staged.request.data_steps,
                             retire=retired,
                             recreate=recreated,
                         )
@@ -1790,9 +1796,10 @@ def candidate(
                                 native.acquired_target,
                                 native.acquired_revision or staged.request.native_predecessor,
                                 None,
-                                prepared.release_id,
+                                prepared.release_id if prepared else None,
                             )
                     else:
+                        assert prepared is not None
                         report = ModelResult(
                             result_id=result.id,
                             stage="release candidate",
@@ -1811,16 +1818,19 @@ def candidate(
                         sql_holder[0] = explanation_from_native(
                             products["native_operations.json"], sql_holder[0]
                         )
-                    from corpus_structure.semantic.inspection_capsule import make_capsule
-
-                    capsule = make_capsule(bundle, dependencies, profile, prepared)
-                    capsule_path = result.directory / "inspection.json"
-                    capsule_path.write_bytes(capsule)
-                    result.publish("inspection", capsule_path)
                     binding = Candidate.from_preview(staged, revision, prepared, products)
-                    binding = binding.model_copy(
-                        update={"inspection_sha256": sha256(capsule).hexdigest()}
-                    )
+                    if prepared is not None:
+                        from corpus_structure.semantic.inspection_capsule import make_capsule
+
+                        assert release_inputs is not None
+                        bundle, dependencies, profile, _ = release_inputs
+                        capsule = make_capsule(bundle, dependencies, profile, prepared)
+                        capsule_path = result.directory / "inspection.json"
+                        capsule_path.write_bytes(capsule)
+                        result.publish("inspection", capsule_path)
+                        binding = binding.model_copy(
+                            update={"inspection_sha256": sha256(capsule).hexdigest()}
+                        )
                     if revision:
                         wrapper = result.directory / "migration.py"
                         wrapper.write_bytes(migration_wrapper(binding))
@@ -1925,7 +1935,8 @@ def deploy(
     from corpus_structure.schema.preparation import writer_lock
     from corpus_structure.semantic.authored_sql import SQLAdmissionError
     from corpus_structure.semantic.migrations import MigrationPredecessorError
-    from corpus_structure.semantic.publication import PublicationConflict
+    from corpus_structure.semantic.execution_admission import ExecutionAdmissionError
+    from corpus_structure.semantic.refusals import SemanticRefusal
     from corpus_structure.semantic.releases import ReleaseConflict
 
     expected = (
@@ -1933,7 +1944,8 @@ def deploy(
         ResultError,
         SQLAdmissionError,
         MigrationPredecessorError,
-        PublicationConflict,
+        ExecutionAdmissionError,
+        SemanticRefusal,
         ReleaseConflict,
         OSError,
     )
@@ -1948,7 +1960,7 @@ def deploy(
             root = checkout(ctx)
             with writer_lock(root):
                 model_stage(result, "prepare bound release")
-                deployment = _prepare_release(
+                deployment = None if binding.release is None else _prepare_release(
                     root, binding.packs, data_operations=binding.data_operations
                 )
 

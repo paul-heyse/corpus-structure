@@ -1,4 +1,4 @@
-"""Explicit current installation inputs, unselected until coordinated adoption.
+"""Captured current installation inputs for fresh roots and exact frozen successors.
 
 This builds from the same captured LinkML sources and compiler as normal metadata.
 It neither replays a historical migration nor authorizes a database transition.
@@ -60,6 +60,10 @@ def capture_target_installation(selected: MetaData) -> TargetInstallation:
         pdf_sources=pdf_sources,
         extra_sources=(
             SourceArtifact("authoring/target_installation.py", Path(__file__).read_bytes()),
+            SourceArtifact(
+                "authoring/scientific-layout.sql",
+                Path(__file__).with_name("sql").joinpath("scientific_layout.sql").read_bytes(),
+            ),
             SourceArtifact(
                 "authoring/pdf-descriptor.sql",
                 Path(__file__).with_name("sql").joinpath("pdf_descriptor.sql").read_bytes(),
@@ -178,12 +182,16 @@ def target_native_definitions(connection, installation: TargetInstallation):
                 "corpus_sem_admitter",
             ),
         ),
-        ("execution_projection.sql", "sem", "require_scientific_layout", ()),
+        ("scientific_layout.sql", "sem", "require_scientific_layout", ()),
     ):
         definitions.append(
             _task_call_definition(
                 connection,
-                sql.joinpath(filename).read_text(),
+                next(
+                    item.content.decode()
+                    for item in installation.authoring_inputs.sources
+                    if item.name == "authoring/scientific-layout.sql"
+                ) if filename == "scientific_layout.sql" else sql.joinpath(filename).read_text(),
                 name=name,
                 schema=schema,
                 source="target-current:" + filename,

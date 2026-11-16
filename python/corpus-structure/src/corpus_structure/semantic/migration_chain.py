@@ -19,7 +19,7 @@ from corpus_structure.semantic.refusals import SemanticRefusal
 class NativeMigrationBase(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
-    acquired_revision: str
+    acquired_revision: str | None
     predecessor: str
     revisions: tuple[str, ...]
     files: tuple[tuple[str, str], ...]
@@ -37,7 +37,7 @@ def execution_context() -> str:
     return digest.hexdigest()
 
 
-def registered_base(location: Path, acquired: str, predecessor: str) -> NativeMigrationBase:
+def registered_base(location: Path, acquired: str | None, predecessor: str) -> NativeMigrationBase:
     """Read literal metadata only; never import a migration while reviewing its bytes."""
     declarations: dict[str, tuple[Path, dict[str, object]]] = {}
     files: dict[str, str] = {"env.py": sha256((location / "env.py").read_bytes()).hexdigest()}
@@ -66,17 +66,17 @@ def registered_base(location: Path, acquired: str, predecessor: str) -> NativeMi
         if not isinstance(revision, str) or revision in declarations:
             raise SemanticRefusal("registered migration requires unique literal revision IDs")
         declarations[revision] = path, fields
-    if acquired not in declarations or predecessor not in declarations:
+    if (acquired is not None and acquired not in declarations) or predecessor not in declarations:
         raise SemanticRefusal("native authoring base is not registered")
     pending: list[str] = []
-    current = predecessor
+    current: str | None = predecessor
     while current != acquired:
         if current in pending or current not in declarations:
             raise SemanticRefusal("native authoring base has no unambiguous forward chain")
         pending.append(current)
         path, fields = declarations[current]
         parent = fields.get("down_revision")
-        if not isinstance(parent, str) or fields.get("depends_on") or fields.get("branch_labels"):
+        if (parent is not None and not isinstance(parent, str)) or fields.get("depends_on") or fields.get("branch_labels"):
             raise SemanticRefusal("native authoring requires a linear frozen forward chain")
         for kind in ("UPGRADE", "STATE", "ADMISSION"):
             name, digest = fields.get(f"NATIVE_{kind}_FILE"), fields.get(f"NATIVE_{kind}_SHA256")

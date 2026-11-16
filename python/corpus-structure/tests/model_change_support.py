@@ -22,6 +22,12 @@ def model_checkout(tmp_path):
     )
     for name, content in physical_sources.items():
         (location / "semantic" / name).write_bytes(content)
+    from corpus_structure.semantic.migrations import ALEMBIC_DIR
+
+    migrations = tmp_path / preparation.PACKAGE_PATH.parents[1] / ALEMBIC_DIR.name
+    (migrations / "versions").mkdir(parents=True)
+    for name in ("env.py", "script.py.mako"):
+        (migrations / name).write_bytes((ALEMBIC_DIR / name).read_bytes())
     subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
     subprocess.run(["git", "-C", str(tmp_path), "add", "."], check=True)
     subprocess.run(

@@ -362,7 +362,7 @@ class Invocation:
         target: StorageTarget,
         predecessor: str | None,
         reached_revision: str,
-        release: str,
+        release: str | None,
         effect: str | None,
     ) -> None:
         account = self.manifest.operation_account

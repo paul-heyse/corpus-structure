@@ -387,7 +387,7 @@ def derive_(
 
 class NativeCandidateResult(BaseModel):
     database: str
-    predecessor: str
+    predecessor: str | None
     acquired_revision: str | None = None
     native_base: NativeMigrationBase | None = None
     output: str
@@ -428,15 +428,13 @@ def _native_candidate_python(upgrade_ops, restore_sql: str) -> str:
 def author_native_candidate(
     settings,
     authoring_database: str | None,
-    predecessor_state: Path | None,
     *,
-    expected_predecessor: str | None = None,
+    expected_predecessor: str | None,
     native_base: NativeMigrationBase | None = None,
     expected_target: StorageTarget | None = None,
     target_metadata: MetaData | None = None,
     retire: frozenset[NativeIdentity] = frozenset(),
     recreate: frozenset[NativeIdentity] = frozenset(),
-    data_steps: tuple[Literal["pdf-visual-mapping", "characterization-source-scope"], ...] = (),
 ) -> tuple[NativeCandidateResult, dict[str, bytes]]:
     """Use the owned rollback-only authoring connection to prepare immutable product bytes."""
     from hashlib import sha256
@@ -447,9 +445,9 @@ def author_native_candidate(
     from corpus_structure.semantic.identity import canonical_bytes
     from corpus_structure.semantic.metadata import metadata
     from corpus_structure.semantic.migrations import current_revision, migration_fence
-    from corpus_structure.semantic.native_candidate import (
+    from corpus_structure.semantic.native_authoring import (
         authored_admission_sql,
-        prepare_series_candidate,
+        current_native_state,
         verify_rendered_candidate,
     )
     from corpus_structure.semantic.native_objects import NativeAuthoringError
@@ -460,6 +458,10 @@ def author_native_candidate(
         assert_explicit_route,
         verify_declared_route,
         verify_target,
+    )
+    from corpus_structure.semantic.target_installation import (
+        capture_target_installation, prepare_target_candidate,
+        prepare_target_successor, require_empty_target,
     )
 
     source = make_url(settings.database.url)
@@ -488,9 +490,8 @@ def author_native_candidate(
     )
     if assert_explicit_route(selected)["dbname"] != authoring_database:
         raise SemanticRefusal("configured authoring database conflicts with its libpq route")
-    if len(set(data_steps)) != len(data_steps):
-        raise NativeAuthoringError("named data steps must be unique")
     target_metadata = metadata if target_metadata is None else target_metadata
+    installation = capture_target_installation(target_metadata)
     with (
         open_runtime_engine(selected, "ci-native-candidate", purpose="maintenance") as engine,
         engine.connect() as conn,
@@ -505,8 +506,9 @@ def author_native_candidate(
             )
             migration_fence(conn)
             predecessor = current_revision(conn)
+            acquired_revision = predecessor
             if predecessor is None:
-                raise SemanticRefusal("native authoring requires a migrated semantic database")
+                require_empty_target(conn)
             if native_base is not None:
                 from corpus_structure.semantic.migration_chain import frozen_base_location
                 from corpus_structure.semantic.migrations import ALEMBIC_DIR, upgrade
@@ -526,35 +528,25 @@ def author_native_candidate(
                 predecessor = current_revision(conn)
                 if predecessor != native_base.predecessor:
                     raise SemanticRefusal("native authoring chain did not reach its predecessor")
-            if predecessor is None:
-                raise SemanticRefusal("native authoring has no migrated predecessor")
-            if expected_predecessor is not None and predecessor != expected_predecessor:
+            if predecessor != expected_predecessor:
                 raise SemanticRefusal("native authoring predecessor differs from the preview")
-            script, authoring = prepare_series_candidate(
-                conn,
-                owned_authoring=True,
-                predecessor_state=predecessor_state,
-                target_metadata=target_metadata,
-                retire=retire,
-                recreate=recreate,
-            )
+            if predecessor is None:
+                if retire or recreate:
+                    raise NativeAuthoringError("fresh root has no predecessor effects to retire or recreate")
+                script, authoring = prepare_target_candidate(conn, installation, owned_authoring=True)
+            else:
+                frozen = current_native_state(conn)
+                script, authoring = prepare_target_successor(
+                    conn, installation, predecessor=frozen, retire=retire,
+                    recreate=recreate, owned_authoring=True,
+                )
             upgrade_ops = script.upgrade_ops
             if upgrade_ops is None:
                 raise NativeAuthoringError("single-connection candidate has no upgrade operations")
             from corpus_structure.semantic.alembic_privileges import (
-                OwnedSQLOp,
                 PrivilegeTransitionOp,
                 operation_record,
             )
-            from corpus_structure.semantic.native_data_steps import build_data_step
-
-            for step in data_steps:
-                statement = str(
-                    build_data_step(step, target_metadata).compile(
-                        dialect=conn.dialect, compile_kwargs={"literal_binds": True}
-                    )
-                )
-                upgrade_ops.ops.append(OwnedSQLOp("corpus_sem_publisher", statement))
             native = [
                 item
                 for item in upgrade_ops.ops
@@ -601,7 +593,7 @@ def author_native_candidate(
     return NativeCandidateResult(
         database=authoring_database,
         predecessor=predecessor,
-        acquired_revision=predecessor if native_base is None else native_base.acquired_revision,
+        acquired_revision=acquired_revision,
         native_base=native_base,
         output="",
         native_operations=len(native),
@@ -644,17 +636,9 @@ def native_candidate_(
             help="Rollback-only authoring database; defaults to the configured target.",
         ),
     ] = None,
-    predecessor_state: Annotated[
-        Path | None,
-        typer.Option(
-            "--predecessor-state",
-            exists=True,
-            dir_okay=False,
-            readable=True,
-            help="Prior native state declaration JSON.",
-            rich_help_panel="Inputs",
-        ),
-    ] = None,
+    expected_predecessor: Annotated[str | None, typer.Option(
+        "--expected-predecessor", help="Exact installed current revision; omit for an explicitly empty root.",
+    )] = None,
     intent: Annotated[
         Path | None, typer.Option(help="YAML retirement and recreation declaration.")
     ] = None,
@@ -704,7 +688,7 @@ def native_candidate_(
             report, products = author_native_candidate(
                 state(ctx).settings(),
                 authoring_database,
-                predecessor_state,
+                expected_predecessor=expected_predecessor,
                 retire=retire,
                 recreate=recreate,
             )

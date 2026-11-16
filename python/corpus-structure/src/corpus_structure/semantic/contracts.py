@@ -230,7 +230,7 @@ POSTGRESQL_IMPLEMENTATION_SOURCES = (
     ("pdf/published-document.py", "semantic/published_document.py"),
     ("pdf/section-views.py", "ingest/pdf_section_views.py"),
     ("pdf/native-consumer-native.py", "semantic/native_consumer_native.py"),
-    ("pdf/source-view-native.py", "semantic/source_view_native.py"),
+    ("pdf/native-admission.py", "semantic/native_admission.py"),
     ("pdf/native-task-completion.sql", "semantic/sql/native_task_completion.sql"),
     ("records/source-record-completion.sql", "semantic/sql/source_record_completion.sql"),
     ("records/source-record-recognition.sql", "semantic/sql/source_record_recognition.sql"),

@@ -83,7 +83,14 @@ class ChangeRequest(NativeIntent):
     deployment: bool = False
     deployment_profile: DeploymentProfile | None = None
     source_migrations: tuple[SourceMigration, ...] = ()
-    data_steps: tuple[Literal["pdf-visual-mapping", "characterization-source-scope"], ...] = ()
+
+    @property
+    def declared_native_revision(self) -> str | None:
+        return self.native_revision or (self.change.alembic_revision if self.change else None)
+
+    @property
+    def native_requested(self) -> bool:
+        return self.native_predecessor is not None or self.declared_native_revision is not None
 
 
 class FileEffect(BaseModel):
@@ -350,11 +357,11 @@ def prepare_preview(
         new = model.load(after / "core.yaml", after / "system.yaml")
         revision = model.revision(new)
         changed = change.diff(old, new)
-        native = request.native_predecessor
+        native = request.native_requested
         if request.physical is not None or request.retire or request.recreate:
             if not native:
                 raise model.ModelError(
-                    ["physical and native object effects require a native predecessor"]
+                    ["physical and native object effects require a native revision request"]
                 )
             native_intent(request.retire, request.recreate)
         if bool(native or request.deployment) != bool(target):
@@ -370,7 +377,7 @@ def prepare_preview(
             raise model.ModelError(["native revision conflicts with the declared model change"])
         if bool(native) != bool(migration or request.native_revision):
             raise model.ModelError(
-                ["a native change requires an exact predecessor and Alembic revision"]
+                ["a native change requires an Alembic revision; None predecessor explicitly requests an empty root"]
             )
         if model.revision(old).content_hash == revision.content_hash and request.change is None:
             problems = model.check(new) + model.check_log(
@@ -415,6 +422,14 @@ def prepare_preview(
         ).split("\0"):
             if path.endswith((".py", ".sql")):
                 current[path] = _read(root, path)
+        from corpus_structure.semantic.migrations import ALEMBIC_DIR
+
+        migration_directory = preparation.PACKAGE_PATH.parents[1] / ALEMBIC_DIR.name
+        for name in ("env.py", "script.py.mako"):
+            path = (migration_directory / name).as_posix()
+            current[path] = _read(root, path)
+            if current[path] is None:
+                raise model.ModelError(["native preview requires its current migration environment: " + path])
     for migration in migrations:
         for path, digest in migration.inputs.items():
             content = _read(root, path)
@@ -698,13 +713,6 @@ def prepare_preview(
                 "acquired_target",
             )
         )
-    if request.data_steps:
-        if not native or len(set(request.data_steps)) != len(request.data_steps):
-            raise model.ModelError(["data steps require unique named intent and native authoring"])
-        from corpus_structure.semantic.native_data_steps import builder_inputs
-
-        builder_path, builder_content = builder_inputs(root, preparation.PACKAGE_PATH)
-        current[builder_path.as_posix()] = builder_content.decode()
     return ChangePreview(
         workspace=str(root),
         head=head,
@@ -802,7 +810,7 @@ def apply_preview(
     settled: list[str] = []
     with preparation.writer_lock(root):
         check_preview(root, preview)
-        if preview.request.native_predecessor and native_fence is None:
+        if preview.request.native_requested and native_fence is None:
             raise model.ModelError(["native predecessor has not been checked"])
         with native_fence or nullcontext():
             for effect in preview.files:
