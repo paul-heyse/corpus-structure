@@ -72,3 +72,28 @@ BEGIN
 END $fn$;
 REVOKE ALL ON FUNCTION data.record_source_json(jsonb) FROM PUBLIC;
 
+
+-- Pure JSON meaning agrees with the fixed graph scalar/container ABI. No datatype
+-- labels or source-product classes are introduced into graph values.
+CREATE OR REPLACE FUNCTION data.record_json_meaning(p jsonb) RETURNS jsonb
+LANGUAGE plpgsql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $fn$
+DECLARE result jsonb;
+BEGIN
+ CASE jsonb_typeof(p)
+ WHEN 'null' THEN RETURN '["null"]'::jsonb;
+ WHEN 'string' THEN RETURN jsonb_build_array('string',p);
+ WHEN 'boolean' THEN RETURN jsonb_build_array('boolean',p);
+ WHEN 'number' THEN RETURN jsonb_build_array('integer',p#>>'{}');
+ WHEN 'array' THEN
+  SELECT COALESCE(jsonb_agg(data.record_json_meaning(value) ORDER BY ord),'[]') INTO result
+   FROM jsonb_array_elements(p) WITH ORDINALITY x(value,ord);
+  RETURN jsonb_build_array('sequence',result);
+ WHEN 'object' THEN
+  SELECT COALESCE(jsonb_agg(jsonb_build_array(key,data.record_json_meaning(value)) ORDER BY key COLLATE "C"),'[]')
+   INTO result FROM jsonb_each(p);
+  RETURN jsonb_build_array('mapping',result);
+ ELSE RAISE EXCEPTION 'unsupported record graph value' USING ERRCODE='23514';
+ END CASE;
+END $fn$;
+REVOKE ALL ON FUNCTION data.record_json_meaning(jsonb) FROM PUBLIC;
+

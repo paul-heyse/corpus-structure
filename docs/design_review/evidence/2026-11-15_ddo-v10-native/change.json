@@ -53,7 +53,7 @@
       "name": "hold_agent_result",
       "arguments": [
         "bigint",
-        "integer",
+        "bigint",
         "text",
         "text",
         "boolean",

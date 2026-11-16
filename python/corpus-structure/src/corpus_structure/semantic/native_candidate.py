@@ -366,7 +366,7 @@ def _pdf_predecessor_declarations(paths, *, owner):
     )
 
 
-def _declared_function_predecessors(connection, products):
+def _declared_function_predecessors(connection, products, *, retire=frozenset()):
     """Backfill newly managed existing helpers from their frozen source authority."""
     from .migrations import ALEMBIC_DIR
 
@@ -386,7 +386,8 @@ def _declared_function_predecessors(connection, products):
         (item.identity.schema, item.identity.name)
         for item in products
         if item.identity.kind == "function"
-    } - separately_owned
+    } | {(item.schema, item.name) for item in retire if item.kind == "function"}
+    names -= separately_owned
     result = []
     for source, sql, facts in _frozen_predecessor_declarations(paths, owner=owner, names=names):
         definition = definition_from_sql(
@@ -1376,7 +1377,6 @@ def series_native_definitions(connection, *, include_selected=True, target_metad
     )
     for name in (
         "record_feature_score",
-        "record_json_meaning",
         "validate_record_admission_overlay",
         "validate_record_reading_cut",
         "validate_source_record_structure",
@@ -2115,11 +2115,11 @@ def _prepare_series_authoring(
         newly_managed = tuple(
             item
             for item in (
-                *_declared_function_predecessors(connection, products),
+                *_declared_function_predecessors(connection, products, retire=retire),
                 *series_predecessor_definitions(connection),
             )
             if item.identity not in known
-            and item.identity in desired
+            and item.identity in desired | retire
             and source.permits_backfill(item.identity)
         )
         newly_managed = tuple({item.identity: item for item in newly_managed}.values())
