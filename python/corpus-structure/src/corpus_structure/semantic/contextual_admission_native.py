@@ -34,14 +34,14 @@ BEGIN
  IF operation.support_contract->'capabilities'->'prepared_factory'->>'entrypoint' IS DISTINCT FROM factory
  OR (operation.support_contract->'capabilities'->'prepared_factory'->>'source_digest' ~ '^[0-9a-f]{64}$') IS NOT TRUE
  OR (operation.implementation_revision LIKE 'implementation-slice:%') IS NOT TRUE
- OR operation.profile IS DISTINCT FROM CASE WHEN r.operation_id IN
- ('retrieve.contextual_targets/curated','retrieve.contextual_targets/components') THEN 'discovery' ELSE 'derivation' END
+ OR operation.profile IS DISTINCT FROM (CASE WHEN r.operation_id IN
+ ('retrieve.contextual_targets/curated','retrieve.contextual_targets/components') THEN 'discovery' ELSE 'derivation' END)
  OR operation.recipe IS DISTINCT FROM r.recipe
  OR operation.support_contract->'capabilities'->'forms' IS DISTINCT FROM '["scalar"]'::jsonb
  OR operation.support_contract->'capabilities'->>'preparation' IS DISTINCT FROM 'resource'
  OR operation.support_contract->'effects' IS DISTINCT FROM '[]'::jsonb
  OR jsonb_array_length(coalesce(completion->'execution_evidence'->'cpu_receipts','[]'))<>
- CASE WHEN r.operation_id='retrieve.contextual_scores/declared' THEN 0 ELSE 1 END
+ (CASE WHEN r.operation_id='retrieve.contextual_scores/declared' THEN 0 ELSE 1 END)
  OR completion->>'implementation_revision' IS DISTINCT FROM operation.implementation_revision THEN
  RAISE EXCEPTION 'contextual completion lacks its actual admitted captured producer' USING ERRCODE='23514'; END IF;
 END $contextual$;
@@ -82,8 +82,8 @@ BEGIN
  ELSIF role_name='query' THEN query_episode:=episode; query_context:=data.ddo_field(item,'context'); END IF;
  END LOOP;
  IF (SELECT array_agg(key ORDER BY key) FROM jsonb_object_keys(result) key) IS DISTINCT FROM
- CASE WHEN r.operation_id='retrieve.contextual_scores/declared' THEN ARRAY['inventory','policy','query','vectors']
- ELSE ARRAY['inventory','policy','query','scores','vectors'] END THEN
+ (CASE WHEN r.operation_id='retrieve.contextual_scores/declared' THEN ARRAY['inventory','policy','query','vectors']
+ ELSE ARRAY['inventory','policy','query','scores','vectors'] END) THEN
  RAISE EXCEPTION 'native contextual input population is incomplete or foreign' USING ERRCODE='23514'; END IF;
  IF query_context IS DISTINCT FROM data.ddo_field(basis,'context')
  OR result->'query'->'source_pin'->>'project_id' IS DISTINCT FROM r.project_id
