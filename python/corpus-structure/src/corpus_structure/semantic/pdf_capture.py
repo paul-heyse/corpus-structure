@@ -73,6 +73,8 @@ def pdf_capture_custody(
         "ingest/pdf_worker.py",
         "ingest/pdf_assets.py",
         "ingest/pdf.py",
+        "ingest/pdf_health.py",
+        "ingest/pdf_hierarchy.py",
     )
     return SourceArtifact(
         "pdf-capture/execution-custody",

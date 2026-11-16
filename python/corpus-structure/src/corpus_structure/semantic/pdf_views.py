@@ -22,6 +22,7 @@ def pdf_views_assets():
     files = (
         "ingest/pdf_section_views.py",
         "ingest/pdf_hierarchy.py",
+        "ingest/pdf_health.py",
         "semantic/source_products.py",
         "semantic/characterization_manifests.py",
     )

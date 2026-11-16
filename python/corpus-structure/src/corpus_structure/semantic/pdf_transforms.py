@@ -81,6 +81,7 @@ def _implementation_files(mode):
         "ingest/pdf_methods.py",
         "ingest/pdf_record_product.py",
         "ingest/pdf_hierarchy.py",
+        "ingest/pdf_health.py",
         "ingest/pdf_section_views.py",
         "ingest/pdf_candidate_source.py",
         "ingest/pdf_worker.py",
