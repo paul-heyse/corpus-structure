@@ -22,7 +22,9 @@
       "definition_context/numbered_label": "d6c54c81e80e9ebd67f3896b82530fb62f8253d79040139b23014d3ac9624834",
       "definition_context/labelled_copula_display": "91898a917bdd08178509362c2dcfcb4266f4eecb0293764d2e1cb3f9b86f7787",
       "defining/nominal_follows": "611fdaa30363438b428fa88de65bae8600a4e749d867483240b95e00e11bbdc1",
-      "defining/constructive_copula": "b7e8fcc005c4dcc37f56cbca53621acfd940e9d52f3d3a38419b2b918036bcbb"
+      "defining/constructive_copula": "b7e8fcc005c4dcc37f56cbca53621acfd940e9d52f3d3a38419b2b918036bcbb",
+      "defining/active_as_term_attachment": "f53a82c9905bcc2598e5768f0a44ef383ca3497184a8cfc5300d2aa37c9cff54",
+      "defining/active_as_marked_nominal": "5c946af1e1a5b819a86b39b2b41c61ba9e0f33a819a6b15c22c09cc876a22636"
     }
   },
   "definition": {

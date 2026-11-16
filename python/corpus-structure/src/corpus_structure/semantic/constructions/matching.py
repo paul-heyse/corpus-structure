@@ -335,7 +335,10 @@ def retained_native_vocab(source, native):
 
     body = json.loads(native.content)
     text = source.value["text"]
-    vocab: Any = Vocab(lex_attr_getters={})
+    vocab: Any = Vocab(
+        lex_attr_getters={},
+        get_noun_chunks=English.Defaults.syntax_iterators["noun_chunks"],
+    )
     seen = {}
     attributes = (
         ("LOWER", "lower"),

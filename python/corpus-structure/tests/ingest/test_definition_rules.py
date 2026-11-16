@@ -121,6 +121,51 @@ def test_explicit_defining_and_naming_orientation(
     assert text[found.term.start - 100 : found.term.end - 100] == found.term.text
 
 
+@pytest.mark.parametrize(
+    "text,heads,deps,pos,lemmas,variant,term,content",
+    [
+        (
+            "We define variance as spread .",
+            (1, 1, 1, 4, 1, 1),
+            ("nsubj", "ROOT", "dobj", "mark", "advcl", "punct"),
+            ("PRON", "VERB", "NOUN", "SCONJ", "NOUN", "PUNCT"),
+            ("we", "define", "variance", "as", "spread", "."),
+            "active_as_marked_nominal",
+            "variance",
+            "spread",
+        ),
+        (
+            "We define mass as inertia .",
+            (1, 1, 1, 2, 3, 1),
+            ("nsubj", "ROOT", "dobj", "prep", "pobj", "punct"),
+            ("PRON", "VERB", "NOUN", "ADP", "NOUN", "PUNCT"),
+            ("we", "define", "mass", "as", "inertia", "."),
+            "active_as_term_attachment",
+            "mass",
+            "inertia",
+        ),
+        (
+            "We define variance as relative spread .",
+            (1, 1, 1, 5, 5, 1, 1),
+            ("nsubj", "ROOT", "dobj", "mark", "amod", "advcl", "punct"),
+            ("PRON", "VERB", "NOUN", "SCONJ", "ADJ", "NOUN", "PUNCT"),
+            ("we", "define", "variance", "as", "relative", "spread", "."),
+            "active_as_marked_nominal",
+            "variance",
+            "relative spread",
+        ),
+    ],
+)
+def test_defining_as_attachment_variants_preserve_the_complete_content(
+    controlled, text, heads, deps, pos, lemmas, variant, term, content
+):
+    matches, scopes, (found,) = matched(controlled, text, heads, deps, pos, lemmas)
+    assert variant in {match.variant for match in matches}
+    assert (found.term.text, found.content.text) == (term, content)
+    assert all(scope.disposition == "supported" for scope in scopes.values())
+    assert found.interpretation == "definition"
+
+
 def test_conditional_value_is_not_lowered_to_an_unqualified_constant(controlled):
     matches, scopes, components = matched(
         controlled,

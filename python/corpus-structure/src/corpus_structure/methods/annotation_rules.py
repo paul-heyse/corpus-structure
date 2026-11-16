@@ -30,11 +30,14 @@ class RoleBinding(BaseModel):
     max_tokens: int = Field(default=64, ge=1, le=256)
     stop_words: tuple[str, ...] = ("if", "unless", "except")
     nominal_prepositions: tuple[str, ...] = Field(default=(), exclude_if=lambda words: not words)
+    exclude_nodes: tuple[str, ...] = Field(default=(), exclude_if=lambda nodes: not nodes)
 
     @model_validator(mode="after")
     def nominal_complements(self):
         if self.nominal_prepositions and self.expansion != "noun_chunk":
             raise ValueError("nominal complements require a base noun chunk")
+        if self.node in self.exclude_nodes:
+            raise ValueError("role binding cannot exclude its nominated head")
         return self
 
 
@@ -66,7 +69,11 @@ class AnnotationRule(BaseModel):
                 raise ValueError("dependency variant requires named RIGHT_ID nodes")
             if len(set(names)) != len(names):
                 raise ValueError("dependency variant repeats RIGHT_ID")
-        if any(binding.node not in names for binding in self.bindings.values()):
+        if any(
+            node not in names
+            for binding in self.bindings.values()
+            for node in (binding.node, *binding.exclude_nodes)
+        ):
             raise ValueError("role binding references an unavailable pattern node")
         return self
 
@@ -256,6 +263,17 @@ class PreparedAnnotationRules:
                                 "expansion stopped at sentence or declared scope boundary",
                             )
                         expanded = scoped | {head}
+                excluded = {
+                    index for node in binding.exclude_nodes for index in node_map[node]
+                }
+                if head in excluded:
+                    expanded, status, reason = (
+                        {head},
+                        "unavailable",
+                        "role exclusions remove its nominated head",
+                    )
+                else:
+                    expanded -= excluded
                 if len(expanded) > binding.max_tokens:
                     expanded, status, reason = (
                         {head},

@@ -13,6 +13,30 @@ annotation_rules:
     defined_term: {node: term, expansion: noun_chunk, max_tokens: 32}
     defining_content: {node: content, expansion: subtree, max_tokens: 64, stop_words: []}
 - rule: defining
+  variant: active_as_term_attachment
+  mechanism: dependency
+  pattern:
+  - {RIGHT_ID: cue, RIGHT_ATTRS: {LEMMA: define, POS: VERB}}
+  - {LEFT_ID: cue, REL_OP: '>', RIGHT_ID: term, RIGHT_ATTRS: {DEP: {IN: [dobj, obj]}, POS: {IN: [NOUN, PROPN]}}}
+  - {LEFT_ID: term, REL_OP: '>', RIGHT_ID: as, RIGHT_ATTRS: {LOWER: as, DEP: prep}}
+  - {LEFT_ID: as, REL_OP: '>', RIGHT_ID: content, RIGHT_ATTRS: {DEP: pobj}}
+  bindings:
+    defining_cue: {node: cue}
+    defined_term: {node: term, expansion: noun_chunk, max_tokens: 32}
+    defining_content: {node: content, expansion: subtree, max_tokens: 64, stop_words: []}
+- rule: defining
+  variant: active_as_marked_nominal
+  mechanism: dependency
+  pattern:
+  - {RIGHT_ID: cue, RIGHT_ATTRS: {LEMMA: define, POS: VERB}}
+  - {LEFT_ID: cue, REL_OP: '>', RIGHT_ID: term, RIGHT_ATTRS: {DEP: {IN: [dobj, obj]}, POS: {IN: [NOUN, PROPN]}}}
+  - {LEFT_ID: cue, REL_OP: '>', RIGHT_ID: content, RIGHT_ATTRS: {DEP: advcl, POS: {IN: [NOUN, PROPN]}}}
+  - {LEFT_ID: content, REL_OP: '>', RIGHT_ID: as, RIGHT_ATTRS: {LOWER: as, DEP: mark}}
+  bindings:
+    defining_cue: {node: cue}
+    defined_term: {node: term, expansion: noun_chunk, max_tokens: 32}
+    defining_content: {node: content, expansion: subtree, exclude_nodes: [as], max_tokens: 64, stop_words: []}
+- rule: defining
   variant: passive_as
   mechanism: dependency
   pattern:

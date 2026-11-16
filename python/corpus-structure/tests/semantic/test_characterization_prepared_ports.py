@@ -132,6 +132,130 @@ def values(port, **provided):
     )
 
 
+@pytest.mark.parametrize(
+    "text,heads,deps,pos,term,content",
+    [
+        (
+            "We define variance as spread.",
+            (1, 1, 1, 4, 1, 1),
+            ("nsubj", "ROOT", "dobj", "mark", "advcl", "punct"),
+            ("PRON", "VERB", "NOUN", "SCONJ", "NOUN", "PUNCT"),
+            "variance",
+            "spread",
+        ),
+        (
+            "We define mass as inertia.",
+            (1, 1, 1, 2, 3, 1),
+            ("nsubj", "ROOT", "dobj", "prep", "pobj", "punct"),
+            ("PRON", "VERB", "NOUN", "ADP", "NOUN", "PUNCT"),
+            "mass",
+            "inertia",
+        ),
+    ],
+)
+def test_named_attachment_variants_survive_the_actual_retained_producer_roundtrip(
+    acquired, text, heads, deps, pos, term, content
+):
+    """Authored columns exercise current producers/readers, without provider standing."""
+    import spacy
+    from spacy.tokens import Doc
+
+    from corpus_structure.ingest.sentences import SentenceConfig, prepare_layout
+    from corpus_structure.methods.definition_applicability import (
+        components_from_named_matches,
+        definition_scopes,
+    )
+    from corpus_structure.methods.predicate_frames import predicate_frames, prepare_predicate_readings
+    from corpus_structure.semantic.construction_products import (
+        CharacterizationSnapshot,
+        PreparedConstructionProfile,
+        load_construction_options,
+    )
+    from corpus_structure.semantic.constructions.declared_named import DeclaredNamedRules
+    from corpus_structure.semantic.declared_record_sources import DeclaredRecordSource, DeclaredSourcePin
+    from corpus_structure.semantic.sentence_products import (
+        _blocks,
+        _detach_annotation_block,
+        retained_source_annotation_products,
+        source_annotation_packets,
+        spacy_family_coverage,
+        validate_source_annotations,
+    )
+    from corpus_structure.semantic.structural_products import StructuralPassage
+
+    _, _, prepared, model, formal = acquired
+    source = selected(formal, text)
+    context = _publication_context(source)
+    coordinate = source.value["source"]
+    pin = DeclaredRecordSource(
+        coordinate["document"], coordinate["projection"], coordinate["section_pointer"],
+        coordinate["membership"], context, "unadmitted:source", None, "unadmitted:source-kind",
+    )
+    configuration = SentenceConfig(exclude=("ner",))
+    nlp = spacy.blank("en")
+    tokenized = nlp.make_doc(text)
+    doc = Doc(
+        nlp.vocab, words=[token.text for token in tokenized],
+        spaces=[bool(token.whitespace_) for token in tokenized],
+        heads=heads, deps=deps, pos=pos,
+        lemmas=[token.text.lower() for token in tokenized],
+        tags=["PRP", "VBP", "NN", "IN", "NN", "."],
+        morphs=["Case=Nom|Number=Plur|Person=1|PronType=Prs", "Tense=Pres|VerbForm=Fin",
+                "Number=Sing", "", "Number=Sing", "PunctType=Peri"],
+    )
+    (block,), coverage = _blocks(source)
+    detached = _detach_annotation_block(
+        source.value, block, prepare_layout(nlp, block.block, start=block.start), doc,
+        DeclaredSourcePin(canonical_bytes(pin.pin()).decode()), configuration,
+        "unadmitted:authored-parse-columns",
+    )
+    columns = dict(block_id=block.block_id, start=block.start, end=block.end, attributes={
+        row["attribute"]: row["status"] for row in detached["annotation"]["availability"]
+    })
+    annotations = dict(
+        source=coordinate, selectors=source.value["selectors"], outcome="complete",
+        blocks=[detached], block_coverage=coverage,
+        coverage=spacy_family_coverage(source.value, coverage, [columns]),
+        configuration=configuration.model_dump(mode="json"),
+        execution_profile="unadmitted:authored-parse-columns",
+    )
+    annotations["members"] = source_annotation_packets(prepared, model, annotations)
+    native = validate_source_annotations(prepared, model, annotations, source, subject_context=context)
+    primary = formal.run(source, FormalEvidenceOptions(), subject_context=context)
+    options = load_construction_options(Path(__file__).resolve().parents[4] / "domains/statistics")
+    construction = PreparedConstructionProfile(prepared, model).run(
+        source, (primary,), options, sentences=native, subject_context=context,
+    )
+    snapshot = CharacterizationSnapshot(construction.semantic_id, construction.content)
+    native_snapshot = CharacterizationSnapshot(native.semantic_id, native.content)
+    (restored,) = retained_source_annotation_products(source, native_snapshot)
+    result, refs, nominations, rule_ids = DeclaredNamedRules((snapshot,), native_snapshot).decode(restored)
+    frames = predicate_frames(text, (restored,), primary_products=prepare_predicate_readings((snapshot,)))
+    scopes = definition_scopes(result.matches, frames, content_role="defining_content")
+    components = components_from_named_matches(
+        StructuralPassage(passage_id="literal", source_ref="source", start=0, end=len(text),
+                          text=text, scope="literal"),
+        result.matches, scopes=scopes, term_role="defined_term", content_role="defining_content",
+    )
+    assert [(row.term.text, row.content.text) for row in components] == [(term, content)], (
+        result.availability,
+        len(result.matches),
+        frames.issues,
+        [(match.variant, scope.disposition) for match, scope in scopes.items()],
+    )
+    assert refs and all(reference.product_id == construction.semantic_id for reference in refs.values())
+    policy = json.loads(
+        (Path(__file__).parents[2] / "src/corpus_structure/methods/model_observation.json").read_bytes()
+    )["definition_witness"]
+    for match in result.matches:
+        assert rule_ids[match.rule, match.variant] == "named-rule:" + policy["rules"][
+            f"{match.rule}/{match.variant}"
+        ]
+        assert scopes[match].primary_scope
+        # Active defining constructions do not nominate a passive demonstrative.
+        assert nominations.get(match, {}).get("defining_content") is None
+
+
 def test_acquired_construction_kernel_runs_real_parser_in_child_and_preserves_typed_packets(
     acquired,
     monkeypatch,
