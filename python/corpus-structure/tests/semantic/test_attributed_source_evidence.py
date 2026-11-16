@@ -10,6 +10,8 @@ from corpus_structure.semantic.record_contracts import (
     bind_record_candidates,
     interpretation_identity,
 )
+from corpus_structure.semantic.data_operation_model import SubjectContext
+from corpus_structure.semantic.declared_record_sources import DeclaredRecordSource
 from corpus_structure.semantic.source_contexts import (
     ContextRefused,
     NativeSourceContext,
@@ -34,7 +36,22 @@ from semantic.source_contexts_support import source
 def test_related_selected_context_retains_own_pin_and_primary_occurrence():
     record, contexts = table_record()
     note = deepcopy(next(a for a in record["anchors"] if a["pointer"] == "#/texts/4"))
-    note["pin"] = dict(PIN, source="note:separate", source_view_id=8, recipe_digest="d" * 64)
+    note["pin"] = DeclaredRecordSource(
+        PIN["document"],
+        "d" * 64,
+        "#/texts/4",
+        "direct",
+        SubjectContext(
+            PIN["project_id"],
+            "subject:note",
+            PIN["original_source"],
+            b'{"section":"note"}',
+            subject_definition="original-source-view",
+        ),
+        "product:note",
+        "member:note",
+        PIN["kind_contract"],
+    ).pin()
     note["binding"] = BINDING
     replace_note(record, note)
     coordinate = dict(pin=note["pin"], space="native", pointer="#/texts/4", text="hypothetical")
@@ -47,10 +64,12 @@ def test_related_selected_context_retains_own_pin_and_primary_occurrence():
     )[0].model_dump(mode="python")
     assert bound["pin"] == PIN
     assert bound["occurrence_anchors"] == record["occurrence_anchors"]
-    assert (
-        next(a for a in bound["anchors"] if a["pointer"] == "#/texts/4")["pin"]["source_view_id"]
-        == 8
-    )
+    related = next(a for a in bound["anchors"] if a["pointer"] == "#/texts/4")["pin"]
+    assert related == note["pin"]
+    assert related["source_product"] == "product:note"
+    assert related["source_member"] == "member:note"
+    assert related["subject"] == "subject:note"
+    assert related["analyzed_scope_meaning"] != PIN["analyzed_scope_meaning"]
     forged = deepcopy(record)
     forged["occurrence_anchors"] = (note["anchor_id"],)
     with pytest.raises(ValueError, match="occurrence anchors"):
