@@ -5,9 +5,7 @@ from types import SimpleNamespace
 import pytest
 
 from corpus_structure.semantic.artifact_identity import (
-    ArtifactRecord,
     ArtifactScoringPolicy,
-    SourceArtifactOccurrence,
     artifact_route_counts,
     native_alias_candidates,
     normalized_code,
@@ -16,6 +14,11 @@ from corpus_structure.semantic.artifact_identity import (
 )
 from corpus_structure.semantic.constructions.navigation import (
     source_alias_fields,
+)
+from corpus_structure.semantic.structural_products import (
+    DeclaredArtifactIdentityProduct,
+    DeclaredArtifactRecord,
+    DeclaredSourceArtifactOccurrence,
 )
 from semantic.artifact_identity_support import nomination as nomination
 from semantic.artifact_identity_support import record as record
@@ -26,11 +29,6 @@ def test_exact_artifact_declarations_keep_direction_and_cross_work_score_scope()
     from methods.navigation_fixture import source_primary_products
 
     from corpus_structure.methods.artifact_identity import declared_artifact_relationships
-    from corpus_structure.semantic.structural_products import (
-        DeclaredArtifactDeclaredEndpoint,
-        DeclaredArtifactDeclaredRelationship,
-        DeclaredPrimaryReference,
-    )
 
     records, passages, indexes = [], [], {}
     cases = (
@@ -90,11 +88,6 @@ def test_exact_artifact_declarations_keep_direction_and_cross_work_score_scope()
         records,
         SimpleNamespace(passages=passages),
         indexes,
-        endpoint_type=DeclaredArtifactDeclaredEndpoint,
-        relationship_type=DeclaredArtifactDeclaredRelationship,
-        primary_reference=lambda reference: DeclaredPrimaryReference.model_validate(
-            reference.values()
-        ),
     )
     assert [(row.kind, row.source_id, [end.record_id for end in row.targets]) for row in links] == [
         ("supersedes", "second", ["first"]),
@@ -103,7 +96,7 @@ def test_exact_artifact_declarations_keep_direction_and_cross_work_score_scope()
     ]
     work_cue = links[1].targets[0].work_cue
     assert work_cue is not None and work_cue.text == " (work: two)"
-    assert links[0].origin.source_ref == "source:second"
+    assert links[0].origin.source_ref == '["product:source:second",null]'
     pairs = {
         (pair.left, pair.right): pair
         for pair in pair_candidates(
@@ -137,9 +130,9 @@ def test_shared_generators_are_one_pair_with_complete_provenance():
     assert pair.dependencies == (
         "a",
         "b",
+        "product:source:a",
+        "product:source:b",
         *(n.relationship.contribution_id for n in external),
-        "source:a",
-        "source:b",
     )
     assert pair.model_probability is None and pair.standing == "candidate_relative_private"
     assert pair_candidates(
@@ -272,22 +265,21 @@ def test_native_alias_blocking_is_source_scoped_and_frozen_model_is_recorded():
 
 
 def test_identity_product_rejects_cross_work_scores_and_missing_citations():
-    from corpus_structure.semantic.artifact_identity import ArtifactIdentityProduct
-
     records = (record("a"), record("b", work="foreign"))
     policy = ArtifactScoringPolicy(prior=0.1, code_m=0.9, code_u=0.01, title_m=0.8, title_u=0.05)
     pair = pair_candidates(records, external_nominations=(nomination("a", "b"),))[0]
     altered = (pair.model_copy(update={"scope_state": "compatible"}),)
     with pytest.raises(ValueError, match="crosses"):
-        ArtifactIdentityProduct(
+        DeclaredArtifactIdentityProduct(
             records=records,
             pairs=altered,
             policy=policy,
             route_counts=artifact_route_counts(altered),
             source_mapping_provenance=("manifest",),
+            declared_relationships=(),
         )
     with pytest.raises(ValueError):
-        ArtifactRecord.model_validate({**records[0].model_dump(), "citations": []})
+        DeclaredArtifactRecord.model_validate({**records[0].model_dump(), "citations": []})
 
 
 def test_strict_policy_probabilities_refuse_boundaries_and_nonfinite_values():
@@ -432,7 +424,7 @@ def test_explicit_alias_states_preserve_native_occurrences_and_unknown():
     assert empty["alias_state"] == "known_empty"
     assert empty["alias_absence"]["text"] == "aliases: none"
     with pytest.raises(ValueError, match="observed aliases"):
-        SourceArtifactOccurrence.model_validate(
+        DeclaredSourceArtifactOccurrence.model_validate(
             {**record("a").artifact.model_dump(), "alias_state": "observed", "aliases": ["title"]}
         )
 
@@ -442,7 +434,6 @@ def test_pilot_scores_the_fixed_labeled_support_without_nominating_a_missed_pair
         ArtifactPairJudgment,
         evaluate_artifact_pilot,
     )
-    from corpus_structure.semantic.artifact_identity import ArtifactIdentityProduct
 
     records = (
         record("a", title="Moments"),
@@ -452,8 +443,12 @@ def test_pilot_scores_the_fixed_labeled_support_without_nominating_a_missed_pair
     )
     policy = ArtifactScoringPolicy(prior=0.1, code_m=0.9, code_u=0.01, title_m=0.8, title_u=0.05)
     scored = score_pairs(records, pair_candidates(records), policy)
-    product = ArtifactIdentityProduct(
-        records=records, pairs=scored, policy=policy, route_counts=artifact_route_counts(scored)
+    product = DeclaredArtifactIdentityProduct(
+        records=records,
+        pairs=scored,
+        policy=policy,
+        route_counts=artifact_route_counts(scored),
+        declared_relationships=(),
     )
     judgments = tuple(
         ArtifactPairJudgment(

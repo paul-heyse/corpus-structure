@@ -2,14 +2,17 @@
 
 from typing import Literal
 
-from corpus_structure.semantic.artifact_identity import (
-    ArtifactNomination,
-    ArtifactRecord,
-    SourceArtifactOccurrence,
-)
 from corpus_structure.semantic.constructions.navigation import (
     artifact_source_labels,
     source_alias_fields,
+)
+from corpus_structure.semantic.declared_structural_references import DeclaredStructuralSource
+from corpus_structure.semantic.identity import canonical_bytes
+from corpus_structure.semantic.structural_products import (
+    DeclaredArtifactNomination,
+    DeclaredArtifactRecord,
+    DeclaredPrimaryReference,
+    DeclaredSourceArtifactOccurrence,
 )
 
 
@@ -28,13 +31,33 @@ def record(
         f" (revision: {revision})" if revision else ""
     )
     numbering_label, revision_label = artifact_source_labels(label_text, 0, "#/texts/" + identity)
-    return ArtifactRecord(
+    # A pure kernel fixture carries declared addresses without claiming native admission.
+    source_product = "product:source:" + identity
+    pin = DeclaredStructuralSource(
+        source=canonical_bytes([source_product, None]).decode(),
+        source_product=source_product,
+        subject="native:" + identity,
+        subject_definition="original-source-view",
+        document=work,
+        projection_digest="a" * 64,
+        section_pointer="#/groups/0",
+        membership="direct",
+        project_id="controlled",
+        original_source=work,
+        analyzed_scope_meaning="{}",
+        kind_contract="kind:source",
+    )
+    primary = DeclaredPrimaryReference(
+        product_id="product:navigation:" + identity, member_id="member:artifact:" + identity
+    )
+    return DeclaredArtifactRecord(
         contribution_id=identity,
         occurrence_id="occurrence:" + identity,
-        source_contribution={},
+        source_contribution={"pin": pin.model_dump(mode="json", exclude_none=True)},
+        primary_node=primary,
         citations=(
             dict(
-                source_ref="source:" + identity,
+                source_ref=pin.source,
                 passage_id="p:" + identity,
                 source_pointer="#/texts/" + identity,
                 start=0,
@@ -42,7 +65,7 @@ def record(
                 text="5.1",
             ),
         ),
-        artifact=SourceArtifactOccurrence(
+        artifact=DeclaredSourceArtifactOccurrence(
             source_work=work,
             artifact_kind="table",
             controlled_code=code,
@@ -55,7 +78,8 @@ def record(
             occurrence_role=role,
             scope="chapter5",
             source_pointer="#/texts/" + identity,
-            dependencies=("source:" + identity,),
+            dependencies=(source_product,),
+            primary_node=primary,
         ),
         numbering=numbering_label,
         revision=revision_label,
@@ -63,29 +87,31 @@ def record(
 
 
 def nomination(left, right, ordinal=1):
-    return ArtifactNomination(
+    return DeclaredArtifactNomination(
         left=left,
         right=right,
         relationship=dict(
             contribution_id="source-contribution:" + format(ordinal, "064x"),
             project_id="controlled",
-            run_id=1,
-            cut_id=1,
-            release_id="release:controlled",
-            result_revision=1,
-            selected_task_id=1,
-            origin_task_id=1,
-            runtime_fingerprint="runtime:controlled",
+            product_id="product:scoped",
+            kind_contract="kind:scoped",
+            subject="native:controlled",
+            subject_definition="original-source-view",
+            original_source="book",
+            analyzed_scope_meaning="{}",
         ),
         endpoints=tuple(
             dict(
                 role=role,
                 record_id=key,
                 contribution_id=key,
-                origin_source_view_id=1,
+                origin_source=canonical_bytes(["product:source:" + key, None]).decode(),
                 origin_anchor_id="anchor:" + key,
             )
             for role, key in (("attachment", left), ("target", right))
+        ),
+        primary_node=DeclaredPrimaryReference(
+            product_id="product:navigation:" + left, member_id="member:reference:" + left
         ),
         origin_cue=dict(source_pointer="#/texts/" + left, start=0, end=3, text="See"),
     )

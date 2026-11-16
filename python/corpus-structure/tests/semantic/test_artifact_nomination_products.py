@@ -12,11 +12,6 @@ from corpus_structure.semantic.declared_structural_references import DeclaredCon
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.observations import source_value
 from corpus_structure.semantic.record_contracts import anchor_identity
-from corpus_structure.semantic.structural_products import (
-    DeclaredArtifactNomination,
-    DeclaredArtifactNominationEndpoint,
-    DeclaredPrimaryReference,
-)
 
 
 def nomination_case():
@@ -119,18 +114,14 @@ def project(case):
         reference,
         rows,
         sources=sources,
-        source_key=lambda pin: pin["source"],
-        navigation_for=lambda pin: SimpleNamespace(
-            select=lambda kind, pointer: (
-                (navigation,) if kind == "artifact_reference" and pointer == "#/texts/0" else ()
+        indexes={
+            source: SimpleNamespace(
+                select=lambda kind, pointer: (
+                    (navigation,) if kind == "artifact_reference" and pointer == "#/texts/0" else ()
+                )
             )
-        ),
-        origin_fields=lambda pin: {"origin_source": pin["source"]},
-        endpoint_type=DeclaredArtifactNominationEndpoint,
-        nomination_type=DeclaredArtifactNomination,
-        primary_reference=lambda reference: DeclaredPrimaryReference.model_validate(
-            reference.values()
-        ),
+            for source in sources
+        },
     )
 
 

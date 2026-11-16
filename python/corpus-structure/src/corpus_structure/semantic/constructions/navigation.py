@@ -770,7 +770,6 @@ def explicit_artifact_reference(text: str, start: int, end: int, pointer: str, a
     """Recover the exact NCE-06 mention role and an explicit scoped target cue."""
     from corpus_structure.semantic.artifact_identity import (
         ArtifactAliasSpan,
-        ArtifactReferenceDesignator,
     )
 
     if artifact.occurrence_role != "reference" or not _REFERENCE_PREFIX.fullmatch(text, 0, start):
@@ -778,7 +777,9 @@ def explicit_artifact_reference(text: str, start: int, end: int, pointer: str, a
     target = _REFERENCE_TARGET.match(text, end)
     if target is None or target[1].lower() != artifact.artifact_kind:
         return None
-    return ArtifactReferenceDesignator(
+    from corpus_structure.semantic.structural_products import DeclaredArtifactReferenceDesignator
+
+    return DeclaredArtifactReferenceDesignator(
         target_code=target[2],
         target_numbering=target[3],
         cue=ArtifactAliasSpan(

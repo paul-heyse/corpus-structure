@@ -12,9 +12,7 @@ from typing import Any, Literal, Protocol
 from pydantic import Field, JsonValue, TypeAdapter, model_validator
 from rapidfuzz.fuzz import ratio
 
-from .characterization import AnnotationReference
 from .identity import canonical_bytes
-from .retained_contributions import RetainedContributionRef
 from .structural_base import StructuralValue
 
 
@@ -31,31 +29,6 @@ class ArtifactAliasSpan(StructuralValue):
         if self.end - self.start != len(self.text) or not self.text.strip():
             raise ValueError("artifact alias evidence differs from its exact native extent")
         return self
-
-
-class SourceArtifactOccurrence(StructuralValue):
-    protocol: Literal["source-artifact-occurrence-2"] = "source-artifact-occurrence-2"
-    artifact_kind: Literal["table", "figure", "theorem", "section"]
-    source_work: str = Field(min_length=1)
-    controlled_code: str | None = None
-    title: str | None = None
-    aliases: tuple[str, ...] = ()
-    alias_state: Literal["unknown", "known_empty", "observed"] = "unknown"
-    alias_occurrences: tuple[ArtifactAliasSpan, ...] = ()
-    alias_absence: ArtifactAliasSpan | None = None
-    revision: str | None = None
-    revision_state: Literal["observed", "unknown", "malformed", "unresolved"] = "unknown"
-    occurrence_role: Literal["caption", "reference"]
-    scope: str = Field(min_length=1)
-    source_pointer: str = Field(min_length=1)
-    dependencies: tuple[str, ...] = Field(min_length=1)
-    primary_node: AnnotationReference | None = Field(
-        default=None, exclude_if=lambda value: value is None
-    )
-
-    @model_validator(mode="after")
-    def provenance(self):
-        return source_artifact_invariants(self)
 
 
 class ArtifactCitation(StructuralValue):
@@ -90,31 +63,6 @@ class ArtifactSourceLabel(StructuralValue):
         return self
 
 
-class ArtifactReferenceDesignator(StructuralValue):
-    """A source names an alternate designator and its numbering namespace."""
-
-    target_code: str
-    target_numbering: str
-    cue: ArtifactAliasSpan
-    primary_node: AnnotationReference | None = Field(
-        default=None, exclude_if=lambda value: value is None
-    )
-
-
-class ArtifactRecord(StructuralValue):
-    contribution_id: str = Field(min_length=1)
-    occurrence_id: str = Field(min_length=1)
-    artifact: SourceArtifactOccurrence
-    source_contribution: dict[str, JsonValue]
-    citations: tuple[ArtifactCitation, ...] = Field(min_length=1)
-    numbering: ArtifactSourceLabel = Field(default_factory=ArtifactSourceLabel)
-    revision: ArtifactSourceLabel = Field(default_factory=ArtifactSourceLabel)
-    explicit_reference: ArtifactReferenceDesignator | None = None
-    primary_node: AnnotationReference | None = Field(
-        default=None, exclude_if=lambda value: value is None
-    )
-
-
 class ArtifactModelField(StructuralValue):
     name: str = Field(min_length=1)
     value: float | None = Field(default=None, allow_inf_nan=False)
@@ -123,28 +71,6 @@ class ArtifactModelField(StructuralValue):
 class ArtifactPairKey(StructuralValue):
     left: str = Field(min_length=1)
     right: str = Field(min_length=1)
-
-
-class ArtifactNominationEndpoint(StructuralValue):
-    role: Literal["attachment", "target"]
-    record_id: str
-    contribution_id: str
-    origin_source_view_id: int
-    origin_anchor_id: str
-
-
-class ArtifactNomination(ArtifactPairKey):
-    kind: Literal["artifact_reference_target"] = "artifact_reference_target"
-    relationship: RetainedContributionRef
-    endpoints: tuple[ArtifactNominationEndpoint, ArtifactNominationEndpoint]
-    origin_cue: ArtifactAliasSpan
-    primary_node: AnnotationReference | None = Field(
-        default=None, exclude_if=lambda value: value is None
-    )
-
-    @model_validator(mode="after")
-    def direction(self):
-        return artifact_nomination_invariants(self)
 
 
 ArtifactRoute = Literal[
@@ -242,28 +168,6 @@ class ArtifactReferenceResolution(StructuralValue):
     attachment: str
     targets: tuple[str, ...]
     outcome: Literal["witnessed_candidate", "ambiguous", "no_compatible_candidate"]
-
-
-class ArtifactDeclaredEndpoint(StructuralValue):
-    record_id: str
-    citation: ArtifactCitation
-    work_cue: ArtifactCitation | None = Field(default=None, exclude_if=lambda value: value is None)
-    work_primary_node: AnnotationReference | None = Field(
-        default=None, exclude_if=lambda value: value is None
-    )
-
-
-class ArtifactDeclaredRelationship(StructuralValue):
-    """One source declaration with exact target alternatives and their original citations."""
-
-    kind: Literal["reference", "same_lineage", "supersedes"]
-    source_id: str
-    origin: ArtifactCitation
-    targets: tuple[ArtifactDeclaredEndpoint, ...]
-    outcome: Literal["witnessed_candidate", "ambiguous", "no_compatible_candidate"]
-    primary_node: AnnotationReference | None = Field(
-        default=None, exclude_if=lambda value: value is None
-    )
 
 
 class ArtifactOccurrenceValue(Protocol):
@@ -701,33 +605,6 @@ def native_alias_candidates(
     return pairs, counts
 
 
-class ArtifactIdentityProduct(StructuralValue):
-    """One selected source-work cohort, candidate routes and frozen model results."""
-
-    protocol: Literal["artifact-identity-3", "artifact-identity-4", "artifact-identity-5"] = (
-        "artifact-identity-3"
-    )
-    identity_grain: Literal["source_work_artifact_lineage"] = "source_work_artifact_lineage"
-    records: tuple[ArtifactRecord, ...] = ()
-    pairs: tuple[ArtifactPair, ...] = ()
-    native_alias_pairs: tuple[ArtifactPairKey, ...] = ()
-    external_nominations: tuple[ArtifactNomination, ...] = ()
-    explicit_references: tuple[ArtifactReferenceResolution, ...] = ()
-    declared_relationships: tuple[ArtifactDeclaredRelationship, ...] | None = Field(
-        default=None, exclude_if=lambda value: value is None
-    )
-    route_counts: tuple[ArtifactRouteCount, ...]
-    policy: ArtifactScoringPolicy
-    source_mapping_provenance: tuple[str, ...] = ()
-    known_anchor_ids: tuple[str, ...] = ()
-    unbound_source_ids: tuple[int, ...] = ()
-    standing: Literal["candidate_relative_private"] = "candidate_relative_private"
-
-    @model_validator(mode="after")
-    def membership(self):
-        return artifact_identity_invariants(self)
-
-
 def source_artifact_invariants(value: Any) -> Any:
     if value.alias_state == "observed":
         if (
@@ -762,7 +639,7 @@ def artifact_nomination_invariants(value: Any) -> Any:
 
 def artifact_identity_invariants(value: Any) -> Any:
     by_id = {r.contribution_id: r for r in value.records}
-    if value.protocol == "artifact-identity-5" and (
+    if (
         any(
             record.primary_node is None
             or record.artifact.primary_node != record.primary_node
@@ -842,9 +719,7 @@ def artifact_identity_invariants(value: Any) -> Any:
             raise ValueError("external nomination lacks its exact pair and relationship proof")
         nomination_ids.add(relation_id)
         nominated.add(key)
-    if (value.protocol in {"artifact-identity-4", "artifact-identity-5"}) != (
-        value.declared_relationships is not None
-    ):
+    if value.declared_relationships is None:
         raise ValueError("artifact declaration ledger differs from the selected protocol")
     for declaration in value.declared_relationships or ():
         if declaration.outcome != (

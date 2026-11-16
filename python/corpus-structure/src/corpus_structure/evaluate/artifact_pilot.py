@@ -11,7 +11,6 @@ from splink.internals.splink_dataframe import SplinkDataFrame
 
 from corpus_structure.semantic.artifact_identity import (
     ARTIFACT_ROUTES,
-    ArtifactIdentityProduct,
     ArtifactPairKey,
     artifact_linker,
     artifact_score_status,
@@ -19,6 +18,8 @@ from corpus_structure.semantic.artifact_identity import (
     normalized_code,
     predict_artifact_pairs,
 )
+
+from corpus_structure.semantic.structural_products import DeclaredArtifactIdentityProduct
 
 PREDICTION_THRESHOLDS = (0.25, 0.5, 0.75)
 CLERICAL_THRESHOLD = 0.5
@@ -42,7 +43,7 @@ def _prior_with_odds_scale(prior: float, scale: float) -> float:
 
 
 def evaluate_artifact_pilot(
-    product: ArtifactIdentityProduct,
+    product: DeclaredArtifactIdentityProduct,
     judgments: tuple[ArtifactPairJudgment, ...],
     *,
     exclusions: tuple[tuple[str, str], ...] = (),

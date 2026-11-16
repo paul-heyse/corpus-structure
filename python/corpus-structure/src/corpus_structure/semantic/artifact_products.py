@@ -126,12 +126,6 @@ def native_artifact_records(frame, source, inputs, source_ref, source_work, navi
     from .constructions.navigation import NativeNavigationIndex
     from .contributions import operation_identity
     from .source_contexts import NativeSourceContext, PreparedNativeSources, source_slice
-    from .structural_products import (
-        DeclaredArtifactRecord,
-        DeclaredArtifactReferenceDesignator,
-        DeclaredPrimaryReference,
-        DeclaredSourceArtifactOccurrence,
-    )
 
     if not isinstance(navigation, NativeNavigationIndex):
         raise ValueError("native artifact discovery requires its declared navigation reader")
@@ -191,7 +185,6 @@ def native_artifact_records(frame, source, inputs, source_ref, source_work, navi
                     source_work,
                     dependency,
                     start,
-                    artifact_type=DeclaredSourceArtifactOccurrence,
                 )
             )
     return identity_records(
@@ -200,12 +193,6 @@ def native_artifact_records(frame, source, inputs, source_ref, source_work, navi
         source_ref,
         rows,
         navigation,
-        artifact_type=DeclaredSourceArtifactOccurrence,
-        reference_type=DeclaredArtifactReferenceDesignator,
-        record_type=DeclaredArtifactRecord,
-        primary_reference=lambda reference: DeclaredPrimaryReference.model_validate(
-            reference.values()
-        ),
     )
 
 
@@ -255,13 +242,8 @@ def execute_artifact_identity(
     from .declared_structural_references import DeclaredContributionRef
     from .source_products import FrozenNativeSource
     from .structural_products import (
-        DeclaredArtifactDeclaredEndpoint,
-        DeclaredArtifactDeclaredRelationship,
         DeclaredArtifactIdentityProduct,
-        DeclaredArtifactNomination,
-        DeclaredArtifactNominationEndpoint,
         DeclaredArtifactReport,
-        DeclaredPrimaryReference,
         DeclaredStructuralInput,
     )
 
@@ -443,14 +425,7 @@ def execute_artifact_identity(
                 reference,
                 rows,
                 sources=by_source,
-                source_key=lambda pin: pin["source"],
-                navigation_for=lambda pin: source_indexes[pin["source"]],
-                origin_fields=lambda pin: {"origin_source": pin["source"]},
-                endpoint_type=DeclaredArtifactNominationEndpoint,
-                nomination_type=DeclaredArtifactNomination,
-                primary_reference=lambda reference: DeclaredPrimaryReference.model_validate(
-                    reference.values()
-                ),
+                indexes=source_indexes,
             )
         )
     aliases, _ = native_alias_candidates(selected)
@@ -459,11 +434,6 @@ def execute_artifact_identity(
         selected,
         inputs,
         indexes,
-        endpoint_type=DeclaredArtifactDeclaredEndpoint,
-        relationship_type=DeclaredArtifactDeclaredRelationship,
-        primary_reference=lambda reference: DeclaredPrimaryReference.model_validate(
-            reference.values()
-        ),
     )
     candidates = pair_candidates(
         selected,

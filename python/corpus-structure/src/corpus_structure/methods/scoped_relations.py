@@ -6,7 +6,7 @@ from collections.abc import Iterable, Sequence
 from typing import Any, NotRequired, TypedDict
 
 from corpus_structure.methods.source_preparation import native_table_geometry
-from corpus_structure.semantic.artifact_identity import SourceArtifactOccurrence, normalized_code
+from corpus_structure.semantic.artifact_identity import normalized_code
 from corpus_structure.semantic.contributions import (
     contribution_identity,
     occurrence_identity,
@@ -370,8 +370,6 @@ def artifact_occurrence(
     source_work,
     dependency,
     field_start,
-    *,
-    artifact_type=SourceArtifactOccurrence,
 ):
     """Project already characterized artifact facts, without unrelated structural work."""
     # Caption status comes from the original native label, not surface position.
@@ -381,7 +379,9 @@ def artifact_occurrence(
 
     aliases, _, title = retained_artifact_fields(found["primary_record"], field_start)
 
-    value = artifact_type.model_validate(
+    from corpus_structure.semantic.structural_products import DeclaredSourceArtifactOccurrence
+
+    value = DeclaredSourceArtifactOccurrence.model_validate(
         dict(
             artifact_kind=found["artifact_kind"],
             source_work=source_work,
@@ -714,10 +714,6 @@ def discover_relations(
                     region=pointer,
                     extra={"primary_node": found["primary_node"]},
                 )
-                from corpus_structure.semantic.structural_products import (
-                    DeclaredSourceArtifactOccurrence,
-                )
-
                 artifact = artifact_occurrence(
                     item,
                     found,
@@ -725,7 +721,6 @@ def discover_relations(
                     source_work,
                     dependency,
                     piece["start"],
-                    artifact_type=(DeclaredSourceArtifactOccurrence),
                 )
                 caption = node.get("label") == "caption"
                 products.append(artifact)
