@@ -1,9 +1,8 @@
 """Private, bounded native context preparation; no retrieval or routing execution.
 
-Selected sources retain their own immutable pins within one product. Relationship and
-retrieval results are supplied context facts, not source-admission authority. Context1
-keeps literal mapping; context2 composes invocation-owned prepared indexes and explicit
-released readings over whitespace gaps. Source pieces remain in native projection
+Selected original-relative members retain their own immutable qualified pins. Relationship
+and retrieval results are supplied context facts, not source-admission authority. Contexts
+compose invocation-owned prepared indexes and explicit released readings over whitespace gaps. Source pieces remain in native projection
 coordinates; model gap diagnostics never become a joined quote or a PDF glyph claim.
 Original health, ancestry and recognition context remain in retained frame inputs.
 """
@@ -17,9 +16,7 @@ from dataclasses import asdict, dataclass, field
 from enum import StrEnum
 from hashlib import sha256
 from types import MappingProxyType
-from typing import TYPE_CHECKING, Any, Literal, overload
-
-from pydantic import JsonValue
+from typing import Any, Literal
 
 from .declared_record_sources import (
     DeclaredNativeFrameSource,
@@ -27,15 +24,8 @@ from .declared_record_sources import (
     DeclaredSourceSlice,
 )
 from .identity import canonical_bytes
-from .product_reference import ProductReference
-from .proposals import NativeFrameSource, NativeProposalFrame, native_address
+from .proposals import native_address
 from .types import PreparedRelease
-
-type SourceFrame = NativeFrameSource | DeclaredNativeFrameSource
-
-if TYPE_CHECKING:
-    from .source_views import PreparedSourceView
-
 
 class ContextRefused(ValueError):
     """The supplied request cannot satisfy this supported context contract."""
@@ -52,83 +42,14 @@ class ContextRelationship(StrEnum):
 
 
 @dataclass(frozen=True)
-class NativeSourcePin:
-    """Compact dependency reference; coordinates always belong to this source view."""
-
-    source_view_id: int
-    unit_ref: str
-    native_product: ProductReference
-    section_pointer: str
-    membership: str
-    projection_digest: str
-    recipe_digest: str
-    version: int
-
-    def __post_init__(self) -> None:
-        if (
-            type(self.source_key) is not int
-            or self.source_key < 1
-            or not self.unit_ref
-            or not self.section_pointer.startswith("#/")
-            or self.membership not in {"direct", "descendants"}
-            or self.version not in {2, 3}
-        ):
-            raise ContextRefused("unsupported native source pin")
-        for digest in (self.projection_digest, self.recipe_digest):
-            _require_digest(digest)
-
-    @property
-    def source_key(self):
-        return self.source_view_id
-
-    @property
-    def original_key(self):
-        return self.native_product
-
-    @classmethod
-    @overload
-    def from_source(cls, source: NativeFrameSource) -> NativeSourcePin: ...
-
-    @classmethod
-    @overload
-    def from_source(cls, source: DeclaredNativeFrameSource) -> DeclaredSourcePin: ...
-
-    @classmethod
-    def from_source(cls, source: SourceFrame) -> SourcePin:
-        if isinstance(source, DeclaredNativeFrameSource):
-            return source.pin
-        return cls(**{name: getattr(source, name) for name in cls.__dataclass_fields__})
-
-    def values(self) -> dict[str, JsonValue]:
-        """JSON source identity, preserving every pin and coordinate version."""
-        return {
-            "source_view_id": self.source_key,
-            "unit_ref": self.unit_ref,
-            "native_product": {
-                "task_id": self.native_product.task_id,
-                "product_key": self.native_product.product_key,
-                "content_digest": self.native_product.content_digest,
-            },
-            "section_pointer": self.section_pointer,
-            "membership": self.membership,
-            "projection_digest": self.projection_digest,
-            "recipe_digest": self.recipe_digest,
-            "version": self.version,
-        }
-
-
-@dataclass(frozen=True)
 class RelatedNativeSource:
-    source: SourceFrame
+    source: DeclaredNativeFrameSource
     relationship: ContextRelationship
     reason: str
 
     def __post_init__(self) -> None:
         if not isinstance(self.relationship, ContextRelationship) or not self.reason.strip():
             raise ContextRefused("related source needs a typed relationship and reason")
-
-
-type SourcePin = NativeSourcePin | DeclaredSourcePin
 
 
 class RetrievalOutcome(StrEnum):
@@ -165,11 +86,11 @@ class SourceContextRequest:
 
 
 @dataclass(frozen=True)
-class SourceContextRead[SourceT = PreparedSourceView]:
+class SourceContextRead:
     """Owned source views and the metadata universe considered before hydration."""
 
-    sources: tuple[SourceT, ...]
-    candidates: tuple[SourcePin, ...]
+    sources: tuple[DeclaredNativeFrameSource, ...]
+    candidates: tuple[DeclaredSourcePin, ...]
     membership_digest: str
     outcome: RetrievalOutcome
     terminal_reason: str
@@ -189,9 +110,9 @@ class ContextRetrieval:
     reason: str
     scope_ref: str
     membership_digest: str
-    candidates: tuple[SourcePin, ...]
-    selected: tuple[int | str, ...]
-    excluded: tuple[int | str, ...]
+    candidates: tuple[DeclaredSourcePin, ...]
+    selected: tuple[str, ...]
+    excluded: tuple[str, ...]
     outcome: RetrievalOutcome
     terminal_reason: str
 
@@ -223,40 +144,11 @@ class ContextRetrieval:
             raise ContextRefused("only selected retrieval outcomes may carry selected sources")
 
 
-@dataclass(frozen=True)
-class SourceSlice:
-    source_view_id: int
-    start: int
-    end: int
-    coordinate_space: Literal["native_projection"] = "native_projection"
-    precision: Literal["exact"] = "exact"
-
-    @property
-    def source_key(self):
-        return self.source_view_id
-
-    def __post_init__(self) -> None:
-        if (
-            type(self.source_key) is not int
-            or self.source_key < 1
-            or type(self.start) is not int
-            or type(self.end) is not int
-            or not 0 <= self.start < self.end
-        ):
-            raise ContextRefused(
-                "source slice requires positive source identity and character range"
-            )
-        if self.coordinate_space != "native_projection" or self.precision != "exact":
-            raise ContextRefused("unsupported coordinate space or lossy source mapping")
-
-
-def source_slice(source: SourceFrame, start: int, end: int) -> SourceSlice | DeclaredSourceSlice:
-    """Keep a frame's actual address profile when selecting an original text extent."""
-    if isinstance(source, DeclaredNativeFrameSource):
-        if not source.contains_span(start, end):
-            raise ContextRefused("context extent is outside its exact selected native source scope")
-        return DeclaredSourceSlice(source.source_key, start, end)
-    return SourceSlice(source.source_key, start, end)
+def source_slice(source: DeclaredNativeFrameSource, start: int, end: int) -> DeclaredSourceSlice:
+    """Select an exact original extent from the frame's own frozen selectors."""
+    if not source.contains_span(start, end):
+        raise ContextRefused("context extent is outside its exact selected native source scope")
+    return DeclaredSourceSlice(source.source_key, start, end)
 
 
 @dataclass(frozen=True)
@@ -273,7 +165,7 @@ class SyntheticText:
 class SourceInterval:
     model_start: int
     model_end: int
-    source: SourcePin
+    source: DeclaredSourcePin
     source_start: int
     source_end: int
     locator: str
@@ -295,7 +187,7 @@ class SyntheticInterval:
 class NativeSpanEvidence:
     """One literal piece, with its own source pin and independently located quote."""
 
-    source: SourcePin
+    source: DeclaredSourcePin
     start: int
     end: int
     locator: str
@@ -335,8 +227,8 @@ class NativeSpanReading:
 
 @dataclass(frozen=True)
 class PreparedNativeSource:
-    source: SourceFrame
-    pin: SourcePin = field(init=False)
+    source: DeclaredNativeFrameSource
+    pin: DeclaredSourcePin = field(init=False)
     pieces: tuple[Mapping, ...] = field(init=False)
     ends: tuple[int, ...] = field(init=False)
     ancestors: tuple[str, ...] = field(init=False)
@@ -354,7 +246,7 @@ class PreparedNativeSource:
                 {item.get("self_ref", item.get("pointer")): item for item in context["items"]}
             ),
         )
-        object.__setattr__(self, "pin", NativeSourcePin.from_source(self.source))
+        object.__setattr__(self, "pin", self.source.pin)
         object.__setattr__(
             self,
             "pointers",
@@ -390,8 +282,6 @@ class PreparedNativeSource:
             sha256(
                 canonical_bytes(
                     self.source.record
-                    if isinstance(self.source, DeclaredNativeFrameSource)
-                    else asdict(self.source)
                 )
             ).hexdigest(),
         )
@@ -429,9 +319,9 @@ class PreparedNativeSource:
 class PreparedNativeSources:
     """Invocation-owned immutable preparation; dropping the owner releases all indexes."""
 
-    sources: tuple[SourceFrame, ...]
+    sources: tuple[DeclaredNativeFrameSource, ...]
     max_sources: int = 16
-    by_id: Mapping[int | str, PreparedNativeSource] = field(init=False)
+    by_id: Mapping[str, PreparedNativeSource] = field(init=False)
 
     def __post_init__(self):
         if (
@@ -457,14 +347,13 @@ class PreparedNativeSources:
 class NativeSourceContext:
     """Versioned private serialization of explicit pieces, without silent truncation.
 
-    Bounds apply to all supplied source/candidate pins and emitted intervals, including
-    repeats. Different source recipes are retained independently. Legacy proposal frames
-    keep their original direct-ancestor restriction; this context is not such a frame.
+    Bounds apply to all supplied qualified source/candidate pins and emitted intervals,
+    including repeats. Each selected source retains its own exact member and context.
     """
 
-    primary: SourceFrame
+    primary: DeclaredNativeFrameSource
     related: tuple[RelatedNativeSource, ...]
-    pieces: tuple[SourceSlice | DeclaredSourceSlice | SyntheticText, ...]
+    pieces: tuple[DeclaredSourceSlice | SyntheticText, ...]
     purpose: str
     policy: str
     terminal_reason: str
@@ -472,25 +361,20 @@ class NativeSourceContext:
     max_chars: int = 8192
     max_pieces: int = 64
     max_sources: int = 16
-    version: int = 1
-    preparation: PreparedNativeSources | None = field(default=None, repr=False, compare=False)
+    version: int = 2
+    preparation: PreparedNativeSources = field(kw_only=True, repr=False, compare=False)
     text: str = field(init=False)
     intervals: tuple[SourceInterval | SyntheticInterval, ...] = field(init=False)
     dependency_digest: str = field(init=False)
-    _native_sources: Mapping[int | str, PreparedNativeSource] = field(
+    _native_sources: Mapping[str, PreparedNativeSource] = field(
         init=False, repr=False, compare=False
     )
     _interval_ends: tuple[int, ...] = field(init=False, repr=False, compare=False)
 
     def __post_init__(self) -> None:
-        if isinstance(self.primary, DeclaredNativeFrameSource) and (
-            self.version != 2 or self.preparation is None
-        ):
-            raise ContextRefused(
-                "declared source context requires its explicit invocation-owned preparation"
-            )
-        if self.version not in {1, 2} or (self.version == 2 and self.preparation is None):
-            raise ContextRefused("unsupported native source context version or missing preparation")
+        if (not isinstance(self.primary, DeclaredNativeFrameSource)
+            or self.version != 2 or not isinstance(self.preparation, PreparedNativeSources)):
+            raise ContextRefused("current source context requires its explicit invocation-owned preparation")
         if not all(value.strip() for value in (self.purpose, self.policy, self.terminal_reason)):
             raise ContextRefused("context requires purpose, policy and terminal reason")
         if any(
@@ -513,7 +397,7 @@ class NativeSourceContext:
             sources
         ):
             raise ContextRefused("context sources must have distinct source and unit identities")
-        preparation = self.preparation or PreparedNativeSources(tuple(sources), self.max_sources)
+        preparation = self.preparation
         contexts = {source.source_key: preparation.require(source) for source in sources}
         object.__setattr__(self, "_native_sources", MappingProxyType(contexts))
         pins = {identity: prepared.pin for identity, prepared in contexts.items()}
@@ -525,28 +409,11 @@ class NativeSourceContext:
                 raise ContextRefused(
                     "retrieval source pin is stale or contradicts another source pin"
                 )
-        # Preserve the old ancestor semantics by calling the existing owner only for that relation.
-        ancestors = tuple(
-            entry.source
-            for entry in self.related
-            if entry.relationship == ContextRelationship.ANCESTOR
-        )
-        if ancestors:
-            if self.version == 1:
-                legacy_ancestors = tuple(
-                    source for source in ancestors if isinstance(source, NativeFrameSource)
-                )
-                if len(legacy_ancestors) != len(ancestors):
-                    raise ContextRefused("legacy context cannot carry declared source ancestors")
-                NativeProposalFrame(
-                    **_source_fields(self.primary), context_sources=legacy_ancestors
-                )
-            elif any(
-                source.section_pointer not in contexts[self.primary.source_key].ancestors
-                or source.membership != "direct"
-                for source in ancestors
-            ):
-                raise ContextRefused("context requires a distinct direct ancestor")
+        ancestors = tuple(entry.source for entry in self.related
+                          if entry.relationship == ContextRelationship.ANCESTOR)
+        if any(source.section_pointer not in contexts[self.primary.source_key].ancestors
+               or source.membership != "direct" for source in ancestors):
+            raise ContextRefused("context requires a distinct direct ancestor")
         for result in self.retrievals:
             selected = {
                 pin.source_key: pin
@@ -562,7 +429,7 @@ class NativeSourceContext:
                 )
         chunks: list[str] = []
         intervals: list[SourceInterval | SyntheticInterval] = []
-        consumed: set[int] = set()
+        consumed: set[str] = set()
         position = 0
 
         def append(text: str, interval: SourceInterval | SyntheticInterval) -> None:
@@ -580,10 +447,10 @@ class NativeSourceContext:
                     SyntheticInterval(position, position + len(piece.text), piece.reason),
                 )
                 continue
-            if not isinstance(piece, (SourceSlice, DeclaredSourceSlice)):
+            if not isinstance(piece, DeclaredSourceSlice):
                 raise ContextRefused("unsupported context piece")
             source = by_id.get(piece.source_key)
-            if isinstance(source, DeclaredNativeFrameSource) and not source.contains_span(
+            if source is not None and not source.contains_span(
                 piece.start, piece.end
             ):
                 raise ContextRefused(
@@ -638,9 +505,6 @@ class NativeSourceContext:
             "terminal_reason": self.terminal_reason,
             "bounds": [self.max_chars, self.max_pieces, self.max_sources],
         }
-        if self.version == 1:
-            identity["primary"] = asdict(self.primary)
-            identity["related"] = [asdict(entry) for entry in self.related]
         object.__setattr__(self, "dependency_digest", sha256(canonical_bytes(identity)).hexdigest())
 
     def _overlapping_intervals(self, start: int, end: int):
@@ -736,16 +600,14 @@ def _require_digest(value: str) -> None:
         raise ContextRefused("context dependency requires a SHA-256 digest")
 
 
-def _source_fields(source: SourceFrame) -> dict:
-    """Keep product and sentence types when reusing the old frame's validator."""
-    return {name: getattr(source, name) for name in NativeFrameSource.__dataclass_fields__}
+def _source_context(source: DeclaredNativeFrameSource) -> dict:
+    from .declared_proposal_frames import DeclaredProposalFrame
 
-
-def _source_context(source: SourceFrame) -> dict:
-    if isinstance(source, NativeProposalFrame) and source.context_sources:
+    if not isinstance(source, DeclaredNativeFrameSource):
+        raise ContextRefused("source context requires a current original-relative frame")
+    if isinstance(source, DeclaredProposalFrame) and source.context_sources:
         raise ContextRefused("context sources must be supplied explicitly as related sources")
     context = json.loads(source.native_context)
-    NativeSourcePin.from_source(source)
     items = [item.get("self_ref", item.get("pointer")) for item in context["items"]]
     ancestors = [item.get("self_ref", item.get("pointer")) for item in context["ancestors"]]
     if any(
@@ -753,29 +615,13 @@ def _source_context(source: SourceFrame) -> dict:
         for pointer in (*items, *ancestors)
     ):
         raise ContextRefused("source context has unsupported native pointers")
-    if isinstance(source, DeclaredNativeFrameSource):
-        from .source_products import native_projection_identity
+    from .source_products import native_projection_identity
 
-        value = source.value
-        projection = native_projection_identity(
-            source.text,
-            value["pieces"],
-            value["items"],
-            value.get("recognition", ()),
-            value.get("ancestors", ()),
-        )
-        if projection != source.projection_digest:
-            raise ContextRefused("declared native projection differs from its selected source")
-    else:
-        projection = dict(
-            text=source.text,
-            pieces=context["pieces"],
-            items=items,
-            ancestors=ancestors,
-            health=context["health"],
-        )
-        if sha256(canonical_bytes(projection)).hexdigest() != source.projection_digest:
-            raise ContextRefused("source projection differs from its retained digest")
+    value = source.value
+    projection = native_projection_identity(source.text, value["pieces"], value["items"],
+        value.get("recognition", ()), value.get("ancestors", ()))
+    if projection != source.projection_digest:
+        raise ContextRefused("declared native projection differs from its selected source")
     position = 0
     for piece in context["pieces"]:
         if (
@@ -796,20 +642,9 @@ def _source_context(source: SourceFrame) -> dict:
     return context
 
 
-def record_source_pin(source: SourceFrame) -> dict[str, Any]:
-    """The existing record/contribution pin shape for an owned source view."""
-    if isinstance(source, DeclaredNativeFrameSource):
-        return source.pin.values()
-    product = source.native_product
-    return dict(
-        source=source.unit_ref,
-        native_product_task_id=product.task_id,
-        product_key=product.product_key,
-        product_digest=product.content_digest,
-        projection_digest=source.projection_digest,
-        recipe_digest=source.recipe_digest,
-        source_view_id=source.source_key,
-    )
+def record_source_pin(source: DeclaredNativeFrameSource) -> dict[str, Any]:
+    """Render the owned current pin at the record/contribution boundary."""
+    return source.pin.values()
 
 
 def evidence_anchor(

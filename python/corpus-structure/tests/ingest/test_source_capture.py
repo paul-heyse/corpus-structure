@@ -94,10 +94,8 @@ def test_chart_title_and_actual_cells_project_once_with_distinct_source_handles(
         TabularChartMetaField,
     )
 
-    from corpus_structure.core.method import SourceViewRef
-    from corpus_structure.semantic.product_reference import ProductReference
-    from corpus_structure.semantic.proposals import native_evidence_entries, native_source_frame
-    from corpus_structure.semantic.source_views import PreparedSourceView
+    from corpus_structure.semantic.proposals import native_evidence_entries
+    from methods.m1_source_preparation_support import projection as source_projection
 
     document = DoclingDocument(name="Chart fixture")
     section = document.add_group(label=GroupLabel.SECTION, name="Chart section")
@@ -153,24 +151,10 @@ def test_chart_title_and_actual_cells_project_once_with_distinct_source_handles(
         ("chart_cell_text", 2),
     ]
     assert all(piece.item_ref == picture.self_ref for piece in native_pieces)
-    view = PreparedSourceView(
-        SourceViewRef(
-            1,
-            "chart",
-            1,
-            ProductReference(1, "integrated", "a" * 64),
-            section.self_ref,
-            "direct",
-            "b" * 64,
-            "c" * 64,
-        ),
-        projection.text,
-        tuple(piece.to_wire() for piece in projection.pieces),
-        (picture.model_dump(mode="json", by_alias=True),),
-        (),
-        {},
-    )
-    entries = native_evidence_entries(native_source_frame(view, []))
+    selected = source_projection(projection.text,
+        pieces=tuple(piece.to_wire() for piece in projection.pieces),
+        items=(picture.model_dump(mode="json", by_alias=True),))
+    entries = native_evidence_entries(selected)
     assert [entry.get("cell_index") for entry in entries] == [None, 0, 1, 2]
     assert [entry["text"] for entry in entries] == ["Measured output", "Output", "3", "3"]
     assert len({entry["handle"] for entry in entries}) == 4

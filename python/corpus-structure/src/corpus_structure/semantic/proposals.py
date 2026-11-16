@@ -34,7 +34,6 @@ if TYPE_CHECKING:
 
     from .declared_proposal_frames import DeclaredProposalFrame, DeclaredProposalSource
     from .declared_record_sources import DeclaredNativeFrameSource
-    from .product_reference import ProductReference
 
 
 _MODEL = Path(__file__).resolve().parents[1] / "model" / "semantic" / "agent.yaml"
@@ -162,132 +161,16 @@ class ProposalFrame:
             raise ValueError("proposal sentence lies outside canonical source text")
 
 
-@dataclass(frozen=True)
-class NativeFrameSource:
-    """One pinned native source with coordinates in its own text projection."""
-
-    unit_ref: str
-    text: str
-    sentences: tuple[ProposalSentence, ...]
-    source_view_id: int
-    native_product: ProductReference
-    section_pointer: str
-    membership: str
-    projection_digest: str
-    recipe_digest: str
-    native_context: str
-    version: int = 2
-
-    @property
-    def source_key(self):
-        return self.source_view_id
-
-    @property
-    def original_key(self):
-        return self.native_product
-
-    def __post_init__(self) -> None:
-        from .identity import canonical_bytes
-
-        # Reuse coordinate/handle validation while keeping the historical dataclass/hash intact.
-        ProposalFrame(self.unit_ref, self.text, self.sentences)
-        if self.source_view_id < 1 or self.membership not in {"direct", "descendants"}:
-            raise ValueError("native frame requires a real source view and membership policy")
-        if self.version not in {2, 3}:
-            raise ValueError("unsupported native frame contract version")
-        context = json.loads(self.native_context)
-        if not isinstance(context, dict) or set(context) - {"integrated_context_json"} != {
-            "items",
-            "pieces",
-            "ancestors",
-            "health",
-        }:
-            raise ValueError("native frame context must retain items, pieces, ancestry and health")
-        if "integrated_context_json" in context:
-            if self.version != 3:
-                raise ValueError("integrated frame requires contract version 3")
-            integrated = json.loads(context["integrated_context_json"])
-            selection = integrated["selection"]
-            if selection != dict(
-                task_id=self.native_product.task_id,
-                product_key=self.native_product.product_key,
-                content_digest=self.native_product.content_digest,
-            ):
-                raise ValueError("integrated frame companion differs from selected product")
-            if canonical_bytes(integrated).decode() != context["integrated_context_json"]:
-                raise ValueError("integrated frame companion must use canonical semantic JSON")
-        if canonical_bytes(context).decode() != self.native_context:
-            raise ValueError("native frame context must use canonical semantic JSON")
-        for digest in (
-            self.projection_digest,
-            self.recipe_digest,
-            self.native_product.content_digest,
-        ):
-            if len(digest) != 64 or any(c not in "0123456789abcdef" for c in digest):
-                raise ValueError("native frame requires immutable product/projection/recipe pins")
-        for sentence in self.sentences:
-            expected = native_address(self, start=sentence.start, end=sentence.end)
-            if sentence.locator != expected:
-                raise ValueError("native sentence locator differs from its qualified projection")
-        aliases = {entry["handle"]: entry for entry in native_evidence_entries(self)}
-        for sentence in self.sentences:
-            if sentence.id.startswith("native_evidence:"):
-                entry = aliases.get(sentence.id)
-                if entry is None or (sentence.start, sentence.end, sentence.locator) != (
-                    entry["start"],
-                    entry["end"],
-                    entry["locator"],
-                ):
-                    raise ValueError(
-                        "native evidence handle differs from its retained projection piece"
-                    )
-
-
-@dataclass(frozen=True)
-class NativeProposalFrame(NativeFrameSource):
-    """Primary unit and bounded direct ancestor sources, without mixing coordinates."""
-
-    context_sources: tuple[NativeFrameSource, ...] = ()
-
-    def __post_init__(self) -> None:
-        super().__post_init__()
-        ancestors = {
-            item.get("self_ref", item.get("pointer"))
-            for item in json.loads(self.native_context)["ancestors"]
-        }
-        ids = {self.source_view_id}
-        for source in self.context_sources:
-            if (
-                source.source_view_id in ids
-                or source.membership != "direct"
-                or source.native_product != self.native_product
-                or source.section_pointer not in ancestors
-            ):
-                raise ValueError(
-                    "native context source must be a distinct direct ancestor of the same product"
-                )
-            ids.add(source.source_view_id)
-        native_frame_entries(self)
-
-
-def native_frame_source(frame: NativeFrameSource) -> NativeFrameSource:
-    from dataclasses import fields
-
-    return NativeFrameSource(
-        **{field.name: getattr(frame, field.name) for field in fields(NativeFrameSource)}
-    )
-
-
-def _native_proposal_frame(frame) -> TypeIs[NativeProposalFrame | DeclaredProposalFrame]:
+def _native_proposal_frame(frame) -> TypeIs[DeclaredProposalFrame]:
     from .declared_proposal_frames import DeclaredProposalFrame
 
-    return isinstance(frame, (NativeProposalFrame, DeclaredProposalFrame))
+    return isinstance(frame, DeclaredProposalFrame)
 
 
 def native_frame_entries(
-    frame: NativeProposalFrame | DeclaredProposalFrame,
-) -> dict[str, tuple[NativeFrameSource | DeclaredProposalSource, ProposalSentence]]:
-    entries: dict[str, tuple[NativeFrameSource | DeclaredProposalSource, ProposalSentence]] = {
+    frame: DeclaredProposalFrame,
+) -> dict[str, tuple[DeclaredProposalSource, ProposalSentence]]:
+    entries: dict[str, tuple[DeclaredProposalSource, ProposalSentence]] = {
         sentence.id: (frame, sentence) for sentence in frame.sentences
     }
     if frame.context_sources and any(key.startswith("native_context:") for key in entries):
@@ -302,8 +185,8 @@ def native_frame_entries(
 
 
 def native_statement_source(
-    frame: NativeProposalFrame | DeclaredProposalFrame, anchor: str
-) -> NativeFrameSource | DeclaredProposalSource:
+    frame: DeclaredProposalFrame, anchor: str
+) -> DeclaredProposalSource:
     entries = native_frame_entries(frame)
     if anchor in entries:
         return entries[anchor][0]
@@ -339,38 +222,8 @@ def native_statement_source(
     return candidates[0]
 
 
-def native_frame_from_dict(raw: Mapping[str, Any]) -> NativeProposalFrame:
-    from .product_reference import ProductReference
-
-    def source(value):
-        fields = dict(value)
-        fields["sentences"] = tuple(ProposalSentence(**entry) for entry in fields["sentences"])
-        fields["native_product"] = ProductReference(**fields["native_product"])
-        return fields
-
-    primary = source(raw)
-    primary["context_sources"] = tuple(
-        NativeFrameSource(**source(value)) for value in raw.get("context_sources", ())
-    )
-    return NativeProposalFrame(**primary)
-
-
-def native_frame_identity(frame: ProposalFrame | NativeProposalFrame) -> dict[str, Any]:
-    from dataclasses import asdict
-
-    value = asdict(frame)
-    if isinstance(frame, NativeProposalFrame) and frame.version == 2:
-        value.pop("version", None)
-        for source in value.get("context_sources", ()):
-            if source.get("version") == 2:
-                source.pop("version", None)
-    if isinstance(frame, NativeProposalFrame) and not frame.context_sources:
-        value.pop("context_sources", None)
-    return value
-
-
 def native_address(
-    frame: NativeFrameSource | DeclaredNativeFrameSource,
+    frame: DeclaredNativeFrameSource,
     *,
     pointer: str | None = None,
     start: int | None = None,
@@ -381,22 +234,12 @@ def native_address(
     from .identity import canonical_bytes
 
     value: dict[str, str | int]
-    if isinstance(frame, DeclaredNativeFrameSource):
-        pin = frame.pin.values()
-        value = {
-            name: pin[name]
-            for name in (
-                "source_product",
-                "document",
-                "projection_digest",
-                "section_pointer",
-                "membership",
-            )
-        }
-        if "source_member" in pin:
-            value["source_member"] = pin["source_member"]
-    else:
-        value = {"product_digest": frame.native_product.content_digest}
+    pin = frame.pin.values()
+    value = {name: pin[name] for name in (
+        "source_product", "document", "projection_digest", "section_pointer", "membership"
+    )}
+    if "source_member" in pin:
+        value["source_member"] = pin["source_member"]
     if pointer is not None:
         if start is not None or end is not None or not pointer.startswith("#/"):
             raise ValueError("native item address cannot mix projected offsets")
@@ -405,21 +248,14 @@ def native_address(
         if start is None or end is None or not 0 <= start < end <= len(frame.text):
             raise ValueError("native projection address lies outside its source view")
         value.update(projection_digest=frame.projection_digest, start=start, end=end)
-        if not isinstance(frame, DeclaredNativeFrameSource):
-            value["source_view_id"] = frame.source_view_id
     return "pdf:" + canonical_bytes(value).decode()
 
 
 def native_evidence_entries(
-    frame: NativeFrameSource | DeclaredNativeFrameSource,
+    frame: DeclaredNativeFrameSource,
 ) -> tuple[dict[str, Any], ...]:
     """Deterministic evidence handles over retained native projection pieces, not PDF glyphs."""
     context = json.loads(frame.native_context)
-    integrated = (
-        json.loads(context["integrated_context_json"])
-        if "integrated_context_json" in context
-        else None
-    )
     entries = []
     for index, piece in enumerate(context["pieces"]):
         if (
@@ -439,105 +275,13 @@ def native_evidence_entries(
         for name in ("cell_index", "source_field"):
             if name in piece:
                 entry[name] = piece[name]
-        if integrated is not None:
-            matches = [
-                row
-                for row in integrated.get("occurrences", ())
-                if row.get("body", row).get("pointer") == piece["item_ref"]
-                and (
-                    "cell_index" not in piece
-                    or row.get("body", row).get("cell_index") == piece["cell_index"]
-                )
-            ]
-            entry["integrated_selection"] = integrated["selection"]
-            entry["occurrences"] = [
-                dict(
-                    occurrence_id=row["occurrence_id"],
-                    precision=row.get("precision", "unknown"),
-                    address_space=row.get("address_space", "unknown"),
-                )
-                for row in matches
-            ]
-            precisions = {row.get("precision", "unknown") for row in matches}
-            entry["precision"] = next(iter(precisions)) if len(precisions) == 1 else "unknown"
         entries.append(entry)
     return tuple(entries)
 
 
-def native_source_frame(
-    view: Any, sentences: Sequence[tuple[str, int, int]]
-) -> NativeProposalFrame:
-    """Bind actual prepared section context and supplied sentence offsets without inference."""
-    from dataclasses import asdict, is_dataclass
-
-    from .identity import canonical_bytes
-
-    def plain(value: Any) -> Any:
-        if isinstance(value, BaseModel):
-            return value.model_dump(mode="json")
-        if is_dataclass(value) and not isinstance(value, type):
-            return plain(asdict(value))
-        if isinstance(value, Mapping):
-            return {key: plain(child) for key, child in value.items()}
-        if isinstance(value, (tuple, list)):
-            return [plain(child) for child in value]
-        return value
-
-    context = canonical_bytes(
-        plain(view.context())
-        if hasattr(view, "context")
-        else {
-            name: plain(getattr(view, name)) for name in ("items", "pieces", "ancestors", "health")
-        }
-    ).decode()
-    ref = view.ref
-    # Coordinates are authored from the already prepared text projection, never guessed by
-    # searching repeated strings in the book or reinterpreted as PDF glyph positions.
-    if any(id.startswith(("native_evidence:", "native_context:")) for id, _, _ in sentences):
-        raise ValueError("native evidence handles are reserved for retained projection pieces")
-    aliases = tuple(
-        (f"native_evidence:{index}", piece["start"], piece["end"])
-        for index, piece in enumerate(json.loads(context)["pieces"])
-        if piece.get("kind") == "native_text"
-        and piece.get("item_ref")
-        and piece["start"] < piece["end"]
-    )
-    located = tuple(
-        ProposalSentence(
-            id,
-            "pdf:"
-            + canonical_bytes(
-                {
-                    "product_digest": ref.native_product.content_digest,
-                    "source_view_id": ref.id,
-                    "projection_digest": ref.projection_digest,
-                    "start": start,
-                    "end": end,
-                }
-            ).decode(),
-            start,
-            end,
-        )
-        for id, start, end in (*sentences, *aliases)
-    )
-    return NativeProposalFrame(
-        ref.key,
-        view.text,
-        located,
-        ref.id,
-        ref.native_product,
-        ref.section_pointer,
-        ref.membership,
-        ref.projection_digest,
-        ref.recipe_digest,
-        context,
-        version=3,
-    )
-
-
 def statement_anchor(
     anchor: str,
-    frame: ProposalFrame | NativeProposalFrame | DeclaredProposalFrame,
+    frame: ProposalFrame | DeclaredProposalFrame,
     *,
     index: LocatorIndex | None = None,
 ) -> str:
@@ -803,7 +547,7 @@ def _refuse_rounded_decimals(prepared: PreparedRelease, batch: Mapping[str, Any]
 def locate_proposal(
     prepared: PreparedRelease,
     batch: Mapping[str, Any],
-    frame: ProposalFrame | NativeProposalFrame | DeclaredProposalFrame,
+    frame: ProposalFrame | DeclaredProposalFrame,
     *,
     macros: Mapping[str, MacroDef] | None = None,
     known_classes: Mapping[str, tuple[str, ...]] | None = None,
@@ -964,7 +708,7 @@ class KnownProposalEntity:
 @dataclass(frozen=True)
 class ProposalPacket:
     release_id: str
-    frame: ProposalFrame | NativeProposalFrame
+    frame: ProposalFrame
     schema: bytes
     guideline: str
     configuration: bytes
@@ -991,7 +735,7 @@ class ProposalPacket:
             canonical_bytes(
                 [
                     self.release_id,
-                    native_frame_identity(self.frame),
+                    asdict(self.frame),
                     self.schema_hash,
                     self.guideline,
                     self.configuration.decode(),
@@ -1015,51 +759,6 @@ class ProposalPacket:
             "unit": canonical_bytes(
                 {
                     "unit_ref": self.frame.unit_ref,
-                    **(
-                        {
-                            "native_source": {
-                                "source_view_id": self.frame.source_view_id,
-                                "native_product": asdict(self.frame.native_product),
-                                "section_pointer": self.frame.section_pointer,
-                                "membership": self.frame.membership,
-                                "projection_digest": self.frame.projection_digest,
-                                "recipe_digest": self.frame.recipe_digest,
-                                "context": json.loads(self.frame.native_context),
-                                "native_evidence": native_evidence_entries(self.frame),
-                                "context_sources": [
-                                    dict(
-                                        source_view_id=source.source_view_id,
-                                        unit_ref=source.unit_ref,
-                                        native_product=asdict(source.native_product),
-                                        section_pointer=source.section_pointer,
-                                        membership=source.membership,
-                                        projection_digest=source.projection_digest,
-                                        recipe_digest=source.recipe_digest,
-                                        context=json.loads(source.native_context),
-                                        sentences=[
-                                            dict(
-                                                id=f"native_context:{source.source_view_id}:{sentence.id}",
-                                                locator=sentence.locator,
-                                                text=source.text[sentence.start : sentence.end],
-                                            )
-                                            for sentence in source.sentences
-                                            if not sentence.id.startswith("native_evidence:")
-                                        ],
-                                        native_evidence=[
-                                            dict(
-                                                entry,
-                                                handle=f"native_context:{source.source_view_id}:{entry['handle']}",
-                                            )
-                                            for entry in native_evidence_entries(source)
-                                        ],
-                                    )
-                                    for source in self.frame.context_sources
-                                ],
-                            }
-                        }
-                        if isinstance(self.frame, NativeProposalFrame)
-                        else {}
-                    ),
                     "sentences": [
                         {
                             "id": sentence.id,
@@ -1067,8 +766,6 @@ class ProposalPacket:
                             "text": self.frame.text[sentence.start : sentence.end],
                         }
                         for sentence in self.frame.sentences
-                        if not isinstance(self.frame, NativeProposalFrame)
-                        or not sentence.id.startswith("native_evidence:")
                     ],
                     "known_classes": dict(self.known_classes),
                     "known_entities": [
@@ -1102,7 +799,7 @@ class ProposalPacket:
 
 def proposal_packet(
     prepared: PreparedRelease,
-    frame: ProposalFrame | NativeProposalFrame,
+    frame: ProposalFrame,
     *,
     guideline: str,
     configuration: Mapping[str, Any],

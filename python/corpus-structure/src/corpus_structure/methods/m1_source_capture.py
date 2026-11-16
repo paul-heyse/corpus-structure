@@ -12,7 +12,7 @@ from spacy.vocab import Vocab
 from corpus_structure.ingest.annotation_views import AnnotationView, annotation_view
 from corpus_structure.ingest.annotations import AnnotationProduct, TokenAnnotation
 from corpus_structure.semantic.identity import canonical_bytes
-from corpus_structure.semantic.source_contexts import NativeSourceContext, NativeSourcePin
+from corpus_structure.semantic.source_contexts import NativeSourceContext
 from corpus_structure.semantic.types import PreparedRelease
 
 from .annotation_rules import (
@@ -125,7 +125,7 @@ class SourceRecordCapture:
         """Only exact, ordered spans inside one inspected primary-source sentence may bind."""
         from .assertion_qualification import _sentence_model_start
 
-        pin = NativeSourcePin.from_source(context.primary)
+        pin = context.primary.pin
         if block.source != pin:
             return ()
         if block.dependency_digest not in self._matches:

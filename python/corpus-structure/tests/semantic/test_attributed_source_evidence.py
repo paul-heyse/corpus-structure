@@ -16,7 +16,6 @@ from corpus_structure.semantic.source_contexts import (
     ContextRefused,
     NativeSourceContext,
     PreparedNativeSources,
-    SourceSlice,
     SyntheticText,
 )
 from semantic.attributed_source_evidence_support import (
@@ -30,7 +29,8 @@ from semantic.attributed_source_evidence_support import (
 )
 from semantic.record_contracts_support import PIN, release_inputs, table_record
 from semantic.record_contracts_support import model as record_model
-from semantic.source_contexts_support import source
+from semantic.source_contexts_support import source, A
+from corpus_structure.semantic.declared_record_sources import DeclaredSourceSlice
 
 
 def test_related_selected_context_retains_own_pin_and_primary_occurrence():
@@ -128,7 +128,7 @@ def prepared_context(pieces):
 
 def test_whitespace_reading_preserves_original_pieces_and_gap_diagnostics():
     result = prepared_context(
-        (SourceSlice(1, 0, 1), SyntheticText("\n ", "serialized gap"), SourceSlice(1, 2, 5))
+        (DeclaredSourceSlice(A, 0, 1), SyntheticText("\n ", "serialized gap"), DeclaredSourceSlice(A, 2, 5))
     )
     reading = result.read_span(
         0, 6, prepared=release_inputs()[2], policy="synthetic-whitespace-1", literal="2\n bar"
@@ -141,7 +141,7 @@ def test_whitespace_reading_preserves_original_pieces_and_gap_diagnostics():
     with pytest.raises(ContextRefused, match="genuine"):
         result.read_span(1, 3, prepared=release_inputs()[2], policy="synthetic-whitespace-1")
     punctuation = prepared_context(
-        (SourceSlice(1, 0, 1), SyntheticText(":", "label"), SourceSlice(1, 2, 5))
+        (DeclaredSourceSlice(A, 0, 1), SyntheticText(":", "label"), DeclaredSourceSlice(A, 2, 5))
     )
     with pytest.raises(ContextRefused, match="punctuation"):
         punctuation.read_span(0, 5, prepared=release_inputs()[2], policy="synthetic-whitespace-1")
@@ -161,7 +161,7 @@ def test_many_contexts_reuse_one_prepared_index_without_reparsing(monkeypatch):
         result = NativeSourceContext(
             primary,
             (),
-            (SourceSlice(1, start, end),),
+            (DeclaredSourceSlice(A, start, end),),
             "measurement",
             "roles-2",
             "bounded",
@@ -171,9 +171,9 @@ def test_many_contexts_reuse_one_prepared_index_without_reparsing(monkeypatch):
         assert result.map_span(0, end - start)[0].start == start
     with pytest.raises(ContextRefused, match="exact invocation"):
         NativeSourceContext(
-            replace(primary, recipe_digest="d" * 64),
+            replace(primary, pin_content=json.dumps({**primary.pin.values(), "kind_contract": "kind:changed"})),
             (),
-            (SourceSlice(1, 0, 1),),
+            (DeclaredSourceSlice(A, 0, 1),),
             "measurement",
             "roles-2",
             "bounded",

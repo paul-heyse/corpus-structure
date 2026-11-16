@@ -1,13 +1,8 @@
 """Controlled inputs and builders shared by the m1 source preparation consumers."""
 
-from dataclasses import replace
-from hashlib import sha256
 from typing import Any
 
-from corpus_structure.core.method import SourceViewRef
-from corpus_structure.semantic.identity import canonical_bytes
-from corpus_structure.semantic.product_reference import ProductReference
-from corpus_structure.semantic.source_views import PreparedSourceView
+from methods.record_assembly_support import source as declared_source
 
 
 def source(text="Mean is average.\nX+Y\n12\n?", *, labels=("text", "formula", "table", "unknown")):
@@ -16,29 +11,21 @@ def source(text="Mean is average.\nX+Y\n12\n?", *, labels=("text", "formula", "t
     offset = 0
     for index, (chunk, label) in enumerate(zip(chunks, labels, strict=True)):
         pointer = f"#/texts/{index}"
-        nodes.append(dict(self_ref=pointer, label=label))
+        nodes.append(dict(self_ref=pointer, label=label, text=chunk))
         if chunk:
             pieces.append(
-                dict(item_ref=pointer, start=offset, end=offset + len(chunk), kind="native_text")
+                dict(item_ref=pointer, start=offset, end=offset + len(chunk), kind="native_text", source_field="text")
             )
             offset += len(chunk)
         if index < len(chunks) - 1:
             pieces.append(dict(start=offset, end=offset + 1, kind="synthetic_separator"))
             offset += 1
-    projection = dict(
-        text=text, pieces=pieces, items=[n["self_ref"] for n in nodes], ancestors=[], health={}
-    )
-    ref = SourceViewRef(
-        7,
-        "source:7",
-        1,
-        ProductReference(23, "integrated", "a" * 64),
-        "#/groups/1",
-        "descendants",
-        sha256(canonical_bytes(projection)).hexdigest(),
-        "c" * 64,
-    )
-    return PreparedSourceView(ref, text, tuple(pieces), tuple(nodes), (), {})
+    return projection(text, pieces=pieces, items=nodes)
+
+
+def projection(text, *, pieces, items, ancestors=(), identity=1):
+    """Literal current source member; no publication or provider standing is implied."""
+    return declared_source(text, identity=identity, pieces=pieces, items=items, ancestors=ancestors)
 
 
 def _native_table_projection(cells, *, caption=None, note=None):
@@ -89,19 +76,7 @@ def _native_table_projection(cells, *, caption=None, note=None):
 
 def native_table_source(cells, *, caption=None, note=None):
     text, pieces, nodes = _native_table_projection(cells, caption=caption, note=note)
-    projection = dict(
-        text=text, pieces=pieces, items=[n["self_ref"] for n in nodes], ancestors=[], health={}
-    )
-    original = source("fixture", labels=("text",))
-    return replace(
-        original,
-        text=text,
-        pieces=tuple(pieces),
-        items=tuple(nodes),
-        ref=replace(
-            original.ref, projection_digest=sha256(canonical_bytes(projection)).hexdigest()
-        ),
-    )
+    return projection(text, pieces=pieces, items=nodes)
 
 
 def table_cell(text, row, col, **flags):
@@ -129,9 +104,4 @@ def dense_table_source():
 
 def declared_dense_table_source():
     """Current original/member coordinates over the independent finite cell inventory."""
-    from methods.record_assembly_support import source as declared_source
-
-    text, pieces, nodes = _native_table_projection(
-        _dense_table_cells(), caption="Caption", note="Note"
-    )
-    return declared_source(text, pieces=pieces, items=nodes, ancestors=())
+    return dense_table_source()

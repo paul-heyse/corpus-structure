@@ -20,9 +20,9 @@ from corpus_structure.semantic.contributions import (
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.interpretation_questions import ANSWER_READS, declared_families
 from corpus_structure.semantic.observations import source_value
+from corpus_structure.semantic.declared_record_sources import DeclaredSourceSlice
 from corpus_structure.semantic.source_contexts import (
     ContextRefused,
-    SourceSlice,
     evidence_anchor,
     record_source_pin,
 )
@@ -458,7 +458,7 @@ def pm2_unit_result(
                 assessed = request["interpretation"]["assessed_scope"]
                 (scope,) = source_map.context.pieces
                 if (
-                    not isinstance(scope, SourceSlice)
+                    not isinstance(scope, DeclaredSourceSlice)
                     or assessed["pin"] != pin
                     or assessed["scope_digest"] != source_map.scope_digest
                     or assessed["projection_extent"] != [scope.start, scope.end]

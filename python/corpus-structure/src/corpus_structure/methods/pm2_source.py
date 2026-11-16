@@ -16,7 +16,6 @@ from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.source_contexts import (
     ContextRefused,
     NativeSourceContext,
-    NativeSourcePin,
     NativeSpanEvidence,
     NativeSpanReading,
     evidence_anchor,
@@ -232,7 +231,7 @@ class PM2SourceMap:
         """Bind the exact prepared native block and inherit its protected atoms."""
         layout = prepared.layout
         start, end = layout.block_start, layout.block_end
-        pin = NativeSourcePin.from_source(context.primary)
+        pin = context.primary.pin
         if (
             prepared.source != pin
             or not _bounds(start, end, len(context.primary.text))

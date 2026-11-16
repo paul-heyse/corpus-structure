@@ -16,7 +16,6 @@ from corpus_structure.semantic.interpretation_questions import QuestionFamily
 from corpus_structure.semantic.source_contexts import (
     NativeSourceContext,
     PreparedNativeSources,
-    SourceSlice,
     record_source_pin,
     source_slice,
 )
@@ -120,7 +119,7 @@ def classification_request(
         or not question.multiple
         or question.candidate_options
         or len(context.pieces) != 1
-        or not isinstance(scope := context.pieces[0], (SourceSlice, DeclaredSourceSlice))
+        or not isinstance(scope := context.pieces[0], DeclaredSourceSlice)
         or context.related
         or context.retrievals
         or context.text != mapping.provider_text

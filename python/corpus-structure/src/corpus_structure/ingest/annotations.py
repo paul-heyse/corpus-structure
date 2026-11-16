@@ -16,7 +16,7 @@ from pydantic import TypeAdapter
 
 from corpus_structure.core.text_structure import source_atoms
 from corpus_structure.semantic.identity import canonical_bytes
-from corpus_structure.semantic.source_contexts import NativeSourcePin, SourcePin
+from corpus_structure.semantic.declared_record_sources import DeclaredSourcePin
 
 from .pdf_hierarchy import ProjectedPiece
 from .sentences import (
@@ -58,7 +58,7 @@ class AnnotationProfile:
 
 @dataclass(frozen=True, slots=True)
 class AnnotationInput:
-    source: SourcePin
+    source: DeclaredSourcePin
     block_id: str
     kind: Literal["paragraph", "list_item", "table_cell", "caption"]
     block: Block
@@ -168,7 +168,7 @@ class AnnotationProduct:
     effective pipeline configuration digest, rather than invented component versions.
     """
 
-    source: SourcePin
+    source: DeclaredSourcePin
     block_id: str
     kind: str
     block_start: int
@@ -202,7 +202,7 @@ def restore_annotations(rows, *, source, profile, require_complete=True):
     upgrades a sentence-only product or reconstructs a mutable global Doc.
     """
     products = _PRODUCTS.validate_json(canonical_bytes(rows), strict=True, extra="forbid")
-    pin = NativeSourcePin.from_source(source)
+    pin = source.pin
     expected_profile = sha256(canonical_bytes(profile.identity())).hexdigest()
     if len({row.block_id for row in products}) != len(products):
         raise ValueError("persisted annotations contain duplicate native blocks")

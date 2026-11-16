@@ -14,7 +14,6 @@ from hashlib import sha256
 from itertools import pairwise
 from typing import Any
 
-from corpus_structure.core.method import SourcePreparationReader
 from corpus_structure.ingest.annotations import (
     AnnotationInput,
     AnnotationProduct,
@@ -34,19 +33,15 @@ from corpus_structure.semantic.declared_record_sources import (
     DeclaredSourceSlice,
 )
 from corpus_structure.semantic.identity import canonical_bytes
-from corpus_structure.semantic.proposals import native_source_frame
 from corpus_structure.semantic.source_contexts import (
     ContextRefused,
     ContextRelationship,
     ContextRetrieval,
     NativeSourceContext,
-    NativeSourcePin,
     PreparedNativeSources,
     RelatedNativeSource,
     RetrievalOutcome,
     SourceContextRequest,
-    SourceFrame,
-    SourceSlice,
     SyntheticText,
     source_slice,
 )
@@ -218,7 +213,7 @@ class ContextSelection:
     families: tuple[str, ...]
     reason: str
     missing_roles: tuple[str, ...] = ()
-    pieces: tuple[SourceSlice | DeclaredSourceSlice | SyntheticText, ...] = ()
+    pieces: tuple[DeclaredSourceSlice | SyntheticText, ...] = ()
     retrievals: tuple[ContextRetrieval, ...] = ()
     relationships: tuple[tuple[int | str, ContextRelationship, str], ...] = ()
     local_dispositions: tuple[tuple[str, str, str], ...] = ()
@@ -229,12 +224,12 @@ class ContextSelection:
 
     def context(
         self,
-        source: SourceFrame,
+        source: DeclaredNativeFrameSource,
         *,
         max_chars: int,
         max_pieces: int,
         related: tuple[RelatedNativeSource, ...] = (),
-        preparation: PreparedNativeSources | None = None,
+        preparation: PreparedNativeSources,
         policy: str | None = None,
     ) -> NativeSourceContext:
         sources = {entry.source.source_key: entry.source for entry in related}
@@ -251,7 +246,7 @@ class ContextSelection:
             retrievals=self.retrievals,
             max_chars=max_chars,
             max_pieces=max_pieces,
-            version=2 if preparation is not None else 1,
+            version=2,
             preparation=preparation,
         )
 
@@ -269,13 +264,13 @@ class RegionDisposition:
 
 @dataclass(frozen=True, slots=True)
 class PreparedCandidateSource:
-    source: SourceFrame
+    source: DeclaredNativeFrameSource
     annotations: tuple[AnnotationProduct, ...]
     selections: tuple[ContextSelection, ...]
     regions: tuple[RegionDisposition, ...]
+    preparation: PreparedNativeSources
     annotation_errors: tuple[str, ...] = ()
     related: tuple[RelatedNativeSource, ...] = ()
-    preparation: PreparedNativeSources | None = None
     exclusions: tuple[str, ...] = (
         "bounded structural retrieval proposes context; semantic attachment remains unresolved",
         "recognition alternative anchors unsupported; canonical native projection only",
@@ -297,7 +292,7 @@ def _table_selections(view, node, indices, prepared_cells, *, frame, max_chars, 
         b - a <= max_chars
         and sum(piece["start"] < b and piece["end"] > a for piece in view.pieces) <= max_pieces
         and all(p is not None for p in prepared_cells.projections)
-        and (not isinstance(frame, DeclaredNativeFrameSource) or frame.contains_span(a, b))
+        and frame.contains_span(a, b)
     ):
         return [
             ContextSelection(
@@ -320,12 +315,12 @@ def _table_selections(view, node, indices, prepared_cells, *, frame, max_chars, 
             span = prepared_cells.ranges[index]
             if span is not None:
                 selected.append((*span, index))
-        pieces: list[SourceSlice | DeclaredSourceSlice | SyntheticText] = []
+        pieces: list[DeclaredSourceSlice | SyntheticText] = []
         previous = None
         for start, end, index in sorted(selected):
             if previous is not None and index != previous:
                 pieces.append(SyntheticText("\n", "native table context cell separator"))
-            if isinstance(frame, DeclaredNativeFrameSource) and not frame.contains_span(start, end):
+            if not frame.contains_span(start, end):
                 return None, "complete target/path cell is outside selected native scope"
             pieces.append(source_slice(frame, start, end))
             previous = index
@@ -360,7 +355,7 @@ def _table_selections(view, node, indices, prepared_cells, *, frame, max_chars, 
             if pieces is None:
                 limits.extend(f"{pointer}/data/table_cells/{t.cell_index}: {reason}" for t in group)
                 continue
-            native = [p for p in pieces if isinstance(p, (SourceSlice, DeclaredSourceSlice))]
+            native = [p for p in pieces if isinstance(p, DeclaredSourceSlice)]
             selections.append(
                 ContextSelection(
                     pointer,
@@ -386,19 +381,21 @@ def annotation_inputs(
     max_annotation_chars: int = 32768,
     check_active: Callable[[], None] = lambda: None,
     region_pointers: tuple[str, ...] | None = None,
-    source_frame: SourceFrame | None = None,
+    source_frame: DeclaredNativeFrameSource,
 ) -> tuple[AnnotationInput, ...]:
     """Prepare the canonical native blocks, table cells and protected atoms once.
 
     This is source preparation only. It performs tokenization but no model inference;
     consumers must account for blocks outside their supported size/selection separately.
     """
+    if not isinstance(source_frame, DeclaredNativeFrameSource):
+        raise TypeError("annotation preparation requires its current original-relative source frame")
     if max_annotation_chars < 1:
         raise ValueError("annotation bound must be positive")
     profile = profile or AnnotationProfile()
     nlp = pipeline(profile.configuration)
-    frame = native_source_frame(view, ()) if source_frame is None else source_frame
-    pin = NativeSourcePin.from_source(frame)
+    frame = source_frame
+    pin = frame.pin
     by_pointer = {item["self_ref"]: item for item in view.items}
     blocks: dict[str, list[int]] = {}
     for index, piece in enumerate(view.pieces):
@@ -489,16 +486,14 @@ def prepare_source(
     max_pieces: int = 64,
     max_annotation_chars: int = 32768,
     check_active: Callable[[], None] = lambda: None,
-    reader: SourcePreparationReader | None = None,
-    read_budget: Any = None,
     persisted_annotations: tuple[AnnotationProduct, ...] | None = None,
     annotation_errors: tuple[str, ...] = (),
     annotations_only: bool = False,
     policy: str = POLICY,
     formula_prose: bool = False,
     region_pointers: tuple[str, ...] | None = None,
-    source_frame: SourceFrame | None = None,
-    context_population=None,
+    source_frame: DeclaredNativeFrameSource,
+    context_population,
 ) -> PreparedCandidateSource:
     """Prepare annotations once per projected native piece, then coherent windows.
 
@@ -506,6 +501,10 @@ def prepare_source(
     structure is explicitly limited rather than truncated. Native worker word/subword
     preparation remains a later, separately reported admission boundary.
     """
+    from corpus_structure.semantic.declared_contexts import DeclaredContextPopulation
+
+    if not isinstance(source_frame, DeclaredNativeFrameSource) or not isinstance(context_population, DeclaredContextPopulation):
+        raise TypeError("source preparation requires its current frame and declared context population")
     if min(max_chars, max_pieces, max_annotation_chars) < 1:
         raise ValueError("source preparation bounds must be positive")
     if region_pointers is not None:
@@ -522,8 +521,8 @@ def prepare_source(
     ):
         raise ValueError("unsupported source preparation/routing policy")
     profile = profile or AnnotationProfile()
-    frame = native_source_frame(view, ()) if source_frame is None else source_frame
-    _pin = NativeSourcePin.from_source(frame)
+    frame = source_frame
+    _pin = frame.pin
     by_pointer = {item["self_ref"]: item for item in view.items}
     projected: dict[str, list[int]] = {}
     piece_starts = tuple(piece["start"] for piece in view.pieces)
@@ -563,7 +562,7 @@ def prepare_source(
         except AnnotationUnavailable as error:
             errors.append(str(error))
     if annotations_only:
-        return PreparedCandidateSource(frame, tuple(products), (), (), tuple(errors))
+        return PreparedCandidateSource(frame, tuple(products), (), (), PreparedNativeSources((frame,)), tuple(errors))
     annotated = {product.block_id: product for product in products}
     piece_lookup = {}
     for index, piece in enumerate(view.pieces):
@@ -681,7 +680,7 @@ def prepare_source(
                         else:
                             limits.append("remaining coherent region exceeds character bound")
             for a, b in ranges:
-                if isinstance(frame, DeclaredNativeFrameSource) and not frame.contains_span(a, b):
+                if not frame.contains_span(a, b):
                     limits.append("whole native context exceeds selected source scope")
                     continue
                 count = bisect_left(piece_starts, b) - bisect_right(piece_ends, a)
@@ -716,44 +715,31 @@ def prepare_source(
         regions.append(
             RegionDisposition(pointer, label, indices, families, outcome, reason, tuple(chosen))
         )
-    related = ()
-    if source_frame is not None and reader is not None:
-        raise ValueError("explicit source-frame preparation requires declared related inputs")
-    if context_population is not None and source_frame is None:
-        raise ValueError("declared related population requires an explicit source frame")
-    if reader is not None or context_population is not None:
-        selections, related = _widen_contexts(
-            view,
-            frame,
-            selections,
-            reader=reader,
-            read_budget=read_budget,
-            context_population=context_population,
-            max_chars=max_chars,
-            max_pieces=max_pieces,
-            check_active=check_active,
-        )
-        for index, region in enumerate(regions):
-            if region.families != ("formula_context",):
-                continue
-            incomplete = [
-                (pointer, reason)
-                for selected in region.selections
-                for pointer, outcome, reason in selections[selected].local_dispositions
-                if outcome != RetrievalOutcome.SELECTED.value
-                and pointer
-                in {
-                    p
-                    for p, relation, _ in selections[selected].local_relationships
-                    if relation == ContextRelationship.ANCESTOR
-                }
-            ]
-            if incomplete:
-                regions[index] = replace(
-                    region,
-                    outcome="partial",
-                    reason="; ".join(f"{pointer}: {reason}" for pointer, reason in incomplete),
-                )
+    selections, related = _widen_contexts(
+        view, frame, selections, context_population=context_population,
+        max_chars=max_chars, max_pieces=max_pieces, check_active=check_active,
+    )
+    for index, region in enumerate(regions):
+        if region.families != ("formula_context",):
+            continue
+        incomplete = [
+            (pointer, reason)
+            for selected in region.selections
+            for pointer, outcome, reason in selections[selected].local_dispositions
+            if outcome != RetrievalOutcome.SELECTED.value
+            and pointer
+            in {
+                p
+                for p, relation, _ in selections[selected].local_relationships
+                if relation == ContextRelationship.ANCESTOR
+            }
+        ]
+        if incomplete:
+            regions[index] = replace(
+                region,
+                outcome="partial",
+                reason="; ".join(f"{pointer}: {reason}" for pointer, reason in incomplete),
+            )
     preparation = PreparedNativeSources(
         (frame, *(entry.source for entry in related)), max_sources=9
     )
@@ -781,9 +767,9 @@ def prepare_source(
         tuple(products),
         tuple(selections),
         tuple(regions),
+        preparation,
         tuple(errors),
         related,
-        preparation,
     )
 
 
@@ -865,7 +851,7 @@ def _formula_windows(
         external = []
         unclosed = False
         for piece in selection.pieces:
-            if not isinstance(piece, (SourceSlice, DeclaredSourceSlice)):
+            if not isinstance(piece, DeclaredSourceSlice):
                 continue
             if piece.source_key != frame.source_key:
                 external.append(piece)
@@ -1099,12 +1085,10 @@ def _widen_contexts(
     frame,
     selections,
     *,
-    reader,
-    read_budget,
     max_chars,
     max_pieces,
     check_active,
-    context_population=None,
+    context_population,
 ):
     """Use explicit structural scope, retaining failed/limited retrieval dependencies.
 
@@ -1112,10 +1096,6 @@ def _widen_contexts(
     neighbor supplies a role, that a table-wide note applies to a cell, or that an
     enclosing section defines a symbol. The assembler/interpretation owns attachment.
     """
-    from corpus_structure.semantic.pdf_record_reader import PublishedReadBudget
-    from corpus_structure.semantic.refusals import ReadLimit
-
-    budget = read_budget or PublishedReadBudget(max_rows=4096, max_bytes=4_194_304)
     nodes = {node["self_ref"]: node for node in view.items}
     local = {}
     for piece in view.pieces:
@@ -1183,7 +1163,7 @@ def _widen_contexts(
                     "formula declaration/scope unresolved; direct enclosing context only",
                 ),
             )
-        pieces: list[SourceSlice | DeclaredSourceSlice | SyntheticText] = list(
+        pieces: list[DeclaredSourceSlice | SyntheticText] = list(
             selection.pieces or (source_slice(frame, selection.start, selection.end),)
         )
         chars = sum(
@@ -1202,7 +1182,7 @@ def _widen_contexts(
                 (
                     p
                     for p in selected_pieces
-                    if isinstance(p, (SourceSlice, DeclaredSourceSlice))
+                    if isinstance(p, DeclaredSourceSlice)
                     and p.source_key == frame.source_key
                 ),
                 key=lambda p: p.start,
@@ -1228,7 +1208,6 @@ def _widen_contexts(
                     pointer, span, outcome, reason = enclosure
                     if (
                         span is not None
-                        and isinstance(frame, DeclaredNativeFrameSource)
                         and not frame.contains_span(*span)
                     ):
                         span = None
@@ -1242,7 +1221,7 @@ def _widen_contexts(
                             p
                             for p in pieces
                             if not (
-                                isinstance(p, (SourceSlice, DeclaredSourceSlice))
+                                isinstance(p, DeclaredSourceSlice)
                                 and p.source_key == frame.source_key
                                 and a <= p.start
                                 and p.end <= b
@@ -1290,7 +1269,7 @@ def _widen_contexts(
                 # A native item may contain several runs separated by synthetic
                 # projection intervals. Context serialization consumes those too.
                 target_count = bisect_left(piece_starts, b) - bisect_right(piece_ends, a)
-                if isinstance(frame, DeclaredNativeFrameSource) and not frame.contains_span(a, b):
+                if not frame.contains_span(a, b):
                     local_dispositions.append(
                         (
                             target,
@@ -1320,8 +1299,6 @@ def _widen_contexts(
                     )
             original = (
                 frame.original_key
-                if isinstance(frame, DeclaredNativeFrameSource)
-                else frame.native_product.content_digest
             )
             scope = f"selected-product:{original}:{request.pointer}"
             remaining = (
@@ -1349,53 +1326,19 @@ def _widen_contexts(
                     )
                 )
                 continue
-            try:
-                if key not in reads:
-                    if context_population is not None:
-                        from corpus_structure.semantic.declared_contexts import (
-                            select_related_context,
-                        )
+            if key not in reads:
+                from corpus_structure.semantic.declared_contexts import select_related_context
 
-                        reads[key] = select_related_context(
-                            context_population, frame, request, limit=min(4, remaining // 2)
-                        )
-                    else:
-                        reads[key] = reader.context_sources(
-                            frame.source_key,
-                            request,
-                            limit=min(4, remaining // 2),
-                            read_budget=budget,
-                        )
-                result = reads[key]
-            except ReadLimit as error:
-                retrievals.append(
-                    ContextRetrieval(
-                        request.relationship,
-                        request.reason,
-                        scope,
-                        sha256(canonical_bytes([key.decode(), "read_limit"])).hexdigest(),
-                        (),
-                        (),
-                        (),
-                        RetrievalOutcome.RESOURCE_LIMIT,
-                        str(error),
-                    )
+                reads[key] = select_related_context(
+                    context_population, frame, request, limit=min(4, remaining // 2)
                 )
-                continue
+            result = reads[key]
             candidates, selected, excluded = result.candidates, [], []
             outcome, terminal = result.outcome, result.terminal_reason
             for source in result.sources:
-                declared_frame = source if isinstance(source, DeclaredNativeFrameSource) else None
-                identity = (
-                    source.source_key
-                    if isinstance(source, DeclaredNativeFrameSource)
-                    else source.ref.id
-                )
-                source_pieces = (
-                    declared_frame.inspectable_pieces
-                    if declared_frame is not None
-                    else source.pieces
-                )
+                declared_frame = source
+                identity = source.source_key
+                source_pieces = source.inspectable_pieces
                 # Related sources retain their own exact selection. Never append
                 # their full raw projection merely because its carrier was bound.
                 ranges = []
@@ -1406,14 +1349,13 @@ def _widen_contexts(
                     if ranges and (
                         ranges[-1][1] == start
                         or (
-                            declared_frame is not None
-                            and declared_frame.contains_span(ranges[-1][0], end)
+                            declared_frame.contains_span(ranges[-1][0], end)
                         )
                     ):
                         ranges[-1] = (ranges[-1][0], end)
                     else:
                         ranges.append((start, end))
-                if declared_frame is None or declared_frame.contains_span(0, len(source.text)):
+                if declared_frame.contains_span(0, len(source.text)):
                     ranges = [(0, len(source.text))]
                 target_pieces = tuple(p for p in source_pieces if p["kind"] == "native_text")
                 overlaps = any(p["item_ref"] in local for p in target_pieces)
@@ -1437,9 +1379,7 @@ def _widen_contexts(
                     continue
                 if identity not in related:
                     related[identity] = RelatedNativeSource(
-                        declared_frame
-                        if declared_frame is not None
-                        else native_source_frame(source, ()),
+                        declared_frame,
                         request.relationship,
                         request.reason,
                     )
@@ -1448,9 +1388,7 @@ def _widen_contexts(
                         (
                             SyntheticText("\n", "context piece separator"),
                             source_slice(
-                                declared_frame
-                                if declared_frame is not None
-                                else related[identity].source,
+                                declared_frame,
                                 start,
                                 end,
                             ),

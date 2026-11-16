@@ -52,7 +52,7 @@ class DeclaredContextPopulation:
 
 def select_related_context(
     population, primary, request, *, limit
-) -> SourceContextRead[DeclaredNativeFrameSource]:
+) -> SourceContextRead:
     """Preserve native links/ancestors/order; never infer a semantic attachment."""
     if not isinstance(population, DeclaredContextPopulation) or not isinstance(
         primary, DeclaredNativeFrameSource
